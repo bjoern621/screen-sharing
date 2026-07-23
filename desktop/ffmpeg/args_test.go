@@ -65,7 +65,9 @@ func TestBuildPublishArgsColorRange(t *testing.T) {
 		t.Errorf("-color_range = %q, want pc", got)
 	}
 
-	// gbrp is inherently full range, so no -color_range is emitted.
+	// gbrp is inherently full range, so no -color_range is emitted. Only
+	// hevc_nvenc encodes gbrp, so switch to it for this case.
+	s.Codec = "hevc_nvenc"
 	s.Chroma = "gbrp"
 	args, err = BuildPublishArgs(s)
 	if err != nil {
@@ -133,19 +135,21 @@ func TestEncoderArgs(t *testing.T) {
 	}
 }
 
-func TestIsNvenc(t *testing.T) {
-	cases := map[string]bool{
-		"hevc_nvenc": true,
-		"h264_nvenc": true,
-		"av1_nvenc":  true,
-		"libx264":    false,
-		"_nvenc":     false, // suffix alone has no codec prefix
-		"nvenc":      false,
+func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
+	// libx264 cannot encode gbrp: the capability check must reject it.
+	s := baseStream()
+	s.Codec = "libx264"
+	s.Chroma = "gbrp"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for libx264 + gbrp")
 	}
-	for codec, want := range cases {
-		if got := isNvenc(codec); got != want {
-			t.Errorf("isNvenc(%q) = %v, want %v", codec, got, want)
-		}
+
+	// SRT cannot carry AV1.
+	s = baseStream()
+	s.Codec = "av1_nvenc"
+	s.Chroma = "yuv420p"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for av1_nvenc over srt")
 	}
 }
 

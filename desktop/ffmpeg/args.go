@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"strconv"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -30,6 +31,10 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	t, ok := transport.Get(s.Transport)
 	if !ok {
 		return nil, fmt.Errorf("unknown transport %q", s.Transport)
+	}
+
+	if err := validateCodec(s); err != nil {
+		return nil, err
 	}
 
 	capture, err := captureArgs(s)
@@ -128,7 +133,7 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 		}
 		return []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-b:v", bitrate}, nil
 
-	case isNvenc(s.Codec):
+	case capabilities.IsNvenc(s.Codec):
 		preset := s.EncPreset
 		switch s.Mode {
 		case "lossless":
@@ -162,9 +167,21 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 	}
 }
 
-func isNvenc(codec string) bool {
-	const suffix = "_nvenc"
-	return len(codec) > len(suffix) && codec[len(codec)-len(suffix):] == suffix
+// validateCodec rejects a codec/chroma/transport combination the capability
+// table forbids, so a settings object the frontend never normalized cannot
+// produce a broken ffmpeg command.
+func validateCodec(s settings.Stream) error {
+	c, ok := capabilities.Get(s.Codec)
+	if !ok {
+		return fmt.Errorf("unknown codec %q", s.Codec)
+	}
+	if !capabilities.SupportsChroma(c.Name, s.Chroma) {
+		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, s.Chroma)
+	}
+	if !capabilities.CarriedBy(c.Name, s.Transport) {
+		return fmt.Errorf("transport %s cannot carry codec %s", s.Transport, c.Name)
+	}
+	return nil
 }
 
 // WatchWindowTitle returns the title ffplay sets on the viewer window for

@@ -1,7 +1,12 @@
-import { IconCheck, IconX } from "@tabler/icons-react";
+import {
+    IconCheck, IconX, IconPlugConnected, IconDeviceDesktop,
+    IconVideo, IconGauge, IconNetwork,
+} from "@tabler/icons-react";
+import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
 import {
     CAPTURES, CHROMAS, CODECS, ENC_PRESETS, MODES, RANGES,
@@ -14,6 +19,31 @@ import SelectField from "../fields/SelectField";
 import NumberField from "../fields/NumberField";
 import TextField from "../fields/TextField";
 import UplinkField from "../fields/UplinkField";
+
+/** Auto-fitting field grid shared by every settings section. */
+const GRID =
+    "grid gap-x-5 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]";
+
+/** One titled settings section: an icon+label legend over a field grid. */
+function Section({
+    icon,
+    title,
+    children,
+}: {
+    icon: ReactNode;
+    title: string;
+    children: ReactNode;
+}) {
+    return (
+        <FieldSet>
+            <FieldLegend className="flex items-center gap-2">
+                {icon}
+                {title}
+            </FieldLegend>
+            <div className={GRID}>{children}</div>
+        </FieldSet>
+    );
+}
 
 interface UplinkState {
     measuring: boolean;
@@ -79,7 +109,10 @@ export default function StreamSettingsCard({
                 <CardTitle className="text-base">Stream settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="grid gap-x-5 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]">
+                <Section
+                    icon={<IconPlugConnected size={16} className="text-muted-foreground" />}
+                    title="Connection"
+                >
                     <TextField
                         label="Stream name"
                         labelTip="Path name on the relay. Friends see and open this name."
@@ -104,25 +137,40 @@ export default function StreamSettingsCard({
                         value={s.apiPort}
                         onChange={v => onUpdate({ apiPort: v })}
                     />
+                </Section>
+
+                <Section
+                    icon={<IconDeviceDesktop size={16} className="text-muted-foreground" />}
+                    title="Source"
+                >
                     <SelectField
-                        label="Transport protocol"
-                        labelTip="How the encoded stream is carried across the network from publisher to relay to viewer. Protocols differ in reliability, latency control and which players can receive them; pick one, then see each option's own tooltip."
-                        value={s.transport}
-                        options={transportOptions}
-                        onChange={v => onUpdate({ transport: v })}
+                        label="Capture API"
+                        labelTip="Screen capture API feeding the encoder."
+                        value={s.capture}
+                        options={CAPTURES}
+                        optionDisabled={deps.optionDisabled.capture}
+                        onChange={v => onUpdate({ capture: v })}
+                    />
+                    <SelectField
+                        label="Monitor"
+                        labelTip="Which monitor to capture (one DXGI output per index)."
+                        value={String(s.monitor)}
+                        options={monitorOptions(monitors, s.monitor)}
+                        disabledReason={deps.disabled.monitor}
+                        onChange={v => onUpdate({ monitor: parseInt(v, 10) || 0 })}
                     />
                     <NumberField
-                        label="SRT publish latency (ms, hop 1)"
-                        labelTip="SRT retransmit window for YOUR hop (publisher to relay). Total glass-to-glass ≈ hop 1 + hop 2 + encode/decode - the windows ADD UP."
-                        value={s.srtPublishLatencyMs}
-                        onChange={v => onUpdate({ srtPublishLatencyMs: v })}
+                        label="Frame rate (fps)"
+                        labelTip="Capture and encode frame rate. Higher = smoother motion, proportionally more encode load and bandwidth."
+                        value={s.fps}
+                        onChange={v => onUpdate({ fps: v })}
                     />
-                    <NumberField
-                        label="SRT watch latency (ms, hop 2)"
-                        labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch."
-                        value={s.srtWatchLatencyMs}
-                        onChange={v => onUpdate({ srtWatchLatencyMs: v })}
-                    />
+                </Section>
+
+                <Section
+                    icon={<IconVideo size={16} className="text-muted-foreground" />}
+                    title="Encoder"
+                >
                     <SelectField
                         label="Video codec"
                         labelTip="Video coding standard and implementation. NVENC variants run on the GPU's dedicated encoder ASIC; libx264 is software."
@@ -130,13 +178,6 @@ export default function StreamSettingsCard({
                         options={CODECS}
                         optionDisabled={deps.optionDisabled.codec}
                         onChange={v => onUpdate({ codec: v })}
-                    />
-                    <SelectField
-                        label="Rate control mode"
-                        labelTip="Rate-control strategy: how the encoder distributes bits over time."
-                        value={s.mode}
-                        options={MODES}
-                        onChange={v => onUpdate({ mode: v })}
                     />
                     <SelectField
                         label="Pixel format / chroma subsampling"
@@ -154,11 +195,26 @@ export default function StreamSettingsCard({
                         disabledReason={deps.disabled.colorRange}
                         onChange={v => onUpdate({ colorRange: v })}
                     />
-                    <NumberField
-                        label="Frame rate (fps)"
-                        labelTip="Capture and encode frame rate. Higher = smoother motion, proportionally more encode load and bandwidth."
-                        value={s.fps}
-                        onChange={v => onUpdate({ fps: v })}
+                    <SelectField
+                        label="Encoder preset (NVENC p1-p7)"
+                        labelTip="NVENC preset ladder: p1 (fastest) to p7 (most efficient compression)."
+                        value={s.encPreset}
+                        options={ENC_PRESETS}
+                        disabledReason={deps.disabled.encPreset}
+                        onChange={v => onUpdate({ encPreset: v })}
+                    />
+                </Section>
+
+                <Section
+                    icon={<IconGauge size={16} className="text-muted-foreground" />}
+                    title="Quality & rate control"
+                >
+                    <SelectField
+                        label="Rate control mode"
+                        labelTip="Rate-control strategy: how the encoder distributes bits over time."
+                        value={s.mode}
+                        options={MODES}
+                        onChange={v => onUpdate({ mode: v })}
                     />
                     <NumberField
                         label="Quantizer target (CQ)"
@@ -187,29 +243,24 @@ export default function StreamSettingsCard({
                         disabledReason={deps.disabled.bframes}
                         onChange={v => onUpdate({ bframes: v })}
                     />
+                </Section>
+
+                <Section
+                    icon={<IconNetwork size={16} className="text-muted-foreground" />}
+                    title="Network"
+                >
                     <SelectField
-                        label="Encoder preset (NVENC p1-p7)"
-                        labelTip="NVENC preset ladder: p1 (fastest) to p7 (most efficient compression)."
-                        value={s.encPreset}
-                        options={ENC_PRESETS}
-                        disabledReason={deps.disabled.encPreset}
-                        onChange={v => onUpdate({ encPreset: v })}
+                        label="Transport protocol"
+                        labelTip="How the encoded stream is carried across the network from publisher to relay to viewer. Protocols differ in reliability, latency control and which players can receive them; pick one, then see each option's own tooltip."
+                        value={s.transport}
+                        options={transportOptions}
+                        onChange={v => onUpdate({ transport: v })}
                     />
-                    <SelectField
-                        label="Capture API"
-                        labelTip="Screen capture API feeding the encoder."
-                        value={s.capture}
-                        options={CAPTURES}
-                        optionDisabled={deps.optionDisabled.capture}
-                        onChange={v => onUpdate({ capture: v })}
-                    />
-                    <SelectField
-                        label="Monitor"
-                        labelTip="Which monitor to capture (one DXGI output per index)."
-                        value={String(s.monitor)}
-                        options={monitorOptions(monitors, s.monitor)}
-                        disabledReason={deps.disabled.monitor}
-                        onChange={v => onUpdate({ monitor: parseInt(v, 10) || 0 })}
+                    <NumberField
+                        label="SRT publish latency (ms, hop 1)"
+                        labelTip="SRT retransmit window for YOUR hop (publisher to relay). Total glass-to-glass ≈ hop 1 + hop 2 + encode/decode - the windows ADD UP."
+                        value={s.srtPublishLatencyMs}
+                        onChange={v => onUpdate({ srtPublishLatencyMs: v })}
                     />
                     <UplinkField
                         value={s.uplinkMbps}
@@ -218,7 +269,7 @@ export default function StreamSettingsCard({
                         onChange={v => onUpdate({ uplinkMbps: v })}
                         onRemeasure={uplink.remeasure}
                     />
-                </div>
+                </Section>
 
                 <div className="flex flex-wrap items-center gap-3">
                     <Button

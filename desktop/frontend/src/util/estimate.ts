@@ -1,4 +1,5 @@
 import { Stream } from "../types/stream";
+import { CHROMA_META, CODEC_META, Chroma, Codec } from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
 export interface BitrateEstimate {
@@ -8,30 +9,6 @@ export interface BitrateEstimate {
     highMbps: number;
     note: string;
 }
-
-// Relative coding efficiency: bits needed for equal quality, H.264 = 1.0.
-const CODEC_EFFICIENCY: Record<string, number> = {
-    h264_nvenc: 1.0,
-    libx264: 1.0,
-    hevc_nvenc: 0.6,
-    av1_nvenc: 0.5,
-};
-
-// Detail carried by the pixel format, relative to 4:2:0 = 1.0.
-const CHROMA_WEIGHT: Record<string, number> = {
-    yuv420p: 1.0,
-    p010le: 1.2,
-    yuv444p: 1.5,
-    gbrp: 2.0,
-};
-
-// Raw bits per pixel per frame, used for the lossless upper bound.
-const RAW_BPP: Record<string, number> = {
-    yuv420p: 12,
-    p010le: 15,
-    yuv444p: 24,
-    gbrp: 24,
-};
 
 // Bits/pixel/frame for H.264 4:2:0 at CQ 23 on mixed content: the anchor of the
 // quality model. Each 6 CQ steps roughly halves or doubles the bitrate.
@@ -71,11 +48,11 @@ export function estimateBitrate(
         };
     }
 
-    const codec = CODEC_EFFICIENCY[s.codec] ?? 1.0;
-    const chroma = CHROMA_WEIGHT[s.chroma] ?? 1.0;
+    const codec = CODEC_META[s.codec as Codec]?.efficiency ?? 1.0;
+    const chroma = CHROMA_META[s.chroma as Chroma]?.weight ?? 1.0;
 
     if (s.mode === "lossless") {
-        const raw = RAW_BPP[s.chroma] ?? 24;
+        const raw = CHROMA_META[s.chroma as Chroma]?.rawBpp ?? 24;
         return {
             kind: "lossless",
             lowMbps: (pixelRate * raw * LOSSLESS_LOW) / 1e6,

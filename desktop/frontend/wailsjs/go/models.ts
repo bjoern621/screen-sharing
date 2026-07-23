@@ -1,3 +1,26 @@
+export namespace capabilities {
+	
+	export class Codec {
+	    name: string;
+	    nvenc: boolean;
+	    chromas: string[];
+	    transports: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Codec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.nvenc = source["nvenc"];
+	        this.chromas = source["chromas"];
+	        this.transports = source["transports"];
+	    }
+	}
+
+}
+
 export namespace display {
 	
 	export class Monitor {
@@ -16,6 +39,23 @@ export namespace display {
 	        this.width = source["width"];
 	        this.height = source["height"];
 	        this.primary = source["primary"];
+	    }
+	}
+
+}
+
+export namespace encoders {
+	
+	export class Availability {
+	    usable: Record<string, boolean>;
+	
+	    static createFrom(source: any = {}) {
+	        return new Availability(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.usable = source["usable"];
 	    }
 	}
 

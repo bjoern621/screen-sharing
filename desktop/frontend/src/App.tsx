@@ -1,5 +1,6 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { usePlatform } from "./hooks/usePlatform";
+import { useEncoders } from "./hooks/useEncoders";
 import { useStreamSettings } from "./hooks/useStreamSettings";
 import { usePublish } from "./hooks/usePublish";
 import { useLive } from "./hooks/useLive";
@@ -18,7 +19,8 @@ import LiveNowCard from "./components/LiveNowCard/LiveNowCard";
  */
 export default function App() {
     const platform = usePlatform();
-    const settings = useStreamSettings(platform);
+    const encoders = useEncoders();
+    const settings = useStreamSettings(platform, encoders);
     const publish = usePublish(settings.s);
     const live = useLive();
     const uplink = useUplinkMeasure(settings.update);
@@ -72,7 +74,11 @@ export default function App() {
                     connecting={live.connecting}
                     error={live.error}
                     logPath={live.logPath}
+                    watchLatencyMs={settings.s.srtWatchLatencyMs}
                     onToggleWatch={live.toggleWatch}
+                    onUpdateWatchLatency={v =>
+                        settings.update({ srtWatchLatencyMs: v })
+                    }
                     onOpenLog={logs.openLog}
                     onOpenLogsFolder={logs.openLogsFolder}
                 />

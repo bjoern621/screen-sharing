@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"bjoernblessin.de/screenshare/encoders"
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
 	"bjoernblessin.de/screenshare/settings"
@@ -25,6 +26,9 @@ type App struct {
 	settings   settings.Stream
 
 	relay *relay.Client
+
+	encodersOnce sync.Once
+	encoders     encoders.Availability
 
 	procMu   sync.Mutex
 	pub      *ffmpeg.Proc

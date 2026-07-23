@@ -5,7 +5,9 @@ import (
 	"os/exec"
 	goruntime "runtime"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/display"
+	"bjoernblessin.de/screenshare/encoders"
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/netspeed"
 	"bjoernblessin.de/screenshare/platform"
@@ -28,6 +30,22 @@ func (a *App) Monitors() []display.Monitor {
 // disable capture APIs that cannot run on this machine.
 func (a *App) Platform() platform.Info {
 	return platform.Detect()
+}
+
+// Capabilities returns the codec capability table, the single source both the
+// encoder and the UI derive their codec/chroma/transport rules from.
+func (a *App) Capabilities() []capabilities.Codec {
+	return capabilities.Codecs
+}
+
+// Encoders reports which hardware video codecs this machine can actually run, so
+// the UI can grey out NVENC options on a machine without an NVIDIA GPU. The probe
+// runs one test encode per codec and is cached for the process lifetime.
+func (a *App) Encoders() encoders.Availability {
+	a.encodersOnce.Do(func() {
+		a.encoders = encoders.Detect(a.ctx)
+	})
+	return a.encoders
 }
 
 // OpenLog opens a single run log in the OS default application.

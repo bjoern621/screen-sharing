@@ -1,4 +1,4 @@
-import { settings, relay, display, platform } from "../../wailsjs/go/models";
+import { settings, relay, display, platform, encoders } from "../../wailsjs/go/models";
 
 /** Wire-format stream settings, shared verbatim with the Go backend. */
 export type Stream = settings.Stream;
@@ -11,6 +11,9 @@ export type Monitor = display.Monitor;
 
 /** Running platform: OS and, on Linux, the display server (x11/wayland). */
 export type PlatformInfo = platform.Info;
+
+/** Which hardware video encoders this machine can run, probed at startup. */
+export type EncoderInfo = encoders.Availability;
 
 /**
  * One encoder progress sample. The backend derives the instantaneous bitrate

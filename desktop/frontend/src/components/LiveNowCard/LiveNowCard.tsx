@@ -13,6 +13,7 @@ import {
 import { RelayStatus } from "../../types/stream";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
+import NumberField from "../fields/NumberField";
 
 interface LiveNowCardProps {
     live: RelayStatus | null;
@@ -20,7 +21,9 @@ interface LiveNowCardProps {
     connecting: Set<string>;
     error: string;
     logPath: string;
+    watchLatencyMs: number;
     onToggleWatch: (name: string, isWatching: boolean) => void;
+    onUpdateWatchLatency: (value: number) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
 }
@@ -33,7 +36,9 @@ export default function LiveNowCard({
     connecting,
     error,
     logPath,
+    watchLatencyMs,
     onToggleWatch,
+    onUpdateWatchLatency,
     onOpenLog,
     onOpenLogsFolder,
 }: LiveNowCardProps) {
@@ -136,6 +141,14 @@ export default function LiveNowCard({
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <IconDownload size={14} /> download (sum of watched):{" "}
                     {downloadSum.toFixed(1)} Mbit/s
+                </div>
+                <div className="max-w-[230px]">
+                    <NumberField
+                        label="SRT watch latency (ms, hop 2)"
+                        labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch; takes effect on the next Watch."
+                        value={watchLatencyMs}
+                        onChange={onUpdateWatchLatency}
+                    />
                 </div>
                 {error && (
                     <ErrorLog

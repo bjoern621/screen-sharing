@@ -27,7 +27,7 @@ export default function UplinkField({
             label="Uplink capacity (Mbit/s)"
             labelTip="Your upload capacity. Only used to warn when the stream needs more than your line carries. Remeasure runs a real upload speed test against a public endpoint."
         >
-            <div className="flex gap-1.5">
+            <div className="flex items-center gap-1.5">
                 <Input
                     type="number"
                     value={value}

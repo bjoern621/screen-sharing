@@ -1,70 +1,13 @@
 import { Monitor, Option } from "../types/stream";
+import { CHROMA_META, CODEC_META, MODE_META, metaOptions } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 
-export const CODECS: Option[] = [
-    {
-        value: "hevc_nvenc", label: "HEVC / H.265 - NVENC hardware",
-        link: "https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding",
-        tip: "High Efficiency Video Coding (ITU-T H.265 | ISO/IEC 23008-2) on NVIDIA's encoder ASIC. Only NVENC codec with 4:4:4/RGB support here.",
-    },
-    {
-        value: "h264_nvenc", label: "AVC / H.264 - NVENC hardware",
-        link: "https://en.wikipedia.org/wiki/Advanced_Video_Coding",
-        tip: "Advanced Video Coding (ITU-T H.264 | ISO/IEC 14496-10) on NVIDIA's encoder ASIC. Widest decoder compatibility, less efficient than HEVC.",
-    },
-    {
-        value: "av1_nvenc", label: "AV1 - NVENC hardware (4:2:0 only)",
-        link: "https://en.wikipedia.org/wiki/AV1",
-        tip: "AOMedia Video 1 on NVIDIA's encoder ASIC (RTX 40+). Most efficient per bit, but NVENC AV1 encodes 4:2:0 only.",
-    },
-    {
-        value: "libx264", label: "AVC / H.264 - x264 software",
-        link: "https://en.wikipedia.org/wiki/X264",
-        tip: "AVC/H.264 in software (x264). CPU-heavy at high resolutions; fallback when no capable GPU encoder exists.",
-    },
-];
-
-export const MODES: Option[] = [
-    {
-        value: "lossless", label: "lossless - bit-exact",
-        link: "https://en.wikipedia.org/wiki/Lossless_compression",
-        tip: "Mathematically lossless: decoded output is bit-identical to input. Bitrate unbounded - bursts to hundreds of Mbit/s on motion. LAN only.",
-    },
-    {
-        value: "quality", label: "quality - VBR + constant quantizer",
-        link: "https://en.wikipedia.org/wiki/Variable_bitrate",
-        tip: "Variable bitrate targeting a constant quantizer (CQ): quality held constant, bitrate varies with content. The bitrate bound only caps bursts.",
-    },
-    {
-        value: "latency", label: "latency - CBR low-delay",
-        link: "https://en.wikipedia.org/wiki/Constant_bitrate",
-        tip: "Constant bitrate with low-delay tuning: fixed bandwidth, quality varies, smallest buffers and delay.",
-    },
-];
-
-export const CHROMAS: Option[] = [
-    {
-        value: "gbrp", label: "gbrp - planar RGB, no subsampling",
-        link: "https://en.wikipedia.org/wiki/RGB_color_model",
-        tip: "Planar RGB coded directly via HEVC Range Extensions (identity matrix). Zero color conversion - exact desktop pixels. Heaviest option.",
-    },
-    {
-        value: "yuv444p", label: "yuv444p - Y′CbCr 4:4:4",
-        link: "https://en.wikipedia.org/wiki/Chroma_subsampling",
-        tip: "Y′CbCr with full-resolution chroma (4:4:4). Near-indistinguishable from RGB after correct conversion; slightly cheaper than gbrp.",
-    },
-    {
-        value: "yuv420p", label: "yuv420p - Y′CbCr 4:2:0",
-        link: "https://en.wikipedia.org/wiki/Chroma_subsampling",
-        tip: "Chroma at quarter resolution (4:2:0). Smallest and universally decodable - colored text/edges smear: the washed-out Discord/WebRTC look.",
-    },
-    {
-        value: "p010le", label: "p010le - 10-bit Y′CbCr 4:2:0",
-        link: "https://en.wikipedia.org/wiki/Color_depth",
-        tip: "10-bit Y′CbCr 4:2:0. More tonal resolution (HDR), still chroma-subsampled. Only useful for >8-bit sources.",
-    },
-];
+// Codec, mode and chroma option lists are derived from the domain meta tables so
+// the dropdowns, the dependency rules and the heuristics share one definition.
+export const CODECS: Option[] = metaOptions(CODEC_META);
+export const MODES: Option[] = metaOptions(MODE_META);
+export const CHROMAS: Option[] = metaOptions(CHROMA_META);
 
 export const RANGES: Option[] = [
     {
