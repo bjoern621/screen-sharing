@@ -12,7 +12,7 @@
         pkgs = import nixpkgs { inherit system; };
         linuxDeps = with pkgs; [
           gtk3
-          webkitgtk_4_0   # Wails v2 Linux backend
+          webkitgtk_4_1   # Wails v2 Linux backend (build with tag webkit2_41)
           pkg-config
         ];
       in
