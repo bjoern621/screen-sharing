@@ -3,7 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
 } from "@/components/ui/table";
 import { RelayStatus } from "../../types/stream";
 import Tip from "../Tip/Tip";
@@ -44,15 +49,19 @@ export default function LiveNowCard({
                     Live now
                     {live ? (
                         live.reachable ? (
-                            <Badge variant="secondary">relay ok</Badge>
+                            <Badge className="bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400">
+                                relay available
+                            </Badge>
                         ) : (
                             <Badge variant="destructive">
-                                relay unreachable{live.error ? `: ${live.error}` : ""}
+                                relay unreachable
+                                {live.error ? `: ${live.error}` : ""}
                             </Badge>
                         )
                     ) : (
                         <Badge variant="secondary">
-                            <IconLoader2 size={12} className="animate-spin" /> checking relay
+                            <IconLoader2 size={12} className="animate-spin" />{" "}
+                            checking relay
                         </Badge>
                     )}
                 </CardTitle>
@@ -75,7 +84,8 @@ export default function LiveNowCard({
                     <TableBody>
                         {paths.map(p => {
                             const isWatching = watching.includes(p.name);
-                            const isConnecting = isWatching && connecting.has(p.name);
+                            const isConnecting =
+                                isWatching && connecting.has(p.name);
                             return (
                                 <TableRow key={p.name}>
                                     <TableCell>
@@ -83,18 +93,32 @@ export default function LiveNowCard({
                                         {p.ready ? "" : " (starting)"}
                                     </TableCell>
                                     <TableCell>{p.tracks}</TableCell>
-                                    <TableCell>{p.inMbps.toFixed(1)} Mbps</TableCell>
+                                    <TableCell>
+                                        {p.inMbps.toFixed(1)} Mbps
+                                    </TableCell>
                                     <TableCell>{p.readers}</TableCell>
                                     <TableCell>
                                         <Button
                                             size="sm"
                                             disabled={isConnecting}
-                                            variant={isWatching ? "outline" : "default"}
-                                            onClick={() => onToggleWatch(p.name, isWatching)}
+                                            variant={
+                                                isWatching
+                                                    ? "outline"
+                                                    : "default"
+                                            }
+                                            onClick={() =>
+                                                onToggleWatch(
+                                                    p.name,
+                                                    isWatching
+                                                )
+                                            }
                                         >
                                             {isConnecting ? (
                                                 <>
-                                                    <IconLoader2 size={14} className="animate-spin" />{" "}
+                                                    <IconLoader2
+                                                        size={14}
+                                                        className="animate-spin"
+                                                    />{" "}
                                                     connecting
                                                 </>
                                             ) : isWatching ? (

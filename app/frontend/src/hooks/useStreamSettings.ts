@@ -9,6 +9,9 @@ import { PRESETS } from "../util/presets";
 
 const CUSTOM_PRESET = "custom";
 
+// Preset selected and applied on first launch, before the user touches anything.
+const DEFAULT_PRESET = "lossless-rgb";
+
 /**
  * Owns the editable stream settings and everything derived from them: the
  * dependency map, browser verdict, live ffmpeg command preview and the transport
@@ -18,7 +21,7 @@ const CUSTOM_PRESET = "custom";
  */
 export function useStreamSettings(platform: PlatformInfo | null) {
     const [s, setS] = useState<Stream | null>(null);
-    const [preset, setPreset] = useState(CUSTOM_PRESET);
+    const [preset, setPreset] = useState(DEFAULT_PRESET);
     const [transports, setTransports] = useState<string[]>(["srt"]);
     const [cmd, setCmd] = useState("");
 
@@ -62,7 +65,9 @@ export function useStreamSettings(platform: PlatformInfo | null) {
 
     useEffect(() => {
         void (async () => {
-            setS(normalize(await GetSettings()));
+            const loaded = normalize(await GetSettings());
+            const p = PRESETS[DEFAULT_PRESET];
+            setS(p ? normalize({ ...loaded, ...p } as Stream) : loaded);
             setTransports(await Transports());
         })();
     }, []);
