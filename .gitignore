@@ -1,3 +1,6 @@
+# direnv / nix dev shell cache
+.direnv/
+
 # local recordings / binaries
 recordings/
 *.mp4
