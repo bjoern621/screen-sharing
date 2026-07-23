@@ -1,0 +1,6 @@
+# local recordings / binaries
+recordings/
+*.mp4
+*.log
+bin/
+ffmpeg*/
