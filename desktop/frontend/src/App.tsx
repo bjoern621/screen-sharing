@@ -1,6 +1,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { usePlatform } from "./hooks/usePlatform";
 import { useEncoders } from "./hooks/useEncoders";
+import { useCapabilities } from "./hooks/useCapabilities";
 import { useStreamSettings } from "./hooks/useStreamSettings";
 import { usePublish } from "./hooks/usePublish";
 import { useLive } from "./hooks/useLive";
@@ -20,7 +21,8 @@ import LiveNowCard from "./components/LiveNowCard/LiveNowCard";
 export default function App() {
     const platform = usePlatform();
     const encoders = useEncoders();
-    const settings = useStreamSettings(platform, encoders);
+    const capabilities = useCapabilities();
+    const settings = useStreamSettings(platform, encoders, capabilities);
     const publish = usePublish(settings.s);
     const live = useLive();
     const uplink = useUplinkMeasure(settings.update);

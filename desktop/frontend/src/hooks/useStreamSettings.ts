@@ -87,13 +87,14 @@ export function useStreamSettings(
         }
     }, [platform]);
 
-    // Once the encoder probe resolves, re-normalize so the default hevc_nvenc
-    // codec drops to software x264 on a machine without a working NVIDIA encoder.
+    // Once the encoder probe or capability table resolves, re-normalize so the
+    // default hevc_nvenc codec drops to software x264 on a machine without a
+    // working NVIDIA encoder, and any illegal codec/chroma combo is repaired.
     useEffect(() => {
-        if (encoders) {
-            setS(prev => (prev ? normalize(prev, platform, encoders) : prev));
+        if (encoders || caps) {
+            setS(prev => (prev ? normalize(prev, platform, encoders, caps) : prev));
         }
-    }, [encoders, platform]);
+    }, [encoders, caps, platform]);
 
     useEffect(() => {
         if (!s) {

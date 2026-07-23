@@ -60,10 +60,14 @@ interface ModeMeta {
     pinnedPreset?: string;
 }
 
+export type Codec = "hevc_nvenc" | "h264_nvenc" | "av1_nvenc" | "libx264";
+export type Chroma = "gbrp" | "yuv444p" | "yuv420p" | "p010le";
+export type Mode = "lossless" | "quality" | "latency";
+
 const HEVC_LINK = "https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding";
 const AVC_LINK = "https://en.wikipedia.org/wiki/Advanced_Video_Coding";
 
-export const CODEC_META = {
+export const CODEC_META: Record<Codec, CodecMeta> = {
     hevc_nvenc: {
         label: "HEVC / H.265 - NVENC hardware",
         link: HEVC_LINK,
@@ -92,9 +96,9 @@ export const CODEC_META = {
         efficiency: 1.0,
         browser: "universal",
     },
-} as const satisfies Record<string, CodecMeta>;
+};
 
-export const CHROMA_META = {
+export const CHROMA_META: Record<Chroma, ChromaMeta> = {
     gbrp: {
         label: "gbrp - planar RGB, no subsampling",
         link: "https://en.wikipedia.org/wiki/RGB_color_model",
@@ -133,9 +137,9 @@ export const CHROMA_META = {
         is420: true,
         fullRange: false,
     },
-} as const satisfies Record<string, ChromaMeta>;
+};
 
-export const MODE_META = {
+export const MODE_META: Record<Mode, ModeMeta> = {
     lossless: {
         label: "lossless - bit-exact",
         link: "https://en.wikipedia.org/wiki/Lossless_compression",
@@ -164,22 +168,16 @@ export const MODE_META = {
         pinsPreset: true,
         pinnedPreset: "p5",
     },
-} as const satisfies Record<string, ModeMeta>;
-
-export type Codec = keyof typeof CODEC_META;
-export type Chroma = keyof typeof CHROMA_META;
-export type Mode = keyof typeof MODE_META;
+};
 
 /** Builds the SelectField option list for a meta table, preserving key order. */
-export function metaOptions(
-    meta: Record<string, { label: string; tip: string; link?: string }>
+export function metaOptions<K extends string>(
+    meta: Record<K, { label: string; tip: string; link?: string }>
 ): Option[] {
-    return Object.entries(meta).map(([value, m]) => ({
-        value,
-        label: m.label,
-        tip: m.tip,
-        link: m.link,
-    }));
+    return Object.entries(meta).map(([value, m]) => {
+        const o = m as { label: string; tip: string; link?: string };
+        return { value, label: o.label, tip: o.tip, link: o.link };
+    });
 }
 
 /** Fallback codec when the chosen one is unavailable: software, always present. */
