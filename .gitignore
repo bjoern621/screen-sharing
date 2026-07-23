@@ -7,5 +7,5 @@ recordings/
 *.log
 bin/
 # extracted ffmpeg binary distributions (e.g. ffmpeg-7.x-essentials_build/),
-# NOT the app/ffmpeg source package
+# NOT the desktop/ffmpeg source package
 ffmpeg-*/

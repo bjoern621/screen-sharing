@@ -19,13 +19,13 @@ tasks:
 
   dev:
     desc: Run the Wails app with live reload
-    dir: app
+    dir: desktop
     cmds:
       # webkit2_41 targets webkitgtk 4.1 (libsoup3), matching the flake's dev shell
       - wails dev -tags webkit2_41
 
   build:
-    desc: Build the Wails app binary into app/build/bin
-    dir: app
+    desc: Build the Wails app binary into desktop/build/bin
+    dir: desktop
     cmds:
       - wails build -tags webkit2_41

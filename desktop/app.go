@@ -1,0 +1,57 @@
+package main
+
+import (
+	"context"
+	"sync"
+
+	"bjoernblessin.de/screenshare/ffmpeg"
+	"bjoernblessin.de/screenshare/relay"
+	"bjoernblessin.de/screenshare/settings"
+)
+
+// App is the Wails-bound backend. All exported methods are callable from the
+// frontend; events flow the other way via runtime.EventsEmit. Methods are
+// grouped by domain across app_settings.go, app_system.go, app_publish.go and
+// app_watch.go; this file holds the struct and process lifecycle.
+//
+// Two mutexes guard the mutable state, never held together: settingsMu guards
+// settings, procMu guards the ffmpeg children (pub and watchers). Methods that
+// need both snapshot settings under settingsMu first, release it, then take
+// procMu, so there is no lock ordering to deadlock on.
+type App struct {
+	ctx context.Context
+
+	settingsMu sync.Mutex
+	settings   settings.Stream
+
+	relay *relay.Client
+
+	procMu   sync.Mutex
+	pub      *ffmpeg.Proc
+	watchers map[string]*ffmpeg.Proc
+}
+
+func NewApp() *App {
+	return &App{
+		settings: settings.Load(),
+		relay:    relay.New(),
+		watchers: map[string]*ffmpeg.Proc{},
+	}
+}
+
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
+}
+
+// shutdown kills every child so no orphan ffmpeg keeps encoding after quit.
+func (a *App) shutdown(ctx context.Context) {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	if a.pub != nil {
+		a.pub.Stop()
+	}
+	for _, watcher := range a.watchers {
+		watcher.Stop()
+	}
+}

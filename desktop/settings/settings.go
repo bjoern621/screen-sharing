@@ -20,29 +20,29 @@ const configFileName = "settings.json"
 
 // Stream holds every user-controllable aspect of the stream.
 type Stream struct {
-	Name         string `json:"name"`
-	RelayHost    string `json:"relayHost"`
-	RelayPort    int    `json:"relayPort"`
-	ApiPort      int    `json:"apiPort"`
-	Transport    string `json:"transport"`  // registry key, e.g. "srt"
-	Codec        string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
-	Mode         string `json:"mode"`       // lossless quality latency
-	Chroma       string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
-	ColorRange   string `json:"colorRange"` // pc tv (ignored for gbrp, inherently full range)
-	Fps          int    `json:"fps"`
-	Cq           int    `json:"cq"`        // quality mode: constant-quality value, lower = better
-	BitrateM     int    `json:"bitrateM"`  // Mbps: quality = burst ceiling, latency = CBR target
-	Gop          int    `json:"gop"`       // keyframe interval in frames, 0 = auto (2*fps)
-	Bframes      int    `json:"bframes"`   // 0 recommended (B-frames save nothing in lossless mode)
-	EncPreset    string `json:"encPreset"` // nvenc p1..p7
-	Capture      string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
-	Monitor      int    `json:"monitor"`   // ddagrab output_idx
+	Name       string `json:"name"`
+	RelayHost  string `json:"relayHost"`
+	RelayPort  int    `json:"relayPort"`
+	ApiPort    int    `json:"apiPort"`
+	Transport  string `json:"transport"`  // registry key, e.g. "srt"
+	Codec      string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
+	Mode       string `json:"mode"`       // lossless quality latency
+	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
+	ColorRange string `json:"colorRange"` // pc tv (ignored for gbrp, inherently full range)
+	Fps        int    `json:"fps"`
+	Cq         int    `json:"cq"`        // quality mode: constant-quality value, lower = better
+	BitrateM   int    `json:"bitrateM"`  // Mbps: quality = burst ceiling, latency = CBR target
+	Gop        int    `json:"gop"`       // keyframe interval in frames, 0 = auto (2*fps)
+	Bframes    int    `json:"bframes"`   // 0 recommended (B-frames save nothing in lossless mode)
+	EncPreset  string `json:"encPreset"` // nvenc p1..p7
+	Capture    string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
+	Monitor    int    `json:"monitor"`   // ddagrab output_idx
 	// SRT latency windows PER HOP. Glass-to-glass delay is the SUM of both
 	// (plus encode/decode): publisher→relay and relay→viewer are independent
 	// SRT links, each holding packets for its own retransmit window.
 	SrtPublishLatencyMs int `json:"srtPublishLatencyMs"`
 	SrtWatchLatencyMs   int `json:"srtWatchLatencyMs"`
-	UplinkMbps   int    `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
+	UplinkMbps          int `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
 }
 
 // Defaults returns the settings a fresh installation starts with.
