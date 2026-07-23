@@ -33,8 +33,8 @@ export function useStreamSettings(
     const [cmd, setCmd] = useState("");
 
     const deps: Deps | null = useMemo(
-        () => (s ? evaluateDeps(s, platform, encoders) : null),
-        [s, platform, encoders]
+        () => (s ? evaluateDeps(s, platform, encoders, caps) : null),
+        [s, platform, encoders, caps]
     );
     const browser: BrowserVerdict | null = useMemo(
         () => (s ? browserCheck(s) : null),
@@ -44,13 +44,13 @@ export function useStreamSettings(
     const update = useCallback(
         (patch: Partial<Stream>, fromPreset = false) => {
             setS(prev =>
-                prev ? normalize({ ...prev, ...patch } as Stream, platform, encoders) : prev
+                prev ? normalize({ ...prev, ...patch } as Stream, platform, encoders, caps) : prev
             );
             if (!fromPreset) {
                 setPreset(CUSTOM_PRESET);
             }
         },
-        [platform, encoders]
+        [platform, encoders, caps]
     );
 
     const applyPreset = useCallback(
