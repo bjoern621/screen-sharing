@@ -14,6 +14,7 @@
           gtk3
           webkitgtk_4_1   # Wails v2 Linux backend (build with tag webkit2_41)
           pkg-config
+          xdotool         # viewer-ready detection on X11/XWayland (ffmpeg pkg WindowExists)
         ];
       in
       {

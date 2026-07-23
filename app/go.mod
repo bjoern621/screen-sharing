@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	bjoernblessin.de/go-utils v1.0.1
-	github.com/wailsapp/wails/v2 v2.13.0
+	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.47.0
 )
 
