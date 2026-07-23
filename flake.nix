@@ -24,21 +24,12 @@
             wails
             ffmpeg-full   # includes x11grab/kmsgrab + ffplay
             mediamtx      # the relay, run natively: `mediamtx mediamtx.yml`
+            go-task       # task runner, see Taskfile.yml
           ] ++ pkgs.lib.optionals pkgs.stdenv.isLinux linuxDeps;
 
           shellHook = ''
-            echo "screen-sharing dev shell"
-            echo "  relay:  mediamtx mediamtx.yml"
-            echo "  app:    cd app && wails dev"
+            echo "screen-sharing dev shell - run 'task' for available commands"
           '';
-        };
-
-        # convenience: `nix run .#relay`
-        apps.relay = {
-          type = "app";
-          program = "${pkgs.writeShellScript "relay" ''
-            exec ${pkgs.mediamtx}/bin/mediamtx ${self}/mediamtx.yml
-          ''}";
         };
       });
 }

@@ -1,0 +1,30 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  relay:
+    desc: Run the MediaMTX relay natively (SRT 8890/udp, API 9997)
+    cmds:
+      - mediamtx mediamtx.yml
+
+  relay:docker:
+    desc: Run the relay in Docker (Linux relay box / VPS)
+    cmds:
+      - docker compose up
+
+  dev:
+    desc: Run the Wails app with live reload
+    dir: app
+    cmds:
+      - wails dev
+
+  build:
+    desc: Build the Wails app binary into app/build/bin
+    dir: app
+    cmds:
+      - wails build
