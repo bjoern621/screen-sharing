@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { IconLayoutGrid } from "@tabler/icons-react";
+import {
+    IconAppWindow,
+    IconFlask,
+    IconLayoutGrid,
+    IconLayoutGridFilled,
+} from "@tabler/icons-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { usePlatform } from "./hooks/usePlatform";
@@ -8,6 +13,9 @@ import { useCapabilities } from "./hooks/useCapabilities";
 import { useStreamSettings } from "./hooks/useStreamSettings";
 import { usePublish } from "./hooks/usePublish";
 import { useLive } from "./hooks/useLive";
+import { useWall } from "./hooks/useWall";
+import { useGridViewer } from "./hooks/useGridViewer";
+import { useTestPublishers } from "./hooks/useTestPublishers";
 import { useUplinkMeasure } from "./hooks/useUplinkMeasure";
 import { useMonitors } from "./hooks/useMonitors";
 import { useLogs } from "./hooks/useLogs";
@@ -17,6 +25,10 @@ import StreamSettingsCard from "./components/StreamSettingsCard/StreamSettingsCa
 import PublishInsightsCard from "./components/PublishInsightsCard/PublishInsightsCard";
 import LiveNowCard from "./components/LiveNowCard/LiveNowCard";
 import StreamGridPage from "./components/StreamGridPage/StreamGridPage";
+
+/** Test streams published per toggle: fills a near-square grid row and leaves
+ * room to compare against a real capture alongside. */
+const TEST_STREAM_COUNT = 3;
 
 /**
  * Composition root: wires the state hooks to the presentational cards. All
@@ -29,6 +41,9 @@ export default function App() {
     const settings = useStreamSettings(platform, encoders, capabilities);
     const publish = usePublish(settings.s);
     const live = useLive();
+    const wall = useWall();
+    const gridViewer = useGridViewer();
+    const testPub = useTestPublishers();
     const uplink = useUplinkMeasure(settings.update);
     const monitors = useMonitors();
     const logs = useLogs();
@@ -38,19 +53,96 @@ export default function App() {
         return <LoadingScreen />;
     }
 
+    // The native grid decodes with GStreamer, so it plays every stream the
+    // relay serves; it opens on all ready streams over RTSP (TCP, retransmits).
+    const wallStreams = (live.live?.paths ?? [])
+        .filter(p => p.ready)
+        .map(p => p.name);
+    const wallTransport = live.watchTransports.includes("rtsp")
+        ? "rtsp"
+        : live.watchTransports[0];
+
     return (
         <TooltipProvider>
             <div className="p-4 space-y-4 max-w-7xl mx-auto">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-semibold">screen-sharing</h1>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setGridOpen(true)}
-                    >
-                        <IconLayoutGrid size={16} /> Grid view
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                                testPub.count > 0
+                                    ? void testPub.stop()
+                                    : void testPub.start(TEST_STREAM_COUNT)
+                            }
+                        >
+                            <IconFlask size={16} />
+                            {testPub.count > 0
+                                ? "Stop test streams"
+                                : "Test streams"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setGridOpen(true)}
+                        >
+                            <IconLayoutGrid size={16} /> Grid view
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                                !gridViewer.running &&
+                                (wallStreams.length === 0 || !wallTransport)
+                            }
+                            onClick={() =>
+                                gridViewer.running
+                                    ? void gridViewer.stop()
+                                    : void gridViewer.start(
+                                          wallStreams,
+                                          wallTransport,
+                                      )
+                            }
+                        >
+                            <IconLayoutGridFilled size={16} />
+                            {gridViewer.running
+                                ? "Close GTK grid"
+                                : "GTK grid"}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={
+                                !wall.running &&
+                                (wallStreams.length === 0 || !wallTransport)
+                            }
+                            onClick={() =>
+                                wall.running
+                                    ? void wall.stop()
+                                    : void wall.start(wallStreams, wallTransport)
+                            }
+                        >
+                            <IconAppWindow size={16} />
+                            {wall.running ? "Close native grid" : "Native grid"}
+                        </Button>
+                    </div>
                 </div>
+                {wall.error && (
+                    <p className="text-sm text-destructive whitespace-pre-wrap">
+                        {wall.error}
+                    </p>
+                )}
+                {gridViewer.error && (
+                    <p className="text-sm text-destructive whitespace-pre-wrap">
+                        {gridViewer.error}
+                    </p>
+                )}
+                {testPub.error && (
+                    <p className="text-sm text-destructive whitespace-pre-wrap">
+                        {testPub.error}
+                    </p>
+                )}
 
                 <PresetCard
                     preset={settings.preset}

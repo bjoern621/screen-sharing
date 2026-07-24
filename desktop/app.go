@@ -31,9 +31,12 @@ type App struct {
 	encodersOnce sync.Once
 	encoders     encoders.Availability
 
-	procMu   sync.Mutex
-	pub      publish.Handle
-	watchers map[WatchKey]*ffmpeg.Proc
+	procMu      sync.Mutex
+	pub         publish.Handle
+	watchers    map[WatchKey]*ffmpeg.Proc
+	wall        *ffmpeg.Proc
+	gridViewer  *ffmpeg.Proc
+	testStreams []*ffmpeg.Proc
 }
 
 func NewApp() *App {
@@ -58,5 +61,14 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 	for _, watcher := range a.watchers {
 		watcher.Stop()
+	}
+	if a.wall != nil {
+		a.wall.Stop()
+	}
+	if a.gridViewer != nil {
+		a.gridViewer.Stop()
+	}
+	for _, proc := range a.testStreams {
+		proc.Stop()
 	}
 }

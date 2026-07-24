@@ -57,3 +57,17 @@ func (SRT) WatchURL(s settings.Stream, streamName string) string {
 		"srt://%s:%d?streamid=read:%s&latency=%d&rcvbuf=%d&ffs=%d",
 		s.RelayHost, s.RelayPort, streamName, s.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes)
 }
+
+// GstSource returns the source elements a receiving GStreamer pipeline decodes
+// from. As on the sink side, srtsrc takes streamid and latency (milliseconds)
+// as properties on a bare srt:// URI; the buffer options in WatchURL are
+// ffmpeg protocol knobs with no srtsrc equivalent.
+func (SRT) GstSource(s settings.Stream, streamName string) []string {
+	return []string{
+		"srtsrc",
+		fmt.Sprintf("uri=srt://%s:%d", s.RelayHost, s.RelayPort),
+		"mode=caller",
+		"streamid=read:" + streamName,
+		fmt.Sprintf("latency=%d", s.SrtWatchLatencyMs),
+	}
+}

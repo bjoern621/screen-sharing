@@ -42,6 +42,18 @@ func (RTSP) WatchURL(s settings.Stream, streamName string) string {
 	return rtspURL(s, streamName)
 }
 
+// GstSource returns the source elements a receiving GStreamer pipeline decodes
+// from. latency sizes the rtpjitterbuffer in milliseconds; rtspsrc's 2000 ms
+// default adds two seconds of display delay, far above what a LAN needs.
+func (RTSP) GstSource(s settings.Stream, streamName string) []string {
+	return []string{
+		"rtspsrc",
+		"location=" + rtspURL(s, streamName),
+		"protocols=tcp",
+		"latency=200",
+	}
+}
+
 func rtspURL(s settings.Stream, name string) string {
 	return fmt.Sprintf("rtsp://%s:%d/%s", s.RelayHost, s.RtspPort, name)
 }

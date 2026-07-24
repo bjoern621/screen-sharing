@@ -50,6 +50,12 @@ type Watcher interface {
 	WatchURL(s settings.Stream, streamName string) string
 }
 
+// GstWatcher is a transport that serializes to the GStreamer source elements a
+// receiving pipeline decodes from, the watch-side counterpart of GstPublisher.
+type GstWatcher interface {
+	GstSource(s settings.Stream, streamName string) []string
+}
+
 var registry = map[string]Transport{}
 
 // Register adds a transport to the registry.
@@ -132,6 +138,22 @@ func WatchURL(name string, s settings.Stream, streamName string) (string, bool) 
 		return "", false
 	}
 	return w.WatchURL(s, streamName), true
+}
+
+// GstSource returns the GStreamer source elements a receiving pipeline decodes
+// the named stream from, and false when the transport has no GStreamer watch
+// form. As with WatchURL, the transport is named explicitly, not read from
+// s.Transport.
+func GstSource(name string, s settings.Stream, streamName string) ([]string, bool) {
+	t, ok := Get(name)
+	if !ok {
+		return nil, false
+	}
+	g, ok := t.(GstWatcher)
+	if !ok {
+		return nil, false
+	}
+	return g.GstSource(s, streamName), true
 }
 
 // Names lists all registered transports for the UI dropdown. The registry is a

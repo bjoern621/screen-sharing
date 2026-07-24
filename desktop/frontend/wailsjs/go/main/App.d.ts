@@ -20,6 +20,8 @@ export function GetPresets():Promise<Array<settings.Preset>>;
 
 export function GetSettings():Promise<settings.Stream>;
 
+export function GridViewerRunning():Promise<boolean>;
+
 export function Live():Promise<relay.Status>;
 
 export function MeasureUplink():Promise<number>;
@@ -40,15 +42,31 @@ export function SavePreset(arg1:string,arg2:settings.Stream):Promise<void>;
 
 export function SaveSettings(arg1:settings.Stream):Promise<void>;
 
+export function StartGridViewer(arg1:Array<string>,arg2:string):Promise<void>;
+
 export function StartPublish(arg1:settings.Stream):Promise<void>;
+
+export function StartTestStreams(arg1:number):Promise<void>;
+
+export function StartWall(arg1:Array<string>,arg2:string):Promise<void>;
 
 export function StartWatch(arg1:string,arg2:string):Promise<void>;
 
+export function StopGridViewer():Promise<void>;
+
 export function StopPublish():Promise<void>;
+
+export function StopTestStreams():Promise<void>;
+
+export function StopWall():Promise<void>;
 
 export function StopWatch(arg1:string,arg2:string):Promise<void>;
 
+export function TestStreamsRunning():Promise<number>;
+
 export function Transports():Promise<Array<string>>;
+
+export function WallRunning():Promise<boolean>;
 
 export function WatchTransports():Promise<Array<string>>;
 

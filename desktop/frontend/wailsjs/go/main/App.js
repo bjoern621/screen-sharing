@@ -26,6 +26,10 @@ export function GetSettings() {
   return window['go']['main']['App']['GetSettings']();
 }
 
+export function GridViewerRunning() {
+  return window['go']['main']['App']['GridViewerRunning']();
+}
+
 export function Live() {
   return window['go']['main']['App']['Live']();
 }
@@ -66,24 +70,56 @@ export function SaveSettings(arg1) {
   return window['go']['main']['App']['SaveSettings'](arg1);
 }
 
+export function StartGridViewer(arg1, arg2) {
+  return window['go']['main']['App']['StartGridViewer'](arg1, arg2);
+}
+
 export function StartPublish(arg1) {
   return window['go']['main']['App']['StartPublish'](arg1);
+}
+
+export function StartTestStreams(arg1) {
+  return window['go']['main']['App']['StartTestStreams'](arg1);
+}
+
+export function StartWall(arg1, arg2) {
+  return window['go']['main']['App']['StartWall'](arg1, arg2);
 }
 
 export function StartWatch(arg1, arg2) {
   return window['go']['main']['App']['StartWatch'](arg1, arg2);
 }
 
+export function StopGridViewer() {
+  return window['go']['main']['App']['StopGridViewer']();
+}
+
 export function StopPublish() {
   return window['go']['main']['App']['StopPublish']();
+}
+
+export function StopTestStreams() {
+  return window['go']['main']['App']['StopTestStreams']();
+}
+
+export function StopWall() {
+  return window['go']['main']['App']['StopWall']();
 }
 
 export function StopWatch(arg1, arg2) {
   return window['go']['main']['App']['StopWatch'](arg1, arg2);
 }
 
+export function TestStreamsRunning() {
+  return window['go']['main']['App']['TestStreamsRunning']();
+}
+
 export function Transports() {
   return window['go']['main']['App']['Transports']();
+}
+
+export function WallRunning() {
+  return window['go']['main']['App']['WallRunning']();
 }
 
 export function WatchTransports() {
