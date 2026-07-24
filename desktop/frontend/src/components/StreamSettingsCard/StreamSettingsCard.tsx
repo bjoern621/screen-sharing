@@ -365,6 +365,7 @@ export default function StreamSettingsCard({
                         labelTip="How the encoded stream is carried across the network from publisher to relay to viewer. Protocols differ in reliability, latency control and which players can receive them; pick one, then see each option's own tooltip."
                         value={s.transport}
                         options={transportOptions}
+                        optionDisabled={deps.optionDisabled.transport}
                         onChange={v => onUpdate({ transport: v })}
                     />
                     {s.transport === "srt" && (
@@ -414,18 +415,19 @@ export default function StreamSettingsCard({
                             Save as preset
                         </Button>
                     </div>
-                    <Badge
-                        variant={browser.ok ? "default" : "secondary"}
-                        className="whitespace-normal text-left"
-                    >
-                        {browser.ok ? (
-                            <IconCheck size={14} className="shrink-0" />
-                        ) : (
-                            <IconX size={14} className="shrink-0" />
-                        )}
-                        {browser.text}
-                    </Badge>
                 </div>
+
+                <Badge
+                    variant={browser.ok ? "default" : "secondary"}
+                    className="whitespace-normal text-left"
+                >
+                    {browser.ok ? (
+                        <IconCheck size={14} className="shrink-0" />
+                    ) : (
+                        <IconX size={14} className="shrink-0" />
+                    )}
+                    {browser.text}
+                </Badge>
 
                 <div className="text-xs text-muted-foreground">
                     <Tip text="Rough pre-publish estimate from resolution, fps, codec, chroma and rate control. Real bitrate is content-dependent; live figures appear in Publish insights.">

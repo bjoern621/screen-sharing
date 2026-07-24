@@ -11,9 +11,11 @@ package publish
 
 import (
 	"fmt"
+	"slices"
 
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/settings"
+	"bjoernblessin.de/screenshare/transport"
 )
 
 // Stats is one encoder progress sample surfaced to the UI. It reuses the ffmpeg
@@ -42,6 +44,12 @@ type Callbacks struct {
 type Publisher interface {
 	Command(s settings.Stream) (string, error)
 	Start(s settings.Stream, tag string, cb Callbacks) (Handle, error)
+	// Carries reports whether this engine can drive the named transport, i.e.
+	// the transport implements the publish capability the engine serializes
+	// through. The ffmpeg engine needs an FFmpegPublisher, the GStreamer engine
+	// a GstPublisher, so the portal path cannot carry a transport with no
+	// GStreamer sink.
+	Carries(transportName string) bool
 }
 
 // engineByCapture is the single source mapping a capture backend to the engine
@@ -62,4 +70,33 @@ func For(capture string) (Publisher, error) {
 		return nil, fmt.Errorf("unknown capture backend %q", capture)
 	}
 	return p, nil
+}
+
+// Captures lists the capture backends the app can run, sorted for a stable
+// order across the wire.
+func Captures() []string {
+	out := make([]string, 0, len(engineByCapture))
+	for capture := range engineByCapture {
+		out = append(out, capture)
+	}
+	slices.Sort(out)
+	return out
+}
+
+// TransportsFor returns the transports the capture backend's engine can carry,
+// in transport registry order. The result is the subset of transport.Names()
+// the engine can serialize through, so a capture whose engine lacks a sink for a
+// transport (the portal/GStreamer path and WebRTC) excludes it.
+func TransportsFor(capture string) ([]string, error) {
+	p, err := For(capture)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, name := range transport.Names() {
+		if p.Carries(name) {
+			out = append(out, name)
+		}
+	}
+	return out, nil
 }

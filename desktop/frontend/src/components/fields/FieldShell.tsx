@@ -16,7 +16,8 @@ interface FieldShellProps {
 /**
  * Shared label wrapper for every settings field. A field with a labelTip (or a
  * disabledReason) carries a tooltip; one without renders the bare label. When
- * the control is ignored, the tooltip explains why instead of what it does.
+ * the control is ignored, the reason appends to the labelTip, so the tooltip
+ * explains what the field does before saying why it is ignored.
  */
 export default function FieldShell({
     label,
@@ -25,7 +26,8 @@ export default function FieldShell({
     disabledReason,
     children,
 }: FieldShellProps) {
-    const tip = disabledReason ? `Ignored: ${disabledReason}` : labelTip;
+    const ignored = disabledReason ? `Ignored: ${disabledReason}` : "";
+    const tip = [labelTip, ignored].filter(Boolean).join("\n\n");
     return (
         <div className="flex flex-col gap-1">
             <Label className="flex w-fit items-center gap-1 text-xs text-muted-foreground">

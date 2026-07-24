@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { IconLayoutGrid } from "@tabler/icons-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import { usePlatform } from "./hooks/usePlatform";
 import { useEncoders } from "./hooks/useEncoders";
 import { useCapabilities } from "./hooks/useCapabilities";
@@ -13,6 +16,7 @@ import PresetCard from "./components/PresetCard/PresetCard";
 import StreamSettingsCard from "./components/StreamSettingsCard/StreamSettingsCard";
 import PublishInsightsCard from "./components/PublishInsightsCard/PublishInsightsCard";
 import LiveNowCard from "./components/LiveNowCard/LiveNowCard";
+import StreamGridPage from "./components/StreamGridPage/StreamGridPage";
 
 /**
  * Composition root: wires the state hooks to the presentational cards. All
@@ -28,6 +32,7 @@ export default function App() {
     const uplink = useUplinkMeasure(settings.update);
     const monitors = useMonitors();
     const logs = useLogs();
+    const [gridOpen, setGridOpen] = useState(false);
 
     if (!settings.s || !settings.deps || !settings.browser) {
         return <LoadingScreen />;
@@ -36,7 +41,16 @@ export default function App() {
     return (
         <TooltipProvider>
             <div className="p-4 space-y-4 max-w-7xl mx-auto">
-                <h1 className="text-xl font-semibold">screen-sharing</h1>
+                <div className="flex items-center justify-between">
+                    <h1 className="text-xl font-semibold">screen-sharing</h1>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setGridOpen(true)}
+                    >
+                        <IconLayoutGrid size={16} /> Grid view
+                    </Button>
+                </div>
 
                 <PresetCard
                     preset={settings.preset}
@@ -77,10 +91,10 @@ export default function App() {
                 <LiveNowCard
                     live={live.live}
                     watching={live.watching}
+                    watchTransports={live.watchTransports}
                     connecting={live.connecting}
                     error={live.error}
                     logPath={live.logPath}
-                    transport={settings.s.transport}
                     watchLatencyMs={settings.s.srtWatchLatencyMs}
                     onToggleWatch={live.toggleWatch}
                     onUpdateWatchLatency={v =>
@@ -89,6 +103,14 @@ export default function App() {
                     onOpenLog={logs.openLog}
                     onOpenLogsFolder={logs.openLogsFolder}
                 />
+
+                {gridOpen && (
+                    <StreamGridPage
+                        paths={live.live?.paths ?? []}
+                        s={settings.s}
+                        onClose={() => setGridOpen(false)}
+                    />
+                )}
             </div>
         </TooltipProvider>
     );

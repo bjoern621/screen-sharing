@@ -139,9 +139,9 @@ export const FORMAT_META: Record<Format, FormatMeta> = {
 
 export const FAMILY_META: Record<Family, FamilyMeta> = {
     software: {
-        label: "Software (x264)",
+        label: "Software (CPU)",
         link: "https://en.wikipedia.org/wiki/X264",
-        tip: "CPU encoding via x264. Always available, no GPU needed; CPU-heavy at high resolution and frame rate.",
+        tip: "CPU encoding: x264 for H.264, x265 for HEVC. Always available, no GPU needed; CPU-heavy at high resolution and frame rate, more so for HEVC.",
     },
     nvenc: {
         label: "NVIDIA NVENC",

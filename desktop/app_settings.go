@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -43,4 +44,28 @@ func (a *App) DeletePreset(name string) error {
 // Transports lists the registered transports for the UI dropdown.
 func (a *App) Transports() []string {
 	return transport.Names()
+}
+
+// WatchTransports lists the transports a stream can be received over: every
+// transport with a viewer watch form. It is independent of the publish
+// transport, so the Live table offers a Watch control per transport regardless
+// of how a stream was published.
+func (a *App) WatchTransports() []string {
+	return transport.WatchNames()
+}
+
+// CaptureTransports maps each capture backend to the transports its engine can
+// carry. The UI disables a transport the selected capture cannot publish and
+// repairs a stranded selection from it, so the portal (GStreamer) path never
+// offers WebRTC, which has no GStreamer sink.
+func (a *App) CaptureTransports() map[string][]string {
+	out := map[string][]string{}
+	for _, capture := range publish.Captures() {
+		ts, err := publish.TransportsFor(capture)
+		if err != nil {
+			continue
+		}
+		out[capture] = ts
+	}
+	return out
 }

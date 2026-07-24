@@ -33,14 +33,14 @@ type App struct {
 
 	procMu   sync.Mutex
 	pub      publish.Handle
-	watchers map[string]*ffmpeg.Proc
+	watchers map[WatchKey]*ffmpeg.Proc
 }
 
 func NewApp() *App {
 	return &App{
 		settings: settings.Load(),
 		relay:    relay.New(),
-		watchers: map[string]*ffmpeg.Proc{},
+		watchers: map[WatchKey]*ffmpeg.Proc{},
 	}
 }
 

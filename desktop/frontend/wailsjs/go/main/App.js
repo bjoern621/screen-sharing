@@ -6,6 +6,10 @@ export function Capabilities() {
   return window['go']['main']['App']['Capabilities']();
 }
 
+export function CaptureTransports() {
+  return window['go']['main']['App']['CaptureTransports']();
+}
+
 export function DeletePreset(arg1) {
   return window['go']['main']['App']['DeletePreset'](arg1);
 }
@@ -66,20 +70,24 @@ export function StartPublish(arg1) {
   return window['go']['main']['App']['StartPublish'](arg1);
 }
 
-export function StartWatch(arg1) {
-  return window['go']['main']['App']['StartWatch'](arg1);
+export function StartWatch(arg1, arg2) {
+  return window['go']['main']['App']['StartWatch'](arg1, arg2);
 }
 
 export function StopPublish() {
   return window['go']['main']['App']['StopPublish']();
 }
 
-export function StopWatch(arg1) {
-  return window['go']['main']['App']['StopWatch'](arg1);
+export function StopWatch(arg1, arg2) {
+  return window['go']['main']['App']['StopWatch'](arg1, arg2);
 }
 
 export function Transports() {
   return window['go']['main']['App']['Transports']();
+}
+
+export function WatchTransports() {
+  return window['go']['main']['App']['WatchTransports']();
 }
 
 export function Watching() {

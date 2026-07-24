@@ -6,8 +6,11 @@ import {settings} from '../models';
 import {relay} from '../models';
 import {display} from '../models';
 import {platform} from '../models';
+import {main} from '../models';
 
 export function Capabilities():Promise<Array<capabilities.Codec>>;
+
+export function CaptureTransports():Promise<Record<string, Array<string>>>;
 
 export function DeletePreset(arg1:string):Promise<void>;
 
@@ -39,12 +42,14 @@ export function SaveSettings(arg1:settings.Stream):Promise<void>;
 
 export function StartPublish(arg1:settings.Stream):Promise<void>;
 
-export function StartWatch(arg1:string):Promise<void>;
+export function StartWatch(arg1:string,arg2:string):Promise<void>;
 
 export function StopPublish():Promise<void>;
 
-export function StopWatch(arg1:string):Promise<void>;
+export function StopWatch(arg1:string,arg2:string):Promise<void>;
 
 export function Transports():Promise<Array<string>>;
 
-export function Watching():Promise<Array<string>>;
+export function WatchTransports():Promise<Array<string>>;
+
+export function Watching():Promise<Array<main.WatchKey>>;

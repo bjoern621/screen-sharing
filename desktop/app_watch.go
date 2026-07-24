@@ -23,35 +23,47 @@ func (a *App) Live() relay.Status {
 	return a.relay.Fetch(s.RelayHost, s.ApiPort)
 }
 
-// Watching lists the streams currently viewed. Dead viewers are reaped here.
-func (a *App) Watching() []string {
+// WatchKey identifies one viewer window: a stream received over a specific
+// transport. A stream can be watched over several transports at once (the relay
+// re-serves each ingested stream on all its listeners), so the stream name
+// alone is not a unique viewer identity.
+type WatchKey struct {
+	Name      string `json:"name"`
+	Transport string `json:"transport"`
+}
+
+// Watching lists the viewers currently open, one entry per (stream, transport).
+// Dead viewers are reaped here.
+func (a *App) Watching() []WatchKey {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	names := []string{}
-	for name, watcher := range a.watchers {
+	keys := []WatchKey{}
+	for key, watcher := range a.watchers {
 		if watcher.Running() {
-			names = append(names, name)
+			keys = append(keys, key)
 		} else {
-			delete(a.watchers, name)
+			delete(a.watchers, key)
 		}
 	}
-	return names
+	return keys
 }
 
-// StartWatch opens a viewer window for streamName. The watch package selects
-// the viewer engine for the configured transport (ffplay by default,
-// SCREENSHARE_VIEWER=mpv switches to mpv).
-func (a *App) StartWatch(streamName string) error {
+// StartWatch opens a viewer window for streamName, receiving it over
+// transportName. The transport is chosen per viewer and is independent of the
+// publish transport, so the same stream can be watched over any transport the
+// relay serves it on. The watch package selects the viewer engine (ffplay by
+// default, SCREENSHARE_VIEWER=mpv switches to mpv).
+func (a *App) StartWatch(streamName, transportName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	engine, err := watch.Select(s)
+	engine, err := watch.Select(transportName)
 	if err != nil {
 		return err
 	}
-	args, env, err := engine.Command(s, streamName)
+	args, env, err := engine.Command(s, streamName, transportName)
 	if err != nil {
 		return err
 	}
@@ -59,9 +71,10 @@ func (a *App) StartWatch(streamName string) error {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	watcher, present := a.watchers[streamName]
+	key := WatchKey{Name: streamName, Transport: transportName}
+	watcher, present := a.watchers[key]
 	if present && watcher.Running() {
-		return fmt.Errorf("already watching %s", streamName)
+		return fmt.Errorf("already watching %s over %s", streamName, transportName)
 	}
 
 	exe, err := ffmpeg.FindExe(engine.Exe())
@@ -70,7 +83,7 @@ func (a *App) StartWatch(streamName string) error {
 	}
 
 	// hideWindow must be false: SW_HIDE would hide the viewer's video window too.
-	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName, env, nil,
+	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName+"-"+transportName, env, nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {
@@ -78,12 +91,12 @@ func (a *App) StartWatch(streamName string) error {
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
-				logger.Errorf("viewer for '%s' failed: %v\n%s\nfull log: %s", streamName, err, stderrTail, logPath)
+				logger.Errorf("viewer for '%s' over %s failed: %v\n%s\nfull log: %s", streamName, transportName, err, stderrTail, logPath)
 			} else {
-				logger.Infof("viewer for '%s' closed (log: %s)", streamName, logPath)
+				logger.Infof("viewer for '%s' over %s closed (log: %s)", streamName, transportName, logPath)
 			}
 			runtime.EventsEmit(a.ctx, "watch:exit", watchExitEvent{
-				Name: streamName, Message: message, LogPath: logPath,
+				Name: streamName, Transport: transportName, Message: message, LogPath: logPath,
 			})
 		})
 	if err != nil {
@@ -91,8 +104,8 @@ func (a *App) StartWatch(streamName string) error {
 	}
 
 	assert.IsNotNil(proc, "Start returns a non-nil Proc when err is nil")
-	logger.Infof("watching '%s'", streamName)
-	a.watchers[streamName] = proc
+	logger.Infof("watching '%s' over %s", streamName, transportName)
+	a.watchers[key] = proc
 
 	// Readiness is not signalled from here. The viewer is "connected" once the
 	// relay reports a reader on the path, which the frontend already sees in its
@@ -101,14 +114,15 @@ func (a *App) StartWatch(streamName string) error {
 	return nil
 }
 
-func (a *App) StopWatch(streamName string) {
+func (a *App) StopWatch(streamName, transportName string) {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	watcher, present := a.watchers[streamName]
+	key := WatchKey{Name: streamName, Transport: transportName}
+	watcher, present := a.watchers[key]
 	if present {
 		watcher.Stop()
-		delete(a.watchers, streamName)
-		logger.Infof("stopped watching '%s'", streamName)
+		delete(a.watchers, key)
+		logger.Infof("stopped watching '%s' over %s", streamName, transportName)
 	}
 }

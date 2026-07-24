@@ -8,6 +8,7 @@ func TestIsNvenc(t *testing.T) {
 		"h264_nvenc": true,
 		"av1_nvenc":  true,
 		"libx264":    false,
+		"libx265":    false,
 		"_nvenc":     false, // not a real codec name
 		"nvenc":      false,
 	}
@@ -28,6 +29,7 @@ func TestSupportsChroma(t *testing.T) {
 		{"av1_nvenc", "yuv444p", false}, // NVENC AV1 is 4:2:0 only
 		{"av1_nvenc", "yuv420p", true},
 		{"libx264", "gbrp", false},
+		{"libx265", "gbrp", true},  // software HEVC codes RGB via Range Extensions
 		{"nope", "yuv420p", false}, // unknown codec supports nothing
 	}
 	for _, tc := range cases {
@@ -43,5 +45,8 @@ func TestCarriedBy(t *testing.T) {
 	}
 	if CarriedBy("av1_nvenc", "srt") {
 		t.Error("srt/MPEG-TS cannot carry av1_nvenc")
+	}
+	if CarriedBy("libx265", "webrtc") {
+		t.Error("webrtc (WHIP is H.264 + Opus) cannot carry libx265")
 	}
 }

@@ -124,6 +124,36 @@ function unavailableAudio(
     return {};
 }
 
+/**
+ * Transports the given capture backend's engine cannot carry, each mapped to the
+ * reason. The map (capture -> carriable transports) comes from the backend; a
+ * transport known to some capture but absent from this one is disabled, because
+ * that capture's engine has no sink for it (the portal/GStreamer path and
+ * WebRTC). An unknown capture imposes no restriction.
+ */
+function unavailableTransports(
+    capture: string,
+    captureTransports: Record<string, string[]>
+): Record<string, string> {
+    const allowed = captureTransports[capture];
+    if (!allowed) {
+        return {};
+    }
+    const all = new Set<string>();
+    for (const list of Object.values(captureTransports)) {
+        for (const t of list) {
+            all.add(t);
+        }
+    }
+    const out: Record<string, string> = {};
+    for (const t of all) {
+        if (!allowed.includes(t)) {
+            out[t] = `the ${capture} capture path cannot carry ${t}`;
+        }
+    }
+    return out;
+}
+
 /** The capture API to fall back to when the current one is unavailable here. */
 function preferredCapture(platform: PlatformInfo | null): string {
     if (platform?.os === "linux") {
@@ -151,7 +181,8 @@ export function evaluateDeps(
     s: Stream,
     platform: PlatformInfo | null,
     encoders: EncoderInfo | null = null,
-    caps: Capability[] | null = null
+    caps: Capability[] | null = null,
+    captureTransports: Record<string, string[]> | null = null
 ): Deps {
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
@@ -164,10 +195,19 @@ export function evaluateDeps(
             codec: {},
             chroma: {},
             mode: {},
+            transport: {},
             capture: unavailableCaptures(platform),
             audio: unavailableAudio(platform),
         },
     };
+
+    // Transports the selected capture's engine cannot carry, disabled per
+    // option. The portal path runs through GStreamer, which has no WebRTC sink,
+    // so a transport the engine cannot serialize is greyed with the reason
+    // rather than left to fail at launch.
+    if (captureTransports) {
+        d.optionDisabled.transport = unavailableTransports(s.capture, captureTransports);
+    }
 
     // A codec the current transport cannot carry, disabled per option.
     if (caps) {
@@ -255,9 +295,26 @@ export function normalize(
     s: Stream,
     platform: PlatformInfo | null = null,
     encoders: EncoderInfo | null = null,
-    caps: Capability[] | null = null
+    caps: Capability[] | null = null,
+    captureTransports: Record<string, string[]> | null = null
 ): Stream {
     const next = { ...s };
+
+    // Capture first: the transport and codec repairs below depend on it, so it
+    // settles to a backend this platform can run before they read it.
+    if (unavailableCaptures(platform)[next.capture]) {
+        next.capture = preferredCapture(platform);
+    }
+
+    // Transport: the capture backend's engine must be able to carry it. The
+    // portal (GStreamer) path has no WebRTC sink, so a capture change can strand
+    // the transport; fall back to the first transport that capture can carry.
+    if (captureTransports) {
+        const allowed = captureTransports[next.capture];
+        if (allowed && allowed.length > 0 && !allowed.includes(next.transport)) {
+            next.transport = allowed[0];
+        }
+    }
 
     // Codec: must be implemented, run here (hardware) and be carriable by the
     // transport. Walk the capability table in display order and take the first
@@ -288,10 +345,6 @@ export function normalize(
                 cap.chromas[0] ??
                 next.chroma;
         }
-    }
-
-    if (unavailableCaptures(platform)[next.capture]) {
-        next.capture = preferredCapture(platform);
     }
 
     // Audio: settings and presets from before the option lack the key, and

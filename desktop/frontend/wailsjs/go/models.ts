@@ -73,6 +73,25 @@ export namespace encoders {
 
 }
 
+export namespace main {
+	
+	export class WatchKey {
+	    name: string;
+	    transport: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WatchKey(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.transport = source["transport"];
+	    }
+	}
+
+}
+
 export namespace platform {
 	
 	export class Info {

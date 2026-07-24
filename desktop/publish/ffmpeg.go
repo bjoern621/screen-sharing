@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/settings"
+	"bjoernblessin.de/screenshare/transport"
 )
 
 // ffmpegEngine runs a screen grabber whose frames feed one ffmpeg process that
@@ -24,6 +25,11 @@ func (ffmpegEngine) Command(s settings.Stream) (string, error) {
 		exe = "ffmpeg-kmsgrab"
 	}
 	return exe + " " + strings.Join(args, " "), nil
+}
+
+// Carries reports whether the transport can terminate an ffmpeg command.
+func (ffmpegEngine) Carries(transportName string) bool {
+	return transport.CanFFmpegPublish(transportName)
 }
 
 func (ffmpegEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {

@@ -28,7 +28,7 @@ func rtspStream() settings.Stream {
 
 func TestSelectDefaultsToFfplay(t *testing.T) {
 	t.Setenv(EnvViewer, "")
-	engine, err := Select(srtStream())
+	engine, err := Select("srt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,7 @@ func TestSelectDefaultsToFfplay(t *testing.T) {
 
 func TestSelectEnvPicksMpv(t *testing.T) {
 	t.Setenv(EnvViewer, "mpv")
-	engine, err := Select(srtStream())
+	engine, err := Select("srt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,27 +49,23 @@ func TestSelectEnvPicksMpv(t *testing.T) {
 }
 
 func TestSelectRejectsTransportWithoutWatchForm(t *testing.T) {
-	s := srtStream()
-	s.Transport = "webrtc"
-	if _, err := Select(s); err == nil {
+	if _, err := Select("webrtc"); err == nil {
 		t.Fatal("expected error for a transport without a watch form")
 	}
-
-	s.Transport = "carrier-pigeon"
-	if _, err := Select(s); err == nil {
+	if _, err := Select("carrier-pigeon"); err == nil {
 		t.Fatal("expected error for an unknown transport")
 	}
 }
 
 func TestFfplayCommand(t *testing.T) {
-	args, _, err := ffplay{}.Command(srtStream(), "bob")
+	args, _, err := ffplay{}.Command(srtStream(), "bob", "srt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	i := slices.Index(args, "-window_title")
-	if i < 0 || args[i+1] != WindowTitle("bob") {
-		t.Errorf("missing -window_title %q in %v", WindowTitle("bob"), args)
+	if i < 0 || args[i+1] != WindowTitle("bob", "srt") {
+		t.Errorf("missing -window_title %q in %v", WindowTitle("bob", "srt"), args)
 	}
 	if url := args[len(args)-1]; !strings.HasPrefix(url, "srt://") {
 		t.Errorf("watch URL = %q, want srt:// prefix", url)
@@ -80,7 +76,7 @@ func TestFfplayCommand(t *testing.T) {
 }
 
 func TestFfplayCommandRTSPForcesTCP(t *testing.T) {
-	args, _, err := ffplay{}.Command(rtspStream(), "bob")
+	args, _, err := ffplay{}.Command(rtspStream(), "bob", "rtsp")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +91,7 @@ func TestFfplayCommandRTSPForcesTCP(t *testing.T) {
 }
 
 func TestMpvCommandRTSPForcesTCP(t *testing.T) {
-	args, _, err := mpv{}.Command(rtspStream(), "bob")
+	args, _, err := mpv{}.Command(rtspStream(), "bob", "rtsp")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,24 +99,22 @@ func TestMpvCommandRTSPForcesTCP(t *testing.T) {
 	if !slices.Contains(args, "--rtsp-transport=tcp") {
 		t.Errorf("missing --rtsp-transport=tcp in %v", args)
 	}
-	if !slices.Contains(args, "--title="+WindowTitle("bob")) {
+	if !slices.Contains(args, "--title="+WindowTitle("bob", "rtsp")) {
 		t.Errorf("missing --title in %v", args)
 	}
 }
 
 func TestCommandUnknownTransport(t *testing.T) {
-	s := srtStream()
-	s.Transport = "carrier-pigeon"
-	if _, _, err := (ffplay{}).Command(s, "bob"); err == nil {
+	if _, _, err := (ffplay{}).Command(srtStream(), "bob", "carrier-pigeon"); err == nil {
 		t.Fatal("expected error for unknown transport")
 	}
-	if _, _, err := (mpv{}).Command(s, "bob"); err == nil {
+	if _, _, err := (mpv{}).Command(srtStream(), "bob", "carrier-pigeon"); err == nil {
 		t.Fatal("expected error for unknown transport")
 	}
 }
 
 func TestWindowTitle(t *testing.T) {
-	if got := WindowTitle("bob"); got != "watch: bob" {
-		t.Errorf("WindowTitle = %q, want \"watch: bob\"", got)
+	if got := WindowTitle("bob", "srt"); got != "watch: bob [srt]" {
+		t.Errorf("WindowTitle = %q, want \"watch: bob [srt]\"", got)
 	}
 }

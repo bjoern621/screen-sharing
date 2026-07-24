@@ -9,11 +9,11 @@ import (
 	"bjoernblessin.de/screenshare/transport"
 )
 
-// watchURL returns the transport's viewer URL, shared by both URL players.
-func watchURL(s settings.Stream, streamName string) (string, error) {
-	url, ok := transport.WatchURL(s, streamName)
+// watchURL returns the named transport's viewer URL, shared by both URL players.
+func watchURL(s settings.Stream, streamName, transportName string) (string, error) {
+	url, ok := transport.WatchURL(transportName, s, streamName)
 	if !ok {
-		return "", fmt.Errorf("transport %q has no watch form", s.Transport)
+		return "", fmt.Errorf("transport %q has no watch form", transportName)
 	}
 	return url, nil
 }
@@ -41,8 +41,8 @@ func (ffplay) Exe() string { return "ffplay" }
 //
 // The environment pins SDL to the X11 (XWayland) backend on Linux, whose window
 // the compositor renders reliably where the SDL Wayland backend may not.
-func (ffplay) Command(s settings.Stream, streamName string) (args, env []string, err error) {
-	url, err := watchURL(s, streamName)
+func (ffplay) Command(s settings.Stream, streamName, transportName string) (args, env []string, err error) {
+	url, err := watchURL(s, streamName, transportName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -50,7 +50,7 @@ func (ffplay) Command(s settings.Stream, streamName string) (args, env []string,
 	args = []string{
 		"-hide_banner", "-loglevel", "info", "-nostats",
 		"-fflags", "nobuffer", "-flags", "low_delay", "-framedrop",
-		"-window_title", WindowTitle(streamName),
+		"-window_title", WindowTitle(streamName, transportName),
 	}
 	// TCP-interleaved RTP, for the same reason the publish side forces it: the
 	// UDP default negotiates per-track ports that NAT drops, and lost RTP over
@@ -79,8 +79,8 @@ func (mpv) Exe() string { return "mpv" }
 // --profile=low-latency drops buffering and display sync. --no-config isolates
 // the viewer from a user's mpv.conf. --force-window=immediate shows the window
 // before the first frame, so a slow SRT handshake still gives feedback.
-func (mpv) Command(s settings.Stream, streamName string) (args, env []string, err error) {
-	url, err := watchURL(s, streamName)
+func (mpv) Command(s settings.Stream, streamName, transportName string) (args, env []string, err error) {
+	url, err := watchURL(s, streamName, transportName)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -91,7 +91,7 @@ func (mpv) Command(s settings.Stream, streamName string) (args, env []string, er
 		"--profile=low-latency",
 		"--force-window=immediate",
 		"--network-timeout=10",
-		"--title=" + WindowTitle(streamName),
+		"--title=" + WindowTitle(streamName, transportName),
 	}
 	// See the ffplay counterpart for why RTSP is forced onto TCP.
 	if isRTSP(url) {

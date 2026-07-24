@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
     Table,
     TableBody,
@@ -11,34 +15,45 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { RelayStatus } from "../../types/stream";
+import { WatchKey, watchId } from "../../hooks/useLive";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
 import NumberField from "../fields/NumberField";
 
 interface LiveNowCardProps {
     live: RelayStatus | null;
-    watching: string[];
+    watching: WatchKey[];
+    /** Transports a stream can be received over, offered in the watch dropdown. */
+    watchTransports: string[];
     connecting: Set<string>;
     error: string;
     logPath: string;
-    /** The viewer's configured transport; the SRT latency knob only exists for srt. */
-    transport: string;
     watchLatencyMs: number;
-    onToggleWatch: (name: string, isWatching: boolean) => void;
+    onToggleWatch: (name: string, transport: string, isWatching: boolean) => void;
     onUpdateWatchLatency: (value: number) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
 }
 
-/** Relay reachability, the live-stream table with per-row Watch/Stop controls,
- * and the summed download bitrate of watched streams. */
+/** Picks the initial watch transport: SRT when available, else the first
+ * offered. The relay re-serves every stream on all its listeners, so any choice
+ * receives any stream regardless of how it was published. */
+function defaultTransport(watchTransports: string[]): string {
+    if (watchTransports.includes("srt")) return "srt";
+    return watchTransports[0] ?? "";
+}
+
+/** Relay reachability, the live-stream table with a per-row Watch/Stop control,
+ * and the summed download bitrate of watched streams. A single dropdown selects
+ * the transport every Watch click receives over, independent of the transport a
+ * stream was published on, since the relay re-serves it on all its listeners. */
 export default function LiveNowCard({
     live,
     watching,
+    watchTransports,
     connecting,
     error,
     logPath,
-    transport,
     watchLatencyMs,
     onToggleWatch,
     onUpdateWatchLatency,
@@ -47,8 +62,18 @@ export default function LiveNowCard({
 }: LiveNowCardProps) {
     const paths = live?.paths ?? [];
     const downloadSum = paths
-        .filter(p => watching.includes(p.name))
+        .filter(p => watching.some(w => w.name === p.name))
         .reduce((a, p) => a + p.inMbps, 0);
+
+    const [transport, setTransport] = useState("");
+    // Settle on a valid transport once the list arrives, and repair a selection
+    // that is no longer offered.
+    useEffect(() => {
+        if (watchTransports.length === 0) return;
+        setTransport(prev =>
+            watchTransports.includes(prev) ? prev : defaultTransport(watchTransports)
+        );
+    }, [watchTransports]);
 
     return (
         <Card>
@@ -75,6 +100,27 @@ export default function LiveNowCard({
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                    <Tip text="Transport a Watch click receives over. Any choice works for any stream: the relay re-serves each stream on all its listeners, regardless of how it was published.">
+                        <span className="text-muted-foreground">watch over</span>
+                    </Tip>
+                    <Select
+                        value={transport}
+                        disabled={watchTransports.length === 0}
+                        onValueChange={(v: string | null) => v && setTransport(v)}
+                    >
+                        <SelectTrigger className="w-[140px]">
+                            <SelectValue>{(v: string) => v}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {watchTransports.map(t => (
+                                <SelectItem key={t} value={t}>
+                                    {t}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -91,9 +137,12 @@ export default function LiveNowCard({
                     </TableHeader>
                     <TableBody>
                         {paths.map(p => {
-                            const isWatching = watching.includes(p.name);
-                            const isConnecting =
-                                isWatching && connecting.has(p.name);
+                            const isWatching = watching.some(
+                                w => w.name === p.name && w.transport === transport
+                            );
+                            const isConnecting = connecting.has(
+                                watchId(p.name, transport)
+                            );
                             return (
                                 <TableRow key={p.name}>
                                     <TableCell>
@@ -108,15 +157,14 @@ export default function LiveNowCard({
                                     <TableCell>
                                         <Button
                                             size="sm"
-                                            disabled={isConnecting}
+                                            disabled={isConnecting || !transport}
                                             variant={
-                                                isWatching
-                                                    ? "outline"
-                                                    : "default"
+                                                isWatching ? "outline" : "default"
                                             }
                                             onClick={() =>
                                                 onToggleWatch(
                                                     p.name,
+                                                    transport,
                                                     isWatching
                                                 )
                                             }
@@ -149,7 +197,7 @@ export default function LiveNowCard({
                     <div className="max-w-[230px]">
                         <NumberField
                             label="SRT watch latency (ms, hop 2)"
-                            labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch; takes effect on the next Watch."
+                            labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch."
                             value={watchLatencyMs}
                             onChange={onUpdateWatchLatency}
                         />

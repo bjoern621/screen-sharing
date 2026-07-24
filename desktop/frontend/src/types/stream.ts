@@ -64,9 +64,11 @@ export interface PublishExit {
     logPath: string;
 }
 
-/** Payload of the "watch:exit" event. */
+/** Payload of the "watch:exit" event. name and transport together identify
+ * which viewer exited, since one stream can be watched over several transports. */
 export interface WatchExit {
     name: string;
+    transport: string;
     message: string;
     logPath: string;
 }

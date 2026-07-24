@@ -32,7 +32,10 @@ export default function OptionRow({ option, disabledReason }: OptionRowProps) {
         [popup],
     );
 
-    const tip = disabledReason ? `Unavailable: ${disabledReason}` : option.tip;
+    // A disabled reason appends to the normal tip rather than replacing it, so
+    // the option still explains what it does before saying why it is unavailable.
+    const unavailable = disabledReason ? `Unavailable: ${disabledReason}` : "";
+    const tip = [option.tip, unavailable].filter(Boolean).join("\n\n");
     const content = (
         <>
             <span>{option.label}</span>

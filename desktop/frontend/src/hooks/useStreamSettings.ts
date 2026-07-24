@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
-    PublishCommand, Transports,
+    PublishCommand, Transports, CaptureTransports,
 } from "../../wailsjs/go/main/App";
 import {
     BrowserVerdict, Deps, EncoderInfo, PlatformInfo, Preset, Stream,
@@ -65,11 +65,13 @@ export function useStreamSettings(
     const [preset, setPreset] = useState(CUSTOM_PRESET);
     const [userPresets, setUserPresets] = useState<Preset[]>([]);
     const [transports, setTransports] = useState<string[]>(["srt"]);
+    const [captureTransports, setCaptureTransports] =
+        useState<Record<string, string[]> | null>(null);
     const [cmd, setCmd] = useState("");
 
     const deps: Deps | null = useMemo(
-        () => (s ? evaluateDeps(s, platform, encoders, caps) : null),
-        [s, platform, encoders, caps]
+        () => (s ? evaluateDeps(s, platform, encoders, caps, captureTransports) : null),
+        [s, platform, encoders, caps, captureTransports]
     );
     const browser: BrowserVerdict | null = useMemo(
         () => (s ? browserCheck(s, caps) : null),
@@ -79,13 +81,15 @@ export function useStreamSettings(
     const update = useCallback(
         (patch: Partial<Stream>, fromPreset = false) => {
             setS(prev =>
-                prev ? normalize({ ...prev, ...patch } as Stream, platform, encoders, caps) : prev
+                prev
+                    ? normalize({ ...prev, ...patch } as Stream, platform, encoders, caps, captureTransports)
+                    : prev
             );
             if (!fromPreset) {
                 setPreset(CUSTOM_PRESET);
             }
         },
-        [platform, encoders, caps]
+        [platform, encoders, caps, captureTransports]
     );
 
     const applyPreset = useCallback(
@@ -136,25 +140,23 @@ export function useStreamSettings(
             setS(loaded);
             setPreset(matchPreset(loaded, presets));
             setTransports(await Transports());
+            setCaptureTransports(await CaptureTransports());
         })();
     }, []);
 
-    // Once the platform is known, re-normalize so a default capture API that
-    // this OS/session cannot run (e.g. ddagrab on Linux) falls back to a valid one.
+    // Re-normalize whenever a dimension resolves after mount: platform gates the
+    // capture API (ddagrab on Linux falls back), the encoder probe and capability
+    // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
+    // encoder), and the capture->transport map gates the transport (the portal
+    // path drops WebRTC). Any illegal carryover from the persisted settings is
+    // repaired to a valid combination.
     useEffect(() => {
-        if (platform) {
-            setS(prev => (prev ? normalize(prev, platform) : prev));
+        if (platform || encoders || caps || captureTransports) {
+            setS(prev =>
+                prev ? normalize(prev, platform, encoders, caps, captureTransports) : prev
+            );
         }
-    }, [platform]);
-
-    // Once the encoder probe or capability table resolves, re-normalize so the
-    // default hevc_nvenc codec drops to software x264 on a machine without a
-    // working NVIDIA encoder, and any illegal codec/chroma combo is repaired.
-    useEffect(() => {
-        if (encoders || caps) {
-            setS(prev => (prev ? normalize(prev, platform, encoders, caps) : prev));
-        }
-    }, [encoders, caps, platform]);
+    }, [platform, encoders, caps, captureTransports]);
 
     useEffect(() => {
         if (!s) {

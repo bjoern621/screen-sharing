@@ -95,10 +95,35 @@ func GstSink(s settings.Stream) ([]string, bool) {
 	return g.GstSink(s), true
 }
 
-// WatchURL returns the viewer input URL for the configured transport, and false
-// when it has no watch form.
-func WatchURL(s settings.Stream, streamName string) (string, bool) {
-	t, ok := Get(s.Transport)
+// CanFFmpegPublish reports whether the named transport can terminate an ffmpeg
+// publish command (implements FFmpegPublisher). An unknown name reports false.
+func CanFFmpegPublish(name string) bool {
+	t, ok := Get(name)
+	if !ok {
+		return false
+	}
+	_, ok = t.(FFmpegPublisher)
+	return ok
+}
+
+// CanGstPublish reports whether the named transport can terminate a GStreamer
+// publish pipeline (implements GstPublisher). An unknown name reports false.
+func CanGstPublish(name string) bool {
+	t, ok := Get(name)
+	if !ok {
+		return false
+	}
+	_, ok = t.(GstPublisher)
+	return ok
+}
+
+// WatchURL returns the viewer input URL for the named transport, and false when
+// that transport has no watch form. The transport is named explicitly, not read
+// from s.Transport: a stream is received over a transport chosen independently
+// of the one it was published through, since the relay re-serves every ingested
+// stream on all its listeners.
+func WatchURL(name string, s settings.Stream, streamName string) (string, bool) {
+	t, ok := Get(name)
 	if !ok {
 		return "", false
 	}
@@ -115,6 +140,22 @@ func Names() []string {
 	names := make([]string, 0, len(registry))
 	for name := range registry {
 		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
+}
+
+// WatchNames lists the transports a stream can be received over: every
+// registered transport that implements Watcher, sorted. It is independent of
+// the publish transport, so a stream published over one protocol is offered for
+// watching over all protocols the relay re-serves it on. A transport with no
+// watch form (WebRTC, whose playback needs WHEP) is excluded.
+func WatchNames() []string {
+	names := make([]string, 0, len(registry))
+	for name, t := range registry {
+		if _, ok := t.(Watcher); ok {
+			names = append(names, name)
+		}
 	}
 	slices.Sort(names)
 	return names

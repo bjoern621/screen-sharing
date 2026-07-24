@@ -35,7 +35,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if _, ok := GstSink(s); ok {
 		t.Error("GstSink must report false for webrtc")
 	}
-	if _, ok := WatchURL(s, "bob"); ok {
+	if _, ok := WatchURL("webrtc", s, "bob"); ok {
 		t.Error("WatchURL must report false for webrtc")
 	}
 	if _, ok := PublishArgs(s); !ok {

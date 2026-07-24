@@ -34,6 +34,11 @@ func (gstEngine) Command(s settings.Stream) (string, error) {
 	return gstExe + " " + strings.Join(pipeline, " "), nil
 }
 
+// Carries reports whether the transport can terminate a GStreamer pipeline.
+func (gstEngine) Carries(transportName string) bool {
+	return transport.CanGstPublish(transportName)
+}
+
 func (gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {
 	session, err := portal.Open(portal.Options{})
 	if err != nil {
@@ -223,6 +228,8 @@ func gstEncoder(s settings.Stream, gop int) (encoder []string, parser []string, 
 	switch s.Codec {
 	case "libx264":
 		return x264Encoder(s, kbps, cq, g), []string{"h264parse", "config-interval=-1"}, nil
+	case "libx265":
+		return x265Encoder(s, kbps, cq, g), []string{"h265parse", "config-interval=-1"}, nil
 	case "h264_nvenc":
 		return nvencEncoder("nvh264enc", s, kbps, maxkbps, cq, g), []string{"h264parse", "config-interval=-1"}, nil
 	case "hevc_nvenc":
@@ -268,6 +275,37 @@ func x264Encoder(s settings.Stream, kbps, cq, g string) []string {
 			enc = append(enc, "vbv-buf-capacity="+strconv.Itoa(s.VbvMs))
 		}
 		return enc
+	}
+}
+
+// x265Encoder maps the rate-control mode onto x265enc, the HEVC counterpart to
+// x264Encoder. x265enc has no pass property: rate control comes from the bitrate
+// and qp properties plus an option-string of libx265 knobs.
+//   - crf: qp holds a constant quantizer (s.Cq), x265's CQP mode, matching
+//     x264enc's quantizer property.
+//   - lossless: option-string lossless=1. Unlike x264, qp 0 is not bit-exact on
+//     x265, so the dedicated flag is required; zerolatency drops B-frames.
+//   - abr, vbr: bitrate alone is one-pass average bitrate. As on x264enc the vbr
+//     ceiling does not bind here, only on the ffmpeg and nvenc paths.
+//   - cbr: bitrate plus a vbv-maxrate=bitrate ceiling and a vbv-bufsize window,
+//     x265's constrained constant bitrate; zerolatency for low delay.
+func x265Encoder(s settings.Stream, kbps, cq, g string) []string {
+	switch s.Mode {
+	case "crf":
+		return []string{"x265enc", "qp=" + cq, "speed-preset=slow", "key-int-max=" + g}
+	case "lossless":
+		return []string{"x265enc", "option-string=lossless=1", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + g}
+	case "abr", "vbr":
+		return []string{"x265enc", "bitrate=" + kbps, "speed-preset=medium", "key-int-max=" + g}
+	default: // cbr
+		// vbv-bufsize is in kbit: the bitrate held over the VBV window, one
+		// second when unset, matching ffmpeg's bufsizeArg.
+		bufKbit := kbps
+		if s.VbvMs > 0 {
+			bufKbit = strconv.Itoa(s.BitrateM * s.VbvMs)
+		}
+		opts := "vbv-maxrate=" + kbps + ":vbv-bufsize=" + bufKbit
+		return []string{"x265enc", "bitrate=" + kbps, "option-string=" + opts, "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + g}
 	}
 }
 

@@ -175,33 +175,12 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 
 	switch {
 	case s.Codec == "libx264":
-		switch s.Mode {
-		case "crf":
-			return []string{"-c:v", "libx264", "-preset", "slow", "-crf", cq}, nil
-		case "lossless":
-			// x264 qp 0 is its bit-exact coding mode: no rate control, bursts to
-			// hundreds of Mbit/s. zerolatency keeps live delay by dropping the
-			// B-frames and lookahead lossless gains little from.
-			return []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-qp", "0"}, nil
-		case "abr":
-			// One-pass average bitrate, no VBV cap: quality holds and bitrate
-			// bursts freely toward the target average.
-			return []string{"-c:v", "libx264", "-preset", "medium", "-b:v", bitrate}, nil
-		case "vbr":
-			// Constrained VBR: targets the bitrate but bursts up to the maxrate
-			// ceiling on motion. bufsize sizes the ceiling's VBV window.
-			return []string{
-				"-c:v", "libx264", "-preset", "medium",
-				"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
-			}, nil
-		default: // cbr
-			// maxrate = bitrate with a bounded bufsize is true CBR; without them
-			// -b:v alone is one-pass ABR and bursts past a capped link.
-			return []string{
-				"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
-				"-b:v", bitrate, "-maxrate", bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
-			}, nil
-		}
+		// x264 reaches bit-exact at -qp 0.
+		return softwareArgs("libx264", []string{"-qp", "0"}, s, bitrate, maxrate, cq), nil
+
+	case s.Codec == "libx265":
+		// x265 has no bit-exact qp; lossless is its own param.
+		return softwareArgs("libx265", []string{"-x265-params", "lossless=1"}, s, bitrate, maxrate, cq), nil
 
 	case capabilities.IsNvenc(s.Codec):
 		preset := s.EncPreset
@@ -258,6 +237,40 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 		// and a format=nv12,hwupload filter chain, QSV its own device and load
 		// path, so none of them fit this bare -b:v fallback.
 		return []string{"-c:v", s.Codec, "-b:v", bitrate}, nil
+	}
+}
+
+// softwareArgs is the ffmpeg rate-control mapping shared by the CPU H.26x
+// encoders libx264 and libx265; the five modes match gstEncoder's software path.
+// Only the encoder name and the lossless knob differ between the two, so both
+// are parameters: x264 reaches bit-exact at -qp 0, x265 at -x265-params
+// lossless=1.
+func softwareArgs(codec string, lossless []string, s settings.Stream, bitrate, maxrate, cq string) []string {
+	switch s.Mode {
+	case "crf":
+		return []string{"-c:v", codec, "-preset", "slow", "-crf", cq}
+	case "lossless":
+		// No rate control, bursts to hundreds of Mbit/s. zerolatency keeps live
+		// delay by dropping the B-frames and lookahead lossless gains little from.
+		return append([]string{"-c:v", codec, "-preset", "veryfast", "-tune", "zerolatency"}, lossless...)
+	case "abr":
+		// One-pass average bitrate, no VBV cap: quality holds and bitrate bursts
+		// freely toward the target average.
+		return []string{"-c:v", codec, "-preset", "medium", "-b:v", bitrate}
+	case "vbr":
+		// Constrained VBR: targets the bitrate but bursts up to the maxrate
+		// ceiling on motion. bufsize sizes the ceiling's VBV window.
+		return []string{
+			"-c:v", codec, "-preset", "medium",
+			"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
+		}
+	default: // cbr
+		// maxrate = bitrate with a bounded bufsize is true CBR; without them
+		// -b:v alone is one-pass ABR and bursts past a capped link.
+		return []string{
+			"-c:v", codec, "-preset", "veryfast", "-tune", "zerolatency",
+			"-b:v", bitrate, "-maxrate", bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
+		}
 	}
 }
 

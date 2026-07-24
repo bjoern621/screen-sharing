@@ -41,7 +41,8 @@ type Codec struct {
 // Codecs is the capability table. Order is the UI display order: implemented
 // backends first, then the not-yet-implemented hardware families.
 //
-// Only NVENC and software x264 are wired into the encoder argument builders. The
+// Only NVENC and the software x264/x265 encoders are wired into the encoder
+// argument builders. The
 // non-NVIDIA hardware families (VAAPI for Intel/AMD, QSV for Intel, AMF for AMD,
 // V4L2 M2M and Rockchip MPP for ARM SoCs, cross-vendor Vulkan Video) are declared
 // with Implemented:false so the two-dropdown picker can show them as a roadmap
@@ -93,6 +94,18 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		Transports:  []string{"srt", "rtsp", "webrtc"},
+	},
+	{
+		// Same format facts as hevc_nvenc: HEVC codes RGB via the Range
+		// Extensions (gbrp), and no registered transport carries it over webrtc
+		// (ffmpeg's WHIP muxer is H.264 + Opus only).
+		Name:        "libx265",
+		Family:      "software",
+		Format:      "hevc",
+		Nvenc:       false,
+		Implemented: true,
+		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
+		Transports:  []string{"srt", "rtsp"},
 	},
 
 	// VAAPI (Intel + AMD). The single most useful addition for a non-NVIDIA
