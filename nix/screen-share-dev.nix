@@ -19,10 +19,14 @@
 # CRTCs with `modetest`):
 #
 #   ffmpeg-kmsgrab -hide_banner -device /dev/dri/card1 -f kmsgrab -framerate 60 -i - \
-#     -vf hwdownload,format=bgr0 -c:v libx264 -preset veryfast -tune zerolatency \
+#     -vf 'hwmap=derive_device=vaapi,hwdownload,format=bgr0' \
+#     -c:v libx264 -preset veryfast -tune zerolatency \
 #     -b:v 150M -pix_fmt yuv444p -color_range pc -g 120 \
 #     -f mpegts "srt://127.0.0.1:8890?streamid=publish:nixos&pkt_size=1316&latency=60000&sndbuf=150000000&ffs=150000000"
 #
+# The hwmap=derive_device=vaapi step is required: modern scanout framebuffers are GPU
+# tiled or compressed (a nonzero DRM format modifier), and a bare hwdownload fails to map
+# them with EINVAL. Mapping through VAAPI first understands the modifier.
 # The SRT URL is quoted because its unquoted ampersands would background the shell job.
 
 { config, lib, pkgs, ... }:
