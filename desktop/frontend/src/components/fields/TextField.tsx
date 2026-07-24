@@ -3,7 +3,7 @@ import FieldShell from "./FieldShell";
 
 interface TextFieldProps {
     label: string;
-    labelTip: string;
+    labelTip?: string;
     value: string;
     onChange: (value: string) => void;
 }

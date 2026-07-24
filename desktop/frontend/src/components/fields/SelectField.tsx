@@ -8,7 +8,7 @@ import FieldShell from "./FieldShell";
 
 interface SelectFieldProps {
     label: string;
-    labelTip: string;
+    labelTip?: string;
     value: string;
     options: Option[];
     /** Reason the whole control is ignored; disables and greys it out. */

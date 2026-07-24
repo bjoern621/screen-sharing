@@ -112,12 +112,42 @@ func captureArgs(s settings.Stream) ([]string, error) {
 		// (run the binary with the capability set or via sudo). hwdownload moves
 		// the captured frame off the GPU so a software or nvenc encoder can read it.
 		return []string{
-			"-device", "/dev/dri/card0", "-f", "kmsgrab", "-framerate", fps, "-i", "-",
+			"-device", drmCaptureDevice(), "-f", "kmsgrab", "-framerate", fps, "-i", "-",
 			"-vf", "hwdownload,format=bgr0",
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
+}
+
+// drmCaptureDevice returns the /dev/dri card node kmsgrab should capture from.
+// card0 is not a safe default: on machines with a discrete GPU the boot
+// framebuffer often holds card0 under the simple-framebuffer driver while the
+// real display controller lands on card1 or higher. The first card whose kernel
+// driver is not simple-framebuffer wins; /dev/dri/card0 is the fallback when the
+// sysfs probe finds nothing (no DRI nodes, or none with a readable driver).
+func drmCaptureDevice() string {
+	const fallback = "/dev/dri/card0"
+
+	// filepath.Glob returns matches in lexical order, so the lowest-numbered
+	// real GPU is selected.
+	cards, err := filepath.Glob("/dev/dri/card[0-9]*")
+	if err != nil {
+		return fallback
+	}
+	for _, dev := range cards {
+		// The device/driver symlink resolves to the bound kernel module; its
+		// base name is the driver, e.g. i915, amdgpu, nvidia, simple-framebuffer.
+		driver, err := os.Readlink(filepath.Join("/sys/class/drm", filepath.Base(dev), "device", "driver"))
+		if err != nil {
+			continue // no driver bound (or not a real DRM card): skip it
+		}
+		if filepath.Base(driver) == "simple-framebuffer" {
+			continue
+		}
+		return dev
+	}
+	return fallback
 }
 
 // encoderArgs returns the encoder arguments for the configured codec and mode.

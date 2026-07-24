@@ -1,4 +1,7 @@
 build/bin
+# vendored Windows ffmpeg/ffplay payload, copied into build/bin by the wails
+# postBuildHook; large and separately licensed, so not committed
+build/windows/redist/*.exe
 node_modules
 frontend/dist
 frontend/tsconfig.tsbuildinfo

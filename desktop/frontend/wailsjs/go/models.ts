@@ -28,6 +28,7 @@ export namespace display {
 	    width: number;
 	    height: number;
 	    primary: boolean;
+	    refreshHz: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new Monitor(source);
@@ -39,6 +40,7 @@ export namespace display {
 	        this.width = source["width"];
 	        this.height = source["height"];
 	        this.primary = source["primary"];
+	        this.refreshHz = source["refreshHz"];
 	    }
 	}
 

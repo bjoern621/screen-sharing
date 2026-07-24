@@ -69,6 +69,50 @@ export function labelFor(options: Option[], value: string): string {
     return options.find(o => o.value === value)?.label ?? value;
 }
 
+/** Common capture/encode frame rates offered as dropdown prefills. */
+const FPS_PRESETS = [24, 30, 48, 60, 90, 120, 144, 165, 240];
+
+/**
+ * Builds one option per preset frame rate. Always includes the saved value so a
+ * custom rate outside the preset ladder stays selected and visible.
+ */
+export function fpsOptions(current: number): Option[] {
+    const values = FPS_PRESETS.includes(current)
+        ? FPS_PRESETS
+        : [...FPS_PRESETS, current].sort((a, b) => a - b);
+    return values.map(fps => ({
+        value: String(fps),
+        label: `${fps} fps`,
+    }));
+}
+
+/**
+ * Reasons for frame rates the selected monitor cannot display, keyed by fps.
+ * Capturing above the monitor's refresh rate yields duplicate frames, so those
+ * rates are shown but disabled. maxHz of 0 (unknown refresh, or no monitor)
+ * disables nothing. The saved value is never disabled so it stays selectable.
+ */
+export function fpsDisabled(current: number, maxHz: number): Record<string, string> {
+    const reasons: Record<string, string> = {};
+    if (maxHz > 0) {
+        for (const fps of FPS_PRESETS) {
+            if (fps > maxHz && fps !== current) {
+                reasons[String(fps)] = `Above the monitor's ${maxHz} Hz refresh rate.`;
+            }
+        }
+    }
+    return reasons;
+}
+
+/**
+ * Clamps a frame rate to what a monitor can display. Returns fps unchanged when
+ * the refresh rate is unknown (maxHz 0) or already high enough; otherwise the
+ * monitor's refresh rate, the fastest rate it can actually show.
+ */
+export function clampFps(fps: number, maxHz: number): number {
+    return maxHz > 0 && fps > maxHz ? maxHz : fps;
+}
+
 /**
  * Builds one option per detected monitor, labeling each with its resolution and
  * primary flag. Always includes the saved index so a stale selection stays
@@ -76,7 +120,10 @@ export function labelFor(options: Option[], value: string): string {
  */
 export function monitorOptions(monitors: Monitor[], current: number): Option[] {
     const options = monitors.map(m => {
-        const res = m.width && m.height ? ` (${m.width}×${m.height})` : "";
+        const dims = m.width && m.height ? `${m.width}×${m.height}` : "";
+        const hz = m.refreshHz ? `${m.refreshHz} Hz` : "";
+        const spec = [dims, hz].filter(Boolean).join(", ");
+        const res = spec ? ` (${spec})` : "";
         const primary = m.primary ? ", primary" : "";
         return {
             value: String(m.index),

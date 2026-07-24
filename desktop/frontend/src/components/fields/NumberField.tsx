@@ -3,7 +3,7 @@ import FieldShell from "./FieldShell";
 
 interface NumberFieldProps {
     label: string;
-    labelTip: string;
+    labelTip?: string;
     value: number;
     disabledReason?: string;
     onChange: (value: number) => void;

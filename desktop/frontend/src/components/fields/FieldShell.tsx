@@ -4,15 +4,16 @@ import Tip from "../Tip/Tip";
 
 interface FieldShellProps {
     label: string;
-    labelTip: string;
+    /** Omit for a self-explanatory field that needs no tooltip. */
+    labelTip?: string;
     disabledReason?: string;
     children: ReactNode;
 }
 
 /**
- * Shared label + tooltip wrapper for every settings field. When the control is
- * ignored for the current settings, the tooltip explains why instead of what
- * the field does.
+ * Shared label wrapper for every settings field. A field with a labelTip (or a
+ * disabledReason) carries a tooltip; one without renders the bare label. When
+ * the control is ignored, the tooltip explains why instead of what it does.
  */
 export default function FieldShell({
     label,
@@ -20,12 +21,17 @@ export default function FieldShell({
     disabledReason,
     children,
 }: FieldShellProps) {
+    const tip = disabledReason ? `Ignored: ${disabledReason}` : labelTip;
     return (
         <div className="flex flex-col gap-1">
             <Label className="text-xs text-muted-foreground">
-                <Tip text={disabledReason ? `Ignored: ${disabledReason}` : labelTip}>
+                {tip ? (
+                    <Tip text={tip}>
+                        <span>{label}</span>
+                    </Tip>
+                ) : (
                     <span>{label}</span>
-                </Tip>
+                )}
             </Label>
             {children}
         </div>

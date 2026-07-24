@@ -10,7 +10,7 @@ import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
 import {
     CAPTURES, CHROMAS, CODECS, ENC_PRESETS, MODES, RANGES,
-    TRANSPORT_META, monitorOptions,
+    TRANSPORT_META, clampFps, fpsDisabled, fpsOptions, monitorOptions,
 } from "../../util/options";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
@@ -157,13 +157,19 @@ export default function StreamSettingsCard({
                         value={String(s.monitor)}
                         options={monitorOptions(monitors, s.monitor)}
                         disabledReason={deps.disabled.monitor}
-                        onChange={v => onUpdate({ monitor: parseInt(v, 10) || 0 })}
+                        onChange={v => {
+                            const index = parseInt(v, 10) || 0;
+                            const hz = monitors.find(m => m.index === index)?.refreshHz ?? 0;
+                            onUpdate({ monitor: index, fps: clampFps(s.fps, hz) });
+                        }}
                     />
-                    <NumberField
+                    <SelectField
                         label="Frame rate (fps)"
-                        labelTip="Capture and encode frame rate. Higher = smoother motion, proportionally more encode load and bandwidth."
-                        value={s.fps}
-                        onChange={v => onUpdate({ fps: v })}
+                        labelTip="Capture and encode frame rate. Higher = smoother motion, proportionally more encode load and bandwidth. Rates above the monitor's refresh rate only duplicate frames."
+                        value={String(s.fps)}
+                        options={fpsOptions(s.fps)}
+                        optionDisabled={fpsDisabled(s.fps, selectedMonitor?.refreshHz ?? 0)}
+                        onChange={v => onUpdate({ fps: parseInt(v, 10) || 0 })}
                     />
                 </Section>
 

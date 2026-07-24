@@ -30,11 +30,11 @@ export interface Stats {
     avgMbps: number;
 }
 
-/** A selectable option with an explanatory tooltip and optional reference link. */
+/** A selectable option with an optional explanatory tooltip and reference link. */
 export interface Option {
     value: string;
     label: string;
-    tip: string;
+    tip?: string;
     link?: string;
 }
 

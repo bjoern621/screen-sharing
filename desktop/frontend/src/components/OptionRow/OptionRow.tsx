@@ -11,10 +11,11 @@ interface OptionRowProps {
 
 /**
  * Renders one select option: label plus an optional reference-article icon.
- * The tooltip anchors to a virtual rect that borrows its horizontal extent from
- * the whole dropdown popup and its vertical extent from this row, so it sits to
- * the left of the entire box while staying level with the option text. Base UI
- * flips right, then above, when the left edge lacks room.
+ * A row with a tip (or a disabled reason) carries a tooltip; one without renders
+ * just the label. The tooltip anchors to a virtual rect that borrows its
+ * horizontal extent from the whole dropdown popup and its vertical extent from
+ * this row, so it sits to the left of the entire box while staying level with
+ * the option text. Base UI flips right, then above, when the left edge lacks room.
  */
 export default function OptionRow({ option, disabledReason }: OptionRowProps) {
     const popup = useSelectPopup();
@@ -30,16 +31,28 @@ export default function OptionRow({ option, disabledReason }: OptionRowProps) {
         }),
         [popup],
     );
+
+    const tip = disabledReason ? `Unavailable: ${disabledReason}` : option.tip;
+    const content = (
+        <>
+            <span>{option.label}</span>
+            {option.link && <InfoIcon url={option.link} />}
+        </>
+    );
+
+    if (!tip) {
+        return <span className="flex w-full items-center gap-2">{content}</span>;
+    }
+
     return (
         <Tip
-            text={disabledReason ? `Unavailable: ${disabledReason}` : option.tip}
+            text={tip}
             side="left"
             anchor={anchor}
             triggerRef={rowRef}
             className="flex w-full items-center gap-2"
         >
-            <span>{option.label}</span>
-            {option.link && <InfoIcon url={option.link} />}
+            {content}
         </Tip>
     );
 }

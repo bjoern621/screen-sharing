@@ -29,3 +29,12 @@ tasks:
     dir: desktop
     cmds:
       - wails build -tags webkit2_41
+
+  build:windows:
+    desc: Cross-build the Windows binary and bundle ffmpeg/ffplay into desktop/build/bin
+    dir: desktop
+    # No webkit2_41 tag: Windows uses WebView2, not webkitgtk. The postBuildHook
+    # in wails.json copies build/windows/redist/{ffmpeg,ffplay}.exe next to the
+    # binary, so drop those two executables there first (see that directory's README).
+    cmds:
+      - wails build -platform windows/amd64
