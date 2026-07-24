@@ -20,7 +20,6 @@
           gtk3
           webkitgtk_4_1 # Wails v2 Linux backend (build with tag webkit2_41)
           pkg-config
-          xdotool # viewer-ready detection on X11/XWayland (ffmpeg pkg WindowExists)
           xorg.xrandr # X11 monitor enumeration (display pkg listX11)
         ];
         # Linux capture path: the kmsgrab pipeline plus the unprivileged Wayland
