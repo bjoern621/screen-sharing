@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	goruntime "runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -12,28 +10,8 @@ import (
 
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
-	"bjoernblessin.de/screenshare/settings"
+	"bjoernblessin.de/screenshare/watch"
 )
-
-// watchCommand selects the viewer for streamName: its executable name, argument
-// list, and environment overrides. It reads SCREENSHARE_VIEWER, defaulting to
-// ffplay; the value "mpv" switches to mpv.
-//
-// The ffplay path pins SDL to the X11 (XWayland) backend on Linux, whose window
-// the compositor renders reliably where the SDL Wayland backend may not. mpv
-// needs no such override: its native Wayland output already shows a window.
-func watchCommand(s settings.Stream, streamName string) (exe string, args, env []string, err error) {
-	if os.Getenv("SCREENSHARE_VIEWER") == "mpv" {
-		args, err = ffmpeg.BuildWatchArgsMpv(s, streamName)
-		return "mpv", args, nil, err
-	}
-
-	args, err = ffmpeg.BuildWatchArgs(s, streamName)
-	if goruntime.GOOS == "linux" {
-		env = []string{"SDL_VIDEODRIVER=x11"}
-	}
-	return "ffplay", args, env, err
-}
 
 // Live returns the relay snapshot. The frontend polls this every 2 seconds;
 // per-path bitrates are only meaningful with such a steady poll interval.
@@ -61,15 +39,19 @@ func (a *App) Watching() []string {
 	return names
 }
 
-// StartWatch opens a viewer window for streamName. The player is ffplay by
-// default; SCREENSHARE_VIEWER=mpv selects mpv instead, for comparing the two on
-// a given machine without a rebuild.
+// StartWatch opens a viewer window for streamName. The watch package selects
+// the viewer engine for the configured transport (ffplay by default,
+// SCREENSHARE_VIEWER=mpv switches to mpv).
 func (a *App) StartWatch(streamName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	exeName, args, env, err := watchCommand(s, streamName)
+	engine, err := watch.Select(s)
+	if err != nil {
+		return err
+	}
+	args, env, err := engine.Command(s, streamName)
 	if err != nil {
 		return err
 	}
@@ -82,7 +64,7 @@ func (a *App) StartWatch(streamName string) error {
 		return fmt.Errorf("already watching %s", streamName)
 	}
 
-	exe, err := ffmpeg.FindExe(exeName)
+	exe, err := ffmpeg.FindExe(engine.Exe())
 	if err != nil {
 		return err
 	}

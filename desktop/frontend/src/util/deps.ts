@@ -72,6 +72,23 @@ function codecUsable(codec: string, encoders: EncoderInfo | null): boolean {
     return encoders.usable[codec];
 }
 
+/**
+ * Audio sources the given platform cannot capture, each mapped to the reason.
+ * Desktop audio comes from the PulseAudio/PipeWire monitor source; ffmpeg has
+ * no WASAPI loopback, so Windows has no equivalent.
+ */
+function unavailableAudio(
+    platform: PlatformInfo | null
+): Record<string, string> {
+    if (platform?.os === "windows") {
+        return {
+            desktop:
+                "desktop audio capture needs PulseAudio/PipeWire (Linux) - ffmpeg has no WASAPI loopback on Windows",
+        };
+    }
+    return {};
+}
+
 /** The capture API to fall back to when the current one is unavailable here. */
 function preferredCapture(platform: PlatformInfo | null): string {
     if (platform?.os === "linux") {
@@ -137,6 +154,7 @@ export function evaluateDeps(
             chroma: {},
             mode: {},
             capture: unavailableCaptures(platform),
+            audio: unavailableAudio(platform),
         },
     };
 
@@ -245,6 +263,12 @@ export function normalize(
 
     if (unavailableCaptures(platform)[next.capture]) {
         next.capture = preferredCapture(platform);
+    }
+
+    // Audio: settings and presets from before the option lack the key, and
+    // desktop capture has no Windows path.
+    if (!next.audio || unavailableAudio(platform)[next.audio]) {
+        next.audio = "none";
     }
 
     // The portal backend runs the bitrate-only GStreamer pipeline, so a mode it

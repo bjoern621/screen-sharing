@@ -1,7 +1,7 @@
 # screen-sharing
 
 Self-hosted, high-quality group screen sharing for trusted friends.
-Relay = **MediaMTX**. Transport = **SRT**. Capture/encode/decode = **ffmpeg**.
+Relay = **MediaMTX**. Transports = **SRT**, **RTSP**, **WebRTC/WHIP** (publish only). Capture/encode/decode = **ffmpeg**.
 
 No accounts. No remote control. Everyone publishes and watches at once.
 Full color (4:4:4 + full range) - no WebRTC washout.

@@ -50,8 +50,19 @@ No engine is privileged in the base contract; an engine asks for its own seriali
 The serializations are not interchangeable: ffmpeg's SRT protocol takes a query-string URL with latency in microseconds, while GStreamer's `srtsink` uses libsrt properties with latency in milliseconds.
 A transport carrying several engines implements several capabilities; keeping each dialect on the transport is what stops one engine's serialization from leaking into another.
 
+The **watch** package mirrors this seam from the viewer side.
+`watch.Select` picks the viewer engine for the configured transport (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each engine builds its own command line from the transport's `Watcher` URL.
+A transport without a URL watch form (WebRTC, whose playback protocol is WHEP) is unwatchable until an engine keyed on a capability of its own exists; adding one touches only the watch package.
+
 The **capabilities** package holds the codec facts both engines and the UI share.
 Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg encoder flags, `publish/gstreamer.go` to GStreamer elements.
+
+## Audio
+
+The audio setting adds a second track to the same mux; nothing changes on the viewer side, players pick the second track out of the stream on their own (an MPEG-TS elementary stream over SRT, an RTP track of its own over RTSP).
+Both engines capture the monitor of the default sink through the PulseAudio protocol (which PipeWire also serves) and encode it as Opus: `ffmpeg/args.go` adds a `-f pulse` input and `-c:a libopus`, `publish/gstreamer.go` adds a `pulsesrc ! opusenc` branch into the muxer.
+The branch attaches by element name, which is why `GstPublisher` sinks name their muxer `transport.GstMuxName`.
+Desktop audio exists only on Linux: ffmpeg has no WASAPI loopback, so the Windows grabbers reject the option and the UI greys it there.
 
 ## Interfaces
 

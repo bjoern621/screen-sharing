@@ -20,7 +20,7 @@
           gtk3
           webkitgtk_4_1 # Wails v2 Linux backend (build with tag webkit2_41)
           pkg-config
-          xorg.xrandr # X11 monitor enumeration (display pkg listX11)
+          xrandr # X11 monitor enumeration (display pkg listX11)
         ];
         # Linux capture path: the kmsgrab pipeline plus the unprivileged Wayland
         # alternatives, and the tools to inspect either. kmsgrab still needs
@@ -46,6 +46,7 @@
             gst-plugins-good
             gst-plugins-bad # mpegtsmux, srtsink, h264parse/h265parse, nvcodec
             gst-plugins-ugly # x264enc
+            gst-rtsp-server # rtspclientsink
           ]
           ++ [ pkgs.pipewire ]; # pipewiresrc gst plugin
       in

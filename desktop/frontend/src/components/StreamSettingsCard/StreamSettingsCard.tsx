@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
 import {
-    CAPTURES, CHROMAS, CODECS, DRM_MAPS, ENC_PRESETS, MODES, RANGES,
-    TRANSPORT_META, clampFps, fpsDisabled, fpsOptions, monitorOptions,
+    AUDIO_SOURCES, CAPTURES, CHROMAS, CODECS, DRM_MAPS, ENC_PRESETS, MODES,
+    RANGES, TRANSPORT_META, clampFps, fpsDisabled, fpsOptions, monitorOptions,
 } from "../../util/options";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
@@ -147,12 +147,33 @@ export default function StreamSettingsCard({
                         value={s.relayHost}
                         onChange={v => onUpdate({ relayHost: v })}
                     />
-                    <NumberField
-                        label="Relay port (SRT, UDP)"
-                        labelTip="UDP port of the relay's SRT listener (default 8890)."
-                        value={s.relayPort}
-                        onChange={v => onUpdate({ relayPort: v })}
-                    />
+                    {/* Each transport exposes only its own relay listener port:
+                     * a backend implementation knob is hidden while its
+                     * transport is not selected (docs/field-availability.md). */}
+                    {s.transport === "srt" && (
+                        <NumberField
+                            label="Relay port (SRT, UDP)"
+                            labelTip="UDP port of the relay's SRT listener (default 8890)."
+                            value={s.relayPort}
+                            onChange={v => onUpdate({ relayPort: v })}
+                        />
+                    )}
+                    {s.transport === "rtsp" && (
+                        <NumberField
+                            label="Relay port (RTSP, TCP)"
+                            labelTip="TCP port of the relay's RTSP listener (default 8554)."
+                            value={s.rtspPort}
+                            onChange={v => onUpdate({ rtspPort: v })}
+                        />
+                    )}
+                    {s.transport === "webrtc" && (
+                        <NumberField
+                            label="Relay port (WebRTC, HTTP)"
+                            labelTip="TCP port of the relay's WebRTC/WHIP listener (default 8889)."
+                            value={s.webrtcPort}
+                            onChange={v => onUpdate({ webrtcPort: v })}
+                        />
+                    )}
                     <NumberField
                         label="Relay API port (HTTP)"
                         labelTip="TCP port of the relay's HTTP API (default 9997), used for the Live-now list."
@@ -201,6 +222,14 @@ export default function StreamSettingsCard({
                         options={fpsOptions(s.fps)}
                         optionDisabled={fpsDisabled(s.fps, selectedMonitor?.refreshHz ?? 0)}
                         onChange={v => onUpdate({ fps: parseInt(v, 10) || 0 })}
+                    />
+                    <SelectField
+                        label="Audio"
+                        labelTip="Audio source muxed into the stream as a second track. Viewers hear it automatically."
+                        value={s.audio}
+                        options={AUDIO_SOURCES}
+                        optionDisabled={deps.optionDisabled.audio}
+                        onChange={v => onUpdate({ audio: v })}
                     />
                 </Section>
 
@@ -297,12 +326,14 @@ export default function StreamSettingsCard({
                         options={transportOptions}
                         onChange={v => onUpdate({ transport: v })}
                     />
-                    <NumberField
-                        label="SRT publish latency (ms, hop 1)"
-                        labelTip="SRT retransmit window for YOUR hop (publisher to relay). Total glass-to-glass ≈ hop 1 + hop 2 + encode/decode - the windows ADD UP."
-                        value={s.srtPublishLatencyMs}
-                        onChange={v => onUpdate({ srtPublishLatencyMs: v })}
-                    />
+                    {s.transport === "srt" && (
+                        <NumberField
+                            label="SRT publish latency (ms, hop 1)"
+                            labelTip="SRT retransmit window for YOUR hop (publisher to relay). Total glass-to-glass ≈ hop 1 + hop 2 + encode/decode - the windows ADD UP."
+                            value={s.srtPublishLatencyMs}
+                            onChange={v => onUpdate({ srtPublishLatencyMs: v })}
+                        />
+                    )}
                     <UplinkField
                         value={s.uplinkMbps}
                         measuring={uplink.measuring}

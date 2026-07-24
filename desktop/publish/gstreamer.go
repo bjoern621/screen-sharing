@@ -130,12 +130,54 @@ func buildPipeline(s settings.Stream, fd, node string) ([]string, error) {
 		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
 		"!",
 	}
+	audio, err := gstAudioBranch(s)
+	if err != nil {
+		return nil, err
+	}
+
 	pipeline = append(pipeline, encoder...)
 	pipeline = append(pipeline, "!")
 	pipeline = append(pipeline, parser...)
 	pipeline = append(pipeline, "!")
+	if len(audio) > 0 {
+		// With audio the muxer waits on two pads; the queue keeps one pad's
+		// stall from blocking the other branch upstream of the mux.
+		pipeline = append(pipeline, "queue", "!")
+	}
 	pipeline = append(pipeline, sink...)
+	pipeline = append(pipeline, audio...)
 	return pipeline, nil
+}
+
+// gstAudioBranch returns the elements that capture desktop audio and attach it
+// to the muxer as a second track, or nil when audio is off.
+//
+// pulsesrc records @DEFAULT_MONITOR@, the libpulse magic name for the monitor
+// of the default sink: the mixed desktop audio. PipeWire's pulse server
+// implements the same name. An attached record stream keeps the monitor source
+// running, so silence flows even while nothing plays and the muxer's audio pad
+// never starves. Opus because mpegtsmux carries it and MediaMTX, ffplay, mpv
+// and browsers all decode it; opusparse puts the caps mpegtsmux expects on the
+// stream. The capsfilter sits after audioresample because opusenc takes only
+// 48 kHz, whatever rate the monitor runs at.
+func gstAudioBranch(s settings.Stream) ([]string, error) {
+	switch s.Audio {
+	case "", "none":
+		return nil, nil
+	case "desktop":
+		return []string{
+			"pulsesrc", "device=@DEFAULT_MONITOR@",
+			"!", "queue",
+			"!", "audioconvert",
+			"!", "audioresample",
+			"!", "audio/x-raw,rate=48000,channels=2",
+			"!", "opusenc", "bitrate=128000",
+			"!", "opusparse",
+			"!", transport.GstMuxName + ".",
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown audio source %q", s.Audio)
+	}
 }
 
 // gstChromaFormat maps a settings chroma (the ffmpeg pixel-format name) to the

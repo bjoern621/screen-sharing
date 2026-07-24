@@ -21,6 +21,8 @@ interface LiveNowCardProps {
     connecting: Set<string>;
     error: string;
     logPath: string;
+    /** The viewer's configured transport; the SRT latency knob only exists for srt. */
+    transport: string;
     watchLatencyMs: number;
     onToggleWatch: (name: string, isWatching: boolean) => void;
     onUpdateWatchLatency: (value: number) => void;
@@ -36,6 +38,7 @@ export default function LiveNowCard({
     connecting,
     error,
     logPath,
+    transport,
     watchLatencyMs,
     onToggleWatch,
     onUpdateWatchLatency,
@@ -142,14 +145,16 @@ export default function LiveNowCard({
                     <IconDownload size={14} /> download (sum of watched):{" "}
                     {downloadSum.toFixed(1)} Mbit/s
                 </div>
-                <div className="max-w-[230px]">
-                    <NumberField
-                        label="SRT watch latency (ms, hop 2)"
-                        labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch; takes effect on the next Watch."
-                        value={watchLatencyMs}
-                        onChange={onUpdateWatchLatency}
-                    />
-                </div>
+                {transport === "srt" && (
+                    <div className="max-w-[230px]">
+                        <NumberField
+                            label="SRT watch latency (ms, hop 2)"
+                            labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch; takes effect on the next Watch."
+                            value={watchLatencyMs}
+                            onChange={onUpdateWatchLatency}
+                        />
+                    </div>
+                )}
                 {error && (
                     <ErrorLog
                         message={error}

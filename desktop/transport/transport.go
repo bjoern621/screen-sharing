@@ -14,6 +14,8 @@
 package transport
 
 import (
+	"slices"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/settings"
@@ -32,8 +34,12 @@ type FFmpegPublisher interface {
 	PublishArgs(s settings.Stream) []string
 }
 
+// GstMuxName is the element name every GstPublisher gives its muxer, so a
+// publish pipeline can attach further branches (an audio track) with "mux.".
+const GstMuxName = "mux"
+
 // GstPublisher is a transport that serializes to the muxer and sink elements
-// terminating a GStreamer pipeline.
+// terminating a GStreamer pipeline. The muxer element carries name=GstMuxName.
 type GstPublisher interface {
 	GstSink(s settings.Stream) []string
 }
@@ -103,11 +109,13 @@ func WatchURL(s settings.Stream, streamName string) (string, bool) {
 	return w.WatchURL(s, streamName), true
 }
 
-// Names lists all registered transports for the UI dropdown.
+// Names lists all registered transports for the UI dropdown. The registry is a
+// map, so the list is sorted for a stable dropdown order.
 func Names() []string {
 	names := make([]string, 0, len(registry))
 	for name := range registry {
 		names = append(names, name)
 	}
+	slices.Sort(names)
 	return names
 }

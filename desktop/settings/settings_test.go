@@ -58,6 +58,20 @@ func TestLoadMigratesZeroLatency(t *testing.T) {
 	}
 }
 
+func TestLoadMigratesMissingAudio(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Audio = "" // a pre-audio settings file lacks the key
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := Load(); got.Audio != "none" {
+		t.Errorf("audio = %q, want migrated to \"none\"", got.Audio)
+	}
+}
+
 func TestLoadCorruptFileReturnsDefaults(t *testing.T) {
 	isolateConfig(t)
 

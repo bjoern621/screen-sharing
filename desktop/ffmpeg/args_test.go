@@ -135,6 +135,49 @@ func TestEncoderArgs(t *testing.T) {
 	}
 }
 
+func TestBuildPublishArgsAudio(t *testing.T) {
+	// Desktop audio on a Linux backend: pulse monitor input plus Opus encode.
+	s := baseStream()
+	s.Audio = "desktop"
+	args, err := BuildPublishArgs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The first -i is the video capture input, so check membership instead.
+	if !slices.Contains(args, "pulse") || !slices.Contains(args, pulseMonitorDevice) {
+		t.Errorf("missing pulse monitor input, got %v", args)
+	}
+	if got := flagValue(args, "-c:a"); got != "libopus" {
+		t.Errorf("-c:a = %q, want libopus", got)
+	}
+
+	// Audio off (or a pre-audio settings file): no audio args at all.
+	for _, audio := range []string{"none", ""} {
+		s.Audio = audio
+		args, err = BuildPublishArgs(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if slices.Contains(args, "pulse") || slices.Contains(args, "-c:a") {
+			t.Errorf("audio %q must not emit audio args, got %v", audio, args)
+		}
+	}
+
+	// Windows capture backends have no desktop audio path.
+	s = baseStream()
+	s.Capture = "gdigrab"
+	s.Audio = "desktop"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for desktop audio with a Windows capture backend")
+	}
+
+	s.Capture = "x11grab"
+	s.Audio = "microphone"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for an unknown audio source")
+	}
+}
+
 func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	// libx264 cannot encode gbrp: the capability check must reject it.
 	s := baseStream()
@@ -150,31 +193,5 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s.Chroma = "yuv420p"
 	if _, err := BuildPublishArgs(s); err == nil {
 		t.Fatal("expected error for av1_nvenc over srt")
-	}
-}
-
-func TestBuildWatchArgs(t *testing.T) {
-	s := baseStream()
-	args, err := BuildWatchArgs(s, "bob")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := flagValue(args, "-window_title"); got != WatchWindowTitle("bob") {
-		t.Errorf("-window_title = %q, want %q", got, WatchWindowTitle("bob"))
-	}
-	// The stream URL is the final argument.
-	if url := args[len(args)-1]; !strings.HasPrefix(url, "srt://") {
-		t.Errorf("watch URL = %q, want srt:// prefix", url)
-	}
-
-	s.Transport = "carrier-pigeon"
-	if _, err := BuildWatchArgs(s, "bob"); err == nil {
-		t.Fatal("expected error for unknown transport")
-	}
-}
-
-func TestWatchWindowTitle(t *testing.T) {
-	if got := WatchWindowTitle("bob"); got != "watch: bob" {
-		t.Errorf("WatchWindowTitle = %q, want \"watch: bob\"", got)
 	}
 }

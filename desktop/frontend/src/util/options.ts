@@ -1,5 +1,5 @@
 import { Monitor, Option } from "../types/stream";
-import { CHROMA_META, CODEC_META, MODE_META, metaOptions } from "./domain";
+import { AUDIO_META, CHROMA_META, CODEC_META, MODE_META, metaOptions } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 
@@ -8,6 +8,7 @@ const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 export const CODECS: Option[] = metaOptions(CODEC_META);
 export const MODES: Option[] = metaOptions(MODE_META);
 export const CHROMAS: Option[] = metaOptions(CHROMA_META);
+export const AUDIO_SOURCES: Option[] = metaOptions(AUDIO_META);
 
 export const RANGES: Option[] = [
     {
@@ -91,6 +92,16 @@ export const TRANSPORT_META: Record<string, Option> = {
         value: "srt", label: "srt - Secure Reliable Transport",
         link: "https://en.wikipedia.org/wiki/Secure_Reliable_Transport",
         tip: "Secure Reliable Transport: UDP with selective retransmission (ARQ) and a configurable receive-window latency.",
+    },
+    rtsp: {
+        value: "rtsp", label: "rtsp - Real-Time Streaming Protocol",
+        link: "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol",
+        tip: "RTSP session carrying each track as TCP-interleaved RTP. TCP handles loss, so there is no retransmit window to tune; delay rises with a lossy link instead.",
+    },
+    webrtc: {
+        value: "webrtc", label: "webrtc - WHIP ingest",
+        link: "https://en.wikipedia.org/wiki/WebRTC",
+        tip: "WebRTC publish via WHIP: HTTP signaling, then SRTP to the relay. Carries H.264 + Opus only. The app has no WebRTC viewer yet - watch through the relay's web page.",
     },
 };
 

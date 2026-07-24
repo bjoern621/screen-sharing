@@ -152,6 +152,8 @@ export namespace settings {
 	    relayHost: string;
 	    relayPort: number;
 	    apiPort: number;
+	    rtspPort: number;
+	    webrtcPort: number;
 	    transport: string;
 	    codec: string;
 	    mode: string;
@@ -164,6 +166,7 @@ export namespace settings {
 	    bframes: number;
 	    encPreset: string;
 	    capture: string;
+	    audio: string;
 	    drmMap: string;
 	    monitor: number;
 	    srtPublishLatencyMs: number;
@@ -180,6 +183,8 @@ export namespace settings {
 	        this.relayHost = source["relayHost"];
 	        this.relayPort = source["relayPort"];
 	        this.apiPort = source["apiPort"];
+	        this.rtspPort = source["rtspPort"];
+	        this.webrtcPort = source["webrtcPort"];
 	        this.transport = source["transport"];
 	        this.codec = source["codec"];
 	        this.mode = source["mode"];
@@ -192,6 +197,7 @@ export namespace settings {
 	        this.bframes = source["bframes"];
 	        this.encPreset = source["encPreset"];
 	        this.capture = source["capture"];
+	        this.audio = source["audio"];
 	        this.drmMap = source["drmMap"];
 	        this.monitor = source["monitor"];
 	        this.srtPublishLatencyMs = source["srtPublishLatencyMs"];

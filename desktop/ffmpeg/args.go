@@ -1,12 +1,11 @@
-// Package ffmpeg builds the ffmpeg/ffplay command lines and supervises the
-// child processes that publish a captured screen to the relay and play a
-// stream back.
+// Package ffmpeg builds the ffmpeg publish command line, locates the media
+// executables, and supervises the child processes.
 //
-// The argument builders mirror the prototype scripts in scripts/publish.ps1 and
-// scripts/watch.ps1; the values there were tuned against a real relay and are
-// the reference for what these functions must produce. The destination URL and
-// muxer come from the transport registry, so the encoder args stay independent
-// of how bytes leave the machine.
+// The argument builder mirrors the prototype script in scripts/publish.ps1;
+// the values there were tuned against a real relay and are the reference for
+// what it must produce. The destination URL and muxer come from the transport
+// registry, so the encoder args stay independent of how bytes leave the
+// machine. The viewer command lines live in the watch package.
 package ffmpeg
 
 import (
@@ -42,6 +41,11 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, err
 	}
 
+	audioIn, err := audioInputArgs(s)
+	if err != nil {
+		return nil, err
+	}
+
 	enc, err := encoderArgs(s)
 	if err != nil {
 		return nil, err
@@ -54,6 +58,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 
 	args := []string{"-hide_banner"}
 	args = append(args, capture...)
+	args = append(args, audioIn...)
 	args = append(args, enc...)
 	args = append(args, "-pix_fmt", s.Chroma)
 	// color_range only applies to YUV formats; gbrp is inherently full range.
@@ -61,6 +66,9 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		args = append(args, "-color_range", s.ColorRange)
 	}
 	args = append(args, "-g", strconv.Itoa(gop))
+	if len(audioIn) > 0 {
+		args = append(args, audioEncodeArgs()...)
+	}
 
 	pub, ok := transport.PublishArgs(s)
 	if !ok {
@@ -69,54 +77,6 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	args = append(args, pub...)
 
 	return args, nil
-}
-
-// BuildWatchArgs returns the ffplay arguments (without the executable) that open
-// streamName from the relay in a low-latency viewer window.
-//
-// -nostats drops ffplay's per-frame status line, whose blocking write to a
-// console would otherwise stall the decode loop and expire SRT packets. The
-// remaining -loglevel info reaches the run log through a drained pipe, never a
-// console, so it cannot stall the decoder. It records the negotiated input
-// format and any decode or filtergraph error, which is what a viewer that stays
-// on "connecting" leaves behind.
-func BuildWatchArgs(s settings.Stream, streamName string) ([]string, error) {
-	url, ok := transport.WatchURL(s, streamName)
-	if !ok {
-		return nil, fmt.Errorf("transport %q has no watch form", s.Transport)
-	}
-
-	return []string{
-		"-hide_banner", "-loglevel", "info", "-nostats",
-		"-fflags", "nobuffer", "-flags", "low_delay", "-framedrop",
-		"-window_title", WatchWindowTitle(streamName),
-		url,
-	}, nil
-}
-
-// BuildWatchArgsMpv returns the mpv arguments (without the executable) that open
-// streamName from the relay in a low-latency viewer window. It is the mpv
-// counterpart to BuildWatchArgs, selected by SCREENSHARE_VIEWER=mpv; mpv renders
-// 4:4:4 and a native Wayland window that ffplay's SDL path does not.
-//
-// --profile=low-latency drops buffering and display sync. --no-config isolates
-// the viewer from a user's mpv.conf. --force-window=immediate shows the window
-// before the first frame, so a slow SRT handshake still gives feedback.
-func BuildWatchArgsMpv(s settings.Stream, streamName string) ([]string, error) {
-	url, ok := transport.WatchURL(s, streamName)
-	if !ok {
-		return nil, fmt.Errorf("transport %q has no watch form", s.Transport)
-	}
-
-	return []string{
-		"--no-config",
-		"--msg-level=all=v",
-		"--profile=low-latency",
-		"--force-window=immediate",
-		"--network-timeout=10",
-		"--title=" + WatchWindowTitle(streamName),
-		url,
-	}, nil
 }
 
 // captureArgs returns the input arguments for the configured capture backend.
@@ -156,6 +116,38 @@ func captureArgs(s settings.Stream) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
+}
+
+// pulseMonitorDevice is the libpulse magic name for the monitor of the default
+// sink: the mixed desktop audio. PipeWire's pulse server implements it as well,
+// so the same device string works on both sound servers.
+const pulseMonitorDevice = "@DEFAULT_MONITOR@"
+
+// audioInputArgs returns the audio capture input for the selected audio source.
+// Desktop audio comes from the PulseAudio/PipeWire monitor source, which the
+// Windows capture backends have no counterpart for: ffmpeg lacks WASAPI
+// loopback capture, so those backends reject the option instead of publishing
+// a silent track.
+func audioInputArgs(s settings.Stream) ([]string, error) {
+	switch s.Audio {
+	case "", "none":
+		return nil, nil
+	case "desktop":
+		switch s.Capture {
+		case "ddagrab", "gdigrab":
+			return nil, fmt.Errorf("desktop audio capture needs PulseAudio/PipeWire, which the %s (Windows) backend cannot reach", s.Capture)
+		}
+		return []string{"-f", "pulse", "-i", pulseMonitorDevice}, nil
+	default:
+		return nil, fmt.Errorf("unknown audio source %q", s.Audio)
+	}
+}
+
+// audioEncodeArgs encodes the captured audio as 128 kbit/s stereo Opus. Opus is
+// the one codec every hop already handles: ffmpeg muxes it into MPEG-TS,
+// MediaMTX forwards it over SRT and WebRTC, and ffplay/mpv/browsers decode it.
+func audioEncodeArgs() []string {
+	return []string{"-c:a", "libopus", "-b:a", "128k", "-ac", "2"}
 }
 
 // monitorByIndex looks up an enumerated monitor by its capture index. The second
@@ -234,15 +226,9 @@ func validateCodec(s settings.Stream) error {
 	return nil
 }
 
-// WatchWindowTitle returns the title ffplay sets on its viewer window, so a user
-// running several viewers can tell which stream each window shows.
-func WatchWindowTitle(streamName string) string {
-	return "watch: " + streamName
-}
-
-// FindExe locates an ffmpeg-family executable (name is "ffmpeg" or "ffplay").
-// A copy shipped next to the app binary wins over one on PATH, so a bundled
-// build is self-contained.
+// FindExe locates a media executable (ffmpeg, ffplay, mpv). A copy shipped
+// next to the app binary wins over one on PATH, so a bundled build is
+// self-contained.
 func FindExe(name string) (string, error) {
 	if runtime.GOOS == "windows" {
 		name += ".exe"

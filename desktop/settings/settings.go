@@ -22,8 +22,10 @@ const configFileName = "settings.json"
 type Stream struct {
 	Name       string `json:"name"`
 	RelayHost  string `json:"relayHost"`
-	RelayPort  int    `json:"relayPort"`
-	ApiPort    int    `json:"apiPort"`
+	RelayPort  int    `json:"relayPort"`  // UDP port of the relay's SRT listener
+	ApiPort    int    `json:"apiPort"`    // TCP port of the relay's HTTP API
+	RtspPort   int    `json:"rtspPort"`   // TCP port of the relay's RTSP listener
+	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP HTTP listener
 	Transport  string `json:"transport"`  // registry key, e.g. "srt"
 	Codec      string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
 	Mode       string `json:"mode"`       // lossless quality latency
@@ -36,6 +38,7 @@ type Stream struct {
 	Bframes    int    `json:"bframes"`   // 0 recommended (B-frames save nothing in lossless mode)
 	EncPreset  string `json:"encPreset"` // nvenc p1..p7
 	Capture    string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
+	Audio      string `json:"audio"`     // none desktop (desktop = monitor of the default sink via PulseAudio/PipeWire)
 	DrmMap     string `json:"drmMap"`    // kmsgrab DRM download strategy: auto vaapi vulkan none
 	Monitor    int    `json:"monitor"`   // ddagrab output_idx
 	// SRT latency windows PER HOP. Glass-to-glass delay is the SUM of both
@@ -61,9 +64,10 @@ func Defaults() Stream {
 
 	return Stream{
 		Name: host, RelayHost: "127.0.0.1", RelayPort: 8890, ApiPort: 9997,
+		RtspPort: 8554, WebrtcPort: 8889,
 		Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
 		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, Gop: 0, Bframes: 0,
-		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0,
+		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
 		UplinkMbps: 50,
 	}
@@ -114,6 +118,18 @@ func Load() Stream {
 	}
 	if s.SrtWatchLatencyMs <= 0 {
 		s.SrtWatchLatencyMs = Defaults().SrtWatchLatencyMs
+	}
+	// Settings files from before the audio option lack the key.
+	if s.Audio == "" {
+		s.Audio = "none"
+	}
+	// Settings files from before the RTSP and WebRTC transports lack their
+	// listener ports.
+	if s.RtspPort <= 0 {
+		s.RtspPort = Defaults().RtspPort
+	}
+	if s.WebrtcPort <= 0 {
+		s.WebrtcPort = Defaults().WebrtcPort
 	}
 
 	return s

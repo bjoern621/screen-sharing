@@ -79,6 +79,7 @@ export default function App() {
                     connecting={live.connecting}
                     error={live.error}
                     logPath={live.logPath}
+                    transport={settings.s.transport}
                     watchLatencyMs={settings.s.srtWatchLatencyMs}
                     onToggleWatch={live.toggleWatch}
                     onUpdateWatchLatency={v =>

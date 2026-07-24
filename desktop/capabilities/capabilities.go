@@ -28,20 +28,22 @@ type Codec struct {
 // Codecs is the capability table. Order is the UI display order.
 var Codecs = []Codec{
 	{
+		// No webrtc: ffmpeg's WHIP muxer carries H.264 and Opus only.
 		Name:       "hevc_nvenc",
 		Nvenc:      true,
 		Chromas:    []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Transports: []string{"srt"},
+		Transports: []string{"srt", "rtsp"},
 	},
 	{
 		Name:       "h264_nvenc",
 		Nvenc:      true,
 		Chromas:    []string{"yuv444p", "yuv420p", "p010le"},
-		Transports: []string{"srt"},
+		Transports: []string{"srt", "rtsp", "webrtc"},
 	},
 	{
-		// MediaMTX's SRT/MPEG-TS ingest carries H.264/H.265 only, so AV1 has no
-		// transport that can carry it yet.
+		// No transport carries AV1: MediaMTX's SRT/MPEG-TS ingest takes
+		// H.264/H.265 only, ffmpeg has no AV1 RTP payloader for RTSP, and the
+		// WHIP muxer carries H.264 only.
 		Name:       "av1_nvenc",
 		Nvenc:      true,
 		Chromas:    []string{"yuv420p", "p010le"},
@@ -51,7 +53,7 @@ var Codecs = []Codec{
 		Name:       "libx264",
 		Nvenc:      false,
 		Chromas:    []string{"yuv444p", "yuv420p", "p010le"},
-		Transports: []string{"srt"},
+		Transports: []string{"srt", "rtsp", "webrtc"},
 	},
 }
 

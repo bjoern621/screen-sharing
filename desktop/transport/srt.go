@@ -42,7 +42,7 @@ func (SRT) PublishArgs(s settings.Stream) []string {
 // packs 7 * 188-byte TS packets per buffer to match the SRT payload size.
 func (SRT) GstSink(s settings.Stream) []string {
 	return []string{
-		"mpegtsmux", "alignment=7",
+		"mpegtsmux", "name=" + GstMuxName, "alignment=7",
 		"!", "srtsink",
 		fmt.Sprintf("uri=srt://%s:%d", s.RelayHost, s.RelayPort),
 		"mode=caller",

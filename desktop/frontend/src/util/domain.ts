@@ -63,6 +63,7 @@ interface ModeMeta {
 export type Codec = "hevc_nvenc" | "h264_nvenc" | "av1_nvenc" | "libx264";
 export type Chroma = "gbrp" | "yuv444p" | "yuv420p" | "p010le";
 export type Mode = "lossless" | "quality" | "latency";
+export type AudioSource = "none" | "desktop";
 
 const HEVC_LINK = "https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding";
 const AVC_LINK = "https://en.wikipedia.org/wiki/Advanced_Video_Coding";
@@ -167,6 +168,18 @@ export const MODE_META: Record<Mode, ModeMeta> = {
         usesBframes: false,
         pinsPreset: true,
         pinnedPreset: "p5",
+    },
+};
+
+export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?: string }> = {
+    none: {
+        label: "none - video only",
+        tip: "No audio track: the stream carries video only.",
+    },
+    desktop: {
+        label: "desktop - system audio",
+        link: "https://wiki.archlinux.org/title/PulseAudio#Monitor_sources",
+        tip: "Everything the machine plays, captured from the default output's monitor source (PulseAudio/PipeWire) and muxed in as 128 kbit/s stereo Opus.",
     },
 };
 
