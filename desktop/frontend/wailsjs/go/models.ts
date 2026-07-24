@@ -27,6 +27,8 @@ export namespace display {
 	    index: number;
 	    width: number;
 	    height: number;
+	    offsetX: number;
+	    offsetY: number;
 	    primary: boolean;
 	    refreshHz: number;
 	
@@ -39,6 +41,8 @@ export namespace display {
 	        this.index = source["index"];
 	        this.width = source["width"];
 	        this.height = source["height"];
+	        this.offsetX = source["offsetX"];
+	        this.offsetY = source["offsetY"];
 	        this.primary = source["primary"];
 	        this.refreshHz = source["refreshHz"];
 	    }
@@ -160,6 +164,7 @@ export namespace settings {
 	    bframes: number;
 	    encPreset: string;
 	    capture: string;
+	    drmMap: string;
 	    monitor: number;
 	    srtPublishLatencyMs: number;
 	    srtWatchLatencyMs: number;
@@ -187,11 +192,44 @@ export namespace settings {
 	        this.bframes = source["bframes"];
 	        this.encPreset = source["encPreset"];
 	        this.capture = source["capture"];
+	        this.drmMap = source["drmMap"];
 	        this.monitor = source["monitor"];
 	        this.srtPublishLatencyMs = source["srtPublishLatencyMs"];
 	        this.srtWatchLatencyMs = source["srtWatchLatencyMs"];
 	        this.uplinkMbps = source["uplinkMbps"];
 	    }
+	}
+	export class Preset {
+	    name: string;
+	    settings: Stream;
+	
+	    static createFrom(source: any = {}) {
+	        return new Preset(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.settings = this.convertValues(source["settings"], Stream);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

@@ -43,6 +43,36 @@ export const CAPTURES: Option[] = [
         link: "https://en.wikipedia.org/wiki/Direct_Rendering_Manager",
         tip: "DRM/KMS plane capture (Linux): grabs scanout buffers below the compositor. Very efficient, requires CAP_SYS_ADMIN.",
     },
+    {
+        value: "portal", label: "portal - PipeWire ScreenCast",
+        link: "https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html",
+        tip: "xdg-desktop-portal ScreenCast (Wayland): the compositor's own picker chooses monitor/window, captured over PipeWire. Unprivileged and consented; runs the GStreamer pipeline.",
+    },
+];
+
+// kmsgrab DRM download strategies. A scanout buffer is usually GPU tiled or
+// compressed, so it maps to system memory through a hwdevice that understands
+// the modifier. Which device works depends on the GPU; auto picks from the
+// driver. Values mirror the backend DrmMaps table.
+export const DRM_MAPS: Option[] = [
+    {
+        value: "auto", label: "auto - detect from GPU",
+        tip: "Pick the mapping device from the capture GPU's kernel driver: VAAPI on Intel and AMD, Vulkan on NVIDIA and anything else.",
+    },
+    {
+        value: "vaapi", label: "vaapi - Intel / AMD",
+        link: "https://en.wikipedia.org/wiki/Video_Acceleration_API",
+        tip: "Map the scanout buffer through VAAPI. Works where the driver exposes a VAAPI device (Intel, AMD).",
+    },
+    {
+        value: "vulkan", label: "vulkan - cross-vendor",
+        link: "https://en.wikipedia.org/wiki/Vulkan",
+        tip: "Map through Vulkan, the cross-vendor DRM interop path. Use on NVIDIA, or when VAAPI is unavailable.",
+    },
+    {
+        value: "none", label: "none - direct download",
+        tip: "Download the frame with no mapping. Only correct for a linear (unmodified) framebuffer; a tiled or compressed scanout fails with EINVAL.",
+    },
 ];
 
 export const ENC_PRESETS: Option[] = [
@@ -70,7 +100,7 @@ export function labelFor(options: Option[], value: string): string {
 }
 
 /** Common capture/encode frame rates offered as dropdown prefills. */
-const FPS_PRESETS = [24, 30, 48, 60, 90, 120, 144, 165, 240];
+const FPS_PRESETS = [30, 60, 90, 120, 144, 165, 240];
 
 /**
  * Builds one option per preset frame rate. Always includes the saved value so a
@@ -128,7 +158,7 @@ export function monitorOptions(monitors: Monitor[], current: number): Option[] {
         return {
             value: String(m.index),
             label: `Monitor ${m.index}${res}`,
-            tip: `DXGI output index ${m.index}${primary}. ddagrab captures one monitor per index.`,
+            tip: `Capture index ${m.index}${primary}.`,
         };
     });
 
@@ -136,7 +166,7 @@ export function monitorOptions(monitors: Monitor[], current: number): Option[] {
         options.push({
             value: String(current),
             label: `Monitor ${current}`,
-            tip: `DXGI output index ${current}.`,
+            tip: `Capture index ${current}.`,
         });
     }
     return options;

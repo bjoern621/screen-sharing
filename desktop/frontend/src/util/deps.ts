@@ -25,6 +25,7 @@ function unavailableCaptures(
         return {
             x11grab: "X11 capture is Linux-only",
             kmsgrab: "DRM/KMS capture is Linux-only",
+            portal: "PipeWire ScreenCast is Linux-only",
         };
     }
     if (platform.os === "linux") {
@@ -34,7 +35,9 @@ function unavailableCaptures(
         };
         if (platform.display === "wayland") {
             out.x11grab =
-                "Wayland session: x11grab only sees XWayland windows, not the Wayland desktop - use kmsgrab";
+                "Wayland session: x11grab only sees XWayland windows, not the Wayland desktop - use portal";
+        } else {
+            out.portal = "PipeWire ScreenCast needs a Wayland session";
         }
         return out;
     }
@@ -72,9 +75,34 @@ function codecUsable(codec: string, encoders: EncoderInfo | null): boolean {
 /** The capture API to fall back to when the current one is unavailable here. */
 function preferredCapture(platform: PlatformInfo | null): string {
     if (platform?.os === "linux") {
-        return platform.display === "wayland" ? "kmsgrab" : "x11grab";
+        return platform.display === "wayland" ? "portal" : "x11grab";
     }
     return "ddagrab";
+}
+
+// The GStreamer pipeline behind the portal backend targets a bitrate and
+// negotiates its own pixel format, so it honors only the latency mode and
+// ignores the chroma and color-range controls.
+const PORTAL_MODE = "latency";
+const PORTAL_UNIMPLEMENTED =
+    "not yet implemented for the portal (GStreamer) capture backend";
+
+/**
+ * Controls and mode options the given capture backend does not honor, so the UI
+ * greys them instead of accepting a value the engine would silently drop. The
+ * portal backend is bitrate-only and format-agnostic.
+ */
+function backendUnsupported(capture: string): {
+    modeOptions: Record<string, string>;
+    controls: Record<string, string>;
+} {
+    if (capture === "portal") {
+        return {
+            modeOptions: { lossless: PORTAL_UNIMPLEMENTED, quality: PORTAL_UNIMPLEMENTED },
+            controls: { chroma: PORTAL_UNIMPLEMENTED, colorRange: PORTAL_UNIMPLEMENTED },
+        };
+    }
+    return { modeOptions: {}, controls: {} };
 }
 
 /** Reason chroma cannot be encoded by the codec with the given label. */
@@ -107,6 +135,7 @@ export function evaluateDeps(
         optionDisabled: {
             codec: {},
             chroma: {},
+            mode: {},
             capture: unavailableCaptures(platform),
         },
     };
@@ -155,8 +184,24 @@ export function evaluateDeps(
         d.disabled.colorRange =
             "RGB is inherently full range - no quantization range choice exists";
     }
-    if (s.capture !== "ddagrab") {
-        d.disabled.monitor = "only DXGI Desktop Duplication captures per monitor";
+    // ddagrab selects an output by index; x11grab crops the X screen to the
+    // monitor's geometry. The other backends do not take a monitor index.
+    const monitorNa: Record<string, string> = {
+        kmsgrab: "kmsgrab captures the whole scanout, not a single monitor",
+        gdigrab: "gdigrab captures the whole desktop as one frame",
+        portal: "the compositor's picker chooses the source, not a monitor index",
+    };
+    if (monitorNa[s.capture]) {
+        d.disabled.monitor = monitorNa[s.capture];
+    }
+
+    // Controls the selected capture backend does not implement. Applied last so
+    // the backend's "unimplemented" reason wins over a codec- or chroma-derived
+    // one for the same control.
+    const unsupported = backendUnsupported(s.capture);
+    d.optionDisabled.mode = { ...d.optionDisabled.mode, ...unsupported.modeOptions };
+    for (const [control, reason] of Object.entries(unsupported.controls)) {
+        d.disabled[control] = reason;
     }
 
     return d;
@@ -200,6 +245,13 @@ export function normalize(
 
     if (unavailableCaptures(platform)[next.capture]) {
         next.capture = preferredCapture(platform);
+    }
+
+    // The portal backend runs the bitrate-only GStreamer pipeline, so a mode it
+    // does not implement drops to latency. Applied after the capture repair,
+    // which may itself select portal.
+    if (next.capture === "portal" && next.mode !== PORTAL_MODE) {
+        next.mode = PORTAL_MODE;
     }
     return next;
 }

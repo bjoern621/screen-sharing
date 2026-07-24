@@ -6,6 +6,7 @@ import (
 
 	"bjoernblessin.de/screenshare/encoders"
 	"bjoernblessin.de/screenshare/ffmpeg"
+	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/relay"
 	"bjoernblessin.de/screenshare/settings"
 )
@@ -31,7 +32,7 @@ type App struct {
 	encoders     encoders.Availability
 
 	procMu   sync.Mutex
-	pub      *ffmpeg.Proc
+	pub      publish.Handle
 	watchers map[string]*ffmpeg.Proc
 }
 

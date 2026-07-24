@@ -24,11 +24,16 @@ const srtBufBytes = 150_000_000
 func (SRT) Name() string { return "srt" }
 
 func (SRT) PublishArgs(s settings.Stream) []string {
-	url := fmt.Sprintf(
+	return []string{"-f", "mpegts", SRT{}.PublishURL(s)}
+}
+
+// PublishURL returns the SRT destination URL the publisher pushes to. It is the
+// single source of the URL: the ffmpeg muxer args wrap it, and an engine that
+// takes a plain URL (GStreamer srtsink) uses it directly.
+func (SRT) PublishURL(s settings.Stream) string {
+	return fmt.Sprintf(
 		"srt://%s:%d?streamid=publish:%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
 		s.RelayHost, s.RelayPort, s.Name, s.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes)
-
-	return []string{"-f", "mpegts", url}
 }
 
 func (SRT) WatchURL(s settings.Stream, streamName string) string {

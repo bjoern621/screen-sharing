@@ -40,7 +40,9 @@ export default function App() {
 
                 <PresetCard
                     preset={settings.preset}
+                    userPresets={settings.userPresets}
                     onApplyPreset={settings.applyPreset}
+                    onDeletePreset={settings.deletePreset}
                 />
 
                 <StreamSettingsCard
@@ -56,7 +58,7 @@ export default function App() {
                     uplink={uplink}
                     onUpdate={settings.update}
                     onTogglePublish={publish.toggle}
-                    onSave={settings.save}
+                    onSavePreset={settings.saveAsPreset}
                     onOpenLog={logs.openLog}
                     onOpenLogsFolder={logs.openLogsFolder}
                 />

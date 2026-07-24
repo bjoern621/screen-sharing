@@ -2,14 +2,15 @@ import {
     IconCheck, IconX, IconPlugConnected, IconDeviceDesktop,
     IconVideo, IconGauge, IconNetwork,
 } from "@tabler/icons-react";
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
 import {
-    CAPTURES, CHROMAS, CODECS, ENC_PRESETS, MODES, RANGES,
+    CAPTURES, CHROMAS, CODECS, DRM_MAPS, ENC_PRESETS, MODES, RANGES,
     TRANSPORT_META, clampFps, fpsDisabled, fpsOptions, monitorOptions,
 } from "../../util/options";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
@@ -64,7 +65,7 @@ interface StreamSettingsCardProps {
     uplink: UplinkState;
     onUpdate: (patch: Partial<Stream>) => void;
     onTogglePublish: () => void;
-    onSave: () => void;
+    onSavePreset: (name: string) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
 }
@@ -84,10 +85,20 @@ export default function StreamSettingsCard({
     uplink,
     onUpdate,
     onTogglePublish,
-    onSave,
+    onSavePreset,
     onOpenLog,
     onOpenLogsFolder,
 }: StreamSettingsCardProps) {
+    const [presetName, setPresetName] = useState("");
+    const saveDisabled = presetName.trim() === "";
+    const savePreset = () => {
+        if (saveDisabled) {
+            return;
+        }
+        onSavePreset(presetName);
+        setPresetName("");
+    };
+
     const transportOptions: Option[] = transports.map(
         t => TRANSPORT_META[t] ?? { value: t, label: t, tip: t }
     );
@@ -151,9 +162,18 @@ export default function StreamSettingsCard({
                         optionDisabled={deps.optionDisabled.capture}
                         onChange={v => onUpdate({ capture: v })}
                     />
+                    {s.capture === "kmsgrab" && (
+                        <SelectField
+                            label="DRM download"
+                            labelTip="How kmsgrab moves the captured scanout buffer into system memory. A tiled or compressed framebuffer needs mapping through a matching GPU device first."
+                            value={s.drmMap}
+                            options={DRM_MAPS}
+                            onChange={v => onUpdate({ drmMap: v })}
+                        />
+                    )}
                     <SelectField
                         label="Monitor"
-                        labelTip="Which monitor to capture (one DXGI output per index)."
+                        labelTip="Which monitor to capture. ddagrab selects the output by index; x11grab crops the X screen to it."
                         value={String(s.monitor)}
                         options={monitorOptions(monitors, s.monitor)}
                         disabledReason={deps.disabled.monitor}
@@ -191,6 +211,7 @@ export default function StreamSettingsCard({
                         value={s.chroma}
                         options={CHROMAS}
                         optionDisabled={deps.optionDisabled.chroma}
+                        disabledReason={deps.disabled.chroma}
                         onChange={v => onUpdate({ chroma: v })}
                     />
                     <SelectField
@@ -220,6 +241,7 @@ export default function StreamSettingsCard({
                         labelTip="Rate-control strategy: how the encoder distributes bits over time."
                         value={s.mode}
                         options={MODES}
+                        optionDisabled={deps.optionDisabled.mode}
                         onChange={v => onUpdate({ mode: v })}
                     />
                     <NumberField
@@ -290,9 +312,22 @@ export default function StreamSettingsCard({
                         )}
                         {publishing ? "Stop publishing" : "Start publishing"}
                     </Button>
-                    <Button variant="outline" onClick={onSave}>
-                        Save settings
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            className="w-44"
+                            placeholder="Preset name"
+                            value={presetName}
+                            onChange={e => setPresetName(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && savePreset()}
+                        />
+                        <Button
+                            variant="outline"
+                            disabled={saveDisabled}
+                            onClick={savePreset}
+                        >
+                            Save as preset
+                        </Button>
+                    </div>
                     <Badge
                         variant={browser.ok ? "default" : "secondary"}
                         className="whitespace-normal text-left"

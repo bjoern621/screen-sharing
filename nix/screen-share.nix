@@ -7,13 +7,14 @@
 # This module grants CAP_SYS_ADMIN to one dedicated wrapper, /run/wrappers/bin/ffmpeg-kmsgrab,
 # and restricts execution to the video group.
 # ffmpeg on PATH keeps no added privilege.
+# The wrapper's path is exported as SCREENSHARE_FFMPEG_KMSGRAB so the app runs it for
+# kmsgrab capture while every other path stays on the unprivileged ffmpeg.
 #
 # CAP_SYS_ADMIN is close to full root, and the wrapper is a complete ffmpeg that also
 # parses untrusted media, so any video-group member can run arbitrary ffmpeg with that
-# capability.
-# The module is meant for a trusted personal workstation exercising the kmsgrab pipeline.
-# For normal use on Wayland the unprivileged PipeWire portal or wlroots screencopy path
-# is preferred and needs none of this.
+# capability. Enable it only where every member of the video group is trusted.
+# On Wayland the unprivileged PipeWire portal or wlroots screencopy path avoids the
+# capability entirely and is preferred where the compositor supports it.
 #
 # Example capture after enabling and rebuilding (device index is host-specific, list
 # CRTCs with `modetest`):
@@ -24,20 +25,25 @@
 #     -b:v 150M -pix_fmt yuv444p -color_range pc -g 120 \
 #     -f mpegts "srt://127.0.0.1:8890?streamid=publish:nixos&pkt_size=1316&latency=60000&sndbuf=150000000&ffs=150000000"
 #
-# The hwmap=derive_device=vaapi step is required: modern scanout framebuffers are GPU
-# tiled or compressed (a nonzero DRM format modifier), and a bare hwdownload fails to map
-# them with EINVAL. Mapping through VAAPI first understands the modifier.
+# The hwmap step handles a scanout framebuffer that is GPU tiled or compressed (a nonzero
+# DRM format modifier), which a bare hwdownload fails to map with EINVAL. The mapping
+# device is GPU-dependent: VAAPI on Intel and AMD as shown, Vulkan on NVIDIA and elsewhere.
+# The app selects it per capture; see ffmpeg.DrmMaps.
 # The SRT URL is quoted because its unquoted ampersands would background the shell job.
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
-  cfg = config.services.screenShareDev;
+  cfg = config.programs.screenShare;
 in
 {
-  options.services.screenShareDev = {
-    enable = lib.mkEnableOption
-      "screen-sharing kmsgrab development support (grants CAP_SYS_ADMIN to a dedicated ffmpeg wrapper)";
+  options.programs.screenShare = {
+    enable = lib.mkEnableOption "the screen-sharing kmsgrab capture path (grants CAP_SYS_ADMIN to a dedicated ffmpeg wrapper)";
 
     user = lib.mkOption {
       type = lib.types.str;
@@ -74,12 +80,18 @@ in
     # active seat, so this grants the wrapper gate, not raw node access.
     users.users.${cfg.user}.extraGroups = [ "video" ];
 
+    # Point the app's kmsgrab capture at the capability wrapper by absolute path.
+    # A session variable reaches a menu-launched GUI, which a login shell's PATH
+    # export would not, so the app does not depend on /run/wrappers/bin being on
+    # its inherited PATH.
+    environment.sessionVariables.SCREENSHARE_FFMPEG_KMSGRAB = "${config.security.wrapperDir}/ffmpeg-kmsgrab";
+
     # Unprivileged userspace tools for capture and for inspecting the capture path.
     environment.systemPackages = with pkgs; [
       cfg.ffmpeg
-      libva-utils  # vainfo: list VAAPI encode entrypoints for the zero-copy path
-      libdrm       # modetest: enumerate CRTCs and planes to pick a kmsgrab device
-      drm_info     # human-readable dump of DRM connectors, planes, and formats
+      libva-utils # vainfo: list VAAPI encode entrypoints for the zero-copy path
+      libdrm # modetest: enumerate CRTCs and planes to pick a kmsgrab device
+      drm_info # human-readable dump of DRM connectors, planes, and formats
     ];
   };
 }

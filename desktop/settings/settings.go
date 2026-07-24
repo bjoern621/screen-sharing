@@ -36,6 +36,7 @@ type Stream struct {
 	Bframes    int    `json:"bframes"`   // 0 recommended (B-frames save nothing in lossless mode)
 	EncPreset  string `json:"encPreset"` // nvenc p1..p7
 	Capture    string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
+	DrmMap     string `json:"drmMap"`    // kmsgrab DRM download strategy: auto vaapi vulkan none
 	Monitor    int    `json:"monitor"`   // ddagrab output_idx
 	// SRT latency windows PER HOP. Glass-to-glass delay is the SUM of both
 	// (plus encode/decode): publisher→relay and relay→viewer are independent
@@ -62,14 +63,14 @@ func Defaults() Stream {
 		Name: host, RelayHost: "127.0.0.1", RelayPort: 8890, ApiPort: 9997,
 		Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
 		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, Gop: 0, Bframes: 0,
-		EncPreset: "p7", Capture: capture, Monitor: 0,
+		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0,
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
 		UplinkMbps: 50,
 	}
 }
 
-// configPath returns the settings file path, creating the directory if needed.
-func configPath() string {
+// configDir returns the config directory, creating it if needed.
+func configDir() string {
 	base, err := os.UserConfigDir()
 	if err != nil {
 		logger.Warnf("Cannot determine user config directory, falling back to working directory: %v", err)
@@ -82,7 +83,12 @@ func configPath() string {
 		logger.Warnf("Cannot create config directory %s: %v", dir, err)
 	}
 
-	return filepath.Join(dir, configFileName)
+	return dir
+}
+
+// configPath returns the settings file path.
+func configPath() string {
+	return filepath.Join(configDir(), configFileName)
 }
 
 // Load reads the persisted settings.

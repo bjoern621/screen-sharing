@@ -6,8 +6,16 @@ export function Capabilities() {
   return window['go']['main']['App']['Capabilities']();
 }
 
+export function DeletePreset(arg1) {
+  return window['go']['main']['App']['DeletePreset'](arg1);
+}
+
 export function Encoders() {
   return window['go']['main']['App']['Encoders']();
+}
+
+export function GetPresets() {
+  return window['go']['main']['App']['GetPresets']();
 }
 
 export function GetSettings() {
@@ -44,6 +52,10 @@ export function PublishCommand(arg1) {
 
 export function Publishing() {
   return window['go']['main']['App']['Publishing']();
+}
+
+export function SavePreset(arg1, arg2) {
+  return window['go']['main']['App']['SavePreset'](arg1, arg2);
 }
 
 export function SaveSettings(arg1) {

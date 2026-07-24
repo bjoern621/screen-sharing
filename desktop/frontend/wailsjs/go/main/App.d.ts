@@ -9,7 +9,11 @@ import {platform} from '../models';
 
 export function Capabilities():Promise<Array<capabilities.Codec>>;
 
+export function DeletePreset(arg1:string):Promise<void>;
+
 export function Encoders():Promise<encoders.Availability>;
+
+export function GetPresets():Promise<Array<settings.Preset>>;
 
 export function GetSettings():Promise<settings.Stream>;
 
@@ -28,6 +32,8 @@ export function Platform():Promise<platform.Info>;
 export function PublishCommand(arg1:settings.Stream):Promise<string>;
 
 export function Publishing():Promise<boolean>;
+
+export function SavePreset(arg1:string,arg2:settings.Stream):Promise<void>;
 
 export function SaveSettings(arg1:settings.Stream):Promise<void>;
 

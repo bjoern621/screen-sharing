@@ -18,6 +18,7 @@ import (
 	"strconv"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/display"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -102,52 +103,39 @@ func captureArgs(s settings.Stream) ([]string, error) {
 	case "gdigrab":
 		return []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}, nil
 	case "x11grab":
-		display := os.Getenv("DISPLAY")
-		if display == "" {
-			display = ":0.0"
+		disp := os.Getenv("DISPLAY")
+		if disp == "" {
+			disp = ":0.0"
 		}
-		return []string{"-f", "x11grab", "-framerate", fps, "-i", display}, nil
+		args := []string{"-f", "x11grab", "-framerate", fps}
+		// Crop to the selected monitor when its geometry is known; otherwise
+		// capture the whole X screen, as enumeration failing leaves no offset.
+		if m, ok := monitorByIndex(s.Monitor); ok && m.Width > 0 && m.Height > 0 {
+			args = append(args,
+				"-video_size", fmt.Sprintf("%dx%d", m.Width, m.Height),
+				"-i", fmt.Sprintf("%s+%d,%d", disp, m.OffsetX, m.OffsetY),
+			)
+		} else {
+			args = append(args, "-i", disp)
+		}
+		return args, nil
 	case "kmsgrab":
-		// Direct KMS capture for a bare display server. Needs CAP_SYS_ADMIN
-		// (run the binary with the capability set or via sudo). hwdownload moves
-		// the captured frame off the GPU so a software or nvenc encoder can read it.
-		return []string{
-			"-device", drmCaptureDevice(), "-f", "kmsgrab", "-framerate", fps, "-i", "-",
-			"-vf", "hwdownload,format=bgr0",
-		}, nil
+		return kmsgrabCaptureArgs(s, fps), nil
 	default:
 		return nil, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
 }
 
-// drmCaptureDevice returns the /dev/dri card node kmsgrab should capture from.
-// card0 is not a safe default: on machines with a discrete GPU the boot
-// framebuffer often holds card0 under the simple-framebuffer driver while the
-// real display controller lands on card1 or higher. The first card whose kernel
-// driver is not simple-framebuffer wins; /dev/dri/card0 is the fallback when the
-// sysfs probe finds nothing (no DRI nodes, or none with a readable driver).
-func drmCaptureDevice() string {
-	const fallback = "/dev/dri/card0"
-
-	// filepath.Glob returns matches in lexical order, so the lowest-numbered
-	// real GPU is selected.
-	cards, err := filepath.Glob("/dev/dri/card[0-9]*")
-	if err != nil {
-		return fallback
-	}
-	for _, dev := range cards {
-		// The device/driver symlink resolves to the bound kernel module; its
-		// base name is the driver, e.g. i915, amdgpu, nvidia, simple-framebuffer.
-		driver, err := os.Readlink(filepath.Join("/sys/class/drm", filepath.Base(dev), "device", "driver"))
-		if err != nil {
-			continue // no driver bound (or not a real DRM card): skip it
+// monitorByIndex looks up an enumerated monitor by its capture index. The second
+// return is false when no monitor carries that index, which happens when
+// enumeration is unavailable on this platform or the saved index is stale.
+func monitorByIndex(idx int) (display.Monitor, bool) {
+	for _, m := range display.List() {
+		if m.Index == idx {
+			return m, true
 		}
-		if filepath.Base(driver) == "simple-framebuffer" {
-			continue
-		}
-		return dev
 	}
-	return fallback
+	return display.Monitor{}, false
 }
 
 // encoderArgs returns the encoder arguments for the configured codec and mode.
@@ -240,6 +228,34 @@ func FindExe(name string) (string, error) {
 		return "", fmt.Errorf("%s not found: install ffmpeg or place %s next to the app", name, name)
 	}
 	return path, nil
+}
+
+// EnvKmsgrabFFmpeg names the executable kmsgrab capture runs, overriding the
+// backend's default resolution. kmsgrab reads the raw KMS scanout, which the
+// kernel gates behind CAP_SYS_ADMIN, so it needs a privileged ffmpeg that the
+// other backends must not share. A packaging layer sets this to the capability
+// wrapper (nix/screen-share.nix points it at security.wrappers' ffmpeg-kmsgrab).
+const EnvKmsgrabFFmpeg = "SCREENSHARE_FFMPEG_KMSGRAB"
+
+// FindCaptureExe locates the ffmpeg build to run for a given capture backend.
+//
+// Only kmsgrab needs a different binary from the rest: its CAP_SYS_ADMIN
+// requirement (see EnvKmsgrabFFmpeg) means the plain ffmpeg from FindExe cannot
+// open the input. Its resolution order is the EnvKmsgrabFFmpeg override, then a
+// wrapper named ffmpeg-kmsgrab on PATH, then the plain ffmpeg as a last resort
+// (which fails on the capability, no worse than before). Every other backend
+// uses the plain ffmpeg directly, keeping the privileged binary off the
+// unprivileged capture paths.
+func FindCaptureExe(capture string) (string, error) {
+	if capture == "kmsgrab" {
+		if override := os.Getenv(EnvKmsgrabFFmpeg); override != "" {
+			return override, nil
+		}
+		if wrapper, err := exec.LookPath("ffmpeg-kmsgrab"); err == nil {
+			return wrapper, nil
+		}
+	}
+	return FindExe("ffmpeg")
 }
 
 // LogDir returns the directory that holds per-run ffmpeg logs, creating it if

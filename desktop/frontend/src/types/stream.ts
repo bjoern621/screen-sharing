@@ -3,6 +3,9 @@ import { settings, relay, display, platform, encoders } from "../../wailsjs/go/m
 /** Wire-format stream settings, shared verbatim with the Go backend. */
 export type Stream = settings.Stream;
 
+/** A user-saved, named snapshot of stream settings. */
+export type Preset = settings.Preset;
+
 /** Relay discovery snapshot (reachability + per-path live figures). */
 export type RelayStatus = relay.Status;
 

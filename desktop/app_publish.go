@@ -2,25 +2,24 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
 	"bjoernblessin.de/go-utils/util/logger"
 
-	"bjoernblessin.de/screenshare/ffmpeg"
+	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/settings"
 )
 
-// PublishCommand returns the exact ffmpeg command line for the given settings
-// without running it. Shown in the UI for transparency.
+// PublishCommand returns the exact command line the given settings would run,
+// without running it. Shown in the UI for transparency. The engine that owns
+// the selected capture backend renders it (ffmpeg command or gst pipeline).
 func (a *App) PublishCommand(s settings.Stream) (string, error) {
-	args, err := ffmpeg.BuildPublishArgs(s)
+	pub, err := publish.For(s.Capture)
 	if err != nil {
 		return "", err
 	}
-
-	return "ffmpeg " + strings.Join(args, " "), nil
+	return pub.Command(s)
 }
 
 // StartPublish validates s, persists it and starts the encoder child.
@@ -33,12 +32,7 @@ func (a *App) StartPublish(s settings.Stream) error {
 		logger.Warnf("Cannot persist settings: %v", err)
 	}
 
-	args, err := ffmpeg.BuildPublishArgs(s)
-	if err != nil {
-		return err
-	}
-
-	exe, err := ffmpeg.FindExe("ffmpeg")
+	pub, err := publish.For(s.Capture)
 	if err != nil {
 		return err
 	}
@@ -50,11 +44,11 @@ func (a *App) StartPublish(s settings.Stream) error {
 		return fmt.Errorf("already publishing")
 	}
 
-	proc, err := ffmpeg.Start(exe, args, true, "publish", // hide ffmpeg's console window
-		func(stats ffmpeg.Stats) {
+	proc, err := pub.Start(s, "publish", publish.Callbacks{
+		OnStats: func(stats publish.Stats) {
 			runtime.EventsEmit(a.ctx, "publish:stats", stats)
 		},
-		func(err error, stderrTail string, logPath string) {
+		OnExit: func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {
 				message = err.Error()
@@ -63,7 +57,8 @@ func (a *App) StartPublish(s settings.Stream) error {
 				}
 			}
 			runtime.EventsEmit(a.ctx, "publish:exit", exitEvent{Message: message, LogPath: logPath})
-		})
+		},
+	})
 	if err != nil {
 		return err
 	}

@@ -40,6 +40,26 @@ func Get(name string) (t Transport, ok bool) {
 	return t, ok
 }
 
+// URLPublisher is an optional capability: a transport whose destination has a
+// plain-URL form an engine can hand to a non-ffmpeg sink.
+type URLPublisher interface {
+	PublishURL(s settings.Stream) string
+}
+
+// PublishURL returns the stream's destination as a plain URL, and false when
+// the configured transport has no URL form (only ffmpeg output args).
+func PublishURL(s settings.Stream) (string, bool) {
+	t, ok := Get(s.Transport)
+	if !ok {
+		return "", false
+	}
+	u, ok := t.(URLPublisher)
+	if !ok {
+		return "", false
+	}
+	return u.PublishURL(s), true
+}
+
 // Names lists all registered transports for the UI dropdown.
 func Names() []string {
 	names := make([]string, 0, len(registry))

@@ -109,6 +109,8 @@ func List() []Monitor {
 				Index:     len(monitors),
 				Width:     int(mi.rcMonitor.right - mi.rcMonitor.left),
 				Height:    int(mi.rcMonitor.bottom - mi.rcMonitor.top),
+				OffsetX:   int(mi.rcMonitor.left),
+				OffsetY:   int(mi.rcMonitor.top),
 				Primary:   mi.dwFlags&monitorinfofPrimary != 0,
 				RefreshHz: refreshHz(&mi.szDevice[0]),
 			})
