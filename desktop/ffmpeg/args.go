@@ -94,6 +94,31 @@ func BuildWatchArgs(s settings.Stream, streamName string) ([]string, error) {
 	}, nil
 }
 
+// BuildWatchArgsMpv returns the mpv arguments (without the executable) that open
+// streamName from the relay in a low-latency viewer window. It is the mpv
+// counterpart to BuildWatchArgs, selected by SCREENSHARE_VIEWER=mpv; mpv renders
+// 4:4:4 and a native Wayland window that ffplay's SDL path does not.
+//
+// --profile=low-latency drops buffering and display sync. --no-config isolates
+// the viewer from a user's mpv.conf. --force-window=immediate shows the window
+// before the first frame, so a slow SRT handshake still gives feedback.
+func BuildWatchArgsMpv(s settings.Stream, streamName string) ([]string, error) {
+	url, ok := transport.WatchURL(s, streamName)
+	if !ok {
+		return nil, fmt.Errorf("transport %q has no watch form", s.Transport)
+	}
+
+	return []string{
+		"--no-config",
+		"--msg-level=all=v",
+		"--profile=low-latency",
+		"--force-window=immediate",
+		"--network-timeout=10",
+		"--title=" + WatchWindowTitle(streamName),
+		url,
+	}, nil
+}
+
 // captureArgs returns the input arguments for the configured capture backend.
 // ddagrab and gdigrab are Windows-only; x11grab and kmsgrab are Linux-only.
 func captureArgs(s settings.Stream) ([]string, error) {

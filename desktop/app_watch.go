@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	goruntime "runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -11,17 +12,27 @@ import (
 
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
+	"bjoernblessin.de/screenshare/settings"
 )
 
-// watchEnv returns the environment overrides for the ffplay viewer. On Linux it
-// pins SDL to the X11 (XWayland) backend, which renders a visible window where
-// the SDL Wayland backend shows none on some compositors; other platforms
-// inherit the ambient environment unchanged.
-func watchEnv() []string {
-	if goruntime.GOOS == "linux" {
-		return []string{"SDL_VIDEODRIVER=x11"}
+// watchCommand selects the viewer for streamName: its executable name, argument
+// list, and environment overrides. It reads SCREENSHARE_VIEWER, defaulting to
+// ffplay; the value "mpv" switches to mpv.
+//
+// The ffplay path pins SDL to the X11 (XWayland) backend on Linux, whose window
+// the compositor renders reliably where the SDL Wayland backend may not. mpv
+// needs no such override: its native Wayland output already shows a window.
+func watchCommand(s settings.Stream, streamName string) (exe string, args, env []string, err error) {
+	if os.Getenv("SCREENSHARE_VIEWER") == "mpv" {
+		args, err = ffmpeg.BuildWatchArgsMpv(s, streamName)
+		return "mpv", args, nil, err
 	}
-	return nil
+
+	args, err = ffmpeg.BuildWatchArgs(s, streamName)
+	if goruntime.GOOS == "linux" {
+		env = []string{"SDL_VIDEODRIVER=x11"}
+	}
+	return "ffplay", args, env, err
 }
 
 // Live returns the relay snapshot. The frontend polls this every 2 seconds;
@@ -50,13 +61,15 @@ func (a *App) Watching() []string {
 	return names
 }
 
-// StartWatch opens an ffplay window for streamName.
+// StartWatch opens a viewer window for streamName. The player is ffplay by
+// default; SCREENSHARE_VIEWER=mpv selects mpv instead, for comparing the two on
+// a given machine without a rebuild.
 func (a *App) StartWatch(streamName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	args, err := ffmpeg.BuildWatchArgs(s, streamName)
+	exeName, args, env, err := watchCommand(s, streamName)
 	if err != nil {
 		return err
 	}
@@ -69,18 +82,13 @@ func (a *App) StartWatch(streamName string) error {
 		return fmt.Errorf("already watching %s", streamName)
 	}
 
-	exe, err := ffmpeg.FindExe("ffplay")
+	exe, err := ffmpeg.FindExe(exeName)
 	if err != nil {
 		return err
 	}
 
-	// hideWindows must be false: SW_HIDE would hide ffplay's video window itself.
-	//
-	// SDL_VIDEODRIVER=x11 pins ffplay to the X11 (XWayland) backend on Linux. Its
-	// SDL Wayland backend produces no visible window on some compositors even as
-	// the SRT reader connects and frames arrive, so the picture never shows.
-	// XWayland renders reliably.
-	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName, watchEnv(), nil,
+	// hideWindow must be false: SW_HIDE would hide the viewer's video window too.
+	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName, env, nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {

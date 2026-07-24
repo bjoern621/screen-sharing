@@ -78,6 +78,9 @@ func buildPipeline(s settings.Stream, fd, node string) ([]string, error) {
 		return nil, fmt.Errorf("transport %q has no GStreamer sink", s.Transport)
 	}
 
+	if s.Fps <= 0 {
+		return nil, fmt.Errorf("the portal (GStreamer) backend needs a positive fps, got %d", s.Fps)
+	}
 	gop := s.Gop
 	if gop <= 0 {
 		gop = s.Fps * 2
@@ -91,15 +94,40 @@ func buildPipeline(s settings.Stream, fd, node string) ([]string, error) {
 		return nil, err
 	}
 
-	// The capsfilter after videoconvert pins the encoder input to the configured
-	// chroma, the counterpart to ffmpeg's -pix_fmt. Without it the encoder picks
-	// its own preferred format (x264enc lands on 4:4:4, often 10-bit), which the
-	// display-paced ffplay viewer cannot build a render filtergraph for, so the
-	// viewer window never appears.
+	// Portal capture is damage-driven: the compositor sends a frame only when
+	// the screen changes, and the PipeWire graph clock stops ticking while the
+	// captured node idles. Feeding the encoder straight from pipewiresrc
+	// therefore fails twice. On a static screen the encoder starves, so no
+	// keyframes reach the relay and viewers see black. And the first frame
+	// after an idle spell is stamped far ahead of the frozen clock, so a
+	// syncing sink waits on a clock that no longer advances, the SRT peer
+	// times out, and the relay drops the stream while the pipeline keeps
+	// running. (pipewiresrc's keepalive-time property covers only the first
+	// failure and still forwards the portal's timestamps, so it dies the same
+	// way on the first damage frame.)
+	//
+	// imagefreeze breaks both dependencies: allow-replace swaps in the newest
+	// damage frame, is-live repeats it at the capsfilter framerate, and the
+	// output carries imagefreeze's own monotonic timestamps, so the portal's
+	// clock domain never reaches the encoder. provide-clock=false keeps the
+	// freezing PipeWire clock from being elected pipeline clock; the system
+	// clock paces imagefreeze instead.
+	//
+	// The single-slot leaky queue keeps only the newest frame when a damage
+	// burst outruns videoconvert, which sits before imagefreeze so conversion
+	// runs once per damage frame, not once per output frame.
+	//
+	// The capsfilter after videoconvert pins the encoder input to the
+	// configured chroma, the counterpart to ffmpeg's -pix_fmt. Without it the
+	// encoder picks its own preferred format (x264enc lands on 4:4:4, often
+	// 10-bit), which not every viewer or browser decodes.
 	pipeline := []string{
-		"pipewiresrc", "fd=" + fd, "path=" + node, "do-timestamp=true",
+		"pipewiresrc", "fd=" + fd, "path=" + node, "provide-clock=false",
+		"!", "queue", "max-size-buffers=1", "leaky=downstream",
 		"!", "videoconvert",
 		"!", "video/x-raw,format=" + format,
+		"!", "imagefreeze", "is-live=true", "allow-replace=true",
+		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
 		"!",
 	}
 	pipeline = append(pipeline, encoder...)
