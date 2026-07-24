@@ -1,13 +1,13 @@
 import { BrowserVerdict, Stream } from "../types/stream";
-import { CHROMA_META, CODEC_META, Chroma, Codec } from "./domain";
+import { Capability, CHROMA_META, Chroma, FORMAT_META, formatOf } from "./domain";
 
 /**
  * Determines whether the stream is playable in a plain web browser (via the
  * relay's HLS/WebRTC pages) and returns a reason either way. Browsers decode
  * 4:2:0 only, and HEVC only in Safari or with an OS extension. Both facts come
- * from the chroma and codec meta tables.
+ * from the chroma meta table and the codec's video format.
  */
-export function browserCheck(s: Stream): BrowserVerdict {
+export function browserCheck(s: Stream, caps: Capability[] | null = null): BrowserVerdict {
     const chroma = CHROMA_META[s.chroma as Chroma];
     if (chroma && !chroma.is420) {
         return {
@@ -16,7 +16,7 @@ export function browserCheck(s: Stream): BrowserVerdict {
         };
     }
 
-    switch (CODEC_META[s.codec as Codec]?.browser) {
+    switch (FORMAT_META[formatOf(s.codec, caps) ?? "h264"]?.browser) {
         case "universal":
             return {
                 ok: true,

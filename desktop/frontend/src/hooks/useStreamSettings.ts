@@ -72,8 +72,8 @@ export function useStreamSettings(
         [s, platform, encoders, caps]
     );
     const browser: BrowserVerdict | null = useMemo(
-        () => (s ? browserCheck(s) : null),
-        [s]
+        () => (s ? browserCheck(s, caps) : null),
+        [s, caps]
     );
 
     const update = useCallback(

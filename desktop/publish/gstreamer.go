@@ -66,13 +66,6 @@ func (gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, err
 // sink. fd and node are strings so the display command can pass placeholders
 // where a run passes real values.
 func buildPipeline(s settings.Stream, fd, node string) ([]string, error) {
-	// The pipeline targets a bitrate, so it implements only the latency mode.
-	// The UI gates this (see deps.ts), and the check keeps a preset or a
-	// hand-edited settings file from reaching an unimplemented rate control.
-	if s.Mode != "latency" {
-		return nil, fmt.Errorf("the portal (GStreamer) backend implements only latency rate control, not %q", s.Mode)
-	}
-
 	sink, ok := transport.GstSink(s)
 	if !ok {
 		return nil, fmt.Errorf("transport %q has no GStreamer sink", s.Transport)
@@ -120,12 +113,16 @@ func buildPipeline(s settings.Stream, fd, node string) ([]string, error) {
 	// The capsfilter after videoconvert pins the encoder input to the
 	// configured chroma, the counterpart to ffmpeg's -pix_fmt. Without it the
 	// encoder picks its own preferred format (x264enc lands on 4:4:4, often
-	// 10-bit), which not every viewer or browser decodes.
+	// 10-bit), which not every viewer or browser decodes. The colorimetry field
+	// pins the quantization range the same way ffmpeg's -color_range does; only
+	// its range component is set, leaving matrix/transfer/primaries to
+	// negotiation.
+	inCaps := "video/x-raw,format=" + format + ",colorimetry=" + gstColorRange(s) + ":0:0:0"
 	pipeline := []string{
 		"pipewiresrc", "fd=" + fd, "path=" + node, "provide-clock=false",
 		"!", "queue", "max-size-buffers=1", "leaky=downstream",
 		"!", "videoconvert",
-		"!", "video/x-raw,format=" + format,
+		"!", inCaps,
 		"!", "imagefreeze", "is-live=true", "allow-replace=true",
 		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
 		"!",
@@ -196,10 +193,23 @@ func gstChromaFormat(chroma string) (string, error) {
 	}
 }
 
+// gstColorRange returns the range component of the encoder-input colorimetry:
+// "2" for full (JPEG) range, "1" for limited (MPEG). gbrp reaches the encoder as
+// full-range 4:4:4 YUV after videoconvert, so it is always full; the YUV formats
+// honor s.ColorRange (pc is full, tv is limited), matching the ffmpeg builder,
+// which sets -color_range for every format but gbrp.
+func gstColorRange(s settings.Stream) string {
+	if s.Chroma == "gbrp" || s.ColorRange == "pc" {
+		return "2"
+	}
+	return "1"
+}
+
 // gstEncoder returns the GStreamer encoder element (with its properties) and the
 // parser for the selected codec. It is the GStreamer engine's half of the codec
-// facts declared once in capabilities.Codecs. The mapping targets a bitrate; the
-// lossless and quality rate-control modes are not expressed through it.
+// facts declared once in capabilities.Codecs, and the counterpart to encoderArgs
+// in the ffmpeg builder: the rate-control mode selects the same behavior through
+// each backend's own knobs.
 // config-interval=-1 makes the parser insert SPS/PPS (H.264) or VPS/SPS/PPS
 // (H.265) ahead of every IDR frame. Without it the parameter sets travel once at
 // stream start, so a viewer that joins the relay mid-stream never receives them
@@ -207,15 +217,90 @@ func gstChromaFormat(chroma string) (string, error) {
 // which is why only this backend needed the property.
 func gstEncoder(s settings.Stream, gop int) (encoder []string, parser []string, err error) {
 	kbps := strconv.Itoa(s.BitrateM * 1000)
+	maxkbps := strconv.Itoa(s.MaxrateM * 1000)
+	cq := strconv.Itoa(s.Cq)
 	g := strconv.Itoa(gop)
 	switch s.Codec {
 	case "libx264":
-		return []string{"x264enc", "bitrate=" + kbps, "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + g}, []string{"h264parse", "config-interval=-1"}, nil
+		return x264Encoder(s, kbps, cq, g), []string{"h264parse", "config-interval=-1"}, nil
 	case "h264_nvenc":
-		return []string{"nvh264enc", "bitrate=" + kbps, "gop-size=" + g}, []string{"h264parse", "config-interval=-1"}, nil
+		return nvencEncoder("nvh264enc", s, kbps, maxkbps, cq, g), []string{"h264parse", "config-interval=-1"}, nil
 	case "hevc_nvenc":
-		return []string{"nvh265enc", "bitrate=" + kbps, "gop-size=" + g}, []string{"h265parse", "config-interval=-1"}, nil
+		return nvencEncoder("nvh265enc", s, kbps, maxkbps, cq, g), []string{"h265parse", "config-interval=-1"}, nil
+	// The non-NVIDIA hardware families in capabilities.Codecs (vaapi, qsv, amf,
+	// v4l2, rkmpp, vulkan) are declared Implemented:false and rejected before a
+	// GStreamer pipeline is built, so they have no case yet. When VAAPI is wired
+	// up, target the stateless "va" plugin (gst-plugins-bad): vah264enc,
+	// vah265enc, vaav1enc. Avoid the older "vaapi" plugin (gstreamer-vaapi:
+	// vaapih264enc, vaapih265enc). The va plugin is the maintained one, exposes
+	// AV1 encoding, and negotiates the DMABuf/VAMemory caps the portal capture
+	// path already produces; gstreamer-vaapi is effectively frozen and has no AV1
+	// encoder. QSV uses the "qsv" plugin (qsvh264enc, qsvh265enc, qsvav1enc).
 	default:
 		return nil, nil, fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Codec)
+	}
+}
+
+// x264Encoder maps the rate-control mode onto x264enc's pass property, the
+// counterpart to the libx264 branch of encoderArgs.
+//   - cbr: pass=cbr targets the bitrate and bounds the VBV to it; low delay.
+//   - crf: pass=qual holds a constant quantizer (the s.Cq value), bitrate free.
+//   - lossless: pass=quant at quantizer 0, x264's bit-exact coding mode.
+//   - abr, vbr: pass=cbr with vbv-buf-capacity=0 disables the VBV, giving
+//     one-pass ABR toward the target. x264enc cannot raise the VBV maxrate above
+//     the bitrate (pass=cbr locks them equal), so the vbr ceiling binds only on
+//     the ffmpeg and nvenc paths; here both run as uncapped average bitrate.
+//
+// cbr and lossless take tune=zerolatency to hold live delay; the bitrate-bursting
+// modes keep B-frames and lookahead for efficiency. The p1-p7 preset ladder is
+// NVENC-only.
+func x264Encoder(s settings.Stream, kbps, cq, g string) []string {
+	switch s.Mode {
+	case "crf":
+		return []string{"x264enc", "pass=qual", "quantizer=" + cq, "speed-preset=slow", "key-int-max=" + g}
+	case "lossless":
+		return []string{"x264enc", "pass=quant", "quantizer=0", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + g}
+	case "abr", "vbr":
+		return []string{"x264enc", "bitrate=" + kbps, "pass=cbr", "vbv-buf-capacity=0", "speed-preset=medium", "key-int-max=" + g}
+	default: // cbr
+		enc := []string{"x264enc", "bitrate=" + kbps, "pass=cbr", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + g}
+		if s.VbvMs > 0 {
+			enc = append(enc, "vbv-buf-capacity="+strconv.Itoa(s.VbvMs))
+		}
+		return enc
+	}
+}
+
+// nvencEncoder maps the rate-control mode onto the nvcodec element's properties,
+// the counterpart to the NVENC branch of encoderArgs. The knobs differ from
+// ffmpeg's: nvh264enc/nvh265enc expose rc-mode plus a constant-QP target rather
+// than the SDK preset ladders and tunes.
+//   - cbr: rc-mode=cbr with zero-latency reordering.
+//   - vbr: rc-mode=vbr targeting the bitrate with max-bitrate as the ceiling.
+//   - abr: rc-mode=vbr toward the bitrate with no ceiling.
+//   - crf: rc-mode=constqp at s.Cq.
+//   - lossless: the element's lossless preset, rate control dropped.
+//
+// B-frames apply only to the lossy bursting modes. The p1-p7 preset ladder in
+// s.EncPreset has no equivalent on these elements and is not forwarded.
+func nvencEncoder(elem string, s settings.Stream, kbps, maxkbps, cq, g string) []string {
+	bf := strconv.Itoa(s.Bframes)
+	withBframes := func(enc []string) []string {
+		if s.Bframes > 0 {
+			return append(enc, "bframes="+bf)
+		}
+		return enc
+	}
+	switch s.Mode {
+	case "lossless":
+		return withBframes([]string{elem, "preset=lossless", "gop-size=" + g})
+	case "crf":
+		return withBframes([]string{elem, "rc-mode=constqp", "qp-const=" + cq, "gop-size=" + g})
+	case "abr":
+		return withBframes([]string{elem, "rc-mode=vbr", "bitrate=" + kbps, "gop-size=" + g})
+	case "vbr":
+		return withBframes([]string{elem, "rc-mode=vbr", "bitrate=" + kbps, "max-bitrate=" + maxkbps, "gop-size=" + g})
+	default: // cbr
+		return []string{elem, "rc-mode=cbr", "bitrate=" + kbps, "zerolatency=true", "gop-size=" + g}
 	}
 }

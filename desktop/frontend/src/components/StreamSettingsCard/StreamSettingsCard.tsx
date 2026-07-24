@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
 import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
 import {
-    AUDIO_SOURCES, CAPTURES, CHROMAS, CODECS, DRM_MAPS, ENC_PRESETS, MODES,
-    RANGES, TRANSPORT_META, clampFps, fpsDisabled, fpsOptions, monitorOptions,
+    AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
+    RANGES, TRANSPORT_META, clampFps, codecOptions, familyOptions, fpsDisabled,
+    fpsOptions, monitorOptions,
 } from "../../util/options";
+import { Capability, familyOf } from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
@@ -55,6 +57,7 @@ interface UplinkState {
 interface StreamSettingsCardProps {
     s: Stream;
     deps: Deps;
+    caps: Capability[] | null;
     transports: string[];
     monitors: Monitor[];
     browser: BrowserVerdict;
@@ -75,6 +78,7 @@ interface StreamSettingsCardProps {
 export default function StreamSettingsCard({
     s,
     deps,
+    caps,
     transports,
     monitors,
     browser,
@@ -107,8 +111,22 @@ export default function StreamSettingsCard({
     const estimate = estimateBitrate(
         s,
         selectedMonitor?.width ?? 0,
-        selectedMonitor?.height ?? 0
+        selectedMonitor?.height ?? 0,
+        caps
     );
+
+    // The codec picker is two dropdowns over one setting: the encoder family and
+    // the video format within it. Picking a family jumps to that family's first
+    // implemented codec; normalize then repairs chroma/transport if needed.
+    const family = familyOf(s.codec, caps) ?? "";
+    const selectFamily = (fam: string) => {
+        const pick =
+            caps?.find(c => c.family === fam && c.implemented) ??
+            caps?.find(c => c.family === fam);
+        if (pick) {
+            onUpdate({ codec: pick.name });
+        }
+    };
     const resLabel =
         selectedMonitor && selectedMonitor.width && selectedMonitor.height
             ? `${selectedMonitor.width}×${selectedMonitor.height} @ ${s.fps} fps`
@@ -238,10 +256,18 @@ export default function StreamSettingsCard({
                     title="Encoder"
                 >
                     <SelectField
+                        label="Encoder"
+                        labelTip="Encoder backend. Software x264 and NVIDIA NVENC are wired up; the other hardware families (VAAPI, QSV, AMF, V4L2, Rockchip MPP, Vulkan) are on the roadmap and shown greyed until implemented."
+                        value={family}
+                        options={familyOptions(caps)}
+                        optionDisabled={deps.optionDisabled.family}
+                        onChange={selectFamily}
+                    />
+                    <SelectField
                         label="Video codec"
-                        labelTip="Video coding standard and implementation. NVENC variants run on the GPU's dedicated encoder ASIC; libx264 is software."
+                        labelTip="Video coding format produced by the selected encoder. Efficiency and browser support follow the format (H.264, HEVC, AV1, ...); the encoder backend follows the family above."
                         value={s.codec}
-                        options={CODECS}
+                        options={codecOptions(family, caps)}
                         optionDisabled={deps.optionDisabled.codec}
                         onChange={v => onUpdate({ codec: v })}
                     />
@@ -286,17 +312,32 @@ export default function StreamSettingsCard({
                     />
                     <NumberField
                         label="Quantizer target (CQ)"
-                        labelTip="Constant quantizer for quality mode (rate-distortion tradeoff). Lower = better + more bits. 12 ≈ visually lossless, 19 ≈ excellent, 28 ≈ visibly compressed."
+                        labelTip="Constant quantizer for quality mode - the CRF value on x264, the QP target on NVENC. Lower = better + more bits. 12 ≈ visually lossless, 19 ≈ excellent, 28 ≈ visibly compressed."
                         value={s.cq}
                         disabledReason={deps.disabled.cq}
                         onChange={v => onUpdate({ cq: v })}
                     />
                     <NumberField
-                        label="Bitrate bound (Mbit/s)"
-                        labelTip="Quality mode: burst ceiling only. Latency mode: constant target. Lossless: ignored."
+                        label="Bitrate target (Mbit/s)"
+                        labelTip="Target rate for CBR (held constant), VBR and ABR (averaged toward). CRF and lossless set no bitrate."
                         value={s.bitrateM}
                         disabledReason={deps.disabled.bitrateM}
                         onChange={v => onUpdate({ bitrateM: v })}
+                    />
+                    <NumberField
+                        label="Max bitrate / ceiling (Mbit/s)"
+                        labelTip="Constrained VBR only: the burst ceiling above the target. Bitrate may rise to this on motion, then fall back on static content. Set it above the bitrate target."
+                        value={s.maxrateM}
+                        disabledReason={deps.disabled.maxrateM}
+                        onChange={v => onUpdate({ maxrateM: v })}
+                    />
+                    <NumberField
+                        label="VBV buffer (ms, 0 = auto)"
+                        labelTip={"Rate-control buffer for CBR and VBR, in milliseconds.\nSmaller = tighter rate and lower latency; larger = smoother quality across bursts.\n0 uses the encoder default (x264 600ms)."}
+                        labelLink="https://en.wikipedia.org/wiki/Video_buffering_verifier"
+                        value={s.vbvMs}
+                        disabledReason={deps.disabled.vbvMs}
+                        onChange={v => onUpdate({ vbvMs: v })}
                     />
                     <NumberField
                         label="GOP length (frames, 0 = auto)"

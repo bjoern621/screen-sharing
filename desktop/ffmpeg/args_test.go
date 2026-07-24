@@ -15,12 +15,13 @@ func baseStream() settings.Stream {
 		RelayPort:  8890,
 		Transport:  "srt",
 		Codec:      "libx264",
-		Mode:       "quality",
+		Mode:       "crf",
 		Chroma:     "yuv444p",
 		ColorRange: "pc",
 		Fps:        60,
 		Cq:         19,
 		BitrateM:   150,
+		MaxrateM:   200,
 		Capture:    "x11grab",
 	}
 }
@@ -109,11 +110,16 @@ func TestEncoderArgs(t *testing.T) {
 		want   string // substring that must appear in the joined args
 		reject string // substring that must not appear ("" to skip)
 	}{
-		{"x264 quality uses crf", "libx264", "quality", "-crf", "zerolatency"},
-		{"x264 latency tunes zerolatency", "libx264", "latency", "zerolatency", "-crf"},
+		{"x264 crf uses crf", "libx264", "crf", "-crf", "zerolatency"},
+		{"x264 cbr tunes zerolatency", "libx264", "cbr", "zerolatency", "-crf"},
+		{"x264 cbr bounds bitrate", "libx264", "cbr", "-maxrate", ""},
+		{"x264 abr is uncapped", "libx264", "abr", "-b:v", "-maxrate"},
+		{"x264 vbr sets a ceiling", "libx264", "vbr", "-maxrate", "zerolatency"},
 		{"nvenc lossless tunes lossless", "hevc_nvenc", "lossless", "lossless", ""},
-		{"nvenc quality uses cq", "hevc_nvenc", "quality", "-cq", ""},
-		{"nvenc latency uses cbr", "hevc_nvenc", "latency", "cbr", ""},
+		{"nvenc crf uses cq", "hevc_nvenc", "crf", "-cq", ""},
+		{"nvenc cbr uses cbr", "hevc_nvenc", "cbr", "-rc cbr", ""},
+		{"nvenc abr uses vbr", "hevc_nvenc", "abr", "-rc vbr", "-maxrate"},
+		{"nvenc vbr sets a ceiling", "hevc_nvenc", "vbr", "-maxrate", ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

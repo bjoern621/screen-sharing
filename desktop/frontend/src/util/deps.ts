@@ -1,7 +1,7 @@
 import { Deps, EncoderInfo, PlatformInfo, Stream } from "../types/stream";
 import {
-    Capability, CHROMA_META, CODEC_META, Codec, Chroma, FALLBACK_CODEC,
-    MODE_META, Mode, findCapability, isNvenc,
+    Capability, CHROMA_META, Chroma, FALLBACK_CODEC, FAMILY_META, Family,
+    MODE_META, Mode, codecLabel, findCapability, isNvenc,
 } from "./domain";
 
 // Fallback chroma preference, highest quality first. normalize walks this order
@@ -72,6 +72,41 @@ function codecUsable(codec: string, encoders: EncoderInfo | null): boolean {
     return encoders.usable[codec];
 }
 
+/** Shown for a codec or family the argument builders do not map yet. */
+const notImplementedReason = "not implemented yet - on the roadmap";
+
+/**
+ * Encoder families with no selectable codec on this machine, each mapped to the
+ * reason. A family is unavailable when none of its codecs is both implemented
+ * and runnable here; the reason distinguishes "not built yet" from "no such
+ * hardware". Families with at least one usable codec are absent (selectable).
+ */
+function unavailableFamilies(
+    caps: Capability[],
+    encoders: EncoderInfo | null
+): Record<string, string> {
+    const byFamily = new Map<string, Capability[]>();
+    for (const c of caps) {
+        const list = byFamily.get(c.family) ?? [];
+        list.push(c);
+        byFamily.set(c.family, list);
+    }
+    const out: Record<string, string> = {};
+    for (const [family, list] of byFamily) {
+        const anyImplemented = list.some(c => c.implemented);
+        const anyUsable = list.some(
+            c => c.implemented && codecUsable(c.name, encoders)
+        );
+        if (!anyImplemented) {
+            out[family] = notImplementedReason;
+        } else if (!anyUsable) {
+            const label = FAMILY_META[family as Family]?.label ?? family;
+            out[family] = `no ${label} encoder detected on this machine`;
+        }
+    }
+    return out;
+}
+
 /**
  * Audio sources the given platform cannot capture, each mapped to the reason.
  * Desktop audio comes from the PulseAudio/PipeWire monitor source; ffmpeg has
@@ -95,31 +130,6 @@ function preferredCapture(platform: PlatformInfo | null): string {
         return platform.display === "wayland" ? "portal" : "x11grab";
     }
     return "ddagrab";
-}
-
-// The GStreamer pipeline behind the portal backend targets a bitrate and
-// negotiates its own pixel format, so it honors only the latency mode and
-// ignores the chroma and color-range controls.
-const PORTAL_MODE = "latency";
-const PORTAL_UNIMPLEMENTED =
-    "not yet implemented for the portal (GStreamer) capture backend";
-
-/**
- * Controls and mode options the given capture backend does not honor, so the UI
- * greys them instead of accepting a value the engine would silently drop. The
- * portal backend is bitrate-only and format-agnostic.
- */
-function backendUnsupported(capture: string): {
-    modeOptions: Record<string, string>;
-    controls: Record<string, string>;
-} {
-    if (capture === "portal") {
-        return {
-            modeOptions: { lossless: PORTAL_UNIMPLEMENTED, quality: PORTAL_UNIMPLEMENTED },
-            controls: { chroma: PORTAL_UNIMPLEMENTED, colorRange: PORTAL_UNIMPLEMENTED },
-        };
-    }
-    return { modeOptions: {}, controls: {} };
 }
 
 /** Reason chroma cannot be encoded by the codec with the given label. */
@@ -150,6 +160,7 @@ export function evaluateDeps(
     const d: Deps = {
         disabled: {},
         optionDisabled: {
+            family: {},
             codec: {},
             chroma: {},
             mode: {},
@@ -162,40 +173,57 @@ export function evaluateDeps(
     if (caps) {
         for (const cap of caps) {
             if (!cap.transports.includes(s.transport)) {
-                const label = CODEC_META[cap.name as Codec]?.label ?? cap.name;
                 d.optionDisabled.codec[cap.name] =
-                    `${s.transport} cannot carry ${label}`;
+                    `${s.transport} cannot carry ${codecLabel(cap)}`;
             }
         }
         // A chroma the current codec cannot encode, disabled per option.
         const cap = findCapability(caps, s.codec);
         if (cap) {
-            const label = CODEC_META[s.codec as Codec]?.label ?? s.codec;
+            const label = codecLabel(cap);
             for (const c of Object.keys(CHROMA_META)) {
                 if (!cap.chromas.includes(c)) {
                     d.optionDisabled.chroma[c] = chromaBlockReason(c, label);
                 }
             }
         }
+        // Codecs the encoder argument builders do not map yet: shown so the
+        // roadmap is visible, but greyed with the reason.
+        for (const cap of caps) {
+            if (!cap.implemented) {
+                d.optionDisabled.codec[cap.name] = notImplementedReason;
+            }
+        }
+        // Encoder families (the first dropdown) with no selectable codec here.
+        d.optionDisabled.family = unavailableFamilies(caps, encoders);
     }
     // Hardware availability wins over the transport reason: "no NVIDIA encoder"
-    // is the actionable message when the codec cannot run here at all.
+    // is the actionable message when the codec cannot run here at all. Probed
+    // codecs are all implemented, so this never overwrites the roadmap reason.
     Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders));
 
     if (mode && !mode.usesCq) {
-        d.disabled.cq = "the quantizer target only exists in quality mode";
+        d.disabled.cq = "the quantizer target only exists in CRF (constant-quality) mode";
     }
     if (mode && !mode.usesBitrate) {
         d.disabled.bitrateM =
-            "lossless output costs whatever exactness costs - no bitrate bound";
+            "constant-quality and lossless set no bitrate target";
+    }
+    if (mode && !mode.usesMaxrate) {
+        d.disabled.maxrateM =
+            "the burst ceiling exists only in constrained VBR";
+    }
+    if (mode && !mode.usesVbv) {
+        d.disabled.vbvMs =
+            "the VBV buffer bounds the rate only in CBR and VBR";
     }
     if (!mode?.usesBframes || !nvenc) {
         d.disabled.bframes =
-            "B-frames are forced off in lossless/latency modes (no gain, only reorder delay)";
+            "B-frames are forced off in CBR and lossless (no gain, only reorder delay)";
     }
     if (!nvenc || mode?.pinsPreset) {
         d.disabled.encPreset = nvenc
-            ? `latency mode pins the preset to ${mode?.pinnedPreset ?? "p5"}`
+            ? `CBR mode pins the preset to ${mode?.pinnedPreset ?? "p5"}`
             : "the p1-p7 ladder is NVENC-specific";
     }
     if (chroma?.fullRange) {
@@ -211,15 +239,6 @@ export function evaluateDeps(
     };
     if (monitorNa[s.capture]) {
         d.disabled.monitor = monitorNa[s.capture];
-    }
-
-    // Controls the selected capture backend does not implement. Applied last so
-    // the backend's "unimplemented" reason wins over a codec- or chroma-derived
-    // one for the same control.
-    const unsupported = backendUnsupported(s.capture);
-    d.optionDisabled.mode = { ...d.optionDisabled.mode, ...unsupported.modeOptions };
-    for (const [control, reason] of Object.entries(unsupported.controls)) {
-        d.disabled[control] = reason;
     }
 
     return d;
@@ -240,14 +259,24 @@ export function normalize(
 ): Stream {
     const next = { ...s };
 
-    // Codec: must run here (hardware) and be carriable by the transport. Walk the
-    // table in display order and take the first codec that satisfies both.
-    const codecOk = (codec: string): boolean =>
-        codecUsable(codec, encoders) &&
-        (!caps || (findCapability(caps, codec)?.transports.includes(next.transport) ?? false));
+    // Codec: must be implemented, run here (hardware) and be carriable by the
+    // transport. Walk the capability table in display order and take the first
+    // codec that satisfies all three; fall back to software when none does.
+    const codecOk = (codec: string): boolean => {
+        if (!codecUsable(codec, encoders)) {
+            return false;
+        }
+        if (!caps) {
+            return true;
+        }
+        const cap = findCapability(caps, codec);
+        return (
+            !!cap && cap.implemented && cap.transports.includes(next.transport)
+        );
+    };
     if (!codecOk(next.codec)) {
         next.codec =
-            (Object.keys(CODEC_META) as Codec[]).find(codecOk) ?? FALLBACK_CODEC;
+            (caps?.map(c => c.name).find(codecOk)) ?? FALLBACK_CODEC;
     }
 
     // Chroma: must be encodable by the chosen codec.
@@ -271,11 +300,5 @@ export function normalize(
         next.audio = "none";
     }
 
-    // The portal backend runs the bitrate-only GStreamer pipeline, so a mode it
-    // does not implement drops to latency. Applied after the capture repair,
-    // which may itself select portal.
-    if (next.capture === "portal" && next.mode !== PORTAL_MODE) {
-        next.mode = PORTAL_MODE;
-    }
     return next;
 }

@@ -49,6 +49,7 @@ export default function App() {
                 <StreamSettingsCard
                     s={settings.s}
                     deps={settings.deps}
+                    caps={capabilities}
                     transports={settings.transports}
                     monitors={monitors}
                     browser={settings.browser}

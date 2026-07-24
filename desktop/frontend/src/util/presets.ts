@@ -14,27 +14,27 @@ export const PRESETS: Record<string, Partial<Stream>> = {
     "near-lossless-rgb": {
         // Fast link (heavy ~200 Mbit RGB), still not the open internet: a
         // moderate ~650 ms of retransmit room.
-        mode: "quality", codec: "hevc_nvenc", chroma: "gbrp", encPreset: "p7",
+        mode: "crf", codec: "hevc_nvenc", chroma: "gbrp", encPreset: "p7",
         bframes: 0, fps: 60, gop: 0, cq: 12, bitrateM: 200,
         srtPublishLatencyMs: 150, srtWatchLatencyMs: 500,
     },
     "quality-444": {
-        mode: "quality", codec: "hevc_nvenc", chroma: "yuv444p", encPreset: "p7",
+        mode: "crf", codec: "hevc_nvenc", chroma: "yuv444p", encPreset: "p7",
         bframes: 0, fps: 60, gop: 0, cq: 16, bitrateM: 150, colorRange: "pc",
         srtPublishLatencyMs: 300, srtWatchLatencyMs: 1200,
     },
     "bandwidth-420": {
-        mode: "quality", codec: "hevc_nvenc", chroma: "yuv420p", encPreset: "p7",
+        mode: "crf", codec: "hevc_nvenc", chroma: "yuv420p", encPreset: "p7",
         bframes: 2, fps: 60, gop: 0, cq: 23, bitrateM: 40, colorRange: "pc",
         srtPublishLatencyMs: 300, srtWatchLatencyMs: 1200,
     },
     "low-latency": {
-        mode: "latency", codec: "hevc_nvenc", chroma: "yuv420p", encPreset: "p5",
+        mode: "cbr", codec: "hevc_nvenc", chroma: "yuv420p", encPreset: "p5",
         bframes: 0, fps: 60, gop: 0, bitrateM: 20, colorRange: "pc",
         srtPublishLatencyMs: 120, srtWatchLatencyMs: 250,
     },
     "web-viewable": {
-        mode: "quality", codec: "h264_nvenc", chroma: "yuv420p", encPreset: "p7",
+        mode: "crf", codec: "h264_nvenc", chroma: "yuv420p", encPreset: "p7",
         bframes: 2, fps: 60, gop: 0, cq: 23, bitrateM: 40, colorRange: "tv",
         srtPublishLatencyMs: 300, srtWatchLatencyMs: 1200,
     },

@@ -39,6 +39,11 @@ func LoadPresets() []Preset {
 		return nil
 	}
 
+	// Presets saved by an older build carry the old mode names and lack the
+	// fields added since; upgrade each the same way Load upgrades the working set.
+	for i := range presets {
+		presets[i].Settings = migrateStream(presets[i].Settings)
+	}
 	return presets
 }
 

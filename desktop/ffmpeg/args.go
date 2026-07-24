@@ -162,18 +162,46 @@ func monitorByIndex(idx int) (display.Monitor, bool) {
 	return display.Monitor{}, false
 }
 
-// encoderArgs returns the encoder arguments for the configured codec and mode.
+// encoderArgs returns the encoder arguments for the configured codec and rate
+// control mode. The five modes are the rate-control methods themselves: cbr and
+// vbr and abr all target a bitrate and differ in the ceiling, crf targets a
+// quality, lossless is bit-exact. The GStreamer publish path expresses the same
+// five in gstEncoder.
 func encoderArgs(s settings.Stream) ([]string, error) {
 	bitrate := fmt.Sprintf("%dM", s.BitrateM)
+	maxrate := fmt.Sprintf("%dM", s.MaxrateM)
 	cq := strconv.Itoa(s.Cq)
 	bframes := strconv.Itoa(s.Bframes)
 
 	switch {
 	case s.Codec == "libx264":
-		if s.Mode == "quality" {
+		switch s.Mode {
+		case "crf":
 			return []string{"-c:v", "libx264", "-preset", "slow", "-crf", cq}, nil
+		case "lossless":
+			// x264 qp 0 is its bit-exact coding mode: no rate control, bursts to
+			// hundreds of Mbit/s. zerolatency keeps live delay by dropping the
+			// B-frames and lookahead lossless gains little from.
+			return []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-qp", "0"}, nil
+		case "abr":
+			// One-pass average bitrate, no VBV cap: quality holds and bitrate
+			// bursts freely toward the target average.
+			return []string{"-c:v", "libx264", "-preset", "medium", "-b:v", bitrate}, nil
+		case "vbr":
+			// Constrained VBR: targets the bitrate but bursts up to the maxrate
+			// ceiling on motion. bufsize sizes the ceiling's VBV window.
+			return []string{
+				"-c:v", "libx264", "-preset", "medium",
+				"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
+			}, nil
+		default: // cbr
+			// maxrate = bitrate with a bounded bufsize is true CBR; without them
+			// -b:v alone is one-pass ABR and bursts past a capped link.
+			return []string{
+				"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency",
+				"-b:v", bitrate, "-maxrate", bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
+			}, nil
 		}
-		return []string{"-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-b:v", bitrate}, nil
 
 	case capabilities.IsNvenc(s.Codec):
 		preset := s.EncPreset
@@ -185,7 +213,7 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 			// True nvenc lossless: no rate control, the frame costs whatever
 			// exactness costs and can burst well past 1 Gbps.
 			return []string{"-c:v", s.Codec, "-preset", preset, "-tune", "lossless", "-bf", bframes}, nil
-		case "quality":
+		case "crf":
 			if preset == "" {
 				preset = "p7"
 			}
@@ -196,17 +224,52 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 				"-rc", "vbr", "-cq", cq, "-b:v", "0", "-maxrate", bitrate, "-bufsize", bitrate,
 				"-bf", bframes,
 			}, nil
-		default: // latency
+		case "abr":
+			if preset == "" {
+				preset = "p7"
+			}
+			// VBR toward an average with no ceiling.
+			return []string{"-c:v", s.Codec, "-preset", preset, "-tune", "hq", "-rc", "vbr", "-b:v", bitrate, "-bf", bframes}, nil
+		case "vbr":
+			if preset == "" {
+				preset = "p7"
+			}
+			return []string{
+				"-c:v", s.Codec, "-preset", preset, "-tune", "hq", "-rc", "vbr",
+				"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
+				"-bf", bframes,
+			}, nil
+		default: // cbr
 			if preset == "" {
 				preset = "p5"
 			}
-			return []string{"-c:v", s.Codec, "-preset", preset, "-tune", "ll", "-rc", "cbr", "-b:v", bitrate, "-bf", "0"}, nil
+			args := []string{"-c:v", s.Codec, "-preset", preset, "-tune", "ll", "-rc", "cbr", "-b:v", bitrate, "-bf", "0"}
+			if s.VbvMs > 0 {
+				args = append(args, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+			}
+			return args, nil
 		}
 
 	default:
-		// amf / qsv and anything else: a generic bitrate-targeted path.
+		// Generic bitrate-targeted path. validateCodec rejects every codec whose
+		// capability entry has Implemented:false, so the not-yet-wired hardware
+		// families (vaapi, qsv, amf, v4l2, rkmpp, vulkan) never reach here. When
+		// one is implemented, give it its own case: VAAPI needs a -vaapi_device
+		// and a format=nv12,hwupload filter chain, QSV its own device and load
+		// path, so none of them fit this bare -b:v fallback.
 		return []string{"-c:v", s.Codec, "-b:v", bitrate}, nil
 	}
+}
+
+// bufsizeArg returns the ffmpeg -bufsize value in kbit for a rate (Mbit/s) held
+// over a VBV window. A zero window defaults to one second, the conventional CBR
+// buffer. rateM Mbit/s over ms milliseconds is rateM*ms kbit.
+func bufsizeArg(rateM, vbvMs int) string {
+	ms := vbvMs
+	if ms <= 0 {
+		ms = 1000
+	}
+	return strconv.Itoa(rateM*ms) + "k"
 }
 
 // validateCodec rejects a codec/chroma/transport combination the capability
@@ -216,6 +279,9 @@ func validateCodec(s settings.Stream) error {
 	c, ok := capabilities.Get(s.Codec)
 	if !ok {
 		return fmt.Errorf("unknown codec %q", s.Codec)
+	}
+	if !c.Implemented {
+		return fmt.Errorf("codec %s is listed but not implemented yet", c.Name)
 	}
 	if !capabilities.SupportsChroma(c.Name, s.Chroma) {
 		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, s.Chroma)

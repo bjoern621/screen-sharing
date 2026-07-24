@@ -28,14 +28,16 @@ type Stream struct {
 	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP HTTP listener
 	Transport  string `json:"transport"`  // registry key, e.g. "srt"
 	Codec      string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
-	Mode       string `json:"mode"`       // lossless quality latency
+	Mode       string `json:"mode"`       // rate control: cbr vbr abr crf lossless
 	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
 	ColorRange string `json:"colorRange"` // pc tv (ignored for gbrp, inherently full range)
 	Fps        int    `json:"fps"`
-	Cq         int    `json:"cq"`        // quality mode: constant-quality value, lower = better
-	BitrateM   int    `json:"bitrateM"`  // Mbps: quality = burst ceiling, latency = CBR target
+	Cq         int    `json:"cq"`        // crf mode: constant-quality value, lower = better
+	BitrateM   int    `json:"bitrateM"`  // Mbps: target for cbr/vbr/abr
+	MaxrateM   int    `json:"maxrateM"`  // Mbps: vbr burst ceiling above the target
+	VbvMs      int    `json:"vbvMs"`     // VBV/rate buffer in ms for cbr/vbr, 0 = encoder default
 	Gop        int    `json:"gop"`       // keyframe interval in frames, 0 = auto (2*fps)
-	Bframes    int    `json:"bframes"`   // 0 recommended (B-frames save nothing in lossless mode)
+	Bframes    int    `json:"bframes"`   // lossy modes only; adds reorder latency
 	EncPreset  string `json:"encPreset"` // nvenc p1..p7
 	Capture    string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
 	Audio      string `json:"audio"`     // none desktop (desktop = monitor of the default sink via PulseAudio/PipeWire)
@@ -66,7 +68,8 @@ func Defaults() Stream {
 		Name: host, RelayHost: "127.0.0.1", RelayPort: 8890, ApiPort: 9997,
 		RtspPort: 8554, WebrtcPort: 8889,
 		Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
-		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, Gop: 0, Bframes: 0,
+		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
+		Gop: 0, Bframes: 0,
 		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
 		UplinkMbps: 50,
@@ -132,6 +135,25 @@ func Load() Stream {
 		s.WebrtcPort = Defaults().WebrtcPort
 	}
 
+	return migrateStream(s)
+}
+
+// migrateStream upgrades a decoded settings object to the current schema. It
+// renames the pre-rate-control modes (latency/quality became cbr/crf) and fills
+// fields added with the VBR and ABR modes. Applied to the working settings and
+// to every saved preset, so a file written by an older build stays usable.
+func migrateStream(s Stream) Stream {
+	switch s.Mode {
+	case "latency":
+		s.Mode = "cbr"
+	case "quality":
+		s.Mode = "crf"
+	}
+	// A zero ceiling would leave VBR no room above the target; default it. VbvMs
+	// zero is a valid value (the encoder's own buffer default), so it is left.
+	if s.MaxrateM <= 0 {
+		s.MaxrateM = Defaults().MaxrateM
+	}
 	return s
 }
 

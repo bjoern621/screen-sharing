@@ -2,31 +2,44 @@ import { Option } from "../types/stream";
 import { capabilities } from "../../wailsjs/go/models";
 
 /**
- * The declarative domain model: one table per codec, chroma and rate-control
- * mode, carrying every fact the UI derives from. Constraints that must also hold
- * in the encoder (which chroma a codec accepts, which transport carries it) are
- * not here - those come from the backend capability table (App.Capabilities), so
- * a single definition governs both sides. This file holds the presentation
- * (label, tip, link) and the bitrate/browser heuristics, which are UI-only.
+ * The declarative domain model: one table per encoder family, video format,
+ * chroma and rate-control mode, carrying every fact the UI derives from.
+ * Constraints that must also hold in the encoder (which chroma a codec accepts,
+ * which transport carries it, whether the codec is implemented) are not here -
+ * those come from the backend capability table (App.Capabilities), so a single
+ * definition governs both sides. This file holds the presentation (label, tip,
+ * link) and the bitrate/browser heuristics, which are UI-only.
  *
- * Deriving deps, normalization, the bitrate estimate and the browser verdict from
- * these tables removes the hand-kept duplication that let the disable rules and
- * the repair rules drift apart.
+ * A codec name like "hevc_vaapi" factors into a family (the backend, "vaapi")
+ * and a format (the coding standard, "hevc"). The backend capability table
+ * carries that factoring per codec; the two meta tables below supply the
+ * presentation for each half, so the "Encoder" and "Codec" dropdowns are built
+ * from small tables rather than one row per family×format combination.
  */
 
 /** The backend's fixed codec facts: nvenc flag, allowed chromas and transports. */
 export type Capability = capabilities.Codec;
 
-/** How widely a codec's 4:2:0 output decodes in browsers. */
+/** How widely a format's 4:2:0 output decodes in browsers. */
 type BrowserKind = "universal" | "modern" | "safari-only";
 
-interface CodecMeta {
+/** Presentation and heuristics for a video coding format, independent of the
+ * encoder backend that produces it. Coding efficiency and browser decodability
+ * follow the format (H.264 vs HEVC vs AV1), not the family (nvenc vs vaapi). */
+interface FormatMeta {
     label: string;
     tip: string;
     link: string;
     /** Relative coding efficiency: bits for equal quality, H.264 = 1.0. */
     efficiency: number;
     browser: BrowserKind;
+}
+
+/** Presentation for an encoder backend (the "Encoder" dropdown). */
+interface FamilyMeta {
+    label: string;
+    tip: string;
+    link?: string;
 }
 
 interface ChromaMeta {
@@ -49,53 +62,121 @@ interface ModeMeta {
     label: string;
     tip: string;
     link: string;
-    /** quality mode targets a constant quantizer (the CQ control). */
+    /** crf mode targets a constant quantizer (the CQ control). */
     usesCq: boolean;
-    /** lossless output has no bitrate bound; the other modes do. */
+    /** cbr/vbr/abr target a bitrate; crf and lossless do not. */
     usesBitrate: boolean;
-    /** B-frames only help lossy VBR, and only on NVENC. */
+    /** vbr sets a burst ceiling (max bitrate) above the target. */
+    usesMaxrate: boolean;
+    /** cbr/vbr bound the rate with a VBV buffer whose size is tunable. */
+    usesVbv: boolean;
+    /** B-frames only help the lossy bitrate/quality modes, and only on NVENC. */
     usesBframes: boolean;
-    /** latency mode pins the NVENC preset; pinnedPreset names the value. */
+    /** cbr pins the NVENC preset to the low-latency value; pinnedPreset names it. */
     pinsPreset: boolean;
     pinnedPreset?: string;
 }
 
-export type Codec = "hevc_nvenc" | "h264_nvenc" | "av1_nvenc" | "libx264";
+/** Encoder backends. A codec name factors into a family and a format; the
+ * backend capability table (capabilities.Codec) carries the factoring. */
+export type Family =
+    "software" | "nvenc" | "vaapi" | "qsv" | "amf" | "v4l2" | "rkmpp" | "vulkan";
+/** Video coding formats, independent of the encoder backend. */
+export type Format = "h264" | "hevc" | "av1" | "vp9" | "vp8";
 export type Chroma = "gbrp" | "yuv444p" | "yuv420p" | "p010le";
-export type Mode = "lossless" | "quality" | "latency";
+export type Mode = "cbr" | "vbr" | "abr" | "crf" | "lossless";
 export type AudioSource = "none" | "desktop";
 
 const HEVC_LINK = "https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding";
 const AVC_LINK = "https://en.wikipedia.org/wiki/Advanced_Video_Coding";
+const AV1_LINK = "https://en.wikipedia.org/wiki/AV1";
+const VP9_LINK = "https://en.wikipedia.org/wiki/VP9";
+const VP8_LINK = "https://en.wikipedia.org/wiki/VP8";
+const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
+const VAAPI_LINK = "https://en.wikipedia.org/wiki/Video_Acceleration_API";
+const QSV_LINK = "https://en.wikipedia.org/wiki/Intel_Quick_Sync_Video";
+const AMF_LINK = "https://en.wikipedia.org/wiki/Video_Coding_Engine";
+const V4L2_LINK = "https://en.wikipedia.org/wiki/Video4Linux";
+const VULKAN_LINK = "https://en.wikipedia.org/wiki/Vulkan";
 
-export const CODEC_META: Record<Codec, CodecMeta> = {
-    hevc_nvenc: {
-        label: "HEVC / H.265 - NVENC hardware",
+export const FORMAT_META: Record<Format, FormatMeta> = {
+    h264: {
+        label: "AVC / H.264",
+        link: AVC_LINK,
+        tip: "Advanced Video Coding (ITU-T H.264 | ISO/IEC 14496-10). Widest decoder compatibility, least efficient of the modern formats.",
+        efficiency: 1.0,
+        browser: "universal",
+    },
+    hevc: {
+        label: "HEVC / H.265",
         link: HEVC_LINK,
-        tip: "High Efficiency Video Coding (ITU-T H.265 | ISO/IEC 23008-2) on NVIDIA's encoder ASIC. Only NVENC codec with 4:4:4/RGB support here.",
+        tip: "High Efficiency Video Coding (ITU-T H.265 | ISO/IEC 23008-2). Around 40% smaller than H.264 at equal quality; browser playback is limited to Safari or an OS extension.",
         efficiency: 0.6,
         browser: "safari-only",
     },
-    h264_nvenc: {
-        label: "AVC / H.264 - NVENC hardware",
-        link: AVC_LINK,
-        tip: "Advanced Video Coding (ITU-T H.264 | ISO/IEC 14496-10) on NVIDIA's encoder ASIC. Widest decoder compatibility, less efficient than HEVC.",
-        efficiency: 1.0,
-        browser: "universal",
-    },
-    av1_nvenc: {
-        label: "AV1 - NVENC hardware (4:2:0 only)",
-        link: "https://en.wikipedia.org/wiki/AV1",
-        tip: "AOMedia Video 1 on NVIDIA's encoder ASIC (RTX 40+). Most efficient per bit, but NVENC AV1 encodes 4:2:0 only.",
+    av1: {
+        label: "AV1",
+        link: AV1_LINK,
+        tip: "AOMedia Video 1. Most efficient per bit. Hardware encoders are recent: NVENC on RTX 40+, Intel Arc, AMD RDNA3+.",
         efficiency: 0.5,
         browser: "modern",
     },
-    libx264: {
-        label: "AVC / H.264 - x264 software",
-        link: "https://en.wikipedia.org/wiki/X264",
-        tip: "AVC/H.264 in software (x264). CPU-heavy at high resolutions; fallback when no capable GPU encoder exists.",
+    vp9: {
+        label: "VP9",
+        link: VP9_LINK,
+        tip: "Google VP9. Royalty-free, decodes in most non-Safari browsers; efficiency sits between H.264 and HEVC.",
+        efficiency: 0.6,
+        browser: "modern",
+    },
+    vp8: {
+        label: "VP8",
+        link: VP8_LINK,
+        tip: "Google VP8. Older royalty-free format with broad WebM/WebRTC support; efficiency near H.264.",
         efficiency: 1.0,
-        browser: "universal",
+        browser: "modern",
+    },
+};
+
+export const FAMILY_META: Record<Family, FamilyMeta> = {
+    software: {
+        label: "Software (x264)",
+        link: "https://en.wikipedia.org/wiki/X264",
+        tip: "CPU encoding via x264. Always available, no GPU needed; CPU-heavy at high resolution and frame rate.",
+    },
+    nvenc: {
+        label: "NVIDIA NVENC",
+        link: NVENC_LINK,
+        tip: "NVIDIA's dedicated encoder ASIC. Needs an NVIDIA GPU, its driver, and an nvenc-enabled ffmpeg.",
+    },
+    vaapi: {
+        label: "VAAPI (Intel / AMD)",
+        link: VAAPI_LINK,
+        tip: "Video Acceleration API: the shared Intel + AMD hardware encoder path on Linux. The single most useful backend on a non-NVIDIA desktop.",
+    },
+    qsv: {
+        label: "Intel Quick Sync (QSV)",
+        link: QSV_LINK,
+        tip: "Intel Quick Sync Video via oneVPL. Intel GPUs only; often better quality and rate control than generic VAAPI on the same silicon.",
+    },
+    amf: {
+        label: "AMD AMF",
+        link: AMF_LINK,
+        tip: "AMD Media Framework. AMD GPUs; on Linux, VAAPI is usually the stronger path for the same cards.",
+    },
+    v4l2: {
+        label: "V4L2 M2M (ARM SoC)",
+        link: V4L2_LINK,
+        tip: "Kernel memory-to-memory encoders on ARM SoCs (Raspberry Pi and similar).",
+    },
+    rkmpp: {
+        label: "Rockchip MPP",
+        link: "https://en.wikipedia.org/wiki/Rockchip",
+        tip: "Rockchip Media Process Platform encoders (RK35xx-class SoCs).",
+    },
+    vulkan: {
+        label: "Vulkan Video",
+        link: VULKAN_LINK,
+        tip: "Cross-vendor hardware encoding through the Vulkan video-encode extensions. Newest and least mature path.",
     },
 };
 
@@ -141,33 +222,61 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
 };
 
 export const MODE_META: Record<Mode, ModeMeta> = {
-    lossless: {
-        label: "lossless - bit-exact",
-        link: "https://en.wikipedia.org/wiki/Lossless_compression",
-        tip: "Mathematically lossless: decoded output is bit-identical to input. Bitrate unbounded - bursts to hundreds of Mbit/s on motion. LAN only.",
-        usesCq: false,
-        usesBitrate: false,
-        usesBframes: false,
-        pinsPreset: false,
-    },
-    quality: {
-        label: "quality - VBR + constant quantizer",
-        link: "https://en.wikipedia.org/wiki/Variable_bitrate",
-        tip: "Variable bitrate targeting a constant quantizer (CQ): quality held constant, bitrate varies with content. The bitrate bound only caps bursts.",
-        usesCq: true,
-        usesBitrate: true,
-        usesBframes: true,
-        pinsPreset: false,
-    },
-    latency: {
-        label: "latency - CBR low-delay",
+    cbr: {
+        label: "CBR - constant bitrate",
         link: "https://en.wikipedia.org/wiki/Constant_bitrate",
-        tip: "Constant bitrate with low-delay tuning: fixed bandwidth, quality varies, smallest buffers and delay.",
+        tip: "CBR - constant bitrate: the encoder holds the target every second, so bandwidth is fixed and quality floats with the scene.\nLow-delay tuning keeps buffers smallest. Best when the link has a hard bandwidth cap.",
         usesCq: false,
         usesBitrate: true,
+        usesMaxrate: false,
+        usesVbv: true,
         usesBframes: false,
         pinsPreset: true,
         pinnedPreset: "p5",
+    },
+    vbr: {
+        label: "VBR - constrained (target + ceiling)",
+        link: "https://en.wikipedia.org/wiki/Variable_bitrate",
+        tip: "VBR - constrained variable bitrate: targets the bitrate but bursts up to the max-bitrate ceiling on motion, holding quality where CBR would soften.\nNeeds headroom above the average. The ceiling binds on NVENC and the ffmpeg x264 path; x264 over the portal backend runs it as uncapped ABR.",
+        usesCq: false,
+        usesBitrate: true,
+        usesMaxrate: true,
+        usesVbv: true,
+        usesBframes: true,
+        pinsPreset: false,
+    },
+    abr: {
+        label: "ABR - average bitrate",
+        link: "https://en.wikipedia.org/wiki/Variable_bitrate",
+        tip: "ABR - average bitrate: one pass toward the target average with no ceiling, so hard frames burst freely and quality holds.\nSimplest bitrate mode; fits an unmetered LAN where bursts are fine.",
+        usesCq: false,
+        usesBitrate: true,
+        usesMaxrate: false,
+        usesVbv: false,
+        usesBframes: true,
+        pinsPreset: false,
+    },
+    crf: {
+        label: "CRF / CQ - constant quality",
+        link: "https://en.wikipedia.org/wiki/Variable_bitrate",
+        tip: "CRF / constant-QP - constant quality: the encoder spends whatever bitrate holds the quantizer target (CQ) steady.\nBitrate rises on motion and falls on a static screen; quality-first with no rate bound.",
+        usesCq: true,
+        usesBitrate: false,
+        usesMaxrate: false,
+        usesVbv: false,
+        usesBframes: true,
+        pinsPreset: false,
+    },
+    lossless: {
+        label: "Lossless - QP 0, bit-exact",
+        link: "https://en.wikipedia.org/wiki/Lossless_compression",
+        tip: "QP 0 - no quantization: the encoder discards no detail, so decoded output is bit-identical to the source.\nNo rate control, so bitrate bursts to hundreds of Mbit/s on motion. LAN only.",
+        usesCq: false,
+        usesBitrate: false,
+        usesMaxrate: false,
+        usesVbv: false,
+        usesBframes: false,
+        pinsPreset: false,
     },
 };
 
@@ -194,7 +303,7 @@ export function metaOptions<K extends string>(
 }
 
 /** Fallback codec when the chosen one is unavailable: software, always present. */
-export const FALLBACK_CODEC: Codec = "libx264";
+export const FALLBACK_CODEC = "libx264";
 
 /** Looks up a codec's backend capability facts in the fetched table. */
 export function findCapability(
@@ -202,6 +311,23 @@ export function findCapability(
     codec: string
 ): Capability | undefined {
     return caps?.find(c => c.name === codec);
+}
+
+/** The video format of a codec, from the capability table (undefined until it loads). */
+export function formatOf(codec: string, caps: Capability[] | null): Format | undefined {
+    return findCapability(caps, codec)?.format as Format | undefined;
+}
+
+/** The encoder family of a codec, from the capability table (undefined until it loads). */
+export function familyOf(codec: string, caps: Capability[] | null): Family | undefined {
+    return findCapability(caps, codec)?.family as Family | undefined;
+}
+
+/** Human label for a codec, e.g. "HEVC / H.265 (VAAPI (Intel / AMD))". */
+export function codecLabel(cap: Capability): string {
+    const fmt = FORMAT_META[cap.format as Format]?.label ?? cap.format;
+    const fam = FAMILY_META[cap.family as Family]?.label ?? cap.family;
+    return `${fmt} (${fam})`;
 }
 
 /**

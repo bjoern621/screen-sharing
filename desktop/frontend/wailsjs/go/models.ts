@@ -2,7 +2,10 @@ export namespace capabilities {
 	
 	export class Codec {
 	    name: string;
+	    family: string;
+	    format: string;
 	    nvenc: boolean;
+	    implemented: boolean;
 	    chromas: string[];
 	    transports: string[];
 	
@@ -13,7 +16,10 @@ export namespace capabilities {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
+	        this.family = source["family"];
+	        this.format = source["format"];
 	        this.nvenc = source["nvenc"];
+	        this.implemented = source["implemented"];
 	        this.chromas = source["chromas"];
 	        this.transports = source["transports"];
 	    }
@@ -162,6 +168,8 @@ export namespace settings {
 	    fps: number;
 	    cq: number;
 	    bitrateM: number;
+	    maxrateM: number;
+	    vbvMs: number;
 	    gop: number;
 	    bframes: number;
 	    encPreset: string;
@@ -193,6 +201,8 @@ export namespace settings {
 	        this.fps = source["fps"];
 	        this.cq = source["cq"];
 	        this.bitrateM = source["bitrateM"];
+	        this.maxrateM = source["maxrateM"];
+	        this.vbvMs = source["vbvMs"];
 	        this.gop = source["gop"];
 	        this.bframes = source["bframes"];
 	        this.encPreset = source["encPreset"];

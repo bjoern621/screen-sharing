@@ -1,14 +1,55 @@
 import { Monitor, Option } from "../types/stream";
-import { AUDIO_META, CHROMA_META, CODEC_META, MODE_META, metaOptions } from "./domain";
+import {
+    AUDIO_META, CHROMA_META, Capability, FAMILY_META, FORMAT_META, Family,
+    Format, MODE_META, metaOptions,
+} from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 
-// Codec, mode and chroma option lists are derived from the domain meta tables so
-// the dropdowns, the dependency rules and the heuristics share one definition.
-export const CODECS: Option[] = metaOptions(CODEC_META);
+// Mode and chroma option lists are derived from the domain meta tables so the
+// dropdowns, the dependency rules and the heuristics share one definition. The
+// encoder (family) and codec (format) lists come from the backend capability
+// table instead, so they list exactly the codecs the backend declares.
 export const MODES: Option[] = metaOptions(MODE_META);
 export const CHROMAS: Option[] = metaOptions(CHROMA_META);
 export const AUDIO_SOURCES: Option[] = metaOptions(AUDIO_META);
+
+/**
+ * The "Encoder" dropdown: one option per encoder family present in the
+ * capability table, in table order. Empty until the table loads.
+ */
+export function familyOptions(caps: Capability[] | null): Option[] {
+    if (!caps) {
+        return [];
+    }
+    const seen = new Set<string>();
+    const out: Option[] = [];
+    for (const c of caps) {
+        if (seen.has(c.family)) {
+            continue;
+        }
+        seen.add(c.family);
+        const m = FAMILY_META[c.family as Family];
+        out.push({ value: c.family, label: m?.label ?? c.family, tip: m?.tip, link: m?.link });
+    }
+    return out;
+}
+
+/**
+ * The "Video codec" dropdown for a chosen family: one option per codec in that
+ * family, labeled by its video format. Empty until the table loads.
+ */
+export function codecOptions(family: string, caps: Capability[] | null): Option[] {
+    if (!caps) {
+        return [];
+    }
+    return caps
+        .filter(c => c.family === family)
+        .map(c => {
+            const m = FORMAT_META[c.format as Format];
+            return { value: c.name, label: m?.label ?? c.format, tip: m?.tip, link: m?.link };
+        });
+}
 
 export const RANGES: Option[] = [
     {

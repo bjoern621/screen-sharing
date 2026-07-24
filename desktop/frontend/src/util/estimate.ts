@@ -1,9 +1,9 @@
 import { Stream } from "../types/stream";
-import { CHROMA_META, CODEC_META, Chroma, Codec } from "./domain";
+import { Capability, CHROMA_META, Chroma, FORMAT_META, formatOf } from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
 export interface BitrateEstimate {
-    /** "fixed" = CBR constant; "range" = quality VBR; "lossless" = unbounded. */
+    /** "fixed" = CBR/ABR average; "range" = VBR/CRF spread; "lossless" = unbounded. */
     kind: "fixed" | "range" | "lossless";
     lowMbps: number;
     highMbps: number;
@@ -32,23 +32,41 @@ const LOSSLESS_HIGH = 0.55;
 export function estimateBitrate(
     s: Stream,
     width: number,
-    height: number
+    height: number,
+    caps: Capability[] | null = null
 ): BitrateEstimate | null {
     if (width <= 0 || height <= 0) {
         return null;
     }
     const pixelRate = width * height * s.fps; // pixels per second
 
-    if (s.mode === "latency") {
+    if (s.mode === "cbr") {
         return {
             kind: "fixed",
             lowMbps: s.bitrateM,
             highMbps: s.bitrateM,
-            note: "CBR: held constant at the bitrate bound",
+            note: "CBR: held constant at the bitrate target",
+        };
+    }
+    if (s.mode === "abr") {
+        return {
+            kind: "fixed",
+            lowMbps: s.bitrateM,
+            highMbps: s.bitrateM,
+            note: "ABR: averages toward the target, bursts uncapped on motion",
+        };
+    }
+    if (s.mode === "vbr") {
+        const high = Math.max(s.maxrateM, s.bitrateM);
+        return {
+            kind: "range",
+            lowMbps: s.bitrateM,
+            highMbps: high,
+            note: `VBR: averages toward ${s.bitrateM}, bursts up to ${high} Mbit/s`,
         };
     }
 
-    const codec = CODEC_META[s.codec as Codec]?.efficiency ?? 1.0;
+    const codec = FORMAT_META[formatOf(s.codec, caps) ?? "h264"]?.efficiency ?? 1.0;
     const chroma = CHROMA_META[s.chroma as Chroma]?.weight ?? 1.0;
 
     if (s.mode === "lossless") {
@@ -61,22 +79,19 @@ export function estimateBitrate(
         };
     }
 
-    // quality (VBR + constant quantizer)
+    // crf (constant quality): quality-driven, no bitrate bound
     const bpp =
         QUALITY_ANCHOR_BPP *
         Math.pow(2, (QUALITY_ANCHOR_CQ - s.cq) / CQ_STEP) *
         codec *
         chroma;
     const nominal = (pixelRate * bpp) / 1e6;
-    let low = nominal * MOTION_LOW;
-    let high = nominal * MOTION_HIGH;
-    let note = `quality VBR at CQ ${s.cq}`;
-    if (s.bitrateM > 0) {
-        low = Math.min(low, s.bitrateM);
-        high = Math.min(high, s.bitrateM);
-        note += `, capped by the ${s.bitrateM} Mbit/s ceiling`;
-    }
-    return { kind: "range", lowMbps: low, highMbps: high, note };
+    return {
+        kind: "range",
+        lowMbps: nominal * MOTION_LOW,
+        highMbps: nominal * MOTION_HIGH,
+        note: `CRF constant quality at CQ ${s.cq}`,
+    };
 }
 
 /** Formats an estimate as a compact Mbit/s figure or range. */
