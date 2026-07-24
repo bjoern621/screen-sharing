@@ -1,11 +1,14 @@
 import { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 import Tip from "../Tip/Tip";
+import InfoIcon from "../InfoIcon/InfoIcon";
 
 interface FieldShellProps {
     label: string;
     /** Omit for a self-explanatory field that needs no tooltip. */
     labelTip?: string;
+    /** Reference-article URL; renders an info icon beside the label. */
+    labelLink?: string;
     disabledReason?: string;
     children: ReactNode;
 }
@@ -18,13 +21,14 @@ interface FieldShellProps {
 export default function FieldShell({
     label,
     labelTip,
+    labelLink,
     disabledReason,
     children,
 }: FieldShellProps) {
     const tip = disabledReason ? `Ignored: ${disabledReason}` : labelTip;
     return (
         <div className="flex flex-col gap-1">
-            <Label className="text-xs text-muted-foreground">
+            <Label className="flex w-fit items-center gap-1 text-xs text-muted-foreground">
                 {tip ? (
                     <Tip text={tip}>
                         <span>{label}</span>
@@ -32,6 +36,7 @@ export default function FieldShell({
                 ) : (
                     <span>{label}</span>
                 )}
+                {labelLink && <InfoIcon url={labelLink} />}
             </Label>
             {children}
         </div>

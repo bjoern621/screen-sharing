@@ -43,9 +43,12 @@ A **Publisher** owns the full pipeline for one family of capture backends.
 The **portal** package (`portal.Open`) performs the ScreenCast D-Bus handshake and returns the PipeWire remote fd and node id.
 It knows nothing about encoding.
 
-The **transport** package is the single source of the destination.
-`transport.Transport` returns ffmpeg output arguments; the optional `transport.URLPublisher` returns the same destination as a plain URL for an engine that takes one (GStreamer's `srtsink`).
-The SRT URL is built in exactly one place and reused by both engines.
+The **transport** package holds the destination, and each engine's serialization lives with the transport that knows its dialect.
+The base `transport.Transport` is engine-neutral: it only identifies itself.
+Each publish or watch engine has a peer capability interface a transport may implement: `FFmpegPublisher` (ffmpeg output args), `GstPublisher` (GStreamer muxer and sink), `Watcher` (a viewer URL).
+No engine is privileged in the base contract; an engine asks for its own serialization through the matching package helper, and a transport that cannot supply it is simply unusable with that engine.
+The serializations are not interchangeable: ffmpeg's SRT protocol takes a query-string URL with latency in microseconds, while GStreamer's `srtsink` uses libsrt properties with latency in milliseconds.
+A transport carrying several engines implements several capabilities; keeping each dialect on the transport is what stops one engine's serialization from leaking into another.
 
 The **capabilities** package holds the codec facts both engines and the UI share.
 Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg encoder flags, `publish/gstreamer.go` to GStreamer elements.
@@ -55,7 +58,7 @@ Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg e
 - `publish.Publisher`: `Command(s)` renders the pipeline for display; `Start(s, tag, Callbacks)` launches and supervises it.
 - `publish.Handle`: `Running()` and `Stop()`, the lifecycle the app drives.
 - `publish.Callbacks`: `OnStats` (best-effort progress) and `OnExit` (terminal result with the stderr tail and log path).
-- `transport.Transport` and the optional `transport.URLPublisher`: the destination as ffmpeg args and as a plain URL.
+- `transport.Transport` (engine-neutral identity) plus the peer capability interfaces `FFmpegPublisher`, `GstPublisher` and `Watcher`: each engine's serialization of the destination.
 - `portal.Open(Options) (*Session, error)`: the ScreenCast handshake; `Session` carries `NodeID`, the remote `Fd`, a `Restore` token, and `Close`.
 
 ## The portal handshake

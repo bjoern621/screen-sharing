@@ -63,6 +63,7 @@ func Start(
 	args []string,
 	hideWindow bool,
 	tag string,
+	extraEnv []string,
 	onStats func(Stats),
 	onExit func(err error, stderrTail string, logPath string),
 ) (*Proc, error) {
@@ -86,6 +87,9 @@ func Start(
 
 	tail := &tailBuffer{max: 4096}
 	cmd := exec.Command(exe, full...)
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	setHidden(cmd, hideWindow)
 
 	stderr, err := cmd.StderrPipe()

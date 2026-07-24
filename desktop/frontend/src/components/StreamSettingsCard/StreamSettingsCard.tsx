@@ -71,7 +71,7 @@ interface StreamSettingsCardProps {
 }
 
 /** The full stream-settings form: dependency-aware fields, publish controls,
- * browser-viewability verdict and the live ffmpeg command preview. */
+ * browser-viewability verdict and the live command preview. */
 export default function StreamSettingsCard({
     s,
     deps,
@@ -120,6 +120,17 @@ export default function StreamSettingsCard({
                 <CardTitle className="text-base">Stream settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+                {publishing && (
+                    <p className="text-xs text-muted-foreground">
+                        Settings are locked while publishing. Stop the stream to
+                        change them.
+                    </p>
+                )}
+                {/* Changing settings mid-stream is unsupported, so the whole
+                 * form is disabled while a stream is live. A disabled fieldset
+                 * propagates the disabled state to every native input and select
+                 * trigger inside it. */}
+                <fieldset disabled={publishing} className="space-y-4">
                 <Section
                     icon={<IconPlugConnected size={16} className="text-muted-foreground" />}
                     title="Connection"
@@ -259,14 +270,16 @@ export default function StreamSettingsCard({
                         onChange={v => onUpdate({ bitrateM: v })}
                     />
                     <NumberField
-                        label="GOP length (frames, 0 = 2×fps)"
-                        labelTip="Group of Pictures: frames between keyframes. New viewers wait up to GOP/fps seconds to join; loss corrupts until the next keyframe. Long GOP = less bandwidth, slower joins."
+                        label="GOP length (frames, 0 = auto)"
+                        labelTip={"Group of Pictures: frames between keyframes.\n0 selects auto (2×fps); any positive value is the exact keyframe interval, so 1 makes every frame a keyframe.\nNew viewers wait up to GOP/fps seconds to join; loss corrupts until the next keyframe.\nLong GOP = less bandwidth, slower joins."}
+                        labelLink="https://en.wikipedia.org/wiki/Group_of_pictures"
                         value={s.gop}
                         onChange={v => onUpdate({ gop: v })}
                     />
                     <NumberField
                         label="B-frames"
                         labelTip="Bi-directionally predicted frames: reference past AND future. Save bitrate in lossy modes, add reorder latency; nothing in lossless."
+                        labelLink="https://en.wikipedia.org/wiki/Group_of_pictures"
                         value={s.bframes}
                         disabledReason={deps.disabled.bframes}
                         onChange={v => onUpdate({ bframes: v })}
@@ -298,6 +311,7 @@ export default function StreamSettingsCard({
                         onRemeasure={uplink.remeasure}
                     />
                 </Section>
+                </fieldset>
 
                 <div className="flex flex-wrap items-center gap-3">
                     <Button
@@ -361,9 +375,9 @@ export default function StreamSettingsCard({
                 </div>
 
                 <div className="space-y-1">
-                    <Tip text="The exact ffmpeg invocation these settings produce.">
+                    <Tip text="The exact command these settings produce.">
                         <span className="text-xs text-muted-foreground">
-                            ffmpeg command:
+                            command:
                         </span>
                     </Tip>
                     <pre className="overflow-x-auto rounded-md border bg-muted/50 px-3 py-2 font-mono text-xs whitespace-pre-wrap break-all text-foreground">

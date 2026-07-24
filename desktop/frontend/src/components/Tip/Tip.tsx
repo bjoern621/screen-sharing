@@ -34,7 +34,7 @@ export default function Tip({
     return (
         <Tooltip>
             <TooltipTrigger render={<span ref={triggerRef} className={className}>{children}</span>} />
-            <TooltipContent side={side} sideOffset={sideOffset} anchor={anchor} className="max-w-sm">
+            <TooltipContent side={side} sideOffset={sideOffset} anchor={anchor} className="max-w-sm whitespace-pre-line">
                 {text}
             </TooltipContent>
         </Tooltip>

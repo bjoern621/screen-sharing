@@ -55,6 +55,9 @@ func (a *App) StartPublish(s settings.Stream) error {
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
+				logger.Errorf("publish of '%s' failed: %v\n%s\nfull log: %s", s.Name, err, stderrTail, logPath)
+			} else {
+				logger.Infof("publish of '%s' ended (log: %s)", s.Name, logPath)
 			}
 			runtime.EventsEmit(a.ctx, "publish:exit", exitEvent{Message: message, LogPath: logPath})
 		},

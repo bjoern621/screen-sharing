@@ -10,7 +10,9 @@ const POLL_INTERVAL_MS = 2000;
 /**
  * Polls the relay for the live-stream snapshot and tracks which streams this
  * client is watching, including the transient "connecting" state between
- * StartWatch and the viewer window actually appearing (watch:ready).
+ * StartWatch and the relay reporting a reader on the path. The reader count is
+ * the readiness signal: it does not depend on the viewer's window system, so it
+ * works the same under X11 and Wayland.
  */
 export function useLive() {
     const [live, setLive] = useState<RelayStatus | null>(null);
@@ -37,9 +39,6 @@ export function useLive() {
     }, []);
 
     useEffect(() => {
-        const offReady = EventsOn("watch:ready", (name: string) =>
-            clearConnecting(name)
-        );
         const offExit = EventsOn("watch:exit", (e: WatchExit) => {
             clearConnecting(e.name);
             if (e.message) {
@@ -48,11 +47,23 @@ export function useLive() {
             }
             void refresh();
         });
-        return () => {
-            offReady();
-            offExit();
-        };
+        return () => offExit();
     }, [clearConnecting, refresh]);
+
+    // A watched path drops out of "connecting" once the relay shows a reader on
+    // it. That reader is this client's viewer, and the signal arrives with the
+    // regular Live() poll, so no window probe is needed.
+    useEffect(() => {
+        if (!live?.paths) return;
+        setConnecting(prev => {
+            if (prev.size === 0) return prev;
+            const next = new Set(prev);
+            for (const p of live.paths) {
+                if (p.readers > 0) next.delete(p.name);
+            }
+            return next.size === prev.size ? prev : next;
+        });
+    }, [live]);
 
     useEffect(() => {
         void refresh();

@@ -29,8 +29,7 @@ import (
 // The order matches scripts/publish.ps1: capture input, encoder, pixel format
 // and color range, GOP, then the transport's muxer and destination URL.
 func BuildPublishArgs(s settings.Stream) ([]string, error) {
-	t, ok := transport.Get(s.Transport)
-	if !ok {
+	if _, ok := transport.Get(s.Transport); !ok {
 		return nil, fmt.Errorf("unknown transport %q", s.Transport)
 	}
 
@@ -62,7 +61,12 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		args = append(args, "-color_range", s.ColorRange)
 	}
 	args = append(args, "-g", strconv.Itoa(gop))
-	args = append(args, t.PublishArgs(s)...)
+
+	pub, ok := transport.PublishArgs(s)
+	if !ok {
+		return nil, fmt.Errorf("transport %q cannot publish through ffmpeg", s.Transport)
+	}
+	args = append(args, pub...)
 
 	return args, nil
 }
@@ -70,20 +74,23 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 // BuildWatchArgs returns the ffplay arguments (without the executable) that open
 // streamName from the relay in a low-latency viewer window.
 //
-// -loglevel fatal -nostats is deliberate: ffplay's status line and per-frame
-// decode messages otherwise go to a console whose blocking write stalls the
-// decode loop, expiring SRT packets and freezing the picture.
+// -nostats drops ffplay's per-frame status line, whose blocking write to a
+// console would otherwise stall the decode loop and expire SRT packets. The
+// remaining -loglevel info reaches the run log through a drained pipe, never a
+// console, so it cannot stall the decoder. It records the negotiated input
+// format and any decode or filtergraph error, which is what a viewer that stays
+// on "connecting" leaves behind.
 func BuildWatchArgs(s settings.Stream, streamName string) ([]string, error) {
-	t, ok := transport.Get(s.Transport)
+	url, ok := transport.WatchURL(s, streamName)
 	if !ok {
-		return nil, fmt.Errorf("unknown transport %q", s.Transport)
+		return nil, fmt.Errorf("transport %q has no watch form", s.Transport)
 	}
 
 	return []string{
-		"-hide_banner", "-loglevel", "fatal", "-nostats",
+		"-hide_banner", "-loglevel", "info", "-nostats",
 		"-fflags", "nobuffer", "-flags", "low_delay", "-framedrop",
 		"-window_title", WatchWindowTitle(streamName),
-		t.WatchURL(s, streamName),
+		url,
 	}, nil
 }
 
@@ -202,8 +209,8 @@ func validateCodec(s settings.Stream) error {
 	return nil
 }
 
-// WatchWindowTitle returns the title ffplay sets on the viewer window for
-// streamName. WindowExists polls for exactly this string.
+// WatchWindowTitle returns the title ffplay sets on its viewer window, so a user
+// running several viewers can tell which stream each window shows.
 func WatchWindowTitle(streamName string) string {
 	return "watch: " + streamName
 }

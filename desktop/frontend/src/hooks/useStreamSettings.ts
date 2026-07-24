@@ -45,7 +45,7 @@ function matchPreset(s: Stream, userPresets: Preset[]): string {
 
 /**
  * Owns the editable stream settings and everything derived from them: the
- * dependency map, browser verdict, live ffmpeg command preview and the transport
+ * dependency map, browser verdict, live command preview and the transport
  * list. Any field change re-normalizes the settings and drops the preset back to
  * "custom"; applying a preset patches many fields at once without doing so.
  * The platform gates which capture APIs are available, the encoder set which

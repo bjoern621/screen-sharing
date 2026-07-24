@@ -41,6 +41,7 @@ export default function App() {
                 <PresetCard
                     preset={settings.preset}
                     userPresets={settings.userPresets}
+                    publishing={publish.publishing}
                     onApplyPreset={settings.applyPreset}
                     onDeletePreset={settings.deletePreset}
                 />

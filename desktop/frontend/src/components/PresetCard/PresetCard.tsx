@@ -12,6 +12,9 @@ import { PRESET_HINTS, PRESET_LABELS } from "../../util/presets";
 interface PresetCardProps {
     preset: string;
     userPresets: Preset[];
+    /** Applying a preset mutates the stream settings, which is unsupported
+     * mid-stream, so the selector is disabled while a stream is live. */
+    publishing: boolean;
     onApplyPreset: (name: string) => void;
     onDeletePreset: (value: string) => void;
 }
@@ -22,6 +25,7 @@ interface PresetCardProps {
 export default function PresetCard({
     preset,
     userPresets,
+    publishing,
     onApplyPreset,
     onDeletePreset,
 }: PresetCardProps) {
@@ -37,6 +41,7 @@ export default function PresetCard({
             <CardContent className="flex flex-wrap items-center gap-3">
                 <Select
                     value={preset}
+                    disabled={publishing}
                     onValueChange={(v: string | null) => v && onApplyPreset(v)}
                 >
                     <SelectTrigger className="w-72">
@@ -73,6 +78,7 @@ export default function PresetCard({
                         variant="ghost"
                         size="icon"
                         aria-label="Delete preset"
+                        disabled={publishing}
                         onClick={() => onDeletePreset(preset)}
                     >
                         <IconTrash />

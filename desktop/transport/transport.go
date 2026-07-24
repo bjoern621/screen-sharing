@@ -3,6 +3,14 @@
 //
 // Implementations register themselves in init() (see srt.go). Adding raw UDP,
 // WebRTC or anything else later means adding one file here - no caller changes.
+//
+// The base Transport is engine-neutral: it only identifies itself. How a stream
+// is serialized for a given publish or watch engine is a separate capability
+// interface (FFmpegPublisher, GstPublisher, Watcher). No engine is privileged in
+// the base contract. A transport implements one capability per engine it can
+// drive, and an engine asks for its own serialization through the matching
+// package helper. A transport that carries several engines implements several
+// capabilities; one that carries a single engine implements only that one.
 package transport
 
 import (
@@ -11,15 +19,28 @@ import (
 	"bjoernblessin.de/screenshare/settings"
 )
 
-// Transport turns stream settings into ffmpeg output args (publish side)
-// and an input URL (watch side).
+// Transport identifies a way video leaves the machine. The publish and watch
+// serializations are the capability interfaces below.
 type Transport interface {
 	// Name is the registry key, shown in the UI transport dropdown.
 	Name() string
-	// PublishArgs returns the muxer + destination args appended to the
-	// encoder command, e.g. ["-f","mpegts","srt://..."].
+}
+
+// FFmpegPublisher is a transport that serializes to ffmpeg output args, e.g.
+// ["-f","mpegts","srt://..."], appended to the ffmpeg encoder command.
+type FFmpegPublisher interface {
 	PublishArgs(s settings.Stream) []string
-	// WatchURL returns the input URL a player opens to view streamName.
+}
+
+// GstPublisher is a transport that serializes to the muxer and sink elements
+// terminating a GStreamer pipeline.
+type GstPublisher interface {
+	GstSink(s settings.Stream) []string
+}
+
+// Watcher is a transport that yields the input URL a player opens to view a
+// stream.
+type Watcher interface {
 	WatchURL(s settings.Stream, streamName string) string
 }
 
@@ -40,24 +61,46 @@ func Get(name string) (t Transport, ok bool) {
 	return t, ok
 }
 
-// URLPublisher is an optional capability: a transport whose destination has a
-// plain-URL form an engine can hand to a non-ffmpeg sink.
-type URLPublisher interface {
-	PublishURL(s settings.Stream) string
+// PublishArgs returns the ffmpeg output args for the configured transport, and
+// false when it cannot publish through ffmpeg.
+func PublishArgs(s settings.Stream) ([]string, bool) {
+	t, ok := Get(s.Transport)
+	if !ok {
+		return nil, false
+	}
+	p, ok := t.(FFmpegPublisher)
+	if !ok {
+		return nil, false
+	}
+	return p.PublishArgs(s), true
 }
 
-// PublishURL returns the stream's destination as a plain URL, and false when
-// the configured transport has no URL form (only ffmpeg output args).
-func PublishURL(s settings.Stream) (string, bool) {
+// GstSink returns the GStreamer muxer and sink elements for the configured
+// transport, and false when it cannot terminate a GStreamer pipeline.
+func GstSink(s settings.Stream) ([]string, bool) {
+	t, ok := Get(s.Transport)
+	if !ok {
+		return nil, false
+	}
+	g, ok := t.(GstPublisher)
+	if !ok {
+		return nil, false
+	}
+	return g.GstSink(s), true
+}
+
+// WatchURL returns the viewer input URL for the configured transport, and false
+// when it has no watch form.
+func WatchURL(s settings.Stream, streamName string) (string, bool) {
 	t, ok := Get(s.Transport)
 	if !ok {
 		return "", false
 	}
-	u, ok := t.(URLPublisher)
+	w, ok := t.(Watcher)
 	if !ok {
 		return "", false
 	}
-	return u.PublishURL(s), true
+	return w.WatchURL(s, streamName), true
 }
 
 // Names lists all registered transports for the UI dropdown.

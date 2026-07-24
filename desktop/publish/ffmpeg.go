@@ -35,7 +35,7 @@ func (ffmpegEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, 
 	if err != nil {
 		return nil, err
 	}
-	proc, err := ffmpeg.Start(exe, args, true, tag, cb.OnStats, cb.OnExit)
+	proc, err := ffmpeg.Start(exe, args, true, tag, nil, cb.OnStats, cb.OnExit)
 	if err != nil {
 		return nil, err
 	}

@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"time"
+	goruntime "runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -12,6 +12,17 @@ import (
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
 )
+
+// watchEnv returns the environment overrides for the ffplay viewer. On Linux it
+// pins SDL to the X11 (XWayland) backend, which renders a visible window where
+// the SDL Wayland backend shows none on some compositors; other platforms
+// inherit the ambient environment unchanged.
+func watchEnv() []string {
+	if goruntime.GOOS == "linux" {
+		return []string{"SDL_VIDEODRIVER=x11"}
+	}
+	return nil
+}
 
 // Live returns the relay snapshot. The frontend polls this every 2 seconds;
 // per-path bitrates are only meaningful with such a steady poll interval.
@@ -64,7 +75,12 @@ func (a *App) StartWatch(streamName string) error {
 	}
 
 	// hideWindows must be false: SW_HIDE would hide ffplay's video window itself.
-	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName, nil,
+	//
+	// SDL_VIDEODRIVER=x11 pins ffplay to the X11 (XWayland) backend on Linux. Its
+	// SDL Wayland backend produces no visible window on some compositors even as
+	// the SRT reader connects and frames arrive, so the picture never shows.
+	// XWayland renders reliably.
+	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName, watchEnv(), nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {
@@ -72,6 +88,9 @@ func (a *App) StartWatch(streamName string) error {
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
+				logger.Errorf("viewer for '%s' failed: %v\n%s\nfull log: %s", streamName, err, stderrTail, logPath)
+			} else {
+				logger.Infof("viewer for '%s' closed (log: %s)", streamName, logPath)
 			}
 			runtime.EventsEmit(a.ctx, "watch:exit", watchExitEvent{
 				Name: streamName, Message: message, LogPath: logPath,
@@ -85,31 +104,11 @@ func (a *App) StartWatch(streamName string) error {
 	logger.Infof("watching '%s'", streamName)
 	a.watchers[streamName] = proc
 
-	// The viewer window only appears once ffplay decoded the first frame
-	// (SRT handshake + waiting for a keyframe, typically 1-3s). Poll for it
-	// so the UI can show a connecting state until then.
-	go a.emitWhenViewerReady(streamName, proc)
-
+	// Readiness is not signalled from here. The viewer is "connected" once the
+	// relay reports a reader on the path, which the frontend already sees in its
+	// Live() snapshot. That signal is independent of the window system, unlike a
+	// probe for the ffplay window (no portable form exists under Wayland).
 	return nil
-}
-
-// emitWhenViewerReady emits "watch:ready" once the ffplay window for
-// streamName exists, or gives up when the viewer dies or 30s pass
-// (watch:exit covers the death case in the UI).
-func (a *App) emitWhenViewerReady(streamName string, proc *ffmpeg.Proc) {
-	title := ffmpeg.WatchWindowTitle(streamName)
-
-	for range 150 { // 150 * 200ms = 30s
-		if !proc.Running() {
-			return
-		}
-		if ffmpeg.WindowExists(title) {
-			runtime.EventsEmit(a.ctx, "watch:ready", streamName)
-			return
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
-	logger.Warnf("viewer window for '%s' did not appear within 30s", streamName)
 }
 
 func (a *App) StopWatch(streamName string) {

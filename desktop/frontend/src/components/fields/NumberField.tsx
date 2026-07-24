@@ -4,6 +4,7 @@ import FieldShell from "./FieldShell";
 interface NumberFieldProps {
     label: string;
     labelTip?: string;
+    labelLink?: string;
     value: number;
     disabledReason?: string;
     onChange: (value: number) => void;
@@ -13,12 +14,13 @@ interface NumberFieldProps {
 export default function NumberField({
     label,
     labelTip,
+    labelLink,
     value,
     disabledReason,
     onChange,
 }: NumberFieldProps) {
     return (
-        <FieldShell label={label} labelTip={labelTip} disabledReason={disabledReason}>
+        <FieldShell label={label} labelTip={labelTip} labelLink={labelLink} disabledReason={disabledReason}>
             <Input
                 type="number"
                 value={value}
