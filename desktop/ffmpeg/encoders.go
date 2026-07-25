@@ -26,8 +26,8 @@ func ratesFor(s settings.Stream) rates {
 // encoderMappings is the codec-specific half of the command, one entry per
 // encoder whose knobs differ. The rate-control modes are the methods themselves:
 // cbr and vbr and abr all target a bitrate and differ in the ceiling, crf targets
-// a quality, lossless is bit-exact. The GStreamer publish path expresses the same
-// set in gstCodecs. A mode an encoder has no form of is declared as a ModeGap in
+// a quality, lossless is bit-exact. The GStreamer publish engine expresses the same
+// set in gstCodecs. A mode an encoder has no form of is declared as a Gap in
 // capabilities.Codecs and rejected before a command is built, so the branch for it
 // is absent here rather than approximated.
 //
@@ -238,7 +238,7 @@ func rav1eArgs(s settings.Stream, r rates) []string {
 // CQP, CBR and VBR are the three modes both vendors' drivers implement. ffmpeg also
 // offers ICQ, QVBR and AVBR, which are Intel-only or absent, and a driver handed a
 // mode it lacks refuses to open the encoder rather than falling back. lossless has
-// no VAAPI form at all (vaapiModeGaps).
+// no VAAPI form at all (vaapiGaps).
 //
 // No preset or B-frame count: the p1-p7 ladder is NVENC's, and VAAPI B-frame
 // support varies per driver and hardware generation, so the form greys both fields

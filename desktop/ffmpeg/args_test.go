@@ -225,12 +225,13 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 			continue
 		}
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
-			if _, gap := capabilities.ModeGapFor(cap.Name, "ffmpeg", mode); gap {
+			if _, gap := cap.ModeGap("ffmpeg", mode); gap {
 				continue
 			}
 			t.Run(cap.Name+"/"+mode, func(t *testing.T) {
 				s := baseStream()
-				s.Codec, s.Mode, s.Chroma = cap.Name, mode, cap.Chromas[len(cap.Chromas)-1]
+				engineChromas := cap.EngineChromas("ffmpeg")
+				s.Codec, s.Mode, s.Chroma = cap.Name, mode, engineChromas[len(engineChromas)-1]
 				// The quantizer target rides each encoder's own scale, and the bitrate
 				// target has a ceiling on one encoder. baseStream carries values from
 				// another codec's, exactly as saved settings do before normalize runs.

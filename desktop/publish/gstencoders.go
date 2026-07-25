@@ -27,7 +27,7 @@ func gstRatesFor(s settings.Stream, gop int) gstRates {
 // parser insert SPS/PPS (H.264) or VPS/SPS/PPS (H.265) ahead of every IDR frame.
 // Without it the parameter sets travel once at stream start, so a viewer that joins
 // the relay mid-stream never receives them and its decoder cannot start. The ffmpeg
-// publish path repeats them by default, which is why only this backend needs the
+// publish engine repeats them by default, which is why only this engine needs the
 // property. VP9 and AV1 carry no out-of-band parameter sets, so their parsers need
 // none; rtspclientsink payloads the parsed video/x-vp9 and video/x-av1.
 //
@@ -53,14 +53,14 @@ type gstCodec struct {
 
 // gstCodecs is the GStreamer engine's half of the codec facts declared once in
 // capabilities.Codecs, and the counterpart to encoderArgs in the ffmpeg builder. A
-// rate-control mode an element has no form of is declared as a ModeGap on that
-// codec's row and rejected before a pipeline is built, so no branch below
-// approximates one.
+// rate-control mode or a pixel format an element has no form of is declared as a Gap
+// on that codec's row, carrying Engine "gstreamer" where the ffmpeg encoder reaches
+// it, and rejected before a pipeline is built, so no branch below approximates one.
 //
 // The VAAPI rows target the stateless "va" plugin (gst-plugins-bad), not the older
 // "vaapi" one (gstreamer-vaapi: vaapih264enc, vaapih265enc). The va plugin is the
 // maintained one, it is the only one with an AV1 encoder, and it negotiates the
-// DMABuf/VAMemory caps the portal capture path already produces. Its elements
+// DMABuf/VAMemory caps the portal capture backend already produces. Its elements
 // register per detected device, so an element name below exists only where the
 // driver exposes that encode entrypoint, which is the same condition the codec's
 // probe tests (encoders.Detect).
@@ -87,6 +87,21 @@ var gstCodecs = map[string]gstCodec{
 	// nothing unfixed for a capsfilter to pin, so rtspclientsink payloads its
 	// video/x-vp8 directly.
 	"vp8_vaapi": {encode: vaEncoder("vavp8enc", "qp")},
+}
+
+// GstEncoderElement returns the GStreamer element that encodes codec, and false when
+// this engine has no mapping for it. The name is read off a built encoder rather than
+// stored beside the mapping, so it cannot drift from the element a pipeline runs.
+//
+// The element is what the encoder probe asks the plugin registry about: unlike the
+// ffmpeg encoders, each of these lives in a plugin an install may not carry, and the
+// hardware ones register per detected device.
+func GstEncoderElement(codec string) (string, bool) {
+	c, ok := gstCodecs[codec]
+	if !ok {
+		return "", false
+	}
+	return c.encode(settings.Defaults(), gstRates{})[0], true
 }
 
 // gstEncoder returns the encoder element (with its properties) and the elements
@@ -276,7 +291,7 @@ func rav1eEncoder(s settings.Stream, r gstRates) []string {
 // bitrate and cpb-size are in kbit; a zero cpb-size leaves the element its own
 // calculation, so the VBV window only appears when the settings carry one. No preset
 // or B-frame count, matching the ffmpeg path: the p1-p7 ladder is NVENC's and VAAPI
-// B-frame support varies per driver. lossless has no VAAPI form (vaapiModeGaps).
+// B-frame support varies per driver. lossless has no VAAPI form (vaapiGaps).
 func vaEncoder(elem string, quantizers ...string) func(settings.Stream, gstRates) []string {
 	return func(s settings.Stream, r gstRates) []string {
 		base := []string{elem, "key-int-max=" + r.gop}

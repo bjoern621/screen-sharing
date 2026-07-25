@@ -99,7 +99,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 
 	pub, ok := transport.PublishArgs(s)
 	if !ok {
-		return nil, fmt.Errorf("transport %q cannot publish through ffmpeg", s.Transport)
+		return nil, fmt.Errorf("transport %q has no ffmpeg publish form", s.Transport)
 	}
 	args = append(args, pub...)
 

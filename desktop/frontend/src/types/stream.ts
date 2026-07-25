@@ -15,8 +15,15 @@ export type Monitor = display.Monitor;
 /** Running platform: OS and, on Linux, the display server (x11/wayland). */
 export type PlatformInfo = platform.Info;
 
-/** Which hardware video encoders this machine can run, probed at startup. */
-export type EncoderInfo = encoders.Availability;
+/**
+ * Which video encoders this machine can run, probed at startup: publish engine ->
+ * codec -> whether it ran. An engine or codec the probe left out imposes no
+ * restriction. The generated binding types the nested map as `any` (Go's
+ * map[string]map[string]bool), so the shape is restated here.
+ */
+export interface EncoderInfo extends encoders.Availability {
+    usable: Record<string, Record<string, boolean>>;
+}
 
 /**
  * One encoder progress sample. The backend derives the instantaneous bitrate

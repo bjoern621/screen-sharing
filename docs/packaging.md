@@ -193,8 +193,12 @@ rather than raw DRM access.
 # The app resolves ffmpeg (bundled copy or PATH).
 ffmpeg -version
 
-# The encoder probe the app runs at startup: a codec must encode one frame.
+# The encoder probe the app runs at startup, ffmpeg engine: a codec must encode one frame.
 ffmpeg -hide_banner -f lavfi -i color=c=black:s=64x64 -frames:v 1 -c:v libx264 -f null -
+
+# The same probe on the GStreamer publish engine (the portal capture backend): the encoder
+# element must be in the plugin registry.
+gst-inspect-1.0 --exists x264enc
 
 # kmsgrab reaches the framebuffer (fails without CAP_SYS_ADMIN):
 ffmpeg -hide_banner -device /dev/dri/card1 -f kmsgrab -i - -frames:v 1 -f null -

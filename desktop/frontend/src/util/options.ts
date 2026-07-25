@@ -1,7 +1,8 @@
 import { Monitor, Option } from "../types/stream";
 import {
-    AUDIO_META, CHROMA_META, Capability, ENCODER_TIPS, FAMILY_META, FORMAT_META,
-    Family, Format, MODE_META, bitrateLimit, cqMax, metaOptions,
+    AUDIO_META, CHROMA_META, Capability, ENCODER_TIPS, ENGINE_LABEL, Engine,
+    FAMILY_META, FORMAT_META, Family, Format, MODE_META, bitrateLimit, cqMax,
+    metaOptions,
 } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
@@ -15,7 +16,7 @@ export const CHROMAS: Option[] = metaOptions(CHROMA_META);
 export const AUDIO_SOURCES: Option[] = metaOptions(AUDIO_META);
 
 /**
- * The "Encoder" dropdown: one option per encoder family present in the
+ * The "Encoder family" dropdown: one option per encoder family present in the
  * capability table, in table order. Empty until the table loads.
  */
 export function familyOptions(caps: Capability[] | null): Option[] {
@@ -62,6 +63,33 @@ export function codecOptions(family: string, caps: Capability[] | null): Option[
     });
 }
 
+/**
+ * The publish engine readout beside the capture backend: its display name, or a
+ * placeholder while the capture-to-engine map is still loading.
+ */
+export function engineValue(engine: Engine | null): string {
+    return engine ? ENGINE_LABEL[engine] : "resolving...";
+}
+
+/**
+ * Tooltip for the publish engine readout. The engine is not a setting: it follows
+ * from the capture backend, so the text says what it governs and how to change it.
+ * Without it a user meeting "reachable on the ffmpeg publish engine only" in a greyed
+ * option has no way to learn which engine is running.
+ */
+export function engineTip(engine: Engine | null): string {
+    const lines = [
+        "Media framework that runs capture, encode and publish in one process. It follows from the capture backend, so switching backend switches engine.",
+        "The engine decides which encoders are installed, which pixel formats and rate-control knobs those encoders expose, and which transports can carry the stream. An option the engine cannot reach is greyed with the reason.",
+    ];
+    if (engine === "gstreamer") {
+        lines.push("GStreamer runs the pipeline shown as the command below, one element per stage.");
+    } else if (engine === "ffmpeg") {
+        lines.push("ffmpeg runs the single command shown below.");
+    }
+    return lines.join("\n");
+}
+
 export const RANGES: Option[] = [
     {
         value: "pc", label: "pc - full range (0–255)",
@@ -75,31 +103,35 @@ export const RANGES: Option[] = [
     },
 ];
 
+// Each capture backend states the publish engine it runs on, because that engine
+// decides which codecs, pixel formats and rate-control knobs the rest of the form
+// offers. The engine is never picked directly, so this is the only place a user can
+// read the connection between the two.
 export const CAPTURES: Option[] = [
     {
         value: "ddagrab", label: "ddagrab - DXGI Desktop Duplication",
         link: "https://learn.microsoft.com/en-us/windows/win32/direct3ddxgi/desktop-dup-api",
-        tip: "DXGI Desktop Duplication (Windows): captures the composited framebuffer on the GPU, per monitor. Preferred on Windows.",
+        tip: "DXGI Desktop Duplication (Windows): captures the composited framebuffer on the GPU, per monitor. Preferred on Windows.\nRuns the ffmpeg publish engine.",
     },
     {
         value: "gdigrab", label: "gdigrab - GDI BitBlt",
         link: "https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-bitblt",
-        tip: "GDI BitBlt (Windows): CPU copy of the whole desktop - all monitors as ONE frame; multi-monitor widths can exceed NVENC's 8192 px limit.",
+        tip: "GDI BitBlt (Windows): CPU copy of the whole desktop - all monitors as ONE frame; multi-monitor widths can exceed NVENC's 8192 px limit.\nRuns the ffmpeg publish engine.",
     },
     {
         value: "x11grab", label: "x11grab - X11 SHM",
         link: "https://ffmpeg.org/ffmpeg-devices.html#x11grab",
-        tip: "X11 shared-memory capture (Linux, also XWayland windows). Default on Linux; pure-Wayland surfaces need a portal-based path instead.",
+        tip: "X11 shared-memory capture (Linux, also XWayland windows). Default on Linux; pure-Wayland surfaces need the portal capture backend instead.\nRuns the ffmpeg publish engine.",
     },
     {
         value: "kmsgrab", label: "kmsgrab - DRM/KMS",
         link: "https://en.wikipedia.org/wiki/Direct_Rendering_Manager",
-        tip: "DRM/KMS plane capture (Linux): grabs scanout buffers below the compositor. Very efficient, requires CAP_SYS_ADMIN.",
+        tip: "DRM/KMS plane capture (Linux): grabs scanout buffers below the compositor. Very efficient, requires CAP_SYS_ADMIN.\nRuns the ffmpeg publish engine.",
     },
     {
         value: "portal", label: "portal - PipeWire ScreenCast",
         link: "https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html",
-        tip: "xdg-desktop-portal ScreenCast (Wayland): the compositor's own picker chooses monitor/window, captured over PipeWire. Unprivileged and consented; runs the GStreamer pipeline.",
+        tip: "xdg-desktop-portal ScreenCast (Wayland): the compositor's own picker chooses monitor/window, captured over PipeWire. Unprivileged and consented.\nRuns the GStreamer publish engine, which reaches fewer pixel formats and rate-control knobs than ffmpeg; the fields say so where it matters.",
     },
 ];
 

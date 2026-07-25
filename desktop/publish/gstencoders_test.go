@@ -33,25 +33,32 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 		t.Skipf("%s not installed", gstExe)
 	}
 
-	for name, codec := range gstCodecs {
+	for name := range gstCodecs {
 		cap, ok := capabilities.Get(name)
 		if !ok {
 			t.Errorf("%s has a GStreamer mapping but no capability row", name)
 			continue
 		}
-		elem := codec.encode(settings.Defaults(), gstRates{})[0]
+		elem, _ := GstEncoderElement(name)
 		if err := exec.Command("gst-inspect-1.0", "--exists", elem).Run(); err != nil {
 			t.Logf("skipping %s: %s plugin not installed", name, elem)
 			continue
 		}
 
+		// The chroma is the last format this engine reaches, which is the narrowest
+		// (10-bit where the element takes it, 4:2:0 where it does not) and therefore
+		// the one most likely to fail negotiation. A format the table declares gapped
+		// here is left out: refusing it is the point, and pinning it would only assert
+		// that the element rejects what capabilities.Validate already refuses.
+		engineChromas := cap.EngineChromas("gstreamer")
+
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
-			if _, gap := capabilities.ModeGapFor(name, "gstreamer", mode); gap {
+			if _, gap := cap.ModeGap("gstreamer", mode); gap {
 				continue
 			}
 			t.Run(name+"/"+mode, func(t *testing.T) {
 				s := settings.Defaults()
-				s.Codec, s.Mode, s.Chroma = name, mode, cap.Chromas[len(cap.Chromas)-1]
+				s.Codec, s.Mode, s.Chroma = name, mode, engineChromas[len(engineChromas)-1]
 				// The quantizer target rides each encoder's own scale, and the default
 				// settings carry one from another codec's.
 				s.Cq = cap.CqMax / 2
@@ -92,7 +99,7 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 }
 
 // Every codec the capability table declares implemented has to be buildable on the
-// engine that will be asked for it, or the portal capture path fails at launch on a
+// engine that will be asked for it, or the portal capture backend fails at launch on a
 // combination the UI offered.
 func TestEveryImplementedCodecHasAGstMapping(t *testing.T) {
 	for _, c := range capabilities.Codecs {
@@ -111,7 +118,7 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 	for _, name := range []string{"libx264", "libvpx-vp9", "librav1e"} {
 		cap, _ := capabilities.Get(name)
 		s := settings.Defaults()
-		s.Codec, s.Mode, s.Chroma, s.Cq = name, "crf", cap.Chromas[0], cap.CqMax
+		s.Codec, s.Mode, s.Chroma, s.Cq = name, "crf", cap.EngineChromas("gstreamer")[0], cap.CqMax
 		encoder, _, err := gstEncoder(s, 60)
 		if err != nil {
 			t.Fatal(err)

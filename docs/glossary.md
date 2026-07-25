@@ -7,6 +7,32 @@ Which combinations are actually offered is decided by the capability table in `d
 Expansion first, meaning second.
 Where an abbreviation carries two senses in this repository, each sense gets its own row.
 
+The first section is different: it fixes the words for the app's own moving parts.
+Those names are normative, not descriptive.
+
+## Domain language
+
+One name per concept, in tooltips, labels, log messages, comments, commit messages and docs.
+A concept with two names reads as two concepts, and a user who met "GStreamer pipeline" in one tooltip cannot tell it is the thing another tooltip calls the "portal backend".
+The **Not** column lists the synonyms this repository has used for the same thing and no longer accepts.
+
+| Term              | Means                                                                                                                                                         | Not                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Capture backend   | How frames leave the desktop: `x11grab`, `kmsgrab`, `ddagrab`, `gdigrab`, `portal`. The user's first choice, since it fixes the publish engine.               | capture API, capture path, capture method, grabber, screen source  |
+| Publish engine    | The media framework that runs capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend and is never picked directly. | pipeline, publish path, portal path, media backend, capture engine |
+| ffmpeg            | The ffmpeg publish engine, and the executable.                                                                                                                | FFmpeg, FFMPEG                                                     |
+| GStreamer         | The GStreamer publish engine, driven as a `gst-launch-1.0` pipeline description.                                                                              | gstreamer (in prose), Gstreamer, gst                               |
+| Element           | One node in a GStreamer pipeline, e.g. `x264enc`. The unit a GStreamer capability gap names.                                                                  | plugin (a plugin ships elements), filter, component                |
+| Encoder family    | The silicon or library a group of encoders runs on: software, NVENC, VAAPI, QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video. The "Encoder family" dropdown.    | encoder backend, encoder type, hardware backend                    |
+| Encoder           | One concrete encoder within a family, named as the ffmpeg encoder: `libx264`, `hevc_nvenc`.                                                                   | codec (a codec is the format), encoder engine                      |
+| Video codec       | The coding format the encoder produces: H.264, HEVC, AV1, VP9, VP8. The "Video codec" dropdown.                                                               | codec family, video format (in the UI)                             |
+| Pixel format      | The color model, subsampling and bit depth handed to the encoder: `gbrp`, `yuv444p`, `yuv420p`, `p010le`.                                                     | chroma (alone), color format                                       |
+| Rate-control mode | How the encoder spends bits over time: CBR, VBR, ABR, CRF, lossless.                                                                                          | bitrate mode, rate mode, quality mode                              |
+| Capability gap    | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. `capabilities.Gap`.                                          | limitation, restriction, exclusion                                 |
+| Relay             | The MediaMTX server every publisher pushes to and every viewer pulls from.                                                                                    | server, host, MediaMTX (when the role is meant)                    |
+| Publish leg       | Publisher to relay. The only leg an encoder is built for, and the only one the settings form configures.                                                      | hop 1, publish hop, upstream                                       |
+| Watch leg         | Relay to viewer. Chosen per viewer, independent of the publish leg.                                                                                           | hop 2, viewer hop, downstream, playback path                       |
+
 ## Video codecs
 
 | Term | Expansion                    | Meaning                                                                                                                       |
@@ -18,7 +44,7 @@ Where an abbreviation carries two senses in this repository, each sense gets its
 | VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth, and the one 4:4:4 format the web viewer decodes. |
 | RExt | Range Extensions             | HEVC extension adding 4:2:2, 4:4:4 and bit depths above 10, the only VAAPI path to 4:4:4.                                     |
 
-## Encoder backends
+## Encoder families
 
 | Term  | Expansion                               | Meaning                                                                                                       |
 | ----- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |

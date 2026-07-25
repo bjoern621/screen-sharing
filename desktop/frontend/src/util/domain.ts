@@ -23,12 +23,15 @@ import { capabilities } from "../../wailsjs/go/models";
  * viewer and is not in this table. */
 export type Capability = capabilities.Codec;
 
-/** One rate-control mode a codec's encoder cannot be driven in, with the reason.
- * An empty `engine` means the gap holds on both publish engines. */
-export type ModeGap = capabilities.ModeGap;
+/** One thing a codec cannot do, with the reason the form shows in place of the
+ * option. The field it sets names the axis: `chroma` for a pixel format the
+ * engine's encoder will not take, `mode` for a rate-control mode it has no form
+ * of, neither for the codec itself. An empty `engine` means the gap holds on both
+ * publish engines. */
+export type Gap = capabilities.Gap;
 
 /** Presentation and heuristics for a video coding format, independent of the
- * encoder backend that produces it. Coding efficiency follows the format (H.264
+ * encoder family that produces it. Coding efficiency follows the format (H.264
  * vs HEVC vs AV1), not the family (nvenc vs vaapi). */
 interface FormatMeta {
     label: string;
@@ -38,7 +41,7 @@ interface FormatMeta {
     efficiency: number;
 }
 
-/** Presentation for an encoder backend (the "Encoder" dropdown). */
+/** Presentation for an encoder family (the "Encoder family" dropdown). */
 interface FamilyMeta {
     label: string;
     tip: string;
@@ -81,11 +84,33 @@ interface ModeMeta {
     pinnedPreset?: string;
 }
 
-/** The media engine that runs a capture backend, from App.CaptureEngines. The
- * ffmpeg screen grabbers build one ffmpeg command; the portal path builds a
- * GStreamer graph. Which rate-control knobs reach the encoder differs between
- * them, so the settings form needs to know which one a capture uses. */
+/** The publish engine that runs a capture backend, from App.CaptureEngines. The
+ * screen grabbers build one ffmpeg command; the portal capture backend builds a
+ * GStreamer pipeline. Which codecs, pixel formats and rate-control knobs reach the
+ * encoder differs between them, so the settings form needs to know which engine the
+ * selected capture backend uses. */
 export type Engine = "ffmpeg" | "gstreamer";
+
+/** Display name of a publish engine, for a label or a sentence shown to the user.
+ * The two spellings are the projects' own, and the UI uses no other name for them. */
+export const ENGINE_LABEL: Record<Engine, string> = {
+    ffmpeg: "ffmpeg",
+    gstreamer: "GStreamer",
+};
+
+/**
+ * The publish engine that runs a capture backend, or null while the map from the
+ * backend is unresolved. The engine is never chosen directly: picking the capture
+ * backend fixes it, which is why every rule keyed by engine is presented to the user
+ * as a property of the capture backend.
+ */
+export function engineFor(
+    capture: string,
+    captureEngines: Record<string, string> | null
+): Engine | null {
+    const name = captureEngines?.[capture];
+    return name === "ffmpeg" || name === "gstreamer" ? name : null;
+}
 
 /** One rate-control control on the settings form, named after the settings field
  * it edits. */
@@ -96,7 +121,7 @@ export type Knob =
  * backend capability table (capabilities.Codec) carries the factoring. */
 export type Family =
     "software" | "nvenc" | "vaapi" | "qsv" | "amf" | "v4l2" | "rkmpp" | "vulkan";
-/** Video coding formats, independent of the encoder backend. */
+/** Video coding formats, independent of the encoder family. */
 export type Format = "h264" | "hevc" | "av1" | "vp9" | "vp8";
 export type Chroma = "gbrp" | "yuv444p" | "yuv420p" | "p010le";
 export type Mode = "cbr" | "vbr" | "abr" | "crf" | "lossless";
@@ -156,12 +181,12 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     nvenc: {
         label: "NVIDIA NVENC",
         link: NVENC_LINK,
-        tip: "NVIDIA's dedicated encoder ASIC. Needs an NVIDIA GPU, its driver, and an nvenc-enabled ffmpeg.",
+        tip: "NVIDIA's dedicated encoder ASIC. Needs an NVIDIA GPU with its driver, and NVENC support in the publish engine: an nvenc-enabled ffmpeg, or the GStreamer nvcodec elements.",
     },
     vaapi: {
         label: "VAAPI (Intel / AMD)",
         link: VAAPI_LINK,
-        tip: "Video Acceleration API: the shared Intel and AMD hardware encoder path on Linux, and the GPU option on a non-NVIDIA machine. Which formats a card encodes is the driver's answer and differs per GPU generation; every VAAPI encoder is 4:2:0 and none of them codes lossless.",
+        tip: "Video Acceleration API: the shared Intel and AMD hardware encoder API on Linux, and the GPU option on a non-NVIDIA machine. Which formats a card encodes is the driver's answer and differs per GPU generation; every VAAPI encoder is 4:2:0 and none of them codes lossless.",
     },
     qsv: {
         label: "Intel Quick Sync (QSV)",
@@ -171,7 +196,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     amf: {
         label: "AMD AMF",
         link: AMF_LINK,
-        tip: "AMD Media Framework. AMD GPUs; on Linux, VAAPI is usually the stronger path for the same cards.",
+        tip: "AMD Media Framework. AMD GPUs; on Linux, VAAPI is usually the stronger choice for the same cards.",
     },
     v4l2: {
         label: "V4L2 M2M (ARM SoC)",
@@ -186,7 +211,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     vulkan: {
         label: "Vulkan Video",
         link: VULKAN_LINK,
-        tip: "Cross-vendor hardware encoding through the Vulkan video-encode extensions. Newest and least mature path.",
+        tip: "Cross-vendor hardware encoding through the Vulkan video-encode extensions. Newest and least mature of the hardware families.",
     },
 };
 
@@ -247,7 +272,7 @@ export const MODE_META: Record<Mode, ModeMeta> = {
     vbr: {
         label: "VBR - constrained (target + ceiling)",
         link: "https://en.wikipedia.org/wiki/Variable_bitrate",
-        tip: "VBR - constrained variable bitrate: targets the bitrate but bursts up to the max-bitrate ceiling on motion, holding quality where CBR would soften.\nNeeds headroom above the average. The ceiling binds on NVENC and the ffmpeg x264 path; x264 over the portal backend runs it as uncapped ABR.",
+        tip: "VBR - constrained variable bitrate: targets the bitrate but bursts up to the max-bitrate ceiling on motion, holding quality where CBR would soften.\nNeeds headroom above the average. The ceiling binds on NVENC and on the software encoders through the ffmpeg publish engine; on the GStreamer publish engine they run it as uncapped ABR.",
         usesCq: false,
         usesBitrate: true,
         usesMaxrate: true,
@@ -334,7 +359,7 @@ const ENGINE_RULES: EngineRule[] = [
         engine: "gstreamer",
         knob: "encPreset",
         forwards: false,
-        reason: "the portal path's GStreamer encoders expose no p1-p7 preset ladder",
+        reason: "no GStreamer encoder element exposes the p1-p7 preset ladder, so it is reachable on the ffmpeg publish engine only",
     },
     // The two AV1 encoders whose libraries have no ceiling or rate buffer at all
     // come first: their reason names the library, which beats the engine-wide one
@@ -364,7 +389,7 @@ const ENGINE_RULES: EngineRule[] = [
         knob: "gop",
         codecs: ["librav1e"],
         forwards: false,
-        reason: "rav1enc exposes no keyframe-interval property, so the portal path leaves rav1e's own default standing",
+        reason: "the rav1enc element exposes no keyframe-interval property, so the GStreamer publish engine leaves rav1e's own default standing",
     },
     {
         engine: "gstreamer",
@@ -372,21 +397,21 @@ const ENGINE_RULES: EngineRule[] = [
         families: ["software"],
         modes: ["vbr"],
         forwards: false,
-        reason: "the portal path's software encoder elements take a bitrate target and no ceiling above it, so constrained VBR runs as uncapped ABR",
+        reason: "the GStreamer software encoder elements take a bitrate target and no ceiling above it, so constrained VBR runs as uncapped ABR",
     },
     {
         engine: "gstreamer",
         knob: "vbvMs",
         modes: ["vbr"],
         forwards: false,
-        reason: "the portal path's encoders size their rate buffer in CBR only",
+        reason: "the GStreamer encoder elements size their rate buffer in CBR only",
     },
     {
         engine: "gstreamer",
         knob: "vbvMs",
         families: ["nvenc"],
         forwards: false,
-        reason: "the nvcodec elements expose no rate-buffer property",
+        reason: "the GStreamer nvcodec elements expose no rate-buffer property",
     },
     {
         engine: "ffmpeg",
@@ -402,7 +427,7 @@ const ENGINE_RULES: EngineRule[] = [
         codecs: ["libvpx-vp9", "libvpx"],
         modes: ["crf"],
         forwards: true,
-        reason: "vpxenc has no unbounded constant-quality mode, so on the portal path this bitrate is the cap its CQ rate control stays under.",
+        reason: "the vp8enc and vp9enc elements have no unbounded constant-quality mode, so on the GStreamer publish engine this bitrate is the cap their CQ rate control stays under.",
     },
     {
         knob: "bitrateM",
@@ -500,21 +525,59 @@ export function formatOf(codec: string, caps: Capability[] | null): Format | und
 }
 
 /**
+ * The gaps a codec carries that bind on the given engine. A gap carrying no engine
+ * holds on both, so it applies while the capture's engine is unresolved; an
+ * engine-specific one waits for the engine, matching how the backend's Validate
+ * reads the same rows.
+ */
+function gapsOn(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): Gap[] {
+    return (findCapability(caps, codec)?.gaps ?? []).filter(
+        g => !g.engine || g.engine === engine
+    );
+}
+
+/**
  * The gap that keeps a codec out of a rate-control mode on the given engine, or
- * undefined when the mode reaches its encoder. A gap carrying no engine holds on
- * both, so it applies while the capture's engine is unresolved; an engine-specific
- * one waits for the engine, matching how the backend's Validate reads the same
- * rows.
+ * undefined when the mode reaches its encoder.
  */
 export function modeGapFor(
     codec: string,
     engine: Engine | null,
     mode: Mode,
     caps: Capability[] | null
-): ModeGap | undefined {
-    return findCapability(caps, codec)?.modeGaps?.find(
-        g => g.mode === mode && (!g.engine || g.engine === engine)
-    );
+): Gap | undefined {
+    return gapsOn(codec, engine, caps).find(g => g.mode === mode && !g.chroma);
+}
+
+/**
+ * The gap that keeps a codec from encoding a pixel format on the given engine, or
+ * undefined when the format reaches its encoder there. A format the codec cannot
+ * encode on either engine is absent from its `chromas` instead.
+ */
+export function chromaGapFor(
+    codec: string,
+    engine: Engine | null,
+    chroma: Chroma,
+    caps: Capability[] | null
+): Gap | undefined {
+    return gapsOn(codec, engine, caps).find(g => g.chroma === chroma && !g.mode);
+}
+
+/**
+ * The gap that takes a codec off the given engine altogether, or undefined when
+ * that engine has an encoder for it. A codec gapped this way is greyed in the codec
+ * dropdown while the other engine's capture backends still offer it.
+ */
+export function engineGapFor(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): Gap | undefined {
+    return gapsOn(codec, engine, caps).find(g => !g.chroma && !g.mode);
 }
 
 /** The encoder family of a codec, from the capability table (undefined until it loads). */

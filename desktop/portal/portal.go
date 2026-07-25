@@ -1,6 +1,6 @@
 // Package portal drives the xdg-desktop-portal ScreenCast interface over D-Bus.
 //
-// The portal is the compositor-agnostic Wayland capture path: the app never
+// The portal is the compositor-agnostic Wayland capture backend: the app never
 // touches a raw framebuffer, it asks the portal, the compositor draws its own
 // picker, and a PipeWire node is handed back on a dedicated remote fd. GNOME,
 // KDE and wlroots compositors all implement it.

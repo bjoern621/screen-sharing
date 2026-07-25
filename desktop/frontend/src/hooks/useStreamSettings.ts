@@ -7,7 +7,7 @@ import {
     Deps, EncoderInfo, PlatformInfo, Preset, Stream, ViewVerdict,
 } from "../types/stream";
 import { Environment, evaluateDeps, normalize } from "../util/deps";
-import { Capability } from "../util/domain";
+import { Capability, Engine, engineFor } from "../util/domain";
 import { nativeGridCheck } from "../util/nativegrid";
 import { webGridCheck } from "../util/webgrid";
 import { PRESETS } from "../util/presets";
@@ -50,7 +50,7 @@ function matchPreset(s: Stream, userPresets: Preset[]): string {
  * transport list. Any field change re-normalizes the settings and drops the
  * preset back to "custom"; applying a preset patches many fields at once without
  * doing so.
- * The platform gates which capture APIs are available, the encoder set which
+ * The platform gates which capture backends are available, the encoder set which
  * codecs the machine can run, the capability table which codec/chroma/transport
  * combinations are legal, and the capture backend's engine which rate-control
  * knobs reach the encoder.
@@ -92,6 +92,12 @@ export function useStreamSettings(
     const nativeGrid: ViewVerdict | null = useMemo(
         () => (s ? nativeGridCheck(s, caps) : null),
         [s, caps]
+    );
+    // The publish engine the selected capture backend runs on. Derived here rather
+    // than in the form, so the form and the dependency rules read one value.
+    const engine: Engine | null = useMemo(
+        () => (s ? engineFor(s.capture, captureEngines) : null),
+        [s, captureEngines]
     );
 
     const update = useCallback(
@@ -160,9 +166,9 @@ export function useStreamSettings(
     }, []);
 
     // Re-normalize whenever a dimension resolves after mount: platform gates the
-    // capture API (ddagrab on Linux falls back), the encoder probe and capability
+    // capture backend (ddagrab on Linux falls back), the encoder probe and capability
     // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
-    // encoder), the capture->transport map gates the transport (the portal path
+    // encoder), the capture->transport map gates the transport (the GStreamer engine
     // drops WebRTC), and the capture->engine map gates the chroma (the portal
     // path's encoders drop planar RGB). Any illegal carryover from the persisted
     // settings is repaired to a valid combination.
@@ -198,7 +204,7 @@ export function useStreamSettings(
     }, [s]);
 
     return {
-        s, preset, userPresets, transports, deps, webGrid, nativeGrid, cmd,
+        s, preset, userPresets, transports, engine, deps, webGrid, nativeGrid, cmd,
         update, applyPreset, saveAsPreset, deletePreset,
     };
 }

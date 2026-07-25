@@ -16,17 +16,21 @@ The disable rules and the repair rules in the frontend were previously two hand-
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, the transports that can publish it, the rate-control modes its encoder has no form of, and the scale its constant-quality knob counts on.
+- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, the transports that can publish it, what its encoder cannot do, and the scale its constant-quality knob counts on.
+
+The two publish engines wrap different encoder implementations, so a pixel format, a rate-control mode or a whole codec can be one engine's and not the other's.
+Each difference is a `Gap` naming the engine, the axis and the reason, rather than a row narrowed to what both engines manage.
+An option one engine reaches therefore stays offered on that engine's capture backends and is greyed with the element's own limit on the other, so the form can say "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
 
 The transport column is the publish leg, publisher to relay.
 Which protocol a viewer receives over is a separate choice per viewer and is not in any table here (`viewer-architecture.md`, "Two legs, two protocols").
 
 The encoder reads this table directly.
 `ffmpeg/args.go` branches on `capabilities.IsNvenc` and `IsVaapi`, and `capabilities.Validate` rejects a codec/chroma/transport/mode/quantizer combination the table forbids.
-Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a mode gap that belongs to one engine binds only there.
+Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
 
-Which media engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
+Which publish engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
 It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
 
 Presentation and heuristics are UI-only and live in the frontend:
@@ -52,6 +56,7 @@ Because `evaluateDeps` and `normalize` read one source, a greyed option and its 
 
 Add the row to the table.
 The dropdowns, constraints, estimate and verdict follow with no further edits.
+Where the two engines disagree about the addition, the row states the wider fact and carries a `Gap` for the engine that lacks it; narrowing the row instead would take the capability away from the engine that has it, with no reason shown anywhere.
 The `Codec`, `Chroma` and `Mode` union types force a new value into every meta table, so an incomplete addition fails to compile instead of falling through a runtime default.
 A codec whose constraints also reach the encoder is added to the Go `capabilities` table, and the frontend receives it over the wire.
 

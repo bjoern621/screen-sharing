@@ -28,7 +28,7 @@ func (ffmpegEngine) Command(s settings.Stream) (string, error) {
 }
 
 func (ffmpegEngine) Engine() string {
-	return "ffmpeg"
+	return EngineFfmpeg
 }
 
 // Carries reports whether the transport can terminate an ffmpeg command.

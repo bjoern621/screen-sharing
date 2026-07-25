@@ -55,7 +55,7 @@ export default function PublishInsightsCard({
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <HeadTip text="True instantaneous bitrate: Δbytes/Δtime between the last two encoder progress reports - ffmpeg's own number is a cumulative average.">
+                            <HeadTip text="True instantaneous bitrate: Δbytes/Δtime between the last two progress reports the publish engine emits. The engine's own bitrate figure is a cumulative average instead.">
                                 bitrate now
                             </HeadTip>
                             <HeadTip text="Rolling mean of the instantaneous bitrate over the last 5 seconds.">
@@ -64,7 +64,7 @@ export default function PublishInsightsCard({
                             <HeadTip text="Highest instantaneous bitrate this session.">
                                 peak
                             </HeadTip>
-                            <HeadTip text="Cumulative average since encoder start (what ffmpeg displays).">
+                            <HeadTip text="Cumulative average since encoder start, the figure the publish engine reports itself.">
                                 cumulative
                             </HeadTip>
                             <HeadTip text="Frames the encoder produced per second vs the configured target.">

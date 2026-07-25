@@ -18,12 +18,16 @@ import {
 import {
     AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
     RANGES, TRANSPORT_META, bitrateTip, clampFps, codecOptions, cqTip,
-    familyOptions, fpsDisabled, fpsOptions, monitorOptions, withNote,
+    engineTip, engineValue, familyOptions, fpsDisabled, fpsOptions,
+    monitorOptions, withNote,
 } from "../../util/options";
-import { Capability, bitrateLimit, cqMax, familyOf } from "../../util/domain";
+import {
+    Capability, Engine, bitrateLimit, cqMax, familyOf,
+} from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
+import ReadonlyField from "../fields/ReadonlyField";
 import SelectField from "../fields/SelectField";
 import NumberField from "../fields/NumberField";
 import NumberSelectField from "../fields/NumberSelectField";
@@ -71,6 +75,8 @@ interface StreamSettingsCardProps {
     deps: Deps;
     caps: Capability[] | null;
     transports: string[];
+    /** Publish engine of the selected capture backend, null until it resolves. */
+    engine: Engine | null;
     monitors: Monitor[];
     webGrid: ViewVerdict;
     nativeGrid: ViewVerdict;
@@ -93,6 +99,7 @@ export default function StreamSettingsCard({
     deps,
     caps,
     transports,
+    engine,
     monitors,
     webGrid,
     nativeGrid,
@@ -221,12 +228,20 @@ export default function StreamSettingsCard({
                     title="Source"
                 >
                     <SelectField
-                        label="Capture API"
-                        labelTip="Screen capture API feeding the encoder."
+                        label="Capture backend"
+                        labelTip="How frames leave the desktop and reach the encoder. It also fixes the publish engine below, so it is the choice the rest of the form follows from."
                         value={s.capture}
                         options={CAPTURES}
                         optionDisabled={deps.optionDisabled.capture}
                         onChange={v => onUpdate({ capture: v })}
+                    />
+                    {/* Derived, not chosen: the engine follows the capture backend
+                      * (docs/glossary.md, "Domain language"). It is shown because the
+                      * greyed options across the form name it as the reason. */}
+                    <ReadonlyField
+                        label="Publish engine"
+                        labelTip={engineTip(engine)}
+                        value={engineValue(engine)}
                     />
                     {s.capture === "kmsgrab" && (
                         <SelectField
@@ -273,8 +288,8 @@ export default function StreamSettingsCard({
                     title="Encoder"
                 >
                     <SelectField
-                        label="Encoder"
-                        labelTip="Encoder backend. The software encoders (x264, x265, libvpx, three AV1) and NVIDIA NVENC are wired up; a family still on the roadmap is shown greyed with the reason."
+                        label="Encoder family"
+                        labelTip="Encoder family: the backend the encoder runs on. The software encoders (x264, x265, libvpx, three AV1), NVENC and VAAPI are wired up; a family still on the roadmap is shown greyed with the reason."
                         value={family}
                         options={familyOptions(caps)}
                         optionDisabled={deps.optionDisabled.family}
@@ -282,7 +297,7 @@ export default function StreamSettingsCard({
                     />
                     <SelectField
                         label="Video codec"
-                        labelTip="Video coding format produced by the selected encoder. Efficiency and browser support follow the format (H.264, HEVC, AV1, ...); the encoder backend follows the family above."
+                        labelTip="Video codec: the coding format the encoder produces. Efficiency and browser support follow the format (H.264, HEVC, AV1, ...); which encoder produces it follows the encoder family above."
                         value={s.codec}
                         options={codecOptions(family, caps)}
                         optionDisabled={deps.optionDisabled.codec}
@@ -399,7 +414,7 @@ export default function StreamSettingsCard({
                 >
                     <SelectField
                         label="Publish transport protocol"
-                        labelTip="How the encoded stream travels from this machine to the relay. This is the publish hop only: a viewer picks its own protocol for the relay-to-viewer hop (Live now, 'watch over'), so a stream published over SRT can be watched over RTSP. Protocols differ in reliability and latency control; see each option's own tooltip."
+                        labelTip="How the encoded stream travels from this machine to the relay. This is the publish leg only: a viewer picks its own protocol for the watch leg (Live now, 'watch over'), so a stream published over SRT can be watched over RTSP. Protocols differ in reliability and latency control; see each option's own tooltip."
                         value={s.transport}
                         options={transportOptions}
                         optionDisabled={deps.optionDisabled.transport}
@@ -407,8 +422,8 @@ export default function StreamSettingsCard({
                     />
                     {s.transport === "srt" && (
                         <NumberField
-                            label="SRT publish latency (ms, hop 1)"
-                            labelTip="SRT retransmit window for YOUR hop (publisher to relay). Total glass-to-glass ≈ hop 1 + hop 2 + encode/decode - the windows ADD UP."
+                            label="SRT publish latency (ms, publish leg)"
+                            labelTip="SRT retransmit window for the publish leg (this machine to the relay). Total glass-to-glass ≈ publish leg + watch leg + encode/decode - the windows ADD UP."
                             value={s.srtPublishLatencyMs}
                             onChange={v => onUpdate({ srtPublishLatencyMs: v })}
                         />
@@ -480,7 +495,7 @@ export default function StreamSettingsCard({
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                    <Tip text="Rough pre-publish estimate from resolution, fps, codec, chroma and rate control. Real bitrate is content-dependent; live figures appear in Publish insights.">
+                    <Tip text="Rough pre-publish estimate from resolution, fps, video codec, pixel format and rate-control mode. Real bitrate is content-dependent; live figures appear in Publish insights.">
                         <span>Expected bitrate:</span>
                     </Tip>{" "}
                     {estimate ? (

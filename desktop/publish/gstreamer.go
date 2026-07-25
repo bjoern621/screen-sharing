@@ -31,7 +31,7 @@ const (
 	nodePlaceholder = "<portal-node>"
 )
 
-// gstEngine runs the xdg-desktop-portal capture path. It opens a ScreenCast
+// gstEngine runs the xdg-desktop-portal capture backend. It opens a ScreenCast
 // session, then feeds the PipeWire node into a GStreamer graph that encodes and
 // ships in one process, so this backend owns its whole pipeline.
 type gstEngine struct{}
@@ -47,7 +47,7 @@ func (gstEngine) Command(s settings.Stream) (string, error) {
 }
 
 func (gstEngine) Engine() string {
-	return "gstreamer"
+	return EngineGst
 }
 
 // Carries reports whether the transport can terminate a GStreamer pipeline.

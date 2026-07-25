@@ -48,7 +48,7 @@ const kmsgrabWrapper = "ffmpeg-kmsgrab"
 // wrapper named ffmpeg-kmsgrab on PATH, then the plain ffmpeg as a last resort
 // (which fails on the capability, no worse than before). Every other backend
 // uses the plain ffmpeg directly, keeping the privileged binary off the
-// unprivileged capture paths.
+// unprivileged capture backends.
 func FindCaptureExe(capture string) (string, error) {
 	if capture == "kmsgrab" {
 		if override := os.Getenv(EnvKmsgrabFFmpeg); override != "" {

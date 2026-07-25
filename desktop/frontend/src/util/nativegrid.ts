@@ -39,6 +39,6 @@ export function nativeGridCheck(
     }
     return {
         ok: true,
-        text: `Viewable in native grid - the grid receives ${fmtLabel} at ${s.chroma} from the relay over ${NATIVE_GRID_TRANSPORT.toUpperCase()}, independent of the publish protocol: decodebin picks a hardware decoder where the profile fits and a software one otherwise, so no chroma or bit depth is excluded.`,
+        text: `Viewable in native grid - the grid receives ${fmtLabel} at ${s.chroma} from the relay over ${NATIVE_GRID_TRANSPORT.toUpperCase()}, independent of the publish transport: decodebin picks a hardware decoder where the profile fits and a software one otherwise, so no chroma or bit depth is excluded.`,
     };
 }

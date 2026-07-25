@@ -1,8 +1,9 @@
 import { Deps, EncoderInfo, PlatformInfo, Stream } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, Engine, FALLBACK_CODEC, FAMILY_META, Family,
-    Knob, MODE_META, Mode, bitrateLimit, codecLabel, cqMax, findCapability,
-    findEngineRule, isNvenc, modeGapFor,
+    Capability, CHROMA_META, Chroma, ENGINE_LABEL, Engine, FALLBACK_CODEC,
+    FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, chromaGapFor,
+    codecLabel, cqMax, engineFor, engineGapFor, findCapability, findEngineRule,
+    isNvenc, modeGapFor,
 } from "./domain";
 
 /**
@@ -11,6 +12,11 @@ import {
  * capability table, and per capture backend the transports its engine carries
  * and the engine that runs it. A null field means "not resolved yet" and imposes
  * no restriction, so the form behaves during startup as it does offline.
+ *
+ * The capture backend's engine reaches almost every rule here. It decides which
+ * codecs the probe found, which pixel formats and rate-control modes the capability
+ * table leaves reachable, and which transports can carry the stream, so the same
+ * settings can be legal on one capture backend and repaired on another.
  *
  * Every transport in this module is the publish leg: these rules govern the
  * settings form, which configures publishing only. The watch leg is picked per
@@ -50,7 +56,7 @@ const MODE_FALLBACK_ORDER: Mode[] = [
 ];
 
 /**
- * Capture APIs that cannot run on the given platform, each mapped to the reason.
+ * Capture backends that cannot run on the given platform, each mapped to the reason.
  * A null platform (not yet detected) imposes no restriction.
  */
 function unavailableCaptures(
@@ -83,29 +89,39 @@ function unavailableCaptures(
 }
 
 /**
- * Codecs whose test encode failed on this machine, each mapped to the reason.
- * A null encoder set (probe not yet resolved) imposes no restriction, and codecs
- * the backend never probes (libx264) never appear here.
+ * Codecs the probe could not run on the capture backend's engine, each mapped to the
+ * reason. A null encoder set (probe not yet resolved), an unresolved engine or a codec
+ * that engine never probes (libx264 on ffmpeg) imposes no restriction.
  *
- * A failed probe means two different things, so the reason follows the family: a
- * hardware codec needs a card the machine may not have, while a software one needs
- * its library compiled into the ffmpeg build. Naming the wrong one sends the user
- * looking for the wrong fix.
+ * A failed probe means different things per engine and family, and naming the wrong
+ * one sends the user looking for the wrong fix. On the ffmpeg engine a hardware codec
+ * needs a card the machine may not have and a software one needs its library compiled
+ * into the build. On the GStreamer engine the element is missing from the registry
+ * instead, either because its plugin is not installed or, for the hardware families,
+ * because the plugin found no device to register it for.
  */
 function unavailableCodecs(
     encoders: EncoderInfo | null,
+    engine: Engine | null,
     caps: Capability[] | null
 ): Record<string, string> {
-    if (!encoders) {
+    if (!encoders || !engine) {
         return {};
     }
     const out: Record<string, string> = {};
-    for (const [codec, ok] of Object.entries(encoders.usable)) {
+    for (const [codec, ok] of Object.entries(encoders.usable[engine] ?? {})) {
         if (ok) {
             continue;
         }
         const family = findCapability(caps, codec)?.family;
         const label = FAMILY_META[family as Family]?.label;
+        if (engine === "gstreamer") {
+            out[codec] =
+                family === "software"
+                    ? `the GStreamer publish engine needs an encoder element for ${codec}, and this install carries no plugin providing one`
+                    : `no ${label ?? "matching"} encoder element registered - the GStreamer plugin found no such device`;
+            continue;
+        }
         out[codec] =
             family === "software"
                 ? `this ffmpeg build has no ${codec} encoder compiled in`
@@ -117,8 +133,8 @@ function unavailableCodecs(
 /**
  * Rate-control modes the selected codec cannot be driven in, each mapped to the
  * reason. The gaps come from the capability table, which keys them by publish
- * engine where only one builder reaches the mode: libvpx codes lossless VP9 and
- * the portal path's vp9enc has no such property.
+ * engine where only one builder reaches the mode: libvpx codes lossless VP9 and the
+ * vp9enc element has no such property.
  */
 function unavailableModes(
     codec: string,
@@ -135,12 +151,20 @@ function unavailableModes(
     return out;
 }
 
-/** Whether codec can run here. Unknown probe or unprobed codec counts as usable. */
-function codecUsable(codec: string, encoders: EncoderInfo | null): boolean {
-    if (!encoders || !(codec in encoders.usable)) {
+/**
+ * Whether codec can run on the given engine here. An unresolved probe or engine, and a
+ * codec that engine does not probe, count as usable.
+ */
+function codecUsable(
+    codec: string,
+    engine: Engine | null,
+    encoders: EncoderInfo | null
+): boolean {
+    if (!encoders || !engine) {
         return true;
     }
-    return encoders.usable[codec];
+    const probed = encoders.usable[engine];
+    return !probed || !(codec in probed) || probed[codec];
 }
 
 /** Shown for a codec or family the argument builders do not map yet. */
@@ -149,11 +173,13 @@ const notImplementedReason = "not implemented yet - on the roadmap";
 /**
  * Encoder families with no selectable codec on this machine, each mapped to the
  * reason. A family is unavailable when none of its codecs is both implemented
- * and runnable here; the reason distinguishes "not built yet" from "no such
- * hardware". Families with at least one usable codec are absent (selectable).
+ * and runnable here on the capture backend's engine; the reason distinguishes
+ * "not built yet" from "no such hardware". Families with at least one usable codec
+ * are absent (selectable).
  */
 function unavailableFamilies(
     caps: Capability[],
+    engine: Engine | null,
     encoders: EncoderInfo | null
 ): Record<string, string> {
     const byFamily = new Map<string, Capability[]>();
@@ -164,13 +190,25 @@ function unavailableFamilies(
     }
     const out: Record<string, string> = {};
     for (const [family, list] of byFamily) {
-        const anyImplemented = list.some(c => c.implemented);
-        const anyUsable = list.some(
-            c => c.implemented && codecUsable(c.name, encoders)
-        );
-        if (!anyImplemented) {
+        const implemented = list.filter(c => c.implemented);
+        if (implemented.length === 0) {
             out[family] = notImplementedReason;
-        } else if (!anyUsable) {
+            continue;
+        }
+        // A codec the current engine has no encoder for cannot make its family
+        // selectable. Where that holds for the whole family, the family carries the
+        // gap's own reason rather than the hardware one, which would send the user
+        // shopping for a card that changes nothing.
+        const gaps = implemented.map(c => engineGapFor(c.name, engine, caps));
+        const firstGap = gaps[0];
+        if (firstGap && gaps.every(Boolean)) {
+            out[family] = firstGap.reason;
+            continue;
+        }
+        const anyUsable = implemented.some(
+            (c, i) => !gaps[i] && codecUsable(c.name, engine, encoders)
+        );
+        if (!anyUsable) {
             const label = FAMILY_META[family as Family]?.label ?? family;
             out[family] = `no ${label} encoder detected on this machine`;
         }
@@ -196,14 +234,15 @@ function unavailableAudio(
 }
 
 /**
- * Publish transports the given capture backend's engine cannot carry, each mapped
- * to the reason. The map (capture -> carriable transports) comes from the backend; a
- * transport known to some capture but absent from this one is disabled, because
- * that capture's engine has no sink for it (the portal/GStreamer path and
- * WebRTC). An unknown capture imposes no restriction.
+ * Publish transports the given capture backend's publish engine cannot carry, each
+ * mapped to the reason. The map (capture -> carriable transports) comes from the
+ * backend; a transport known to some capture but absent from this one is disabled,
+ * because that capture's engine has no publish sink for it, as GStreamer has none for
+ * WebRTC. An unknown capture imposes no restriction.
  */
 function unavailableTransports(
     capture: string,
+    engine: Engine | null,
     captureTransports: Record<string, string[]>
 ): Record<string, string> {
     const allowed = captureTransports[capture];
@@ -219,13 +258,15 @@ function unavailableTransports(
     const out: Record<string, string> = {};
     for (const t of all) {
         if (!allowed.includes(t)) {
-            out[t] = `the ${capture} capture path cannot carry ${t}`;
+            out[t] = engine
+                ? `the ${capture} capture backend runs the ${ENGINE_LABEL[engine]} publish engine, which has no ${t} publish sink`
+                : `the ${capture} capture backend cannot carry ${t}`;
         }
     }
     return out;
 }
 
-/** The capture API to fall back to when the current one is unavailable here. */
+/** The capture backend to fall back to when the current one is unavailable here. */
 function preferredCapture(platform: PlatformInfo | null): string {
     if (platform?.os === "linux") {
         return platform.display === "wayland" ? "portal" : "x11grab";
@@ -233,10 +274,10 @@ function preferredCapture(platform: PlatformInfo | null): string {
     return "ddagrab";
 }
 
-/** Reason the codec with the given label cannot encode chroma. Planar RGB gets
- * its own wording: RGB reaches an encoder only through HEVC's Range Extensions
- * or VP9's identity matrix, which is a coding-tool fact rather than a
- * subsampling limit. */
+/** Reason the codec with the given label cannot encode chroma on either engine.
+ * Planar RGB gets its own wording: RGB reaches an encoder only through HEVC's
+ * Range Extensions or VP9's identity matrix, which is a coding-tool fact rather
+ * than a subsampling limit. */
 function chromaBlockReason(chroma: string, label: string): string {
     if (chroma === "gbrp") {
         return `${label} codes no direct RGB - that needs HEVC Range Extensions or VP9's identity matrix`;
@@ -245,10 +286,13 @@ function chromaBlockReason(chroma: string, label: string): string {
 }
 
 /**
- * Pixel formats the current codec cannot be handed, each mapped to the reason:
- * the formats its capability entry omits, plus planar RGB on the GStreamer
- * engine, whose encoders negotiate none. evaluateDeps greys these and normalize
- * repairs away from them, so the two cannot disagree.
+ * Pixel formats the current codec cannot be handed, each mapped to the reason.
+ * Two facts block a format, and the capability table carries both: a format the
+ * codec's encoder codes on no engine is absent from its `chromas`, and one only
+ * the other engine's encoder takes carries a gap naming that engine. The gap's
+ * reason is shown as it stands, since it already says which capture backends
+ * reach the format. evaluateDeps greys these and normalize repairs away from
+ * them, so the two cannot disagree.
  */
 function unavailableChromas(
     codec: string,
@@ -257,29 +301,26 @@ function unavailableChromas(
 ): Record<string, string> {
     const out: Record<string, string> = {};
     const cap = findCapability(caps, codec);
-    if (cap) {
-        const label = codecLabel(cap);
-        for (const c of Object.keys(CHROMA_META)) {
-            if (!cap.chromas.includes(c)) {
-                out[c] = chromaBlockReason(c, label);
-            }
-        }
+    if (!cap) {
+        return out;
     }
-    // x264enc, x265enc, vp9enc and the nvcodec elements all negotiate YUV only,
-    // so the portal pipeline converts planar RGB to 4:4:4 before the encoder
-    // (gstChromaFormat). Picking it there would cost RGB's bitrate without its
-    // exactness.
-    if (engine === "gstreamer") {
-        out.gbrp =
-            "the portal path's GStreamer encoders take no planar RGB - the pipeline would convert it to 4:4:4 YUV";
+    const label = codecLabel(cap);
+    for (const c of Object.keys(CHROMA_META) as Chroma[]) {
+        if (!cap.chromas.includes(c)) {
+            out[c] = chromaBlockReason(c, label);
+            continue;
+        }
+        const gap = chromaGapFor(codec, engine, c, caps);
+        if (gap) {
+            out[c] = gap.reason;
+        }
     }
     return out;
 }
 
-/** The media engine that runs the capture backend, or null while unknown. */
+/** The publish engine that runs the capture backend, or null while unknown. */
 function engineOf(capture: string, env: Environment): Engine | null {
-    const name = env.captureEngines?.[capture];
-    return name === "ffmpeg" || name === "gstreamer" ? name : null;
+    return engineFor(capture, env.captureEngines);
 }
 
 /**
@@ -312,11 +353,11 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     };
 
     // Transports the selected capture's engine cannot carry, disabled per
-    // option. The portal path runs through GStreamer, which has no WebRTC sink,
+    // option. The portal backend runs on GStreamer, which has no WebRTC sink,
     // so a transport the engine cannot serialize is greyed with the reason
     // rather than left to fail at launch.
     if (captureTransports) {
-        d.optionDisabled.transport = unavailableTransports(s.capture, captureTransports);
+        d.optionDisabled.transport = unavailableTransports(s.capture, engine, captureTransports);
     }
 
     // A codec the current transport cannot carry, disabled per option.
@@ -334,14 +375,23 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
                 d.optionDisabled.codec[cap.name] = notImplementedReason;
             }
         }
+        // A codec the capture backend's engine has no encoder for at all. It stays
+        // in the list, since the other engine's capture backends publish it, and
+        // the gap's reason says which side lacks it.
+        for (const cap of caps) {
+            const gap = engineGapFor(cap.name, engine, caps);
+            if (gap) {
+                d.optionDisabled.codec[cap.name] = gap.reason;
+            }
+        }
         // Encoder families (the first dropdown) with no selectable codec here.
-        d.optionDisabled.family = unavailableFamilies(caps, encoders);
+        d.optionDisabled.family = unavailableFamilies(caps, engine, encoders);
     }
     // A failed probe wins over the transport reason: "no NVIDIA encoder" and "not
     // compiled into this ffmpeg" are the actionable messages when the codec cannot
     // run here at all. Probed codecs are all implemented, so this never overwrites
     // the roadmap reason.
-    Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders, caps));
+    Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders, engine, caps));
 
     // A rate-control control is live when three facts agree: the mode's concept
     // uses the knob, the codec's encoder has it, and the capture backend's engine
@@ -415,11 +465,13 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     const { platform, encoders, caps, captureTransports } = env;
     const next = { ...s };
 
-    // Capture first: the transport and codec repairs below depend on it, so it
-    // settles to a backend this platform can run before they read it.
+    // Capture first: the transport, codec and chroma repairs below depend on it, so
+    // it settles to a backend this platform can run before they read it, and the
+    // engine that backend runs on is fixed from here.
     if (unavailableCaptures(platform)[next.capture]) {
         next.capture = preferredCapture(platform);
     }
+    const engine = engineOf(next.capture, env);
 
     // Transport: the capture backend's engine must be able to carry it. The
     // portal (GStreamer) path has no WebRTC sink, so a capture change can strand
@@ -431,11 +483,12 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         }
     }
 
-    // Codec: must be implemented, run here (hardware) and be carriable by the
-    // transport. Walk the capability table in display order and take the first
-    // codec that satisfies all three; fall back to software when none does.
+    // Codec: must be implemented, have an encoder on the capture backend's engine,
+    // run here (hardware) and be carriable by the transport. Walk the capability
+    // table in display order and take the first codec that satisfies all four; fall
+    // back to software when none does.
     const codecOk = (codec: string): boolean => {
-        if (!codecUsable(codec, encoders)) {
+        if (!codecUsable(codec, engine, encoders)) {
             return false;
         }
         if (!caps) {
@@ -443,7 +496,8 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         }
         const cap = findCapability(caps, codec);
         return (
-            !!cap && cap.implemented && cap.transports.includes(next.transport)
+            !!cap && cap.implemented && cap.transports.includes(next.transport) &&
+            !engineGapFor(codec, engine, caps)
         );
     };
     if (!codecOk(next.codec)) {
@@ -451,10 +505,9 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
             (caps?.map(c => c.name).find(codecOk)) ?? FALLBACK_CODEC;
     }
 
-    // Chroma: must be a format the chosen codec encodes and the capture
-    // backend's engine accepts, so switching to the portal path moves gbrp to the
-    // 4:4:4 its encoders negotiate rather than to a silent conversion.
-    const engine = engineOf(next.capture, env);
+    // Chroma: must be a format the chosen codec encodes and the capture backend's
+    // engine accepts, so switching to the portal backend moves gbrp to the 4:4:4 its
+    // encoders negotiate rather than to a silent conversion.
     const blocked = unavailableChromas(next.codec, engine, caps);
     if (blocked[next.chroma]) {
         next.chroma = CHROMA_FALLBACK_ORDER.find(c => !blocked[c]) ?? next.chroma;
@@ -462,7 +515,7 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
 
     // Rate control: the chosen codec's encoder must have the mode on the engine
     // that will build the command, so moving a lossless stream onto an AV1 encoder,
-    // or a lossless VP9 one onto the portal path, settles on a mode that exists
+    // or a lossless VP9 one onto the GStreamer engine, settles on a mode that exists
     // instead of failing at launch.
     const blockedModes = unavailableModes(next.codec, engine, caps);
     if (blockedModes[next.mode]) {

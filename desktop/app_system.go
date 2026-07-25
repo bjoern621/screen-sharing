@@ -27,7 +27,7 @@ func (a *App) Monitors() []display.Monitor {
 }
 
 // Platform reports the OS and (on Linux) the display server, so the UI can
-// disable capture APIs that cannot run on this machine.
+// disable capture backends that cannot run on this machine.
 func (a *App) Platform() platform.Info {
 	return platform.Detect()
 }
@@ -38,9 +38,10 @@ func (a *App) Capabilities() []capabilities.Codec {
 	return capabilities.Codecs
 }
 
-// Encoders reports which hardware video codecs this machine can actually run, so
-// the UI can grey out NVENC options on a machine without an NVIDIA GPU. The probe
-// runs one test encode per codec and is cached for the process lifetime.
+// Encoders reports which video codecs this machine can actually run, per publish
+// engine, so the UI can grey out NVENC options on a machine without an NVIDIA GPU and
+// a codec whose GStreamer plugin is missing on the portal capture backend alone. The
+// probe runs once per codec and engine and is cached for the process lifetime.
 func (a *App) Encoders() encoders.Availability {
 	a.encodersOnce.Do(func() {
 		a.encoders = encoders.Detect(a.ctx)

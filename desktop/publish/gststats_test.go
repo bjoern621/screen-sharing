@@ -62,6 +62,9 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 	s := settings.Defaults()
 	s.Capture = "portal"
 	s.Transport = "srt"
+	// The default planar RGB has no encoder element on this engine, which the form
+	// repairs to 4:4:4 before a portal publish; this test is about element order.
+	s.Chroma = "yuv444p"
 
 	plain, err := buildPipeline(s, "3", "42", "")
 	if err != nil {

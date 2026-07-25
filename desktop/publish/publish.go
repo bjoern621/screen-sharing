@@ -3,8 +3,8 @@
 //
 // The seam is the Publisher: the app starts and stops a Publisher and never
 // names ffmpeg or GStreamer. A capture backend owns its whole pipeline behind
-// that contract. One engine drives the screen grabbers that feed a single
-// ffmpeg process; another drives the xdg-desktop-portal path, where GStreamer
+// that contract. One publish engine drives the screen grabbers that feed a single
+// ffmpeg process; the other drives the portal capture backend, where GStreamer
 // captures, encodes and ships in one graph. Both satisfy the same contract, so
 // the lifecycle code above the seam is identical for either.
 package publish
@@ -45,7 +45,7 @@ type Callbacks struct {
 type Publisher interface {
 	Command(s settings.Stream) (string, error)
 	Start(s settings.Stream, tag string, cb Callbacks) (Handle, error)
-	// Engine names the media engine that runs the pipeline, "ffmpeg" or
+	// Engine names the publish engine that runs the pipeline, "ffmpeg" or
 	// "gstreamer". The lifecycle code above the seam never reads it; the settings
 	// form does, because which rate-control knobs reach the encoder differs per
 	// engine, and a control the engine ignores is greyed with that reason instead
@@ -54,13 +54,21 @@ type Publisher interface {
 	// Carries reports whether this engine can drive the named transport, i.e.
 	// the transport implements the publish capability the engine serializes
 	// through. The ffmpeg engine needs an FFmpegPublisher, the GStreamer engine
-	// a GstPublisher, so the portal path cannot carry a transport with no
+	// a GstPublisher, so the portal capture backend cannot carry a transport with no
 	// GStreamer sink.
 	Carries(transportName string) bool
 }
 
+// The publish engines that run the capture backends. An engine names itself to
+// capabilities.Validate, to the encoder probe and to the settings form, so the two
+// spellings are constants rather than literals repeated per caller.
+const (
+	EngineFfmpeg = "ffmpeg"
+	EngineGst    = "gstreamer"
+)
+
 // engineByCapture is the single source mapping a capture backend to the engine
-// that runs it. The ffmpeg screen grabbers share one engine; the portal path
+// that runs it. The ffmpeg screen grabbers share one engine; the portal backend
 // runs through GStreamer.
 var engineByCapture = map[string]Publisher{
 	"ddagrab": ffmpegEngine{},
@@ -90,7 +98,24 @@ func Captures() []string {
 	return out
 }
 
-// EngineFor returns the name of the media engine that runs the capture backend.
+// Engines lists the publish engines that run the capture backends, sorted for a stable
+// order. Each of them answers capabilities.Validate under its own name and is probed
+// separately for which codecs it can run here, since the two wrap different encoder
+// implementations.
+func Engines() []string {
+	seen := make(map[string]bool, len(engineByCapture))
+	var out []string
+	for _, p := range engineByCapture {
+		if name := p.Engine(); !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// EngineFor returns the name of the publish engine that runs the capture backend.
 func EngineFor(capture string) (string, error) {
 	p, err := For(capture)
 	if err != nil {

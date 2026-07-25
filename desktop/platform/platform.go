@@ -1,5 +1,5 @@
 // Package platform reports the running OS and, on Linux, whether the session is
-// Wayland or X11, so the UI can disable capture APIs that cannot work here.
+// Wayland or X11, so the UI can disable capture backends that cannot work here.
 package platform
 
 import (

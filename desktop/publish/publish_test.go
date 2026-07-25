@@ -6,7 +6,7 @@ import (
 )
 
 // The ffmpeg-engine captures carry every transport that serializes to an ffmpeg
-// command; the portal path runs through GStreamer, so it drops WebRTC, which
+// command; the portal backend runs on GStreamer, so it drops WebRTC, which
 // has no GStreamer sink.
 func TestTransportsFor(t *testing.T) {
 	cases := map[string][]string{

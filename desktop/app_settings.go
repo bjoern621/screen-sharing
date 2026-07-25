@@ -71,7 +71,7 @@ func (a *App) CaptureTransports() map[string][]string {
 	return out
 }
 
-// CaptureEngines maps each capture backend to the media engine that runs it,
+// CaptureEngines maps each capture backend to the publish engine that runs it,
 // "ffmpeg" or "gstreamer". The two engines build their encoder settings through
 // different knobs, so the UI greys a rate-control field the selected capture's
 // engine does not forward (the GStreamer encoders take no NVENC preset ladder)

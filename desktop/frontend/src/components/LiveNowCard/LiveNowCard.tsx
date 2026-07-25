@@ -110,7 +110,7 @@ export default function LiveNowCard({
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                    <Tip text="Protocol a Watch click receives over, the relay-to-viewer hop (hop 2). Any choice works for any stream: the relay re-serves each stream on all its listeners, so this hop is independent of the publish transport in Stream settings and the two can differ.">
+                    <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). Any choice works for any stream: the relay re-serves each stream on all its listeners, so the watch leg is independent of the publish transport in Stream settings and the two can differ.">
                         <span className="text-muted-foreground">watch over</span>
                     </Tip>
                     <Select
@@ -207,8 +207,8 @@ export default function LiveNowCard({
                 {transport === "srt" && (
                     <div className="max-w-[230px]">
                         <NumberField
-                            label="SRT watch latency (ms, hop 2)"
-                            labelTip="SRT retransmit window for the viewer hop (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch."
+                            label="SRT watch latency (ms, watch leg)"
+                            labelTip="SRT retransmit window for the watch leg (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch."
                             value={watchLatencyMs}
                             onChange={onUpdateWatchLatency}
                         />

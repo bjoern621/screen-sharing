@@ -11,10 +11,19 @@ package capabilities
 // are the values that will apply once each is wired up, not a promise that they
 // work today.
 //
-// A row's Chromas and ModeGaps hold for both publish engines. Where the ffmpeg
-// encoder and the GStreamer element disagree, the row states the narrower fact and
-// says which side is the limit, so a combination the UI offers cannot fail on one
-// capture backend and work on the other.
+// A row's Chromas is the union over the two publish engines, and each format the
+// ffmpeg encoder and the GStreamer element disagree on carries a Gap naming the
+// engine that lacks it. The option then stays selectable on the engine that codes it
+// and is greyed with the element's own limit on the engine that does not, instead of
+// disappearing from both. Every chroma gap runs the same way round, since the
+// GStreamer elements are the narrower half: the ffmpeg engine reaches every format
+// the table lists.
+//
+// A chroma counts as reached when the encoder codes that subsampling and bit depth,
+// not that exact memory layout. The software encoders take planar 10-bit
+// (yuv420p10le) where the hardware ones take semi-planar p010le, so ffmpeg converts
+// the layout on the way in and the GStreamer pipeline pins I420_10LE; the coded
+// picture is the same 10-bit 4:2:0 either way.
 //
 // Chroma note for the hardware families: consumer VAAPI/QSV/AMF encoders emit
 // 4:2:0 (yuv420p), with 10-bit 4:2:0 (p010le) on the HEVC/AV1 Main-10 paths. Among
@@ -34,6 +43,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
 		Transports:  []string{"srt", "rtsp"},
+		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
 		Name:        "h264_nvenc",
@@ -80,14 +90,15 @@ var Codecs = []Codec{
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
 		Transports:  []string{"srt", "rtsp"},
+		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
 		// libvpx VP9: the one 4:4:4 codec a browser decodes in software
 		// (WebCodecs), so it carries the lossless 4:4:4 modes to the web viewer.
-		// RTSP only: MPEG-TS (SRT) has no VP9 mapping. Each chroma selects the VP9
-		// profile that codes it, so all four reach the encoder: 0 for 8-bit 4:2:0,
-		// 1 for 4:4:4 and for gbrp, which uses VP9's identity matrix so RGB stays
-		// RGB, 2 for 10-bit 4:2:0.
+		// RTSP only: MPEG-TS (SRT) has no VP9 mapping. On the ffmpeg engine each
+		// chroma selects the VP9 profile that codes it (vp9Profiles), so all four
+		// reach the encoder: 0 for 8-bit 4:2:0, 1 for 4:4:4 and for gbrp, which uses
+		// VP9's identity matrix so RGB stays RGB, 2 for 10-bit 4:2:0.
 		//
 		// libvpx counts its quantizer to 63, not 51 like the H.26x encoders, so
 		// the same CQ number means a different quality here.
@@ -99,10 +110,10 @@ var Codecs = []Codec{
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
 		Transports:  []string{"rtsp"},
-		ModeGaps: []ModeGap{{
+		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: "gstreamer",
 			Mode:   "lossless",
-			Reason: "vp9enc exposes no lossless property, so libvpx's lossless coding is reachable through the ffmpeg capture backends only",
+			Reason: "the vp9enc element exposes no lossless property, so libvpx's lossless coding is reachable on the ffmpeg publish engine only",
 		}},
 	},
 	{
@@ -119,7 +130,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p"},
 		CqMax:       63,
 		Transports:  []string{"rtsp"},
-		ModeGaps: []ModeGap{{
+		Gaps: []Gap{{
 			Mode:   "lossless",
 			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
 		}},
@@ -129,9 +140,9 @@ var Codecs = []Codec{
 		// codes 4:4:4 and RGB. Its realtime usage profile keeps a screen encode
 		// within reach on many cores, but it stays the slowest of the three.
 		//
-		// No p010le: the ffmpeg encoder codes 10-bit, the GStreamer element av1enc
-		// negotiates 8-bit input only, and a chroma the table permits has to reach
-		// both engines. 10-bit AV1 is libsvtav1's and librav1e's column.
+		// 10-bit is the ffmpeg engine's alone: libaom codes it, and av1enc's sink pad
+		// lists 8-bit formats only. The other two software AV1 encoders carry 10-bit
+		// on both engines.
 		//
 		// AV1 rides RTSP alone: MediaMTX's SRT/MPEG-TS ingest takes H.264/H.265
 		// only, and the WHIP muxer takes H.264. RTP carries it either way, which is
@@ -141,12 +152,16 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Nvenc:       false,
 		Implemented: true,
-		Chromas:     []string{"gbrp", "yuv444p", "yuv420p"},
+		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
 		Transports:  []string{"rtsp"},
-		ModeGaps: []ModeGap{{
+		Gaps: []Gap{gstNoPlanarRGB, {
+			Engine: "gstreamer",
+			Chroma: "p010le",
+			Reason: "the av1enc element takes 8-bit input only, so 10-bit libaom AV1 is reachable on the ffmpeg publish engine only",
+		}, {
 			Mode:   "lossless",
-			Reason: "neither ffmpeg's libaom wrapper nor av1enc exposes libaom's lossless switch",
+			Reason: "neither the ffmpeg libaom encoder nor the av1enc element exposes libaom's lossless switch",
 		}},
 	},
 	{
@@ -165,7 +180,7 @@ var Codecs = []Codec{
 		// that rate anyway, but the settings default sits above it.
 		BitrateLimitM: 100,
 		Transports:    []string{"rtsp"},
-		ModeGaps: []ModeGap{
+		Gaps: []Gap{
 			{
 				Mode:   "lossless",
 				Reason: "SVT-AV1 has no lossless coding mode",
@@ -178,7 +193,7 @@ var Codecs = []Codec{
 				// it, which is why this gap is one engine's and not the codec's.
 				Engine: "gstreamer",
 				Mode:   "cbr",
-				Reason: "svtav1enc stalls in the low-delay prediction structure SVT-AV1's CBR requires, so constant bitrate is reachable through the ffmpeg capture backends only",
+				Reason: "the svtav1enc element stalls in the low-delay prediction structure SVT-AV1's CBR requires, so constant bitrate is reachable on the ffmpeg publish engine only",
 			},
 		},
 	},
@@ -199,7 +214,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       255,
 		Transports:  []string{"rtsp"},
-		ModeGaps: []ModeGap{{
+		Gaps: []Gap{{
 			Mode:   "lossless",
 			Reason: "rav1e has no lossless coding mode",
 		}},
@@ -207,7 +222,7 @@ var Codecs = []Codec{
 
 	// VAAPI (Intel + AMD): one backend drives both vendors' iGPU and dGPU
 	// encoders, so it is the hardware path on a non-NVIDIA Linux desktop. All five
-	// rows are 4:2:0, and none of them codes bit-exact (vaapiModeGaps).
+	// rows are 4:2:0, and none of them codes bit-exact (vaapiGaps).
 	//
 	// Which of the five a machine can run is a driver question, not a table one: an
 	// AMD card exposes no VP8/VP9 encode entrypoint, an Intel one before Arc no AV1.
@@ -224,7 +239,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p"},
 		CqMax:       51,
 		Transports:  []string{"srt", "rtsp", "webrtc"},
-		ModeGaps:    vaapiModeGaps,
+		Gaps:        vaapiGaps,
 	},
 	{
 		// Main and Main 10, the two HEVC profiles VAAPI drivers implement for
@@ -236,7 +251,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
 		Transports:  []string{"srt", "rtsp"},
-		ModeGaps:    vaapiModeGaps,
+		Gaps:        vaapiGaps,
 	},
 	{
 		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile.
@@ -249,7 +264,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       255,
 		Transports:  []string{"rtsp"},
-		ModeGaps:    vaapiModeGaps,
+		Gaps:        vaapiGaps,
 	},
 	{
 		// VP9 profile 0. Profile 2 (10-bit) stays out for the same reason as the
@@ -263,7 +278,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p"},
 		CqMax:       255,
 		Transports:  []string{"rtsp"},
-		ModeGaps:    vaapiModeGaps,
+		Gaps:        vaapiGaps,
 	},
 	{
 		// VP8 has one profile, one chroma and one bit depth, so this row is the
@@ -275,7 +290,7 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p"},
 		CqMax:       127,
 		Transports:  []string{"rtsp"},
-		ModeGaps:    vaapiModeGaps,
+		Gaps:        vaapiGaps,
 	},
 
 	// QSV (Intel Quick Sync, via oneVPL). Intel-only; tends to beat generic
@@ -305,11 +320,23 @@ var Codecs = []Codec{
 	{Name: "hevc_vulkan", Family: "vulkan", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"srt", "rtsp"}},
 }
 
-// vaapiModeGaps is the rate-control gap every VAAPI row carries. A VA encoder
-// quantizes every frame and no VA profile exposes a transform-bypass path, so
-// lossless has no VAAPI form on either publish engine. The other four modes reach
-// the drivers' CQP, CBR and VBR rate control.
-var vaapiModeGaps = []ModeGap{{
+// vaapiGaps is the rate-control gap every VAAPI row carries. A VA encoder quantizes
+// every frame and no VA profile exposes a transform-bypass path, so lossless has no
+// VAAPI form on either publish engine. The other four modes reach the drivers' CQP,
+// CBR and VBR rate control.
+var vaapiGaps = []Gap{{
 	Mode:   "lossless",
 	Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
 }}
+
+// gstNoPlanarRGB is the planar-RGB gap every RGB-coding row carries on the GStreamer
+// publish engine. No encoder element there takes a GBR sink format: x265enc, vp9enc
+// and av1enc take YUV only, as do the nvcodec elements, so the pipeline could only
+// convert RGB to 4:4:4 YUV and spend RGB's bitrate without its exactness. The ffmpeg
+// publish engine codes each of those formats as RGB, which is why this is a gap per
+// engine and not a pixel format the rows leave out.
+var gstNoPlanarRGB = Gap{
+	Engine: "gstreamer",
+	Chroma: "gbrp",
+	Reason: "no GStreamer encoder element takes planar-RGB input, so direct RGB coding is reachable on the ffmpeg publish engine only",
+}

@@ -37,7 +37,7 @@ A **Publisher** owns the full pipeline for one family of capture backends.
 
 - `ffmpegEngine` covers the screen grabbers (ddagrab, gdigrab, x11grab, kmsgrab).
   They differ only in ffmpeg input arguments, so one engine builds the whole `ffmpeg` command from `ffmpeg.BuildPublishArgs` and runs it as a single process.
-- `gstEngine` covers the portal path.
+- `gstEngine` covers the portal capture backend.
   It opens a ScreenCast session, feeds the PipeWire node into a GStreamer graph that encodes and ships, and closes the session when the process exits.
 
 The **portal** package (`portal.Open`) performs the ScreenCast D-Bus handshake and returns the PipeWire remote fd and node id.

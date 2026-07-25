@@ -30,11 +30,11 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 
 	sink, ok := transport.GstSink(s)
 	if !ok {
-		return nil, fmt.Errorf("transport %q has no GStreamer sink", s.Transport)
+		return nil, fmt.Errorf("transport %q has no GStreamer publish sink", s.Transport)
 	}
 
 	if s.Fps <= 0 {
-		return nil, fmt.Errorf("the portal (GStreamer) backend needs a positive fps, got %d", s.Fps)
+		return nil, fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Fps)
 	}
 	gop := s.Gop
 	if gop <= 0 {
@@ -155,12 +155,17 @@ func gstAudioBranch(s settings.Stream) ([]string, error) {
 }
 
 // gstChromaFormats maps a settings chroma (the ffmpeg pixel-format name) to the
-// GStreamer video/x-raw format that names the same layout. gbrp is planar RGB,
-// which these encoders do not take, so videoconvert bridges it to 4:4:4 YUV.
+// GStreamer video/x-raw format carrying the same subsampling and bit depth. The
+// 10-bit entry is the planar layout, since these elements take no semi-planar input;
+// what the row promises is 10-bit 4:2:0, not p010le's byte order.
+//
+// gbrp is absent because no encoder element here takes planar RGB: it is declared as
+// a per-engine chroma gap (gstNoPlanarRGB) and refused by capabilities.Validate, so
+// the pipeline never has to decide whether to convert RGB to YUV behind the user's
+// back.
 var gstChromaFormats = map[string]string{
 	"yuv420p": "I420",
 	"yuv444p": "Y444",
-	"gbrp":    "Y444",
 	"p010le":  "I420_10LE",
 }
 
@@ -195,12 +200,12 @@ const (
 	gstRangeLimited = "2"
 )
 
-// gstColorRange returns the range the encoder input is pinned to. gbrp reaches the
-// encoder as full-range 4:4:4 YUV after videoconvert, so it is always full; the YUV
-// formats honor s.ColorRange (pc is full, tv is limited), matching the ffmpeg
-// builder, which sets -color_range for every format but gbrp.
+// gstColorRange returns the range the encoder input is pinned to: s.ColorRange, where
+// pc is full and tv limited, matching the ffmpeg builder's -color_range. Every chroma
+// this engine encodes is a YUV one, so the range always applies; gbrp, the format that
+// is full range by construction, does not reach this engine (gstNoPlanarRGB).
 func gstColorRange(s settings.Stream) string {
-	if s.Chroma == "gbrp" || s.ColorRange == "pc" {
+	if s.ColorRange == "pc" {
 		return gstRangeFull
 	}
 	return gstRangeLimited

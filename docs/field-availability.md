@@ -8,11 +8,16 @@ A third form covers the neighbouring case, a field that stays applicable but mea
 
 **Hidden.**
 The field is not rendered at all.
-Conditional JSX in `StreamSettingsCard` gates it on the parent selection, for example the DRM download field rendered only when the capture API is `kmsgrab`.
+Conditional JSX in `StreamSettingsCard` gates it on the parent selection, for example the DRM download field rendered only when the capture backend is `kmsgrab`.
 
 **Disabled with a reason.**
 The field renders greyed, carrying a `disabledReason` tooltip that states why it is inert.
 The reason comes from `deps.disabled` in `evaluateDeps` (`util/deps.ts`), for example the NVENC preset ladder greyed under software x264 with "the p1-p7 ladder is NVENC-specific".
+
+**One option disabled with a reason.**
+A dropdown keeps the option and greys that entry, whose tooltip carries the reason from `deps.optionDisabled`.
+This covers a value the current combination rules out while a neighbouring combination allows it: planar RGB is greyed on the portal capture backend, because no GStreamer encoder element takes it, and selectable on the capture backends that run ffmpeg, which codes it.
+The reason names the limit and which side has it, so the greyed entry tells the user what to change rather than only that the option is gone.
 
 **Live with a note.**
 The field stays editable and its tooltip gains a sentence from `deps.note`.
@@ -25,7 +30,7 @@ A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live 
 
 - The **mode's concept** uses the knob: `MODE_META` in `util/domain.ts` says which controls each rate-control mode needs.
 - The **codec's encoder** takes the knob: the B-frame count and the p1-p7 ladder reach an encoder on NVENC alone, so both fields grey for every other family whatever its hardware could do with them.
-- The capture backend's **engine** forwards the value: `ENGINE_RULES` records where a builder drops a knob the mode uses, so the preset ladder greys on the portal path whose GStreamer elements have no equivalent.
+- The capture backend's **publish engine** forwards the value: `ENGINE_RULES` records where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
 
 When two of them block the same field, the reason names the one the user can act on.
 B-frames under software x264 in VBR read "only the NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
@@ -40,7 +45,7 @@ Ask what kind of control the field is.
 
 - A **general encoding or quality concept** that the current combination happens to block stays **disabled with a reason**.
   The concept is part of the model every user is expected to understand, so the greyed field plus its reason teaches why the concept does not apply here.
-  Encoder preset, quantizer target, bitrate bound, B-frames, color range and chroma are all general concepts, disabled when the codec or mode rules them out.
+  Encoder preset, quantizer target, bitrate bound, B-frames, color range and chroma are all general concepts, disabled when the codec, the mode or the capture backend's engine rules them out.
 
 The test: would the tooltip teach a user on a different backend something worth knowing?
 Yes means disable-with-reason.

@@ -109,6 +109,7 @@ export default function App() {
                     deps={settings.deps}
                     caps={capabilities}
                     transports={settings.transports}
+                    engine={settings.engine}
                     monitors={monitors}
                     webGrid={settings.webGrid}
                     nativeGrid={settings.nativeGrid}

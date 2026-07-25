@@ -112,7 +112,7 @@ Every transport in this table is the publish leg, the only one an encoder is bui
 | `libx265` | gbrp, yuv444p, yuv420p, p010le | srt, rtsp | `x265enc` |
 | `libvpx-vp9` | gbrp, yuv444p, yuv420p, p010le | rtsp | `vp9enc` |
 | `libvpx` (VP8) | yuv420p | rtsp | `vp8enc` |
-| `libaom-av1` | gbrp, yuv444p, yuv420p | rtsp | `av1enc` |
+| `libaom-av1` | gbrp, yuv444p, yuv420p, p010le | rtsp | `av1enc` |
 | `libsvtav1` | yuv420p, p010le | rtsp | `svtav1enc` |
 | `librav1e` | yuv444p, yuv420p, p010le | rtsp | `rav1enc` |
 | `h264_vaapi` | yuv420p | srt, rtsp, webrtc | `vah264enc` |
@@ -121,13 +121,16 @@ Every transport in this table is the publish leg, the only one an encoder is bui
 | `vp9_vaapi` | yuv420p | rtsp | `vavp9enc` |
 | `vp8_vaapi` | yuv420p | rtsp | `vavp8enc` |
 
+The chroma column is the union over the two publish engines.
+A format one engine's encoder will not take carries a `Gap` on the row, so the viewer side sees every chroma a stream may arrive in; which of them a given capture backend can publish is the settings form's question.
+
 The VAAPI rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and `h264_vaapi` at yuv420p is the family's one WHEP-viewable row.
-Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` test-encodes each and the settings form greys away what this machine refuses.
+Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` probes each per publish engine, test-encoding on the ffmpeg engine and querying the plugin registry for the GStreamer element, and the settings form greys away what this machine refuses on the selected capture backend.
 
 Three constraints in that table decide what the viewer side can do:
 
 - WebRTC carries the H.264 codecs alone, because ffmpeg's WHIP muxer speaks H.264 and Opus.
-  It is also the one transport with no `GstSink`, so the portal capture path cannot publish over it.
+  It is also the one transport with no `GstSink`, so the portal capture backend cannot publish over it.
 - The VP8, VP9 and AV1 rows publish over RTSP only, because MPEG-TS has no mapping for any of the three.
   That is the same gap on the watch leg, which is why the viewer service and the native grid both subscribe over RTSP.
 - A codec with an empty transport list cannot be published at all: `capabilities.Validate` rejects the combination before an encoder is built.
