@@ -48,12 +48,17 @@ export interface Option {
 export interface Deps {
     /** control id -> reason the whole control is ignored/disabled */
     disabled: Record<string, string>;
+    /** control id -> what the value does in a combination that gives the control a
+     * meaning its own tooltip does not cover, appended to that tooltip. A control
+     * carrying a note is live: the note explains, it does not block. */
+    note: Record<string, string>;
     /** control id -> option value -> reason that single option is unavailable */
     optionDisabled: Record<string, Record<string, string>>;
 }
 
-/** Verdict of the browser-viewability check shown under the publish controls. */
-export interface BrowserVerdict {
+/** Whether one viewer can show the configured stream, with a reason either way.
+ * The settings form carries one verdict per grid: web and native. */
+export interface ViewVerdict {
     ok: boolean;
     text: string;
 }

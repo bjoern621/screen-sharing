@@ -8,13 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
-import { BrowserVerdict, Deps, Monitor, Option, Stream } from "../../types/stream";
+import {
+    Deps,
+    Monitor,
+    Option,
+    Stream,
+    ViewVerdict,
+} from "../../types/stream";
 import {
     AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
-    RANGES, TRANSPORT_META, clampFps, codecOptions, familyOptions, fpsDisabled,
-    fpsOptions, monitorOptions,
+    RANGES, TRANSPORT_META, clampFps, codecOptions, cqTip, familyOptions,
+    fpsDisabled, fpsOptions, monitorOptions, withNote,
 } from "../../util/options";
-import { Capability, familyOf } from "../../util/domain";
+import { Capability, cqMax, familyOf } from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
@@ -26,6 +32,11 @@ import UplinkField from "../fields/UplinkField";
 /** Auto-fitting field grid shared by every settings section. */
 const GRID =
     "grid gap-x-5 gap-y-3 [grid-template-columns:repeat(auto-fit,minmax(230px,1fr))]";
+
+/** Viewability badges carry sentences, so they drop the badge's one-line height
+ * clamp and align the icon to the first line instead of the block's centre. */
+const VERDICT_BADGE =
+    "h-auto items-start rounded-lg py-1 text-left whitespace-normal [&>svg]:mt-0.5";
 
 /** One titled settings section: an icon+label legend over a field grid. */
 function Section({
@@ -60,7 +71,8 @@ interface StreamSettingsCardProps {
     caps: Capability[] | null;
     transports: string[];
     monitors: Monitor[];
-    browser: BrowserVerdict;
+    webGrid: ViewVerdict;
+    nativeGrid: ViewVerdict;
     cmd: string;
     publishing: boolean;
     pubError: string;
@@ -73,15 +85,16 @@ interface StreamSettingsCardProps {
     onOpenLogsFolder: () => void;
 }
 
-/** The full stream-settings form: dependency-aware fields, publish controls,
- * browser-viewability verdict and the live command preview. */
+/** The full stream-settings form: dependency-aware fields, publish controls, the
+ * web- and native-grid viewability verdicts and the live command preview. */
 export default function StreamSettingsCard({
     s,
     deps,
     caps,
     transports,
     monitors,
-    browser,
+    webGrid,
+    nativeGrid,
     cmd,
     publishing,
     pubError,
@@ -277,7 +290,6 @@ export default function StreamSettingsCard({
                         value={s.chroma}
                         options={CHROMAS}
                         optionDisabled={deps.optionDisabled.chroma}
-                        disabledReason={deps.disabled.chroma}
                         onChange={v => onUpdate({ chroma: v })}
                     />
                     <SelectField
@@ -290,7 +302,10 @@ export default function StreamSettingsCard({
                     />
                     <SelectField
                         label="Encoder preset (NVENC p1-p7)"
-                        labelTip="NVENC preset ladder: p1 (fastest) to p7 (most efficient compression)."
+                        labelTip={withNote(
+                            "NVENC preset ladder: p1 (fastest) to p7 (most efficient compression).",
+                            deps.note.encPreset
+                        )}
                         value={s.encPreset}
                         options={ENC_PRESETS}
                         disabledReason={deps.disabled.encPreset}
@@ -312,28 +327,39 @@ export default function StreamSettingsCard({
                     />
                     <NumberField
                         label="Quantizer target (CQ)"
-                        labelTip="Constant quantizer for quality mode - the CRF value on x264, the QP target on NVENC. Lower = better + more bits. 12 ≈ visually lossless, 19 ≈ excellent, 28 ≈ visibly compressed."
+                        labelTip={withNote(cqTip(s.codec, caps), deps.note.cq)}
                         value={s.cq}
+                        min={0}
+                        max={cqMax(s.codec, caps)}
                         disabledReason={deps.disabled.cq}
                         onChange={v => onUpdate({ cq: v })}
                     />
                     <NumberField
                         label="Bitrate target (Mbit/s)"
-                        labelTip="Target rate for CBR (held constant), VBR and ABR (averaged toward). CRF and lossless set no bitrate."
+                        labelTip={withNote(
+                            "Target rate for CBR (held constant), VBR and ABR (averaged toward).",
+                            deps.note.bitrateM
+                        )}
                         value={s.bitrateM}
                         disabledReason={deps.disabled.bitrateM}
                         onChange={v => onUpdate({ bitrateM: v })}
                     />
                     <NumberField
                         label="Max bitrate / ceiling (Mbit/s)"
-                        labelTip="Constrained VBR only: the burst ceiling above the target. Bitrate may rise to this on motion, then fall back on static content. Set it above the bitrate target."
+                        labelTip={withNote(
+                            "Constrained VBR only: the burst ceiling above the target. Bitrate may rise to this on motion, then fall back on static content. Set it above the bitrate target.",
+                            deps.note.maxrateM
+                        )}
                         value={s.maxrateM}
                         disabledReason={deps.disabled.maxrateM}
                         onChange={v => onUpdate({ maxrateM: v })}
                     />
                     <NumberField
                         label="VBV buffer (ms, 0 = auto)"
-                        labelTip={"Rate-control buffer for CBR and VBR, in milliseconds.\nSmaller = tighter rate and lower latency; larger = smoother quality across bursts.\n0 uses the encoder default (x264 600ms)."}
+                        labelTip={withNote(
+                            "Rate-control buffer for CBR and VBR, in milliseconds.\nSmaller = tighter rate and lower latency; larger = smoother quality across bursts.\n0 uses the encoder default (x264 600ms).",
+                            deps.note.vbvMs
+                        )}
                         labelLink="https://en.wikipedia.org/wiki/Video_buffering_verifier"
                         value={s.vbvMs}
                         disabledReason={deps.disabled.vbvMs}
@@ -348,7 +374,10 @@ export default function StreamSettingsCard({
                     />
                     <NumberField
                         label="B-frames"
-                        labelTip="Bi-directionally predicted frames: reference past AND future. Save bitrate in lossy modes, add reorder latency; nothing in lossless."
+                        labelTip={withNote(
+                            "Bi-directionally predicted frames: reference past AND future. Save bitrate in lossy modes, add reorder latency; nothing in lossless.",
+                            deps.note.bframes
+                        )}
                         labelLink="https://en.wikipedia.org/wiki/Group_of_pictures"
                         value={s.bframes}
                         disabledReason={deps.disabled.bframes}
@@ -417,17 +446,30 @@ export default function StreamSettingsCard({
                     </div>
                 </div>
 
-                <Badge
-                    variant={browser.ok ? "default" : "secondary"}
-                    className="whitespace-normal text-left"
-                >
-                    {browser.ok ? (
-                        <IconCheck size={14} className="shrink-0" />
-                    ) : (
-                        <IconX size={14} className="shrink-0" />
-                    )}
-                    {browser.text}
-                </Badge>
+                <div className="flex flex-col gap-2">
+                    <Badge
+                        variant={webGrid.ok ? "default" : "secondary"}
+                        className={VERDICT_BADGE}
+                    >
+                        {webGrid.ok ? (
+                            <IconCheck size={14} className="shrink-0" />
+                        ) : (
+                            <IconX size={14} className="shrink-0" />
+                        )}
+                        {webGrid.text}
+                    </Badge>
+                    <Badge
+                        variant={nativeGrid.ok ? "default" : "secondary"}
+                        className={VERDICT_BADGE}
+                    >
+                        {nativeGrid.ok ? (
+                            <IconCheck size={14} className="shrink-0" />
+                        ) : (
+                            <IconX size={14} className="shrink-0" />
+                        )}
+                        {nativeGrid.text}
+                    </Badge>
+                </div>
 
                 <div className="text-xs text-muted-foreground">
                     <Tip text="Rough pre-publish estimate from resolution, fps, codec, chroma and rate control. Real bitrate is content-dependent; live figures appear in Publish insights.">

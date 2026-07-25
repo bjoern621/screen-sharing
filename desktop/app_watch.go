@@ -83,7 +83,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	}
 
 	// hideWindow must be false: SW_HIDE would hide the viewer's video window too.
-	proc, err := ffmpeg.Start(exe, args, false, "watch-"+streamName+"-"+transportName, env, nil,
+	proc, err := ffmpeg.Start(exe, args, false, false, "watch-"+streamName+"-"+transportName, env, nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {
@@ -112,78 +112,6 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	// Live() snapshot. That signal is independent of the window system, unlike a
 	// probe for the ffplay window (no portable form exists under Wayland).
 	return nil
-}
-
-// StartWall opens the native grid window: one GStreamer process receives the
-// named streams over transportName and composites them into a single window,
-// decoding natively, so it plays streams (H.265 4:4:4, RGB) the WHEP grid
-// cannot. A running wall is replaced, since the layout is fixed at launch.
-func (a *App) StartWall(streamNames []string, transportName string) error {
-	a.settingsMu.Lock()
-	s := a.settings
-	a.settingsMu.Unlock()
-
-	args, err := watch.BuildWallArgs(s, streamNames, transportName)
-	if err != nil {
-		return err
-	}
-	exe, err := ffmpeg.FindExe(watch.WallExe)
-	if err != nil {
-		return err
-	}
-
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-
-	if a.wall != nil {
-		a.wall.Stop()
-		a.wall = nil
-	}
-
-	// hideWindow must be false: SW_HIDE would hide the video window too.
-	proc, err := ffmpeg.Start(exe, args, false, "wall", nil, nil,
-		func(err error, stderrTail string, logPath string) {
-			message := ""
-			if err != nil {
-				message = err.Error()
-				if stderrTail != "" {
-					message += "\n" + stderrTail
-				}
-				logger.Errorf("wall failed: %v\n%s\nfull log: %s", err, stderrTail, logPath)
-			} else {
-				logger.Infof("wall closed (log: %s)", logPath)
-			}
-			runtime.EventsEmit(a.ctx, "wall:exit", exitEvent{Message: message, LogPath: logPath})
-		})
-	if err != nil {
-		return err
-	}
-
-	assert.IsNotNil(proc, "Start returns a non-nil Proc when err is nil")
-	logger.Infof("wall watching %v over %s", streamNames, transportName)
-	a.wall = proc
-	return nil
-}
-
-// StopWall closes the native grid window.
-func (a *App) StopWall() {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-
-	if a.wall != nil {
-		a.wall.Stop()
-		a.wall = nil
-		logger.Infof("stopped the wall")
-	}
-}
-
-// WallRunning reports whether the native grid window is open. The frontend
-// polls it, which is also how a wall closed via its window button is noticed.
-func (a *App) WallRunning() bool {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-
-	return a.wall != nil && a.wall.Running()
 }
 
 func (a *App) StopWatch(streamName, transportName string) {

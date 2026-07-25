@@ -18,18 +18,22 @@ import (
 // extraFiles are inherited by the child starting at fd 3, in order; the portal
 // PipeWire remote fd is passed this way. onCleanup runs after the child exits,
 // releasing engine-owned resources (the portal session).
+// parseStdout, when set, consumes the child's stdout, which is where an engine
+// prints its progress; the stream is teed into the run log on the way, so the
+// log holds everything the child said either way.
 type superviseConfig struct {
-	exe        string
-	args       []string
-	tag        string
-	extraFiles []*os.File
-	onExit     func(err error, stderrTail string, logPath string)
-	onCleanup  func()
+	exe         string
+	args        []string
+	tag         string
+	extraFiles  []*os.File
+	parseStdout func(io.Reader)
+	onExit      func(err error, stderrTail string, logPath string)
+	onCleanup   func()
 }
 
 // supervise starts and watches the child, mirroring ffmpeg.Start's behaviour for
-// engines that produce no ffmpeg -progress stream: stderr is teed to a per-run
-// log and a bounded tail, and onExit fires once with the tail and log path.
+// engines that speak no ffmpeg -progress stream: stderr is teed to a per-run log
+// and a bounded tail, and onExit fires once with the tail and log path.
 func supervise(cfg superviseConfig) (Handle, error) {
 	logDir, err := ffmpeg.LogDir()
 	if err != nil {
@@ -42,15 +46,29 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	}
 	fmt.Fprintf(logFile, "%s %s\n\n", cfg.exe, strings.Join(cfg.args, " "))
 
+	// The stderr copier and the stdout tee both write the one log, so the writes
+	// are serialized to keep either from landing inside the other's line.
+	log := &syncWriter{w: logFile}
+
 	cmd := exec.Command(cfg.exe, cfg.args...)
 	cmd.ExtraFiles = cfg.extraFiles
-	cmd.Stdout = logFile
 
 	tail := &tailBuffer{max: 4096}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		logFile.Close()
 		return nil, err
+	}
+
+	var stdout io.ReadCloser
+	if cfg.parseStdout != nil {
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			logFile.Close()
+			return nil, err
+		}
+	} else {
+		cmd.Stdout = logFile
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -65,8 +83,15 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	readers.Add(1)
 	go func() {
 		defer readers.Done()
-		io.Copy(io.MultiWriter(logFile, tail), stderr)
+		io.Copy(io.MultiWriter(log, tail), stderr)
 	}()
+	if cfg.parseStdout != nil {
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			cfg.parseStdout(io.TeeReader(stdout, log))
+		}()
+	}
 
 	go func() {
 		readers.Wait()
@@ -132,6 +157,18 @@ func (t *tailBuffer) String() string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return string(t.buf)
+}
+
+// syncWriter serializes concurrent writes onto one underlying writer.
+type syncWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+func (s *syncWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.w.Write(p)
 }
 
 // sanitize makes tag safe to use in a filename.

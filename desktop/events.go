@@ -1,7 +1,8 @@
 package main
 
-// exitEvent is the payload of the "publish:exit" and "wall:exit" events: the
-// (possibly empty) error message and the path of the full run log.
+// exitEvent is the payload of the "publish:exit", "teststream:exit" and
+// "nativegrid:exit" events: the (possibly empty) error message and the path of
+// the full run log.
 type exitEvent struct {
 	Message string `json:"message"`
 	LogPath string `json:"logPath"`

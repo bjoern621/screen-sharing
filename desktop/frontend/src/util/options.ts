@@ -1,7 +1,7 @@
 import { Monitor, Option } from "../types/stream";
 import {
     AUDIO_META, CHROMA_META, Capability, FAMILY_META, FORMAT_META, Family,
-    Format, MODE_META, metaOptions,
+    Format, MODE_META, cqMax, metaOptions,
 } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
@@ -145,6 +145,30 @@ export const TRANSPORT_META: Record<string, Option> = {
         tip: "WebRTC publish via WHIP: HTTP signaling, then SRTP to the relay. Carries H.264 + Opus only. The app has no WebRTC viewer yet - watch through the relay's web page.",
     },
 };
+
+/**
+ * Tooltip for the quantizer target. Every encoder has this control under its own
+ * name, and the scale follows the codec: libvpx counts to 63 where the H.26x and
+ * AV1 encoders stop at 51, so the quality landmarks are placed on the selected
+ * codec's own scale rather than quoted from x264's.
+ */
+export function cqTip(codec: string, caps: Capability[] | null): string {
+    const max = cqMax(codec, caps);
+    const at = (onFiftyOne: number) => Math.round((onFiftyOne * max) / 51);
+    return (
+        "Constant quantizer the encoder holds in constant-quality mode: x264 and libvpx call it CRF, x265 QP, NVENC CQ. Lower = better quality and more bits.\n" +
+        `This codec's scale runs 0-${max}: ${at(12)} ≈ visually lossless, ${at(19)} ≈ excellent, ${at(28)} ≈ visibly compressed.`
+    );
+}
+
+/**
+ * Appends a dependency note to a field tooltip. A note carries what the value
+ * does in a combination the base text does not cover, so the base text can stay
+ * the general description of the control.
+ */
+export function withNote(tip: string, note?: string): string {
+    return note ? `${tip}\n${note}` : tip;
+}
 
 /** Returns the display label for value, falling back to the raw value. */
 export function labelFor(options: Option[], value: string): string {

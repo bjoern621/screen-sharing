@@ -9,3 +9,6 @@ bin/
 # extracted ffmpeg binary distributions (e.g. ffmpeg-7.x-essentials_build/),
 # NOT the desktop/ffmpeg source package
 ffmpeg-*/
+
+# Wails bindings, regenerated from the Go app by `wails dev` / `wails build`
+desktop/frontend/wailsjs/

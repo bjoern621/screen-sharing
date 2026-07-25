@@ -6,6 +6,10 @@ interface NumberFieldProps {
     labelTip?: string;
     labelLink?: string;
     value: number;
+    /** Range the encoder accepts, when the value has one. The spinner stops there
+     * and the browser marks a typed value outside it invalid. */
+    min?: number;
+    max?: number;
     disabledReason?: string;
     onChange: (value: number) => void;
 }
@@ -16,6 +20,8 @@ export default function NumberField({
     labelTip,
     labelLink,
     value,
+    min,
+    max,
     disabledReason,
     onChange,
 }: NumberFieldProps) {
@@ -24,6 +30,8 @@ export default function NumberField({
             <Input
                 type="number"
                 value={value}
+                min={min}
+                max={max}
                 disabled={!!disabledReason}
                 onChange={e => onChange(parseInt(e.target.value, 10) || 0)}
             />

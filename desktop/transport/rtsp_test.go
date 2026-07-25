@@ -50,6 +50,21 @@ func TestRTSPGstSink(t *testing.T) {
 	}
 }
 
+func TestRTSPGstSource(t *testing.T) {
+	src := RTSP{}.GstSource(rtspStream(), "bob")
+
+	for _, want := range []string{
+		"rtspsrc",
+		"location=rtsp://relay.example:8554/bob",
+		"protocols=tcp",
+		"latency=200",
+	} {
+		if !slices.Contains(src, want) {
+			t.Errorf("GstSource = %v, missing %q", src, want)
+		}
+	}
+}
+
 func TestRTSPWatchURL(t *testing.T) {
 	url := RTSP{}.WatchURL(rtspStream(), "bob")
 

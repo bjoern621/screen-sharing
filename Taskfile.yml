@@ -17,20 +17,22 @@ tasks:
     cmds:
       - docker compose up
 
-  gridviewer:
-    desc: Build the GTK grid viewer binary into desktop/build/bin
-    dir: desktop
+  nativegrid:
+    desc: Build the native grid binary into desktop/build/bin
+    dir: nativegrid
+    # The nativegrid shell carries gtk4 and libadwaita, which the app's own
+    # shell does not.
     cmds:
-      - go build -o build/bin/screenshare-gridviewer ./cmd/gridviewer
+      - nix develop {{.ROOT_DIR}}#nativegrid --command go build -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid .
 
   dev:
     desc: Run the Wails app with live reload
     dir: desktop
-    deps: [gridviewer]
+    deps: [nativegrid]
     env:
-      # wails dev runs the app from a temp dir, so the viewer is not found next
-      # to the executable; point the app at the freshly built one instead.
-      SCREENSHARE_GRIDVIEWER: "{{.ROOT_DIR}}/desktop/build/bin/screenshare-gridviewer"
+      # wails dev runs the app from a temp dir, so the native grid is not
+      # found next to the executable; point the app at the freshly built one.
+      SCREENSHARE_NATIVEGRID: "{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid"
     cmds:
       # webkit2_41 targets webkitgtk 4.1 (libsoup3), matching the flake's dev shell
       - wails dev -tags webkit2_41
@@ -40,8 +42,8 @@ tasks:
     dir: desktop
     cmds:
       - wails build -tags webkit2_41
-      # after wails build, so the viewer always sits next to the app binary
-      - go build -o build/bin/screenshare-gridviewer ./cmd/gridviewer
+      # after wails build, so the native grid always sits next to the app binary
+      - task: nativegrid
 
   build:windows:
     desc: Cross-build the Windows binary and bundle ffmpeg/ffplay into desktop/build/bin

@@ -1,13 +1,11 @@
 package ffmpeg
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -33,6 +31,9 @@ type Proc struct {
 	cmd     *exec.Cmd
 	running atomic.Bool
 	stopped atomic.Bool // set by Stop so the natural exit is not reported as an error
+	// Stdin is the child's stdin pipe, nil unless Start was told to open one.
+	// Writes from concurrent goroutines need external coordination.
+	Stdin io.WriteCloser
 }
 
 // Running reports whether the child is still alive.
@@ -54,6 +55,8 @@ func (p *Proc) Stop() {
 //
 // hideWindow hides the child's console window on Windows (no effect elsewhere);
 // it must be false for ffplay, whose video window would otherwise be hidden too.
+// wantStdin opens a pipe to the child's stdin, exposed as Proc.Stdin; without
+// it the child reads from the null device.
 // tag names the run log. onStats, when non-nil, receives an encoder progress
 // sample per ffmpeg -progress block. onExit fires once when the child exits,
 // with a non-nil error only on an unexpected failure, the tail of stderr, and
@@ -62,6 +65,7 @@ func Start(
 	exe string,
 	args []string,
 	hideWindow bool,
+	wantStdin bool,
 	tag string,
 	extraEnv []string,
 	onStats func(Stats),
@@ -109,13 +113,22 @@ func Start(
 		cmd.Stdout = logFile
 	}
 
+	var stdin io.WriteCloser
+	if wantStdin {
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			logFile.Close()
+			return nil, err
+		}
+	}
+
 	err = cmd.Start()
 	if err != nil {
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", exe, err)
 	}
 
-	proc := &Proc{cmd: cmd}
+	proc := &Proc{cmd: cmd, Stdin: stdin}
 	proc.running.Store(true)
 
 	var readers sync.WaitGroup
@@ -148,94 +161,4 @@ func Start(
 	}()
 
 	return proc, nil
-}
-
-// parseProgress reads ffmpeg's -progress key=value stream and emits one Stats
-// per block (blocks end with a "progress=" line). InstMbps is derived from the
-// change in total_size and out_time between consecutive blocks.
-func parseProgress(r io.Reader, onStats func(Stats)) {
-	scanner := bufio.NewScanner(r)
-	cur := map[string]string{}
-	var prevBytes, prevTime float64
-	havePrev := false
-
-	for scanner.Scan() {
-		key, value, ok := strings.Cut(scanner.Text(), "=")
-		if !ok {
-			continue
-		}
-		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
-
-		if key != "progress" {
-			cur[key] = value
-			continue
-		}
-
-		bytesNow := parseFloat(cur["total_size"])
-		timeNow := parseFloat(cur["out_time_us"]) / 1_000_000
-
-		stats := Stats{
-			Frame:   int(parseFloat(cur["frame"])),
-			Fps:     parseFloat(cur["fps"]),
-			SizeKiB: bytesNow / 1024,
-			TimeSec: timeNow,
-			Speed:   parseFloat(strings.TrimSuffix(cur["speed"], "x")),
-			Drop:    int(parseFloat(cur["drop_frames"])),
-			AvgMbps: parseFloat(strings.TrimSuffix(cur["bitrate"], "kbits/s")) / 1000,
-		}
-		if havePrev && timeNow > prevTime {
-			stats.InstMbps = (bytesNow - prevBytes) * 8 / (timeNow - prevTime) / 1_000_000
-		}
-		prevBytes, prevTime, havePrev = bytesNow, timeNow, true
-
-		onStats(stats)
-		cur = map[string]string{}
-	}
-}
-
-// parseFloat returns the float value of s, or 0 for "N/A" and unparseable input.
-func parseFloat(s string) float64 {
-	v, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
-	if err != nil {
-		return 0
-	}
-	return v
-}
-
-// sanitizeTag makes tag safe to use in a filename (watch tags carry the stream
-// name, which is user-controlled).
-func sanitizeTag(tag string) string {
-	return strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
-			return r
-		default:
-			return '_'
-		}
-	}, tag)
-}
-
-// tailBuffer keeps the last max bytes written to it, used to surface the end of
-// stderr in an exit message without holding the whole log in memory.
-type tailBuffer struct {
-	mu  sync.Mutex
-	buf []byte
-	max int
-}
-
-func (t *tailBuffer) Write(p []byte) (int, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	t.buf = append(t.buf, p...)
-	if len(t.buf) > t.max {
-		t.buf = t.buf[len(t.buf)-t.max:]
-	}
-	return len(p), nil
-}
-
-func (t *tailBuffer) String() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return string(t.buf)
 }

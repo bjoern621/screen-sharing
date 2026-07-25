@@ -18,7 +18,7 @@ const maxTestStreams = 9
 
 // StartTestStreams launches count synthetic test-pattern publishers named
 // test-1..test-<count>, pushing to the relay over RTSP. They exercise the
-// viewing paths (native grid, WHEP grid, per-stream viewers) without a screen
+// viewing paths (native grid, web grid, per-stream viewers) without a screen
 // capture. A running set is replaced.
 func (a *App) StartTestStreams(count int) error {
 	if count <= 0 || count > maxTestStreams {
@@ -46,7 +46,7 @@ func (a *App) StartTestStreams(count int) error {
 			a.stopTestStreamsLocked()
 			return err
 		}
-		proc, err := ffmpeg.Start(exe, args, true, "teststream-"+name, nil, nil,
+		proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, nil, nil,
 			func(err error, stderrTail string, logPath string) {
 				message := ""
 				if err != nil {

@@ -35,7 +35,8 @@ Pure logic and static metadata. No React, no side effects, trivially testable.
 Examples in this repo:
 
 - `deps.ts` — `evaluateDeps`, `normalize` (constraint logic, mirrors the Go encoder)
-- `browser.ts` — `browserCheck` (a verdict from settings)
+- `webgrid.ts`, `nativegrid.ts` - `webGridCheck`, `nativeGridCheck` (a viewability
+  verdict per grid, from settings)
 - `options.ts`, `presets.ts` — option metadata and presets, plus small helpers
   like `labelFor` and `monitorOptions`
 - `format.ts` — display formatters (`mbps`, `dropPercent`)

@@ -19,8 +19,9 @@ import (
 )
 
 // Stats is one encoder progress sample surfaced to the UI. It reuses the ffmpeg
-// progress shape as the wire format. An engine with no per-frame progress
-// leaves OnStats uncalled rather than inventing figures.
+// progress shape as the wire format; an engine without an equivalent progress
+// stream measures the same figures its own way, and leaves a field it cannot
+// measure at zero rather than inventing one (see gstMeter).
 type Stats = ffmpeg.Stats
 
 // Handle supervises one running publish session.
@@ -44,6 +45,12 @@ type Callbacks struct {
 type Publisher interface {
 	Command(s settings.Stream) (string, error)
 	Start(s settings.Stream, tag string, cb Callbacks) (Handle, error)
+	// Engine names the media engine that runs the pipeline, "ffmpeg" or
+	// "gstreamer". The lifecycle code above the seam never reads it; the settings
+	// form does, because which rate-control knobs reach the encoder differs per
+	// engine, and a control the engine ignores is greyed with that reason instead
+	// of silently doing nothing.
+	Engine() string
 	// Carries reports whether this engine can drive the named transport, i.e.
 	// the transport implements the publish capability the engine serializes
 	// through. The ffmpeg engine needs an FFmpegPublisher, the GStreamer engine
@@ -81,6 +88,15 @@ func Captures() []string {
 	}
 	slices.Sort(out)
 	return out
+}
+
+// EngineFor returns the name of the media engine that runs the capture backend.
+func EngineFor(capture string) (string, error) {
+	p, err := For(capture)
+	if err != nil {
+		return "", err
+	}
+	return p.Engine(), nil
 }
 
 // TransportsFor returns the transports the capture backend's engine can carry,

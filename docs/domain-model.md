@@ -2,11 +2,11 @@
 
 The codec, pixel format and rate-control mode are not free-form strings scattered through the code.
 Each is a table of facts, and every rule the app enforces is derived from those tables rather than restated.
-One definition governs the encoder, the settings form, the bitrate estimate and the browser-viewability verdict.
+One definition governs the encoder, the settings form, the bitrate estimate and the two grid-viewability verdicts.
 
 ## The problem it removes
 
-A codec carries many rules: whether it runs on NVENC, which pixel formats it can encode, which transport can carry it, how efficient it is, whether a browser can decode it.
+A codec carries many rules: whether it runs on NVENC, which pixel formats it can encode, which transport can carry it, how efficient it is, which viewer can decode it.
 Written imperatively, those rules spread across files and drift.
 The failure mode is two encodings of one constraint: the settings form greys out an option while the normalizer still lets the value through, or one copy is updated and the other is missed.
 
@@ -16,24 +16,31 @@ The disable rules and the repair rules in the frontend were previously two hand-
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the NVENC flag, the pixel formats it may encode, and the transports that can carry it.
+- `capabilities/capabilities.go`: per codec, the NVENC flag, the pixel formats it may encode, the transports that can carry it, and the scale its constant-quality knob counts on.
 
 The encoder reads this table directly.
-`ffmpeg/args.go` branches on `capabilities.IsNvenc` and rejects a codec/chroma/transport combination the table forbids.
+`ffmpeg/args.go` branches on `capabilities.IsNvenc`, and `capabilities.Validate` rejects a codec/chroma/transport/quantizer combination the table forbids.
+Both publish engines call that validator, so neither path accepts what the other rejects.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
+
+Which media engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
+It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
 
 Presentation and heuristics are UI-only and live in the frontend:
 
-- `frontend/src/util/domain.ts`: per codec, chroma and mode, the label, tooltip, reference link, coding efficiency, raw bits-per-pixel, browser-decodability, and which controls each mode uses.
+- `frontend/src/util/domain.ts`: per codec, chroma and mode, the label, tooltip, reference link, coding efficiency, raw bits-per-pixel, what a non-4:2:0 chroma asks of a decoder, and which controls each mode uses.
+- `frontend/src/util/domain.ts` `ENGINE_RULES`: per engine and control, where a builder departs from the mode table, either dropping a knob the mode uses or forwarding one it marks unused.
+  Each rule mirrors a branch of `encoderArgs` or `gstEncoder` and carries the sentence the form shows for it.
 
 ## What derives from the tables
 
 Each consumer reads the tables instead of restating a rule:
 
-- `deps.ts` `evaluateDeps`: greys out an option when the tables make it illegal for the current settings.
+- `deps.ts` `evaluateDeps`: greys out an option when the tables make it illegal for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
 - `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value.
 - `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
-- `browser.ts`: the viewability verdict, from the codec's browser field and the chroma's 4:2:0 flag.
+- `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
+- `nativegrid.ts`: the native-grid viewability verdict, from the transports the capability table gives the codec.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
 
 Because `evaluateDeps` and `normalize` read one source, a greyed option and its fallback always agree.

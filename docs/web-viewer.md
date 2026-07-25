@@ -59,5 +59,5 @@ Why these parts:
 
 ## Open questions
 
-- WebKitGTK (the Wails window) WebCodecs and VP9 profile 1 support is unverified; first target is external browsers, the in-app window is optional.
+- Whether an external browser is enough, since the Wails window cannot be the 4:4:4 viewer: WebKitGTK has WebCodecs, but `VideoDecoder.isConfigSupported` rejects `vp09.01` and `vp09.03` along with every other 4:4:4 configuration, accepting only the 4:2:0 strings (see `viewer-architecture.md`).
 - Whether GStreamer `vp9enc` exposes lossless and identity-matrix settings directly, or the ffmpeg engine carries the lossless form alone.

@@ -1,12 +1,38 @@
 import { Deps, EncoderInfo, PlatformInfo, Stream } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, FALLBACK_CODEC, FAMILY_META, Family,
-    MODE_META, Mode, codecLabel, findCapability, isNvenc,
+    Capability, CHROMA_META, Chroma, Engine, FALLBACK_CODEC, FAMILY_META, Family,
+    Knob, MODE_META, Mode, codecLabel, cqMax, findCapability, findEngineRule,
+    isNvenc,
 } from "./domain";
 
+/**
+ * Everything outside the settings themselves that decides which combinations are
+ * legal: the running platform, the machine's encoder probe, the backend
+ * capability table, and per capture backend the transports its engine carries
+ * and the engine that runs it. A null field means "not resolved yet" and imposes
+ * no restriction, so the form behaves during startup as it does offline.
+ */
+export interface Environment {
+    platform: PlatformInfo | null;
+    encoders: EncoderInfo | null;
+    caps: Capability[] | null;
+    captureTransports: Record<string, string[]> | null;
+    captureEngines: Record<string, string> | null;
+}
+
+/** An Environment with nothing resolved, for a call site that has no facts yet. */
+export const UNKNOWN_ENV: Environment = {
+    platform: null,
+    encoders: null,
+    caps: null,
+    captureTransports: null,
+    captureEngines: null,
+};
+
 // Fallback chroma preference, highest quality first. normalize walks this order
-// and picks the first format the repaired codec supports, so gbrp (only hevc)
-// drops to yuv444p and AV1's rejected 4:4:4 drops to yuv420p.
+// and picks the first format the repaired codec and the capture's engine both
+// accept, so H.264's rejected gbrp drops to yuv444p and AV1's rejected 4:4:4
+// drops to yuv420p. It lists every chroma, so the walk always finds one.
 const CHROMA_FALLBACK_ORDER: Chroma[] = [
     "yuv444p", "yuv420p", "p010le", "gbrp",
 ];
@@ -162,38 +188,77 @@ function preferredCapture(platform: PlatformInfo | null): string {
     return "ddagrab";
 }
 
-/** Reason chroma cannot be encoded by the codec with the given label. */
-function chromaBlockReason(chroma: string, codecLabel: string): string {
+/** Reason the codec with the given label cannot encode chroma. Planar RGB gets
+ * its own wording: RGB reaches an encoder only through HEVC's Range Extensions
+ * or VP9's identity matrix, which is a coding-tool fact rather than a
+ * subsampling limit. */
+function chromaBlockReason(chroma: string, label: string): string {
     if (chroma === "gbrp") {
-        return "direct RGB coding needs HEVC Range Extensions (hevc_nvenc)";
+        return `${label} codes no direct RGB - that needs HEVC Range Extensions or VP9's identity matrix`;
     }
-    return `${codecLabel} cannot encode ${chroma}`;
+    return `${label} cannot encode ${chroma}`;
+}
+
+/**
+ * Pixel formats the current codec cannot be handed, each mapped to the reason:
+ * the formats its capability entry omits, plus planar RGB on the GStreamer
+ * engine, whose encoders negotiate none. evaluateDeps greys these and normalize
+ * repairs away from them, so the two cannot disagree.
+ */
+function unavailableChromas(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): Record<string, string> {
+    const out: Record<string, string> = {};
+    const cap = findCapability(caps, codec);
+    if (cap) {
+        const label = codecLabel(cap);
+        for (const c of Object.keys(CHROMA_META)) {
+            if (!cap.chromas.includes(c)) {
+                out[c] = chromaBlockReason(c, label);
+            }
+        }
+    }
+    // x264enc, x265enc, vp9enc and the nvcodec elements all negotiate YUV only,
+    // so the portal pipeline converts planar RGB to 4:4:4 before the encoder
+    // (gstChromaFormat). Picking it there would cost RGB's bitrate without its
+    // exactness.
+    if (engine === "gstreamer") {
+        out.gbrp =
+            "the portal path's GStreamer encoders take no planar RGB - the pipeline would convert it to 4:4:4 YUV";
+    }
+    return out;
+}
+
+/** The media engine that runs the capture backend, or null while unknown. */
+function engineOf(capture: string, env: Environment): Engine | null {
+    const name = env.captureEngines?.[capture];
+    return name === "ffmpeg" || name === "gstreamer" ? name : null;
 }
 
 /**
  * Evaluates which controls and individual options are unavailable for the given
  * settings. Every rule derives from the capability table (codec/chroma/transport
- * facts) and the domain meta tables (which control each mode uses), so the disable
- * rules cannot drift from the normalize repairs below. Pure: no React, no side
- * effects. Null platform/encoders/caps mean "unknown" and impose no restriction.
+ * facts), the domain meta tables (which control each mode uses) and the engine
+ * rules (which knob each builder forwards), so the disable rules cannot drift
+ * from the normalize repairs below. Pure: no React, no side effects. An
+ * unresolved Environment field imposes no restriction.
  */
-export function evaluateDeps(
-    s: Stream,
-    platform: PlatformInfo | null,
-    encoders: EncoderInfo | null = null,
-    caps: Capability[] | null = null,
-    captureTransports: Record<string, string[]> | null = null
-): Deps {
+export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
+    const { platform, encoders, caps, captureTransports } = env;
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
     const nvenc = isNvenc(s.codec, caps);
+    const engine = engineOf(s.capture, env);
 
     const d: Deps = {
         disabled: {},
+        note: {},
         optionDisabled: {
             family: {},
             codec: {},
-            chroma: {},
+            chroma: unavailableChromas(s.codec, engine, caps),
             mode: {},
             transport: {},
             capture: unavailableCaptures(platform),
@@ -217,16 +282,6 @@ export function evaluateDeps(
                     `${s.transport} cannot carry ${codecLabel(cap)}`;
             }
         }
-        // A chroma the current codec cannot encode, disabled per option.
-        const cap = findCapability(caps, s.codec);
-        if (cap) {
-            const label = codecLabel(cap);
-            for (const c of Object.keys(CHROMA_META)) {
-                if (!cap.chromas.includes(c)) {
-                    d.optionDisabled.chroma[c] = chromaBlockReason(c, label);
-                }
-            }
-        }
         // Codecs the encoder argument builders do not map yet: shown so the
         // roadmap is visible, but greyed with the reason.
         for (const cap of caps) {
@@ -242,30 +297,46 @@ export function evaluateDeps(
     // codecs are all implemented, so this never overwrites the roadmap reason.
     Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders));
 
-    if (mode && !mode.usesCq) {
-        d.disabled.cq = "the quantizer target only exists in CRF (constant-quality) mode";
-    }
-    if (mode && !mode.usesBitrate) {
-        d.disabled.bitrateM =
-            "constant-quality and lossless set no bitrate target";
-    }
-    if (mode && !mode.usesMaxrate) {
-        d.disabled.maxrateM =
-            "the burst ceiling exists only in constrained VBR";
-    }
-    if (mode && !mode.usesVbv) {
-        d.disabled.vbvMs =
-            "the VBV buffer bounds the rate only in CBR and VBR";
-    }
-    if (!mode?.usesBframes || !nvenc) {
-        d.disabled.bframes =
-            "B-frames are forced off in CBR and lossless (no gain, only reorder delay)";
-    }
-    if (!nvenc || mode?.pinsPreset) {
-        d.disabled.encPreset = nvenc
-            ? `CBR mode pins the preset to ${mode?.pinnedPreset ?? "p5"}`
-            : "the p1-p7 ladder is NVENC-specific";
-    }
+    // A rate-control control is live when three facts agree: the mode's concept
+    // uses the knob, the codec's encoder has it, and the capture backend's engine
+    // forwards the value. An engine that forwards a knob the mode marks unused
+    // leaves a note instead, so the field states what the value does there rather
+    // than feeding the encoder a number the form never showed.
+    const knob = (id: Knob, uses: boolean, reason: string) => {
+        const rule = findEngineRule(id, engine, s.codec, s.mode as Mode, caps);
+        if (rule?.forwards) {
+            d.note[id] = rule.reason;
+        } else if (rule && !rule.modes) {
+            // An engine that drops the knob in every mode outranks the mode's own
+            // reason: no rate control brings the control back here, so naming the
+            // mode would send the user hunting for a switch that changes nothing.
+            d.disabled[id] = rule.reason;
+        } else if (!uses) {
+            d.disabled[id] = reason;
+        } else if (rule) {
+            d.disabled[id] = rule.reason;
+        }
+    };
+
+    knob("cq", !!mode?.usesCq,
+        "the quantizer target only exists in CRF (constant-quality) mode");
+    knob("bitrateM", !!mode?.usesBitrate,
+        "constant-quality and lossless set no bitrate target");
+    knob("maxrateM", !!mode?.usesMaxrate,
+        "the burst ceiling exists only in constrained VBR");
+    knob("vbvMs", !!mode?.usesVbv,
+        "the VBV buffer bounds the rate only in CBR and VBR");
+    // B-frames and the preset ladder are each blocked by two independent facts,
+    // so the reason names the one that applies instead of always blaming the mode.
+    knob("bframes", !!mode?.usesBframes && nvenc,
+        mode?.usesBframes
+            ? "only the NVENC encoders take a B-frame count"
+            : "B-frames are forced off in CBR and lossless (no gain, only reorder delay)");
+    knob("encPreset", nvenc && !mode?.pinsPreset,
+        nvenc
+            ? `CBR pins the preset to ${mode?.pinnedPreset ?? "p5"}`
+            : "the p1-p7 ladder is NVENC-specific");
+
     if (chroma?.fullRange) {
         d.disabled.colorRange =
             "RGB is inherently full range - no quantization range choice exists";
@@ -287,17 +358,12 @@ export function evaluateDeps(
 /**
  * Applies availability fallbacks so settings never hold a combination the relay,
  * encoder or platform would reject. Returns a new object; never mutates the
- * input. Repairs derive from the same capability table as evaluateDeps, so a
- * disabled option and its fallback always agree. Null platform/encoders/caps
- * leave the corresponding dimension untouched.
+ * input. Repairs derive from the same tables as evaluateDeps, so a disabled
+ * option and its fallback always agree. An unresolved Environment field leaves
+ * the corresponding dimension untouched.
  */
-export function normalize(
-    s: Stream,
-    platform: PlatformInfo | null = null,
-    encoders: EncoderInfo | null = null,
-    caps: Capability[] | null = null,
-    captureTransports: Record<string, string[]> | null = null
-): Stream {
+export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
+    const { platform, encoders, caps, captureTransports } = env;
     const next = { ...s };
 
     // Capture first: the transport and codec repairs below depend on it, so it
@@ -336,15 +402,21 @@ export function normalize(
             (caps?.map(c => c.name).find(codecOk)) ?? FALLBACK_CODEC;
     }
 
-    // Chroma: must be encodable by the chosen codec.
+    // Chroma: must be a format the chosen codec encodes and the capture
+    // backend's engine accepts, so switching to the portal path moves gbrp to the
+    // 4:4:4 its encoders negotiate rather than to a silent conversion.
+    const blocked = unavailableChromas(next.codec, engineOf(next.capture, env), caps);
+    if (blocked[next.chroma]) {
+        next.chroma = CHROMA_FALLBACK_ORDER.find(c => !blocked[c]) ?? next.chroma;
+    }
+
+    // Quantizer target: the constant-quality scales differ per encoder, so a
+    // value carried over from libvpx's 63-point scale is clamped into the 51 the
+    // H.26x and AV1 encoders accept. It is left alone while the table is
+    // unresolved, which would otherwise clamp a saved VP9 value against the
+    // fallback scale at startup.
     if (caps) {
-        const cap = findCapability(caps, next.codec);
-        if (cap && !cap.chromas.includes(next.chroma)) {
-            next.chroma =
-                CHROMA_FALLBACK_ORDER.find(c => cap.chromas.includes(c)) ??
-                cap.chromas[0] ??
-                next.chroma;
-        }
+        next.cq = Math.min(Math.max(next.cq, 0), cqMax(next.codec, caps));
     }
 
     // Audio: settings and presets from before the option lack the key, and

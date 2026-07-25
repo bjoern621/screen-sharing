@@ -69,3 +69,20 @@ func (a *App) CaptureTransports() map[string][]string {
 	}
 	return out
 }
+
+// CaptureEngines maps each capture backend to the media engine that runs it,
+// "ffmpeg" or "gstreamer". The two engines build their encoder settings through
+// different knobs, so the UI greys a rate-control field the selected capture's
+// engine does not forward (the GStreamer encoders take no NVENC preset ladder)
+// instead of letting it look effective.
+func (a *App) CaptureEngines() map[string]string {
+	out := map[string]string{}
+	for _, capture := range publish.Captures() {
+		engine, err := publish.EngineFor(capture)
+		if err != nil {
+			continue
+		}
+		out[capture] = engine
+	}
+	return out
+}

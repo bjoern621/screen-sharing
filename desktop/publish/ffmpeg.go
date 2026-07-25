@@ -27,6 +27,10 @@ func (ffmpegEngine) Command(s settings.Stream) (string, error) {
 	return exe + " " + strings.Join(args, " "), nil
 }
 
+func (ffmpegEngine) Engine() string {
+	return "ffmpeg"
+}
+
 // Carries reports whether the transport can terminate an ffmpeg command.
 func (ffmpegEngine) Carries(transportName string) bool {
 	return transport.CanFFmpegPublish(transportName)
@@ -41,7 +45,7 @@ func (ffmpegEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, 
 	if err != nil {
 		return nil, err
 	}
-	proc, err := ffmpeg.Start(exe, args, true, tag, nil, cb.OnStats, cb.OnExit)
+	proc, err := ffmpeg.Start(exe, args, true, false, tag, nil, cb.OnStats, cb.OnExit)
 	if err != nil {
 		return nil, err
 	}

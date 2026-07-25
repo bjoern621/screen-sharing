@@ -124,6 +124,11 @@ func TestEncoderArgs(t *testing.T) {
 		{"nvenc cbr uses cbr", "hevc_nvenc", "cbr", "-rc cbr", ""},
 		{"nvenc abr uses vbr", "hevc_nvenc", "abr", "-rc vbr", "-maxrate"},
 		{"nvenc vbr sets a ceiling", "hevc_nvenc", "vbr", "-maxrate", ""},
+		{"vp9 uses realtime screen tuning", "libvpx-vp9", "cbr", "-tune-content screen", ""},
+		{"vp9 encodes profile 1", "libvpx-vp9", "cbr", "-profile:v 1", ""},
+		{"vp9 crf is constant quality", "libvpx-vp9", "crf", "-crf", "-minrate"},
+		{"vp9 lossless sets lossless", "libvpx-vp9", "lossless", "-lossless 1", "-crf"},
+		{"vp9 cbr pins the rate", "libvpx-vp9", "cbr", "-minrate", "-crf"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -203,5 +208,15 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s.Chroma = "yuv420p"
 	if _, err := BuildPublishArgs(s); err == nil {
 		t.Fatal("expected error for av1_nvenc over srt")
+	}
+
+	// VP9 cannot travel over SRT: MPEG-TS has no VP9 mapping, so the table lists
+	// rtsp only.
+	s = baseStream()
+	s.Codec = "libvpx-vp9"
+	s.Chroma = "yuv444p"
+	s.Transport = "srt"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for libvpx-vp9 over srt")
 	}
 }

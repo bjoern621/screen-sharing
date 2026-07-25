@@ -10,11 +10,11 @@ import { PublishExit } from "../types/stream";
 const POLL_INTERVAL_MS = 2000;
 
 /**
- * Tracks the synthetic relay publishers (videotestsrc pushed over RTSP), the
- * backend counterpart to useTestStreams' frontend-only fakes. The relay
- * serves them like real streams, so they exercise the native grid and the
- * per-stream viewers. count is polled, so a publisher that died on its own
- * drops out; "teststream:exit" carries the failure message.
+ * Tracks the synthetic relay publishers (videotestsrc pushed over RTSP). The
+ * relay serves them like real streams, so they exercise the grid and the
+ * per-stream viewers without a screen capture running.
+ * count is polled, so a publisher that died on its own drops out;
+ * "teststream:exit" carries the failure message.
  */
 export function useTestPublishers() {
     const [count, setCount] = useState(0);

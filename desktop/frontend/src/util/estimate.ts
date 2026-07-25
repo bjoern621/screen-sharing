@@ -1,5 +1,7 @@
 import { Stream } from "../types/stream";
-import { Capability, CHROMA_META, Chroma, FORMAT_META, formatOf } from "./domain";
+import {
+    Capability, CHROMA_META, Chroma, FORMAT_META, cqMax, formatOf,
+} from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
 export interface BitrateEstimate {
@@ -11,10 +13,13 @@ export interface BitrateEstimate {
 }
 
 // Bits/pixel/frame for H.264 4:2:0 at CQ 23 on mixed content: the anchor of the
-// quality model. Each 6 CQ steps roughly halves or doubles the bitrate.
+// quality model. Each 6 CQ steps roughly halves or doubles the bitrate. The
+// anchor sits on the 51-point scale, so a codec that counts further (libvpx VP9
+// reaches 63) has its quantizer mapped onto that scale first.
 const QUALITY_ANCHOR_BPP = 0.07;
 const QUALITY_ANCHOR_CQ = 23;
 const CQ_STEP = 6;
+const ANCHOR_CQ_MAX = 51;
 
 // Content spread around the nominal quality bitrate: static desktop -> motion.
 const MOTION_LOW = 0.4;
@@ -80,9 +85,10 @@ export function estimateBitrate(
     }
 
     // crf (constant quality): quality-driven, no bitrate bound
+    const cq = (s.cq * ANCHOR_CQ_MAX) / cqMax(s.codec, caps);
     const bpp =
         QUALITY_ANCHOR_BPP *
-        Math.pow(2, (QUALITY_ANCHOR_CQ - s.cq) / CQ_STEP) *
+        Math.pow(2, (QUALITY_ANCHOR_CQ - cq) / CQ_STEP) *
         codec *
         chroma;
     const nominal = (pixelRate * bpp) / 1e6;

@@ -64,6 +64,17 @@ Both engines capture the monitor of the default sink through the PulseAudio prot
 The branch attaches by element name, which is why `GstPublisher` sinks name their muxer `transport.GstMuxName`.
 Desktop audio exists only on Linux: ffmpeg has no WASAPI loopback, so the Windows grabbers reject the option and the UI greys it there.
 
+## Progress
+
+Both engines feed the publish insights the same `Stats` sample, and each measures it with what its pipeline offers.
+ffmpeg writes a `-progress` stream on stdout that `ffmpeg/proc.go` parses.
+GStreamer has no equivalent, so `publish/gststats.go` splices two elements between the parser and the muxer: a `progressreport` printing the encoded frame count and the pipeline running time once a second, and a `tee` handing a second copy of the encoded video to an `fdsink` on a pipe the app weighs, since no element reports byte throughput.
+The instrumentation belongs to a run, not to the pipeline, so `Command` renders neither, the same way `-progress` stays out of the displayed ffmpeg line.
+
+The two engines' figures are not exactly comparable.
+The GStreamer bytes are the video elementary stream, so its bitrate reads below the ffmpeg figure, which counts the muxed stream with its audio track and container overhead.
+Its drop count stays zero: nothing between `imagefreeze` and the sink discards a frame, and the leaky queue ahead of `videoconvert` only drops a damage frame a newer one supersedes.
+
 ## Interfaces
 
 - `publish.Publisher`: `Command(s)` renders the pipeline for display; `Start(s, tag, Callbacks)` launches and supervises it.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { IconDownload, IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +25,14 @@ interface LiveNowCardProps {
     watching: WatchKey[];
     /** Transports a stream can be received over, offered in the watch dropdown. */
     watchTransports: string[];
+    /** Persisted transport selection for the watch dropdown. */
+    watchTransport: string;
     connecting: Set<string>;
     error: string;
     logPath: string;
     watchLatencyMs: number;
     onToggleWatch: (name: string, transport: string, isWatching: boolean) => void;
+    onUpdateWatchTransport: (transport: string) => void;
     onUpdateWatchLatency: (value: number) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
@@ -46,16 +49,19 @@ function defaultTransport(watchTransports: string[]): string {
 /** Relay reachability, the live-stream table with a per-row Watch/Stop control,
  * and the summed download bitrate of watched streams. A single dropdown selects
  * the transport every Watch click receives over, independent of the transport a
- * stream was published on, since the relay re-serves it on all its listeners. */
+ * stream was published on, since the relay re-serves it on all its listeners.
+ * The selection lives in the persisted settings, so it survives a restart. */
 export default function LiveNowCard({
     live,
     watching,
     watchTransports,
+    watchTransport,
     connecting,
     error,
     logPath,
     watchLatencyMs,
     onToggleWatch,
+    onUpdateWatchTransport,
     onUpdateWatchLatency,
     onOpenLog,
     onOpenLogsFolder,
@@ -65,15 +71,18 @@ export default function LiveNowCard({
         .filter(p => watching.some(w => w.name === p.name))
         .reduce((a, p) => a + p.inMbps, 0);
 
-    const [transport, setTransport] = useState("");
-    // Settle on a valid transport once the list arrives, and repair a selection
-    // that is no longer offered.
+    // The offered list only exists at runtime, so a persisted selection it no
+    // longer contains is repaired here rather than in normalize.
     useEffect(() => {
         if (watchTransports.length === 0) return;
-        setTransport(prev =>
-            watchTransports.includes(prev) ? prev : defaultTransport(watchTransports)
-        );
-    }, [watchTransports]);
+        if (!watchTransports.includes(watchTransport)) {
+            onUpdateWatchTransport(defaultTransport(watchTransports));
+        }
+    }, [watchTransports, watchTransport, onUpdateWatchTransport]);
+
+    const transport = watchTransports.includes(watchTransport)
+        ? watchTransport
+        : "";
 
     return (
         <Card>
@@ -107,7 +116,9 @@ export default function LiveNowCard({
                     <Select
                         value={transport}
                         disabled={watchTransports.length === 0}
-                        onValueChange={(v: string | null) => v && setTransport(v)}
+                        onValueChange={(v: string | null) =>
+                            v && onUpdateWatchTransport(v)
+                        }
                     >
                         <SelectTrigger className="w-[140px]">
                             <SelectValue>{(v: string) => v}</SelectValue>

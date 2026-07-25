@@ -5,6 +5,21 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@theme {
+    /* Sweeping highlight for skeleton surfaces, e.g. a grid tile waiting for its
+       first frame. The element it animates is clipped by an overflow-hidden
+       parent, so the sweep starts and ends off that parent's edges. */
+    --animate-shimmer: shimmer 1.8s ease-in-out infinite;
+    @keyframes shimmer {
+        from {
+            transform: translateX(-100%);
+        }
+        to {
+            transform: translateX(100%);
+        }
+    }
+}
+
 @theme inline {
     --font-heading: var(--font-sans);
     --font-sans: 'Inter Variable', sans-serif;

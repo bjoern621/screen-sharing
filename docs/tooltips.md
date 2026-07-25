@@ -23,6 +23,8 @@ Neither is used directly. Field wrappers (`SelectField`, `NumberField`, `TextFie
 ## Where the text comes from
 
 Field label text is the `labelTip` prop, written at the call site in `StreamSettingsCard`.
+Text that depends on the current settings is built by a helper in `util/options.ts` instead of hard-coded there, so it cannot describe a codec the user did not select.
+`cqTip` is the case that needs it: the quantizer scale follows the codec, so the tip places its quality landmarks on the selected encoder's own scale.
 
 Option text is the `tip` field on an `Option`, declared once in the option metadata (`util/options.ts` and the domain meta tables) and never inlined twice.
 An `Option` may also carry a `link`; `OptionRow` renders it as an `InfoIcon` beside the label that opens the reference article in the system browser.
@@ -49,8 +51,10 @@ const ignored = disabledReason ? `Ignored: ${disabledReason}` : "";
 const tip = [labelTip, ignored].filter(Boolean).join("\n\n");
 ```
 
+A live control can also carry a note, appended by `withNote` at the call site: `deps.note` explains what the value does in a combination the base text does not cover, without greying the field.
+
 The reasons are not hand-written here.
-They come from `deps.disabled` (whole control) and `deps.optionDisabled` (single option) produced by `evaluateDeps` in `util/deps.ts`.
+They come from `deps.disabled` (whole control), `deps.note` (live control) and `deps.optionDisabled` (single option) produced by `evaluateDeps` in `util/deps.ts`.
 See `field-availability.md` for the rule deciding whether an inapplicable field is hidden or disabled-with-a-reason, and `domain-model.md` for the tables the reasons derive from.
 
 ## Adding a tooltip

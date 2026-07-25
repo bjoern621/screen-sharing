@@ -1,0 +1,143 @@
+/* Native mapping of the web design language (docs/design-language.md).
+   Color values are the web tokens from desktop/frontend/src/index.css
+   flattened to hex, because GTK CSS has no token pipeline.
+   window.dark carries the dark values; the app toggles the class from
+   AdwStyleManager. Neutrals derive from the theme foreground at graded
+   alpha instead of copying the zinc scale. */
+
+/* Tailwind's pulse: opacity dips to half mid-cycle. */
+@keyframes pulse {
+    50% { opacity: 0.5; }
+}
+
+/* Tiles are black in both themes; overlays use white at graded alpha. */
+.tile {
+    background-color: black;
+    border-radius: 8px;
+    border: 1px solid alpha(@window_fg_color, 0.1);
+}
+
+.tile-overlay-strong { color: alpha(white, 0.9); }
+.tile-overlay-dim { color: alpha(white, 0.6); }
+.tile-spinner { color: alpha(white, 0.7); }
+
+/* Corner label chip: black-60, white text. */
+.tile-label {
+    background-color: alpha(black, 0.6);
+    color: white;
+    border-radius: 6px;
+    padding: 2px 10px;
+    font-weight: 500;
+}
+
+/* Failure page on a tile: destructive is always the dark value because the
+   tile is black in both themes. */
+.tile-error { color: #f87171; }
+.error-icon {
+    background-color: alpha(#f87171, 0.15);
+    border-radius: 9999px;
+    min-width: 40px;
+    min-height: 40px;
+}
+
+/* A spotlit tile upgrades the ring to 2px primary at 60%
+   (emerald-700 / emerald-800). */
+.tile.spotlit { border: 2px solid alpha(#047857, 0.6); }
+window.dark .tile.spotlit { border-color: alpha(#065f46, 0.6); }
+
+/* Drag reorder: the tile or row in flight dims to a placeholder while its
+   snapshot rides the pointer; the live preview moves the placeholder, so it
+   needs no extra highlight. */
+.tile.dragging,
+row.dragging { opacity: 0.4; }
+
+/* Media controls: a floating card bottom-center on the tile, faded in on
+   hover ("shown" from the tile's motion controller). The card is the theme
+   background at high alpha with the derived border; GTK has no backdrop
+   blur, so the alpha sits above the web's 80%. */
+.tile-controls {
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+.tile-controls.shown { opacity: 1; }
+.controls-card,
+.vol-card {
+    background-color: alpha(@window_bg_color, 0.9);
+    border: 1px solid alpha(@window_fg_color, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px alpha(black, 0.15);
+}
+.controls-card { padding: 2px; }
+.controls-card button.flat { min-width: 0; min-height: 0; padding: 6px; }
+.vol-card { padding: 12px 8px; }
+
+/* The volume slider's filled range is primary, the web slider's look. */
+.vol-card highlight { background-color: #047857; }
+window.dark .vol-card highlight { background-color: #065f46; }
+
+/* Stats overlay: the web nerd-stats card, black-75, monospace, white keys at
+   half alpha. Always the dark values because it sits on video. */
+.tile-stats {
+    background-color: alpha(black, 0.75);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: monospace;
+    font-size: 11px;
+    color: white;
+}
+.tile-stats .stat-key { color: alpha(white, 0.5); }
+
+/* Block headings and their rules, the web overlay's dim section label over a
+   border-top. The scrollbar carries the card's alpha ramp instead of the
+   theme's, since the card ignores the theme. */
+.tile-stats .stat-head { color: alpha(white, 0.4); }
+.tile-stats separator {
+    min-height: 1px;
+    margin: 6px 0 4px 0;
+    background-color: alpha(white, 0.15);
+}
+.tile-stats scrollbar { background: none; border: none; }
+.tile-stats scrollbar slider {
+    min-width: 4px;
+    background-color: alpha(white, 0.25);
+}
+.tile-stats scrollbar slider:hover { background-color: alpha(white, 0.4); }
+
+/* Status dot: idle is muted-foreground at half alpha, live is the sidebar
+   accent (emerald-600 / emerald-500) and pulses. */
+.status-dot {
+    min-width: 6px;
+    min-height: 6px;
+    border-radius: 9999px;
+    background-color: alpha(@window_fg_color, 0.35);
+}
+.status-dot.live {
+    background-color: #059669;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+window.dark .status-dot.live { background-color: #10b981; }
+
+/* Watched row: the pressed-pill tint, primary (emerald-700 / emerald-800)
+   at 15%. */
+row.watched { background-color: alpha(#047857, 0.15); }
+window.dark row.watched { background-color: alpha(#065f46, 0.15); }
+
+/* Sidebar placeholder, shown while the roster is empty. */
+.sidebar-empty {
+    color: alpha(@window_fg_color, 0.65);
+    padding: 16px 8px;
+}
+
+/* Empty state: dashed border, circular muted badge, one muted sentence. */
+.empty-state {
+    border: 1px dashed alpha(@window_fg_color, 0.25);
+    border-radius: 8px;
+    padding: 40px 48px;
+}
+.empty-state label { color: alpha(@window_fg_color, 0.65); }
+.empty-icon {
+    background-color: alpha(@window_fg_color, 0.08);
+    border-radius: 9999px;
+    min-width: 48px;
+    min-height: 48px;
+}

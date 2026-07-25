@@ -38,6 +38,12 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if _, ok := WatchURL("webrtc", s, "bob"); ok {
 		t.Error("WatchURL must report false for webrtc")
 	}
+	if _, ok := GstSource("webrtc", s, "bob"); ok {
+		t.Error("GstSource must report false for webrtc")
+	}
+	if CanGstWatch("webrtc") {
+		t.Error("CanGstWatch must report false for webrtc")
+	}
 	if _, ok := PublishArgs(s); !ok {
 		t.Error("PublishArgs must report true for webrtc")
 	}

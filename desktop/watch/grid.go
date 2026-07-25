@@ -9,44 +9,46 @@ import (
 	"bjoernblessin.de/screenshare/transport"
 )
 
-// GridViewerExe names the GTK grid viewer binary (cmd/gridviewer). It is a
-// separate executable because the Wails process links GTK3 through WebKitGTK,
-// and GTK3 and GTK4 cannot share a process.
-const GridViewerExe = "screenshare-gridviewer"
-
-// EnvGridViewer overrides where the app finds the grid viewer binary, for
-// running against a fresh build without installing it next to the app.
-const EnvGridViewer = "SCREENSHARE_GRIDVIEWER"
-
-// GridStream is one stream the grid viewer renders: its display name and the
-// gst-launch fragment of its source elements. The fragment ends at the encoded
-// stream; the viewer appends its own decode and sink elements.
+// GridStream is one stream the native grid window offers in its sidebar: the
+// display name, the transport it arrives over, and the gst-launch fragment of
+// its source elements. The fragment ends at the encoded stream; the grid binary
+// appends its own decode and sink elements, so transport knowledge stays on this
+// side of the process boundary and decode knowledge on the other. The transport
+// travels as a name because the grid only labels it, in the tile's stats
+// overlay.
 type GridStream struct {
-	Name   string `json:"name"`
-	Source string `json:"source"`
+	Name      string `json:"name"`
+	Transport string `json:"transport"`
+	Source    string `json:"source"`
 }
 
-// GridConfig is the process contract between the app and the grid viewer
-// binary, passed as a single JSON argument.
+// GridConfig is the process contract between the app and the native grid
+// binary, passed as a single JSON argument. The consuming half is the
+// nativegrid module's internal/roster package; the two name each other because
+// no Go type can cross the module boundary.
 type GridConfig struct {
 	Streams []GridStream `json:"streams"`
 }
 
 // BuildGridConfig serializes the named streams, received over the named
-// transport, into the grid viewer's JSON config. Like the wall, it needs the
-// transport's GStreamer watch form.
+// transport, into the native grid's JSON config. An empty stream list is
+// valid: the grid opens on an idle relay and fills from roster pushes. The
+// transport must have a GStreamer watch form (transport.GstWatcher), checked
+// up front so a bad transport fails at open, not at the first push.
 func BuildGridConfig(s settings.Stream, streamNames []string, transportName string) (string, error) {
-	if len(streamNames) == 0 {
-		return "", fmt.Errorf("the grid viewer needs at least one stream")
+	if !transport.CanGstWatch(transportName) {
+		return "", fmt.Errorf("transport %q has no GStreamer watch form", transportName)
 	}
 
-	cfg := GridConfig{}
+	// Streams starts non-nil so an empty roster marshals as [], not null.
+	cfg := GridConfig{Streams: []GridStream{}}
 	for _, name := range streamNames {
-		src, ok := transport.GstSource(transportName, s, name)
-		if !ok {
-			return "", fmt.Errorf("transport %q has no GStreamer watch form", transportName)
-		}
-		cfg.Streams = append(cfg.Streams, GridStream{Name: name, Source: strings.Join(src, " ")})
+		src, _ := transport.GstSource(transportName, s, name)
+		cfg.Streams = append(cfg.Streams, GridStream{
+			Name:      name,
+			Transport: transportName,
+			Source:    strings.Join(src, " "),
+		})
 	}
 
 	out, err := json.Marshal(cfg)

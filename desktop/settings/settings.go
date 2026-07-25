@@ -49,6 +49,10 @@ type Stream struct {
 	SrtPublishLatencyMs int `json:"srtPublishLatencyMs"`
 	SrtWatchLatencyMs   int `json:"srtWatchLatencyMs"`
 	UplinkMbps          int `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
+	// WatchTransport is the transport a Watch click receives over, independent
+	// of the publish transport: the relay re-serves every stream on all its
+	// listeners.
+	WatchTransport string `json:"watchTransport"`
 }
 
 // Defaults returns the settings a fresh installation starts with.
@@ -72,7 +76,8 @@ func Defaults() Stream {
 		Gop: 0, Bframes: 0,
 		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
-		UplinkMbps: 50,
+		UplinkMbps:     50,
+		WatchTransport: "srt",
 	}
 }
 
@@ -153,6 +158,10 @@ func migrateStream(s Stream) Stream {
 	// zero is a valid value (the encoder's own buffer default), so it is left.
 	if s.MaxrateM <= 0 {
 		s.MaxrateM = Defaults().MaxrateM
+	}
+	// Files from before the watch transport was persisted lack the key.
+	if s.WatchTransport == "" {
+		s.WatchTransport = Defaults().WatchTransport
 	}
 	return s
 }

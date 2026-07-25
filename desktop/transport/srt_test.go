@@ -52,6 +52,22 @@ func TestSRTPublishArgs(t *testing.T) {
 	}
 }
 
+func TestSRTGstSource(t *testing.T) {
+	src := SRT{}.GstSource(testStream(), "bob")
+
+	for _, want := range []string{
+		"srtsrc",
+		"uri=srt://relay.example:8890",
+		"mode=caller",
+		"streamid=read:bob",
+		"latency=1200", // srtsrc takes milliseconds, unlike the ffmpeg URL
+	} {
+		if !slices.Contains(src, want) {
+			t.Errorf("GstSource = %v, missing %q", src, want)
+		}
+	}
+}
+
 func TestSRTWatchURL(t *testing.T) {
 	url := SRT{}.WatchURL(testStream(), "bob")
 

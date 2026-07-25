@@ -9,6 +9,7 @@ import (
 	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/relay"
 	"bjoernblessin.de/screenshare/settings"
+	"bjoernblessin.de/screenshare/webviewer"
 )
 
 // App is the Wails-bound backend. All exported methods are callable from the
@@ -26,7 +27,8 @@ type App struct {
 	settingsMu sync.Mutex
 	settings   settings.Stream
 
-	relay *relay.Client
+	relay     *relay.Client
+	webviewer *webviewer.Server
 
 	encodersOnce sync.Once
 	encoders     encoders.Availability
@@ -34,9 +36,8 @@ type App struct {
 	procMu      sync.Mutex
 	pub         publish.Handle
 	watchers    map[WatchKey]*ffmpeg.Proc
-	wall        *ffmpeg.Proc
-	gridViewer  *ffmpeg.Proc
 	testStreams []*ffmpeg.Proc
+	nativeGrid  *ffmpeg.Proc
 }
 
 func NewApp() *App {
@@ -49,6 +50,8 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	enableWebviewWebRTC()
+	a.startWebViewer()
 }
 
 // shutdown kills every child so no orphan ffmpeg keeps encoding after quit.
@@ -62,13 +65,13 @@ func (a *App) shutdown(ctx context.Context) {
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}
-	if a.wall != nil {
-		a.wall.Stop()
-	}
-	if a.gridViewer != nil {
-		a.gridViewer.Stop()
-	}
 	for _, proc := range a.testStreams {
 		proc.Stop()
+	}
+	if a.nativeGrid != nil {
+		a.nativeGrid.Stop()
+	}
+	if a.webviewer != nil {
+		a.webviewer.Stop()
 	}
 }

@@ -72,6 +72,20 @@ func TestLoadMigratesMissingAudio(t *testing.T) {
 	}
 }
 
+func TestLoadMigratesMissingWatchTransport(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.WatchTransport = "" // a pre-watch-transport settings file lacks the key
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := Load(); got.WatchTransport != Defaults().WatchTransport {
+		t.Errorf("watch transport = %q, want migrated to %q", got.WatchTransport, Defaults().WatchTransport)
+	}
+}
+
 func TestLoadCorruptFileReturnsDefaults(t *testing.T) {
 	isolateConfig(t)
 

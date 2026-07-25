@@ -50,8 +50,10 @@ type Watcher interface {
 	WatchURL(s settings.Stream, streamName string) string
 }
 
-// GstWatcher is a transport that serializes to the GStreamer source elements a
-// receiving pipeline decodes from, the watch-side counterpart of GstPublisher.
+// GstWatcher is a transport that serializes to the source elements a receiving
+// GStreamer pipeline decodes from. The fragment ends at the encoded stream;
+// the receiver appends its own decode and sink elements. It is the watch-side
+// counterpart of GstPublisher.
 type GstWatcher interface {
 	GstSource(s settings.Stream, streamName string) []string
 }
@@ -123,6 +125,34 @@ func CanGstPublish(name string) bool {
 	return ok
 }
 
+// GstSource returns the GStreamer source elements a receiving pipeline decodes
+// a stream from over the named transport, and false when that transport has no
+// GStreamer watch form. Like WatchURL, the transport is named explicitly
+// rather than read from s.Transport: the receive transport is chosen
+// independently of the publish one.
+func GstSource(name string, s settings.Stream, streamName string) ([]string, bool) {
+	t, ok := Get(name)
+	if !ok {
+		return nil, false
+	}
+	g, ok := t.(GstWatcher)
+	if !ok {
+		return nil, false
+	}
+	return g.GstSource(s, streamName), true
+}
+
+// CanGstWatch reports whether the named transport can feed a receiving
+// GStreamer pipeline (implements GstWatcher). An unknown name reports false.
+func CanGstWatch(name string) bool {
+	t, ok := Get(name)
+	if !ok {
+		return false
+	}
+	_, ok = t.(GstWatcher)
+	return ok
+}
+
 // WatchURL returns the viewer input URL for the named transport, and false when
 // that transport has no watch form. The transport is named explicitly, not read
 // from s.Transport: a stream is received over a transport chosen independently
@@ -138,22 +168,6 @@ func WatchURL(name string, s settings.Stream, streamName string) (string, bool) 
 		return "", false
 	}
 	return w.WatchURL(s, streamName), true
-}
-
-// GstSource returns the GStreamer source elements a receiving pipeline decodes
-// the named stream from, and false when the transport has no GStreamer watch
-// form. As with WatchURL, the transport is named explicitly, not read from
-// s.Transport.
-func GstSource(name string, s settings.Stream, streamName string) ([]string, bool) {
-	t, ok := Get(name)
-	if !ok {
-		return nil, false
-	}
-	g, ok := t.(GstWatcher)
-	if !ok {
-		return nil, false
-	}
-	return g.GstSource(s, streamName), true
 }
 
 // Names lists all registered transports for the UI dropdown. The registry is a

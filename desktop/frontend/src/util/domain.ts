@@ -8,7 +8,7 @@ import { capabilities } from "../../wailsjs/go/models";
  * which transport carries it, whether the codec is implemented) are not here -
  * those come from the backend capability table (App.Capabilities), so a single
  * definition governs both sides. This file holds the presentation (label, tip,
- * link) and the bitrate/browser heuristics, which are UI-only.
+ * link) and the bitrate heuristics, which are UI-only.
  *
  * A codec name like "hevc_vaapi" factors into a family (the backend, "vaapi")
  * and a format (the coding standard, "hevc"). The backend capability table
@@ -20,19 +20,15 @@ import { capabilities } from "../../wailsjs/go/models";
 /** The backend's fixed codec facts: nvenc flag, allowed chromas and transports. */
 export type Capability = capabilities.Codec;
 
-/** How widely a format's 4:2:0 output decodes in browsers. */
-type BrowserKind = "universal" | "modern" | "safari-only";
-
 /** Presentation and heuristics for a video coding format, independent of the
- * encoder backend that produces it. Coding efficiency and browser decodability
- * follow the format (H.264 vs HEVC vs AV1), not the family (nvenc vs vaapi). */
+ * encoder backend that produces it. Coding efficiency follows the format (H.264
+ * vs HEVC vs AV1), not the family (nvenc vs vaapi). */
 interface FormatMeta {
     label: string;
     tip: string;
     link: string;
     /** Relative coding efficiency: bits for equal quality, H.264 = 1.0. */
     efficiency: number;
-    browser: BrowserKind;
 }
 
 /** Presentation for an encoder backend (the "Encoder" dropdown). */
@@ -50,12 +46,13 @@ interface ChromaMeta {
     weight: number;
     /** Raw bits per pixel per frame, for the lossless upper bound. */
     rawBpp: number;
-    /** 4:2:0-family (quarter-resolution chroma): the only browser-decodable kind. */
+    /** 4:2:0-family (quarter-resolution chroma): the only kind WebRTC negotiates. */
     is420: boolean;
     /** RGB is inherently full range, so no color-range choice applies. */
     fullRange: boolean;
-    /** Why a non-4:2:0 format blocks browser playback; undefined for 4:2:0. */
-    browserBlock?: string;
+    /** What a non-4:2:0 format asks of a decoder that WHEP will not negotiate;
+     * undefined for 4:2:0. */
+    whepBlock?: string;
 }
 
 interface ModeMeta {
@@ -76,6 +73,17 @@ interface ModeMeta {
     pinsPreset: boolean;
     pinnedPreset?: string;
 }
+
+/** The media engine that runs a capture backend, from App.CaptureEngines. The
+ * ffmpeg screen grabbers build one ffmpeg command; the portal path builds a
+ * GStreamer graph. Which rate-control knobs reach the encoder differs between
+ * them, so the settings form needs to know which one a capture uses. */
+export type Engine = "ffmpeg" | "gstreamer";
+
+/** One rate-control control on the settings form, named after the settings field
+ * it edits. */
+export type Knob =
+    "cq" | "bitrateM" | "maxrateM" | "vbvMs" | "bframes" | "encPreset";
 
 /** Encoder backends. A codec name factors into a family and a format; the
  * backend capability table (capabilities.Codec) carries the factoring. */
@@ -105,35 +113,30 @@ export const FORMAT_META: Record<Format, FormatMeta> = {
         link: AVC_LINK,
         tip: "Advanced Video Coding (ITU-T H.264 | ISO/IEC 14496-10). Widest decoder compatibility, least efficient of the modern formats.",
         efficiency: 1.0,
-        browser: "universal",
     },
     hevc: {
         label: "HEVC / H.265",
         link: HEVC_LINK,
         tip: "High Efficiency Video Coding (ITU-T H.265 | ISO/IEC 23008-2). Around 40% smaller than H.264 at equal quality; browser playback is limited to Safari or an OS extension.",
         efficiency: 0.6,
-        browser: "safari-only",
     },
     av1: {
         label: "AV1",
         link: AV1_LINK,
         tip: "AOMedia Video 1. Most efficient per bit. Hardware encoders are recent: NVENC on RTX 40+, Intel Arc, AMD RDNA3+.",
         efficiency: 0.5,
-        browser: "modern",
     },
     vp9: {
         label: "VP9",
         link: VP9_LINK,
         tip: "Google VP9. Royalty-free, decodes in most non-Safari browsers; efficiency sits between H.264 and HEVC.",
         efficiency: 0.6,
-        browser: "modern",
     },
     vp8: {
         label: "VP8",
         link: VP8_LINK,
         tip: "Google VP8. Older royalty-free format with broad WebM/WebRTC support; efficiency near H.264.",
         efficiency: 1.0,
-        browser: "modern",
     },
 };
 
@@ -189,7 +192,7 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         rawBpp: 24,
         is420: false,
         fullRange: true,
-        browserBlock: "RGB (HEVC Range Extensions)",
+        whepBlock: "RGB (HEVC Range Extensions)",
     },
     yuv444p: {
         label: "yuv444p - Y′CbCr 4:4:4",
@@ -199,7 +202,7 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         rawBpp: 24,
         is420: false,
         fullRange: false,
-        browserBlock: "4:4:4 chroma",
+        whepBlock: "4:4:4 chroma",
     },
     yuv420p: {
         label: "yuv420p - Y′CbCr 4:2:0",
@@ -280,6 +283,118 @@ export const MODE_META: Record<Mode, ModeMeta> = {
     },
 };
 
+/**
+ * One place where a publish engine's encoder builder departs from the mode
+ * table: a knob the mode uses that the engine ignores, or one the engine
+ * forwards in a mode the table marks unused.
+ *
+ * MODE_META says which knobs a rate-control concept needs. Whether the value
+ * reaches the encoder also depends on which engine builds the command, because
+ * the two express the same five modes through different properties: the
+ * GStreamer elements have no NVENC preset ladder, x264enc cannot raise a ceiling
+ * above its bitrate, and vp9enc has no unbounded constant-quality mode. Both
+ * facts decide whether a field is live, so a knob the engine drops is greyed
+ * with the engine's reason instead of looking effective.
+ *
+ * The rules mirror the two builders, `encoderArgs` in ffmpeg/args.go and
+ * `gstEncoder` in publish/gstreamer.go. Empty codecs and families match every
+ * codec the engine builds; empty modes match every mode.
+ */
+interface EngineRule {
+    engine: Engine;
+    knob: Knob;
+    /** Codec names the rule covers, unioned with families. */
+    codecs?: string[];
+    /** Encoder families the rule covers, unioned with codecs. */
+    families?: Family[];
+    /** Modes the rule covers. */
+    modes?: Mode[];
+    /** true: the builder forwards the value even where the mode table marks the
+     * knob unused. false: it ignores a value the mode would use. */
+    forwards: boolean;
+    /** An ignored knob's reason states why the value never reaches the encoder; a
+     * forwarded knob's states what it does there. Both are shown to the user. */
+    reason: string;
+}
+
+const ENGINE_RULES: EngineRule[] = [
+    {
+        engine: "gstreamer",
+        knob: "encPreset",
+        forwards: false,
+        reason: "the portal path's GStreamer encoders expose no p1-p7 preset ladder",
+    },
+    {
+        engine: "gstreamer",
+        knob: "maxrateM",
+        families: ["software"],
+        modes: ["vbr"],
+        forwards: false,
+        reason: "x264enc, x265enc and vp9enc cannot hold a ceiling above their bitrate, so the portal path runs constrained VBR as uncapped ABR",
+    },
+    {
+        engine: "gstreamer",
+        knob: "vbvMs",
+        modes: ["vbr"],
+        forwards: false,
+        reason: "the portal path's encoders size their rate buffer in CBR only",
+    },
+    {
+        engine: "gstreamer",
+        knob: "vbvMs",
+        codecs: ["libvpx-vp9"],
+        families: ["nvenc"],
+        forwards: false,
+        reason: "vp9enc and the nvcodec elements expose no rate-buffer property",
+    },
+    {
+        engine: "ffmpeg",
+        knob: "bitrateM",
+        families: ["nvenc"],
+        modes: ["crf"],
+        forwards: true,
+        reason: "NVENC constant quality caps its bursts at this bitrate; the quantizer target still drives the look.",
+    },
+    {
+        engine: "gstreamer",
+        knob: "bitrateM",
+        codecs: ["libvpx-vp9"],
+        modes: ["crf"],
+        forwards: true,
+        reason: "vp9enc has no unbounded constant-quality mode, so on the portal path this bitrate is the cap its CQ rate control stays under.",
+    },
+];
+
+/**
+ * The engine rule that governs a knob for the given engine, codec and mode, or
+ * undefined when the builder treats the knob exactly as the mode table says.
+ * Earlier rules win, so a mode-specific reason precedes a codec-wide one.
+ */
+export function findEngineRule(
+    knob: Knob,
+    engine: Engine | null,
+    codec: string,
+    mode: Mode,
+    caps: Capability[] | null
+): EngineRule | undefined {
+    if (!engine) {
+        return undefined;
+    }
+    const cap = findCapability(caps, codec);
+    return ENGINE_RULES.find(r => {
+        if (r.engine !== engine || r.knob !== knob) {
+            return false;
+        }
+        if (r.modes && !r.modes.includes(mode)) {
+            return false;
+        }
+        const selects =
+            (r.codecs?.includes(codec) ?? false) ||
+            (!!cap && (r.families?.includes(cap.family as Family) ?? false));
+        return selects || (!r.codecs && !r.families);
+    });
+}
+
 export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?: string }> = {
     none: {
         label: "none - video only",
@@ -321,6 +436,16 @@ export function formatOf(codec: string, caps: Capability[] | null): Format | und
 /** The encoder family of a codec, from the capability table (undefined until it loads). */
 export function familyOf(codec: string, caps: Capability[] | null): Family | undefined {
     return findCapability(caps, codec)?.family as Family | undefined;
+}
+
+/**
+ * Scale the codec's constant-quality knob counts on: libvpx VP9 reaches 63, the
+ * H.26x and AV1 encoders 51, so the same CQ number is a different quality per
+ * codec. Falls back to the 51-point scale while the capability table is
+ * unresolved or carries no figure for the codec.
+ */
+export function cqMax(codec: string, caps: Capability[] | null): number {
+    return findCapability(caps, codec)?.cqMax || 51;
 }
 
 /** Human label for a codec, e.g. "HEVC / H.265 (VAAPI (Intel / AMD))". */

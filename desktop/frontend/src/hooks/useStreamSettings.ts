@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
-    PublishCommand, Transports, CaptureTransports,
+    PublishCommand, Transports, CaptureTransports, CaptureEngines,
 } from "../../wailsjs/go/main/App";
 import {
-    BrowserVerdict, Deps, EncoderInfo, PlatformInfo, Preset, Stream,
+    Deps, EncoderInfo, PlatformInfo, Preset, Stream, ViewVerdict,
 } from "../types/stream";
-import { evaluateDeps, normalize } from "../util/deps";
+import { Environment, evaluateDeps, normalize } from "../util/deps";
 import { Capability } from "../util/domain";
-import { browserCheck } from "../util/browser";
+import { nativeGridCheck } from "../util/nativegrid";
+import { webGridCheck } from "../util/webgrid";
 import { PRESETS } from "../util/presets";
 
 export const CUSTOM_PRESET = "custom";
@@ -45,12 +46,14 @@ function matchPreset(s: Stream, userPresets: Preset[]): string {
 
 /**
  * Owns the editable stream settings and everything derived from them: the
- * dependency map, browser verdict, live command preview and the transport
- * list. Any field change re-normalizes the settings and drops the preset back to
- * "custom"; applying a preset patches many fields at once without doing so.
+ * dependency map, the web- and native-grid verdicts, live command preview and the
+ * transport list. Any field change re-normalizes the settings and drops the
+ * preset back to "custom"; applying a preset patches many fields at once without
+ * doing so.
  * The platform gates which capture APIs are available, the encoder set which
- * codecs the machine can run, and the capability table which codec/chroma/
- * transport combinations are legal.
+ * codecs the machine can run, the capability table which codec/chroma/transport
+ * combinations are legal, and the capture backend's engine which rate-control
+ * knobs reach the encoder.
  *
  * The working settings are persisted on every change, so the next launch
  * restores the exact last state whether or not it was saved as a named preset.
@@ -67,29 +70,40 @@ export function useStreamSettings(
     const [transports, setTransports] = useState<string[]>(["srt"]);
     const [captureTransports, setCaptureTransports] =
         useState<Record<string, string[]> | null>(null);
+    const [captureEngines, setCaptureEngines] =
+        useState<Record<string, string> | null>(null);
     const [cmd, setCmd] = useState("");
 
-    const deps: Deps | null = useMemo(
-        () => (s ? evaluateDeps(s, platform, encoders, caps, captureTransports) : null),
-        [s, platform, encoders, caps, captureTransports]
+    // One value for every fact the dependency rules read, so the evaluation and
+    // the repairs cannot be handed different subsets.
+    const env: Environment = useMemo(
+        () => ({ platform, encoders, caps, captureTransports, captureEngines }),
+        [platform, encoders, caps, captureTransports, captureEngines]
     );
-    const browser: BrowserVerdict | null = useMemo(
-        () => (s ? browserCheck(s, caps) : null),
+
+    const deps: Deps | null = useMemo(
+        () => (s ? evaluateDeps(s, env) : null),
+        [s, env]
+    );
+    const webGrid: ViewVerdict | null = useMemo(
+        () => (s ? webGridCheck(s, caps) : null),
+        [s, caps]
+    );
+    const nativeGrid: ViewVerdict | null = useMemo(
+        () => (s ? nativeGridCheck(s, caps) : null),
         [s, caps]
     );
 
     const update = useCallback(
         (patch: Partial<Stream>, fromPreset = false) => {
             setS(prev =>
-                prev
-                    ? normalize({ ...prev, ...patch } as Stream, platform, encoders, caps, captureTransports)
-                    : prev
+                prev ? normalize({ ...prev, ...patch } as Stream, env) : prev
             );
             if (!fromPreset) {
                 setPreset(CUSTOM_PRESET);
             }
         },
-        [platform, encoders, caps, captureTransports]
+        [env]
     );
 
     const applyPreset = useCallback(
@@ -141,22 +155,22 @@ export function useStreamSettings(
             setPreset(matchPreset(loaded, presets));
             setTransports(await Transports());
             setCaptureTransports(await CaptureTransports());
+            setCaptureEngines(await CaptureEngines());
         })();
     }, []);
 
     // Re-normalize whenever a dimension resolves after mount: platform gates the
     // capture API (ddagrab on Linux falls back), the encoder probe and capability
     // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
-    // encoder), and the capture->transport map gates the transport (the portal
-    // path drops WebRTC). Any illegal carryover from the persisted settings is
-    // repaired to a valid combination.
+    // encoder), the capture->transport map gates the transport (the portal path
+    // drops WebRTC), and the capture->engine map gates the chroma (the portal
+    // path's encoders drop planar RGB). Any illegal carryover from the persisted
+    // settings is repaired to a valid combination.
     useEffect(() => {
-        if (platform || encoders || caps || captureTransports) {
-            setS(prev =>
-                prev ? normalize(prev, platform, encoders, caps, captureTransports) : prev
-            );
+        if (platform || encoders || caps || captureTransports || captureEngines) {
+            setS(prev => (prev ? normalize(prev, env) : prev));
         }
-    }, [platform, encoders, caps, captureTransports]);
+    }, [platform, encoders, caps, captureTransports, captureEngines, env]);
 
     useEffect(() => {
         if (!s) {
@@ -184,7 +198,7 @@ export function useStreamSettings(
     }, [s]);
 
     return {
-        s, preset, userPresets, transports, deps, browser, cmd,
+        s, preset, userPresets, transports, deps, webGrid, nativeGrid, cmd,
         update, applyPreset, saveAsPreset, deletePreset,
     };
 }

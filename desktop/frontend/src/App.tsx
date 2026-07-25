@@ -1,10 +1,5 @@
 import { useState } from "react";
-import {
-    IconAppWindow,
-    IconFlask,
-    IconLayoutGrid,
-    IconLayoutGridFilled,
-} from "@tabler/icons-react";
+import { IconAppWindow, IconFlask, IconLayoutGrid } from "@tabler/icons-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { usePlatform } from "./hooks/usePlatform";
@@ -13,9 +8,8 @@ import { useCapabilities } from "./hooks/useCapabilities";
 import { useStreamSettings } from "./hooks/useStreamSettings";
 import { usePublish } from "./hooks/usePublish";
 import { useLive } from "./hooks/useLive";
-import { useWall } from "./hooks/useWall";
-import { useGridViewer } from "./hooks/useGridViewer";
 import { useTestPublishers } from "./hooks/useTestPublishers";
+import { useNativeGrid } from "./hooks/useNativeGrid";
 import { useUplinkMeasure } from "./hooks/useUplinkMeasure";
 import { useMonitors } from "./hooks/useMonitors";
 import { useLogs } from "./hooks/useLogs";
@@ -41,26 +35,16 @@ export default function App() {
     const settings = useStreamSettings(platform, encoders, capabilities);
     const publish = usePublish(settings.s);
     const live = useLive();
-    const wall = useWall();
-    const gridViewer = useGridViewer();
     const testPub = useTestPublishers();
+    const nativeGrid = useNativeGrid();
     const uplink = useUplinkMeasure(settings.update);
     const monitors = useMonitors();
     const logs = useLogs();
-    const [gridOpen, setGridOpen] = useState(false);
+    const [webGridOpen, setWebGridOpen] = useState(false);
 
-    if (!settings.s || !settings.deps || !settings.browser) {
+    if (!settings.s || !settings.deps || !settings.webGrid || !settings.nativeGrid) {
         return <LoadingScreen />;
     }
-
-    // The native grid decodes with GStreamer, so it plays every stream the
-    // relay serves; it opens on all ready streams over RTSP (TCP, retransmits).
-    const wallStreams = (live.live?.paths ?? [])
-        .filter(p => p.ready)
-        .map(p => p.name);
-    const wallTransport = live.watchTransports.includes("rtsp")
-        ? "rtsp"
-        : live.watchTransports[0];
 
     return (
         <TooltipProvider>
@@ -85,62 +69,30 @@ export default function App() {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setGridOpen(true)}
+                            onClick={() => setWebGridOpen(true)}
                         >
-                            <IconLayoutGrid size={16} /> Grid view
+                            <IconLayoutGrid size={16} /> Web grid
                         </Button>
                         <Button
                             variant="outline"
                             size="sm"
-                            disabled={
-                                !gridViewer.running &&
-                                (wallStreams.length === 0 || !wallTransport)
-                            }
-                            onClick={() =>
-                                gridViewer.running
-                                    ? void gridViewer.stop()
-                                    : void gridViewer.start(
-                                          wallStreams,
-                                          wallTransport,
-                                      )
-                            }
-                        >
-                            <IconLayoutGridFilled size={16} />
-                            {gridViewer.running
-                                ? "Close GTK grid"
-                                : "GTK grid"}
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={
-                                !wall.running &&
-                                (wallStreams.length === 0 || !wallTransport)
-                            }
-                            onClick={() =>
-                                wall.running
-                                    ? void wall.stop()
-                                    : void wall.start(wallStreams, wallTransport)
-                            }
+                            onClick={() => void nativeGrid.toggle()}
                         >
                             <IconAppWindow size={16} />
-                            {wall.running ? "Close native grid" : "Native grid"}
+                            {nativeGrid.running
+                                ? "Close native grid"
+                                : "Native grid"}
                         </Button>
                     </div>
                 </div>
-                {wall.error && (
-                    <p className="text-sm text-destructive whitespace-pre-wrap">
-                        {wall.error}
-                    </p>
-                )}
-                {gridViewer.error && (
-                    <p className="text-sm text-destructive whitespace-pre-wrap">
-                        {gridViewer.error}
-                    </p>
-                )}
                 {testPub.error && (
                     <p className="text-sm text-destructive whitespace-pre-wrap">
                         {testPub.error}
+                    </p>
+                )}
+                {nativeGrid.error && (
+                    <p className="text-sm text-destructive whitespace-pre-wrap">
+                        {nativeGrid.error}
                     </p>
                 )}
 
@@ -158,7 +110,8 @@ export default function App() {
                     caps={capabilities}
                     transports={settings.transports}
                     monitors={monitors}
-                    browser={settings.browser}
+                    webGrid={settings.webGrid}
+                    nativeGrid={settings.nativeGrid}
                     cmd={settings.cmd}
                     publishing={publish.publishing}
                     pubError={publish.error}
@@ -184,11 +137,15 @@ export default function App() {
                     live={live.live}
                     watching={live.watching}
                     watchTransports={live.watchTransports}
+                    watchTransport={settings.s.watchTransport}
                     connecting={live.connecting}
                     error={live.error}
                     logPath={live.logPath}
                     watchLatencyMs={settings.s.srtWatchLatencyMs}
                     onToggleWatch={live.toggleWatch}
+                    onUpdateWatchTransport={t =>
+                        settings.update({ watchTransport: t })
+                    }
                     onUpdateWatchLatency={v =>
                         settings.update({ srtWatchLatencyMs: v })
                     }
@@ -196,11 +153,11 @@ export default function App() {
                     onOpenLogsFolder={logs.openLogsFolder}
                 />
 
-                {gridOpen && (
+                {webGridOpen && (
                     <StreamGridPage
                         paths={live.live?.paths ?? []}
                         s={settings.s}
-                        onClose={() => setGridOpen(false)}
+                        onClose={() => setWebGridOpen(false)}
                     />
                 )}
             </div>

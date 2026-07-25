@@ -23,7 +23,7 @@ func TestPattern(i int) string {
 // BuildTestStreamArgs returns the gst-launch-1.0 arguments publishing one
 // synthetic stream to the relay under name.
 // The relay re-serves it on every listener, so all viewing paths (native grid,
-// WHEP grid, per-stream viewers) see it like a real stream.
+// web grid, per-stream viewers) see it like a real stream.
 // Publishing always goes over RTSP regardless of s.Transport, and the encode
 // is plain 4:2:0 H.264, which every path decodes, including browsers.
 // timeoverlay makes motion and latency visible.

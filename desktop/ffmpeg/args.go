@@ -11,10 +11,9 @@ package ffmpeg
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strconv"
+
+	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/display"
@@ -32,7 +31,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, fmt.Errorf("unknown transport %q", s.Transport)
 	}
 
-	if err := validateCodec(s); err != nil {
+	if err := capabilities.Validate(s.Codec, s.Chroma, s.Transport, s.Mode, s.Cq); err != nil {
 		return nil, err
 	}
 
@@ -50,6 +49,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	assert.Assert(len(capture) > 0 && len(enc) > 0, "a validated stream yields a capture input and an encoder", s.Capture, s.Codec)
 
 	gop := s.Gop
 	if gop <= 0 {
@@ -79,43 +79,55 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	return args, nil
 }
 
-// captureArgs returns the input arguments for the configured capture backend.
-// ddagrab and gdigrab are Windows-only; x11grab and kmsgrab are Linux-only.
-func captureArgs(s settings.Stream) ([]string, error) {
-	fps := strconv.Itoa(s.Fps)
+// captureBackends is the input side of the command, one entry per screen grabber.
+// ddagrab and gdigrab are Windows-only; x11grab and kmsgrab are Linux-only, which
+// the capture list the UI offers already reflects (see publish.Captures). fps
+// arrives rendered because every grabber takes it as a string.
+var captureBackends = map[string]func(s settings.Stream, fps string) []string{
+	"ddagrab": ddagrabArgs,
+	"gdigrab": gdigrabArgs,
+	"x11grab": x11grabArgs,
+	"kmsgrab": kmsgrabCaptureArgs,
+}
 
-	switch s.Capture {
-	case "ddagrab":
-		// GPU capture as a filter source; hwdownload hands frames back to system
-		// memory so any encoder can consume them.
-		return []string{
-			"-filter_complex",
-			fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s,hwdownload,format=bgra", s.Monitor, fps),
-		}, nil
-	case "gdigrab":
-		return []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}, nil
-	case "x11grab":
-		disp := os.Getenv("DISPLAY")
-		if disp == "" {
-			disp = ":0.0"
-		}
-		args := []string{"-f", "x11grab", "-framerate", fps}
-		// Crop to the selected monitor when its geometry is known; otherwise
-		// capture the whole X screen, as enumeration failing leaves no offset.
-		if m, ok := monitorByIndex(s.Monitor); ok && m.Width > 0 && m.Height > 0 {
-			args = append(args,
-				"-video_size", fmt.Sprintf("%dx%d", m.Width, m.Height),
-				"-i", fmt.Sprintf("%s+%d,%d", disp, m.OffsetX, m.OffsetY),
-			)
-		} else {
-			args = append(args, "-i", disp)
-		}
-		return args, nil
-	case "kmsgrab":
-		return kmsgrabCaptureArgs(s, fps), nil
-	default:
+// captureArgs returns the input arguments for the configured capture backend.
+func captureArgs(s settings.Stream) ([]string, error) {
+	build, ok := captureBackends[s.Capture]
+	if !ok {
 		return nil, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
+	return build(s, strconv.Itoa(s.Fps)), nil
+}
+
+// ddagrabArgs captures on the GPU as a filter source; hwdownload hands frames back
+// to system memory so any encoder can consume them.
+func ddagrabArgs(s settings.Stream, fps string) []string {
+	return []string{
+		"-filter_complex",
+		fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s,hwdownload,format=bgra", s.Monitor, fps),
+	}
+}
+
+func gdigrabArgs(_ settings.Stream, fps string) []string {
+	return []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}
+}
+
+// x11grabArgs crops to the selected monitor when its geometry is known; otherwise
+// it captures the whole X screen, as enumeration failing leaves no offset.
+func x11grabArgs(s settings.Stream, fps string) []string {
+	disp := os.Getenv("DISPLAY")
+	if disp == "" {
+		disp = ":0.0"
+	}
+	args := []string{"-f", "x11grab", "-framerate", fps}
+	m, ok := monitorByIndex(s.Monitor)
+	if !ok || m.Width <= 0 || m.Height <= 0 {
+		return append(args, "-i", disp)
+	}
+	return append(args,
+		"-video_size", fmt.Sprintf("%dx%d", m.Width, m.Height),
+		"-i", fmt.Sprintf("%s+%d,%d", disp, m.OffsetX, m.OffsetY),
+	)
 }
 
 // pulseMonitorDevice is the libpulse magic name for the monitor of the default
@@ -160,213 +172,4 @@ func monitorByIndex(idx int) (display.Monitor, bool) {
 		}
 	}
 	return display.Monitor{}, false
-}
-
-// encoderArgs returns the encoder arguments for the configured codec and rate
-// control mode. The five modes are the rate-control methods themselves: cbr and
-// vbr and abr all target a bitrate and differ in the ceiling, crf targets a
-// quality, lossless is bit-exact. The GStreamer publish path expresses the same
-// five in gstEncoder.
-func encoderArgs(s settings.Stream) ([]string, error) {
-	bitrate := fmt.Sprintf("%dM", s.BitrateM)
-	maxrate := fmt.Sprintf("%dM", s.MaxrateM)
-	cq := strconv.Itoa(s.Cq)
-	bframes := strconv.Itoa(s.Bframes)
-
-	switch {
-	case s.Codec == "libx264":
-		// x264 reaches bit-exact at -qp 0.
-		return softwareArgs("libx264", []string{"-qp", "0"}, s, bitrate, maxrate, cq), nil
-
-	case s.Codec == "libx265":
-		// x265 has no bit-exact qp; lossless is its own param.
-		return softwareArgs("libx265", []string{"-x265-params", "lossless=1"}, s, bitrate, maxrate, cq), nil
-
-	case capabilities.IsNvenc(s.Codec):
-		preset := s.EncPreset
-		switch s.Mode {
-		case "lossless":
-			if preset == "" {
-				preset = "p7"
-			}
-			// True nvenc lossless: no rate control, the frame costs whatever
-			// exactness costs and can burst well past 1 Gbps.
-			return []string{"-c:v", s.Codec, "-preset", preset, "-tune", "lossless", "-bf", bframes}, nil
-		case "crf":
-			if preset == "" {
-				preset = "p7"
-			}
-			// VBR targeting a constant quantizer: cq drives the look, the bitrate
-			// only caps bursts. multipass fullres spends the most effort per bit.
-			return []string{
-				"-c:v", s.Codec, "-preset", preset, "-tune", "hq", "-multipass", "fullres",
-				"-rc", "vbr", "-cq", cq, "-b:v", "0", "-maxrate", bitrate, "-bufsize", bitrate,
-				"-bf", bframes,
-			}, nil
-		case "abr":
-			if preset == "" {
-				preset = "p7"
-			}
-			// VBR toward an average with no ceiling.
-			return []string{"-c:v", s.Codec, "-preset", preset, "-tune", "hq", "-rc", "vbr", "-b:v", bitrate, "-bf", bframes}, nil
-		case "vbr":
-			if preset == "" {
-				preset = "p7"
-			}
-			return []string{
-				"-c:v", s.Codec, "-preset", preset, "-tune", "hq", "-rc", "vbr",
-				"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
-				"-bf", bframes,
-			}, nil
-		default: // cbr
-			if preset == "" {
-				preset = "p5"
-			}
-			args := []string{"-c:v", s.Codec, "-preset", preset, "-tune", "ll", "-rc", "cbr", "-b:v", bitrate, "-bf", "0"}
-			if s.VbvMs > 0 {
-				args = append(args, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
-			}
-			return args, nil
-		}
-
-	default:
-		// Generic bitrate-targeted path. validateCodec rejects every codec whose
-		// capability entry has Implemented:false, so the not-yet-wired hardware
-		// families (vaapi, qsv, amf, v4l2, rkmpp, vulkan) never reach here. When
-		// one is implemented, give it its own case: VAAPI needs a -vaapi_device
-		// and a format=nv12,hwupload filter chain, QSV its own device and load
-		// path, so none of them fit this bare -b:v fallback.
-		return []string{"-c:v", s.Codec, "-b:v", bitrate}, nil
-	}
-}
-
-// softwareArgs is the ffmpeg rate-control mapping shared by the CPU H.26x
-// encoders libx264 and libx265; the five modes match gstEncoder's software path.
-// Only the encoder name and the lossless knob differ between the two, so both
-// are parameters: x264 reaches bit-exact at -qp 0, x265 at -x265-params
-// lossless=1.
-func softwareArgs(codec string, lossless []string, s settings.Stream, bitrate, maxrate, cq string) []string {
-	switch s.Mode {
-	case "crf":
-		return []string{"-c:v", codec, "-preset", "slow", "-crf", cq}
-	case "lossless":
-		// No rate control, bursts to hundreds of Mbit/s. zerolatency keeps live
-		// delay by dropping the B-frames and lookahead lossless gains little from.
-		return append([]string{"-c:v", codec, "-preset", "veryfast", "-tune", "zerolatency"}, lossless...)
-	case "abr":
-		// One-pass average bitrate, no VBV cap: quality holds and bitrate bursts
-		// freely toward the target average.
-		return []string{"-c:v", codec, "-preset", "medium", "-b:v", bitrate}
-	case "vbr":
-		// Constrained VBR: targets the bitrate but bursts up to the maxrate
-		// ceiling on motion. bufsize sizes the ceiling's VBV window.
-		return []string{
-			"-c:v", codec, "-preset", "medium",
-			"-b:v", bitrate, "-maxrate", maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
-		}
-	default: // cbr
-		// maxrate = bitrate with a bounded bufsize is true CBR; without them
-		// -b:v alone is one-pass ABR and bursts past a capped link.
-		return []string{
-			"-c:v", codec, "-preset", "veryfast", "-tune", "zerolatency",
-			"-b:v", bitrate, "-maxrate", bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
-		}
-	}
-}
-
-// bufsizeArg returns the ffmpeg -bufsize value in kbit for a rate (Mbit/s) held
-// over a VBV window. A zero window defaults to one second, the conventional CBR
-// buffer. rateM Mbit/s over ms milliseconds is rateM*ms kbit.
-func bufsizeArg(rateM, vbvMs int) string {
-	ms := vbvMs
-	if ms <= 0 {
-		ms = 1000
-	}
-	return strconv.Itoa(rateM*ms) + "k"
-}
-
-// validateCodec rejects a codec/chroma/transport combination the capability
-// table forbids, so a settings object the frontend never normalized cannot
-// produce a broken ffmpeg command.
-func validateCodec(s settings.Stream) error {
-	c, ok := capabilities.Get(s.Codec)
-	if !ok {
-		return fmt.Errorf("unknown codec %q", s.Codec)
-	}
-	if !c.Implemented {
-		return fmt.Errorf("codec %s is listed but not implemented yet", c.Name)
-	}
-	if !capabilities.SupportsChroma(c.Name, s.Chroma) {
-		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, s.Chroma)
-	}
-	if !capabilities.CarriedBy(c.Name, s.Transport) {
-		return fmt.Errorf("transport %s cannot carry codec %s", s.Transport, c.Name)
-	}
-	return nil
-}
-
-// FindExe locates a media executable (ffmpeg, ffplay, mpv). A copy shipped
-// next to the app binary wins over one on PATH, so a bundled build is
-// self-contained.
-func FindExe(name string) (string, error) {
-	if runtime.GOOS == "windows" {
-		name += ".exe"
-	}
-
-	if self, err := os.Executable(); err == nil {
-		bundled := filepath.Join(filepath.Dir(self), name)
-		if info, statErr := os.Stat(bundled); statErr == nil && !info.IsDir() {
-			return bundled, nil
-		}
-	}
-
-	path, err := exec.LookPath(name)
-	if err != nil {
-		return "", fmt.Errorf("%s not found: install ffmpeg or place %s next to the app", name, name)
-	}
-	return path, nil
-}
-
-// EnvKmsgrabFFmpeg names the executable kmsgrab capture runs, overriding the
-// backend's default resolution. kmsgrab reads the raw KMS scanout, which the
-// kernel gates behind CAP_SYS_ADMIN, so it needs a privileged ffmpeg that the
-// other backends must not share. A packaging layer sets this to the capability
-// wrapper (nix/screen-share.nix points it at security.wrappers' ffmpeg-kmsgrab).
-const EnvKmsgrabFFmpeg = "SCREENSHARE_FFMPEG_KMSGRAB"
-
-// FindCaptureExe locates the ffmpeg build to run for a given capture backend.
-//
-// Only kmsgrab needs a different binary from the rest: its CAP_SYS_ADMIN
-// requirement (see EnvKmsgrabFFmpeg) means the plain ffmpeg from FindExe cannot
-// open the input. Its resolution order is the EnvKmsgrabFFmpeg override, then a
-// wrapper named ffmpeg-kmsgrab on PATH, then the plain ffmpeg as a last resort
-// (which fails on the capability, no worse than before). Every other backend
-// uses the plain ffmpeg directly, keeping the privileged binary off the
-// unprivileged capture paths.
-func FindCaptureExe(capture string) (string, error) {
-	if capture == "kmsgrab" {
-		if override := os.Getenv(EnvKmsgrabFFmpeg); override != "" {
-			return override, nil
-		}
-		if wrapper, err := exec.LookPath("ffmpeg-kmsgrab"); err == nil {
-			return wrapper, nil
-		}
-	}
-	return FindExe("ffmpeg")
-}
-
-// LogDir returns the directory that holds per-run ffmpeg logs, creating it if
-// needed. It sits beside the settings file under the user config directory.
-func LogDir() (string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("cannot determine user config directory: %w", err)
-	}
-
-	dir := filepath.Join(base, "screenshare", "logs")
-	err = os.MkdirAll(dir, 0o755)
-	if err != nil {
-		return "", fmt.Errorf("cannot create log directory %s: %w", dir, err)
-	}
-	return dir, nil
 }
