@@ -1,0 +1,147 @@
+# Glossary
+
+Abbreviations and initialisms this project uses, in code, configuration, documentation or the user interface.
+A term earns a row by appearing somewhere in the repository, not by being common in the field.
+Which combinations are actually offered is decided by the capability table in `desktop/capabilities`, not here.
+
+Expansion first, meaning second.
+Where an abbreviation carries two senses in this repository, each sense gets its own row.
+
+## Video codecs
+
+| Term | Expansion                    | Meaning                                                                                                                       |
+| ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| AVC  | Advanced Video Coding        | ITU-T H.264, the format every publish transport here can carry.                                                               |
+| HEVC | High Efficiency Video Coding | ITU-T H.265, roughly half the bitrate of AVC at equal quality.                                                                |
+| AV1  | AOMedia Video 1              | Royalty-free codec, carried over RTSP only because MPEG-TS ingest and the WHIP muxer do not take it.                          |
+| VP8  | (no expansion)               | Royalty-free codec with one profile, 8-bit 4:2:0 only.                                                                        |
+| VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth, and the one 4:4:4 format the web viewer decodes. |
+| RExt | Range Extensions             | HEVC extension adding 4:2:2, 4:4:4 and bit depths above 10, the only VAAPI path to 4:4:4.                                     |
+
+## Encoder backends
+
+| Term  | Expansion                               | Meaning                                                                                                       |
+| ----- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| NVENC | NVIDIA Encoder                          | Fixed-function encoder block on NVIDIA GPUs, the only hardware family here that reaches 4:4:4 and direct RGB. |
+| NVDEC | NVIDIA Decoder                          | The matching fixed-function decoder block.                                                                    |
+| VAAPI | Video Acceleration API                  | Linux hardware encode and decode API covering both Intel and AMD GPUs.                                        |
+| QSV   | Quick Sync Video                        | Intel's own encoder path, reached through oneVPL.                                                             |
+| VPL   | Video Processing Library                | Intel's oneVPL API, successor to Media SDK and the library behind QSV.                                        |
+| AMF   | Advanced Media Framework                | AMD's encoder API, an alternative to VAAPI on AMD hardware.                                                   |
+| V4L2  | Video4Linux2                            | Linux kernel media API, exposing SoC encoders through its M2M device class.                                   |
+| M2M   | Memory to Memory                        | V4L2 device class where the kernel transforms buffers, the form hardware codecs take.                         |
+| MPP   | Media Process Platform                  | Rockchip's media API for RK35xx and similar SoC encoders.                                                     |
+| SVT   | Scalable Video Technology               | Intel's open-source encoder family, here SVT-AV1.                                                             |
+| ASIC  | Application-Specific Integrated Circuit | Fixed-function silicon, what "hardware encoder" means as opposed to a CPU encoder.                            |
+
+## Rate control and bitstream structure
+
+| Term    | Expansion                       | Meaning                                                                                                                                                                             |
+| ------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| QP      | Quantization Parameter          | Per-block quantizer step, the main quality-to-bitrate control.                                                                                                                      |
+| CQ      | Constant Quality                | Quality-targeted rate control, whose scale differs per encoder (51 for the H.26x encoders, 63 for libvpx and software AV1, 127 or 255 for encoders exposing a raw quantizer index). |
+| CQP     | Constant QP                     | Rate control holding the quantizer fixed and letting bitrate vary.                                                                                                                  |
+| CRF     | Constant Rate Factor            | Quality target that varies QP by frame type and motion.                                                                                                                             |
+| CBR     | Constant Bitrate                | Rate control holding output bitrate fixed.                                                                                                                                          |
+| VBR     | Variable Bitrate                | Rate control letting bitrate follow content complexity, up to a ceiling.                                                                                                            |
+| ABR     | Average Bitrate                 | Rate control hitting an average over the stream.                                                                                                                                    |
+| VBV     | Video Buffering Verifier        | The bitstream buffer model whose size is exposed as the rate buffer setting, bounding short-term bitrate.                                                                           |
+| GOP     | Group of Pictures               | The repeating frame-type pattern between keyframes, set as the keyframe interval.                                                                                                   |
+| IDR     | Instantaneous Decoder Refresh   | Keyframe clearing all reference buffers, so a viewer joining mid-stream can start decoding.                                                                                         |
+| SPS     | Sequence Parameter Set          | Sequence-wide bitstream header carrying resolution, profile and chroma format.                                                                                                      |
+| PPS     | Picture Parameter Set           | Picture-level bitstream header shared by slices.                                                                                                                                    |
+| B-frame | Bidirectionally predicted frame | Frame predicted from both earlier and later frames, which reorders decode against display and adds latency.                                                                         |
+
+## Chroma, pixel formats and color
+
+| Term          | Expansion                           | Meaning                                                                                                             |
+| ------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 4:4:4         | Chroma sampling ratio               | Full chroma resolution, required for text to stay free of color fringing.                                           |
+| 4:2:0         | Chroma sampling ratio               | Chroma halved in both directions, the default for delivery codecs.                                                  |
+| YUV           | (historical analog term)            | Used as a synonym for Y′CbCr, the model separating luma from two color-difference channels.                         |
+| Y′CbCr        | Luma prime, Chroma blue, Chroma red | The gamma-encoded color model video codecs actually code.                                                           |
+| yuv420p       | Pixel format                        | 8-bit 4:2:0 in three planes.                                                                                        |
+| yuv444p       | Pixel format                        | 8-bit 4:4:4 in three planes.                                                                                        |
+| p010le        | Pixel format                        | 10-bit 4:2:0 stored in little-endian 16-bit samples, luma plane plus interleaved chroma.                            |
+| gbrp          | Pixel format                        | Planar RGB in green, blue, red plane order, coded through a codec's identity matrix so RGB stays RGB.               |
+| NV12          | Pixel format                        | 8-bit 4:2:0 with a luma plane and one interleaved chroma plane.                                                     |
+| I420          | Pixel format                        | 8-bit 4:2:0 in three planes, the GStreamer name for yuv420p.                                                        |
+| RGBA          | Pixel format                        | Packed 8-bit red, green, blue and alpha, the format the native grid pins for its sink.                              |
+| BT.709        | ITU-R Recommendation BT.709         | High definition color primaries, matrix and transfer function.                                                      |
+| sRGB          | standard Red Green Blue             | The color space desktop content is authored in, whose transfer differs from BT.709.                                 |
+| EOTF          | Electro-Optical Transfer Function   | Mapping from code value to displayed light, the assumption that washes out sRGB content when a sink guesses BT.709. |
+| HDR           | High Dynamic Range                  | Extended brightness range, the reason a source would need more than 8 bits per component.                           |
+| Full range    | (no expansion)                      | Luma spanning the whole 0-255 code range at 8-bit, standard for computer graphics.                                  |
+| Limited range | (no expansion)                      | Luma spanning 16-235 at 8-bit, standard for broadcast video.                                                        |
+| Chroma site   | Chroma siting                       | Where a subsampled chroma sample sits relative to its luma samples.                                                 |
+
+## Transports and containers
+
+| Term    | Expansion                              | Meaning                                                                                                    |
+| ------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| RTP     | Real-time Transport Protocol           | Packet format carrying media with a sequence number, timestamp and SSRC, used by both RTSP and WebRTC.     |
+| SRTP    | Secure RTP                             | RTP with encryption and authentication, what a WHIP session ships after signaling.                         |
+| RTSP    | Real Time Streaming Protocol           | Text control protocol negotiating SDP, after which media flows over RTP.                                   |
+| SRT     | Secure Reliable Transport              | UDP protocol with retransmission and a configurable latency window, carrying MPEG-TS here.                 |
+| WebRTC  | Web Real-Time Communication            | Browser real-time media stack, reached here through WHIP and WHEP.                                         |
+| WHIP    | WebRTC-HTTP Ingestion Protocol         | RFC 9725, an SDP offer posted over HTTP to start a WebRTC publish session.                                 |
+| WHEP    | WebRTC-HTTP Egress Protocol            | The playback counterpart of WHIP.                                                                          |
+| SDP     | Session Description Protocol           | Text format describing media streams, codecs and transport parameters.                                     |
+| ICE     | Interactive Connectivity Establishment | Candidate gathering and connectivity checking that finds a working path between peers.                     |
+| SSRC    | Synchronization Source                 | 32-bit RTP identifier of one media source.                                                                 |
+| MPEG-TS | MPEG Transport Stream                  | Container of fixed 188-byte packets built for lossy links, the SRT payload here.                           |
+| TS      | Transport Stream                       | Short form of MPEG-TS, also the packet unit that `alignment=7` groups seven of per SRT datagram.           |
+| IVF     | Indeo Video Format                     | Minimal container the web viewer's ffmpeg child remuxes to, one length-and-timestamp header per frame.     |
+| WebM    | (no expansion)                         | Matroska subset restricted to royalty-free codecs, the container name browsers associate with VP8 and VP9. |
+| HLS     | HTTP Live Streaming                    | Segment-and-playlist protocol the relay also serves, letting a browser watch with no app installed.        |
+| RTMP    | Real-Time Messaging Protocol           | Legacy TCP ingest protocol the relay exposes.                                                              |
+| HTTP    | Hypertext Transfer Protocol            | Carries WHIP and WHEP signaling and the relay's HLS segments.                                              |
+| WS      | WebSocket                              | Bidirectional connection the web viewer pushes decoded frame data over.                                    |
+| TCP     | Transmission Control Protocol          | Reliable ordered transport, forced for RTSP here because per-track UDP ports are dropped by NAT.           |
+| UDP     | User Datagram Protocol                 | Unreliable datagram transport, the basis of SRT and WebRTC media.                                          |
+| NAT     | Network Address Translation            | Router address rewriting, the reason RTSP is interleaved over TCP and WebRTC needs ICE.                    |
+| PTS     | Presentation Timestamp                 | When a frame is displayed, recovered from the IVF frame header through the stream time base.               |
+
+## Capture backends
+
+| Term     | Expansion                       | Meaning                                                                                          |
+| -------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Portal   | xdg-desktop-portal              | Sandboxed permission layer whose ScreenCast interface hands out a PipeWire capture node.         |
+| PipeWire | (no expansion)                  | Linux media routing daemon, the transport for Wayland screen capture.                            |
+| KMS      | Kernel Mode Setting             | Linux kernel display mode control, the surface `kmsgrab` reads scanout buffers from.             |
+| DRM      | Direct Rendering Manager        | The Linux kernel graphics subsystem containing KMS.                                              |
+| X11      | X Window System version 11      | Legacy Linux display protocol, captured with `x11grab`.                                          |
+| XWayland | (no expansion)                  | X11 server running on a Wayland compositor, which SDL is pinned to for the ffplay viewer window. |
+| DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab`.                                |
+| DXGI     | DirectX Graphics Infrastructure | The Windows graphics layer DDA belongs to.                                                       |
+| GDI      | Graphics Device Interface       | Legacy Windows drawing and capture API, reached through `gdigrab`.                               |
+
+## Playback
+
+| Term         | Expansion                | Meaning                                                                                                |
+| ------------ | ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| WebCodecs    | (no expansion)           | W3C browser API giving script direct access to a decoder, bypassing a media element.                   |
+| VideoDecoder | (no expansion)           | The WebCodecs decoder object, whose `isConfigSupported` reports which codec strings a browser accepts. |
+| MSE          | Media Source Extensions  | Older W3C API feeding container segments to a media element from script.                               |
+| GTK4         | GIMP Toolkit version 4   | The widget toolkit the native grid viewer is built on.                                                 |
+| SDL          | Simple DirectMedia Layer | The output layer ffplay renders through.                                                               |
+
+## Audio
+
+| Term | Expansion      | Meaning                                                                                            |
+| ---- | -------------- | -------------------------------------------------------------------------------------------------- |
+| Opus | (no expansion) | The audio codec used for the desktop track, carried by MPEG-TS and decoded by every target player. |
+
+## General
+
+| Term  | Expansion                         | Meaning                                                                           |
+| ----- | --------------------------------- | --------------------------------------------------------------------------------- |
+| Mux   | Multiplex                         | Combining elementary streams into one container.                                  |
+| Demux | Demultiplex                       | Splitting a container back into elementary streams.                               |
+| Remux | (no expansion)                    | Rewrapping into a different container without re-encoding.                        |
+| FPS   | Frames Per Second                 | Frame rate.                                                                       |
+| API   | Application Programming Interface | A programmatic interface, used here mostly for the capture and encode APIs above. |
+| GPU   | Graphics Processing Unit          | The device hosting the hardware encoder blocks.                                   |
+| CPU   | Central Processing Unit           | What the software encoders run on.                                                |
+| LAN   | Local Area Network                | The network a relay on the same site is reached over.                             |
+| VPS   | Virtual Private Server            | A rented host, the usual home for a relay outside the LAN.                        |
