@@ -28,6 +28,22 @@ loses the "viewer ready" signal on X11.
 The Nix dev shell in `flake.nix` lists the same set, and is the reference for a
 known-good dependency set during development.
 
+### The AMD AMF runtime
+
+The `*_amf` encoders are the one encoder family that needs more than ffmpeg
+itself.
+They are compiled into the build unconditionally and load AMD's closed-source
+`libamfrt64.so.1` at run time, by soname, so the library has to be on the loader
+path rather than merely installed somewhere.
+AMD ships it in the proprietary part of its driver package
+(`amf-amdgpu-pro`), for x86_64 only, and AMF reaches the encoder hardware through
+Vulkan, so the card also needs a Vulkan driver.
+A missing runtime is not a failure the app has to handle: the encoder refuses to
+open, `encoders.Detect` sees that, and the settings form greys the family exactly
+as it does on a machine with no AMD card.
+The dev shell puts the package on `LD_LIBRARY_PATH` for the same reason a
+packaged build has to.
+
 ## How the app locates ffmpeg
 
 `FindExe` in the `ffmpeg` package resolves the executable name (`ffmpeg` or

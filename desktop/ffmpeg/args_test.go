@@ -160,13 +160,35 @@ func TestEncoderArgs(t *testing.T) {
 		{"vaapi cbr pins the ceiling to the target", "h264_vaapi", "cbr", "-rc_mode CBR", "-rc_mode VBR"},
 		{"vaapi abr gives no ceiling", "h264_vaapi", "abr", "-rc_mode VBR", "-maxrate"},
 		{"vaapi vbr sets a ceiling", "hevc_vaapi", "vbr", "-maxrate", "-rc_mode CBR"},
+		// The AMF encoders take one -rc mode per rate-control concept, and their
+		// bursting modes are peak-constrained VBR, so even ABR states a ceiling.
+		{"amf crf is cqp", "h264_amf", "crf", "-rc cqp -qp_i", "-b:v"},
+		{"amf cbr pins the ceiling to the target", "h264_amf", "cbr", "-rc cbr", "vbr_peak"},
+		{"amf abr caps its peak above the target", "hevc_amf", "abr", "-rc vbr_peak -b:v 150M -maxrate 300M", ""},
+		{"amf vbr takes the configured ceiling", "hevc_amf", "vbr", "-maxrate 200M", "-rc cbr"},
+		// AMF's low-latency usage presets drop the H.264 IDR period, so no mode selects
+		// one; cbr states its live character through the quality scale instead.
+		{"amf cbr keeps the transcoding usage", "h264_amf", "cbr", "-usage transcoding", "lowlatency"},
+		{"amf cbr encodes for speed", "h264_amf", "cbr", "-quality speed", "-quality quality"},
+		{"amf vbr encodes for quality", "h264_amf", "vbr", "-quality quality", "-quality speed"},
+		// AMF's H.264 and AV1 encoders have a B-picture pattern; its HEVC one does not,
+		// so the option that switches them off must not reach it.
+		{"amf h264 pins b-frames off", "h264_amf", "vbr", "-bf 0", ""},
+		{"amf av1 pins b-frames off", "av1_amf", "vbr", "-bf 0", ""},
+		{"amf hevc has no b-frame option", "hevc_amf", "vbr", "-rc vbr_peak", "-bf"},
+		// Only AMF's H.264 encoder has to be told to repeat its parameter sets, and it
+		// repeats them once per GOP: baseStream runs 60 fps with no explicit interval,
+		// so the automatic two seconds is 120 frames.
+		{"amf h264 repeats its parameter sets per gop", "h264_amf", "cbr", "-header_spacing 120", ""},
+		{"amf hevc needs no header spacing", "hevc_amf", "cbr", "-rc cbr", "-header_spacing"},
+		{"amf av1 has no header spacing option", "av1_amf", "cbr", "-rc cbr", "-header_spacing"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := baseStream()
 			s.Codec = tc.codec
 			s.Mode = tc.mode
-			args, err := encoderArgs(s)
+			args, err := encoderArgs(s, gopFor(s))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -194,12 +216,34 @@ func TestVp9ProfileFollowsChroma(t *testing.T) {
 	for chroma, profile := range want {
 		s := baseStream()
 		s.Codec, s.Chroma = "libvpx-vp9", chroma
-		args, err := encoderArgs(s)
+		args, err := encoderArgs(s, gopFor(s))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if got := flagValue(args, "-profile:v"); got != profile {
 			t.Errorf("libvpx-vp9 at %s: -profile:v = %q, want %q", chroma, got, profile)
+		}
+	}
+}
+
+// AMF announces the Main profile whatever surface it is handed, so a 10-bit encode
+// would ship a Main-profile bitstream carrying 10-bit samples. The profile therefore
+// follows the chroma, and its two HEVC rows are the only place in this builder where
+// it does.
+func TestAmfHevcProfileFollowsChroma(t *testing.T) {
+	want := map[string]string{
+		"yuv420p": "main",
+		"p010le":  "main10",
+	}
+	for chroma, profile := range want {
+		s := baseStream()
+		s.Codec, s.Chroma = "hevc_amf", chroma
+		args, err := encoderArgs(s, gopFor(s))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := flagValue(args, "-profile"); got != profile {
+			t.Errorf("hevc_amf at %s: -profile = %q, want %q", chroma, got, profile)
 		}
 	}
 }
@@ -239,7 +283,7 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				if cap.BitrateLimitM > 0 && s.BitrateM > cap.BitrateLimitM {
 					s.BitrateM = cap.BitrateLimitM
 				}
-				enc, err := encoderArgs(s)
+				enc, err := encoderArgs(s, gopFor(s))
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -255,8 +299,10 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				if err != nil {
 					// An absent hardware encoder is the machine's answer, not the
 					// builder's; encoders.Detect greys those in the UI for the same
-					// reason.
-					if !cap.Nvenc {
+					// reason. A software encoder is the build's answer and every one of
+					// them ships in an ffmpeg worth publishing with, so a failure there
+					// is the arguments.
+					if cap.Family == "software" {
 						t.Errorf("ffmpeg %s: %v\n%s", strings.Join(args, " "), err, out)
 					}
 					t.Skipf("%s does not run on this machine", cap.Name)

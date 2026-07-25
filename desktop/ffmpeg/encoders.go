@@ -9,17 +9,20 @@ import (
 )
 
 // rates are the rate-control figures a stream's settings yield, rendered as the
-// values ffmpeg takes on the command line.
+// values ffmpeg takes on the command line. The GOP length travels with them, in
+// frames, because one encoder aligns a parameter-set repeat to it (amfArgs) and the
+// keyframe interval is otherwise the command's own -g.
 type rates struct {
-	bitrate, maxrate, cq, bframes string
+	bitrate, maxrate, cq, bframes, gop string
 }
 
-func ratesFor(s settings.Stream) rates {
+func ratesFor(s settings.Stream, gop int) rates {
 	return rates{
 		bitrate: fmt.Sprintf("%dM", s.BitrateM),
 		maxrate: fmt.Sprintf("%dM", s.MaxrateM),
 		cq:      strconv.Itoa(s.Cq),
 		bframes: strconv.Itoa(s.Bframes),
+		gop:     strconv.Itoa(gop),
 	}
 }
 
@@ -51,12 +54,18 @@ var encoderMappings = map[string]func(s settings.Stream, r rates) []string{
 	"av1_vaapi":  vaapiArgs("-global_quality"),
 	"vp9_vaapi":  vaapiArgs("-global_quality"),
 	"vp8_vaapi":  vaapiArgs("-global_quality"),
+	// One AMF mapping serves all three codecs, with what differs between them bound
+	// here: the profile a chroma selects, and the options only some of the three own.
+	"h264_amf": amfArgs(nil, amfH264Options),
+	"hevc_amf": amfArgs(amfHevcProfiles, nil),
+	"av1_amf":  amfArgs(nil, amfNoBPictures),
 }
 
 // encoderArgs returns the encoder arguments for the configured codec and rate
-// control mode.
-func encoderArgs(s settings.Stream) ([]string, error) {
-	r := ratesFor(s)
+// control mode. gop is the resolved keyframe interval in frames, which the command
+// also carries as -g.
+func encoderArgs(s settings.Stream, gop int) ([]string, error) {
+	r := ratesFor(s, gop)
 	if build, ok := encoderMappings[s.Codec]; ok {
 		return build(s, r), nil
 	}
@@ -64,8 +73,8 @@ func encoderArgs(s settings.Stream) ([]string, error) {
 		return nvencArgs(s, r), nil
 	}
 	// Generic bitrate-targeted path. capabilities.Validate rejects every codec whose
-	// entry has Implemented:false, so the not-yet-wired hardware families (qsv, amf,
-	// v4l2, rkmpp, vulkan) never reach here. When one is implemented, give it its own
+	// entry has Implemented:false, so the not-yet-wired hardware families (qsv, v4l2,
+	// rkmpp, vulkan) never reach here. When one is implemented, give it its own
 	// mapping: QSV needs its own device and load path, as VAAPI needs a device and an
 	// upload filter chain (vaapi.go), so none of them fit this bare -b:v fallback.
 	return []string{"-c:v", s.Codec, "-b:v", r.bitrate}, nil
@@ -260,6 +269,114 @@ func vaapiArgs(quantizer string) func(settings.Stream, rates) []string {
 				"-c:v", s.Codec, "-rc_mode", "CBR",
 				"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
 			}
+		}
+	}
+}
+
+// amfHevcProfiles maps the configured chroma to the HEVC profile that indicates its
+// bit depth. AMF leaves the profile indication at Main whatever the input surface
+// carries, so a p010le encode comes out as a 10-bit bitstream announcing an 8-bit
+// profile, which a decoder gating on the profile is entitled to refuse. AMF's H.264
+// encoder needs no such map, its row being 8-bit, and neither does its AV1 one,
+// where profile 0 carries both depths.
+var amfHevcProfiles = map[string]string{
+	"yuv420p": "main",
+	"p010le":  "main10",
+}
+
+// amfUsage is the AMF usage preset every mode encodes under. A usage preset is a
+// bundle of AMD defaults applied ahead of the rate-control properties, so it sets the
+// encoder's character while -rc still decides the rate.
+//
+// It is the same preset in all four modes, including cbr, because AMF's low-latency
+// presets are unusable for a stream a viewer joins late: under lowlatency and
+// ultralowlatency its H.264 encoder drops the IDR period and codes one IDR for the
+// whole stream, so a viewer who subscribes after it finds no recovery point and its
+// decoder never starts. The keyframe interval the settings ask for is the stronger
+// claim, so the preset gives way, and cbr states its low-delay character through the
+// speed end of the quality scale and the B-pictures the mappings pin off.
+// transcoding is also the one preset every VCN generation implements; high_quality
+// is refused by the older ones.
+const amfUsage = "transcoding"
+
+// The two points on AMF's speed/quality scale the modes take. All three encoders
+// spell them the same way, though the numbers behind the names differ per codec: cbr
+// trades quality for the encoder keeping up with a live capture, as the NVENC preset
+// ladder does at the same point.
+const (
+	amfLivePreset    = "speed"
+	amfQualityPreset = "quality"
+)
+
+// amfAbrPeak is the factor the abr mapping places its peak ceiling at above the
+// bitrate target, ffmpeg's own derivation for a hardware VBR encode given none.
+const amfAbrPeak = 2
+
+// amfH264Options are the options AMD's H.264 encoder needs beyond the shared mapping.
+// header_spacing repeats SPS and PPS every GOP, so they arrive with each IDR: the
+// encoder writes them once at stream start otherwise, and a viewer who subscribes
+// later then has no parameter sets to configure its decoder with. Its HEVC encoder
+// repeats VPS/SPS/PPS per IDR on its own, and AV1 carries no out-of-band parameter
+// sets at all, so this is the one row that needs telling.
+func amfH264Options(r rates) []string {
+	return append(amfNoBPictures(r), "-header_spacing", r.gop)
+}
+
+// amfNoBPictures switches off the B-picture pattern of the two AMF encoders that have
+// one, rather than leaving it to the usage preset: the settings' B-frame count is
+// NVENC's alone, and a live screen stream pays their reorder delay for a gain it
+// cannot spend. AMD's HEVC encoder codes no B-frames at all and has no such option.
+func amfNoBPictures(rates) []string {
+	return []string{"-bf", "0"}
+}
+
+// amfArgs maps the rate-control modes onto the AMF encoders' -rc knob, the AMD
+// counterpart to vaapiArgs. profiles selects the profile a chroma needs, nil where the
+// codec has one profile for every chroma it codes, and options adds what only some of
+// the three encoders own.
+//   - crf: cqp, a fixed quantizer per frame type and no rate bound.
+//   - cbr: cbr at the target, the VBV window sizing the rate buffer.
+//   - vbr: peak-constrained VBR, targeting the bitrate and bursting to the maxrate
+//     ceiling.
+//   - abr: the same peak-constrained VBR with the ceiling at twice the target, which
+//     is what ffmpeg derives for a VAAPI encode given no ceiling, so an unbounded
+//     average means the same thing on both hardware families. AMF codes against a
+//     peak either way, and left unset it keeps the usage preset's own, which is not a
+//     rate the settings ever stated.
+//
+// AMF's remaining rate-control modes stay out: qvbr targets a quality level on a scale
+// of its own, and hqvbr and hqcbr are the pre-analysis variants, which the older VCN
+// generations do not implement. lossless has no AMF form at all (amfGaps).
+//
+// The speed/quality preset is the builder's choice rather than the settings'
+// EncPreset: that field is NVENC's p1-p7 ladder, which has no AMF equivalent, and the
+// form greys it for this family.
+func amfArgs(profiles map[string]string, options func(rates) []string) func(settings.Stream, rates) []string {
+	return func(s settings.Stream, r rates) []string {
+		base := []string{"-c:v", s.Codec}
+		if profile, ok := profiles[s.Chroma]; ok {
+			base = append(base, "-profile", profile)
+		}
+		if options != nil {
+			base = append(base, options(r)...)
+		}
+		preset := amfQualityPreset
+		if s.Mode == "cbr" {
+			preset = amfLivePreset
+		}
+		base = append(base, "-usage", amfUsage, "-quality", preset)
+		switch s.Mode {
+		case "crf":
+			return append(base, "-rc", "cqp", "-qp_i", r.cq, "-qp_p", r.cq)
+		case "abr":
+			return append(base, "-rc", "vbr_peak", "-b:v", r.bitrate,
+				"-maxrate", fmt.Sprintf("%dM", s.BitrateM*amfAbrPeak))
+		case "vbr":
+			return append(base, "-rc", "vbr_peak", "-b:v", r.bitrate, "-maxrate", r.maxrate,
+				"-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
+		default: // cbr
+			return append(base, "-rc", "cbr", "-b:v", r.bitrate, "-maxrate", r.bitrate,
+				"-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
 		}
 	}
 }

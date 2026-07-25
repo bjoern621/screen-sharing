@@ -62,17 +62,23 @@ func ffmpegProbed() []string {
 		"hevc_nvenc", "h264_nvenc", "av1_nvenc",
 		"libvpx", "libvpx-vp9", "libaom-av1", "libsvtav1", "librav1e",
 		"h264_vaapi", "hevc_vaapi", "av1_vaapi", "vp9_vaapi", "vp8_vaapi",
+		"h264_amf", "hevc_amf", "av1_amf",
 	}
 }
 
-// gstProbed lists every implemented codec, unlike the ffmpeg half: each element comes
-// from its own plugin package (x264enc from gst-plugins-ugly, rav1enc from
-// gst-plugins-rs, the va and nvcodec elements from device-conditional plugins), so
-// none of them is safe to assume.
+// gstProbed lists every implemented codec this engine has an encoder for, unlike the
+// ffmpeg half: each element comes from its own plugin package (x264enc from
+// gst-plugins-ugly, rav1enc from gst-plugins-rs, the va and nvcodec elements from
+// device-conditional plugins), so none of them is safe to assume.
+//
+// A codec gapped off this engine altogether is left out rather than probed to false.
+// The gap already states why it is unavailable here, and a probe verdict would
+// replace that with the machine's answer to a question this engine cannot ask: there
+// is no element name to look for.
 func gstProbed() []string {
 	var out []string
 	for _, c := range capabilities.Codecs {
-		if c.Implemented {
+		if _, gap := c.EngineGap(publish.EngineGst); c.Implemented && !gap {
 			out = append(out, c.Name)
 		}
 	}

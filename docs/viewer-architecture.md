@@ -99,7 +99,7 @@ Audio follows the path, not the stream.
 ## Codec, chroma and publish transport
 
 `capabilities.Codecs` is the authoritative table; the rows below are the subset the argument builders map, in the shape the viewer side cares about.
-The remaining families (QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video) are declared with `Implemented: false` and rejected before either builder runs.
+The remaining families (QSV, V4L2 M2M, Rockchip MPP, Vulkan Video) are declared with `Implemented: false` and rejected before either builder runs.
 
 Every transport in this table is the publish leg, the only one an encoder is built for.
 
@@ -120,12 +120,18 @@ Every transport in this table is the publish leg, the only one an encoder is bui
 | `av1_vaapi` | yuv420p, p010le | rtsp | `vaav1enc` |
 | `vp9_vaapi` | yuv420p | rtsp | `vavp9enc` |
 | `vp8_vaapi` | yuv420p | rtsp | `vavp8enc` |
+| `h264_amf` | yuv420p | srt, rtsp, webrtc | none |
+| `hevc_amf` | yuv420p, p010le | srt, rtsp | none |
+| `av1_amf` | yuv420p, p010le | rtsp | none |
 
 The chroma column is the union over the two publish engines.
 A format one engine's encoder will not take carries a `Gap` on the row, so the viewer side sees every chroma a stream may arrive in; which of them a given capture backend can publish is the settings form's question.
 
-The VAAPI rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and `h264_vaapi` at yuv420p is the family's one WHEP-viewable row.
+The VAAPI and AMF rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and `h264_vaapi` and `h264_amf` at yuv420p are those families' WHEP-viewable rows.
 Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` probes each per publish engine, test-encoding on the ffmpeg engine and querying the plugin registry for the GStreamer element, and the settings form greys away what this machine refuses on the selected capture backend.
+
+The AMF rows have no GStreamer element at all, which is the one gap in the table that takes a whole family off an engine: the `amfcodec` plugin builds its device layer on D3D11 and configures for Windows only, so the portal capture backend cannot publish AMD's own encoder path and greys the family with that reason.
+The same silicon is reachable there through the VAAPI rows.
 
 Three constraints in that table decide what the viewer side can do:
 
@@ -140,7 +146,7 @@ Both RTP payload formats are still IETF drafts, and the muxer refuses to write a
 The relay ingests them either way.
 
 Which rate-control modes a row offers is not uniform, and `ModeGaps` on each carries it.
-Lossless is the mode that goes missing: only x264, x265 and NVENC H.264/HEVC code bit-exact, VP9 does so through ffmpeg but not through `vp9enc`, and no AV1, VP8 or VAAPI encoder does at all.
+Lossless is the mode that goes missing: only x264, x265 and NVENC H.264/HEVC code bit-exact, VP9 does so through ffmpeg but not through `vp9enc`, and no AV1, VP8, VAAPI or AMF encoder does at all.
 
 Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every hop already handles.
 

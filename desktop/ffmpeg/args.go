@@ -46,7 +46,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, err
 	}
 
-	enc, err := encoderArgs(s)
+	enc, err := encoderArgs(s, gopFor(s))
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +69,6 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		src.filters = append(src.filters, upload...)
 	}
 
-	gop := s.Gop
-	if gop <= 0 {
-		gop = s.Fps * 2 // auto: a keyframe every two seconds
-	}
-
 	args := []string{"-hide_banner"}
 	args = append(args, device...)
 	args = append(args, src.args...)
@@ -92,7 +87,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	if s.Chroma != "gbrp" {
 		args = append(args, "-color_range", s.ColorRange)
 	}
-	args = append(args, "-g", strconv.Itoa(gop))
+	args = append(args, "-g", strconv.Itoa(gopFor(s)))
 	if len(audioIn) > 0 {
 		args = append(args, audioEncodeArgs()...)
 	}
@@ -104,6 +99,17 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	args = append(args, pub...)
 
 	return args, nil
+}
+
+// gopFor returns the keyframe interval in frames. A settings value of zero is the
+// form's automatic setting, a keyframe every two seconds. The encoder builder reads
+// it as well, since one encoder aligns its parameter-set repeat to the GOP, so both
+// halves of the command have to agree on the interval.
+func gopFor(s settings.Stream) int {
+	if s.Gop > 0 {
+		return s.Gop
+	}
+	return s.Fps * 2
 }
 
 // captureSource is one screen grabber's contribution to the command: the input

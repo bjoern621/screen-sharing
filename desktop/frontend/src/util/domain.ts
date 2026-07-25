@@ -196,7 +196,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     amf: {
         label: "AMD AMF",
         link: AMF_LINK,
-        tip: "AMD Media Framework. AMD GPUs; on Linux, VAAPI is usually the stronger choice for the same cards.",
+        tip: "Advanced Media Framework: AMD's own encoder API, driving the same silicon VAAPI reaches on an AMD card through AMD's closed-source runtime. VAAPI is the wider of the two, adding VP8 and VP9; AMF brings AMD's own rate control, whose peak-constrained VBR gives a burst ceiling a bitrate mode can target. Every AMF encoder is 4:2:0 and none codes lossless. x86_64 only, and the ffmpeg publish engine only.",
     },
     v4l2: {
         label: "V4L2 M2M (ARM SoC)",
@@ -431,10 +431,16 @@ const ENGINE_RULES: EngineRule[] = [
     },
     {
         knob: "bitrateM",
-        families: ["vaapi"],
+        families: ["vaapi", "amf"],
         modes: ["abr"],
         forwards: true,
-        reason: "VAAPI rate control always codes against a maximum, so the driver is given twice this target as its ceiling; the average is what the target holds.",
+        reason: "the fixed-function encoders always code against a rate ceiling, so this target is sent with twice itself as one; the average is what the target holds.",
+    },
+    {
+        knob: "bframes",
+        families: ["amf"],
+        forwards: false,
+        reason: "AMD's HEVC encoder codes no B-frames at all, and its H.264 and AV1 ones are driven with the B-picture pattern switched off, so a live stream pays none of their reorder delay",
     },
 ];
 

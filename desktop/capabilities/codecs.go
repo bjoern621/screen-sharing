@@ -3,13 +3,12 @@ package capabilities
 // Codecs is the capability table. Order is the UI display order: implemented
 // backends first, then the not-yet-implemented hardware families.
 //
-// The software encoders, NVENC and VAAPI are wired into the encoder argument
-// builders. The remaining hardware families (QSV for Intel, AMF for AMD, V4L2 M2M
-// and Rockchip MPP for ARM SoCs, cross-vendor Vulkan Video) are declared with
-// Implemented:false so the two-dropdown picker can show them as a roadmap without
-// offering a codec that would only fail at launch. Their Chromas and Transports
-// are the values that will apply once each is wired up, not a promise that they
-// work today.
+// The software encoders, NVENC, VAAPI and AMF are wired into the encoder argument
+// builders. The remaining hardware families (QSV for Intel, V4L2 M2M and Rockchip
+// MPP for ARM SoCs, cross-vendor Vulkan Video) are declared with Implemented:false
+// so the two-dropdown picker can show them as a roadmap without offering a codec
+// that would only fail at launch. Their Chromas and Transports are the values that
+// will apply once each is wired up, not a promise that they work today.
 //
 // A row's Chromas is the union over the two publish engines, and each format the
 // ffmpeg encoder and the GStreamer element disagree on carries a Gap naming the
@@ -300,11 +299,57 @@ var Codecs = []Codec{
 	{Name: "av1_qsv", Family: "qsv", Format: "av1", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"rtsp"}},
 	{Name: "vp9_qsv", Family: "qsv", Format: "vp9", Chromas: []string{"yuv420p"}, Transports: []string{"rtsp"}},
 
-	// AMF (AMD Media Framework). AMD's own encoder path; Linux support is weaker
-	// than VAAPI on the same cards, so VAAPI is usually the better AMD target.
-	{Name: "h264_amf", Family: "amf", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
-	{Name: "hevc_amf", Family: "amf", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"srt", "rtsp"}},
-	{Name: "av1_amf", Family: "amf", Format: "av1", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"rtsp"}},
+	// AMF (AMD Advanced Media Framework): AMD's own encoder API, driving the same
+	// VCN silicon VAAPI reaches on an AMD card through AMD's closed-source runtime
+	// instead of Mesa. The two are alternatives, not layers, and each has what the
+	// other lacks. VAAPI is the wider of the two here, adding VP8 and VP9, which AMF
+	// has no encoder for; AMF brings AMD's own rate control, whose peak-constrained
+	// VBR gives a burst ceiling a bitrate mode can actually target.
+	//
+	// All three rows are 4:2:0 (the RGB and 4:4:4 input formats the encoders accept
+	// are converted to 4:2:0 before coding), and none codes bit-exact. amfGaps carries
+	// that and the family's absence from the GStreamer engine. AMD ships the runtime
+	// for x86_64 alone, which is the encoder probe's answer rather than a table fact:
+	// where it is missing the encoder refuses to open, exactly as on a machine with no
+	// AMD card.
+	{
+		Name:        "h264_amf",
+		Family:      "amf",
+		Format:      "h264",
+		Implemented: true,
+		// 8-bit only: 10-bit H.264 is the High 10 profile, which no VCN encoder
+		// implements. The AMF quantizer options count on the H.26x 0-51 scale.
+		Chromas:    []string{"yuv420p"},
+		CqMax:      51,
+		Transports: []string{"srt", "rtsp", "webrtc"},
+		Gaps:       amfGaps,
+	},
+	{
+		// Main and Main 10. The builder selects the profile from the chroma
+		// (amfHevcProfiles), since AMF writes a Main profile indication over a 10-bit
+		// bitstream when left to its default.
+		Name:        "hevc_amf",
+		Family:      "amf",
+		Format:      "hevc",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       51,
+		Transports:  []string{"srt", "rtsp"},
+		Gaps:        amfGaps,
+	},
+	{
+		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile,
+		// and the quantizer is AV1's base_q_idx on its 0-255 scale rather than the
+		// H.26x 0-51 one. RTSP alone, as on every AV1 row.
+		Name:        "av1_amf",
+		Family:      "amf",
+		Format:      "av1",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       255,
+		Transports:  []string{"rtsp"},
+		Gaps:        amfGaps,
+	},
 
 	// V4L2 M2M (kernel memory-to-memory encoders: Raspberry Pi, some ARM SoCs).
 	{Name: "h264_v4l2m2m", Family: "v4l2", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
@@ -328,6 +373,29 @@ var vaapiGaps = []Gap{{
 	Mode:   "lossless",
 	Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
 }}
+
+// amfGaps are the gaps every AMF row carries.
+//
+// The engine gap is a platform one rather than a codec one: GStreamer's amfcodec
+// plugin builds its device layer on D3D11 and its meson configuration refuses any
+// other host system, so the engine the portal capture backend runs has no AMF
+// element to name at all. That leaves the ffmpeg engine, whose encoders load AMD's
+// libamfrt64 runtime directly, as the only way to reach the family.
+//
+// Lossless is the mode AMD's encoders have no form of, as on VAAPI: the quantizer
+// options bottom out at a quantized picture, and no AMF property bypasses the
+// transform the way x264's qp 0 or NVENC's lossless tune do. The other four modes
+// map onto AMF's CQP, CBR and peak-constrained VBR rate control.
+var amfGaps = []Gap{
+	{
+		Engine: "gstreamer",
+		Reason: "the GStreamer amfcodec plugin builds for Windows only, so AMD AMF is reachable on the ffmpeg publish engine alone",
+	},
+	{
+		Mode:   "lossless",
+		Reason: "AMF's fixed-function encoders quantize every frame, and no AMF profile codes bit-exact",
+	},
+}
 
 // gstNoPlanarRGB is the planar-RGB gap every RGB-coding row carries on the GStreamer
 // publish engine. No encoder element there takes a GBR sink format: x265enc, vp9enc

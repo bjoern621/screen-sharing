@@ -138,8 +138,13 @@ func (c Codec) EngineGap(engine string) (Gap, bool) {
 }
 
 // EngineChromas returns the pixel formats this codec encodes on the named engine, in
-// table order: Chromas minus the formats gapped there.
+// table order: Chromas minus the formats gapped there. An engine with no encoder for
+// the codec at all encodes none of them, so an engine-wide gap answers with nothing
+// rather than with the formats the other engine reaches.
 func (c Codec) EngineChromas(engine string) []string {
+	if _, gap := c.EngineGap(engine); gap {
+		return nil
+	}
 	out := make([]string, 0, len(c.Chromas))
 	for _, chroma := range c.Chromas {
 		if _, gap := c.ChromaGap(engine, chroma); !gap {

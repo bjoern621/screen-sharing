@@ -27,9 +27,49 @@
         # PKG_CONFIG_PATH is the one the app links against.
         pkgs = import nixpkgs {
           inherit system;
+          # AMF and its encode core library are AMD's closed-source binaries.
+          config.allowUnfreePredicate =
+            pkg:
+            builtins.elem (nixpkgs.lib.getName pkg) [
+              "amf"
+              "amdenc"
+            ];
           overlays = [
             (final: prev: {
               webkitgtk_4_1 = prev.webkitgtk_4_1.override { enableExperimental = true; };
+
+              # AMF talks to the hardware encoder through Vulkan. Releases up to
+              # 1.4.34 request the pre-standard VK_AMD_video_encode_queue and
+              # VK_AMD_video_encode_h265 device extensions, which only AMD's
+              # proprietary Vulkan driver ever exposed. AMD deprecated that driver
+              # in favour of Mesa RADV, and RADV implements the ratified
+              # VK_KHR_video_encode_* set instead, so AMF resolves the AMD entry
+              # points to null and calls one anyway: ffmpeg dies with SIGSEGV
+              # inside AMFDeviceVulkanImpl::CreateDeviceAndFindQueues.
+              #
+              # 1.4.37 drops the VK_AMD_video_encode_* requirement and drives the
+              # encoder through libamdenc64, so the *_amf encoders work against
+              # RADV. It ships in the amdgpu 6.4.4 repository, one release train
+              # ahead of the nixpkgs pin, and needs the matching amdenc from the
+              # same build (2203192).
+              amdenc = prev.amdenc.overrideAttrs (
+                finalAttrs: _: {
+                  version = "25.10-2203192";
+                  src = prev.fetchurl {
+                    url = "https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/liba/libamdenc-amdgpu-pro/libamdenc-amdgpu-pro_${finalAttrs.version}.24.04_amd64.deb";
+                    hash = "sha256-jEvHZxTzN8TzZJuouYaOGw9xaRINA/zEg+56s/13ruw=";
+                  };
+                }
+              );
+              amf = (prev.amf.override { inherit (final) amdenc; }).overrideAttrs (
+                finalAttrs: _: {
+                  version = "1.4.37-2203192";
+                  src = prev.fetchurl {
+                    url = "https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_${finalAttrs.version}.24.04_amd64.deb";
+                    hash = "sha256-pklpKaWLrcClRRaY9jJhFZLbyFXPUY9H5UpmARrgFPU=";
+                  };
+                }
+              );
             })
           ];
         };
@@ -91,6 +131,14 @@
             pkgs.pipewire # pipewiresrc gst plugin
             pkgs.libnice # nice elements: ICE for webrtcbin, i.e. WHEP in the webview
           ];
+        # AMD's hardware encoder, reachable through ffmpeg's h264_amf, hevc_amf
+        # and av1_amf. GStreamer has no Linux AMF path at all: its amfcodec
+        # plugin fails configuration with "amf plugin supports only Windows", so
+        # the gstreamer publish backend stays on the va elements and only the
+        # ffmpeg backend sees these encoders. AMD ships the runtime for x86_64
+        # alone. The encoders remain 4:2:0: yuv420p and p010le, with RGB and
+        # 4:4:4 input converted on the way in.
+        amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
       in
       {
         devShells.default = pkgs.mkShell {
@@ -111,7 +159,7 @@
               nil
               nixfmt
             ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isLinux (linuxDeps ++ linuxCaptureDeps ++ gstDeps);
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux (linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime);
 
           shellHook = ''
             echo "screen-sharing dev shell - run 'task' for available commands"
@@ -126,6 +174,13 @@
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
               pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
             }"
+          ''
+          + pkgs.lib.optionalString (pkgs.stdenv.isLinux && amfRuntime != [ ]) ''
+            # ffmpeg dlopens libamfrt64.so.1 by soname, so the AMF runtime has to
+            # be on the loader path and not merely in the shell closure. The
+            # directory holds nothing but libamfrt64, so it shadows no system
+            # library for the processes that inherit this.
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath amfRuntime}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
 

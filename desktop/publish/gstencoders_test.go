@@ -100,14 +100,31 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 
 // Every codec the capability table declares implemented has to be buildable on the
 // engine that will be asked for it, or the portal capture backend fails at launch on a
-// combination the UI offered.
+// combination the UI offered. A codec the table gaps off this engine is not asked for:
+// Validate refuses it here, and the AMF rows are exactly that case, their plugin being
+// Windows-only.
 func TestEveryImplementedCodecHasAGstMapping(t *testing.T) {
 	for _, c := range capabilities.Codecs {
-		if !c.Implemented {
+		_, gap := c.EngineGap(EngineGst)
+		if !c.Implemented || gap {
 			continue
 		}
 		if _, ok := gstCodecs[c.Name]; !ok {
 			t.Errorf("codec %s is implemented but has no GStreamer encoder mapping", c.Name)
+		}
+	}
+}
+
+// The reverse holds too: a mapping for a codec this engine is told it cannot run is
+// dead code the pipeline never reaches, and the gap's reason would be a lie.
+func TestNoGstMappingForAGappedCodec(t *testing.T) {
+	for name := range gstCodecs {
+		c, ok := capabilities.Get(name)
+		if !ok {
+			continue // TestGstEncodersAgainstGstLaunch reports the missing row
+		}
+		if gap, ok := c.EngineGap(EngineGst); ok {
+			t.Errorf("codec %s has a GStreamer mapping and a gap saying it has none: %s", name, gap.Reason)
 		}
 	}
 }
