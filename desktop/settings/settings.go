@@ -27,7 +27,7 @@ type Stream struct {
 	RtspPort   int    `json:"rtspPort"`   // TCP port of the relay's RTSP listener
 	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP HTTP listener
 	Transport  string `json:"transport"`  // publish leg (publisher to relay): registry key, e.g. "srt"
-	Codec      string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
+	Codec      string `json:"codec"`      // ffmpeg encoder name, a row of capabilities.Codecs
 	Mode       string `json:"mode"`       // rate control: cbr vbr abr crf lossless
 	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
 	ColorRange string `json:"colorRange"` // pc tv (ignored for gbrp, inherently full range)

@@ -99,7 +99,7 @@ Audio follows the path, not the stream.
 ## Codec, chroma and publish transport
 
 `capabilities.Codecs` is the authoritative table; the rows below are the subset the argument builders map, in the shape the viewer side cares about.
-The remaining families (VAAPI, QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video) are declared with `Implemented: false` and rejected before either builder runs.
+The remaining families (QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video) are declared with `Implemented: false` and rejected before either builder runs.
 
 Every transport in this table is the publish leg, the only one an encoder is built for.
 
@@ -107,17 +107,37 @@ Every transport in this table is the publish leg, the only one an encoder is bui
 |---|---|---|---|
 | `h264_nvenc` | yuv444p, yuv420p, p010le | srt, rtsp, webrtc | `nvh264enc` |
 | `hevc_nvenc` | gbrp, yuv444p, yuv420p, p010le | srt, rtsp | `nvh265enc` |
-| `av1_nvenc` | yuv420p, p010le | none | none |
+| `av1_nvenc` | yuv420p, p010le | rtsp | `nvav1enc` |
 | `libx264` | yuv444p, yuv420p, p010le | srt, rtsp, webrtc | `x264enc` |
 | `libx265` | gbrp, yuv444p, yuv420p, p010le | srt, rtsp | `x265enc` |
-| `libvpx-vp9` (profile 1) | gbrp, yuv444p | rtsp | `vp9enc` |
+| `libvpx-vp9` | gbrp, yuv444p, yuv420p, p010le | rtsp | `vp9enc` |
+| `libvpx` (VP8) | yuv420p | rtsp | `vp8enc` |
+| `libaom-av1` | gbrp, yuv444p, yuv420p | rtsp | `av1enc` |
+| `libsvtav1` | yuv420p, p010le | rtsp | `svtav1enc` |
+| `librav1e` | yuv444p, yuv420p, p010le | rtsp | `rav1enc` |
+| `h264_vaapi` | yuv420p | srt, rtsp, webrtc | `vah264enc` |
+| `hevc_vaapi` | yuv420p, p010le | srt, rtsp | `vah265enc` |
+| `av1_vaapi` | yuv420p, p010le | rtsp | `vaav1enc` |
+| `vp9_vaapi` | yuv420p | rtsp | `vavp9enc` |
+| `vp8_vaapi` | yuv420p | rtsp | `vavp8enc` |
+
+The VAAPI rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and `h264_vaapi` at yuv420p is the family's one WHEP-viewable row.
+Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` test-encodes each and the settings form greys away what this machine refuses.
 
 Three constraints in that table decide what the viewer side can do:
 
 - WebRTC carries the H.264 codecs alone, because ffmpeg's WHIP muxer speaks H.264 and Opus.
   It is also the one transport with no `GstSink`, so the portal capture path cannot publish over it.
-- VP9 publishes over RTSP only, and it is the same MPEG-TS gap on the watch leg, which is why the viewer service and the native grid both subscribe over RTSP.
+- The VP8, VP9 and AV1 rows publish over RTSP only, because MPEG-TS has no mapping for any of the three.
+  That is the same gap on the watch leg, which is why the viewer service and the native grid both subscribe over RTSP.
 - A codec with an empty transport list cannot be published at all: `capabilities.Validate` rejects the combination before an encoder is built.
+
+The VP9 and AV1 rows also need `-strict experimental` on the ffmpeg publish leg, which `RTSP.PublishArgs` adds for them.
+Both RTP payload formats are still IETF drafts, and the muxer refuses to write a draft payload without it.
+The relay ingests them either way.
+
+Which rate-control modes a row offers is not uniform, and `ModeGaps` on each carries it.
+Lossless is the mode that goes missing: only x264, x265 and NVENC H.264/HEVC code bit-exact, VP9 does so through ffmpeg but not through `vp9enc`, and no AV1, VP8 or VAAPI encoder does at all.
 
 Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every hop already handles.
 

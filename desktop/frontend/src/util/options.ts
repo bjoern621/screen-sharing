@@ -1,7 +1,7 @@
 import { Monitor, Option } from "../types/stream";
 import {
-    AUDIO_META, CHROMA_META, Capability, FAMILY_META, FORMAT_META, Family,
-    Format, MODE_META, cqMax, metaOptions,
+    AUDIO_META, CHROMA_META, Capability, ENCODER_TIPS, FAMILY_META, FORMAT_META,
+    Family, Format, MODE_META, bitrateLimit, cqMax, metaOptions,
 } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
@@ -37,18 +37,29 @@ export function familyOptions(caps: Capability[] | null): Option[] {
 
 /**
  * The "Video codec" dropdown for a chosen family: one option per codec in that
- * family, labeled by its video format. Empty until the table loads.
+ * family, labeled by its video format. Where a family holds several encoders for
+ * one format, as the software family does for AV1, the label carries the encoder
+ * name too, since the format alone would name them all the same. The tooltip picks
+ * up what that encoder adds over its format (ENCODER_TIPS). Empty until the table
+ * loads.
  */
 export function codecOptions(family: string, caps: Capability[] | null): Option[] {
     if (!caps) {
         return [];
     }
-    return caps
-        .filter(c => c.family === family)
-        .map(c => {
-            const m = FORMAT_META[c.format as Format];
-            return { value: c.name, label: m?.label ?? c.format, tip: m?.tip, link: m?.link };
-        });
+    const inFamily = caps.filter(c => c.family === family);
+    return inFamily.map(c => {
+        const m = FORMAT_META[c.format as Format];
+        const format = m?.label ?? c.format;
+        const shared = inFamily.filter(o => o.format === c.format).length > 1;
+        const detail = ENCODER_TIPS[c.name];
+        return {
+            value: c.name,
+            label: shared ? `${format} (${c.name})` : format,
+            tip: detail ? `${m?.tip ?? format}\n${detail}` : m?.tip,
+            link: m?.link,
+        };
+    });
 }
 
 export const RANGES: Option[] = [
@@ -151,9 +162,10 @@ export const TRANSPORT_META: Record<string, Option> = {
 
 /**
  * Tooltip for the quantizer target. Every encoder has this control under its own
- * name, and the scale follows the codec: libvpx counts to 63 where the H.26x and
- * AV1 encoders stop at 51, so the quality landmarks are placed on the selected
- * codec's own scale rather than quoted from x264's.
+ * name, and the scale follows the encoder: the H.26x ones stop at 51 where libvpx and
+ * the software AV1 ones count to 63, and one taking a raw quantizer index reaches 127
+ * or 255. The quality landmarks are therefore placed on the selected codec's own
+ * scale rather than quoted from x264's.
  */
 export function cqTip(codec: string, caps: Capability[] | null): string {
     const max = cqMax(codec, caps);
@@ -162,6 +174,20 @@ export function cqTip(codec: string, caps: Capability[] | null): string {
         "Constant quantizer the encoder holds in constant-quality mode: x264 and libvpx call it CRF, x265 QP, NVENC CQ. Lower = better quality and more bits.\n" +
         `This codec's scale runs 0-${max}: ${at(12)} ≈ visually lossless, ${at(19)} ≈ excellent, ${at(28)} ≈ visibly compressed.`
     );
+}
+
+/**
+ * Tooltip for the bitrate target, which names the codec's ceiling where it has one.
+ * An encoder that refuses a target above its own limit is worth saying so before the
+ * user types a number the publish would die on.
+ */
+export function bitrateTip(codec: string, caps: Capability[] | null): string {
+    const base =
+        "Target rate for CBR (held constant), VBR and ABR (averaged toward).";
+    const limit = bitrateLimit(codec, caps);
+    return limit > 0
+        ? `${base}\nThis encoder takes at most ${limit} Mbit/s and refuses anything above it.`
+        : base;
 }
 
 /**

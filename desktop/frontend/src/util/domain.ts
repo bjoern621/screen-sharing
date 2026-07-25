@@ -23,6 +23,10 @@ import { capabilities } from "../../wailsjs/go/models";
  * viewer and is not in this table. */
 export type Capability = capabilities.Codec;
 
+/** One rate-control mode a codec's encoder cannot be driven in, with the reason.
+ * An empty `engine` means the gap holds on both publish engines. */
+export type ModeGap = capabilities.ModeGap;
+
 /** Presentation and heuristics for a video coding format, independent of the
  * encoder backend that produces it. Coding efficiency follows the format (H.264
  * vs HEVC vs AV1), not the family (nvenc vs vaapi). */
@@ -86,7 +90,7 @@ export type Engine = "ffmpeg" | "gstreamer";
 /** One rate-control control on the settings form, named after the settings field
  * it edits. */
 export type Knob =
-    "cq" | "bitrateM" | "maxrateM" | "vbvMs" | "bframes" | "encPreset";
+    "cq" | "bitrateM" | "maxrateM" | "vbvMs" | "bframes" | "encPreset" | "gop";
 
 /** Encoder backends. A codec name factors into a family and a format; the
  * backend capability table (capabilities.Codec) carries the factoring. */
@@ -147,7 +151,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     software: {
         label: "Software (CPU)",
         link: "https://en.wikipedia.org/wiki/X264",
-        tip: "CPU encoding: x264 for H.264, x265 for HEVC. Always available, no GPU needed; CPU-heavy at high resolution and frame rate, more so for HEVC.",
+        tip: "CPU encoding, one encoder per format: x264, x265, libvpx for VP8 and VP9, and three AV1 encoders that trade speed against reach. No GPU needed; CPU-heavy at high resolution and frame rate, more so the newer the format.",
     },
     nvenc: {
         label: "NVIDIA NVENC",
@@ -157,7 +161,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     vaapi: {
         label: "VAAPI (Intel / AMD)",
         link: VAAPI_LINK,
-        tip: "Video Acceleration API: the shared Intel + AMD hardware encoder path on Linux. The single most useful backend on a non-NVIDIA desktop.",
+        tip: "Video Acceleration API: the shared Intel and AMD hardware encoder path on Linux, and the GPU option on a non-NVIDIA machine. Which formats a card encodes is the driver's answer and differs per GPU generation; every VAAPI encoder is 4:2:0 and none of them codes lossless.",
     },
     qsv: {
         label: "Intel Quick Sync (QSV)",
@@ -293,18 +297,23 @@ export const MODE_META: Record<Mode, ModeMeta> = {
  *
  * MODE_META says which knobs a rate-control concept needs. Whether the value
  * reaches the encoder also depends on which engine builds the command, because
- * the two express the same five modes through different properties: the
- * GStreamer elements have no NVENC preset ladder, x264enc cannot raise a ceiling
- * above its bitrate, and vp9enc has no unbounded constant-quality mode. Both
- * facts decide whether a field is live, so a knob the engine drops is greyed
- * with the engine's reason instead of looking effective.
+ * the two express the same modes through different properties: the GStreamer
+ * elements have no NVENC preset ladder, x264enc cannot raise a ceiling above its
+ * bitrate, and vpxenc has no unbounded constant-quality mode. Both facts decide
+ * whether a field is live, so a knob the engine drops is greyed with the engine's
+ * reason instead of looking effective.
  *
- * The rules mirror the two builders, `encoderArgs` in ffmpeg/args.go and
- * `gstEncoder` in publish/gstreamer.go. Empty codecs and families match every
- * codec the engine builds; empty modes match every mode.
+ * A knob an encoder library has no form of at all is a rule with no `engine`,
+ * since both builders hit the same wall: SVT-AV1 refuses a rate ceiling outside
+ * constant-quality mode and rav1e has no ceiling or rate buffer whatsoever.
+ *
+ * The rules mirror the two builders, `encoderArgs` in ffmpeg/encoders.go and
+ * `gstEncoder` in publish/gstencoders.go. A missing engine matches both; empty
+ * codecs and families match every codec the engine builds; empty modes match
+ * every mode.
  */
 interface EngineRule {
-    engine: Engine;
+    engine?: Engine;
     knob: Knob;
     /** Codec names the rule covers, unioned with families. */
     codecs?: string[];
@@ -327,13 +336,43 @@ const ENGINE_RULES: EngineRule[] = [
         forwards: false,
         reason: "the portal path's GStreamer encoders expose no p1-p7 preset ladder",
     },
+    // The two AV1 encoders whose libraries have no ceiling or rate buffer at all
+    // come first: their reason names the library, which beats the engine-wide one
+    // below it.
+    {
+        knob: "maxrateM",
+        codecs: ["libsvtav1"],
+        modes: ["vbr"],
+        forwards: false,
+        reason: "SVT-AV1 accepts a rate ceiling in constant-quality mode only and rejects the encode outright in VBR, so constrained VBR runs as uncapped ABR",
+    },
+    {
+        knob: "maxrateM",
+        codecs: ["librav1e"],
+        modes: ["vbr"],
+        forwards: false,
+        reason: "rav1e's one-pass rate control takes a bitrate target and nothing above it, so constrained VBR runs as uncapped ABR",
+    },
+    {
+        knob: "vbvMs",
+        codecs: ["librav1e"],
+        forwards: false,
+        reason: "rav1e sizes no rate buffer, in any mode",
+    },
+    {
+        engine: "gstreamer",
+        knob: "gop",
+        codecs: ["librav1e"],
+        forwards: false,
+        reason: "rav1enc exposes no keyframe-interval property, so the portal path leaves rav1e's own default standing",
+    },
     {
         engine: "gstreamer",
         knob: "maxrateM",
         families: ["software"],
         modes: ["vbr"],
         forwards: false,
-        reason: "x264enc, x265enc and vp9enc cannot hold a ceiling above their bitrate, so the portal path runs constrained VBR as uncapped ABR",
+        reason: "the portal path's software encoder elements take a bitrate target and no ceiling above it, so constrained VBR runs as uncapped ABR",
     },
     {
         engine: "gstreamer",
@@ -345,10 +384,9 @@ const ENGINE_RULES: EngineRule[] = [
     {
         engine: "gstreamer",
         knob: "vbvMs",
-        codecs: ["libvpx-vp9"],
         families: ["nvenc"],
         forwards: false,
-        reason: "vp9enc and the nvcodec elements expose no rate-buffer property",
+        reason: "the nvcodec elements expose no rate-buffer property",
     },
     {
         engine: "ffmpeg",
@@ -361,10 +399,17 @@ const ENGINE_RULES: EngineRule[] = [
     {
         engine: "gstreamer",
         knob: "bitrateM",
-        codecs: ["libvpx-vp9"],
+        codecs: ["libvpx-vp9", "libvpx"],
         modes: ["crf"],
         forwards: true,
-        reason: "vp9enc has no unbounded constant-quality mode, so on the portal path this bitrate is the cap its CQ rate control stays under.",
+        reason: "vpxenc has no unbounded constant-quality mode, so on the portal path this bitrate is the cap its CQ rate control stays under.",
+    },
+    {
+        knob: "bitrateM",
+        families: ["vaapi"],
+        modes: ["abr"],
+        forwards: true,
+        reason: "VAAPI rate control always codes against a maximum, so the driver is given twice this target as its ceiling; the average is what the target holds.",
     },
 ];
 
@@ -372,6 +417,10 @@ const ENGINE_RULES: EngineRule[] = [
  * The engine rule that governs a knob for the given engine, codec and mode, or
  * undefined when the builder treats the knob exactly as the mode table says.
  * Earlier rules win, so a mode-specific reason precedes a codec-wide one.
+ *
+ * A rule naming no engine describes the encoder library rather than a builder, so
+ * it holds while the capture's engine is still unresolved; an engine-specific one
+ * does not apply until the engine is known.
  */
 export function findEngineRule(
     knob: Knob,
@@ -380,12 +429,9 @@ export function findEngineRule(
     mode: Mode,
     caps: Capability[] | null
 ): EngineRule | undefined {
-    if (!engine) {
-        return undefined;
-    }
     const cap = findCapability(caps, codec);
     return ENGINE_RULES.find(r => {
-        if (r.engine !== engine || r.knob !== knob) {
+        if ((r.engine && r.engine !== engine) || r.knob !== knob) {
             return false;
         }
         if (r.modes && !r.modes.includes(mode)) {
@@ -408,6 +454,23 @@ export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?
         link: "https://wiki.archlinux.org/title/PulseAudio#Monitor_sources",
         tip: "Everything the machine plays, captured from the default output's monitor source (PulseAudio/PipeWire) and muxed in as 128 kbit/s stereo Opus.",
     },
+};
+
+/**
+ * What one encoder implementation adds beyond its format, appended to the format's
+ * own tooltip in the codec dropdown. Defined only where the format does not
+ * identify the encoder: three software encoders produce AV1, and they differ in
+ * speed, chroma reach and which rate-control knobs they honor. Everything else in
+ * this file is keyed by family or format for that reason, so this table stays as
+ * small as the collisions it explains.
+ */
+export const ENCODER_TIPS: Record<string, string> = {
+    "libaom-av1":
+        "libaom, the AV1 reference encoder: the only software AV1 here that codes 4:4:4 and RGB, and the slowest of the three even in its realtime mode.",
+    libsvtav1:
+        "SVT-AV1: the fastest realtime AV1, which is what makes the format usable at desktop resolutions. 4:2:0 and 10-bit only.",
+    librav1e:
+        "rav1e: 4:4:4 and 10-bit AV1 between the other two in speed. One bitrate target with no ceiling and no rate buffer, and its quantizer counts to 255.",
 };
 
 /** Builds the SelectField option list for a meta table, preserving key order. */
@@ -436,19 +499,48 @@ export function formatOf(codec: string, caps: Capability[] | null): Format | und
     return findCapability(caps, codec)?.format as Format | undefined;
 }
 
+/**
+ * The gap that keeps a codec out of a rate-control mode on the given engine, or
+ * undefined when the mode reaches its encoder. A gap carrying no engine holds on
+ * both, so it applies while the capture's engine is unresolved; an engine-specific
+ * one waits for the engine, matching how the backend's Validate reads the same
+ * rows.
+ */
+export function modeGapFor(
+    codec: string,
+    engine: Engine | null,
+    mode: Mode,
+    caps: Capability[] | null
+): ModeGap | undefined {
+    return findCapability(caps, codec)?.modeGaps?.find(
+        g => g.mode === mode && (!g.engine || g.engine === engine)
+    );
+}
+
 /** The encoder family of a codec, from the capability table (undefined until it loads). */
 export function familyOf(codec: string, caps: Capability[] | null): Family | undefined {
     return findCapability(caps, codec)?.family as Family | undefined;
 }
 
 /**
- * Scale the codec's constant-quality knob counts on: libvpx VP9 reaches 63, the
- * H.26x and AV1 encoders 51, so the same CQ number is a different quality per
- * codec. Falls back to the 51-point scale while the capability table is
- * unresolved or carries no figure for the codec.
+ * Scale the codec's constant-quality knob counts on. It follows the encoder rather
+ * than the format: the H.26x encoders reach 51, libvpx and the software AV1 ones 63,
+ * and an encoder taking a raw quantizer index counts to 127 or 255. The same CQ
+ * number is therefore a different quality per codec. Falls back to the 51-point
+ * scale while the capability table is unresolved or carries no figure for the codec.
  */
 export function cqMax(codec: string, caps: Capability[] | null): number {
     return findCapability(caps, codec)?.cqMax || 51;
+}
+
+/**
+ * Highest bitrate target the codec's encoder accepts, in Mbit/s, or 0 when it takes
+ * any rate. Only one encoder has a ceiling, and it refuses the encode rather than
+ * clamping, so the field's own maximum comes from here and normalize repairs a value
+ * carried over from a codec without one.
+ */
+export function bitrateLimit(codec: string, caps: Capability[] | null): number {
+    return findCapability(caps, codec)?.bitrateLimitM ?? 0;
 }
 
 /** Human label for a codec, e.g. "HEVC / H.265 (VAAPI (Intel / AMD))". */

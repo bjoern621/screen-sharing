@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -21,8 +22,22 @@ func init() {
 
 func (RTSP) Name() string { return "rtsp" }
 
+// draftRtpFormats are the video formats whose RTP payload format is still an IETF
+// draft. ffmpeg's RTP muxer refuses to write one unless compliance is loosened,
+// failing the publish with "Could not write header" before a frame is sent. The
+// relay ingests both regardless, so the flag is the whole difference between a
+// working AV1 or VP9 publish and none. It is keyed by format rather than codec
+// because the payload format follows the bitstream, not the encoder that made it.
+var draftRtpFormats = map[string]bool{"vp9": true, "av1": true}
+
+// PublishArgs returns the ffmpeg output args for this transport. The RTSP muxer
+// wraps the RTP muxer, so the draft-payload flag applies here as well.
 func (RTSP) PublishArgs(s settings.Stream) []string {
-	return []string{"-f", "rtsp", "-rtsp_transport", "tcp", rtspURL(s, s.Name)}
+	args := []string{"-f", "rtsp", "-rtsp_transport", "tcp"}
+	if c, ok := capabilities.Get(s.Codec); ok && draftRtpFormats[c.Format] {
+		args = append(args, "-strict", "experimental")
+	}
+	return append(args, rtspURL(s, s.Name))
 }
 
 // GstSink returns the sink terminating a GStreamer pipeline for this transport.

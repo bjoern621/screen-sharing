@@ -24,7 +24,7 @@ A note is not a third treatment of inapplicability: it exists so a knob that a b
 A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live only when all three agree.
 
 - The **mode's concept** uses the knob: `MODE_META` in `util/domain.ts` says which controls each rate-control mode needs.
-- The **codec's encoder** has the knob: the B-frame count and the p1-p7 ladder exist on NVENC only.
+- The **codec's encoder** takes the knob: the B-frame count and the p1-p7 ladder reach an encoder on NVENC alone, so both fields grey for every other family whatever its hardware could do with them.
 - The capture backend's **engine** forwards the value: `ENGINE_RULES` records where a builder drops a knob the mode uses, so the preset ladder greys on the portal path whose GStreamer elements have no equivalent.
 
 When two of them block the same field, the reason names the one the user can act on.

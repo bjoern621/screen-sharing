@@ -16,14 +16,14 @@ The disable rules and the repair rules in the frontend were previously two hand-
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the NVENC flag, the pixel formats it may encode, the transports that can publish it, and the scale its constant-quality knob counts on.
+- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, the transports that can publish it, the rate-control modes its encoder has no form of, and the scale its constant-quality knob counts on.
 
 The transport column is the publish leg, publisher to relay.
 Which protocol a viewer receives over is a separate choice per viewer and is not in any table here (`viewer-architecture.md`, "Two legs, two protocols").
 
 The encoder reads this table directly.
-`ffmpeg/args.go` branches on `capabilities.IsNvenc`, and `capabilities.Validate` rejects a codec/chroma/transport/quantizer combination the table forbids.
-Both publish engines call that validator, so neither path accepts what the other rejects.
+`ffmpeg/args.go` branches on `capabilities.IsNvenc` and `IsVaapi`, and `capabilities.Validate` rejects a codec/chroma/transport/mode/quantizer combination the table forbids.
+Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a mode gap that belongs to one engine binds only there.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
 
 Which media engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.

@@ -1,8 +1,8 @@
 import { Deps, EncoderInfo, PlatformInfo, Stream } from "../types/stream";
 import {
     Capability, CHROMA_META, Chroma, Engine, FALLBACK_CODEC, FAMILY_META, Family,
-    Knob, MODE_META, Mode, codecLabel, cqMax, findCapability, findEngineRule,
-    isNvenc,
+    Knob, MODE_META, Mode, bitrateLimit, codecLabel, cqMax, findCapability,
+    findEngineRule, isNvenc, modeGapFor,
 } from "./domain";
 
 /**
@@ -39,6 +39,14 @@ export const UNKNOWN_ENV: Environment = {
 // drops to yuv420p. It lists every chroma, so the walk always finds one.
 const CHROMA_FALLBACK_ORDER: Chroma[] = [
     "yuv444p", "yuv420p", "p010le", "gbrp",
+];
+
+// Fallback rate-control preference, quality first. normalize walks this order when
+// the repaired codec has no form of the selected mode, so a stream on lossless
+// x264 that switches to an AV1 encoder lands on constant quality rather than a
+// bitrate target. It lists every mode, so the walk always finds one.
+const MODE_FALLBACK_ORDER: Mode[] = [
+    "crf", "vbr", "abr", "cbr", "lossless",
 ];
 
 /**
@@ -78,17 +86,50 @@ function unavailableCaptures(
  * Codecs whose test encode failed on this machine, each mapped to the reason.
  * A null encoder set (probe not yet resolved) imposes no restriction, and codecs
  * the backend never probes (libx264) never appear here.
+ *
+ * A failed probe means two different things, so the reason follows the family: a
+ * hardware codec needs a card the machine may not have, while a software one needs
+ * its library compiled into the ffmpeg build. Naming the wrong one sends the user
+ * looking for the wrong fix.
  */
 function unavailableCodecs(
-    encoders: EncoderInfo | null
+    encoders: EncoderInfo | null,
+    caps: Capability[] | null
 ): Record<string, string> {
     if (!encoders) {
         return {};
     }
     const out: Record<string, string> = {};
     for (const [codec, ok] of Object.entries(encoders.usable)) {
-        if (!ok) {
-            out[codec] = "no NVIDIA encoder detected on this machine";
+        if (ok) {
+            continue;
+        }
+        const family = findCapability(caps, codec)?.family;
+        const label = FAMILY_META[family as Family]?.label;
+        out[codec] =
+            family === "software"
+                ? `this ffmpeg build has no ${codec} encoder compiled in`
+                : `no ${label ?? "matching"} encoder detected on this machine`;
+    }
+    return out;
+}
+
+/**
+ * Rate-control modes the selected codec cannot be driven in, each mapped to the
+ * reason. The gaps come from the capability table, which keys them by publish
+ * engine where only one builder reaches the mode: libvpx codes lossless VP9 and
+ * the portal path's vp9enc has no such property.
+ */
+function unavailableModes(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const mode of Object.keys(MODE_META) as Mode[]) {
+        const gap = modeGapFor(codec, engine, mode, caps);
+        if (gap) {
+            out[mode] = gap.reason;
         }
     }
     return out;
@@ -263,7 +304,7 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
             family: {},
             codec: {},
             chroma: unavailableChromas(s.codec, engine, caps),
-            mode: {},
+            mode: unavailableModes(s.codec, engine, caps),
             transport: {},
             capture: unavailableCaptures(platform),
             audio: unavailableAudio(platform),
@@ -296,10 +337,11 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
         // Encoder families (the first dropdown) with no selectable codec here.
         d.optionDisabled.family = unavailableFamilies(caps, encoders);
     }
-    // Hardware availability wins over the transport reason: "no NVIDIA encoder"
-    // is the actionable message when the codec cannot run here at all. Probed
-    // codecs are all implemented, so this never overwrites the roadmap reason.
-    Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders));
+    // A failed probe wins over the transport reason: "no NVIDIA encoder" and "not
+    // compiled into this ffmpeg" are the actionable messages when the codec cannot
+    // run here at all. Probed codecs are all implemented, so this never overwrites
+    // the roadmap reason.
+    Object.assign(d.optionDisabled.codec, unavailableCodecs(encoders, caps));
 
     // A rate-control control is live when three facts agree: the mode's concept
     // uses the knob, the codec's encoder has it, and the capture backend's engine
@@ -340,6 +382,9 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
         nvenc
             ? `CBR pins the preset to ${mode?.pinnedPreset ?? "p5"}`
             : "the p1-p7 ladder is NVENC-specific");
+    // The keyframe interval is not a rate-control concept, so no mode withholds it;
+    // only an encoder element that has no property for it does.
+    knob("gop", true, "");
 
     if (chroma?.fullRange) {
         d.disabled.colorRange =
@@ -409,9 +454,20 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     // Chroma: must be a format the chosen codec encodes and the capture
     // backend's engine accepts, so switching to the portal path moves gbrp to the
     // 4:4:4 its encoders negotiate rather than to a silent conversion.
-    const blocked = unavailableChromas(next.codec, engineOf(next.capture, env), caps);
+    const engine = engineOf(next.capture, env);
+    const blocked = unavailableChromas(next.codec, engine, caps);
     if (blocked[next.chroma]) {
         next.chroma = CHROMA_FALLBACK_ORDER.find(c => !blocked[c]) ?? next.chroma;
+    }
+
+    // Rate control: the chosen codec's encoder must have the mode on the engine
+    // that will build the command, so moving a lossless stream onto an AV1 encoder,
+    // or a lossless VP9 one onto the portal path, settles on a mode that exists
+    // instead of failing at launch.
+    const blockedModes = unavailableModes(next.codec, engine, caps);
+    if (blockedModes[next.mode]) {
+        next.mode =
+            MODE_FALLBACK_ORDER.find(m => !blockedModes[m]) ?? next.mode;
     }
 
     // Quantizer target: the constant-quality scales differ per encoder, so a
@@ -421,6 +477,15 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     // fallback scale at startup.
     if (caps) {
         next.cq = Math.min(Math.max(next.cq, 0), cqMax(next.codec, caps));
+        // Bitrate target: one encoder rejects a target above its ceiling instead of
+        // clamping, and the defaults sit above that ceiling, so the value follows the
+        // codec down. The burst ceiling rides along, since a maxrate below the target
+        // would leave constrained VBR no room.
+        const limit = bitrateLimit(next.codec, caps);
+        if (limit > 0 && next.bitrateM > limit) {
+            next.bitrateM = limit;
+            next.maxrateM = Math.max(next.maxrateM, limit);
+        }
     }
 
     // Audio: settings and presets from before the option lack the key, and

@@ -24,7 +24,7 @@ const opusBitrate = 128000
 // where a run passes real values. meterFd is the descriptor the progress
 // instrumentation writes to, empty to build the pipeline without it.
 func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error) {
-	if err := capabilities.Validate(s.Codec, s.Chroma, s.Transport, s.Mode, s.Cq); err != nil {
+	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Transport, s.Mode, s.Cq, s.BitrateM); err != nil {
 		return nil, err
 	}
 
@@ -40,11 +40,11 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 	if gop <= 0 {
 		gop = s.Fps * 2
 	}
-	format, err := gstChromaFormat(s.Chroma)
+	format, err := gstChromaFormat(s.Codec, s.Chroma)
 	if err != nil {
 		return nil, err
 	}
-	encoder, parser, err := gstEncoder(s, gop)
+	encoder, link, err := gstEncoder(s, gop)
 	if err != nil {
 		return nil, err
 	}
@@ -52,13 +52,17 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-	assert.Assert(len(encoder) > 0 && len(parser) > 0, "a mapped codec yields an encoder and a parser", s.Codec)
+	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Codec)
 
 	pipeline := gstCapture(s, fd, node, format)
 	pipeline = append(pipeline, encoder...)
 	pipeline = append(pipeline, "!")
-	pipeline = append(pipeline, parser...)
-	pipeline = append(pipeline, "!")
+	// Most codecs put a parser or a capsfilter between encoder and sink; a codec
+	// whose element leaves nothing for one to do links straight to the sink.
+	if len(link) > 0 {
+		pipeline = append(pipeline, link...)
+		pipeline = append(pipeline, "!")
+	}
 	if meterFd != "" {
 		pipeline = append(pipeline, gstProgressElements(meterFd)...)
 	}
@@ -160,10 +164,26 @@ var gstChromaFormats = map[string]string{
 	"p010le":  "I420_10LE",
 }
 
-func gstChromaFormat(chroma string) (string, error) {
-	format, ok := gstChromaFormats[chroma]
+// gstVaChromaFormats is the same mapping for the va plugin's encoders, which take
+// the semi-planar layouts the VAAPI drivers store surfaces in and negotiate no
+// planar format at all. It is the GStreamer counterpart of vaapiFormats in the
+// ffmpeg builder, and the reason capabilities.Codecs declares no other chroma for
+// the family.
+var gstVaChromaFormats = map[string]string{
+	"yuv420p": "NV12",
+	"p010le":  "P010_10LE",
+}
+
+// gstChromaFormat returns the raw format the capture chain pins ahead of the codec's
+// encoder element.
+func gstChromaFormat(codec, chroma string) (string, error) {
+	formats := gstChromaFormats
+	if capabilities.IsVaapi(codec) {
+		formats = gstVaChromaFormats
+	}
+	format, ok := formats[chroma]
 	if !ok {
-		return "", fmt.Errorf("chroma %q has no GStreamer format mapping", chroma)
+		return "", fmt.Errorf("chroma %q has no GStreamer format mapping for codec %s", chroma, codec)
 	}
 	return format, nil
 }

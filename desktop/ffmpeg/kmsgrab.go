@@ -66,17 +66,18 @@ func autoDrmMap(device string) string {
 //
 // kmsgrab reads scanout buffers below the compositor and needs CAP_SYS_ADMIN
 // (run through the capability wrapper, see FindCaptureExe, or via sudo).
-func kmsgrabCaptureArgs(s settings.Stream, fps string) []string {
+func kmsgrabCaptureArgs(s settings.Stream, fps string) captureSource {
 	device := drmCaptureDevice()
 
-	download := "hwdownload,format=bgr0"
+	var filters []string
 	if dev := resolveDrmMap(s.DrmMap, device); dev != "" {
-		download = "hwmap=derive_device=" + dev + "," + download
+		filters = append(filters, "hwmap=derive_device="+dev)
 	}
+	filters = append(filters, "hwdownload", "format=bgr0")
 
-	return []string{
-		"-device", device, "-f", "kmsgrab", "-framerate", fps, "-i", "-",
-		"-vf", download,
+	return captureSource{
+		args:    []string{"-device", device, "-f", "kmsgrab", "-framerate", fps, "-i", "-"},
+		filters: filters,
 	}
 }
 

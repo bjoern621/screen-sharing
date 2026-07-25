@@ -17,15 +17,16 @@ import {
 } from "../../types/stream";
 import {
     AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
-    RANGES, TRANSPORT_META, clampFps, codecOptions, cqTip, familyOptions,
-    fpsDisabled, fpsOptions, monitorOptions, withNote,
+    RANGES, TRANSPORT_META, bitrateTip, clampFps, codecOptions, cqTip,
+    familyOptions, fpsDisabled, fpsOptions, monitorOptions, withNote,
 } from "../../util/options";
-import { Capability, cqMax, familyOf } from "../../util/domain";
+import { Capability, bitrateLimit, cqMax, familyOf } from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
 import SelectField from "../fields/SelectField";
 import NumberField from "../fields/NumberField";
+import NumberSelectField from "../fields/NumberSelectField";
 import TextField from "../fields/TextField";
 import UplinkField from "../fields/UplinkField";
 
@@ -248,13 +249,14 @@ export default function StreamSettingsCard({
                             onUpdate({ monitor: index, fps: clampFps(s.fps, hz) });
                         }}
                     />
-                    <SelectField
+                    <NumberSelectField
                         label="Frame rate (fps)"
-                        labelTip="Capture and encode frame rate. Higher = smoother motion, proportionally more encode load and bandwidth. Rates above the monitor's refresh rate only duplicate frames."
-                        value={String(s.fps)}
+                        labelTip="Capture and encode frame rate, picked from the presets or typed. Higher = smoother motion, proportionally more encode load and bandwidth. Rates above the monitor's refresh rate only duplicate frames."
+                        value={s.fps}
+                        min={1}
                         options={fpsOptions(s.fps)}
                         optionDisabled={fpsDisabled(s.fps, selectedMonitor?.refreshHz ?? 0)}
-                        onChange={v => onUpdate({ fps: parseInt(v, 10) || 0 })}
+                        onChange={fps => onUpdate({ fps })}
                     />
                     <SelectField
                         label="Audio"
@@ -272,7 +274,7 @@ export default function StreamSettingsCard({
                 >
                     <SelectField
                         label="Encoder"
-                        labelTip="Encoder backend. Software x264 and NVIDIA NVENC are wired up; the other hardware families (VAAPI, QSV, AMF, V4L2, Rockchip MPP, Vulkan) are on the roadmap and shown greyed until implemented."
+                        labelTip="Encoder backend. The software encoders (x264, x265, libvpx, three AV1) and NVIDIA NVENC are wired up; a family still on the roadmap is shown greyed with the reason."
                         value={family}
                         options={familyOptions(caps)}
                         optionDisabled={deps.optionDisabled.family}
@@ -330,6 +332,7 @@ export default function StreamSettingsCard({
                     <NumberField
                         label="Quantizer target (CQ)"
                         labelTip={withNote(cqTip(s.codec, caps), deps.note.cq)}
+                        labelLink="https://en.wikipedia.org/wiki/Quantization_(image_processing)"
                         value={s.cq}
                         min={0}
                         max={cqMax(s.codec, caps)}
@@ -339,10 +342,12 @@ export default function StreamSettingsCard({
                     <NumberField
                         label="Bitrate target (Mbit/s)"
                         labelTip={withNote(
-                            "Target rate for CBR (held constant), VBR and ABR (averaged toward).",
+                            bitrateTip(s.codec, caps),
                             deps.note.bitrateM
                         )}
                         value={s.bitrateM}
+                        min={0}
+                        max={bitrateLimit(s.codec, caps) || undefined}
                         disabledReason={deps.disabled.bitrateM}
                         onChange={v => onUpdate({ bitrateM: v })}
                     />
@@ -372,6 +377,7 @@ export default function StreamSettingsCard({
                         labelTip={"Group of Pictures: frames between keyframes.\n0 selects auto (2×fps); any positive value is the exact keyframe interval, so 1 makes every frame a keyframe.\nNew viewers wait up to GOP/fps seconds to join; loss corrupts until the next keyframe.\nLong GOP = less bandwidth, slower joins."}
                         labelLink="https://en.wikipedia.org/wiki/Group_of_pictures"
                         value={s.gop}
+                        disabledReason={deps.disabled.gop}
                         onChange={v => onUpdate({ gop: v })}
                     />
                     <NumberField

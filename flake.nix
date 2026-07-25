@@ -77,12 +77,15 @@
           [
             gstreamer # gst-launch-1.0
             gst-plugins-base # videoconvert
-            gst-plugins-good # pulsesrc (desktop audio), vpx (vp9enc), rtspsrc, progressreport
-            gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse, nvcodec, opusenc
+            gst-plugins-good # pulsesrc (desktop audio), vpx (vp8enc/vp9enc), rtspsrc, progressreport
+            gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse/av1parse, nvcodec, va (vah264enc and the other VAAPI encoders), aom (av1enc), svtav1enc, opusenc
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
             gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB)
-            gst-plugins-rs # gtk4paintablesink (native grid video sink)
+            # gtk4paintablesink (native grid video sink), rav1enc, and rtpav1pay:
+            # rtspclientsink needs the latter to payload AV1, and no other plugin
+            # here carries an AV1 payloader.
+            gst-plugins-rs
           ]
           ++ [
             pkgs.pipewire # pipewiresrc gst plugin
@@ -97,7 +100,10 @@
               go
               nodejs_22
               wails
-              ffmpeg-full # includes x11grab/kmsgrab + ffplay
+              # ffmpeg-full for x11grab/kmsgrab, ffplay, and the software encoder
+              # libraries: libvpx, libaom, SVT-AV1 and rav1e are all optional build
+              # inputs, and encoders.Detect greys whichever the build lacks.
+              ffmpeg-full
               mpv # single-stream viewer, selected by SCREENSHARE_VIEWER below
               mediamtx # the relay, run natively: `mediamtx mediamtx.yml`
               go-task # task runner, see Taskfile.yml
