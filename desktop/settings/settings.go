@@ -26,7 +26,7 @@ type Stream struct {
 	ApiPort    int    `json:"apiPort"`    // TCP port of the relay's HTTP API
 	RtspPort   int    `json:"rtspPort"`   // TCP port of the relay's RTSP listener
 	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP HTTP listener
-	Transport  string `json:"transport"`  // registry key, e.g. "srt"
+	Transport  string `json:"transport"`  // publish leg (publisher to relay): registry key, e.g. "srt"
 	Codec      string `json:"codec"`      // hevc_nvenc h264_nvenc av1_nvenc libx264
 	Mode       string `json:"mode"`       // rate control: cbr vbr abr crf lossless
 	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
@@ -49,9 +49,10 @@ type Stream struct {
 	SrtPublishLatencyMs int `json:"srtPublishLatencyMs"`
 	SrtWatchLatencyMs   int `json:"srtWatchLatencyMs"`
 	UplinkMbps          int `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
-	// WatchTransport is the transport a Watch click receives over, independent
-	// of the publish transport: the relay re-serves every stream on all its
-	// listeners.
+	// WatchTransport is the watch leg (relay to viewer): the transport a Watch
+	// click receives over. Independent of Transport, the publish leg, since the
+	// relay re-serves every stream on all its listeners, so the two legs of one
+	// stream can run different protocols.
 	WatchTransport string `json:"watchTransport"`
 }
 

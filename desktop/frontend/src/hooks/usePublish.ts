@@ -21,6 +21,15 @@ export function usePublish(s: Stream | null) {
     const [peak, setPeak] = useState(0);
     const history = useRef<{ t: number; mbps: number }[]>([]);
 
+    /** Drops the figures so a stopped session shows dashes instead of the last
+     * values it happened to report. */
+    const resetInsights = useCallback(() => {
+        history.current = [];
+        setStats(null);
+        setAvg5(0);
+        setPeak(0);
+    }, []);
+
     useEffect(() => {
         void (async () => setPublishing(await Publishing()))();
 
@@ -43,6 +52,7 @@ export function usePublish(s: Stream | null) {
 
         const offExit = EventsOn("publish:exit", (e: PublishExit) => {
             setPublishing(false);
+            resetInsights();
             setLogPath(e.logPath ?? "");
             if (e.message) {
                 setError("publisher exited: " + e.message);
@@ -53,7 +63,7 @@ export function usePublish(s: Stream | null) {
             offStats();
             offExit();
         };
-    }, []);
+    }, [resetInsights]);
 
     const toggle = useCallback(async () => {
         setError("");
@@ -62,14 +72,16 @@ export function usePublish(s: Stream | null) {
             if (publishing) {
                 await StopPublish();
                 setPublishing(false);
+                resetInsights();
             } else if (s) {
+                resetInsights();
                 await StartPublish(s);
                 setPublishing(true);
             }
         } catch (e) {
             setError("error: " + e);
         }
-    }, [publishing, s]);
+    }, [publishing, s, resetInsights]);
 
     return { publishing, error, logPath, stats, avg5, peak, toggle };
 }

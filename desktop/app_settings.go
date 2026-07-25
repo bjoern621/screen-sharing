@@ -41,7 +41,8 @@ func (a *App) DeletePreset(name string) error {
 	return settings.DeletePreset(name)
 }
 
-// Transports lists the registered transports for the UI dropdown.
+// Transports lists the registered transports for the publish dropdown, the
+// publisher-to-relay leg. WatchTransports answers the other leg.
 func (a *App) Transports() []string {
 	return transport.Names()
 }
@@ -54,8 +55,8 @@ func (a *App) WatchTransports() []string {
 	return transport.WatchNames()
 }
 
-// CaptureTransports maps each capture backend to the transports its engine can
-// carry. The UI disables a transport the selected capture cannot publish and
+// CaptureTransports maps each capture backend to the publish transports its
+// engine can carry. The UI disables a transport the selected capture cannot publish and
 // repairs a stranded selection from it, so the portal (GStreamer) path never
 // offers WebRTC, which has no GStreamer sink.
 func (a *App) CaptureTransports() map[string][]string {

@@ -56,10 +56,11 @@ The `Store` seam separates what is remembered from where it is kept, so a test d
 
 ## The decode seam
 
-- `internal/roster` parses the roster JSON, both the `-config` argument and each stdin push: one entry per live stream, display name, transport name, and the transport's gst-launch source fragment.
+- `internal/roster` parses the roster JSON, both the `-config` argument and each stdin push: one entry per live stream, the name of the watch leg it arrives over, and that transport's gst-launch source fragment.
   The producing half is `watch.BuildGridConfig` (`desktop/watch/grid.go`); the fragment comes from the transport registry (`transport.GstWatcher`), so this binary holds no transport knowledge.
-  The transport name is a label for the stats overlay, nothing this side acts on.
-- The GStreamer backend completes that fragment with `decodebin ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, decoding through gst-libav, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
+  The transport name is a label for the stats overlay, nothing this side acts on, and it is always the relay-to-viewer leg: how the stream was published is not visible here.
+- The GStreamer backend completes that fragment with `decodebin ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
+  `decodebin` autoplugs by rank: a hardware decoder takes the stream where its sink caps advertise the profile, and a software one (gst-libav for H.264 and HEVC, libvpx for VP9) takes the rest, which is what covers the 4:4:4 and high-bit-depth combinations no hardware element lists.
   When decodebin exposes an audio pad, the pipeline grows an audio branch (`queue ! audioconvert ! audioresample ! volume ! autoaudiosink`) while it plays; a video-only stream carries no idle audio elements.
   The `RGBA/sRGB` capsfilter is not optional: without it GTK color-manages the raw YUV itself and washes out dark screen content.
 - `Stats` reads the running pipeline rather than remembering it: caps off the decoder's input, off the decoded frames entering `videoconvert` and off the sink, the sink's own rendered/dropped counters, a latency and a position query, and byte counters a pad probe on each decoder's input fills.
@@ -78,7 +79,7 @@ One drag controller serves both views, so a drag started on a row moves the tile
 ## Stats overlay
 
 The overlay is a table of rows (`internal/ui/stats`), which both the card's widgets and every refresh walk, so a row is described once: its key, whether it disappears while its figure is missing, and how it reads the poll.
-It is blocked by where a figure comes from: the `stream` it plays (transport, source fragment, uptime, running time, latency window), the `video` on the wire (picture size and rate, codec description with profile and level, measured bitrate, keyframe spacing, pixel format with its subsampling and bit depth, colorimetry, pixel aspect and scan mode), what this side does with it under `decode` (the decoder decodebin picked and whether it decodes on the GPU, the format the sink takes, measured fps, rendered and dropped frames), and `audio` when the stream carries it.
+It is blocked by where a figure comes from: the `stream` it plays (the watch leg it receives over, source fragment, uptime, running time, latency window), the `video` on the wire (picture size and rate, codec description with profile and level, measured bitrate, keyframe spacing, pixel format with its subsampling and bit depth, colorimetry, pixel aspect and scan mode), what this side does with it under `decode` (the decoder decodebin picked and whether it decodes on the GPU, the format the sink takes, measured fps, rendered and dropped frames), and `audio` when the stream carries it.
 Codec names come from `pbutils`, subsampling and bit depth from GStreamer's raw-format table, so neither is a table in this binary.
 
 A block per transport element follows, keyed by the element's pipeline name, from the `stats` structure elements like `srtsrc` and `rtpjitterbuffer` keep: packet, loss and retransmission counters, and an SRT link's rate and round-trip time.

@@ -1,7 +1,12 @@
 // Package capabilities is the single source of truth for the fixed facts about
 // each video codec: whether it runs on NVENC, which pixel formats it may encode,
-// which transports can carry it, and the scale its constant-quality knob counts
-// on.
+// which transports can carry it on the publish leg, and the scale its
+// constant-quality knob counts on.
+//
+// Every transport fact here is publish-side (publisher to relay). What a viewer
+// can receive the stream over is a separate question, answered by the watch-side
+// helpers in the transport package, since the relay re-serves each ingested
+// stream on all its listeners.
 //
 // These facts are consumed on both sides of the wire. The ffmpeg argument builder
 // reads them to branch and to reject an impossible combination, and the frontend
@@ -41,14 +46,15 @@ type Codec struct {
 	// to 63, the H.26x and AV1 encoders to 51. Zero means the scale is unknown,
 	// which is the case for every family the argument builders do not map yet.
 	CqMax int `json:"cqMax"`
-	// Transports lists the transport registry keys that can carry this codec.
-	// Empty means no registered transport carries it (e.g. AV1 over MPEG-TS).
+	// Transports lists the transport registry keys that can carry this codec on
+	// the publish leg. Empty means no registered transport publishes it (e.g. AV1
+	// over MPEG-TS). It is not the list a viewer may receive over.
 	Transports []string `json:"transports"`
 }
 
 // Validate rejects a codec/chroma/transport/quantizer combination this table
 // forbids, so a settings object that no frontend normalized cannot reach an
-// encoder. Both publish engines call it, the ffmpeg argument builder and the
+// encoder. transportName is the publish leg, the only one an encoder sees. Both publish engines call it, the ffmpeg argument builder and the
 // GStreamer pipeline builder, so neither path can accept what the other rejects.
 // The values are taken apart rather than passed as a settings struct to keep this
 // package free of dependencies.
@@ -100,7 +106,7 @@ func SupportsChroma(name, chroma string) bool {
 	return contains(c.Chromas, chroma)
 }
 
-// CarriedBy reports whether transport can carry codec name.
+// CarriedBy reports whether transport can carry codec name on the publish leg.
 func CarriedBy(name, transport string) bool {
 	c, ok := Get(name)
 	if !ok {

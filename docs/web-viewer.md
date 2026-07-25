@@ -4,7 +4,7 @@ Goal: watch a published stream in a stock browser, including the lossless RGB 4:
 
 ## Why WHEP cannot carry it
 
-Browsers play H.264, VP9 and AV1 in 4:2:0 through the existing WebRTC transport, and that path stays.
+Browsers play H.264, VP9 and AV1 in 4:2:0 over a WebRTC watch leg, and that path stays.
 WebRTC profile negotiation stops at 4:2:0: VP9 profile 1 and AV1 High are not negotiable, and HEVC decoding is hardware-only, which excludes range extensions.
 A `hevc_nvenc` `gbrp` stream therefore has no WHEP playback form, patched browser or not.
 

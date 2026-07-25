@@ -7,7 +7,7 @@ The architecture hides that difference behind one contract on the frontend, so a
 Four ways to watch exist, in order of reach:
 
 - The web grid (`StreamGridPage`): a tile grid inside the app window where each tile decodes through a `StreamSink`.
-- The native grid (`nativegrid`): a GTK4 tile window decoding through GStreamer, with libavcodec's breadth instead of the webview's.
+- The native grid (`nativegrid`): a GTK4 tile window decoding through GStreamer, with the installed decoder set's breadth instead of the webview's.
 - A single-stream native viewer (ffplay or mpv): one window per stream, the same decoder breadth as the native grid.
 - A standalone browser page served by the viewer service: the same WebCodecs path as the web grid, for a plain browser on the LAN.
 
@@ -18,13 +18,26 @@ The capture and publish side is the mirror of this seam; see `capture-architectu
 The web grid and the native grid are parallel viewers, not a migration from one to the other.
 Each buys something the other cannot: the web grid ships inside the app window and needs no second binary, and the native grid decodes through GStreamer, so it carries the formats and chroma the webview refuses.
 
-The native grid is the further-developed of the two and the reference for viewer behaviour: its decode reach is the whole ffmpeg build, so a stream that must display correctly belongs there, and new viewer features are designed against it first.
+The native grid is the further-developed of the two and the reference for viewer behaviour: its decode reach is every GStreamer decoder on the plugin path, so a stream that must display correctly belongs there, and new viewer features are designed against it first.
 The web grid is the fallback that works with nothing installed beyond the app, which is also why the same decode path serves the standalone LAN page.
 Both keep their own view state, so the two can be open on different stream sets at once.
+
+## Two legs, two protocols
+
+A stream crosses the relay in two independent legs: the publish leg from the publisher to the relay, and the watch leg from the relay to one viewer.
+Each names its own protocol, because MediaMTX re-serves every ingested stream on all its listeners.
+A stream published over SRT is watched over RTSP by one viewer and over WHEP by another, at the same time.
+
+The publish leg is one setting per app instance (`settings.Stream.Transport`, the "Publish transport protocol" field).
+The watch leg is chosen per viewer: the single-stream viewer takes it from the "watch over" dropdown (`settings.Stream.WatchTransport`), the native grid is launched with it (`NATIVE_GRID_TRANSPORT`, RTSP), and a web grid tile has it fixed by the decode path its sink uses.
+Anything the viewer side reports, a tile badge or a stats overlay row, is the watch leg; the publish leg is not observable from there.
+
+This is also why the two SRT latency windows are separate fields: each leg is its own SRT link with its own retransmit window, and glass-to-glass delay is their sum.
 
 ## Where the bytes go
 
 The three paths differ in how many hops separate the relay from the decoder, and in which of those hops cross the network.
+Every hop below is on the watch leg.
 Ports are the defaults from `mediamtx.yml` and `settings.Defaults`.
 
 Double rules cross the network; single rules stay inside one machine.
@@ -60,12 +73,14 @@ Two tiles showing the same stream open two RTSP subscriptions against the relay.
 The standalone page is the same service reached from elsewhere, which moves the second hop onto the network: the RTSP leg still terminates on the app's machine, and that app instance acts as the gateway for every LAN browser watching through it.
 
 The native viewer is one hop and needs no app process at all.
-It is the only path that receives the transport the stream was published over, and the only one that can use SRT.
+It is the only path whose watch leg can be made to match the publish one, and the only one that can use SRT.
 The native grid shares that shape: each watched tile's pipeline subscribes to the relay directly, over the transport the app chose at launch.
 
 ## What each path decodes
 
-| Published stream | Web grid | Native grid, ffplay, mpv | Notes |
+The published stream is the row; the two viewer columns give the watch leg each side receives it over, whatever protocol published it.
+
+| Published stream | Web grid, watch leg | Native grid, ffplay, mpv, watch leg | Notes |
 |---|---|---|---|
 | H.264, 8-bit 4:2:0 | WHEP | srt, rtsp | The only combination WHEP negotiates. |
 | H.264, 10-bit 4:2:0 (p010le) | none | srt, rtsp | WebRTC negotiates 8-bit H.264 profiles only. |
@@ -73,17 +88,22 @@ The native grid shares that shape: each watched tile's pipeline subscribes to th
 | HEVC, any chroma | none | srt, rtsp | The WHIP/WHEP leg carries H.264 and Opus only. |
 | VP9 profile 1, 4:4:4 or gbrp | WebCodecs | rtsp | MPEG-TS has no VP9 mapping, so no leg can use SRT. |
 
-The native column is one entry because both decode through libavcodec: gst-libav's `avdec_*` elements wrap the same decoders ffplay and mpv link.
+The native column is one entry because a software decoder covers every row of it.
+ffplay and mpv decode through libavcodec.
+The grid's `decodebin` autoplugs by rank, so a hardware element takes the stream wherever its sink caps advertise the profile, and a software element takes the rest: `avdec_h264` and `avdec_h265` from gst-libav, `vp9dec` from libvpx.
+That caps match is also what keeps 4:4:4 and high bit depth on the software path, since a VA or NVDEC element enumerates the profiles it implements and the 4:4:4 and 10-bit ones are not among them.
 
 Audio follows the path, not the stream.
 `WhepSink` receives the Opus track and exposes a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent in either grid and audible in a native window.
 
-## Codec, chroma and transport
+## Codec, chroma and publish transport
 
 `capabilities.Codecs` is the authoritative table; the rows below are the subset the argument builders map, in the shape the viewer side cares about.
 The remaining families (VAAPI, QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video) are declared with `Implemented: false` and rejected before either builder runs.
 
-| Codec | Chromas | Transports | GStreamer element |
+Every transport in this table is the publish leg, the only one an encoder is built for.
+
+| Codec | Chromas | Publish transports | GStreamer element |
 |---|---|---|---|
 | `h264_nvenc` | yuv444p, yuv420p, p010le | srt, rtsp, webrtc | `nvh264enc` |
 | `hevc_nvenc` | gbrp, yuv444p, yuv420p, p010le | srt, rtsp | `nvh265enc` |
@@ -96,7 +116,7 @@ Three constraints in that table decide what the viewer side can do:
 
 - WebRTC carries the H.264 codecs alone, because ffmpeg's WHIP muxer speaks H.264 and Opus.
   It is also the one transport with no `GstSink`, so the portal capture path cannot publish over it.
-- VP9 is RTSP-only, which is why the viewer service subscribes over RTSP rather than the transport the stream was published on.
+- VP9 publishes over RTSP only, and it is the same MPEG-TS gap on the watch leg, which is why the viewer service and the native grid both subscribe over RTSP.
 - A codec with an empty transport list cannot be published at all: `capabilities.Validate` rejects the combination before an encoder is built.
 
 Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every hop already handles.
@@ -107,10 +127,9 @@ Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every 
   WebRTC profile negotiation stops at 4:2:0: VP9 profile 1 and AV1 High are not negotiable, and browser HEVC decoding is hardware-only, which excludes the range extensions that code RGB.
   libavcodec has no such rule, so mpv plays an HEVC `gbrp` stream that no web grid tile can.
   `WEB_GRID_DECODE` states the constraint as `requires420` on the WHEP row.
-- **Transport.**
-  The web grid never uses the publish transport.
-  WHEP is always WebRTC and the WebCodecs path is always RTSP, whatever the stream was published over.
-  A native viewer picks its transport per window, so the same stream can be open twice over SRT and RTSP at once.
+- **Watch leg.**
+  The web grid's is fixed by the decode path, never taken from the publish leg: WHEP is always WebRTC and the WebCodecs path is always RTSP, whatever the stream was published over.
+  A native viewer picks its watch leg per window, so the same stream can be open twice over SRT and RTSP at once.
   WebRTC is absent from that choice because it implements no `Watcher`: playback needs WHEP, which neither ffplay nor mpv speaks.
 - **Codec breadth.**
   The web grid decodes two formats.
@@ -218,8 +237,9 @@ A row's `available` is the host webview's answer, not a constant: each path test
 A webview without one drops that row, so the verdict explains the gap where the settings form already reports codec support, rather than letting the tile fail on a missing global.
 
 `nativeGridCheck` (`frontend/src/util/nativegrid.ts`) has no decode table of its own, because the native grid's `decodebin` reaches every format the app can encode, at any chroma and bit depth.
-That leaves the transport as the only gate, so the verdict asks the backend capability table whether the codec has the listener the grid subscribes over (`NATIVE_GRID_TRANSPORT`, RTSP, matching what `useNativeGrid` launches).
-A codec with no RTSP listener reports not-viewable and names the transport as the reason.
+That leaves the watch leg as the only gate, so the verdict asks the backend capability table whether the codec has the listener the grid subscribes over (`NATIVE_GRID_TRANSPORT`, RTSP, matching what `useNativeGrid` launches).
+The table's transports are the publish leg, and the verdict reads them for a watch question deliberately: a codec publishes over RTSP exactly when RTP has a payload mapping for it, which is the same condition the relay needs to re-serve it, so one column answers both.
+A codec with no RTSP listener reports not-viewable and names the watch leg as the reason.
 
 ## The native grid
 

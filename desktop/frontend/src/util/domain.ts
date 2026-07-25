@@ -5,7 +5,7 @@ import { capabilities } from "../../wailsjs/go/models";
  * The declarative domain model: one table per encoder family, video format,
  * chroma and rate-control mode, carrying every fact the UI derives from.
  * Constraints that must also hold in the encoder (which chroma a codec accepts,
- * which transport carries it, whether the codec is implemented) are not here -
+ * which transport publishes it, whether the codec is implemented) are not here -
  * those come from the backend capability table (App.Capabilities), so a single
  * definition governs both sides. This file holds the presentation (label, tip,
  * link) and the bitrate heuristics, which are UI-only.
@@ -17,7 +17,10 @@ import { capabilities } from "../../wailsjs/go/models";
  * from small tables rather than one row per family×format combination.
  */
 
-/** The backend's fixed codec facts: nvenc flag, allowed chromas and transports. */
+/** The backend's fixed codec facts: nvenc flag, allowed chromas, and the
+ * transports that can publish the codec. `transports` is the publish leg
+ * (publisher to relay); which transport a viewer receives over is chosen per
+ * viewer and is not in this table. */
 export type Capability = capabilities.Codec;
 
 /** Presentation and heuristics for a video coding format, independent of the

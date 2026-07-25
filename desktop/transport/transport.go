@@ -1,6 +1,15 @@
 // Package transport abstracts how encoded video leaves the machine and how a
 // viewer reaches a stream.
 //
+// A stream crosses two independent legs, and each names its own protocol: the
+// publish leg (publisher to relay) and the watch leg (relay to viewer). They need
+// not agree, because the relay re-serves every ingested stream on all its
+// listeners, so a stream published over SRT can be watched over RTSP. The publish
+// leg is settings.Stream.Transport, read by the publish-side helpers; the watch
+// leg is passed by name to WatchURL and GstSource, never read off the settings.
+// Any identifier in this package that does not say which leg it means belongs to
+// whichever leg its caller is on.
+//
 // Implementations register themselves in init() (see srt.go). Adding raw UDP,
 // WebRTC or anything else later means adding one file here - no caller changes.
 //
@@ -21,8 +30,9 @@ import (
 	"bjoernblessin.de/screenshare/settings"
 )
 
-// Transport identifies a way video leaves the machine. The publish and watch
-// serializations are the capability interfaces below.
+// Transport identifies one protocol, leg-neutral: the same registry entry can
+// carry a stream to the relay and from it. The publish and watch serializations
+// are the capability interfaces below.
 type Transport interface {
 	// Name is the registry key, shown in the UI transport dropdown.
 	Name() string

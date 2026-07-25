@@ -18,6 +18,10 @@ import {
  * decodes VP9 (4:4:4 included) from the viewer service over WebSocket. available
  * reports whether the host webview owns the API the path needs, so a build
  * without it produces a verdict instead of a runtime failure on the tile.
+ *
+ * Each path pins its own watch leg, relay to viewer, and neither follows the
+ * publish leg: a stream published over SRT still reaches whep over WebRTC and
+ * webcodecs over the viewer service's RTSP subscription.
  */
 interface WebGridPath {
     decoder: Extract<SinkKind, "whep" | "webcodecs">;

@@ -110,7 +110,7 @@ export default function LiveNowCard({
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                    <Tip text="Transport a Watch click receives over. Any choice works for any stream: the relay re-serves each stream on all its listeners, regardless of how it was published.">
+                    <Tip text="Protocol a Watch click receives over, the relay-to-viewer hop (hop 2). Any choice works for any stream: the relay re-serves each stream on all its listeners, so this hop is independent of the publish transport in Stream settings and the two can differ.">
                         <span className="text-muted-foreground">watch over</span>
                     </Tip>
                     <Select

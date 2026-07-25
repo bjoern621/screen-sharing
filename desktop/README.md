@@ -17,7 +17,7 @@ Domain logic lives in leaf packages, one concern each:
 | `display` | Enumerate monitors (platform-specific files). |
 | `platform` | Detect OS and display server. |
 | `netspeed` | Measure real uplink throughput. |
-| `transport` | Registry of stream transports (SRT). |
+| `transport` | Registry of stream protocols, serializing both the publish leg and the watch leg. |
 
 `frontend/` holds the React + Vite UI. `frontend/wailsjs/` is generated bindings; do not edit it by hand.
 

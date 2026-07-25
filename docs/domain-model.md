@@ -16,7 +16,10 @@ The disable rules and the repair rules in the frontend were previously two hand-
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the NVENC flag, the pixel formats it may encode, the transports that can carry it, and the scale its constant-quality knob counts on.
+- `capabilities/capabilities.go`: per codec, the NVENC flag, the pixel formats it may encode, the transports that can publish it, and the scale its constant-quality knob counts on.
+
+The transport column is the publish leg, publisher to relay.
+Which protocol a viewer receives over is a separate choice per viewer and is not in any table here (`viewer-architecture.md`, "Two legs, two protocols").
 
 The encoder reads this table directly.
 `ffmpeg/args.go` branches on `capabilities.IsNvenc`, and `capabilities.Validate` rejects a codec/chroma/transport/quantizer combination the table forbids.
@@ -40,7 +43,7 @@ Each consumer reads the tables instead of restating a rule:
 - `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value.
 - `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
 - `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
-- `nativegrid.ts`: the native-grid viewability verdict, from the transports the capability table gives the codec.
+- `nativegrid.ts`: the native-grid viewability verdict, from the publish transports the capability table gives the codec, which double as the answer for the grid's RTSP watch leg.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
 
 Because `evaluateDeps` and `normalize` read one source, a greyed option and its fallback always agree.

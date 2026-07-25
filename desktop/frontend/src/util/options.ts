@@ -127,7 +127,10 @@ export const ENC_PRESETS: Option[] = [
     { value: "p7", label: "p7 - most efficient", link: NVENC_LINK, tip: "Maximum compression efficiency. On the dedicated encoder ASIC even p7 barely touches the 3D units." },
 ];
 
-/** Metadata for transport values the backend registers, keyed by value. */
+/** Metadata for transport values the backend registers, keyed by value. The text
+ * describes the protocol itself, not one leg of the path, so the same entry serves
+ * the publish dropdown and the watch dropdown. Anything true of only one leg
+ * belongs in that field's own tooltip. */
 export const TRANSPORT_META: Record<string, Option> = {
     srt: {
         value: "srt", label: "srt - Secure Reliable Transport",

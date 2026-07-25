@@ -178,9 +178,11 @@ export default function StreamSettingsCard({
                         value={s.relayHost}
                         onChange={v => onUpdate({ relayHost: v })}
                     />
-                    {/* Each transport exposes only its own relay listener port:
-                     * a backend implementation knob is hidden while its
-                     * transport is not selected (docs/field-availability.md). */}
+                    {/* Each publish transport exposes only its own relay listener
+                     * port: a backend implementation knob is hidden while its
+                     * transport is not selected (docs/field-availability.md).
+                     * A viewer's port follows its own watch leg, which the relay
+                     * serves on all listeners regardless of this choice. */}
                     {s.transport === "srt" && (
                         <NumberField
                             label="Relay port (SRT, UDP)"
@@ -390,8 +392,8 @@ export default function StreamSettingsCard({
                     title="Network"
                 >
                     <SelectField
-                        label="Transport protocol"
-                        labelTip="How the encoded stream is carried across the network from publisher to relay to viewer. Protocols differ in reliability, latency control and which players can receive them; pick one, then see each option's own tooltip."
+                        label="Publish transport protocol"
+                        labelTip="How the encoded stream travels from this machine to the relay. This is the publish hop only: a viewer picks its own protocol for the relay-to-viewer hop (Live now, 'watch over'), so a stream published over SRT can be watched over RTSP. Protocols differ in reliability and latency control; see each option's own tooltip."
                         value={s.transport}
                         options={transportOptions}
                         optionDisabled={deps.optionDisabled.transport}

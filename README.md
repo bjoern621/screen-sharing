@@ -2,6 +2,7 @@
 
 Self-hosted, high-quality group screen sharing for trusted friends.
 Relay = **MediaMTX**. Transports = **SRT**, **RTSP**, **WebRTC/WHIP** (publish only). Capture/encode/decode = **ffmpeg**.
+Every stream crosses two legs, publisher to relay and relay to viewer, and each picks its own protocol: the relay re-serves what it ingests on all its listeners, so a stream published over SRT can be watched over RTSP.
 
 No accounts. No remote control. Everyone publishes and watches at once.
 Full color (4:4:4 + full range) - no WebRTC washout.

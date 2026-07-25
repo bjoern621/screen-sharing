@@ -11,6 +11,10 @@ import {
  * capability table, and per capture backend the transports its engine carries
  * and the engine that runs it. A null field means "not resolved yet" and imposes
  * no restriction, so the form behaves during startup as it does offline.
+ *
+ * Every transport in this module is the publish leg: these rules govern the
+ * settings form, which configures publishing only. The watch leg is picked per
+ * viewer and constrains nothing here.
  */
 export interface Environment {
     platform: PlatformInfo | null;
@@ -151,8 +155,8 @@ function unavailableAudio(
 }
 
 /**
- * Transports the given capture backend's engine cannot carry, each mapped to the
- * reason. The map (capture -> carriable transports) comes from the backend; a
+ * Publish transports the given capture backend's engine cannot carry, each mapped
+ * to the reason. The map (capture -> carriable transports) comes from the backend; a
  * transport known to some capture but absent from this one is disabled, because
  * that capture's engine has no sink for it (the portal/GStreamer path and
  * WebRTC). An unknown capture imposes no restriction.

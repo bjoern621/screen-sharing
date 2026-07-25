@@ -42,6 +42,9 @@ export default function StreamStatsOverlay({
         <div className="absolute left-2 top-11 z-10 w-72 animate-in fade-in slide-in-from-top-1 rounded-md bg-black/75 p-2.5 font-mono text-[0.6875rem] leading-relaxed text-white shadow-lg backdrop-blur-sm">
             {stats ? (
                 <>
+                    {/* transport is the watch leg this tile receives over, the
+                     * same meaning the row carries in the native grid. The publish
+                     * leg lives in the settings form and is not observable here. */}
                     <Row
                         label="transport"
                         value={stats.transport || UNKNOWN}

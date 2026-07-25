@@ -26,6 +26,9 @@ Field label text is the `labelTip` prop, written at the call site in `StreamSett
 Text that depends on the current settings is built by a helper in `util/options.ts` instead of hard-coded there, so it cannot describe a codec the user did not select.
 `cqTip` is the case that needs it: the quantizer scale follows the codec, so the tip places its quality landmarks on the selected encoder's own scale.
 
+A tooltip that mentions a transport names its leg, publish (publisher to relay) or watch (relay to viewer), because the two are chosen independently and a bare protocol name would read as both.
+Leg-neutral protocol facts stay in `TRANSPORT_META`, whose entries serve the publish select and the watch dropdown alike; whatever holds for one leg only belongs in that field's own `labelTip`.
+
 Option text is the `tip` field on an `Option`, declared once in the option metadata (`util/options.ts` and the domain meta tables) and never inlined twice.
 An `Option` may also carry a `link`; `OptionRow` renders it as an `InfoIcon` beside the label that opens the reference article in the system browser.
 

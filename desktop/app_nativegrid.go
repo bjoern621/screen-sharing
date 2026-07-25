@@ -32,8 +32,9 @@ const rosterPollInterval = 2 * time.Second
 // StartNativeGrid opens the native grid window: a separate GTK4 binary,
 // separate because the webview process is GTK3 and the two toolkits cannot
 // share a process. The window's sidebar offers every stream the relay reports
-// live, received over the named transport; picking streams happens in the
-// window, not here. The -config argument carries the roster known at spawn,
+// live, received over the named transport, the watch leg for every tile in that
+// window and unrelated to how each stream was published; picking streams happens
+// in the window, not here. The -config argument carries the roster known at spawn,
 // which can be empty, and pushRoster keeps it current over the child's stdin.
 // A running window is replaced.
 func (a *App) StartNativeGrid(transportName string) error {

@@ -21,7 +21,8 @@ type block struct {
 // blocks is the overlay, top to bottom: the stream it plays, the video on the
 // wire, what this side does with it, and the audio a stream may carry. The
 // transport's own counters follow, one block per element, from what the player
-// reports.
+// reports. Every transport figure here is the watch leg, relay to viewer: this
+// process only ever sees the leg it subscribes on.
 var blocks = []block{
 	{title: "stream", rows: []row{
 		{key: "transport", hides: true, value: func(v View) string { return v.Stream.Transport }},

@@ -65,7 +65,8 @@ export interface SinkStats {
     height: number;
     /** Negotiated codec, e.g. "H264", "VP9". */
     codec: string;
-    /** Transport carrying the stream, e.g. "webrtc", "websocket", "local". */
+    /** Watch leg this tile receives over, relay to viewer, e.g. "webrtc",
+     * "websocket", "local". Never the protocol the stream was published with. */
     transport: string;
     /** Decoder that rendered it, e.g. "WHEP", "WebCodecs". */
     decoder: string;

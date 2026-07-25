@@ -44,6 +44,8 @@ The **portal** package (`portal.Open`) performs the ScreenCast D-Bus handshake a
 It knows nothing about encoding.
 
 The **transport** package holds the destination, and each engine's serialization lives with the transport that knows its dialect.
+A registry entry is one protocol, not one leg: the same entry serializes the publish leg for an encoder and the watch leg for a viewer, and the two legs of a stream need not use the same one (see `viewer-architecture.md`, "Two legs, two protocols").
+Everything on this page is the publish leg unless it names the watch one.
 The base `transport.Transport` is engine-neutral: it only identifies itself.
 Each publish or watch engine has a peer capability interface a transport may implement: `FFmpegPublisher` (ffmpeg output args), `GstPublisher` (GStreamer muxer and sink), `Watcher` (a viewer URL).
 No engine is privileged in the base contract; an engine asks for its own serialization through the matching package helper, and a transport that cannot supply it is simply unusable with that engine.
@@ -51,7 +53,8 @@ The serializations are not interchangeable: ffmpeg's SRT protocol takes a query-
 A transport carrying several engines implements several capabilities; keeping each dialect on the transport is what stops one engine's serialization from leaking into another.
 
 The **watch** package mirrors this seam from the viewer side.
-`watch.Select` picks the viewer engine for the configured transport (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each engine builds its own command line from the transport's `Watcher` URL.
+`watch.Select` picks the viewer engine for the chosen watch leg (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each engine builds its own command line from the transport's `Watcher` URL.
+The leg is passed in by name rather than read off `settings.Stream.Transport`, which is what keeps a viewer free to receive over a protocol the stream was not published with.
 A transport without a URL watch form (WebRTC, whose playback protocol is WHEP) is unwatchable until an engine keyed on a capability of its own exists; adding one touches only the watch package.
 
 The **capabilities** package holds the codec facts both engines and the UI share.

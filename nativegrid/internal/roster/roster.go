@@ -12,12 +12,13 @@ import (
 	"fmt"
 )
 
-// Stream is one stream the app offers this window: the display name, the
-// transport it arrives over, and the gst-launch fragment of its source
-// elements. The fragment ends at the encoded stream; a player appends the
-// decode and sink elements. Transport knowledge stays in the app, decode
-// knowledge here: the transport name is a label for the stats overlay, not
-// something this side acts on.
+// Stream is one stream the app offers this window: the display name, the watch
+// leg it arrives over, and the gst-launch fragment of its source elements. The
+// fragment ends at the encoded stream; a player appends the decode and sink
+// elements. Transport knowledge stays in the app, decode knowledge here: the
+// transport name is a label for the stats overlay, not something this side acts
+// on. It is the relay-to-viewer leg the app chose at launch, which says nothing
+// about how the stream was published.
 type Stream struct {
 	Name      string `json:"name"`
 	Transport string `json:"transport"`

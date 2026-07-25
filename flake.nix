@@ -81,7 +81,7 @@
             gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse, nvcodec, opusenc
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
-            gst-libav # avdec_h264/avdec_h265: the only decoders covering 4:4:4/RGB (RExt)
+            gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB)
             gst-plugins-rs # gtk4paintablesink (native grid video sink)
           ]
           ++ [
