@@ -11,6 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"bjoernblessin.de/go-utils/util/assert"
+
 	"bjoernblessin.de/screenshare/ffmpeg"
 )
 
@@ -35,6 +37,14 @@ type superviseConfig struct {
 // engines that speak no ffmpeg -progress stream: stderr is teed to a per-run log
 // and a bounded tail, and onExit fires once with the tail and log path.
 func supervise(cfg superviseConfig) (Handle, error) {
+	assert.Assert(cfg.exe != "", "a supervised child names the executable to run", cfg.tag)
+	assert.Assert(cfg.tag != "", "a supervised child names its run log", cfg.exe)
+	// The descriptors are handed to the child by position, so a closed slot would
+	// shift every later fd and land the pipeline on the wrong one.
+	for i, f := range cfg.extraFiles {
+		assert.IsNotNil(f, "an inherited descriptor is an open file", cfg.tag, i)
+	}
+
 	logDir, err := ffmpeg.LogDir()
 	if err != nil {
 		return nil, err

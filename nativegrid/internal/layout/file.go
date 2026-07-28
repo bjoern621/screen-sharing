@@ -68,10 +68,40 @@ func (f *FileStore) Load() Layout { return load[Layout](f) }
 func (f *FileStore) LoadWindow() WindowState { return load[WindowState](f) }
 
 // Save writes the arrangement and leaves the window's keys as they were.
-func (f *FileStore) Save(l Layout) { f.save(l) }
+func (f *FileStore) Save(l Layout) {
+	assertLayout(l)
+
+	f.save(l)
+}
 
 // SaveWindow writes the geometry and leaves the arrangement's keys as they were.
-func (f *FileStore) SaveWindow(w WindowState) { f.save(w) }
+func (f *FileStore) SaveWindow(w WindowState) {
+	assert.Assert(w.Width >= 0 && w.Height >= 0, "a remembered window carries a size or none", w.Width, w.Height)
+
+	f.save(w)
+}
+
+// assertLayout holds what an arrangement has to be for the next run to open on
+// it: streams are keyed by name, the watch set names streams the order ranks,
+// and so does the spotlight. A record that breaks any of it puts a stream on
+// screen the next run cannot place, one run after the write that caused it.
+func assertLayout(l Layout) {
+	ranked := make(map[string]bool, len(l.Order))
+	for _, n := range l.Order {
+		assert.Assert(n != "", "a remembered stream carries a name")
+		assert.Assert(!ranked[n], "the remembered order holds a stream once", n)
+
+		ranked[n] = true
+	}
+	watched := make(map[string]bool, len(l.Watched))
+	for _, n := range l.Watched {
+		assert.Assert(ranked[n], "a remembered watch is on a stream the order ranks", n)
+		assert.Assert(!watched[n], "the remembered watch set holds a stream once", n)
+
+		watched[n] = true
+	}
+	assert.Assert(l.Spot == "" || ranked[l.Spot], "a remembered spotlight is on a stream the order ranks", l.Spot)
+}
 
 // load reads one record out of the state file. Keys the record does not declare
 // belong to the other owner and are ignored. A corrupt file is reported and

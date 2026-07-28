@@ -3,6 +3,8 @@ package publish
 import (
 	"fmt"
 
+	"bjoernblessin.de/go-utils/util/assert"
+
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -17,6 +19,8 @@ var testPatterns = []string{"smpte", "ball", "gradient", "pinwheel", "spokes", "
 
 // TestPattern returns the videotestsrc pattern of the i-th test stream.
 func TestPattern(i int) string {
+	// Go's remainder keeps the sign, so a negative index reaches the slice.
+	assert.Assert(i >= 0, "a test stream is numbered from zero", i)
 	return testPatterns[i%len(testPatterns)]
 }
 

@@ -23,7 +23,7 @@ const accelSidebar = "<Control>b"
 
 // binding is one of the window's keyboard controls: the accelerator GTK parses,
 // the sentence a widget bound to the same action carries as its tooltip, and
-// what pressing it does.
+// what pressing it does (actions.go).
 //
 // run reports whether the binding acted. One that finds nothing to do leaves the
 // key alone rather than swallowing it, so Escape outside fullscreen and outside
@@ -62,6 +62,9 @@ func bindings() []binding {
 			run:   func(c *chrome) bool { return c.spotlightNth(n) },
 		})
 	}
+	for _, b := range table {
+		assert.IsNotNil(b.run, "a binding acts on the window", b.accel)
+	}
 	return table
 }
 
@@ -72,6 +75,8 @@ func bindings() []binding {
 // widget has already had the key: a digit typed into a watch-leg field is that
 // field's, not a spotlight.
 func (c *chrome) bindKeys() {
+	assert.IsNotNil(c.win, "a binding belongs to a window")
+
 	keys := gtk.NewShortcutController()
 	keys.SetScope(gtk.ShortcutScopeLocal)
 	keys.SetPropagationPhase(gtk.PhaseBubble)
@@ -103,63 +108,4 @@ func tip(accel string) string {
 	}
 	assert.Never("a tooltip names an accelerator the table binds", accel)
 	return ""
-}
-
-// leave is Escape, and it gives back one state per press, fullscreen first.
-// A window in fullscreen with a tile spotlit therefore takes two presses.
-// Dropping both on one press would leave nothing to say which of them was meant.
-func (c *chrome) leave() bool {
-	if c.win.IsFullscreen() {
-		c.win.Unfullscreen()
-		return true
-	}
-	// Session.Spot is negative while the grid shows every tile.
-	spot := c.sess.Spot()
-	if spot < 0 {
-		return false
-	}
-	c.sess.ToggleSpot(spot)
-	return true
-}
-
-// toggleFullscreen is F11, the only way into fullscreen. Escape is a second way
-// out of it.
-func (c *chrome) toggleFullscreen() bool {
-	if c.win.IsFullscreen() {
-		c.win.Unfullscreen()
-	} else {
-		c.win.Fullscreen()
-	}
-	return true
-}
-
-// toggleSidebar is Ctrl+B. It drives the split view rather than the header
-// button, and the button follows the split's property (geometry.go), so the two
-// cannot disagree about what the window shows.
-func (c *chrome) toggleSidebar() bool {
-	c.split.SetShowSidebar(!c.split.ShowSidebar())
-	return true
-}
-
-// spotlightNth spotlights the nth tile the grid draws, counting from one, and
-// leaves the spotlight when that tile already holds it.
-//
-// The count runs over the watched streams in display order, which is the order
-// the grid attaches its tiles in. Counting the display order itself would name
-// tiles by streams that draw none: an unwatched stream keeps its slot in the
-// order.
-func (c *chrome) spotlightNth(n int) bool {
-	assert.Assert(n > 0, "tiles are counted from one", n)
-
-	for _, i := range c.sess.Order() {
-		if !c.sess.State(i).Watched() {
-			continue
-		}
-		n--
-		if n == 0 {
-			c.sess.ToggleSpot(i)
-			return true
-		}
-	}
-	return false
 }

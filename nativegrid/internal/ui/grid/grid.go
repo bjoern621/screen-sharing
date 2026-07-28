@@ -4,7 +4,8 @@
 //
 // The view owns the tiles and nothing else. What is watched, in what order, and
 // which stream is spotlit is the model's; the view redraws from what it reads back
-// when the model reports a change.
+// when the model reports a change (observe.go), through the tile lifecycle in
+// tiles.go and the arrangement in layout.go.
 package grid
 
 import (
@@ -47,6 +48,7 @@ type View struct {
 	tiles map[int]*tile.Tile
 	// cells is the arrangement the attached tiles sit in, which a resize is measured
 	// against: an allocation that lands on the same shape costs no relayout.
+	// Only the grid page has one, and showPage drops it with the page.
 	cells []cell
 	// relayout coalesces the reordering bursts a drag produces.
 	relayout *idle.Coalescer
@@ -55,6 +57,7 @@ type View struct {
 func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *View {
 	assert.IsNotNil(sess, "the tile area draws a session")
 	assert.IsNotNil(drag, "the tile area shares the drag controller")
+	assert.IsNotNil(dispatch, "the tile area defers its relayout to a UI loop")
 
 	v := &View{
 		root:    gtk.NewOverlay(),
@@ -81,7 +84,7 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	v.stack.AddNamed(emptyState(), pageEmpty)
 	v.stack.AddNamed(v.grid, pageGrid)
 	v.stack.AddNamed(v.spotBox, pageSpot)
-	v.stack.SetVisibleChildName(pageEmpty)
+	v.showPage(pageEmpty)
 
 	// The probe draws nothing and takes no input; it is in the tree for its
 	// allocation, not for anything on screen.
@@ -97,79 +100,10 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 // Widget is the tile area, the split view's content.
 func (v *View) Widget() gtk.Widgetter { return v.root }
 
-// Changed redraws for one model change.
-func (v *View) Changed(c session.Change) {
-	switch c.Kind {
-	case session.StateChanged:
-		// Only a tile that came or went changes the layout. A stream going live or
-		// failing redraws inside its tile, and a rebuild would reparent every tile
-		// for it, which a drag in flight would feel.
-		if v.syncTile(c.Index) {
-			v.rebuild()
-		}
-	case session.AudioReady:
-		if t, ok := v.tiles[c.Index]; ok {
-			t.SetAudioAvailable(v.sess.HasAudio(c.Index))
-		}
-	case session.StallChanged:
-		// A stall leaves the watch set alone, so it redraws inside the one tile.
-		if t, ok := v.tiles[c.Index]; ok {
-			t.SetStalled(v.sess.Stalled(c.Index))
-		}
-	case session.OrderChanged:
-		// Reordering must not reparent widgets from inside a drag-and-drop callback,
-		// so every order change lands on the next loop pass.
-		v.relayout.Schedule()
-	}
-}
-
-// syncTile brings stream i's tile in line with its watch state: opened on the first
-// watch, redrawn on every state after that, and gone once the stream is idle. It
-// reports whether the set of open tiles changed, which is what the layout follows.
-func (v *View) syncTile(i int) (changed bool) {
-	state := v.sess.State(i)
-	t, open := v.tiles[i]
-
-	if !state.Watched() {
-		if open {
-			t.Dispose()
-			delete(v.tiles, i)
-		}
-		return open
-	}
-	if !open {
-		t = tile.New(v.sess.Stream(i), tile.Hooks{
-			Retry:      func() { v.sess.SetWatched(i, true) },
-			ToggleSpot: func() { v.sess.ToggleSpot(i) },
-			Disconnect: func() { v.sess.SetWatched(i, false) },
-		})
-		v.drag.AttachSource(t.Widget(), i)
-		v.tiles[i] = t
-	}
-	t.SetState(state, v.sess.Message(i))
-	// The stall is read rather than waited for, so a tile that opens on a stream
-	// already stalled draws it from its first frame.
-	t.SetStalled(v.sess.Stalled(i))
-	// A player exists in every state but a failure the factory reported, and a retry
-	// arrives here with a fresh one.
-	if p := v.sess.Player(i); p != nil {
-		t.Attach(p)
-	}
-	t.SetAudioAvailable(v.sess.HasAudio(i))
-	return !open
-}
-
-// tileWidget is the tile area's widget for stream i, nil while the stream has no
-// tile, which is what the drag's hit test skips.
-func (v *View) tileWidget(i int) gtk.Widgetter {
-	t, open := v.tiles[i]
-	if !open {
-		return nil
-	}
-	return t.Widget()
-}
-
 func setMargins(w gtk.Widgetter, m int) {
+	assert.IsNotNil(w, "a margin is set on a widget")
+	assert.Assert(m >= 0, "a margin is a distance", m)
+
 	base := gtk.BaseWidget(w)
 	base.SetMarginTop(m)
 	base.SetMarginBottom(m)

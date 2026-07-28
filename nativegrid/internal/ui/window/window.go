@@ -2,8 +2,8 @@
 // area, under the theme both follow.
 //
 // What is left when the two views are taken away is the window's own: the
-// keyboard bindings (shortcuts.go) and the geometry it reopens at
-// (geometry.go).
+// keyboard table (shortcuts.go), what its keys do (actions.go) and the geometry
+// it reopens at (geometry.go).
 package window
 
 import (
@@ -44,6 +44,9 @@ type chrome struct {
 	toggle *gtk.ToggleButton
 	sess   *session.Session
 	store  layout.WindowStore
+	// settingSidebar is up while showSidebar writes the two halves of the sidebar
+	// control, whose property notifies land back in it (geometry.go).
+	settingSidebar bool
 	// persist folds a burst of geometry changes into one write, and written holds
 	// what that write put on file (geometry.go).
 	persist *idle.Coalescer
@@ -59,6 +62,7 @@ type chrome struct {
 func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *adw.ApplicationWindow {
 	assert.IsNotNil(app, "a window belongs to an application")
 	assert.IsNotNil(sess, "a window draws a session")
+	assert.IsNotNil(dispatch, "a window defers its deferred work to a UI loop")
 
 	theme.LoadStyle()
 
@@ -99,12 +103,14 @@ func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *a
 // content is the tile area under a flat header bar. The header carries the sidebar
 // toggle at the start and the window close button at the end.
 func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
+	assert.IsNotNil(tiles, "the window's content is the tile area")
+
 	c.toggle = gtk.NewToggleButton()
 	c.toggle.SetChild(chromeIcons.Image("layout-sidebar", toggleIconSize, theme.Foreground))
 	c.toggle.SetTooltipText(tip(accelSidebar))
-	// Which state the button opens in is restoreGeometry's, so the sidebar it
-	// stands for is set in one place.
-	c.toggle.ConnectToggled(func() { c.split.SetShowSidebar(c.toggle.Active()) })
+	// The button asks for a sidebar state like every other path does.
+	// Which state it opens in is restoreGeometry's.
+	c.toggle.ConnectToggled(func() { c.showSidebar(c.toggle.Active()) })
 
 	header := adw.NewHeaderBar()
 	header.SetShowTitle(false)
@@ -120,6 +126,8 @@ func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
 // flattened dark token values in style.css, and the themed Tabler icons re-render,
 // since their color is baked in at rasterization.
 func followTheme(win *adw.ApplicationWindow) {
+	assert.IsNotNil(win, "a theme is followed by a window")
+
 	manager := adw.StyleManagerGetDefault()
 	apply := func() {
 		if manager.Dark() {

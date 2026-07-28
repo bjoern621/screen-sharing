@@ -56,6 +56,9 @@ type appBar struct {
 	// drawn is the state the bar last drew, and what a click acts on: the button
 	// asks for the opposite of the state it shows.
 	drawn roster.App
+	// present says a draw filled drawn from an app rather than from the zero state
+	// a run without one leaves on the hidden bar.
+	present bool
 }
 
 // newAppBar builds the bar. run carries one command to the app, which answers
@@ -113,13 +116,14 @@ func newAppBar(icons *theme.Icons, run func(command string)) *appBar {
 func (b *appBar) Widget() gtk.Widgetter { return b.root }
 
 // draw puts the app state on the bar. present is whether there is an app behind
-// the window at all.
+// the window at all; a run with none hides the bar.
+//
+// The controls are set from app on either branch, which without an app is the zero
+// state, so a bar that becomes visible again shows what was drawn into it rather
+// than the publish face of an app that has since gone.
 func (b *appBar) draw(app roster.App, present bool) {
+	b.drawn, b.present = app, present
 	b.root.SetVisible(present)
-	if !present {
-		return
-	}
-	b.drawn = app
 
 	b.dot.SetVisible(app.Publishing)
 	if app.Publishing {
@@ -139,7 +143,13 @@ func (b *appBar) draw(app roster.App, present bool) {
 // toggle asks for the publish state the button does not show. A button drawn
 // from a state the app has since left asks for one the app is already in, which
 // it refuses and answers with the state that holds.
+//
+// The click reads the cache and only a draw fills it. The bar stays hidden until a
+// draw carries an app, so there is no press to answer before there is a state to
+// answer it from.
 func (b *appBar) toggle() {
+	assert.Assert(b.present, "the publish button acts on an app state a draw put on the bar")
+
 	if b.drawn.Publishing {
 		b.run(roster.CommandStopPublish)
 		return

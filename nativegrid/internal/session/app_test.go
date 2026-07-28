@@ -71,6 +71,50 @@ func TestSetAppNotifies(t *testing.T) {
 	}
 }
 
+// A push that carries no app state says nothing about the app. Reading it as an
+// app that went away would take the publish control off a window whose app is
+// still on the other end of the pipe.
+func TestSetAppKeepsTheStateAPushOmits(t *testing.T) {
+	s, _ := newAppSession(t, &roster.App{Publishing: true})
+
+	changes := 0
+	s.Observe(ObserverFunc(func(c Change) {
+		if c.Kind == AppChanged {
+			changes++
+		}
+	}))
+	s.SetApp(nil)
+
+	app, ok := s.App()
+	if !ok {
+		t.Fatal("a push without app state dropped the app")
+	}
+	if !app.Publishing {
+		t.Error("the model reports an idle app, want the state that still holds")
+	}
+	if changes != 0 {
+		t.Errorf("%d app changes reported, want none for a push that says nothing", changes)
+	}
+}
+
+// The roster is pushed on a poll, so the state in force arrives over and over
+// and a view has nothing to redraw for it.
+func TestSetAppRepeatingTheStateInForceIsSilent(t *testing.T) {
+	s, _ := newAppSession(t, &roster.App{Publishing: true})
+
+	changes := 0
+	s.Observe(ObserverFunc(func(c Change) {
+		if c.Kind == AppChanged {
+			changes++
+		}
+	}))
+	s.SetApp(&roster.App{Publishing: true})
+
+	if changes != 0 {
+		t.Errorf("%d app changes reported, want none for the state already in force", changes)
+	}
+}
+
 // A command goes out as it was named and changes nothing here: what it did comes
 // back as the next push.
 func TestRunAppCommandSends(t *testing.T) {

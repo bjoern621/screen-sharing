@@ -2,6 +2,7 @@ package roster
 
 import (
 	"io"
+	"slices"
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
@@ -20,6 +21,13 @@ const (
 	// CommandStopPublish stops that publish.
 	CommandStopPublish = "stop-publish"
 )
+
+// Commands is the whole vocabulary the app answers to, which is what a sender
+// is held to.
+var Commands = []string{CommandShowSettings, CommandStartPublish, CommandStopPublish}
+
+// IsCommand reports whether name is one of the declared commands.
+func IsCommand(name string) bool { return slices.Contains(Commands, name) }
 
 // Command is one action the window asks the app to take.
 //

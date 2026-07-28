@@ -107,11 +107,68 @@ func TestManualRetryRefillsTheReconnectBudget(t *testing.T) {
 	s, backend, _ := newTestSession(t, layout.Layout{}, "a")
 	s.SetWatched(0, true)
 	last(backend).events.OnEnd("blip")
+	started := len(backend.players)
 
-	s.SetWatched(0, true)
+	s.Restart(0)
 
 	if got := s.at(0).attempts; got != 0 {
 		t.Errorf("attempts after a manual retry = %d, want 0", got)
+	}
+	if got := len(backend.players); got != started+1 {
+		t.Errorf("started %d players, want the retry to open one", got)
+	}
+	if got := s.State(0); got != Loading {
+		t.Errorf("state after a manual retry = %v, want loading", got)
+	}
+}
+
+// TestAFlappingStreamKeepsItsReconnectBudget: a stream the relay drops and lists
+// again is restarted on the budget it already spent. A refill per flap is an
+// attempt cap that never binds, and a window reconnecting to a stream nobody
+// publishes for as long as the relay keeps naming it.
+func TestAFlappingStreamKeepsItsReconnectBudget(t *testing.T) {
+	s, backend, _ := newTestSession(t, layout.Layout{}, "a")
+	s.SetWatched(0, true)
+	for range len(s.retryDelays) + 1 {
+		last(backend).events.OnEnd("source gone")
+	}
+	if got := s.State(0); got != Failed {
+		t.Fatalf("state after the budget ran out = %v, want failed", got)
+	}
+
+	s.SetRoster(nil)
+	s.SetRoster([]roster.Stream{{Name: "a", Source: "videotestsrc"}})
+
+	if got := s.State(0); got != Loading {
+		t.Fatalf("state after the return = %v, want the failed watch restarted", got)
+	}
+	if got := s.at(0).attempts; got != len(s.retryDelays) {
+		t.Errorf("attempts after a flap = %d, want the %d it had spent", got, len(s.retryDelays))
+	}
+
+	// The restart is all the flap buys: the next end is the failure again, not
+	// another run through the backoff.
+	last(backend).events.OnEnd("source gone")
+	if got := s.State(0); got != Failed {
+		t.Errorf("state = %v, want the spent budget to bind", got)
+	}
+}
+
+// TestANewFragmentRefillsTheReconnectBudget: a stream moved to another watch leg
+// starts over. What the attempts on the leg it left cost says nothing about the
+// one it is on.
+func TestANewFragmentRefillsTheReconnectBudget(t *testing.T) {
+	s, backend, _ := newTestSession(t, layout.Layout{}, "a")
+	s.SetWatched(0, true)
+	last(backend).events.OnEnd("blip")
+	if got := s.at(0).attempts; got != 1 {
+		t.Fatalf("attempts after one reconnect = %d, want 1", got)
+	}
+
+	s.SetRoster([]roster.Stream{{Name: "a", Source: "srtsrc uri=srt://relay"}})
+
+	if got := s.at(0).attempts; got != 0 {
+		t.Errorf("attempts after the move = %d, want a full budget on the new leg", got)
 	}
 }
 

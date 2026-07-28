@@ -4,6 +4,7 @@ import (
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
+	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
@@ -36,8 +37,17 @@ const (
 // paintable is blank by the time the model reports the end. A copy taken while frames
 // were still arriving is the only last frame there is left to show.
 func (t *Tile) watchPicture() {
+	assert.IsNotNil(t.picture, "a heartbeat runs on a built picture", t.stream.Name)
+	assert.Assert(t.tick == 0, "a tile watches its picture once", t.stream.Name)
+
 	t.stillOf = gtk.NewWidgetPaintable(t.picture)
 	t.tick = t.picture.AddTickCallback(func(gtk.Widgetter, gdk.FrameClocker) bool {
+		// The two readers share the tick because both belong to the picture's own clock:
+		// the size is read after GTK allocated it, and the copy is of what it drew for
+		// that frame.
+		// Neither runs before the copy source exists.
+		assert.IsNotNil(t.stillOf, "a heartbeat copies through a paintable of its picture", t.stream.Name)
+
 		t.followSize()
 		t.keepStill()
 		return true
@@ -67,6 +77,8 @@ func (t *Tile) followSize() {
 // pushSize tells the player how large its frames are drawn. A backend without the
 // seam is left alone and keeps rendering at the size the source sends.
 func (t *Tile) pushSize(w, h int) {
+	assert.Assert(w > 0 && h > 0, "a render size is an allocation the picture holds", w, h)
+
 	t.sentW, t.sentH = w, h
 	sizer, ok := t.current.(player.RenderSizer)
 	if !ok {

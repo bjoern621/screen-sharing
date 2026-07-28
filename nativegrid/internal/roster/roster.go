@@ -85,10 +85,45 @@ type Config struct {
 // Parse decodes a Config, either the -config argument or one push read from
 // stdin. An empty stream list is valid: it is what an idle relay looks like at
 // launch.
+//
+// What arrives here is written by another process, so a stream the window could
+// not act on is an error and not an assertion: the pipe is where a malformed
+// roster is caught, one layer before a name keys a lookup or a fragment reaches
+// a player. One bad stream fails the whole config rather than being dropped from
+// it, because a push is the full set of live streams and a set with an entry
+// quietly missing is a tile that disappears with the reason nowhere.
 func Parse(raw string) (Config, error) {
 	var cfg Config
 	if err := json.Unmarshal([]byte(raw), &cfg); err != nil {
 		return Config{}, fmt.Errorf("bad config: %w", err)
 	}
+	if err := validate(cfg.Streams); err != nil {
+		return Config{}, fmt.Errorf("bad config: %w", err)
+	}
 	return cfg, nil
+}
+
+// validate is what a stream has to carry for the window to take it on: a name,
+// which every lookup on this side keys on and which therefore names one stream,
+// and the source fragment a player is built from.
+//
+// Transport is not checked against Transports. The app names the legs the
+// stream's format can be re-served on and opens the window on the leg it was
+// configured for, which need not be one of them (desktop/watch.WatchLeg), and
+// the sidebar offers the current leg beside the declared ones for that reason.
+func validate(streams []Stream) error {
+	seen := make(map[string]bool, len(streams))
+	for i, st := range streams {
+		if st.Name == "" {
+			return fmt.Errorf("stream %d carries no name", i)
+		}
+		if seen[st.Name] {
+			return fmt.Errorf("stream %q is listed twice", st.Name)
+		}
+		seen[st.Name] = true
+		if st.Source == "" {
+			return fmt.Errorf("stream %q carries no source fragment", st.Name)
+		}
+	}
+	return nil
 }

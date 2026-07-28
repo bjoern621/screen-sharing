@@ -1,6 +1,7 @@
 package window
 
 import (
+	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/idle"
@@ -28,11 +29,34 @@ func (c *chrome) restoreGeometry() {
 		state.Width, state.Height, state.Maximized, state.SidebarShown)
 }
 
-// showSidebar puts both halves of the sidebar control in one state: the split
-// shows the sidebar, the header button reads back what it shows.
+// showSidebar is the one writer of the sidebar's visibility.
+// It puts both halves of the control in the state asked for: the split shows the
+// sidebar, and the header button stands for what the split shows.
+//
+// Every path that changes the sidebar comes through here, whether it started at
+// the button, at Ctrl+B, at the restored geometry or at the split collapsing on
+// its own.
+// Writing one half and letting its notify carry the other leaves the pair
+// converging by the order the signals happen to arrive in.
+//
+// The write is guarded because setting either half notifies back into this
+// function.
+// The reentrant call has nothing left to do: the outer one is already setting the
+// state it would ask for.
 func (c *chrome) showSidebar(shown bool) {
+	assert.IsNotNil(c.split, "the sidebar sits in a split view")
+	assert.IsNotNil(c.toggle, "the sidebar has a header button standing for it")
+
+	if c.settingSidebar {
+		return
+	}
+	c.settingSidebar = true
 	c.split.SetShowSidebar(shown)
 	c.toggle.SetActive(shown)
+	c.settingSidebar = false
+
+	assert.Assert(c.split.ShowSidebar() == c.toggle.Active(),
+		"the header button reads back the split's sidebar", shown, c.split.ShowSidebar(), c.toggle.Active())
 }
 
 // trackGeometry writes the geometry back as it changes.
@@ -44,6 +68,8 @@ func (c *chrome) showSidebar(shown bool) {
 // every frame and the file is shared with the arrangement's writer.
 // A close request writes on the spot: the loop a coalescer defers to ends with it.
 func (c *chrome) trackGeometry(dispatch idle.Dispatch) {
+	assert.IsNotNil(dispatch, "geometry writes are deferred to a UI loop")
+
 	c.persist = idle.New(dispatch, c.writeGeometry)
 
 	for _, prop := range []string{"default-width", "default-height", "maximized"} {
@@ -51,8 +77,10 @@ func (c *chrome) trackGeometry(dispatch idle.Dispatch) {
 	}
 	// The split view is the state the sidebar is really in, whether Ctrl+B, the
 	// header button or a collapse put it there.
+	// A collapse is the one of those that changes it without being asked, so what
+	// it landed on goes back through the writer to take the button with it.
 	c.split.NotifyProperty("show-sidebar", func() {
-		c.toggle.SetActive(c.split.ShowSidebar())
+		c.showSidebar(c.split.ShowSidebar())
 		c.persist.Schedule()
 	})
 	c.win.ConnectCloseRequest(func() bool {

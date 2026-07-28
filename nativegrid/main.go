@@ -34,7 +34,6 @@ import (
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/gio/v2"
 
-	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/idle"
@@ -49,6 +48,10 @@ import (
 // appID is the GTK application id, which the desktop shell keys the window on.
 const appID = "de.bjoernblessin.ScreenshareNativeGrid"
 
+// exitBadFlag is what a flag naming something that does not exist leaves behind,
+// the status a shell reads as a wrong invocation.
+const exitBadFlag = 2
+
 func main() {
 	configArg := flag.String("config", "", "stream list as JSON; empty runs the demo streams")
 	backendArg := flag.String("player", gstreamer.Backend, "decode backend: "+strings.Join(player.Names(), ", "))
@@ -60,7 +63,12 @@ func main() {
 	cfg := config(*configArg)
 	factory, err := player.For(*backendArg)
 	if err != nil {
+		// The flag is typed by hand, so a name no backend registered under is the
+		// run's input and not a bug here. The process stops on it, instead of
+		// carrying a nil factory into the model one call later and failing there
+		// under the name of a missing decoder.
 		logger.Errorf("%v", err)
+		os.Exit(exitBadFlag)
 	}
 
 	// The UI loop is the one thread the model and the views run on. Player callbacks
@@ -79,8 +87,12 @@ func main() {
 		if fromApp {
 			go roster.Pushes(os.Stdin, func(push roster.Config) {
 				dispatch(func() {
-					sess.SetRoster(push.Streams)
+					// The app state goes in first: both halves of the push are
+					// notified separately, and a view redrawing on the roster
+					// would otherwise draw this push's streams beside the app
+					// state of the one before it.
 					sess.SetApp(push.App)
+					sess.SetRoster(push.Streams)
 				})
 			})
 		}
@@ -122,6 +134,12 @@ func runner(fromApp bool) roster.Run {
 }
 
 // config is the roster the window opens on: the app's, or the demo one.
+//
+// The argument is the run's input, whether the app that spawns this process
+// wrote it (desktop/watch.BuildGridConfig) or a person typed it, so a roster
+// that does not parse ends the process the way an unknown -player does. The
+// exit status and the stderr line are what the spawning app reads; a panic
+// would bury both under this side's stack.
 func config(raw string) roster.Config {
 	if raw == "" {
 		logger.Infof("no -config given, running the demo streams")
@@ -129,8 +147,8 @@ func config(raw string) roster.Config {
 	}
 	cfg, err := roster.Parse(raw)
 	if err != nil {
-		logger.Errorf("%v", err)
-		assert.Never()
+		logger.Errorf("bad -config: %v", err)
+		os.Exit(exitBadFlag)
 	}
 	return cfg
 }

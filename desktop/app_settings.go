@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bjoernblessin.de/go-utils/util/assert"
+
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/settings"
@@ -67,7 +69,8 @@ type TransportCarriage struct {
 func (a *App) TransportFormats() []TransportCarriage {
 	out := []TransportCarriage{}
 	for _, name := range transport.Names() {
-		f, _ := transport.FormatsOf(name)
+		f, ok := transport.FormatsOf(name)
+		assert.Assert(ok, "a listed transport is a registered one", name)
 		out = append(out, TransportCarriage{Name: name, Publish: f.Publish, Watch: f.Watch})
 	}
 	return out

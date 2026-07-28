@@ -2,26 +2,20 @@ package sidebar
 
 import (
 	"slices"
-	"strconv"
 
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"bjoernblessin.de/go-utils/util/assert"
-	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/theme"
 )
 
-// The watch-leg popover's geometry. A millisecond knob needs a ceiling and a
-// step its declaration does not carry: a minute of buffering is past any delay
-// a viewer would sit through, and these knobs are tuned in 50 ms steps.
+// The watch-leg popover's geometry.
 const (
-	legIconSize  = 14
-	legSpacing   = 8
-	legMargin    = 12
-	legFieldMax  = 60000
-	legFieldStep = 50
+	legIconSize = 14
+	legSpacing  = 8
+	legMargin   = 12
 )
 
 // legTip describes the transport dropdown, the one control the roster does not
@@ -30,25 +24,23 @@ const legTip = "Protocol this stream is received over, the watch leg (relay to v
 	"It is independent of how the stream was published, since the relay re-serves each stream on every listener that carries its format. " +
 	"Changing it reconnects this stream and leaves the other tiles alone."
 
-// legField is one knob's control: the key it answers under, the value it holds,
-// and how a value from the app is written into it.
-type legField struct {
-	key   string
-	read  func() string
-	write func(value string)
-}
-
 // legView is one row's watch-leg control: the button that opens the popover,
 // and inside it the transports the app offers for that stream and the knobs of
 // the one it is on. The app declares both, so this side renders a control per
 // entry and knows what none of them mean.
 //
+// Two directions, one function each. draw is the only path from the model into
+// these widgets, write the only one out of them, and it puts a change to the app
+// rather than to a widget. Ending an edit any other way than Apply, the popover
+// closing among it, is another draw against the entry that still holds, so a
+// discarded edit and a refused change both leave the controls on the values in
+// force.
+//
 // The controls follow the roster and are rebuilt only when a push changes their
 // shape, so a value arriving while the popover is open lands in the widget the
 // pointer is on instead of replacing it. A change leaves on Apply rather than
 // per keystroke, because it reconnects the stream and a half-typed latency is
-// not a leg anybody asked for. Closing the popover any other way puts the
-// model's values back.
+// not a leg anybody asked for.
 type legView struct {
 	button  *gtk.MenuButton
 	popover *gtk.Popover
@@ -83,7 +75,9 @@ func newLegView(icons *theme.Icons, ask func(transport string, options map[strin
 	v.body.SetMarginEnd(legMargin)
 
 	v.popover.SetChild(v.body)
-	v.popover.ConnectClosed(v.write)
+	// Abandoning an edit is drawing the entry that holds. A popover closes only after
+	// it opened, and it opens on a button a draw made visible, so the entry is there.
+	v.popover.ConnectClosed(func() { v.draw(v.stream) })
 
 	v.button.AddCSSClass("flat")
 	v.button.SetChild(icons.Image("adjustments-horizontal", legIconSize, theme.Muted))
@@ -98,6 +92,9 @@ func (v *legView) Widget() gtk.Widgetter { return v.button }
 // draw puts one roster entry on the control. A stream on a leg with nothing to
 // choose and nothing to tune hides the button: the app offers it no watch
 // options, so there is nothing behind it.
+//
+// It sets every control from the entry on every pass, so a second draw on an
+// unchanged entry rebuilds nothing and changes nothing.
 func (v *legView) draw(st roster.Stream) {
 	v.stream = st
 	v.button.SetVisible(len(st.Transports) > 1 || len(st.Options) > 0)
@@ -105,16 +102,33 @@ func (v *legView) draw(st roster.Stream) {
 	if !slices.Equal(legTransports(st), v.offered) || !slices.Equal(optionKeys(st.Options), v.keys) {
 		v.rebuild()
 	}
-	v.write()
+
+	i := slices.Index(v.offered, st.Transport)
+	assert.Assert(i >= 0, "the dropdown offers the leg the stream is on", st.Transport)
+	v.legs.SetSelected(uint(i))
+
+	for _, f := range v.fields {
+		value, ok := optionValue(st.Options, f.key)
+		assert.Assert(ok, "a knob answers under a key the entry carries", f.key)
+		f.write(value)
+	}
 }
 
 // rebuild replaces the popover's controls with the ones the current entry
 // describes, which is what a stream moved to another transport needs: the knobs
-// belong to the leg, not to the stream.
+// belong to the leg, not to the stream. Only draw calls it, and draw fills what it
+// builds: the controls leave here empty.
+//
+// Clear then fill, so nothing accumulates over rebuilds. The previous Apply button
+// leaves with the body's other children and takes its clicked handler with it,
+// nothing outside the body having held it, and the fields that closed over the
+// previous knobs go with the slice.
 func (v *legView) rebuild() {
 	for child := v.body.FirstChild(); child != nil; child = v.body.FirstChild() {
 		v.body.Remove(child)
 	}
+	assert.Assert(v.body.FirstChild() == nil, "a rebuild starts on an empty popover")
+
 	v.offered = legTransports(v.stream)
 	v.keys = optionKeys(v.stream.Options)
 	v.fields = nil
@@ -134,29 +148,23 @@ func (v *legView) rebuild() {
 	apply := gtk.NewButtonWithLabel("Apply")
 	apply.AddCSSClass("suggested-action")
 	apply.SetTooltipText("Reconnect this stream on the chosen leg. The other tiles keep playing.")
-	apply.ConnectClicked(func() {
-		v.popover.Popdown()
-		v.ask(v.selected(), v.values())
-	})
+	apply.ConnectClicked(v.write)
 	v.body.Append(apply)
 }
 
-// write puts the entry's values into the controls. It runs on every draw and
-// when the popover closes, so a change the app refused is visible as the values
-// that still hold rather than as the ones that were asked for.
+// write asks the app for the leg the controls stand on, the whole leg rather than
+// the knob that moved: the app replaces what it held for this stream. The answer is
+// the next push, which is what moves these widgets.
+//
+// The controls are read before the popdown, because closing draws the entry that
+// still holds back into them and a read after it would carry the leg the change was
+// meant to replace.
 func (v *legView) write() {
-	i := slices.Index(v.offered, v.stream.Transport)
-	assert.Assert(i >= 0, "the dropdown offers the leg the stream is on", v.stream.Transport)
-	v.legs.SetSelected(uint(i))
+	assert.IsNotNil(v.legs, "a watch-leg change is read off controls a draw built")
 
-	for _, f := range v.fields {
-		for _, o := range v.stream.Options {
-			if o.Key == f.key {
-				f.write(o.Value)
-				break
-			}
-		}
-	}
+	transport, options := v.selected(), v.values()
+	v.popover.Popdown()
+	v.ask(transport, options)
 }
 
 // selected is the transport the dropdown shows.
@@ -167,87 +175,11 @@ func (v *legView) selected() string {
 	return v.offered[i]
 }
 
-// values reads every knob back, the whole leg rather than the control that
-// moved: the app replaces what it held for this stream.
+// values reads every knob back.
 func (v *legView) values() map[string]string {
 	out := make(map[string]string, len(v.fields))
 	for _, f := range v.fields {
 		out[f.key] = f.read()
 	}
 	return out
-}
-
-// legTransports is what the dropdown offers: the transports the app named for
-// the stream, plus the one it is on when that is not among them. A stream whose
-// format the window's transport cannot carry is exactly that case, and a
-// dropdown that cannot show the current leg would read as a leg nobody set.
-func legTransports(st roster.Stream) []string {
-	if slices.Contains(st.Transports, st.Transport) {
-		return st.Transports
-	}
-	return append([]string{st.Transport}, st.Transports...)
-}
-
-// optionKeys is the shape of an option set, which is what decides whether the
-// controls are rebuilt or only written.
-func optionKeys(options []roster.Option) []string {
-	keys := make([]string, 0, len(options))
-	for _, o := range options {
-		keys = append(keys, o.Key)
-	}
-	return keys
-}
-
-// legControl builds the control for one declared knob. A kind this build does
-// not render is skipped rather than fatal: the app on the other side of the
-// pipe can be newer than the window, and one unknown knob is worth less than
-// the rest of the popover.
-func legControl(o roster.Option) (gtk.Widgetter, legField, bool) {
-	switch o.Kind {
-	case roster.OptionInt:
-		spin := gtk.NewSpinButtonWithRange(float64(o.Min), legFieldMax, legFieldStep)
-		return spin, legField{
-			key:  o.Key,
-			read: func() string { return strconv.Itoa(int(spin.Value())) },
-			write: func(value string) {
-				n, err := strconv.Atoi(value)
-				if err != nil {
-					logger.Warnf("watch option %s: %q is not a number", o.Key, value)
-					return
-				}
-				spin.SetValue(float64(n))
-			},
-		}, true
-
-	case roster.OptionChoice:
-		drop := gtk.NewDropDownFromStrings(o.Choices)
-		return drop, legField{
-			key:  o.Key,
-			read: func() string { return o.Choices[drop.Selected()] },
-			write: func(value string) {
-				i := slices.Index(o.Choices, value)
-				if i < 0 {
-					logger.Warnf("watch option %s: %q is not one of its choices", o.Key, value)
-					return
-				}
-				drop.SetSelected(uint(i))
-			},
-		}, true
-	}
-
-	logger.Warnf("watch option %s: nothing here renders a %q", o.Key, o.Kind)
-	return nil, legField{}, false
-}
-
-// legRow is one labelled control, the shape every line of the popover takes.
-func legRow(label, tip string, control gtk.Widgetter) gtk.Widgetter {
-	l := gtk.NewLabel(label)
-	l.SetXAlign(0)
-	l.SetHExpand(true)
-
-	box := gtk.NewBox(gtk.OrientationHorizontal, legSpacing)
-	box.Append(l)
-	box.Append(control)
-	box.SetTooltipText(tip)
-	return box
 }

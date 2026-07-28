@@ -23,7 +23,25 @@
 // concern and are not modeled here.
 package capabilities
 
-import "fmt"
+import (
+	"fmt"
+
+	"bjoernblessin.de/go-utils/util/assert"
+)
+
+// knownEngine reports whether engine names a publish engine, spelled as the
+// publish package spells it.
+// The names are repeated here rather than imported because this package depends
+// on nothing, which is what lets both engines and the frontend binding read it.
+//
+// Every lookup below asks about an engine the caller names itself, never one read
+// off the settings or the frontend, so an engine outside this set is a caller that
+// made one up and the lookups assert it.
+// The codec, pixel format and mode they are asked about are the user's, and stay
+// error-returning.
+func knownEngine(engine string) bool {
+	return engine == "ffmpeg" || engine == "gstreamer"
+}
 
 // Gap is one thing a codec cannot do, with the reason the UI shows in place of the
 // option. Engine names the publish engine the gap applies to; empty means every
@@ -102,6 +120,8 @@ type Codec struct {
 // cannot encode on either engine is absent from Chromas instead, which Validate
 // rejects on its own.
 func (c Codec) ChromaGap(engine, chroma string) (Gap, bool) {
+	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
+
 	for _, g := range c.Gaps {
 		if g.Chroma == chroma && g.Mode == "" && g.covers(engine) {
 			return g, true
@@ -113,6 +133,8 @@ func (c Codec) ChromaGap(engine, chroma string) (Gap, bool) {
 // ModeGap returns the gap that keeps this codec out of the given rate-control mode
 // on the named engine, and false when the mode reaches its encoder there.
 func (c Codec) ModeGap(engine, mode string) (Gap, bool) {
+	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
+
 	for _, g := range c.Gaps {
 		if g.Mode == mode && g.Chroma == "" && g.covers(engine) {
 			return g, true
@@ -124,6 +146,8 @@ func (c Codec) ModeGap(engine, mode string) (Gap, bool) {
 // EngineGap returns the gap that takes this codec off the named engine altogether,
 // and false when that engine has an encoder for it.
 func (c Codec) EngineGap(engine string) (Gap, bool) {
+	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
+
 	for _, g := range c.Gaps {
 		if g.Chroma == "" && g.Mode == "" && g.covers(engine) {
 			return g, true
@@ -137,6 +161,8 @@ func (c Codec) EngineGap(engine string) (Gap, bool) {
 // the codec at all encodes none of them, so an engine-wide gap answers with nothing
 // rather than with the formats the other engine reaches.
 func (c Codec) EngineChromas(engine string) []string {
+	assert.Assert(knownEngine(engine), "a chroma list names a publish engine", engine)
+
 	if _, gap := c.EngineGap(engine); gap {
 		return nil
 	}
@@ -162,6 +188,10 @@ func (c Codec) EngineChromas(engine string) []string {
 // transport package's own refusal (transport.ValidatePublish), which the same
 // callers make beside this one.
 func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
+	// The engine is the caller's own; the four values it is validating against are
+	// the user's, which is why only this one is an assert.
+	assert.Assert(knownEngine(engine), "validation names a publish engine", engine)
+
 	c, ok := Get(codec)
 	if !ok {
 		return fmt.Errorf("unknown codec %q", codec)
@@ -238,6 +268,8 @@ func IsVaapi(name string) bool {
 // named publish engine. A format the codec codes on the other engine only reports
 // false here, matching what Validate accepts for that engine.
 func SupportsChroma(name, engine, chroma string) bool {
+	assert.Assert(knownEngine(engine), "a chroma question names a publish engine", engine)
+
 	c, ok := Get(name)
 	if !ok {
 		return false

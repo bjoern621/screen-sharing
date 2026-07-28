@@ -147,6 +147,47 @@ func TestBuildGridConfigChoiceLeavesTheSettings(t *testing.T) {
 	}
 }
 
+// The relay names its own paths, so an unnamed or repeated one is input this
+// side has to survive: the window keys its rows on the name and refuses a
+// roster carrying either, and dropping the path keeps the rest of the roster.
+func TestBuildGridConfigSkipsUnusableNames(t *testing.T) {
+	live := []LiveStream{
+		{Name: "alice", Format: "h264"},
+		{Name: "", Format: "h264"},
+		{Name: "alice", Format: "h264"},
+		{Name: "bob", Format: "h264"},
+	}
+
+	out, err := BuildGridConfig(rtspStream(), live, "rtsp", nil, GridApp{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var cfg GridConfig
+	if err := json.Unmarshal([]byte(out), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, stream := range cfg.Streams {
+		names = append(names, stream.Name)
+	}
+	if !slices.Equal(names, []string{"alice", "bob"}) {
+		t.Errorf("streams = %v, want alice and bob once each", names)
+	}
+}
+
+// A roster of nothing but unusable names still builds: the window opens empty
+// and the next push fills it, which is what it does on an idle relay.
+func TestBuildGridConfigAllNamesUnusable(t *testing.T) {
+	out, err := BuildGridConfig(rtspStream(), []LiveStream{{Format: "h264"}}, "rtsp", nil, GridApp{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, `"streams":[]`) {
+		t.Errorf("roster = %q, want a streams key holding an empty array", out)
+	}
+}
+
 func TestBuildGridConfigEmptyRoster(t *testing.T) {
 	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{})
 	if err != nil {

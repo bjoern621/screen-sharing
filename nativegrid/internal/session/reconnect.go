@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 )
 
@@ -32,6 +33,8 @@ func (s *Session) ended(i int, gen uint, message string) {
 		s.notify(Change{Kind: StateChanged, Index: i})
 		return
 	}
+
+	assert.Assert(e.attempts >= 0 && e.attempts < len(s.retryDelays), "a reconnect attempt indexes the backoff", e.attempts, len(s.retryDelays))
 
 	d := s.retryDelays[e.attempts]
 	e.attempts++

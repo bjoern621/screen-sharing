@@ -275,11 +275,14 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.L
 			}
 
 		case m := <-asks:
+			// The stdout reader forwards these two kinds and answers the rest itself.
 			switch m.Kind {
 			case watch.GridWatchLeg:
 				a.applyGridRequest(m.Request, live, transportName, choices)
 			case watch.GridCommandKind:
 				app = a.runGridCommand(m.Command)
+			default:
+				assert.Never("unexpected queued grid message kind", m.Kind)
 			}
 			if !a.pushGrid(proc, transportName, live, choices, app) {
 				return

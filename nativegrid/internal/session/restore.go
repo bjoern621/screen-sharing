@@ -70,6 +70,31 @@ func (s *Session) openWanted(i int, d time.Duration) {
 	})
 }
 
+// rememberedOrder is the ranking the state file offers, with the entries that
+// rank no stream taken out.
+//
+// The file sits in a config directory where anything can edit it, so a nameless
+// or repeated entry is a condition to survive rather than a bug on this side.
+// One name twice over ranks two streams the same, and both the placement it
+// feeds and the merge that writes the file back hold a stream once.
+func rememberedOrder(order []string) []string {
+	ranked := make([]string, 0, len(order))
+	seen := make(map[string]bool, len(order))
+	for _, n := range order {
+		if n == "" {
+			logger.Warnf("the remembered order ranks a stream with no name, ignoring that slot")
+			continue
+		}
+		if seen[n] {
+			logger.Warnf("the remembered order ranks %q twice, keeping the first slot", n)
+			continue
+		}
+		seen[n] = true
+		ranked = append(ranked, n)
+	}
+	return ranked
+}
+
 // write records what the window shows now, so the next run opens on it. The order
 // is merged with the remembered one, keeping streams this run never saw. It is
 // called from the coalescer after every change a restart should reproduce; a lost

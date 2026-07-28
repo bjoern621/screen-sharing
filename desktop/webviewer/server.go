@@ -20,6 +20,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 	"bjoernblessin.de/screenshare/ffmpeg"
 )
@@ -156,6 +157,8 @@ func (s *Server) stream(ctx context.Context, conn *websocket.Conn, host string, 
 // 1-byte flag (bit 0 = keyframe), an 8-byte big-endian PTS in microseconds, then
 // the VP9 payload.
 func writeFrame(conn *websocket.Conn, payload []byte, ptsUs uint64, keyframe bool) error {
+	assert.IsNotNil(conn, "a frame write has a socket to write to")
+
 	msg := make([]byte, 9+len(payload))
 	if keyframe {
 		msg[0] = 0x01

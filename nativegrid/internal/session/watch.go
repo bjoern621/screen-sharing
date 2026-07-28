@@ -5,22 +5,27 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
-	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 )
 
-// SetWatched toggles watching stream i.
+// SetWatched opens or closes stream i's tile.
 //
 // On: a player starts and the stream goes Loading, and the player's callbacks
 // take it Live or Failed.
-// On with a player already running restarts it, which is also the retry button's
-// path.
 // Off: the player stops and the stream goes Idle.
+//
+// A stream already in the state asked for is left as it is, whatever it is doing
+// there: Failed and Reconnecting are watched states, and replacing the player
+// behind one of them is Restart's job rather than a side effect of asking for
+// what already holds.
 //
 // This is the path a click takes, so it is also where the reconnect budget
 // refills.
 // A pending automatic retry is dropped for the same reason: what was asked for
 // replaces what the model had planned.
 func (s *Session) SetWatched(i int, on bool) {
+	if s.at(i).state.Watched() == on {
+		return
+	}
 	s.cancelRetry(i)
 	s.at(i).attempts = 0
 	if on {
@@ -30,12 +35,33 @@ func (s *Session) SetWatched(i int, on bool) {
 	s.stop(i)
 }
 
+// Restart re-opens stream i on the fragment the roster holds for it now. It is
+// the tile's retry button: a watch someone asks for again is a fresh one, so the
+// reconnect budget refills with it.
+func (s *Session) Restart(i int) {
+	assert.Assert(s.at(i).state.Watched(), "only a watched stream is restarted", s.at(i).stream.Name)
+
+	s.at(i).attempts = 0
+	s.restart(i)
+}
+
+// restart replaces stream i's player, keeping the reconnect budget it has spent.
+//
+// The budget stays because the roster restarts a stream on every flap of the
+// relay listing it. Refilling it there is a window that reconnects to a stream
+// nobody publishes for as long as the relay keeps naming it, which is the cap
+// the budget exists to put on.
+func (s *Session) restart(i int) {
+	s.cancelRetry(i)
+	s.start(i)
+}
+
 // start opens a player for stream i, replacing a running one.
 // The generation is bumped first, so the callbacks and the retry of the player
 // left behind are dropped.
 func (s *Session) start(i int) {
 	e := s.at(i)
-	e.gen++
+	nextGen(e)
 	if e.player != nil {
 		e.player.Stop()
 		e.player = nil
@@ -46,6 +72,9 @@ func (s *Session) start(i int) {
 	s.clearStall(i)
 
 	p, err := s.factory(e.stream, s.events(i, e.gen))
+	// The factory is the caller's, so the entry is read again rather than held
+	// across it: a stream added in between moves the slice it points into.
+	e = s.at(i)
 	if err != nil {
 		// A factory failure is a missing element or a fragment the parser
 		// rejects, which the same fragment fails on again.
@@ -68,7 +97,7 @@ func (s *Session) start(i int) {
 // reports.
 func (s *Session) stop(i int) {
 	e := s.at(i)
-	e.gen++
+	nextGen(e)
 	if e.player != nil {
 		e.player.Stop()
 		e.player = nil
@@ -86,35 +115,32 @@ func (s *Session) stop(i int) {
 	s.watchSet.Schedule()
 }
 
-// RequestWatchLeg asks the app to receive stream i over a transport, with that
-// transport's knobs at the given values, keyed as the roster declared them.
-//
-// Nothing changes here: the app decides what the leg means, and its answer is
-// the roster push that carries the new source fragment, which SetRoster
-// restarts a watched stream on. A refused request is answered too, with the
-// values that still hold, so the controls that asked follow the model back.
-func (s *Session) RequestWatchLeg(i int, transport string, options map[string]string) {
-	e := s.at(i)
-	logger.Infof("asking to watch %q over %s", e.stream.Name, transport)
-	s.send(roster.Request{Stream: e.stream.Name, Transport: transport, Options: options})
+// nextGen retires the work of the player the stream is running: a callback and a
+// retry carry the generation they were made in, and land nowhere once it is not
+// the stream's any more. The counter only counts up, because a wrapped one would
+// make a stale report equal the generation it is compared against.
+func nextGen(e *entry) {
+	e.gen++
+	assert.Assert(e.gen != 0, "a stream generation counts up", e.gen)
 }
 
 // events are the callbacks of the player started for stream i in generation gen.
 func (s *Session) events(i int, gen uint) player.Events {
 	return player.Events{
-		OnLive: s.hop(i, gen, func(e *entry) {
+		OnLive: s.hop(i, gen, func() {
+			e := s.at(i)
 			e.state = Live
 			// The stream carries frames again, so the reconnects it took to get
 			// here are done with and the next outage starts from a full budget.
 			e.attempts = 0
 			s.notify(Change{Kind: StateChanged, Index: i})
 		}),
-		OnAudio: s.hop(i, gen, func(e *entry) {
-			e.audio = true
+		OnAudio: s.hop(i, gen, func() {
+			s.at(i).audio = true
 			s.notify(Change{Kind: AudioReady, Index: i})
 		}),
 		OnEnd: func(message string) {
-			s.hop(i, gen, func(*entry) {
+			s.hop(i, gen, func() {
 				s.ended(i, gen, message)
 			})()
 		},
@@ -123,15 +149,18 @@ func (s *Session) events(i int, gen uint) player.Events {
 
 // hop wraps a model change so it lands on the UI loop and only applies while the
 // generation it was made for is still the stream's.
-func (s *Session) hop(i int, gen uint, apply func(e *entry)) func() {
+//
+// The entry is read through at rather than handed to apply: a stream joining the
+// model moves the whole slice, and a pointer taken before it would write into
+// the array nothing reads any more.
+func (s *Session) hop(i int, gen uint, apply func()) func() {
 	return func() {
 		s.dispatch(func() {
-			e := s.at(i)
-			if e.gen != gen {
-				logger.Debugf("dropped a stale player report for %q", e.stream.Name)
+			if s.at(i).gen != gen {
+				logger.Debugf("dropped a stale player report for %q", s.at(i).stream.Name)
 				return
 			}
-			apply(e)
+			apply()
 		})
 	}
 }

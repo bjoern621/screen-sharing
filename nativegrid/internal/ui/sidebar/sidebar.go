@@ -10,9 +10,6 @@
 package sidebar
 
 import (
-	"fmt"
-	"slices"
-
 	"github.com/diamondburned/gotk4-adwaita/pkg/adw"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
@@ -50,6 +47,7 @@ type View struct {
 func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *View {
 	assert.IsNotNil(sess, "the sidebar lists a session")
 	assert.IsNotNil(drag, "the sidebar shares the drag controller")
+	assert.IsNotNil(dispatch, "the sidebar defers its resorting to a UI loop")
 
 	v := &View{
 		title: adw.NewWindowTitle("Streams", ""),
@@ -62,19 +60,8 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 
 	v.list.AddCSSClass("navigation-sidebar")
 	v.list.SetSelectionMode(gtk.SelectionNone)
-	v.list.SetSortFunc(func(a, b *gtk.ListBoxRow) int {
-		return v.rank[a.Object.Native()] - v.rank[b.Object.Native()]
-	})
-	v.list.ConnectRowActivated(func(activated *gtk.ListBoxRow) {
-		// The row is matched by identity, not by position: the list is sorted by the
-		// display order, which the stream indexes behind the rows do not follow.
-		for _, r := range v.rows {
-			if r.widget.Eq(activated) {
-				r.toggle()
-				return
-			}
-		}
-	})
+	v.list.SetSortFunc(v.compareRows)
+	v.list.ConnectRowActivated(v.activateRow)
 
 	placeholder := gtk.NewLabel("No streams on the relay")
 	placeholder.AddCSSClass("sidebar-empty")
@@ -94,6 +81,11 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 func (v *View) Widget() gtk.Widgetter { return v.root }
 
 // Changed redraws for one model change.
+//
+// Every kind the model declares is named here, the ones the sidebar draws nothing
+// for as loudly as the rest: a kind that falls through leaves rows standing on state
+// their streams have left, and the next kind added to the model would do exactly
+// that.
 func (v *View) Changed(c session.Change) {
 	switch c.Kind {
 	case session.StreamAdded:
@@ -105,6 +97,10 @@ func (v *View) Changed(c session.Change) {
 		// The watch state is untouched, so the heading's count holds and only the
 		// row's status face moves.
 		v.drawRow(c.Index)
+	case session.AudioReady:
+		// A row shows no audio face. Audio reaches the viewer through the tile's own
+		// controls, which the grid draws from this same change, so there is nothing
+		// here to mirror it with.
 	case session.RosterChanged:
 		// Presence moves rows in and out of sight without touching a watch state, and
 		// it can change any of them at once.
@@ -117,79 +113,13 @@ func (v *View) Changed(c session.Change) {
 		v.resort.Schedule()
 	case session.AppChanged:
 		v.drawApp()
+	default:
+		assert.Never("unexpected change kind", int(c.Kind))
 	}
-}
-
-// build wraps the list in the scroller, the header the window shows it in, and
-// the app bar under both.
-func (v *View) build() gtk.Widgetter {
-	scroll := gtk.NewScrolledWindow()
-	scroll.SetChild(v.list)
-	scroll.SetVExpand(true)
-
-	header := adw.NewHeaderBar()
-	header.SetTitleWidget(v.title)
-
-	view := adw.NewToolbarView()
-	view.AddTopBar(header)
-	view.SetContent(scroll)
-	view.AddBottomBar(v.app.Widget())
-	return view
 }
 
 // drawApp puts the app's state on the bar under the list.
 func (v *View) drawApp() {
 	app, present := v.sess.App()
 	v.app.draw(app, present)
-}
-
-// addRow appends the row of a stream that joined, at its slot in the display order:
-// the slot of a row added at launch comes from the remembered order, not from the
-// order the streams were configured in.
-func (v *View) addRow(i int) {
-	r := newRow(v.sess.Stream(i).Name, &v.icons,
-		func(on bool) { v.sess.SetWatched(i, on) },
-		func(transport string, options map[string]string) { v.sess.RequestWatchLeg(i, transport, options) })
-	v.rows = append(v.rows, r)
-	assert.Assert(len(v.rows) == i+1, "a row per stream, in stream order", len(v.rows), i)
-
-	v.drag.AttachSource(r.widget, i)
-	// Ranked before it enters the list, so it lands at its slot right away.
-	v.rank[r.widget.Object.Native()] = slices.Index(v.sess.Order(), i)
-	v.list.Append(r.widget)
-	v.drawRow(i)
-}
-
-// drawRow puts stream i's state on its row.
-func (v *View) drawRow(i int) {
-	v.rows[i].draw(v.sess.Stream(i), v.sess.State(i), v.sess.Stalled(i), v.sess.Visible(i))
-}
-
-// drawTitle states the open-tile count beside the heading, the way the web roster's
-// badge does. An empty subtitle collapses, so a grid with nothing open shows the
-// heading alone, like the web shows no badge.
-func (v *View) drawTitle() {
-	n := v.sess.Watching()
-	if n == 0 {
-		v.title.SetSubtitle("")
-		return
-	}
-	v.title.SetSubtitle(fmt.Sprintf("%d watching", n))
-}
-
-// resortRows re-ranks every row and lets the list sort itself.
-func (v *View) resortRows() {
-	for pos, i := range v.sess.Order() {
-		v.rank[v.rows[i].widget.Object.Native()] = pos
-	}
-	v.list.InvalidateSort()
-}
-
-// rowWidget is the hit-test target for a drag over the list: a hidden row holds no
-// place in the order the pointer could aim at.
-func (v *View) rowWidget(i int) gtk.Widgetter {
-	if !v.sess.Visible(i) {
-		return nil
-	}
-	return v.rows[i].widget
 }

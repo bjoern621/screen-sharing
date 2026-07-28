@@ -6,12 +6,16 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
 // FindExe locates a media executable (ffmpeg, ffplay, mpv). A copy shipped
 // next to the app binary wins over one on PATH, so a bundled build is
 // self-contained.
 func FindExe(name string) (string, error) {
+	assert.Assert(name != "", "an executable lookup names the program to find")
+
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
@@ -50,6 +54,12 @@ const kmsgrabWrapper = "ffmpeg-kmsgrab"
 // uses the plain ffmpeg directly, keeping the privileged binary off the
 // unprivileged capture backends.
 func FindCaptureExe(capture string) (string, error) {
+	// The caller has already built the command through captureArgs, which refuses
+	// a backend absent from the same table, so an unmapped one here means the run
+	// would spawn a binary for a capture this builder cannot drive.
+	_, mapped := captureBackends[capture]
+	assert.Assert(mapped, "a publish run names a capture backend this builder maps", capture)
+
 	if capture == "kmsgrab" {
 		if override := os.Getenv(EnvKmsgrabFFmpeg); override != "" {
 			return override, nil

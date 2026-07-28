@@ -11,13 +11,13 @@ import (
 // refresh stop itself at its next tick.
 func (t *Tile) toggleStats() {
 	t.statsOpen = !t.statsOpen
-	t.statsCard.SetVisible(t.statsOpen)
-	t.statsToggle.SetOn(t.statsOpen)
 	// A closed card's timeout lives until its next tick, so a reopen inside that
 	// second would leave two refreshes on one card, and every further fast toggle
 	// another. The count retires each one at the tick it wakes on, the way the model
 	// drops the reports of a player it has replaced.
 	t.statsGen++
+	t.apply()
+
 	if !t.statsOpen {
 		return
 	}

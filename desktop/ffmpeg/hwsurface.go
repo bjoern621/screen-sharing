@@ -3,6 +3,8 @@ package ffmpeg
 import (
 	"fmt"
 
+	"bjoernblessin.de/go-utils/util/assert"
+
 	"bjoernblessin.de/screenshare/capabilities"
 )
 
@@ -41,6 +43,10 @@ var hwSurfaceDevices = map[string]func() ([]string, error){
 // on, and false for a codec that reads system memory and needs none. The error is the
 // family's own: this machine carries no device it can encode on.
 func HwSurfaceDevice(codec string) ([]string, bool, error) {
+	// The command builder validates the settings ahead of this, so an empty codec
+	// is a caller that skipped it rather than a settings file naming nothing.
+	assert.Assert(codec != "", "a publish command names the codec it encodes with")
+
 	c, ok := capabilities.Get(codec)
 	if !ok {
 		return nil, false, fmt.Errorf("unknown codec %q", codec)
@@ -50,6 +56,7 @@ func HwSurfaceDevice(codec string) ([]string, bool, error) {
 		return nil, false, nil
 	}
 	device, err := build()
+	assert.Assert(err != nil || len(device) > 0, "a surface family yields the options opening its device", c.Family)
 	return device, true, err
 }
 
@@ -61,6 +68,10 @@ func HwSurfaceDevice(codec string) ([]string, bool, error) {
 // ffmpeg propagates the encoder's -color_range through the filter graph, so the format
 // filter converts to the range the stream signals.
 func HwSurfaceFilters(chroma string) ([]string, error) {
+	// capabilities.Validate has already held the chroma against the codec's list,
+	// and no row on it is empty.
+	assert.Assert(chroma != "", "a surface encode names the pixel format it uploads")
+
 	format, ok := hwSurfaceFormats[chroma]
 	if !ok {
 		return nil, fmt.Errorf("chroma %q has no hardware surface layout", chroma)

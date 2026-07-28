@@ -7,6 +7,9 @@ import (
 	"slices"
 	"strings"
 
+	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
+
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -79,6 +82,10 @@ type GridConfig struct {
 // pushes. The default transport must have a GStreamer watch form
 // (transport.GstWatcher), checked up front so a bad transport fails at open, not
 // at the first push.
+//
+// A stream the grid could not key a row on is dropped rather than refused: the
+// names come off the relay's path list, and one bad path would otherwise cost
+// the window every other stream in the same roster.
 func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice, app GridApp) (string, error) {
 	if !transport.CanGstWatch(defaultTransport) {
 		return "", fmt.Errorf("transport %q has no GStreamer watch form", defaultTransport)
@@ -86,19 +93,53 @@ func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport stri
 
 	// Streams starts non-nil so an empty roster marshals as [], not null.
 	cfg := GridConfig{Streams: []GridStream{}, App: app}
+	// The name keys the window's rows, its watch-leg requests and its watch
+	// reports, and the relay is another process, free to answer with an unnamed or
+	// repeated path. Neither survives that keying, so both are dropped with the
+	// reason instead of reaching a window that refuses the whole roster.
+	taken := map[string]bool{}
 	for _, l := range live {
+		if l.Name == "" {
+			logger.Warnf("native grid roster: dropped a live stream the relay reports under no name")
+			continue
+		}
+		if taken[l.Name] {
+			logger.Warnf("native grid roster: dropped a second live stream named %q, which the window cannot tell from the first", l.Name)
+			continue
+		}
+		taken[l.Name] = true
+
 		leg, name, err := WatchLeg(s, l, defaultTransport, choices[l.Name])
 		if err != nil {
 			return "", err
 		}
-		src, _ := transport.GstSource(name, leg, l.Name)
+		// WatchLeg answers with defaultTransport, checked above, or with a leg off
+		// GstWatchTransports, which lists transports with a watch form and no others.
+		// A leg without one used to reach the grid as an empty fragment and fail in
+		// that process instead of this one.
+		src, ok := transport.GstSource(name, leg, l.Name)
+		assert.Assert(ok, "a resolved watch leg has a GStreamer watch form", l.Name, name)
+		source := strings.Join(src, " ")
+		assert.Assert(source != "", "a grid stream carries the source fragment to decode it", l.Name, name)
+
 		cfg.Streams = append(cfg.Streams, GridStream{
 			Name:       l.Name,
 			Transport:  name,
-			Source:     strings.Join(src, " "),
+			Source:     source,
 			Transports: GstWatchTransports(l.Format),
 			Options:    transport.WatchOptions(name, leg),
 		})
+	}
+
+	assert.Assert(len(cfg.Streams) <= len(live), "a grid stream per live stream at most", len(cfg.Streams), len(live))
+
+	// The other half of this contract is the nativegrid module's roster.Parse,
+	// which refuses a config with an empty or repeated stream name. Emitting one
+	// fails here rather than in the window this config is spawned on.
+	emitted := map[string]bool{}
+	for _, stream := range cfg.Streams {
+		assert.Assert(stream.Name != "" && !emitted[stream.Name], "a grid stream carries a name unique in the roster", stream.Name)
+		emitted[stream.Name] = true
 	}
 
 	out, err := json.Marshal(cfg)
@@ -120,6 +161,12 @@ func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport stri
 // opened on it, and dropping it here would move the stream to a leg nobody
 // picked.
 func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c WatchChoice) (settings.Stream, string, error) {
+	// The window's own leg is not examined below, so a stream with no choice leaves
+	// here on it.
+	// BuildGridConfig refuses a window opened on a leg without a watch form, which
+	// is what makes this hold for every later call.
+	assert.Assert(transport.CanGstWatch(defaultTransport), "a grid window opens on a GStreamer watch leg", defaultTransport)
+
 	name := defaultTransport
 	if c.Transport != "" {
 		offered := GstWatchTransports(l.Format)
@@ -149,6 +196,8 @@ func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c Wat
 // Choices of streams the relay does not report live are kept: a stream that
 // comes back finds the leg it was on, the way it finds its slot in the order.
 func PruneWatchChoices(base settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice) []error {
+	assert.Assert(transport.CanGstWatch(defaultTransport), "a grid window opens on a GStreamer watch leg", defaultTransport)
+
 	var dropped []error
 	for _, l := range live {
 		c, ok := choices[l.Name]
@@ -173,7 +222,13 @@ func PruneWatchChoices(base settings.Stream, live []LiveStream, defaultTransport
 // The list is the grid's alone and is wider than a player's: WHEP has no URL a
 // viewer program opens, and a receiving pipeline reaches it all the same.
 func GstWatchTransports(format string) []string {
-	return transport.GstWatchNamesFor(format)
+	out := transport.GstWatchNamesFor(format)
+	// A choice off this list reaches GstSource unexamined, so the narrowing must
+	// not leave a transport without a watch form in it.
+	for _, name := range out {
+		assert.Assert(transport.CanGstWatch(name), "an offered watch leg has a GStreamer watch form", name)
+	}
+	return out
 }
 
 // The kinds of message the grid window writes on its stdout, carried in every line as "type".

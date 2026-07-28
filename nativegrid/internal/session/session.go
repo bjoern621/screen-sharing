@@ -138,7 +138,7 @@ func New(cfg roster.Config, factory player.Factory, store layout.Store, send ros
 		retryDelays: retryBackoff,
 		stagger:     restoreStagger,
 		sweepEvery:  sweepInterval,
-		savedOrder:  saved.Order,
+		savedOrder:  rememberedOrder(saved.Order),
 		wantWatched: make(map[string]bool, len(saved.Watched)),
 		wantSpot:    saved.Spot,
 	}
@@ -265,9 +265,9 @@ func (s *Session) Close() {
 		logger.Warnf("pipelines still stopping after %s, closing anyway", stopTimeout)
 	}
 
-	if s.persist.Pending() {
-		s.write()
-	}
+	// The loop the write was deferred to has already returned, so the coalescer
+	// runs it here and drops the pass it will never get.
+	s.persist.Flush()
 	logger.Infof("session closed")
 }
 

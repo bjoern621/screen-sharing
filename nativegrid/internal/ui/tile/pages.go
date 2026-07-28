@@ -115,13 +115,9 @@ func (t *Tile) buildChip() {
 
 	t.chip = gtk.NewBox(gtk.OrientationHorizontal, 6)
 	t.chip.AddCSSClass("tile-label")
-	// The chip prints the stream's name, and names the watch leg it arrives over on
-	// hover. A roster that left the transport out gets no tooltip rather than a
-	// sentence with a hole in it.
-	if t.stream.Transport != "" {
-		t.chip.SetTooltipText("Watching this stream over " + t.stream.Transport +
-			", the watch leg (relay to viewer). It is independent of the protocol the stream was published over.")
-	}
+	// The chip prints the stream's name and names the watch leg it arrives over on
+	// hover. The leg is a roster attribute that a push can move, so the tooltip is the
+	// render pass's (watchLegTip) and not baked in here.
 	t.chip.Append(gtk.NewLabel(t.stream.Name))
 	t.chip.Append(t.chipStall)
 	t.chip.Append(t.chipMute)

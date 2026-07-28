@@ -80,12 +80,20 @@ type requests struct{ sent []roster.Request }
 func (r *requests) send(req roster.Request) { r.sent = append(r.sent, req) }
 
 // newAskingSession is a model whose requests are collected rather than sent.
+// Its streams declare the legs and the knob a request names, which is what the
+// app puts in a roster and what a request is held to.
 func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *requests) {
 	t.Helper()
 
 	streams := make([]roster.Stream, 0, len(names))
 	for _, n := range names {
-		streams = append(streams, roster.Stream{Name: n, Transport: "srt", Source: "videotestsrc"})
+		streams = append(streams, roster.Stream{
+			Name:       n,
+			Transport:  "srt",
+			Source:     "videotestsrc",
+			Transports: []string{"srt", "rtsp"},
+			Options:    []roster.Option{{Key: "rtspWatchLatencyMs", Kind: roster.OptionInt, Value: "200"}},
+		})
 	}
 	backend := &stubBackend{}
 	asked := &requests{}
@@ -214,6 +222,39 @@ func TestWatchLifecycle(t *testing.T) {
 	}
 }
 
+// TestSetWatchedIsIdempotent holds the setter's contract: asking for the state a
+// stream is already in leaves its player, its state and its reconnect budget
+// where they are. Failed and Reconnecting are watched states too, so the tile
+// that wants a new player asks Restart for one.
+func TestSetWatchedIsIdempotent(t *testing.T) {
+	s, backend, _ := newTestSession(t, layout.Layout{}, "a")
+	s.SetWatched(0, true)
+	p := backend.players[0]
+	p.events.OnLive()
+
+	s.SetWatched(0, true)
+
+	if got := len(backend.players); got != 1 {
+		t.Errorf("started %d players, want the running one left alone", got)
+	}
+	if p.stops != 0 {
+		t.Error("watching a watched stream stopped its player")
+	}
+	if got := s.State(0); got != Live {
+		t.Errorf("state = %v, want the stream left live", got)
+	}
+
+	s.SetWatched(0, false)
+	s.SetWatched(0, false)
+
+	if p.stops != 1 {
+		t.Errorf("the player stopped %d times, want 1", p.stops)
+	}
+	if got := s.State(0); got != Idle {
+		t.Errorf("state = %v, want idle", got)
+	}
+}
+
 // TestFactoryFailureFails puts a stream in the failed state without a player,
 // which is the retry path's starting point.
 func TestFactoryFailureFails(t *testing.T) {
@@ -232,7 +273,7 @@ func TestFactoryFailureFails(t *testing.T) {
 	}
 
 	backend.fail = nil
-	s.SetWatched(0, true)
+	s.Restart(0)
 	if got := s.State(0); got != Loading {
 		t.Errorf("state after retry = %v, want loading", got)
 	}
@@ -272,7 +313,7 @@ func TestRosterRestoresLateStream(t *testing.T) {
 		t.Fatalf("restore started %d players before the stream appeared", len(backend.players))
 	}
 
-	s.SetRoster([]roster.Stream{{Name: "a"}, {Name: "late", Source: "videotestsrc"}})
+	s.SetRoster([]roster.Stream{{Name: "a", Source: "videotestsrc"}, {Name: "late", Source: "videotestsrc"}})
 	i := s.indexOf("late")
 	if i < 0 {
 		t.Fatal("the pushed stream is unknown")
@@ -283,7 +324,7 @@ func TestRosterRestoresLateStream(t *testing.T) {
 
 	// The want is consumed: unwatching must survive the next push.
 	s.SetWatched(i, false)
-	s.SetRoster([]roster.Stream{{Name: "a"}, {Name: "late", Source: "videotestsrc"}})
+	s.SetRoster([]roster.Stream{{Name: "a", Source: "videotestsrc"}, {Name: "late", Source: "videotestsrc"}})
 	if got := s.State(i); got != Idle {
 		t.Errorf("state after unwatch and a push = %v, want idle", got)
 	}

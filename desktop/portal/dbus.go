@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/godbus/dbus/v5"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
 // The D-Bus half of the ScreenCast conversation: every method is asynchronous, so
@@ -50,6 +52,9 @@ func (c *client) requestStart(session dbus.ObjectPath) (options, error) {
 // method, and returns the results map once the Response arrives. A non-zero
 // response code (user cancelled, or an error) is reported as an error.
 func (c *client) await(method string, invoke func(reqToken string) *dbus.Call) (options, error) {
+	assert.Assert(method != "", "an awaited call names the portal method it blocks for")
+	assert.IsNotNil(invoke, "an awaited call has a method to invoke", method)
+
 	token := newToken()
 	reqPath := dbus.ObjectPath("/org/freedesktop/portal/desktop/request/" + c.sender + "/" + token)
 
@@ -94,7 +99,15 @@ func (c *client) openPipeWireRemote(session dbus.ObjectPath) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.NewFile(uintptr(fd), "pipewire-remote"), nil
+	// os.NewFile answers nil for a negative descriptor, which is what a portal
+	// reporting the failure in the reply instead of in a D-Bus error leaves here.
+	// The file is inherited by the capture child at a fixed position, so a closed
+	// slot has to be refused before it travels that far.
+	f := os.NewFile(uintptr(fd), "pipewire-remote")
+	if f == nil {
+		return nil, fmt.Errorf("invalid file descriptor %d", int(fd))
+	}
+	return f, nil
 }
 
 func (c *client) closeSession(session dbus.ObjectPath) {

@@ -10,6 +10,8 @@
 // writes the app's config directory, Memory holds it in the process for a test.
 package layout
 
+import "slices"
+
 // Layout is the arrangement carried across runs. Streams are keyed by name
 // because a stream index only means something within one run. Both lists keep
 // names the current roster does not offer, so a machine that goes away and
@@ -33,14 +35,26 @@ type Store interface {
 // Memory keeps both remembered records in the process, for tests and for a run
 // that must not touch the config directory. It is a Store and a WindowStore, so
 // one instance stands in for the state file the two share.
+//
+// What it holds is its own copy, and so is what it hands out. FileStore's
+// records cross a JSON encoder and reach neither side by reference; a caller
+// that kept writing the slice it saved would otherwise change what is
+// remembered here and nowhere else.
 type Memory struct {
 	Layout Layout
 	Window WindowState
 }
 
-func (m *Memory) Load() Layout { return m.Layout }
+func (m *Memory) Load() Layout { return copyOf(m.Layout) }
 
-func (m *Memory) Save(l Layout) { m.Layout = l }
+func (m *Memory) Save(l Layout) { m.Layout = copyOf(l) }
+
+// copyOf is one arrangement with its own slices.
+func copyOf(l Layout) Layout {
+	l.Order = slices.Clone(l.Order)
+	l.Watched = slices.Clone(l.Watched)
+	return l
+}
 
 func (m *Memory) LoadWindow() WindowState { return m.Window }
 

@@ -103,6 +103,13 @@ var registry = map[string]Transport{}
 // Register adds a transport to the registry.
 // Registering the same name twice is a programming error.
 func Register(t Transport) {
+	assert.IsNotNil(t, "a registry entry is a transport")
+	assert.Assert(t.Name() != "", "a transport names itself")
+	// A protocol that carries nothing on either leg is a row no caller can reach:
+	// both serialization sides read the format sets to decide what they offer.
+	f := t.Formats()
+	assert.Assert(len(f.Publish) > 0 || len(f.Watch) > 0, "a transport carries a format on a leg", t.Name())
+
 	_, exists := registry[t.Name()]
 	assert.Assert(!exists, "transport registered twice", t.Name())
 
@@ -126,7 +133,9 @@ func PublishArgs(s settings.Stream) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
-	return p.PublishArgs(s), true
+	args := p.PublishArgs(s)
+	assert.Assert(len(args) > 0, "a publishing transport yields ffmpeg output args", s.Transport)
+	return args, true
 }
 
 // GstSink returns the GStreamer muxer and sink elements for the configured
@@ -140,7 +149,9 @@ func GstSink(s settings.Stream) ([]string, bool) {
 	if !ok {
 		return nil, false
 	}
-	return g.GstSink(s), true
+	sink := g.GstSink(s)
+	assert.Assert(len(sink) > 0, "a publishing transport yields muxer and sink elements", s.Transport)
+	return sink, true
 }
 
 // CanFFmpegPublish reports whether the named transport can terminate an ffmpeg
@@ -179,7 +190,11 @@ func GstSource(name string, s settings.Stream, streamName string) ([]string, boo
 	if !ok {
 		return nil, false
 	}
-	return g.GstSource(s, streamName), true
+	// The receiving side asserts that a stream carries a source fragment, so an
+	// implementation that yields none fails here rather than in the grid process.
+	src := g.GstSource(s, streamName)
+	assert.Assert(len(src) > 0, "a watching transport yields source elements", name, streamName)
+	return src, true
 }
 
 // CanGstWatch reports whether the named transport can feed a receiving
@@ -207,7 +222,9 @@ func WatchURL(name string, s settings.Stream, streamName string) (string, bool) 
 	if !ok {
 		return "", false
 	}
-	return w.WatchURL(s, streamName), true
+	url := w.WatchURL(s, streamName)
+	assert.Assert(url != "", "a watching transport yields a viewer URL", name, streamName)
+	return url, true
 }
 
 // Names lists all registered transports, sorted. The registry is a map, so the
@@ -324,6 +341,16 @@ func GstWatchNamesFor(format string) []string {
 }
 
 func narrowToFormat(names []string, format string) []string {
+	// The lists come from namesWhere, so every entry resolves in the carriage lookup
+	// below.
+	// A name the registry does not know carries nothing there and would drop out of
+	// the narrowed list instead.
+	for _, name := range names {
+		_, ok := Get(name)
+		assert.Assert(ok, "a narrowed list holds registered transports", name)
+	}
+	// An empty format is the roster before the relay reported one, which narrows
+	// nothing rather than narrowing to nothing.
 	if !capabilities.HasFormat(format) {
 		return names
 	}

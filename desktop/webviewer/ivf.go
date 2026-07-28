@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
 // readIVF reads an IVF elementary stream (ffmpeg's "-f ivf" output) and calls
@@ -18,6 +20,9 @@ import (
 // denominator at offset 16 and numerator at offset 20, matching ffmpeg's ivf
 // muxer, so a timestamp converts to seconds as ts*num/den.
 func readIVF(r io.Reader, onFrame func(payload []byte, ptsUs uint64, keyframe bool) error) error {
+	assert.IsNotNil(r, "an IVF read has a stream to read from")
+	assert.IsNotNil(onFrame, "an IVF read has a sink for every frame")
+
 	var fileHdr [32]byte
 	if _, err := io.ReadFull(r, fileHdr[:]); err != nil {
 		return fmt.Errorf("read IVF file header: %w", err)
