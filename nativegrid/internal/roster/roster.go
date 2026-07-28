@@ -6,9 +6,11 @@
 // watch.BuildGridConfig in desktop/watch/grid.go; the two name each other
 // because no Go type crosses the module boundary.
 //
-// The window answers in one direction only, with a Request: the watch leg it
-// wants a single stream on. The app decides what that means and pushes the
-// roster it produces, so a request changes nothing here until the push arrives.
+// The window writes back on stdout in two kinds, each line tagged with its type
+// (messages.go). A Request asks for the watch leg one stream should be on: the
+// app decides what that means and pushes the roster it produces, so a request
+// changes nothing here until the push arrives. A Status reports which streams
+// have a tile open and expects no answer.
 package roster
 
 import (

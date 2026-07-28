@@ -1,6 +1,6 @@
 // Package grid is the tile area: an empty-state page until a stream is watched,
-// then a near-square grid of tiles, or the spotlight layout when one stream is
-// spotlit.
+// then a grid of tiles shaped to the space it has, or the spotlight layout when one
+// stream is spotlit.
 //
 // The view owns the tiles and nothing else. What is watched, in what order, and
 // which stream is spotlit is the model's; the view redraws from what it reads back
@@ -30,15 +30,24 @@ const gap = 12
 
 // View is the tile area.
 type View struct {
+	root    *gtk.Overlay // the stack under the size probe
 	stack   *gtk.Stack
 	grid    *gtk.Grid
 	spotBox *gtk.Box // the spotlight page: the spotlit tile over the strip
 	strip   *gtk.Box
 	sess    *session.Session
 	drag    *dnd.Controller
+	// probe reports the tile area's allocation, which the grid's shape is chosen
+	// from. GTK4 emits a widget's own resize on GtkDrawingArea alone, so an
+	// input-transparent one is laid over the stack, where it is allocated whichever
+	// page shows rather than only while the grid is up.
+	probe *gtk.DrawingArea
 	// tiles are the open tiles by stream index, so an index that was never watched
 	// costs nothing.
 	tiles map[int]*tile.Tile
+	// cells is the arrangement the attached tiles sit in, which a resize is measured
+	// against: an allocation that lands on the same shape costs no relayout.
+	cells []cell
 	// relayout coalesces the reordering bursts a drag produces.
 	relayout *idle.Coalescer
 }
@@ -48,10 +57,12 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	assert.IsNotNil(drag, "the tile area shares the drag controller")
 
 	v := &View{
+		root:    gtk.NewOverlay(),
 		stack:   gtk.NewStack(),
 		grid:    gtk.NewGrid(),
 		spotBox: gtk.NewBox(gtk.OrientationVertical, gap),
 		strip:   gtk.NewBox(gtk.OrientationHorizontal, gap),
+		probe:   gtk.NewDrawingArea(),
 		sess:    sess,
 		drag:    drag,
 		tiles:   map[int]*tile.Tile{},
@@ -72,12 +83,19 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	v.stack.AddNamed(v.spotBox, pageSpot)
 	v.stack.SetVisibleChildName(pageEmpty)
 
+	// The probe draws nothing and takes no input; it is in the tree for its
+	// allocation, not for anything on screen.
+	v.probe.SetCanTarget(false)
+	v.probe.ConnectResize(func(_, _ int) { v.resized() })
+	v.root.SetChild(v.stack)
+	v.root.AddOverlay(v.probe)
+
 	drag.AttachTarget(v.grid, v.tileWidget, v.relayout.Pending)
 	return v
 }
 
 // Widget is the tile area, the split view's content.
-func (v *View) Widget() gtk.Widgetter { return v.stack }
+func (v *View) Widget() gtk.Widgetter { return v.root }
 
 // Changed redraws for one model change.
 func (v *View) Changed(c session.Change) {
@@ -92,6 +110,11 @@ func (v *View) Changed(c session.Change) {
 	case session.AudioReady:
 		if t, ok := v.tiles[c.Index]; ok {
 			t.SetAudioAvailable(v.sess.HasAudio(c.Index))
+		}
+	case session.StallChanged:
+		// A stall leaves the watch set alone, so it redraws inside the one tile.
+		if t, ok := v.tiles[c.Index]; ok {
+			t.SetStalled(v.sess.Stalled(c.Index))
 		}
 	case session.OrderChanged:
 		// Reordering must not reparent widgets from inside a drag-and-drop callback,
@@ -124,6 +147,9 @@ func (v *View) syncTile(i int) (changed bool) {
 		v.tiles[i] = t
 	}
 	t.SetState(state, v.sess.Message(i))
+	// The stall is read rather than waited for, so a tile that opens on a stream
+	// already stalled draws it from its first frame.
+	t.SetStalled(v.sess.Stalled(i))
 	// A player exists in every state but a failure the factory reported, and a retry
 	// arrives here with a fresh one.
 	if p := v.sess.Player(i); p != nil {

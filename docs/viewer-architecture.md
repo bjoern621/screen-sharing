@@ -33,7 +33,7 @@ HLS is served and never ingested, so it is a watch leg alone; WebRTC ingest is n
 Each transport declares a format set per leg beside the code that serializes it (`transport.Formats`), and every rule that offers or refuses a protocol reads the set for the leg it means.
 
 The publish leg is one setting per app instance (`settings.Stream.Transport`, the "Publish transport protocol" field).
-The watch leg is one setting for every viewer the app itself opens (`settings.Stream.WatchTransport`, the "watch over" dropdown): a single-stream window takes it per Watch click, and the native grid is launched with whatever it reads at that moment.
+The watch leg is one setting for every viewer the app itself opens (`settings.Stream.WatchTransport`, the "Watch over" dropdown): a single-stream window takes it per Watch click, and the native grid is launched with whatever it reads at that moment.
 The grid's sidebar can then move a single stream to another leg, or retune the one it is on, for that window and that stream alone; the setting is where every stream starts, not where it is stuck.
 A web grid tile is the exception, its leg fixed by the decode path its sink uses.
 Anything the viewer side reports, a tile badge or a stats overlay row, is the watch leg; the publish leg is not observable from there.
@@ -311,21 +311,28 @@ It is passed once as the `-config` argument, which may be empty, and again as on
 The binary appends sidebar rows for new streams and hides the rows of vanished ones, keeping a vanished stream's row while it is watched so its failure state stays on screen.
 
 Which of those streams are watched, in what order, and which one is spotlit belong to the window, and the window persists them itself in a state file beside the app's `settings.json`, keyed by stream name.
-So a restart reopens on the tiles it was showing, and the app needs no reverse channel for view state.
+Its own geometry is in that file too, written by the window and read before it maps.
+So a restart reopens on the tiles it was showing, at the size it was shown at.
 
-The one thing the window does ask for is a watch leg (`watch.GridRequest`, one JSON line on the child's stdout).
+The child's stdout carries two kinds of JSON line, told apart by a `type` field.
+The first is a watch-leg request (`watch.GridRequest`), the one thing the window asks for.
 Each roster entry carries the transports that stream can be received over and the knobs of the one it is on, both declared by the transport that reads them (`transport.WatchTunable`), so the sidebar renders a control per entry and names no protocol.
 A request is the whole leg for one stream, and the app answers it by pushing the roster it produces: a refused request is answered too, with the values that still hold, so the sidebar's controls follow the app rather than their own last click.
 The choices live in the goroutine that pushes that window's roster and are never written to the settings, since a per-stream copy of every knob is a lot of state to restore for a deviation that lasts one run.
+
+The second is the watch set (`watch.GridStatus`): the streams with a tile open, reported whenever that set changes and exposed by the app as `NativeGridWatching`.
+It travels one way.
+The window decides what it watches and states it, the app reads it and never answers with a watch set of its own, so the view state has a single owner even though two processes know it.
 
 Transport knowledge stays in the app, decode knowledge in the binary.
 A watched tile runs its own receive pipeline
 
 ```
-<source> ! decodebin ! videoconvert ! queue ! gtk4paintablesink
+<source> ! decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink
 ```
 
 whose paintable the tile's `GtkPicture` draws, so full chroma reaches the GTK scene graph with no subsampling on the way.
+The capsfilter behind the scaler is what the tile bounds to its own size, so a thumbnail in the spotlight's film strip converts a thumbnail rather than the source's full frame (`nativegrid/README.md`).
 The tile grid consumes a `Player` interface (the paintable, a first-frame callback, an error callback), not GStreamer, mirroring the web grid's `StreamSink` seam; backends register under a name, so the GStreamer one is a package rather than the binary's only option.
 Inside the binary the window is one model and two views of it: a session package decides and remembers what is watched, and the sidebar and the tile area redraw from what they read back off it (`nativegrid/README.md`).
 

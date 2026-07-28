@@ -43,11 +43,11 @@ export default function UplinkField({
                 >
                     {measuring ? (
                         <>
-                            <IconLoader2 size={14} className="animate-spin" /> measuring
+                            <IconLoader2 size={14} className="animate-spin" /> Measuring
                         </>
                     ) : (
                         <>
-                            <IconGauge size={14} /> remeasure
+                            <IconGauge size={14} /> Remeasure
                         </>
                     )}
                 </Button>

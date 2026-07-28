@@ -95,7 +95,12 @@ export class WhepSink extends BaseSink {
                 if (cs === "connected") {
                     this.setPhase("buffering");
                 } else if (cs === "failed" || cs === "disconnected") {
-                    this.setState("failed", `connection ${cs}`);
+                    this.setState(
+                        "failed",
+                        cs === "failed"
+                            ? "The WebRTC connection failed"
+                            : "The WebRTC connection dropped"
+                    );
                 }
             };
 

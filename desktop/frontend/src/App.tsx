@@ -59,7 +59,7 @@ export default function App() {
         nativeGrid.transports.length === 0 ||
         nativeGrid.transports.includes(watchTransport)
             ? ""
-            : `The native grid receives through a GStreamer pipeline, which has no source for ${watchTransport}. Set "watch over" to ${nativeGrid.transports.join(" or ")}.`;
+            : `The native grid receives through a GStreamer pipeline, which has no source for ${watchTransport}. Set "Watch over" to ${nativeGrid.transports.join(" or ")}.`;
 
     return (
         <TooltipProvider>
@@ -88,7 +88,7 @@ export default function App() {
                         >
                             <IconLayoutGrid size={16} /> Web grid
                         </Button>
-                        {/* The window opens on the "watch over" leg, and receives
+                        {/* The window opens on the "Watch over" leg, and receives
                           * through a GStreamer pipeline rather than a player, so a
                           * leg no source element decodes leaves the button inert
                           * rather than opening on something else. */}

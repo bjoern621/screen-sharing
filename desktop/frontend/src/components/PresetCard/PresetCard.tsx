@@ -85,7 +85,7 @@ export default function PresetCard({
                     </Button>
                 )}
                 <span className="text-sm text-muted-foreground">
-                    {isUserPreset ? "saved preset" : PRESET_HINTS[preset]}
+                    {isUserPreset ? "Saved preset" : PRESET_HINTS[preset]}
                 </span>
             </CardContent>
         </Card>

@@ -52,7 +52,9 @@ type GridStream struct {
 // GridConfig is the process contract between the app and the native grid
 // binary, passed as a single JSON argument and pushed again per change. The
 // consuming half is the nativegrid module's internal/roster package; the two
-// name each other because no Go type can cross the module boundary.
+// packages are the two halves of one contract and name each other because no Go
+// type can cross the module boundary. What the window writes back on its stdout
+// is decoded by ParseGridMessage.
 type GridConfig struct {
 	Streams []GridStream `json:"streams"`
 }
@@ -158,4 +160,63 @@ func PruneWatchChoices(base settings.Stream, live []LiveStream, defaultTransport
 // viewer program opens, and a receiving pipeline reaches it all the same.
 func GstWatchTransports(format string) []string {
 	return transport.GstWatchNamesFor(format)
+}
+
+// The kinds of message the grid window writes on its stdout, carried in every line as "type".
+// One pipe holds both kinds, so the discriminator is what keeps this side from reading a report as a request.
+// The producing half is the nativegrid module's internal/roster package, which declares the same two names.
+const (
+	GridWatchLeg = "watch-leg"
+	GridWatchSet = "watch-set"
+)
+
+// GridStatus is what the grid window reports it has open: the names of the streams with a tile, sorted.
+// It is the whole set rather than what changed, so the app replaces what it held instead of merging into it.
+type GridStatus struct {
+	Watching []string `json:"watching"`
+}
+
+// GridMessage is one line the grid window wrote, decoded: the kind it declared and the payload of that kind.
+// Only the field the kind names is filled.
+type GridMessage struct {
+	Kind    string
+	Request GridRequest
+	Status  GridStatus
+}
+
+// ParseGridMessage decodes one line the grid window wrote.
+// A line that declares no kind is an error rather than an ignored line:
+// the window logs to stderr and writes nothing but messages here,
+// so a line without a discriminator came from a library printing over the channel.
+//
+// A kind this build does not know is returned with an empty payload and no error,
+// for the caller to report and skip.
+// The two halves ship together, so an unknown kind means a grid binary from another build,
+// which is a mismatch to notice rather than a line to refuse.
+func ParseGridMessage(line string) (GridMessage, error) {
+	var head struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal([]byte(line), &head); err != nil {
+		return GridMessage{}, fmt.Errorf("bad grid message %q: %w", line, err)
+	}
+
+	switch head.Type {
+	case GridWatchLeg:
+		r, err := ParseGridRequest(line)
+		if err != nil {
+			return GridMessage{}, err
+		}
+		return GridMessage{Kind: head.Type, Request: r}, nil
+	case GridWatchSet:
+		var s GridStatus
+		if err := json.Unmarshal([]byte(line), &s); err != nil {
+			return GridMessage{}, fmt.Errorf("bad grid watch set %q: %w", line, err)
+		}
+		return GridMessage{Kind: head.Type, Status: s}, nil
+	case "":
+		return GridMessage{}, fmt.Errorf("grid message %q names no type", line)
+	default:
+		return GridMessage{Kind: head.Type}, nil
+	}
 }

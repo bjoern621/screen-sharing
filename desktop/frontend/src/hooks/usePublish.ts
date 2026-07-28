@@ -88,7 +88,7 @@ export function usePublish(s: Stream | null) {
             resetInsights();
             setLogPath(e.logPath ?? "");
             if (e.message) {
-                setError("publisher exited: " + e.message);
+                setError("Publisher exited: " + e.message);
             }
         });
 
@@ -120,7 +120,7 @@ export function usePublish(s: Stream | null) {
                 setPublishing(true);
             }
         } catch (e) {
-            setError("error: " + e);
+            setError("Publishing failed: " + e);
         }
     }, [publishing, s, resetInsights]);
 

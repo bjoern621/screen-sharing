@@ -106,10 +106,10 @@ export default function Tile({
                         <IconPlugConnectedX size={20} />
                     </div>
                     <span className="text-sm text-destructive">
-                        {snapshot.error ?? "connection failed"}
+                        {snapshot.error ?? "The connection failed"}
                     </span>
                     <Button size="sm" variant="outline" onClick={onRetry}>
-                        <IconRefresh /> retry
+                        <IconRefresh /> Retry
                     </Button>
                 </div>
             )}
@@ -137,7 +137,13 @@ export default function Tile({
                         onVolume={v => sink.audio?.setVolume(v)}
                     />
                 )}
-                <Tip text={statsOpen ? "hide stats" : "stats"}>
+                <Tip
+                    text={
+                        statsOpen
+                            ? "Hide the figures overlay and leave the picture alone."
+                            : "Show the figures for this tile: what it subscribes to, the video on the wire, what the decoder makes of it, and the counters the transport and the relay report."
+                    }
+                >
                     <Button
                         variant="ghost"
                         size="icon"
@@ -149,7 +155,13 @@ export default function Tile({
                     </Button>
                 </Tip>
                 {pip.supported && (
-                    <Tip text={pip.active ? "exit pop-out" : "pop out"}>
+                    <Tip
+                        text={
+                            pip.active
+                                ? "Put this tile back in the grid and close the floating window."
+                                : "Move this tile into a floating window that stays above other apps."
+                        }
+                    >
                         <Button
                             variant="ghost"
                             size="icon"
@@ -161,7 +173,7 @@ export default function Tile({
                     </Tip>
                 )}
                 {audio && (
-                    <Tip text="hide video (audio keeps playing)">
+                    <Tip text="Drop the picture and keep the sound. The stream moves to the audio-only row, still connected.">
                         <Button
                             variant="ghost"
                             size="icon"
@@ -171,7 +183,13 @@ export default function Tile({
                         </Button>
                     </Tip>
                 )}
-                <Tip text={spotlit ? "back to grid" : "spotlight"}>
+                <Tip
+                    text={
+                        spotlit
+                            ? "Return this tile to the grid beside the other streams."
+                            : "Give this tile the whole grid. The other streams keep playing and return on leaving spotlight."
+                    }
+                >
                     <Button
                         variant="ghost"
                         size="icon"
@@ -180,7 +198,7 @@ export default function Tile({
                         {spotlit ? <IconMinimize /> : <IconMaximize />}
                     </Button>
                 </Tip>
-                <Tip text="disconnect">
+                <Tip text="Stop watching this stream and close its tile. The stream keeps running at the relay.">
                     <Button
                         variant="ghost"
                         size="icon"

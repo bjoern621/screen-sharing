@@ -37,7 +37,7 @@ export function useNativeGrid() {
     useEffect(() => {
         const off = EventsOn("nativegrid:exit", (e: PublishExit) => {
             if (e.message) {
-                setError("native grid exited - " + e.message);
+                setError("Native grid exited: " + e.message);
             }
             void refresh();
         });
@@ -75,7 +75,7 @@ export function useNativeGrid() {
                     setRunning(true);
                 }
             } catch (e) {
-                setError("native grid: " + e);
+                setError("Native grid: " + e);
             }
         },
         [running]

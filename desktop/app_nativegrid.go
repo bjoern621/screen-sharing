@@ -48,6 +48,10 @@ const requestBuffer = 8
 // on its stdout; pushRoster answers with the roster that choice produces. The
 // choices belong to the window and are not written to the settings: they last
 // as long as the process that made them.
+//
+// The same stdout carries what the window has a tile open on,
+// which the app keeps for NativeGridWatching and the "nativegrid:watching" event.
+// Both kinds are one message per line, told apart by the type each line names.
 func (a *App) StartNativeGrid(transportName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
@@ -78,6 +82,7 @@ func (a *App) StartNativeGrid(transportName string) error {
 	if a.nativeGrid != nil {
 		a.nativeGrid.Stop()
 		a.nativeGrid = nil
+		a.setNativeGridWatchingLocked(nil)
 	}
 
 	// requests carries the window's watch-leg changes to the one goroutine that
@@ -86,17 +91,30 @@ func (a *App) StartNativeGrid(transportName string) error {
 	requests := make(chan watch.GridRequest, requestBuffer)
 	done := make(chan struct{})
 
+	// self is the window the two callbacks below belong to,
+	// which they need to tell their own reports from those of the window that replaced them.
+	// It is filled after Start has already begun delivering lines,
+	// so the assignment and every read of it happen under procMu.
+	var self *ffmpeg.Proc
+
 	// hideWindow must be false: SW_HIDE would hide the grid window too.
 	proc, err := ffmpeg.Start(exe, []string{"-config", cfg}, false, true, "nativegrid", nil, nil,
 		func(line string) {
-			r, err := watch.ParseGridRequest(line)
+			m, err := watch.ParseGridMessage(line)
 			if err != nil {
 				logger.Warnf("native grid: %v", err)
 				return
 			}
-			select {
-			case requests <- r:
-			case <-done:
+			switch m.Kind {
+			case watch.GridWatchLeg:
+				select {
+				case requests <- m.Request:
+				case <-done:
+				}
+			case watch.GridWatchSet:
+				a.setNativeGridWatching(&self, m.Status.Watching)
+			default:
+				logger.Debugf("native grid sent a %q message, which this app has no reader for", m.Kind)
 			}
 		},
 		func(err error, stderrTail string, logPath string) {
@@ -110,6 +128,9 @@ func (a *App) StartNativeGrid(transportName string) error {
 			} else {
 				logger.Infof("native grid closed (log: %s)", logPath)
 			}
+			// A window that exited watches nothing.
+			// Start reports the exit only once its stdout is drained, so this cannot undo a later report.
+			a.setNativeGridWatching(&self, nil)
 			runtime.EventsEmit(a.ctx, "nativegrid:exit", exitEvent{Message: message, LogPath: logPath})
 		})
 	if err != nil {
@@ -119,8 +140,53 @@ func (a *App) StartNativeGrid(transportName string) error {
 	assert.IsNotNil(proc, "Start returns a non-nil Proc when err is nil")
 	logger.Infof("native grid opened with %v over %s", streamNames(live), transportName)
 	a.nativeGrid = proc
+	self = proc
 	go a.pushRoster(proc, transportName, live, requests, done)
 	return nil
+}
+
+// watchingEvent is the payload of the "nativegrid:watching" event:
+// the streams the native grid window has a tile open on, empty once no window is open.
+type watchingEvent struct {
+	Streams []string `json:"streams"`
+}
+
+// setNativeGridWatching records what one window reports it has a tile open on.
+// A report from a window the app no longer holds is dropped:
+// a replaced window can still deliver a line its reader had buffered,
+// and its tiles are gone whatever the line says.
+//
+// from is the window the report came from,
+// taken by pointer because StartNativeGrid fills it after the child has begun writing.
+func (a *App) setNativeGridWatching(from **ffmpeg.Proc, watching []string) {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	if *from == nil || *from != a.nativeGrid {
+		return
+	}
+	a.setNativeGridWatchingLocked(watching)
+}
+
+// setNativeGridWatchingLocked replaces the watch set and tells the frontend when it changed.
+// The event is emitted under the lock, so two windows cannot reach the frontend
+// in the other order than they changed the set and leave it showing the one that is gone.
+// The caller holds procMu.
+func (a *App) setNativeGridWatchingLocked(watching []string) {
+	if slices.Equal(a.nativeGridWatching, watching) {
+		return
+	}
+	a.nativeGridWatching = watching
+	logger.Infof("native grid watching %v", watching)
+	runtime.EventsEmit(a.ctx, "nativegrid:watching", watchingEvent{Streams: gridWatching(watching)})
+}
+
+// gridWatching copies the watch set into the form the frontend receives it in,
+// which is a list even where nothing is watched.
+func gridWatching(watching []string) []string {
+	out := make([]string, len(watching))
+	copy(out, watching)
+	return out
 }
 
 // liveStreams returns the ready paths as the grid's roster entries, sorted so
@@ -258,6 +324,7 @@ func (a *App) StopNativeGrid() {
 	if a.nativeGrid != nil {
 		a.nativeGrid.Stop()
 		a.nativeGrid = nil
+		a.setNativeGridWatchingLocked(nil)
 		logger.Infof("stopped the native grid")
 	}
 }
@@ -270,4 +337,16 @@ func (a *App) NativeGridRunning() bool {
 	defer a.procMu.Unlock()
 
 	return a.nativeGrid != nil && a.nativeGrid.Running()
+}
+
+// NativeGridWatching lists the streams the native grid window has a tile open on,
+// as the window last reported them.
+// It is empty while no window is open, and while one is opening and has yet to report.
+// The frontend polls it beside NativeGridRunning,
+// and the "nativegrid:watching" event carries the same list as it changes.
+func (a *App) NativeGridWatching() []string {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	return gridWatching(a.nativeGridWatching)
 }

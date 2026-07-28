@@ -8,6 +8,9 @@
 package session
 
 import (
+	"sync"
+	"time"
+
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
@@ -20,18 +23,37 @@ import (
 // noSpot is Session.spot while the grid shows no spotlit stream.
 const noSpot = -1
 
+// stopTimeout bounds the whole teardown in Close.
+// Every pipeline stops at once, so this is the wait for the slowest one rather
+// than the sum: a source that will not say goodbye must not hold the window open.
+const stopTimeout = 2 * time.Second
+
 // entry is everything the model knows about one stream.
 type entry struct {
 	stream  roster.Stream
 	state   State
-	message string // the failure message behind Failed, "" otherwise
-	// gen counts the SetWatched calls this stream has seen. A player callback
-	// carries the generation it was started for, so a report from a player an
-	// unwatch or a retry has already replaced lands nowhere.
+	message string // the pipeline's message behind Failed and Reconnecting, "" otherwise
+	// gen counts the starts and stops this stream has seen.
+	// A player callback and a scheduled retry carry the generation they were made
+	// for, so the work of a player an unwatch or a restart has already replaced
+	// lands nowhere.
 	gen     uint
 	player  player.Player
 	audio   bool // the stream turned out to carry audio
 	present bool // the latest roster push still lists the stream
+	// attempts counts the reconnects since the stream was last opened by hand or
+	// last went Live.
+	// The backoff is indexed by it, and the attempt budget spent from it.
+	attempts int
+	// retry is the pending reconnect, nil while none is due.
+	// It is kept to be cancelled: the generation drops a retry that fires anyway,
+	// but a stopped timer does not wake the process at all.
+	retry *time.Timer
+	// frames is the rendered frame count of the last sweep, and still the number
+	// of sweeps it has not moved for.
+	frames  uint64
+	still   int
+	stalled bool
 }
 
 // Session is the model. Every method runs on the UI loop: the model is not
@@ -48,11 +70,32 @@ type Session struct {
 	// send asks the app for a watch leg. It is the model's only way out of the
 	// process: what a leg means is the app's business, and the answer arrives as
 	// a roster push like any other.
-	send      roster.Send
+	send roster.Send
+	// report states which streams have a tile open, for the app to act on.
+	// It goes out whenever that set changes and never says the same thing twice.
+	report    roster.Report
 	dispatch  idle.Dispatch
 	observers []Observer
 	// persist coalesces the writes of a burst of changes into one.
 	persist *idle.Coalescer
+	// watchSet coalesces the reports of a burst of watch changes into one, and
+	// reported is the last set that went out.
+	watchSet *idle.Coalescer
+	reported []string
+	// retryDelays is the wait before each reconnect attempt, and its length the
+	// attempt budget.
+	// It is a field so a test can drive the backoff through the zero delay the
+	// after seam takes as "run it here".
+	retryDelays []time.Duration
+	// stagger spaces the watches Restore opens, so N pipelines do not negotiate at
+	// once at launch.
+	stagger time.Duration
+	// sweepEvery is how often the watched players are read for stall detection.
+	// Zero leaves the sweep to the caller, which is how a test drives it with no
+	// timer in the model.
+	sweepEvery time.Duration
+	// stallSweep is the pending sweep, nil while none is due.
+	stallSweep *time.Timer
 	// savedOrder is the display order of the state file, by stream name: the
 	// ranking a stream is placed by when it turns up (placeInOrder), and the list
 	// the current order is folded back into.
@@ -67,10 +110,11 @@ type Session struct {
 
 // New builds the model for the streams the window opens with. The remembered
 // arrangement is read here and applied by Restore, once the views are in place.
-func New(streams []roster.Stream, factory player.Factory, store layout.Store, send roster.Send, dispatch idle.Dispatch) *Session {
+func New(streams []roster.Stream, factory player.Factory, store layout.Store, send roster.Send, report roster.Report, dispatch idle.Dispatch) *Session {
 	assert.IsNotNil(factory, "a session decodes through a player factory")
 	assert.IsNotNil(store, "a session remembers its arrangement in a store")
 	assert.IsNotNil(send, "a session asks the app for a watch leg")
+	assert.IsNotNil(report, "a session reports the streams it watches")
 	assert.IsNotNil(dispatch, "a session hops player callbacks to the UI loop")
 
 	saved := store.Load()
@@ -79,12 +123,17 @@ func New(streams []roster.Stream, factory player.Factory, store layout.Store, se
 		factory:     factory,
 		store:       store,
 		send:        send,
+		report:      report,
 		dispatch:    dispatch,
+		retryDelays: retryBackoff,
+		stagger:     restoreStagger,
+		sweepEvery:  sweepInterval,
 		savedOrder:  saved.Order,
 		wantWatched: make(map[string]bool, len(saved.Watched)),
 		wantSpot:    saved.Spot,
 	}
 	s.persist = idle.New(dispatch, s.write)
+	s.watchSet = idle.New(dispatch, s.sendWatchSet)
 	for _, n := range saved.Watched {
 		s.wantWatched[n] = true
 	}
@@ -111,7 +160,8 @@ func (s *Session) Stream(i int) roster.Stream { return s.at(i).stream }
 
 func (s *Session) State(i int) State { return s.at(i).state }
 
-// Message is the failure message of a stream in the Failed state, "" otherwise.
+// Message is what the pipeline said when it ended, for a stream in the Failed
+// or Reconnecting state, and "" otherwise.
 func (s *Session) Message(i int) string { return s.at(i).message }
 
 // Player is the stream's running player, nil while none runs. It is read rather
@@ -173,13 +223,38 @@ func (s *Session) ToggleSpot(i int) {
 // after the UI loop returns, so sources say goodbye to the relay instead of dying
 // with the process, and the last change reaches the state file even though the
 // loop that would have written it is gone.
+//
+// The pipelines stop concurrently under one timeout.
+// Each teardown blocks for as long as its source takes to answer, and a dense
+// grid closing one tile at a time is a window that hangs for the sum of them.
 func (s *Session) Close() {
+	s.stopSweep()
+
+	var wg sync.WaitGroup
 	for i := range s.entries {
-		if p := s.entries[i].player; p != nil {
-			p.Stop()
-			s.entries[i].player = nil
+		s.cancelRetry(i)
+		p := s.entries[i].player
+		if p == nil {
+			continue
 		}
+		s.entries[i].player = nil
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			p.Stop()
+		}()
 	}
+	stopped := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(stopTimeout):
+		logger.Warnf("pipelines still stopping after %s, closing anyway", stopTimeout)
+	}
+
 	if s.persist.Pending() {
 		s.write()
 	}

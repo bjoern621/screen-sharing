@@ -534,7 +534,7 @@ export default function StreamSettingsCard({
                             {estimate.note}
                         </>
                     ) : (
-                        "resolution unavailable - estimate needs the monitor size"
+                        "Resolution unavailable - the estimate needs the monitor size"
                     )}
                 </div>
 

@@ -72,7 +72,7 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 		}
 	})
 
-	placeholder := gtk.NewLabel("no streams on the relay")
+	placeholder := gtk.NewLabel("No streams on the relay")
 	placeholder.AddCSSClass("sidebar-empty")
 	v.list.SetPlaceholder(placeholder)
 
@@ -95,6 +95,10 @@ func (v *View) Changed(c session.Change) {
 	case session.StateChanged:
 		v.drawRow(c.Index)
 		v.drawTitle()
+	case session.StallChanged:
+		// The watch state is untouched, so the heading's count holds and only the
+		// row's status face moves.
+		v.drawRow(c.Index)
 	case session.RosterChanged:
 		// Presence moves rows in and out of sight without touching a watch state, and
 		// it can change any of them at once.
@@ -142,7 +146,7 @@ func (v *View) addRow(i int) {
 
 // drawRow puts stream i's state on its row.
 func (v *View) drawRow(i int) {
-	v.rows[i].draw(v.sess.Stream(i), v.sess.State(i), v.sess.Visible(i))
+	v.rows[i].draw(v.sess.Stream(i), v.sess.State(i), v.sess.Stalled(i), v.sess.Visible(i))
 }
 
 // drawTitle states the open-tile count beside the heading, the way the web roster's

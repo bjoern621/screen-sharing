@@ -103,6 +103,7 @@ var chains = map[string][]string{
 		"gtk4paintablesink name=sink",
 	},
 	// CPU convert with a CPU downscale to a fixed tile size.
+	// The shipped chain scales the same way, to whatever size its tile happens to have.
 	"scale": {
 		"decodebin",
 		"videoscale n-threads=0",
@@ -112,20 +113,11 @@ var chains = map[string][]string{
 		benchQueue,
 		"gtk4paintablesink name=sink",
 	},
-	// The same downscale with no size pinned: the sink is told the widget's size
-	// and renegotiates upstream, so videoscale converts to whatever the tile is.
-	"autoscale": {
-		"decodebin",
-		"videoscale n-threads=0",
-		"videoconvert n-threads=0",
-		"video/x-raw,format=RGBA,colorimetry=sRGB",
-		benchQueue,
-		"gtk4paintablesink name=sink reconfigure-on-window-resize=always",
-	},
 }
 
-// autoscaleChain names the chain whose sink is fed the widget's size.
-const autoscaleChain = "autoscale"
+// fitName is the capsfilter the shipped chain scales into, which -fit drives from the widget's size.
+// A chain that carries no such element is measured as it stands.
+const fitName = "fit"
 
 type tile struct {
 	pipeline gst.Pipeline
@@ -145,6 +137,7 @@ func main() {
 	sync := flag.Bool("sync", true, "sink syncs on the clock")
 	qos := flag.Bool("qos", true, "sink sends QoS events upstream")
 	lateness := flag.Int64("lateness", 5_000_000, "sink max-lateness in nanoseconds, -1 unlimited")
+	fit := flag.Bool("fit", true, "bound the chain's scaler to the tile's size, where the chain has one")
 	// The app sets both per watch leg, so they are flags here too: a measurement
 	// taken with a different jitter buffer or RTP transport than the one in use
 	// is a measurement of something else.
@@ -184,8 +177,7 @@ func main() {
 		tiles := make([]*tile, 0, *count)
 		for i := range *count {
 			t, pic, err := start(desc, sinkOptions{
-				sync: *sync, qos: *qos, lateness: *lateness,
-				followWidget: *chain == autoscaleChain,
+				sync: *sync, qos: *qos, lateness: *lateness, fit: *fit,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "stream %d: %v\n", i, err)
@@ -206,9 +198,10 @@ type sinkOptions struct {
 	sync     bool
 	qos      bool
 	lateness int64
-	// followWidget writes the tile's pixel size into the sink's window-width and
-	// window-height, which is what makes the sink renegotiate upstream.
-	followWidget bool
+	// fit writes the tile's pixel size into the chain's fit capsfilter, the way the grid keeps a
+	// scaler on the size its tile draws.
+	// Off, the same chain scales nothing and converts whole frames, which is the comparison.
+	fit bool
 }
 
 // start builds one pipeline and the GtkPicture drawing its paintable.
@@ -229,6 +222,11 @@ func start(desc string, opts sinkOptions) (*tile, *gtk.Picture, error) {
 	sinkEl.SetObjectProperty("qos", opts.qos)
 	sinkEl.SetObjectProperty("max-lateness", opts.lateness)
 
+	var fitEl gst.Element
+	if opts.fit {
+		fitEl = pipeline.GetByName(fitName)
+	}
+
 	t := &tile{pipeline: pipeline, sink: sinkEl}
 	paintable := paintableOf(sinkEl)
 	paintable.Connect("invalidate-contents", func() { t.frames.Add(1) })
@@ -239,14 +237,21 @@ func start(desc string, opts sinkOptions) (*tile, *gtk.Picture, error) {
 	var lastW, lastH int
 	pic.AddTickCallback(func(gtk.Widgetter, gdk.FrameClocker) bool {
 		t.ticks.Add(1)
-		if opts.followWidget {
-			scale := pic.ScaleFactor()
-			w, h := pic.Width()*scale, pic.Height()*scale
-			if w > 0 && h > 0 && (w != lastW || h != lastH) {
-				lastW, lastH = w, h
-				sinkEl.SetObjectProperty("window-width", uint32(w))
-				sinkEl.SetObjectProperty("window-height", uint32(h))
-			}
+		if fitEl == nil {
+			return true
+		}
+		// The tile's size has to arrive upstream as a caps bound.
+		// The sink's own window-width and window-height do not carry it: the size they learn
+		// leaves the sink as overlay-composition allocation metadata and never reaches the
+		// caps, so the reconfigure event they can send renegotiates the source's size straight
+		// back (measured on gtk4paintablesink 0.14.4: 1920x1080 in, 1920x1080 on the sink pad,
+		// with reconfigure-on-window-resize=always and both sizes written every resize).
+		scale := pic.ScaleFactor()
+		w, h := pic.Width()*scale, pic.Height()*scale
+		if w > 0 && h > 0 && (w != lastW || h != lastH) {
+			lastW, lastH = w, h
+			fitEl.SetObjectProperty("caps", gst.CapsFromString(
+				fmt.Sprintf("video/x-raw,width=[1,%d],height=[1,%d]", w, h)))
 		}
 		return true
 	})

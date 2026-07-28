@@ -38,6 +38,10 @@ type App struct {
 	watchers    map[WatchKey]*ffmpeg.Proc
 	testStreams []*ffmpeg.Proc
 	nativeGrid  *ffmpeg.Proc
+	// nativeGridWatching is the last watch set nativeGrid reported, empty while no window is open.
+	// It belongs to the process above it and is cleared with it,
+	// so the app never reports the tiles of a window that is gone.
+	nativeGridWatching []string
 }
 
 func NewApp() *App {

@@ -53,11 +53,11 @@ export const PRESET_LABELS: Record<string, string> = {
 
 /** One-line description shown beside the selected preset. */
 export const PRESET_HINTS: Record<string, string> = {
-    "lossless-rgb": "bit-exact desktop pixels, bursts to 100s of Mbps on motion - LAN/localhost only",
-    "near-lossless-rgb": "RGB cq12, visually identical to lossless at a fraction of the bytes",
-    "quality-444": "crisp text/color, remote-friendly",
-    "bandwidth-420": "chroma subsampled like Discord/Twitch - smallest, softest color edges",
-    "low-latency": "CBR + short SRT windows (~0.4s total), quality sacrificed for delay",
-    "web-viewable": "H.264 4:2:0 limited range - every browser can decode it via the relay HLS page, no app needed",
+    "lossless-rgb": "Bit-exact desktop pixels, bursting to 100s of Mbps on motion. LAN and localhost only.",
+    "near-lossless-rgb": "RGB at CQ 12, visually identical to lossless at a fraction of the bytes.",
+    "quality-444": "Crisp text and color, remote-friendly.",
+    "bandwidth-420": "Chroma subsampled like Discord and Twitch: smallest, softest color edges.",
+    "low-latency": "CBR and short SRT windows (~0.4 s total), quality sacrificed for delay.",
+    "web-viewable": "H.264 4:2:0 limited range, which every browser decodes on the relay's HLS page, no app needed.",
     custom: "",
 };

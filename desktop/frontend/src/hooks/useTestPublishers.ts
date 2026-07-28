@@ -31,7 +31,7 @@ export function useTestPublishers() {
     useEffect(() => {
         const off = EventsOn("teststream:exit", (e: PublishExit) => {
             if (e.message) {
-                setError("test stream exited - " + e.message);
+                setError("Test stream exited: " + e.message);
             }
             void refresh();
         });
@@ -50,7 +50,7 @@ export function useTestPublishers() {
             await StartTestStreams(n);
             setCount(n);
         } catch (e) {
-            setError("test streams: " + e);
+            setError("Test streams: " + e);
         }
     }, []);
 

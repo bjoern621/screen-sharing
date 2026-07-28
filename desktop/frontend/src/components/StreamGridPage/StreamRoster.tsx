@@ -39,7 +39,7 @@ export default function StreamRoster({
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                     {paths.length === 0 && (
                         <span className="text-muted-foreground">
-                            no streams on the relay
+                            No streams on the relay
                         </span>
                     )}
                     {paths.map(p => (

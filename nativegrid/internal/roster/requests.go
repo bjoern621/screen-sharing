@@ -1,9 +1,7 @@
 package roster
 
 import (
-	"encoding/json"
 	"io"
-	"sync"
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
@@ -13,7 +11,8 @@ import (
 // every knob that transport declares. It is the whole leg rather than the one
 // control that moved, so the app replaces what it held and neither side merges.
 //
-// The consuming half is watch.ParseGridRequest in desktop/watch/gridrequest.go.
+// It travels as a KindWatchLeg line; the consuming half is
+// watch.ParseGridRequest in desktop/watch/gridrequest.go.
 type Request struct {
 	Stream    string            `json:"stream"`
 	Transport string            `json:"transport"`
@@ -24,23 +23,13 @@ type Request struct {
 // a stream runs on changes when the app answers with a push, not here.
 type Send func(Request)
 
-// Sender writes requests to w, one JSON line each. The lines are the only thing
-// the window puts on that stream, which is why logging goes to stderr.
-//
-// The writes are serialized: a request comes from the UI loop, but nothing in
-// the contract says it is the only thread that will ever make one, and half a
-// line is unrecoverable for the reader.
+// Sender writes requests to w, one JSON line each. Messages are the only thing
+// the window puts on stdout, which is why logging goes to stderr.
 func Sender(w io.Writer) Send {
 	assert.IsNotNil(w, "requests need a writer")
 
-	var mu sync.Mutex
 	return func(r Request) {
-		line, err := json.Marshal(r)
-		assert.IsNil(err, "a request marshals", r.Stream)
-
-		mu.Lock()
-		defer mu.Unlock()
-		if _, err := w.Write(append(line, '\n')); err != nil {
+		if err := writeLine(w, legLine{Kind: KindWatchLeg, Request: r}); err != nil {
 			logger.Warnf("watch leg request for %q not sent: %v", r.Stream, err)
 		}
 	}

@@ -11,6 +11,11 @@ const (
 	Loading              // player started, no frame yet
 	Live                 // frames on the surface
 	Failed               // player error, the tile shows the message
+	// Reconnecting is the window between a pipeline ending and the retry the
+	// model schedules for it.
+	// The tile stays open and keeps its last frame, because the stream is
+	// expected back.
+	Reconnecting
 )
 
 func (s State) String() string {
@@ -23,6 +28,8 @@ func (s State) String() string {
 		return "live"
 	case Failed:
 		return "failed"
+	case Reconnecting:
+		return "reconnecting"
 	}
 	assert.Never("unexpected watch state", int(s))
 	return ""

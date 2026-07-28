@@ -18,7 +18,11 @@ import (
 // with the roster that request produced, and a stream whose source fragment
 // moved restarts on it.
 func (s *Session) SetRoster(streams []roster.Stream) {
+	// The presence the push replaces, kept by name because a stream coming back
+	// is the reason to restart it.
+	wasAbsent := make(map[string]bool, len(s.entries))
 	for i := range s.entries {
+		wasAbsent[s.entries[i].stream.Name] = !s.entries[i].present
 		s.entries[i].present = false
 	}
 	for _, st := range streams {
@@ -29,20 +33,29 @@ func (s *Session) SetRoster(streams []roster.Stream) {
 		}
 		e := s.at(i)
 		e.present = true
-		moved := e.stream.Source != st.Source
-		e.stream = st
 		// A player runs on the fragment it was started with, so a stream that
 		// moved to another watch leg only arrives over it after a restart. The
 		// app pushes a changed fragment when someone asked for one, which is
 		// what the restart answers; an unchanged fragment leaves the tile alone.
-		if moved && e.state.Watched() {
-			logger.Infof("%q moved to %s, restarting it", st.Name, st.Transport)
+		moved := e.stream.Source != st.Source
+		// A stream the relay dropped and lists again is the other restart.
+		// Whatever took it away killed its pipeline, and the tile would otherwise
+		// hold a failure message for a stream that is back on air.
+		returned := wasAbsent[st.Name] && e.state == Failed
+		e.stream = st
+		if e.state.Watched() && (moved || returned) {
+			if moved {
+				logger.Infof("%q moved to %s, restarting it", st.Name, st.Transport)
+			} else {
+				logger.Infof("%q is listed again, restarting the failed watch", st.Name)
+			}
 			s.SetWatched(i, true)
 		}
 	}
 	logger.Debugf("roster applied: %d live of %d known", len(streams), len(s.entries))
 	s.notify(Change{Kind: RosterChanged, Index: noStream})
 	s.persist.Schedule()
+	s.watchSet.Schedule()
 }
 
 // add appends a stream and slots it into the display order, returning its stream

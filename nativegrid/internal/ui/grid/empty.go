@@ -29,7 +29,7 @@ func emptyState() gtk.Widgetter {
 	inner.SetHAlign(gtk.AlignCenter)
 	inner.SetVAlign(gtk.AlignCenter)
 	inner.Append(badge)
-	inner.Append(gtk.NewLabel("pick a stream in the sidebar to start watching"))
+	inner.Append(gtk.NewLabel("Pick a stream in the sidebar to start watching."))
 
 	outer := gtk.NewBox(gtk.OrientationVertical, 0)
 	outer.SetHExpand(true)

@@ -64,13 +64,13 @@ export class WebCodecsSink extends BaseSink {
         }
         const codec = webGridCodecString(this.kind);
         if (!codec) {
-            this.setState("failed", "no codec string on the webcodecs decode path");
+            this.setState("failed", "No codec string for this stream on the WebCodecs decode path");
             return;
         }
         try {
             const support = await VideoDecoder.isConfigSupported({ codec });
             if (!support.supported) {
-                this.setState("failed", `decoder rejects ${codec}`);
+                this.setState("failed", `This browser's decoder rejects ${codec}`);
                 return;
             }
         } catch (e) {
@@ -97,11 +97,11 @@ export class WebCodecsSink extends BaseSink {
         ws.onopen = () => this.setPhase("buffering");
         ws.onmessage = e => this.onFrame(e.data as ArrayBuffer);
         ws.onerror = () => {
-            if (!this.closed) this.setState("failed", "websocket error");
+            if (!this.closed) this.setState("failed", "The WebSocket carrying the stream failed");
         };
         ws.onclose = () => {
             if (!this.closed && this.state !== "failed") {
-                this.setState("failed", "websocket closed");
+                this.setState("failed", "The WebSocket carrying the stream closed");
             }
         };
     }

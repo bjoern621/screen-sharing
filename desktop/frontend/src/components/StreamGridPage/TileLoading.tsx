@@ -4,9 +4,9 @@ import { SinkPhase, SINK_PHASES } from "../../types/sink";
 
 /** What each connect step is waiting for, in the viewer's terms. */
 const PHASE_LABEL: Record<SinkPhase, string> = {
-    requesting: "asking the relay for the stream",
-    negotiating: "agreeing on a transport",
-    buffering: "waiting for the first frame",
+    requesting: "Asking the relay for the stream",
+    negotiating: "Agreeing on a transport",
+    buffering: "Waiting for the first frame",
 };
 
 interface TileLoadingProps {

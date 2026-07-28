@@ -46,12 +46,12 @@ export default function AudioOnlyChip({
                     onVolume={v => sink.audio?.setVolume(v)}
                 />
             )}
-            <Tip text="show video">
+            <Tip text="Put this stream's picture back in the grid. The audio never stopped.">
                 <Button variant="ghost" size="icon" onClick={onShowVideo}>
                     <IconVideo />
                 </Button>
             </Tip>
-            <Tip text="disconnect">
+            <Tip text="Stop watching this stream and close it. The stream keeps running at the relay.">
                 <Button
                     variant="ghost"
                     size="icon"

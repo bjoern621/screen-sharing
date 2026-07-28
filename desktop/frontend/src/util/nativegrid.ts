@@ -10,7 +10,7 @@ import {
  * profile, a software one otherwise. Between them they cover every format the app
  * can encode, at any chroma and bit depth. That leaves the watch leg as the only
  * gate, and the grid opens on the same leg as every other viewer this app starts
- * (`watchTransport`, the "watch over" dropdown), so the verdict follows the
+ * (`watchTransport`, the "Watch over" dropdown), so the verdict follows the
  * selection.
  *
  * The verdict reads the watch half of the transport table, not the publish half:
@@ -33,7 +33,7 @@ export function nativeGridCheck(
     if (!carriesFormat(carriage, s.watchTransport, "watch", cap.format)) {
         const carriers = carriersOf(carriage, "watch", cap.format);
         const alternatives = carriers.length
-            ? ` Switch "watch over" to ${carriers.join(" or ")} for it.`
+            ? ` Switch "Watch over" to ${carriers.join(" or ")} for it.`
             : "";
         return {
             ok: false,

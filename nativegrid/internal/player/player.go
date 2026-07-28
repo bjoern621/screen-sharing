@@ -37,6 +37,21 @@ type Player interface {
 	Stop()
 }
 
+// RenderSizer is a player whose pipeline can produce frames at the size they are drawn at rather
+// than at the size the source sends them.
+// A view that knows how large it draws a paintable type-asserts for it.
+// A backend that cannot resize its output does not implement it and renders as it always did.
+//
+// It is separate from Player because the size is the view's knowledge, not the model's, and nothing
+// in the grid needs a player to have it.
+type RenderSizer interface {
+	// SetRenderSize bounds the frames to width x height device pixels, which is the widget's
+	// size times its scale factor rather than its logical size.
+	// The bound is a maximum, so a widget larger than the stream changes nothing.
+	// A zero width or height is a widget without an allocation and is ignored.
+	SetRenderSize(width, height int)
+}
+
 // Events are one player's lifecycle callbacks. They fire on pipeline threads,
 // not on the UI loop; the caller hops the ones that touch widgets.
 type Events struct {

@@ -21,7 +21,13 @@ export default function VolumeControl({
 }: VolumeControlProps) {
     return (
         <div className="group/vol relative flex items-center">
-            <Tip text={muted ? "unmute" : "mute"}>
+            <Tip
+                text={
+                    muted
+                        ? "Play this stream's audio again, at the volume the slider holds."
+                        : "Silence this stream without disconnecting it. Frames keep arriving while it is muted."
+                }
+            >
                 <Button variant="ghost" size="icon" onClick={onToggleMute}>
                     {muted ? <IconVolumeOff /> : <IconVolume />}
                 </Button>

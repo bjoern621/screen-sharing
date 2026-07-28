@@ -26,6 +26,8 @@ func init() {
 // Element names the launch line gives the elements the player reads back.
 const (
 	decodeName  = "dec"
+	scaleName   = "scale"
+	fitName     = "fit"
 	convertName = "conv"
 	sinkName    = "sink"
 )
@@ -47,28 +49,35 @@ const renderQueue = "queue max-size-buffers=0 max-size-bytes=0 max-size-time=100
 
 // renderChain is what a stream's source fragment is completed with:
 //
-//	<source> ! decodebin ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink
+//	<source> ! decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink
 //
-// decodebin picks the depayloader/demuxer and decoder from the stream's caps,
-// backed by gst-libav, so the grid decodes everything a native ffplay/mpv window
-// decodes, HEVC 4:4:4 and RGB included.
+// decodebin picks the depayloader/demuxer and decoder from the stream's caps, backed by gst-libav,
+// so the grid decodes everything a native ffplay/mpv window decodes, HEVC 4:4:4 and RGB included.
 //
-// videoconvert directly after decodebin keeps parse-launch's delayed linking off
-// the audio pads: their caps never match, so only the video pad joins the branch.
-// An audio pad instead gets its own branch, built when the pad appears
-// (audio.go), so a video-only stream carries no idle audio elements.
+// videoscale directly after decodebin keeps parse-launch's delayed linking off the audio pads:
+// their caps never match, so only the video pad joins the branch.
+// An audio pad instead gets its own branch, built when the pad appears (audio.go), so a video-only
+// stream carries no idle audio elements.
 //
-// The capsfilter pins videoconvert's output to sRGB RGBA. Without it the sink
-// also accepts raw YUV, videoconvert passes the decoded frames through, and GTK
-// color-manages the texture itself: gtk4paintablesink maps an unknown transfer
-// function to BT.709 for YUV, so GTK linearizes sRGB-encoded screen content with
-// the BT.709 EOTF and lifts every shadow, a visibly washed-out picture on dark
-// content. Pinned to RGBA, videoconvert applies matrix and range only
-// (gamma-mode defaults to none) and tags the result sRGB, the same
-// interpretation ffplay uses. 4:4:4 and RGB streams keep full chroma; nothing on
-// this path subsamples.
+// The scaler sits ahead of the conversion because that is the cheaper order.
+// A frame is scaled in the format the decoder produced, 1.5 bytes a pixel for the 4:2:0 most
+// streams arrive in, and the conversion to 4 bytes a pixel then runs on the tile's pixel count
+// instead of the source's.
+// It scales nothing until SetRenderSize bounds the capsfilter behind it, so a pipeline nobody tells
+// a size to converts what it always converted.
+//
+// The RGBA/sRGB capsfilter is not optional.
+// Without it the sink also accepts raw YUV, videoconvert passes the decoded frames through, and GTK
+// color-manages the texture itself: gtk4paintablesink maps an unknown transfer function to BT.709
+// for YUV, so GTK linearizes sRGB-encoded screen content with the BT.709 EOTF and lifts every
+// shadow, a visibly washed-out picture on dark content.
+// Pinned to RGBA, videoconvert applies matrix and range only (gamma-mode defaults to none) and tags
+// the result sRGB, the same interpretation ffplay uses.
+// 4:4:4 and RGB streams keep full chroma; nothing on this path subsamples.
 var renderChain = []string{
 	"decodebin name=" + decodeName,
+	"videoscale name=" + scaleName + " n-threads=0",
+	"capsfilter name=" + fitName + " caps=video/x-raw",
 	"videoconvert name=" + convertName + " n-threads=0",
 	"video/x-raw,format=RGBA,colorimetry=sRGB",
 	renderQueue,

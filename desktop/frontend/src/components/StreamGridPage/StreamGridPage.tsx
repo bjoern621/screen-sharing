@@ -157,8 +157,8 @@ export default function StreamGridPage({ paths, s, onClose }: StreamGridPageProp
                                 </div>
                                 <span className="text-sm">
                                     {tileNames.length === 0
-                                        ? "pick a stream above to start watching"
-                                        : "all connected streams are audio-only"}
+                                        ? "Pick a stream above to start watching."
+                                        : "Every connected stream is audio-only."}
                                 </span>
                             </div>
                         </div>

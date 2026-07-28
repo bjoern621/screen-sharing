@@ -29,7 +29,7 @@ export function useUplinkMeasure(update: (patch: Partial<Stream>) => void) {
             }
             update({ uplinkMbps: rounded });
         } catch (e) {
-            setError("measure failed: " + e);
+            setError("Measuring the uplink failed: " + e);
         } finally {
             setMeasuring(false);
         }

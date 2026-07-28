@@ -151,7 +151,7 @@ export default function LiveNowCard({
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
                     <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). The native grid window opens on the same choice, so one setting answers for both viewers. It is independent of the publish transport in Stream settings and the two can differ, because the relay re-serves each ingested stream on its listeners. Which streams a given choice can deliver still follows their format: MPEG-TS over SRT carries H.264 and H.265, so a VP9 or AV1 row names the transport that carries it instead of offering Watch.">
-                        <span className="text-muted-foreground">watch over</span>
+                        <span className="text-muted-foreground">Watch over</span>
                     </Tip>
                     <Select
                         value={transport}

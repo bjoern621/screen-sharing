@@ -4,6 +4,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 
@@ -13,16 +14,19 @@ import (
 )
 
 // stubPlayer stands in for a decode backend: it starts, reports what a test tells
-// it to, and counts its stops. No pipeline, no widgets.
+// it to, and counts its stops.
+// No pipeline, no widgets.
+// frames is what the stall sweep reads, so a test moves it or leaves it standing.
 type stubPlayer struct {
 	events player.Events
 	stops  int
+	frames uint64
 }
 
 func (p *stubPlayer) Paintable() *gdk.Paintable { return nil }
 func (p *stubPlayer) SetVolume(float64)         {}
 func (p *stubPlayer) SetMuted(bool)             {}
-func (p *stubPlayer) Stats() player.Stats       { return player.Stats{} }
+func (p *stubPlayer) Stats() player.Stats       { return player.Stats{Frames: p.frames} }
 func (p *stubPlayer) Stop()                     { p.stops++ }
 
 // stubBackend hands out stubPlayers and keeps them, so a test can fire their
@@ -52,7 +56,21 @@ func newTestSession(t *testing.T, l layout.Layout, names ...string) (*Session, *
 	}
 	backend := &stubBackend{}
 	store := &layout.Memory{Layout: l}
-	return New(streams, backend.factory, store, roster.Discard, func(f func()) { f() }), backend, store
+	s := New(streams, backend.factory, store, roster.Discard, roster.DiscardReport, func(f func()) { f() })
+	testTimings(s)
+	return s, backend, store
+}
+
+// testTimings takes the timers out of a model under test: a zero delay runs the
+// deferred work inside the call that scheduled it, and a zero sweep interval
+// leaves the stall sweep to the test.
+// Nothing the model schedules then runs on a second thread.
+// The retry budget is three attempts rather than the shipped one, which is what
+// a test spends.
+func testTimings(s *Session) {
+	s.retryDelays = []time.Duration{0, 0, 0}
+	s.stagger = 0
+	s.sweepEvery = 0
 }
 
 // requests collects what the model asked the app for, in place of the pipe the
@@ -71,7 +89,8 @@ func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *r
 	}
 	backend := &stubBackend{}
 	asked := &requests{}
-	sess := New(streams, backend.factory, &layout.Memory{}, asked.send, func(f func()) { f() })
+	sess := New(streams, backend.factory, &layout.Memory{}, asked.send, roster.DiscardReport, func(f func()) { f() })
+	testTimings(sess)
 	return sess, backend, asked
 }
 

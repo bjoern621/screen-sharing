@@ -1,16 +1,18 @@
 package grid
 
 import (
+	"slices"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/tile"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/widgets"
 )
 
-// rebuild re-attaches the open tiles in display order, as the near-square grid or
-// the spotlight layout. A state change within a tile does not come through here; the
-// tile redraws itself in place. Every container is cleared first, so a tile never
-// lands in a second parent.
+// rebuild re-attaches the open tiles in display order, as the grid or the spotlight
+// layout. A state change within a tile does not come through here; the tile redraws
+// itself in place. Every container is cleared first, so a tile never lands in a
+// second parent.
 func (v *View) rebuild() {
 	widgets.ClearBox(v.strip)
 	widgets.ClearBox(v.spotBox)
@@ -35,6 +37,32 @@ func (v *View) rebuild() {
 	v.stack.SetVisibleChildName(pageGrid)
 }
 
+// resized re-runs the arrangement for the tile area's new allocation, and only when
+// the new one lands on a different shape: a window drag reports every intermediate
+// size, and re-attaching every tile for a size the grid arranges the same way would
+// cost a reparent per frame.
+//
+// The relayout goes through the coalescer rather than running here. An allocation is
+// no place to reparent widgets, and the drop target reads Pending to know the bounds
+// it hit-tests against are the ones a due relayout is about to move.
+func (v *View) resized() {
+	// The empty page and the spotlight hold their shape at any size; only the grid
+	// reads the allocation.
+	if v.stack.VisibleChildName() != pageGrid {
+		return
+	}
+	if slices.Equal(v.cells, v.arrangement(len(v.shown()))) {
+		return
+	}
+	v.relayout.Schedule()
+}
+
+// arrangement is where n tiles sit in the tile area's allocation, less the margin the
+// grid keeps around itself.
+func (v *View) arrangement(n int) []cell {
+	return arrange(n, v.probe.Width()-2*gap, v.probe.Height()-2*gap, gap)
+}
+
 // shown is the streams with an open tile, in display order.
 func (v *View) shown() []int {
 	order := v.sess.Order()
@@ -50,13 +78,15 @@ func (v *View) shown() []int {
 	return shown
 }
 
-// layoutGrid attaches the tiles as the near-square grid.
+// layoutGrid attaches the tiles in the shape the tile area's allocation gives the
+// largest tile. The arrangement is kept, so a resize can tell whether the new
+// allocation is worth a relayout.
 func (v *View) layoutGrid(shown []int) {
-	cells := arrange(len(shown))
+	v.cells = v.arrangement(len(shown))
 	for pos, i := range shown {
 		t := v.tiles[i]
 		t.SetShape(tile.ShapeFill)
-		v.grid.Attach(t.Widget(), cells[pos].column, cells[pos].row, columnSpan, 1)
+		v.grid.Attach(t.Widget(), v.cells[pos].column, v.cells[pos].row, columnSpan, 1)
 	}
 }
 

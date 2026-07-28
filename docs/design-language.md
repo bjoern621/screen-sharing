@@ -47,16 +47,20 @@ The red dot on the stop button is the button's foreground on a destructive actio
 
 ## Wording
 
-Headings and buttons are sentence case: "Web grid", "Audio only", "Close".
-Chips, empty-state sentences and stat keys are lowercase.
+Anything written as words for a reader is sentence case: headings, buttons, field labels, empty states, status lines and failure messages.
+"Web grid", "Audio only", "Watch over", "Retry", "Pick a stream in the sidebar to start watching."
+A standalone sentence takes a full stop.
+A fragment that labels a state does not: "No frames arriving", "Waiting for the first frame".
+Lowercase is reserved for the figures, which are identifiers rather than prose: stat keys, chip values and transport names.
 A tooltip is prose: it opens with a capital, closes with a full stop, and explains the control or the figure instead of naming it a second time.
+An icon button whose tooltip repeats its glyph ("stats", "disconnect") teaches nothing, so the tooltip says what pressing it does and what it leaves alone.
 The settings form and the native grid both read that way, so a stat key or an icon button that says nothing on its own is answered in the same voice on either surface.
 A figure keeps one name across surfaces: `transport`, `resolution`, `codec`, `bitrate`, `decoder`, `fps`, `frames`, `latency`, `lost`, and `n watching` for the number of open tiles.
 A surface with more to report adds rows instead of renaming the shared ones.
 Stat rows spell their words out, join two figures with ` · `, and print `…` where there is no value yet.
 Transport names stay lowercase, the way the settings offer them: `rtsp`, `srt`, `webrtc`, `websocket`.
 On a viewer surface a bare `transport` always means the watch leg, relay to viewer, on both grids; a label for the publisher-to-relay leg says "publish" (the settings field, the hop-1 latency).
-A tile carries the same control set on either grid: mute/unmute, stats/hide stats, spotlight/back to grid and disconnect, and a failed tile offers `retry`.
+A tile carries the same control set on either grid: mute/unmute, stats/hide stats, spotlight/back to grid and disconnect, and a failed tile offers "Retry".
 
 ## Selection
 

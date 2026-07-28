@@ -1,5 +1,10 @@
-// Package layout keeps the arrangement the grid window reopens on: the watched
-// streams, their display order, and the spotlit one.
+// Package layout keeps what the grid window reopens on: the arrangement (the
+// watched streams, their display order, and the spotlit one) and the window's
+// own geometry.
+//
+// The two records have different owners. internal/session writes the
+// arrangement, the window writes its geometry, and a writer touches only the
+// keys of the record it holds, so neither erases the other (see file.go).
 //
 // The Store seam separates what is remembered from where it is kept: FileStore
 // writes the app's config directory, Memory holds it in the process for a test.
@@ -25,12 +30,18 @@ type Store interface {
 	Save(l Layout)
 }
 
-// Memory is a Store that keeps the layout in the process, for tests and for a
-// run that must not touch the config directory.
+// Memory keeps both remembered records in the process, for tests and for a run
+// that must not touch the config directory. It is a Store and a WindowStore, so
+// one instance stands in for the state file the two share.
 type Memory struct {
 	Layout Layout
+	Window WindowState
 }
 
 func (m *Memory) Load() Layout { return m.Layout }
 
 func (m *Memory) Save(l Layout) { m.Layout = l }
+
+func (m *Memory) LoadWindow() WindowState { return m.Window }
+
+func (m *Memory) SaveWindow(w WindowState) { m.Window = w }

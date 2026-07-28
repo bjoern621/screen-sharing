@@ -20,6 +20,11 @@ const (
 	RosterChanged
 	// OrderChanged reports a new display order. It carries no index.
 	OrderChanged
+	// StallChanged reports that Change.Index stopped receiving frames, or
+	// started again.
+	// The watch state is untouched: a stalled stream is Live with a frozen
+	// picture, which the tile marks rather than redraws.
+	StallChanged
 )
 
 func (k ChangeKind) String() string {
@@ -34,6 +39,8 @@ func (k ChangeKind) String() string {
 		return "roster changed"
 	case OrderChanged:
 		return "order changed"
+	case StallChanged:
+		return "stall changed"
 	}
 	assert.Never("unexpected change kind", int(k))
 	return ""

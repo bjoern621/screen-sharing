@@ -37,6 +37,7 @@ nix develop .#nativegrid --command go run ./bench -chain shipped -streams 4
 
 `-chain shipped` plays the line `gstreamer.Describe` renders, so it cannot drift from what a tile runs; the other chains are alternatives to compare it against, each carrying the shipped queue so a comparison is a comparison of their conversions.
 `-sync`, `-qos` and `-lateness` expose the base-sink knobs, since a render rate under a syncing sink is not the same measurement as one without.
+`-fit` bounds the scaler to the tile's size where the chain carries one, so running a chain with it on and off is the measurement of what rendering at tile size costs and saves.
 
 ## Layers
 
@@ -71,6 +72,10 @@ Streams are keyed by name, so the window reopens on the streams it was watching,
 The order also remembers streams the current roster does not carry, which keeps their place for the run they come back in.
 The `Store` seam separates what is remembered from where it is kept, so a test drives the model against an in-process store.
 
+The window's own shape is in the same file: its size, whether it was maximized, and whether the sidebar was shown.
+Fullscreen is not, because it is a mode rather than a shape, and a grid that reopens covering the app that spawned it is a window nobody asked for.
+The file has two owners, the model and the window, so a write replaces the keys of the record being written and carries every other key over untouched, including one a later version put there.
+
 ## The decode seam
 
 - `internal/roster` parses the roster JSON, both the `-config` argument and each stdin push: one entry per live stream, the name of the watch leg it arrives over, and that transport's gst-launch source fragment.
@@ -79,22 +84,43 @@ The `Store` seam separates what is remembered from where it is kept, so a test d
 - An entry also carries the legs that stream could move to and the knobs of the one it is on, which the sidebar's watch-leg popover renders one control per, without knowing what any of them mean.
   Moving a stream is a `roster.Request` on stdout, the whole leg for that one stream; the app decides what it means and answers by pushing the roster it produced.
   Nothing changes here until that push arrives, and a watched stream whose source fragment moved with it restarts on the new one.
-- The GStreamer backend completes that fragment with `decodebin ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
+- Stdout carries a second kind of line, told apart from the first by a `type` field: the names of the streams with a tile open, stated whenever that set changes.
+  It is one-way, and the app has no answer to it: what the window watches is the window's, and the report only lets the app say what is on screen.
+- The GStreamer backend completes that fragment with `decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
   `decodebin` autoplugs by rank: a hardware decoder takes the stream where its sink caps advertise the profile, and a software one (gst-libav for H.264 and HEVC, libvpx for VP9) takes the rest, which is what covers the 4:4:4 and high-bit-depth combinations no hardware element lists.
   When decodebin exposes an audio pad, the pipeline grows an audio branch (`queue ! audioconvert ! audioresample ! volume ! autoaudiosink`) while it plays; a video-only stream carries no idle audio elements.
   The `RGBA/sRGB` capsfilter is not optional: without it GTK color-manages the raw YUV itself and washes out dark screen content.
+  The scaler ahead of the conversion is what keeps a tile from converting more pixels than it draws: a thumbnail in the film strip would otherwise convert every frame of a 4K stream to RGBA to draw it at thumbnail size.
+  It scales in the format the decoder produced, well under the four bytes a pixel the conversion works in, so the cheaper operation runs on the larger picture.
+  The tile bounds it through the `capsfilter` behind it, as a range rather than a fixed size, so the scaler corrects the pixel aspect instead of adding borders and a tile larger than its stream negotiates the stream's own size.
+  The size comes from the widget, over the `player.RenderSizer` seam, and a backend that cannot resize its output does not implement it and renders as it always did.
+  The sink's `reconfigure-on-window-resize` is not that mechanism: its `window-width` and `window-height` reach upstream only through the allocation query and never constrain caps, so a chain relying on it scales nothing.
   The queue between conversion and sink decouples the decode thread from the render thread and does not leak.
   A leaking queue in front of a sink that syncs on the clock sits at its bound for most of every frame period, because the sink holds each buffer until its presentation time, so every arrival drops a frame that was about to be shown and the tile renders at a fraction of the rate the source sends.
   Frames that really are too late are dropped once, by the sink, which is the element that knows what late means.
-- `Stats` reads the running pipeline rather than remembering it: caps off the decoder's input, off the decoded frames entering `videoconvert` and off the sink, the sink's own rendered/dropped counters, a latency and a position query, and byte counters a pad probe on each decoder's input fills.
+- `Stats` reads the running pipeline rather than remembering it: caps off the decoder's input, off the decoded frames entering the scaler and off the sink, the sink's own rendered/dropped counters, a latency and a position query, and byte counters a pad probe on each decoder's input fills.
+  The decoded caps are read ahead of the scaler on purpose: behind it they would report the tile's size as the picture on the wire.
   It reports counters, not rates, so the poll interval stays the overlay's business.
   Elements the launch line does not name are found through the pipeline's `deep-element-added` and a walk of the elements parse-launch already built, which is how the decoders inside decodebin and the transport's own source turn up.
+
+## Losing a stream
+
+A receive pipeline that ends takes its stream into a reconnect rather than straight into a failure: the tile keeps the last frame it drew, and the model reopens the pipeline on a backoff that ends.
+The budget is spent per outage and refilled by a frame arriving, so a stream that flaps comes back on its own and one nobody publishes any more lands in the failure state instead of retrying forever.
+A stream the roster drops and lists again restarts as well, because whatever took it away killed its pipeline, and the tile would otherwise hold a failure message for a stream that is back on air.
+The tile shows what the element reported, in its own wording.
+
+A stream that stops sending without ending is the other way to lose one, and nothing in the pipeline reports it: the elements stay healthy and the sink keeps its last picture.
+The model reads the frame counter of every live player instead, and marks the stream once the count stops moving, which the tile and its sidebar row both say.
 
 ## Media controls
 
 Hovering a tile fades in the web tile's control bar: mute with a hover-out volume slider (only when the stream carries audio), the stats overlay, spotlight, disconnect.
 Spotlight swaps the grid for the web grid's layout: the spotlit tile fills the page and the other watched streams shrink to a centered film strip below it.
+A double click on a tile spotlights it too.
 Pop-out stays web-only because the grid already is its own window; hide-video stays web-only because it needs the roster's audio-only strip.
+
+Outside the spotlight the tile area picks the column count that leaves a 16:9 tile the most area in the window it has, so three tiles are one row on a wide window and one column on a tall one, and an incomplete last row sits centered under the full ones.
 
 Tiles reorder by drag and drop with a live preview: the other tiles re-slot while the pointer moves, and the sidebar rows follow the same order.
 One drag controller serves both views, so a drag started on a row moves the tiles and the other way round, including for a stream nobody watches yet.
@@ -103,10 +129,17 @@ A sidebar row carries the watch-leg button beside its check: the transports the 
 It applies on Apply rather than per keystroke, because a change reconnects that stream, and closing the popover any other way puts the values that hold back into the controls.
 A stream the app offers nothing for shows no button.
 
+## Keyboard
+
+Escape peels one thing per press, fullscreen before the spotlight, so a window in both takes two.
+F11 gives the window the screen, Ctrl+B shows or hides the sidebar, and the digits 1 to 9 spotlight that tile of the grid, the same digit again dropping the spotlight.
+The bindings are one table, and the sidebar toggle's tooltip is composed from the row that drives it, so a binding is described where it is declared.
+They act in the bubble phase, so a digit typed into a watch-leg field stays that field's.
+
 ## Stats overlay
 
 The overlay is a table of rows (`internal/ui/stats`), which both the card's widgets and every refresh walk, so a row is described once: its key, whether it disappears while its figure is missing, how it reads the poll, and the tooltip that says what the figure means.
-It is blocked by where a figure comes from: the `stream` it plays (the watch leg it receives over, source fragment, uptime, running time, latency window), the `video` on the wire (picture size and rate, codec description with profile and level, measured bitrate, keyframe spacing, pixel format with its subsampling and bit depth, colorimetry, pixel aspect and scan mode), what this side does with it under `decode` (the decoder decodebin picked and whether it decodes on the GPU, the format the sink takes, measured fps, rendered and dropped frames), and `audio` when the stream carries it.
+It is blocked by where a figure comes from: the `stream` it plays (the watch leg it receives over, source fragment, uptime, running time, latency window), the `video` on the wire (picture size and rate, codec description with profile and level, measured bitrate, keyframe spacing, pixel format with its subsampling and bit depth, colorimetry, pixel aspect and scan mode), what this side does with it under `decode` (the decoder decodebin picked and whether it decodes on the GPU, the format the sink takes and its size while that differs from the decoded one, measured fps, rendered and dropped frames), and `audio` when the stream carries it.
 Codec names come from `pbutils`, subsampling and bit depth from GStreamer's raw-format table, so neither is a table in this binary.
 
 A block per transport element follows, keyed by the element's pipeline name, from the `stats` structure elements like `srtsrc` and `rtpjitterbuffer` keep: packet, loss and retransmission counters, and an SRT link's rate and round-trip time.

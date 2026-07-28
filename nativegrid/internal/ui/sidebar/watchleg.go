@@ -120,7 +120,7 @@ func (v *legView) rebuild() {
 	v.fields = nil
 
 	v.legs = gtk.NewDropDownFromStrings(v.offered)
-	v.body.Append(legRow("watch over", legTip, v.legs))
+	v.body.Append(legRow("Watch over", legTip, v.legs))
 
 	for _, o := range v.stream.Options {
 		control, field, ok := legControl(o)

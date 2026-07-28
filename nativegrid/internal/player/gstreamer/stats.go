@@ -12,10 +12,10 @@ import (
 )
 
 // Stats reads the running pipeline: the caps on three pads (the decoder's input,
-// the decoded frames entering videoconvert, the format the sink takes), the sink's
-// own render counters, a latency and a position query, and the counters of the
-// transport's elements. Nothing is cached, so a field stays zero for exactly as
-// long as the pipeline has not learned it.
+// the decoded frames entering the scaler, the format and size the sink takes),
+// the sink's own render counters, a latency and a position query, and the
+// counters of the transport's elements. Nothing is cached, so a field stays zero
+// for exactly as long as the pipeline has not learned it.
 func (r *receiver) Stats() player.Stats {
 	s := player.Stats{
 		Frames: r.frames.Load(),
@@ -34,12 +34,12 @@ func (r *receiver) Stats() player.Stats {
 	videoDec, audioDec := r.video.dec, r.audio.dec
 	s.Decoder, s.Hardware = r.video.factory, r.video.hardware
 	s.AudioDecoder = r.audio.factory
-	convert, audioConvert := r.convert, r.audioConvert
+	audioConvert := r.audioConvert
 	sources := slices.Clone(r.stats)
 	r.mu.Unlock()
 
 	readEncoded(&s, videoDec)
-	readDecoded(&s, convert)
+	readDecoded(&s, r.scale)
 	r.readRender(&s)
 	r.readTiming(&s)
 	readAudio(&s, audioDec, audioConvert)
@@ -68,12 +68,14 @@ func readEncoded(s *player.Stats, dec gst.Element) {
 	s.Level = st.GetString("level")
 }
 
-// readDecoded describes the decoded frames, off the caps entering videoconvert.
-func readDecoded(s *player.Stats, convert gst.Element) {
-	if convert == nil {
+// readDecoded describes the decoded frames, off the caps entering the scaler.
+// That pad carries what the decoder produced, and everything downstream of it is this side's own
+// doing: the picture size a stream sends is not the size a tile scaled it to.
+func readDecoded(s *player.Stats, scale gst.Element) {
+	if scale == nil {
 		return
 	}
-	caps := padCaps(convert, "sink")
+	caps := padCaps(scale, "sink")
 	if caps == nil {
 		return
 	}
@@ -102,22 +104,20 @@ func readDecoded(s *player.Stats, convert gst.Element) {
 	}
 }
 
-// readRender describes what the sink does with the frames: the format it takes,
-// and its own count of what it rendered and what it threw away for arriving past
-// its deadline, which the paintable's count cannot tell apart.
+// readRender describes what the sink does with the frames: the format and size
+// it takes, and its own count of what it rendered and what it threw away for
+// arriving past its deadline, which the paintable's count cannot tell apart.
 func (r *receiver) readRender(s *player.Stats) {
 	if caps := padCaps(r.sink, "sink"); caps != nil {
 		st := caps.GetStructure(0)
 		s.Render = strings.TrimSpace(st.GetString("format") + " " + st.GetString("colorimetry"))
-		// The decoded caps are the honest picture size; the sink's are the
-		// fallback for a pipeline whose videoconvert went missing.
-		if s.Width == 0 {
-			if w, ok := st.GetInt("width"); ok {
-				s.Width = int(w)
-			}
-			if h, ok := st.GetInt("height"); ok {
-				s.Height = int(h)
-			}
+		// The size shows only where the scaler took the frames down to a tile.
+		// That is the case where the format alone would read as the decoded picture in
+		// another layout.
+		w, wok := st.GetInt("width")
+		h, hok := st.GetInt("height")
+		if wok && hok && (int(w) != s.Width || int(h) != s.Height) {
+			s.Render = strings.TrimSpace(fmt.Sprintf("%s %dx%d", s.Render, w, h))
 		}
 	}
 	st, ok := r.sink.ObjectProperty("stats").(*gst.Structure)

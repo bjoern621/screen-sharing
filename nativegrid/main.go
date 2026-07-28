@@ -19,8 +19,9 @@
 // roster pushes on stdin, so the window can open on an idle relay and fill up as
 // streams appear. A sidebar row can move its stream to another watch leg or retune
 // the one it is on; the window asks the app for that on stdout and receives the
-// answer as the next push. Without -config, built-in videotestsrc streams drive a
-// standalone demo run.
+// answer as the next push. The same pipe carries which streams have a tile open, so
+// the app can show what this window took. Without -config, built-in videotestsrc
+// streams drive a standalone demo run.
 package main
 
 import (
@@ -52,6 +53,9 @@ func main() {
 	backendArg := flag.String("player", gstreamer.Backend, "decode backend: "+strings.Join(player.Names(), ", "))
 	flag.Parse()
 
+	// A run without -config has no app on the other end of stdin and stdout.
+	fromApp := *configArg != ""
+
 	cfg := config(*configArg)
 	factory, err := player.For(*backendArg)
 	if err != nil {
@@ -62,7 +66,7 @@ func main() {
 	// arrive on pipeline threads and hop here; so do the relayouts a drag must not
 	// perform from inside its own callback.
 	dispatch := idle.Dispatch(func(f func()) { coreglib.IdleAdd(f) })
-	sess := session.New(cfg.Streams, factory, layout.NewFileStore(), sender(*configArg != ""), dispatch)
+	sess := session.New(cfg.Streams, factory, layout.NewFileStore(), sender(fromApp), reporter(fromApp), dispatch)
 
 	// NonUnique: a second grid must not activate inside the first one's process; the
 	// app replaces the window by killing and respawning it.
@@ -71,7 +75,7 @@ func main() {
 		window.New(app, sess, dispatch).SetVisible(true)
 		// Only an app-driven run is pushed rosters; the demo's stdin is a terminal,
 		// not a stream of configs.
-		if *configArg != "" {
+		if fromApp {
 			go roster.Pushes(os.Stdin, func(streams []roster.Stream) {
 				dispatch(func() { sess.SetRoster(streams) })
 			})
@@ -92,6 +96,15 @@ func sender(fromApp bool) roster.Send {
 		return roster.Discard
 	}
 	return roster.Sender(os.Stdout)
+}
+
+// reporter is where the watch set goes: the app reads stdout and shows what this window took,
+// the demo run has nobody to tell.
+func reporter(fromApp bool) roster.Report {
+	if !fromApp {
+		return roster.DiscardReport
+	}
+	return roster.Reporter(os.Stdout)
 }
 
 // config is the roster the window opens on: the app's, or the demo one.
