@@ -33,8 +33,10 @@ HLS is served and never ingested, so it is a watch leg alone; WebRTC ingest is n
 Each transport declares a format set per leg beside the code that serializes it (`transport.Formats`), and every rule that offers or refuses a protocol reads the set for the leg it means.
 
 The publish leg is one setting per app instance (`settings.Stream.Transport`, the "Publish transport protocol" field).
-The watch leg is one setting for every viewer the app itself opens (`settings.Stream.WatchTransport`, the "Watch over" dropdown): a single-stream window takes it per Watch click, and the native grid is launched with whatever it reads at that moment.
-The grid's sidebar can then move a single stream to another leg, or retune the one it is on, for that window and that stream alone; the setting is where every stream starts, not where it is stuck.
+The watch leg is two, one per viewer kind, because the two viewer kinds reach different protocol sets.
+A single-stream window takes `settings.Stream.WatchTransport` per Watch click, the "Watch over" dropdown, narrowed to the protocols a player opens by URL.
+The native grid runs every tile on `settings.Stream.GridTransport`, which its own sidebar sets and which reaches WHEP, a leg no player URL expresses.
+One field for both would let each viewer store a leg the other cannot run.
 A web grid tile is the exception, its leg fixed by the decode path its sink uses.
 Anything the viewer side reports, a tile badge or a stats overlay row, is the watch leg; the publish leg is not observable from there.
 
@@ -42,6 +44,11 @@ Each protocol's own knobs are per leg for the same reason.
 The two SRT latency windows are separate fields because each leg is its own SRT link with its own retransmit window, and glass-to-glass delay is their sum.
 RTSP names the RTP lower transport once per leg (`RtspPublishProtocol`, `RtspWatchProtocol`), because the two legs cross different networks and it is the network that decides whether a UDP port pair survives.
 The jitter buffer is the watch leg's alone (`RtspWatchLatencyMs`): it sizes the receiver's reorder window, and the publish leg has no receiver here.
+
+An SRT latency window is a request, not a result.
+SRT negotiates one delay per direction in the handshake and takes the larger of the two sides' values, so a link is never faster than the peer's own setting, whatever this side asks for.
+MediaMTX exposes no SRT latency option and runs on its library's 120 ms default, which is therefore the floor of both hops against it: 400 ms is honoured, 60 ms comes back as 120.
+The negotiated value is what the grid's tile overlay reports as `buffer` on the watch leg, read off `srtsrc`; the relay's `/v3/srtconns/list` reports both directions of both hops.
 
 ## Where the bytes go
 
@@ -200,8 +207,8 @@ Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every 
   `WEB_GRID_DECODE` carries the constraint as each row's `is420` and `bitDepth`, matched against the pixel format's own.
 - **Watch leg.**
   The web grid's is fixed by the decode path, never taken from the publish leg: WHEP is always WebRTC and the WebCodecs path is always RTSP, whatever the stream was published over.
-  A native viewer picks its watch leg per window and, in the grid, per stream, so the same stream can be open twice over SRT and RTSP at once.
-  WebRTC is absent from that choice because it implements no `Watcher`: playback needs WHEP, which neither ffplay nor mpv speaks.
+  A single-stream native window picks its watch leg per Watch click, and the grid picks one for the whole window in its sidebar, so the same stream can be open over SRT in a player and RTSP in the grid at once.
+  WebRTC is absent from the player's choice because it implements no `Watcher`: playback needs WHEP, which neither ffplay nor mpv speaks.
 - **Codec breadth.**
   The web grid decodes two formats.
   A native window decodes whatever the ffmpeg build supports.
@@ -310,7 +317,7 @@ A row's `available` is the host webview's answer, not a constant: each path test
 A webview without one drops that row, so the verdict explains the gap where the settings form already reports codec support, rather than letting the tile fail on a missing global.
 
 `nativeGridCheck` (`frontend/src/util/nativegrid.ts`) has no decode table of its own, because the native grid's `decodebin` reaches every format the app can encode, at any chroma and bit depth.
-That leaves the watch leg as the only gate, so the verdict asks the transport table whether the relay serves the codec's format over the selected one (`WatchTransport`, the leg `useNativeGrid` launches the window with).
+That leaves the watch leg as the only gate, so the verdict asks the transport table whether the relay serves the codec's format over the grid's own (`GridTransport`, the leg the window opens on and its sidebar changes).
 It reads the watch half of that table and never the publish half, since the two are separate sets: a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
 A format with no listener on the selected leg reports not-viewable, names the leg as the reason, and names the protocols that would carry it.
 
@@ -320,7 +327,7 @@ The native grid is a separate GTK4 binary (`nativegrid`), spawned by the app (`a
 The process contract is a JSON roster built by `watch.BuildGridConfig`: every stream the relay reports live, each as a display name plus the gst-launch source fragment of its watch transport (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), and the app state the window's own controls read (`watch.GridApp`).
 It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the config the app builds differs from the one the window holds (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
 The config is the whole state rather than what moved in it, which is what makes that comparison the push rule.
-The poll rebuilds it from the settings, the live streams, the per-stream choices and the publish state, so a watch knob turned in the app's own settings form reaches a tile already playing, and a poll that finds nothing moved writes nothing.
+The poll rebuilds it from the settings, the live streams and the publish state, so a watch knob turned in the app's own settings form reaches a tile already playing, and a poll that finds nothing moved writes nothing.
 On the receiving side a stream whose source fragment changed restarts on the new one, and the tiles whose fragment stayed put keep playing.
 The binary appends sidebar rows for new streams and hides the rows of vanished ones, keeping a vanished stream's row while it is watched so its failure state stays on screen.
 
@@ -330,12 +337,14 @@ So a restart reopens on the tiles it was showing, at the size it was shown at.
 
 The child's stdout carries three kinds of JSON line, told apart by a `type` field.
 The first is a watch-leg request (`watch.GridRequest`).
-Each roster entry carries the transports that stream can be received over and the knobs of the one it is on, both declared by the transport that reads them (`transport.WatchTunable`), so the sidebar renders a control per entry and names no protocol.
-A request is the whole leg for one stream, and the app answers an accepted one with the roster it produces.
+Each roster entry carries the transports that stream can be received over and the knobs of every one of them, all declared by the transport that reads them (`transport.WatchTunable`), so the sidebar renders a control per entry and names no protocol.
+Declaring all of them is what lets the popover swap its controls the instant another leg is picked, rather than waiting for the app to answer before it can show what that leg offers.
+A request is the whole leg, the transport and the values of the knobs shown with it, and the app answers an accepted one with the roster it produces.
 A refused one produces no roster and needs none: the sidebar reads its controls before it asks and redraws them from the entry it holds as the popover closes, so they follow the app rather than their own last click.
-A request that moves a stream to another transport states no knobs at all, because the ones on screen belong to the transport being left and the app refuses a whole leg over a knob its transport does not declare.
-The roster answering the move carries the new leg's knobs at the values the settings hold, and the sidebar builds its controls from those.
-The choices live in the goroutine that pushes that window's roster and are never written to the settings, since a per-stream copy of every knob is a lot of state to restore for a deviation that lasts one run.
+
+An accepted request is written into the settings and saved (`watch.ApplyWatchLeg`), so the leg the sidebar was left on is the leg the next launch opens.
+The leg is one setting for the window rather than a deviation per stream: the popover sits on a row because that row's format decides which transports may be offered, and what it changes is the window's.
+The backend announces the write with a `settings:changed` event, because the settings form holds its own copy and would otherwise put the old leg back on its next field edit.
 
 The second is a command (`watch.GridCommand`), which acts on the app instead of on a stream: the sidebar's foot raises the app window on the settings form, and starts or stops the publish of this machine's own capture on the settings the app holds.
 It is answered like a request, with the push that states what happened, so the publish button draws the app's state and keeps none of its own.

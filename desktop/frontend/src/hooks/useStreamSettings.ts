@@ -4,6 +4,7 @@ import {
     PublishCommand, Transports, TransportFormats, CaptureTransports,
     CaptureEngines, GpuPaths, StoreNotice,
 } from "../../wailsjs/go/main/App";
+import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
     Deps, EncoderInfo, GpuPath, PlatformInfo, Preset, Stream, TransportCarriage,
     ViewVerdict,
@@ -221,6 +222,17 @@ export function useStreamSettings(
             setS(prev => (prev ? normalize(prev, env) : prev));
         }
     }, [platform, encoders, caps, carriage, captureTransports, captureEngines, gpuPaths, env]);
+
+    // The native grid's sidebar writes the watch leg and knobs it was moved to
+    // into these same settings, and the backend announces it. Taking the change
+    // is what keeps one copy: this hook writes the whole struct back on the next
+    // field edit, which would otherwise put the leg the grid left back in force.
+    useEffect(() => {
+        const off = EventsOn("settings:changed", () => {
+            void (async () => setS(normalize(await GetSettings(), env)))();
+        });
+        return () => off();
+    }, [env]);
 
     useEffect(() => {
         if (!s) {

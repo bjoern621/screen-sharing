@@ -50,15 +50,19 @@ type Option struct {
 //
 // Transports and Options are the same split applied to the sidebar's watch-leg
 // popover: the app names the legs this stream can be received over and the
-// knobs of the one it is on, and the window renders a control per entry without
+// knobs of each of them, and the window renders a control per entry without
 // knowing what any of them mean. Changing one is a Request; the answer is the
 // next push, which carries the fragment and the values that resulted.
+//
+// Options is keyed by transport and holds every offered leg, not only the one in
+// force. Picking another leg in the popover swaps its controls at once, which it
+// could not do if the knobs of that leg only arrived with the app's answer.
 type Stream struct {
-	Name       string   `json:"name"`
-	Transport  string   `json:"transport"`
-	Source     string   `json:"source"`
-	Transports []string `json:"transports"`
-	Options    []Option `json:"options"`
+	Name       string              `json:"name"`
+	Transport  string              `json:"transport"`
+	Source     string              `json:"source"`
+	Transports []string            `json:"transports"`
+	Options    map[string][]Option `json:"options"`
 }
 
 // App is the app's own state, the part of it this window draws and acts on:

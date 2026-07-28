@@ -461,8 +461,9 @@ export default function StreamSettingsCard({
                     {s.transport === "srt" && (
                         <NumberField
                             label="SRT publish latency (ms, publish leg)"
-                            labelTip="SRT retransmit window for the publish leg (this machine to the relay). Total glass-to-glass ≈ publish leg + watch leg + encode/decode - the windows ADD UP."
+                            labelTip="SRT retransmit window for the publish leg (this machine to the relay). Total glass-to-glass ≈ publish leg + watch leg + encode/decode - the windows ADD UP. SRT negotiates the larger of the two ends' windows, and MediaMTX asks for 120 ms, so anything below that is raised to it."
                             value={s.srtPublishLatencyMs}
+                            min={1}
                             onChange={v => onUpdate({ srtPublishLatencyMs: v })}
                         />
                     )}

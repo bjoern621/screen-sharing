@@ -2,9 +2,12 @@ package watch
 
 import (
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
+
+	"bjoernblessin.de/screenshare/settings"
 )
 
 // h264Live and vp9Live are the two carry cases: a format every watch transport
@@ -19,8 +22,15 @@ func h264Live(names ...string) []LiveStream {
 
 func vp9Live(name string) LiveStream { return LiveStream{Name: name, Format: "vp9"} }
 
+// gridOn is the settings with the grid window put on one leg, which is what
+// BuildGridConfig reads and what a request replaces.
+func gridOn(s settings.Stream, name string) settings.Stream {
+	s.GridTransport = name
+	return s
+}
+
 func TestBuildGridConfigRTSP(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), h264Live("alice", "bob"), "rtsp", nil, GridApp{})
+	out, err := BuildGridConfig(rtspStream(), h264Live("alice", "bob"), GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +60,7 @@ func TestBuildGridConfigRTSP(t *testing.T) {
 }
 
 func TestBuildGridConfigSRT(t *testing.T) {
-	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil, GridApp{})
+	out, err := BuildGridConfig(srtStream(), h264Live("alice"), GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,10 +77,11 @@ func TestBuildGridConfigSRT(t *testing.T) {
 	}
 }
 
-// The sidebar renders whatever the config declares, so a stream carries both the
-// legs it could move to and the knobs of the one it is on.
-func TestBuildGridConfigDeclaresWatchOptions(t *testing.T) {
-	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil, GridApp{})
+// The sidebar renders whatever the config declares, so a stream carries the legs
+// it could move to and the knobs of every one of them: the popover swaps its
+// controls on the pick rather than on the app's answer.
+func TestBuildGridConfigDeclaresWatchOptionsPerLeg(t *testing.T) {
+	out, err := BuildGridConfig(srtStream(), h264Live("alice"), GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,27 +91,35 @@ func TestBuildGridConfigDeclaresWatchOptions(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := cfg.Streams[0]
-	if !slices.Equal(got.Transports, []string{"rtmp", "rtsp", "srt", "webrtc"}) {
+	want := []string{"rtmp", "rtsp", "srt", "webrtc"}
+	if !slices.Equal(got.Transports, want) {
 		t.Errorf("transports = %v, want every leg a pipeline receives H.264 over", got.Transports)
 	}
-	if len(got.Options) != 1 {
-		t.Fatalf("got %d options, want the one srt knob: %+v", len(got.Options), got.Options)
+	if legs := slices.Sorted(maps.Keys(got.Options)); !slices.Equal(legs, want) {
+		t.Errorf("option legs = %v, want a knob set per offered leg", legs)
 	}
-	if got.Options[0].Key != "srtWatchLatencyMs" || got.Options[0].Value != "1200" {
-		t.Errorf("option = %+v, want the settings' srt latency", got.Options[0])
+	if len(got.Options["srt"]) != 1 {
+		t.Fatalf("srt options = %+v, want the one srt knob", got.Options["srt"])
+	}
+	if got.Options["srt"][0].Key != "srtWatchLatencyMs" || got.Options["srt"][0].Value != "1200" {
+		t.Errorf("srt option = %+v, want the settings' srt latency", got.Options["srt"][0])
+	}
+	// The leg the window is not on carries its knobs at the settings' values too,
+	// which is what the popover shows the moment it is picked.
+	if len(got.Options["rtsp"]) != 2 {
+		t.Errorf("rtsp options = %+v, want the two rtsp knobs", got.Options["rtsp"])
+	}
+	// A leg with nothing to tune is declared empty rather than left out, so the
+	// window can tell it from one it was never told about.
+	if opts, ok := got.Options["webrtc"]; !ok || len(opts) != 0 {
+		t.Errorf("webrtc options = %+v (present %v), want an empty declaration", opts, ok)
 	}
 }
 
-// A choice moves one stream and leaves the rest of the window where it was.
-func TestBuildGridConfigPerStreamChoice(t *testing.T) {
-	s := srtStream()
-	s.RtspPort = 8554
-	choices := map[string]WatchChoice{"bob": {
-		Transport: "rtsp",
-		Options:   map[string]string{"rtspWatchLatencyMs": "400", "rtspWatchProtocol": "udp"},
-	}}
-
-	out, err := BuildGridConfig(s, h264Live("alice", "bob"), "srt", choices, GridApp{})
+// The leg a stream is on is offered beside the ones its format is served over,
+// so a window showing a stream its leg does not carry can still name that leg.
+func TestBuildGridConfigDeclaresTheLegInForce(t *testing.T) {
+	out, err := BuildGridConfig(srtStream(), []LiveStream{vp9Live("alice")}, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,28 +128,20 @@ func TestBuildGridConfigPerStreamChoice(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Streams[0].Transport != "srt" || !strings.Contains(cfg.Streams[0].Source, "srtsrc") {
-		t.Errorf("alice = %+v, want the window's leg", cfg.Streams[0])
+	got := cfg.Streams[0]
+	if !slices.Equal(got.Transports, []string{"rtsp", "webrtc"}) {
+		t.Errorf("transports = %v, want the legs vp9 is served on", got.Transports)
 	}
-	bob := cfg.Streams[1]
-	if bob.Transport != "rtsp" {
-		t.Fatalf("bob transport = %q, want rtsp", bob.Transport)
-	}
-	if !strings.Contains(bob.Source, "latency=400") || !strings.Contains(bob.Source, "protocols=udp") {
-		t.Errorf("bob source = %q, want the chosen rtsp knobs", bob.Source)
-	}
-	// The knobs the sidebar shows follow the leg the stream moved to.
-	if len(bob.Options) != 2 {
-		t.Errorf("bob options = %+v, want the two rtsp knobs", bob.Options)
+	if _, ok := got.Options["srt"]; !ok {
+		t.Errorf("options = %v, want the leg in force declared beside them", slices.Sorted(maps.Keys(got.Options)))
 	}
 }
 
-// A choice is one stream's business: the settings it is applied to are a copy,
-// so the streams built after it are unaffected.
-func TestBuildGridConfigChoiceLeavesTheSettings(t *testing.T) {
-	choices := map[string]WatchChoice{"alice": {Options: map[string]string{"srtWatchLatencyMs": "80"}}}
+// The leg is one setting for the window, so every tile moves with it.
+func TestBuildGridConfigPutsEveryStreamOnTheGridLeg(t *testing.T) {
+	s := gridOn(rtspStream(), "srt")
 
-	out, err := BuildGridConfig(srtStream(), h264Live("alice", "bob"), "srt", choices, GridApp{})
+	out, err := BuildGridConfig(s, h264Live("alice", "bob"), GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,11 +150,10 @@ func TestBuildGridConfigChoiceLeavesTheSettings(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(cfg.Streams[0].Source, "latency=80") {
-		t.Errorf("alice source = %q, want the chosen latency", cfg.Streams[0].Source)
-	}
-	if !strings.Contains(cfg.Streams[1].Source, "latency=1200") {
-		t.Errorf("bob source = %q, want the settings' latency", cfg.Streams[1].Source)
+	for _, stream := range cfg.Streams {
+		if stream.Transport != "srt" || !strings.Contains(stream.Source, "srtsrc") {
+			t.Errorf("%s = %+v, want the grid's srt leg", stream.Name, stream)
+		}
 	}
 }
 
@@ -158,7 +168,7 @@ func TestBuildGridConfigSkipsUnusableNames(t *testing.T) {
 		{Name: "bob", Format: "h264"},
 	}
 
-	out, err := BuildGridConfig(rtspStream(), live, "rtsp", nil, GridApp{})
+	out, err := BuildGridConfig(rtspStream(), live, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +189,7 @@ func TestBuildGridConfigSkipsUnusableNames(t *testing.T) {
 // A roster of nothing but unusable names still builds: the window opens empty
 // and the next push fills it, which is what it does on an idle relay.
 func TestBuildGridConfigAllNamesUnusable(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), []LiveStream{{Format: "h264"}}, "rtsp", nil, GridApp{})
+	out, err := BuildGridConfig(rtspStream(), []LiveStream{{Format: "h264"}}, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +199,7 @@ func TestBuildGridConfigAllNamesUnusable(t *testing.T) {
 }
 
 func TestBuildGridConfigEmptyRoster(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{})
+	out, err := BuildGridConfig(rtspStream(), nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +211,7 @@ func TestBuildGridConfigEmptyRoster(t *testing.T) {
 // The app state travels with every push, publishing or not: the window draws its
 // publish control from it and has no other source for the state.
 func TestBuildGridConfigCarriesTheAppState(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{Publishing: true, PublishError: "no encoder"})
+	out, err := BuildGridConfig(rtspStream(), nil, GridApp{Publishing: true, PublishError: "no encoder"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,7 +219,7 @@ func TestBuildGridConfigCarriesTheAppState(t *testing.T) {
 		t.Errorf("config = %q, want %s", out, want)
 	}
 
-	out, err = BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{})
+	out, err = BuildGridConfig(rtspStream(), nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,14 +231,14 @@ func TestBuildGridConfigCarriesTheAppState(t *testing.T) {
 func TestBuildGridConfigRejectsUnsupportedTransport(t *testing.T) {
 	// HLS is served by the relay and read by no source element here, so it is a
 	// leg a viewer program opens and a grid window cannot.
-	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "hls", nil, GridApp{}); err == nil {
+	if _, err := BuildGridConfig(gridOn(rtspStream(), "hls"), h264Live("alice"), GridApp{}); err == nil {
 		t.Fatal("expected error for a transport without a GStreamer watch form")
 	}
-	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "carrier-pigeon", nil, GridApp{}); err == nil {
+	if _, err := BuildGridConfig(gridOn(rtspStream(), "carrier-pigeon"), h264Live("alice"), GridApp{}); err == nil {
 		t.Fatal("expected error for an unknown transport")
 	}
 	// The transport is checked even when there is nothing to serialize.
-	if _, err := BuildGridConfig(rtspStream(), nil, "hls", nil, GridApp{}); err == nil {
+	if _, err := BuildGridConfig(gridOn(rtspStream(), "hls"), nil, GridApp{}); err == nil {
 		t.Fatal("expected error for an unsupported transport with an empty roster")
 	}
 }
@@ -248,17 +258,82 @@ func TestGstWatchTransportsNarrowsByFormat(t *testing.T) {
 	}
 }
 
-func TestWatchLegRefusesATransportTheFormatIsNotServedOn(t *testing.T) {
-	_, _, err := WatchLeg(srtStream(), vp9Live("alice"), "rtsp", WatchChoice{Transport: "srt"})
+// An accepted request is the settings the app persists: the leg and the knobs of
+// that leg, replacing what was held.
+func TestApplyWatchLegWritesTheLegAndItsKnobs(t *testing.T) {
+	base := gridOn(rtspStream(), "rtsp")
+
+	next, err := ApplyWatchLeg(base, h264Live("alice")[0], GridRequest{
+		Stream:    "alice",
+		Transport: "srt",
+		Options:   map[string]string{"srtWatchLatencyMs": "80"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.GridTransport != "srt" {
+		t.Errorf("grid transport = %q, want the chosen srt", next.GridTransport)
+	}
+	if next.SrtWatchLatencyMs != 80 {
+		t.Errorf("srt watch latency = %d, want the 80 the request carried", next.SrtWatchLatencyMs)
+	}
+	// The leg being left keeps its knobs: a request names one leg's, and the rest
+	// of the settings are what they were.
+	if next.RtspWatchLatencyMs != base.RtspWatchLatencyMs {
+		t.Errorf("rtsp latency = %d, want the settings' %d", next.RtspWatchLatencyMs, base.RtspWatchLatencyMs)
+	}
+}
+
+// A request naming no transport turns the knobs of the leg in force.
+func TestApplyWatchLegKeepsTheLegInForce(t *testing.T) {
+	next, err := ApplyWatchLeg(srtStream(), vp9Live("alice"), GridRequest{
+		Stream:  "alice",
+		Options: map[string]string{"srtWatchLatencyMs": "80"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.GridTransport != "srt" {
+		t.Errorf("grid transport = %q, want the window's srt", next.GridTransport)
+	}
+	if next.SrtWatchLatencyMs != 80 {
+		t.Errorf("srt watch latency = %d, want the 80 the request carried", next.SrtWatchLatencyMs)
+	}
+}
+
+// The sidebar offers the leg in force beside the ones a stream's format is
+// served over, so naming it holds it: refusing would leave that stream's knobs
+// unreachable, since they travel with the name.
+func TestApplyWatchLegTakesTheLegInForceByName(t *testing.T) {
+	next, err := ApplyWatchLeg(srtStream(), vp9Live("alice"), GridRequest{
+		Stream:    "alice",
+		Transport: "srt",
+		Options:   map[string]string{"srtWatchLatencyMs": "80"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.GridTransport != "srt" || next.SrtWatchLatencyMs != 80 {
+		t.Errorf("leg = %q at %d ms, want srt at 80", next.GridTransport, next.SrtWatchLatencyMs)
+	}
+}
+
+func TestApplyWatchLegRefusesATransportTheFormatIsNotServedOn(t *testing.T) {
+	base := gridOn(srtStream(), "rtsp")
+
+	next, err := ApplyWatchLeg(base, vp9Live("alice"), GridRequest{Stream: "alice", Transport: "srt"})
 	if err == nil {
 		t.Fatal("expected srt to be refused for a vp9 stream")
 	}
 	if !strings.Contains(err.Error(), "rtsp") {
 		t.Errorf("error = %q, want it to name the transport that carries vp9", err)
 	}
+	if next != base {
+		t.Errorf("settings = %+v, want the ones held", next)
+	}
 }
 
-func TestWatchLegRefusesAnUnusableOption(t *testing.T) {
+func TestApplyWatchLegRefusesAnUnusableOption(t *testing.T) {
 	cases := map[string]map[string]string{
 		"undeclared key":    {"srtWatchLatencyMs": "1200"},
 		"not a number":      {"rtspWatchLatencyMs": "soon"},
@@ -267,94 +342,18 @@ func TestWatchLegRefusesAnUnusableOption(t *testing.T) {
 	}
 	for name, options := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, _, err := WatchLeg(rtspStream(), h264Live("alice")[0], "rtsp", WatchChoice{Options: options})
+			base := rtspStream()
+
+			next, err := ApplyWatchLeg(base, h264Live("alice")[0], GridRequest{Stream: "alice", Options: options})
 			if err == nil {
 				t.Fatalf("expected %v to be refused", options)
 			}
 			if !strings.Contains(err.Error(), "alice") {
 				t.Errorf("error = %q, want it to name the stream", err)
 			}
+			if next != base {
+				t.Errorf("settings = %+v, want the ones held", next)
+			}
 		})
-	}
-}
-
-// A stream that comes back in a format its chosen transport does not carry
-// loses the choice, rather than costing every push the roster it appears in.
-func TestPruneWatchChoices(t *testing.T) {
-	choices := map[string]WatchChoice{
-		"alice": {Transport: "srt"},
-		"bob":   {Transport: "rtsp"},
-		"carol": {Transport: "srt"},
-	}
-	live := []LiveStream{{Name: "alice", Format: "vp9"}, {Name: "bob", Format: "vp9"}}
-
-	dropped := PruneWatchChoices(srtStream(), live, "rtsp", choices)
-
-	if len(dropped) != 1 || !strings.Contains(dropped[0].Error(), "alice") {
-		t.Errorf("dropped = %v, want alice alone", dropped)
-	}
-	if _, ok := choices["alice"]; ok {
-		t.Error("alice kept a leg vp9 is not served on")
-	}
-	if _, ok := choices["bob"]; !ok {
-		t.Error("bob lost a leg that carries vp9")
-	}
-	// carol is not live, so nothing about her can be judged: her choice waits
-	// for the run she comes back in.
-	if _, ok := choices["carol"]; !ok {
-		t.Error("a stream that is not live lost its leg")
-	}
-}
-
-// A stream with no choice of its own stays on the leg the window was opened on,
-// even where the format is not served over it: the window was opened that way,
-// and moving the stream silently would hide the mismatch the sidebar shows.
-func TestWatchLegKeepsTheWindowsTransport(t *testing.T) {
-	_, name, err := WatchLeg(srtStream(), vp9Live("alice"), "srt", WatchChoice{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "srt" {
-		t.Errorf("transport = %q, want the window's srt", name)
-	}
-}
-
-// A move to another leg states no knobs, since the ones the window has are keyed to
-// the leg being left (the "undeclared key" case above is what stating them costs).
-// The move is taken on the settings' own values for the leg moved to, which is what
-// the roster answering it declares.
-func TestWatchLegMovesOnTheSettingsKnobs(t *testing.T) {
-	base := rtspStream()
-
-	leg, name, err := WatchLeg(base, h264Live("alice")[0], "rtsp", WatchChoice{Transport: "srt"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "srt" {
-		t.Errorf("transport = %q, want the chosen srt", name)
-	}
-	if leg.SrtWatchLatencyMs != base.SrtWatchLatencyMs {
-		t.Errorf("srt watch latency = %d, want the settings' %d", leg.SrtWatchLatencyMs, base.SrtWatchLatencyMs)
-	}
-}
-
-// The sidebar offers the leg a stream is on beside the ones its format is served
-// over, so a stream the window's leg does not carry can be asked for on that leg
-// by name. Naming it holds it, the way naming nothing does, and the knobs the
-// request carries with the name are written: refusing here would leave that
-// stream's knobs unreachable.
-func TestWatchLegTakesTheWindowsTransportByName(t *testing.T) {
-	leg, name, err := WatchLeg(srtStream(), vp9Live("alice"), "srt", WatchChoice{
-		Transport: "srt",
-		Options:   map[string]string{"srtWatchLatencyMs": "80"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if name != "srt" {
-		t.Errorf("transport = %q, want the window's srt", name)
-	}
-	if leg.SrtWatchLatencyMs != 80 {
-		t.Errorf("srt watch latency = %d, want the 80 the request carried", leg.SrtWatchLatencyMs)
 	}
 }

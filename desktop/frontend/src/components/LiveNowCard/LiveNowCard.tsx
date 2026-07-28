@@ -80,12 +80,13 @@ function carryReason(
 }
 
 /** Relay reachability, the live-stream table with a per-row Watch/Stop control,
- * and the summed download bitrate of watched streams. A single dropdown selects
- * the watch leg for every viewer this app opens, single-stream windows and the
- * native grid alike, independent of the transport a stream was published on,
- * since the relay re-serves it on all its listeners. The selected transport's
- * own knobs sit under the table; the selection and the knobs live in the
- * persisted settings, so they survive a restart. */
+ * and the summed download bitrate of watched streams. The dropdown selects the
+ * watch leg of the single-stream windows a Watch click opens, independent of the
+ * transport a stream was published on, since the relay re-serves it on all its
+ * listeners. The native grid keeps a leg of its own, set in its sidebar, because
+ * a receiving pipeline and a player reach different protocol sets. The selected
+ * transport's own knobs sit under the table and are the same settings fields the
+ * grid reads, so a value set here reaches both viewers. */
 export default function LiveNowCard({
     live,
     watching,
@@ -150,7 +151,7 @@ export default function LiveNowCard({
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                    <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). The native grid window opens on the same choice, so one setting answers for both viewers. It is independent of the publish transport in Stream settings and the two can differ, because the relay re-serves each ingested stream on its listeners. Which streams a given choice can deliver still follows their format: MPEG-TS over SRT carries H.264 and H.265, so a VP9 or AV1 row names the transport that carries it instead of offering Watch.">
+                    <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). The native grid runs on a leg of its own, picked in that window's sidebar, because a receiving pipeline reaches WHEP and a player opens the relay's HLS. It is independent of the publish transport in Stream settings and the two can differ, because the relay re-serves each ingested stream on its listeners. Which streams a given choice can deliver still follows their format: MPEG-TS over SRT carries H.264 and H.265, so a VP9 or AV1 row names the transport that carries it instead of offering Watch.">
                         <span className="text-muted-foreground">Watch over</span>
                     </Tip>
                     <Select
@@ -259,8 +260,9 @@ export default function LiveNowCard({
                     <div className="max-w-[230px]">
                         <NumberField
                             label="SRT watch latency (ms, watch leg)"
-                            labelTip="SRT retransmit window for the watch leg (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch."
+                            labelTip="SRT retransmit window for the watch leg (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch. SRT negotiates the larger of the two ends' windows, and MediaMTX asks for 120 ms, so anything below that is raised to it."
                             value={srtWatchLatencyMs}
+                            min={1}
                             onChange={onUpdateSrtWatchLatency}
                         />
                     </div>

@@ -20,21 +20,20 @@ func TestRequestWatchLegAsksTheApp(t *testing.T) {
 	}
 }
 
-// A move to another leg carries the leg alone. The knobs on the controls are the
-// ones the leg being left declares, and a request stating them under the new one
-// names knobs that transport does not have, which the app refuses as a whole leg:
-// the move would be lost with them.
-func TestRequestWatchLegMovesWithoutKnobs(t *testing.T) {
+// A move to another leg carries that leg's knobs. The roster declares a knob set
+// per offered leg, so the controls the popover swaps to belong to the leg being
+// moved to, and the whole leg travels in one request.
+func TestRequestWatchLegMovesWithTheNewLegsKnobs(t *testing.T) {
 	sess, _, asked := newAskingSession(t, "alice")
 
-	sess.RequestWatchLeg(0, "rtsp", map[string]string{})
+	sess.RequestWatchLeg(0, "rtsp", map[string]string{"rtspWatchLatencyMs": "600"})
 
 	if len(asked.sent) != 1 {
 		t.Fatalf("sent %d requests, want 1", len(asked.sent))
 	}
 	got := asked.sent[0]
-	if got.Transport != "rtsp" || len(got.Options) != 0 {
-		t.Errorf("request = %+v, want rtsp with no knobs stated", got)
+	if got.Transport != "rtsp" || got.Options["rtspWatchLatencyMs"] != "600" {
+		t.Errorf("request = %+v, want rtsp at 600 ms", got)
 	}
 }
 
@@ -102,14 +101,16 @@ func TestRosterMovesAnIdleStream(t *testing.T) {
 		Transport:  "rtsp",
 		Source:     "rtspsrc",
 		Transports: []string{"rtsp", "srt"},
-		Options:    []roster.Option{{Key: "rtspWatchLatencyMs", Kind: roster.OptionInt, Value: "400"}},
+		Options: map[string][]roster.Option{
+			"rtsp": {{Key: "rtspWatchLatencyMs", Kind: roster.OptionInt, Value: "400"}},
+		},
 	}})
 
 	if len(backend.players) != 0 {
 		t.Error("moving an idle stream started a player")
 	}
 	got := sess.Stream(0)
-	if got.Source != "rtspsrc" || len(got.Options) != 1 {
+	if got.Source != "rtspsrc" || len(got.Options["rtsp"]) != 1 {
 		t.Errorf("stream = %+v, want the pushed leg and its knobs", got)
 	}
 }

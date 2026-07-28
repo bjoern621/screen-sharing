@@ -9,9 +9,10 @@ import {
  * decoder accepts the stream's caps: a hardware element where it advertises the
  * profile, a software one otherwise. Between them they cover every format the app
  * can encode, at any chroma and bit depth. That leaves the watch leg as the only
- * gate, and the grid opens on the same leg as every other viewer this app starts
- * (`watchTransport`, the "Watch over" dropdown), so the verdict follows the
- * selection.
+ * gate, and the grid runs on `gridTransport`, a leg of its own because a
+ * receiving pipeline and a player reach different protocol sets. The window's
+ * sidebar is what changes it, so the verdict follows what the grid was last left
+ * on.
  *
  * The verdict reads the watch half of the transport table, not the publish half:
  * the relay serves a protocol formats it never ingests over that same protocol,
@@ -28,16 +29,16 @@ export function nativeGridCheck(
         return { ok: false, text: "Checking native grid decode support…" };
     }
 
-    const transport = s.watchTransport.toUpperCase();
+    const transport = s.gridTransport.toUpperCase();
     const fmtLabel = FORMAT_META[cap.format as Format]?.label ?? cap.format;
-    if (!carriesFormat(carriage, s.watchTransport, "watch", cap.format)) {
+    if (!carriesFormat(carriage, s.gridTransport, "watch", cap.format)) {
         const carriers = carriersOf(carriage, "watch", cap.format);
         const alternatives = carriers.length
-            ? ` Switch "Watch over" to ${carriers.join(" or ")} for it.`
+            ? ` Switch the grid's "Watch over" to ${carriers.join(" or ")} for it.`
             : "";
         return {
             ok: false,
-            text: `Not viewable in native grid - the relay serves no ${fmtLabel} over ${transport}, and ${transport} is the watch leg the grid opens on, whatever protocol the stream was published over.${alternatives}`,
+            text: `Not viewable in native grid - the relay serves no ${fmtLabel} over ${transport}, and ${transport} is the watch leg the grid runs on, whatever protocol the stream was published over.${alternatives}`,
         };
     }
     return {

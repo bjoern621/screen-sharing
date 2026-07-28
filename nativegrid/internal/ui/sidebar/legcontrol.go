@@ -87,6 +87,17 @@ func legControl(o roster.Option) (gtk.Widgetter, legField, bool) {
 	return nil, legField{}, false
 }
 
+// clearBox empties a container the popover refills, so nothing accumulates over
+// rebuilds and every widget the removed children held goes with them.
+func clearBox(box *gtk.Box) {
+	assert.IsNotNil(box, "a cleared container exists")
+
+	for child := box.FirstChild(); child != nil; child = box.FirstChild() {
+		box.Remove(child)
+	}
+	assert.Assert(box.FirstChild() == nil, "a cleared container holds nothing")
+}
+
 // legRow is one labelled control, the shape every line of the popover takes.
 func legRow(label, tip string, control gtk.Widgetter) gtk.Widgetter {
 	assert.IsNotNil(control, "a labelled popover line holds a control", label)

@@ -10,7 +10,7 @@ func TestParseGridRequest(t *testing.T) {
 	if r.Stream != "alice" || r.Transport != "rtsp" {
 		t.Errorf("request = %+v, want alice over rtsp", r)
 	}
-	if got := r.Choice().Options["rtspWatchLatencyMs"]; got != "400" {
+	if got := r.Options["rtspWatchLatencyMs"]; got != "400" {
 		t.Errorf("option = %q, want 400", got)
 	}
 }

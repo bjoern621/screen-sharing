@@ -83,6 +83,13 @@ type Stream struct {
 	// relay re-serves every stream on all its listeners, so the two legs of one
 	// stream can run different protocols.
 	WatchTransport string `json:"watchTransport"`
+	// GridTransport is the watch leg the native grid window receives every tile
+	// over. It is a field of its own rather than WatchTransport because the two
+	// viewers reach different protocol sets: the grid decodes through a GStreamer
+	// pipeline and reaches WHEP, which no player URL expresses, while a player
+	// opens the relay's HLS, which nothing here decodes. One field would leave
+	// each viewer able to store a leg the other cannot run.
+	GridTransport string `json:"gridTransport"`
 }
 
 // CapabilityOptions are the option values a codec's gaps are read against, keyed as
@@ -131,6 +138,7 @@ func Defaults() Stream {
 		RtspWatchLatencyMs: 200, RtspWatchProtocol: "tcp", RtspPublishProtocol: "tcp",
 		UplinkMbps:     50,
 		WatchTransport: "srt",
+		GridTransport:  "srt",
 	}
 }
 
@@ -263,6 +271,13 @@ func migrateStream(s Stream) Stream {
 	// Files from before the watch transport was persisted lack the key.
 	if s.WatchTransport == "" {
 		s.WatchTransport = Defaults().WatchTransport
+	}
+	// Files from before the grid leg became a setting of its own lack the key, and
+	// the window refuses to open on an empty transport. The default is what the
+	// grid button used to pass, so a file from then opens the window on the same
+	// leg it always did.
+	if s.GridTransport == "" {
+		s.GridTransport = Defaults().GridTransport
 	}
 	// Files from before the RTSP watch knobs lack their keys, and neither zero
 	// value is one a receiver can be given: no jitter buffer at all, and no RTP

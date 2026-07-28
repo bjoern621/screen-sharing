@@ -92,9 +92,12 @@ func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *r
 			Transport:  "srt",
 			Source:     "videotestsrc",
 			Transports: []string{"srt", "rtsp"},
-			// The knobs a stream carries are the ones of the leg it is on, which is
-			// srt here.
-			Options: []roster.Option{{Key: "srtWatchLatencyMs", Kind: roster.OptionInt, Value: "200"}},
+			// A stream carries the knobs of every leg it offers, so the popover can
+			// show the ones of a leg the moment it is picked.
+			Options: map[string][]roster.Option{
+				"srt":  {{Key: "srtWatchLatencyMs", Kind: roster.OptionInt, Value: "200"}},
+				"rtsp": {{Key: "rtspWatchLatencyMs", Kind: roster.OptionInt, Value: "400"}},
+			},
 		})
 	}
 	backend := &stubBackend{}

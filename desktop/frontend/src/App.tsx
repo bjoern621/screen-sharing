@@ -62,20 +62,21 @@ export default function App() {
         return <LoadingScreen />;
     }
 
-    // The watch leg every viewer this app opens receives over, the native grid
-    // included. Read out here because the narrowing above does not reach into a
+    // The watch leg the native grid runs on, its own rather than the one a player
+    // opens: the grid's sidebar is what changes it, and it is what the window
+    // reopens on. Read out here because the narrowing above does not reach into a
     // handler.
-    const watchTransport = settings.s.watchTransport;
+    const gridTransport = settings.s.gridTransport;
 
-    // Why the grid window cannot open on the selected leg, empty when it can.
-    // A running window closes whatever leg it was opened on, so the reason
+    // Why the grid window cannot open on the leg it was left on, empty when it
+    // can. A running window closes whatever leg it was opened on, so the reason
     // gates the open and not the close.
     const gridBlocked =
         nativeGrid.running ||
         nativeGrid.transports.length === 0 ||
-        nativeGrid.transports.includes(watchTransport)
+        nativeGrid.transports.includes(gridTransport)
             ? ""
-            : `The native grid receives through a GStreamer pipeline, which has no source for ${watchTransport}. Set "Watch over" to ${nativeGrid.transports.join(" or ")}.`;
+            : `The native grid receives through a GStreamer pipeline, which has no source for ${gridTransport}. Its sidebar offers ${nativeGrid.transports.join(" or ")}.`;
 
     return (
         <TooltipProvider>
@@ -104,7 +105,7 @@ export default function App() {
                         >
                             <IconLayoutGrid size={16} /> Web grid
                         </Button>
-                        {/* The window opens on the "Watch over" leg, and receives
+                        {/* The window opens on its own persisted leg, and receives
                           * through a GStreamer pipeline rather than a player, so a
                           * leg no source element decodes leaves the button inert
                           * rather than opening on something else. */}
@@ -112,7 +113,7 @@ export default function App() {
                             variant="outline"
                             size="sm"
                             disabled={!!gridBlocked}
-                            onClick={() => void nativeGrid.toggle(watchTransport)}
+                            onClick={() => void nativeGrid.toggle()}
                         >
                             <IconAppWindow size={16} />
                             {nativeGrid.running

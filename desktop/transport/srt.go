@@ -12,6 +12,13 @@ import (
 //   - sndbuf/rcvbuf/ffs must be large so lossless keyframe bursts survive
 //     while a display-paced player drains slowly.
 //   - pkt_size 1316 = 7 MPEG-TS packets per SRT datagram.
+//
+// A latency here is what this end asks for, not what the link runs at. SRT
+// negotiates one delay per direction in the handshake and both ends take the
+// larger of the two values, so the relay's own setting is a floor under every
+// hop against it. MediaMTX exposes no SRT latency option and runs on its
+// library's 120 ms default, which is why a window below that comes back as 120
+// while one above it is honoured exactly.
 type SRT struct{}
 
 func init() {
@@ -88,7 +95,8 @@ func (SRT) GstSource(s settings.Stream, streamName string) []string {
 var srtWatchKnobs = []watchKnob{
 	intKnob("srtWatchLatencyMs", "SRT latency (ms)",
 		"Retransmit window of the watch leg (relay to viewer), where internet loss usually lives. "+
-			"It is display delay: a lossy remote link wants more, a LAN less.",
+			"It is display delay: a lossy remote link wants more, a LAN less. "+
+			"SRT negotiates the larger of the two ends' windows, and MediaMTX asks for 120 ms, so anything below that is raised to it.",
 		minWatchLatencyMs,
 		func(s *settings.Stream) *int { return &s.SrtWatchLatencyMs }),
 }

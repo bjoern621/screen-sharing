@@ -15,8 +15,8 @@ const (
 	OptionChoice = "choice"
 )
 
-// minWatchLatencyMs is the floor of every latency knob. settings.Normalize reads
-// a non-positive latency as unset and replaces it with the default, so a zero
+// minWatchLatencyMs is the floor of every latency knob. settings.Load reads a
+// non-positive latency as unset and replaces it with the default, so a zero
 // would not survive the settings it is written into.
 const minWatchLatencyMs = 1
 

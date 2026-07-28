@@ -14,6 +14,7 @@ func srtStream() settings.Stream {
 		RelayHost:           "relay.example",
 		RelayPort:           8890,
 		Transport:           "srt",
+		GridTransport:       "srt",
 		SrtWatchLatencyMs:   1200,
 		SrtPublishLatencyMs: 300,
 	}
@@ -24,6 +25,7 @@ func srtStream() settings.Stream {
 func rtspStream() settings.Stream {
 	s := srtStream()
 	s.Transport = "rtsp"
+	s.GridTransport = "rtsp"
 	s.RtspPort = 8554
 	s.RtspWatchLatencyMs = 350
 	s.RtspWatchProtocol = "udp"

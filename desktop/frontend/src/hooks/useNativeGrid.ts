@@ -13,8 +13,9 @@ const POLL_INTERVAL_MS = 2000;
 /**
  * Tracks the native grid window, a separate GTK binary the backend spawns.
  * running is polled, so a window closed via its own close button drops out;
- * "nativegrid:exit" carries the failure message. toggle takes the watch leg to
- * open on, which is why the caller passes it rather than the hook holding one.
+ * "nativegrid:exit" carries the failure message. The window opens on the leg the
+ * backend has stored for it (`gridTransport`), which its own sidebar changes, so
+ * toggle names none.
  *
  * transports is the set of legs a window can open on, which is not every leg a
  * viewer can be pointed at: the grid receives through a GStreamer pipeline, so
@@ -58,28 +59,24 @@ export function useNativeGrid() {
             });
     }, []);
 
-    const toggle = useCallback(
-        async (transport: string) => {
-            setError("");
-            try {
-                if (running) {
-                    await StopNativeGrid();
-                    setRunning(false);
-                } else {
-                    // The window receives every tile over one transport, fixed
-                    // for its lifetime: the roster the app pushes carries a
-                    // source fragment per stream, built for it. A transport with
-                    // no GStreamer watch form is refused by the backend, and the
-                    // message lands in error.
-                    await StartNativeGrid(transport);
-                    setRunning(true);
-                }
-            } catch (e) {
-                setError("Native grid: " + e);
+    const toggle = useCallback(async () => {
+        setError("");
+        try {
+            if (running) {
+                await StopNativeGrid();
+                setRunning(false);
+            } else {
+                // The window receives every tile over one transport: the roster
+                // the app pushes carries a source fragment per stream, built for
+                // the leg the settings name. A leg with no GStreamer watch form
+                // is refused by the backend, and the message lands in error.
+                await StartNativeGrid();
+                setRunning(true);
             }
-        },
-        [running]
-    );
+        } catch (e) {
+            setError("Native grid: " + e);
+        }
+    }, [running]);
 
     return { running, error, transports, toggle };
 }

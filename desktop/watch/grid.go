@@ -21,18 +21,6 @@ type LiveStream struct {
 	Format string
 }
 
-// WatchChoice is one stream's deviation from the window's watch leg: the
-// transport it is received over and the values of that transport's knobs, keyed
-// as the transport declares them. An empty Transport takes the window's.
-//
-// A choice lives for the window it was made in and is not persisted: it is a
-// per-stream deviation from the app's settings, not a new setting, and keeping
-// one per stream would multiply what a restart has to restore.
-type WatchChoice struct {
-	Transport string
-	Options   map[string]string
-}
-
 // GridStream is one stream the native grid window offers in its sidebar: the
 // display name, the transport it arrives over, the gst-launch fragment of its
 // source elements, and the watch legs the sidebar can move it to. The fragment
@@ -40,16 +28,21 @@ type WatchChoice struct {
 // elements, so transport knowledge stays on this side of the process boundary
 // and decode knowledge on the other.
 //
-// Transports and Options carry that same split into the sidebar's per-stream
-// watch-leg popover: the transports this stream can be received over and the
-// selected one's knobs with their current values, both declared here, so the
-// grid renders a control per entry and names no transport itself.
+// Transports and Options carry that same split into the sidebar's watch-leg
+// popover: the transports this stream can be received over and the knobs of each
+// of them with their current values, both declared here, so the grid renders a
+// control per entry and names no transport itself.
+//
+// Options holds every offered leg rather than the one in force, because the
+// popover swaps its controls the moment another leg is picked and would
+// otherwise have to wait for the app to answer before it could show what that
+// leg offers.
 type GridStream struct {
-	Name       string                  `json:"name"`
-	Transport  string                  `json:"transport"`
-	Source     string                  `json:"source"`
-	Transports []string                `json:"transports"`
-	Options    []transport.WatchOption `json:"options"`
+	Name       string                             `json:"name"`
+	Transport  string                             `json:"transport"`
+	Source     string                             `json:"source"`
+	Transports []string                           `json:"transports"`
+	Options    map[string][]transport.WatchOption `json:"options"`
 }
 
 // GridApp is the app's own state as the window draws it: whether the app is
@@ -76,19 +69,23 @@ type GridConfig struct {
 }
 
 // BuildGridConfig serializes the live streams into the native grid's JSON
-// config, each on the watch leg its choice names and the rest on
-// defaultTransport, with the app state the window's own controls read. An empty
-// stream list is valid: the grid opens on an idle relay and fills from roster
-// pushes. The default transport must have a GStreamer watch form
-// (transport.GstWatcher), checked up front so a bad transport fails at open, not
-// at the first push.
+// config, every one of them on s.GridTransport, with the app state the window's
+// own controls read. An empty stream list is valid: the grid opens on an idle
+// relay and fills from roster pushes. The grid leg must have a GStreamer watch
+// form (transport.GstWatcher), checked up front so a bad transport fails at
+// open, not at the first push.
+//
+// The leg is one setting for the whole window rather than a choice per stream.
+// A knob turned in the sidebar is written back into the settings and saved
+// (ApplyWatchLeg), so what a viewer picks survives the window that picked it,
+// and the next push puts every tile on it.
 //
 // A stream the grid could not key a row on is dropped rather than refused: the
 // names come off the relay's path list, and one bad path would otherwise cost
 // the window every other stream in the same roster.
-func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice, app GridApp) (string, error) {
-	if !transport.CanGstWatch(defaultTransport) {
-		return "", fmt.Errorf("transport %q has no GStreamer watch form", defaultTransport)
+func BuildGridConfig(s settings.Stream, live []LiveStream, app GridApp) (string, error) {
+	if !transport.CanGstWatch(s.GridTransport) {
+		return "", fmt.Errorf("transport %q has no GStreamer watch form", s.GridTransport)
 	}
 
 	// Streams starts non-nil so an empty roster marshals as [], not null.
@@ -109,25 +106,22 @@ func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport stri
 		}
 		taken[l.Name] = true
 
-		leg, name, err := WatchLeg(s, l, defaultTransport, choices[l.Name])
-		if err != nil {
-			return "", err
-		}
-		// WatchLeg answers with defaultTransport, checked above, or with a leg off
-		// GstWatchTransports, which lists transports with a watch form and no others.
-		// A leg without one used to reach the grid as an empty fragment and fail in
-		// that process instead of this one.
-		src, ok := transport.GstSource(name, leg, l.Name)
-		assert.Assert(ok, "a resolved watch leg has a GStreamer watch form", l.Name, name)
+		// The leg is s.GridTransport, checked above, so every stream's fragment is
+		// built by a transport with a GStreamer watch form. A leg without one used to
+		// reach the grid as an empty fragment and fail in that process instead of this
+		// one.
+		src, ok := transport.GstSource(s.GridTransport, s, l.Name)
+		assert.Assert(ok, "the grid leg has a GStreamer watch form", l.Name, s.GridTransport)
 		source := strings.Join(src, " ")
-		assert.Assert(source != "", "a grid stream carries the source fragment to decode it", l.Name, name)
+		assert.Assert(source != "", "a grid stream carries the source fragment to decode it", l.Name, s.GridTransport)
 
+		offered := GstWatchTransports(l.Format)
 		cfg.Streams = append(cfg.Streams, GridStream{
 			Name:       l.Name,
-			Transport:  name,
+			Transport:  s.GridTransport,
 			Source:     source,
-			Transports: GstWatchTransports(l.Format),
-			Options:    transport.WatchOptions(name, leg),
+			Transports: offered,
+			Options:    watchLegOptions(s, offeredLegs(s.GridTransport, offered)),
 		})
 	}
 
@@ -149,72 +143,74 @@ func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport stri
 	return string(out), nil
 }
 
-// WatchLeg resolves one stream's watch leg: the transport it is received over
-// and the settings its knobs were written into, both after the choice is
-// applied. The base settings are copied, so a per-stream choice reaches that
-// stream and nothing else.
-//
-// A chosen transport the stream cannot be watched over and a knob the transport does not declare
-// are refused, which is how a choice is rejected where it arrives
-// instead of turning into a source fragment nothing plays.
-//
-// The window's own leg is the exception, on both paths to it:
-// a stream with no choice takes defaultTransport, and so does a choice naming it.
-// The window was opened on that leg,
-// and a stream whose format it does not carry sits on it all the same,
-// so the viewer offers it beside the legs it lists.
-// Refusing the name would leave that stream unable to state the leg it already runs on,
-// and its knobs, which travel with the name, unreachable with it.
-func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c WatchChoice) (settings.Stream, string, error) {
-	// The window's own leg is not examined below, so a stream with no choice leaves
-	// here on it.
-	// BuildGridConfig refuses a window opened on a leg without a watch form, which
-	// is what makes this hold for every later call.
-	assert.Assert(transport.CanGstWatch(defaultTransport), "a grid window opens on a GStreamer watch leg", defaultTransport)
-
-	name := defaultTransport
-	if c.Transport != "" && c.Transport != defaultTransport {
-		offered := GstWatchTransports(l.Format)
-		if !slices.Contains(offered, c.Transport) {
-			return base, "", fmt.Errorf("stream %q cannot be watched over %s: %s carries %s",
-				l.Name, c.Transport, strings.Join(offered, " or "), l.Format)
-		}
-		name = c.Transport
+// offeredLegs is what the sidebar's transport dropdown holds: the legs the
+// stream's format can be re-served on, plus the one the window runs on when that
+// is not among them. A window opened on a leg a stream's format does not reach
+// still shows that stream, and a dropdown that could not name the leg in force
+// would read as a leg nobody set.
+func offeredLegs(current string, offered []string) []string {
+	if slices.Contains(offered, current) {
+		return offered
 	}
-
-	// Sorted, so a rejected choice names the same key on every build.
-	leg := base
-	for _, key := range slices.Sorted(maps.Keys(c.Options)) {
-		if err := transport.SetWatchOption(name, &leg, key, c.Options[key]); err != nil {
-			return base, "", fmt.Errorf("stream %q: %w", l.Name, err)
-		}
-	}
-	return leg, name, nil
+	return append([]string{current}, offered...)
 }
 
-// PruneWatchChoices drops the choices the live streams no longer support and
-// returns what each cost, for the caller to report. A stream that came back in
-// another format can leave a choice behind whose transport no longer carries
-// it, and BuildGridConfig refuses the whole roster over one such stream, which
-// would freeze the window on the last roster it managed to build.
+// watchLegOptions is the knob set of every leg in legs, keyed by transport and
+// carrying the values the settings hold. The sidebar draws the controls of
+// whichever leg its dropdown shows, so it is handed all of them at once.
 //
-// Choices of streams the relay does not report live are kept: a stream that
-// comes back finds the leg it was on, the way it finds its slot in the order.
-func PruneWatchChoices(base settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice) []error {
-	assert.Assert(transport.CanGstWatch(defaultTransport), "a grid window opens on a GStreamer watch leg", defaultTransport)
-
-	var dropped []error
-	for _, l := range live {
-		c, ok := choices[l.Name]
-		if !ok {
-			continue
+// A leg with no knobs gets an empty list rather than no entry: the window tells
+// a leg it was told about from one it has no declaration for, and a transport
+// that declares nothing is the first, not the second.
+func watchLegOptions(s settings.Stream, legs []string) map[string][]transport.WatchOption {
+	out := make(map[string][]transport.WatchOption, len(legs))
+	for _, name := range legs {
+		options := transport.WatchOptions(name, s)
+		if options == nil {
+			options = []transport.WatchOption{}
 		}
-		if _, _, err := WatchLeg(base, l, defaultTransport, c); err != nil {
-			delete(choices, l.Name)
-			dropped = append(dropped, err)
+		out[name] = options
+	}
+	assert.Assert(len(out) == len(legs), "a knob set per offered leg", len(out), len(legs))
+	return out
+}
+
+// ApplyWatchLeg writes one watch-leg request from the grid window into the
+// settings: the transport every tile is received over and the knobs that
+// transport declares. The result is the settings the caller persists, and base
+// is returned untouched where the request is refused.
+//
+// A transport the stream cannot be watched over and a knob the transport does
+// not declare are both refused, which is how a request is rejected where it
+// arrives instead of turning into a source fragment nothing plays.
+//
+// The leg the window already runs on is accepted whatever the stream's format
+// carries. The window opens on one leg and shows a stream whose format that leg
+// does not carry all the same, so the sidebar offers it beside the legs it
+// lists; refusing the name would leave that stream unable to state the leg it
+// is already on, and its knobs, which travel with the name, unreachable with it.
+func ApplyWatchLeg(base settings.Stream, l LiveStream, r GridRequest) (settings.Stream, error) {
+	assert.Assert(transport.CanGstWatch(base.GridTransport), "a grid window runs on a GStreamer watch leg", base.GridTransport)
+
+	name := base.GridTransport
+	if r.Transport != "" && r.Transport != name {
+		offered := GstWatchTransports(l.Format)
+		if !slices.Contains(offered, r.Transport) {
+			return base, fmt.Errorf("stream %q cannot be watched over %s: %s carries %s",
+				l.Name, r.Transport, strings.Join(offered, " or "), l.Format)
+		}
+		name = r.Transport
+	}
+
+	// Sorted, so a rejected request names the same key on every call.
+	next := base
+	next.GridTransport = name
+	for _, key := range slices.Sorted(maps.Keys(r.Options)) {
+		if err := transport.SetWatchOption(name, &next, key, r.Options[key]); err != nil {
+			return base, fmt.Errorf("stream %q: %w", l.Name, err)
 		}
 	}
-	return dropped
+	return next, nil
 }
 
 // GstWatchTransports lists the transports the native grid can receive a stream

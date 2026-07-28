@@ -18,7 +18,7 @@ func TestParseGridMessageWatchLeg(t *testing.T) {
 	if m.Request.Stream != "alice" || m.Request.Transport != "rtsp" {
 		t.Errorf("request = %+v, want alice over rtsp", m.Request)
 	}
-	if got := m.Request.Choice().Options["rtspWatchLatencyMs"]; got != "400" {
+	if got := m.Request.Options["rtspWatchLatencyMs"]; got != "400" {
 		t.Errorf("option = %q, want 400", got)
 	}
 }

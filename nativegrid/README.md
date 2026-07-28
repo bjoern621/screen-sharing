@@ -82,8 +82,10 @@ The file has two owners, the model and the window, so a write replaces the keys 
 - `internal/roster` parses the roster JSON, both the `-config` argument and each stdin push: one entry per live stream, the name of the watch leg it arrives over, and that transport's gst-launch source fragment.
   The producing half is `watch.BuildGridConfig` (`desktop/watch/grid.go`); the fragment comes from the transport registry (`transport.GstWatcher`), so this binary holds no transport knowledge.
   The transport name is a label for the stats overlay, nothing this side acts on, and it is always the relay-to-viewer leg: how the stream was published is not visible here.
-- An entry also carries the legs that stream could move to and the knobs of the one it is on, which the sidebar's watch-leg popover renders one control per, without knowing what any of them mean.
-  Moving a stream is a `roster.Request` on stdout, the whole leg for that one stream; the app decides what it means and answers by pushing the roster it produced.
+- An entry also carries the legs that stream could move to and the knobs of every one of them, which the sidebar's watch-leg popover renders one control per, without knowing what any of them mean.
+  Holding all of them is what lets the popover swap its controls the instant another leg is picked, instead of waiting for the app to say what that leg offers.
+  Moving is a `roster.Request` on stdout, the whole leg: the transport and the values of the knobs shown with it.
+  The app decides what it means and answers by pushing the roster it produced.
   Nothing changes here until that push arrives, and a watched stream whose source fragment moved with it restarts on the new one.
 - Stdout carries a second kind of line, told apart from the first by a `type` field: the names of the streams with a tile open, stated whenever that set changes.
   It is one-way, and the app has no answer to it: what the window watches is the window's, and the report only lets the app say what is on screen.
@@ -137,8 +139,10 @@ What shape the window itself is in is separate again: maximize sits beside close
 Tiles reorder by drag and drop with a live preview: the other tiles re-slot while the pointer moves, and the sidebar rows follow the same order.
 One drag controller serves both views, so a drag started on a row moves the tiles and the other way round, including for a stream nobody watches yet.
 
-A sidebar row carries the watch-leg button beside its check: the transports the app offers for that stream and the knobs of the one it is on.
-It applies on Apply rather than per keystroke, because a change reconnects that stream, and closing the popover any other way puts the values that hold back into the controls.
+A sidebar row carries the watch-leg button beside its check: the transports the app offers for that stream and the knobs of whichever one the dropdown shows.
+Picking another transport swaps the knobs at once, since the entry declares a set per leg, so the controls that Apply reads always belong to the leg it names.
+It applies on Apply rather than per keystroke, because a change reconnects the tiles, and closing the popover any other way puts the values that hold back into the controls.
+The leg is the app's setting rather than this stream's: the row decides which transports may be offered, and what Apply changes is the window's own leg, which the app saves.
 A stream the app offers nothing for shows no button.
 
 ## The app bar
