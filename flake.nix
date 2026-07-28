@@ -16,11 +16,21 @@
       system:
       let
         # WebKitGTK gets its WebRTC bindings from ENABLE_WEB_RTC, which rides on
-        # ENABLE_EXPERIMENTAL_FEATURES. The nixpkgs default leaves that off, so
-        # the stock webview has no RTCPeerConnection at all and every WHEP tile
-        # in the grid fails on the missing constructor. cache.nixos.org carries
-        # the experimental build, so this costs a download and not a WebKit
-        # compile.
+        # ENABLE_EXPERIMENTAL_FEATURES.
+        # The nixpkgs default leaves that off, so the stock webview has no
+        # RTCPeerConnection at all and every WHEP tile in the grid fails on the
+        # missing constructor.
+        #
+        # cache.nixos.org carries the experimental build, but this package set
+        # cannot substitute it.
+        # The gst-plugins-bad override below rewrites a package webkitgtk links
+        # against, and a dependency's store path is part of the dependent's
+        # derivation hash, so the overlaid webkitgtk resolves to an output path no
+        # substituter has.
+        # Enabling WebRTC therefore costs a WebKit source build, and so does every
+        # later edit to the gst override.
+        # Moving that override out of webkitgtk's closure would restore the
+        # substitute at the price of a second gst-plugins-bad in the shell.
         #
         # It is an overlay rather than a list entry because the wails package
         # pulls webkitgtk in too, and whichever copy lands first on
@@ -45,9 +55,9 @@
               # it encodes from. nixpkgs configures gst-plugins-bad with
               # "-Dvulkan=disabled" and carries no Vulkan inputs at all ("we haven't
               # figured out yet which of the vulkan nixpkgs it needs"), so the cached
-              # build has no plugin to load. Enabling it costs a source build of that
-              # one package: the loader and headers satisfy the meson feature, and
-              # shaderc provides the glslc the plugin compiles its shaders with.
+              # build has no plugin to load. The loader and headers satisfy the meson
+              # feature, and shaderc provides the glslc the plugin compiles its
+              # shaders with.
               #
               # The qsv plugin is both halves of the Intel path: qsvh264enc and its
               # siblings for the publish engine, qsvh264dec and its siblings for the
