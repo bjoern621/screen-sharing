@@ -16,10 +16,10 @@ import {
     ViewVerdict,
 } from "../../types/stream";
 import {
-    AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
-    RANGES, TRANSPORT_META, bitrateTip, clampFps, codecOptions, cqTip,
+    AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, FRAME_MEMORIES, MODES,
+    RANGES, RTSP_PROTOCOLS, TRANSPORT_META, bitrateTip, codecOptions, cqTip,
     engineTip, engineValue, familyOptions, fpsDisabled, fpsOptions,
-    monitorOptions, withNote, cropNote,
+    maxRefreshHz, monitorOptions, withNote, cropNote,
 } from "../../util/options";
 import {
     Capability, Engine, bitrateLimit, cqMax, familyOf,
@@ -129,6 +129,7 @@ export default function StreamSettingsCard({
     );
 
     const selectedMonitor = monitors.find(m => m.index === s.monitor);
+    const maxHz = maxRefreshHz(monitors);
     // The engine decides whether the VBR ceiling the estimate would quote is one
     // the builder actually sends, so the estimate reads the same engine rules the
     // form greys its fields from.
@@ -265,12 +266,24 @@ export default function StreamSettingsCard({
                         labelTip={engineTip(engine)}
                         value={engineValue(engine)}
                     />
+                    <SelectField
+                        label="Frame memory"
+                        labelTip={withNote(
+                            "Where the captured frames reach the encoder. The direct path exists only where the capture backend and the encoder can share the same device memory, so this control follows both the capture backend above and the codec below.",
+                            deps.note.captureMemory
+                        )}
+                        value={s.captureMemory}
+                        options={FRAME_MEMORIES}
+                        optionDisabled={deps.optionDisabled.captureMemory}
+                        onChange={v => onUpdate({ captureMemory: v })}
+                    />
                     {s.capture === "kmsgrab" && (
                         <SelectField
                             label="DRM download"
                             labelTip="How kmsgrab moves the captured scanout buffer into system memory. A tiled or compressed framebuffer needs mapping through a matching GPU device first."
                             value={s.drmMap}
                             options={DRM_MAPS}
+                            disabledReason={deps.disabled.drmMap}
                             onChange={v => onUpdate({ drmMap: v })}
                         />
                     )}
@@ -283,19 +296,15 @@ export default function StreamSettingsCard({
                         value={String(s.monitor)}
                         options={monitorOptions(monitors, s.monitor)}
                         disabledReason={deps.disabled.monitor}
-                        onChange={v => {
-                            const index = parseInt(v, 10) || 0;
-                            const hz = monitors.find(m => m.index === index)?.refreshHz ?? 0;
-                            onUpdate({ monitor: index, fps: clampFps(s.fps, hz) });
-                        }}
+                        onChange={v => onUpdate({ monitor: parseInt(v, 10) || 0 })}
                     />
                     <NumberSelectField
                         label="Frame rate (fps)"
-                        labelTip="Capture and encode frame rate, picked from the presets or typed. Higher = smoother motion, proportionally more encode load and bandwidth. Rates above the monitor's refresh rate only duplicate frames."
+                        labelTip="Capture and encode frame rate, picked from the presets or typed. Higher = smoother motion, proportionally more encode load and bandwidth. The ladder runs up to the fastest monitor's refresh rate; above a captured monitor's own rate the extra frames are duplicates."
                         value={s.fps}
                         min={1}
                         options={fpsOptions(s.fps)}
-                        optionDisabled={fpsDisabled(s.fps, selectedMonitor?.refreshHz ?? 0)}
+                        optionDisabled={fpsDisabled(s.fps, maxHz)}
                         onChange={fps => onUpdate({ fps })}
                     />
                     <SelectField
@@ -345,6 +354,7 @@ export default function StreamSettingsCard({
                         value={s.colorRange}
                         options={RANGES}
                         disabledReason={deps.disabled.colorRange}
+                        optionDisabled={deps.optionDisabled.colorRange}
                         onChange={v => onUpdate({ colorRange: v })}
                     />
                     <SelectField
@@ -454,6 +464,15 @@ export default function StreamSettingsCard({
                             labelTip="SRT retransmit window for the publish leg (this machine to the relay). Total glass-to-glass ≈ publish leg + watch leg + encode/decode - the windows ADD UP."
                             value={s.srtPublishLatencyMs}
                             onChange={v => onUpdate({ srtPublishLatencyMs: v })}
+                        />
+                    )}
+                    {s.transport === "rtsp" && (
+                        <SelectField
+                            label="RTSP transport (publish leg)"
+                            labelTip="How RTP reaches the relay inside the RTSP session. This leg leaves the machine and crosses whatever sits between it and the relay: TCP needs nothing there beyond the connection the session already made, while UDP's port pair has to cross it too. The media travels outbound on this leg, so a home NAT normally carries that pair and a network filtering outbound UDP does not. The watch leg picks its own (Live now)."
+                            value={s.rtspPublishProtocol}
+                            options={RTSP_PROTOCOLS}
+                            onChange={v => onUpdate({ rtspPublishProtocol: v })}
                         />
                     )}
                     <UplinkField

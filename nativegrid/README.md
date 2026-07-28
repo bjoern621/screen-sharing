@@ -105,6 +105,10 @@ The file has two owners, the model and the window, so a write replaces the keys 
   The decoded caps are read ahead of the scaler on purpose: behind it they would report the tile's size as the picture on the wire.
   It reports counters, not rates, so the poll interval stays the overlay's business.
   Elements the launch line does not name are found through the pipeline's `deep-element-added` and a walk of the elements parse-launch already built, which is how the decoders inside decodebin and the transport's own source turn up.
+- Taking a pipeline down runs under a main context of the stopping thread's own (`withOwnMainContext`).
+  gtk4paintablesink hands the paintable's share of that state change to the default main context, and GLib runs such a hand-off inline on any thread that can acquire that context instead of queueing it.
+  The paintable belongs to the UI loop, and the sink's Rust half aborts the process over one touched from another thread.
+  A window closing is exactly that case: it stops every pipeline at once, on threads of their own, after the loop that held the context has returned.
 
 ## Losing a stream
 
@@ -124,6 +128,11 @@ A double click on a tile spotlights it too.
 Pop-out stays web-only because the grid already is its own window; hide-video stays web-only because it needs the roster's audio-only strip.
 
 Outside the spotlight the tile area picks the column count that leaves a 16:9 tile the most area in the window it has, so three tiles are one row on a wide window and one column on a tall one, and an incomplete last row sits centered under the full ones.
+
+Hiding the sidebar hands the tile area the width the sidebar held and the margin the grid keeps under a frame, so a tile meets the window on the sides its aspect fills.
+The space between tiles is not that margin and stays.
+The header does not move with it: it is the frame the tiles sit under whatever the sidebar is in, so the sidebar toggle and the window buttons are always where they were.
+What shape the window itself is in is separate again: maximize sits beside close in the header, and F11 takes the screen.
 
 Tiles reorder by drag and drop with a live preview: the other tiles re-slot while the pointer moves, and the sidebar rows follow the same order.
 One drag controller serves both views, so a drag started on a row moves the tiles and the other way round, including for a stream nobody watches yet.

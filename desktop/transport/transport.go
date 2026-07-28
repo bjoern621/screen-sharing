@@ -84,6 +84,14 @@ type GstPublisher interface {
 	GstSink(s settings.Stream) []string
 }
 
+// PublishValidator is a transport with publish-leg settings of its own, whose
+// legal values only it knows. Both publish engines call ValidatePublishSettings
+// beside ValidatePublish, so a value the protocol does not take stops the
+// publish here rather than in the process that was handed it.
+type PublishValidator interface {
+	ValidatePublishSettings(s settings.Stream) error
+}
+
 // Watcher is a transport that yields the input URL a player opens to view a
 // stream.
 type Watcher interface {
@@ -383,4 +391,21 @@ func ValidatePublish(name, codec string) error {
 			name, codec, strings.Join(carried, " or "))
 	}
 	return nil
+}
+
+// ValidatePublishSettings checks the configured transport's own publish-leg
+// settings, the fields its serializations read off s and only it knows the legal
+// values of. A transport declaring none passes, and so does a name the registry
+// does not know: that name is ValidatePublish's refusal, and one wrong setting
+// should not produce two errors.
+func ValidatePublishSettings(s settings.Stream) error {
+	t, ok := Get(s.Transport)
+	if !ok {
+		return nil
+	}
+	v, ok := t.(PublishValidator)
+	if !ok {
+		return nil
+	}
+	return v.ValidatePublishSettings(s)
 }

@@ -61,12 +61,6 @@ row.dragging { opacity: 0.4; }
 }
 .tile-controls.shown { opacity: 1; }
 
-/* Window chrome: the content header carrying the sidebar toggle and the window
-   controls. With the sidebar out the tiles fill the window and the header fades
-   away, surfacing again only while the pointer is over its strip ("chrome-hidden"
-   from the window's motion controller, geometry.go). */
-.grid-chrome { transition: opacity 200ms ease; }
-.grid-chrome.chrome-hidden { opacity: 0; }
 .controls-card,
 .vol-card {
     background-color: alpha(@window_bg_color, 0.9);

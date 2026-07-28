@@ -63,7 +63,8 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
 		Gaps: []Gap{{
-			Mode:   ModeLossless,
+			Option: OptionMode,
+			Value:  ModeLossless,
 			Reason: "NVENC codes bit-exact through its lossless tune, which its AV1 encoder does not implement",
 		}},
 	},
@@ -104,7 +105,8 @@ var Codecs = []Codec{
 		CqMax:       63,
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: EngineGst,
-			Mode:   ModeLossless,
+			Option: OptionMode,
+			Value:  ModeLossless,
 			Reason: "the vp9enc element exposes no lossless property, so libvpx's lossless coding is reachable on the ffmpeg publish engine only",
 		}},
 	},
@@ -119,8 +121,9 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       63,
-		Gaps: []Gap{{
-			Mode:   ModeLossless,
+		Gaps: []Gap{vp8NoFullRange, {
+			Option: OptionMode,
+			Value:  ModeLossless,
 			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
 		}},
 	},
@@ -140,11 +143,21 @@ var Codecs = []Codec{
 		CqMax:       63,
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: EngineGst,
-			Chroma: "p010le",
+			Option: OptionChroma,
+			Value:  "p010le",
 			Reason: "the av1enc element takes 8-bit input only, so 10-bit libaom AV1 is reachable on the ffmpeg publish engine only",
 		}, {
-			Mode:   ModeLossless,
+			Option: OptionMode,
+			Value:  ModeLossless,
 			Reason: "neither the ffmpeg libaom encoder nor the av1enc element exposes libaom's lossless switch",
+		}, {
+			// Measured: the element's streams are byte-identical for a full-range and a
+			// limited-range encode, and what a decoder produces from either carries no
+			// colorimetry at all.
+			Engine: EngineGst,
+			Option: OptionColorRange,
+			Value:  "pc",
+			Reason: "the av1enc element writes no colour description into the sequence header, so a full-range stream arrives at every viewer expanded as limited range; full range is reachable on the ffmpeg publish engine, whose libaom encoder tags what it codes",
 		}},
 	},
 	{
@@ -163,7 +176,8 @@ var Codecs = []Codec{
 		BitrateLimitM: 100,
 		Gaps: []Gap{
 			{
-				Mode:   ModeLossless,
+				Option: OptionMode,
+				Value:  ModeLossless,
 				Reason: "SVT-AV1 has no lossless coding mode",
 			},
 			{
@@ -173,7 +187,8 @@ var Codecs = []Codec{
 				// failing. The ffmpeg wrapper drives the same library into CBR without
 				// it, which is why this gap is one engine's and not the codec's.
 				Engine: EngineGst,
-				Mode:   ModeCbr,
+				Option: OptionMode,
+				Value:  ModeCbr,
 				Reason: "the svtav1enc element stalls in the low-delay prediction structure SVT-AV1's CBR requires, so constant bitrate is reachable on the ffmpeg publish engine only",
 			},
 		},
@@ -194,14 +209,16 @@ var Codecs = []Codec{
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       255,
 		Gaps: []Gap{{
-			Mode:   ModeLossless,
+			Option: OptionMode,
+			Value:  ModeLossless,
 			Reason: "rav1e has no lossless coding mode",
 		}},
 	},
 
 	// VAAPI (Intel + AMD): one backend drives both vendors' iGPU and dGPU
 	// encoders, so it is the hardware path on a non-NVIDIA Linux desktop. All five
-	// rows are 4:2:0, and none of them codes bit-exact (vaapiGaps).
+	// rows are 4:2:0, none of them codes bit-exact, and none signals a colour
+	// description on the GStreamer engine (vaapiGaps).
 	//
 	// Which of the five a machine can run is a driver question, not a table one: an
 	// AMD card exposes no VP8/VP9 encode entrypoint, an Intel one before Arc no AV1.
@@ -257,13 +274,16 @@ var Codecs = []Codec{
 	{
 		// VP8 has one profile, one chroma and one bit depth, so this row is the
 		// whole format. Its quantizer index counts to 127.
+		//
+		// The format's own colour-range gap comes first: it holds on both engines,
+		// where the VAAPI one the row shares holds on the GStreamer engine alone.
 		Name:        "vp8_vaapi",
 		Family:      FamilyVaapi,
 		Format:      "vp8",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       127,
-		Gaps:        vaapiGaps,
+		Gaps:        append([]Gap{vp8NoFullRange}, vaapiGaps...),
 	},
 
 	// QSV (Intel Quick Sync, via oneVPL): the second way to an Intel GPU's encoder
@@ -369,13 +389,22 @@ var Codecs = []Codec{
 		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile,
 		// and the quantizer is AV1's base_q_idx on its 0-255 scale rather than the
 		// H.26x 0-51 one.
+		//
+		// Full range is this row's alone in the family: measured, an encode at full
+		// range signals limited in the sequence header, where the H.264 and HEVC rows
+		// on the same runtime signal the range they are given.
 		Name:        "av1_amf",
 		Family:      FamilyAmf,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       255,
-		Gaps:        amfGaps,
+		Gaps: append([]Gap{{
+			Engine: EngineFfmpeg,
+			Option: OptionColorRange,
+			Value:  "pc",
+			Reason: "the AMF AV1 encoder writes limited range into the sequence header whatever colour range it is given, so a full-range stream arrives at every viewer expanded as limited range",
+		}}, amfGaps...),
 	},
 
 	// Vulkan Video (cross-vendor): the video-encode extensions a GPU driver implements
@@ -416,13 +445,22 @@ var Codecs = []Codec{
 		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile, and
 		// the quantizer is AV1's base_q_idx on its 0-255 scale rather than the H.26x
 		// 0-51 one. RTSP alone, as on every AV1 row.
+		//
+		// Full range is this row's alone in the family, as on AMF: measured, an encode
+		// at full range signals limited in the sequence header, where the H.264 and
+		// HEVC rows on the same driver signal the range they are given.
 		Name:        "av1_vulkan",
 		Family:      FamilyVulkan,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       255,
-		Gaps:        vulkanGaps,
+		Gaps: append([]Gap{{
+			Engine: EngineFfmpeg,
+			Option: OptionColorRange,
+			Value:  "pc",
+			Reason: "the Vulkan AV1 encoder writes limited range into the sequence header whatever colour range it is given, so a full-range stream arrives at every viewer expanded as limited range",
+		}}, vulkanGaps...),
 	},
 
 	// V4L2 M2M (kernel memory-to-memory encoders: Raspberry Pi, some ARM SoCs).
@@ -434,14 +472,34 @@ var Codecs = []Codec{
 	{Name: "hevc_rkmpp", Family: FamilyRkmpp, Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
 }
 
-// vaapiGaps is the rate-control gap every VAAPI row carries. A VA encoder quantizes
-// every frame and no VA profile exposes a transform-bypass path, so lossless has no
-// VAAPI form on either publish engine. The other four modes reach the drivers' CQP,
-// CBR and VBR rate control.
-var vaapiGaps = []Gap{{
-	Mode:   ModeLossless,
-	Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
-}}
+// vaapiGaps are the gaps every VAAPI row carries.
+//
+// Lossless is the mode VA has no form of on either publish engine: a VA encoder
+// quantizes every frame and no VA profile exposes a transform-bypass path. The other
+// four modes reach the drivers' CQP, CBR and VBR rate control.
+//
+// Full range is the colour range the GStreamer engine has no honest form of. The va
+// elements write no colour description into the bitstream and expose no property that
+// would, measured on all five formats: what a decoder produces from their streams
+// carries no colorimetry at all. A viewer reads an unsignalled stream as limited-range
+// BT.709, so a full-range publish arrives expanded a second time, with crushed blacks
+// and clipped whites, while the form says the stream is full range. Limited range is
+// the one the same viewer assumes, so the picture holds. The ffmpeg engine tags the
+// frames with the whole description (ffmpeg.colourFilter) and reaches both ranges on
+// the same hardware.
+var vaapiGaps = []Gap{
+	{
+		Option: OptionMode,
+		Value:  ModeLossless,
+		Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
+	},
+	{
+		Engine: EngineGst,
+		Option: OptionColorRange,
+		Value:  "pc",
+		Reason: "the va encoder elements signal no colour description, so a full-range stream arrives at every viewer expanded as limited range; full range is reachable on the ffmpeg publish engine, which tags the frames it encodes",
+	},
+}
 
 // qsvGaps is the rate-control gap every QSV row carries. Intel's encoders quantize
 // every frame, and neither ffmpeg's QSV encoders nor the qsv elements expose the
@@ -449,7 +507,8 @@ var vaapiGaps = []Gap{{
 // publish engine. The other four modes map onto oneVPL's CQP, CBR and VBR rate control,
 // which both engines reach.
 var qsvGaps = []Gap{{
-	Mode:   ModeLossless,
+	Option: OptionMode,
+	Value:  ModeLossless,
 	Reason: "Intel's fixed-function encoders quantize every frame, and oneVPL exposes no transform-bypass path",
 }}
 
@@ -471,7 +530,8 @@ var amfGaps = []Gap{
 		Reason: "the GStreamer amfcodec plugin builds for Windows only, so AMD AMF is reachable on the ffmpeg publish engine alone",
 	},
 	{
-		Mode:   ModeLossless,
+		Option: OptionMode,
+		Value:  ModeLossless,
 		Reason: "AMF's fixed-function encoders quantize every frame, and no AMF profile codes bit-exact",
 	},
 }
@@ -495,9 +555,24 @@ var vulkanGaps = []Gap{
 		Reason: "the GStreamer vulkan plugin encodes from Vulkan device memory, which no capture backend on this engine produces, so Vulkan Video is reachable on the ffmpeg publish engine alone",
 	},
 	{
-		Mode:   ModeLossless,
+		Option: OptionMode,
+		Value:  ModeLossless,
 		Reason: "Vulkan's lossless tuning mode is a hint rather than a coding mode, and its encoders quantize under it all the same",
 	},
+}
+
+// vp8NoFullRange is the colour-range gap both VP8 rows carry, on both publish engines.
+// It belongs to the format rather than to an encoder: a VP8 keyframe header codes a
+// single colour_space bit, which has one defined value, and no colour range field at
+// all. There is nothing for an encoder to write the range into and no property that
+// would, measured on libvpx through both engines, so a full-range publish would arrive
+// at every viewer expanded as limited range, with crushed blacks and clipped whites,
+// while the form says the stream is full range. Limited range is the one the same
+// viewer assumes, so the picture holds.
+var vp8NoFullRange = Gap{
+	Option: OptionColorRange,
+	Value:  "pc",
+	Reason: "the VP8 bitstream has no colour range field, so a full-range stream arrives at every viewer expanded as limited range; the other formats here carry the range and reach both",
 }
 
 // gstNoPlanarRGB is the planar-RGB gap every RGB-coding row carries on the GStreamer
@@ -508,6 +583,7 @@ var vulkanGaps = []Gap{
 // engine and not a pixel format the rows leave out.
 var gstNoPlanarRGB = Gap{
 	Engine: EngineGst,
-	Chroma: "gbrp",
+	Option: OptionChroma,
+	Value:  "gbrp",
 	Reason: "no GStreamer encoder element takes planar-RGB input, so direct RGB coding is reachable on the ffmpeg publish engine only",
 }

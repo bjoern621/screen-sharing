@@ -3,7 +3,10 @@ package settings
 import (
 	"os"
 	"reflect"
+	"strings"
 	"testing"
+
+	"bjoernblessin.de/screenshare/gpupath"
 )
 
 // isolateConfig points os.UserConfigDir at a fresh temp directory so tests
@@ -113,6 +116,7 @@ func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	s := Defaults()
 	s.RtspWatchLatencyMs = 0 // a pre-RTSP-knobs settings file lacks these keys
 	s.RtspWatchProtocol = ""
+	s.RtspPublishProtocol = ""
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -123,6 +127,9 @@ func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	}
 	if got.RtspWatchProtocol != Defaults().RtspWatchProtocol {
 		t.Errorf("rtsp watch protocol = %q, want migrated to %q", got.RtspWatchProtocol, Defaults().RtspWatchProtocol)
+	}
+	if got.RtspPublishProtocol != Defaults().RtspPublishProtocol {
+		t.Errorf("rtsp publish protocol = %q, want migrated to %q", got.RtspPublishProtocol, Defaults().RtspPublishProtocol)
 	}
 }
 
@@ -145,6 +152,90 @@ func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 	}
 	if got.EncPreset != Defaults().EncPreset {
 		t.Errorf("encoder preset = %q, want migrated to %q", got.EncPreset, Defaults().EncPreset)
+	}
+}
+
+// A file written before the frame memory option names none, and both publish engines
+// refuse a value their table does not carry. Migrating it to the table's own default
+// is what keeps an upgrade from turning a working stream into a refusal, and the
+// default is the one value every capture and codec pair satisfies.
+func TestLoadMigratesMissingCaptureMemory(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.CaptureMemory = ""
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := mustLoad(t)
+	if got.CaptureMemory != gpupath.MemoryAuto {
+		t.Errorf("frame memory = %q, want migrated to %q", got.CaptureMemory, gpupath.MemoryAuto)
+	}
+}
+
+// The portal restore token is the compositor's receipt for one consent, and reusing it
+// is what keeps the picker from popping on every publish. It survives a restart, which
+// is the whole reason it is stored rather than held in the session.
+func TestPortalTokenSurvivesAReload(t *testing.T) {
+	isolateConfig(t)
+
+	if got := PortalToken(); got != "" {
+		t.Errorf("a machine that has never consented holds no token, got %q", got)
+	}
+	if err := SavePortalToken("consent-1"); err != nil {
+		t.Fatalf("SavePortalToken: %v", err)
+	}
+	if got := PortalToken(); got != "consent-1" {
+		t.Errorf("token = %q, want the stored one", got)
+	}
+
+	// An empty token is the compositor saying the consent was not persisted, so the one
+	// on disk is spent. Keeping it would send the next session to SelectSources with a
+	// value no compositor will honour.
+	if err := SavePortalToken(""); err != nil {
+		t.Fatalf("SavePortalToken: %v", err)
+	}
+	if got := PortalToken(); got != "" {
+		t.Errorf("an unpersisted consent must not leave the old token in place, got %q", got)
+	}
+
+	if err := SavePortalToken("consent-2"); err != nil {
+		t.Fatalf("SavePortalToken: %v", err)
+	}
+	if err := ForgetPortalToken(); err != nil {
+		t.Fatalf("ForgetPortalToken: %v", err)
+	}
+	if got := PortalToken(); got != "" {
+		t.Errorf("a forgotten consent leaves no token, got %q", got)
+	}
+	// Forgetting what is already gone is the state the caller asked for.
+	if err := ForgetPortalToken(); err != nil {
+		t.Errorf("ForgetPortalToken on a machine with no token: %v", err)
+	}
+}
+
+// The token is machine- and consent-local, so it must not ride along in a preset: a
+// preset copied to another machine would carry a token no compositor there issued.
+func TestPresetsCarryNoPortalToken(t *testing.T) {
+	isolateConfig(t)
+
+	if err := SavePortalToken("consent-1"); err != nil {
+		t.Fatalf("SavePortalToken: %v", err)
+	}
+	if err := SavePreset("work", Defaults()); err != nil {
+		t.Fatalf("SavePreset: %v", err)
+	}
+	path, err := presetsPath()
+	if err != nil {
+		t.Fatalf("presetsPath: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read presets: %v", err)
+	}
+	if strings.Contains(string(data), "consent-1") {
+		t.Errorf("the presets file carries the portal consent: %s", data)
 	}
 }
 

@@ -180,7 +180,7 @@ func (r *receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		if debug != "" {
 			logger.Debugf("stream %q pipeline error: %s", r.name, debug)
 		}
-		r.pipeline.SetState(gst.StateNull)
+		withOwnMainContext(func() { r.pipeline.SetState(gst.StateNull) })
 		if onEnd != nil {
 			onEnd(message)
 		}
@@ -239,10 +239,13 @@ func (r *receiver) setAudioProperty(name string, value any) {
 	vol.SetObjectProperty(name, value)
 }
 
-// Stop tears the pipeline down. The bus watch is cancelled first, so the state
-// change it would report as an error goes nowhere.
+// Stop tears the pipeline down, from whichever thread the caller is on. The bus
+// watch is cancelled first, so the state change it would report as an error goes
+// nowhere.
 func (r *receiver) Stop() {
 	r.cancel()
-	r.pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout))
+	withOwnMainContext(func() {
+		r.pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout))
+	})
 	logger.Debugf("stream %q pipeline stopped", r.name)
 }

@@ -34,6 +34,12 @@ func TestPattern(i int) string {
 func BuildTestStreamArgs(s settings.Stream, name string, pattern string) ([]string, error) {
 	s.Transport = "rtsp"
 	s.Name = name
+	// The sink reads RTSP's own publish-leg settings, which this path takes from
+	// the caller like any other publish: forcing the transport does not make the
+	// values it reads legal.
+	if err := transport.ValidatePublishSettings(s); err != nil {
+		return nil, err
+	}
 	sink, ok := transport.GstSink(s)
 	if !ok {
 		return nil, fmt.Errorf("the rtsp transport has no GStreamer sink")

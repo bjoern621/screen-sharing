@@ -6,6 +6,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -23,10 +24,13 @@ const opusBitrate = 128000
 // command differ only in what the backend put in it. meterFd is the descriptor
 // the progress instrumentation writes to, empty to build the pipeline without it.
 func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]string, error) {
-	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublishSettings(s); err != nil {
 		return nil, err
 	}
 
@@ -79,6 +83,90 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 	return pipeline, nil
 }
 
+// gstSystemConvert is the element that converts captured frames on the CPU. It is
+// the conversion every pair without a GPU path runs, whichever end lacks one.
+const gstSystemConvert = "videoconvert"
+
+// gstGpuMemory is how one encoder family's elements read frames on the GPU path: the
+// caps feature its surfaces carry, and the element that converts captured frames into
+// them without leaving the device.
+type gstGpuMemory struct {
+	feature string
+	convert string
+}
+
+// gstGpuMemories is the GPU path per encoder family, keyed as capabilities.Codecs
+// names the family, and the engine's half of the pairs gpupath.Paths declares. A
+// family named in a row here and not there has no pipeline reaching it; one named
+// there and not here is a table half declared, which the builder asserts.
+//
+// Only the va family has an entry. Its elements negotiate VASurface caps and take
+// DMABuf on their sink pads, and vapostproc is the VA post-processor: it imports the
+// portal's dmabuf, converts to the encoder's semi-planar layout and applies the
+// quantization range, all on the device. The nvcodec elements read system memory
+// unless the whole graph runs on CUDA memory, which no capture backend here produces,
+// and the qsv ones take VA surfaces only through an interop the plugin does not
+// negotiate from a foreign dmabuf.
+var gstGpuMemories = map[string]gstGpuMemory{
+	capabilities.FamilyVaapi: {feature: "(memory:VAMemory)", convert: "vapostproc"},
+}
+
+// gstFrameMemory is where a run's frames reach the encoder, in the vocabulary the
+// pipeline states it in: the caps feature the encoder input carries, and the element
+// that converts into it.
+type gstFrameMemory struct {
+	// memory is the resolved gpupath value, MemoryGpu or MemorySystem.
+	memory string
+	// feature is the caps feature both the encoder input and everything pinned
+	// downstream of it carry, empty for system memory.
+	feature string
+	convert string
+}
+
+// gstMemory resolves the frame memory for these settings against the pair table, and
+// refuses a demand this engine cannot meet.
+//
+// The device check is the caller's, not this function's: it reads the machine, and
+// this answers from the tables alone so that a settings combination is refused for
+// what it names rather than for the hardware it happens to run on.
+func gstMemory(s settings.Stream) (gstFrameMemory, error) {
+	c, ok := capabilities.Get(s.Codec)
+	if !ok {
+		return gstFrameMemory{}, fmt.Errorf("unknown codec %q", s.Codec)
+	}
+	memory, err := gpupath.Resolve(EngineGst, s.Capture, c.Family, s.CaptureMemory)
+	if err != nil {
+		return gstFrameMemory{}, err
+	}
+	if memory == gpupath.MemorySystem {
+		return gstFrameMemory{memory: memory, convert: gstSystemConvert}, nil
+	}
+	gpu, ok := gstGpuMemories[c.Family]
+	assert.Assert(ok, "a family with a GPU path states the memory its surfaces carry", c.Family)
+	return gstFrameMemory{memory: memory, feature: gpu.feature, convert: gpu.convert}, nil
+}
+
+// gstSourceOptions builds the parts of the source chain that follow from the tables
+// alone: where the frames reach the encoder, the caps stating it, and the element
+// converting into them. What a run adds on top is its instrumentation, and what the
+// engine adds is the check that the machine can hold both ends on one device.
+func gstSourceOptions(s settings.Stream) (gstCaptureOptions, error) {
+	mem, err := gstMemory(s)
+	if err != nil {
+		return gstCaptureOptions{}, err
+	}
+	inCaps, err := gstInputCaps(s, mem)
+	if err != nil {
+		return gstCaptureOptions{}, err
+	}
+	return gstCaptureOptions{
+		Memory:  mem.memory,
+		InCaps:  inCaps,
+		Feature: mem.feature,
+		Convert: mem.convert,
+	}, nil
+}
+
 // gstInputCaps returns the capsfilter each capture backend ends in, and rejects a
 // settings combination this engine cannot encode. The engine calls it before it
 // acquires anything, so a combination the table forbids fails without opening a
@@ -89,11 +177,20 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 // (x264enc lands on 4:4:4, often 10-bit), which not every viewer or browser
 // decodes. The colorimetry field pins the quantization range the same way
 // ffmpeg's -color_range does, and the colour space along with it.
-func gstInputCaps(s settings.Stream) (string, error) {
-	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+//
+// The memory feature leads the caps because it decides which pads can link at all.
+// Plain video/x-raw means system memory and nothing else, so a capsfilter that omits
+// the feature on the GPU path pins the frames back into the round trip the path
+// exists to avoid, and the negotiation fails against a source that only offers
+// device memory.
+func gstInputCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
+	if err := capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return "", err
 	}
 	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+		return "", err
+	}
+	if err := transport.ValidatePublishSettings(s); err != nil {
 		return "", err
 	}
 	if s.Fps <= 0 {
@@ -107,7 +204,7 @@ func gstInputCaps(s settings.Stream) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "video/x-raw,format=" + format + ",colorimetry=" + colorimetry, nil
+	return "video/x-raw" + mem.feature + ",format=" + format + ",colorimetry=" + colorimetry, nil
 }
 
 // gstAudioBranch returns the elements that capture desktop audio and attach it

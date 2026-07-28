@@ -1,4 +1,4 @@
-import { Option, TransportCarriage } from "../types/stream";
+import { Option, Stream, TransportCarriage } from "../types/stream";
 import { capabilities } from "../../wailsjs/go/models";
 
 /**
@@ -25,11 +25,16 @@ import { capabilities } from "../../wailsjs/go/models";
 export type Capability = capabilities.Codec;
 
 /** One thing a codec cannot do, with the reason the form shows in place of the
- * option. The field it sets names the axis: `chroma` for a pixel format the
- * engine's encoder will not take, `mode` for a rate-control mode it has no form
- * of, neither for the codec itself. An empty `engine` means the gap holds on both
- * publish engines. */
+ * option. `option` names the settings field it takes a value away from and `value`
+ * which of that field's values, keyed as the settings themselves are, so a gap names
+ * the control it greys. A gap with neither takes the codec off the engine itself. An
+ * empty `engine` means the gap holds on both publish engines. */
 export type Gap = capabilities.Gap;
+
+/** The settings option a gap names. It is a settings field name because that is what
+ * the backend's table keys its gaps by, so a gap and the control it greys are the
+ * same identifier on both sides of the wire. */
+export type GapOption = keyof Stream & string;
 
 /** One decoder element and the pixel formats it decodes, from the backend decode
  * table (`App.Decoders`). It answers what a publish choice costs the viewer rather
@@ -673,6 +678,13 @@ export function formatOf(codec: string, caps: Capability[] | null): Format | und
  * protocols it does not ingest and ingests formats it cannot serve back. */
 export type Leg = "publish" | "watch";
 
+/** The formats a transport carries on one leg. A transport with no such leg at all
+ * declares an empty set, which crosses the wire as a null: the relay serves HLS and
+ * ingests nothing over it, so its publish set is one. */
+function legFormats(entry: TransportCarriage, leg: Leg): string[] {
+    return entry[leg] ?? [];
+}
+
 /**
  * Whether a transport carries a bitstream format on the given leg, from the
  * backend transport table. An unresolved table (still loading) and an unknown
@@ -689,7 +701,7 @@ export function carriesFormat(
     if (!entry || !format) {
         return true;
     }
-    return entry[leg].includes(format);
+    return legFormats(entry, leg).includes(format);
 }
 
 /** The transports carrying a format on the given leg, for a message that names
@@ -702,7 +714,9 @@ export function carriersOf(
     if (!carriage || !format) {
         return [];
     }
-    return carriage.filter(c => c[leg].includes(format)).map(c => c.name);
+    return carriage
+        .filter(c => legFormats(c, leg).includes(format))
+        .map(c => c.name);
 }
 
 /**
@@ -722,43 +736,63 @@ function gapsOn(
 }
 
 /**
- * The gap that keeps a codec out of a rate-control mode on the given engine, or
- * undefined when the mode reaches its encoder.
+ * The gap that keeps a codec from encoding with one value of one settings option on
+ * the given engine, or undefined when that value reaches its encoder there. It is the
+ * one gap lookup: the pixel format, the rate-control mode and the colour range are
+ * asked for the same way, and so is any option the backend's table gains.
+ *
+ * A pixel format the codec cannot encode on either engine is absent from its
+ * `chromas` instead.
  */
-export function modeGapFor(
+export function optionGapFor(
     codec: string,
     engine: Engine | null,
-    mode: Mode,
+    option: GapOption,
+    value: string,
     caps: Capability[] | null
 ): Gap | undefined {
-    return gapsOn(codec, engine, caps).find(g => g.mode === mode && !g.chroma);
+    return gapsOn(codec, engine, caps).find(
+        g => g.option === option && g.value === value
+    );
 }
 
 /**
- * The gap that keeps a codec from encoding a pixel format on the given engine, or
- * undefined when the format reaches its encoder there. A format the codec cannot
- * encode on either engine is absent from its `chromas` instead.
+ * Every value of one settings option the codec cannot be encoded with on the given
+ * engine, each mapped to the reason.
+ *
+ * An option whose values can also be unavailable for a reason that is not a gap has
+ * its own walk over that option's value space (the chroma one names the formats the
+ * codec does not list at all). This is for the options a gap is the only thing that
+ * withholds, where the gaps are the whole list.
  */
-export function chromaGapFor(
+export function optionGapsFor(
     codec: string,
     engine: Engine | null,
-    chroma: Chroma,
+    option: GapOption,
     caps: Capability[] | null
-): Gap | undefined {
-    return gapsOn(codec, engine, caps).find(g => g.chroma === chroma && !g.mode);
+): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const g of gapsOn(codec, engine, caps)) {
+        if (g.option === option) {
+            out[g.value] = g.reason;
+        }
+    }
+    return out;
 }
 
 /**
  * The gap that takes a codec off the given engine altogether, or undefined when
- * that engine has an encoder for it. A codec gapped this way is greyed in the codec
- * dropdown while the other engine's capture backends still offer it.
+ * that engine has an encoder for it. It is the gap that names no option, since no
+ * value of any of them reaches an encoder that is not there. A codec gapped this way
+ * is greyed in the codec dropdown while the other engine's capture backends still
+ * offer it.
  */
 export function engineGapFor(
     codec: string,
     engine: Engine | null,
     caps: Capability[] | null
 ): Gap | undefined {
-    return gapsOn(codec, engine, caps).find(g => !g.chroma && !g.mode);
+    return gapsOn(codec, engine, caps).find(g => !g.option);
 }
 
 /** The encoder family of a codec, from the capability table (undefined until it loads). */
@@ -775,6 +809,21 @@ export function familyOf(codec: string, caps: Capability[] | null): Family | und
  */
 export function cqMax(codec: string, caps: Capability[] | null): number {
     return findCapability(caps, codec)?.cqMax || 51;
+}
+
+/**
+ * A quantizer target stated on the 51-point scale, placed on the codec's own. The
+ * scales run to 51, 63, 127 and 255, so a bare number is a different quality per
+ * codec and anything naming one has to say which scale it means. The quality
+ * landmarks in the field's tooltip and the target a preset asks for are both stated
+ * on the H.26x scale and converted here.
+ */
+export function scaleCq(
+    cq51: number,
+    codec: string,
+    caps: Capability[] | null
+): number {
+    return Math.round((cq51 * cqMax(codec, caps)) / 51);
 }
 
 /**

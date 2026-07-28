@@ -1,4 +1,4 @@
-import { settings, relay, display, platform, encoders, main } from "../../wailsjs/go/models";
+import { settings, relay, display, platform, encoders, gpupath, main } from "../../wailsjs/go/models";
 
 /** Wire-format stream settings, shared verbatim with the Go backend. */
 export type Stream = settings.Stream;
@@ -16,6 +16,10 @@ export type TransportCarriage = main.TransportCarriage;
 
 /** One display output: capture index, resolution and primary flag. */
 export type Monitor = display.Monitor;
+
+/** One capture backend and encoder family whose frames reach the encoder without a
+ * trip through system memory, with the import that carries them. */
+export type GpuPath = gpupath.Path;
 
 /** Running platform: OS and, on Linux, the display server (x11/wayland). */
 export type PlatformInfo = platform.Info;

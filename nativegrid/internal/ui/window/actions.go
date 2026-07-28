@@ -5,13 +5,14 @@ import "bjoernblessin.de/go-utils/util/assert"
 // leave is Escape, and it gives back one state per press, fullscreen first.
 // A window in fullscreen with a tile spotlit therefore takes two presses.
 // Dropping both on one press would leave nothing to say which of them was meant.
+//
+// The sidebar is not one of the states it peels: hiding it is a layout the window
+// keeps, not a mode a press backs out of, and Ctrl+B is what gives it back.
 func (c *chrome) leave() bool {
 	assert.IsNotNil(c.win, "a shortcut acts on a window")
 
-	// Fullscreen is the sidebar being gone, so leaving it is the sidebar coming
-	// back, which unfullscreens the window in showSidebar (geometry.go).
-	if !c.split.ShowSidebar() {
-		c.showSidebar(true)
+	if c.win.IsFullscreen() {
+		c.win.Unfullscreen()
 		return true
 	}
 	// Session.Spot is negative while the grid shows every tile.
@@ -23,7 +24,21 @@ func (c *chrome) leave() bool {
 	return true
 }
 
-// toggleSidebar is Ctrl+B, and F11 shares it.
+// toggleFullscreen is F11, and it is the window's shape alone.
+// The sidebar keeps whatever state it is in across it, so a fullscreen window can
+// be entered with the sidebar out and left with it still out.
+func (c *chrome) toggleFullscreen() bool {
+	assert.IsNotNil(c.win, "a shortcut acts on a window")
+
+	if c.win.IsFullscreen() {
+		c.win.Unfullscreen()
+	} else {
+		c.win.Fullscreen()
+	}
+	return true
+}
+
+// toggleSidebar is Ctrl+B.
 // It goes through showSidebar (geometry.go) like the header button does, so the
 // two halves of the control cannot disagree about what the window shows.
 func (c *chrome) toggleSidebar() bool {

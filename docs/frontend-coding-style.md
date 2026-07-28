@@ -37,8 +37,10 @@ Examples in this repo:
 - `deps.ts` — `evaluateDeps`, `normalize` (constraint logic, mirrors the Go encoder)
 - `webgrid.ts`, `nativegrid.ts` - `webGridCheck`, `nativeGridCheck` (a viewability
   verdict per grid, from settings)
-- `options.ts`, `presets.ts` — option metadata and presets, plus small helpers
-  like `labelFor` and `monitorOptions`
+- `options.ts` — option metadata plus small helpers like `labelFor` and
+  `monitorOptions`
+- `claim.ts`, `presets.ts` — the region algebra a preset's promise is written in,
+  and the preset table with the search that applies one (`docs/presets.md`)
 - `format.ts` — display formatters (`mbps`, `dropPercent`)
 
 If a function does not need React, it goes here — not in a component and not in a

@@ -276,7 +276,7 @@ export default function LiveNowCard({
                         />
                         <SelectField
                             label="RTSP transport (watch leg)"
-                            labelTip="How RTP reaches the viewer inside the RTSP session. Every RTSP viewer reads it, single-stream windows and native grid tiles alike, when it opens: a running viewer keeps the transport it negotiated. The publish leg is TCP-interleaved regardless."
+                            labelTip="How RTP reaches the viewer inside the RTSP session. Every RTSP viewer reads it, single-stream windows and native grid tiles alike, when it opens: a running viewer keeps the transport it negotiated. The publish leg picks its own in stream settings."
                             value={rtspWatchProtocol}
                             options={RTSP_PROTOCOLS}
                             onChange={onUpdateRtspWatchProtocol}

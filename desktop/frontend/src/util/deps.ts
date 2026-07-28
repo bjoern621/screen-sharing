@@ -1,12 +1,12 @@
 import {
-    Deps, EncoderInfo, PlatformInfo, Stream, TransportCarriage,
+    Deps, EncoderInfo, GpuPath, PlatformInfo, Stream, TransportCarriage,
 } from "../types/stream";
 import {
     Capability, CHROMA_META, Chroma, Decoder, ENGINE_LABEL, Engine,
     FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, carriesFormat,
-    chromaGapFor, codecLabel, cqMax, decodeNote, engineFor, engineGapFor,
+    codecLabel, cqMax, decodeNote, engineFor, engineGapFor,
     familiesWith, familyMetaOf, familyOf, findCapability, findEngineRule,
-    modeGapFor,
+    optionGapFor, optionGapsFor,
 } from "./domain";
 
 /**
@@ -35,6 +35,10 @@ export interface Environment {
     carriage: TransportCarriage[] | null;
     captureTransports: Record<string, string[]> | null;
     captureEngines: Record<string, string> | null;
+    /** The capture backend and encoder family pairs whose frames reach the encoder
+     * without a trip through system memory. Both ends decide together, so the form
+     * reads pairs rather than a property of either. */
+    gpuPaths: GpuPath[] | null;
 }
 
 /** An Environment with nothing resolved, for a call site that has no facts yet. */
@@ -46,6 +50,7 @@ export const UNKNOWN_ENV: Environment = {
     carriage: null,
     captureTransports: null,
     captureEngines: null,
+    gpuPaths: null,
 };
 
 // Repair chroma preference, highest quality first. normalize walks this order and
@@ -66,6 +71,12 @@ const MODE_FALLBACK_ORDER: Mode[] = [
     "crf", "vbr", "abr", "cbr", "lossless",
 ];
 
+// Repair colour-range preference. A desktop is full range to begin with, so that is
+// the first choice, and limited is where a stream lands whose encoder cannot state
+// the range it holds: an unsignalled stream is watched as limited either way, so it
+// is the one that arrives as it was encoded.
+const COLOR_RANGE_FALLBACK_ORDER = ["pc", "tv"];
+
 /**
  * What each capture backend needs from the machine it runs on: the operating system,
  * and on Linux the session type, each with the sentence shown where the machine does
@@ -75,16 +86,20 @@ const MODE_FALLBACK_ORDER: Mode[] = [
  * requirement separately and cannot drift out of step: x11grab and ximagesrc read the
  * X screen through the same extension and differ only in which publish engine runs
  * them.
+ *
+ * Table order is the order a caller picking a backend on the user's behalf tries
+ * them, so it runs from the backend a desktop session normally has to the ones that
+ * ask something of it.
  */
 const CAPTURE_NEEDS: Record<string, {
     os: string;
     display?: string;
     wrongOs: string;
     wrongSession?: string;
+    grant?: string;
 }> = {
     ddagrab: { os: "windows", wrongOs: "DXGI Desktop Duplication is Windows-only" },
     gdigrab: { os: "windows", wrongOs: "GDI capture is Windows-only" },
-    kmsgrab: { os: "linux", wrongOs: "DRM/KMS capture is Linux-only" },
     x11grab: {
         os: "linux", display: "x11",
         wrongOs: "X11 capture is Linux-only",
@@ -95,12 +110,34 @@ const CAPTURE_NEEDS: Record<string, {
         wrongOs: "X11 capture is Linux-only",
         wrongSession: "Wayland session: ximagesrc only sees XWayland windows, not the Wayland desktop - use portal",
     },
+    kmsgrab: {
+        os: "linux",
+        wrongOs: "DRM/KMS capture is Linux-only",
+        grant: "kmsgrab reads scanout buffers below the compositor, which needs CAP_SYS_ADMIN",
+    },
     portal: {
         os: "linux", display: "wayland",
         wrongOs: "PipeWire ScreenCast is Linux-only",
         wrongSession: "PipeWire ScreenCast needs a Wayland session",
     },
 };
+
+/**
+ * Capture backends this platform runs that need nothing granted first, in table
+ * order.
+ *
+ * A privilege is not a fact the probe can establish: the process either has
+ * CAP_SYS_ADMIN or the capture dies at launch, and nothing here can tell which in
+ * advance. A backend behind one therefore stays selectable by hand, where the choice
+ * is the user's and the failure is theirs to read, and is left out of the set a
+ * preset picks from on their behalf.
+ */
+export function autoCaptures(platform: PlatformInfo | null): string[] {
+    const blocked = unavailableCaptures(platform);
+    return Object.keys(CAPTURE_NEEDS).filter(
+        c => !blocked[c] && !CAPTURE_NEEDS[c].grant
+    );
+}
 
 /**
  * Capture backends that cannot run on the given platform, each mapped to the reason.
@@ -210,7 +247,7 @@ function unavailableModes(
 ): Record<string, string> {
     const out: Record<string, string> = {};
     for (const mode of Object.keys(MODE_META) as Mode[]) {
-        const gap = modeGapFor(codec, engine, mode, caps);
+        const gap = optionGapFor(codec, engine, "mode", mode, caps);
         if (gap) {
             out[mode] = gap.reason;
         }
@@ -381,7 +418,7 @@ function unavailableChromas(
             out[c] = chromaBlockReason(c, label);
             continue;
         }
-        const gap = chromaGapFor(codec, engine, c, caps);
+        const gap = optionGapFor(codec, engine, "chroma", c, caps);
         if (gap) {
             out[c] = gap.reason;
         }
@@ -395,6 +432,60 @@ function engineOf(capture: string, env: Environment): Engine | null {
 }
 
 /**
+ * The GPU path this capture backend and codec pair over, or null when the pair has
+ * none and while the pair table or the engine is unresolved.
+ */
+function gpuPathFor(
+    capture: string,
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null,
+    gpuPaths: GpuPath[] | null
+): GpuPath | null {
+    const family = familyOf(codec, caps);
+    if (!gpuPaths || !engine || !family) {
+        return null;
+    }
+    return gpuPaths.find(
+        p => p.engine === engine && p.capture === capture && p.family === family
+    ) ?? null;
+}
+
+/**
+ * Frame memories this capture backend and codec cannot publish through, each mapped
+ * to the reason.
+ *
+ * Only the direct value is ever blocked. Auto answers whichever path the pair has, and
+ * system memory is the path every pair has, so a combination with no row leaves one
+ * value greyed and two live. An unresolved pair table blocks nothing, as everywhere
+ * else here, so the control stays live during startup rather than greying and coming
+ * back.
+ *
+ * The reason names both ends, because neither decides on its own: the same portal
+ * capture shares memory with a VAAPI encoder and not with an x264 one, and switching
+ * either side is a way to reach the path.
+ */
+function unavailableFrameMemories(
+    capture: string,
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null,
+    gpuPaths: GpuPath[] | null
+): Record<string, string> {
+    if (!gpuPaths || !engine) {
+        return {};
+    }
+    if (gpuPathFor(capture, codec, engine, caps, gpuPaths)) {
+        return {};
+    }
+    const cap = findCapability(caps, codec);
+    const label = cap ? codecLabel(cap) : codec;
+    return {
+        gpu: `${capture} capture and ${label} have no shared memory on the ${ENGINE_LABEL[engine]} publish engine - the frames reach the encoder through system memory`,
+    };
+}
+
+/**
  * Evaluates which controls and individual options are unavailable for the given
  * settings. Every rule derives from the capability table (codec/chroma/transport
  * facts), the domain meta tables (which control each mode uses) and the engine
@@ -403,7 +494,9 @@ function engineOf(capture: string, env: Environment): Engine | null {
  * unresolved Environment field imposes no restriction.
  */
 export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
-    const { platform, encoders, caps, decoders, carriage, captureTransports } = env;
+    const {
+        platform, encoders, caps, decoders, carriage, captureTransports, gpuPaths,
+    } = env;
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
     // The settings fields the codec's encoder family owns. An unresolved capability
@@ -422,9 +515,17 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
             codec: {},
             chroma: unavailableChromas(s.codec, engine, caps),
             mode: unavailableModes(s.codec, engine, caps),
+            // A colour range is offered unless the stream would not carry it, which
+            // the capability table declares per codec and engine: an encoder that
+            // signals no colour description, and a format with no colour range field,
+            // both leave a full-range publish watched as limited whatever the form said.
+            colorRange: optionGapsFor(s.codec, engine, "colorRange", caps),
             transport: {},
             capture: unavailableCaptures(platform),
             audio: unavailableAudio(platform),
+            captureMemory: unavailableFrameMemories(
+                s.capture, s.codec, engine, caps, gpuPaths
+            ),
         },
     };
 
@@ -552,6 +653,18 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
         d.disabled.monitor = monitorNa[s.capture];
     }
 
+    // On the direct path the field says which import carries the frames, since that is
+    // the mechanism the machine has to support and the one a failure would name. The
+    // DRM download strategy goes the other way: it picks the device a tiled scanout
+    // buffer is mapped through so it can be read into system memory, and a run that
+    // downloads nothing never chooses one.
+    const path = gpuPathFor(s.capture, s.codec, engine, caps, gpuPaths);
+    if (path && s.captureMemory !== "system") {
+        d.note.captureMemory = path.import;
+        d.disabled.drmMap =
+            "the frames stay on the GPU, so nothing is downloaded and no mapping device is chosen: the map targets the encoder's own device";
+    }
+
     return d;
 }
 
@@ -570,7 +683,7 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
  * with it.
  */
 export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
-    const { platform, encoders, caps, carriage, captureTransports } = env;
+    const { platform, encoders, caps, carriage, captureTransports, gpuPaths } = env;
     const next = { ...s };
 
     // Capture first: the transport, codec and chroma repairs below depend on it, so
@@ -642,6 +755,19 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         }
     }
 
+    // Colour range: the encoder that will run has to be able to state the range in
+    // the bitstream, since that is all a viewer has to read it from. Moving a
+    // full-range stream onto a VAAPI encoder on the portal backend settles on limited
+    // range, the one such a stream is watched as anyway, instead of publishing a
+    // picture every viewer expands a second time.
+    const blockedRanges = optionGapsFor(next.codec, engine, "colorRange", caps);
+    if (blockedRanges[next.colorRange]) {
+        const free = COLOR_RANGE_FALLBACK_ORDER.find(r => !blockedRanges[r]);
+        if (free) {
+            next.colorRange = free;
+        }
+    }
+
     // Quantizer target: the constant-quality scales differ per encoder, so a
     // value carried over from libvpx's 63-point scale is clamped into the 51 the
     // H.26x and AV1 encoders accept. It is left alone while the table is
@@ -666,5 +792,51 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         next.audio = "none";
     }
 
+    // Frame memory: settings and presets from before the option lack the key, and a
+    // capture or codec change can strand a direct path that the new pair does not
+    // have. Both land on auto, the one value every pair satisfies, rather than on the
+    // system copy: auto takes the direct path wherever the pair regains one, so a
+    // repair made for this combination does not follow the settings into the next.
+    const blockedMemories = unavailableFrameMemories(
+        next.capture, next.codec, engine, caps, gpuPaths
+    );
+    if (!next.captureMemory || blockedMemories[next.captureMemory]) {
+        next.captureMemory = "auto";
+    }
+
     return next;
+}
+
+/**
+ * The dimensions normalize repairs by substituting another value. They are the
+ * categorical ones: a value replaced here names a combination this machine cannot
+ * run at all, where the numeric fields normalize touches are clamped into a range
+ * the same combination still accepts.
+ */
+const SUBSTITUTED: (keyof Stream)[] = [
+    "capture", "transport", "codec", "chroma", "mode", "audio", "captureMemory",
+];
+
+/**
+ * The patch applied and normalized, or null when normalize had to substitute one of
+ * the dimensions the patch names.
+ *
+ * A caller offering a whole configuration needs the machine's yes or no, not a
+ * repaired result: a patch asking for lossless planar RGB and getting 4:4:4 back has
+ * been answered with a different configuration under the same name. The null says
+ * that combination is unreachable here, which is what lets the caller try the next
+ * one it knows and grey itself out when none is left. Values the patch does not name
+ * are the caller's to leave alone, so normalize repairing one of those is not a
+ * refusal.
+ */
+export function applyIntact(
+    s: Stream,
+    patch: Partial<Stream>,
+    env: Environment = UNKNOWN_ENV
+): Stream | null {
+    const next = normalize({ ...s, ...patch } as Stream, env);
+    const intact = SUBSTITUTED.every(
+        k => patch[k] === undefined || next[k] === patch[k]
+    );
+    return intact ? next : null;
 }

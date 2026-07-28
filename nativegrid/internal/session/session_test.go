@@ -92,7 +92,9 @@ func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *r
 			Transport:  "srt",
 			Source:     "videotestsrc",
 			Transports: []string{"srt", "rtsp"},
-			Options:    []roster.Option{{Key: "rtspWatchLatencyMs", Kind: roster.OptionInt, Value: "200"}},
+			// The knobs a stream carries are the ones of the leg it is on, which is
+			// srt here.
+			Options: []roster.Option{{Key: "srtWatchLatencyMs", Kind: roster.OptionInt, Value: "200"}},
 		})
 	}
 	backend := &stubBackend{}

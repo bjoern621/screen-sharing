@@ -2,7 +2,7 @@ import { Monitor, Option } from "../types/stream";
 import {
     AUDIO_META, CHROMA_META, Capability, ENCODER_TIPS, ENGINE_LABEL, Engine,
     FAMILY_META, FORMAT_META, Family, Format, MODE_META, bitrateLimit, cqMax,
-    metaOptions,
+    metaOptions, scaleCq,
 } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
@@ -140,6 +140,30 @@ export const CAPTURES: Option[] = [
     },
 ];
 
+// Where the captured frames reach the encoder. Values mirror the backend
+// gpupath.Memories table.
+//
+// A capture backend that produces GPU frames and an encoder that reads GPU surfaces
+// can be linked directly, and every other pair copies the picture to system memory,
+// converts it on the CPU and, for a hardware encoder, uploads it again. Which pairs
+// have the direct path is the backend's gpupath.Paths, which the form reads rather
+// than restates: a value greyed here carries that table's own reason.
+export const FRAME_MEMORIES: Option[] = [
+    {
+        value: "auto", label: "auto - direct where possible",
+        tip: "Keep the frames on the GPU where the capture backend and the encoder can share them, and copy them through system memory where they cannot. The one setting every combination satisfies.",
+    },
+    {
+        value: "gpu", label: "gpu - stay on the device",
+        link: "https://en.wikipedia.org/wiki/Direct_Rendering_Manager#DRM_PRIME",
+        tip: "Hand the encoder the memory the capture already produced: no download, no CPU conversion, no upload. Refused where the selected capture backend and encoder have no shared path, rather than falling back.",
+    },
+    {
+        value: "system", label: "system - copy to RAM",
+        tip: "Download every frame, convert it on the CPU and upload it again for a hardware encoder. The path every combination has, and the one to pick when capture and encoding run on different GPUs.",
+    },
+];
+
 // kmsgrab DRM download strategies. A scanout buffer is usually GPU tiled or
 // compressed, so it maps to system memory through a hwdevice that understands
 // the modifier. Which device works depends on the GPU; auto picks from the
@@ -183,17 +207,17 @@ export const TRANSPORT_META: Record<string, Option> = {
     srt: {
         value: "srt", label: "srt - Secure Reliable Transport",
         link: "https://en.wikipedia.org/wiki/Secure_Reliable_Transport",
-        tip: "Secure Reliable Transport: UDP with selective retransmission (ARQ) and a configurable receive-window latency.",
+        tip: "Secure Reliable Transport: UDP with selective retransmission (ARQ) and a configurable receive-window latency.\nThe caller opens one flow to the relay and media and control both ride it in either direction, so it asks no more of a NAT than any outbound connection does.",
     },
     rtsp: {
         value: "rtsp", label: "rtsp - Real-Time Streaming Protocol",
         link: "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol",
-        tip: "RTSP session carrying each track as its own RTP stream. The publish leg interleaves them over the session's TCP connection; the watch leg picks that or UDP. Over TCP loss is handled for you, so there is no retransmit window to tune and delay rises on a lossy link instead.",
+        tip: "RTSP session carrying each track as its own RTP stream. Each leg picks the transport those streams run over: interleaved on the session's TCP connection, or a UDP port pair per track. Over TCP loss is handled by the connection, so there is no retransmit window to tune and delay rises on a lossy link instead.",
     },
     webrtc: {
         value: "webrtc", label: "webrtc - WHIP ingest, WHEP playback",
         link: "https://en.wikipedia.org/wiki/WebRTC",
-        tip: "WebRTC through the relay's WHIP and WHEP endpoints: HTTP signaling, then SRTP. The publish leg carries H.264 + Opus, the limit of ffmpeg's WHIP muxer. The watch leg is the native grid's and the browser's; no player opens it by URL, since WHEP is an exchange rather than an address.",
+        tip: "WebRTC through the relay's WHIP and WHEP endpoints: HTTP signaling, then SRTP. ICE runs connectivity checks before any media, and those checks are what opens the client's NAT, so this is the one transport that establishes its path rather than assuming it. The publish leg carries H.264 + Opus, the limit of ffmpeg's WHIP muxer. The watch leg is the native grid's and the browser's; no player opens it by URL, since WHEP is an exchange rather than an address.",
     },
     rtmp: {
         value: "rtmp", label: "rtmp - Real-Time Messaging Protocol",
@@ -208,20 +232,21 @@ export const TRANSPORT_META: Record<string, Option> = {
 };
 
 /**
- * The RTP lower transport an RTSP watch leg negotiates. Every RTSP viewer takes
- * it from here: rtspsrc in the native grid, ffplay and mpv in a single-stream
- * window. The publish leg has no such choice and always interleaves over TCP.
+ * The RTP lower transport an RTSP leg runs over. Both legs choose from this one
+ * list, the publish leg in the settings form and the watch leg beside each viewer,
+ * so the text describes the protocol rather than a direction and what holds for
+ * one leg alone belongs in that field's own tooltip.
  */
 export const RTSP_PROTOCOLS: Option[] = [
     {
         value: "tcp", label: "tcp - interleaved over the RTSP connection",
         link: "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol",
-        tip: "Every track rides the one TCP connection the RTSP session already opened. Nothing is lost and no second port has to reach the viewer, at the cost of head-of-line blocking: a late packet holds up the frames queued behind it.",
+        tip: "Every track rides the one TCP connection the RTSP session already opened. Nothing is lost and no second port has to reach the far end, so nothing beyond the session itself has to cross a NAT or a filtering firewall. The cost is head-of-line blocking: a late packet holds up the frames queued behind it.",
     },
     {
         value: "udp", label: "udp - a port pair per track",
         link: "https://en.wikipedia.org/wiki/Real-time_Transport_Protocol",
-        tip: "Each track negotiates its own UDP port pair, which drops the delay TCP's in-order delivery adds. Lost RTP is never retransmitted, so loss shows as artifacts rather than as delay, and NAT or a firewall between viewer and relay swallows the negotiated ports: the stream connects and no frame arrives.",
+        tip: "Each track negotiates its own UDP port pair, separate from the RTSP connection, which drops the delay TCP's in-order delivery adds. Lost RTP is never retransmitted, so loss shows as artifacts rather than as delay.\nBehind a home NAT that pair is reached by sending from it first, which creates the mapping anything coming back needs: the publish leg does that with the media itself, the watch leg with probe packets, and the relay then has to answer where those arrived rather than at the port the session announced, which is the private one the NAT rewrote. A network that drops outbound UDP ends it either way, and the failure is silent: the session sets up and no frame follows.",
     },
 ];
 
@@ -234,7 +259,7 @@ export const RTSP_PROTOCOLS: Option[] = [
  */
 export function cqTip(codec: string, caps: Capability[] | null): string {
     const max = cqMax(codec, caps);
-    const at = (onFiftyOne: number) => Math.round((onFiftyOne * max) / 51);
+    const at = (onFiftyOne: number) => scaleCq(onFiftyOne, codec, caps);
     return (
         "Constant quantizer the encoder holds in constant-quality mode: x264 and libvpx call it CRF, x265 QP, NVENC CQ. Lower = better quality and more bits.\n" +
         `This codec's scale runs 0-${max}: ${at(12)} ≈ visually lossless, ${at(19)} ≈ excellent, ${at(28)} ≈ visibly compressed.`
@@ -310,30 +335,33 @@ export function fpsOptions(current: number): Option[] {
 }
 
 /**
- * Reasons for frame rates the selected monitor cannot display, keyed by fps.
- * Capturing above the monitor's refresh rate yields duplicate frames, so those
- * rates are shown but disabled. maxHz of 0 (unknown refresh, or no monitor)
- * disables nothing. The saved value is never disabled so it stays selectable.
+ * The highest refresh rate any detected monitor reports, 0 when none reports
+ * one. This is the ceiling the frame rate field measures against, rather than
+ * the selected monitor's rate: which monitor is selected is a separate choice
+ * that changes as often as the capture target does, and tying the ladder to it
+ * puts the rates of a faster monitor out of reach until the selection moves.
+ */
+export function maxRefreshHz(monitors: Monitor[]): number {
+    return monitors.reduce((hz, m) => Math.max(hz, m.refreshHz), 0);
+}
+
+/**
+ * Reasons for frame rates no monitor can display, keyed by fps. Capturing above
+ * the fastest monitor's refresh rate yields duplicate frames whichever monitor
+ * is captured, so those rates are shown but disabled. maxHz of 0 (unknown
+ * refresh, or no monitor) disables nothing. The saved value is never disabled so
+ * it stays selectable.
  */
 export function fpsDisabled(current: number, maxHz: number): Record<string, string> {
     const reasons: Record<string, string> = {};
     if (maxHz > 0) {
         for (const fps of FPS_PRESETS) {
             if (fps > maxHz && fps !== current) {
-                reasons[String(fps)] = `Above the monitor's ${maxHz} Hz refresh rate.`;
+                reasons[String(fps)] = `Above the fastest monitor's ${maxHz} Hz refresh rate.`;
             }
         }
     }
     return reasons;
-}
-
-/**
- * Clamps a frame rate to what a monitor can display. Returns fps unchanged when
- * the refresh rate is unknown (maxHz 0) or already high enough; otherwise the
- * monitor's refresh rate, the fastest rate it can actually show.
- */
-export function clampFps(fps: number, maxHz: number): number {
-    return maxHz > 0 && fps > maxHz ? maxHz : fps;
 }
 
 /**

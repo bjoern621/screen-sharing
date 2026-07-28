@@ -26,7 +26,8 @@ const (
 	pageSpot  = "spot"
 )
 
-// gap is the space between tiles and around the tile area, the web grid's gap-3.
+// gap is the space between tiles, and the margin the tile area keeps around itself
+// while it sits in a frame: the web grid's gap-3.
 const gap = 12
 
 // View is the tile area.
@@ -50,6 +51,9 @@ type View struct {
 	// against: an allocation that lands on the same shape costs no relayout.
 	// Only the grid page has one, and showPage drops it with the page.
 	cells []cell
+	// flush is the tile area owning the window's edges rather than sitting in a
+	// frame, which drops the margin (SetFlush).
+	flush bool
 	// relayout coalesces the reordering bursts a drag produces.
 	relayout *idle.Coalescer
 }
@@ -76,10 +80,8 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	v.grid.SetRowHomogeneous(true)
 	v.grid.SetRowSpacing(gap)
 	v.grid.SetColumnSpacing(gap)
-	setMargins(v.grid, gap)
-
 	v.strip.SetHAlign(gtk.AlignCenter)
-	setMargins(v.spotBox, gap)
+	v.applyMargins()
 
 	v.stack.AddNamed(emptyState(), pageEmpty)
 	v.stack.AddNamed(v.grid, pageGrid)
@@ -99,6 +101,40 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 
 // Widget is the tile area, the split view's content.
 func (v *View) Widget() gtk.Widgetter { return v.root }
+
+// SetFlush drops the margin the tile area keeps around itself, so a tile meets the
+// window on the sides its aspect fills. The window asks for it while the sidebar is
+// hidden and the tiles have the window's edges to themselves.
+//
+// The space between tiles is not that margin and is unaffected: a grid of four still
+// reads as four tiles.
+//
+// The guard is here rather than at the call site, because the window writes the
+// sidebar's state on every pass and a relayout per pass would re-attach every tile.
+func (v *View) SetFlush(flush bool) {
+	if v.flush == flush {
+		return
+	}
+	v.flush = flush
+	// The margin is what the arrangement measures against, so the tiles are laid out
+	// again for the space the change gives them, not only moved in it.
+	v.rebuild()
+}
+
+// margin is the distance the tile area keeps between its tiles and its own edge.
+func (v *View) margin() int {
+	if v.flush {
+		return 0
+	}
+	return gap
+}
+
+// applyMargins puts the margin on the two pages that keep one. The empty page
+// carries its own padding and holds it at any size.
+func (v *View) applyMargins() {
+	setMargins(v.grid, v.margin())
+	setMargins(v.spotBox, v.margin())
+}
 
 func setMargins(w gtk.Widgetter, m int) {
 	assert.IsNotNil(w, "a margin is set on a widget")

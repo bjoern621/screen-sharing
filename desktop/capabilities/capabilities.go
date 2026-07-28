@@ -3,11 +3,13 @@
 // encode, which rate-control modes its encoder implements, and the scale its
 // constant-quality knob counts on.
 //
-// The two publish engines wrap different encoder implementations, so a codec, a
-// pixel format or a rate-control mode can be one engine's and not the other's. Each
-// such difference is a Gap naming the engine and the reason, rather than a fact
-// narrowed to what both engines do: an option one engine reaches stays offered
-// there, and the engine that lacks it says why.
+// The two publish engines wrap different encoder implementations, so a codec or one
+// value of one settings option can be one engine's and not the other's. Each such
+// difference is a Gap naming the engine, the option, the value and the reason,
+// rather than a fact narrowed to what both engines do: an option value one engine
+// reaches stays offered there, and the engine that lacks it says why. Which options
+// a gap may name is the Options list, so an axis is added by naming it there rather
+// than by growing the Gap type.
 //
 // Which protocol carries a codec is not a fact about the encoder and is not
 // modeled here. A protocol carries a bitstream format, so the transport package
@@ -75,6 +77,37 @@ const (
 // Modes lists every rate-control mode a Gap may name and Validate may be given.
 var Modes = []string{ModeCbr, ModeVbr, ModeAbr, ModeCrf, ModeLossless}
 
+// The settings options a Gap may take a value away from. The names are the JSON
+// field names settings.Stream carries, so a gap the table declares names the form
+// control it greys without a translation step in between.
+const (
+	OptionChroma     = "chroma"
+	OptionMode       = "mode"
+	OptionColorRange = "colorRange"
+)
+
+// Options lists every option a Gap may name and Validate is given a value for.
+// Adding one here, a refusal phrase below and a row on the codec that lacks it is
+// the whole of declaring a new kind of gap: the lookup, the validator and the
+// frontend read this list rather than a field per axis.
+var Options = []string{OptionChroma, OptionMode, OptionColorRange}
+
+// optionRefusals is how a gap on each option reads when it refuses a publish, with
+// the refused value substituted. A phrase per option because "has no cbr
+// rate-control mode" and "cannot encode pixel format yuv444p" are what the message
+// has to say, and an option with no phrase is one Validate cannot report on, which
+// it asserts rather than reports generically.
+var optionRefusals = map[string]string{
+	OptionChroma:     "cannot encode pixel format %s",
+	OptionMode:       "has no %s rate-control mode",
+	OptionColorRange: "cannot encode at colour range %s",
+}
+
+// knownOption reports whether option names a gappable settings option.
+func knownOption(option string) bool {
+	return contains(Options, option)
+}
+
 // knownEngine reports whether engine names a publish engine.
 //
 // Every lookup below asks about an engine the caller names itself, never one read
@@ -91,19 +124,23 @@ func knownEngine(engine string) bool {
 // engine, i.e. the format or the library has no such capability rather than one
 // builder failing to reach it.
 //
-// The axis a gap covers is the field it sets. Chroma takes a pixel format away, Mode
-// a rate-control mode, and a gap setting neither takes the codec off that engine
-// altogether, for a format that engine has no encoder for. Setting both is
-// meaningless and no lookup matches it.
+// A gap takes one value of one option away: Option names which option, Value which
+// of its values. A gap naming no option takes the codec off that engine altogether,
+// for a format that engine has no encoder for at all.
+//
+// Which options exist is the Options list and nothing else. An axis is added by
+// naming it there rather than by growing a field here, so a codec that cannot encode
+// at a colour range is declared the same way as one that cannot encode a pixel
+// format.
 type Gap struct {
 	// Engine is "ffmpeg", "gstreamer", or empty for both.
 	Engine string `json:"engine"`
-	// Chroma is the pixel format the engine's encoder will not take, empty when the
-	// gap is not about a pixel format.
-	Chroma string `json:"chroma"`
-	// Mode is the rate-control mode, one of Modes, empty when the gap is not about
-	// rate control.
-	Mode string `json:"mode"`
+	// Option is the settings option this gap takes a value away from, one of
+	// Options. Empty exactly when the gap takes the codec off the engine.
+	Option string `json:"option"`
+	// Value is the option value the engine's encoder will not take, empty exactly
+	// when Option is.
+	Value string `json:"value"`
 	// Reason states which library or element lacks the capability. Where the other
 	// engine has it, the reason says so, since switching capture backend is the
 	// user's way to reach it.
@@ -157,28 +194,19 @@ type Codec struct {
 	Gaps []Gap `json:"gaps"`
 }
 
-// ChromaGap returns the gap that keeps this codec from encoding chroma on the named
-// engine, and false when the format reaches its encoder there. A chroma the codec
-// cannot encode on either engine is absent from Chromas instead, which Validate
-// rejects on its own.
-func (c Codec) ChromaGap(engine, chroma string) (Gap, bool) {
+// OptionGap returns the gap that keeps this codec from encoding with value for the
+// named option on the named engine, and false when that value reaches its encoder
+// there. It is the one gap lookup: chroma, rate-control mode and colour range are
+// asked about the same way, and so is any option Options gains.
+//
+// A chroma the codec cannot encode on either engine is absent from Chromas instead,
+// which Validate rejects on its own.
+func (c Codec) OptionGap(engine, option, value string) (Gap, bool) {
 	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
+	assert.Assert(knownOption(option), "a gap lookup names a gappable option", option)
 
 	for _, g := range c.Gaps {
-		if g.Chroma == chroma && g.Mode == "" && g.covers(engine) {
-			return g, true
-		}
-	}
-	return Gap{}, false
-}
-
-// ModeGap returns the gap that keeps this codec out of the given rate-control mode
-// on the named engine, and false when the mode reaches its encoder there.
-func (c Codec) ModeGap(engine, mode string) (Gap, bool) {
-	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
-
-	for _, g := range c.Gaps {
-		if g.Mode == mode && g.Chroma == "" && g.covers(engine) {
+		if g.Option == option && g.Value == value && g.covers(engine) {
 			return g, true
 		}
 	}
@@ -186,12 +214,13 @@ func (c Codec) ModeGap(engine, mode string) (Gap, bool) {
 }
 
 // EngineGap returns the gap that takes this codec off the named engine altogether,
-// and false when that engine has an encoder for it.
+// and false when that engine has an encoder for it. It is the gap that names no
+// option: no value of any of them reaches an encoder that is not there.
 func (c Codec) EngineGap(engine string) (Gap, bool) {
 	assert.Assert(knownEngine(engine), "a gap lookup names a publish engine", engine)
 
 	for _, g := range c.Gaps {
-		if g.Chroma == "" && g.Mode == "" && g.covers(engine) {
+		if g.Option == "" && g.covers(engine) {
 			return g, true
 		}
 	}
@@ -210,29 +239,37 @@ func (c Codec) EngineChromas(engine string) []string {
 	}
 	out := make([]string, 0, len(c.Chromas))
 	for _, chroma := range c.Chromas {
-		if _, gap := c.ChromaGap(engine, chroma); !gap {
+		if _, gap := c.OptionGap(engine, OptionChroma, chroma); !gap {
 			out = append(out, chroma)
 		}
 	}
 	return out
 }
 
-// Validate rejects a codec/chroma/mode/quantizer combination this table forbids,
-// so a settings object that no frontend normalized cannot reach an encoder.
+// Validate rejects a codec and option-value combination this table forbids, so a
+// settings object that no frontend normalized cannot reach an encoder.
 // engine is the caller's own publish engine ("ffmpeg" or "gstreamer"), which
-// decides which codecs, pixel formats and rate-control modes are available: both
-// engines call this, so neither path can accept what the other rejects, and a
-// capability only one of them reaches is refused for the other rather than
-// silently approximated. The values are taken apart rather than passed as a
-// settings struct to keep this package free of dependencies.
+// decides which codecs and option values are available: both engines call this, so
+// neither path can accept what the other rejects, and a capability only one of them
+// reaches is refused for the other rather than silently approximated.
+//
+// options carries one value per entry in Options, keyed as Options names them. The
+// caller takes them out of its own settings, which keeps this package free of
+// dependencies, and a value left out is asserted rather than skipped: an option
+// gained here and not supplied there would reach an encoder with its gaps unread.
 //
 // Whether the publish transport carries the resulting bitstream is the
 // transport package's own refusal (transport.ValidatePublish), which the same
 // callers make beside this one.
-func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
-	// The engine is the caller's own; the four values it is validating against are
-	// the user's, which is why only this one is an assert.
+func Validate(engine, codec string, options map[string]string, cq, bitrateM int) error {
+	// The engine and the option set are the caller's own; the values it is
+	// validating are the user's, which is why only these two are asserts.
 	assert.Assert(knownEngine(engine), "validation names a publish engine", engine)
+	for _, option := range Options {
+		_, ok := options[option]
+		assert.Assert(ok, "validation carries a value for every gappable option", option)
+	}
+	chroma, mode := options[OptionChroma], options[OptionMode]
 
 	c, ok := Get(codec)
 	if !ok {
@@ -253,11 +290,18 @@ func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
 	if !contains(c.Chromas, chroma) {
 		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, chroma)
 	}
-	if gap, ok := c.ChromaGap(engine, chroma); ok {
-		return fmt.Errorf("codec %s cannot encode %s on the %s engine: %s", c.Name, chroma, engine, gap.Reason)
-	}
-	if gap, ok := c.ModeGap(engine, mode); ok {
-		return fmt.Errorf("codec %s has no %s mode: %s", c.Name, mode, gap.Reason)
+	// Every option is read the same way and in table order, so a codec gapped on two
+	// of them names the first rather than the one an axis-by-axis validator happened
+	// to check first.
+	for _, option := range Options {
+		gap, ok := c.OptionGap(engine, option, options[option])
+		if !ok {
+			continue
+		}
+		refusal, ok := optionRefusals[option]
+		assert.Assert(ok, "a gappable option states how its refusal reads", option)
+		return fmt.Errorf("codec %s %s on the %s engine: %s",
+			c.Name, fmt.Sprintf(refusal, options[option]), engine, gap.Reason)
 	}
 	// The quantizer target reaches the encoder in crf mode only, and each
 	// encoder's knob has its own scale: 60 is a valid libvpx CQ and an error on
@@ -304,7 +348,7 @@ func SupportsChroma(name, engine, chroma string) bool {
 	if !contains(c.Chromas, chroma) {
 		return false
 	}
-	_, gap := c.ChromaGap(engine, chroma)
+	_, gap := c.OptionGap(engine, OptionChroma, chroma)
 	return !gap
 }
 

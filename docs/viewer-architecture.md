@@ -40,7 +40,8 @@ Anything the viewer side reports, a tile badge or a stats overlay row, is the wa
 
 Each protocol's own knobs are per leg for the same reason.
 The two SRT latency windows are separate fields because each leg is its own SRT link with its own retransmit window, and glass-to-glass delay is their sum.
-RTSP carries a watch-leg jitter buffer and a lower transport (`RtspWatchLatencyMs`, `RtspWatchProtocol`); the publish leg interleaves RTP over the session's TCP connection unconditionally, since a publisher that cannot reach the relay has nothing to trade for lower delay.
+RTSP names the RTP lower transport once per leg (`RtspPublishProtocol`, `RtspWatchProtocol`), because the two legs cross different networks and it is the network that decides whether a UDP port pair survives.
+The jitter buffer is the watch leg's alone (`RtspWatchLatencyMs`): it sizes the receiver's reorder window, and the publish leg has no receiver here.
 
 ## Where the bytes go
 
@@ -317,7 +318,10 @@ A format with no listener on the selected leg reports not-viewable, names the le
 
 The native grid is a separate GTK4 binary (`nativegrid`), spawned by the app (`app_nativegrid.go`): the webview process is GTK3, and the two toolkits cannot share a process.
 The process contract is a JSON roster built by `watch.BuildGridConfig`: every stream the relay reports live, each as a display name plus the gst-launch source fragment of its watch transport (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), and the app state the window's own controls read (`watch.GridApp`).
-It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the set of live streams or the publish state changes (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
+It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the config the app builds differs from the one the window holds (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
+The config is the whole state rather than what moved in it, which is what makes that comparison the push rule.
+The poll rebuilds it from the settings, the live streams, the per-stream choices and the publish state, so a watch knob turned in the app's own settings form reaches a tile already playing, and a poll that finds nothing moved writes nothing.
+On the receiving side a stream whose source fragment changed restarts on the new one, and the tiles whose fragment stayed put keep playing.
 The binary appends sidebar rows for new streams and hides the rows of vanished ones, keeping a vanished stream's row while it is watched so its failure state stays on screen.
 
 Which of those streams are watched, in what order, and which one is spotlit belong to the window, and the window persists them itself in a state file beside the app's `settings.json`, keyed by stream name.
@@ -327,7 +331,10 @@ So a restart reopens on the tiles it was showing, at the size it was shown at.
 The child's stdout carries three kinds of JSON line, told apart by a `type` field.
 The first is a watch-leg request (`watch.GridRequest`).
 Each roster entry carries the transports that stream can be received over and the knobs of the one it is on, both declared by the transport that reads them (`transport.WatchTunable`), so the sidebar renders a control per entry and names no protocol.
-A request is the whole leg for one stream, and the app answers it by pushing the roster it produces: a refused request is answered too, with the values that still hold, so the sidebar's controls follow the app rather than their own last click.
+A request is the whole leg for one stream, and the app answers an accepted one with the roster it produces.
+A refused one produces no roster and needs none: the sidebar reads its controls before it asks and redraws them from the entry it holds as the popover closes, so they follow the app rather than their own last click.
+A request that moves a stream to another transport states no knobs at all, because the ones on screen belong to the transport being left and the app refuses a whole leg over a knob its transport does not declare.
+The roster answering the move carries the new leg's knobs at the values the settings hold, and the sidebar builds its controls from those.
 The choices live in the goroutine that pushes that window's roster and are never written to the settings, since a per-stream copy of every knob is a lot of state to restore for a deviation that lasts one run.
 
 The second is a command (`watch.GridCommand`), which acts on the app instead of on a stream: the sidebar's foot raises the app window on the settings form, and starts or stops the publish of this machine's own capture on the settings the app holds.

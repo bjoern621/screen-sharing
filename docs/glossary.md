@@ -114,6 +114,8 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | WHEP    | WebRTC-HTTP Egress Protocol            | The playback counterpart of WHIP.                                                                          |
 | SDP     | Session Description Protocol           | Text format describing media streams, codecs and transport parameters.                                     |
 | ICE     | Interactive Connectivity Establishment | Candidate gathering and connectivity checking that finds a working path between peers.                     |
+| STUN    | Session Traversal Utilities for NAT    | Protocol a client learns its mapped public address:port from, and the binding checks ICE probes candidate paths with. |
+| TURN    | Traversal Using Relays around NAT      | Relay a peer falls back to when no direct path survives, at the cost of carrying all media through it.     |
 | SSRC    | Synchronization Source                 | 32-bit RTP identifier of one media source.                                                                 |
 | MPEG-TS | MPEG Transport Stream                  | Container of fixed 188-byte packets built for lossy links, the SRT payload here.                           |
 | TS      | Transport Stream                       | Short form of MPEG-TS, also the packet unit that `alignment=7` groups seven of per SRT datagram.           |
@@ -125,9 +127,10 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | FLV     | Flash Video                            | The container RTMP carries, whose original tag set is H.264 and AAC.                                       |
 | HTTP    | Hypertext Transfer Protocol            | Carries WHIP and WHEP signaling and the relay's HLS segments.                                              |
 | WS      | WebSocket                              | Bidirectional connection the web viewer pushes decoded frame data over.                                    |
-| TCP     | Transmission Control Protocol          | Reliable ordered transport, forced for RTSP here because per-track UDP ports are dropped by NAT.           |
+| TCP     | Transmission Control Protocol          | Reliable ordered transport, the RTSP default here because interleaving needs no port beyond the one the session connected on. |
 | UDP     | User Datagram Protocol                 | Unreliable datagram transport, the basis of SRT and WebRTC media.                                          |
-| NAT     | Network Address Translation            | Router address rewriting, the reason RTSP is interleaved over TCP and WebRTC needs ICE.                    |
+| NAT     | Network Address Translation            | Router address rewriting. Return traffic reaches a private host only through a mapping one of its own outbound packets created, which is why RTSP's separate UDP port pair has to be punched open and WebRTC uses ICE. |
+| Hole punching | (no expansion)                   | Sending outbound from the port that has to receive, so the NAT creates the mapping the far end's packets return through.    |
 | PTS     | Presentation Timestamp                 | When a frame is displayed, recovered from the IVF frame header through the stream time base.               |
 
 ## Capture backends
@@ -144,6 +147,15 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab`.                                |
 | DXGI     | DirectX Graphics Infrastructure | The Windows graphics layer DDA belongs to.                                                       |
 | GDI      | Graphics Device Interface       | Legacy Windows drawing and capture API, reached through `gdigrab`.                               |
+
+A frame that stays on the GPU from capture to encoder crosses the bus not at all; one that does not crosses it twice.
+
+| Term         | Expansion                  | Meaning                                                                                                                                              |
+| ------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DMA-BUF      | Direct Memory Access Buffer | Linux kernel mechanism for sharing a GPU buffer between processes and devices by file descriptor. What a Wayland compositor exports capture frames as. |
+| PRIME        | (no expansion)             | The DRM buffer-sharing framework DMA-BUF file descriptors are imported and exported through.                                                          |
+| Frame memory | (no expansion)             | Where a run's captured frames reach the encoder: the same device memory the capture produced, or a copy in system RAM. The "Frame memory" dropdown.   |
+| VPP          | Video Post-Processing      | A driver's fixed-function scale, format and colour conversion block, reached as `vapostproc`, `scale_vaapi` and `vpp_qsv`.                            |
 
 Two rates describe one publish, and they part company on a damage-driven backend.
 

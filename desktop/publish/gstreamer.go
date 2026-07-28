@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -27,18 +28,38 @@ type gstEngine struct {
 }
 
 func (g gstEngine) Command(s settings.Stream) (string, error) {
-	inCaps, err := gstInputCaps(s)
+	opts, err := g.captureOptions(s)
 	if err != nil {
 		return "", err
 	}
 	// The empty meter fd and the empty rate probe leave the progress
 	// instrumentation out, the counterpart to the ffmpeg engine appending
 	// -progress only for a run.
-	pipeline, err := buildPipeline(s, g.capture.Describe(s, gstCaptureOptions{InCaps: inCaps}), "")
+	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "")
 	if err != nil {
 		return "", err
 	}
 	return gstExe + " " + strings.Join(pipeline, " "), nil
+}
+
+// captureOptions builds the source chain's run-independent parts and holds them
+// against the machine.
+//
+// The device check runs here rather than at Start so that the rendered command is
+// refused for the same reason a publish is. A machine whose capture and encode ends
+// are not one GPU cannot run the pipeline this would display, and displaying it anyway
+// would put a command in front of the user that the button beside it rejects.
+func (g gstEngine) captureOptions(s settings.Stream) (gstCaptureOptions, error) {
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		return gstCaptureOptions{}, err
+	}
+	if opts.Memory == gpupath.MemoryGpu {
+		if err := g.capture.HoldsOneDevice(); err != nil {
+			return gstCaptureOptions{}, err
+		}
+	}
+	return opts, nil
 }
 
 func (gstEngine) Engine() string {
@@ -51,9 +72,9 @@ func (gstEngine) Carries(transportName string) bool {
 }
 
 func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {
-	// Validating first means a settings combination this engine cannot encode
-	// never pops the compositor's picker.
-	inCaps, err := gstInputCaps(s)
+	// Validating first means a settings combination this engine cannot encode, and a
+	// machine whose two ends are not one GPU, never pop the compositor's picker.
+	opts, err := g.captureOptions(s)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +83,6 @@ func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, e
 	// OnStats the pipeline runs as the displayed command reads. The rate probe is
 	// part of it, so the source the backend builds differs between a run that
 	// reports progress and one that does not, exactly as the encode path does.
-	opts := gstCaptureOptions{InCaps: inCaps}
 	var meter *gstMeter
 	if cb.OnStats != nil {
 		meter, err = newGstMeter(cb.OnStats)

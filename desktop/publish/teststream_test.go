@@ -10,10 +10,11 @@ import (
 func TestBuildTestStreamArgs(t *testing.T) {
 	// Transport srt on purpose: test streams must publish over RTSP anyway.
 	s := settings.Stream{
-		Name:      "nixos",
-		RelayHost: "relay.example",
-		RtspPort:  8554,
-		Transport: "srt",
+		Name:                "nixos",
+		RelayHost:           "relay.example",
+		RtspPort:            8554,
+		Transport:           "srt",
+		RtspPublishProtocol: "tcp",
 	}
 	args, err := BuildTestStreamArgs(s, "test-1", "ball")
 	if err != nil {

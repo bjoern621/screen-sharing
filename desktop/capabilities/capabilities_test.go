@@ -40,25 +40,63 @@ func TestEveryRowDeclaresAKnownFamily(t *testing.T) {
 	}
 }
 
-// A gap binds by matching the value a lookup is given, so every axis it names has to
-// be spelled the way the lookups are asked. A gap naming an engine, a mode or a chroma
-// outside the set matches nothing, and the capability it was written to withhold is
-// then offered as if the encoder had it.
-func TestEveryGapNamesAKnownAxis(t *testing.T) {
+// gappableValues is the value space of every option a gap may name, which a gap's
+// value has to come out of. Chroma has no entry: its values are per codec, so a
+// chroma gap is checked against the row's own Chromas instead.
+var gappableValues = map[string][]string{
+	OptionMode:       Modes,
+	OptionColorRange: {"pc", "tv"},
+}
+
+// A gap binds by matching the value a lookup is given, so everything it names has to
+// be spelled the way the lookups are asked. A gap naming an engine, an option or a
+// value outside the set matches nothing, and the capability it was written to
+// withhold is then offered as if the encoder had it.
+func TestEveryGapNamesAKnownOptionAndValue(t *testing.T) {
 	for _, c := range Codecs {
 		for _, g := range c.Gaps {
 			if g.Engine != "" && !slices.Contains(Engines, g.Engine) {
 				t.Errorf("%s has a gap on engine %q, which is not one of %v", c.Name, g.Engine, Engines)
 			}
-			if g.Mode != "" && !slices.Contains(Modes, g.Mode) {
-				t.Errorf("%s has a gap on mode %q, which is not one of %v", c.Name, g.Mode, Modes)
+			// The option and the value come as a pair: an option with no value
+			// withholds nothing, and a value with no option reads as the engine-wide
+			// gap, which takes the codec off the engine entirely.
+			if (g.Option == "") != (g.Value == "") {
+				t.Errorf("%s has a gap on option %q with value %q: an option gap names both", c.Name, g.Option, g.Value)
+				continue
+			}
+			if g.Option == "" {
+				continue
+			}
+			if !slices.Contains(Options, g.Option) {
+				t.Errorf("%s has a gap on option %q, which is not one of %v", c.Name, g.Option, Options)
+				continue
 			}
 			// A chroma gap withholds a format the row offers. One naming a format the
 			// row does not list withholds nothing, and states a reason for an option
 			// that was never on offer.
-			if g.Chroma != "" && !slices.Contains(c.Chromas, g.Chroma) {
-				t.Errorf("%s has a gap on chroma %q, which the row does not list", c.Name, g.Chroma)
+			values, ok := gappableValues[g.Option]
+			if !ok {
+				values = c.Chromas
 			}
+			if !slices.Contains(values, g.Value) {
+				t.Errorf("%s has a gap on %s %q, which is not one of %v", c.Name, g.Option, g.Value, values)
+			}
+		}
+	}
+}
+
+// Every option a gap may name has to state how its refusal reads, or Validate would
+// have a gap it can match and no way to report it.
+func TestEveryOptionStatesItsRefusal(t *testing.T) {
+	for _, option := range Options {
+		if _, ok := optionRefusals[option]; !ok {
+			t.Errorf("option %q has no refusal phrase", option)
+		}
+	}
+	for option := range optionRefusals {
+		if !slices.Contains(Options, option) {
+			t.Errorf("refusal phrase for %q, which is not a gappable option", option)
 		}
 	}
 }
@@ -67,16 +105,25 @@ func TestEveryGapNamesAKnownAxis(t *testing.T) {
 // and the builders would run it as CBR, so it is refused where every other unknown
 // value is.
 func TestValidateRejectsAnUnknownMode(t *testing.T) {
-	if err := Validate(EngineFfmpeg, "libx264", "yuv420p", "constant-effort", 19, 20); err == nil {
+	if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", "constant-effort", "pc"), 19, 20); err == nil {
 		t.Error("Validate must reject a rate-control mode the table does not carry")
 	}
 	for _, mode := range Modes {
-		if _, gap := mustGet(t, "libx264").ModeGap(EngineFfmpeg, mode); gap {
+		if _, gap := mustGet(t, "libx264").OptionGap(EngineFfmpeg, OptionMode, mode); gap {
 			continue
 		}
-		if err := Validate(EngineFfmpeg, "libx264", "yuv420p", mode, 19, 20); err != nil {
+		if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", mode, "pc"), 19, 20); err != nil {
 			t.Errorf("libx264 in %s: %v", mode, err)
 		}
+	}
+}
+
+// options is one validation's option values, keyed as Validate is given them.
+func options(chroma, mode, colorRange string) map[string]string {
+	return map[string]string{
+		OptionChroma:     chroma,
+		OptionMode:       mode,
+		OptionColorRange: colorRange,
 	}
 }
 
@@ -163,17 +210,18 @@ func TestEngineChromas(t *testing.T) {
 	}
 }
 
-// A gap belongs to one axis: the pixel-format lookup must not answer a rate-control
-// question or the reverse, and a codec with no engine-wide gap runs on both engines.
-func TestGapAxesDoNotCross(t *testing.T) {
+// A gap belongs to the option it names: the pixel-format lookup must not answer a
+// rate-control question or the reverse, however alike the two values are spelled.
+// One lookup serves every option, so this is what keeps it keyed by both.
+func TestGapsDoNotCrossOptions(t *testing.T) {
 	aom, _ := Get("libaom-av1")
-	if _, gap := aom.ModeGap("gstreamer", "p010le"); gap {
+	if _, gap := aom.OptionGap("gstreamer", OptionMode, "p010le"); gap {
 		t.Error("a chroma gap must not answer a rate-control lookup")
 	}
-	if _, gap := aom.ChromaGap("gstreamer", "lossless"); gap {
+	if _, gap := aom.OptionGap("gstreamer", OptionChroma, "lossless"); gap {
 		t.Error("a mode gap must not answer a pixel-format lookup")
 	}
-	// A gap naming neither axis takes the codec off that engine. No row needs one,
+	// A gap naming no option takes the codec off that engine. No row needs one,
 	// since both builders map every implemented codec, so the shape is checked on a
 	// value rather than on the table.
 	oneEngine := Codec{
@@ -181,65 +229,89 @@ func TestGapAxesDoNotCross(t *testing.T) {
 		Gaps: []Gap{{Engine: "gstreamer", Reason: "no element encodes it"}},
 	}
 	if _, gap := oneEngine.EngineGap("gstreamer"); !gap {
-		t.Error("a gap naming neither chroma nor mode must take the codec off its engine")
+		t.Error("a gap naming no option must take the codec off its engine")
 	}
 	if _, gap := oneEngine.EngineGap("ffmpeg"); gap {
 		t.Error("an engine gap must not bind on the other engine")
 	}
-	if _, gap := oneEngine.ChromaGap("gstreamer", "yuv420p"); gap {
+	if _, gap := oneEngine.OptionGap("gstreamer", OptionChroma, "yuv420p"); gap {
 		t.Error("an engine gap must not answer a pixel-format lookup")
 	}
 }
 
 func TestValidate(t *testing.T) {
+	// A case that names no colour range is not about one, and full range is what the
+	// settings default to, so that is what the loop below validates it with.
 	cases := []struct {
 		name                        string
 		engine, codec, chroma, mode string
+		colorRange                  string
 		cq                          int
 		wantErr                     bool
 	}{
-		{"nvenc hevc lossless", "ffmpeg", "hevc_nvenc", "gbrp", "lossless", 19, false},
-		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", 19, true},
-		{"unimplemented family", "ffmpeg", "hevc_v4l2m2m", "yuv420p", "cbr", 19, true},
-		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", 19, true},
+		{"nvenc hevc lossless", "ffmpeg", "hevc_nvenc", "gbrp", "lossless", "", 19, false},
+		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", "", 19, true},
+		{"unimplemented family", "ffmpeg", "hevc_v4l2m2m", "yuv420p", "cbr", "", 19, true},
+		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", "", 19, true},
 		// Planar RGB reaches the ffmpeg encoders and none of the GStreamer elements,
 		// so the same codec and chroma passes on one engine and fails on the other.
-		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", 19, true},
-		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "crf", 19, false},
-		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "crf", 19, true},
-		{"x265 4:4:4 over gstreamer", "gstreamer", "libx265", "yuv444p", "crf", 19, false},
+		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", "", 19, true},
+		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "crf", "", 19, false},
+		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "crf", "", 19, true},
+		{"x265 4:4:4 over gstreamer", "gstreamer", "libx265", "yuv444p", "crf", "", 19, false},
 		// 10-bit libaom AV1 is the ffmpeg engine's alone (av1enc takes 8-bit input).
-		{"libaom 10-bit over ffmpeg", "ffmpeg", "libaom-av1", "p010le", "crf", 19, false},
-		{"libaom 10-bit over gstreamer", "gstreamer", "libaom-av1", "p010le", "crf", 19, true},
-		{"libaom 8-bit over gstreamer", "gstreamer", "libaom-av1", "yuv420p", "crf", 19, false},
+		{"libaom 10-bit over ffmpeg", "ffmpeg", "libaom-av1", "p010le", "crf", "", 19, false},
+		{"libaom 10-bit over gstreamer", "gstreamer", "libaom-av1", "p010le", "crf", "", 19, true},
+		// Limited range, because the case is about the chroma: av1enc reaches 8-bit and
+		// signals no colour description, which the two rows below are about.
+		{"libaom 8-bit over gstreamer", "gstreamer", "libaom-av1", "yuv420p", "crf", "tv", 19, false},
 		// libvpx counts its quantizer to 63, the H.26x encoders to 51, so the same
 		// value passes on one and fails on the other.
-		{"vp9 quantizer at 60", "ffmpeg", "libvpx-vp9", "yuv444p", "crf", 60, false},
-		{"x264 quantizer at 60", "ffmpeg", "libx264", "yuv420p", "crf", 60, true},
-		{"negative quantizer", "ffmpeg", "libx264", "yuv420p", "crf", -1, true},
+		{"vp9 quantizer at 60", "ffmpeg", "libvpx-vp9", "yuv444p", "crf", "", 60, false},
+		{"x264 quantizer at 60", "ffmpeg", "libx264", "yuv420p", "crf", "", 60, true},
+		{"negative quantizer", "ffmpeg", "libx264", "yuv420p", "crf", "", -1, true},
 		// rav1e's quantizer counts to 255, the widest scale in the table.
-		{"rav1e quantizer at 200", "ffmpeg", "librav1e", "yuv420p", "crf", 200, false},
+		{"rav1e quantizer at 200", "ffmpeg", "librav1e", "yuv420p", "crf", "", 200, false},
 		// The quantizer reaches the encoder in crf mode only, so a stale value from
 		// another codec's scale must not block a bitrate mode.
-		{"out-of-scale quantizer outside crf", "ffmpeg", "libx264", "yuv420p", "cbr", 60, false},
+		{"out-of-scale quantizer outside crf", "ffmpeg", "libx264", "yuv420p", "cbr", "", 60, false},
 		// VP8 has no lossless mode on either engine; VP9's is ffmpeg's alone.
-		{"vp8 lossless", "ffmpeg", "libvpx", "yuv420p", "lossless", 19, true},
-		{"vp9 lossless over ffmpeg", "ffmpeg", "libvpx-vp9", "yuv444p", "lossless", 19, false},
-		{"vp9 lossless over gstreamer", "gstreamer", "libvpx-vp9", "yuv444p", "lossless", 19, true},
-		{"av1 lossless", "gstreamer", "libsvtav1", "yuv420p", "lossless", 19, true},
+		{"vp8 lossless", "ffmpeg", "libvpx", "yuv420p", "lossless", "", 19, true},
+		{"vp9 lossless over ffmpeg", "ffmpeg", "libvpx-vp9", "yuv444p", "lossless", "", 19, false},
+		{"vp9 lossless over gstreamer", "gstreamer", "libvpx-vp9", "yuv444p", "lossless", "", 19, true},
+		{"av1 lossless", "gstreamer", "libsvtav1", "yuv420p", "lossless", "", 19, true},
 		// No VAAPI encoder codes bit-exact, on either engine, while its bitrate and
 		// constant-quality modes are the drivers' own.
-		{"vaapi lossless over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "lossless", 19, true},
-		{"vaapi lossless over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "lossless", 19, true},
-		{"vaapi cbr", "ffmpeg", "h264_vaapi", "yuv420p", "cbr", 19, false},
+		{"vaapi lossless over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "lossless", "", 19, true},
+		{"vaapi lossless over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "lossless", "", 19, true},
+		{"vaapi cbr", "ffmpeg", "h264_vaapi", "yuv420p", "cbr", "", 19, false},
 		// The VAAPI AV1 quantizer is a 0-255 index, where its H.26x rows stop at 51.
-		{"vaapi av1 quantizer at 200", "ffmpeg", "av1_vaapi", "yuv420p", "crf", 200, false},
-		{"vaapi h264 quantizer at 200", "ffmpeg", "h264_vaapi", "yuv420p", "crf", 200, true},
+		{"vaapi av1 quantizer at 200", "ffmpeg", "av1_vaapi", "yuv420p", "crf", "", 200, false},
+		{"vaapi h264 quantizer at 200", "ffmpeg", "h264_vaapi", "yuv420p", "crf", "", 200, true},
+		// The va elements signal no colour description, so a full-range VAAPI stream
+		// would be read as limited by every viewer. The same hardware reaches full
+		// range through the ffmpeg engine, which tags the frames.
+		{"vaapi full range over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "cbr", "pc", 19, true},
+		{"vaapi limited range over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "cbr", "tv", 19, false},
+		{"vaapi full range over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "cbr", "pc", 19, false},
+		{"software full range over gstreamer", "gstreamer", "libx264", "yuv420p", "cbr", "pc", 19, false},
+		// av1enc signals no colour description either, and the same library reaches full
+		// range through the ffmpeg engine.
+		{"libaom full range over gstreamer", "gstreamer", "libaom-av1", "yuv420p", "cbr", "pc", 19, true},
+		{"libaom full range over ffmpeg", "ffmpeg", "libaom-av1", "yuv420p", "cbr", "pc", 19, false},
+		// VP8 has no colour range field at all, so no engine reaches full range with it.
+		{"vp8 full range over ffmpeg", "ffmpeg", "libvpx", "yuv420p", "cbr", "pc", 19, true},
+		{"vp8 full range over gstreamer", "gstreamer", "libvpx", "yuv420p", "cbr", "pc", 19, true},
+		{"vp8 limited range over ffmpeg", "ffmpeg", "libvpx", "yuv420p", "cbr", "tv", 19, false},
 	}
 	for _, tc := range cases {
+		colorRange := tc.colorRange
+		if colorRange == "" {
+			colorRange = "pc"
+		}
 		// Bitrate target zero: no row above turns on a codec's bitrate ceiling, which
 		// TestValidateBitrateCeiling covers on its own.
-		err := Validate(tc.engine, tc.codec, tc.chroma, tc.mode, tc.cq, 0)
+		err := Validate(tc.engine, tc.codec, options(tc.chroma, tc.mode, colorRange), tc.cq, 0)
 		if (err != nil) != tc.wantErr {
 			t.Errorf("%s: Validate = %v, wantErr %v", tc.name, err, tc.wantErr)
 		}
@@ -254,15 +326,15 @@ func TestValidateBitrateCeiling(t *testing.T) {
 			continue
 		}
 		chroma := c.EngineChromas("ffmpeg")[0]
-		if err := Validate("ffmpeg", c.Name, chroma, "cbr", 0, c.BitrateLimitM+1); err == nil {
+		if err := Validate("ffmpeg", c.Name, options(chroma, "cbr", "pc"), 0, c.BitrateLimitM+1); err == nil {
 			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, c.BitrateLimitM)
 		}
-		if err := Validate("ffmpeg", c.Name, chroma, "cbr", 0, c.BitrateLimitM); err != nil {
+		if err := Validate("ffmpeg", c.Name, options(chroma, "cbr", "pc"), 0, c.BitrateLimitM); err != nil {
 			t.Errorf("%s at its ceiling: %v", c.Name, err)
 		}
 		// crf sends no bitrate, so a stale target must not block the encode.
-		if _, gap := c.ModeGap("ffmpeg", "crf"); !gap {
-			if err := Validate("ffmpeg", c.Name, chroma, "crf", 0, c.BitrateLimitM*2); err != nil {
+		if _, gap := c.OptionGap("ffmpeg", OptionMode, "crf"); !gap {
+			if err := Validate("ffmpeg", c.Name, options(chroma, "crf", "pc"), 0, c.BitrateLimitM*2); err != nil {
 				t.Errorf("%s in crf with a stale bitrate target: %v", c.Name, err)
 			}
 		}

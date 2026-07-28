@@ -146,7 +146,9 @@ func (a *App) StartNativeGrid(transportName string) error {
 	logger.Infof("native grid opened with %v over %s", streamNames(live), transportName)
 	a.nativeGrid = proc
 	self = proc
-	go a.pushRoster(proc, transportName, live, asks, done)
+	// The spawn config is what the window holds before the first push,
+	// so the poll starts knowing it and writes only once that has moved.
+	go a.pushRoster(proc, transportName, live, cfg, asks, done)
 	return nil
 }
 
@@ -217,10 +219,17 @@ func streamNames(live []watch.LiveStream) []string {
 	return names
 }
 
-// pushRoster keeps one grid window's state current: it polls the relay and
-// pushes whenever the set of live streams or the publish state changes, and it
-// answers the watch-leg changes and commands the window sends. Everything writes
-// one JSON config per stdin line, so the window has a single way in.
+// pushRoster keeps one grid window's state current: it polls the relay,
+// answers the watch-leg changes and commands the window sends,
+// and pushes what the window should be showing whenever that has moved.
+// Everything writes one JSON config per stdin line, so the window has a single way in.
+//
+// What decides a push is the config, not what produced it.
+// The config is the whole state, built from the settings, the live streams,
+// the per-stream choices and the app's own state,
+// so a poll that finds any of them moved pushes and one that finds none writes nothing.
+// A watch knob turned in the app's settings form therefore reaches a window already playing,
+// on the poll after it was saved.
 //
 // The loop ends with the child: a dead process stops the poll, a failed write
 // means the child is gone, and either releases the reader behind asks. An
@@ -233,7 +242,7 @@ func streamNames(live []watch.LiveStream) []string {
 // settings of their own. The reason a command was refused is kept the same way:
 // it belongs to the window that asked, and the poll drops it as soon as the
 // publish state moves, so a stale reason cannot outlast what it explains.
-func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, asks <-chan watch.GridMessage, done chan<- struct{}) {
+func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, held string, asks <-chan watch.GridMessage, done chan<- struct{}) {
 	defer close(done)
 
 	ticker := time.NewTicker(rosterPollInterval)
@@ -251,27 +260,24 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.L
 			s := a.settings
 			a.settingsMu.Unlock()
 
-			// The publish state is the app's own, so it is compared before the
-			// relay is asked anything and pushed whether or not the relay
-			// answers. A window whose publish button waited for a reachable
-			// relay would show the state of neither.
-			changed := false
+			// The publish state is the app's own,
+			// so it is read before the relay is asked anything
+			// and reaches the window whether or not the relay answers.
+			// A window whose publish button waited for a reachable relay
+			// would show the state of neither.
+			//
+			// It is taken only where it moved,
+			// because the reason a command failed rides in the same value:
+			// replacing it every poll would drop that reason one poll after the window was told it,
+			// and the button it explains would be back to saying nothing.
 			if publishing := a.Publishing(); publishing != app.Publishing {
 				app = watch.GridApp{Publishing: publishing}
-				changed = true
 			}
 			if status := a.relay.Fetch(s.RelayHost, s.ApiPort); status.Reachable {
 				if next := liveStreams(status); !slices.Equal(next, live) {
 					live = next
-					changed = true
 					logger.Infof("native grid roster now %v", streamNames(live))
 				}
-			}
-			if !changed {
-				continue
-			}
-			if !a.pushGrid(proc, transportName, live, choices, app) {
-				return
 			}
 
 		case m := <-asks:
@@ -284,10 +290,13 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.L
 			default:
 				assert.Never("unexpected queued grid message kind", m.Kind)
 			}
-			if !a.pushGrid(proc, transportName, live, choices, app) {
-				return
-			}
 		}
+
+		pushed, alive := a.pushGrid(proc, transportName, live, choices, app, held)
+		if !alive {
+			return
+		}
+		held = pushed
 	}
 }
 
@@ -319,11 +328,14 @@ func (a *App) runGridCommand(c watch.GridCommand) watch.GridApp {
 	return app
 }
 
-// applyGridRequest takes one watch-leg change from the window, or refuses it
-// and leaves the stream on the leg it had. Either way the caller pushes the
-// roster afterwards: the push carries the leg and the knob values that hold
-// now, so a window whose controls show a refused change is corrected by the
-// answer to it.
+// applyGridRequest takes one watch-leg change from the window,
+// or refuses it and leaves the stream on the leg it had.
+// An accepted change moves the roster the caller pushes afterwards,
+// which is what carries the new leg and its knobs back.
+// A refusal moves nothing, and needs no answer:
+// the window reads its controls before it asks
+// and redraws them from the entry it holds as the popover closes,
+// so they are already back on the leg in force.
 func (a *App) applyGridRequest(r watch.GridRequest, live []watch.LiveStream, transportName string, choices map[string]watch.WatchChoice) {
 	i := slices.IndexFunc(live, func(l watch.LiveStream) bool { return l.Name == r.Stream })
 	if i < 0 {
@@ -343,9 +355,15 @@ func (a *App) applyGridRequest(r watch.GridRequest, live []watch.LiveStream, tra
 	logger.Infof("native grid watches %q over %s", r.Stream, r.Transport)
 }
 
-// pushGrid writes the state the window should be showing. It reports whether
-// the child is still there to write to, which is what ends the poll.
-func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, choices map[string]watch.WatchChoice, app watch.GridApp) bool {
+// pushGrid writes the state the window should be showing, given the state held there.
+// It answers with what the window holds afterwards,
+// and with whether the child is still there to write to, which is what ends the poll.
+//
+// A config equal to the one the window was last given is not written.
+// The config carries the whole state rather than what changed in it,
+// so an identical one says nothing the window is not already showing,
+// and writing one per poll would put a line on the pipe for every tick an idle window sits through.
+func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, choices map[string]watch.WatchChoice, app watch.GridApp, held string) (string, bool) {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
@@ -361,12 +379,15 @@ func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.Liv
 	cfg, err := watch.BuildGridConfig(s, live, transportName, choices, app)
 	if err != nil {
 		logger.Warnf("native grid roster push: %v", err)
-		return true
+		return held, true
+	}
+	if cfg == held {
+		return held, true
 	}
 	if _, err := fmt.Fprintln(proc.Stdin, cfg); err != nil {
-		return false
+		return held, false
 	}
-	return true
+	return cfg, true
 }
 
 // StopNativeGrid closes the native grid window.

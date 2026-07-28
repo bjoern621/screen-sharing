@@ -18,6 +18,7 @@ import (
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/display"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -32,10 +33,13 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, fmt.Errorf("unknown transport %q", s.Transport)
 	}
 
-	if err := capabilities.Validate("ffmpeg", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublishSettings(s); err != nil {
 		return nil, err
 	}
 	// Every grabber takes the rate as an input option and the keyframe interval
@@ -45,7 +49,12 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, fmt.Errorf("the ffmpeg publish engine needs a positive fps, got %d", s.Fps)
 	}
 
-	src, err := captureArgs(s)
+	memory, err := frameMemory(s)
+	if err != nil {
+		return nil, err
+	}
+
+	src, err := captureArgs(s, memory)
 	if err != nil {
 		return nil, err
 	}
@@ -62,19 +71,41 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	assert.Assert(len(src.args) > 0 || len(src.filters) > 0, "a validated stream yields a capture source", s.Capture)
 	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Codec)
 
-	// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead of
-	// the input and the grabber's chain ends in a conversion and an upload
-	// (hwsurface.go).
-	device, surface, err := HwSurfaceDevice(s.Codec)
-	if err != nil {
-		return nil, err
-	}
+	// On the GPU path the frames never become software ones, so the map and the
+	// device-side conversion replace the colour tag, the upload and the device option
+	// in one chain: the conversion states the colour it wrote, and the encoder takes
+	// its device from the frames it is handed (gpu.go).
+	var device []string
+	surface := memory == gpupath.MemoryGpu
 	if surface {
-		upload, err := HwSurfaceFilters(s.Codec, s.Chroma)
+		gpu, err := GpuFilters(s.Codec, s.Chroma, s.ColorRange)
 		if err != nil {
 			return nil, err
 		}
-		src.filters = append(src.filters, upload...)
+		src.filters = append(src.filters, gpu...)
+	} else {
+		// The colour description rides on the frames, so it is tagged while they are
+		// still software ones, ahead of the upload a surface encode ends its chain in.
+		if colour := colourFilter(s); colour != "" {
+			src.filters = append(src.filters, colour)
+		}
+
+		// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead
+		// of the input and the grabber's chain ends in a conversion and an upload
+		// (hwsurface.go).
+		var uploads bool
+		device, uploads, err = HwSurfaceDevice(s.Codec)
+		if err != nil {
+			return nil, err
+		}
+		if uploads {
+			upload, err := HwSurfaceFilters(s.Codec, s.Chroma)
+			if err != nil {
+				return nil, err
+			}
+			src.filters = append(src.filters, upload...)
+		}
+		surface = uploads
 	}
 
 	args := []string{"-hide_banner"}
@@ -107,6 +138,42 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	args = append(args, pub...)
 
 	return args, nil
+}
+
+// colourDescription is the colour space this engine encodes against, spelled as
+// setparams and ffprobe name it. It is the ffmpeg side of what the GStreamer engine
+// pins as gstBt709: BT.709 is the colour space of every HD and larger picture, which
+// is every screen this app captures, so a stream's colour does not follow from which
+// engine published it.
+const colourDescription = "bt709"
+
+// colourFilter tags the captured frames with the colour space they are encoded
+// against, empty for a chroma with none to state.
+//
+// The tag is what puts the colour description in the bitstream, and the bitstream is
+// the only place a viewer reads it from, since RTP and MPEG-TS carry no colour of
+// their own. A component left unsignalled is one the viewer picks off the picture
+// size, and it picks limited-range BT.709, so an unsignalled full-range stream is
+// expanded as if it were limited: crushed blacks, clipped whites.
+//
+// The output options reach only part of it. -colorspace lands in the bitstream where
+// -color_primaries and -color_trc do not, and a partial description is no
+// description, a GStreamer viewer reporting no colorimetry at all for one.
+//
+// The range is deliberately absent from the tag. Left unspecified on the frames, the
+// conversion to the encoder's pixel format takes its target range from -color_range.
+// Stated here as well, that conversion writes limited range whatever -color_range
+// says, and full-range white reaches the encoder as Y=235 under a bitstream claiming
+// 255.
+//
+// Planar RGB is skipped for the reason it carries no -color_range: it has no matrix
+// and is full range by construction.
+func colourFilter(s settings.Stream) string {
+	if s.Chroma == "gbrp" {
+		return ""
+	}
+	return fmt.Sprintf("setparams=colorspace=%s:color_primaries=%s:color_trc=%s",
+		colourDescription, colourDescription, colourDescription)
 }
 
 // gopFor returns the keyframe interval in frames. A settings value of zero is the
@@ -144,7 +211,7 @@ type captureSource struct {
 // monitor this machine does not have, a DRM download strategy no table row names.
 // The alternative is a command that captures something else, which is the one
 // outcome the form has no way to show.
-var captureBackends = map[string]func(s settings.Stream, fps string) (captureSource, error){
+var captureBackends = map[string]func(s settings.Stream, fps, memory string) (captureSource, error){
 	"ddagrab": ddagrabArgs,
 	"gdigrab": gdigrabArgs,
 	"x11grab": x11grabArgs,
@@ -152,13 +219,15 @@ var captureBackends = map[string]func(s settings.Stream, fps string) (captureSou
 }
 
 // captureArgs returns the input arguments and filter chain for the configured
-// capture backend.
-func captureArgs(s settings.Stream) (captureSource, error) {
+// capture backend, in the memory this run's frames reach the encoder in. A backend
+// with no GPU path is handed the resolved value all the same and ignores it, so the
+// one place the two shapes are chosen between stays the pair table.
+func captureArgs(s settings.Stream, memory string) (captureSource, error) {
 	build, ok := captureBackends[s.Capture]
 	if !ok {
 		return captureSource{}, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
-	src, err := build(s, strconv.Itoa(s.Fps))
+	src, err := build(s, strconv.Itoa(s.Fps), memory)
 	if err != nil {
 		return captureSource{}, err
 	}
@@ -168,20 +237,35 @@ func captureArgs(s settings.Stream) (captureSource, error) {
 	return src, nil
 }
 
-// ddagrabArgs captures on the GPU as a filter source; hwdownload hands frames back
-// to system memory so any encoder can consume them.
-func ddagrabArgs(s settings.Stream, fps string) (captureSource, error) {
-	return captureSource{
-		filterFlag: "-filter_complex",
-		filters: []string{
-			fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s", s.Monitor, fps),
-			"hwdownload",
-			"format=bgra",
-		},
-	}, nil
+// frameMemory resolves where this run's frames reach the encoder, against the pair
+// table both publish engines read.
+//
+// No device check follows it here. Both of this engine's GPU paths map the captured
+// frames onto a device derived from the frames themselves, so the encoder runs on the
+// GPU the capture came off whatever else the machine carries.
+func frameMemory(s settings.Stream) (string, error) {
+	c, ok := capabilities.Get(s.Codec)
+	if !ok {
+		return "", fmt.Errorf("unknown codec %q", s.Codec)
+	}
+	return gpupath.Resolve(capabilities.EngineFfmpeg, s.Capture, c.Family, s.CaptureMemory)
 }
 
-func gdigrabArgs(_ settings.Stream, fps string) (captureSource, error) {
+// ddagrabArgs captures on the GPU as a filter source.
+//
+// On the system-memory path hwdownload hands the frames back so any encoder can read
+// them, and format=bgra pins the layout swscale converts from. On the GPU path the
+// texture stays where Desktop Duplication put it and the map that follows derives the
+// encoder's device from it, so the chain here ends at the grabber.
+func ddagrabArgs(s settings.Stream, fps, memory string) (captureSource, error) {
+	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s", s.Monitor, fps)}
+	if memory != gpupath.MemoryGpu {
+		filters = append(filters, "hwdownload", "format=bgra")
+	}
+	return captureSource{filterFlag: "-filter_complex", filters: filters}, nil
+}
+
+func gdigrabArgs(_ settings.Stream, fps, _ string) (captureSource, error) {
 	return captureSource{args: []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}}, nil
 }
 
@@ -195,7 +279,7 @@ func gdigrabArgs(_ settings.Stream, fps string) (captureSource, error) {
 //
 // DISPLAY is likewise refused when unset rather than guessed at: x11grab reads an X
 // screen, and no environment naming one is no X session to capture.
-func x11grabArgs(s settings.Stream, fps string) (captureSource, error) {
+func x11grabArgs(s settings.Stream, fps, _ string) (captureSource, error) {
 	disp := os.Getenv("DISPLAY")
 	if disp == "" {
 		return captureSource{}, fmt.Errorf("x11grab captures an X screen and DISPLAY names none")

@@ -8,16 +8,15 @@ import (
 	"bjoernblessin.de/screenshare/capabilities"
 )
 
-// The half of the publish command the encoder families that read GPU surfaces need:
-// VAAPI, QSV and Vulkan Video. Their own pixel format is the opaque hardware one, so
-// the command opens a device ahead of the input and ends the capture chain in a
+// The system-memory half of the publish command for the encoder families that read GPU
+// surfaces: VAAPI, QSV and Vulkan Video. Their own pixel format is the opaque hardware
+// one, so the command opens a device ahead of the input and ends the capture chain in a
 // conversion and an upload instead of pinning a -pix_fmt.
 //
-// Every capture backend produces system memory (x11grab and the Windows grabbers
-// copy, kmsgrab downloads its scanout buffer), so every frame makes that trip. It
-// costs a round trip on kmsgrab, which had the frame on the GPU already; keeping it
-// there would mean a hardware-mapped scanout buffer and a driver-side colour
-// conversion, which is a capture-path change rather than an encoder one.
+// This is the path for every pair the GPU one does not cover (gpupath.Paths): the
+// capture arrives in system memory, swscale converts it there, and the upload hands the
+// encoder surfaces it can read. Where the pair does have a GPU path, the frames never
+// become software ones and gpu.go replaces all three pieces at once.
 //
 // The device is the family's own, since the three open a GPU differently. The
 // conversion is shared: all three take the same two semi-planar layouts. The upload

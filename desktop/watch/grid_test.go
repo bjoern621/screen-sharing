@@ -318,3 +318,43 @@ func TestWatchLegKeepsTheWindowsTransport(t *testing.T) {
 		t.Errorf("transport = %q, want the window's srt", name)
 	}
 }
+
+// A move to another leg states no knobs, since the ones the window has are keyed to
+// the leg being left (the "undeclared key" case above is what stating them costs).
+// The move is taken on the settings' own values for the leg moved to, which is what
+// the roster answering it declares.
+func TestWatchLegMovesOnTheSettingsKnobs(t *testing.T) {
+	base := rtspStream()
+
+	leg, name, err := WatchLeg(base, h264Live("alice")[0], "rtsp", WatchChoice{Transport: "srt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "srt" {
+		t.Errorf("transport = %q, want the chosen srt", name)
+	}
+	if leg.SrtWatchLatencyMs != base.SrtWatchLatencyMs {
+		t.Errorf("srt watch latency = %d, want the settings' %d", leg.SrtWatchLatencyMs, base.SrtWatchLatencyMs)
+	}
+}
+
+// The sidebar offers the leg a stream is on beside the ones its format is served
+// over, so a stream the window's leg does not carry can be asked for on that leg
+// by name. Naming it holds it, the way naming nothing does, and the knobs the
+// request carries with the name are written: refusing here would leave that
+// stream's knobs unreachable.
+func TestWatchLegTakesTheWindowsTransportByName(t *testing.T) {
+	leg, name, err := WatchLeg(srtStream(), vp9Live("alice"), "srt", WatchChoice{
+		Transport: "srt",
+		Options:   map[string]string{"srtWatchLatencyMs": "80"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "srt" {
+		t.Errorf("transport = %q, want the window's srt", name)
+	}
+	if leg.SrtWatchLatencyMs != 80 {
+		t.Errorf("srt watch latency = %d, want the 80 the request carried", leg.SrtWatchLatencyMs)
+	}
+}

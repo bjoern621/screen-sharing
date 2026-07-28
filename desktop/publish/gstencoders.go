@@ -67,10 +67,11 @@ type gstCodec struct {
 //
 // The VAAPI rows target the stateless "va" plugin (gst-plugins-bad), not the older
 // "vaapi" one (gstreamer-vaapi: vaapih264enc, vaapih265enc). The va plugin is the
-// maintained one, it is the only one with an AV1 encoder, and it negotiates the
-// DMABuf/VAMemory caps the portal capture backend already produces. Its elements
-// register per detected device, so an element name below exists only where the
-// driver exposes that encode entrypoint, which is the same condition the codec's
+// maintained one, it is the only one with an AV1 encoder, and it negotiates the VAMemory
+// caps that make the portal backend's GPU path possible: vapostproc imports the
+// compositor's dmabuf and converts into surfaces these elements read (gpupath.Paths).
+// Its elements register per detected device, so an element name below exists only where
+// the driver exposes that encode entrypoint, which is the same condition the codec's
 // probe tests (encoders.Detect).
 //
 // The QSV rows target the "qsv" plugin, which drives Intel's oneVPL runtime over VA on
@@ -143,7 +144,7 @@ func firstGstMode(codec string) (string, bool) {
 		return "", false
 	}
 	for _, mode := range capabilities.Modes {
-		if _, gap := c.ModeGap(capabilities.EngineGst, mode); !gap {
+		if _, gap := c.OptionGap(capabilities.EngineGst, capabilities.OptionMode, mode); !gap {
 			return mode, true
 		}
 	}

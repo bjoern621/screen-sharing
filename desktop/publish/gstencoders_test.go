@@ -54,7 +54,7 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 		engineChromas := cap.EngineChromas("gstreamer")
 
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
-			if _, gap := cap.ModeGap("gstreamer", mode); gap {
+			if _, gap := cap.OptionGap("gstreamer", capabilities.OptionMode, mode); gap {
 				continue
 			}
 			t.Run(name+"/"+mode, func(t *testing.T) {

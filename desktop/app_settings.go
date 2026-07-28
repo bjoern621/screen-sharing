@@ -5,6 +5,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
@@ -138,6 +139,30 @@ func (a *App) CaptureTransports() map[string][]string {
 		out[capture] = ts
 	}
 	return out
+}
+
+// FrameMemories lists the values the frame-memory setting takes, in display order.
+func (a *App) FrameMemories() []string {
+	return gpupath.Memories
+}
+
+// GpuPaths lists the capture backend and encoder family pairs whose frames reach the
+// encoder without a trip through system memory.
+//
+// The form reads the pairs rather than a yes/no per capture backend, because neither
+// end decides on its own: the same portal capture has a GPU path into a va encoder and
+// none into an x264 one. A selection matching no row leaves only the system-memory
+// value pickable, and the row's Import is what the greyed one says instead.
+func (a *App) GpuPaths() []gpupath.Path {
+	return gpupath.Paths
+}
+
+// ForgetPortalConsent drops the stored ScreenCast restore token, so the next portal
+// capture pops the compositor's picker again. It is how a share aimed at the wrong
+// window or monitor is corrected: the token names one consent, and the compositor
+// reuses it until it is asked to choose afresh.
+func (a *App) ForgetPortalConsent() error {
+	return settings.ForgetPortalToken()
 }
 
 // CaptureEngines maps each capture backend to the publish engine that runs it,

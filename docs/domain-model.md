@@ -17,14 +17,20 @@ The disable rules and the repair rules in the frontend were previously two hand-
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
 - `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, what its encoder cannot do, and the scale its constant-quality knob counts on.
+- `gpupath/gpupath.go`: per capture backend and encoder family, whether their frames reach the encoder without a trip through system memory, and what carries them.
 - `capabilities/decoders.go`: per decoder element, the pixel formats it decodes and what bounds that list.
   It describes the viewers rather than this machine: a stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing in it restricts a choice.
   The form reads it to say what a pixel format costs a viewer, every format having a software decoder and the choice being between a viewer's GPU and a viewer's cores.
 - `transport/*.go`: per protocol, the bitstream formats it carries to the relay and the ones the relay serves back over it, declared beside the code that serializes each leg.
 
-The two publish engines wrap different encoder implementations, so a pixel format, a rate-control mode or a whole codec can be one engine's and not the other's.
-Each difference is a `Gap` naming the engine, the axis and the reason, rather than a row narrowed to what both engines manage.
+The two publish engines wrap different encoder implementations, so a pixel format, a colour range, a rate-control mode or a whole codec can be one engine's and not the other's.
+Each difference is a `Gap` naming the engine, the option, the value and the reason, rather than a row narrowed to what both engines manage.
 An option one engine reaches therefore stays offered on that engine's capture backends and is greyed with the element's own limit on the other, so the form can say "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
+
+A gap takes one value of one settings option away, and which options exist is the `capabilities.Options` list.
+The lookup, the validator and the frontend read that list rather than a field per axis, so an option becomes gappable by being named there, given a refusal phrase, and carried in `settings.Stream.CapabilityOptions`.
+A gap naming no option takes the codec off that engine altogether, since no value of any option reaches an encoder that is not there.
+Gap values are the settings' own: the option is a `settings.Stream` JSON field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
 
 Which protocol carries a codec is not a column here.
 A protocol carries a bitstream format, so each transport declares its own format set per leg (`transport.Formats`) and both directions read it: the publish set validates a publish command, the watch set answers what a viewer may receive over that leg (`viewer-architecture.md`, "Which protocol carries which format").
@@ -32,13 +38,18 @@ Adding a transport is therefore one file in the `transport` package and no edit 
 
 The encoder reads this table directly.
 Each builder keys its family-wide behaviour off a table the row's `Family` indexes (`familyMappings`, `hwSurfaces`, `gstFamilyLimits`, `gstFamilyChromaFormats`) rather than off a per-family flag or a codec-name suffix, so a family gains a behaviour by gaining an entry.
-`capabilities.Validate` rejects a codec/chroma/mode/quantizer combination the table forbids.
+`capabilities.Validate` rejects a codec, option value or quantizer the table forbids, reading every option in `Options` the same way.
 Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
 The decode table reaches it through `App.Decoders` beside it, and feeds a note on the pixel-format control rather than a greying, since a decoder the viewer lacks is a cost and not an illegal combination.
 
 Which publish engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
 It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
+
+`gpupath/gpupath.go` is a table of pairs rather than of codecs, and it is the one constraint neither end declares alone.
+Whether captured frames reach the encoder without a trip through system memory depends on the capture backend and the encoder family together: the portal capture shares device memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
+A `Gap` cannot express that, since a gap is a fact about one codec, so the pairs are their own table and `App.GpuPaths` carries it to the frontend whole.
+Each engine holds its own half beside its builder (`gstGpuMemories`, `gpuConverts`), and a row whose engine half is missing is asserted rather than filled in, because the alternative is negotiating a memory the elements do not carry (`capture-architecture.md`, "Frame memory").
 
 Presentation and heuristics are UI-only and live in the frontend:
 
@@ -56,6 +67,7 @@ Each consumer reads the tables instead of restating a rule:
 - `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
 - `nativegrid.ts`: the native-grid viewability verdict, from the watch set the transport table gives the grid's selected watch leg.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
+- `presets.ts`: the configuration a preset applies here, searched over the codecs the capability table declares and the capture backends the platform runs, and greyed where the tables leave none (`presets.md`).
 
 Because `evaluateDeps` and `normalize` read one source, a greyed option and its replacement always agree.
 That holds only while every value `normalize` can pick satisfies the rules `evaluateDeps` greys by, so a dimension with nothing legal left keeps the value it has instead of taking one from outside them.

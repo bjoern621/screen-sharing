@@ -9,14 +9,32 @@ import (
 func TestRequestWatchLegAsksTheApp(t *testing.T) {
 	sess, _, asked := newAskingSession(t, "alice")
 
-	sess.RequestWatchLeg(0, "rtsp", map[string]string{"rtspWatchLatencyMs": "400"})
+	sess.RequestWatchLeg(0, "srt", map[string]string{"srtWatchLatencyMs": "400"})
 
 	if len(asked.sent) != 1 {
 		t.Fatalf("sent %d requests, want 1", len(asked.sent))
 	}
 	got := asked.sent[0]
-	if got.Stream != "alice" || got.Transport != "rtsp" || got.Options["rtspWatchLatencyMs"] != "400" {
-		t.Errorf("request = %+v, want alice over rtsp at 400 ms", got)
+	if got.Stream != "alice" || got.Transport != "srt" || got.Options["srtWatchLatencyMs"] != "400" {
+		t.Errorf("request = %+v, want alice over srt at 400 ms", got)
+	}
+}
+
+// A move to another leg carries the leg alone. The knobs on the controls are the
+// ones the leg being left declares, and a request stating them under the new one
+// names knobs that transport does not have, which the app refuses as a whole leg:
+// the move would be lost with them.
+func TestRequestWatchLegMovesWithoutKnobs(t *testing.T) {
+	sess, _, asked := newAskingSession(t, "alice")
+
+	sess.RequestWatchLeg(0, "rtsp", map[string]string{})
+
+	if len(asked.sent) != 1 {
+		t.Fatalf("sent %d requests, want 1", len(asked.sent))
+	}
+	got := asked.sent[0]
+	if got.Transport != "rtsp" || len(got.Options) != 0 {
+		t.Errorf("request = %+v, want rtsp with no knobs stated", got)
 	}
 }
 

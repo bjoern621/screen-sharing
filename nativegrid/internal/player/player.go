@@ -33,7 +33,9 @@ type Player interface {
 	// Stats reports the decode figures for the stats overlay. Fields the
 	// pipeline has not learned yet are zero.
 	Stats() Stats
-	// Stop tears the pipeline down. Safe to call after OnEnd fired.
+	// Stop tears the pipeline down. Safe to call after OnEnd fired, and from a
+	// thread of the caller's own: a window closing stops every player at once
+	// rather than one after the other.
 	Stop()
 }
 

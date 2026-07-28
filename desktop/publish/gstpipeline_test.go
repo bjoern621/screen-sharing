@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -45,7 +46,7 @@ func TestCaptureCapsNameEveryColorimetryComponent(t *testing.T) {
 		s := settings.Defaults()
 		s.Chroma = "yuv444p"
 		s.ColorRange = tc.colorRange
-		caps, err := gstInputCaps(s)
+		caps, err := gstTestCaps(s)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -61,7 +62,7 @@ func TestCaptureCapsNameEveryColorimetryComponent(t *testing.T) {
 func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
 	s := settings.Defaults()
 	s.Chroma = "yuv444p"
-	inCaps, err := gstInputCaps(s)
+	opts, err := gstSourceOptions(s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,13 +71,13 @@ func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
 		if !ok {
 			continue
 		}
-		elements := g.capture.Describe(s, gstCaptureOptions{InCaps: inCaps})
+		elements := g.capture.Describe(s, opts)
 		if len(elements) == 0 {
 			t.Errorf("%s: capture backend describes no elements", name)
 			continue
 		}
-		if !slices.Contains(elements, inCaps) {
-			t.Errorf("%s: capture elements %v do not carry the encoder input caps %q", name, elements, inCaps)
+		if !slices.Contains(elements, opts.InCaps) {
+			t.Errorf("%s: capture elements %v do not carry the encoder input caps %q", name, elements, opts.InCaps)
 		}
 	}
 }
@@ -89,7 +90,7 @@ func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
 func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 	s := settings.Defaults()
 	s.Chroma = "yuv444p"
-	inCaps, err := gstInputCaps(s)
+	opts, err := gstSourceOptions(s)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -98,11 +99,11 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 		if !ok {
 			continue
 		}
-		plain := strings.Join(g.capture.Describe(s, gstCaptureOptions{InCaps: inCaps}), " ")
+		plain := strings.Join(g.capture.Describe(s, opts), " ")
 		if strings.Contains(plain, gstCaptureName) {
 			t.Errorf("%s: a pipeline built without instrumentation carries the rate probe: %s", name, plain)
 		}
-		probed := strings.Join(g.capture.Describe(s, gstCaptureOptions{InCaps: inCaps, RateProbe: gstCaptureProbe}), " ")
+		probed := strings.Join(g.capture.Describe(s, gstProbed(opts)), " ")
 		if !strings.Contains(probed, strings.Join(gstCaptureProbe, " ")) {
 			t.Errorf("%s: capture elements drop the rate probe: %s", name, probed)
 		}
@@ -115,11 +116,11 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 	s := settings.Defaults()
 	s.Chroma = "yuv444p"
-	inCaps, err := gstInputCaps(s)
+	opts, err := gstSourceOptions(s)
 	if err != nil {
 		t.Fatal(err)
 	}
-	line := strings.Join(portalCapture{}.Describe(s, gstCaptureOptions{InCaps: inCaps, RateProbe: gstCaptureProbe}), " ")
+	line := strings.Join(portalCapture{}.Describe(s, gstProbed(opts)), " ")
 	probe, pacer := strings.Index(line, gstCaptureName), strings.Index(line, "imagefreeze")
 	if probe < 0 || pacer < 0 || probe > pacer {
 		t.Errorf("the rate probe must precede imagefreeze: %s", line)
@@ -142,7 +143,7 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 		t.Skipf("the default chroma is %s, no longer the gapped format this covers", s.Chroma)
 	}
 
-	_, err := gstInputCaps(s)
+	_, err := gstTestCaps(s)
 	if err == nil {
 		t.Fatal("a chroma gapped on this engine must not yield encoder input caps")
 	}
@@ -199,14 +200,171 @@ func TestGstInputCapsRefusesAnUnmappedColorRange(t *testing.T) {
 	s.Chroma = "yuv444p"
 	for _, bad := range []string{"", "full", "limited", "PC"} {
 		s.ColorRange = bad
-		if _, err := gstInputCaps(s); err == nil {
+		if _, err := gstTestCaps(s); err == nil {
 			t.Errorf("colour range %q must be refused, not read as limited", bad)
 		}
 	}
 	for _, good := range []string{"pc", "tv"} {
 		s.ColorRange = good
-		if _, err := gstInputCaps(s); err != nil {
+		if _, err := gstTestCaps(s); err != nil {
 			t.Errorf("colour range %q: %v", good, err)
 		}
 	}
+}
+
+// gstGpuStream returns settings publishing the portal capture into a va encoder over
+// the direct path, the one pair this engine declares.
+func gstGpuStream() settings.Stream {
+	s := settings.Defaults()
+	s.Capture, s.Codec = "portal", "h264_vaapi"
+	// Limited range because the va elements signal no colour description, which the
+	// capability table declares as a gap on full range for this engine. It is a fact
+	// about what the encoder writes into the bitstream and is unaffected by where the
+	// frames came from, so the direct path inherits it.
+	s.Chroma, s.Mode, s.ColorRange = "yuv420p", "cbr", "tv"
+	s.Transport = "rtsp"
+	s.CaptureMemory = gpupath.MemoryGpu
+	return s
+}
+
+// Every pair the table declares for this engine has to name the memory its surfaces
+// carry, or a run resolved onto the direct path reaches an assertion instead of a
+// pipeline.
+func TestEveryGstGpuPathNamesItsMemory(t *testing.T) {
+	for _, p := range gpupath.Paths {
+		if p.Engine != EngineGst {
+			continue
+		}
+		if _, ok := gstGpuMemories[p.Family]; !ok {
+			t.Errorf("%s/%s: the family has a GPU path and no caps feature", p.Capture, p.Family)
+		}
+	}
+}
+
+// Every capture backend a row names has to be one this app runs, since the row is what
+// the form reads to decide whether the direct path is offered at all.
+func TestEveryGpuPathNamesARunnableCapture(t *testing.T) {
+	for _, p := range gpupath.Paths {
+		if _, ok := captureBackends[p.Capture]; !ok {
+			t.Errorf("%s/%s/%s names no capture backend this app runs", p.Engine, p.Capture, p.Family)
+		}
+	}
+}
+
+// Plain video/x-raw means system memory, so a capsfilter that omits the feature pins
+// the frames back into the round trip. Every caps the chain pins downstream of the
+// source has to carry it, the framerate one imagefreeze paces to included.
+func TestTheGstGpuPathCarriesTheMemoryFeatureOnEveryCaps(t *testing.T) {
+	s := gstGpuStream()
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := gstGpuMemories[capabilities.FamilyVaapi].feature
+	if !strings.Contains(opts.InCaps, feature) {
+		t.Errorf("the encoder input caps %q lack the memory feature %q", opts.InCaps, feature)
+	}
+	for _, caps := range (portalCapture{}).Describe(s, opts) {
+		if !strings.HasPrefix(caps, "video/x-raw") || strings.Contains(caps, feature) {
+			continue
+		}
+		// The source is pinned to the memory the compositor exports, which is not the
+		// encoder's; every other raw caps in the chain is downstream of the conversion.
+		if strings.Contains(caps, "memory:DMABuf") {
+			continue
+		}
+		t.Errorf("caps %q pin system memory on the GPU path", caps)
+	}
+}
+
+// pipewiresrc negotiates the compositor's dmabuf export only when the caps ask for it,
+// and settles on the copies PipeWire writes into shared memory when they do not. That
+// copy is the round trip the path exists to avoid, so the source is pinned and a
+// compositor exporting no dmabuf fails in negotiation rather than delivering it.
+func TestThePortalGpuPathPinsTheSourceToDmabuf(t *testing.T) {
+	s := gstGpuStream()
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Join(portalCapture{}.Describe(s, opts), " ")
+	if !strings.Contains(line, "video/x-raw(memory:DMABuf)") {
+		t.Errorf("the portal source must be pinned to dmabuf on the GPU path: %s", line)
+	}
+	// The conversion has to run on the device as well. videoconvert reads system
+	// memory, so its presence would mean the frames were mapped back after all.
+	if strings.Contains(line, gstSystemConvert) {
+		t.Errorf("the GPU path converts on the device, not with %s: %s", gstSystemConvert, line)
+	}
+	if !strings.Contains(line, gstGpuMemories[capabilities.FamilyVaapi].convert) {
+		t.Errorf("the GPU path must convert with the family's post-processor: %s", line)
+	}
+}
+
+// The system-memory path is what every pair without a row runs, and it has to stay the
+// chain it was: a CPU conversion and caps naming no device memory.
+func TestTheGstSystemPathPinsNoDeviceMemory(t *testing.T) {
+	s := gstGpuStream()
+	s.CaptureMemory = gpupath.MemorySystem
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Join(portalCapture{}.Describe(s, opts), " ")
+	if strings.Contains(line, "memory:") {
+		t.Errorf("the system-memory path must pin no device memory: %s", line)
+	}
+	if !strings.Contains(line, gstSystemConvert) {
+		t.Errorf("the system-memory path converts on the CPU: %s", line)
+	}
+}
+
+// Auto is the setting a stored stream carries, so the pair table alone decides which
+// chain it builds.
+func TestGstAutoFollowsThePairTable(t *testing.T) {
+	s := gstGpuStream()
+	s.CaptureMemory = gpupath.MemoryAuto
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.Memory != gpupath.MemoryGpu {
+		t.Errorf("auto must take the direct path where the pair has one, got %s", opts.Memory)
+	}
+
+	// The same capture into an encoder that reads system memory has no path, and auto
+	// resolves to the copy rather than refusing.
+	s.Codec, s.Chroma = "libx264", "yuv420p"
+	opts, err = gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opts.Memory != gpupath.MemorySystem {
+		t.Errorf("auto must copy where the pair has no direct path, got %s", opts.Memory)
+	}
+}
+
+// A demand the pair cannot meet is refused before anything is acquired, so a
+// combination the form greys never pops the compositor's picker.
+func TestGstRefusesTheGpuDemandForAPairWithoutAPath(t *testing.T) {
+	s := gstGpuStream()
+	s.Codec, s.Chroma = "libx264", "yuv420p"
+	if _, err := gstSourceOptions(s); err == nil {
+		t.Fatal("the portal into a software encoder has no GPU path and must be refused")
+	}
+}
+
+// gstTestCaps returns the encoder input caps these settings publish through, resolved
+// the way the engine resolves them. Tests that are about the caps alone read them from
+// here rather than building a frame memory of their own, so a change in how the memory
+// is resolved reaches them.
+func gstTestCaps(s settings.Stream) (string, error) {
+	opts, err := gstSourceOptions(s)
+	return opts.InCaps, err
+}
+
+// gstProbed is the source options a run that reports progress carries.
+func gstProbed(opts gstCaptureOptions) gstCaptureOptions {
+	opts.RateProbe = gstCaptureProbe
+	return opts
 }

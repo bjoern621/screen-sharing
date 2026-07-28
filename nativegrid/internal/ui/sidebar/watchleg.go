@@ -156,13 +156,25 @@ func (v *legView) rebuild() {
 // the knob that moved: the app replaces what it held for this stream. The answer is
 // the next push, which is what moves these widgets.
 //
+// A change that leaves the transport carries no knobs.
+// The ones on screen belong to the transport being left, keyed as it declares them,
+// and the transport being moved to declares a set of its own this side has never been sent.
+// Stating the old keys under the new leg asks it for knobs it does not have,
+// which the app refuses as a whole leg, so the move would be lost along with them.
+// The push that answers carries the new leg's knobs at the values the app holds,
+// and the draw it triggers builds the controls for them.
+//
 // The controls are read before the popdown, because closing draws the entry that
 // still holds back into them and a read after it would carry the leg the change was
 // meant to replace.
 func (v *legView) write() {
 	assert.IsNotNil(v.legs, "a watch-leg change is read off controls a draw built")
 
-	transport, options := v.selected(), v.values()
+	transport := v.selected()
+	options := map[string]string{}
+	if transport == v.stream.Transport {
+		options = v.values()
+	}
 	v.popover.Popdown()
 	v.ask(transport, options)
 }

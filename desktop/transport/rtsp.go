@@ -2,6 +2,8 @@ package transport
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
@@ -10,12 +12,21 @@ import (
 // RTSP streams through the relay's RTSP listener. Each track travels as its
 // own RTP stream inside the RTSP session, so no MPEG-TS mux is involved.
 //
-// The publish serializations force TCP-interleaved RTP. The RTSP default
-// negotiates a separate UDP port pair per track, which NAT and firewalls drop
-// silently, and lost RTP over UDP is never retransmitted; interleaving rides
-// the one RTSP TCP connection instead. The watch leg takes the same choice from
-// settings.Stream.RtspWatchProtocol, because a viewer on the same LAN as the
-// relay can trade that safety for UDP's lower delay.
+// Each leg names the RTP lower transport it runs over: the publish leg from
+// settings.Stream.RtspPublishProtocol, the watch leg from RtspWatchProtocol.
+// TCP interleaves both tracks on the connection the RTSP session already holds.
+// UDP takes a port pair per track, which drops the delay in-order delivery adds;
+// RTP lost either way is never retransmitted.
+//
+// The port pair is what makes TCP the default on both legs. It is negotiated
+// separately from the RTSP connection, so a client behind NAT reaches it only by
+// sending from those ports first: that creates the mapping, and the relay has to
+// answer into it rather than at the port SETUP announced, which is the private
+// one the NAT rewrote. The publish leg does the sending with the media itself;
+// the watch leg has to open the path with probe packets before the first RTP can
+// come back. Either way a network that drops outbound UDP ends it, which is a
+// fact of the network that leg crosses and of nothing in here, and the failure
+// is silent: the session sets up over TCP and no RTP follows.
 type RTSP struct{}
 
 func init() {
@@ -45,7 +56,7 @@ var draftRtpFormats = map[string]bool{"vp9": true, "av1": true}
 // PublishArgs returns the ffmpeg output args for this transport. The RTSP muxer
 // wraps the RTP muxer, so the draft-payload flag applies here as well.
 func (RTSP) PublishArgs(s settings.Stream) []string {
-	args := []string{"-f", "rtsp", "-rtsp_transport", "tcp"}
+	args := []string{"-f", "rtsp", "-rtsp_transport", s.RtspPublishProtocol}
 	if c, ok := capabilities.Get(s.Codec); ok && draftRtpFormats[c.Format] {
 		args = append(args, "-strict", "experimental")
 	}
@@ -60,7 +71,7 @@ func (RTSP) PublishArgs(s settings.Stream) []string {
 func (RTSP) GstSink(s settings.Stream) []string {
 	return []string{
 		"rtspclientsink", "name=" + GstMuxName,
-		"protocols=tcp",
+		"protocols=" + s.RtspPublishProtocol,
 		"location=" + rtspURL(s, s.Name),
 	}
 }
@@ -83,13 +94,27 @@ func (RTSP) GstSource(s settings.Stream, streamName string) []string {
 	}
 }
 
-// rtspProtocols are the RTP lower transports rtspsrc is offered on the watch
-// leg, the values RtspWatchProtocol takes.
+// rtspProtocols are the RTP lower transports this protocol offers, the values
+// both RtspPublishProtocol and RtspWatchProtocol take. One list for both legs:
+// which transports carry RTP is a fact of RTSP, not of a direction.
 var rtspProtocols = []string{"tcp", "udp"}
 
+// ValidatePublishSettings rejects a lower transport RTSP does not run over.
+// ffmpeg's -rtsp_transport and rtspclientsink's protocols property both take a
+// fixed set of names, so a value outside it fails inside the publish process,
+// where the reason reaches the user as another program's error text.
+func (RTSP) ValidatePublishSettings(s settings.Stream) error {
+	if !slices.Contains(rtspProtocols, s.RtspPublishProtocol) {
+		return fmt.Errorf("rtsp publish protocol %q is not one of %s",
+			s.RtspPublishProtocol, strings.Join(rtspProtocols, ", "))
+	}
+	return nil
+}
+
 // rtspWatchKnobs are the watch-leg knobs a viewer can change per stream, the
-// settings fields GstSource reads. The publish leg has none: it is TCP-interleaved
-// regardless.
+// settings fields GstSource reads. The publish leg's counterpart is a field of
+// the settings form: it is chosen once for the stream this machine sends, not
+// per stream it receives.
 var rtspWatchKnobs = []watchKnob{
 	intKnob("rtspWatchLatencyMs", "RTSP jitter buffer (ms)",
 		"How long the receiver holds RTP packets before decoding, to reorder them and absorb network jitter. "+
@@ -97,8 +122,10 @@ var rtspWatchKnobs = []watchKnob{
 		minWatchLatencyMs,
 		func(s *settings.Stream) *int { return &s.RtspWatchLatencyMs }),
 	choiceKnob("rtspWatchProtocol", "RTSP transport",
-		"How RTP reaches the viewer inside the RTSP session. UDP takes a port pair per track and trades retransmission for delay; "+
-			"TCP interleaves both tracks on the RTSP connection, which NAT and firewalls let through.",
+		"How RTP reaches the viewer inside the RTSP session. UDP takes a port pair per track and trades retransmission for delay, "+
+			"but the media travels toward the viewer on it, so nothing arrives until the viewer's own probe packets have opened "+
+			"the mapping through its NAT and the relay answers where they came from. "+
+			"TCP interleaves both tracks on the RTSP connection, which needs no second port and is what a filtering network is likeliest to pass.",
 		rtspProtocols,
 		func(s *settings.Stream) *string { return &s.RtspWatchProtocol }),
 }

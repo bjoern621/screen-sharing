@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -32,11 +33,13 @@ func baseStream() settings.Stream {
 		BitrateM:   150,
 		MaxrateM:   200,
 		Capture:    "x11grab",
-		// The NVENC mapping is held to the preset ladder, and a settings file reaches a
-		// builder through settings.migrateStream, which fills the key a file written
-		// before the option lacks. These settings stand in for one that has.
-		EncPreset: "p7",
-		DrmMap:    "auto",
+		// The NVENC mapping is held to the preset ladder, the frame memory against the
+		// pair table, and a settings file reaches a builder through
+		// settings.migrateStream, which fills the keys a file written before either
+		// option lacks. These settings stand in for one that has.
+		EncPreset:     "p7",
+		DrmMap:        "auto",
+		CaptureMemory: gpupath.MemoryAuto,
 	}
 }
 
@@ -413,7 +416,7 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 			continue
 		}
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
-			if _, gap := cap.ModeGap("ffmpeg", mode); gap {
+			if _, gap := cap.OptionGap("ffmpeg", capabilities.OptionMode, mode); gap {
 				continue
 			}
 			t.Run(cap.Name+"/"+mode, func(t *testing.T) {

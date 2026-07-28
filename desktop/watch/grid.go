@@ -154,12 +154,17 @@ func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport stri
 // applied. The base settings are copied, so a per-stream choice reaches that
 // stream and nothing else.
 //
-// A chosen transport the stream cannot be watched over and a knob the transport
-// does not declare are refused, which is how a choice is rejected where it
-// arrives instead of turning into a source fragment nothing plays. A stream
-// with no choice of its own takes defaultTransport unexamined: the window was
-// opened on it, and dropping it here would move the stream to a leg nobody
-// picked.
+// A chosen transport the stream cannot be watched over and a knob the transport does not declare
+// are refused, which is how a choice is rejected where it arrives
+// instead of turning into a source fragment nothing plays.
+//
+// The window's own leg is the exception, on both paths to it:
+// a stream with no choice takes defaultTransport, and so does a choice naming it.
+// The window was opened on that leg,
+// and a stream whose format it does not carry sits on it all the same,
+// so the viewer offers it beside the legs it lists.
+// Refusing the name would leave that stream unable to state the leg it already runs on,
+// and its knobs, which travel with the name, unreachable with it.
 func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c WatchChoice) (settings.Stream, string, error) {
 	// The window's own leg is not examined below, so a stream with no choice leaves
 	// here on it.
@@ -168,7 +173,7 @@ func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c Wat
 	assert.Assert(transport.CanGstWatch(defaultTransport), "a grid window opens on a GStreamer watch leg", defaultTransport)
 
 	name := defaultTransport
-	if c.Transport != "" {
+	if c.Transport != "" && c.Transport != defaultTransport {
 		offered := GstWatchTransports(l.Format)
 		if !slices.Contains(offered, c.Transport) {
 			return base, "", fmt.Errorf("stream %q cannot be watched over %s: %s carries %s",

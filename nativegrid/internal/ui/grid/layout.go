@@ -17,6 +17,7 @@ import (
 // second rebuild on unchanged model state produce the same tree: a tile lands in one
 // parent, in one place, however often the model reports the same order.
 func (v *View) rebuild() {
+	v.applyMargins()
 	widgets.ClearBox(v.strip)
 	widgets.ClearBox(v.spotBox)
 	widgets.ClearGrid(v.grid)
@@ -82,7 +83,8 @@ func (v *View) resized() {
 // arrangement is where n tiles sit in the tile area's allocation, less the margin the
 // grid keeps around itself.
 func (v *View) arrangement(n int) []cell {
-	return arrange(n, v.probe.Width()-2*gap, v.probe.Height()-2*gap, gap)
+	m := v.margin()
+	return arrange(n, v.probe.Width()-2*m, v.probe.Height()-2*m, gap)
 }
 
 // shown is the streams with an open tile, in display order.

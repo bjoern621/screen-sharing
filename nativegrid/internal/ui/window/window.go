@@ -32,6 +32,15 @@ const (
 	toggleIconSize  = 20
 )
 
+// decoration is the window buttons the content header carries, in GTK's layout
+// syntax: nothing before the colon, maximize beside close after it.
+//
+// The desktop's own layout is overridden rather than followed. Maximize is what the
+// sidebar toggle leaves the window needing, since neither the toggle nor fullscreen
+// gives back the shape between windowed and the whole screen, and a desktop that
+// puts its buttons at the start would stack them on the toggle.
+const decoration = ":maximize,close"
+
 // chromeIcons holds the window chrome's icons, which stay registered for the process
 // lifetime: the chrome outlives every tile.
 var chromeIcons theme.Icons
@@ -44,14 +53,12 @@ type chrome struct {
 	toolbar *adw.ToolbarView
 	header  *adw.HeaderBar
 	toggle  *gtk.ToggleButton
+	tiles   *grid.View
 	sess    *session.Session
 	store   layout.WindowStore
 	// settingSidebar is up while showSidebar writes the two halves of the sidebar
 	// control, whose property notifies land back in it (geometry.go).
 	settingSidebar bool
-	// chromeHovered is up while the pointer is over the content header's strip,
-	// the one region that brings the chrome back once the sidebar is out (geometry.go).
-	chromeHovered bool
 	// persist folds a burst of geometry changes into one write, and written holds
 	// what that write put on file (geometry.go).
 	persist *idle.Coalescer
@@ -85,13 +92,13 @@ func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *a
 	// started on either previews and commits in both.
 	drag := dnd.New(sess)
 	streams := sidebar.New(sess, drag, dispatch)
-	tiles := grid.New(sess, drag, dispatch)
+	c.tiles = grid.New(sess, drag, dispatch)
 	sess.Observe(streams)
-	sess.Observe(tiles)
+	sess.Observe(c.tiles)
 
 	c.split = adw.NewOverlaySplitView()
 	c.split.SetSidebar(streams.Widget())
-	c.split.SetContent(c.content(tiles))
+	c.split.SetContent(c.content())
 	c.split.SetSidebarWidthFraction(sidebarFraction)
 	c.split.SetMinSidebarWidth(sidebarMinWidth)
 	c.win.SetContent(c.split)
@@ -106,14 +113,14 @@ func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *a
 }
 
 // content is the tile area under a flat header bar. The header carries the sidebar
-// toggle at the start and the window close button at the end.
+// toggle at the start and the window buttons at the end.
 //
-// With the sidebar out the header is not a frame but an overlay that fades away:
-// the tiles fill the window behind it, and only the pointer over its strip brings
-// it back. applyChrome (geometry.go) is the one writer of that; the motion
-// controller here just records whether the pointer is on the strip.
-func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
-	assert.IsNotNil(tiles, "the window's content is the tile area")
+// The header is a frame the tiles sit under, and it holds whatever the sidebar is
+// in: hiding the sidebar is a wider tile area, not a window with its controls taken
+// away. The window's edges the tiles do reach are the grid's own margin to give up
+// (grid.SetFlush).
+func (c *chrome) content() gtk.Widgetter {
+	assert.IsNotNil(c.tiles, "the window's content is the tile area")
 
 	c.toggle = gtk.NewToggleButton()
 	c.toggle.SetChild(chromeIcons.Image("layout-sidebar", toggleIconSize, theme.Foreground))
@@ -124,24 +131,12 @@ func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
 
 	c.header = adw.NewHeaderBar()
 	c.header.SetShowTitle(false)
+	c.header.SetDecorationLayout(decoration)
 	c.header.PackStart(c.toggle)
-	// grid-chrome carries the fade transition; chrome-hidden is toggled onto it.
-	c.header.AddCSSClass("grid-chrome")
-
-	hover := gtk.NewEventControllerMotion()
-	hover.ConnectEnter(func(x, y float64) {
-		c.chromeHovered = true
-		c.applyChrome()
-	})
-	hover.ConnectLeave(func() {
-		c.chromeHovered = false
-		c.applyChrome()
-	})
-	c.header.AddController(hover)
 
 	c.toolbar = adw.NewToolbarView()
 	c.toolbar.AddTopBar(c.header)
-	c.toolbar.SetContent(tiles.Widget())
+	c.toolbar.SetContent(c.tiles.Widget())
 	return c.toolbar
 }
 

@@ -15,6 +15,9 @@ import (
 	"runtime"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 )
 
 const configDirName = "screenshare"
@@ -53,26 +56,48 @@ type Stream struct {
 	Audio      string `json:"audio"`     // none desktop (desktop = monitor of the default sink via PulseAudio/PipeWire)
 	DrmMap     string `json:"drmMap"`    // kmsgrab DRM download strategy: auto vaapi vulkan none
 	Monitor    int    `json:"monitor"`   // ddagrab output_idx
+	// CaptureMemory is where the frames reach the encoder: auto gpu system, the
+	// values gpupath.Memories names. It decides whether the capture chain downloads
+	// every frame and converts it on the CPU, or hands the encoder the device memory
+	// the capture already produced.
+	CaptureMemory string `json:"captureMemory"`
 	// SRT latency windows PER HOP. Glass-to-glass delay is the SUM of both
 	// (plus encode/decode): publisher→relay and relay→viewer are independent
 	// SRT links, each holding packets for its own retransmit window.
 	SrtPublishLatencyMs int `json:"srtPublishLatencyMs"`
 	SrtWatchLatencyMs   int `json:"srtWatchLatencyMs"`
-	// RTSP watch leg (relay to viewer). RtspWatchProtocol is the RTP lower
-	// transport every RTSP viewer negotiates, "tcp" (interleaved over the RTSP
-	// connection) or "udp" (a port pair per track). RtspWatchLatencyMs sizes
-	// rtspsrc's jitter buffer in milliseconds and reaches the native grid
-	// alone: ffplay and mpv buffer by reorder queue rather than by time, which
-	// is not the same knob under another name. The publish leg interleaves over
-	// TCP unconditionally and reads neither field.
-	RtspWatchLatencyMs int    `json:"rtspWatchLatencyMs"`
-	RtspWatchProtocol  string `json:"rtspWatchProtocol"`
-	UplinkMbps         int    `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
+	// RTSP RTP lower transport, one field per leg: "tcp" interleaves every track
+	// over the RTSP connection the session already holds, "udp" negotiates a port
+	// pair per track. The legs are separate values because they cross different
+	// networks, and whether that pair crosses the one in front of it is what
+	// decides between them.
+	RtspPublishProtocol string `json:"rtspPublishProtocol"`
+	RtspWatchProtocol   string `json:"rtspWatchProtocol"`
+	// RtspWatchLatencyMs sizes rtspsrc's jitter buffer in milliseconds and reaches
+	// the native grid alone: ffplay and mpv buffer by reorder queue rather than by
+	// time, which is not the same knob under another name.
+	RtspWatchLatencyMs int `json:"rtspWatchLatencyMs"`
+	UplinkMbps         int `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
 	// WatchTransport is the watch leg (relay to viewer): the transport a Watch
 	// click receives over. Independent of Transport, the publish leg, since the
 	// relay re-serves every stream on all its listeners, so the two legs of one
 	// stream can run different protocols.
 	WatchTransport string `json:"watchTransport"`
+}
+
+// CapabilityOptions are the option values a codec's gaps are read against, keyed as
+// capabilities.Options names them. Both publish engines hand it to
+// capabilities.Validate, so one place decides which value each option was asked
+// with and the two engines cannot answer differently.
+//
+// The keys are this struct's own JSON tags. That is what lets a gap the table
+// declares name the form control the frontend greys, with no mapping in between.
+func (s Stream) CapabilityOptions() map[string]string {
+	return map[string]string{
+		capabilities.OptionChroma:     s.Chroma,
+		capabilities.OptionMode:       s.Mode,
+		capabilities.OptionColorRange: s.ColorRange,
+	}
 }
 
 // Defaults returns the settings a fresh installation starts with.
@@ -95,11 +120,15 @@ func Defaults() Stream {
 		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 		Gop: 0, Bframes: 0,
 		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
+		CaptureMemory:       gpupath.MemoryAuto,
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
 		// rtspsrc defaults to 2000 ms of jitter buffer, two seconds of display
-		// delay above what a LAN needs. TCP because the UDP alternative loses
-		// its port pair to NAT and never retransmits.
-		RtspWatchLatencyMs: 200, RtspWatchProtocol: "tcp",
+		// delay above what a LAN needs. Both legs start on TCP because it asks
+		// nothing of the path beyond the connection the session already made,
+		// where the UDP alternative depends on its port pair crossing the same
+		// NAT and firewall and never retransmits: the failure it produces is a
+		// connected stream and no picture.
+		RtspWatchLatencyMs: 200, RtspWatchProtocol: "tcp", RtspPublishProtocol: "tcp",
 		UplinkMbps:     50,
 		WatchTransport: "srt",
 	}
@@ -244,6 +273,11 @@ func migrateStream(s Stream) Stream {
 	if s.RtspWatchProtocol == "" {
 		s.RtspWatchProtocol = Defaults().RtspWatchProtocol
 	}
+	// The publish leg's protocol was fixed before it was a field, so a file from
+	// then names none and the transport refuses the publish over the empty value.
+	if s.RtspPublishProtocol == "" {
+		s.RtspPublishProtocol = Defaults().RtspPublishProtocol
+	}
 	// The DRM download strategy and the encoder preset are both matched against a
 	// table by the builders that read them, and both reject a value the table does
 	// not name. Filling the key a file written before the option lacks is what keeps
@@ -253,6 +287,14 @@ func migrateStream(s Stream) Stream {
 	}
 	if s.EncPreset == "" {
 		s.EncPreset = Defaults().EncPreset
+	}
+	// A file written before the frame memory option names none, and every engine
+	// refuses a value its table does not carry. The table's own default is the value
+	// every pair satisfies, so filling it keeps a stored stream publishing exactly as
+	// it did: a pair with no GPU path resolves to the same system memory it always
+	// used, and one that has a path takes it.
+	if s.CaptureMemory == "" {
+		s.CaptureMemory = Defaults().CaptureMemory
 	}
 	return s
 }

@@ -2,56 +2,34 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
     PublishCommand, Transports, TransportFormats, CaptureTransports,
-    CaptureEngines, StoreNotice,
+    CaptureEngines, GpuPaths, StoreNotice,
 } from "../../wailsjs/go/main/App";
 import {
-    Deps, EncoderInfo, PlatformInfo, Preset, Stream, TransportCarriage,
+    Deps, EncoderInfo, GpuPath, PlatformInfo, Preset, Stream, TransportCarriage,
     ViewVerdict,
 } from "../types/stream";
 import { Environment, evaluateDeps, normalize } from "../util/deps";
 import { Capability, Decoder, Engine, engineFor } from "../util/domain";
 import { nativeGridCheck } from "../util/nativegrid";
 import { webGridCheck } from "../util/webgrid";
-import { PRESETS } from "../util/presets";
-
-export const CUSTOM_PRESET = "custom";
-
-// User presets share the dropdown with the built-in ones, so their selector
-// values are namespaced to never collide with a built-in key or "custom".
-export const USER_PREFIX = "user:";
-
-/** Selector value for a saved preset. */
-export function userPresetValue(name: string): string {
-    return USER_PREFIX + name;
-}
-
-/** True field-by-field equality of two settings snapshots. */
-function streamEquals(a: Stream, b: Stream): boolean {
-    const keys = Object.keys(a) as (keyof Stream)[];
-    return keys.every(k => a[k] === b[k]);
-}
-
-/**
- * Which selector value the given settings correspond to: an exact user preset,
- * else a built-in preset whose every field already matches, else "custom".
- */
-function matchPreset(s: Stream, userPresets: Preset[]): string {
-    const user = userPresets.find(p => streamEquals(s, p.settings));
-    if (user) {
-        return userPresetValue(user.name);
-    }
-    const builtin = Object.entries(PRESETS).find(([, partial]) =>
-        Object.entries(partial).every(([k, v]) => s[k as keyof Stream] === v)
-    );
-    return builtin ? builtin[0] : CUSTOM_PRESET;
-}
+import {
+    CUSTOM_PRESET, isUserPreset, savedPresetName, userPresetValue,
+} from "../util/presets";
+import {
+    matchPreset, resolvePreset, unreachablePresets,
+} from "../util/presetSearch";
 
 /**
  * Owns the editable stream settings and everything derived from them: the
- * dependency map, the web- and native-grid verdicts, live command preview and the
- * transport list. Any field change re-normalizes the settings and drops the
- * preset back to "custom"; applying a preset patches many fields at once without
- * doing so.
+ * dependency map, the selected preset, the web- and native-grid verdicts, live
+ * command preview and the transport list.
+ *
+ * The selected preset is derived from the settings rather than remembered from the
+ * click that applied it, so a field edited to a value the preset still covers keeps
+ * the preset and one edited past its claim leaves it. Applying a preset searches for
+ * a configuration this machine can run and writes the whole result at once; a preset
+ * no configuration reaches carries the reason instead.
+ *
  * The platform gates which capture backends are available, the encoder set which
  * codecs the machine can run, the capability table which codec/chroma/transport
  * combinations are legal, and the capture backend's engine which rate-control
@@ -70,7 +48,6 @@ export function useStreamSettings(
     decoders: Decoder[] | null
 ) {
     const [s, setS] = useState<Stream | null>(null);
-    const [preset, setPreset] = useState(CUSTOM_PRESET);
     const [userPresets, setUserPresets] = useState<Preset[]>([]);
     const [transports, setTransports] = useState<string[]>(["srt"]);
     const [carriage, setCarriage] = useState<TransportCarriage[] | null>(null);
@@ -78,6 +55,7 @@ export function useStreamSettings(
         useState<Record<string, string[]> | null>(null);
     const [captureEngines, setCaptureEngines] =
         useState<Record<string, string> | null>(null);
+    const [gpuPaths, setGpuPaths] = useState<GpuPath[] | null>(null);
     const [cmd, setCmd] = useState("");
     // Why each persisted store could not be read, empty when it was. The settings
     // notice is fixed at startup and the preset one follows the last preset action,
@@ -93,16 +71,27 @@ export function useStreamSettings(
     const env: Environment = useMemo(
         () => ({
             platform, encoders, caps, decoders, carriage, captureTransports,
-            captureEngines,
+            captureEngines, gpuPaths,
         }),
         [
             platform, encoders, caps, decoders, carriage, captureTransports,
-            captureEngines,
+            captureEngines, gpuPaths,
         ]
     );
 
     const deps: Deps | null = useMemo(
         () => (s ? evaluateDeps(s, env) : null),
+        [s, env]
+    );
+    const preset = useMemo(
+        () => (s ? matchPreset(s, userPresets) : CUSTOM_PRESET),
+        [s, userPresets]
+    );
+    // Presets no configuration on this machine reaches, so the selector greys each
+    // with the reason instead of applying a preset that would be repaired into
+    // something else on arrival.
+    const presetDisabled = useMemo(
+        () => (s ? unreachablePresets(s, env) : {}),
         [s, env]
     );
     const webGrid: ViewVerdict | null = useMemo(
@@ -121,33 +110,40 @@ export function useStreamSettings(
     );
 
     const update = useCallback(
-        (patch: Partial<Stream>, fromPreset = false) => {
+        (patch: Partial<Stream>) => {
             setS(prev =>
                 prev ? normalize({ ...prev, ...patch } as Stream, env) : prev
             );
-            if (!fromPreset) {
-                setPreset(CUSTOM_PRESET);
-            }
         },
         [env]
     );
 
+    // A saved preset is a snapshot, applied whole and repaired only where this
+    // machine cannot run a value it holds: it was written on some machine and may
+    // name a codec or capture backend this one lacks. A built-in preset is a claim,
+    // and the search answers which configuration delivers it here, so a repair would
+    // be a different configuration under the preset's name. One with no reachable
+    // configuration is greyed in the selector, and this leaves the settings alone.
     const applyPreset = useCallback(
-        (name: string) => {
-            setPreset(name);
-            if (name.startsWith(USER_PREFIX)) {
-                const p = userPresets.find(p => userPresetValue(p.name) === name);
-                if (p) {
-                    update(p.settings, true);
+        (value: string) => {
+            if (!s) {
+                return;
+            }
+            if (isUserPreset(value)) {
+                const saved = userPresets.find(
+                    p => userPresetValue(p.name) === value
+                );
+                if (saved) {
+                    setS(normalize(saved.settings, env));
                 }
                 return;
             }
-            const p = PRESETS[name];
-            if (p) {
-                update(p, true);
+            const next = resolvePreset(value, s, env);
+            if (next) {
+                setS(next);
             }
         },
-        [update, userPresets]
+        [s, env, userPresets]
     );
 
     // Every preset binding rejects when the presets file could not be read, and the
@@ -177,40 +173,37 @@ export function useStreamSettings(
                 return;
             }
             setUserPresets(await loadPresets());
-            setPreset(userPresetValue(trimmed));
         },
         [s, loadPresets]
     );
 
     const deletePreset = useCallback(
         async (value: string) => {
-            if (!value.startsWith(USER_PREFIX)) {
+            const name = savedPresetName(value);
+            if (!name) {
                 return;
             }
             try {
-                await DeletePreset(value.slice(USER_PREFIX.length));
+                await DeletePreset(name);
             } catch (e) {
                 setPresetError(String(e));
                 return;
             }
             setUserPresets(await loadPresets());
-            setPreset(prev => (prev === value ? CUSTOM_PRESET : prev));
         },
         [loadPresets]
     );
 
     useEffect(() => {
         void (async () => {
-            const loaded = normalize(await GetSettings());
-            const presets = await loadPresets();
-            setUserPresets(presets);
-            setS(loaded);
-            setPreset(matchPreset(loaded, presets));
+            setUserPresets(await loadPresets());
+            setS(normalize(await GetSettings()));
             setSettingsNotice(await StoreNotice());
             setTransports(await Transports());
             setCarriage(await TransportFormats());
             setCaptureTransports(await CaptureTransports());
             setCaptureEngines(await CaptureEngines());
+            setGpuPaths(await GpuPaths());
         })();
     }, [loadPresets]);
 
@@ -219,14 +212,15 @@ export function useStreamSettings(
     // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
     // encoder), the transport table gates the codec (MPEG-TS carries no VP9), the
     // capture->transport map gates the transport (the GStreamer engine has no RTMP
-    // sink), and the capture->engine map gates the chroma (the portal path's
-    // encoders drop planar RGB). Any illegal carryover from the persisted settings
-    // is repaired to a valid combination.
+    // sink), the capture->engine map gates the chroma (the portal path's encoders drop
+    // planar RGB), and the GPU pair table gates the frame memory (a direct path exists
+    // for some capture and codec pairs and not others). Any illegal carryover from the
+    // persisted settings is repaired to a valid combination.
     useEffect(() => {
-        if (platform || encoders || caps || carriage || captureTransports || captureEngines) {
+        if (platform || encoders || caps || carriage || captureTransports || captureEngines || gpuPaths) {
             setS(prev => (prev ? normalize(prev, env) : prev));
         }
-    }, [platform, encoders, caps, carriage, captureTransports, captureEngines, env]);
+    }, [platform, encoders, caps, carriage, captureTransports, captureEngines, gpuPaths, env]);
 
     useEffect(() => {
         if (!s) {
@@ -254,7 +248,8 @@ export function useStreamSettings(
     }, [s]);
 
     return {
-        s, preset, userPresets, transports, engine, deps, webGrid, nativeGrid, cmd,
+        s, preset, presetDisabled, userPresets, transports, engine, deps, webGrid,
+        nativeGrid, cmd,
         storeError: [settingsNotice, presetError].filter(Boolean).join("\n"),
         update, applyPreset, saveAsPreset, deletePreset,
     };

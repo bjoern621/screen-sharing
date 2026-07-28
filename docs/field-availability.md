@@ -24,6 +24,9 @@ The field stays editable and its tooltip gains a sentence from `deps.note`.
 This is for a combination where the value still reaches the encoder but does something the field's own text does not describe, such as the bitrate becoming a burst ceiling in constant-quality mode on NVENC.
 A note is not a third treatment of inapplicability: it exists so a knob that a builder does forward is never greyed, which would leave the encoder using a number the form refused to show.
 
+The preset selector greys an entry the same way, for the same kind of reason.
+A preset is a promise no encoder or capture backend on this machine delivers, so the option carries what it needed and the search worked within (`presets.md`).
+
 The pixel-format control carries a note of the second kind: what the choice costs a viewer to decode, from the decode table (`capabilities.Decoders`).
 It is a note rather than a greying because it is not a limit on this machine at all.
 Every format has a software decoder, so a pixel format no GPU takes is a viewer spending cores, which is a trade the publisher is entitled to make once it is stated.
@@ -38,6 +41,18 @@ A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live 
 
 When two of them block the same field, the reason names the one the user can act on.
 B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
+
+## Two facts decide the frame memory
+
+The frame-memory control is the one field neither the capture backend nor the codec decides alone.
+Its direct value needs both ends to share device memory, which is a pair rather than a property of either: the portal capture shares memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
+`gpupath.Paths` declares the pairs, `App.GpuPaths` hands them to the form, and `unavailableFrameMemories` greys the direct value for a selection matching no row, naming both ends so either one is a way to reach it.
+
+The remaining two values are never greyed.
+Auto answers with whichever path the pair has, and the system copy is the path every pair has, so a combination with no row leaves a working control rather than a dead one.
+
+Where the pair does have a row, the DRM download strategy is hidden's neighbour: it stays rendered under kmsgrab and greys, because a run that downloads nothing chooses no mapping device.
+It is greyed rather than hidden because the field is already gated on the capture backend, and a second gate would make it appear and vanish while the user changes codecs.
 
 ## The rule
 

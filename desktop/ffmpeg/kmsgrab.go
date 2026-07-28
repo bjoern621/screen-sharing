@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -82,12 +83,27 @@ func autoDrmMap(device string) string {
 	}
 }
 
-// kmsgrabCaptureArgs builds the kmsgrab input arguments, including the DRM
-// download filter chain for the selected strategy.
+// kmsgrabCaptureArgs builds the kmsgrab input arguments, and on the system-memory
+// path the DRM download filter chain for the selected strategy.
 //
 // kmsgrab reads scanout buffers below the compositor and needs CAP_SYS_ADMIN
 // (run through the capability wrapper, see FindCaptureExe, or via sudo).
-func kmsgrabCaptureArgs(s settings.Stream, fps string) (captureSource, error) {
+//
+// The GPU path takes no strategy. A strategy names the device a tiled scanout buffer
+// is mapped through so that hwdownload can read it, and the GPU path downloads
+// nothing: the map that follows targets the encoder's own device and is decided by the
+// encoder family, not by the user (GpuFilters). The setting is therefore unread rather
+// than overridden, which is what the form greys it for.
+func kmsgrabCaptureArgs(s settings.Stream, fps, memory string) (captureSource, error) {
+	device, err := drmCaptureDevice()
+	if err != nil {
+		return captureSource{}, err
+	}
+	input := []string{"-device", device, "-f", "kmsgrab", "-framerate", fps, "-i", "-"}
+	if memory == gpupath.MemoryGpu {
+		return captureSource{args: input}, nil
+	}
+
 	// The strategy is checked before the machine is looked at, so a name no row
 	// carries is answered with the setting rather than with whatever the sysfs probe
 	// finds.
@@ -95,11 +111,6 @@ func kmsgrabCaptureArgs(s settings.Stream, fps string) (captureSource, error) {
 	if err != nil {
 		return captureSource{}, err
 	}
-	device, err := drmCaptureDevice()
-	if err != nil {
-		return captureSource{}, err
-	}
-
 	dev := m.Device
 	if m.Auto {
 		dev = autoDrmMap(device)
@@ -110,10 +121,7 @@ func kmsgrabCaptureArgs(s settings.Stream, fps string) (captureSource, error) {
 	}
 	filters = append(filters, "hwdownload", "format=bgr0")
 
-	return captureSource{
-		args:    []string{"-device", device, "-f", "kmsgrab", "-framerate", fps, "-i", "-"},
-		filters: filters,
-	}, nil
+	return captureSource{args: input, filters: filters}, nil
 }
 
 // drmCaptureDevice returns the /dev/dri card node kmsgrab should capture from: the
