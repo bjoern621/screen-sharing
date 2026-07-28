@@ -32,6 +32,11 @@ func baseStream() settings.Stream {
 		BitrateM:   150,
 		MaxrateM:   200,
 		Capture:    "x11grab",
+		// The NVENC mapping is held to the preset ladder, and a settings file reaches a
+		// builder through settings.migrateStream, which fills the key a file written
+		// before the option lacks. These settings stand in for one that has.
+		EncPreset: "p7",
+		DrmMap:    "auto",
 	}
 }
 
@@ -57,6 +62,88 @@ func TestBuildPublishArgsUnknownCapture(t *testing.T) {
 	s.Capture = "telepathy"
 	if _, err := BuildPublishArgs(s); err == nil {
 		t.Fatal("expected error for unknown capture backend")
+	}
+}
+
+// Every grabber takes the rate as an input option and the keyframe interval follows
+// from it, so a non-positive rate would reach ffmpeg as "-framerate 0" and "-g 0".
+func TestBuildPublishArgsRefusesANonPositiveFps(t *testing.T) {
+	for _, fps := range []int{0, -1} {
+		s := baseStream()
+		s.Fps = fps
+		if _, err := BuildPublishArgs(s); err == nil {
+			t.Errorf("fps %d was accepted", fps)
+		}
+	}
+}
+
+// A monitor index no output carries names a screen this machine does not have.
+// Capturing the whole desktop instead would publish something other than what the
+// form shows selected, with nothing saying so.
+func TestX11grabRefusesAMonitorIndexNoOutputCarries(t *testing.T) {
+	s := baseStream()
+	s.Monitor = 9999
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("a monitor index no output carries was accepted")
+	}
+}
+
+// x11grab reads an X screen, and an environment naming none is no session to capture.
+// The old ":0.0" guess captured whichever display happened to answer.
+func TestX11grabRefusesAnUnsetDisplay(t *testing.T) {
+	t.Setenv("DISPLAY", "")
+	s := baseStream()
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("an unset DISPLAY was accepted")
+	}
+}
+
+// The DRM download strategy exists to override the driver guess, so a name no row
+// carries cannot resolve to that guess: the setting would run as its own opposite.
+// The refusal is the table's, not the machine's, so it holds without a DRM node.
+func TestDrmMapForRefusesANameNoRowCarries(t *testing.T) {
+	if _, err := drmMapFor("vaapi-with-a-typo"); err == nil {
+		t.Error("an unmapped DRM download strategy resolved")
+	}
+	for _, m := range DrmMaps {
+		if _, err := drmMapFor(m.Name); err != nil {
+			t.Errorf("%s: %v", m.Name, err)
+		}
+	}
+}
+
+// The preset is a free-form string in the settings and nothing upstream bounds it:
+// capabilities.Validate covers the codec, pixel format, mode and the two rate
+// figures, none of which this is.
+func TestNvencPresetLimitRefusesAStepOutsideTheLadder(t *testing.T) {
+	for _, preset := range []string{"", "p8", "slow"} {
+		s := baseStream()
+		s.Codec, s.Chroma, s.EncPreset = "hevc_nvenc", "yuv420p", preset
+		if _, err := encoderArgs(s, gopFor(s)); err == nil {
+			t.Errorf("preset %q was accepted", preset)
+		}
+	}
+	for _, preset := range nvencPresets {
+		s := baseStream()
+		s.Codec, s.Chroma, s.EncPreset = "hevc_nvenc", "yuv420p", preset
+		if _, err := encoderArgs(s, gopFor(s)); err != nil {
+			t.Errorf("preset %q: %v", preset, err)
+		}
+	}
+}
+
+// CBR pins the preset, and the form greys the control saying which step is in force.
+// The frontend's MODE_META declares the same step, so the two spellings have to match
+// or the sentence names a preset the encode does not run.
+func TestNvencCbrPinsTheDeclaredPreset(t *testing.T) {
+	s := baseStream()
+	s.Codec, s.Chroma, s.Mode, s.EncPreset = "hevc_nvenc", "yuv420p", "cbr", "p7"
+	args, err := encoderArgs(s, gopFor(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := flagValue(args, "-preset"); got != nvencLivePreset {
+		t.Errorf("-preset = %q, want the pinned %q", got, nvencLivePreset)
 	}
 }
 
@@ -160,6 +247,21 @@ func TestEncoderArgs(t *testing.T) {
 		{"vaapi cbr pins the ceiling to the target", "h264_vaapi", "cbr", "-rc_mode CBR", "-rc_mode VBR"},
 		{"vaapi abr gives no ceiling", "h264_vaapi", "abr", "-rc_mode VBR", "-maxrate"},
 		{"vaapi vbr sets a ceiling", "hevc_vaapi", "vbr", "-maxrate", "-rc_mode CBR"},
+		// The QSV encoders have no rate-control option at all: oneVPL's method follows
+		// from which rate options carry a value, so each mode is a shape rather than a
+		// name. A quantizer with the qscale flag selects CQP, a ceiling equal to the
+		// target CBR, and one above it VBR.
+		{"qsv crf carries a quantizer alone", "h264_qsv", "crf", "-q:v", "-b:v"},
+		{"qsv cbr pins the ceiling to the target", "h264_qsv", "cbr", "-b:v 150M -maxrate 150M", ""},
+		{"qsv abr caps its ceiling above the target", "hevc_qsv", "abr", "-b:v 150M -maxrate 300M", "-bufsize"},
+		{"qsv vbr takes the configured ceiling", "hevc_qsv", "vbr", "-maxrate 200M", ""},
+		// cbr is the mode that trades the encoder's pipeline depth for delay, and the
+		// only one to touch it.
+		{"qsv cbr shortens the pipeline", "av1_qsv", "cbr", "-async_depth 1", ""},
+		{"qsv vbr keeps the default pipeline", "av1_qsv", "vbr", "-b:v", "-async_depth"},
+		{"qsv cbr encodes for speed", "h264_qsv", "cbr", "-preset veryfast", "-preset medium"},
+		{"qsv crf encodes for quality", "h264_qsv", "crf", "-preset medium", "-preset veryfast"},
+		{"qsv pins b-pictures off", "hevc_qsv", "vbr", "-bf 0", ""},
 		// The AMF encoders take one -rc mode per rate-control concept, and their
 		// bursting modes are peak-constrained VBR, so even ABR states a ceiling.
 		{"amf crf is cqp", "h264_amf", "crf", "-rc cqp -qp_i", "-b:v"},
@@ -334,7 +436,7 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				args = append(args, device...)
 				args = append(args, "-f", "lavfi", "-i", "nullsrc=s=256x256", "-frames:v", "1")
 				if surface {
-					upload, err := HwSurfaceFilters(s.Chroma)
+					upload, err := HwSurfaceFilters(s.Codec, s.Chroma)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -423,13 +525,38 @@ func TestBuildPublishArgsVulkan(t *testing.T) {
 	}
 }
 
+// A QSV publish is the third surface shape: a device created under a name, as on Vulkan,
+// and an upload that sizes its own frame pool.
+func TestBuildPublishArgsQsv(t *testing.T) {
+	s := baseStream()
+	s.Codec = "hevc_qsv"
+	s.Chroma = "p010le"
+	s.Mode = "cbr"
+	args, err := BuildPublishArgs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i, j := slices.Index(args, "-init_hw_device"), slices.Index(args, "-i"); i < 0 || i > j {
+		t.Errorf("-init_hw_device must create the device before the input, got %v", args)
+	}
+	if got := flagValue(args, "-filter_hw_device"); got != qsvDeviceAlias {
+		t.Errorf("-filter_hw_device = %q, want the name -init_hw_device registered", got)
+	}
+	if vf := flagValue(args, "-vf"); !strings.HasSuffix(vf, "format=p010,hwupload=extra_hw_frames="+qsvExtraFrames) {
+		t.Errorf("-vf = %q, want it to end in the p010 conversion and the QSV upload", vf)
+	}
+	if slices.Contains(args, "-pix_fmt") {
+		t.Errorf("a QSV encode must not pin a software pixel format, got %v", args)
+	}
+}
+
 func TestHwSurfaceFilters(t *testing.T) {
 	cases := map[string]string{
 		"yuv420p": "format=nv12",
 		"p010le":  "format=p010",
 	}
 	for chroma, want := range cases {
-		got, err := HwSurfaceFilters(chroma)
+		got, err := HwSurfaceFilters("h264_vaapi", chroma)
 		if err != nil {
 			t.Fatalf("HwSurfaceFilters(%q): %v", chroma, err)
 		}
@@ -439,8 +566,28 @@ func TestHwSurfaceFilters(t *testing.T) {
 	}
 	// A chroma neither family's hardware stores is a builder error, not a silent
 	// conversion.
-	if _, err := HwSurfaceFilters("yuv444p"); err == nil {
+	if _, err := HwSurfaceFilters("h264_vaapi", "yuv444p"); err == nil {
 		t.Error("HwSurfaceFilters must reject a chroma with no hardware surface layout")
+	}
+}
+
+// The upload element follows the family, not the chroma: a QSV encoder takes surfaces
+// from the pool the upload allocated and holds several of them, so its pool carries
+// frames beyond what the filter graph itself needs.
+func TestHwSurfaceUploadFollowsTheFamily(t *testing.T) {
+	cases := map[string]string{
+		"h264_vaapi":  "hwupload",
+		"h264_vulkan": "hwupload",
+		"h264_qsv":    "hwupload=extra_hw_frames=" + qsvExtraFrames,
+	}
+	for codec, want := range cases {
+		got, err := HwSurfaceFilters(codec, "yuv420p")
+		if err != nil {
+			t.Fatalf("HwSurfaceFilters(%q): %v", codec, err)
+		}
+		if got[len(got)-1] != want {
+			t.Errorf("HwSurfaceFilters(%q) uploads with %q, want %q", codec, got[len(got)-1], want)
+		}
 	}
 }
 
@@ -452,6 +599,8 @@ func TestHwSurfaceDeviceFollowsTheFamily(t *testing.T) {
 		"h264_vaapi":  true,
 		"h264_vulkan": true,
 		"av1_vulkan":  true,
+		"h264_qsv":    true,
+		"vp9_qsv":     true,
 		"libx264":     false,
 		"hevc_nvenc":  false,
 		"h264_amf":    false,

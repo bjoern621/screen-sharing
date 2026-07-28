@@ -2,11 +2,13 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 
 	"bjoernblessin.de/go-utils/util/assert"
-	"bjoernblessin.de/go-utils/util/logger"
 )
 
 const presetsFileName = "presets.json"
@@ -20,23 +22,39 @@ type Preset struct {
 	Settings Stream `json:"settings"`
 }
 
-func presetsPath() string {
-	return filepath.Join(configDir(), presetsFileName)
+func presetsPath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, presetsFileName), nil
 }
 
-// LoadPresets reads the saved presets in the order they were stored.
-// A missing or corrupt file yields no presets rather than an error.
-func LoadPresets() []Preset {
-	data, err := os.ReadFile(presetsPath())
+// LoadPresets reads the saved presets in the order they were stored, and answers
+// with none and the reason when the file cannot be used. A missing file is not a
+// failure: nothing has been saved yet.
+//
+// An unusable file is moved aside (setAside) for the reason SavePreset and
+// DeletePreset name: both rewrite the whole file from what this returns, so
+// answering an unreadable file with an empty list would let the next save replace
+// every preset in it.
+func LoadPresets() ([]Preset, error) {
+	path, err := presetsPath()
 	if err != nil {
-		return nil
+		return nil, err
+	}
+
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, setAside(path, fmt.Errorf("cannot read presets file %s: %w", path, err))
 	}
 
 	var presets []Preset
-	err = json.Unmarshal(data, &presets)
-	if err != nil {
-		logger.Warnf("Presets file is corrupt, ignoring: %v", err)
-		return nil
+	if err := json.Unmarshal(data, &presets); err != nil {
+		return nil, setAside(path, fmt.Errorf("presets file %s is corrupt: %w", path, err))
 	}
 
 	// Presets saved by an older build carry the old mode names and lack the
@@ -44,19 +62,32 @@ func LoadPresets() []Preset {
 	for i := range presets {
 		presets[i].Settings = migrateStream(presets[i].Settings)
 	}
-	return presets
+	return presets, nil
 }
 
 func savePresets(presets []Preset) error {
 	data, err := json.MarshalIndent(presets, "", "  ")
 	assert.IsNil(err, "marshalling presets cannot fail")
 
-	return os.WriteFile(presetsPath(), data, 0o644)
+	path, err := presetsPath()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, storeFileMode)
 }
 
 // SavePreset stores s under name, replacing any existing preset with that name.
+//
+// A presets file that could not be read is reported instead of written over: the
+// whole file is rewritten from what LoadPresets returned, so saving into a file
+// that read as empty would replace every preset in it with this one entry. The
+// unreadable file has been moved aside by then, so the same save repeated writes a
+// fresh file and the reason names where the old values went.
 func SavePreset(name string, s Stream) error {
-	presets := LoadPresets()
+	presets, err := LoadPresets()
+	if err != nil {
+		return err
+	}
 
 	for i := range presets {
 		if presets[i].Name == name {
@@ -68,9 +99,13 @@ func SavePreset(name string, s Stream) error {
 	return savePresets(append(presets, Preset{Name: name, Settings: s}))
 }
 
-// DeletePreset removes the preset named name. A missing name is not an error.
+// DeletePreset removes the preset named name. A missing name is not an error; an
+// unreadable file is, for the reason SavePreset gives.
 func DeletePreset(name string) error {
-	presets := LoadPresets()
+	presets, err := LoadPresets()
+	if err != nil {
+		return err
+	}
 
 	kept := presets[:0]
 	for _, p := range presets {

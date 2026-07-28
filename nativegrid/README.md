@@ -88,7 +88,9 @@ The file has two owners, the model and the window, so a write replaces the keys 
 - Stdout carries a second kind of line, told apart from the first by a `type` field: the names of the streams with a tile open, stated whenever that set changes.
   It is one-way, and the app has no answer to it: what the window watches is the window's, and the report only lets the app say what is on screen.
 - The GStreamer backend completes that fragment with `decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
-  `decodebin` autoplugs by rank: a hardware decoder takes the stream where its sink caps advertise the profile, and a software one (gst-libav for H.264 and HEVC, libvpx for VP9) takes the rest, which is what covers the 4:4:4 and high-bit-depth combinations no hardware element lists.
+  `decodebin` autoplugs by rank: a hardware decoder takes the stream where its sink caps advertise the profile, and a software one (gst-libav for H.264 and HEVC, libvpx for VP9, dav1d for AV1) takes the rest.
+  The hardware decoders rank above the software ones, so which of them takes a stream follows the pixel format the publisher chose rather than a preference here.
+  `capabilities.Decoders` in the app states that per element: every hardware decoder covers 4:2:0 at both bit depths, HEVC's 4:4:4 and RGB profiles are NVDEC's and Intel's alone, and H.264 4:4:4 is nobody's, which leaves those combinations on the software path.
   When decodebin exposes an audio pad, the pipeline grows an audio branch (`queue ! audioconvert ! audioresample ! volume ! autoaudiosink`) while it plays; a video-only stream carries no idle audio elements.
   The `RGBA/sRGB` capsfilter is not optional: without it GTK color-manages the raw YUV itself and washes out dark screen content.
   The scaler ahead of the conversion is what keeps a tile from converting more pixels than it draws: a thumbnail in the film strip would otherwise convert every frame of a 4K stream to RGBA to draw it at thumbnail size.

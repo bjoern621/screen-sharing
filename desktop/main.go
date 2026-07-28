@@ -22,8 +22,11 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 9, G: 9, B: 11, A: 1},
-		OnStartup:        app.startup,
-		OnShutdown:       app.shutdown,
+		// Closing the window hides it instead of quitting, so the native grid the
+		// app spawned keeps running; the tray icon brings the settings back.
+		HideWindowOnClose: true,
+		OnStartup:         app.startup,
+		OnShutdown:        app.shutdown,
 		Bind: []interface{}{
 			app,
 		},

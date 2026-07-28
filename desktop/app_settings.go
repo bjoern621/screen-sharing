@@ -2,6 +2,7 @@ package main
 
 import (
 	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/publish"
@@ -26,12 +27,20 @@ func (a *App) SaveSettings(s settings.Stream) error {
 // GetPresets lists the user's saved presets for the UI dropdown.
 // A nil slice would cross the Wails boundary as JSON null and break the
 // frontend, whose type expects an array, so an empty list is returned instead.
-func (a *App) GetPresets() []settings.Preset {
-	presets := settings.LoadPresets()
+//
+// A presets file that could not be read yields the reason alongside the empty
+// list. The file has been moved aside by then, so the list is empty because
+// nothing readable remains rather than because the presets were deleted, and the
+// difference is the user's to see.
+func (a *App) GetPresets() ([]settings.Preset, error) {
+	presets, err := settings.LoadPresets()
 	if presets == nil {
-		return []settings.Preset{}
+		presets = []settings.Preset{}
 	}
-	return presets
+	if err != nil {
+		logger.Errorf("presets not restored: %v", err)
+	}
+	return presets, err
 }
 
 // SavePreset stores the current settings under name, overwriting a same-named preset.
@@ -121,9 +130,11 @@ func (a *App) CaptureTransports() map[string][]string {
 	out := map[string][]string{}
 	for _, capture := range publish.Captures() {
 		ts, err := publish.TransportsFor(capture)
-		if err != nil {
-			continue
-		}
+		// Captures lists the capture backends the publish registry holds, so every
+		// name here resolves. Skipping one instead would leave it out of the map, and a
+		// capture the map does not name is a capture the form imposes no transport
+		// restriction for.
+		assert.IsNil(err, "a listed capture backend has a publisher", capture)
 		out[capture] = ts
 	}
 	return out
@@ -138,9 +149,7 @@ func (a *App) CaptureEngines() map[string]string {
 	out := map[string]string{}
 	for _, capture := range publish.Captures() {
 		engine, err := publish.EngineFor(capture)
-		if err != nil {
-			continue
-		}
+		assert.IsNil(err, "a listed capture backend has a publisher", capture)
 		out[capture] = engine
 	}
 	return out

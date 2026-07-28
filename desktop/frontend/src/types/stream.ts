@@ -28,6 +28,7 @@ export type PlatformInfo = platform.Info;
  */
 export interface EncoderInfo extends encoders.Availability {
     usable: Record<string, Record<string, boolean>>;
+    unprobed: Record<string, string>;
 }
 
 /**

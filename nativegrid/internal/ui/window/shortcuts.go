@@ -44,12 +44,12 @@ func bindings() []binding {
 		},
 		{
 			accel: "F11",
-			what:  "Give the window the whole screen. Escape gives it back.",
-			run:   (*chrome).toggleFullscreen,
+			what:  "Fill the screen with the streams, hiding the sidebar. Escape or F11 gives it back.",
+			run:   (*chrome).toggleSidebar,
 		},
 		{
 			accel: accelSidebar,
-			what:  "Show or hide the stream sidebar.",
+			what:  "Show or hide the stream sidebar, which fills the screen with the streams.",
 			run:   (*chrome).toggleSidebar,
 		},
 	}

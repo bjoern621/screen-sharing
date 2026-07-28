@@ -39,14 +39,19 @@ var chromeIcons theme.Icons
 // chrome is the window around the views: the widgets a shortcut acts on and the
 // state the geometry is read off.
 type chrome struct {
-	win    *adw.ApplicationWindow
-	split  *adw.OverlaySplitView
-	toggle *gtk.ToggleButton
-	sess   *session.Session
-	store  layout.WindowStore
+	win     *adw.ApplicationWindow
+	split   *adw.OverlaySplitView
+	toolbar *adw.ToolbarView
+	header  *adw.HeaderBar
+	toggle  *gtk.ToggleButton
+	sess    *session.Session
+	store   layout.WindowStore
 	// settingSidebar is up while showSidebar writes the two halves of the sidebar
 	// control, whose property notifies land back in it (geometry.go).
 	settingSidebar bool
+	// chromeHovered is up while the pointer is over the content header's strip,
+	// the one region that brings the chrome back once the sidebar is out (geometry.go).
+	chromeHovered bool
 	// persist folds a burst of geometry changes into one write, and written holds
 	// what that write put on file (geometry.go).
 	persist *idle.Coalescer
@@ -102,6 +107,11 @@ func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *a
 
 // content is the tile area under a flat header bar. The header carries the sidebar
 // toggle at the start and the window close button at the end.
+//
+// With the sidebar out the header is not a frame but an overlay that fades away:
+// the tiles fill the window behind it, and only the pointer over its strip brings
+// it back. applyChrome (geometry.go) is the one writer of that; the motion
+// controller here just records whether the pointer is on the strip.
 func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
 	assert.IsNotNil(tiles, "the window's content is the tile area")
 
@@ -112,14 +122,27 @@ func (c *chrome) content(tiles *grid.View) gtk.Widgetter {
 	// Which state it opens in is restoreGeometry's.
 	c.toggle.ConnectToggled(func() { c.showSidebar(c.toggle.Active()) })
 
-	header := adw.NewHeaderBar()
-	header.SetShowTitle(false)
-	header.PackStart(c.toggle)
+	c.header = adw.NewHeaderBar()
+	c.header.SetShowTitle(false)
+	c.header.PackStart(c.toggle)
+	// grid-chrome carries the fade transition; chrome-hidden is toggled onto it.
+	c.header.AddCSSClass("grid-chrome")
 
-	view := adw.NewToolbarView()
-	view.AddTopBar(header)
-	view.SetContent(tiles.Widget())
-	return view
+	hover := gtk.NewEventControllerMotion()
+	hover.ConnectEnter(func(x, y float64) {
+		c.chromeHovered = true
+		c.applyChrome()
+	})
+	hover.ConnectLeave(func() {
+		c.chromeHovered = false
+		c.applyChrome()
+	})
+	c.header.AddController(hover)
+
+	c.toolbar = adw.NewToolbarView()
+	c.toolbar.AddTopBar(c.header)
+	c.toolbar.SetContent(tiles.Widget())
+	return c.toolbar
 }
 
 // followTheme keeps the window on the system theme. The .dark class switches the

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
@@ -64,11 +65,12 @@ type Publisher interface {
 }
 
 // The publish engines that run the capture backends. An engine names itself to
-// capabilities.Validate, to the encoder probe and to the settings form, so the two
-// spellings are constants rather than literals repeated per caller.
+// capabilities.Validate, to the encoder probe and to the settings form, so the
+// spelling is the capability table's own rather than a second one that could drift
+// from the engine a Gap names.
 const (
-	EngineFfmpeg = "ffmpeg"
-	EngineGst    = "gstreamer"
+	EngineFfmpeg = capabilities.EngineFfmpeg
+	EngineGst    = capabilities.EngineGst
 )
 
 // captureBackends is the single source pairing a capture backend with the engine

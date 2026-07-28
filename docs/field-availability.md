@@ -12,7 +12,7 @@ Conditional JSX in `StreamSettingsCard` gates it on the parent selection, for ex
 
 **Disabled with a reason.**
 The field renders greyed, carrying a `disabledReason` tooltip that states why it is inert.
-The reason comes from `deps.disabled` in `evaluateDeps` (`util/deps.ts`), for example the NVENC preset ladder greyed under software x264 with "the p1-p7 ladder is NVENC-specific".
+The reason comes from `deps.disabled` in `evaluateDeps` (`util/deps.ts`), for example the encoder preset ladder greyed under software x264 with "only the NVIDIA NVENC encoders take an encoder preset".
 
 **One option disabled with a reason.**
 A dropdown keeps the option and greys that entry, whose tooltip carries the reason from `deps.optionDisabled`.
@@ -24,16 +24,20 @@ The field stays editable and its tooltip gains a sentence from `deps.note`.
 This is for a combination where the value still reaches the encoder but does something the field's own text does not describe, such as the bitrate becoming a burst ceiling in constant-quality mode on NVENC.
 A note is not a third treatment of inapplicability: it exists so a knob that a builder does forward is never greyed, which would leave the encoder using a number the form refused to show.
 
+The pixel-format control carries a note of the second kind: what the choice costs a viewer to decode, from the decode table (`capabilities.Decoders`).
+It is a note rather than a greying because it is not a limit on this machine at all.
+Every format has a software decoder, so a pixel format no GPU takes is a viewer spending cores, which is a trade the publisher is entitled to make once it is stated.
+
 ## Three facts decide a rate-control field
 
 A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live only when all three agree.
 
 - The **mode's concept** uses the knob: `MODE_META` in `util/domain.ts` says which controls each rate-control mode needs.
-- The **codec's encoder** takes the knob: the B-frame count and the p1-p7 ladder reach an encoder on NVENC alone, so both fields grey for every other family whatever its hardware could do with them.
+- The **codec's encoder** takes the knob: `FAMILY_META` flags the families whose encoders read the B-frame count and the preset (`takesBframes`, `takesPreset`), so both fields grey for a family that carries neither flag, whatever its hardware could do with them, and the reason lists the families that do from the same table.
 - The capture backend's **publish engine** forwards the value: `ENGINE_RULES` records where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
 
 When two of them block the same field, the reason names the one the user can act on.
-B-frames under software x264 in VBR read "only the NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
+B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
 
 ## The rule
 
@@ -60,5 +64,6 @@ A hidden field removes noise that would teach nothing, so a backend implementati
 ## Where the rules live
 
 Disable reasons are derived, never hand-set per field.
-`evaluateDeps` produces `deps.disabled` and `deps.note` from the capability table, the domain meta tables and the engine rules, the same source `normalize` repairs settings from, so a disabled option and its fallback cannot disagree.
+`evaluateDeps` produces `deps.disabled` and `deps.note` from the capability table, the domain meta tables and the engine rules, the same source `normalize` repairs settings from, so a disabled option and its replacement cannot disagree.
+Where a dimension has nothing legal left, `normalize` picks nothing and the field stays disabled with its reason, rather than holding a value the same evaluation greys.
 See `domain-model.md` for the capability and meta tables, and `frontend-coding-style.md` for the layer that `deps.ts` belongs to.

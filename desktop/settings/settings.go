@@ -7,16 +7,24 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
 
 	"bjoernblessin.de/go-utils/util/assert"
-	"bjoernblessin.de/go-utils/util/logger"
 )
 
 const configDirName = "screenshare"
 const configFileName = "settings.json"
+
+// configDirMode is the permission the config directory is created with.
+const configDirMode = 0o755
+
+// storeFileMode is the permission the settings and preset files are written with.
+const storeFileMode = 0o644
 
 // Stream holds every user-controllable aspect of the stream.
 type Stream struct {
@@ -97,42 +105,84 @@ func Defaults() Stream {
 	}
 }
 
-// configDir returns the config directory, creating it if needed.
-func configDir() string {
+// configDir returns the directory holding the settings and preset files, creating
+// it if needed.
+//
+// A directory that cannot be resolved or created is an error and not a path to
+// write into anyway: the working directory it used to fall back to is whatever the
+// app was started from, so the files landed somewhere the next launch did not look
+// and every setting read as a first start.
+func configDir() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
-		logger.Warnf("Cannot determine user config directory, falling back to working directory: %v", err)
-		base = "."
+		return "", fmt.Errorf("cannot determine user config directory: %w", err)
 	}
 
 	dir := filepath.Join(base, configDirName)
-	err = os.MkdirAll(dir, 0o755)
-	if err != nil {
-		logger.Warnf("Cannot create config directory %s: %v", dir, err)
+	if err := os.MkdirAll(dir, configDirMode); err != nil {
+		return "", fmt.Errorf("cannot create config directory %s: %w", dir, err)
 	}
-
-	return dir
+	return dir, nil
 }
 
 // configPath returns the settings file path.
-func configPath() string {
-	return filepath.Join(configDir(), configFileName)
+func configPath() (string, error) {
+	dir, err := configDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, configFileName), nil
 }
 
-// Load reads the persisted settings.
-// A missing file silently yields Defaults() - first start is not an error.
-func Load() Stream {
-	s := Defaults()
+// corruptSuffix names the copy an unusable store file is moved to.
+const corruptSuffix = ".corrupt"
 
-	data, err := os.ReadFile(configPath())
+// setAside moves a store file that cannot be read or parsed out of the way, and
+// returns the reason with the copy's path named.
+//
+// Both stores are rewritten in full from what their loader returned: the working
+// settings on the next field change, the presets on the next save. A file left in
+// place is therefore a file the next write replaces, so the values in it are
+// renamed out of reach first and the caller has a path to name.
+//
+// An existing copy is the user's real data from the first failure and is kept: the
+// file failing now was written after it, so it holds the defaults rather than
+// anything worth a second copy.
+func setAside(path string, cause error) error {
+	kept := path + corruptSuffix
+	if _, err := os.Stat(kept); err == nil {
+		return fmt.Errorf("%w - %s holds an earlier unreadable copy and is left untouched", cause, kept)
+	}
+	if err := os.Rename(path, kept); err != nil {
+		return fmt.Errorf("%w - moving it to %s failed: %v", cause, kept, err)
+	}
+	return fmt.Errorf("%w - it was moved to %s, so the values in it survive the next write", cause, kept)
+}
+
+// Load reads the persisted settings, and answers with Defaults() and the reason
+// when the stored ones cannot be used. A missing file is not a failure: a first
+// start has nothing to read.
+//
+// A file that exists and cannot be read or parsed is moved aside (setAside) before
+// the defaults are handed back, so the run that opens on defaults does not take the
+// stored values with it.
+func Load() (Stream, error) {
+	path, err := configPath()
 	if err != nil {
-		return s
+		return Defaults(), err
 	}
 
-	err = json.Unmarshal(data, &s)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return Defaults(), nil
+	}
 	if err != nil {
-		logger.Warnf("Settings file is corrupt, using defaults: %v", err)
-		return Defaults()
+		return Defaults(), setAside(path, fmt.Errorf("cannot read settings file %s: %w", path, err))
+	}
+
+	s := Defaults()
+	if err := json.Unmarshal(data, &s); err != nil {
+		return Defaults(), setAside(path, fmt.Errorf("settings file %s is corrupt: %w", path, err))
 	}
 
 	// Migration guard: settings files from before the per-hop latency split
@@ -162,7 +212,7 @@ func Load() Stream {
 		s.HlsPort = Defaults().HlsPort
 	}
 
-	return migrateStream(s)
+	return migrateStream(s), nil
 }
 
 // migrateStream upgrades a decoded settings object to the current schema. It
@@ -194,6 +244,16 @@ func migrateStream(s Stream) Stream {
 	if s.RtspWatchProtocol == "" {
 		s.RtspWatchProtocol = Defaults().RtspWatchProtocol
 	}
+	// The DRM download strategy and the encoder preset are both matched against a
+	// table by the builders that read them, and both reject a value the table does
+	// not name. Filling the key a file written before the option lacks is what keeps
+	// that rejection about a value the user chose.
+	if s.DrmMap == "" {
+		s.DrmMap = Defaults().DrmMap
+	}
+	if s.EncPreset == "" {
+		s.EncPreset = Defaults().EncPreset
+	}
 	return s
 }
 
@@ -202,5 +262,9 @@ func Save(s Stream) error {
 	data, err := json.MarshalIndent(s, "", "  ")
 	assert.IsNil(err, "marshalling a plain settings struct cannot fail")
 
-	return os.WriteFile(configPath(), data, 0o644)
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, storeFileMode)
 }

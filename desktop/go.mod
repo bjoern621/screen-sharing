@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	bjoernblessin.de/go-utils v1.0.1
+	fyne.io/systray v1.12.2
 	github.com/godbus/dbus/v5 v5.1.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/wailsapp/wails/v2 v2.12.0

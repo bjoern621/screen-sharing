@@ -38,6 +38,8 @@
             (final: prev: {
               webkitgtk_4_1 = prev.webkitgtk_4_1.override { enableExperimental = true; };
 
+              # Two plugins of gst-plugins-bad that the cached build does not carry.
+              #
               # The GStreamer publish engine's only Vulkan Video path is the vulkan
               # plugin's vulkanh264enc, with vulkanupload putting frames on the device
               # it encodes from. nixpkgs configures gst-plugins-bad with
@@ -46,11 +48,23 @@
               # build has no plugin to load. Enabling it costs a source build of that
               # one package: the loader and headers satisfy the meson feature, and
               # shaderc provides the glslc the plugin compiles its shaders with.
+              #
+              # The qsv plugin is both halves of the Intel path: qsvh264enc and its
+              # siblings for the publish engine, qsvh264dec and its siblings for the
+              # native grid, which reaches an Intel GPU's 4:4:4 HEVC decoding that no
+              # va element advertises. Its meson option defaults to auto and nixpkgs
+              # passes no flag, so the plugin is silently absent from the cached build.
+              # It needs no new inputs: the plugin vendors the oneVPL dispatcher and
+              # links the va library gst-plugins-bad already builds, and only the Intel
+              # runtime it loads at startup comes from outside (vplRuntime).
               gst_all_1 = prev.gst_all_1 // {
                 gst-plugins-bad = prev.gst_all_1.gst-plugins-bad.overrideAttrs (old: {
-                  mesonFlags = builtins.filter (f: f != "-Dvulkan=disabled") old.mesonFlags ++ [
-                    "-Dvulkan=enabled"
-                  ];
+                  mesonFlags =
+                    builtins.filter (f: f != "-Dvulkan=disabled" && f != "-Dqsv=disabled") old.mesonFlags
+                    ++ [
+                      "-Dvulkan=enabled"
+                      "-Dqsv=enabled"
+                    ];
                   buildInputs = old.buildInputs ++ [
                     prev.vulkan-headers
                     prev.vulkan-loader
@@ -141,7 +155,7 @@
             gstreamer # gst-launch-1.0
             gst-plugins-base # videoconvert
             gst-plugins-good # pulsesrc (desktop audio), vpx (vp8enc/vp9enc), rtspsrc, progressreport
-            gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse/av1parse, nvcodec, va (vah264enc and the other VAAPI encoders), aom (av1enc), svtav1enc, opusenc
+            gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse/av1parse, nvcodec, va (vah264enc and the other VAAPI encoders), qsv (Intel encode and decode), aom (av1enc), svtav1enc, opusenc
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
             gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB)
@@ -163,6 +177,14 @@
         # alone. The encoders remain 4:2:0: yuv420p and p010le, with RGB and
         # 4:4:4 input converted on the way in.
         amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
+        # Intel's oneVPL runtime, the implementation behind every QSV encoder and
+        # decoder. Both engines reach it through a dispatcher that loads the runtime by
+        # filename at startup: ffmpeg links libvpl (--enable-libvpl) and the qsv plugin
+        # vendors the same dispatcher, and neither finds a store path on its own, which
+        # is what ONEVPL_SEARCH_PATH answers. Intel ships the runtime for x86_64 alone.
+        # On a machine with no Intel GPU it loads and reports no hardware
+        # implementation, which is the encoder probe's answer rather than a table fact.
+        vplRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.vpl-gpu-rt ];
       in
       {
         devShells.default = pkgs.mkShell {
@@ -183,7 +205,9 @@
               nil
               nixfmt
             ]
-            ++ pkgs.lib.optionals pkgs.stdenv.isLinux (linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime);
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux (
+              linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime ++ vplRuntime
+            );
 
           shellHook = ''
             echo "screen-sharing dev shell - run 'task' for available commands"
@@ -198,6 +222,14 @@
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
               pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
             }"
+          ''
+          + pkgs.lib.optionalString (pkgs.stdenv.isLinux && vplRuntime != [ ]) ''
+            # The oneVPL dispatcher searches the distro library paths for the runtime,
+            # which hold nothing on NixOS, and both engines then report no hardware
+            # implementation on a machine that has one. This is the search path it reads
+            # in addition to its own; it names one directory holding one library, so it
+            # cannot shadow anything else the shell loads.
+            export ONEVPL_SEARCH_PATH="${pkgs.lib.makeLibraryPath vplRuntime}"
           ''
           + pkgs.lib.optionalString (pkgs.stdenv.isLinux && amfRuntime != [ ]) ''
             # ffmpeg dlopens libamfrt64.so.1 by soname, so the AMF runtime has to
@@ -226,12 +258,18 @@
             ++ [
               gst_all_1.gstreamer
               gst_all_1.gst-plugins-base
-            ];
+            ]
+            ++ vplRuntime;
 
           shellHook = ''
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
               pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
             }"
+          ''
+          + pkgs.lib.optionalString (vplRuntime != [ ]) ''
+            # The qsv decoders load Intel's oneVPL runtime through the same dispatcher
+            # the publish side uses, so the grid needs the search path as well.
+            export ONEVPL_SEARCH_PATH="${pkgs.lib.makeLibraryPath vplRuntime}"
           '';
         };
       }

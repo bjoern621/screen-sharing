@@ -40,6 +40,14 @@ func (a *App) Capabilities() []capabilities.Codec {
 	return capabilities.Codecs
 }
 
+// Decoders returns the decode capability table, so the form can say what a publish
+// choice costs the viewer: which GPUs decode the stream, and which decode the format but
+// not the pixel format. It is not a fact about this machine, unlike Encoders: the viewer
+// is someone else's hardware, and a stream is published once and watched on all of it.
+func (a *App) Decoders() []capabilities.Decoder {
+	return capabilities.Decoders
+}
+
 // Encoders reports which video codecs this machine can actually run, per publish
 // engine, so the UI can grey out NVENC options on a machine without an NVIDIA GPU and
 // a codec whose GStreamer plugin is missing on the portal capture backend alone. The

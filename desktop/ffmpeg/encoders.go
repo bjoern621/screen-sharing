@@ -2,7 +2,11 @@ package ffmpeg
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
+
+	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
@@ -26,6 +30,9 @@ func ratesFor(s settings.Stream, gop int) rates {
 	}
 }
 
+// encoderArgsFunc builds the codec-specific half of the command for one stream.
+type encoderArgsFunc func(s settings.Stream, r rates) []string
+
 // encoderMappings is the codec-specific half of the command, one entry per
 // encoder whose knobs differ. The rate-control modes are the methods themselves:
 // cbr and vbr and abr all target a bitrate and differ in the ceiling, crf targets
@@ -34,9 +41,9 @@ func ratesFor(s settings.Stream, gop int) rates {
 // capabilities.Codecs and rejected before a command is built, so the branch for it
 // is absent here rather than approximated.
 //
-// The NVENC family is matched by capability rather than by name (encoderArgs),
-// because one mapping serves every nvenc codec.
-var encoderMappings = map[string]func(s settings.Stream, r rates) []string{
+// A family whose codecs share one mapping outright belongs in familyMappings instead,
+// which is what keeps a codec added to such a family from needing a row here.
+var encoderMappings = map[string]encoderArgsFunc{
 	// x264 reaches bit-exact at -qp 0; x265 has no bit-exact qp, so lossless is
 	// its own param.
 	"libx264":    softwareArgs("libx264", []string{"-qp", "0"}),
@@ -54,6 +61,12 @@ var encoderMappings = map[string]func(s settings.Stream, r rates) []string{
 	"av1_vaapi":  vaapiArgs("-global_quality"),
 	"vp9_vaapi":  vaapiArgs("-global_quality"),
 	"vp8_vaapi":  vaapiArgs("-global_quality"),
+	// One QSV mapping serves all four codecs: the rate control is oneVPL's, so the
+	// codec decides only which of its modes the generation implements.
+	"h264_qsv": qsvArgs,
+	"hevc_qsv": qsvArgs,
+	"av1_qsv":  qsvArgs,
+	"vp9_qsv":  qsvArgs,
 	// One AMF mapping serves all three codecs, with what differs between them bound
 	// here: the profile a chroma selects, and the options only some of the three own.
 	"h264_amf": amfArgs(nil, amfH264Options),
@@ -66,30 +79,65 @@ var encoderMappings = map[string]func(s settings.Stream, r rates) []string{
 	"av1_vulkan":  vulkanArgs,
 }
 
+// familyMappings is the same half of the command for the families whose codecs share
+// one mapping outright, keyed as capabilities.Codecs names the family. The NVENC codecs
+// differ only in the codec name the mapping already reads off the settings, so the
+// family is the unit. VAAPI and AMF are keyed per codec instead, since what differs
+// between their codecs (the option the quantizer travels in, the profile a chroma
+// selects) is bound at the row.
+var familyMappings = map[string]encoderArgsFunc{
+	capabilities.FamilyNvenc: nvencArgs,
+}
+
+// familyLimits are the settings bounds an encoder family imposes beyond what
+// capabilities.Validate checks, keyed as capabilities.Codecs names the family. It is
+// the counterpart of gstFamilyLimits on the GStreamer builder. A family absent here
+// takes whatever the capability table already approved.
+//
+// The bound lives here rather than in the capability table because it is a property
+// of the option the family's mapping reads, not of a codec: every NVENC row takes
+// the same preset ladder, and no other family reads the field at all.
+var familyLimits = map[string]func(settings.Stream) error{
+	capabilities.FamilyNvenc: nvencPresetLimit,
+}
+
 // encoderArgs returns the encoder arguments for the configured codec and rate
 // control mode. gop is the resolved keyframe interval in frames, which the command
-// also carries as -g.
+// also carries as -g. A codec's own row wins over its family's mapping.
+//
+// A codec neither table maps is refused rather than run on a bare -b:v guess. The
+// families still declared Implemented:false (v4l2, rkmpp) each need a device and
+// a load path of their own, as VAAPI, QSV and Vulkan do (hwsurface.go), and none of
+// them encodes from a command that carries only a bitrate. capabilities.Validate
+// rejects those codecs ahead of this either way.
 func encoderArgs(s settings.Stream, gop int) ([]string, error) {
+	c, ok := capabilities.Get(s.Codec)
+	if !ok {
+		return nil, fmt.Errorf("unknown codec %q", s.Codec)
+	}
+	// The family's bound is checked before either mapping runs, so a codec with a row
+	// of its own is held to it as well.
+	if limits, ok := familyLimits[c.Family]; ok {
+		if err := limits(s); err != nil {
+			return nil, err
+		}
+	}
+
 	r := ratesFor(s, gop)
 	if build, ok := encoderMappings[s.Codec]; ok {
 		return build(s, r), nil
 	}
-	if capabilities.IsNvenc(s.Codec) {
-		return nvencArgs(s, r), nil
+	if build, ok := familyMappings[c.Family]; ok {
+		return build(s, r), nil
 	}
-	// Generic bitrate-targeted path. capabilities.Validate rejects every codec whose
-	// entry has Implemented:false, so the not-yet-wired hardware families (qsv, v4l2,
-	// rkmpp) never reach here. When one is implemented, give it its own mapping: QSV
-	// needs its own device and load path, as VAAPI and Vulkan need a device and an
-	// upload filter chain (hwsurface.go), so none of them fit this bare -b:v fallback.
-	return []string{"-c:v", s.Codec, "-b:v", r.bitrate}, nil
+	return nil, fmt.Errorf("codec %q has no ffmpeg encoder mapping", s.Codec)
 }
 
 // softwareArgs is the rate-control mapping shared by the CPU H.26x encoders
 // libx264 and libx265; the five modes match the software path of gstCodecs. Only
 // the encoder name and the lossless knob differ between the two, so both are bound
 // per codec in encoderMappings.
-func softwareArgs(codec string, lossless []string) func(settings.Stream, rates) []string {
+func softwareArgs(codec string, lossless []string) encoderArgsFunc {
 	return func(s settings.Stream, r rates) []string {
 		switch s.Mode {
 		case "crf":
@@ -109,13 +157,16 @@ func softwareArgs(codec string, lossless []string) func(settings.Stream, rates) 
 				"-c:v", codec, "-preset", "medium",
 				"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
 			}
-		default: // cbr
+		case "cbr":
 			// maxrate = bitrate with a bounded bufsize is true CBR; without them
 			// -b:v alone is one-pass ABR and bursts past a capped link.
 			return []string{
 				"-c:v", codec, "-preset", "veryfast", "-tune", "zerolatency",
 				"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
 			}
+		default:
+			assert.Never("unexpected rate-control mode", s.Mode)
+			return nil
 		}
 	}
 }
@@ -134,10 +185,14 @@ func aomRates(base []string, s settings.Stream, r rates) []string {
 	case "vbr":
 		return append(base,
 			"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
-	default: // cbr: minrate = b:v = maxrate with a bounded buffer.
+	case "cbr":
+		// minrate = b:v = maxrate with a bounded buffer.
 		return append(base,
 			"-minrate", r.bitrate, "-b:v", r.bitrate, "-maxrate", r.bitrate,
 			"-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
 }
 
@@ -214,12 +269,15 @@ func svtav1Args(s settings.Stream, r rates) []string {
 		return append(base, "-crf", r.cq)
 	case "abr", "vbr":
 		return append(base, "-b:v", r.bitrate)
-	default: // cbr
+	case "cbr":
 		params := "rc=2:pred-struct=1"
 		if s.VbvMs > 0 {
 			params += ":buf-sz=" + strconv.Itoa(s.VbvMs)
 		}
 		return append(base, "-b:v", r.bitrate, "-svtav1-params", params)
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
 }
 
@@ -234,8 +292,11 @@ func rav1eArgs(s settings.Stream, r rates) []string {
 		return append(base, "-qp", r.cq)
 	case "abr", "vbr":
 		return append(base, "-b:v", r.bitrate)
-	default: // cbr
+	case "cbr":
 		return append(base, "-b:v", r.bitrate, "-rav1e-params", "low_latency=true")
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
 }
 
@@ -257,7 +318,7 @@ func rav1eArgs(s settings.Stream, r rates) []string {
 // No preset or B-frame count: the p1-p7 ladder is NVENC's, and VAAPI B-frame
 // support varies per driver and hardware generation, so the form greys both fields
 // for this family.
-func vaapiArgs(quantizer string) func(settings.Stream, rates) []string {
+func vaapiArgs(quantizer string) encoderArgsFunc {
 	return func(s settings.Stream, r rates) []string {
 		switch s.Mode {
 		case "crf":
@@ -269,12 +330,86 @@ func vaapiArgs(quantizer string) func(settings.Stream, rates) []string {
 				"-c:v", s.Codec, "-rc_mode", "VBR",
 				"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
 			}
-		default: // cbr
+		case "cbr":
 			return []string{
 				"-c:v", s.Codec, "-rc_mode", "CBR",
 				"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs),
 			}
+		default:
+			assert.Never("unexpected rate-control mode", s.Mode)
+			return nil
 		}
+	}
+}
+
+// The two points on oneVPL's target-usage scale the modes encode at, spelled as ffmpeg
+// names them: cbr trades quality for the encoder keeping up with a live capture, as the
+// NVENC preset ladder and the AMF quality scale do at the same point, and the other three
+// sit at the balanced point in the middle of the scale.
+const (
+	qsvLivePreset    = "veryfast"
+	qsvQualityPreset = "medium"
+)
+
+// qsvAbrPeak is the factor the abr mapping places its ceiling at above the bitrate
+// target, the same derivation the VAAPI, AMF and Vulkan mappings use.
+const qsvAbrPeak = 2
+
+// qsvLiveAsyncDepth is the number of frames the cbr mode lets the encoder keep in flight.
+// oneVPL pipelines four by default, three frame periods of delay a live stream pays for
+// throughput it does not need at a screen's frame rate.
+const qsvLiveAsyncDepth = "1"
+
+// qsvArgs maps the rate-control modes onto the QSV encoders' options, the Intel
+// counterpart to vaapiArgs and amfArgs. It serves every QSV codec, the codec name itself
+// being the only difference between them.
+//
+// This family has no -rc_mode to set: oneVPL's method is derived from which rate options
+// carry a value, so each branch below is the shape that names one method.
+//   - crf: -q:v carries the quantizer and sets ffmpeg's qscale flag with it, which is
+//     what selects CQP. The value is the quantizer itself rather than a quality level,
+//     and ffmpeg states it on the H.26x 0-51 scale for every codec but AV1, which
+//     capabilities.Codecs carries as the CqMax of each row.
+//   - cbr: a ceiling equal to the target selects CBR, the VBV window sizing its rate
+//     buffer. async_depth drops the encoder's pipeline from four frames in flight to
+//     one, which is what the qsv elements' low-latency property does on the other
+//     engine, so live delay does not depend on the capture backend.
+//   - vbr: a ceiling above the target selects VBR, bursting to the maxrate.
+//   - abr: the same VBR with the ceiling at twice the target. A VBR encode given no
+//     ceiling leaves oneVPL its own, which is not a rate the settings ever stated.
+//
+// ICQ and QVBR stay out, though a quantizer with a bitrate beside it would select them:
+// both take a quality level on a scale of their own rather than a quantizer, and ICQ is
+// absent from the AV1 and VP9 encoders. The lookahead methods and VCM stay out as the
+// modes they refine are not reachable without them. lossless has no QSV form at all
+// (qsvGaps).
+//
+// B-pictures are pinned off rather than taken from the settings, as on AMF: the B-frame
+// count is NVENC's alone, and a live screen stream pays their reorder delay for a gain it
+// cannot spend. The preset is the builder's choice for the same reason, the settings'
+// EncPreset being the NVENC p1-p7 ladder, which the form greys for this family.
+func qsvArgs(s settings.Stream, r rates) []string {
+	preset := qsvQualityPreset
+	if s.Mode == "cbr" {
+		preset = qsvLivePreset
+	}
+	base := []string{"-c:v", s.Codec, "-preset", preset, "-bf", "0"}
+	switch s.Mode {
+	case "crf":
+		return append(base, "-q:v", r.cq)
+	case "abr":
+		return append(base, "-b:v", r.bitrate,
+			"-maxrate", fmt.Sprintf("%dM", s.BitrateM*qsvAbrPeak))
+	case "vbr":
+		return append(base, "-b:v", r.bitrate, "-maxrate", r.maxrate,
+			"-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
+	case "cbr":
+		return append(base, "-async_depth", qsvLiveAsyncDepth,
+			"-b:v", r.bitrate, "-maxrate", r.bitrate,
+			"-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
 }
 
@@ -320,9 +455,12 @@ func vulkanArgs(s settings.Stream, r rates) []string {
 	case "vbr":
 		return append(base, "-tune", vulkanQualityTune, "-rc_mode", "vbr",
 			"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
-	default: // cbr
+	case "cbr":
 		return append(base, "-tune", vulkanLiveTune, "-rc_mode", "cbr",
 			"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
 }
 
@@ -404,7 +542,7 @@ func amfNoBPictures(rates) []string {
 // The speed/quality preset is the builder's choice rather than the settings'
 // EncPreset: that field is NVENC's p1-p7 ladder, which has no AMF equivalent, and the
 // form greys it for this family.
-func amfArgs(profiles map[string]string, options func(rates) []string) func(settings.Stream, rates) []string {
+func amfArgs(profiles map[string]string, options func(rates) []string) encoderArgsFunc {
 	return func(s settings.Stream, r rates) []string {
 		base := []string{"-c:v", s.Codec}
 		if profile, ok := profiles[s.Chroma]; ok {
@@ -427,29 +565,27 @@ func amfArgs(profiles map[string]string, options func(rates) []string) func(sett
 		case "vbr":
 			return append(base, "-rc", "vbr_peak", "-b:v", r.bitrate, "-maxrate", r.maxrate,
 				"-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
-		default: // cbr
+		case "cbr":
 			return append(base, "-rc", "cbr", "-b:v", r.bitrate, "-maxrate", r.bitrate,
 				"-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+		default:
+			assert.Never("unexpected rate-control mode", s.Mode)
+			return nil
 		}
 	}
 }
 
-// The NVENC preset the modes default to when the settings carry none: the quality
-// end of the p1-p7 ladder, except for cbr, where a live stream trades quality for
-// the encoder keeping up.
-const (
-	nvencQualityPreset = "p7"
-	nvencLivePreset    = "p5"
-)
+// nvencLivePreset is the ladder step cbr pins the preset to, where a live stream
+// trades quality for the encoder keeping up. The frontend's MODE_META declares the
+// same step as the cbr row's pinnedPreset, which is what the form's greyed preset
+// control names, so the two have to spell it alike.
+const nvencLivePreset = "p5"
 
 // nvencArgs maps the rate-control modes onto the NVENC SDK's knobs: preset ladder,
 // tune, and rc mode. It serves every nvenc codec, the codec name itself being the
 // only difference between them.
 func nvencArgs(s settings.Stream, r rates) []string {
 	preset := s.EncPreset
-	if preset == "" {
-		preset = nvencQualityPreset
-	}
 	switch s.Mode {
 	case "lossless":
 		// True nvenc lossless: no rate control, the frame costs whatever exactness
@@ -474,20 +610,43 @@ func nvencArgs(s settings.Stream, r rates) []string {
 			"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs),
 			"-bf", r.bframes,
 		}
-	default: // cbr
-		// CBR pins the preset rather than defaulting it. The form greys the preset
-		// control in this mode and says which preset is in force, so honouring a
+	case "cbr":
+		// CBR pins the preset rather than honouring the settings'. The form greys the
+		// preset control in this mode and says which preset is in force, so running a
 		// preset the user can no longer change would make that sentence false: a
-		// settings file or a preset carrying p7 would run p7 while the form reads
-		// p5. Pinning is also what the mode is for, since a low-latency preset is
-		// what lets the encoder hold a constant rate.
+		// settings file or a preset carrying p7 would run p7 while the form reads p5.
+		// Pinning is also what the mode is for, since a low-latency preset is what lets
+		// the encoder hold a constant rate.
 		preset = nvencLivePreset
 		args := []string{"-c:v", s.Codec, "-preset", preset, "-tune", "ll", "-rc", "cbr", "-b:v", r.bitrate, "-bf", "0"}
 		if s.VbvMs > 0 {
 			args = append(args, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
 		}
 		return args
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
+}
+
+// nvencPresets is the p1-p7 preset ladder, the values the encoder preset setting may
+// hold. The frontend's ENC_PRESETS carries the same seven with their tooltips, the
+// way every other option list is spelled on both sides of the wire.
+var nvencPresets = []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7"}
+
+// nvencPresetLimit rejects a preset outside the ladder.
+//
+// The field is a free-form string in the settings, and nothing upstream of here bounds
+// it: capabilities.Validate covers the codec, pixel format, rate-control mode and the
+// two rate figures, none of which this is. Passing an unknown value through would put
+// it behind -preset for ffmpeg to reject, in a message about an option the form never
+// showed rather than about the control that holds it.
+func nvencPresetLimit(s settings.Stream) error {
+	if slices.Contains(nvencPresets, s.EncPreset) {
+		return nil
+	}
+	return fmt.Errorf("encoder preset %q is not one of the NVENC ladder steps %s",
+		s.EncPreset, strings.Join(nvencPresets, ", "))
 }
 
 // bufsizeArg returns the ffmpeg -bufsize value in kbit for a rate (Mbit/s) held

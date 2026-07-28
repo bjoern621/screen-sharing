@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
     PublishCommand, Transports, TransportFormats, CaptureTransports,
-    CaptureEngines,
+    CaptureEngines, StoreNotice,
 } from "../../wailsjs/go/main/App";
 import {
     Deps, EncoderInfo, PlatformInfo, Preset, Stream, TransportCarriage,
     ViewVerdict,
 } from "../types/stream";
 import { Environment, evaluateDeps, normalize } from "../util/deps";
-import { Capability, Engine, engineFor } from "../util/domain";
+import { Capability, Decoder, Engine, engineFor } from "../util/domain";
 import { nativeGridCheck } from "../util/nativegrid";
 import { webGridCheck } from "../util/webgrid";
 import { PRESETS } from "../util/presets";
@@ -55,7 +55,9 @@ function matchPreset(s: Stream, userPresets: Preset[]): string {
  * The platform gates which capture backends are available, the encoder set which
  * codecs the machine can run, the capability table which codec/chroma/transport
  * combinations are legal, and the capture backend's engine which rate-control
- * knobs reach the encoder.
+ * knobs reach the encoder. The decode table restricts nothing: it describes the
+ * viewers rather than this machine, so it only lets the form say what a pixel format
+ * costs them.
  *
  * The working settings are persisted on every change, so the next launch
  * restores the exact last state whether or not it was saved as a named preset.
@@ -64,7 +66,8 @@ function matchPreset(s: Stream, userPresets: Preset[]): string {
 export function useStreamSettings(
     platform: PlatformInfo | null,
     encoders: EncoderInfo | null,
-    caps: Capability[] | null
+    caps: Capability[] | null,
+    decoders: Decoder[] | null
 ) {
     const [s, setS] = useState<Stream | null>(null);
     const [preset, setPreset] = useState(CUSTOM_PRESET);
@@ -76,14 +79,26 @@ export function useStreamSettings(
     const [captureEngines, setCaptureEngines] =
         useState<Record<string, string> | null>(null);
     const [cmd, setCmd] = useState("");
+    // Why each persisted store could not be read, empty when it was. The settings
+    // notice is fixed at startup and the preset one follows the last preset action,
+    // so they are held apart and joined for display instead of overwriting each
+    // other. An unusable store file has been moved aside by the backend rather than
+    // left for the next write to replace, so these sentences are what tell the user
+    // the values still exist and where.
+    const [settingsNotice, setSettingsNotice] = useState("");
+    const [presetError, setPresetError] = useState("");
 
     // One value for every fact the dependency rules read, so the evaluation and
     // the repairs cannot be handed different subsets.
     const env: Environment = useMemo(
         () => ({
-            platform, encoders, caps, carriage, captureTransports, captureEngines,
+            platform, encoders, caps, decoders, carriage, captureTransports,
+            captureEngines,
         }),
-        [platform, encoders, caps, carriage, captureTransports, captureEngines]
+        [
+            platform, encoders, caps, decoders, carriage, captureTransports,
+            captureEngines,
+        ]
     );
 
     const deps: Deps | null = useMemo(
@@ -135,41 +150,69 @@ export function useStreamSettings(
         [update, userPresets]
     );
 
+    // Every preset binding rejects when the presets file could not be read, and the
+    // backend has moved that file aside by then. Reporting the reason is what tells
+    // the empty list apart from a list that is empty because nothing was saved.
+    const loadPresets = useCallback(async (): Promise<Preset[]> => {
+        try {
+            const presets = await GetPresets();
+            setPresetError("");
+            return presets;
+        } catch (e) {
+            setPresetError(String(e));
+            return [];
+        }
+    }, []);
+
     const saveAsPreset = useCallback(
         async (name: string) => {
             const trimmed = name.trim();
             if (!s || !trimmed) {
                 return;
             }
-            await SavePreset(trimmed, s);
-            setUserPresets(await GetPresets());
+            try {
+                await SavePreset(trimmed, s);
+            } catch (e) {
+                setPresetError(String(e));
+                return;
+            }
+            setUserPresets(await loadPresets());
             setPreset(userPresetValue(trimmed));
         },
-        [s]
+        [s, loadPresets]
     );
 
-    const deletePreset = useCallback(async (value: string) => {
-        if (!value.startsWith(USER_PREFIX)) {
-            return;
-        }
-        await DeletePreset(value.slice(USER_PREFIX.length));
-        setUserPresets(await GetPresets());
-        setPreset(prev => (prev === value ? CUSTOM_PRESET : prev));
-    }, []);
+    const deletePreset = useCallback(
+        async (value: string) => {
+            if (!value.startsWith(USER_PREFIX)) {
+                return;
+            }
+            try {
+                await DeletePreset(value.slice(USER_PREFIX.length));
+            } catch (e) {
+                setPresetError(String(e));
+                return;
+            }
+            setUserPresets(await loadPresets());
+            setPreset(prev => (prev === value ? CUSTOM_PRESET : prev));
+        },
+        [loadPresets]
+    );
 
     useEffect(() => {
         void (async () => {
             const loaded = normalize(await GetSettings());
-            const presets = await GetPresets();
+            const presets = await loadPresets();
             setUserPresets(presets);
             setS(loaded);
             setPreset(matchPreset(loaded, presets));
+            setSettingsNotice(await StoreNotice());
             setTransports(await Transports());
             setCarriage(await TransportFormats());
             setCaptureTransports(await CaptureTransports());
             setCaptureEngines(await CaptureEngines());
         })();
-    }, []);
+    }, [loadPresets]);
 
     // Re-normalize whenever a dimension resolves after mount: platform gates the
     // capture backend (ddagrab on Linux falls back), the encoder probe and capability
@@ -212,6 +255,7 @@ export function useStreamSettings(
 
     return {
         s, preset, userPresets, transports, engine, deps, webGrid, nativeGrid, cmd,
+        storeError: [settingsNotice, presetError].filter(Boolean).join("\n"),
         update, applyPreset, saveAsPreset, deletePreset,
     };
 }

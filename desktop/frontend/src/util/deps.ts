@@ -2,10 +2,11 @@ import {
     Deps, EncoderInfo, PlatformInfo, Stream, TransportCarriage,
 } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, ENGINE_LABEL, Engine, FALLBACK_CODEC,
+    Capability, CHROMA_META, Chroma, Decoder, ENGINE_LABEL, Engine,
     FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, carriesFormat,
-    chromaGapFor, codecLabel, cqMax, engineFor, engineGapFor, familyOf,
-    findCapability, findEngineRule, isNvenc, modeGapFor,
+    chromaGapFor, codecLabel, cqMax, decodeNote, engineFor, engineGapFor,
+    familiesWith, familyMetaOf, familyOf, findCapability, findEngineRule,
+    modeGapFor,
 } from "./domain";
 
 /**
@@ -28,6 +29,9 @@ export interface Environment {
     platform: PlatformInfo | null;
     encoders: EncoderInfo | null;
     caps: Capability[] | null;
+    /** The decode table, which describes the viewers rather than this machine and so
+     * restricts nothing: it only lets the form say what a choice costs them. */
+    decoders: Decoder[] | null;
     carriage: TransportCarriage[] | null;
     captureTransports: Record<string, string[]> | null;
     captureEngines: Record<string, string> | null;
@@ -38,23 +42,26 @@ export const UNKNOWN_ENV: Environment = {
     platform: null,
     encoders: null,
     caps: null,
+    decoders: null,
     carriage: null,
     captureTransports: null,
     captureEngines: null,
 };
 
-// Fallback chroma preference, highest quality first. normalize walks this order
-// and picks the first format the repaired codec and the capture's engine both
-// accept, so H.264's rejected gbrp drops to yuv444p and AV1's rejected 4:4:4
-// drops to yuv420p. It lists every chroma, so the walk always finds one.
+// Repair chroma preference, highest quality first. normalize walks this order and
+// picks the first format the repaired codec and the capture's engine both accept, so
+// H.264's rejected gbrp drops to yuv444p and AV1's rejected 4:4:4 drops to yuv420p.
+// It lists every chroma, so the walk finds one wherever the codec encodes anything
+// at all on this engine.
 const CHROMA_FALLBACK_ORDER: Chroma[] = [
     "yuv444p", "yuv420p", "p010le", "gbrp",
 ];
 
-// Fallback rate-control preference, quality first. normalize walks this order when
-// the repaired codec has no form of the selected mode, so a stream on lossless
-// x264 that switches to an AV1 encoder lands on constant quality rather than a
-// bitrate target. It lists every mode, so the walk always finds one.
+// Repair rate-control preference, quality first. normalize walks this order when the
+// repaired codec has no form of the selected mode, so a stream on lossless x264 that
+// switches to an AV1 encoder lands on constant quality rather than a bitrate target.
+// It lists every mode, so the walk finds one wherever the codec is driveable on this
+// engine at all.
 const MODE_FALLBACK_ORDER: Mode[] = [
     "crf", "vbr", "abr", "cbr", "lossless",
 ];
@@ -128,6 +135,10 @@ function unavailableCaptures(
  * into the build. On the GStreamer engine the element is missing from the registry
  * instead, either because its plugin is not installed or, for the hardware families,
  * because the plugin found no device to register it for.
+ *
+ * An engine the probe could not ask at all is a fourth answer, and it applies to every
+ * codec rather than to one: a missing ffmpeg leaves no encoder reachable, the two the
+ * probe assumes present included.
  */
 function unavailableCodecs(
     encoders: EncoderInfo | null,
@@ -137,24 +148,51 @@ function unavailableCodecs(
     if (!encoders || !engine) {
         return {};
     }
+    // Every codec the table names, under one reason. An unresolved capability table
+    // leaves that list unknown, and an unknown list restricts nothing, as everywhere
+    // else here.
+    const engineWide = (reason: string): Record<string, string> =>
+        Object.fromEntries((caps ?? []).map(c => [c.name, reason]));
+
+    const unprobed = encoders.unprobed[engine];
+    if (unprobed) {
+        return engineWide(unprobed);
+    }
+    const probed = encoders.usable[engine];
+    if (!probed) {
+        // Detect answers every engine either with verdicts or with a reason, so this
+        // is a contradiction rather than a missing fact. Reporting it beats treating
+        // the engine as unrestricted, which would offer codecs nothing vouched for.
+        return engineWide(
+            `the ${ENGINE_LABEL[engine]} publish engine reported neither an encoder verdict nor a reason`
+        );
+    }
     const out: Record<string, string> = {};
-    for (const [codec, ok] of Object.entries(encoders.usable[engine] ?? {})) {
+    for (const [codec, ok] of Object.entries(probed)) {
         if (ok) {
             continue;
         }
-        const family = findCapability(caps, codec)?.family;
-        const label = FAMILY_META[family as Family]?.label;
-        if (engine === "gstreamer") {
-            out[codec] =
-                family === "software"
-                    ? `the GStreamer publish engine needs an encoder element for ${codec}, and this install carries no plugin providing one`
-                    : `no ${label ?? "matching"} encoder element registered - the GStreamer plugin found no such device`;
+        const family = familyMetaOf(codec, caps);
+        if (!family) {
+            // Which half is missing is the family's fact, and the capability table has
+            // not arrived yet. The probe's verdict still holds, so the codec is greyed
+            // under what is known rather than under a guessed half.
+            out[codec] = `${ENGINE_LABEL[engine]} cannot run ${codec} on this machine`;
             continue;
         }
-        out[codec] =
-            family === "software"
-                ? `this ffmpeg build has no ${codec} encoder compiled in`
-                : `no ${label ?? "matching"} encoder detected on this machine`;
+        // Whether an absent encoder is the machine's answer or the build's follows the
+        // family, not the engine: a device family's encoder is missing because the
+        // hardware or its driver is, a software one's because nobody compiled or
+        // packaged it.
+        if (engine === "gstreamer") {
+            out[codec] = family.needsDevice
+                ? `no ${family.label} encoder element registered - the GStreamer plugin found no such device`
+                : `the GStreamer publish engine needs an encoder element for ${codec}, and this install carries no plugin providing one`;
+            continue;
+        }
+        out[codec] = family.needsDevice
+            ? `no ${family.label} encoder detected on this machine`
+            : `this ffmpeg build has no ${codec} encoder compiled in`;
     }
     return out;
 }
@@ -182,7 +220,8 @@ function unavailableModes(
 
 /**
  * Whether codec can run on the given engine here. An unresolved probe or engine, and a
- * codec that engine does not probe, count as usable.
+ * codec that engine does not probe, count as usable. An engine the probe could not ask
+ * runs nothing, so no codec counts as usable there and none is repaired onto it.
  */
 function codecUsable(
     codec: string,
@@ -191,6 +230,9 @@ function codecUsable(
 ): boolean {
     if (!encoders || !engine) {
         return true;
+    }
+    if (encoders.unprobed[engine]) {
+        return false;
     }
     const probed = encoders.usable[engine];
     return !probed || !(codec in probed) || probed[codec];
@@ -361,10 +403,15 @@ function engineOf(capture: string, env: Environment): Engine | null {
  * unresolved Environment field imposes no restriction.
  */
 export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
-    const { platform, encoders, caps, carriage, captureTransports } = env;
+    const { platform, encoders, caps, decoders, carriage, captureTransports } = env;
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
-    const nvenc = isNvenc(s.codec, caps);
+    // The settings fields the codec's encoder family owns. An unresolved capability
+    // table imposes no restriction here as everywhere else, so the two controls stay
+    // live during startup instead of greying and flipping back once it arrives.
+    const family = familyMetaOf(s.codec, caps);
+    const takesBframes = !caps || !!family?.takesBframes;
+    const takesPreset = !caps || !!family?.takesPreset;
     const engine = engineOf(s.capture, env);
 
     const d: Deps = {
@@ -454,14 +501,18 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
         "the VBV buffer bounds the rate only in CBR and VBR");
     // B-frames and the preset ladder are each blocked by two independent facts,
     // so the reason names the one that applies instead of always blaming the mode.
-    knob("bframes", !!mode?.usesBframes && nvenc,
+    // Which families own the two fields is FAMILY_META's, so the reason lists them
+    // from the table rather than naming one.
+    knob("bframes", !!mode?.usesBframes && takesBframes,
         mode?.usesBframes
-            ? "only the NVENC encoders take a B-frame count"
+            ? `only the ${familiesWith(m => !!m.takesBframes)} encoders take a B-frame count`
             : "B-frames are forced off in CBR and lossless (no gain, only reorder delay)");
-    knob("encPreset", nvenc && !mode?.pinsPreset,
-        nvenc
-            ? `CBR pins the preset to ${mode?.pinnedPreset ?? "p5"}`
-            : "the p1-p7 ladder is NVENC-specific");
+    // A mode that pins the preset carries the step it pins to, so the sentence reads
+    // the declared value instead of restating one.
+    knob("encPreset", takesPreset && !mode?.pinsPreset,
+        takesPreset && mode?.pinsPreset
+            ? `${s.mode.toUpperCase()} pins the preset to ${mode.pinnedPreset}`
+            : `only the ${familiesWith(m => !!m.takesPreset)} encoders take an encoder preset`);
     // The keyframe interval is not a rate-control concept, so no mode withholds it;
     // only an encoder element that has no property for it does.
     knob("gop", true, "");
@@ -479,6 +530,12 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     ) {
         d.note.maxrateM = `the VAAPI encoder elements place the target as a percentage of the ceiling, at 50% lowest, so this ceiling cannot exceed ${s.bitrateM * 2} Mbit/s against a ${s.bitrateM} Mbit/s target`;
     }
+
+    // What the pixel format costs the viewer. The chroma control is never greyed for
+    // this: every format has a software decoder, so the choice is between a viewer's
+    // GPU and a viewer's cores, and which one is a fact the publisher should see rather
+    // than a rule that overrides the choice.
+    d.note.chroma = decodeNote(decoders, s.codec, s.chroma as Chroma, caps);
 
     if (chroma?.fullRange) {
         d.disabled.colorRange =
@@ -499,11 +556,18 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
 }
 
 /**
- * Applies availability fallbacks so settings never hold a combination the relay,
- * encoder or platform would reject. Returns a new object; never mutates the
- * input. Repairs derive from the same tables as evaluateDeps, so a disabled
- * option and its fallback always agree. An unresolved Environment field leaves
+ * Moves settings off the combinations the relay, encoder or platform would reject,
+ * onto the first one those same tables accept. Returns a new object; never mutates
+ * the input. Repairs derive from the same tables as evaluateDeps, so a disabled
+ * option and its replacement always agree. An unresolved Environment field leaves
  * the corresponding dimension untouched.
+ *
+ * A dimension with nothing available is left holding the rejected value rather than
+ * moved to a guess. Every candidate here has to satisfy the same rules evaluateDeps
+ * greys an option by, so a value picked outside them would be a value the form
+ * greys and the publish refuses, which is the one state the two are supposed to
+ * never disagree about. The rejected value keeps its reason, and the publish refuses
+ * with it.
  */
 export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     const { platform, encoders, caps, carriage, captureTransports } = env;
@@ -530,7 +594,7 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     // Codec: must be implemented, have an encoder on the capture backend's engine,
     // run here (hardware) and produce a bitstream the transport carries. Walk the
     // capability table in display order and take the first codec that satisfies all
-    // four; fall back to software when none does.
+    // four.
     const codecOk = (codec: string): boolean => {
         if (!codecUsable(codec, engine, encoders)) {
             return false;
@@ -545,9 +609,14 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
             !engineGapFor(codec, engine, caps)
         );
     };
+    // No codec satisfying all four means this capture backend's engine can encode
+    // nothing here, which is what evaluateDeps says on the codec field. Naming one
+    // anyway would name a codec that same evaluation greys.
     if (!codecOk(next.codec)) {
-        next.codec =
-            (caps?.map(c => c.name).find(codecOk)) ?? FALLBACK_CODEC;
+        const usable = caps?.find(c => codecOk(c.name));
+        if (usable) {
+            next.codec = usable.name;
+        }
     }
 
     // Chroma: must be a format the chosen codec encodes and the capture backend's
@@ -555,7 +624,10 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     // encoders negotiate rather than to a silent conversion.
     const blocked = unavailableChromas(next.codec, engine, caps);
     if (blocked[next.chroma]) {
-        next.chroma = CHROMA_FALLBACK_ORDER.find(c => !blocked[c]) ?? next.chroma;
+        const free = CHROMA_FALLBACK_ORDER.find(c => !blocked[c]);
+        if (free) {
+            next.chroma = free;
+        }
     }
 
     // Rate control: the chosen codec's encoder must have the mode on the engine
@@ -564,8 +636,10 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     // instead of failing at launch.
     const blockedModes = unavailableModes(next.codec, engine, caps);
     if (blockedModes[next.mode]) {
-        next.mode =
-            MODE_FALLBACK_ORDER.find(m => !blockedModes[m]) ?? next.mode;
+        const free = MODE_FALLBACK_ORDER.find(m => !blockedModes[m]);
+        if (free) {
+            next.mode = free;
+        }
     }
 
     // Quantizer target: the constant-quality scales differ per encoder, so a

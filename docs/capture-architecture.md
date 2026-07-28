@@ -141,5 +141,6 @@ The fd is inherited by the GStreamer child as descriptor 3, and `pipewiresrc fd=
 
 A backend is a row in `captureBackends` pointing at the engine that runs it.
 Under the ffmpeg engine that is an entry in `ffmpeg.captureBackends` building the input arguments; under the GStreamer engine it is a `gstCapture` implementation and the engine instantiated with it.
+An ffmpeg backend refuses settings naming something it cannot capture, a monitor this machine has no output for or a DRM download strategy no table row carries, rather than capturing whatever it can: a command that captures a different source than the form shows selected is the one failure no field can state.
 An engine is one type satisfying `publish.Publisher`, and a new one is needed only for a framework neither covers.
 The backend's platform applicability (which OS and session it runs on) is a row in `CAPTURE_NEEDS`, with the other capture-gating facts in `frontend/src/util/deps.ts`, and its label and tooltip a row in `CAPTURES`.

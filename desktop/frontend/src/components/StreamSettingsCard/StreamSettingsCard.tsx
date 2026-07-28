@@ -330,7 +330,10 @@ export default function StreamSettingsCard({
                     />
                     <SelectField
                         label="Pixel format / chroma subsampling"
-                        labelTip="Pixel format: the color model and chroma subsampling the encoder codes."
+                        labelTip={withNote(
+                            "Pixel format: the color model and chroma subsampling the encoder codes.",
+                            deps.note.chroma
+                        )}
                         value={s.chroma}
                         options={CHROMAS}
                         optionDisabled={deps.optionDisabled.chroma}

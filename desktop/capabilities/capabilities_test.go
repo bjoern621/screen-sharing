@@ -5,36 +5,88 @@ import (
 	"testing"
 )
 
-func TestIsNvenc(t *testing.T) {
-	cases := map[string]bool{
-		"hevc_nvenc": true,
-		"h264_nvenc": true,
-		"av1_nvenc":  true,
-		"libx264":    false,
-		"libx265":    false,
-		"_nvenc":     false, // not a real codec name
-		"nvenc":      false,
+// The family is a column of the table and never a reading of the codec's name, so a
+// name that ends in a family's spelling belongs to whatever family its row declares,
+// and a name that is not in the table has none at all.
+func TestFamilyComesFromTheTable(t *testing.T) {
+	cases := map[string]string{
+		"hevc_nvenc": FamilyNvenc,
+		"libx264":    FamilySoftware,
+		"h264_qsv":   FamilyQsv,
+		"_nvenc":     "", // not a real codec name
+		"nvenc":      "",
+		"vaapi":      "",
 	}
 	for codec, want := range cases {
-		if got := IsNvenc(codec); got != want {
-			t.Errorf("IsNvenc(%q) = %v, want %v", codec, got, want)
+		c, ok := Get(codec)
+		if ok != (want != "") {
+			t.Errorf("Get(%q) found = %v, want %v", codec, ok, want != "")
+			continue
+		}
+		if ok && c.Family != want {
+			t.Errorf("%s is family %q, want %q", codec, c.Family, want)
 		}
 	}
 }
 
-func TestIsVaapi(t *testing.T) {
-	cases := map[string]bool{
-		"h264_vaapi": true,
-		"vp8_vaapi":  true,
-		"h264_qsv":   false, // another hardware family, another builder
-		"libx264":    false,
-		"vaapi":      false, // not a real codec name
-	}
-	for codec, want := range cases {
-		if got := IsVaapi(codec); got != want {
-			t.Errorf("IsVaapi(%q) = %v, want %v", codec, got, want)
+// Every row's family is one the builders can key a table by. A row declaring a family
+// outside the set reaches no family-wide mapping and would fall to whatever the
+// builder does with an unknown one.
+func TestEveryRowDeclaresAKnownFamily(t *testing.T) {
+	for _, c := range Codecs {
+		if !slices.Contains(Families, c.Family) {
+			t.Errorf("%s declares family %q, which is not one of %v", c.Name, c.Family, Families)
 		}
 	}
+}
+
+// A gap binds by matching the value a lookup is given, so every axis it names has to
+// be spelled the way the lookups are asked. A gap naming an engine, a mode or a chroma
+// outside the set matches nothing, and the capability it was written to withhold is
+// then offered as if the encoder had it.
+func TestEveryGapNamesAKnownAxis(t *testing.T) {
+	for _, c := range Codecs {
+		for _, g := range c.Gaps {
+			if g.Engine != "" && !slices.Contains(Engines, g.Engine) {
+				t.Errorf("%s has a gap on engine %q, which is not one of %v", c.Name, g.Engine, Engines)
+			}
+			if g.Mode != "" && !slices.Contains(Modes, g.Mode) {
+				t.Errorf("%s has a gap on mode %q, which is not one of %v", c.Name, g.Mode, Modes)
+			}
+			// A chroma gap withholds a format the row offers. One naming a format the
+			// row does not list withholds nothing, and states a reason for an option
+			// that was never on offer.
+			if g.Chroma != "" && !slices.Contains(c.Chromas, g.Chroma) {
+				t.Errorf("%s has a gap on chroma %q, which the row does not list", c.Name, g.Chroma)
+			}
+		}
+	}
+}
+
+// A rate-control mode the table does not know reaches no gap and no quantizer scale,
+// and the builders would run it as CBR, so it is refused where every other unknown
+// value is.
+func TestValidateRejectsAnUnknownMode(t *testing.T) {
+	if err := Validate(EngineFfmpeg, "libx264", "yuv420p", "constant-effort", 19, 20); err == nil {
+		t.Error("Validate must reject a rate-control mode the table does not carry")
+	}
+	for _, mode := range Modes {
+		if _, gap := mustGet(t, "libx264").ModeGap(EngineFfmpeg, mode); gap {
+			continue
+		}
+		if err := Validate(EngineFfmpeg, "libx264", "yuv420p", mode, 19, 20); err != nil {
+			t.Errorf("libx264 in %s: %v", mode, err)
+		}
+	}
+}
+
+func mustGet(t *testing.T, name string) Codec {
+	t.Helper()
+	c, ok := Get(name)
+	if !ok {
+		t.Fatalf("%s is not in the table", name)
+	}
+	return c
 }
 
 func TestSupportsChroma(t *testing.T) {
@@ -69,6 +121,14 @@ func TestSupportsChroma(t *testing.T) {
 		{"libaom-av1", "gstreamer", "p010le", false},
 		{"libsvtav1", "gstreamer", "p010le", true},
 		{"librav1e", "gstreamer", "p010le", true},
+		// QSV reaches 10-bit where the format has a Main-10 equivalent, and reaches it
+		// on both engines: the qsv elements take the same semi-planar surfaces the
+		// encoders read. Neither 4:4:4 nor RGB is on any QSV row.
+		{"hevc_qsv", "gstreamer", "p010le", true},
+		{"av1_qsv", "ffmpeg", "p010le", true},
+		{"h264_qsv", "ffmpeg", "p010le", false}, // no QSV H.264 encoder codes High 10
+		{"vp9_qsv", "ffmpeg", "p010le", false},
+		{"hevc_qsv", "ffmpeg", "yuv444p", false},
 	}
 	for _, tc := range cases {
 		if got := SupportsChroma(tc.codec, tc.engine, tc.chroma); got != tc.want {
@@ -140,7 +200,7 @@ func TestValidate(t *testing.T) {
 	}{
 		{"nvenc hevc lossless", "ffmpeg", "hevc_nvenc", "gbrp", "lossless", 19, false},
 		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", 19, true},
-		{"unimplemented family", "ffmpeg", "hevc_qsv", "yuv420p", "cbr", 19, true},
+		{"unimplemented family", "ffmpeg", "hevc_v4l2m2m", "yuv420p", "cbr", 19, true},
 		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", 19, true},
 		// Planar RGB reaches the ffmpeg encoders and none of the GStreamer elements,
 		// so the same codec and chroma passes on one engine and fails on the other.

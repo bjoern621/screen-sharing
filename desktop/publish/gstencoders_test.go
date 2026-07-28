@@ -215,6 +215,54 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	}
 }
 
+// The AV1 and VP9 qsv elements hold their bitrate in an unsigned 16-bit property where
+// the H.264 and H.265 ones take any rate, so the bound belongs to the row and not to the
+// family. Each bitrate mode can drive it past the range: cbr and vbr with the figure the
+// settings carry, abr with the ceiling it derives at twice the target.
+func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
+	aboveBoundM := qsvShortBitrateKbps/1000 + 1
+	for _, tc := range []struct {
+		mode               string
+		bitrateM, maxrateM int
+	}{
+		{"cbr", aboveBoundM, aboveBoundM},
+		{"vbr", aboveBoundM, aboveBoundM},
+		{"abr", aboveBoundM/qsvAbrPeak + 1, 0},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			s := settings.Defaults()
+			s.Codec, s.Chroma, s.Mode = "av1_qsv", "yuv420p", tc.mode
+			s.BitrateM, s.MaxrateM = tc.bitrateM, tc.maxrateM
+			_, _, err := gstEncoder(s, 60)
+			if err == nil {
+				t.Fatalf("av1_qsv %s at %d Mbit/s must be refused, not clamped", tc.mode, tc.bitrateM)
+			}
+			if !strings.Contains(err.Error(), strconv.Itoa(qsvShortBitrateKbps)) {
+				t.Errorf("the refusal %q does not name the %d kbit/s limit", err, qsvShortBitrateKbps)
+			}
+
+			// The same rate on an H.26x element is inside its property's range, so the
+			// bound must not reach it.
+			s.Codec = "h264_qsv"
+			if _, _, err := gstEncoder(s, 60); err != nil {
+				t.Errorf("h264_qsv %s at %d Mbit/s: %v", tc.mode, tc.bitrateM, err)
+			}
+		})
+	}
+
+	// The bound itself is a rate the property takes, and crf drives no rate at all.
+	s := settings.Defaults()
+	s.Codec, s.Chroma, s.Mode = "av1_qsv", "yuv420p", "cbr"
+	s.BitrateM = qsvShortBitrateKbps / 1000
+	if _, _, err := gstEncoder(s, 60); err != nil {
+		t.Errorf("av1_qsv cbr at the property's highest rate: %v", err)
+	}
+	s.Mode, s.BitrateM = "crf", aboveBoundM
+	if _, _, err := gstEncoder(s, 60); err != nil {
+		t.Errorf("av1_qsv crf sends no bitrate, so the bound must not bind: %v", err)
+	}
+}
+
 // The two engines drive one SVT-AV1 library through different bindings, so a
 // stream's look must not depend on which capture backend produced it. The preset
 // is the knob that decides that look, and each engine states it in its own file,

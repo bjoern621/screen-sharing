@@ -11,8 +11,15 @@ import (
 // an engine nothing tested and the publish fails at launch.
 func TestEveryEngineIsProbed(t *testing.T) {
 	for _, engine := range publish.Engines() {
-		if _, ok := engineProbes[engine]; !ok {
+		probe, ok := engineProbes[engine]
+		if !ok {
 			t.Errorf("publish engine %s has no encoder probe", engine)
+			continue
+		}
+		// Detect calls all three. A nil availability check in particular would make a
+		// missing engine read as a machine whose every encoder failed.
+		if probe.available == nil || probe.codecs == nil || probe.usable == nil {
+			t.Errorf("publish engine %s has an incomplete probe: %+v", engine, probe)
 		}
 	}
 }

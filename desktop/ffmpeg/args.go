@@ -38,6 +38,12 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
 		return nil, err
 	}
+	// Every grabber takes the rate as an input option and the keyframe interval
+	// follows from it (gopFor), so a non-positive rate would reach the command as
+	// "-framerate 0" and "-g 0". The GStreamer engine refuses the same value.
+	if s.Fps <= 0 {
+		return nil, fmt.Errorf("the ffmpeg publish engine needs a positive fps, got %d", s.Fps)
+	}
 
 	src, err := captureArgs(s)
 	if err != nil {
@@ -56,14 +62,15 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	assert.Assert(len(src.args) > 0 || len(src.filters) > 0, "a validated stream yields a capture source", s.Capture)
 	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Codec)
 
-	// A VAAPI or Vulkan encoder reads GPU surfaces, so its device opens ahead of the
-	// input and the grabber's chain ends in a conversion and an upload (hwsurface.go).
+	// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead of
+	// the input and the grabber's chain ends in a conversion and an upload
+	// (hwsurface.go).
 	device, surface, err := HwSurfaceDevice(s.Codec)
 	if err != nil {
 		return nil, err
 	}
 	if surface {
-		upload, err := HwSurfaceFilters(s.Chroma)
+		upload, err := HwSurfaceFilters(s.Codec, s.Chroma)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +139,12 @@ type captureSource struct {
 // ddagrab and gdigrab are Windows-only; x11grab and kmsgrab are Linux-only, which
 // the capture list the UI offers already reflects (see publish.Captures). fps
 // arrives rendered because every grabber takes it as a string.
-var captureBackends = map[string]func(s settings.Stream, fps string) captureSource{
+//
+// A backend returns an error where the settings name something it cannot capture: a
+// monitor this machine does not have, a DRM download strategy no table row names.
+// The alternative is a command that captures something else, which is the one
+// outcome the form has no way to show.
+var captureBackends = map[string]func(s settings.Stream, fps string) (captureSource, error){
 	"ddagrab": ddagrabArgs,
 	"gdigrab": gdigrabArgs,
 	"x11grab": x11grabArgs,
@@ -146,7 +158,10 @@ func captureArgs(s settings.Stream) (captureSource, error) {
 	if !ok {
 		return captureSource{}, fmt.Errorf("unknown capture backend %q", s.Capture)
 	}
-	src := build(s, strconv.Itoa(s.Fps))
+	src, err := build(s, strconv.Itoa(s.Fps))
+	if err != nil {
+		return captureSource{}, err
+	}
 	if src.filterFlag == "" {
 		src.filterFlag = "-vf"
 	}
@@ -155,7 +170,7 @@ func captureArgs(s settings.Stream) (captureSource, error) {
 
 // ddagrabArgs captures on the GPU as a filter source; hwdownload hands frames back
 // to system memory so any encoder can consume them.
-func ddagrabArgs(s settings.Stream, fps string) captureSource {
+func ddagrabArgs(s settings.Stream, fps string) (captureSource, error) {
 	return captureSource{
 		filterFlag: "-filter_complex",
 		filters: []string{
@@ -163,29 +178,40 @@ func ddagrabArgs(s settings.Stream, fps string) captureSource {
 			"hwdownload",
 			"format=bgra",
 		},
-	}
+	}, nil
 }
 
-func gdigrabArgs(_ settings.Stream, fps string) captureSource {
-	return captureSource{args: []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}}
+func gdigrabArgs(_ settings.Stream, fps string) (captureSource, error) {
+	return captureSource{args: []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}}, nil
 }
 
-// x11grabArgs crops to the selected monitor when its geometry is known; otherwise
-// it captures the whole X screen, as enumeration failing leaves no offset.
-func x11grabArgs(s settings.Stream, fps string) captureSource {
+// x11grabArgs crops the X screen to the selected monitor's geometry.
+//
+// A monitor index no enumerated output carries is refused: it names a screen this
+// machine does not have, and capturing the whole desktop instead would publish
+// something other than what the form shows selected. The one index with no geometry
+// is display.List's placeholder, which stands for enumeration being unavailable
+// here, and the whole X screen is what the single entry it offers means.
+//
+// DISPLAY is likewise refused when unset rather than guessed at: x11grab reads an X
+// screen, and no environment naming one is no X session to capture.
+func x11grabArgs(s settings.Stream, fps string) (captureSource, error) {
 	disp := os.Getenv("DISPLAY")
 	if disp == "" {
-		disp = ":0.0"
+		return captureSource{}, fmt.Errorf("x11grab captures an X screen and DISPLAY names none")
 	}
 	args := []string{"-f", "x11grab", "-framerate", fps}
 	m, ok := monitorByIndex(s.Monitor)
-	if !ok || m.Width <= 0 || m.Height <= 0 {
-		return captureSource{args: append(args, "-i", disp)}
+	if !ok {
+		return captureSource{}, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Monitor)
+	}
+	if m.Width <= 0 || m.Height <= 0 {
+		return captureSource{args: append(args, "-i", disp)}, nil
 	}
 	return captureSource{args: append(args,
 		"-video_size", fmt.Sprintf("%dx%d", m.Width, m.Height),
 		"-i", fmt.Sprintf("%s+%d,%d", disp, m.OffsetX, m.OffsetY),
-	)}
+	)}, nil
 }
 
 // pulseMonitorDevice is the libpulse magic name for the monitor of the default

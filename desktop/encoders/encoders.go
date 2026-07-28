@@ -3,11 +3,13 @@
 //
 // Two kinds of encoder cannot be assumed present. A hardware codec needs the GPU,
 // its driver and the matching build: NVENC an NVIDIA card, VAAPI a render node
-// whose driver exposes that encode entrypoint, Vulkan Video a driver implementing the
-// encode extension for that format. That is where the families diverge per generation,
-// an AMD card carrying no VP8 or VP9 encoder and a pre-Arc Intel one no AV1. The AV1
-// and VPx software encoders each need their library compiled in, which a bundled or
-// distro build may well lack.
+// whose driver exposes that encode entrypoint, QSV an Intel GPU whose oneVPL runtime the
+// dispatcher finds, Vulkan Video a driver implementing the encode extension for that
+// format.
+// That is where the families diverge per generation, an AMD card carrying no VP8 or VP9
+// encoder and a pre-Arc Intel one no AV1.
+// The AV1 and VPx software encoders each need their library compiled in, which a bundled
+// or distro build may well lack.
 //
 // The answer is per publish engine, because the two wrap different encoder
 // implementations: an ffmpeg build with librav1e compiled in says nothing about
@@ -20,7 +22,9 @@ package encoders
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -35,10 +39,12 @@ import (
 const gstInspectExe = "gst-inspect-1.0"
 
 // engineProbe is one publish engine's answer to "can this machine run this codec".
-// codecs lists what is worth testing there; usable runs the test.
+// available reports whether the engine can be asked at all, codecs lists what is
+// worth testing there, and usable runs the test.
 type engineProbe struct {
-	codecs func() []string
-	usable func(ctx context.Context, codec string) bool
+	available func() error
+	codecs    func() []string
+	usable    func(ctx context.Context, codec string) bool
 }
 
 // engineProbes holds the probe per publish engine. publish.Engines is the list this
@@ -51,21 +57,47 @@ type engineProbe struct {
 // hardware plugins register their elements per detected device, so asking the registry
 // answers both halves without spawning an encode per codec.
 var engineProbes = map[string]engineProbe{
-	publish.EngineFfmpeg: {codecs: ffmpegProbed, usable: ffmpegUsable},
-	publish.EngineGst:    {codecs: gstProbed, usable: gstUsable},
+	publish.EngineFfmpeg: {available: ffmpegAvailable, codecs: ffmpegProbed, usable: ffmpegUsable},
+	publish.EngineGst:    {available: gstAvailable, codecs: gstProbed, usable: gstUsable},
 }
 
-// ffmpegProbed lists the ffmpeg encoders worth testing. libx264 and libx265 are
-// absent: both are in every ffmpeg build worth shipping and neither fails to
-// initialize.
-func ffmpegProbed() []string {
-	return []string{
-		"hevc_nvenc", "h264_nvenc", "av1_nvenc",
-		"libvpx", "libvpx-vp9", "libaom-av1", "libsvtav1", "librav1e",
-		"h264_vaapi", "hevc_vaapi", "av1_vaapi", "vp9_vaapi", "vp8_vaapi",
-		"h264_amf", "hevc_amf", "av1_amf",
-		"h264_vulkan", "hevc_vulkan", "av1_vulkan",
+// ffmpegAvailable reports whether the ffmpeg engine can be probed at all. Without
+// the executable every test encode fails, and reporting that as a per-codec verdict
+// would answer a question about ffmpeg with a sentence about the machine's encoder
+// hardware.
+func ffmpegAvailable() error {
+	_, err := ffmpeg.FindExe("ffmpeg")
+	return err
+}
+
+// gstAvailable reports whether the GStreamer registry can be queried. gst-inspect
+// ships with the same package as the pipeline launcher, so its absence means this
+// install cannot run the engine at all rather than that one plugin is missing.
+func gstAvailable() error {
+	if _, err := exec.LookPath(gstInspectExe); err != nil {
+		return fmt.Errorf("%s not found: this install carries no GStreamer command-line tools, so no encoder element can be located", gstInspectExe)
 	}
+	return nil
+}
+
+// ffmpegAssumed are the encoders no probe is spent on: both are in every ffmpeg build
+// worth shipping and neither fails to initialize, so a test encode would spend a
+// process on a foregone answer.
+var ffmpegAssumed = []string{"libx264", "libx265"}
+
+// ffmpegProbed lists the ffmpeg encoders worth testing: every implemented codec this
+// engine has an encoder for, minus the ones that need no asking. It is derived from
+// the capability table rather than listed, so a codec added there is probed and greyed
+// where it cannot run instead of reaching a launch that fails.
+func ffmpegProbed() []string {
+	var out []string
+	for _, c := range capabilities.Codecs {
+		_, gap := c.EngineGap(publish.EngineFfmpeg)
+		if c.Implemented && !gap && !slices.Contains(ffmpegAssumed, c.Name) {
+			out = append(out, c.Name)
+		}
+	}
+	return out
 }
 
 // gstProbed lists every implemented codec this engine has an encoder for, unlike the
@@ -94,18 +126,32 @@ const probeTimeout = 10 * time.Second
 // Availability maps each publish engine to the codecs probed on it and whether each
 // one ran. A codec absent from an engine's map was not probed there and the UI treats
 // it as available; an engine absent from the outer map imposes no restriction at all.
+//
+// Unprobed names the engines whose own tooling is missing, with the reason. No codec
+// on such an engine was tested and none of them can run there, the ones no probe is
+// spent on included, so the reason covers the whole engine rather than a codec at a
+// time. Without it a missing ffmpeg reads as a machine with no encoder hardware, and
+// the two encoders in ffmpegAssumed stay selectable while being the only ones certain
+// to fail at launch.
 type Availability struct {
-	Usable map[string]map[string]bool `json:"usable"`
+	Usable   map[string]map[string]bool `json:"usable"`
+	Unprobed map[string]string          `json:"unprobed"`
 }
 
 // Detect probes every codec on every publish engine, concurrently, and returns what
-// this machine can run.
+// this machine can run. An engine that cannot be asked contributes its reason and no
+// verdicts.
 func Detect(ctx context.Context) Availability {
 	usable := make(map[string]map[string]bool, len(engineProbes))
+	unprobed := make(map[string]string, len(engineProbes))
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	for engine, probe := range engineProbes {
+		if err := probe.available(); err != nil {
+			unprobed[engine] = err.Error()
+			continue
+		}
 		perCodec := make(map[string]bool)
 		usable[engine] = perCodec
 		for _, codec := range probe.codecs() {
@@ -121,7 +167,7 @@ func Detect(ctx context.Context) Availability {
 	}
 	wg.Wait()
 
-	return Availability{Usable: usable}
+	return Availability{Usable: usable, Unprobed: unprobed}
 }
 
 // probeSize is the frame every test encode runs on. It clears each probed encoder's
@@ -132,9 +178,9 @@ const probeSize = "256x256"
 
 // ffmpegUsable encodes a single frame with codec and reports whether ffmpeg exited
 // cleanly. Success confirms the whole chain: the build has the encoder and, for a
-// hardware codec, the driver is loaded and a GPU accepted the session. An ffmpeg that
-// cannot be located fails every codec, leaving the x264 and x265 encoders, which are
-// not probed, as the only choice.
+// hardware codec, the driver is loaded and a GPU accepted the session. Detect has
+// already located the executable (ffmpegAvailable), so a failure here is the
+// encoder's and not the engine's.
 //
 // The frame is 8-bit 4:2:0, so the verdict is per codec and not per chroma: an
 // encoder that opens here but implements no 10-bit profile fails at launch on p010le
@@ -159,10 +205,10 @@ func ffmpegUsable(ctx context.Context, codec string) bool {
 	args := []string{"-hide_banner", "-loglevel", "error"}
 	args = append(args, device...)
 	args = append(args, "-f", "lavfi", "-i", "nullsrc=s="+probeSize, "-frames:v", "1")
-	// A VAAPI or Vulkan encoder reads GPU surfaces, so the probe uploads the frame
+	// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so the probe uploads the frame
 	// exactly as the publish command does.
 	if surface {
-		upload, err := ffmpeg.HwSurfaceFilters("yuv420p")
+		upload, err := ffmpeg.HwSurfaceFilters(codec, "yuv420p")
 		if err != nil {
 			return false
 		}

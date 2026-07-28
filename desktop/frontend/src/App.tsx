@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { usePlatform } from "./hooks/usePlatform";
 import { useEncoders } from "./hooks/useEncoders";
 import { useCapabilities } from "./hooks/useCapabilities";
+import { useDecoders } from "./hooks/useDecoders";
 import { useStreamSettings } from "./hooks/useStreamSettings";
 import { usePublish } from "./hooks/usePublish";
 import { useLive } from "./hooks/useLive";
@@ -33,7 +34,8 @@ export default function App() {
     const platform = usePlatform();
     const encoders = useEncoders();
     const capabilities = useCapabilities();
-    const settings = useStreamSettings(platform, encoders, capabilities);
+    const decoders = useDecoders();
+    const settings = useStreamSettings(platform, encoders, capabilities, decoders);
     const publish = usePublish(settings.s);
     const live = useLive();
     const testPub = useTestPublishers();
@@ -127,6 +129,14 @@ export default function App() {
                 {nativeGrid.error && (
                     <p className="text-sm text-destructive whitespace-pre-wrap">
                         {nativeGrid.error}
+                    </p>
+                )}
+                {/* A store that could not be read leaves the form on values the
+                  * user did not choose. The file holding the old ones was moved
+                  * aside rather than overwritten, and the sentence names it. */}
+                {settings.storeError && (
+                    <p className="text-sm text-destructive whitespace-pre-wrap">
+                        {settings.storeError}
                     </p>
                 )}
 

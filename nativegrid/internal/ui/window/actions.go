@@ -8,8 +8,10 @@ import "bjoernblessin.de/go-utils/util/assert"
 func (c *chrome) leave() bool {
 	assert.IsNotNil(c.win, "a shortcut acts on a window")
 
-	if c.win.IsFullscreen() {
-		c.win.Unfullscreen()
+	// Fullscreen is the sidebar being gone, so leaving it is the sidebar coming
+	// back, which unfullscreens the window in showSidebar (geometry.go).
+	if !c.split.ShowSidebar() {
+		c.showSidebar(true)
 		return true
 	}
 	// Session.Spot is negative while the grid shows every tile.
@@ -21,20 +23,7 @@ func (c *chrome) leave() bool {
 	return true
 }
 
-// toggleFullscreen is F11, the only way into fullscreen. Escape is a second way
-// out of it.
-func (c *chrome) toggleFullscreen() bool {
-	assert.IsNotNil(c.win, "a shortcut acts on a window")
-
-	if c.win.IsFullscreen() {
-		c.win.Unfullscreen()
-	} else {
-		c.win.Fullscreen()
-	}
-	return true
-}
-
-// toggleSidebar is Ctrl+B.
+// toggleSidebar is Ctrl+B, and F11 shares it.
 // It goes through showSidebar (geometry.go) like the header button does, so the
 // two halves of the control cannot disagree about what the window shows.
 func (c *chrome) toggleSidebar() bool {

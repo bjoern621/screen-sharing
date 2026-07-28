@@ -17,6 +17,9 @@ The disable rules and the repair rules in the frontend were previously two hand-
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
 - `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, what its encoder cannot do, and the scale its constant-quality knob counts on.
+- `capabilities/decoders.go`: per decoder element, the pixel formats it decodes and what bounds that list.
+  It describes the viewers rather than this machine: a stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing in it restricts a choice.
+  The form reads it to say what a pixel format costs a viewer, every format having a software decoder and the choice being between a viewer's GPU and a viewer's cores.
 - `transport/*.go`: per protocol, the bitstream formats it carries to the relay and the ones the relay serves back over it, declared beside the code that serializes each leg.
 
 The two publish engines wrap different encoder implementations, so a pixel format, a rate-control mode or a whole codec can be one engine's and not the other's.
@@ -28,9 +31,11 @@ A protocol carries a bitstream format, so each transport declares its own format
 Adding a transport is therefore one file in the `transport` package and no edit to the codec table.
 
 The encoder reads this table directly.
-`ffmpeg/args.go` branches on `capabilities.IsNvenc` and on the family's entry in `HwSurfaceDevice`, and `capabilities.Validate` rejects a codec/chroma/mode/quantizer combination the table forbids.
+Each builder keys its family-wide behaviour off a table the row's `Family` indexes (`familyMappings`, `hwSurfaces`, `gstFamilyLimits`, `gstFamilyChromaFormats`) rather than off a per-family flag or a codec-name suffix, so a family gains a behaviour by gaining an entry.
+`capabilities.Validate` rejects a codec/chroma/mode/quantizer combination the table forbids.
 Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
+The decode table reaches it through `App.Decoders` beside it, and feeds a note on the pixel-format control rather than a greying, since a decoder the viewer lacks is a cost and not an illegal combination.
 
 Which publish engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
 It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
@@ -46,13 +51,15 @@ Presentation and heuristics are UI-only and live in the frontend:
 Each consumer reads the tables instead of restating a rule:
 
 - `deps.ts` `evaluateDeps`: greys out an option when the tables make it illegal for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
-- `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value.
+- `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value, and leaves the value standing where the walk finds none.
 - `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
 - `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
 - `nativegrid.ts`: the native-grid viewability verdict, from the watch set the transport table gives the grid's selected watch leg.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
 
-Because `evaluateDeps` and `normalize` read one source, a greyed option and its fallback always agree.
+Because `evaluateDeps` and `normalize` read one source, a greyed option and its replacement always agree.
+That holds only while every value `normalize` can pick satisfies the rules `evaluateDeps` greys by, so a dimension with nothing legal left keeps the value it has instead of taking one from outside them.
+The field then carries its reason and the publish refuses with it, which is the same answer from both sides rather than a form that offers what the encoder rejects.
 
 ## Adding a codec, chroma or mode
 

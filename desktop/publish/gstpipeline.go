@@ -166,12 +166,33 @@ var gstVaChromaFormats = map[string]string{
 	"p010le":  "P010_10LE",
 }
 
+// gstFamilyChromaFormats is the raw-format mapping per encoder family, keyed as
+// capabilities.Codecs names the family. Every family with a row in gstCodecs carries
+// an entry, so which layout an element negotiates is stated rather than assumed: a
+// family added there without one is refused, where taking the planar layouts by
+// default would pin caps its elements do not negotiate and the pipeline would fail
+// in negotiation instead of naming the family.
+//
+// The QSV entry is the semi-planar one because the qsv plugin drives oneVPL over VA
+// on Linux and D3D11 on Windows, and both store surfaces in the layouts the VAAPI
+// drivers do.
+var gstFamilyChromaFormats = map[string]map[string]string{
+	capabilities.FamilySoftware: gstChromaFormats,
+	capabilities.FamilyNvenc:    gstChromaFormats,
+	capabilities.FamilyVaapi:    gstVaChromaFormats,
+	capabilities.FamilyQsv:      gstVaChromaFormats,
+}
+
 // gstChromaFormat returns the raw format the capture chain pins ahead of the codec's
 // encoder element.
 func gstChromaFormat(codec, chroma string) (string, error) {
-	formats := gstChromaFormats
-	if capabilities.IsVaapi(codec) {
-		formats = gstVaChromaFormats
+	c, ok := capabilities.Get(codec)
+	if !ok {
+		return "", fmt.Errorf("unknown codec %q", codec)
+	}
+	formats, ok := gstFamilyChromaFormats[c.Family]
+	if !ok {
+		return "", fmt.Errorf("the %s encoder family has no GStreamer raw-format mapping", c.Family)
 	}
 	format, ok := formats[chroma]
 	if !ok {

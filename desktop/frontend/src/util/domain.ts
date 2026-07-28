@@ -18,7 +18,7 @@ import { capabilities } from "../../wailsjs/go/models";
  * from small tables rather than one row per family×format combination.
  */
 
-/** The backend's fixed codec facts: nvenc flag, allowed chromas, quantizer
+/** The backend's fixed codec facts: encoder family, allowed chromas, quantizer
  * scale and what the encoder cannot do. Which protocol carries the codec is a
  * fact about its bitstream rather than about the encoder, and lives in the
  * transport table instead (`carriesFormat`). */
@@ -31,6 +31,89 @@ export type Capability = capabilities.Codec;
  * publish engines. */
 export type Gap = capabilities.Gap;
 
+/** One decoder element and the pixel formats it decodes, from the backend decode
+ * table (`App.Decoders`). It answers what a publish choice costs the viewer rather
+ * than what this machine can do: a stream is published once and watched on whatever
+ * hardware the watchers have, so a hardware verdict means some GPU decodes this. */
+export type Decoder = capabilities.Decoder;
+
+/** The decoder families, as the backend names them. Anything but "software" runs on
+ * fixed-function silicon. */
+const DECODE_SOFTWARE = "software";
+
+/** Vendor labels for the decoder families, so a sentence about hardware decoding
+ * names the GPUs a user recognizes rather than the plugin the elements come from. */
+const DECODE_FAMILY_LABEL: Record<string, string> = {
+    va: "AMD and Intel on Linux (VA-API)",
+    nvcodec: "NVIDIA (NVDEC)",
+    qsv: "Intel (Quick Sync)",
+    dxva: "any GPU on Windows (DXVA)",
+};
+
+/** The hardware decoders that take this format at this chroma, in table order. */
+export function hardwareDecoders(
+    decoders: Decoder[] | null,
+    format: Format | undefined,
+    chroma: Chroma
+): Decoder[] {
+    if (!decoders || !format) {
+        return [];
+    }
+    return decoders.filter(
+        d =>
+            d.format === format &&
+            d.family !== DECODE_SOFTWARE &&
+            d.chromas.includes(chroma)
+    );
+}
+
+/**
+ * What decoding this stream costs a viewer, or "" while the decode table is
+ * unresolved. It is a note and never a block: every format has a software decoder,
+ * so the choice is between a viewer's GPU and a viewer's cores.
+ *
+ * Where some hardware decodes the pair, the sentence names those vendors, since which
+ * ones they are is the whole point of the choice. Where none does, it carries one
+ * family's reason, attributed to that family: the other families are out for reasons of
+ * their own, and listing four of them in a tooltip states four times what the first
+ * already shows.
+ */
+export function decodeNote(
+    decoders: Decoder[] | null,
+    codec: string,
+    chroma: Chroma,
+    caps: Capability[] | null
+): string {
+    const format = formatOf(codec, caps);
+    if (!decoders || !format) {
+        return "";
+    }
+    const hardware = hardwareDecoders(decoders, format, chroma);
+    const vendors = [
+        ...new Set(hardware.map(d => DECODE_FAMILY_LABEL[d.family] ?? d.family)),
+    ];
+    if (vendors.length > 0) {
+        return `Viewers decode this in hardware on ${vendors.join(", ")}.`;
+    }
+    const software = decoders.find(
+        d => d.format === format && d.family === DECODE_SOFTWARE
+    );
+    const blocked = decoders.find(
+        d =>
+            d.format === format &&
+            d.family !== DECODE_SOFTWARE &&
+            !d.chromas.includes(chroma)
+    );
+    const cost = software
+        ? `every viewer decodes it on the CPU, through ${software.element}`
+        : "every viewer decodes it on the CPU";
+    if (!blocked) {
+        return `No GPU decodes this pixel format, so ${cost}.`;
+    }
+    const vendor = DECODE_FAMILY_LABEL[blocked.family] ?? blocked.family;
+    return `No GPU decodes this pixel format, so ${cost}. ${vendor}: ${blocked.reason}.`;
+}
+
 /** Presentation and heuristics for a video coding format, independent of the
  * encoder family that produces it. Coding efficiency follows the format (H.264
  * vs HEVC vs AV1), not the family (nvenc vs vaapi). */
@@ -42,11 +125,28 @@ interface FormatMeta {
     efficiency: number;
 }
 
-/** Presentation for an encoder family (the "Encoder family" dropdown). */
-interface FamilyMeta {
+/**
+ * Presentation for an encoder family (the "Encoder family" dropdown), plus the facts
+ * that follow the backend rather than the codec or the mode. A field a family has no
+ * property for is greyed whatever the rate-control mode, and the builders pin it off
+ * rather than forwarding a value the encoder would ignore, so each such field is one
+ * flag here instead of a family named in the rule that reads it.
+ */
+export interface FamilyMeta {
     label: string;
     tip: string;
     link?: string;
+    /** Whether the encoders take the settings' B-frame count. */
+    takesBframes?: boolean;
+    /** Whether the encoders take the settings' encoder preset. */
+    takesPreset?: boolean;
+    /**
+     * Whether the encoders come with a device rather than with a build. An absent
+     * encoder is then the machine's answer (no such GPU, or no driver exposing that
+     * encode entrypoint) where a software one's is the build's, which is what the
+     * probe's reason says instead of "not detected" for a library nobody compiled in.
+     */
+    needsDevice?: boolean;
 }
 
 interface ChromaMeta {
@@ -70,7 +170,16 @@ interface ChromaMeta {
     whepBlock?: string;
 }
 
-interface ModeMeta {
+/** Whether a mode fixes the encoder preset, and to which ladder step. A mode that
+ * pins carries the step in the same object, so the sentence naming it cannot be
+ * written without one: an optional field would let the form claim a step the table
+ * never declared. The value is the ffmpeg builder's nvencLivePreset, which is the
+ * other copy of this fact. */
+type PresetPinning =
+    | { pinsPreset: false }
+    | { pinsPreset: true; pinnedPreset: string };
+
+type ModeMeta = {
     label: string;
     tip: string;
     link: string;
@@ -82,12 +191,10 @@ interface ModeMeta {
     usesMaxrate: boolean;
     /** cbr/vbr bound the rate with a VBV buffer whose size is tunable. */
     usesVbv: boolean;
-    /** B-frames only help the lossy bitrate/quality modes, and only on NVENC. */
+    /** B-frames only help the lossy bitrate/quality modes, and only where the family
+     * takes a count (FamilyMeta.takesBframes). */
     usesBframes: boolean;
-    /** cbr pins the NVENC preset to the low-latency value; pinnedPreset names it. */
-    pinsPreset: boolean;
-    pinnedPreset?: string;
-}
+} & PresetPinning;
 
 /** The publish engine that runs a capture backend, from App.CaptureEngines. The
  * screen grabbers build one ffmpeg command; the portal capture backend builds a
@@ -187,36 +294,45 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
         label: "NVIDIA NVENC",
         link: NVENC_LINK,
         tip: "NVIDIA's dedicated encoder ASIC. Needs an NVIDIA GPU with its driver, and NVENC support in the publish engine: an nvenc-enabled ffmpeg, or the GStreamer nvcodec elements.",
+        takesBframes: true,
+        takesPreset: true,
+        needsDevice: true,
     },
     vaapi: {
         label: "VAAPI (Intel / AMD)",
         link: VAAPI_LINK,
         tip: "Video Acceleration API: the shared Intel and AMD hardware encoder API on Linux, and the GPU option on a non-NVIDIA machine. Which formats a card encodes is the driver's answer and differs per GPU generation; every VAAPI encoder is 4:2:0 and none of them codes lossless.",
+        needsDevice: true,
     },
     qsv: {
         label: "Intel Quick Sync (QSV)",
         link: QSV_LINK,
-        tip: "Intel Quick Sync Video via oneVPL. Intel GPUs only; often better quality and rate control than generic VAAPI on the same silicon.",
+        tip: "Intel Quick Sync Video via oneVPL, the runtime Intel implements itself, where VAAPI is the vendor-neutral way to the same silicon. Intel GPUs only, and which formats one encodes differs per generation: VP9 encode arrives with Ice Lake and AV1 with Arc. Every QSV encoder is 4:2:0 and none codes lossless.",
+        needsDevice: true,
     },
     amf: {
         label: "AMD AMF",
         link: AMF_LINK,
         tip: "Advanced Media Framework: AMD's own encoder API, driving the same silicon VAAPI reaches on an AMD card through AMD's closed-source runtime. VAAPI is the wider of the two, adding VP8 and VP9; AMF brings AMD's own rate control, whose peak-constrained VBR gives a burst ceiling a bitrate mode can target. Every AMF encoder is 4:2:0 and none codes lossless. x86_64 only, and the ffmpeg publish engine only.",
+        needsDevice: true,
     },
     v4l2: {
         label: "V4L2 M2M (ARM SoC)",
         link: V4L2_LINK,
         tip: "Kernel memory-to-memory encoders on ARM SoCs (Raspberry Pi and similar).",
+        needsDevice: true,
     },
     rkmpp: {
         label: "Rockchip MPP",
         link: "https://en.wikipedia.org/wiki/Rockchip",
         tip: "Rockchip Media Process Platform encoders (RK35xx-class SoCs).",
+        needsDevice: true,
     },
     vulkan: {
         label: "Vulkan Video",
         link: VULKAN_LINK,
         tip: "The video-encode extensions a GPU driver implements itself, so one backend reaches NVIDIA, AMD and Intel silicon through the same API, and the only hardware family that is not tied to one vendor or one platform. On an AMD or Intel card it drives the same encoder block VAAPI does, through the vendor's Vulkan driver instead of Mesa. Which formats a driver implements the extension for differs per driver and GPU generation; every Vulkan encoder is 4:2:0 and none codes lossless. The ffmpeg publish engine only.",
+        needsDevice: true,
     },
 };
 
@@ -432,6 +548,13 @@ const ENGINE_RULES: EngineRule[] = [
         reason: "the GStreamer nvcodec elements expose no rate-buffer property",
     },
     {
+        engine: "gstreamer",
+        knob: "vbvMs",
+        families: ["qsv"],
+        forwards: false,
+        reason: "the GStreamer qsv elements expose no rate-buffer property, so the window binds on the ffmpeg publish engine only",
+    },
+    {
         engine: "ffmpeg",
         knob: "bitrateM",
         families: ["nvenc"],
@@ -449,7 +572,7 @@ const ENGINE_RULES: EngineRule[] = [
     },
     {
         knob: "bitrateM",
-        families: ["vaapi", "amf", "vulkan"],
+        families: ["vaapi", "amf", "vulkan", "qsv"],
         modes: ["abr"],
         forwards: true,
         reason: "the fixed-function encoders always code against a rate ceiling, so this target is sent with twice itself as one; the average is what the target holds.",
@@ -531,9 +654,6 @@ export function metaOptions<K extends string>(
         return { value, label: o.label, tip: o.tip, link: o.link };
     });
 }
-
-/** Fallback codec when the chosen one is unavailable: software, always present. */
-export const FALLBACK_CODEC = "libx264";
 
 /** Looks up a codec's backend capability facts in the fetched table. */
 export function findCapability(
@@ -674,12 +794,22 @@ export function codecLabel(cap: Capability): string {
     return `${fmt} (${fam})`;
 }
 
+/** Presentation and knob facts for a codec's family, undefined until the capability
+ * table loads. */
+export function familyMetaOf(
+    codec: string,
+    caps: Capability[] | null
+): FamilyMeta | undefined {
+    const family = familyOf(codec, caps);
+    return family ? FAMILY_META[family] : undefined;
+}
+
 /**
- * Whether codec runs on NVENC. Prefers the fetched capability fact; before it
- * resolves, falls back to the "_nvenc" name suffix so preset/B-frame controls do
- * not flicker during startup.
+ * Labels of the families whose meta sets the given flag, joined for a reason that
+ * names who takes a field instead of stating one family by hand. A control greyed for
+ * every other family says which ones own it, and the sentence follows the table when a
+ * family gains the field.
  */
-export function isNvenc(codec: string, caps: Capability[] | null): boolean {
-    const cap = findCapability(caps, codec);
-    return cap ? cap.nvenc : codec.endsWith("_nvenc");
+export function familiesWith(flag: (m: FamilyMeta) => boolean): string {
+    return Object.values(FAMILY_META).filter(flag).map(m => m.label).join(", ");
 }

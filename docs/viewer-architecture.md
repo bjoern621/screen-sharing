@@ -99,8 +99,14 @@ The published stream is the row; the two viewer columns give the watch leg each 
 
 The native column is one entry because a software decoder covers every row of it.
 ffplay and mpv decode through libavcodec.
-The grid's `decodebin` autoplugs by rank, so a hardware element takes the stream wherever its sink caps advertise the profile, and a software element takes the rest: `avdec_h264` and `avdec_h265` from gst-libav, `vp9dec` from libvpx.
-That caps match is also what keeps 4:4:4 and high bit depth on the software path, since a VA or NVDEC element enumerates the profiles it implements and the 4:4:4 and 10-bit ones are not among them.
+The grid's `decodebin` autoplugs by rank, so a hardware element takes the stream wherever its sink caps advertise the profile, and a software element takes the rest: `avdec_h264` and `avdec_h265` from gst-libav, `vp9dec` from libvpx, `dav1ddec` for AV1.
+Nothing prefers software: the hardware decoders outrank the software ones, and the pixel format the publisher chose is what decides which of them can take the stream.
+
+`capabilities.Decoders` is that fact per decoder element, and the settings form reads it to say what a chroma costs the viewer.
+Every fixed-function decoder covers 4:2:0, with 10-bit where the format has a Main-10 equivalent.
+Full chroma and RGB reach silicon in HEVC alone, through the Range Extensions profiles NVDEC and Intel's decoder carry and Mesa's VA drivers and DXVA do not.
+H.264 has no hardware 4:4:4 anywhere, no vendor having implemented High 4:4:4 Predictive, which is also why lossless H.264 is a software decode on every machine: the mode exists only in that profile.
+AV1 and VP9 are the same story in their own profiles, hardware decoding profile 0 and 2 and never the full-chroma ones.
 
 Audio follows the path, not the stream.
 `WhepSink` receives the Opus track and exposes a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent in either grid and audible in a native window.
@@ -108,7 +114,7 @@ Audio follows the path, not the stream.
 ## Codec and chroma
 
 `capabilities.Codecs` is the authoritative table; the rows below are the subset the argument builders map, in the shape the viewer side cares about.
-The remaining families (QSV, V4L2 M2M, Rockchip MPP) are declared with `Implemented: false` and rejected before either builder runs.
+The remaining families (V4L2 M2M, Rockchip MPP) are declared with `Implemented: false` and rejected before either builder runs.
 
 Which protocol carries a row is not in it: that follows the bitstream format rather than the encoder, and the next section holds it.
 
@@ -129,6 +135,10 @@ Which protocol carries a row is not in it: that follows the bitstream format rat
 | `av1_vaapi` | yuv420p, p010le | `vaav1enc` |
 | `vp9_vaapi` | yuv420p | `vavp9enc` |
 | `vp8_vaapi` | yuv420p | `vavp8enc` |
+| `h264_qsv` | yuv420p | `qsvh264enc` |
+| `hevc_qsv` | yuv420p, p010le | `qsvh265enc` |
+| `av1_qsv` | yuv420p, p010le | `qsvav1enc` |
+| `vp9_qsv` | yuv420p | `qsvvp9enc` |
 | `h264_amf` | yuv420p | none |
 | `hevc_amf` | yuv420p, p010le | none |
 | `av1_amf` | yuv420p, p010le | none |
@@ -139,7 +149,7 @@ Which protocol carries a row is not in it: that follows the bitstream format rat
 The chroma column is the union over the two publish engines.
 A format one engine's encoder will not take carries a `Gap` on the row, so the viewer side sees every chroma a stream may arrive in; which of them a given capture backend can publish is the settings form's question.
 
-The VAAPI, AMF and Vulkan rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and their `h264` rows at yuv420p are those families' WHEP-viewable ones.
+The VAAPI, QSV, AMF and Vulkan rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and their `h264` rows at yuv420p are those families' WHEP-viewable ones.
 Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` probes each per publish engine, test-encoding on the ffmpeg engine and querying the plugin registry for the GStreamer element, and the settings form greys away what this machine refuses on the selected capture backend.
 
 Two families have no GStreamer element at all, the only gaps in the table that take a whole family off an engine.

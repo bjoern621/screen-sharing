@@ -1,6 +1,6 @@
 // Package capabilities is the single source of truth for the fixed facts about
-// each video codec: whether it runs on NVENC, which pixel formats it may encode,
-// which rate-control modes its encoder implements, and the scale its
+// each video codec: the encoder family it runs on, which pixel formats it may
+// encode, which rate-control modes its encoder implements, and the scale its
 // constant-quality knob counts on.
 //
 // The two publish engines wrap different encoder implementations, so a codec, a
@@ -29,10 +29,53 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// knownEngine reports whether engine names a publish engine, spelled as the
-// publish package spells it.
-// The names are repeated here rather than imported because this package depends
-// on nothing, which is what lets both engines and the frontend binding read it.
+// The publish engines a capability can differ between. This package depends on
+// nothing, which is what lets both engines and the frontend binding read it, so the
+// names are declared here and the publish package's own constants take them from
+// here rather than the other way round.
+const (
+	EngineFfmpeg = "ffmpeg"
+	EngineGst    = "gstreamer"
+)
+
+// Engines lists every publish engine a Gap may name and a lookup may be asked about.
+var Engines = []string{EngineFfmpeg, EngineGst}
+
+// The encoder families a codec's backend belongs to. A family is the axis every
+// per-backend fact keys off: the UI offers the family and the format as two separate
+// choices, and each builder dispatches its family-wide behaviour off a table keyed
+// this way rather than off a per-family flag or a name suffix.
+const (
+	FamilySoftware = "software"
+	FamilyNvenc    = "nvenc"
+	FamilyVaapi    = "vaapi"
+	FamilyQsv      = "qsv"
+	FamilyAmf      = "amf"
+	FamilyV4l2     = "v4l2"
+	FamilyRkmpp    = "rkmpp"
+	FamilyVulkan   = "vulkan"
+)
+
+// Families lists every encoder family a codec row may declare.
+var Families = []string{
+	FamilySoftware, FamilyNvenc, FamilyVaapi, FamilyQsv,
+	FamilyAmf, FamilyV4l2, FamilyRkmpp, FamilyVulkan,
+}
+
+// The rate-control modes an encode runs under. Three aim at a bitrate and differ in
+// the ceiling, one aims at a quality, and one codes bit-exact.
+const (
+	ModeCbr      = "cbr"
+	ModeVbr      = "vbr"
+	ModeAbr      = "abr"
+	ModeCrf      = "crf"
+	ModeLossless = "lossless"
+)
+
+// Modes lists every rate-control mode a Gap may name and Validate may be given.
+var Modes = []string{ModeCbr, ModeVbr, ModeAbr, ModeCrf, ModeLossless}
+
+// knownEngine reports whether engine names a publish engine.
 //
 // Every lookup below asks about an engine the caller names itself, never one read
 // off the settings or the frontend, so an engine outside this set is a caller that
@@ -40,7 +83,7 @@ import (
 // The codec, pixel format and mode they are asked about are the user's, and stay
 // error-returning.
 func knownEngine(engine string) bool {
-	return engine == "ffmpeg" || engine == "gstreamer"
+	return contains(Engines, engine)
 }
 
 // Gap is one thing a codec cannot do, with the reason the UI shows in place of the
@@ -58,8 +101,8 @@ type Gap struct {
 	// Chroma is the pixel format the engine's encoder will not take, empty when the
 	// gap is not about a pixel format.
 	Chroma string `json:"chroma"`
-	// Mode is the rate-control mode (cbr, vbr, abr, crf, lossless), empty when the
-	// gap is not about rate control.
+	// Mode is the rate-control mode, one of Modes, empty when the gap is not about
+	// rate control.
 	Mode string `json:"mode"`
 	// Reason states which library or element lacks the capability. Where the other
 	// engine has it, the reason says so, since switching capture backend is the
@@ -77,16 +120,15 @@ type Codec struct {
 	// Name is the ffmpeg encoder name, e.g. "hevc_nvenc".
 	Name string `json:"name"`
 	// Family is the encoder family: the backend codecs in it share, so the UI can
-	// offer the family and the format as two separate choices. One of: "software",
-	// "nvenc", "vaapi", "qsv", "amf", "v4l2", "rkmpp", "vulkan".
+	// offer the family and the format as two separate choices, and each builder
+	// binds what a backend does once per family rather than once per codec. One of
+	// Families.
 	Family string `json:"family"`
 	// Format is the video coding format independent of the backend: "h264",
 	// "hevc", "av1", "vp9", "vp8". Facts that follow the format rather than the
 	// backend (coding efficiency, browser decodability) key off this on the
 	// frontend.
 	Format string `json:"format"`
-	// Nvenc is true for codecs that run on NVIDIA's encoder ASIC.
-	Nvenc bool `json:"nvenc"`
 	// Implemented is true once the argument builders (encoderArgs, gstEncoder)
 	// actually map this codec to a working command. A false entry appears in the
 	// UI greyed out so the roadmap is visible, but BuildPublishArgs rejects it.
@@ -199,6 +241,12 @@ func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
 	if !c.Implemented {
 		return fmt.Errorf("codec %s is listed but not implemented yet", c.Name)
 	}
+	// A mode outside the set matches no gap and would reach the builders, where the
+	// rate-control switches end in the cbr branch: the encode would run at a rate
+	// control the settings never asked for.
+	if !contains(Modes, mode) {
+		return fmt.Errorf("unknown rate-control mode %q", mode)
+	}
 	if gap, ok := c.EngineGap(engine); ok {
 		return fmt.Errorf("codec %s has no %s encoder: %s", c.Name, engine, gap.Reason)
 	}
@@ -214,7 +262,7 @@ func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
 	// The quantizer target reaches the encoder in crf mode only, and each
 	// encoder's knob has its own scale: 60 is a valid libvpx CQ and an error on
 	// x264.
-	if mode == "crf" && c.CqMax > 0 && (cq < 0 || cq > c.CqMax) {
+	if mode == ModeCrf && c.CqMax > 0 && (cq < 0 || cq > c.CqMax) {
 		return fmt.Errorf("quantizer target %d is outside codec %s's 0-%d range", cq, c.Name, c.CqMax)
 	}
 	// The bitrate target reaches the encoder in the three bitrate modes only, so a
@@ -230,7 +278,7 @@ func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
 // sets. Constant quality and lossless spend whatever the picture costs, so the
 // bitrate field means nothing to them.
 func targetsBitrate(mode string) bool {
-	return mode == "cbr" || mode == "vbr" || mode == "abr"
+	return mode == ModeCbr || mode == ModeVbr || mode == ModeAbr
 }
 
 // Get returns the capabilities for name, or false if the codec is unknown.
@@ -241,27 +289,6 @@ func Get(name string) (Codec, bool) {
 		}
 	}
 	return Codec{}, false
-}
-
-// IsNvenc reports whether name is an NVENC codec. Unknown codecs are not NVENC.
-func IsNvenc(name string) bool {
-	c, ok := Get(name)
-	return ok && c.Nvenc
-}
-
-// The two encoder families whose codecs encode from GPU surfaces rather than from
-// system memory. The ffmpeg command opens a device for either and uploads each frame
-// to it. Only VAAPI also runs on the GStreamer engine, where the pipeline pins the va
-// plugin's own raw formats instead (vulkanGaps).
-const (
-	FamilyVaapi  = "vaapi"
-	FamilyVulkan = "vulkan"
-)
-
-// IsVaapi reports whether name is a VAAPI codec. Unknown codecs are not VAAPI.
-func IsVaapi(name string) bool {
-	c, ok := Get(name)
-	return ok && c.Family == FamilyVaapi
 }
 
 // SupportsChroma reports whether codec name may encode the given pixel format on the

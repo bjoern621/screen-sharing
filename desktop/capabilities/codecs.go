@@ -3,12 +3,12 @@ package capabilities
 // Codecs is the capability table. Order is the UI display order: implemented
 // backends first, then the not-yet-implemented hardware families.
 //
-// The software encoders, NVENC, VAAPI, AMF and Vulkan Video are wired into the
-// encoder argument builders. The remaining hardware families (QSV for Intel, V4L2 M2M
-// and Rockchip MPP for ARM SoCs) are declared with Implemented:false so the
-// two-dropdown picker can show them as a roadmap without offering a codec that would
-// only fail at launch. Their Chromas are the formats that will apply once each is
-// wired up, not a promise that they work today.
+// The software encoders, NVENC, VAAPI, QSV, AMF and Vulkan Video are wired into the
+// encoder argument builders. The remaining hardware families (V4L2 M2M and Rockchip
+// MPP for ARM SoCs) are declared with Implemented:false so the two-dropdown picker can
+// show them as a roadmap without offering a codec that would only fail at launch.
+// Their Chromas are the formats that will apply once each is wired up, not a promise
+// that they work today.
 //
 // A row's Chromas is the union over the two publish engines, and each format the
 // ffmpeg encoder and the GStreamer element disagree on carries a Gap naming the
@@ -28,15 +28,15 @@ package capabilities
 // 4:2:0 (yuv420p), with 10-bit 4:2:0 (p010le) on the HEVC/AV1 Main-10 paths. Among
 // the hardware families the 4:4:4 and direct-RGB (gbrp) modes are NVENC's alone,
 // so those chromas are absent here on purpose: VAAPI reaches 4:4:4 only through the
-// HEVC Range Extensions profile, which few drivers implement for encoding. CqMax
+// HEVC Range Extensions profile, and QSV through the same profile plus VP9's profile 1,
+// which too few generations implement for encoding to declare per format. CqMax
 // stays zero on the unwired families as well: their quantizer scale is whatever
 // their builder will set, so guessing one would be a fact the code does not honor.
 var Codecs = []Codec{
 	{
 		Name:        "hevc_nvenc",
-		Family:      "nvenc",
+		Family:      FamilyNvenc,
 		Format:      "hevc",
-		Nvenc:       true,
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
@@ -47,9 +47,8 @@ var Codecs = []Codec{
 		// the High 10 profile, which NVENC's H.264 encoder does not implement. Its
 		// 4:4:4 support is the High 4:4:4 Predictive profile, which NVENC does.
 		Name:        "h264_nvenc",
-		Family:      "nvenc",
+		Family:      FamilyNvenc,
 		Format:      "h264",
-		Nvenc:       true,
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p"},
 		CqMax:       51,
@@ -58,22 +57,20 @@ var Codecs = []Codec{
 		// NVENC's lossless tune is an H.264 and HEVC one. The AV1 encoder reports no
 		// lossless capability, so this row carries the gap every other AV1 row does.
 		Name:        "av1_nvenc",
-		Family:      "nvenc",
+		Family:      FamilyNvenc,
 		Format:      "av1",
-		Nvenc:       true,
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
 		Gaps: []Gap{{
-			Mode:   "lossless",
+			Mode:   ModeLossless,
 			Reason: "NVENC codes bit-exact through its lossless tune, which its AV1 encoder does not implement",
 		}},
 	},
 	{
 		Name:        "libx264",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "h264",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
@@ -82,9 +79,8 @@ var Codecs = []Codec{
 		// Same format facts as hevc_nvenc: HEVC codes RGB through its Range
 		// Extensions profile, which is what puts gbrp in the list.
 		Name:        "libx265",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "hevc",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
@@ -101,15 +97,14 @@ var Codecs = []Codec{
 		// libvpx counts its quantizer to 63, not 51 like the H.26x encoders, so
 		// the same CQ number means a different quality here.
 		Name:        "libvpx-vp9",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "vp9",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
 		Gaps: []Gap{gstNoPlanarRGB, {
-			Engine: "gstreamer",
-			Mode:   "lossless",
+			Engine: EngineGst,
+			Mode:   ModeLossless,
 			Reason: "the vp9enc element exposes no lossless property, so libvpx's lossless coding is reachable on the ffmpeg publish engine only",
 		}},
 	},
@@ -119,14 +114,13 @@ var Codecs = []Codec{
 		// no GPU encoder and cores to spare. 8-bit 4:2:0 is the whole format: VP8
 		// has one profile and no 4:4:4 or high bit depth.
 		Name:        "libvpx",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "vp8",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       63,
 		Gaps: []Gap{{
-			Mode:   "lossless",
+			Mode:   ModeLossless,
 			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
 		}},
 	},
@@ -139,18 +133,17 @@ var Codecs = []Codec{
 		// lists 8-bit formats only. The other two software AV1 encoders carry 10-bit
 		// on both engines.
 		Name:        "libaom-av1",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "av1",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
 		Gaps: []Gap{gstNoPlanarRGB, {
-			Engine: "gstreamer",
+			Engine: EngineGst,
 			Chroma: "p010le",
 			Reason: "the av1enc element takes 8-bit input only, so 10-bit libaom AV1 is reachable on the ffmpeg publish engine only",
 		}, {
-			Mode:   "lossless",
+			Mode:   ModeLossless,
 			Reason: "neither the ffmpeg libaom encoder nor the av1enc element exposes libaom's lossless switch",
 		}},
 	},
@@ -159,9 +152,8 @@ var Codecs = []Codec{
 		// 10-bit 4:2:0 only. Its preset ladder runs to 13, far past what libaom or
 		// rav1e reach, which is what makes AV1 practical at desktop resolutions.
 		Name:        "libsvtav1",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "av1",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       63,
@@ -171,7 +163,7 @@ var Codecs = []Codec{
 		BitrateLimitM: 100,
 		Gaps: []Gap{
 			{
-				Mode:   "lossless",
+				Mode:   ModeLossless,
 				Reason: "SVT-AV1 has no lossless coding mode",
 			},
 			{
@@ -180,8 +172,8 @@ var Codecs = []Codec{
 				// the frames and produces nothing, so the pipeline stalls instead of
 				// failing. The ffmpeg wrapper drives the same library into CBR without
 				// it, which is why this gap is one engine's and not the codec's.
-				Engine: "gstreamer",
-				Mode:   "cbr",
+				Engine: EngineGst,
+				Mode:   ModeCbr,
 				Reason: "the svtav1enc element stalls in the low-delay prediction structure SVT-AV1's CBR requires, so constant bitrate is reachable on the ffmpeg publish engine only",
 			},
 		},
@@ -196,14 +188,13 @@ var Codecs = []Codec{
 		// widest here, so a CQ carried over from another codec means a very
 		// different quality.
 		Name:        "librav1e",
-		Family:      "software",
+		Family:      FamilySoftware,
 		Format:      "av1",
-		Nvenc:       false,
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       255,
 		Gaps: []Gap{{
-			Mode:   "lossless",
+			Mode:   ModeLossless,
 			Reason: "rav1e has no lossless coding mode",
 		}},
 	},
@@ -221,7 +212,7 @@ var Codecs = []Codec{
 		// 4:2:0 8-bit only. H.264 10-bit needs the High 10 profile and 4:4:4 the
 		// High 4:4:4 Predictive one; no VAAPI driver offers either for encoding.
 		Name:        "h264_vaapi",
-		Family:      "vaapi",
+		Family:      FamilyVaapi,
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
@@ -232,7 +223,7 @@ var Codecs = []Codec{
 		// Main and Main 10, the two HEVC profiles VAAPI drivers implement for
 		// encoding.
 		Name:        "hevc_vaapi",
-		Family:      "vaapi",
+		Family:      FamilyVaapi,
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -244,7 +235,7 @@ var Codecs = []Codec{
 		// The quantizer knob is AV1's base_q_idx, a 0-255 scale rather than the
 		// H.26x 0-51 one, so the same CQ number means a different quality here.
 		Name:        "av1_vaapi",
-		Family:      "vaapi",
+		Family:      FamilyVaapi,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -256,7 +247,7 @@ var Codecs = []Codec{
 		// HEVC Range Extensions: too few drivers expose it for encoding. The
 		// quantizer is VP9's 0-255 q_idx.
 		Name:        "vp9_vaapi",
-		Family:      "vaapi",
+		Family:      FamilyVaapi,
 		Format:      "vp9",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
@@ -267,7 +258,7 @@ var Codecs = []Codec{
 		// VP8 has one profile, one chroma and one bit depth, so this row is the
 		// whole format. Its quantizer index counts to 127.
 		Name:        "vp8_vaapi",
-		Family:      "vaapi",
+		Family:      FamilyVaapi,
 		Format:      "vp8",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
@@ -275,12 +266,68 @@ var Codecs = []Codec{
 		Gaps:        vaapiGaps,
 	},
 
-	// QSV (Intel Quick Sync, via oneVPL). Intel-only; tends to beat generic
-	// VAAPI on quality and rate control on the same Intel silicon.
-	{Name: "h264_qsv", Family: "qsv", Format: "h264", Chromas: []string{"yuv420p"}},
-	{Name: "hevc_qsv", Family: "qsv", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
-	{Name: "av1_qsv", Family: "qsv", Format: "av1", Chromas: []string{"yuv420p", "p010le"}},
-	{Name: "vp9_qsv", Family: "qsv", Format: "vp9", Chromas: []string{"yuv420p"}},
+	// QSV (Intel Quick Sync, via oneVPL): the second way to an Intel GPU's encoder
+	// block, where VAAPI is the first. The two drive the same silicon through
+	// different runtimes, and QSV is the one Intel implements itself, so it carries
+	// the rate-control modes VAAPI drivers leave out and reaches formats a
+	// generation supports before Mesa exposes them.
+	//
+	// Which of the four rows a machine runs is the generation's answer rather than the
+	// table's, as on VAAPI: VP9 encode arrives with Ice Lake and AV1 encode with Arc,
+	// so encoders.Detect test-encodes each and the UI greys away what this GPU refuses.
+	// All four rows are 4:2:0, the subsampling every generation encodes, with 10-bit on
+	// the HEVC and AV1 rows; qsvGaps carries what none of them does.
+	{
+		// 4:2:0 8-bit only, the limit every H.264 row states: 10-bit is the High 10
+		// profile and full chroma the High 4:4:4 Predictive one, and Intel's H.264
+		// encoder implements neither.
+		Name:        "h264_qsv",
+		Family:      FamilyQsv,
+		Format:      "h264",
+		Implemented: true,
+		Chromas:     []string{"yuv420p"},
+		CqMax:       51,
+		Gaps:        qsvGaps,
+	},
+	{
+		// Main and Main 10. The profile needs no selecting: oneVPL writes the
+		// indication from the bit depth of the surfaces the encoder is handed.
+		Name:        "hevc_qsv",
+		Family:      FamilyQsv,
+		Format:      "hevc",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       51,
+		Gaps:        qsvGaps,
+	},
+	{
+		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile, and
+		// the quantizer is AV1's base_q_idx on its 0-255 scale rather than the H.26x
+		// 0-51 one.
+		Name:        "av1_qsv",
+		Family:      FamilyQsv,
+		Format:      "av1",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       255,
+		Gaps:        qsvGaps,
+	},
+	{
+		// VP9 profile 0, as on VAAPI: profile 2 (10-bit) and profile 1 (4:4:4) stay out
+		// for the same reason as the HEVC Range Extensions.
+		//
+		// The quantizer counts to 51 and not to VP9's own 255, which is the publish
+		// path's scale rather than the format's: ffmpeg's QSV encoders state a CQP
+		// quantizer on the H.26x scale for every codec but AV1, so a target above 51
+		// would be clamped on the way to oneVPL instead of reaching it.
+		Name:        "vp9_qsv",
+		Family:      FamilyQsv,
+		Format:      "vp9",
+		Implemented: true,
+		Chromas:     []string{"yuv420p"},
+		CqMax:       51,
+		Gaps:        qsvGaps,
+	},
 
 	// AMF (AMD Advanced Media Framework): AMD's own encoder API, driving the same
 	// VCN silicon VAAPI reaches on an AMD card through AMD's closed-source runtime
@@ -297,21 +344,21 @@ var Codecs = []Codec{
 	// AMD card.
 	{
 		Name:        "h264_amf",
-		Family:      "amf",
+		Family:      FamilyAmf,
 		Format:      "h264",
 		Implemented: true,
 		// 8-bit only: 10-bit H.264 is the High 10 profile, which no VCN encoder
 		// implements. The AMF quantizer options count on the H.26x 0-51 scale.
-		Chromas:    []string{"yuv420p"},
-		CqMax:      51,
-		Gaps:       amfGaps,
+		Chromas: []string{"yuv420p"},
+		CqMax:   51,
+		Gaps:    amfGaps,
 	},
 	{
 		// Main and Main 10. The builder selects the profile from the chroma
 		// (amfHevcProfiles), since AMF writes a Main profile indication over a 10-bit
 		// bitstream when left to its default.
 		Name:        "hevc_amf",
-		Family:      "amf",
+		Family:      FamilyAmf,
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -323,7 +370,7 @@ var Codecs = []Codec{
 		// and the quantizer is AV1's base_q_idx on its 0-255 scale rather than the
 		// H.26x 0-51 one.
 		Name:        "av1_amf",
-		Family:      "amf",
+		Family:      FamilyAmf,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -346,7 +393,7 @@ var Codecs = []Codec{
 		// profile, which no Vulkan encode profile covers. The quantizer counts on the
 		// H.26x 0-51 scale.
 		Name:        "h264_vulkan",
-		Family:      "vulkan",
+		Family:      FamilyVulkan,
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
@@ -358,7 +405,7 @@ var Codecs = []Codec{
 		// writes the indication from the bit depth of the surfaces it is handed, so a
 		// p010le encode announces Main 10 on its own.
 		Name:        "hevc_vulkan",
-		Family:      "vulkan",
+		Family:      FamilyVulkan,
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -370,7 +417,7 @@ var Codecs = []Codec{
 		// the quantizer is AV1's base_q_idx on its 0-255 scale rather than the H.26x
 		// 0-51 one. RTSP alone, as on every AV1 row.
 		Name:        "av1_vulkan",
-		Family:      "vulkan",
+		Family:      FamilyVulkan,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
@@ -379,12 +426,12 @@ var Codecs = []Codec{
 	},
 
 	// V4L2 M2M (kernel memory-to-memory encoders: Raspberry Pi, some ARM SoCs).
-	{Name: "h264_v4l2m2m", Family: "v4l2", Format: "h264", Chromas: []string{"yuv420p"}},
-	{Name: "hevc_v4l2m2m", Family: "v4l2", Format: "hevc", Chromas: []string{"yuv420p"}},
+	{Name: "h264_v4l2m2m", Family: FamilyV4l2, Format: "h264", Chromas: []string{"yuv420p"}},
+	{Name: "hevc_v4l2m2m", Family: FamilyV4l2, Format: "hevc", Chromas: []string{"yuv420p"}},
 
 	// Rockchip MPP (RK35xx and similar SoC hardware encoders).
-	{Name: "h264_rkmpp", Family: "rkmpp", Format: "h264", Chromas: []string{"yuv420p"}},
-	{Name: "hevc_rkmpp", Family: "rkmpp", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
+	{Name: "h264_rkmpp", Family: FamilyRkmpp, Format: "h264", Chromas: []string{"yuv420p"}},
+	{Name: "hevc_rkmpp", Family: FamilyRkmpp, Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
 }
 
 // vaapiGaps is the rate-control gap every VAAPI row carries. A VA encoder quantizes
@@ -392,8 +439,18 @@ var Codecs = []Codec{
 // VAAPI form on either publish engine. The other four modes reach the drivers' CQP,
 // CBR and VBR rate control.
 var vaapiGaps = []Gap{{
-	Mode:   "lossless",
+	Mode:   ModeLossless,
 	Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
+}}
+
+// qsvGaps is the rate-control gap every QSV row carries. Intel's encoders quantize
+// every frame, and neither ffmpeg's QSV encoders nor the qsv elements expose the
+// transform bypass a bit-exact stream needs, so lossless has no QSV form on either
+// publish engine. The other four modes map onto oneVPL's CQP, CBR and VBR rate control,
+// which both engines reach.
+var qsvGaps = []Gap{{
+	Mode:   ModeLossless,
+	Reason: "Intel's fixed-function encoders quantize every frame, and oneVPL exposes no transform-bypass path",
 }}
 
 // amfGaps are the gaps every AMF row carries.
@@ -410,11 +467,11 @@ var vaapiGaps = []Gap{{
 // map onto AMF's CQP, CBR and peak-constrained VBR rate control.
 var amfGaps = []Gap{
 	{
-		Engine: "gstreamer",
+		Engine: EngineGst,
 		Reason: "the GStreamer amfcodec plugin builds for Windows only, so AMD AMF is reachable on the ffmpeg publish engine alone",
 	},
 	{
-		Mode:   "lossless",
+		Mode:   ModeLossless,
 		Reason: "AMF's fixed-function encoders quantize every frame, and no AMF profile codes bit-exact",
 	},
 }
@@ -434,11 +491,11 @@ var amfGaps = []Gap{
 // from the source.
 var vulkanGaps = []Gap{
 	{
-		Engine: "gstreamer",
+		Engine: EngineGst,
 		Reason: "the GStreamer vulkan plugin encodes from Vulkan device memory, which no capture backend on this engine produces, so Vulkan Video is reachable on the ffmpeg publish engine alone",
 	},
 	{
-		Mode:   "lossless",
+		Mode:   ModeLossless,
 		Reason: "Vulkan's lossless tuning mode is a hint rather than a coding mode, and its encoders quantize under it all the same",
 	},
 }
@@ -450,7 +507,7 @@ var vulkanGaps = []Gap{
 // publish engine codes each of those formats as RGB, which is why this is a gap per
 // engine and not a pixel format the rows leave out.
 var gstNoPlanarRGB = Gap{
-	Engine: "gstreamer",
+	Engine: EngineGst,
 	Chroma: "gbrp",
 	Reason: "no GStreamer encoder element takes planar-RGB input, so direct RGB coding is reachable on the ffmpeg publish engine only",
 }
