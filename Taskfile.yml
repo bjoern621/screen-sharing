@@ -20,10 +20,17 @@ tasks:
   nativegrid:
     desc: Build the native grid binary into desktop/build/bin
     dir: nativegrid
-    # The nativegrid shell carries gtk4 and libadwaita, which the app's own
-    # shell does not.
     cmds:
-      - nix develop {{.ROOT_DIR}}#nativegrid --command go build -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid .
+      # The nativegrid shell carries gtk4 and libadwaita, which the app's own
+      # shell does not.
+      - platforms: [linux, darwin]
+        cmd: nix develop {{.ROOT_DIR}}#nativegrid --command go build -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid .
+      # Windows has no flake shell: the toolchain, GTK4 and GStreamer come from
+      # MSYS2, so this runs from its MINGW64 shell (docs/packaging.md, "Windows").
+      # -H=windowsgui gives the binary the GUI subsystem; a console-subsystem one
+      # opens a console window beside the grid whenever the app spawns it.
+      - platforms: [windows]
+        cmd: go build -ldflags -H=windowsgui -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid.exe .
 
   dev:
     desc: Run the Wails app with live reload
@@ -46,10 +53,23 @@ tasks:
       - task: nativegrid
 
   build:windows:
-    desc: Cross-build the Windows binary and bundle ffmpeg/ffplay into desktop/build/bin
+    desc: Cross-build the Windows app binary and bundle ffmpeg/ffplay into desktop/build/bin
     dir: desktop
     # No webkit2_41 tag: Windows uses WebView2, not webkitgtk. The postBuildHook
     # in wails.json copies build/windows/redist/{ffmpeg,ffplay}.exe next to the
     # binary, so drop those two executables there first (see that directory's README).
+    #
+    # The app only. The native grid links GTK4 and GStreamer through cgo, which
+    # no cross toolchain here builds, so it is built on Windows with 'task
+    # nativegrid' and given its runtime with 'task bundle:windows'.
     cmds:
       - wails build -platform windows/amd64
+
+  bundle:windows:
+    desc: Copy the GTK4 and GStreamer runtime the native grid needs next to the built binaries
+    platforms: [windows]
+    deps: [nativegrid]
+    # Run from the MSYS2 MINGW64 shell: the script reads the DLL closure with
+    # that shell's ldd, which is what resolves the mingw prefix.
+    cmds:
+      - sh {{.ROOT_DIR}}/scripts/bundle-windows.sh {{.ROOT_DIR}}/desktop/build/bin

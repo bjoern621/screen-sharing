@@ -152,6 +152,35 @@ next to `screen-sharing.exe`, where `FindExe` finds them first.
 Use a recent third-party build (Gyan or BtbN); `ddagrab` needs a current ffmpeg.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
 
+The native grid is a second binary with a second dependency set: GTK4, libadwaita
+and GStreamer, all linked through cgo.
+No cross toolchain builds those from Linux, so `task build:windows` produces the
+app alone and the grid is built on Windows, from the MSYS2 MINGW64 shell.
+
+```bash
+pacman -S mingw-w64-x86_64-{toolchain,pkgconf,go,gtk4,libadwaita} \
+          mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-rs,libav}
+task nativegrid
+task bundle:windows
+```
+
+`gtk4paintablesink`, the element every tile renders into, comes from
+`gst-plugins-rs`, as does `whepsrc`; RTSP comes from `gst-plugins-good` and SRT
+and RTMP from `gst-plugins-bad`, so a bundle missing one of those packages is a
+bundle missing a transport.
+
+A machine that runs the app has no MSYS2, so `bundle:windows`
+(`scripts/bundle-windows.sh`) copies the runtime beside the binaries: the DLL
+closure of the grid and of every installed plugin flat next to the executables,
+where the Windows loader looks first; the plugins under `gstreamer-1.0`; and
+GLib's `gschemas.compiled` under `share/glib-2.0/schemas`, which GTK aborts
+without.
+GStreamer looks for plugins in the prefix it was built against, which is a path
+that exists on no machine but the one that built it, so the grid prepends its own
+`gstreamer-1.0` directory to `GST_PLUGIN_PATH` before it initializes the library.
+A directory that is not there is an ordinary installation, which is left to find
+its plugins itself.
+
 ### Arch Linux (AUR)
 
 Declare ffmpeg as a runtime dependency and let pacman provide it.

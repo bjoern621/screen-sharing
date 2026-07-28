@@ -22,6 +22,10 @@ The demo patterns are H.264 rather than raw, because a raw stream exercises none
 The `nativegrid` shell exists because the app's own shell carries neither gtk4 nor libadwaita.
 It also carries GStreamer core for go-gst's cgo build and exports the plugin path, so the demo decodes from this shell directly.
 
+On Windows the same dependencies come from MSYS2 instead, and `task nativegrid` builds from its MINGW64 shell.
+The binary is built for the GUI subsystem there, so the app spawning it opens no console window beside the grid.
+See `docs/packaging.md`, "Windows", for the packages and for the runtime the bundle has to carry.
+
 ## Measuring the render path
 
 `bench` runs N pipelines off one relay stream into N `GtkPicture`s and prints, once a second, the frames each tile drew, what its sink rendered and dropped, and the widget's frame-clock rate.

@@ -90,6 +90,10 @@ var initOnce sync.Once
 // shows, off the negotiated caps.
 func initGStreamer() {
 	initOnce.Do(func() {
+		// Before Init: the plugin path is read during the registry scan Init
+		// runs, and a path set afterwards is a path nothing rescans.
+		useBundledPlugins()
+
 		gst.Init()
 		gstpbutils.PbUtilsInit()
 	})
