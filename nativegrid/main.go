@@ -19,9 +19,10 @@
 // roster pushes on stdin, so the window can open on an idle relay and fill up as
 // streams appear. A sidebar row can move its stream to another watch leg or retune
 // the one it is on; the window asks the app for that on stdout and receives the
-// answer as the next push. The same pipe carries which streams have a tile open, so
-// the app can show what this window took. Without -config, built-in videotestsrc
-// streams drive a standalone demo run.
+// answer as the next push. The sidebar's foot asks the same way about the app
+// itself: its window to the front, its publish on or off. The same pipe carries
+// which streams have a tile open, so the app can show what this window took.
+// Without -config, built-in videotestsrc streams drive a standalone demo run.
 package main
 
 import (
@@ -66,7 +67,7 @@ func main() {
 	// arrive on pipeline threads and hop here; so do the relayouts a drag must not
 	// perform from inside its own callback.
 	dispatch := idle.Dispatch(func(f func()) { coreglib.IdleAdd(f) })
-	sess := session.New(cfg.Streams, factory, layout.NewFileStore(), sender(fromApp), reporter(fromApp), dispatch)
+	sess := session.New(cfg, factory, layout.NewFileStore(), sender(fromApp), reporter(fromApp), runner(fromApp), dispatch)
 
 	// NonUnique: a second grid must not activate inside the first one's process; the
 	// app replaces the window by killing and respawning it.
@@ -76,8 +77,11 @@ func main() {
 		// Only an app-driven run is pushed rosters; the demo's stdin is a terminal,
 		// not a stream of configs.
 		if fromApp {
-			go roster.Pushes(os.Stdin, func(streams []roster.Stream) {
-				dispatch(func() { sess.SetRoster(streams) })
+			go roster.Pushes(os.Stdin, func(push roster.Config) {
+				dispatch(func() {
+					sess.SetRoster(push.Streams)
+					sess.SetApp(push.App)
+				})
 			})
 		}
 	})
@@ -105,6 +109,16 @@ func reporter(fromApp bool) roster.Report {
 		return roster.DiscardReport
 	}
 	return roster.Reporter(os.Stdout)
+}
+
+// runner is where a command goes: the app runs it and pushes what it changed.
+// The demo config carries no app state, so the sidebar draws no control that
+// could send one.
+func runner(fromApp bool) roster.Run {
+	if !fromApp {
+		return roster.DiscardCommand
+	}
+	return roster.Runner(os.Stdout)
 }
 
 // config is the roster the window opens on: the app's, or the demo one.

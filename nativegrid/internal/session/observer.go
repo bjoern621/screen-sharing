@@ -25,6 +25,10 @@ const (
 	// The watch state is untouched: a stalled stream is Live with a frozen
 	// picture, which the tile marks rather than redraws.
 	StallChanged
+	// AppChanged reports that the app state the window mirrors changed: whether
+	// the app is publishing, and what the last command it was sent cost. It
+	// carries no index: the state is about the app, not about a stream.
+	AppChanged
 )
 
 func (k ChangeKind) String() string {
@@ -41,6 +45,8 @@ func (k ChangeKind) String() string {
 		return "order changed"
 	case StallChanged:
 		return "stall changed"
+	case AppChanged:
+		return "app changed"
 	}
 	assert.Never("unexpected change kind", int(k))
 	return ""

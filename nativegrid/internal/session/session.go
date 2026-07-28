@@ -73,7 +73,14 @@ type Session struct {
 	send roster.Send
 	// report states which streams have a tile open, for the app to act on.
 	// It goes out whenever that set changes and never says the same thing twice.
-	report    roster.Report
+	report roster.Report
+	// run asks the app to act on its own state: its window to the front, its
+	// publish on or off. Like send, it is a question whose answer is the next
+	// push.
+	run roster.Run
+	// app is the app state the last push carried, nil for a run with no app
+	// behind it.
+	app       *roster.App
 	dispatch  idle.Dispatch
 	observers []Observer
 	// persist coalesces the writes of a burst of changes into one.
@@ -108,13 +115,14 @@ type Session struct {
 	wantSpot string
 }
 
-// New builds the model for the streams the window opens with. The remembered
+// New builds the model for the config the window opens with. The remembered
 // arrangement is read here and applied by Restore, once the views are in place.
-func New(streams []roster.Stream, factory player.Factory, store layout.Store, send roster.Send, report roster.Report, dispatch idle.Dispatch) *Session {
+func New(cfg roster.Config, factory player.Factory, store layout.Store, send roster.Send, report roster.Report, run roster.Run, dispatch idle.Dispatch) *Session {
 	assert.IsNotNil(factory, "a session decodes through a player factory")
 	assert.IsNotNil(store, "a session remembers its arrangement in a store")
 	assert.IsNotNil(send, "a session asks the app for a watch leg")
 	assert.IsNotNil(report, "a session reports the streams it watches")
+	assert.IsNotNil(run, "a session asks the app to run its commands")
 	assert.IsNotNil(dispatch, "a session hops player callbacks to the UI loop")
 
 	saved := store.Load()
@@ -124,6 +132,8 @@ func New(streams []roster.Stream, factory player.Factory, store layout.Store, se
 		store:       store,
 		send:        send,
 		report:      report,
+		run:         run,
+		app:         cfg.App,
 		dispatch:    dispatch,
 		retryDelays: retryBackoff,
 		stagger:     restoreStagger,
@@ -137,10 +147,10 @@ func New(streams []roster.Stream, factory player.Factory, store layout.Store, se
 	for _, n := range saved.Watched {
 		s.wantWatched[n] = true
 	}
-	for _, st := range streams {
+	for _, st := range cfg.Streams {
 		s.add(st)
 	}
-	logger.Infof("session opened with %d streams, %d remembered as watched", len(streams), len(s.wantWatched))
+	logger.Infof("session opened with %d streams, %d remembered as watched", len(cfg.Streams), len(s.wantWatched))
 	return s
 }
 

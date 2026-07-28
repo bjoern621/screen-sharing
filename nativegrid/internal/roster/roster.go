@@ -1,15 +1,17 @@
 // Package roster is the process contract between the app and this window: the
-// set of live streams, how it is encoded, and how updates to it arrive.
+// set of live streams, the app state that travels with it, how both are encoded,
+// and how updates to them arrive.
 //
-// The app passes the roster known at spawn as one JSON argument and pushes the
-// full set again as one JSON line per change (Pushes). The producing half is
+// The app passes what it knows at spawn as one JSON argument and pushes the full
+// state again as one JSON line per change (Pushes). The producing half is
 // watch.BuildGridConfig in desktop/watch/grid.go; the two name each other
 // because no Go type crosses the module boundary.
 //
-// The window writes back on stdout in two kinds, each line tagged with its type
+// The window writes back on stdout in three kinds, each line tagged with its type
 // (messages.go). A Request asks for the watch leg one stream should be on: the
 // app decides what that means and pushes the roster it produces, so a request
-// changes nothing here until the push arrives. A Status reports which streams
+// changes nothing here until the push arrives. A Command asks the app to act on
+// its own state and is answered the same way. A Status reports which streams
 // have a tile open and expects no answer.
 package roster
 
@@ -59,9 +61,25 @@ type Stream struct {
 	Options    []Option `json:"options"`
 }
 
-// Config is the full roster of live streams as it crosses the process boundary.
+// App is the app's own state, the part of it this window draws and acts on:
+// whether the app is publishing this machine's capture to the relay, and why the
+// last command the window sent failed. The publish control is drawn from it and
+// never from what the window last asked for, so a command the app refused or a
+// state someone else changed corrects the control on the next push.
+type App struct {
+	Publishing   bool   `json:"publishing"`
+	PublishError string `json:"publishError"`
+}
+
+// Config is the full roster of live streams as it crosses the process boundary,
+// with the app state that travels beside it.
 type Config struct {
 	Streams []Stream `json:"streams"`
+	// App is what the sidebar's app controls read and change. Its presence is
+	// also what says there is an app behind this window: the demo run builds its
+	// config here rather than receiving one, and carries none, so the controls
+	// that would ask an app for something are not drawn.
+	App *App `json:"app,omitempty"`
 }
 
 // Parse decodes a Config, either the -config argument or one push read from

@@ -28,6 +28,16 @@ func TestReporterWritesAWatchSetLine(t *testing.T) {
 	}
 }
 
+func TestRunnerWritesACommandLine(t *testing.T) {
+	var buf bytes.Buffer
+	Runner(&buf)(Command{Name: CommandStartPublish})
+
+	want := `{"type":"command","command":"start-publish"}` + "\n"
+	if buf.String() != want {
+		t.Errorf("sent %s, want %s", buf.String(), want)
+	}
+}
+
 // Watching nothing is a set the app can read, not a missing field.
 func TestReporterWritesAnEmptySetAsAList(t *testing.T) {
 	var buf bytes.Buffer

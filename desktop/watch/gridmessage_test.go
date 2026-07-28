@@ -46,6 +46,27 @@ func TestParseGridMessageReadsAnEmptyWatchSet(t *testing.T) {
 	}
 }
 
+func TestParseGridMessageCommand(t *testing.T) {
+	m, err := ParseGridMessage(`{"type":"command","command":"start-publish"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Kind != GridCommandKind {
+		t.Fatalf("kind = %q, want %q", m.Kind, GridCommandKind)
+	}
+	if m.Command.Name != GridStartPublish {
+		t.Errorf("command = %q, want %q", m.Command.Name, GridStartPublish)
+	}
+}
+
+// A command line that names no command runs nothing, so it is refused where it
+// arrives rather than falling through to the app as an empty name.
+func TestParseGridMessageRefusesANamelessCommand(t *testing.T) {
+	if _, err := ParseGridMessage(`{"type":"command"}`); err == nil {
+		t.Error("a command with no name was read as a message")
+	}
+}
+
 // A grid binary from another build can name a kind this one has no reader for.
 // Skipping such a line costs the line and nothing else.
 func TestParseGridMessageSkipsAnUnknownKind(t *testing.T) {

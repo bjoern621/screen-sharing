@@ -16,14 +16,14 @@ const (
 	pushBufferMax     = 4 * 1024 * 1024
 )
 
-// Pushes applies every roster push readable from r, one Config JSON per line,
-// each the full set of live streams. A malformed line is reported and skipped,
-// so one bad push costs nothing beyond itself.
+// Pushes applies every push readable from r, one Config JSON per line, each the
+// full set of live streams and the app state beside it. A malformed line is
+// reported and skipped, so one bad push costs nothing beyond itself.
 //
 // apply runs on the reading goroutine, not on the UI loop; a caller that owns
 // widgets hops it there itself. The call blocks until r ends, which is fine
 // because the app kills this process when it is done with it.
-func Pushes(r io.Reader, apply func([]Stream)) {
+func Pushes(r io.Reader, apply func(Config)) {
 	assert.IsNotNil(r, "roster pushes need a reader")
 	assert.IsNotNil(apply, "roster pushes need a sink")
 
@@ -40,7 +40,7 @@ func Pushes(r io.Reader, apply func([]Stream)) {
 			continue
 		}
 		logger.Debugf("roster push with %d streams", len(cfg.Streams))
-		apply(cfg.Streams)
+		apply(cfg)
 	}
 	if err := sc.Err(); err != nil {
 		logger.Warnf("roster pushes ended: %v", err)

@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	goruntime "runtime"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/display"
 	"bjoernblessin.de/screenshare/encoders"
@@ -47,6 +49,21 @@ func (a *App) Encoders() encoders.Availability {
 		a.encoders = encoders.Detect(a.ctx)
 	})
 	return a.encoders
+}
+
+// showSettings brings this window to the front on the settings form, for a
+// request from outside it: the native grid's sidebar reaches the form this way
+// rather than leaving the window to be found behind whatever covers it.
+//
+// Showing uncovers a hidden window and unminimising presents it, which is what
+// raises and focuses one that is merely behind another. The "app:show-settings"
+// event is the other half: a frontend showing the web grid over the form takes
+// it off, so the raised window shows the settings and not what was on top of
+// them.
+func (a *App) showSettings() {
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
+	runtime.EventsEmit(a.ctx, "app:show-settings")
 }
 
 // OpenLog opens a single run log in the OS default application.

@@ -56,7 +56,7 @@ func newTestSession(t *testing.T, l layout.Layout, names ...string) (*Session, *
 	}
 	backend := &stubBackend{}
 	store := &layout.Memory{Layout: l}
-	s := New(streams, backend.factory, store, roster.Discard, roster.DiscardReport, func(f func()) { f() })
+	s := New(roster.Config{Streams: streams}, backend.factory, store, roster.Discard, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
 	testTimings(s)
 	return s, backend, store
 }
@@ -89,7 +89,7 @@ func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *r
 	}
 	backend := &stubBackend{}
 	asked := &requests{}
-	sess := New(streams, backend.factory, &layout.Memory{}, asked.send, roster.DiscardReport, func(f func()) { f() })
+	sess := New(roster.Config{Streams: streams}, backend.factory, &layout.Memory{}, asked.send, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
 	testTimings(sess)
 	return sess, backend, asked
 }

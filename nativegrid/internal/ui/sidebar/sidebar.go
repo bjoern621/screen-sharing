@@ -4,6 +4,9 @@
 // The rows follow the grid's display order, so dragging a tile re-sorts them, and a
 // row is a drag handle for that same order, which is how a stream nobody watches yet
 // can be moved into place.
+//
+// Under the rows sits the app bar (appbar.go), which acts on the app rather than on
+// a stream: its settings to the front, and this machine's own publish on or off.
 package sidebar
 
 import (
@@ -26,6 +29,7 @@ type View struct {
 	root  gtk.Widgetter
 	title *adw.WindowTitle
 	list  *gtk.ListBox
+	app   *appBar
 	sess  *session.Session
 	drag  *dnd.Controller
 	// rows are the rows by stream index, which is not their position in the list:
@@ -80,7 +84,9 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 		v.addRow(i)
 	}
 	v.drag.AttachTarget(v.list, v.rowWidget, v.resort.Pending)
+	v.app = newAppBar(&v.icons, sess.RunAppCommand)
 	v.root = v.build()
+	v.drawApp()
 	return v
 }
 
@@ -109,10 +115,13 @@ func (v *View) Changed(c session.Change) {
 		v.drawTitle()
 	case session.OrderChanged:
 		v.resort.Schedule()
+	case session.AppChanged:
+		v.drawApp()
 	}
 }
 
-// build wraps the list in the scroller and the header the window shows it in.
+// build wraps the list in the scroller, the header the window shows it in, and
+// the app bar under both.
 func (v *View) build() gtk.Widgetter {
 	scroll := gtk.NewScrolledWindow()
 	scroll.SetChild(v.list)
@@ -124,7 +133,14 @@ func (v *View) build() gtk.Widgetter {
 	view := adw.NewToolbarView()
 	view.AddTopBar(header)
 	view.SetContent(scroll)
+	view.AddBottomBar(v.app.Widget())
 	return view
+}
+
+// drawApp puts the app's state on the bar under the list.
+func (v *View) drawApp() {
+	app, present := v.sess.App()
+	v.app.draw(app, present)
 }
 
 // addRow appends the row of a stream that joined, at its slot in the display order:

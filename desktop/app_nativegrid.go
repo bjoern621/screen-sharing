@@ -30,10 +30,10 @@ const NativeGridExe = "screenshare-nativegrid"
 // frontend's Live() poll.
 const rosterPollInterval = 2 * time.Second
 
-// requestBuffer holds the watch-leg changes the window sent while pushRoster
-// was mid-poll. A burst is a person turning a knob, so the buffer only has to
-// outlast one poll.
-const requestBuffer = 8
+// messageBuffer holds the watch-leg changes and commands the window sent while
+// pushRoster was mid-poll. A burst is a person turning a knob, so the buffer only
+// has to outlast one poll.
+const messageBuffer = 8
 
 // StartNativeGrid opens the native grid window: a separate GTK4 binary,
 // separate because the webview process is GTK3 and the two toolkits cannot
@@ -49,9 +49,11 @@ const requestBuffer = 8
 // choices belong to the window and are not written to the settings: they last
 // as long as the process that made them.
 //
-// The same stdout carries what the window has a tile open on,
-// which the app keeps for NativeGridWatching and the "nativegrid:watching" event.
-// Both kinds are one message per line, told apart by the type each line names.
+// The same stdout carries the commands the window's sidebar sends, which act on
+// this app rather than on a stream (runGridCommand), and what the window has a
+// tile open on, which the app keeps for NativeGridWatching and the
+// "nativegrid:watching" event. All three kinds are one message per line, told
+// apart by the type each line names.
 func (a *App) StartNativeGrid(transportName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
@@ -63,7 +65,7 @@ func (a *App) StartNativeGrid(transportName string) error {
 	}
 	live := liveStreams(status)
 
-	cfg, err := watch.BuildGridConfig(s, live, transportName, nil)
+	cfg, err := watch.BuildGridConfig(s, live, transportName, nil, watch.GridApp{Publishing: a.Publishing()})
 	if err != nil {
 		return err
 	}
@@ -85,10 +87,11 @@ func (a *App) StartNativeGrid(transportName string) error {
 		a.setNativeGridWatchingLocked(nil)
 	}
 
-	// requests carries the window's watch-leg changes to the one goroutine that
-	// owns them. done releases the reader once that goroutine is gone, so a
-	// window still asking after the poll ended cannot wedge the pipe it reads.
-	requests := make(chan watch.GridRequest, requestBuffer)
+	// asks carries the window's watch-leg changes and commands to the one
+	// goroutine that answers them, which is the one that pushes. done releases the
+	// reader once that goroutine is gone, so a window still asking after the poll
+	// ended cannot wedge the pipe it reads.
+	asks := make(chan watch.GridMessage, messageBuffer)
 	done := make(chan struct{})
 
 	// self is the window the two callbacks below belong to,
@@ -106,9 +109,11 @@ func (a *App) StartNativeGrid(transportName string) error {
 				return
 			}
 			switch m.Kind {
-			case watch.GridWatchLeg:
+			// Both kinds are answered with a push, and the pusher owns the state
+			// they change, so both cross to it rather than being run here.
+			case watch.GridWatchLeg, watch.GridCommandKind:
 				select {
-				case requests <- m.Request:
+				case asks <- m:
 				case <-done:
 				}
 			case watch.GridWatchSet:
@@ -141,7 +146,7 @@ func (a *App) StartNativeGrid(transportName string) error {
 	logger.Infof("native grid opened with %v over %s", streamNames(live), transportName)
 	a.nativeGrid = proc
 	self = proc
-	go a.pushRoster(proc, transportName, live, requests, done)
+	go a.pushRoster(proc, transportName, live, asks, done)
 	return nil
 }
 
@@ -212,27 +217,30 @@ func streamNames(live []watch.LiveStream) []string {
 	return names
 }
 
-// pushRoster keeps one grid window's roster current: it polls the relay and
-// pushes the full roster whenever the set of live streams changes, and it
-// answers the watch-leg changes the window asks for. Both write one JSON config
-// per stdin line, so the window has a single way in.
+// pushRoster keeps one grid window's state current: it polls the relay and
+// pushes whenever the set of live streams or the publish state changes, and it
+// answers the watch-leg changes and commands the window sends. Everything writes
+// one JSON config per stdin line, so the window has a single way in.
 //
 // The loop ends with the child: a dead process stops the poll, a failed write
-// means the child is gone, and either releases the reader behind requests. An
+// means the child is gone, and either releases the reader behind asks. An
 // unreachable relay keeps the last pushed roster, so the window's rows stay
 // explainable while the relay is down.
 //
 // The per-stream choices live here and nowhere else. This goroutine is the only
 // one that touches them, so they need no lock, and they leave with the window
 // that made them: they are deviations from the settings for one run, not
-// settings of their own.
-func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, requests <-chan watch.GridRequest, done chan<- struct{}) {
+// settings of their own. The reason a command was refused is kept the same way:
+// it belongs to the window that asked, and the poll drops it as soon as the
+// publish state moves, so a stale reason cannot outlast what it explains.
+func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, asks <-chan watch.GridMessage, done chan<- struct{}) {
 	defer close(done)
 
 	ticker := time.NewTicker(rosterPollInterval)
 	defer ticker.Stop()
 
 	choices := map[string]watch.WatchChoice{}
+	app := watch.GridApp{Publishing: a.Publishing()}
 	for {
 		select {
 		case <-ticker.C:
@@ -243,27 +251,69 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, transportName string, live []watch.L
 			s := a.settings
 			a.settingsMu.Unlock()
 
-			status := a.relay.Fetch(s.RelayHost, s.ApiPort)
-			if !status.Reachable {
+			// The publish state is the app's own, so it is compared before the
+			// relay is asked anything and pushed whether or not the relay
+			// answers. A window whose publish button waited for a reachable
+			// relay would show the state of neither.
+			changed := false
+			if publishing := a.Publishing(); publishing != app.Publishing {
+				app = watch.GridApp{Publishing: publishing}
+				changed = true
+			}
+			if status := a.relay.Fetch(s.RelayHost, s.ApiPort); status.Reachable {
+				if next := liveStreams(status); !slices.Equal(next, live) {
+					live = next
+					changed = true
+					logger.Infof("native grid roster now %v", streamNames(live))
+				}
+			}
+			if !changed {
 				continue
 			}
-			next := liveStreams(status)
-			if slices.Equal(next, live) {
-				continue
-			}
-			live = next
-			if !a.pushGrid(proc, transportName, live, choices) {
+			if !a.pushGrid(proc, transportName, live, choices, app) {
 				return
 			}
-			logger.Infof("native grid roster now %v", streamNames(live))
 
-		case r := <-requests:
-			a.applyGridRequest(r, live, transportName, choices)
-			if !a.pushGrid(proc, transportName, live, choices) {
+		case m := <-asks:
+			switch m.Kind {
+			case watch.GridWatchLeg:
+				a.applyGridRequest(m.Request, live, transportName, choices)
+			case watch.GridCommandKind:
+				app = a.runGridCommand(m.Command)
+			}
+			if !a.pushGrid(proc, transportName, live, choices, app) {
 				return
 			}
 		}
 	}
+}
+
+// runGridCommand runs one command the window sent and returns the app state its
+// answer carries. A command that failed is answered with the reason rather than
+// with the state that did not change: the window has no other way to learn why
+// the button it pressed did nothing, and the app's own window may be behind it.
+//
+// A command this build does not know is reported and skipped. The two halves
+// ship together, so an unknown one means a grid binary from another build.
+func (a *App) runGridCommand(c watch.GridCommand) watch.GridApp {
+	var err error
+	switch c.Name {
+	case watch.GridShowSettings:
+		a.showSettings()
+	case watch.GridStartPublish:
+		err = a.startPublishHeld()
+	case watch.GridStopPublish:
+		a.StopPublish()
+	default:
+		logger.Warnf("native grid sent the command %q, which this app cannot run", c.Name)
+	}
+
+	app := watch.GridApp{Publishing: a.Publishing()}
+	if err != nil {
+		logger.Warnf("native grid command %q failed: %v", c.Name, err)
+		app.PublishError = err.Error()
+	}
+	return app
 }
 
 // applyGridRequest takes one watch-leg change from the window, or refuses it
@@ -290,9 +340,9 @@ func (a *App) applyGridRequest(r watch.GridRequest, live []watch.LiveStream, tra
 	logger.Infof("native grid watches %q over %s", r.Stream, r.Transport)
 }
 
-// pushGrid writes the roster the window should be showing. It reports whether
+// pushGrid writes the state the window should be showing. It reports whether
 // the child is still there to write to, which is what ends the poll.
-func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, choices map[string]watch.WatchChoice) bool {
+func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.LiveStream, choices map[string]watch.WatchChoice, app watch.GridApp) bool {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
@@ -305,7 +355,7 @@ func (a *App) pushGrid(proc *ffmpeg.Proc, transportName string, live []watch.Liv
 		logger.Warnf("native grid watch leg dropped: %v", err)
 	}
 
-	cfg, err := watch.BuildGridConfig(s, live, transportName, choices)
+	cfg, err := watch.BuildGridConfig(s, live, transportName, choices, app)
 	if err != nil {
 		logger.Warnf("native grid roster push: %v", err)
 		return true

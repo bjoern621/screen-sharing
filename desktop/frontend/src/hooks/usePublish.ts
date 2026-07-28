@@ -3,7 +3,7 @@ import {
     StartPublish, StopPublish, Publishing,
 } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
-import { PublishExit, Stats, Stream } from "../types/stream";
+import { PublishExit, PublishState, Stats, Stream } from "../types/stream";
 
 const ROLLING_WINDOW_MS = 5000;
 
@@ -83,6 +83,13 @@ export function usePublish(s: Stream | null) {
             setStats(st);
         });
 
+        // The publish state also moves without this window: the native grid's
+        // sidebar reaches the same publish, and the form stays locked to whatever
+        // is actually running.
+        const offState = EventsOn("publish:state", (e: PublishState) =>
+            setPublishing(e.publishing)
+        );
+
         const offExit = EventsOn("publish:exit", (e: PublishExit) => {
             setPublishing(false);
             resetInsights();
@@ -94,6 +101,7 @@ export function usePublish(s: Stream | null) {
 
         return () => {
             offStats();
+            offState();
             offExit();
         };
     }, [age, resetInsights]);

@@ -20,7 +20,7 @@ func h264Live(names ...string) []LiveStream {
 func vp9Live(name string) LiveStream { return LiveStream{Name: name, Format: "vp9"} }
 
 func TestBuildGridConfigRTSP(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), h264Live("alice", "bob"), "rtsp", nil)
+	out, err := BuildGridConfig(rtspStream(), h264Live("alice", "bob"), "rtsp", nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestBuildGridConfigRTSP(t *testing.T) {
 }
 
 func TestBuildGridConfigSRT(t *testing.T) {
-	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil)
+	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestBuildGridConfigSRT(t *testing.T) {
 // The sidebar renders whatever the config declares, so a stream carries both the
 // legs it could move to and the knobs of the one it is on.
 func TestBuildGridConfigDeclaresWatchOptions(t *testing.T) {
-	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil)
+	out, err := BuildGridConfig(srtStream(), h264Live("alice"), "srt", nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestBuildGridConfigPerStreamChoice(t *testing.T) {
 		Options:   map[string]string{"rtspWatchLatencyMs": "400", "rtspWatchProtocol": "udp"},
 	}}
 
-	out, err := BuildGridConfig(s, h264Live("alice", "bob"), "srt", choices)
+	out, err := BuildGridConfig(s, h264Live("alice", "bob"), "srt", choices, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestBuildGridConfigPerStreamChoice(t *testing.T) {
 func TestBuildGridConfigChoiceLeavesTheSettings(t *testing.T) {
 	choices := map[string]WatchChoice{"alice": {Options: map[string]string{"srtWatchLatencyMs": "80"}}}
 
-	out, err := BuildGridConfig(srtStream(), h264Live("alice", "bob"), "srt", choices)
+	out, err := BuildGridConfig(srtStream(), h264Live("alice", "bob"), "srt", choices, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestBuildGridConfigChoiceLeavesTheSettings(t *testing.T) {
 }
 
 func TestBuildGridConfigEmptyRoster(t *testing.T) {
-	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil)
+	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,17 +157,37 @@ func TestBuildGridConfigEmptyRoster(t *testing.T) {
 	}
 }
 
+// The app state travels with every push, publishing or not: the window draws its
+// publish control from it and has no other source for the state.
+func TestBuildGridConfigCarriesTheAppState(t *testing.T) {
+	out, err := BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{Publishing: true, PublishError: "no encoder"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `"app":{"publishing":true,"publishError":"no encoder"}`; !strings.Contains(out, want) {
+		t.Errorf("config = %q, want %s", out, want)
+	}
+
+	out, err = BuildGridConfig(rtspStream(), nil, "rtsp", nil, GridApp{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `"app":{"publishing":false,"publishError":""}`; !strings.Contains(out, want) {
+		t.Errorf("config = %q, want %s", out, want)
+	}
+}
+
 func TestBuildGridConfigRejectsUnsupportedTransport(t *testing.T) {
 	// HLS is served by the relay and read by no source element here, so it is a
 	// leg a viewer program opens and a grid window cannot.
-	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "hls", nil); err == nil {
+	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "hls", nil, GridApp{}); err == nil {
 		t.Fatal("expected error for a transport without a GStreamer watch form")
 	}
-	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "carrier-pigeon", nil); err == nil {
+	if _, err := BuildGridConfig(rtspStream(), h264Live("alice"), "carrier-pigeon", nil, GridApp{}); err == nil {
 		t.Fatal("expected error for an unknown transport")
 	}
 	// The transport is checked even when there is nothing to serialize.
-	if _, err := BuildGridConfig(rtspStream(), nil, "hls", nil); err == nil {
+	if _, err := BuildGridConfig(rtspStream(), nil, "hls", nil, GridApp{}); err == nil {
 		t.Fatal("expected error for an unsupported transport with an empty roster")
 	}
 }

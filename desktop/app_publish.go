@@ -31,7 +31,24 @@ func (a *App) StartPublish(s settings.Stream) error {
 	if err := settings.Save(s); err != nil {
 		logger.Warnf("Cannot persist settings: %v", err)
 	}
+	return a.startPublish(s)
+}
 
+// startPublishHeld publishes on the settings the app holds, for a caller that
+// has none of its own to pass: the native grid's publish button acts on what the
+// form last wrote, and moves no setting by pressing it.
+func (a *App) startPublishHeld() error {
+	a.settingsMu.Lock()
+	s := a.settings
+	a.settingsMu.Unlock()
+
+	return a.startPublish(s)
+}
+
+// startPublish starts the encoder child on s. The settings it runs on are the
+// caller's business: this is the one place a publish begins, whether the form or
+// the grid asked for it.
+func (a *App) startPublish(s settings.Stream) error {
 	pub, err := publish.For(s.Capture)
 	if err != nil {
 		return err
@@ -68,6 +85,7 @@ func (a *App) StartPublish(s settings.Stream) error {
 
 	logger.Infof("publishing '%s' via %s (%s, %s, %d fps)", s.Name, s.Transport, s.Mode, s.Chroma, s.Fps)
 	a.pub = proc
+	a.emitPublishState(true)
 	return nil
 }
 
@@ -79,7 +97,16 @@ func (a *App) StopPublish() {
 		a.pub.Stop()
 		a.pub = nil
 		logger.Infof("publishing stopped")
+		a.emitPublishState(false)
 	}
+}
+
+// emitPublishState tells the frontend what the publish state became. The form's
+// own toggle knows what it asked for; this carries the changes it did not make,
+// so the native grid's publish button cannot leave the form unlocked over a
+// publish that is running.
+func (a *App) emitPublishState(publishing bool) {
+	runtime.EventsEmit(a.ctx, "publish:state", publishStateEvent{Publishing: publishing})
 }
 
 func (a *App) Publishing() bool {

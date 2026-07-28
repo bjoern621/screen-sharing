@@ -18,9 +18,10 @@ import (
 const (
 	KindWatchLeg = "watch-leg"
 	KindWatchSet = "watch-set"
+	KindCommand  = "command"
 )
 
-// legLine and setLine put the discriminator in front of one payload's fields.
+// legLine, setLine and commandLine put the discriminator in front of one payload's fields.
 // The payload is embedded rather than nested, so a line stays a flat object and keeps the payload's own field names.
 type legLine struct {
 	Kind string `json:"type"`
@@ -30,6 +31,11 @@ type legLine struct {
 type setLine struct {
 	Kind string `json:"type"`
 	Status
+}
+
+type commandLine struct {
+	Kind string `json:"type"`
+	Command
 }
 
 // writeMu serializes the stdout lines.

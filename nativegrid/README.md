@@ -8,7 +8,8 @@ Styling maps the web design language (`docs/design-language.md`); the icons are 
 
 The app spawns the built binary from its "Native grid" button (`desktop/app_nativegrid.go`), passes the stream list as one JSON argument, and pushes the full list again as one JSON line on stdin whenever it changes.
 The list may be empty; the sidebar shows a placeholder until streams appear.
-The window writes on stdout only to ask for a watch leg, so everything it logs goes to stderr.
+The app state the sidebar's foot draws travels in the same line.
+The window writes on stdout only to ask the app for something and to report what it watches, so everything it logs goes to stderr.
 `task nativegrid` builds it into `desktop/build/bin`, where the app looks for it.
 
 ```
@@ -128,6 +129,13 @@ One drag controller serves both views, so a drag started on a row moves the tile
 A sidebar row carries the watch-leg button beside its check: the transports the app offers for that stream and the knobs of the one it is on.
 It applies on Apply rather than per keystroke, because a change reconnects that stream, and closing the popover any other way puts the values that hold back into the controls.
 A stream the app offers nothing for shows no button.
+
+## The app bar
+
+Under the rows sit the two controls that act on the app rather than on a stream: its window to the front on the settings form, and this machine's own publish on or off on the settings the app holds.
+Both are commands on stdout, and the app answers each with a push, so the button draws the state that holds rather than the one it asked for.
+The publish commands name the state they want instead of toggling, which is what keeps a button drawn from an overtaken push from flipping the state the other way; a refused command comes back with its reason, under the button that sent it.
+A run with no app behind it receives no app state and draws no bar.
 
 ## Keyboard
 

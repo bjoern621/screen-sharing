@@ -91,6 +91,12 @@ export interface PublishExit {
     logPath: string;
 }
 
+/** Payload of the "publish:state" event: whether the app is publishing. It
+ * reports every change, including the ones this window did not make. */
+export interface PublishState {
+    publishing: boolean;
+}
+
 /** Payload of the "watch:exit" event. name and transport together identify
  * which viewer exited, since one stream can be watched over several transports. */
 export interface WatchExit {

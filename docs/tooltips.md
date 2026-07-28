@@ -74,6 +74,8 @@ Transport counters are not in that table: the player labels them, so `player.Sta
 The sidebar's watch-leg popover is the other teaching surface there, and none of its text lives in that binary.
 Each knob crosses the process boundary in the roster with the transport that declared it (`transport.WatchTunable`), tip included, so what SRT's latency window means sits beside the code that writes it into the source fragment.
 
+The app bar under the rows is the exception that stays in the binary: its two controls act on the app rather than on a stream, and their tooltips say what each reaches into the other process for and what it leaves playing.
+
 ## Adding a tooltip
 
 - A new field: pass `labelTip` (and optional `labelLink`) to the field wrapper. The shell renders the tooltip; there is no markup to write.

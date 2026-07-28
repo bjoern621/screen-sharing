@@ -306,21 +306,26 @@ A format with no listener on the selected leg reports not-viewable, names the le
 ## The native grid
 
 The native grid is a separate GTK4 binary (`nativegrid`), spawned by the app (`app_nativegrid.go`): the webview process is GTK3, and the two toolkits cannot share a process.
-The process contract is a JSON roster built by `watch.BuildGridConfig`: every stream the relay reports live, each as a display name plus the gst-launch source fragment of its watch transport (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`).
-It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the set of live streams changes (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
+The process contract is a JSON roster built by `watch.BuildGridConfig`: every stream the relay reports live, each as a display name plus the gst-launch source fragment of its watch transport (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), and the app state the window's own controls read (`watch.GridApp`).
+It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the set of live streams or the publish state changes (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
 The binary appends sidebar rows for new streams and hides the rows of vanished ones, keeping a vanished stream's row while it is watched so its failure state stays on screen.
 
 Which of those streams are watched, in what order, and which one is spotlit belong to the window, and the window persists them itself in a state file beside the app's `settings.json`, keyed by stream name.
 Its own geometry is in that file too, written by the window and read before it maps.
 So a restart reopens on the tiles it was showing, at the size it was shown at.
 
-The child's stdout carries two kinds of JSON line, told apart by a `type` field.
-The first is a watch-leg request (`watch.GridRequest`), the one thing the window asks for.
+The child's stdout carries three kinds of JSON line, told apart by a `type` field.
+The first is a watch-leg request (`watch.GridRequest`).
 Each roster entry carries the transports that stream can be received over and the knobs of the one it is on, both declared by the transport that reads them (`transport.WatchTunable`), so the sidebar renders a control per entry and names no protocol.
 A request is the whole leg for one stream, and the app answers it by pushing the roster it produces: a refused request is answered too, with the values that still hold, so the sidebar's controls follow the app rather than their own last click.
 The choices live in the goroutine that pushes that window's roster and are never written to the settings, since a per-stream copy of every knob is a lot of state to restore for a deviation that lasts one run.
 
-The second is the watch set (`watch.GridStatus`): the streams with a tile open, reported whenever that set changes and exposed by the app as `NativeGridWatching`.
+The second is a command (`watch.GridCommand`), which acts on the app instead of on a stream: the sidebar's foot raises the app window on the settings form, and starts or stops the publish of this machine's own capture on the settings the app holds.
+It is answered like a request, with the push that states what happened, so the publish button draws the app's state and keeps none of its own.
+The two publish commands name the state they want rather than toggling, since a button drawn from a push the app has since left would otherwise flip the state the other way, and a command the app refused comes back with its reason for the bar to show.
+Because a publish can also start from the app's own form, the state travels both to the window (in every push) and to the frontend (the `publish:state` event), which is what keeps the settings form locked over a publish the grid started.
+
+The third is the watch set (`watch.GridStatus`): the streams with a tile open, reported whenever that set changes and exposed by the app as `NativeGridWatching`.
 It travels one way.
 The window decides what it watches and states it, the app reads it and never answers with a watch set of its own, so the view state has a single owner even though two processes know it.
 

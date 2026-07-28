@@ -117,6 +117,39 @@ window.dark .vol-card highlight { background-color: #065f46; }
 }
 window.dark .status-dot.live { background-color: #10b981; }
 
+/* On a filled button the dot is the button's own foreground, which is white on
+   both the suggested and the destructive fill, in both themes. The web adds a
+   ping ring here; GTK cannot animate the transform it needs. */
+.status-dot.on-button,
+window.dark .status-dot.on-button { background-color: white; }
+
+/* The publish button is filled in the product's own accent rather than in
+   Adwaita's suggested-action, which carries the desktop's accent color: the
+   design language has one accent and it is not the system's. Stopping is the
+   destructive fill, the web's variant for the same button. */
+.publish-button {
+    background-image: none;
+    background-color: #047857;
+    color: white;
+    font-weight: 500;
+}
+.publish-button:hover { background-color: #059669; }
+window.dark .publish-button { background-color: #065f46; }
+window.dark .publish-button:hover { background-color: #047857; }
+
+.publish-button.stop { background-color: #dc2626; }
+.publish-button.stop:hover { background-color: #ef4444; }
+window.dark .publish-button.stop { background-color: #f87171; }
+window.dark .publish-button.stop:hover { background-color: #fca5a5; }
+
+/* The reason a command the sidebar sent was refused, under the button that
+   sent it. */
+.app-error {
+    color: #dc2626;
+    font-size: 11px;
+}
+window.dark .app-error { color: #f87171; }
+
 /* Watched row: the pressed-pill tint, primary (emerald-700 / emerald-800)
    at 15%. */
 row.watched { background-color: alpha(#047857, 0.15); }

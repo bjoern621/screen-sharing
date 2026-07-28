@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconAppWindow, IconFlask, IconLayoutGrid } from "@tabler/icons-react";
+import { EventsOn } from "../wailsjs/runtime/runtime";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { usePlatform } from "./hooks/usePlatform";
@@ -41,6 +42,19 @@ export default function App() {
     const monitors = useMonitors();
     const logs = useLogs();
     const [webGridOpen, setWebGridOpen] = useState(false);
+    const settingsCard = useRef<HTMLDivElement>(null);
+
+    // The native grid's sidebar asks for the settings from a window of its own.
+    // The app raises this one; what the raised window shows is this side's half,
+    // so the web grid comes off the screen and the form is scrolled to.
+    useEffect(
+        () =>
+            EventsOn("app:show-settings", () => {
+                setWebGridOpen(false);
+                settingsCard.current?.scrollIntoView({ behavior: "smooth" });
+            }),
+        []
+    );
 
     if (!settings.s || !settings.deps || !settings.webGrid || !settings.nativeGrid) {
         return <LoadingScreen />;
@@ -124,26 +138,28 @@ export default function App() {
                     onDeletePreset={settings.deletePreset}
                 />
 
-                <StreamSettingsCard
-                    s={settings.s}
-                    deps={settings.deps}
-                    caps={capabilities}
-                    transports={settings.transports}
-                    engine={settings.engine}
-                    monitors={monitors}
-                    webGrid={settings.webGrid}
-                    nativeGrid={settings.nativeGrid}
-                    cmd={settings.cmd}
-                    publishing={publish.publishing}
-                    pubError={publish.error}
-                    pubLogPath={publish.logPath}
-                    uplink={uplink}
-                    onUpdate={settings.update}
-                    onTogglePublish={publish.toggle}
-                    onSavePreset={settings.saveAsPreset}
-                    onOpenLog={logs.openLog}
-                    onOpenLogsFolder={logs.openLogsFolder}
-                />
+                <div ref={settingsCard}>
+                    <StreamSettingsCard
+                        s={settings.s}
+                        deps={settings.deps}
+                        caps={capabilities}
+                        transports={settings.transports}
+                        engine={settings.engine}
+                        monitors={monitors}
+                        webGrid={settings.webGrid}
+                        nativeGrid={settings.nativeGrid}
+                        cmd={settings.cmd}
+                        publishing={publish.publishing}
+                        pubError={publish.error}
+                        pubLogPath={publish.logPath}
+                        uplink={uplink}
+                        onUpdate={settings.update}
+                        onTogglePublish={publish.toggle}
+                        onSavePreset={settings.saveAsPreset}
+                        onOpenLog={logs.openLog}
+                        onOpenLogsFolder={logs.openLogsFolder}
+                    />
+                </div>
 
                 <PublishInsightsCard
                     stats={publish.stats}
