@@ -13,6 +13,10 @@ import (
 // how a stream that appears late still comes up. A vanished stream keeps its slot
 // and drops out of sight through the Visible rule, so a stream that comes back
 // finds its place.
+//
+// A push is also how a watch leg changes: the app answers a RequestWatchLeg
+// with the roster that request produced, and a stream whose source fragment
+// moved restarts on it.
 func (s *Session) SetRoster(streams []roster.Stream) {
 	for i := range s.entries {
 		s.entries[i].present = false
@@ -25,11 +29,15 @@ func (s *Session) SetRoster(streams []roster.Stream) {
 		}
 		e := s.at(i)
 		e.present = true
-		// An idle stream takes the pushed source fragment: settings may have
-		// changed since launch. A watched one keeps the source its player runs on
-		// until it is unwatched.
-		if !e.state.Watched() {
-			e.stream = st
+		moved := e.stream.Source != st.Source
+		e.stream = st
+		// A player runs on the fragment it was started with, so a stream that
+		// moved to another watch leg only arrives over it after a restart. The
+		// app pushes a changed fragment when someone asked for one, which is
+		// what the restart answers; an unchanged fragment leaves the tile alone.
+		if moved && e.state.Watched() {
+			logger.Infof("%q moved to %s, restarting it", st.Name, st.Transport)
+			s.SetWatched(i, true)
 		}
 	}
 	logger.Debugf("roster applied: %d live of %d known", len(streams), len(s.entries))

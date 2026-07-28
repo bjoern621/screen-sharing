@@ -47,7 +47,7 @@ func New(st roster.Stream, ev player.Events) (player.Player, error) {
 	assert.Assert(st.Source != "", "a stream carries the source fragment to decode", st.Name)
 	initGStreamer()
 
-	desc := describe(st.Source)
+	desc := Describe(st.Source)
 	logger.Debugf("stream %q pipeline: %s", st.Name, desc)
 
 	el, err := gst.ParseLaunch(desc)

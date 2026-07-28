@@ -52,11 +52,11 @@ func (ffplay) Command(s settings.Stream, streamName, transportName string) (args
 		"-fflags", "nobuffer", "-flags", "low_delay", "-framedrop",
 		"-window_title", WindowTitle(streamName, transportName),
 	}
-	// TCP-interleaved RTP, for the same reason the publish side forces it: the
-	// UDP default negotiates per-track ports that NAT drops, and lost RTP over
-	// UDP is never retransmitted.
+	// The RTP lower transport is the watch-leg setting, the same one the native
+	// grid gives rtspsrc, so one stream reaches both viewers the same way. It
+	// cannot ride in the URL, unlike SRT's options.
 	if isRTSP(url) {
-		args = append(args, "-rtsp_transport", "tcp")
+		args = append(args, "-rtsp_transport", s.RtspWatchProtocol)
 	}
 	args = append(args, url)
 
@@ -93,9 +93,9 @@ func (mpv) Command(s settings.Stream, streamName, transportName string) (args, e
 		"--network-timeout=10",
 		"--title=" + WindowTitle(streamName, transportName),
 	}
-	// See the ffplay counterpart for why RTSP is forced onto TCP.
+	// See the ffplay counterpart for where the RTP lower transport comes from.
 	if isRTSP(url) {
-		args = append(args, "--rtsp-transport=tcp")
+		args = append(args, "--rtsp-transport="+s.RtspWatchProtocol)
 	}
 	args = append(args, url)
 	return args, env, nil

@@ -32,7 +32,10 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		return nil, fmt.Errorf("unknown transport %q", s.Transport)
 	}
 
-	if err := capabilities.Validate("ffmpeg", s.Codec, s.Chroma, s.Transport, s.Mode, s.Cq, s.BitrateM); err != nil {
+	if err := capabilities.Validate("ffmpeg", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
 		return nil, err
 	}
 
@@ -53,16 +56,14 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	assert.Assert(len(src.args) > 0 || len(src.filters) > 0, "a validated stream yields a capture source", s.Capture)
 	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Codec)
 
-	// A VAAPI encoder reads GPU surfaces, so its device opens ahead of the input and
-	// the grabber's chain ends in a conversion and an upload (vaapi.go).
-	vaapi := capabilities.IsVaapi(s.Codec)
-	var device []string
-	if vaapi {
-		device, err = VaapiDevice()
-		if err != nil {
-			return nil, err
-		}
-		upload, err := VaapiFilters(s.Chroma)
+	// A VAAPI or Vulkan encoder reads GPU surfaces, so its device opens ahead of the
+	// input and the grabber's chain ends in a conversion and an upload (hwsurface.go).
+	device, surface, err := HwSurfaceDevice(s.Codec)
+	if err != nil {
+		return nil, err
+	}
+	if surface {
+		upload, err := HwSurfaceFilters(s.Chroma)
 		if err != nil {
 			return nil, err
 		}
@@ -77,10 +78,10 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		args = append(args, src.filterFlag, strings.Join(src.filters, ","))
 	}
 	args = append(args, enc...)
-	// The upload filter has already pinned a VAAPI encode's layout, and the encoder's
+	// The upload filter has already pinned a surface encode's layout, and the encoder's
 	// own pixel format is the opaque hardware one, so -pix_fmt would ask ffmpeg to
 	// convert GPU surfaces it cannot read.
-	if !vaapi {
+	if !surface {
 		args = append(args, "-pix_fmt", s.Chroma)
 	}
 	// color_range only applies to YUV formats; gbrp is inherently full range.

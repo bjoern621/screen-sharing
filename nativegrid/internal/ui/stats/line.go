@@ -5,11 +5,31 @@ import (
 	"github.com/diamondburned/gotk4/pkg/pango"
 )
 
-// line is one rendered row: its box, so it can hide, and its value label.
+// line is one rendered row: its box, so it can hide, its value label, and the
+// explanation the row carries.
 type line struct {
 	row   *gtk.Box
 	value *gtk.Label
 	hides bool
+	tip   string
+}
+
+// tipTarget is a widget a tooltip can be put on.
+type tipTarget interface {
+	SetTooltipText(text string)
+	SetHasTooltip(hasTooltip bool)
+}
+
+// setTip writes a tooltip, or takes the widget out of the tooltip query where
+// there is nothing to say. Empty text still counts as a tooltip in GTK, and a
+// widget that has one ends the query instead of passing it to the ancestor that
+// does.
+func setTip(w tipTarget, text string) {
+	if text == "" {
+		w.SetHasTooltip(false)
+		return
+	}
+	w.SetTooltipText(text)
 }
 
 // set writes one value, hiding the row or showing the placeholder when there is
@@ -24,19 +44,20 @@ func (l *line) set(v string) {
 	}
 	l.row.SetVisible(true)
 	l.value.SetText(v)
-	// Codec descriptions outrun the card, so they ellipsize; the tooltip keeps the
-	// full value reachable, and short values carry none.
+	// Codec descriptions outrun the card, so they ellipsize. The value then carries
+	// the full text above the row's explanation; a value that fits carries no
+	// tooltip of its own and the row's reaches the pointer.
 	if len(v) > valueChars {
-		l.value.SetTooltipText(v)
+		setTip(l.value, joinTip(v, l.tip))
 	} else {
-		l.value.SetTooltipText("")
+		setTip(l.value, "")
 	}
 }
 
 // newBlock starts a titled block inside the card: a rule, the heading, and the rows
 // appended after them, boxed together so hiding the block takes its heading and rule
 // with it.
-func newBlock(parent *gtk.Box, title string, rule bool) *gtk.Box {
+func newBlock(parent *gtk.Box, title, tip string, rule bool) *gtk.Box {
 	b := gtk.NewBox(gtk.OrientationVertical, 2)
 	if rule {
 		b.Append(gtk.NewSeparator(gtk.OrientationHorizontal))
@@ -44,13 +65,15 @@ func newBlock(parent *gtk.Box, title string, rule bool) *gtk.Box {
 	head := gtk.NewLabel(title)
 	head.AddCSSClass("stat-head")
 	head.SetXAlign(0)
+	setTip(head, tip)
 	b.Append(head)
 	parent.Append(b)
 	return b
 }
 
-// newLine appends one key/value row to a block.
-func newLine(block *gtk.Box, key string, hides bool) *line {
+// newLine appends one key/value row to a block. The row's box holds the tooltip, so
+// it covers the key, the value and the gap between them alike.
+func newLine(block *gtk.Box, key, tip string, hides bool) *line {
 	k := gtk.NewLabel(key)
 	k.AddCSSClass("stat-key")
 	k.SetXAlign(0)
@@ -64,6 +87,7 @@ func newLine(block *gtk.Box, key string, hides bool) *line {
 	row := gtk.NewBox(gtk.OrientationHorizontal, 16)
 	row.Append(k)
 	row.Append(v)
+	setTip(row, tip)
 	block.Append(row)
-	return &line{row: row, value: v, hides: hides}
+	return &line{row: row, value: v, hides: hides, tip: tip}
 }

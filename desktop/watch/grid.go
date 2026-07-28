@@ -3,51 +3,85 @@ package watch
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
 
+// LiveStream is one stream the relay reports live: the name the grid lists it
+// under and the bitstream format its watch-leg choice is narrowed by.
+type LiveStream struct {
+	Name   string
+	Format string
+}
+
+// WatchChoice is one stream's deviation from the window's watch leg: the
+// transport it is received over and the values of that transport's knobs, keyed
+// as the transport declares them. An empty Transport takes the window's.
+//
+// A choice lives for the window it was made in and is not persisted: it is a
+// per-stream deviation from the app's settings, not a new setting, and keeping
+// one per stream would multiply what a restart has to restore.
+type WatchChoice struct {
+	Transport string
+	Options   map[string]string
+}
+
 // GridStream is one stream the native grid window offers in its sidebar: the
-// display name, the transport it arrives over, and the gst-launch fragment of
-// its source elements. The fragment ends at the encoded stream; the grid binary
-// appends its own decode and sink elements, so transport knowledge stays on this
-// side of the process boundary and decode knowledge on the other. The transport
-// travels as a name because the grid only labels it, in the tile's stats
-// overlay.
+// display name, the transport it arrives over, the gst-launch fragment of its
+// source elements, and the watch legs the sidebar can move it to. The fragment
+// ends at the encoded stream; the grid binary appends its own decode and sink
+// elements, so transport knowledge stays on this side of the process boundary
+// and decode knowledge on the other.
+//
+// Transports and Options carry that same split into the sidebar's per-stream
+// watch-leg popover: the transports this stream can be received over and the
+// selected one's knobs with their current values, both declared here, so the
+// grid renders a control per entry and names no transport itself.
 type GridStream struct {
-	Name      string `json:"name"`
-	Transport string `json:"transport"`
-	Source    string `json:"source"`
+	Name       string                  `json:"name"`
+	Transport  string                  `json:"transport"`
+	Source     string                  `json:"source"`
+	Transports []string                `json:"transports"`
+	Options    []transport.WatchOption `json:"options"`
 }
 
 // GridConfig is the process contract between the app and the native grid
-// binary, passed as a single JSON argument. The consuming half is the
-// nativegrid module's internal/roster package; the two name each other because
-// no Go type can cross the module boundary.
+// binary, passed as a single JSON argument and pushed again per change. The
+// consuming half is the nativegrid module's internal/roster package; the two
+// name each other because no Go type can cross the module boundary.
 type GridConfig struct {
 	Streams []GridStream `json:"streams"`
 }
 
-// BuildGridConfig serializes the named streams, received over the named
-// transport, into the native grid's JSON config. An empty stream list is
-// valid: the grid opens on an idle relay and fills from roster pushes. The
-// transport must have a GStreamer watch form (transport.GstWatcher), checked
-// up front so a bad transport fails at open, not at the first push.
-func BuildGridConfig(s settings.Stream, streamNames []string, transportName string) (string, error) {
-	if !transport.CanGstWatch(transportName) {
-		return "", fmt.Errorf("transport %q has no GStreamer watch form", transportName)
+// BuildGridConfig serializes the live streams into the native grid's JSON
+// config, each on the watch leg its choice names and the rest on
+// defaultTransport. An empty stream list is valid: the grid opens on an idle
+// relay and fills from roster pushes. The default transport must have a
+// GStreamer watch form (transport.GstWatcher), checked up front so a bad
+// transport fails at open, not at the first push.
+func BuildGridConfig(s settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice) (string, error) {
+	if !transport.CanGstWatch(defaultTransport) {
+		return "", fmt.Errorf("transport %q has no GStreamer watch form", defaultTransport)
 	}
 
 	// Streams starts non-nil so an empty roster marshals as [], not null.
 	cfg := GridConfig{Streams: []GridStream{}}
-	for _, name := range streamNames {
-		src, _ := transport.GstSource(transportName, s, name)
+	for _, l := range live {
+		leg, name, err := WatchLeg(s, l, defaultTransport, choices[l.Name])
+		if err != nil {
+			return "", err
+		}
+		src, _ := transport.GstSource(name, leg, l.Name)
 		cfg.Streams = append(cfg.Streams, GridStream{
-			Name:      name,
-			Transport: transportName,
-			Source:    strings.Join(src, " "),
+			Name:       l.Name,
+			Transport:  name,
+			Source:     strings.Join(src, " "),
+			Transports: GstWatchTransports(l.Format),
+			Options:    transport.WatchOptions(name, leg),
 		})
 	}
 
@@ -56,4 +90,72 @@ func BuildGridConfig(s settings.Stream, streamNames []string, transportName stri
 		return "", err
 	}
 	return string(out), nil
+}
+
+// WatchLeg resolves one stream's watch leg: the transport it is received over
+// and the settings its knobs were written into, both after the choice is
+// applied. The base settings are copied, so a per-stream choice reaches that
+// stream and nothing else.
+//
+// A chosen transport the stream cannot be watched over and a knob the transport
+// does not declare are refused, which is how a choice is rejected where it
+// arrives instead of turning into a source fragment nothing plays. A stream
+// with no choice of its own takes defaultTransport unexamined: the window was
+// opened on it, and dropping it here would move the stream to a leg nobody
+// picked.
+func WatchLeg(base settings.Stream, l LiveStream, defaultTransport string, c WatchChoice) (settings.Stream, string, error) {
+	name := defaultTransport
+	if c.Transport != "" {
+		offered := GstWatchTransports(l.Format)
+		if !slices.Contains(offered, c.Transport) {
+			return base, "", fmt.Errorf("stream %q cannot be watched over %s: %s carries %s",
+				l.Name, c.Transport, strings.Join(offered, " or "), l.Format)
+		}
+		name = c.Transport
+	}
+
+	// Sorted, so a rejected choice names the same key on every build.
+	leg := base
+	for _, key := range slices.Sorted(maps.Keys(c.Options)) {
+		if err := transport.SetWatchOption(name, &leg, key, c.Options[key]); err != nil {
+			return base, "", fmt.Errorf("stream %q: %w", l.Name, err)
+		}
+	}
+	return leg, name, nil
+}
+
+// PruneWatchChoices drops the choices the live streams no longer support and
+// returns what each cost, for the caller to report. A stream that came back in
+// another format can leave a choice behind whose transport no longer carries
+// it, and BuildGridConfig refuses the whole roster over one such stream, which
+// would freeze the window on the last roster it managed to build.
+//
+// Choices of streams the relay does not report live are kept: a stream that
+// comes back finds the leg it was on, the way it finds its slot in the order.
+func PruneWatchChoices(base settings.Stream, live []LiveStream, defaultTransport string, choices map[string]WatchChoice) []error {
+	var dropped []error
+	for _, l := range live {
+		c, ok := choices[l.Name]
+		if !ok {
+			continue
+		}
+		if _, _, err := WatchLeg(base, l, defaultTransport, c); err != nil {
+			delete(choices, l.Name)
+			dropped = append(dropped, err)
+		}
+	}
+	return dropped
+}
+
+// GstWatchTransports lists the transports the native grid can receive a stream
+// of this format over: those with a GStreamer watch form, narrowed to the ones
+// the relay re-serves the format on. MPEG-TS over SRT carries H.264 and H.265,
+// so a VP9 or AV1 stream is left with the transports that have a payload
+// mapping for it. A format the codec table does not name narrows nothing, which
+// is the transport package's rule and not this function's.
+//
+// The list is the grid's alone and is wider than a player's: WHEP has no URL a
+// viewer program opens, and a receiving pipeline reaches it all the same.
+func GstWatchTransports(format string) []string {
+	return transport.GstWatchNamesFor(format)
 }

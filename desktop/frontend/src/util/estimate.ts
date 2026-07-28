@@ -1,11 +1,13 @@
 import { Stream } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, FORMAT_META, cqMax, formatOf,
+    Capability, CHROMA_META, Chroma, Engine, FORMAT_META, cqMax, findEngineRule,
+    formatOf,
 } from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
 export interface BitrateEstimate {
-    /** "fixed" = CBR/ABR average; "range" = VBR/CRF spread; "lossless" = unbounded. */
+    /** "fixed" = a single average target: CBR, ABR, or a VBR whose ceiling the
+     * builder drops; "range" = VBR/CRF spread; "lossless" = unbounded. */
     kind: "fixed" | "range" | "lossless";
     lowMbps: number;
     highMbps: number;
@@ -32,13 +34,20 @@ const LOSSLESS_HIGH = 0.55;
 /**
  * Estimates the bitrate the current settings will produce for a width×height
  * source. Heuristic and content-dependent - it returns a range, not a promise.
- * Returns null when the resolution is unknown (width/height 0).
+ * Returns null where an input the figure rests on is unresolved: the source
+ * resolution (width/height 0), or the codec, whose coding efficiency prices the
+ * constant-quality range.
+ *
+ * `engine` is the publish engine of the selected capture backend, null while that
+ * is unresolved. The VBR ceiling is read against it, since a builder that has no
+ * property for the ceiling runs the mode as uncapped ABR.
  */
 export function estimateBitrate(
     s: Stream,
     width: number,
     height: number,
-    caps: Capability[] | null = null
+    caps: Capability[] | null = null,
+    engine: Engine | null = null
 ): BitrateEstimate | null {
     if (width <= 0 || height <= 0) {
         return null;
@@ -62,6 +71,18 @@ export function estimateBitrate(
         };
     }
     if (s.mode === "vbr") {
+        // The ceiling is what separates VBR from ABR, so a builder with no
+        // property for it leaves the target alone. The rule the form greys the
+        // max-bitrate field with answers that, in place of a restated ceiling.
+        const ceiling = findEngineRule("maxrateM", engine, s.codec, "vbr", caps);
+        if (ceiling && !ceiling.forwards) {
+            return {
+                kind: "fixed",
+                lowMbps: s.bitrateM,
+                highMbps: s.bitrateM,
+                note: `VBR: ${ceiling.reason}`,
+            };
+        }
         const high = Math.max(s.maxrateM, s.bitrateM);
         return {
             kind: "range",
@@ -70,9 +91,6 @@ export function estimateBitrate(
             note: `VBR: averages toward ${s.bitrateM}, bursts up to ${high} Mbit/s`,
         };
     }
-
-    const codec = FORMAT_META[formatOf(s.codec, caps) ?? "h264"]?.efficiency ?? 1.0;
-    const chroma = CHROMA_META[s.chroma as Chroma]?.weight ?? 1.0;
 
     if (s.mode === "lossless") {
         const raw = CHROMA_META[s.chroma as Chroma]?.rawBpp ?? 24;
@@ -84,7 +102,15 @@ export function estimateBitrate(
         };
     }
 
-    // crf (constant quality): quality-driven, no bitrate bound
+    // crf (constant quality): quality-driven, no bitrate bound. The format's
+    // coding efficiency prices the figure, so an unresolved codec withholds the
+    // estimate as an unknown resolution does instead of being priced as H.264.
+    const fmt = formatOf(s.codec, caps);
+    if (!fmt) {
+        return null;
+    }
+    const codec = FORMAT_META[fmt].efficiency;
+    const chroma = CHROMA_META[s.chroma as Chroma]?.weight ?? 1.0;
     const cq = (s.cq * ANCHOR_CQ_MAX) / cqMax(s.codec, caps);
     const bpp =
         QUALITY_ANCHOR_BPP *

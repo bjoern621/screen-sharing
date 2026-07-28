@@ -10,11 +10,15 @@ import (
 
 // TestBlocksAreWellFormed holds the table's own invariants: the card walks it in
 // lockstep with its widgets, so a row without a key or a reader would render an
-// empty line or panic on refresh.
+// empty line or panic on refresh. Every row also explains itself, since the card
+// shows no other description of the figure.
 func TestBlocksAreWellFormed(t *testing.T) {
 	for _, b := range blocks {
 		if b.title == "" {
 			t.Error("a block carries no title")
+		}
+		if b.tip == "" {
+			t.Errorf("block %q explains nothing", b.title)
 		}
 		if len(b.rows) == 0 {
 			t.Errorf("block %q holds no rows", b.title)
@@ -23,10 +27,29 @@ func TestBlocksAreWellFormed(t *testing.T) {
 			if r.key == "" {
 				t.Errorf("block %q holds a row without a key", b.title)
 			}
+			if r.tip == "" {
+				t.Errorf("row %q/%q explains nothing", b.title, r.key)
+			}
 			if r.value == nil {
 				t.Errorf("row %q/%q reads nothing", b.title, r.key)
 			}
 		}
+	}
+}
+
+// TestJoinTip covers the two shapes a value tooltip takes: an ellipsized value above
+// the row's explanation, and the explanation alone where the row has no value to
+// repeat.
+func TestJoinTip(t *testing.T) {
+	if got := joinTip("H.265 (Main 4:4:4 profile)", "what the video is encoded with"); got !=
+		"H.265 (Main 4:4:4 profile)\n\nwhat the video is encoded with" {
+		t.Errorf("joinTip = %q", got)
+	}
+	if got := joinTip("", "what the video is encoded with"); got != "what the video is encoded with" {
+		t.Errorf("joinTip without a value = %q", got)
+	}
+	if got := joinTip("", ""); got != "" {
+		t.Errorf("joinTip of nothing = %q, want nothing", got)
 	}
 }
 
@@ -91,7 +114,7 @@ func TestRowValues(t *testing.T) {
 		"keyframes":  "2 · 1.5 s ago",
 		"bitrate":    "42.5 Mbps · 3.0 MiB",
 		"decoder":    "nvh265dec (hardware)",
-		"frames":     "118 rendered · 2 dropped",
+		"frames":     "118 rendered · 2 dropped (1.7%)",
 		"encoded":    "120 frames",
 		"latency":    "200 ms / 800 ms · live",
 		"uptime":     "1m30s",
@@ -208,6 +231,17 @@ func TestFramesTextFallsBackToPainted(t *testing.T) {
 	}
 	if got := framesText(player.Stats{}); got != "" {
 		t.Errorf("framesText on an empty poll = %q, want nothing", got)
+	}
+}
+
+// TestFramesTextDropShare pins the drop share against the frames the sink was
+// handed, rendered plus dropped, rather than against the rendered count alone.
+func TestFramesTextDropShare(t *testing.T) {
+	if got := framesText(player.Stats{Rendered: 75, Dropped: 25}); got != "75 rendered · 25 dropped (25.0%)" {
+		t.Errorf("framesText = %q, want a 25.0%% share", got)
+	}
+	if got := framesText(player.Stats{Rendered: 100}); got != "100 rendered · 0 dropped (0.0%)" {
+		t.Errorf("framesText with no drop = %q, want a 0.0%% share", got)
 	}
 }
 

@@ -127,7 +127,9 @@ func (v *View) build() gtk.Widgetter {
 // the slot of a row added at launch comes from the remembered order, not from the
 // order the streams were configured in.
 func (v *View) addRow(i int) {
-	r := newRow(v.sess.Stream(i).Name, &v.icons, func(on bool) { v.sess.SetWatched(i, on) })
+	r := newRow(v.sess.Stream(i).Name, &v.icons,
+		func(on bool) { v.sess.SetWatched(i, on) },
+		func(transport string, options map[string]string) { v.sess.RequestWatchLeg(i, transport, options) })
 	v.rows = append(v.rows, r)
 	assert.Assert(len(v.rows) == i+1, "a row per stream, in stream order", len(v.rows), i)
 
@@ -140,7 +142,7 @@ func (v *View) addRow(i int) {
 
 // drawRow puts stream i's state on its row.
 func (v *View) drawRow(i int) {
-	v.rows[i].draw(v.sess.State(i), v.sess.Visible(i))
+	v.rows[i].draw(v.sess.Stream(i), v.sess.State(i), v.sess.Visible(i))
 }
 
 // drawTitle states the open-tile count beside the heading, the way the web roster's

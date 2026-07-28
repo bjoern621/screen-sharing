@@ -38,6 +38,35 @@
             (final: prev: {
               webkitgtk_4_1 = prev.webkitgtk_4_1.override { enableExperimental = true; };
 
+              # The GStreamer publish engine's only Vulkan Video path is the vulkan
+              # plugin's vulkanh264enc, with vulkanupload putting frames on the device
+              # it encodes from. nixpkgs configures gst-plugins-bad with
+              # "-Dvulkan=disabled" and carries no Vulkan inputs at all ("we haven't
+              # figured out yet which of the vulkan nixpkgs it needs"), so the cached
+              # build has no plugin to load. Enabling it costs a source build of that
+              # one package: the loader and headers satisfy the meson feature, and
+              # shaderc provides the glslc the plugin compiles its shaders with.
+              gst_all_1 = prev.gst_all_1 // {
+                gst-plugins-bad = prev.gst_all_1.gst-plugins-bad.overrideAttrs (old: {
+                  mesonFlags = builtins.filter (f: f != "-Dvulkan=disabled") old.mesonFlags ++ [
+                    "-Dvulkan=enabled"
+                  ];
+                  buildInputs = old.buildInputs ++ [
+                    prev.vulkan-headers
+                    prev.vulkan-loader
+                  ];
+                  nativeBuildInputs = old.nativeBuildInputs ++ [ prev.shaderc ];
+                  # The plugin compiles each shader to SPIR-V and turns it into a C
+                  # array with bin2array.py, whose "#!/usr/bin/env python3" line the
+                  # sandbox cannot resolve. patchShebangs runs over build outputs, not
+                  # over a source script meson calls during the build, so this one is
+                  # pointed at the interpreter by hand.
+                  postPatch = (old.postPatch or "") + ''
+                    patchShebangs ext/vulkan/shaders/bin2array.py
+                  '';
+                });
+              };
+
               # AMF talks to the hardware encoder through Vulkan. Releases up to
               # 1.4.34 request the pre-standard VK_AMD_video_encode_queue and
               # VK_AMD_video_encode_h265 device extensions, which only AMD's
@@ -78,12 +107,6 @@
           webkitgtk_4_1 # Wails v2 Linux backend (build with tag webkit2_41)
           pkg-config
           xrandr # X11 monitor enumeration (display pkg listX11)
-          # The native grid renders its vendored Tabler SVGs through GdkTexture,
-          # which needs the librsvg gdk-pixbuf loader. librsvg's setup hook
-          # exports GDK_PIXBUF_MODULE_FILE, which the grid inherits from the
-          # app that spawns it; png/jpeg/gif stay gdk-pixbuf builtins, so the
-          # override costs the GTK3/WebKit processes nothing.
-          librsvg
         ];
         # Linux capture path: the kmsgrab pipeline plus the unprivileged Wayland
         # alternatives, and the tools to inspect either. kmsgrab still needs
@@ -122,9 +145,10 @@
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
             gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB)
-            # gtk4paintablesink (native grid video sink), rav1enc, and rtpav1pay:
-            # rtspclientsink needs the latter to payload AV1, and no other plugin
-            # here carries an AV1 payloader.
+            # gtk4paintablesink (native grid video sink), rav1enc, rtpav1pay and
+            # whipclientsink: rtspclientsink needs the payloader to carry AV1, and no
+            # other plugin here has one, and whipclientsink is the GStreamer publish
+            # engine's WHIP sink.
             gst-plugins-rs
           ]
           ++ [
@@ -198,7 +222,6 @@
               gtk4
               libadwaita
               gobject-introspection
-              librsvg # Tabler SVGs via GdkTexture; the setup hook exports GDK_PIXBUF_MODULE_FILE
             ]
             ++ [
               gst_all_1.gstreamer

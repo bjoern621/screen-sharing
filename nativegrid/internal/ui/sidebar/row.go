@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/theme"
 )
@@ -21,21 +22,29 @@ const (
 	pageFailed  = "failed"
 )
 
-// statusPageByState is which face a row shows per watch state: a static muted dot
-// when idle, the spinning loader while connecting, a pulsing accent dot once live, a
-// warning triangle on failure.
-var statusPageByState = map[session.State]string{
-	session.Idle:    pageIdle,
-	session.Loading: pageLoading,
-	session.Live:    pageLive,
-	session.Failed:  pageFailed,
+// statusFace is one drawn watch state: the stack page it shows, and what the face
+// means in words, which a 16px glyph cannot say on its own.
+type statusFace struct {
+	page string
+	tip  string
 }
 
-// row is one stream's sidebar row: the check that watches the stream, its name, and
-// the status that mirrors the tile.
+// statusFaceByState is which face a row shows per watch state: a static muted dot
+// when idle, the spinning loader while connecting, a pulsing accent dot once live, a
+// warning triangle on failure.
+var statusFaceByState = map[session.State]statusFace{
+	session.Idle:    {page: pageIdle, tip: "Not watching this stream. The row's check opens a tile for it."},
+	session.Loading: {page: pageLoading, tip: "Opening the watch leg and waiting for the first frame."},
+	session.Live:    {page: pageLive, tip: "Watching this stream. Frames are arriving from the relay."},
+	session.Failed:  {page: pageFailed, tip: "The connection failed. The stream's tile carries the pipeline's message and a retry."},
+}
+
+// row is one stream's sidebar row: the check that watches the stream, its name, the
+// watch-leg control, and the status that mirrors the tile.
 type row struct {
 	widget *gtk.ListBoxRow
 	check  *gtk.CheckButton
+	leg    *legView
 	status *gtk.Stack
 	// syncing suppresses the check's own signal while the view writes the model's
 	// state into it, so a redraw cannot loop back into the model it is drawing.
@@ -43,13 +52,15 @@ type row struct {
 }
 
 // newRow builds a row. watch is called when the check changes by hand, never by the
-// view writing the model's state back into it.
-func newRow(name string, icons *theme.Icons, watch func(on bool)) *row {
+// view writing the model's state back into it; ask carries a watch-leg change to
+// the app.
+func newRow(name string, icons *theme.Icons, watch func(on bool), ask func(transport string, options map[string]string)) *row {
 	assert.IsNotNil(watch, "a row watches through a callback", name)
 
 	r := &row{
 		widget: gtk.NewListBoxRow(),
 		check:  gtk.NewCheckButton(),
+		leg:    newLegView(icons, ask),
 		status: newStatus(icons),
 	}
 	r.check.ConnectToggled(func() {
@@ -66,18 +77,22 @@ func newRow(name string, icons *theme.Icons, watch func(on bool)) *row {
 	box := gtk.NewBox(gtk.OrientationHorizontal, 8)
 	box.Append(r.check)
 	box.Append(label)
+	box.Append(r.leg.Widget())
 	box.Append(r.status)
 	r.widget.SetChild(box)
 	return r
 }
 
 // draw puts one watch state on the row: its status face, the pressed-pill tint of a
-// watched row, and the check.
-func (r *row) draw(state session.State, visible bool) {
-	page, ok := statusPageByState[state]
+// watched row, the check, and the watch leg the stream arrives over.
+func (r *row) draw(st roster.Stream, state session.State, visible bool) {
+	r.leg.draw(st)
+
+	face, ok := statusFaceByState[state]
 	assert.Assert(ok, "a row draws every watch state", state.String())
 
-	r.status.SetVisibleChildName(page)
+	r.status.SetVisibleChildName(face.page)
+	r.status.SetTooltipText(face.tip)
 	r.widget.SetVisible(visible)
 	if state.Watched() {
 		r.widget.AddCSSClass("watched")

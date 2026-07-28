@@ -49,11 +49,11 @@ type decodeTrack struct {
 	hardware bool
 }
 
-// elementStats pairs an element found in the pipeline with the fields of its
-// "stats" structure the overlay shows.
+// elementStats pairs an element found in the pipeline with the table entry that
+// says which of its "stats" fields the overlay shows and how they read.
 type elementStats struct {
 	element gst.Element
-	fields  []statField
+	source  statSource
 }
 
 // onElement classifies one element of the pipeline: the video and audio decoders
@@ -78,7 +78,7 @@ func (r *receiver) onElement(e gst.Element) {
 	}
 	for _, src := range statSources {
 		if src.factory == factory {
-			r.trackStats(e, src.fields)
+			r.trackStats(e, src)
 		}
 	}
 }
@@ -125,7 +125,7 @@ func (r *receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 
 // trackStats remembers a transport element whose counters the overlay shows,
 // keyed by pipeline name so an element seen twice is added once.
-func (r *receiver) trackStats(e gst.Element, fields []statField) {
+func (r *receiver) trackStats(e gst.Element, src statSource) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -135,6 +135,6 @@ func (r *receiver) trackStats(e gst.Element, fields []statField) {
 	if known {
 		return
 	}
-	r.stats = append(r.stats, elementStats{element: e, fields: fields})
+	r.stats = append(r.stats, elementStats{element: e, source: src})
 	logger.Debugf("stream %q reports the counters of %s", r.name, e.GetName())
 }

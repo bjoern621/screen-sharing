@@ -52,7 +52,27 @@ func newTestSession(t *testing.T, l layout.Layout, names ...string) (*Session, *
 	}
 	backend := &stubBackend{}
 	store := &layout.Memory{Layout: l}
-	return New(streams, backend.factory, store, func(f func()) { f() }), backend, store
+	return New(streams, backend.factory, store, roster.Discard, func(f func()) { f() }), backend, store
+}
+
+// requests collects what the model asked the app for, in place of the pipe the
+// window writes on.
+type requests struct{ sent []roster.Request }
+
+func (r *requests) send(req roster.Request) { r.sent = append(r.sent, req) }
+
+// newAskingSession is a model whose requests are collected rather than sent.
+func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *requests) {
+	t.Helper()
+
+	streams := make([]roster.Stream, 0, len(names))
+	for _, n := range names {
+		streams = append(streams, roster.Stream{Name: n, Transport: "srt", Source: "videotestsrc"})
+	}
+	backend := &stubBackend{}
+	asked := &requests{}
+	sess := New(streams, backend.factory, &layout.Memory{}, asked.send, func(f func()) { f() })
+	return sess, backend, asked
 }
 
 // order names the streams in display order, which is what a view walks.

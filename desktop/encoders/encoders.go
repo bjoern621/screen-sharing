@@ -3,10 +3,11 @@
 //
 // Two kinds of encoder cannot be assumed present. A hardware codec needs the GPU,
 // its driver and the matching build: NVENC an NVIDIA card, VAAPI a render node
-// whose driver exposes that encode entrypoint, which is where the families diverge
-// per generation, an AMD card carrying no VP8 or VP9 encoder and a pre-Arc Intel one
-// no AV1. The AV1 and VPx software encoders each need their library compiled in,
-// which a bundled or distro build may well lack.
+// whose driver exposes that encode entrypoint, Vulkan Video a driver implementing the
+// encode extension for that format. That is where the families diverge per generation,
+// an AMD card carrying no VP8 or VP9 encoder and a pre-Arc Intel one no AV1. The AV1
+// and VPx software encoders each need their library compiled in, which a bundled or
+// distro build may well lack.
 //
 // The answer is per publish engine, because the two wrap different encoder
 // implementations: an ffmpeg build with librav1e compiled in says nothing about
@@ -63,6 +64,7 @@ func ffmpegProbed() []string {
 		"libvpx", "libvpx-vp9", "libaom-av1", "libsvtav1", "librav1e",
 		"h264_vaapi", "hevc_vaapi", "av1_vaapi", "vp9_vaapi", "vp8_vaapi",
 		"h264_amf", "hevc_amf", "av1_amf",
+		"h264_vulkan", "hevc_vulkan", "av1_vulkan",
 	}
 }
 
@@ -147,24 +149,24 @@ func ffmpegUsable(ctx context.Context, codec string) bool {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
 
+	device, surface, err := ffmpeg.HwSurfaceDevice(codec)
+	if err != nil {
+		// The family has no device on this machine: no render node for VAAPI, which is
+		// the verdict the UI wants anyway.
+		return false
+	}
+
 	args := []string{"-hide_banner", "-loglevel", "error"}
-	// A VAAPI encoder reads GPU surfaces, so the probe opens the device and uploads
-	// the frame exactly as the publish command does. A machine with no render node
-	// fails every VAAPI codec here, which is the verdict the UI wants anyway.
-	if capabilities.IsVaapi(codec) {
-		device, err := ffmpeg.VaapiDevice()
+	args = append(args, device...)
+	args = append(args, "-f", "lavfi", "-i", "nullsrc=s="+probeSize, "-frames:v", "1")
+	// A VAAPI or Vulkan encoder reads GPU surfaces, so the probe uploads the frame
+	// exactly as the publish command does.
+	if surface {
+		upload, err := ffmpeg.HwSurfaceFilters("yuv420p")
 		if err != nil {
 			return false
 		}
-		upload, err := ffmpeg.VaapiFilters("yuv420p")
-		if err != nil {
-			return false
-		}
-		args = append(args, device...)
-		args = append(args, "-f", "lavfi", "-i", "nullsrc=s="+probeSize, "-frames:v", "1",
-			"-vf", strings.Join(upload, ","))
-	} else {
-		args = append(args, "-f", "lavfi", "-i", "nullsrc=s="+probeSize, "-frames:v", "1")
+		args = append(args, "-vf", strings.Join(upload, ","))
 	}
 	args = append(args, "-c:v", codec, "-f", "null", "-")
 

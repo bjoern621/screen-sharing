@@ -9,12 +9,17 @@ type StatGroup struct {
 	// Name is the element's pipeline name, e.g. "rtpjitterbuffer0", which also
 	// tells the jitterbuffers of a muxed stream apart.
 	Name string
+	// Tip says what the element does, for the overlay to show on the group's
+	// heading: a pipeline element's name is not a description of it.
+	Tip  string
 	Rows []StatRow
 }
 
-// StatRow is one labelled counter of a StatGroup.
+// StatRow is one labelled counter of a StatGroup. Tip explains what the counter
+// measures, which the label alone does not carry.
 type StatRow struct {
 	Label string
+	Tip   string
 	Value string
 }
 

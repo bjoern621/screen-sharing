@@ -94,12 +94,12 @@ export const RANGES: Option[] = [
     {
         value: "pc", label: "pc - full range (0–255)",
         link: "https://en.wikipedia.org/wiki/YCbCr",
-        tip: "Full range: all code values carry image data. Correct for computer graphics; mismatch causes crushed or washed tones.",
+        tip: "Full range: all code values carry image data. Correct for computer graphics; mismatch causes crushed or washed tones.\nA desktop is full-range RGB to begin with, so this is the range that reaches a viewer unchanged. Both publish engines write the range into the bitstream, and every viewer here reads it.",
     },
     {
         value: "tv", label: "tv - limited / studio swing (16–235)",
         link: "https://en.wikipedia.org/wiki/Broadcast-safe",
-        tip: "Limited/studio swing, a broadcast legacy. Only pick when a downstream device demands it (or for maximum web-player compatibility).",
+        tip: "Limited/studio swing, a broadcast legacy. Only pick when a downstream device demands it (or for maximum web-player compatibility).\nDesktop content is squeezed into 16-235 on the way in and expanded again on the way out, so it loses code values and viewers land on slightly different ones: the native grid renders a limited-range mid grey about two levels below what ffplay and mpv render.",
     },
 ];
 
@@ -124,9 +124,14 @@ export const CAPTURES: Option[] = [
         tip: "X11 shared-memory capture (Linux, also XWayland windows). Default on Linux; pure-Wayland surfaces need the portal capture backend instead.\nRuns the ffmpeg publish engine.",
     },
     {
+        value: "ximagesrc", label: "ximagesrc - X11 SHM (GStreamer)",
+        link: "https://gstreamer.freedesktop.org/documentation/ximagesrc/index.html",
+        tip: "X11 shared-memory capture (Linux, also XWayland windows), the same screen source as x11grab read by GStreamer instead. Crops to the selected monitor and paces itself, so no damage-driven repeat is involved.\nRuns the GStreamer publish engine: pick it over x11grab to reach that engine's encoders on an X11 session.",
+    },
+    {
         value: "kmsgrab", label: "kmsgrab - DRM/KMS",
         link: "https://en.wikipedia.org/wiki/Direct_Rendering_Manager",
-        tip: "DRM/KMS plane capture (Linux): grabs scanout buffers below the compositor. Very efficient, requires CAP_SYS_ADMIN.\nRuns the ffmpeg publish engine.",
+        tip: "DRM/KMS plane capture (Linux): grabs scanout buffers below the compositor. Very efficient, requires CAP_SYS_ADMIN.\nRuns the ffmpeg publish engine, the only one with a DRM/KMS source: GStreamer has no capture element for scanout buffers, only a kmssink.",
     },
     {
         value: "portal", label: "portal - PipeWire ScreenCast",
@@ -183,14 +188,42 @@ export const TRANSPORT_META: Record<string, Option> = {
     rtsp: {
         value: "rtsp", label: "rtsp - Real-Time Streaming Protocol",
         link: "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol",
-        tip: "RTSP session carrying each track as TCP-interleaved RTP. TCP handles loss, so there is no retransmit window to tune; delay rises with a lossy link instead.",
+        tip: "RTSP session carrying each track as its own RTP stream. The publish leg interleaves them over the session's TCP connection; the watch leg picks that or UDP. Over TCP loss is handled for you, so there is no retransmit window to tune and delay rises on a lossy link instead.",
     },
     webrtc: {
-        value: "webrtc", label: "webrtc - WHIP ingest",
+        value: "webrtc", label: "webrtc - WHIP ingest, WHEP playback",
         link: "https://en.wikipedia.org/wiki/WebRTC",
-        tip: "WebRTC publish via WHIP: HTTP signaling, then SRTP to the relay. Carries H.264 + Opus only. The app has no WebRTC viewer yet - watch through the relay's web page.",
+        tip: "WebRTC through the relay's WHIP and WHEP endpoints: HTTP signaling, then SRTP. The publish leg carries H.264 + Opus, the limit of ffmpeg's WHIP muxer. The watch leg is the native grid's and the browser's; no player opens it by URL, since WHEP is an exchange rather than an address.",
+    },
+    rtmp: {
+        value: "rtmp", label: "rtmp - Real-Time Messaging Protocol",
+        link: "https://en.wikipedia.org/wiki/Real-Time_Messaging_Protocol",
+        tip: "FLV over one TCP connection, the protocol broadcast tools speak. Nothing about it is tunable: no retransmit window, no jitter buffer, and delay is whatever TCP and the relay's buffering make it.\nThe publish leg writes the enhanced-RTMP tags for H.265, AV1 and VP9 as well as H.264; the viewers here read H.264 alone back out of it.",
+    },
+    hls: {
+        value: "hls", label: "hls - HTTP Live Streaming",
+        link: "https://en.wikipedia.org/wiki/HTTP_Live_Streaming",
+        tip: "Segments and a playlist over plain HTTP, which proxies and firewalls pass where the others are blocked. A viewer cannot start before a segment exists, so this is the slowest leg by a wide margin.\nWatch only: the relay serves HLS and ingests nothing over it.",
     },
 };
+
+/**
+ * The RTP lower transport an RTSP watch leg negotiates. Every RTSP viewer takes
+ * it from here: rtspsrc in the native grid, ffplay and mpv in a single-stream
+ * window. The publish leg has no such choice and always interleaves over TCP.
+ */
+export const RTSP_PROTOCOLS: Option[] = [
+    {
+        value: "tcp", label: "tcp - interleaved over the RTSP connection",
+        link: "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol",
+        tip: "Every track rides the one TCP connection the RTSP session already opened. Nothing is lost and no second port has to reach the viewer, at the cost of head-of-line blocking: a late packet holds up the frames queued behind it.",
+    },
+    {
+        value: "udp", label: "udp - a port pair per track",
+        link: "https://en.wikipedia.org/wiki/Real-time_Transport_Protocol",
+        tip: "Each track negotiates its own UDP port pair, which drops the delay TCP's in-order delivery adds. Lost RTP is never retransmitted, so loss shows as artifacts rather than as delay, and NAT or a firewall between viewer and relay swallows the negotiated ports: the stream connects and no frame arrives.",
+    },
+];
 
 /**
  * Tooltip for the quantizer target. Every encoder has this control under its own
@@ -229,6 +262,29 @@ export function bitrateTip(codec: string, caps: Capability[] | null): string {
  */
 export function withNote(tip: string, note?: string): string {
     return note ? `${tip}\n${note}` : tip;
+}
+
+/** Capture backends that crop the X screen to the selected monitor's geometry
+ * and can only do so when enumeration reported one. */
+const X_CROPPING_CAPTURES = ["x11grab", "ximagesrc"];
+
+/**
+ * Why the monitor selection is not in force, empty when it is.
+ *
+ * The X backends crop by offset and size, so a monitor enumeration reported no
+ * geometry for leaves them nothing to crop to and they capture the whole X
+ * screen instead. That is a different picture from the one the field names: at
+ * multi-monitor width it can exceed an encoder's dimension limit, and it is
+ * never what was asked for. The capture still runs, so this is a note rather
+ * than a refusal, but it has to be said.
+ */
+export function cropNote(
+    capture: string,
+    monitor: { width: number; height: number } | undefined
+): string {
+    if (!X_CROPPING_CAPTURES.includes(capture)) return "";
+    if (monitor && monitor.width > 0 && monitor.height > 0) return "";
+    return `Not in force: monitor enumeration reported no geometry, so ${capture} captures the whole X screen rather than one monitor. Install the monitor enumerator for this session (xrandr on X11) to crop.`;
 }
 
 /** Returns the display label for value, falling back to the raw value. */

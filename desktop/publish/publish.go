@@ -20,9 +20,13 @@ import (
 
 // Stats is one encoder progress sample surfaced to the UI. It reuses the ffmpeg
 // progress shape as the wire format; an engine without an equivalent progress
-// stream measures the same figures its own way, and leaves a field it cannot
-// measure at zero rather than inventing one (see gstMeter).
+// stream measures the same figures its own way (see gstMeter), and a figure its
+// pipeline exposes no measurement for is marked in Missing rather than sent as a
+// zero, which is the reading that marks a stalled encoder.
 type Stats = ffmpeg.Stats
+
+// Missing is the set of Stats figures a sample carries no measurement for.
+type Missing = ffmpeg.Missing
 
 // Handle supervises one running publish session.
 type Handle interface {
@@ -67,20 +71,29 @@ const (
 	EngineGst    = "gstreamer"
 )
 
-// engineByCapture is the single source mapping a capture backend to the engine
-// that runs it. The ffmpeg screen grabbers share one engine; the portal backend
-// runs through GStreamer.
-var engineByCapture = map[string]Publisher{
-	"ddagrab": ffmpegEngine{},
-	"gdigrab": ffmpegEngine{},
-	"x11grab": ffmpegEngine{},
-	"kmsgrab": ffmpegEngine{},
-	"portal":  gstEngine{},
+// captureBackends is the single source pairing a capture backend with the engine
+// that runs it. Capture backend and publish engine are two axes, not one: a
+// screen source is a row here, and which engine the row names follows from which
+// framework has an element or an input device for that source, not from a
+// property of the engine.
+//
+// The pairing is one-to-one because no source has both. ffmpeg has the four
+// screen grabbers and no PipeWire input device; GStreamer has pipewiresrc and
+// ximagesrc and no DRM/KMS source element at all, which is why kmsgrab appears
+// once and under ffmpeg. A source both frameworks could read would be two rows,
+// one per engine, and nothing else would change.
+var captureBackends = map[string]Publisher{
+	"ddagrab":   ffmpegEngine{},
+	"gdigrab":   ffmpegEngine{},
+	"x11grab":   ffmpegEngine{},
+	"kmsgrab":   ffmpegEngine{},
+	"portal":    gstEngine{capture: portalCapture{}},
+	"ximagesrc": gstEngine{capture: ximageCapture{}},
 }
 
 // For returns the Publisher that runs the given capture backend.
 func For(capture string) (Publisher, error) {
-	p, ok := engineByCapture[capture]
+	p, ok := captureBackends[capture]
 	if !ok {
 		return nil, fmt.Errorf("unknown capture backend %q", capture)
 	}
@@ -90,8 +103,8 @@ func For(capture string) (Publisher, error) {
 // Captures lists the capture backends the app can run, sorted for a stable
 // order across the wire.
 func Captures() []string {
-	out := make([]string, 0, len(engineByCapture))
-	for capture := range engineByCapture {
+	out := make([]string, 0, len(captureBackends))
+	for capture := range captureBackends {
 		out = append(out, capture)
 	}
 	slices.Sort(out)
@@ -103,9 +116,9 @@ func Captures() []string {
 // separately for which codecs it can run here, since the two wrap different encoder
 // implementations.
 func Engines() []string {
-	seen := make(map[string]bool, len(engineByCapture))
+	seen := make(map[string]bool, len(captureBackends))
 	var out []string
-	for _, p := range engineByCapture {
+	for _, p := range captureBackends {
 		if name := p.Engine(); !seen[name] {
 			seen[name] = true
 			out = append(out, name)
@@ -127,7 +140,7 @@ func EngineFor(capture string) (string, error) {
 // TransportsFor returns the transports the capture backend's engine can carry,
 // in transport registry order. The result is the subset of transport.Names()
 // the engine can serialize through, so a capture whose engine lacks a sink for a
-// transport (the portal/GStreamer path and WebRTC) excludes it.
+// transport excludes it.
 func TransportsFor(capture string) ([]string, error) {
 	p, err := For(capture)
 	if err != nil {

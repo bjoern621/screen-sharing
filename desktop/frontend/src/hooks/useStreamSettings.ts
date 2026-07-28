@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
-    PublishCommand, Transports, CaptureTransports, CaptureEngines,
+    PublishCommand, Transports, TransportFormats, CaptureTransports,
+    CaptureEngines,
 } from "../../wailsjs/go/main/App";
 import {
-    Deps, EncoderInfo, PlatformInfo, Preset, Stream, ViewVerdict,
+    Deps, EncoderInfo, PlatformInfo, Preset, Stream, TransportCarriage,
+    ViewVerdict,
 } from "../types/stream";
 import { Environment, evaluateDeps, normalize } from "../util/deps";
 import { Capability, Engine, engineFor } from "../util/domain";
@@ -68,6 +70,7 @@ export function useStreamSettings(
     const [preset, setPreset] = useState(CUSTOM_PRESET);
     const [userPresets, setUserPresets] = useState<Preset[]>([]);
     const [transports, setTransports] = useState<string[]>(["srt"]);
+    const [carriage, setCarriage] = useState<TransportCarriage[] | null>(null);
     const [captureTransports, setCaptureTransports] =
         useState<Record<string, string[]> | null>(null);
     const [captureEngines, setCaptureEngines] =
@@ -77,8 +80,10 @@ export function useStreamSettings(
     // One value for every fact the dependency rules read, so the evaluation and
     // the repairs cannot be handed different subsets.
     const env: Environment = useMemo(
-        () => ({ platform, encoders, caps, captureTransports, captureEngines }),
-        [platform, encoders, caps, captureTransports, captureEngines]
+        () => ({
+            platform, encoders, caps, carriage, captureTransports, captureEngines,
+        }),
+        [platform, encoders, caps, carriage, captureTransports, captureEngines]
     );
 
     const deps: Deps | null = useMemo(
@@ -90,8 +95,8 @@ export function useStreamSettings(
         [s, caps]
     );
     const nativeGrid: ViewVerdict | null = useMemo(
-        () => (s ? nativeGridCheck(s, caps) : null),
-        [s, caps]
+        () => (s ? nativeGridCheck(s, caps, carriage) : null),
+        [s, caps, carriage]
     );
     // The publish engine the selected capture backend runs on. Derived here rather
     // than in the form, so the form and the dependency rules read one value.
@@ -160,6 +165,7 @@ export function useStreamSettings(
             setS(loaded);
             setPreset(matchPreset(loaded, presets));
             setTransports(await Transports());
+            setCarriage(await TransportFormats());
             setCaptureTransports(await CaptureTransports());
             setCaptureEngines(await CaptureEngines());
         })();
@@ -168,15 +174,16 @@ export function useStreamSettings(
     // Re-normalize whenever a dimension resolves after mount: platform gates the
     // capture backend (ddagrab on Linux falls back), the encoder probe and capability
     // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
-    // encoder), the capture->transport map gates the transport (the GStreamer engine
-    // drops WebRTC), and the capture->engine map gates the chroma (the portal
-    // path's encoders drop planar RGB). Any illegal carryover from the persisted
-    // settings is repaired to a valid combination.
+    // encoder), the transport table gates the codec (MPEG-TS carries no VP9), the
+    // capture->transport map gates the transport (the GStreamer engine has no RTMP
+    // sink), and the capture->engine map gates the chroma (the portal path's
+    // encoders drop planar RGB). Any illegal carryover from the persisted settings
+    // is repaired to a valid combination.
     useEffect(() => {
-        if (platform || encoders || caps || captureTransports || captureEngines) {
+        if (platform || encoders || caps || carriage || captureTransports || captureEngines) {
             setS(prev => (prev ? normalize(prev, env) : prev));
         }
-    }, [platform, encoders, caps, captureTransports, captureEngines, env]);
+    }, [platform, encoders, caps, carriage, captureTransports, captureEngines, env]);
 
     useEffect(() => {
         if (!s) {

@@ -1,4 +1,4 @@
-import { settings, relay, display, platform, encoders } from "../../wailsjs/go/models";
+import { settings, relay, display, platform, encoders, main } from "../../wailsjs/go/models";
 
 /** Wire-format stream settings, shared verbatim with the Go backend. */
 export type Stream = settings.Stream;
@@ -8,6 +8,11 @@ export type Preset = settings.Preset;
 
 /** Relay discovery snapshot (reachability + per-path live figures). */
 export type RelayStatus = relay.Status;
+
+/** One transport's carriage: the bitstream formats it takes to the relay and the
+ * ones the relay serves back over it. The two sets differ per protocol, which is
+ * why a publish rule and a watch verdict read different halves of one row. */
+export type TransportCarriage = main.TransportCarriage;
 
 /** One display output: capture index, resolution and primary flag. */
 export type Monitor = display.Monitor;
@@ -26,18 +31,28 @@ export interface EncoderInfo extends encoders.Availability {
 }
 
 /**
- * One encoder progress sample. The backend derives the instantaneous bitrate
- * (Δbytes/Δtime); the frontend keeps ffmpeg's cumulative average alongside it.
+ * One encoder progress sample, emitted by whichever publish engine runs the
+ * session. The engines agree on what each figure means (see `ffmpeg.Stats` in
+ * proc.go): `fps`, `captureFps` and `instMbps` are rates over the interval since
+ * the previous sample, `speed` and `avgMbps` are cumulative over the run, `dup`
+ * counts frames the encoder repeated to hold the output rate and `drop` counts
+ * input frames it discarded for arriving faster than that rate.
+ *
+ * A null is the engine reporting no measurement for that figure, which a stalled
+ * encoder's measured zero is not. Every figure an engine can be without a value
+ * for is nullable, so the renderer has to decide what a missing one looks like.
  */
 export interface Stats {
     frame: number;
-    fps: number;
-    sizeKiB: number;
-    timeSec: number;
-    speed: number;
+    fps: number | null;
+    captureFps: number | null;
+    sizeKiB: number | null;
+    timeSec: number | null;
+    speed: number | null;
+    dup: number;
     drop: number;
-    instMbps: number;
-    avgMbps: number;
+    instMbps: number | null;
+    avgMbps: number | null;
 }
 
 /** A selectable option with an optional explanatory tooltip and reference link. */

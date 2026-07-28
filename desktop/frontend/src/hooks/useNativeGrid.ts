@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+    GridTransports,
     NativeGridRunning,
     StartNativeGrid,
     StopNativeGrid,
@@ -12,11 +13,18 @@ const POLL_INTERVAL_MS = 2000;
 /**
  * Tracks the native grid window, a separate GTK binary the backend spawns.
  * running is polled, so a window closed via its own close button drops out;
- * "nativegrid:exit" carries the failure message.
+ * "nativegrid:exit" carries the failure message. toggle takes the watch leg to
+ * open on, which is why the caller passes it rather than the hook holding one.
+ *
+ * transports is the set of legs a window can open on, which is not every leg a
+ * viewer can be pointed at: the grid receives through a GStreamer pipeline, so
+ * it reaches WHEP and not the relay's HLS segments. An empty set means the list
+ * has not arrived, and gates nothing.
  */
 export function useNativeGrid() {
     const [running, setRunning] = useState(false);
     const [error, setError] = useState("");
+    const [transports, setTransports] = useState<string[]>([]);
 
     const refresh = useCallback(async () => {
         try {
@@ -42,22 +50,36 @@ export function useNativeGrid() {
         return () => clearInterval(id);
     }, [refresh]);
 
-    const toggle = useCallback(async () => {
-        setError("");
-        try {
-            if (running) {
-                await StopNativeGrid();
-                setRunning(false);
-            } else {
-                // RTSP is the one transport the relay re-serves every codec
-                // on (MPEG-TS has no VP9 mapping, so SRT cannot carry it).
-                await StartNativeGrid("rtsp");
-                setRunning(true);
-            }
-        } catch (e) {
-            setError("native grid: " + e);
-        }
-    }, [running]);
+    useEffect(() => {
+        GridTransports()
+            .then(setTransports)
+            .catch(() => {
+                /* backend not ready yet */
+            });
+    }, []);
 
-    return { running, error, toggle };
+    const toggle = useCallback(
+        async (transport: string) => {
+            setError("");
+            try {
+                if (running) {
+                    await StopNativeGrid();
+                    setRunning(false);
+                } else {
+                    // The window receives every tile over one transport, fixed
+                    // for its lifetime: the roster the app pushes carries a
+                    // source fragment per stream, built for it. A transport with
+                    // no GStreamer watch form is refused by the backend, and the
+                    // message lands in error.
+                    await StartNativeGrid(transport);
+                    setRunning(true);
+                }
+            } catch (e) {
+                setError("native grid: " + e);
+            }
+        },
+        [running]
+    );
+
+    return { running, error, transports, toggle };
 }

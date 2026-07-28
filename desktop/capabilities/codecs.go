@@ -3,12 +3,12 @@ package capabilities
 // Codecs is the capability table. Order is the UI display order: implemented
 // backends first, then the not-yet-implemented hardware families.
 //
-// The software encoders, NVENC, VAAPI and AMF are wired into the encoder argument
-// builders. The remaining hardware families (QSV for Intel, V4L2 M2M and Rockchip
-// MPP for ARM SoCs, cross-vendor Vulkan Video) are declared with Implemented:false
-// so the two-dropdown picker can show them as a roadmap without offering a codec
-// that would only fail at launch. Their Chromas and Transports are the values that
-// will apply once each is wired up, not a promise that they work today.
+// The software encoders, NVENC, VAAPI, AMF and Vulkan Video are wired into the
+// encoder argument builders. The remaining hardware families (QSV for Intel, V4L2 M2M
+// and Rockchip MPP for ARM SoCs) are declared with Implemented:false so the
+// two-dropdown picker can show them as a roadmap without offering a codec that would
+// only fail at launch. Their Chromas are the formats that will apply once each is
+// wired up, not a promise that they work today.
 //
 // A row's Chromas is the union over the two publish engines, and each format the
 // ffmpeg encoder and the GStreamer element disagree on carries a Gap naming the
@@ -33,7 +33,6 @@ package capabilities
 // their builder will set, so guessing one would be a fact the code does not honor.
 var Codecs = []Codec{
 	{
-		// No webrtc: ffmpeg's WHIP muxer carries H.264 and Opus only.
 		Name:        "hevc_nvenc",
 		Family:      "nvenc",
 		Format:      "hevc",
@@ -41,23 +40,23 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp"},
 		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
+		// 8-bit only, the same limit every other H.264 row states: 10-bit H.264 is
+		// the High 10 profile, which NVENC's H.264 encoder does not implement. Its
+		// 4:4:4 support is the High 4:4:4 Predictive profile, which NVENC does.
 		Name:        "h264_nvenc",
 		Family:      "nvenc",
 		Format:      "h264",
 		Nvenc:       true,
 		Implemented: true,
-		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
+		Chromas:     []string{"yuv444p", "yuv420p"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp", "webrtc"},
 	},
 	{
-		// RTSP alone carries AV1, as for every AV1 row: RTP has a payload mapping
-		// for it, MediaMTX's SRT/MPEG-TS ingest takes H.264/H.265 only, and the WHIP
-		// muxer carries H.264 only.
+		// NVENC's lossless tune is an H.264 and HEVC one. The AV1 encoder reports no
+		// lossless capability, so this row carries the gap every other AV1 row does.
 		Name:        "av1_nvenc",
 		Family:      "nvenc",
 		Format:      "av1",
@@ -65,7 +64,10 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"rtsp"},
+		Gaps: []Gap{{
+			Mode:   "lossless",
+			Reason: "NVENC codes bit-exact through its lossless tune, which its AV1 encoder does not implement",
+		}},
 	},
 	{
 		Name:        "libx264",
@@ -75,12 +77,10 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp", "webrtc"},
 	},
 	{
-		// Same format facts as hevc_nvenc: HEVC codes RGB via the Range
-		// Extensions (gbrp), and no registered transport carries it over webrtc
-		// (ffmpeg's WHIP muxer is H.264 + Opus only).
+		// Same format facts as hevc_nvenc: HEVC codes RGB through its Range
+		// Extensions profile, which is what puts gbrp in the list.
 		Name:        "libx265",
 		Family:      "software",
 		Format:      "hevc",
@@ -88,16 +88,15 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp"},
 		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
 		// libvpx VP9: the one 4:4:4 codec a browser decodes in software
 		// (WebCodecs), so it carries the lossless 4:4:4 modes to the web viewer.
-		// RTSP only: MPEG-TS (SRT) has no VP9 mapping. On the ffmpeg engine each
-		// chroma selects the VP9 profile that codes it (vp9Profiles), so all four
-		// reach the encoder: 0 for 8-bit 4:2:0, 1 for 4:4:4 and for gbrp, which uses
-		// VP9's identity matrix so RGB stays RGB, 2 for 10-bit 4:2:0.
+		// On the ffmpeg engine each chroma selects the VP9 profile that codes it
+		// (vp9Profiles), so all four reach the encoder: 0 for 8-bit 4:2:0, 1 for
+		// 4:4:4 and for gbrp, which uses VP9's identity matrix so RGB stays RGB,
+		// 2 for 10-bit 4:2:0.
 		//
 		// libvpx counts its quantizer to 63, not 51 like the H.26x encoders, so
 		// the same CQ number means a different quality here.
@@ -108,7 +107,6 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
-		Transports:  []string{"rtsp"},
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: "gstreamer",
 			Mode:   "lossless",
@@ -119,8 +117,7 @@ var Codecs = []Codec{
 		// libvpx VP8. Every WebRTC stack decodes it, and it is the cheapest
 		// royalty-free encode here, which makes it the fallback for a machine with
 		// no GPU encoder and cores to spare. 8-bit 4:2:0 is the whole format: VP8
-		// has one profile and no 4:4:4 or high bit depth. RTSP only, the same
-		// MPEG-TS gap as VP9.
+		// has one profile and no 4:4:4 or high bit depth.
 		Name:        "libvpx",
 		Family:      "software",
 		Format:      "vp8",
@@ -128,7 +125,6 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       63,
-		Transports:  []string{"rtsp"},
 		Gaps: []Gap{{
 			Mode:   "lossless",
 			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
@@ -142,10 +138,6 @@ var Codecs = []Codec{
 		// 10-bit is the ffmpeg engine's alone: libaom codes it, and av1enc's sink pad
 		// lists 8-bit formats only. The other two software AV1 encoders carry 10-bit
 		// on both engines.
-		//
-		// AV1 rides RTSP alone: MediaMTX's SRT/MPEG-TS ingest takes H.264/H.265
-		// only, and the WHIP muxer takes H.264. RTP carries it either way, which is
-		// what the relay needs to re-serve it.
 		Name:        "libaom-av1",
 		Family:      "software",
 		Format:      "av1",
@@ -153,7 +145,6 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       63,
-		Transports:  []string{"rtsp"},
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: "gstreamer",
 			Chroma: "p010le",
@@ -178,7 +169,6 @@ var Codecs = []Codec{
 		// encoder here takes whatever it is given. AV1 at this preset has no use for
 		// that rate anyway, but the settings default sits above it.
 		BitrateLimitM: 100,
-		Transports:    []string{"rtsp"},
 		Gaps: []Gap{
 			{
 				Mode:   "lossless",
@@ -212,7 +202,6 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
 		CqMax:       255,
-		Transports:  []string{"rtsp"},
 		Gaps: []Gap{{
 			Mode:   "lossless",
 			Reason: "rav1e has no lossless coding mode",
@@ -237,19 +226,17 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp", "webrtc"},
 		Gaps:        vaapiGaps,
 	},
 	{
 		// Main and Main 10, the two HEVC profiles VAAPI drivers implement for
-		// encoding. No webrtc, as on every HEVC row: WHIP is H.264 + Opus.
+		// encoding.
 		Name:        "hevc_vaapi",
 		Family:      "vaapi",
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp"},
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -262,21 +249,18 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       255,
-		Transports:  []string{"rtsp"},
 		Gaps:        vaapiGaps,
 	},
 	{
 		// VP9 profile 0. Profile 2 (10-bit) stays out for the same reason as the
-		// HEVC Range Extensions: too few drivers expose it for encoding. RTSP only,
-		// as on the libvpx row: MPEG-TS has no VP9 mapping. The quantizer is VP9's
-		// 0-255 q_idx.
+		// HEVC Range Extensions: too few drivers expose it for encoding. The
+		// quantizer is VP9's 0-255 q_idx.
 		Name:        "vp9_vaapi",
 		Family:      "vaapi",
 		Format:      "vp9",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       255,
-		Transports:  []string{"rtsp"},
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -288,16 +272,15 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       127,
-		Transports:  []string{"rtsp"},
 		Gaps:        vaapiGaps,
 	},
 
 	// QSV (Intel Quick Sync, via oneVPL). Intel-only; tends to beat generic
 	// VAAPI on quality and rate control on the same Intel silicon.
-	{Name: "h264_qsv", Family: "qsv", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
-	{Name: "hevc_qsv", Family: "qsv", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"srt", "rtsp"}},
-	{Name: "av1_qsv", Family: "qsv", Format: "av1", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"rtsp"}},
-	{Name: "vp9_qsv", Family: "qsv", Format: "vp9", Chromas: []string{"yuv420p"}, Transports: []string{"rtsp"}},
+	{Name: "h264_qsv", Family: "qsv", Format: "h264", Chromas: []string{"yuv420p"}},
+	{Name: "hevc_qsv", Family: "qsv", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
+	{Name: "av1_qsv", Family: "qsv", Format: "av1", Chromas: []string{"yuv420p", "p010le"}},
+	{Name: "vp9_qsv", Family: "qsv", Format: "vp9", Chromas: []string{"yuv420p"}},
 
 	// AMF (AMD Advanced Media Framework): AMD's own encoder API, driving the same
 	// VCN silicon VAAPI reaches on an AMD card through AMD's closed-source runtime
@@ -321,7 +304,6 @@ var Codecs = []Codec{
 		// implements. The AMF quantizer options count on the H.26x 0-51 scale.
 		Chromas:    []string{"yuv420p"},
 		CqMax:      51,
-		Transports: []string{"srt", "rtsp", "webrtc"},
 		Gaps:       amfGaps,
 	},
 	{
@@ -334,35 +316,75 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       51,
-		Transports:  []string{"srt", "rtsp"},
 		Gaps:        amfGaps,
 	},
 	{
 		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile,
 		// and the quantizer is AV1's base_q_idx on its 0-255 scale rather than the
-		// H.26x 0-51 one. RTSP alone, as on every AV1 row.
+		// H.26x 0-51 one.
 		Name:        "av1_amf",
 		Family:      "amf",
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       255,
-		Transports:  []string{"rtsp"},
 		Gaps:        amfGaps,
 	},
 
+	// Vulkan Video (cross-vendor): the video-encode extensions a GPU driver implements
+	// itself, so one backend reaches NVIDIA, AMD and Intel silicon through the same API
+	// and on every platform Vulkan runs on. On an AMD or Intel card it drives the same
+	// encoder block VAAPI does, through the vendor's Vulkan driver instead of Mesa's VA
+	// layer, which makes it the second way to that hardware where AMF is the third.
+	//
+	// All three rows are 4:2:0, and vulkanGaps carries what none of them does. Which of
+	// the three a machine runs is the driver's answer rather than the table's, as on
+	// VAAPI: a driver implements the encode extension per format, and encoders.Detect
+	// test-encodes each so the UI greys away what this GPU refuses.
+	{
+		// 8-bit only, the limit every H.264 row states: 10-bit H.264 is the High 10
+		// profile, which no Vulkan encode profile covers. The quantizer counts on the
+		// H.26x 0-51 scale.
+		Name:        "h264_vulkan",
+		Family:      "vulkan",
+		Format:      "h264",
+		Implemented: true,
+		Chromas:     []string{"yuv420p"},
+		CqMax:       51,
+		Gaps:        vulkanGaps,
+	},
+	{
+		// Main and Main 10. The profile needs no selecting, unlike on AMF: ffmpeg
+		// writes the indication from the bit depth of the surfaces it is handed, so a
+		// p010le encode announces Main 10 on its own.
+		Name:        "hevc_vulkan",
+		Family:      "vulkan",
+		Format:      "hevc",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       51,
+		Gaps:        vulkanGaps,
+	},
+	{
+		// AV1 profile 0 carries both bit depths, so 10-bit needs no second profile, and
+		// the quantizer is AV1's base_q_idx on its 0-255 scale rather than the H.26x
+		// 0-51 one. RTSP alone, as on every AV1 row.
+		Name:        "av1_vulkan",
+		Family:      "vulkan",
+		Format:      "av1",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       255,
+		Gaps:        vulkanGaps,
+	},
+
 	// V4L2 M2M (kernel memory-to-memory encoders: Raspberry Pi, some ARM SoCs).
-	{Name: "h264_v4l2m2m", Family: "v4l2", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
-	{Name: "hevc_v4l2m2m", Family: "v4l2", Format: "hevc", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp"}},
+	{Name: "h264_v4l2m2m", Family: "v4l2", Format: "h264", Chromas: []string{"yuv420p"}},
+	{Name: "hevc_v4l2m2m", Family: "v4l2", Format: "hevc", Chromas: []string{"yuv420p"}},
 
 	// Rockchip MPP (RK35xx and similar SoC hardware encoders).
-	{Name: "h264_rkmpp", Family: "rkmpp", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
-	{Name: "hevc_rkmpp", Family: "rkmpp", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"srt", "rtsp"}},
-
-	// Vulkan Video (cross-vendor, driver-provided). Newest and least mature path;
-	// works anywhere the GPU driver exposes the Vulkan video-encode extensions.
-	{Name: "h264_vulkan", Family: "vulkan", Format: "h264", Chromas: []string{"yuv420p"}, Transports: []string{"srt", "rtsp", "webrtc"}},
-	{Name: "hevc_vulkan", Family: "vulkan", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}, Transports: []string{"srt", "rtsp"}},
+	{Name: "h264_rkmpp", Family: "rkmpp", Format: "h264", Chromas: []string{"yuv420p"}},
+	{Name: "hevc_rkmpp", Family: "rkmpp", Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
 }
 
 // vaapiGaps is the rate-control gap every VAAPI row carries. A VA encoder quantizes
@@ -394,6 +416,30 @@ var amfGaps = []Gap{
 	{
 		Mode:   "lossless",
 		Reason: "AMF's fixed-function encoders quantize every frame, and no AMF profile codes bit-exact",
+	},
+}
+
+// vulkanGaps are the gaps every Vulkan Video row carries.
+//
+// The engine gap is a memory one: the GStreamer vulkan encoder takes images on a
+// Vulkan device, a memory the capture chain would have to upload to, and the plugin
+// carries no HEVC or AV1 encoder to take them at all. That leaves the ffmpeg engine,
+// whose encoders create the Vulkan device themselves and upload each frame through
+// the filter graph, as the way to reach the family.
+//
+// Lossless is the mode Vulkan has no form of, as on VAAPI and AMF, and the one place
+// its options read as if it did: the API's lossless tuning mode is a hint about what
+// to optimize for, not a coding mode, and nothing in the path pins the transform
+// bypass a bit-exact stream needs. A picture encoded under it decodes back different
+// from the source.
+var vulkanGaps = []Gap{
+	{
+		Engine: "gstreamer",
+		Reason: "the GStreamer vulkan plugin encodes from Vulkan device memory, which no capture backend on this engine produces, so Vulkan Video is reachable on the ffmpeg publish engine alone",
+	},
+	{
+		Mode:   "lossless",
+		Reason: "Vulkan's lossless tuning mode is a hint rather than a coding mode, and its encoders quantize under it all the same",
 	},
 }
 

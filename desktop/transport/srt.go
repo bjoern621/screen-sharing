@@ -23,6 +23,17 @@ const srtBufBytes = 150_000_000
 
 func (SRT) Name() string { return "srt" }
 
+// srtFormats are the bitstream formats SRT carries in both directions, which is
+// what MediaMTX registers a stream type for in the MPEG-TS it ingests and
+// re-serves: H.264 and H.265. AV1, VP9 and VP8 have no such mapping there, so a
+// stream in one of them neither reaches an SRT publish nor comes back out of an
+// SRT read, whatever the relay ingested it over.
+var srtFormats = []string{"h264", "hevc"}
+
+func (SRT) Formats() Formats {
+	return Formats{Publish: srtFormats, Watch: srtFormats}
+}
+
 func (SRT) PublishArgs(s settings.Stream) []string {
 	// ffmpeg's srt protocol: latency in MICROSECONDS, and ffmpeg's own buffer
 	// option names (pkt_size/sndbuf/ffs).
@@ -70,4 +81,20 @@ func (SRT) GstSource(s settings.Stream, streamName string) []string {
 		"streamid=read:" + streamName,
 		fmt.Sprintf("latency=%d", s.SrtWatchLatencyMs),
 	}
+}
+
+// srtWatchKnobs are the watch-leg knobs a viewer can change per stream, the
+// settings fields GstSource and WatchURL read.
+var srtWatchKnobs = []watchKnob{
+	intKnob("srtWatchLatencyMs", "SRT latency (ms)",
+		"Retransmit window of the watch leg (relay to viewer), where internet loss usually lives. "+
+			"It is display delay: a lossy remote link wants more, a LAN less.",
+		minWatchLatencyMs,
+		func(s *settings.Stream) *int { return &s.SrtWatchLatencyMs }),
+}
+
+func (SRT) WatchOptions(s settings.Stream) []WatchOption { return knobOptions(srtWatchKnobs, s) }
+
+func (t SRT) SetWatchOption(s *settings.Stream, key, value string) error {
+	return knobSet(t.Name(), srtWatchKnobs, s, key, value)
 }

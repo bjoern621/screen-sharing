@@ -43,10 +43,18 @@ func (t *Tile) buildSkeleton() {
 // icon beside it while the tile is muted.
 func (t *Tile) buildChip() {
 	t.chipMute = theme.FixedImage("volume-off", markerSize, theme.OnTile)
+	t.chipMute.SetTooltipText("This tile is muted. The volume control in its bar plays the audio again.")
 	t.chipMute.SetVisible(false)
 
 	t.chip = gtk.NewBox(gtk.OrientationHorizontal, 6)
 	t.chip.AddCSSClass("tile-label")
+	// The chip prints the stream's name, and names the watch leg it arrives over on
+	// hover. A roster that left the transport out gets no tooltip rather than a
+	// sentence with a hole in it.
+	if t.stream.Transport != "" {
+		t.chip.SetTooltipText("Watching this stream over " + t.stream.Transport +
+			", the watch leg (relay to viewer). It is independent of the protocol the stream was published over.")
+	}
 	t.chip.Append(gtk.NewLabel(t.stream.Name))
 	t.chip.Append(t.chipMute)
 	t.chip.SetHAlign(gtk.AlignStart)

@@ -86,6 +86,25 @@ func TestLoadMigratesMissingWatchTransport(t *testing.T) {
 	}
 }
 
+func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.RtspWatchLatencyMs = 0 // a pre-RTSP-knobs settings file lacks these keys
+	s.RtspWatchProtocol = ""
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := Load()
+	if got.RtspWatchLatencyMs != Defaults().RtspWatchLatencyMs {
+		t.Errorf("rtsp watch latency = %d, want migrated to %d", got.RtspWatchLatencyMs, Defaults().RtspWatchLatencyMs)
+	}
+	if got.RtspWatchProtocol != Defaults().RtspWatchProtocol {
+		t.Errorf("rtsp watch protocol = %q, want migrated to %q", got.RtspWatchProtocol, Defaults().RtspWatchProtocol)
+	}
+}
+
 func TestLoadCorruptFileReturnsDefaults(t *testing.T) {
 	isolateConfig(t)
 

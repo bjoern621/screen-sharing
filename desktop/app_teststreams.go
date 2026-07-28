@@ -46,7 +46,7 @@ func (a *App) StartTestStreams(count int) error {
 			a.stopTestStreamsLocked()
 			return err
 		}
-		proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, nil, nil,
+		proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, nil, nil, nil,
 			func(err error, stderrTail string, logPath string) {
 				message := ""
 				if err != nil {

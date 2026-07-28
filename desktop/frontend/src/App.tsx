@@ -46,6 +46,21 @@ export default function App() {
         return <LoadingScreen />;
     }
 
+    // The watch leg every viewer this app opens receives over, the native grid
+    // included. Read out here because the narrowing above does not reach into a
+    // handler.
+    const watchTransport = settings.s.watchTransport;
+
+    // Why the grid window cannot open on the selected leg, empty when it can.
+    // A running window closes whatever leg it was opened on, so the reason
+    // gates the open and not the close.
+    const gridBlocked =
+        nativeGrid.running ||
+        nativeGrid.transports.length === 0 ||
+        nativeGrid.transports.includes(watchTransport)
+            ? ""
+            : `The native grid receives through a GStreamer pipeline, which has no source for ${watchTransport}. Set "watch over" to ${nativeGrid.transports.join(" or ")}.`;
+
     return (
         <TooltipProvider>
             <div className="p-4 space-y-4 max-w-7xl mx-auto">
@@ -73,10 +88,15 @@ export default function App() {
                         >
                             <IconLayoutGrid size={16} /> Web grid
                         </Button>
+                        {/* The window opens on the "watch over" leg, and receives
+                          * through a GStreamer pipeline rather than a player, so a
+                          * leg no source element decodes leaves the button inert
+                          * rather than opening on something else. */}
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => void nativeGrid.toggle()}
+                            disabled={!!gridBlocked}
+                            onClick={() => void nativeGrid.toggle(watchTransport)}
                         >
                             <IconAppWindow size={16} />
                             {nativeGrid.running
@@ -132,23 +152,34 @@ export default function App() {
                     targetFps={settings.s.fps}
                     uplinkMbps={settings.s.uplinkMbps}
                     publishing={publish.publishing}
+                    sampleAgeSec={publish.sampleAgeSec}
+                    stale={publish.stale}
                 />
 
                 <LiveNowCard
                     live={live.live}
                     watching={live.watching}
                     watchTransports={live.watchTransports}
+                    watchTransportsByFormat={live.watchTransportsByFormat}
                     watchTransport={settings.s.watchTransport}
                     connecting={live.connecting}
                     error={live.error}
                     logPath={live.logPath}
-                    watchLatencyMs={settings.s.srtWatchLatencyMs}
+                    srtWatchLatencyMs={settings.s.srtWatchLatencyMs}
+                    rtspWatchLatencyMs={settings.s.rtspWatchLatencyMs}
+                    rtspWatchProtocol={settings.s.rtspWatchProtocol}
                     onToggleWatch={live.toggleWatch}
                     onUpdateWatchTransport={t =>
                         settings.update({ watchTransport: t })
                     }
-                    onUpdateWatchLatency={v =>
+                    onUpdateSrtWatchLatency={v =>
                         settings.update({ srtWatchLatencyMs: v })
+                    }
+                    onUpdateRtspWatchLatency={v =>
+                        settings.update({ rtspWatchLatencyMs: v })
+                    }
+                    onUpdateRtspWatchProtocol={v =>
+                        settings.update({ rtspWatchProtocol: v })
                     }
                     onOpenLog={logs.openLog}
                     onOpenLogsFolder={logs.openLogsFolder}

@@ -25,7 +25,9 @@ type Stream struct {
 	RelayPort  int    `json:"relayPort"`  // UDP port of the relay's SRT listener
 	ApiPort    int    `json:"apiPort"`    // TCP port of the relay's HTTP API
 	RtspPort   int    `json:"rtspPort"`   // TCP port of the relay's RTSP listener
-	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP HTTP listener
+	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP+WHEP HTTP listener
+	RtmpPort   int    `json:"rtmpPort"`   // TCP port of the relay's RTMP listener
+	HlsPort    int    `json:"hlsPort"`    // TCP port of the relay's HLS HTTP listener
 	Transport  string `json:"transport"`  // publish leg (publisher to relay): registry key, e.g. "srt"
 	Codec      string `json:"codec"`      // ffmpeg encoder name, a row of capabilities.Codecs
 	Mode       string `json:"mode"`       // rate control: cbr vbr abr crf lossless
@@ -48,7 +50,16 @@ type Stream struct {
 	// SRT links, each holding packets for its own retransmit window.
 	SrtPublishLatencyMs int `json:"srtPublishLatencyMs"`
 	SrtWatchLatencyMs   int `json:"srtWatchLatencyMs"`
-	UplinkMbps          int `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
+	// RTSP watch leg (relay to viewer). RtspWatchProtocol is the RTP lower
+	// transport every RTSP viewer negotiates, "tcp" (interleaved over the RTSP
+	// connection) or "udp" (a port pair per track). RtspWatchLatencyMs sizes
+	// rtspsrc's jitter buffer in milliseconds and reaches the native grid
+	// alone: ffplay and mpv buffer by reorder queue rather than by time, which
+	// is not the same knob under another name. The publish leg interleaves over
+	// TCP unconditionally and reads neither field.
+	RtspWatchLatencyMs int    `json:"rtspWatchLatencyMs"`
+	RtspWatchProtocol  string `json:"rtspWatchProtocol"`
+	UplinkMbps         int    `json:"uplinkMbps"` // user's known upload capacity, used for warnings only
 	// WatchTransport is the watch leg (relay to viewer): the transport a Watch
 	// click receives over. Independent of Transport, the publish leg, since the
 	// relay re-serves every stream on all its listeners, so the two legs of one
@@ -71,12 +82,16 @@ func Defaults() Stream {
 
 	return Stream{
 		Name: host, RelayHost: "127.0.0.1", RelayPort: 8890, ApiPort: 9997,
-		RtspPort: 8554, WebrtcPort: 8889,
+		RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888,
 		Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
 		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 		Gop: 0, Bframes: 0,
 		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
+		// rtspsrc defaults to 2000 ms of jitter buffer, two seconds of display
+		// delay above what a LAN needs. TCP because the UDP alternative loses
+		// its port pair to NAT and never retransmits.
+		RtspWatchLatencyMs: 200, RtspWatchProtocol: "tcp",
 		UplinkMbps:     50,
 		WatchTransport: "srt",
 	}
@@ -132,13 +147,19 @@ func Load() Stream {
 	if s.Audio == "" {
 		s.Audio = "none"
 	}
-	// Settings files from before the RTSP and WebRTC transports lack their
-	// listener ports.
+	// A settings file written before a transport was registered lacks that
+	// listener's port, and no transport can be reached on port zero.
 	if s.RtspPort <= 0 {
 		s.RtspPort = Defaults().RtspPort
 	}
 	if s.WebrtcPort <= 0 {
 		s.WebrtcPort = Defaults().WebrtcPort
+	}
+	if s.RtmpPort <= 0 {
+		s.RtmpPort = Defaults().RtmpPort
+	}
+	if s.HlsPort <= 0 {
+		s.HlsPort = Defaults().HlsPort
 	}
 
 	return migrateStream(s)
@@ -163,6 +184,15 @@ func migrateStream(s Stream) Stream {
 	// Files from before the watch transport was persisted lack the key.
 	if s.WatchTransport == "" {
 		s.WatchTransport = Defaults().WatchTransport
+	}
+	// Files from before the RTSP watch knobs lack their keys, and neither zero
+	// value is one a receiver can be given: no jitter buffer at all, and no RTP
+	// lower transport to negotiate.
+	if s.RtspWatchLatencyMs <= 0 {
+		s.RtspWatchLatencyMs = Defaults().RtspWatchLatencyMs
+	}
+	if s.RtspWatchProtocol == "" {
+		s.RtspWatchProtocol = Defaults().RtspWatchProtocol
 	}
 	return s
 }

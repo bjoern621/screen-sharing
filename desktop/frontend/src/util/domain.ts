@@ -1,12 +1,13 @@
-import { Option } from "../types/stream";
+import { Option, TransportCarriage } from "../types/stream";
 import { capabilities } from "../../wailsjs/go/models";
 
 /**
  * The declarative domain model: one table per encoder family, video format,
  * chroma and rate-control mode, carrying every fact the UI derives from.
  * Constraints that must also hold in the encoder (which chroma a codec accepts,
- * which transport publishes it, whether the codec is implemented) are not here -
- * those come from the backend capability table (App.Capabilities), so a single
+ * whether the codec is implemented) are not here - those come from the backend
+ * capability table (App.Capabilities), and which protocol carries a bitstream
+ * comes from the backend transport table (App.TransportFormats), so a single
  * definition governs both sides. This file holds the presentation (label, tip,
  * link) and the bitrate heuristics, which are UI-only.
  *
@@ -17,10 +18,10 @@ import { capabilities } from "../../wailsjs/go/models";
  * from small tables rather than one row per family×format combination.
  */
 
-/** The backend's fixed codec facts: nvenc flag, allowed chromas, and the
- * transports that can publish the codec. `transports` is the publish leg
- * (publisher to relay); which transport a viewer receives over is chosen per
- * viewer and is not in this table. */
+/** The backend's fixed codec facts: nvenc flag, allowed chromas, quantizer
+ * scale and what the encoder cannot do. Which protocol carries the codec is a
+ * fact about its bitstream rather than about the encoder, and lives in the
+ * transport table instead (`carriesFormat`). */
 export type Capability = capabilities.Codec;
 
 /** One thing a codec cannot do, with the reason the form shows in place of the
@@ -56,12 +57,16 @@ interface ChromaMeta {
     weight: number;
     /** Raw bits per pixel per frame, for the lossless upper bound. */
     rawBpp: number;
-    /** 4:2:0-family (quarter-resolution chroma): the only kind WebRTC negotiates. */
+    /** 4:2:0-family: chroma at quarter resolution. Subsampling and nothing else,
+     * since p010le subsamples the same way and parts from yuv420p on bit depth. */
     is420: boolean;
+    /** Bits per component. A decode profile pins depth and subsampling on
+     * separate axes, so 4:2:0 carries no claim about depth. */
+    bitDepth: number;
     /** RGB is inherently full range, so no color-range choice applies. */
     fullRange: boolean;
-    /** What a non-4:2:0 format asks of a decoder that WHEP will not negotiate;
-     * undefined for 4:2:0. */
+    /** What the format asks of a decoder beyond the 8-bit 4:2:0 profiles WHEP
+     * negotiates; undefined where it asks nothing. */
     whepBlock?: string;
 }
 
@@ -211,7 +216,7 @@ export const FAMILY_META: Record<Family, FamilyMeta> = {
     vulkan: {
         label: "Vulkan Video",
         link: VULKAN_LINK,
-        tip: "Cross-vendor hardware encoding through the Vulkan video-encode extensions. Newest and least mature of the hardware families.",
+        tip: "The video-encode extensions a GPU driver implements itself, so one backend reaches NVIDIA, AMD and Intel silicon through the same API, and the only hardware family that is not tied to one vendor or one platform. On an AMD or Intel card it drives the same encoder block VAAPI does, through the vendor's Vulkan driver instead of Mesa. Which formats a driver implements the extension for differs per driver and GPU generation; every Vulkan encoder is 4:2:0 and none codes lossless. The ffmpeg publish engine only.",
     },
 };
 
@@ -223,6 +228,7 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         weight: 2.0,
         rawBpp: 24,
         is420: false,
+        bitDepth: 8,
         fullRange: true,
         whepBlock: "RGB (HEVC Range Extensions)",
     },
@@ -233,6 +239,7 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         weight: 1.5,
         rawBpp: 24,
         is420: false,
+        bitDepth: 8,
         fullRange: false,
         whepBlock: "4:4:4 chroma",
     },
@@ -243,6 +250,7 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         weight: 1.0,
         rawBpp: 12,
         is420: true,
+        bitDepth: 8,
         fullRange: false,
     },
     p010le: {
@@ -252,7 +260,9 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         weight: 1.2,
         rawBpp: 15,
         is420: true,
+        bitDepth: 10,
         fullRange: false,
+        whepBlock: "10-bit samples",
     },
 };
 
@@ -380,6 +390,13 @@ const ENGINE_RULES: EngineRule[] = [
     },
     {
         knob: "vbvMs",
+        codecs: ["libsvtav1"],
+        modes: ["vbr"],
+        forwards: false,
+        reason: "SVT-AV1 sizes a rate buffer in its CBR mode only, so a VBR encode has none to set",
+    },
+    {
+        knob: "vbvMs",
         codecs: ["librav1e"],
         forwards: false,
         reason: "rav1e sizes no rate buffer, in any mode",
@@ -402,9 +419,10 @@ const ENGINE_RULES: EngineRule[] = [
     {
         engine: "gstreamer",
         knob: "vbvMs",
+        families: ["software"],
         modes: ["vbr"],
         forwards: false,
-        reason: "the GStreamer encoder elements size their rate buffer in CBR only",
+        reason: "the GStreamer software encoder elements size their rate buffer in CBR only",
     },
     {
         engine: "gstreamer",
@@ -431,7 +449,7 @@ const ENGINE_RULES: EngineRule[] = [
     },
     {
         knob: "bitrateM",
-        families: ["vaapi", "amf"],
+        families: ["vaapi", "amf", "vulkan"],
         modes: ["abr"],
         forwards: true,
         reason: "the fixed-function encoders always code against a rate ceiling, so this target is sent with twice itself as one; the average is what the target holds.",
@@ -528,6 +546,43 @@ export function findCapability(
 /** The video format of a codec, from the capability table (undefined until it loads). */
 export function formatOf(codec: string, caps: Capability[] | null): Format | undefined {
     return findCapability(caps, codec)?.format as Format | undefined;
+}
+
+/** One leg of a transport's carriage: the publisher-to-relay direction or the
+ * relay-to-viewer one. The two are separate sets, since the relay serves
+ * protocols it does not ingest and ingests formats it cannot serve back. */
+export type Leg = "publish" | "watch";
+
+/**
+ * Whether a transport carries a bitstream format on the given leg, from the
+ * backend transport table. An unresolved table (still loading) and an unknown
+ * transport both report true, so a rule built on this imposes no restriction
+ * before the facts arrive, as every other unresolved fact here behaves.
+ */
+export function carriesFormat(
+    carriage: TransportCarriage[] | null,
+    transport: string,
+    leg: Leg,
+    format: string | undefined
+): boolean {
+    const entry = carriage?.find(c => c.name === transport);
+    if (!entry || !format) {
+        return true;
+    }
+    return entry[leg].includes(format);
+}
+
+/** The transports carrying a format on the given leg, for a message that names
+ * where the combination would have worked. Empty while the table is unresolved. */
+export function carriersOf(
+    carriage: TransportCarriage[] | null,
+    leg: Leg,
+    format: string | undefined
+): string[] {
+    if (!carriage || !format) {
+        return [];
+    }
+    return carriage.filter(c => c[leg].includes(format)).map(c => c.name);
 }
 
 /**

@@ -1,9 +1,11 @@
-import { Deps, EncoderInfo, PlatformInfo, Stream } from "../types/stream";
+import {
+    Deps, EncoderInfo, PlatformInfo, Stream, TransportCarriage,
+} from "../types/stream";
 import {
     Capability, CHROMA_META, Chroma, ENGINE_LABEL, Engine, FALLBACK_CODEC,
-    FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, chromaGapFor,
-    codecLabel, cqMax, engineFor, engineGapFor, findCapability, findEngineRule,
-    isNvenc, modeGapFor,
+    FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, carriesFormat,
+    chromaGapFor, codecLabel, cqMax, engineFor, engineGapFor, familyOf,
+    findCapability, findEngineRule, isNvenc, modeGapFor,
 } from "./domain";
 
 /**
@@ -26,6 +28,7 @@ export interface Environment {
     platform: PlatformInfo | null;
     encoders: EncoderInfo | null;
     caps: Capability[] | null;
+    carriage: TransportCarriage[] | null;
     captureTransports: Record<string, string[]> | null;
     captureEngines: Record<string, string> | null;
 }
@@ -35,6 +38,7 @@ export const UNKNOWN_ENV: Environment = {
     platform: null,
     encoders: null,
     caps: null,
+    carriage: null,
     captureTransports: null,
     captureEngines: null,
 };
@@ -56,36 +60,61 @@ const MODE_FALLBACK_ORDER: Mode[] = [
 ];
 
 /**
+ * What each capture backend needs from the machine it runs on: the operating system,
+ * and on Linux the session type, each with the sentence shown where the machine does
+ * not have it. A backend with no `display` runs on either Linux session.
+ *
+ * One entry per backend, so backends reading the same screen source state the
+ * requirement separately and cannot drift out of step: x11grab and ximagesrc read the
+ * X screen through the same extension and differ only in which publish engine runs
+ * them.
+ */
+const CAPTURE_NEEDS: Record<string, {
+    os: string;
+    display?: string;
+    wrongOs: string;
+    wrongSession?: string;
+}> = {
+    ddagrab: { os: "windows", wrongOs: "DXGI Desktop Duplication is Windows-only" },
+    gdigrab: { os: "windows", wrongOs: "GDI capture is Windows-only" },
+    kmsgrab: { os: "linux", wrongOs: "DRM/KMS capture is Linux-only" },
+    x11grab: {
+        os: "linux", display: "x11",
+        wrongOs: "X11 capture is Linux-only",
+        wrongSession: "Wayland session: x11grab only sees XWayland windows, not the Wayland desktop - use portal",
+    },
+    ximagesrc: {
+        os: "linux", display: "x11",
+        wrongOs: "X11 capture is Linux-only",
+        wrongSession: "Wayland session: ximagesrc only sees XWayland windows, not the Wayland desktop - use portal",
+    },
+    portal: {
+        os: "linux", display: "wayland",
+        wrongOs: "PipeWire ScreenCast is Linux-only",
+        wrongSession: "PipeWire ScreenCast needs a Wayland session",
+    },
+};
+
+/**
  * Capture backends that cannot run on the given platform, each mapped to the reason.
- * A null platform (not yet detected) imposes no restriction.
+ * A null platform (not yet detected) and an operating system no backend names impose
+ * no restriction.
  */
 function unavailableCaptures(
     platform: PlatformInfo | null
 ): Record<string, string> {
-    if (!platform) {
+    if (!platform || (platform.os !== "linux" && platform.os !== "windows")) {
         return {};
     }
-    if (platform.os === "windows") {
-        return {
-            x11grab: "X11 capture is Linux-only",
-            kmsgrab: "DRM/KMS capture is Linux-only",
-            portal: "PipeWire ScreenCast is Linux-only",
-        };
-    }
-    if (platform.os === "linux") {
-        const out: Record<string, string> = {
-            ddagrab: "DXGI Desktop Duplication is Windows-only",
-            gdigrab: "GDI capture is Windows-only",
-        };
-        if (platform.display === "wayland") {
-            out.x11grab =
-                "Wayland session: x11grab only sees XWayland windows, not the Wayland desktop - use portal";
-        } else {
-            out.portal = "PipeWire ScreenCast needs a Wayland session";
+    const out: Record<string, string> = {};
+    for (const [capture, need] of Object.entries(CAPTURE_NEEDS)) {
+        if (platform.os !== need.os) {
+            out[capture] = need.wrongOs;
+        } else if (need.wrongSession && need.display && platform.display !== need.display) {
+            out[capture] = need.wrongSession;
         }
-        return out;
     }
-    return {};
+    return out;
 }
 
 /**
@@ -237,8 +266,8 @@ function unavailableAudio(
  * Publish transports the given capture backend's publish engine cannot carry, each
  * mapped to the reason. The map (capture -> carriable transports) comes from the
  * backend; a transport known to some capture but absent from this one is disabled,
- * because that capture's engine has no publish sink for it, as GStreamer has none for
- * WebRTC. An unknown capture imposes no restriction.
+ * because that capture's engine has no publish sink for it. An unknown capture
+ * imposes no restriction.
  */
 function unavailableTransports(
     capture: string,
@@ -332,7 +361,7 @@ function engineOf(capture: string, env: Environment): Engine | null {
  * unresolved Environment field imposes no restriction.
  */
 export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
-    const { platform, encoders, caps, captureTransports } = env;
+    const { platform, encoders, caps, carriage, captureTransports } = env;
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
     const nvenc = isNvenc(s.codec, caps);
@@ -353,17 +382,18 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     };
 
     // Transports the selected capture's engine cannot carry, disabled per
-    // option. The portal backend runs on GStreamer, which has no WebRTC sink,
-    // so a transport the engine cannot serialize is greyed with the reason
+    // option: a transport the engine cannot serialize is greyed with the reason
     // rather than left to fail at launch.
     if (captureTransports) {
         d.optionDisabled.transport = unavailableTransports(s.capture, engine, captureTransports);
     }
 
-    // A codec the current transport cannot carry, disabled per option.
+    // A codec whose bitstream the current publish transport has no mapping for,
+    // disabled per option. The protocol carries a format rather than an encoder,
+    // so every codec of that format greys out together.
     if (caps) {
         for (const cap of caps) {
-            if (!cap.transports.includes(s.transport)) {
+            if (!carriesFormat(carriage, s.transport, "publish", cap.format)) {
                 d.optionDisabled.codec[cap.name] =
                     `${s.transport} cannot carry ${codecLabel(cap)}`;
             }
@@ -436,6 +466,20 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     // only an encoder element that has no property for it does.
     knob("gop", true, "");
 
+    // The va elements express a VBR target as a percentage of the ceiling and take
+    // 50% at the lowest, so a ceiling more than twice the target has no form there
+    // and the GStreamer builder refuses it. The knob is forwarded, so it stays
+    // live and carries the bound instead of being greyed.
+    if (
+        engine === "gstreamer" &&
+        s.mode === "vbr" &&
+        familyOf(s.codec, caps) === "vaapi" &&
+        s.bitrateM > 0 &&
+        s.maxrateM > s.bitrateM * 2
+    ) {
+        d.note.maxrateM = `the VAAPI encoder elements place the target as a percentage of the ceiling, at 50% lowest, so this ceiling cannot exceed ${s.bitrateM * 2} Mbit/s against a ${s.bitrateM} Mbit/s target`;
+    }
+
     if (chroma?.fullRange) {
         d.disabled.colorRange =
             "RGB is inherently full range - no quantization range choice exists";
@@ -462,7 +506,7 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
  * the corresponding dimension untouched.
  */
 export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
-    const { platform, encoders, caps, captureTransports } = env;
+    const { platform, encoders, caps, carriage, captureTransports } = env;
     const next = { ...s };
 
     // Capture first: the transport, codec and chroma repairs below depend on it, so
@@ -473,9 +517,9 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     }
     const engine = engineOf(next.capture, env);
 
-    // Transport: the capture backend's engine must be able to carry it. The
-    // portal (GStreamer) path has no WebRTC sink, so a capture change can strand
-    // the transport; fall back to the first transport that capture can carry.
+    // Transport: the capture backend's engine must be able to carry it, so a
+    // capture change can strand the transport; fall back to the first transport
+    // that capture can carry.
     if (captureTransports) {
         const allowed = captureTransports[next.capture];
         if (allowed && allowed.length > 0 && !allowed.includes(next.transport)) {
@@ -484,9 +528,9 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     }
 
     // Codec: must be implemented, have an encoder on the capture backend's engine,
-    // run here (hardware) and be carriable by the transport. Walk the capability
-    // table in display order and take the first codec that satisfies all four; fall
-    // back to software when none does.
+    // run here (hardware) and produce a bitstream the transport carries. Walk the
+    // capability table in display order and take the first codec that satisfies all
+    // four; fall back to software when none does.
     const codecOk = (codec: string): boolean => {
         if (!codecUsable(codec, engine, encoders)) {
             return false;
@@ -496,7 +540,8 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         }
         const cap = findCapability(caps, codec);
         return (
-            !!cap && cap.implemented && cap.transports.includes(next.transport) &&
+            !!cap && cap.implemented &&
+            carriesFormat(carriage, next.transport, "publish", cap.format) &&
             !engineGapFor(codec, engine, caps)
         );
     };

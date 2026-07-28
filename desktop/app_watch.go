@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -10,6 +12,7 @@ import (
 
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
+	"bjoernblessin.de/screenshare/transport"
 	"bjoernblessin.de/screenshare/watch"
 )
 
@@ -49,6 +52,37 @@ func (a *App) Watching() []WatchKey {
 	return keys
 }
 
+// carriesStream reports whether the named transport can deliver the live stream,
+// and the reason it cannot.
+//
+// The relay re-serves an ingested stream on the listeners whose protocol has a
+// payload mapping for its bitstream, and on no others: MPEG-TS carries H.264 and
+// H.265, so an SRT viewer opened on a VP9 or AV1 stream connects and receives
+// nothing. Left to the viewer that reads as a broken stream, so the combination is
+// refused here with the format named.
+//
+// A stream the relay does not report, or one whose tracks name no format this app
+// knows, is not refused: the snapshot can be older than the stream, and refusing
+// on absent information would block a viewer that would have worked.
+func (a *App) carriesStream(streamName, transportName string) error {
+	format := ""
+	for _, path := range a.Live().Paths {
+		if path.Name == streamName {
+			format = path.Format
+			break
+		}
+	}
+	if format == "" {
+		return nil
+	}
+	carried := transport.WatchNamesFor(format)
+	if slices.Contains(carried, transportName) {
+		return nil
+	}
+	return fmt.Errorf("%s is %s, which %s cannot carry: watch it over %s",
+		streamName, format, transportName, strings.Join(carried, " or "))
+}
+
 // StartWatch opens a viewer window for streamName, receiving it over
 // transportName. The transport is chosen per viewer and is independent of the
 // publish transport, so the same stream can be watched over any transport the
@@ -58,6 +92,10 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
+
+	if err := a.carriesStream(streamName, transportName); err != nil {
+		return err
+	}
 
 	engine, err := watch.Select(transportName)
 	if err != nil {
@@ -83,7 +121,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	}
 
 	// hideWindow must be false: SW_HIDE would hide the viewer's video window too.
-	proc, err := ffmpeg.Start(exe, args, false, false, "watch-"+streamName+"-"+transportName, env, nil,
+	proc, err := ffmpeg.Start(exe, args, false, false, "watch-"+streamName+"-"+transportName, env, nil, nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
 			if err != nil {

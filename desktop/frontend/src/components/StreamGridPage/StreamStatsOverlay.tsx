@@ -17,8 +17,32 @@ interface StreamStatsOverlayProps {
  * it. */
 const UNKNOWN = "…";
 
+/** A counter as text, or the placeholder where the sink took no such measurement.
+ * SinkStats types the counters as numbers, so an unmeasured one arrives as NaN
+ * rather than as an absent field. */
+function count(n: number): string {
+    return Number.isFinite(n) ? String(n) : UNKNOWN;
+}
+
 /** Separator between two figures on one row, as the native grid joins them. */
 const JOIN = " · ";
+
+/** The decode figures as the native grid prints them: the counts, and the drop
+ * count's share of the frames that arrived. A raw drop count means nothing
+ * without the run it happened over, so the share is what says whether decode is
+ * keeping up. Sinks that take no drop measurement report NaN, and a share
+ * computed from one would be a figure nobody measured. */
+function framesText(decoded: number, dropped: number): string {
+    const text = `${count(decoded)} decoded${JOIN}${count(dropped)} dropped`;
+    if (!Number.isFinite(decoded) || !Number.isFinite(dropped)) {
+        return text;
+    }
+    const arrived = decoded + dropped;
+    if (arrived <= 0) {
+        return text;
+    }
+    return `${text} (${((100 * dropped) / arrived).toFixed(1)}%)`;
+}
 
 function Row({ label, value }: { label: string; value: string }) {
     return (
@@ -68,7 +92,7 @@ export default function StreamStatsOverlay({
                     <Row label="fps" value={stats.fps.toFixed(1)} />
                     <Row
                         label="frames"
-                        value={`${stats.framesDecoded} decoded${JOIN}${stats.framesDropped} dropped`}
+                        value={framesText(stats.framesDecoded, stats.framesDropped)}
                     />
                     {stats.jitterMs !== undefined && (
                         <Row

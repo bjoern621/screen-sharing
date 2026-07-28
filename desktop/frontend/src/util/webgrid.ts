@@ -14,10 +14,12 @@ import {
  * viewability verdict and the runtime decoder selection read, so the badge shown
  * in settings and the sink the grid actually builds can never disagree.
  *
- * whep decodes over WebRTC, where the webview takes H.264 4:2:0 only. webcodecs
- * decodes VP9 (4:4:4 included) from the viewer service over WebSocket. available
- * reports whether the host webview owns the API the path needs, so a build
- * without it produces a verdict instead of a runtime failure on the tile.
+ * Each path decodes one profile rather than a codec at large, so it fixes a
+ * subsampling and a bit depth together: whep negotiates the 8-bit 4:2:0 H.264
+ * profiles over WebRTC, and webcodecs declares VP9 profile 1, 8-bit full chroma,
+ * to the VideoDecoder it feeds from the viewer service. available reports whether
+ * the host webview owns the API the path needs, so a build without it produces a
+ * verdict instead of a runtime failure on the tile.
  *
  * Each path pins its own watch leg, relay to viewer, and neither follows the
  * publish leg: a stream published over SRT still reaches whep over WebRTC and
@@ -26,8 +28,16 @@ import {
 interface WebGridPath {
     decoder: Extract<SinkKind, "whep" | "webcodecs">;
     formats: Format[];
-    /** whep needs 4:2:0; webcodecs takes any chroma its decoder supports. */
-    requires420: boolean;
+    /** Subsampling of the profile the path decodes, matched exactly in both
+     * directions: a 4:2:0 profile refuses full chroma and a full-chroma one
+     * refuses 4:2:0. */
+    is420: boolean;
+    /** Bits per component the profile codes. */
+    bitDepth: number;
+    /** The codec string the path declares to `VideoDecoder`, where it decodes in
+     * the page. whep negotiates its profile with the relay over SDP and declares
+     * none, so the field is absent there. */
+    codecString?: string;
     available: boolean;
     /** How the verdict names this path, as a clause. */
     label: string;
@@ -46,23 +56,38 @@ export const WEB_GRID_DECODE: WebGridPath[] = [
     {
         decoder: "whep",
         formats: ["h264"],
-        requires420: true,
+        is420: true,
+        bitDepth: 8,
         available: HAS_WEBRTC,
-        label: "WHEP decodes H.264 4:2:0",
+        label: "WHEP decodes 8-bit 4:2:0 H.264",
     },
     {
         decoder: "webcodecs",
         formats: ["vp9"],
-        requires420: false,
+        is420: false,
+        bitDepth: 8,
+        codecString: "vp09.01.10.08",
         available: HAS_WEBCODECS,
-        label: "the WebCodecs viewer decodes VP9 at any chroma",
+        label: "the WebCodecs viewer decodes VP9 profile 1, 8-bit full chroma",
     },
 ];
 
 /**
+ * The codec string a decode path declares to `VideoDecoder`, or undefined where
+ * the path negotiates its profile instead of declaring one. `WebCodecsSink` reads
+ * its configuration from here, so the profile the verdict promises is the profile
+ * the decoder is given.
+ */
+export function webGridCodecString(decoder: SinkKind): string | undefined {
+    return WEB_GRID_DECODE.find(p => p.decoder === decoder)?.codecString;
+}
+
+/**
  * Whether the web grid can decode the configured stream, with a reason either
- * way. Derived from the codec's format, the chroma's 4:2:0 flag and
- * WEB_GRID_DECODE, so it tracks the same tables the encoder and the sinks use.
+ * way. Derived from the codec's format and the chroma's subsampling and bit depth
+ * against WEB_GRID_DECODE, so it tracks the same tables the encoder and the sinks
+ * use. A pixel format outside CHROMA_META matches no path and reports
+ * not-viewable, rather than being read as one of the two the paths accept.
  */
 export function webGridCheck(s: Stream, caps: Capability[] | null): ViewVerdict {
     const fmt = formatOf(s.codec, caps);
@@ -70,24 +95,28 @@ export function webGridCheck(s: Stream, caps: Capability[] | null): ViewVerdict 
         return { ok: false, text: "Checking web grid decode support…" };
     }
     const chroma = CHROMA_META[s.chroma as Chroma];
-    const is420 = chroma?.is420 ?? false;
     for (const path of WEB_GRID_DECODE) {
         if (!path.available) continue;
-        if (path.formats.includes(fmt) && (!path.requires420 || is420)) {
+        if (
+            path.formats.includes(fmt) &&
+            path.is420 === chroma?.is420 &&
+            path.bitDepth === chroma?.bitDepth
+        ) {
             return { ok: true, text: `Viewable in web grid - ${path.label}.` };
         }
     }
 
-    // A format a live path already carries is blocked by its chroma, not by
-    // itself: H.264 4:4:4 fails WHEP's 4:2:0 rule. Name whichever half is the gap,
-    // and list the paths only when the format is the one missing.
+    // whepBlock names what a pixel format asks beyond the 8-bit 4:2:0 profiles
+    // WHEP negotiates, so it states the gap only where WHEP is the path carrying
+    // the format. Otherwise the live paths are listed with the profiles they do
+    // decode, which is what the combination missed.
     const fmtLabel = FORMAT_META[fmt]?.label ?? fmt;
-    const carried = WEB_GRID_DECODE.some(
-        p => p.available && p.formats.includes(fmt)
+    const whepCarries = WEB_GRID_DECODE.some(
+        p => p.decoder === "whep" && p.available && p.formats.includes(fmt)
     );
     const paths = WEB_GRID_DECODE.filter(p => p.available).map(p => p.label);
     const gap =
-        carried && chroma?.whepBlock
+        whepCarries && chroma?.whepBlock
             ? `WHEP carries ${fmtLabel} but not ${chroma.whepBlock}`
             : `${fmtLabel} at ${s.chroma} has no web-grid path: ${
                   paths.length
@@ -116,9 +145,11 @@ function formatFromTracks(tracks: string): Format | undefined {
 
 /**
  * The decoder the web grid should use for a live relay path, chosen from its
- * track codecs against WEB_GRID_DECODE. Falls back to the first path the webview
- * owns when the codec is unknown or has no web-grid path, so the tile connects
- * and surfaces its own decode failure rather than silently doing nothing.
+ * track codecs against WEB_GRID_DECODE. A track list names the format and not the
+ * profile, so the match is by format alone and a profile the path cannot decode
+ * fails on the tile. Falls back to the first path the webview owns when the codec
+ * is unknown or has no web-grid path, so the tile connects and surfaces its own
+ * decode failure rather than silently doing nothing.
  */
 export function sinkKindForTracks(tracks: string): SinkKind {
     const fmt = formatFromTracks(tracks);

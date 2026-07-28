@@ -19,10 +19,14 @@ func srtStream() settings.Stream {
 	}
 }
 
+// rtspStream picks a watch-leg protocol that is not the default, so a viewer
+// still forcing TCP fails these tests instead of passing them by accident.
 func rtspStream() settings.Stream {
 	s := srtStream()
 	s.Transport = "rtsp"
 	s.RtspPort = 8554
+	s.RtspWatchLatencyMs = 350
+	s.RtspWatchProtocol = "udp"
 	return s
 }
 
@@ -75,29 +79,29 @@ func TestFfplayCommand(t *testing.T) {
 	}
 }
 
-func TestFfplayCommandRTSPForcesTCP(t *testing.T) {
+func TestFfplayCommandRTSPTakesWatchProtocol(t *testing.T) {
 	args, _, err := ffplay{}.Command(rtspStream(), "bob", "rtsp")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	i := slices.Index(args, "-rtsp_transport")
-	if i < 0 || args[i+1] != "tcp" {
-		t.Errorf("missing -rtsp_transport tcp in %v", args)
+	if i < 0 || args[i+1] != "udp" {
+		t.Errorf("missing -rtsp_transport udp in %v", args)
 	}
 	if url := args[len(args)-1]; !strings.HasPrefix(url, "rtsp://") {
 		t.Errorf("watch URL = %q, want rtsp:// prefix", url)
 	}
 }
 
-func TestMpvCommandRTSPForcesTCP(t *testing.T) {
+func TestMpvCommandRTSPTakesWatchProtocol(t *testing.T) {
 	args, _, err := mpv{}.Command(rtspStream(), "bob", "rtsp")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !slices.Contains(args, "--rtsp-transport=tcp") {
-		t.Errorf("missing --rtsp-transport=tcp in %v", args)
+	if !slices.Contains(args, "--rtsp-transport=udp") {
+		t.Errorf("missing --rtsp-transport=udp in %v", args)
 	}
 	if !slices.Contains(args, "--title="+WindowTitle("bob", "rtsp")) {
 		t.Errorf("missing --title in %v", args)

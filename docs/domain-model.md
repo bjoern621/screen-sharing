@@ -16,17 +16,19 @@ The disable rules and the repair rules in the frontend were previously two hand-
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, the transports that can publish it, what its encoder cannot do, and the scale its constant-quality knob counts on.
+- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, what its encoder cannot do, and the scale its constant-quality knob counts on.
+- `transport/*.go`: per protocol, the bitstream formats it carries to the relay and the ones the relay serves back over it, declared beside the code that serializes each leg.
 
 The two publish engines wrap different encoder implementations, so a pixel format, a rate-control mode or a whole codec can be one engine's and not the other's.
 Each difference is a `Gap` naming the engine, the axis and the reason, rather than a row narrowed to what both engines manage.
 An option one engine reaches therefore stays offered on that engine's capture backends and is greyed with the element's own limit on the other, so the form can say "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
 
-The transport column is the publish leg, publisher to relay.
-Which protocol a viewer receives over is a separate choice per viewer and is not in any table here (`viewer-architecture.md`, "Two legs, two protocols").
+Which protocol carries a codec is not a column here.
+A protocol carries a bitstream format, so each transport declares its own format set per leg (`transport.Formats`) and both directions read it: the publish set validates a publish command, the watch set answers what a viewer may receive over that leg (`viewer-architecture.md`, "Which protocol carries which format").
+Adding a transport is therefore one file in the `transport` package and no edit to the codec table.
 
 The encoder reads this table directly.
-`ffmpeg/args.go` branches on `capabilities.IsNvenc` and `IsVaapi`, and `capabilities.Validate` rejects a codec/chroma/transport/mode/quantizer combination the table forbids.
+`ffmpeg/args.go` branches on `capabilities.IsNvenc` and on the family's entry in `HwSurfaceDevice`, and `capabilities.Validate` rejects a codec/chroma/mode/quantizer combination the table forbids.
 Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
 
@@ -47,7 +49,7 @@ Each consumer reads the tables instead of restating a rule:
 - `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value.
 - `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
 - `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
-- `nativegrid.ts`: the native-grid viewability verdict, from the publish transports the capability table gives the codec, which double as the answer for the grid's RTSP watch leg.
+- `nativegrid.ts`: the native-grid viewability verdict, from the watch set the transport table gives the grid's selected watch leg.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
 
 Because `evaluateDeps` and `normalize` read one source, a greyed option and its fallback always agree.

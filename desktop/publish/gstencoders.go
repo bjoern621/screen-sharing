@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -65,9 +66,10 @@ type gstCodec struct {
 // driver exposes that encode entrypoint, which is the same condition the codec's
 // probe tests (encoders.Detect).
 //
-// The families still declared Implemented:false in capabilities.Codecs (qsv, amf,
-// v4l2, rkmpp, vulkan) are rejected before a pipeline is built, so they have no
-// entry. QSV uses the "qsv" plugin (qsvh264enc, qsvh265enc, qsvav1enc).
+// Two kinds of family have no entry, both rejected before a pipeline is built: the
+// ones still declared Implemented:false in capabilities.Codecs (qsv, v4l2, rkmpp), and
+// the ones that row gaps off this engine (amf, vulkan). QSV uses the "qsv" plugin
+// (qsvh264enc, qsvh265enc, qsvav1enc).
 var gstCodecs = map[string]gstCodec{
 	"libx264":    {encode: x264Encoder, link: h264Parser},
 	"libx265":    {encode: x265Encoder, link: h265Parser},
@@ -105,11 +107,19 @@ func GstEncoderElement(codec string) (string, bool) {
 }
 
 // gstEncoder returns the encoder element (with its properties) and the elements
-// that link it to the sink for the selected codec.
+// that link it to the sink for the selected codec. A rate outside the element's
+// property range is refused rather than moved into it.
 func gstEncoder(s settings.Stream, gop int) (encoder []string, link []string, err error) {
 	c, ok := gstCodecs[s.Codec]
 	if !ok {
 		return nil, nil, fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Codec)
+	}
+	// The va elements are the ones whose rate properties carry bounds; the family is
+	// the capability table's fact, as it is in encoderArgs.
+	if capabilities.IsVaapi(s.Codec) {
+		if err := vaRateLimits(s); err != nil {
+			return nil, nil, err
+		}
 	}
 	return c.encode(s, gstRatesFor(s, gop)), c.link, nil
 }
@@ -288,6 +298,9 @@ func rav1eEncoder(s settings.Stream, r gstRates) []string {
 //     with the capture backend. VAAPI codes against a maximum either way, so this is
 //     as unbounded as an average gets here.
 //
+// bitrate and target-percentage both have a range the settings can fall outside of.
+// vaRateLimits refuses such a combination ahead of this mapping.
+//
 // bitrate and cpb-size are in kbit; a zero cpb-size leaves the element its own
 // calculation, so the VBV window only appears when the settings carry one. No preset
 // or B-frame count, matching the ffmpeg path: the p1-p7 ladder is NVENC's and VAAPI
@@ -304,7 +317,8 @@ func vaEncoder(elem string, quantizers ...string) func(settings.Stream, gstRates
 			return enc
 		case "abr":
 			return append(base, "rate-control=vbr",
-				"bitrate="+vaBitrate(s.BitrateM*2), "target-percentage=50")
+				"bitrate="+vaBitrate(s.BitrateM*vaAbrPeak),
+				"target-percentage="+strconv.Itoa(100/vaAbrPeak))
 		case "vbr":
 			enc := append(base, "rate-control=vbr",
 				"bitrate="+vaBitrate(s.MaxrateM), "target-percentage="+vaTargetPercentage(s))
@@ -322,27 +336,61 @@ func vaEncoder(elem string, quantizers ...string) func(settings.Stream, gstRates
 	}
 }
 
-// vaMaxBitrateKbps is the highest value the va elements' bitrate property accepts.
-const vaMaxBitrateKbps = 2_048_000
+// The bounds the va elements' rate-control properties impose: the highest value
+// bitrate accepts, and the floor of target-percentage, which bounds how far under its
+// ceiling a VBR target can sit.
+const (
+	vaMaxBitrateKbps      = 2_048_000
+	vaMinTargetPercentage = 50
+)
 
-// vaBitrate renders a Mbit/s rate as the kbit figure the bitrate property takes,
-// bounded by the range it accepts. Only a rate far past what a fixed-function encoder
-// sustains reaches that bound, and it is the abr mapping's doubled ceiling that gets
-// there first.
+// vaAbrPeak is the factor the abr mapping places its ceiling at above the target, so
+// abr reaches the bitrate bound at half the target the other modes need.
+const vaAbrPeak = 2
+
+// vaRateLimits returns the reason the va elements cannot express the settings' rates,
+// and nil where they can. A rate outside a property's range is refused rather than
+// moved into it: the ffmpeg engine drives the same hardware at the rate the settings
+// name, so a substitution here would make the bitrate a function of the capture
+// backend, with no field on the form stating what the encode runs at.
+func vaRateLimits(s settings.Stream) error {
+	var rateM int
+	switch s.Mode {
+	case "cbr":
+		rateM = s.BitrateM
+	case "abr":
+		rateM = s.BitrateM * vaAbrPeak
+	case "vbr":
+		if s.MaxrateM > 0 && s.BitrateM*100/s.MaxrateM < vaMinTargetPercentage {
+			return fmt.Errorf("the va encoder elements state a VBR target as a percentage of the ceiling and take %d%% at the lowest, so a %d Mbit/s target under a %d Mbit/s ceiling has no form here: the ceiling can be at most twice the target",
+				vaMinTargetPercentage, s.BitrateM, s.MaxrateM)
+		}
+		rateM = s.MaxrateM
+	default: // crf sets no rate, and lossless has no VAAPI form at all
+		return nil
+	}
+	if rateM*1000 > vaMaxBitrateKbps {
+		return fmt.Errorf("the va encoder elements' bitrate property stops at %d kbit/s, and %s mode drives it at %d Mbit/s from these settings",
+			vaMaxBitrateKbps, s.Mode, rateM)
+	}
+	return nil
+}
+
+// vaBitrate renders a Mbit/s rate as the kbit figure the bitrate property takes.
 func vaBitrate(rateM int) string {
-	return strconv.Itoa(min(rateM*1000, vaMaxBitrateKbps))
+	return strconv.Itoa(rateM * 1000)
 }
 
 // vaTargetPercentage renders the va elements' way of expressing a VBR target under a
-// ceiling: bitrate is the maximum and this percentage places the target below it. The
-// property's range is 50-100, so a ceiling above twice the target clamps at the floor
-// and one at or below the target reads as 100.
+// ceiling: bitrate is the maximum and this percentage places the target below it. A
+// ceiling more than twice the target falls under the property's floor and never reaches
+// here (vaRateLimits); one at or below the target reads as 100.
 func vaTargetPercentage(s settings.Stream) string {
 	pct := 100
 	if s.MaxrateM > 0 {
 		pct = s.BitrateM * 100 / s.MaxrateM
 	}
-	return strconv.Itoa(min(max(pct, 50), 100))
+	return strconv.Itoa(min(pct, 100))
 }
 
 // nvencEncoder maps the rate-control mode onto one nvcodec element's properties,

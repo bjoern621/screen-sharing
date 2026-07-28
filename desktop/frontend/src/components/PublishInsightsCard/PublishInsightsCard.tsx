@@ -6,17 +6,25 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Stats } from "../../types/stream";
-import { dropPercent, mbps } from "../../util/format";
+import { dropPercent, dupPercent, mbps } from "../../util/format";
 import Tip from "../Tip/Tip";
 
 interface PublishInsightsCardProps {
     stats: Stats | null;
-    avg5: number;
-    peak: number;
+    avg5: number | null;
+    peak: number | null;
     targetFps: number;
     uplinkMbps: number;
     publishing: boolean;
+    /** Age of the newest sample, null while none has arrived. */
+    sampleAgeSec: number | null;
+    /** Whether that age has passed the point where the figures still describe
+     * the stream. */
+    stale: boolean;
 }
+
+/** Placeholder for a figure the publish engine reported no measurement for. */
+const UNMEASURED = "–";
 
 /** Header cell with an explanatory tooltip. */
 function HeadTip({ text, children }: { text: string; children: ReactNode }) {
@@ -29,8 +37,13 @@ function HeadTip({ text, children }: { text: string; children: ReactNode }) {
     );
 }
 
+/** Formats a figure, or the placeholder when the engine did not measure it. */
+function figure(value: number | null, format: (v: number) => string): string {
+    return value === null ? UNMEASURED : format(value);
+}
+
 /** Live encoder insights: instantaneous vs rolling vs cumulative bitrate, fps,
- * drops, speed and the uplink comparison. */
+ * repeated and discarded frames, speed and the uplink comparison. */
 export default function PublishInsightsCard({
     stats,
     avg5,
@@ -38,27 +51,40 @@ export default function PublishInsightsCard({
     targetFps,
     uplinkMbps,
     publishing,
+    sampleAgeSec,
+    stale,
 }: PublishInsightsCardProps) {
-    // Spinner while the encoder is starting; plain dash when idle.
+    // Spinner while the encoder is starting; plain dash when idle. A stream that
+    // reported and then went quiet keeps its figures and is marked stale, since
+    // the spinner would claim it is still starting.
     const dash: ReactNode = publishing && !stats ? (
         <IconLoader2 size={14} className="animate-spin text-muted-foreground" />
     ) : (
-        "–"
+        UNMEASURED
     );
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-base">Publish insights</CardTitle>
+                <CardTitle className="text-base flex items-center gap-2">
+                    Publish insights
+                    {stale && (
+                        <Tip text="The publish engine has sent no progress since then. Everything below is what it last reported, not what the stream is doing now.">
+                            <Badge variant="destructive">
+                                no sample for {sampleAgeSec} s
+                            </Badge>
+                        </Tip>
+                    )}
+                </CardTitle>
             </CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <HeadTip text="True instantaneous bitrate: Δbytes/Δtime between the last two progress reports the publish engine emits. The engine's own bitrate figure is a cumulative average instead.">
+                            <HeadTip text="True instantaneous bitrate: Δbytes over the wall-clock interval between the last two progress reports the publish engine emits. The engine's own bitrate figure is a cumulative average instead.">
                                 bitrate now
                             </HeadTip>
-                            <HeadTip text="Rolling mean of the instantaneous bitrate over the last 5 seconds.">
+                            <HeadTip text="Rolling mean of the instantaneous bitrate over the last 5 seconds. Empties once the last sample is older than that.">
                                 5 s mean
                             </HeadTip>
                             <HeadTip text="Highest instantaneous bitrate this session.">
@@ -67,37 +93,53 @@ export default function PublishInsightsCard({
                             <HeadTip text="Cumulative average since encoder start, the figure the publish engine reports itself.">
                                 cumulative
                             </HeadTip>
-                            <HeadTip text="Frames the encoder produced per second vs the configured target.">
+                            <HeadTip text="Frames the encoder produced over the last progress interval vs the configured target.">
                                 fps / target
                             </HeadTip>
-                            <HeadTip text="Frames dropped because capture or encode could not keep up.">
+                            <HeadTip text="Frames the encoder repeated to hold the output rate. This is what rises when capture or encode cannot keep up: the timeline is constant-rate, so a picture that arrives late is filled in with the previous one.">
+                                duplicated
+                            </HeadTip>
+                            <HeadTip text="Frames discarded before the encoder for arriving faster than the output rate. A different event from a repeat, and zero unless the output rate is below the capture rate.">
                                 dropped
                             </HeadTip>
-                            <HeadTip text="Encoding speed relative to realtime. Below 1.000× the encoder falls behind.">
+                            <HeadTip text="Encoding speed relative to realtime, over the run. Below 1.00× the encoder falls behind.">
                                 speed
                             </HeadTip>
-                            <HeadTip text="5 s mean vs your configured uplink capacity.">
+                            <HeadTip text="5 s mean vs the configured uplink capacity.">
                                 uplink
                             </HeadTip>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <TableRow>
-                            <TableCell>{stats ? mbps(stats.instMbps) : dash}</TableCell>
-                            <TableCell>{stats ? mbps(avg5) : dash}</TableCell>
-                            <TableCell>{stats ? mbps(peak) : dash}</TableCell>
-                            <TableCell>{stats ? mbps(stats.avgMbps) : dash}</TableCell>
+                        <TableRow
+                            className={stale ? "text-muted-foreground" : undefined}
+                        >
                             <TableCell>
-                                {stats ? `${stats.fps.toFixed(0)} / ${targetFps}` : dash}
+                                {stats ? figure(stats.instMbps, mbps) : dash}
+                            </TableCell>
+                            <TableCell>{stats ? figure(avg5, mbps) : dash}</TableCell>
+                            <TableCell>{stats ? figure(peak, mbps) : dash}</TableCell>
+                            <TableCell>
+                                {stats ? figure(stats.avgMbps, mbps) : dash}
+                            </TableCell>
+                            <TableCell>
+                                {stats
+                                    ? `${figure(stats.fps, v => v.toFixed(0))} / ${targetFps}`
+                                    : dash}
+                            </TableCell>
+                            <TableCell>
+                                {stats ? `${stats.dup} (${dupPercent(stats)}%)` : dash}
                             </TableCell>
                             <TableCell>
                                 {stats ? `${stats.drop} (${dropPercent(stats)}%)` : dash}
                             </TableCell>
                             <TableCell>
-                                {stats ? `${stats.speed.toFixed(3)}×` : dash}
+                                {stats
+                                    ? figure(stats.speed, v => `${v.toFixed(2)}×`)
+                                    : dash}
                             </TableCell>
                             <TableCell>
-                                {stats ? (
+                                {stats && avg5 !== null ? (
                                     avg5 > uplinkMbps ? (
                                         <Badge variant="destructive">
                                             OVER: ~{avg5.toFixed(0)} / {uplinkMbps} Mbps

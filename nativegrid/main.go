@@ -17,8 +17,10 @@
 //
 // The stream list arrives as -config JSON from the app and stays current through
 // roster pushes on stdin, so the window can open on an idle relay and fill up as
-// streams appear. Without -config, built-in videotestsrc streams drive a standalone
-// demo run.
+// streams appear. A sidebar row can move its stream to another watch leg or retune
+// the one it is on; the window asks the app for that on stdout and receives the
+// answer as the next push. Without -config, built-in videotestsrc streams drive a
+// standalone demo run.
 package main
 
 import (
@@ -60,7 +62,7 @@ func main() {
 	// arrive on pipeline threads and hop here; so do the relayouts a drag must not
 	// perform from inside its own callback.
 	dispatch := idle.Dispatch(func(f func()) { coreglib.IdleAdd(f) })
-	sess := session.New(cfg.Streams, factory, layout.NewFileStore(), dispatch)
+	sess := session.New(cfg.Streams, factory, layout.NewFileStore(), sender(*configArg != ""), dispatch)
 
 	// NonUnique: a second grid must not activate inside the first one's process; the
 	// app replaces the window by killing and respawning it.
@@ -80,6 +82,16 @@ func main() {
 	code := app.Run(os.Args[:1])
 	sess.Close()
 	os.Exit(code)
+}
+
+// sender is where a watch-leg request goes: the app reads stdout, the demo run
+// has nobody to answer one. The demo streams declare no watch legs to move
+// between, so a discarded request is a request the sidebar cannot make.
+func sender(fromApp bool) roster.Send {
+	if !fromApp {
+		return roster.Discard
+	}
+	return roster.Sender(os.Stdout)
 }
 
 // config is the roster the window opens on: the app's, or the demo one.

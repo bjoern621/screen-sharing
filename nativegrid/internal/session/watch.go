@@ -5,6 +5,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
+	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 )
 
 // SetWatched toggles watching stream i.
@@ -47,6 +48,19 @@ func (s *Session) SetWatched(i int, on bool) {
 	}
 	s.notify(Change{Kind: StateChanged, Index: i})
 	s.persist.Schedule()
+}
+
+// RequestWatchLeg asks the app to receive stream i over a transport, with that
+// transport's knobs at the given values, keyed as the roster declared them.
+//
+// Nothing changes here: the app decides what the leg means, and its answer is
+// the roster push that carries the new source fragment, which SetRoster
+// restarts a watched stream on. A refused request is answered too, with the
+// values that still hold, so the controls that asked follow the model back.
+func (s *Session) RequestWatchLeg(i int, transport string, options map[string]string) {
+	e := s.at(i)
+	logger.Infof("asking to watch %q over %s", e.stream.Name, transport)
+	s.send(roster.Request{Stream: e.stream.Name, Transport: transport, Options: options})
 }
 
 // events are the callbacks of the player started for stream i in generation gen.

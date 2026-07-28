@@ -7,12 +7,16 @@ import (
 	"bjoernblessin.de/screenshare/settings"
 )
 
+// rtspStream carries watch-leg knobs that differ from the defaults, so a
+// serialization that ignores them shows up as the default rather than passing.
 func rtspStream() settings.Stream {
 	return settings.Stream{
-		Name:      "alice",
-		RelayHost: "relay.example",
-		RtspPort:  8554,
-		Transport: "rtsp",
+		Name:               "alice",
+		RelayHost:          "relay.example",
+		RtspPort:           8554,
+		Transport:          "rtsp",
+		RtspWatchLatencyMs: 350,
+		RtspWatchProtocol:  "udp",
 	}
 }
 
@@ -56,8 +60,8 @@ func TestRTSPGstSource(t *testing.T) {
 	for _, want := range []string{
 		"rtspsrc",
 		"location=rtsp://relay.example:8554/bob",
-		"protocols=tcp",
-		"latency=200",
+		"protocols=udp",
+		"latency=350",
 	} {
 		if !slices.Contains(src, want) {
 			t.Errorf("GstSource = %v, missing %q", src, want)

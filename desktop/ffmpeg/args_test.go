@@ -182,6 +182,17 @@ func TestEncoderArgs(t *testing.T) {
 		{"amf h264 repeats its parameter sets per gop", "h264_amf", "cbr", "-header_spacing 120", ""},
 		{"amf hevc needs no header spacing", "hevc_amf", "cbr", "-rc cbr", "-header_spacing"},
 		{"amf av1 has no header spacing option", "av1_amf", "cbr", "-rc cbr", "-header_spacing"},
+		// The Vulkan encoders take one -rc_mode per rate-control concept, and their
+		// bursting modes always code against a ceiling, so even ABR states one.
+		{"vulkan crf is cqp", "h264_vulkan", "crf", "-rc_mode cqp -qp", "-b:v"},
+		{"vulkan cbr pins the ceiling to the target", "h264_vulkan", "cbr", "-rc_mode cbr -b:v 150M -maxrate 150M", ""},
+		{"vulkan abr caps its ceiling above the target", "hevc_vulkan", "abr", "-rc_mode vbr -b:v 150M -maxrate 300M", ""},
+		{"vulkan vbr takes the configured ceiling", "hevc_vulkan", "vbr", "-maxrate 200M", "-rc_mode cbr"},
+		// Every mode declares the stream a live one of screen content, and cbr is the
+		// one that trades quality for keeping up with it.
+		{"vulkan states its content type", "av1_vulkan", "cbr", "-usage stream -content desktop", ""},
+		{"vulkan cbr tunes for latency", "h264_vulkan", "cbr", "-tune ll", "-tune hq"},
+		{"vulkan vbr tunes for quality", "h264_vulkan", "vbr", "-tune hq", "-tune ll"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -200,6 +211,33 @@ func TestEncoderArgs(t *testing.T) {
 				t.Errorf("encoderArgs(%s,%s) = %q, must not contain %q", tc.codec, tc.mode, joined, tc.reject)
 			}
 		})
+	}
+}
+
+// The rate buffer is SVT-AV1's CBR knob alone: buf-sz rides in -svtav1-params, which
+// only that mode sends, so VBR has nothing to size and the window the settings carry
+// stops at the builder. The form greys the field there for that reason (ENGINE_RULES),
+// and a value reaching the command in VBR would make the greying a lie.
+func TestSvtAv1SizesARateBufferInCbrOnly(t *testing.T) {
+	s := baseStream()
+	s.Codec, s.VbvMs = "libsvtav1", 500
+
+	s.Mode = "vbr"
+	args, err := encoderArgs(s, gopFor(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := strings.Join(args, " "); strings.Contains(joined, "buf-sz") {
+		t.Errorf("libsvtav1 vbr = %q, must carry no rate buffer", joined)
+	}
+
+	s.Mode = "cbr"
+	args, err = encoderArgs(s, gopFor(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := strings.Join(args, " "); !strings.Contains(joined, "buf-sz=500") {
+		t.Errorf("libsvtav1 cbr = %q, want buf-sz=500", joined)
 	}
 }
 
@@ -262,10 +300,14 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 	}
 
 	for _, cap := range capabilities.Codecs {
-		if !cap.Implemented || capabilities.IsVaapi(cap.Name) {
-			// A VAAPI encode reads GPU surfaces, so its arguments only run with a
-			// device and an upload filter in front; TestBuildPublishArgsVaapi covers
-			// that shape.
+		if !cap.Implemented {
+			continue
+		}
+		// A VAAPI or Vulkan encode reads GPU surfaces, so its arguments only run with
+		// the device and the upload filter the publish command puts in front of them.
+		device, surface, err := HwSurfaceDevice(cap.Name)
+		if err != nil {
+			t.Logf("%s: %v", cap.Name, err)
 			continue
 		}
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
@@ -288,10 +330,23 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				args := []string{"-hide_banner", "-loglevel", "error",
-					"-f", "lavfi", "-i", "nullsrc=s=256x256", "-frames:v", "1"}
+				args := []string{"-hide_banner", "-loglevel", "error"}
+				args = append(args, device...)
+				args = append(args, "-f", "lavfi", "-i", "nullsrc=s=256x256", "-frames:v", "1")
+				if surface {
+					upload, err := HwSurfaceFilters(s.Chroma)
+					if err != nil {
+						t.Fatal(err)
+					}
+					args = append(args, "-vf", strings.Join(upload, ","))
+				}
 				args = append(args, enc...)
-				args = append(args, "-pix_fmt", s.Chroma, "-f", "null", "-")
+				// A surface encode's layout is the upload filter's, and its encoder reads
+				// no software pixel format at all, exactly as in BuildPublishArgs.
+				if !surface {
+					args = append(args, "-pix_fmt", s.Chroma)
+				}
+				args = append(args, "-f", "null", "-")
 
 				ctx, cancel := context.WithTimeout(context.Background(), encodeTimeout)
 				defer cancel()
@@ -343,23 +398,74 @@ func TestBuildPublishArgsVaapi(t *testing.T) {
 	}
 }
 
-func TestVaapiFilters(t *testing.T) {
+// A Vulkan publish has the same shape and a device of its own: created under a name
+// ahead of the input, then handed to the filter graph the upload attaches to.
+func TestBuildPublishArgsVulkan(t *testing.T) {
+	s := baseStream()
+	s.Codec = "h264_vulkan"
+	s.Chroma = "yuv420p"
+	s.Mode = "cbr"
+	args, err := BuildPublishArgs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if i, j := slices.Index(args, "-init_hw_device"), slices.Index(args, "-i"); i < 0 || i > j {
+		t.Errorf("-init_hw_device must create the device before the input, got %v", args)
+	}
+	if got := flagValue(args, "-filter_hw_device"); got != flagValue(args, "-init_hw_device")[len("vulkan="):] {
+		t.Errorf("-filter_hw_device = %q, want the name -init_hw_device registered", got)
+	}
+	if vf := flagValue(args, "-vf"); !strings.HasSuffix(vf, "format=nv12,hwupload") {
+		t.Errorf("-vf = %q, want it to end in format=nv12,hwupload", vf)
+	}
+	if slices.Contains(args, "-pix_fmt") {
+		t.Errorf("a Vulkan encode must not pin a software pixel format, got %v", args)
+	}
+}
+
+func TestHwSurfaceFilters(t *testing.T) {
 	cases := map[string]string{
 		"yuv420p": "format=nv12",
 		"p010le":  "format=p010",
 	}
 	for chroma, want := range cases {
-		got, err := VaapiFilters(chroma)
+		got, err := HwSurfaceFilters(chroma)
 		if err != nil {
-			t.Fatalf("VaapiFilters(%q): %v", chroma, err)
+			t.Fatalf("HwSurfaceFilters(%q): %v", chroma, err)
 		}
 		if len(got) != 2 || got[0] != want || got[1] != "hwupload" {
-			t.Errorf("VaapiFilters(%q) = %v, want [%s hwupload]", chroma, got, want)
+			t.Errorf("HwSurfaceFilters(%q) = %v, want [%s hwupload]", chroma, got, want)
 		}
 	}
-	// A chroma no VAAPI driver stores is a builder error, not a silent conversion.
-	if _, err := VaapiFilters("yuv444p"); err == nil {
-		t.Error("VaapiFilters must reject a chroma with no VAAPI surface layout")
+	// A chroma neither family's hardware stores is a builder error, not a silent
+	// conversion.
+	if _, err := HwSurfaceFilters("yuv444p"); err == nil {
+		t.Error("HwSurfaceFilters must reject a chroma with no hardware surface layout")
+	}
+}
+
+// Only the families whose encoders read GPU surfaces open a device, and the ones that
+// read system memory must not: a device option there would be a filter graph the
+// software encoders cannot take frames from.
+func TestHwSurfaceDeviceFollowsTheFamily(t *testing.T) {
+	cases := map[string]bool{
+		"h264_vaapi":  true,
+		"h264_vulkan": true,
+		"av1_vulkan":  true,
+		"libx264":     false,
+		"hevc_nvenc":  false,
+		"h264_amf":    false,
+	}
+	for codec, want := range cases {
+		// The device itself is real hardware, so only the verdict is asserted; an
+		// error means the family is absent from this machine, not from the table.
+		_, got, _ := HwSurfaceDevice(codec)
+		if got != want {
+			t.Errorf("HwSurfaceDevice(%q) surface = %v, want %v", codec, got, want)
+		}
+	}
+	if _, _, err := HwSurfaceDevice("nope"); err == nil {
+		t.Error("HwSurfaceDevice must reject a codec the table does not carry")
 	}
 }
 

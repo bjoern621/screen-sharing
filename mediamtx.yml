@@ -30,16 +30,16 @@ srtAddress: :8890
 rtsp: yes
 rtspAddress: :8554
 
-# --- RTMP (OBS fallback ingest) ---
+# --- RTMP (publish + read; also the ingest broadcast tools speak) ---
 rtmp: yes
 rtmpAddress: :1935
 
-# --- HLS (browser watch, ~2s latency) ---
+# --- HLS (watch only: the relay serves segments and ingests none) ---
 hls: yes
 hlsAddress: :8888
 hlsVariant: lowLatency
 
-# --- WebRTC (browser watch, low latency) ---
+# --- WebRTC (WHIP publish, WHEP watch: browser and native grid) ---
 webrtc: yes
 webrtcAddress: :8889
 

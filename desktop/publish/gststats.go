@@ -10,18 +10,32 @@ import (
 	"time"
 )
 
-// gstStatsName names the progressreport element whose lines the parser keys on;
+// gstStatsName names the progressreport element counting encoded frames;
+// gstCaptureName names the one counting the frames the screen really produced,
+// which the capture backend places ahead of anything that repeats or paces them;
 // gstMeterName names the tee the sink branch continues from.
 const (
-	gstStatsName = "stats"
-	gstMeterName = "meter"
+	gstStatsName   = "stats"
+	gstCaptureName = "capture"
+	gstMeterName   = "meter"
 )
 
-// gstProgressLine matches one progressreport line: the pipeline running time the
-// element last saw and the cumulative buffer count, one buffer per encoded
-// frame. A line reads "stats (00:00:07): 141 buffers"; the query form of the
-// element pads the time differently, hence the optional spaces.
-var gstProgressLine = regexp.MustCompile(`^` + gstStatsName + ` \(\s*(\d+):\s*(\d+):\s*(\d+)\):\s+(\d+) buffers`)
+// gstCaptureProbe is the progressreport element a capture backend splices in to
+// count what the source produced. It is built here rather than in the backend so
+// both halves of the wire format stay one decision, as for the encoded counter.
+//
+// One argument per token, like every other element list here: gst-launch parses
+// its argv token by token, so an element and its properties in a single argument
+// is a parse error rather than an element.
+var gstCaptureProbe = []string{
+	"progressreport", "name=" + gstCaptureName, "update-freq=1", "format=buffers", "do-query=false",
+}
+
+// gstProgressLine matches one progressreport line: the element that printed it,
+// the running time it last saw and its cumulative buffer count. A line reads
+// "stats (00:00:07): 141 buffers"; the query form of the element pads the time
+// differently, hence the optional spaces.
+var gstProgressLine = regexp.MustCompile(`^(` + gstStatsName + `|` + gstCaptureName + `) \(\s*(\d+):\s*(\d+):\s*(\d+)\):\s+(\d+) buffers`)
 
 // gstProgressElements returns the instrumentation buildPipeline splices in
 // between the parser and the sink, the pair gstMeter reads. It sits next to the
@@ -62,6 +76,14 @@ func gstProgressElements(meterFd string) []string {
 type gstMeter struct {
 	onStats func(Stats)
 	bytes   atomic.Int64
+	// captured is the newest cumulative count from the capture backend's rate
+	// probe. It is atomic for the same reason bytes is: the parse goroutine and
+	// the counting goroutine are not the same one.
+	captured atomic.Int64
+	// haveCaptured records that a capture line arrived at all, which is what
+	// tells a probe reporting a genuine zero rate apart from a pipeline that
+	// carries no probe to report one.
+	haveCaptured atomic.Bool
 	// r is the read end of the meter pipe, w the end the child inherits.
 	r, w *os.File
 	// now reads the wall clock the per-second figures are measured against.
@@ -69,12 +91,13 @@ type gstMeter struct {
 
 	// Previous and first sample, for the deltas the derived figures need. Only
 	// parse touches them, from the one goroutine that reads stdout.
-	prevFrames int
-	prevBytes  int64
-	prevWall   time.Time
-	startRun   float64
-	startWall  time.Time
-	havePrev   bool
+	prevFrames   int
+	prevBytes    int64
+	prevCaptured int
+	prevWall     time.Time
+	startRun     float64
+	startWall    time.Time
+	havePrev     bool
 }
 
 // newGstMeter creates the pipe the child's fdsink writes to and starts counting
@@ -102,8 +125,14 @@ func (m *gstMeter) count() {
 	}
 }
 
-// parse reads the child's stdout and emits one sample per progress line, and
-// returns when the stream ends.
+// parse reads the child's stdout and emits one sample per encoded progress line,
+// and returns when the stream ends.
+//
+// The capture counter is recorded rather than sampled. Both elements print once a
+// second but not in step, so emitting on either would produce two samples per
+// second with one of the two counts unchanged; the encoded line is the one that
+// carries the byte counter, so it stays the sample point and reads whatever the
+// capture counter last said.
 func (m *gstMeter) parse(r io.Reader) {
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -111,8 +140,14 @@ func (m *gstMeter) parse(r io.Reader) {
 		if f == nil {
 			continue
 		}
-		runSec := float64(atoi(f[1])*3600 + atoi(f[2])*60 + atoi(f[3]))
-		m.sample(atoi(f[4]), runSec)
+		frames := atoi(f[5])
+		if f[1] == gstCaptureName {
+			m.captured.Store(int64(frames))
+			m.haveCaptured.Store(true)
+			continue
+		}
+		runSec := float64(atoi(f[2])*3600 + atoi(f[3])*60 + atoi(f[4]))
+		m.sample(frames, runSec)
 	}
 }
 
@@ -121,19 +156,31 @@ func (m *gstMeter) parse(r io.Reader) {
 func (m *gstMeter) sample(frames int, runSec float64) {
 	now := m.now()
 	total := m.bytes.Load()
+	captured := int(m.captured.Load())
 
 	stats := Stats{
 		Frame:   frames,
 		SizeKiB: float64(total) / 1024,
 		TimeSec: runSec,
 	}
+	// A per-interval figure has no value on the first line of a run, and this
+	// engine measures no capture rate at all unless the backend placed the probe.
+	// Both are unmeasured rather than zero, which is the reading that marks a
+	// stalled encoder.
+	stats.Missing.Fps = !m.havePrev
+	stats.Missing.InstMbps = !m.havePrev
+	stats.Missing.Speed = !m.havePrev
+	stats.Missing.CaptureFps = !m.havePrev || !m.haveCaptured.Load()
 	if runSec > 0 {
 		stats.AvgMbps = float64(total) * 8 / runSec / 1_000_000
+	} else {
+		stats.Missing.AvgMbps = true
 	}
 	if m.havePrev {
 		if d := now.Sub(m.prevWall).Seconds(); d > 0 {
 			stats.Fps = float64(frames-m.prevFrames) / d
 			stats.InstMbps = float64(total-m.prevBytes) * 8 / d / 1_000_000
+			stats.CaptureFps = float64(captured-m.prevCaptured) / d
 		}
 		// Speed measures media time against wall time over the whole run.
 		// progressreport prints whole seconds, so the same ratio taken between
@@ -145,7 +192,7 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 	} else {
 		m.startRun, m.startWall = runSec, now
 	}
-	m.prevFrames, m.prevBytes, m.prevWall, m.havePrev = frames, total, now, true
+	m.prevFrames, m.prevBytes, m.prevCaptured, m.prevWall, m.havePrev = frames, total, captured, now, true
 
 	m.onStats(stats)
 }

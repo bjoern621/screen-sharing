@@ -133,56 +133,53 @@ func TestGapAxesDoNotCross(t *testing.T) {
 
 func TestValidate(t *testing.T) {
 	cases := []struct {
-		name                                   string
-		engine, codec, chroma, transport, mode string
-		cq                                     int
-		wantErr                                bool
+		name                        string
+		engine, codec, chroma, mode string
+		cq                          int
+		wantErr                     bool
 	}{
-		{"nvenc hevc over srt", "ffmpeg", "hevc_nvenc", "gbrp", "srt", "lossless", 19, false},
-		{"unknown codec", "ffmpeg", "nope", "yuv420p", "srt", "cbr", 19, true},
-		{"unimplemented family", "ffmpeg", "hevc_qsv", "yuv420p", "srt", "cbr", 19, true},
-		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "srt", "cbr", 19, true},
+		{"nvenc hevc lossless", "ffmpeg", "hevc_nvenc", "gbrp", "lossless", 19, false},
+		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", 19, true},
+		{"unimplemented family", "ffmpeg", "hevc_qsv", "yuv420p", "cbr", 19, true},
+		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", 19, true},
 		// Planar RGB reaches the ffmpeg encoders and none of the GStreamer elements,
 		// so the same codec and chroma passes on one engine and fails on the other.
-		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "srt", "crf", 19, true},
-		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "srt", "crf", 19, false},
-		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "srt", "crf", 19, true},
-		{"x265 4:4:4 over gstreamer", "gstreamer", "libx265", "yuv444p", "srt", "crf", 19, false},
+		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", 19, true},
+		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "crf", 19, false},
+		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "crf", 19, true},
+		{"x265 4:4:4 over gstreamer", "gstreamer", "libx265", "yuv444p", "crf", 19, false},
 		// 10-bit libaom AV1 is the ffmpeg engine's alone (av1enc takes 8-bit input).
-		{"libaom 10-bit over ffmpeg", "ffmpeg", "libaom-av1", "p010le", "rtsp", "crf", 19, false},
-		{"libaom 10-bit over gstreamer", "gstreamer", "libaom-av1", "p010le", "rtsp", "crf", 19, true},
-		{"libaom 8-bit over gstreamer", "gstreamer", "libaom-av1", "yuv420p", "rtsp", "crf", 19, false},
-		{"transport that cannot carry", "ffmpeg", "libvpx-vp9", "yuv444p", "srt", "cbr", 19, true},
+		{"libaom 10-bit over ffmpeg", "ffmpeg", "libaom-av1", "p010le", "crf", 19, false},
+		{"libaom 10-bit over gstreamer", "gstreamer", "libaom-av1", "p010le", "crf", 19, true},
+		{"libaom 8-bit over gstreamer", "gstreamer", "libaom-av1", "yuv420p", "crf", 19, false},
 		// libvpx counts its quantizer to 63, the H.26x encoders to 51, so the same
 		// value passes on one and fails on the other.
-		{"vp9 quantizer at 60", "ffmpeg", "libvpx-vp9", "yuv444p", "rtsp", "crf", 60, false},
-		{"x264 quantizer at 60", "ffmpeg", "libx264", "yuv420p", "rtsp", "crf", 60, true},
-		{"negative quantizer", "ffmpeg", "libx264", "yuv420p", "rtsp", "crf", -1, true},
+		{"vp9 quantizer at 60", "ffmpeg", "libvpx-vp9", "yuv444p", "crf", 60, false},
+		{"x264 quantizer at 60", "ffmpeg", "libx264", "yuv420p", "crf", 60, true},
+		{"negative quantizer", "ffmpeg", "libx264", "yuv420p", "crf", -1, true},
 		// rav1e's quantizer counts to 255, the widest scale in the table.
-		{"rav1e quantizer at 200", "ffmpeg", "librav1e", "yuv420p", "rtsp", "crf", 200, false},
+		{"rav1e quantizer at 200", "ffmpeg", "librav1e", "yuv420p", "crf", 200, false},
 		// The quantizer reaches the encoder in crf mode only, so a stale value from
 		// another codec's scale must not block a bitrate mode.
-		{"out-of-scale quantizer outside crf", "ffmpeg", "libx264", "yuv420p", "rtsp", "cbr", 60, false},
+		{"out-of-scale quantizer outside crf", "ffmpeg", "libx264", "yuv420p", "cbr", 60, false},
 		// VP8 has no lossless mode on either engine; VP9's is ffmpeg's alone.
-		{"vp8 lossless", "ffmpeg", "libvpx", "yuv420p", "rtsp", "lossless", 19, true},
-		{"vp9 lossless over ffmpeg", "ffmpeg", "libvpx-vp9", "yuv444p", "rtsp", "lossless", 19, false},
-		{"vp9 lossless over gstreamer", "gstreamer", "libvpx-vp9", "yuv444p", "rtsp", "lossless", 19, true},
-		{"av1 lossless", "gstreamer", "libsvtav1", "yuv420p", "rtsp", "lossless", 19, true},
+		{"vp8 lossless", "ffmpeg", "libvpx", "yuv420p", "lossless", 19, true},
+		{"vp9 lossless over ffmpeg", "ffmpeg", "libvpx-vp9", "yuv444p", "lossless", 19, false},
+		{"vp9 lossless over gstreamer", "gstreamer", "libvpx-vp9", "yuv444p", "lossless", 19, true},
+		{"av1 lossless", "gstreamer", "libsvtav1", "yuv420p", "lossless", 19, true},
 		// No VAAPI encoder codes bit-exact, on either engine, while its bitrate and
 		// constant-quality modes are the drivers' own.
-		{"vaapi lossless over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "srt", "lossless", 19, true},
-		{"vaapi lossless over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "srt", "lossless", 19, true},
-		{"vaapi cbr", "ffmpeg", "h264_vaapi", "yuv420p", "srt", "cbr", 19, false},
+		{"vaapi lossless over ffmpeg", "ffmpeg", "h264_vaapi", "yuv420p", "lossless", 19, true},
+		{"vaapi lossless over gstreamer", "gstreamer", "h264_vaapi", "yuv420p", "lossless", 19, true},
+		{"vaapi cbr", "ffmpeg", "h264_vaapi", "yuv420p", "cbr", 19, false},
 		// The VAAPI AV1 quantizer is a 0-255 index, where its H.26x rows stop at 51.
-		{"vaapi av1 quantizer at 200", "ffmpeg", "av1_vaapi", "yuv420p", "rtsp", "crf", 200, false},
-		{"vaapi h264 quantizer at 200", "ffmpeg", "h264_vaapi", "yuv420p", "rtsp", "crf", 200, true},
-		// AV1 rides RTSP: MPEG-TS has no mapping the relay ingests.
-		{"vaapi av1 over srt", "ffmpeg", "av1_vaapi", "yuv420p", "srt", "cbr", 19, true},
+		{"vaapi av1 quantizer at 200", "ffmpeg", "av1_vaapi", "yuv420p", "crf", 200, false},
+		{"vaapi h264 quantizer at 200", "ffmpeg", "h264_vaapi", "yuv420p", "crf", 200, true},
 	}
 	for _, tc := range cases {
 		// Bitrate target zero: no row above turns on a codec's bitrate ceiling, which
 		// TestValidateBitrateCeiling covers on its own.
-		err := Validate(tc.engine, tc.codec, tc.chroma, tc.transport, tc.mode, tc.cq, 0)
+		err := Validate(tc.engine, tc.codec, tc.chroma, tc.mode, tc.cq, 0)
 		if (err != nil) != tc.wantErr {
 			t.Errorf("%s: Validate = %v, wantErr %v", tc.name, err, tc.wantErr)
 		}
@@ -196,30 +193,37 @@ func TestValidateBitrateCeiling(t *testing.T) {
 		if !c.Implemented || c.BitrateLimitM == 0 {
 			continue
 		}
-		chroma, transport := c.EngineChromas("ffmpeg")[0], c.Transports[0]
-		if err := Validate("ffmpeg", c.Name, chroma, transport, "cbr", 0, c.BitrateLimitM+1); err == nil {
+		chroma := c.EngineChromas("ffmpeg")[0]
+		if err := Validate("ffmpeg", c.Name, chroma, "cbr", 0, c.BitrateLimitM+1); err == nil {
 			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, c.BitrateLimitM)
 		}
-		if err := Validate("ffmpeg", c.Name, chroma, transport, "cbr", 0, c.BitrateLimitM); err != nil {
+		if err := Validate("ffmpeg", c.Name, chroma, "cbr", 0, c.BitrateLimitM); err != nil {
 			t.Errorf("%s at its ceiling: %v", c.Name, err)
 		}
 		// crf sends no bitrate, so a stale target must not block the encode.
 		if _, gap := c.ModeGap("ffmpeg", "crf"); !gap {
-			if err := Validate("ffmpeg", c.Name, chroma, transport, "crf", 0, c.BitrateLimitM*2); err != nil {
+			if err := Validate("ffmpeg", c.Name, chroma, "crf", 0, c.BitrateLimitM*2); err != nil {
 				t.Errorf("%s in crf with a stale bitrate target: %v", c.Name, err)
 			}
 		}
 	}
 }
 
-func TestCarriedBy(t *testing.T) {
-	if !CarriedBy("hevc_nvenc", "srt") {
-		t.Error("srt must carry hevc_nvenc")
+// A relay path reports its track's format and never says which encoder produced
+// it, so the watch side reads formats rather than codec names. Every format an
+// implemented row produces has to be one HasFormat knows, and a format no row
+// produces must not answer, since that answer is what keeps a stale relay
+// snapshot from narrowing a viewer's choice to nothing.
+func TestHasFormat(t *testing.T) {
+	for _, format := range Formats() {
+		if !HasFormat(format) {
+			t.Errorf("format %s is produced here but unknown to HasFormat", format)
+		}
 	}
-	if CarriedBy("av1_nvenc", "srt") {
-		t.Error("srt/MPEG-TS cannot carry av1_nvenc")
+	if HasFormat("mpeg2") {
+		t.Error("a format no row produces must not answer")
 	}
-	if CarriedBy("libx265", "webrtc") {
-		t.Error("webrtc (WHIP is H.264 + Opus) cannot carry libx265")
+	if HasFormat("") {
+		t.Error("the empty format must not answer")
 	}
 }

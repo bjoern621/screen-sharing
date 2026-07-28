@@ -13,8 +13,11 @@ import (
 
 // The parser takes the cumulative counts off a progress line and ignores every
 // other line gst-launch prints. The first line has no predecessor, so only the
-// cumulative figures are set; the second carries the deltas, measured against
-// the wall clock: 30 frames and 250 kB in half a second is 60 fps at 4 Mbps.
+// cumulative figures are set and every per-interval one is marked unmeasured;
+// the second carries the deltas, measured against the wall clock: 30 frames and
+// 250 kB in half a second is 60 fps at 4 Mbps. This pipeline carries no rate
+// probe, so the capture rate stays unmeasured throughout rather than reading as
+// a zero rate.
 func TestGstMeterSamples(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var got []Stats
@@ -38,7 +41,10 @@ func TestGstMeterSamples(t *testing.T) {
 	}
 
 	first, second := got[0], got[1]
-	wantFirst := Stats{Frame: 30, SizeKiB: 250_000.0 / 1024, TimeSec: 1, AvgMbps: 2}
+	wantFirst := Stats{
+		Frame: 30, SizeKiB: 250_000.0 / 1024, TimeSec: 1, AvgMbps: 2,
+		Missing: Missing{Fps: true, InstMbps: true, Speed: true, CaptureFps: true},
+	}
 	if first != wantFirst {
 		t.Errorf("first sample = %+v, want %+v", first, wantFirst)
 	}
@@ -50,6 +56,7 @@ func TestGstMeterSamples(t *testing.T) {
 		Speed:    2, // one second of media in half a second of wall clock
 		InstMbps: 4,
 		AvgMbps:  2,
+		Missing:  Missing{CaptureFps: true},
 	}
 	if second != wantSecond {
 		t.Errorf("second sample = %+v, want %+v", second, wantSecond)
@@ -66,7 +73,8 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 	// repairs to 4:4:4 before a portal publish; this test is about element order.
 	s.Chroma = "yuv444p"
 
-	plain, err := buildPipeline(s, "3", "42", "")
+	capture := []string{"videotestsrc"}
+	plain, err := buildPipeline(s, capture, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +83,7 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 		t.Errorf("pipeline built without a meter fd carries instrumentation: %s", line)
 	}
 
-	metered, err := buildPipeline(s, "3", "42", "4")
+	metered, err := buildPipeline(s, capture, "4")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,5 +191,168 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	}
 	if latest.InstMbps < 0.5 || latest.InstMbps > 8 {
 		t.Errorf("bitrate = %v Mbps, want about the 2 Mbps the encoder targets", latest.InstMbps)
+	}
+}
+
+// The two counters answer different questions, and the sample carries both. A
+// portal capture whose screen changed five times while the encoder emitted sixty
+// frames has to report five, because that is what a viewer sees; reporting the
+// encoder's sixty would hand the pacing target back as a measurement.
+//
+// The capture element prints on its own second, out of step with the encoded one,
+// so a capture line must record rather than sample: two samples a second, one of
+// them with an unchanged count, would halve every rate the card shows.
+func TestGstMeterCaptureRateIsSeparateFromTheEncodedRate(t *testing.T) {
+	wall := time.Unix(0, 0)
+	var got []Stats
+	m := &gstMeter{
+		onStats: func(s Stats) { got = append(got, s) },
+		now:     func() time.Time { return wall },
+	}
+
+	m.parse(strings.NewReader(
+		"capture (00:00:01): 5 buffers\n" +
+			"stats (00:00:01): 60 buffers\n"))
+	wall = wall.Add(time.Second)
+	m.parse(strings.NewReader(
+		"capture (00:00:02): 10 buffers\n" +
+			"stats (00:00:02): 120 buffers\n"))
+
+	if len(got) != 2 {
+		t.Fatalf("got %d samples, want 2: a capture line records, it does not sample", len(got))
+	}
+	if got[1].Fps != 60 {
+		t.Errorf("encoded rate = %v, want 60", got[1].Fps)
+	}
+	if got[1].CaptureFps != 5 {
+		t.Errorf("capture rate = %v, want 5", got[1].CaptureFps)
+	}
+}
+
+// A pipeline built without the rate probe prints no capture line, and an
+// unmeasured rate reads zero rather than borrowing the encoded one.
+func TestGstMeterCaptureRateIsZeroWithoutTheProbe(t *testing.T) {
+	wall := time.Unix(0, 0)
+	var got []Stats
+	m := &gstMeter{
+		onStats: func(s Stats) { got = append(got, s) },
+		now:     func() time.Time { return wall },
+	}
+	m.parse(strings.NewReader("stats (00:00:01): 60 buffers\n"))
+	wall = wall.Add(time.Second)
+	m.parse(strings.NewReader("stats (00:00:02): 120 buffers\n"))
+
+	if got[1].CaptureFps != 0 {
+		t.Errorf("capture rate = %v, want 0 for a pipeline with no probe", got[1].CaptureFps)
+	}
+}
+
+// The same divergence against a running pipeline rather than synthetic lines. A
+// source producing five pictures a second behind an imagefreeze paced to thirty
+// is the portal path's shape: the encoder emits thirty, the screen produced five,
+// and only the probe ahead of the pacer can tell the two apart.
+func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
+	if _, err := exec.LookPath(gstExe); err != nil {
+		t.Skipf("%s not installed", gstExe)
+	}
+	if err := exec.Command("gst-inspect-1.0", "--exists", "x264enc").Run(); err != nil {
+		t.Skip("x264enc plugin not installed")
+	}
+
+	samples := make(chan Stats, 8)
+	meter, err := newGstMeter(func(s Stats) {
+		select {
+		case samples <- s:
+		default:
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer meter.close()
+
+	const sourceFps, pacedFps = 5, 30
+	args := []string{
+		"videotestsrc", "is-live=true",
+		"!", "video/x-raw,format=I420,width=320,height=240,framerate=5/1",
+		"!",
+	}
+	args = append(args, gstCaptureProbe...)
+	args = append(args,
+		"!", "imagefreeze", "is-live=true", "allow-replace=true",
+		"!", "video/x-raw,framerate=30/1",
+		"!", "x264enc", "bitrate=2000", "pass=cbr", "tune=zerolatency",
+		"!", "h264parse",
+		"!",
+	)
+	args = append(args, gstProgressElements("3")...)
+	args = append(args, "fakesink")
+
+	handle, err := supervise(superviseConfig{
+		exe:         gstExe,
+		args:        args,
+		tag:         "gstcapturerate-test",
+		extraFiles:  []*os.File{meter.w},
+		parseStdout: meter.parse,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer handle.Stop()
+	meter.closeChildEnd()
+
+	var latest Stats
+	deadline := time.After(20 * time.Second)
+	for latest.CaptureFps == 0 {
+		select {
+		case latest = <-samples:
+		case <-deadline:
+			t.Fatal("no progress sample carrying a capture rate within 20s")
+		}
+	}
+
+	if math.Abs(latest.Fps-pacedFps) > 10 {
+		t.Errorf("encoded rate = %v, want about the %d fps the pacer holds", latest.Fps, pacedFps)
+	}
+	if math.Abs(latest.CaptureFps-sourceFps) > 3 {
+		t.Errorf("capture rate = %v, want about the %d fps the source produces", latest.CaptureFps, sourceFps)
+	}
+	if latest.CaptureFps >= latest.Fps {
+		t.Errorf("capture rate %v must read below the encoded rate %v: the pacer repeats frames the source never sent",
+			latest.CaptureFps, latest.Fps)
+	}
+}
+
+// An unmeasured capture rate and a measured zero are different readings. A
+// pipeline with no probe carries no capture line at all, so the figure is marked
+// missing; one whose probe reports no new pictures reports zero, which is the
+// starved capture worth seeing.
+func TestGstMeterMarksAnUnprobedCaptureRateMissing(t *testing.T) {
+	sampleTwice := func(lines ...string) Stats {
+		wall := time.Unix(0, 0)
+		var got []Stats
+		m := &gstMeter{
+			onStats: func(s Stats) { got = append(got, s) },
+			now:     func() time.Time { return wall },
+		}
+		m.parse(strings.NewReader(lines[0]))
+		wall = wall.Add(time.Second)
+		m.parse(strings.NewReader(lines[1]))
+		return got[len(got)-1]
+	}
+
+	unprobed := sampleTwice("stats (00:00:01): 60 buffers\n", "stats (00:00:02): 120 buffers\n")
+	if !unprobed.Missing.CaptureFps {
+		t.Error("a pipeline with no rate probe must mark the capture rate missing")
+	}
+
+	starved := sampleTwice(
+		"capture (00:00:01): 7 buffers\nstats (00:00:01): 60 buffers\n",
+		"capture (00:00:02): 7 buffers\nstats (00:00:02): 120 buffers\n")
+	if starved.Missing.CaptureFps {
+		t.Error("a probe reporting no new pictures is a measurement, not a missing figure")
+	}
+	if starved.CaptureFps != 0 {
+		t.Errorf("capture rate = %v, want 0: the screen produced nothing in that second", starved.CaptureFps)
 	}
 }

@@ -5,16 +5,17 @@ import (
 	"testing"
 )
 
-// The ffmpeg-engine captures carry every transport that serializes to an ffmpeg
-// command; the portal backend runs on GStreamer, so it drops WebRTC, which
-// has no GStreamer sink.
+// A capture backend carries every transport its engine can serialize through, so
+// the two engines part where a transport implements one publish form only: RTMP
+// has an ffmpeg muxer and no GStreamer counterpart, which leaves it off the
+// portal backend and on every ffmpeg one.
 func TestTransportsFor(t *testing.T) {
 	cases := map[string][]string{
-		"x11grab": {"rtsp", "srt", "webrtc"},
-		"kmsgrab": {"rtsp", "srt", "webrtc"},
-		"ddagrab": {"rtsp", "srt", "webrtc"},
-		"gdigrab": {"rtsp", "srt", "webrtc"},
-		"portal":  {"rtsp", "srt"},
+		"x11grab": {"rtmp", "rtsp", "srt", "webrtc"},
+		"kmsgrab": {"rtmp", "rtsp", "srt", "webrtc"},
+		"ddagrab": {"rtmp", "rtsp", "srt", "webrtc"},
+		"gdigrab": {"rtmp", "rtsp", "srt", "webrtc"},
+		"portal":  {"rtsp", "srt", "webrtc"},
 	}
 	for capture, want := range cases {
 		got, err := TransportsFor(capture)

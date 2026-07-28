@@ -19,24 +19,24 @@ const (
 // mute, stats, spotlight, disconnect.
 func (t *Tile) buildControls() {
 	t.volume = widgets.NewIconToggle(t.icons,
-		widgets.Face{Icon: "volume", Color: theme.Foreground, Tooltip: "mute"},
-		widgets.Face{Icon: "volume-off", Color: theme.Foreground, Tooltip: "unmute"},
+		widgets.Face{Icon: "volume", Color: theme.Foreground, Tooltip: "Silence this tile without stopping playback. The corner chip marks it while it lasts."},
+		widgets.Face{Icon: "volume-off", Color: theme.Foreground, Tooltip: "Play this tile's audio again, at the volume the slider holds."},
 		func() { t.setMuted(!t.muted) })
 	// Hidden until the player reports audio (SetAudioAvailable).
 	t.volume.Widget().SetVisible(false)
 
 	t.statsToggle = widgets.NewIconToggle(t.icons,
-		widgets.Face{Icon: "info-circle", Color: theme.Foreground, Tooltip: "stats"},
-		widgets.Face{Icon: "info-circle", Color: theme.Primary, Tooltip: "hide stats"},
+		widgets.Face{Icon: "info-circle", Color: theme.Foreground, Tooltip: "Show the pipeline figures for this tile: what it subscribes to, the video on the wire, what the decoder makes of it, and the transport's own counters."},
+		widgets.Face{Icon: "info-circle", Color: theme.Primary, Tooltip: "Hide the figures overlay and leave the picture alone."},
 		t.toggleStats)
 
 	t.spot = widgets.NewIconToggle(t.icons,
-		widgets.Face{Icon: "maximize", Color: theme.Foreground, Tooltip: "spotlight"},
-		widgets.Face{Icon: "minimize", Color: theme.Foreground, Tooltip: "back to grid"},
+		widgets.Face{Icon: "maximize", Color: theme.Foreground, Tooltip: "Give this tile the whole grid. The other streams keep playing and return on leaving spotlight."},
+		widgets.Face{Icon: "minimize", Color: theme.Foreground, Tooltip: "Return this tile to the grid beside the other streams."},
 		t.hooks.ToggleSpot)
 
 	disconnect := widgets.IconButton(t.icons,
-		widgets.Face{Icon: "plug-connected-x", Color: theme.Destructive, Tooltip: "disconnect"},
+		widgets.Face{Icon: "plug-connected-x", Color: theme.Destructive, Tooltip: "Stop watching this stream and close its tile. The stream keeps running at the relay."},
 		t.hooks.Disconnect)
 
 	bar := gtk.NewBox(gtk.OrientationHorizontal, 2)

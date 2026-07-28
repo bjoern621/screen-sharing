@@ -24,6 +24,19 @@ func join(parts ...string) string {
 	return strings.Join(kept, separator)
 }
 
+// joinTip stacks the parts of one tooltip, separated by a blank line: a value the
+// card had to ellipsize above the explanation of the row it sits on. The settings
+// form appends its availability notes the same way.
+func joinTip(parts ...string) string {
+	kept := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			kept = append(kept, p)
+		}
+	}
+	return strings.Join(kept, "\n\n")
+}
+
 // mbps converts a byte delta over an interval into megabits per second.
 func mbps(bytes uint64, seconds float64) float64 {
 	if seconds <= 0 {
@@ -135,7 +148,9 @@ func keyframeText(s player.Stats) string {
 
 // framesText is what the sink did with the frames it was handed. The paintable's
 // own count stands in until the sink reports, since it cannot tell a dropped frame
-// from one that was never sent.
+// from one that was never sent. The drop count carries its share of the frames the
+// sink was handed, because a raw count means nothing without the run it happened
+// over: 200 drops is a stall on a short watch and a rounding error on a long one.
 func framesText(s player.Stats) string {
 	if s.Rendered == 0 && s.Dropped == 0 {
 		if s.Frames == 0 {
@@ -143,7 +158,9 @@ func framesText(s player.Stats) string {
 		}
 		return fmt.Sprintf("%d painted", s.Frames)
 	}
-	return fmt.Sprintf("%d rendered%s%d dropped", s.Rendered, separator, s.Dropped)
+	handed := s.Rendered + s.Dropped
+	share := 100 * float64(s.Dropped) / float64(handed)
+	return fmt.Sprintf("%d rendered%s%d dropped (%.1f%%)", s.Rendered, separator, s.Dropped, share)
 }
 
 // codedText counts the encoded frames the decoder was handed, which runs slightly

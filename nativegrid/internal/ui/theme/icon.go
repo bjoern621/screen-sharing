@@ -1,13 +1,15 @@
 package theme
 
 import (
+	"bytes"
 	"embed"
-	"strconv"
-	"strings"
+	"image"
 
 	"github.com/diamondburned/gotk4/pkg/gdk/v4"
 	"github.com/diamondburned/gotk4/pkg/glib/v2"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
+	"github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
@@ -19,14 +21,6 @@ import (
 //
 //go:embed icons/*.svg
 var iconFS embed.FS
-
-// The Tabler source SVGs are drawn in a 24 box and take their color from
-// currentColor, which librsvg resolves to black, so both are substituted before
-// rasterizing.
-const (
-	iconBox         = "24"
-	iconColorSource = "currentColor"
-)
 
 // icon is one themed icon: an image whose texture is re-rasterized when the theme
 // flips.
@@ -96,21 +90,45 @@ func (i *icon) apply(dark bool) {
 	i.img.SetFromPaintable(render(i.name, i.size, i.color.pick(dark)))
 }
 
-// render rasterizes a vendored Tabler SVG at one color and size. A missing icon or
-// an SVG librsvg rejects is a build-time mistake, not a runtime condition: the
-// icons ship inside the binary.
-func render(name string, size int, color string) *gdk.Texture {
+// render rasterizes a vendored Tabler SVG at one color and size, as the texture a
+// GtkImage draws.
+func render(name string, size int, color string) *gdk.MemoryTexture {
+	img := rasterize(name, size, color)
+
+	// image.RGBA is alpha-premultiplied in R, G, B, A byte order, which is the
+	// layout the format names, so the pixels go over untouched. NewBytes copies
+	// them, so the texture outlives the Go image.
+	return gdk.NewMemoryTexture(size, size, gdk.MemoryR8G8B8A8Premultiplied,
+		glib.NewBytes(img.Pix), uint(img.Stride))
+}
+
+// rasterize draws one vendored Tabler SVG into an RGBA image.
+//
+// The rasterizer is a Go one rather than GTK's: gdk-pixbuf carries no SVG loader
+// of its own and reaches librsvg through a cache named in GDK_PIXBUF_MODULE_FILE,
+// which rests the icons on a variable inherited from whatever spawns the grid and
+// on a loader Windows has no equivalent of. In-process, they are a property of
+// the binary.
+//
+// A missing or unparsable icon is a build-time mistake: the icons ship inside the
+// binary.
+func rasterize(name string, size int, color string) *image.RGBA {
 	assert.Assert(size > 0, "an icon is rasterized at a positive size", name, size)
 
 	raw, err := iconFS.ReadFile("icons/" + name + ".svg")
 	assert.IsNil(err, "vendored icon", name)
 
-	box := strconv.Itoa(size)
-	svg := strings.ReplaceAll(string(raw), iconColorSource, color)
-	svg = strings.Replace(svg, `width="`+iconBox+`"`, `width="`+box+`"`, 1)
-	svg = strings.Replace(svg, `height="`+iconBox+`"`, `height="`+box+`"`, 1)
+	// The Tabler sources take their color from currentColor, which resolves to
+	// black on its own.
+	svg, err := oksvg.ReadReplacingCurrentColor(bytes.NewReader(raw), color, oksvg.StrictErrorMode)
+	assert.IsNil(err, "parsed icon", name)
 
-	tex, err := gdk.NewTextureFromBytes(glib.NewBytes([]byte(svg)))
-	assert.IsNil(err, "rasterized icon", name)
-	return tex
+	// The sources are drawn in the 24 box their viewBox declares. Targeting the
+	// pixel size scales the geometry, stroke width included, so an icon is drawn
+	// at its size rather than scaled after the fact.
+	svg.SetTarget(0, 0, float64(size), float64(size))
+
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	svg.Draw(rasterx.NewDasher(size, size, rasterx.NewScannerGV(size, size, img, img.Bounds())), 1)
+	return img
 }

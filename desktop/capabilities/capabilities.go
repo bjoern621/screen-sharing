@@ -1,7 +1,7 @@
 // Package capabilities is the single source of truth for the fixed facts about
 // each video codec: whether it runs on NVENC, which pixel formats it may encode,
-// which transports can carry it on the publish leg, which rate-control modes its
-// encoder implements, and the scale its constant-quality knob counts on.
+// which rate-control modes its encoder implements, and the scale its
+// constant-quality knob counts on.
 //
 // The two publish engines wrap different encoder implementations, so a codec, a
 // pixel format or a rate-control mode can be one engine's and not the other's. Each
@@ -9,10 +9,9 @@
 // narrowed to what both engines do: an option one engine reaches stays offered
 // there, and the engine that lacks it says why.
 //
-// Every transport fact here is publish-side (publisher to relay). What a viewer
-// can receive the stream over is a separate question, answered by the watch-side
-// helpers in the transport package, since the relay re-serves each ingested
-// stream on all its listeners.
+// Which protocol carries a codec is not a fact about the encoder and is not
+// modeled here. A protocol carries a bitstream format, so the transport package
+// declares its own format set per leg and answers both directions from it.
 //
 // These facts are consumed on both sides of the wire. The ffmpeg argument builder
 // reads them to branch and to reject an impossible combination, and the frontend
@@ -92,10 +91,6 @@ type Codec struct {
 	// it refuses the whole encode rather than clamping. This is a ceiling on the
 	// target, not the VBR burst ceiling the user sets above it.
 	BitrateLimitM int `json:"bitrateLimitM"`
-	// Transports lists the transport registry keys that can carry this codec on
-	// the publish leg. Empty means no registered transport publishes it (e.g. AV1
-	// over MPEG-TS). It is not the list a viewer may receive over.
-	Transports []string `json:"transports"`
 	// Gaps lists what this codec cannot do, per axis and per publish engine. Empty
 	// means every chroma above and all five rate-control modes reach the encoder on
 	// both engines.
@@ -154,16 +149,19 @@ func (c Codec) EngineChromas(engine string) []string {
 	return out
 }
 
-// Validate rejects a codec/chroma/transport/mode/quantizer combination this table
-// forbids, so a settings object that no frontend normalized cannot reach an
-// encoder. transportName is the publish leg, the only one an encoder sees. engine
-// is the caller's own publish engine ("ffmpeg" or "gstreamer"), which decides which
-// codecs, pixel formats and rate-control modes are available: both engines call
-// this, so neither path can accept what the other rejects, and a capability only one
-// of them reaches is refused for the other rather than silently approximated. The
-// values are taken apart rather than passed as a settings struct to keep this
-// package free of dependencies.
-func Validate(engine, codec, chroma, transportName, mode string, cq, bitrateM int) error {
+// Validate rejects a codec/chroma/mode/quantizer combination this table forbids,
+// so a settings object that no frontend normalized cannot reach an encoder.
+// engine is the caller's own publish engine ("ffmpeg" or "gstreamer"), which
+// decides which codecs, pixel formats and rate-control modes are available: both
+// engines call this, so neither path can accept what the other rejects, and a
+// capability only one of them reaches is refused for the other rather than
+// silently approximated. The values are taken apart rather than passed as a
+// settings struct to keep this package free of dependencies.
+//
+// Whether the publish transport carries the resulting bitstream is the
+// transport package's own refusal (transport.ValidatePublish), which the same
+// callers make beside this one.
+func Validate(engine, codec, chroma, mode string, cq, bitrateM int) error {
 	c, ok := Get(codec)
 	if !ok {
 		return fmt.Errorf("unknown codec %q", codec)
@@ -179,9 +177,6 @@ func Validate(engine, codec, chroma, transportName, mode string, cq, bitrateM in
 	}
 	if gap, ok := c.ChromaGap(engine, chroma); ok {
 		return fmt.Errorf("codec %s cannot encode %s on the %s engine: %s", c.Name, chroma, engine, gap.Reason)
-	}
-	if !contains(c.Transports, transportName) {
-		return fmt.Errorf("transport %s cannot carry codec %s", transportName, c.Name)
 	}
 	if gap, ok := c.ModeGap(engine, mode); ok {
 		return fmt.Errorf("codec %s has no %s mode: %s", c.Name, mode, gap.Reason)
@@ -224,11 +219,14 @@ func IsNvenc(name string) bool {
 	return ok && c.Nvenc
 }
 
-// FamilyVaapi is the encoder family whose codecs encode from VAAPI surfaces rather
-// than from system memory, which both publish engines build differently: the ffmpeg
-// command opens a device and uploads each frame, and the GStreamer pipeline pins the
-// va plugin's own raw formats.
-const FamilyVaapi = "vaapi"
+// The two encoder families whose codecs encode from GPU surfaces rather than from
+// system memory. The ffmpeg command opens a device for either and uploads each frame
+// to it. Only VAAPI also runs on the GStreamer engine, where the pipeline pins the va
+// plugin's own raw formats instead (vulkanGaps).
+const (
+	FamilyVaapi  = "vaapi"
+	FamilyVulkan = "vulkan"
+)
 
 // IsVaapi reports whether name is a VAAPI codec. Unknown codecs are not VAAPI.
 func IsVaapi(name string) bool {
@@ -251,13 +249,23 @@ func SupportsChroma(name, engine, chroma string) bool {
 	return !gap
 }
 
-// CarriedBy reports whether transport can carry codec name on the publish leg.
-func CarriedBy(name, transport string) bool {
-	c, ok := Get(name)
-	if !ok {
-		return false
+// HasFormat reports whether an implemented codec here produces this bitstream
+// format. The transport package asks before narrowing a watch choice by format,
+// so a relay path in a format this app never encodes narrows nothing instead of
+// narrowing to nothing.
+func HasFormat(format string) bool {
+	return contains(Formats(), format)
+}
+
+// Formats lists the bitstream formats implemented codecs produce, in table order.
+func Formats() []string {
+	var out []string
+	for _, c := range Codecs {
+		if c.Implemented && !contains(out, c.Format) {
+			out = append(out, c.Format)
+		}
 	}
-	return contains(c.Transports, transport)
+	return out
 }
 
 func contains(xs []string, x string) bool {

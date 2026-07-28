@@ -19,7 +19,7 @@ import {
     AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, MODES,
     RANGES, TRANSPORT_META, bitrateTip, clampFps, codecOptions, cqTip,
     engineTip, engineValue, familyOptions, fpsDisabled, fpsOptions,
-    monitorOptions, withNote,
+    monitorOptions, withNote, cropNote,
 } from "../../util/options";
 import {
     Capability, Engine, bitrateLimit, cqMax, familyOf,
@@ -129,11 +129,15 @@ export default function StreamSettingsCard({
     );
 
     const selectedMonitor = monitors.find(m => m.index === s.monitor);
+    // The engine decides whether the VBR ceiling the estimate would quote is one
+    // the builder actually sends, so the estimate reads the same engine rules the
+    // form greys its fields from.
     const estimate = estimateBitrate(
         s,
         selectedMonitor?.width ?? 0,
         selectedMonitor?.height ?? 0,
-        caps
+        caps,
+        engine
     );
 
     // The codec picker is two dropdowns over one setting: the encoder family and
@@ -190,7 +194,9 @@ export default function StreamSettingsCard({
                      * port: a backend implementation knob is hidden while its
                      * transport is not selected (docs/field-availability.md).
                      * A viewer's port follows its own watch leg, which the relay
-                     * serves on all listeners regardless of this choice. */}
+                     * serves on all listeners regardless of this choice, so a
+                     * protocol with no publish form at all takes the watch
+                     * selection as its condition instead. */}
                     {s.transport === "srt" && (
                         <NumberField
                             label="Relay port (SRT, UDP)"
@@ -210,9 +216,25 @@ export default function StreamSettingsCard({
                     {s.transport === "webrtc" && (
                         <NumberField
                             label="Relay port (WebRTC, HTTP)"
-                            labelTip="TCP port of the relay's WebRTC/WHIP listener (default 8889)."
+                            labelTip="TCP port of the relay's WebRTC listener (default 8889), which serves both the WHIP publish endpoint and the WHEP playback one."
                             value={s.webrtcPort}
                             onChange={v => onUpdate({ webrtcPort: v })}
+                        />
+                    )}
+                    {s.transport === "rtmp" && (
+                        <NumberField
+                            label="Relay port (RTMP, TCP)"
+                            labelTip="TCP port of the relay's RTMP listener (default 1935)."
+                            value={s.rtmpPort}
+                            onChange={v => onUpdate({ rtmpPort: v })}
+                        />
+                    )}
+                    {s.watchTransport === "hls" && (
+                        <NumberField
+                            label="Relay port (HLS, HTTP)"
+                            labelTip="TCP port of the relay's HLS listener (default 8888). It follows the watch leg rather than the publish one: the relay serves HLS and ingests nothing over it, so nothing is published this way."
+                            value={s.hlsPort}
+                            onChange={v => onUpdate({ hlsPort: v })}
                         />
                     )}
                     <NumberField
@@ -254,7 +276,10 @@ export default function StreamSettingsCard({
                     )}
                     <SelectField
                         label="Monitor"
-                        labelTip="Which monitor to capture. ddagrab selects the output by index; x11grab crops the X screen to it."
+                        labelTip={withNote(
+                            "Which monitor to capture. ddagrab selects the output by index; the X backends (x11grab, ximagesrc) crop the X screen to its geometry.",
+                            cropNote(s.capture, selectedMonitor)
+                        )}
                         value={String(s.monitor)}
                         options={monitorOptions(monitors, s.monitor)}
                         disabledReason={deps.disabled.monitor}

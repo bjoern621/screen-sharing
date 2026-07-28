@@ -41,10 +41,14 @@ type Session struct {
 	entries []entry
 	// order is the display order as stream indexes, over all streams so an
 	// unwatched stream keeps its place.
-	order     []int
-	spot      int
-	factory   player.Factory
-	store     layout.Store
+	order   []int
+	spot    int
+	factory player.Factory
+	store   layout.Store
+	// send asks the app for a watch leg. It is the model's only way out of the
+	// process: what a leg means is the app's business, and the answer arrives as
+	// a roster push like any other.
+	send      roster.Send
 	dispatch  idle.Dispatch
 	observers []Observer
 	// persist coalesces the writes of a burst of changes into one.
@@ -63,9 +67,10 @@ type Session struct {
 
 // New builds the model for the streams the window opens with. The remembered
 // arrangement is read here and applied by Restore, once the views are in place.
-func New(streams []roster.Stream, factory player.Factory, store layout.Store, dispatch idle.Dispatch) *Session {
+func New(streams []roster.Stream, factory player.Factory, store layout.Store, send roster.Send, dispatch idle.Dispatch) *Session {
 	assert.IsNotNil(factory, "a session decodes through a player factory")
 	assert.IsNotNil(store, "a session remembers its arrangement in a store")
+	assert.IsNotNil(send, "a session asks the app for a watch leg")
 	assert.IsNotNil(dispatch, "a session hops player callbacks to the UI loop")
 
 	saved := store.Load()
@@ -73,6 +78,7 @@ func New(streams []roster.Stream, factory player.Factory, store layout.Store, di
 		spot:        noSpot,
 		factory:     factory,
 		store:       store,
+		send:        send,
 		dispatch:    dispatch,
 		savedOrder:  saved.Order,
 		wantWatched: make(map[string]bool, len(saved.Watched)),

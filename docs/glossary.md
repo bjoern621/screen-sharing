@@ -18,7 +18,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 
 | Term              | Means                                                                                                                                                         | Not                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Capture backend   | How frames leave the desktop: `x11grab`, `kmsgrab`, `ddagrab`, `gdigrab`, `portal`. The user's first choice, since it fixes the publish engine.               | capture API, capture path, capture method, grabber, screen source  |
+| Capture backend   | How frames leave the desktop: `x11grab`, `ximagesrc`, `kmsgrab`, `ddagrab`, `gdigrab`, `portal`. The user's first choice, since it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source  |
 | Publish engine    | The media framework that runs capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend and is never picked directly. | pipeline, publish path, portal path, media backend, capture engine |
 | ffmpeg            | The ffmpeg publish engine, and the executable.                                                                                                                | FFmpeg, FFMPEG                                                     |
 | GStreamer         | The GStreamer publish engine, driven as a `gst-launch-1.0` pipeline description.                                                                              | gstreamer (in prose), Gstreamer, gst                               |
@@ -39,7 +39,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | AVC  | Advanced Video Coding        | ITU-T H.264, the format every publish transport here can carry.                                                               |
 | HEVC | High Efficiency Video Coding | ITU-T H.265, roughly half the bitrate of AVC at equal quality.                                                                |
-| AV1  | AOMedia Video 1              | Royalty-free codec, carried over RTSP only because MPEG-TS ingest and the WHIP muxer do not take it.                          |
+| AV1  | AOMedia Video 1              | Royalty-free codec, published over RTSP and RTMP alone: neither MPEG-TS ingest nor the WHIP muxer takes it.                   |
 | VP8  | (no expansion)               | Royalty-free codec with one profile, 8-bit 4:2:0 only.                                                                        |
 | VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth, and the one 4:4:4 format the web viewer decodes. |
 | RExt | Range Extensions             | HEVC extension adding 4:2:2, 4:4:4 and bit depths above 10, the only VAAPI path to 4:4:4.                                     |
@@ -119,8 +119,10 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | TS      | Transport Stream                       | Short form of MPEG-TS, also the packet unit that `alignment=7` groups seven of per SRT datagram.           |
 | IVF     | Indeo Video Format                     | Minimal container the web viewer's ffmpeg child remuxes to, one length-and-timestamp header per frame.     |
 | WebM    | (no expansion)                         | Matroska subset restricted to royalty-free codecs, the container name browsers associate with VP8 and VP9. |
-| HLS     | HTTP Live Streaming                    | Segment-and-playlist protocol the relay also serves, letting a browser watch with no app installed.        |
-| RTMP    | Real-Time Messaging Protocol           | Legacy TCP ingest protocol the relay exposes.                                                              |
+| HLS     | HTTP Live Streaming                    | Segment-and-playlist protocol the relay serves and does not ingest, so it is a watch leg and never a publish one. |
+| RTMP    | Real-Time Messaging Protocol           | TCP protocol carrying FLV, the one broadcast tools speak.                                                  |
+| E-RTMP  | Enhanced RTMP                          | Extension adding codec tags past FLV's H.264, which is what carries H.265, AV1 and VP9 over RTMP here.     |
+| FLV     | Flash Video                            | The container RTMP carries, whose original tag set is H.264 and AAC.                                       |
 | HTTP    | Hypertext Transfer Protocol            | Carries WHIP and WHEP signaling and the relay's HLS segments.                                              |
 | WS      | WebSocket                              | Bidirectional connection the web viewer pushes decoded frame data over.                                    |
 | TCP     | Transmission Control Protocol          | Reliable ordered transport, forced for RTSP here because per-track UDP ports are dropped by NAT.           |
@@ -136,11 +138,22 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | PipeWire | (no expansion)                  | Linux media routing daemon, the transport for Wayland screen capture.                            |
 | KMS      | Kernel Mode Setting             | Linux kernel display mode control, the surface `kmsgrab` reads scanout buffers from.             |
 | DRM      | Direct Rendering Manager        | The Linux kernel graphics subsystem containing KMS.                                              |
-| X11      | X Window System version 11      | Legacy Linux display protocol, captured with `x11grab`.                                          |
+| X11      | X Window System version 11      | Legacy Linux display protocol, captured with `x11grab` on ffmpeg and `ximagesrc` on GStreamer.   |
+| SHM      | Shared Memory extension         | X11 extension both X capture backends read screen contents through without a server round trip.  |
 | XWayland | (no expansion)                  | X11 server running on a Wayland compositor, which SDL is pinned to for the ffplay viewer window. |
 | DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab`.                                |
 | DXGI     | DirectX Graphics Infrastructure | The Windows graphics layer DDA belongs to.                                                       |
 | GDI      | Graphics Device Interface       | Legacy Windows drawing and capture API, reached through `gdigrab`.                               |
+
+Two rates describe one publish, and they part company on a damage-driven backend.
+
+| Term         | Expansion       | Meaning                                                                                                                                              |
+| ------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capture rate | (no expansion)  | How often the screen produced a new picture. A static screen and a capture path too slow to keep up both show up here.                                |
+| Encoded rate | (no expansion)  | How often the encoder emitted a frame. A backend that repeats the newest frame to hold a constant rate reports its target here whatever the screen does. |
+| Damage       | (no expansion)  | A compositor's notification that a region of the screen changed, and the only thing that makes a portal capture emit a frame.                          |
+| Duplicated   | (no expansion)  | Frames the encoder repeated to hold the output rate, the count that rises when capture or encode falls behind.                                        |
+| Dropped      | (no expansion)  | Frames discarded before the encoder for arriving faster than the output rate, a different event from a duplicate.                                     |
 
 ## Playback
 

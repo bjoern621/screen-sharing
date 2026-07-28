@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -101,8 +102,8 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 // Every codec the capability table declares implemented has to be buildable on the
 // engine that will be asked for it, or the portal capture backend fails at launch on a
 // combination the UI offered. A codec the table gaps off this engine is not asked for:
-// Validate refuses it here, and the AMF rows are exactly that case, their plugin being
-// Windows-only.
+// Validate refuses it here, which is the AMF rows' case, their plugin being
+// Windows-only, and the Vulkan ones', whose encoder takes Vulkan device memory.
 func TestEveryImplementedCodecHasAGstMapping(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		_, gap := c.EngineGap(EngineGst)
@@ -144,5 +145,107 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 		if line := strings.Join(encoder, " "); !strings.Contains(line, "="+want) {
 			t.Errorf("%s crf at its maximum quantizer: %s, want a property set to %s", name, line, want)
 		}
+	}
+}
+
+// The va elements state a VBR target as a percentage of the ceiling and take 50 at the
+// lowest, so a target under half its ceiling is a pair they have no form for. Coding it
+// at the floor would run 100 Mbit/s where 20 was asked for, and the ffmpeg engine hands
+// the same settings to the same hardware as -b:v 20M -maxrate 200M.
+func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
+	s := settings.Defaults()
+	s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", "vbr"
+	s.BitrateM, s.MaxrateM = 20, 200
+	_, _, err := gstEncoder(s, 60)
+	if err == nil {
+		t.Fatalf("h264_vaapi vbr at %d/%d Mbit/s must be refused, not encoded at another rate", s.BitrateM, s.MaxrateM)
+	}
+	for _, want := range []string{"20 Mbit/s", "200 Mbit/s"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("the refusal %q names neither number, want %s in it", err, want)
+		}
+	}
+
+	// Half the ceiling is the lowest ratio the property expresses, so it builds, and
+	// what it builds targets what the settings state.
+	s.BitrateM = 100
+	encoder, _, err := gstEncoder(s, 60)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if line := strings.Join(encoder, " "); !strings.Contains(line, "target-percentage=50") {
+		t.Errorf("h264_vaapi vbr at half its ceiling: %s, want target-percentage=50", line)
+	}
+}
+
+// Every bitrate mode can drive the bitrate property past the range it accepts: cbr and
+// vbr with the figure the settings carry, abr with the ceiling it derives at twice the
+// target. Each is refused, since the alternative is a stream running at the bound
+// instead of at the rate the form shows.
+func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
+	aboveBoundM := vaMaxBitrateKbps/1000 + 1
+	for _, tc := range []struct {
+		mode               string
+		bitrateM, maxrateM int
+	}{
+		{"cbr", aboveBoundM, aboveBoundM},
+		{"vbr", aboveBoundM, aboveBoundM},
+		{"abr", aboveBoundM/vaAbrPeak + 1, 0},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			s := settings.Defaults()
+			s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", tc.mode
+			s.BitrateM, s.MaxrateM = tc.bitrateM, tc.maxrateM
+			_, _, err := gstEncoder(s, 60)
+			if err == nil {
+				t.Fatalf("h264_vaapi %s at %d Mbit/s must be refused, not clamped", tc.mode, tc.bitrateM)
+			}
+			if !strings.Contains(err.Error(), strconv.Itoa(vaMaxBitrateKbps)) {
+				t.Errorf("the refusal %q does not name the %d kbit/s limit", err, vaMaxBitrateKbps)
+			}
+		})
+	}
+
+	// The bound itself is a rate the property takes.
+	s := settings.Defaults()
+	s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", "cbr"
+	s.BitrateM = vaMaxBitrateKbps / 1000
+	if _, _, err := gstEncoder(s, 60); err != nil {
+		t.Errorf("h264_vaapi cbr at the property's highest rate: %v", err)
+	}
+}
+
+// The two engines drive one SVT-AV1 library through different bindings, so a
+// stream's look must not depend on which capture backend produced it. The preset
+// is the knob that decides that look, and each engine states it in its own file,
+// which a comment asks to keep equal and nothing enforced.
+//
+// The ffmpeg side is read out of the built command rather than from its constant,
+// since the constant is unexported to this package and what matters is the value
+// that reaches the encoder either way.
+func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
+	s := settings.Defaults()
+	s.Codec = "libsvtav1"
+	s.Chroma = "yuv420p"
+	s.Transport = "rtsp"
+	s.Mode = "crf"
+	s.Capture = "x11grab"
+
+	args, err := ffmpeg.BuildPublishArgs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ffmpegPreset := ""
+	for i, a := range args {
+		if a == "-preset" && i+1 < len(args) {
+			ffmpegPreset = args[i+1]
+		}
+	}
+	if ffmpegPreset == "" {
+		t.Fatalf("the ffmpeg libsvtav1 command carries no preset: %v", args)
+	}
+	if ffmpegPreset != svtav1Preset {
+		t.Errorf("ffmpeg encodes SVT-AV1 at preset %s, this engine at %s: one library, two looks",
+			ffmpegPreset, svtav1Preset)
 	}
 }

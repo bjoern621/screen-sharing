@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,11 +29,45 @@ type byteSample struct {
 
 // Path is one live stream as shown to the UI.
 type Path struct {
-	Name    string  `json:"name"`
-	Ready   bool    `json:"ready"`
-	Tracks  string  `json:"tracks"`
+	Name   string `json:"name"`
+	Ready  bool   `json:"ready"`
+	Tracks string `json:"tracks"`
+	// Format is the video track's bitstream format in the vocabulary the codec
+	// table keys on, empty for a path whose tracks name none. It decides which
+	// protocols can carry the stream, so both the viewer's refusal and the watch
+	// dropdown read it rather than each parsing Tracks their own way.
+	Format  string  `json:"format"`
 	Readers int     `json:"readers"`
 	InMbps  float64 `json:"inMbps"` // live ingest bitrate from byte deltas
+}
+
+// trackFormats maps the codec names a relay reports on a path to the bitstream
+// formats the codec table keys on. The relay names a track after the coding
+// format, never after the encoder that produced it, which is why one entry
+// serves every encoder of a format.
+//
+// Both spellings of the two H.26x formats appear, since a relay may report either
+// the ITU name or the MPEG one depending on how the stream was ingested.
+var trackFormats = map[string]string{
+	"H264": "h264",
+	"AVC":  "h264",
+	"H265": "hevc",
+	"HEVC": "hevc",
+	"VP8":  "vp8",
+	"VP9":  "vp9",
+	"AV1":  "av1",
+}
+
+// formatOfTracks returns the bitstream format of the video track among the ones a
+// relay path reports, and "" when none of them names a format this app knows. A
+// path carries at most one video track here, so the first match is the answer.
+func formatOfTracks(tracks []string) string {
+	for _, track := range tracks {
+		if format, ok := trackFormats[strings.ToUpper(track)]; ok {
+			return format
+		}
+	}
+	return ""
 }
 
 // Status is one full relay snapshot.
@@ -88,7 +123,12 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 	for _, item := range list.Items {
 		seen[item.Name] = true
 
-		path := Path{Name: item.Name, Ready: item.Ready, Readers: len(item.Readers)}
+		path := Path{
+			Name:    item.Name,
+			Ready:   item.Ready,
+			Readers: len(item.Readers),
+			Format:  formatOfTracks(item.Tracks),
+		}
 		for i, track := range item.Tracks {
 			if i > 0 {
 				path.Tracks += ","

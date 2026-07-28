@@ -16,53 +16,93 @@ import {
 } from "@/components/ui/table";
 import { RelayStatus } from "../../types/stream";
 import { WatchKey, watchId } from "../../hooks/useLive";
+import { RTSP_PROTOCOLS } from "../../util/options";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
 import NumberField from "../fields/NumberField";
+import SelectField from "../fields/SelectField";
 
 interface LiveNowCardProps {
     live: RelayStatus | null;
     watching: WatchKey[];
     /** Transports a stream can be received over, offered in the watch dropdown. */
     watchTransports: string[];
+    /** Which of those can carry each bitstream format, keyed by format. */
+    watchTransportsByFormat: Record<string, string[]>;
     /** Persisted transport selection for the watch dropdown. */
     watchTransport: string;
     connecting: Set<string>;
     error: string;
     logPath: string;
-    watchLatencyMs: number;
+    /** Per-transport watch-leg knobs, each shown with the transport it belongs to. */
+    srtWatchLatencyMs: number;
+    rtspWatchLatencyMs: number;
+    rtspWatchProtocol: string;
     onToggleWatch: (name: string, transport: string, isWatching: boolean) => void;
     onUpdateWatchTransport: (transport: string) => void;
-    onUpdateWatchLatency: (value: number) => void;
+    onUpdateSrtWatchLatency: (value: number) => void;
+    onUpdateRtspWatchLatency: (value: number) => void;
+    onUpdateRtspWatchProtocol: (value: string) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
 }
 
 /** Picks the initial watch transport: SRT when available, else the first
- * offered. The relay re-serves every stream on all its listeners, so any choice
- * receives any stream regardless of how it was published. */
+ * offered. Which streams that choice can then receive is a per-stream question,
+ * answered by carryReason. */
 function defaultTransport(watchTransports: string[]): string {
     if (watchTransports.includes("srt")) return "srt";
     return watchTransports[0] ?? "";
 }
 
+/** Why the selected transport cannot deliver this stream, empty when it can.
+ *
+ * The relay re-serves an ingested stream on the listeners whose protocol has a
+ * payload mapping for its bitstream, and on no others: MPEG-TS carries H.264 and
+ * H.265, so SRT cannot deliver a VP9 or AV1 stream however it was published. A
+ * viewer opened on that pair connects and receives nothing, which reads as a
+ * broken stream rather than an impossible combination.
+ *
+ * A stream whose format the snapshot does not name yet blocks nothing: the poll
+ * can be older than the stream, and refusing on absent information would hide a
+ * Watch control that would have worked. */
+function carryReason(
+    format: string,
+    transport: string,
+    byFormat: Record<string, string[]>
+): string {
+    const carried = byFormat[format];
+    if (!format || !carried || carried.includes(transport)) return "";
+    if (carried.length === 0) {
+        return `${format} has no watch transport: no listener the relay serves carries it`;
+    }
+    return `${transport} cannot carry ${format}: watch it over ${carried.join(" or ")}`;
+}
+
 /** Relay reachability, the live-stream table with a per-row Watch/Stop control,
  * and the summed download bitrate of watched streams. A single dropdown selects
- * the transport every Watch click receives over, independent of the transport a
- * stream was published on, since the relay re-serves it on all its listeners.
- * The selection lives in the persisted settings, so it survives a restart. */
+ * the watch leg for every viewer this app opens, single-stream windows and the
+ * native grid alike, independent of the transport a stream was published on,
+ * since the relay re-serves it on all its listeners. The selected transport's
+ * own knobs sit under the table; the selection and the knobs live in the
+ * persisted settings, so they survive a restart. */
 export default function LiveNowCard({
     live,
     watching,
     watchTransports,
+    watchTransportsByFormat,
     watchTransport,
     connecting,
     error,
     logPath,
-    watchLatencyMs,
+    srtWatchLatencyMs,
+    rtspWatchLatencyMs,
+    rtspWatchProtocol,
     onToggleWatch,
     onUpdateWatchTransport,
-    onUpdateWatchLatency,
+    onUpdateSrtWatchLatency,
+    onUpdateRtspWatchLatency,
+    onUpdateRtspWatchProtocol,
     onOpenLog,
     onOpenLogsFolder,
 }: LiveNowCardProps) {
@@ -110,7 +150,7 @@ export default function LiveNowCard({
             </CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2 text-sm">
-                    <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). Any choice works for any stream: the relay re-serves each stream on all its listeners, so the watch leg is independent of the publish transport in Stream settings and the two can differ.">
+                    <Tip text="Protocol a Watch click receives over, the watch leg (relay to viewer). The native grid window opens on the same choice, so one setting answers for both viewers. It is independent of the publish transport in Stream settings and the two can differ, because the relay re-serves each ingested stream on its listeners. Which streams a given choice can deliver still follows their format: MPEG-TS over SRT carries H.264 and H.265, so a VP9 or AV1 row names the transport that carries it instead of offering Watch.">
                         <span className="text-muted-foreground">watch over</span>
                     </Tip>
                     <Select
@@ -154,6 +194,11 @@ export default function LiveNowCard({
                             const isConnecting = connecting.has(
                                 watchId(p.name, transport)
                             );
+                            const blocked = carryReason(
+                                p.format,
+                                transport,
+                                watchTransportsByFormat
+                            );
                             return (
                                 <TableRow key={p.name}>
                                     <TableCell>
@@ -168,9 +213,15 @@ export default function LiveNowCard({
                                     <TableCell>
                                         <Button
                                             size="sm"
-                                            disabled={isConnecting || !transport}
+                                            disabled={
+                                                isConnecting ||
+                                                !transport ||
+                                                (!!blocked && !isWatching)
+                                            }
                                             variant={
-                                                isWatching ? "outline" : "default"
+                                                isWatching
+                                                    ? "outline"
+                                                    : "default"
                                             }
                                             onClick={() =>
                                                 onToggleWatch(
@@ -209,8 +260,26 @@ export default function LiveNowCard({
                         <NumberField
                             label="SRT watch latency (ms, watch leg)"
                             labelTip="SRT retransmit window for the watch leg (relay to viewer) - where internet loss usually lives. Applies to streams YOU watch over SRT; takes effect on the next Watch."
-                            value={watchLatencyMs}
-                            onChange={onUpdateWatchLatency}
+                            value={srtWatchLatencyMs}
+                            onChange={onUpdateSrtWatchLatency}
+                        />
+                    </div>
+                )}
+                {transport === "rtsp" && (
+                    <div className="max-w-[320px] space-y-2">
+                        <NumberField
+                            label="RTSP jitter buffer (ms, watch leg)"
+                            labelTip={"How long the native grid's receiver holds RTP packets before decoding, to reorder them and absorb network jitter. It is display delay, so keep it just above the link's jitter: 200 ms suits a LAN, a lossy remote link wants more. rtspsrc's own default is 2000 ms.\nffplay and mpv ignore it: they buffer by packet count, not by time."}
+                            value={rtspWatchLatencyMs}
+                            min={1}
+                            onChange={onUpdateRtspWatchLatency}
+                        />
+                        <SelectField
+                            label="RTSP transport (watch leg)"
+                            labelTip="How RTP reaches the viewer inside the RTSP session. Every RTSP viewer reads it, single-stream windows and native grid tiles alike, when it opens: a running viewer keeps the transport it negotiated. The publish leg is TCP-interleaved regardless."
+                            value={rtspWatchProtocol}
+                            options={RTSP_PROTOCOLS}
+                            onChange={onUpdateRtspWatchProtocol}
                         />
                     </div>
                 )}

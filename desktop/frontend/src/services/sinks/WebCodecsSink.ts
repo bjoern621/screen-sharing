@@ -1,5 +1,6 @@
 import { SinkKind, SinkStats } from "../../types/sink";
 import { bitrateMbps, ByteSample } from "../../util/bitrate";
+import { webGridCodecString } from "../../util/webgrid";
 import { BaseSink } from "./BaseSink";
 
 /**
@@ -16,18 +17,16 @@ import { BaseSink } from "./BaseSink";
 const HEADER_BYTES = 9;
 const KEYFRAME_FLAG = 0x01;
 
-/** VP9 profile 1 (4:4:4), 8-bit. Verified against VideoDecoder.isConfigSupported. */
-const VP9_CODEC = "vp09.01.10.08";
-
 /**
  * Decodes VP9 4:4:4 in the page: a WebSocket delivers encoded frames from the
  * relay (re-served by the Go viewer service), a WebCodecs VideoDecoder decodes
  * them, and each VideoFrame is drawn to a <canvas>. This carries the lossless
  * 4:4:4 modes that WHEP cannot negotiate. Video only; audio is null.
  *
- * WebCodecs and VP9 profile 1 support is not universal (notably the WebKitGTK
- * window); an unsupported config fails the sink cleanly rather than rendering
- * nothing.
+ * The codec string comes from the sink's WEB_GRID_DECODE row, so the profile the
+ * settings verdict promised is the profile the decoder is configured with. VP9
+ * profile 1 is not universal: the WebKitGTK window rejects it, and an unsupported
+ * config fails the sink with the string it refused rather than rendering nothing.
  */
 export class WebCodecsSink extends BaseSink {
     readonly kind: SinkKind = "webcodecs";
@@ -63,12 +62,15 @@ export class WebCodecsSink extends BaseSink {
             this.setState("failed", "WebCodecs is not available in this browser");
             return;
         }
+        const codec = webGridCodecString(this.kind);
+        if (!codec) {
+            this.setState("failed", "no codec string on the webcodecs decode path");
+            return;
+        }
         try {
-            const support = await VideoDecoder.isConfigSupported({
-                codec: VP9_CODEC,
-            });
+            const support = await VideoDecoder.isConfigSupported({ codec });
             if (!support.supported) {
-                this.setState("failed", `decoder rejects ${VP9_CODEC}`);
+                this.setState("failed", `decoder rejects ${codec}`);
                 return;
             }
         } catch (e) {
@@ -83,7 +85,7 @@ export class WebCodecsSink extends BaseSink {
                 if (!this.closed) this.setState("failed", e.message);
             },
         });
-        this.decoder.configure({ codec: VP9_CODEC });
+        this.decoder.configure({ codec });
 
         this.setPhase("negotiating");
         const ws = new WebSocket(this.wsUrl);
@@ -106,7 +108,18 @@ export class WebCodecsSink extends BaseSink {
 
     private onFrame(buf: ArrayBuffer): void {
         if (this.closed || !this.decoder) return;
-        if (buf.byteLength <= HEADER_BYTES) return;
+        if (buf.byteLength <= HEADER_BYTES) {
+            // The service writes a header plus a payload per message, so a
+            // shorter one means the two ends disagree about the frame contract.
+            // Skipping it would surface as a picture that stops for no stated
+            // reason, so the sink names the violation and stops reading.
+            this.setState(
+                "failed",
+                `viewer service sent ${buf.byteLength} bytes, short of the ${HEADER_BYTES}-byte frame header`
+            );
+            this.ws?.close();
+            return;
+        }
         const view = new DataView(buf);
         const keyframe = (view.getUint8(0) & KEYFRAME_FLAG) !== 0;
         const ptsUs = Number(view.getBigUint64(1));
@@ -175,7 +188,10 @@ export class WebCodecsSink extends BaseSink {
             decoder: "WebCodecs",
             fps,
             framesDecoded: this.framesDecoded,
-            framesDropped: 0,
+            // VideoDecoder exposes no dropped-frame counter, so nothing on this
+            // path measures a drop. NaN says the figure was never taken, where a
+            // zero would read as a measurement.
+            framesDropped: NaN,
             bitrateMbps: mbps,
             latencyMs: this.lastLatencyMs,
         };

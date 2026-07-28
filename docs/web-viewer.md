@@ -35,10 +35,10 @@ Why these parts:
 
 ## Work items
 
-1. `capabilities`: add a VP9 profile 1 codec row (ffmpeg `libvpx-vp9`, GStreamer `vp9enc`) with its chroma and transport facts, so engines and UI derive support from the table.
+1. `capabilities`: add a VP9 profile 1 codec row (ffmpeg `libvpx-vp9`, GStreamer `vp9enc`) with its chroma facts, so engines and UI derive support from the table.
 2. `publish`: map the row in both engines.
    Realtime settings: `deadline=realtime`, `row-mt=1`, `cpu-used` 5 to 8, `tune-content=screen`, `-pix_fmt yuv444p` or GBR caps.
-3. `transport`: constrain codec and transport pairing from the capabilities table (VP9 excludes SRT).
+3. `transport`: carry VP9 in the format sets of the protocols that map it, which excludes SRT.
 4. New viewer service in Go: subscribes to the relay over RTSP, depayloads VP9 access units, serves the viewer page and a WebSocket pushing `(frame, PTS)`.
 5. Viewer page: configure `VideoDecoder` with the `vp09.01.*` string, feed WebSocket frames, draw each `VideoFrame` to canvas.
 6. Measure end-to-end latency; target under 150 ms.

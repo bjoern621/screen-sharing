@@ -59,6 +59,11 @@ var encoderMappings = map[string]func(s settings.Stream, r rates) []string{
 	"h264_amf": amfArgs(nil, amfH264Options),
 	"hevc_amf": amfArgs(amfHevcProfiles, nil),
 	"av1_amf":  amfArgs(nil, amfNoBPictures),
+	// One Vulkan mapping serves all three codecs: the options are the encode
+	// extension's own, so the codec decides only which of them the driver honours.
+	"h264_vulkan": vulkanArgs,
+	"hevc_vulkan": vulkanArgs,
+	"av1_vulkan":  vulkanArgs,
 }
 
 // encoderArgs returns the encoder arguments for the configured codec and rate
@@ -74,9 +79,9 @@ func encoderArgs(s settings.Stream, gop int) ([]string, error) {
 	}
 	// Generic bitrate-targeted path. capabilities.Validate rejects every codec whose
 	// entry has Implemented:false, so the not-yet-wired hardware families (qsv, v4l2,
-	// rkmpp, vulkan) never reach here. When one is implemented, give it its own
-	// mapping: QSV needs its own device and load path, as VAAPI needs a device and an
-	// upload filter chain (vaapi.go), so none of them fit this bare -b:v fallback.
+	// rkmpp) never reach here. When one is implemented, give it its own mapping: QSV
+	// needs its own device and load path, as VAAPI and Vulkan need a device and an
+	// upload filter chain (hwsurface.go), so none of them fit this bare -b:v fallback.
 	return []string{"-c:v", s.Codec, "-b:v", r.bitrate}, nil
 }
 
@@ -273,6 +278,54 @@ func vaapiArgs(quantizer string) func(settings.Stream, rates) []string {
 	}
 }
 
+// vulkanAbrPeak is the factor the abr mapping places its ceiling at above the bitrate
+// target, the same derivation the VAAPI and AMF mappings use: a fixed-function encoder
+// codes against a maximum either way, so an unbounded average means the same thing on
+// all three hardware families.
+const vulkanAbrPeak = 2
+
+// The Vulkan tuning modes the rate-control modes encode under. A tuning mode is a hint
+// about what the driver should optimize for, not a coding mode, so it sets the
+// encoder's character while -rc_mode still decides the rate. cbr trades quality for the
+// encoder keeping up with a live capture, as the NVENC preset ladder does at the same
+// point. The lossless tuning mode stays out: it is a hint like the other two and
+// quantizes all the same, which capabilities.Codecs declares as a gap (vulkanGaps).
+const (
+	vulkanLiveTune    = "ll"
+	vulkanQualityTune = "hq"
+)
+
+// vulkanArgs maps the rate-control modes onto the Vulkan encoders' -rc_mode knob, the
+// cross-vendor counterpart to vaapiArgs and amfArgs. It serves every Vulkan codec, the
+// codec name itself being the only difference between them.
+//   - crf: cqp, one fixed quantizer and no rate bound.
+//   - cbr: cbr at the target, the VBV window sizing its rate buffer.
+//   - vbr: vbr targeting the bitrate and bursting to the maxrate ceiling.
+//   - abr: the same vbr with the ceiling at twice the target, since the encoders take
+//     no unbounded average.
+//
+// usage and content are the encode extension's declarations about the stream: a live
+// one whose pictures are screen content, which is what this app captures either way.
+// No preset or B-frame count, matching the other hardware families: the p1-p7 ladder is
+// NVENC's, and the settings' B-frame count is NVENC's too, so the reorder delay a live
+// screen stream cannot spend stays off.
+func vulkanArgs(s settings.Stream, r rates) []string {
+	base := []string{"-c:v", s.Codec, "-usage", "stream", "-content", "desktop"}
+	switch s.Mode {
+	case "crf":
+		return append(base, "-tune", vulkanQualityTune, "-rc_mode", "cqp", "-qp", r.cq)
+	case "abr":
+		return append(base, "-tune", vulkanQualityTune, "-rc_mode", "vbr",
+			"-b:v", r.bitrate, "-maxrate", fmt.Sprintf("%dM", s.BitrateM*vulkanAbrPeak))
+	case "vbr":
+		return append(base, "-tune", vulkanQualityTune, "-rc_mode", "vbr",
+			"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.MaxrateM, s.VbvMs))
+	default: // cbr
+		return append(base, "-tune", vulkanLiveTune, "-rc_mode", "cbr",
+			"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))
+	}
+}
+
 // amfHevcProfiles maps the configured chroma to the HEVC profile that indicates its
 // bit depth. AMF leaves the profile indication at Main whatever the input surface
 // carries, so a p010le encode comes out as a 10-bit bitstream announcing an 8-bit
@@ -422,9 +475,13 @@ func nvencArgs(s settings.Stream, r rates) []string {
 			"-bf", r.bframes,
 		}
 	default: // cbr
-		if s.EncPreset == "" {
-			preset = nvencLivePreset
-		}
+		// CBR pins the preset rather than defaulting it. The form greys the preset
+		// control in this mode and says which preset is in force, so honouring a
+		// preset the user can no longer change would make that sentence false: a
+		// settings file or a preset carrying p7 would run p7 while the form reads
+		// p5. Pinning is also what the mode is for, since a low-latency preset is
+		// what lets the encoder hold a constant rate.
+		preset = nvencLivePreset
 		args := []string{"-c:v", s.Codec, "-preset", preset, "-tune", "ll", "-rc", "cbr", "-b:v", r.bitrate, "-bf", "0"}
 		if s.VbvMs > 0 {
 			args = append(args, "-bufsize", bufsizeArg(s.BitrateM, s.VbvMs))

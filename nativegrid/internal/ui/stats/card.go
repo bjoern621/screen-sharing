@@ -51,10 +51,10 @@ func NewCard() *Card {
 	for i, b := range blocks {
 		// The first block of the card carries no rule; every later one is separated
 		// from the one above.
-		box := newBlock(rows, b.title, i > 0)
+		box := newBlock(rows, b.title, b.tip, i > 0)
 		lines := make([]*line, 0, len(b.rows))
 		for _, r := range b.rows {
-			lines = append(lines, newLine(box, r.key, r.hides))
+			lines = append(lines, newLine(box, r.key, r.tip, r.hides))
 		}
 		c.boxes = append(c.boxes, box)
 		c.lines = append(c.lines, lines)
@@ -116,10 +116,10 @@ func (c *Card) syncGroups(groups []player.StatGroup) {
 		widgets.ClearBox(c.groups)
 		c.groupLines = nil
 		for _, g := range groups {
-			box := newBlock(c.groups, g.Name, true)
+			box := newBlock(c.groups, g.Name, g.Tip, true)
 			lines := make([]*line, 0, len(g.Rows))
 			for _, r := range g.Rows {
-				lines = append(lines, newLine(box, r.Label, false))
+				lines = append(lines, newLine(box, r.Label, r.Tip, false))
 			}
 			c.groupLines = append(c.groupLines, lines)
 		}

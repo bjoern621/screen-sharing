@@ -2,7 +2,6 @@ package publish
 
 import (
 	"fmt"
-	"strconv"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -18,13 +17,16 @@ const audioRate = 48000
 // opusBitrate is the desktop track's bitrate in bits per second.
 const opusBitrate = 128000
 
-// buildPipeline assembles the gst-launch description: PipeWire source, a colour
-// convert, the encoder for the selected codec, and the transport's muxer and
-// sink. fd and node are strings so the display command can pass placeholders
-// where a run passes real values. meterFd is the descriptor the progress
-// instrumentation writes to, empty to build the pipeline without it.
-func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error) {
-	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Transport, s.Mode, s.Cq, s.BitrateM); err != nil {
+// buildPipeline assembles the gst-launch description: the capture backend's
+// source elements, the encoder for the selected codec, and the transport's muxer
+// and sink. capture is the already-built source, so a run and the displayed
+// command differ only in what the backend put in it. meterFd is the descriptor
+// the progress instrumentation writes to, empty to build the pipeline without it.
+func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]string, error) {
+	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
 		return nil, err
 	}
 
@@ -40,10 +42,6 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 	if gop <= 0 {
 		gop = s.Fps * 2
 	}
-	format, err := gstChromaFormat(s.Codec, s.Chroma)
-	if err != nil {
-		return nil, err
-	}
 	encoder, link, err := gstEncoder(s, gop)
 	if err != nil {
 		return nil, err
@@ -53,8 +51,9 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 		return nil, err
 	}
 	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Codec)
+	assert.Assert(len(capture) > 0, "a capture backend yields source elements", s.Capture)
 
-	pipeline := gstCapture(s, fd, node, format)
+	pipeline := append(append([]string{}, capture...), "!")
 	pipeline = append(pipeline, encoder...)
 	pipeline = append(pipeline, "!")
 	// Most codecs put a parser or a capsfilter between encoder and sink; a codec
@@ -80,47 +79,35 @@ func buildPipeline(s settings.Stream, fd, node, meterFd string) ([]string, error
 	return pipeline, nil
 }
 
-// gstCapture is the part of the pipeline ahead of the encoder: the portal node,
-// converted to the configured chroma and paced to the configured framerate.
+// gstInputCaps returns the capsfilter each capture backend ends in, and rejects a
+// settings combination this engine cannot encode. The engine calls it before it
+// acquires anything, so a combination the table forbids fails without opening a
+// portal session or an X display.
 //
-// Portal capture is damage-driven: the compositor sends a frame only when the
-// screen changes, and the PipeWire graph clock stops ticking while the captured
-// node idles. Feeding the encoder straight from pipewiresrc therefore fails twice.
-// On a static screen the encoder starves, so no keyframes reach the relay and
-// viewers see black. And the first frame after an idle spell is stamped far ahead
-// of the frozen clock, so a syncing sink waits on a clock that no longer advances,
-// the SRT peer times out, and the relay drops the stream while the pipeline keeps
-// running. (pipewiresrc's keepalive-time property covers only the first failure
-// and still forwards the portal's timestamps, so it dies the same way on the first
-// damage frame.)
-//
-// imagefreeze breaks both dependencies: allow-replace swaps in the newest damage
-// frame, is-live repeats it at the capsfilter framerate, and the output carries
-// imagefreeze's own monotonic timestamps, so the portal's clock domain never
-// reaches the encoder. provide-clock=false keeps the freezing PipeWire clock from
-// being elected pipeline clock; the system clock paces imagefreeze instead.
-//
-// The single-slot leaky queue keeps only the newest frame when a damage burst
-// outruns videoconvert, which sits before imagefreeze so conversion runs once per
-// damage frame, not once per output frame.
-//
-// The capsfilter after videoconvert pins the encoder input to the configured
-// chroma, the counterpart to ffmpeg's -pix_fmt. Without it the encoder picks its
-// own preferred format (x264enc lands on 4:4:4, often 10-bit), which not every
-// viewer or browser decodes. The colorimetry field pins the quantization range the
-// same way ffmpeg's -color_range does; only its range component is set, leaving
-// matrix/transfer/primaries to negotiation.
-func gstCapture(s settings.Stream, fd, node, format string) []string {
-	inCaps := "video/x-raw,format=" + format + ",colorimetry=" + gstColorRange(s) + ":0:0:0"
-	return []string{
-		"pipewiresrc", "fd=" + fd, "path=" + node, "provide-clock=false",
-		"!", "queue", "max-size-buffers=1", "leaky=downstream",
-		"!", "videoconvert",
-		"!", inCaps,
-		"!", "imagefreeze", "is-live=true", "allow-replace=true",
-		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
-		"!",
+// The capsfilter pins the encoder input to the configured chroma, the counterpart
+// to ffmpeg's -pix_fmt. Without it the encoder picks its own preferred format
+// (x264enc lands on 4:4:4, often 10-bit), which not every viewer or browser
+// decodes. The colorimetry field pins the quantization range the same way
+// ffmpeg's -color_range does, and the colour space along with it.
+func gstInputCaps(s settings.Stream) (string, error) {
+	if err := capabilities.Validate("gstreamer", s.Codec, s.Chroma, s.Mode, s.Cq, s.BitrateM); err != nil {
+		return "", err
 	}
+	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+		return "", err
+	}
+	if s.Fps <= 0 {
+		return "", fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Fps)
+	}
+	format, err := gstChromaFormat(s.Codec, s.Chroma)
+	if err != nil {
+		return "", err
+	}
+	colorimetry, err := gstColorimetry(s)
+	if err != nil {
+		return "", err
+	}
+	return "video/x-raw,format=" + format + ",colorimetry=" + colorimetry, nil
 }
 
 // gstAudioBranch returns the elements that capture desktop audio and attach it
@@ -200,13 +187,54 @@ const (
 	gstRangeLimited = "2"
 )
 
-// gstColorRange returns the range the encoder input is pinned to: s.ColorRange, where
-// pc is full and tv limited, matching the ffmpeg builder's -color_range. Every chroma
-// this engine encodes is a YUV one, so the range always applies; gbrp, the format that
-// is full range by construction, does not reach this engine (gstNoPlanarRGB).
-func gstColorRange(s settings.Stream) string {
-	if s.ColorRange == "pc" {
-		return gstRangeFull
+// gstBt709 is the matrix, transfer function and primaries the publish pipeline
+// encodes against, as the GstVideoColorMatrix, GstVideoTransferFunction and
+// GstVideoColorPrimaries enum values the colorimetry field spells after the
+// range. BT.709 is the colour space of every HD and larger picture, which is
+// every screen this app captures, and the encoders write it into the bitstream,
+// so a viewer converts back with the matrix the frames were made with instead of
+// picking one from the picture size.
+const gstBt709 = "3:5:1"
+
+// gstColorimetry returns the complete colorimetry the encoder input is pinned to,
+// and rejects a colour range this engine has no mapping for.
+//
+// All four components are named because a partial one is not partially applied.
+// Left as "<range>:0:0:0", videoconvert drops the range along with the three
+// unknown components and converts to limited range whatever the range says, so
+// the colour-range setting reaches the caps and changes nothing about the frames:
+// full-range white leaves the capture chain as Y=235 exactly like limited-range
+// white. Spelled out, the range takes effect (Y=254) and the stream signals what
+// it holds.
+func gstColorimetry(s settings.Stream) (string, error) {
+	r, err := gstColorRange(s)
+	if err != nil {
+		return "", err
 	}
-	return gstRangeLimited
+	return r + ":" + gstBt709, nil
+}
+
+// gstColorRanges maps a settings colour range to its GstVideoColorRange value.
+// Every chroma this engine encodes is a YUV one, so the range always applies;
+// gbrp, the format that is full range by construction, does not reach this engine
+// (gstNoPlanarRGB).
+var gstColorRanges = map[string]string{
+	"pc": gstRangeFull,
+	"tv": gstRangeLimited,
+}
+
+// gstColorRange returns the range the encoder input is pinned to, matching the
+// ffmpeg builder's -color_range.
+//
+// A value with no mapping is refused rather than read as limited. The range is
+// carried in the bitstream and decides how every viewer expands the picture, so
+// substituting one would change what the stream looks like without saying so, and
+// the ffmpeg engine passes the same field straight to -color_range, which fails
+// loudly on a value it does not know.
+func gstColorRange(s settings.Stream) (string, error) {
+	r, ok := gstColorRanges[s.ColorRange]
+	if !ok {
+		return "", fmt.Errorf("colour range %q has no GStreamer mapping, expected pc or tv", s.ColorRange)
+	}
+	return r, nil
 }
