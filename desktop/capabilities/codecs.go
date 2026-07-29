@@ -87,6 +87,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
+		Gaps:        []Gap{gstNoRateCeiling},
 	},
 	{
 		// Same format facts as hevc_nvenc: HEVC codes RGB through its Range
@@ -98,7 +99,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
-		Gaps:        []Gap{gstNoPlanarRGB},
+		Gaps:        []Gap{gstNoPlanarRGB, gstNoRateCeiling},
 	},
 	{
 		// libvpx VP9: the one 4:4:4 codec a browser decodes in software
@@ -116,7 +117,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(63),
-		Gaps: []Gap{gstNoPlanarRGB, {
+		Gaps: []Gap{gstNoPlanarRGB, gstNoRateCeiling, {
 			Engine: EngineGst,
 			Option: OptionMode,
 			Value:  ModeLossless,
@@ -134,7 +135,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       EveryEngine(63),
-		Gaps: []Gap{vp8NoFullRange, {
+		Gaps: []Gap{vp8NoFullRange, gstNoRateCeiling, {
 			Option: OptionMode,
 			Value:  ModeLossless,
 			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
@@ -154,7 +155,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(63),
-		Gaps: []Gap{gstNoPlanarRGB, {
+		Gaps: []Gap{gstNoPlanarRGB, gstNoRateCeiling, {
 			Engine: EngineGst,
 			Option: OptionChroma,
 			Value:  "p010le",
@@ -196,6 +197,14 @@ var Codecs = []Codec{
 				Reason: "SVT-AV1 has no lossless coding mode",
 			},
 			{
+				// Both engines, unlike the software rows around it: the refusal is the
+				// library's own rather than one wrapper's, so neither engine has a
+				// property to put the ceiling in.
+				Option: OptionMode,
+				Value:  ModeVbr,
+				Reason: "SVT-AV1 accepts a rate ceiling in constant-quality mode only and rejects a VBR encode given one, so no publish engine can constrain the burst; abr is the same encode named for what it does",
+			},
+			{
 				// SVT-AV1 takes CBR in its low-delay prediction structure only, and
 				// svtav1enc deadlocks the moment that structure is selected: it takes
 				// the frames and produces nothing, so the pipeline stalls instead of
@@ -227,6 +236,12 @@ var Codecs = []Codec{
 			Option: OptionMode,
 			Value:  ModeLossless,
 			Reason: "rav1e has no lossless coding mode",
+		}, {
+			// Both engines, as on libsvtav1: rav1e's rate control is one target and
+			// nothing above it, whichever wrapper sets it.
+			Option: OptionMode,
+			Value:  ModeVbr,
+			Reason: "rav1e's one-pass rate control takes a bitrate target and nothing above it, so no publish engine can constrain the burst; abr is the same encode named for what it does",
 		}},
 	},
 
@@ -591,6 +606,25 @@ var vp8NoFullRange = Gap{
 	Option: OptionColorRange,
 	Value:  "pc",
 	Reason: "the VP8 bitstream has no colour range field, so a full-range stream arrives at every viewer expanded as limited range; the other formats here carry the range and reach both",
+}
+
+// gstNoRateCeiling is the constrained-VBR gap every software row carries on the
+// GStreamer publish engine. None of those elements takes a ceiling above the target:
+// x264enc's pass=cbr locks the VBV maxrate to the bitrate, and x265enc, vp8enc,
+// vp9enc and av1enc expose a target and no maximum at all. What they run given a
+// ceiling is the uncapped average abr already names, so offering VBR here would put
+// two names on one encode and leave the ceiling field standing over a value nothing
+// reads.
+//
+// It is a gap on the mode rather than a note on the ceiling field because the mode
+// is what the element cannot do. A field greyed under a mode that silently becomes
+// another mode still reports the wrong rate control in the command and in every
+// verdict derived from it.
+var gstNoRateCeiling = Gap{
+	Engine: EngineGst,
+	Option: OptionMode,
+	Value:  ModeVbr,
+	Reason: "no GStreamer software encoder element takes a rate ceiling above the target, so constrained VBR is reachable on the ffmpeg publish engine only; abr is the same encode named for what it does",
 }
 
 // gstNoPlanarRGB is the planar-RGB gap every RGB-coding row carries on the GStreamer

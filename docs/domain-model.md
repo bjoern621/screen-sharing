@@ -67,6 +67,11 @@ Presentation and heuristics are UI-only and live in the frontend:
 - `frontend/src/util/domain.ts` `ENGINE_RULES`: per engine and control, where a builder departs from the mode table, either dropping a knob the mode uses or forwarding one it marks unused.
   Each rule mirrors a branch of `encoderArgs` or `gstEncoder` and carries the sentence the form shows for it.
 
+A dropped knob and a mode the encoder cannot run are two different facts, and the line between them is what the mode still is without the knob.
+A rule here withholds a knob the mode can do without: the encode is still that mode, with one field greyed.
+Where the knob is what defines the mode, withholding it leaves the other mode under the first one's name, so the capability table declares a `Gap` on the mode instead and the form offers the mode that describes the encode.
+Constrained VBR is the case: without a ceiling it is ABR, so the encoders that take no ceiling gap `vbr` rather than greying `maxrateM`.
+
 ## What derives from the tables
 
 Each consumer reads the tables instead of restating a rule:

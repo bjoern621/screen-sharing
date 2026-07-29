@@ -300,3 +300,49 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 			ffmpegPreset, svtav1Preset)
 	}
 }
+
+// The GStreamer half of TestAbrAndVbrDifferWhereBothAreAllowed. abr aims at an
+// average and vbr bounds the burst above it, so an element that takes no ceiling
+// implements one of the two, and the table declares the other as a mode gap
+// (gstNoRateCeiling).
+//
+// Every software element here was the failure this guards: x264enc, x265enc, vp8enc,
+// vp9enc and av1enc all built one command for both modes, so a VBR publish ran as an
+// uncapped average while the command and the estimate kept calling it VBR.
+func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
+	for _, c := range capabilities.Codecs {
+		if !c.Implemented {
+			continue
+		}
+		chromas := c.EngineChromas(EngineGst)
+		if len(chromas) == 0 {
+			continue
+		}
+		built := map[string]string{}
+		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
+			s := settings.Defaults()
+			s.Codec, s.Mode, s.Chroma = c.Name, mode, chromas[0]
+			// A rate every element's property takes, so what this compares is the two
+			// modes and not one codec's rate bound. The defaults sit above SVT-AV1's
+			// ceiling and above what the qsv elements accept once abr doubles it.
+			//
+			// The ceiling is deliberately not twice the target. That is the value abr
+			// derives for the families that coded against a maximum either way, so the
+			// two modes agree there for a reason, and a fixture sitting on it would
+			// report the agreement as a collapse.
+			s.BitrateM, s.MaxrateM = 10, 15
+			if capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM) != nil {
+				continue
+			}
+			enc, _, err := gstEncoder(s, 60)
+			if err != nil {
+				t.Fatalf("%s %s: %v", c.Name, mode, err)
+			}
+			built[mode] = strings.Join(enc, " ")
+		}
+		if len(built) == 2 && built[capabilities.ModeAbr] == built[capabilities.ModeVbr] {
+			t.Errorf("%s builds one element for abr and vbr (%q), so one of the two modes is a name for the other",
+				c.Name, built[capabilities.ModeAbr])
+		}
+	}
+}

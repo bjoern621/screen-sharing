@@ -256,9 +256,10 @@ const svtav1Preset = "9"
 // svtav1Args maps the rate-control modes to SVT-AV1, whose rate control does not
 // follow the aom shape:
 //   - crf targets a quality with -crf and takes no bitrate.
-//   - abr and vbr are the library's VBR mode, which -b:v alone selects. Neither
-//     takes -maxrate: SVT-AV1 accepts a rate ceiling in constant-quality mode
-//     only, and rejects the whole encode when given one in VBR.
+//   - abr is the library's VBR mode, which -b:v alone selects and which takes no
+//     -maxrate. The vbr mode has no form on either engine and is declared as a gap:
+//     SVT-AV1 accepts a rate ceiling in constant-quality mode only, and rejects the
+//     whole encode when given one in VBR.
 //   - cbr is rate-control mode 2, reachable only through -svtav1-params, and it
 //     requires the low-delay prediction structure. buf-sz sizes its rate buffer in
 //     milliseconds, which the element clamps to its own 20-10000 window.
@@ -267,7 +268,7 @@ func svtav1Args(s settings.Stream, r rates) []string {
 	switch s.Mode {
 	case "crf":
 		return append(base, "-crf", r.cq)
-	case "abr", "vbr":
+	case "abr":
 		return append(base, "-b:v", r.bitrate)
 	case "cbr":
 		params := "rc=2:pred-struct=1"
@@ -282,15 +283,16 @@ func svtav1Args(s settings.Stream, r rates) []string {
 }
 
 // rav1eArgs maps the rate-control modes to rav1e. Its rate control is one
-// bitrate target with no ceiling and no rate buffer, so cbr, vbr and abr differ
-// only in whether frame reordering is dropped for delay. speed 10 is the fastest
+// bitrate target with no ceiling and no rate buffer, so vbr is declared as a gap on
+// both engines and cbr and abr differ only in whether frame reordering is dropped
+// for delay. speed 10 is the fastest
 // of its eleven presets, and its quantizer counts to 255 rather than 63.
 func rav1eArgs(s settings.Stream, r rates) []string {
 	base := []string{"-c:v", "librav1e", "-speed", "10"}
 	switch s.Mode {
 	case "crf":
 		return append(base, "-qp", r.cq)
-	case "abr", "vbr":
+	case "abr":
 		return append(base, "-b:v", r.bitrate)
 	case "cbr":
 		return append(base, "-b:v", r.bitrate, "-rav1e-params", "low_latency=true")

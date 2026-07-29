@@ -419,7 +419,7 @@ export const MODE_META: Record<Mode, ModeMeta> = {
     vbr: {
         label: "VBR - constrained (target + ceiling)",
         link: "https://en.wikipedia.org/wiki/Variable_bitrate",
-        tip: "VBR - constrained variable bitrate: targets the bitrate but bursts up to the max-bitrate ceiling on motion, holding quality where CBR would soften.\nNeeds headroom above the average. The ceiling binds on NVENC and on the software encoders through the ffmpeg publish engine; on the GStreamer publish engine they run it as uncapped ABR.",
+        tip: "VBR - constrained variable bitrate: targets the bitrate but bursts up to the max-bitrate ceiling on motion, holding quality where CBR would soften.\nNeeds headroom above the average. The ceiling is what separates it from ABR, so an encoder with no property for one does not offer this mode: the software encoders reach it through the ffmpeg publish engine and are greyed here on the GStreamer one, and the two AV1 encoders whose libraries take no ceiling at all are greyed on both.",
         usesCq: false,
         usesBitrate: true,
         usesMaxrate: true,
@@ -508,30 +508,10 @@ const ENGINE_RULES: EngineRule[] = [
         forwards: false,
         reason: "no GStreamer encoder element exposes the p1-p7 preset ladder, so it is reachable on the ffmpeg publish engine only",
     },
-    // The two AV1 encoders whose libraries have no ceiling or rate buffer at all
-    // come first: their reason names the library, which beats the engine-wide one
-    // below it.
-    {
-        knob: "maxrateM",
-        codecs: ["libsvtav1"],
-        modes: ["vbr"],
-        forwards: false,
-        reason: "SVT-AV1 accepts a rate ceiling in constant-quality mode only and rejects the encode outright in VBR, so constrained VBR runs as uncapped ABR",
-    },
-    {
-        knob: "maxrateM",
-        codecs: ["librav1e"],
-        modes: ["vbr"],
-        forwards: false,
-        reason: "rav1e's one-pass rate control takes a bitrate target and nothing above it, so constrained VBR runs as uncapped ABR",
-    },
-    {
-        knob: "vbvMs",
-        codecs: ["libsvtav1"],
-        modes: ["vbr"],
-        forwards: false,
-        reason: "SVT-AV1 sizes a rate buffer in its CBR mode only, so a VBR encode has none to set",
-    },
+    // An encoder that cannot bound the burst at all has no VBR mode, which the
+    // capability table declares as a mode gap. No rule here withholds the ceiling
+    // field for that case: the mode carrying it is gone, so a rule would grey a
+    // field under a mode that cannot be selected.
     {
         knob: "vbvMs",
         codecs: ["librav1e"],
@@ -544,22 +524,6 @@ const ENGINE_RULES: EngineRule[] = [
         codecs: ["librav1e"],
         forwards: false,
         reason: "the rav1enc element exposes no keyframe-interval property, so the GStreamer publish engine leaves rav1e's own default standing",
-    },
-    {
-        engine: "gstreamer",
-        knob: "maxrateM",
-        families: ["software"],
-        modes: ["vbr"],
-        forwards: false,
-        reason: "the GStreamer software encoder elements take a bitrate target and no ceiling above it, so constrained VBR runs as uncapped ABR",
-    },
-    {
-        engine: "gstreamer",
-        knob: "vbvMs",
-        families: ["software"],
-        modes: ["vbr"],
-        forwards: false,
-        reason: "the GStreamer software encoder elements size their rate buffer in CBR only",
     },
     {
         engine: "gstreamer",

@@ -239,14 +239,16 @@ func TestEncoderArgs(t *testing.T) {
 		{"vp8 cbr pins the rate", "libvpx", "cbr", "-minrate", "-crf"},
 		{"aom av1 encodes realtime", "libaom-av1", "cbr", "-usage realtime", ""},
 		{"aom av1 crf is constant quality", "libaom-av1", "crf", "-crf", "-minrate"},
-		// SVT-AV1 refuses a ceiling outside constant-quality mode, so VBR carries the
-		// target alone, and CBR is a rate-control mode only its own params reach.
-		{"svt av1 vbr holds no ceiling", "libsvtav1", "vbr", "-b:v", "-maxrate"},
+		// SVT-AV1 refuses a ceiling outside constant-quality mode, which is why the
+		// table gaps vbr on both engines and abr carries the target alone. CBR is a
+		// rate-control mode only its own params reach.
+		{"svt av1 abr holds no ceiling", "libsvtav1", "abr", "-b:v", "-maxrate"},
 		{"svt av1 cbr selects rate control 2", "libsvtav1", "cbr", "rc=2:pred-struct=1", "-maxrate"},
 		{"svt av1 crf takes no bitrate", "libsvtav1", "crf", "-crf", "-b:v"},
-		// rav1e has one bitrate target, no ceiling and no rate buffer.
+		// rav1e has one bitrate target, no ceiling and no rate buffer, so vbr is
+		// gapped on both engines and abr is the bursting mode it does implement.
 		{"rav1e crf uses qp", "librav1e", "crf", "-qp", "-crf"},
-		{"rav1e vbr holds no ceiling", "librav1e", "vbr", "-b:v", "-maxrate"},
+		{"rav1e abr holds no ceiling", "librav1e", "abr", "-b:v", "-maxrate"},
 		{"rav1e cbr drops reordering", "librav1e", "cbr", "low_latency=true", "-bufsize"},
 		// The VAAPI encoders take one rc_mode per rate-control concept, and the
 		// quantizer travels in -qp on the H.26x ones and -global_quality elsewhere.
@@ -325,20 +327,21 @@ func TestEncoderArgs(t *testing.T) {
 }
 
 // The rate buffer is SVT-AV1's CBR knob alone: buf-sz rides in -svtav1-params, which
-// only that mode sends, so VBR has nothing to size and the window the settings carry
-// stops at the builder. The form greys the field there for that reason (ENGINE_RULES),
-// and a value reaching the command in VBR would make the greying a lie.
+// only that mode sends, so the bursting mode has nothing to size and the window the
+// settings carry stops at the builder. The form greys the field there for that reason
+// (ENGINE_RULES), and a value reaching the command in abr would make the greying a
+// lie.
 func TestSvtAv1SizesARateBufferInCbrOnly(t *testing.T) {
 	s := baseStream()
 	s.Codec, s.VbvMs = "libsvtav1", 500
 
-	s.Mode = "vbr"
+	s.Mode = "abr"
 	args, err := encoderArgs(s, gopFor(s))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if joined := strings.Join(args, " "); strings.Contains(joined, "buf-sz") {
-		t.Errorf("libsvtav1 vbr = %q, must carry no rate buffer", joined)
+		t.Errorf("libsvtav1 abr = %q, must carry no rate buffer", joined)
 	}
 
 	s.Mode = "cbr"
@@ -742,5 +745,45 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s.Transport = "srt"
 	if _, err := BuildPublishArgs(s); err == nil {
 		t.Fatal("expected error for libvpx-vp9 over srt")
+	}
+}
+
+// Two rate-control modes the table allows for one codec have to produce two
+// commands. abr aims at an average and vbr bounds the burst above it, so a codec
+// whose encoder cannot bound the burst implements one of the two and not both, and
+// the table says so with a mode gap.
+//
+// Building both and getting the same arguments back is the failure this guards: the
+// encode runs as whichever mode the builder collapsed onto, while the command, the
+// bitrate estimate and every verdict downstream keep naming the mode that was picked.
+// Before the gaps existed, five software codecs did exactly that on the GStreamer
+// engine and two did it on this one.
+func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
+	for _, c := range capabilities.Codecs {
+		if !c.Implemented {
+			continue
+		}
+		built := map[string]string{}
+		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
+			s := baseStream()
+			s.Codec, s.Mode, s.Chroma = c.Name, mode, c.EngineChromas(capabilities.EngineFfmpeg)[0]
+			// A rate every encoder takes, so what this compares is the two modes and
+			// not one codec's rate ceiling: the default sits above SVT-AV1's. The
+			// ceiling is not twice the target, which is the value abr derives for the
+			// families that code against a maximum either way.
+			s.BitrateM, s.MaxrateM = 10, 15
+			if capabilities.Validate(capabilities.EngineFfmpeg, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM) != nil {
+				continue
+			}
+			args, err := encoderArgs(s, gopFor(s))
+			if err != nil {
+				t.Fatalf("%s %s: %v", c.Name, mode, err)
+			}
+			built[mode] = strings.Join(args, " ")
+		}
+		if len(built) == 2 && built[capabilities.ModeAbr] == built[capabilities.ModeVbr] {
+			t.Errorf("%s builds one command for abr and vbr (%q), so one of the two modes is a name for the other",
+				c.Name, built[capabilities.ModeAbr])
+		}
 	}
 }

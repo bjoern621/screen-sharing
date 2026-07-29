@@ -1,13 +1,12 @@
 import { Stream } from "../types/stream";
 import {
-    ANCHOR_CQ_MAX, Capability, CHROMA_META, Chroma, Engine, FORMAT_META, cqMax,
-    findEngineRule, formatOf,
+    ANCHOR_CQ_MAX, Capability, CHROMA_META, Chroma, Engine, FORMAT_META, cqMax, formatOf,
 } from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
 export interface BitrateEstimate {
-    /** "fixed" = a single average target: CBR, ABR, or a VBR whose ceiling the
-     * builder drops; "range" = VBR/CRF spread; "lossless" = unbounded. */
+    /** "fixed" = a single average target: CBR or ABR; "range" = VBR/CRF spread;
+     * "lossless" = unbounded. */
     kind: "fixed" | "range" | "lossless";
     lowMbps: number;
     highMbps: number;
@@ -38,8 +37,8 @@ const LOSSLESS_HIGH = 0.55;
  * constant-quality range.
  *
  * `engine` is the publish engine of the selected capture backend, null while that
- * is unresolved. The VBR ceiling is read against it, since a builder that has no
- * property for the ceiling runs the mode as uncapped ABR.
+ * is unresolved. The constant-quality scale is read against it, since the two
+ * engines set different properties and one may count further than the other.
  */
 export function estimateBitrate(
     s: Stream,
@@ -70,18 +69,10 @@ export function estimateBitrate(
         };
     }
     if (s.mode === "vbr") {
-        // The ceiling is what separates VBR from ABR, so a builder with no
-        // property for it leaves the target alone. The rule the form greys the
-        // max-bitrate field with answers that, in place of a restated ceiling.
-        const ceiling = findEngineRule("maxrateM", engine, s.codec, "vbr", caps);
-        if (ceiling && !ceiling.forwards) {
-            return {
-                kind: "fixed",
-                lowMbps: s.bitrateM,
-                highMbps: s.bitrateM,
-                note: `VBR: ${ceiling.reason}`,
-            };
-        }
+        // The ceiling is what separates VBR from ABR, so the mode is offered only
+        // where the encoder has a property for it: an encoder that takes no ceiling
+        // carries a mode gap and cannot be in VBR here at all. That is what lets this
+        // price the burst without asking whether the ceiling survives to the command.
         const high = Math.max(s.maxrateM, s.bitrateM);
         return {
             kind: "range",

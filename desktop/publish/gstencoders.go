@@ -196,10 +196,10 @@ func gstEncoder(s settings.Stream, gop int) (encoder []string, link []string, er
 //   - cbr: pass=cbr targets the bitrate and bounds the VBV to it; low delay.
 //   - crf: pass=qual holds a constant quantizer (the s.Cq value), bitrate free.
 //   - lossless: pass=quant at quantizer 0, x264's bit-exact coding mode.
-//   - abr, vbr: pass=cbr with vbv-buf-capacity=0 disables the VBV, giving
-//     one-pass ABR toward the target. x264enc cannot raise the VBV maxrate above
-//     the bitrate (pass=cbr locks them equal), so the vbr ceiling binds only on
-//     the ffmpeg and nvenc paths; here both run as uncapped average bitrate.
+//   - abr: pass=cbr with vbv-buf-capacity=0 disables the VBV, giving one-pass ABR
+//     toward the target. vbr has no branch: x264enc cannot raise the VBV maxrate
+//     above the bitrate, pass=cbr locking the two equal, so the mode is declared
+//     as a gap on this engine (gstNoRateCeiling) rather than run as this one.
 //
 // cbr and lossless take tune=zerolatency to hold live delay; the bitrate-bursting
 // modes keep B-frames and lookahead for efficiency. The p1-p7 preset ladder is
@@ -210,7 +210,7 @@ func x264Encoder(s settings.Stream, r gstRates) []string {
 		return []string{"x264enc", "pass=qual", "quantizer=" + r.cq, "speed-preset=slow", "key-int-max=" + r.gop}
 	case "lossless":
 		return []string{"x264enc", "pass=quant", "quantizer=0", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + r.gop}
-	case "abr", "vbr":
+	case "abr":
 		return []string{"x264enc", "bitrate=" + r.kbps, "pass=cbr", "vbv-buf-capacity=0", "speed-preset=medium", "key-int-max=" + r.gop}
 	case "cbr":
 		enc := []string{"x264enc", "bitrate=" + r.kbps, "pass=cbr", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + r.gop}
@@ -231,8 +231,8 @@ func x264Encoder(s settings.Stream, r gstRates) []string {
 //     x264enc's quantizer property.
 //   - lossless: option-string lossless=1. Unlike x264, qp 0 is not bit-exact on
 //     x265, so the dedicated flag is required; zerolatency drops B-frames.
-//   - abr, vbr: bitrate alone is one-pass average bitrate. As on x264enc the vbr
-//     ceiling does not bind here, only on the ffmpeg and nvenc paths.
+//   - abr: bitrate alone is one-pass average bitrate. As on x264enc there is no vbr
+//     branch, the element taking no ceiling above the target (gstNoRateCeiling).
 //   - cbr: bitrate plus a vbv-maxrate=bitrate ceiling and a vbv-bufsize window,
 //     x265's constrained constant bitrate; zerolatency for low delay.
 func x265Encoder(s settings.Stream, r gstRates) []string {
@@ -241,7 +241,7 @@ func x265Encoder(s settings.Stream, r gstRates) []string {
 		return []string{"x265enc", "qp=" + r.cq, "speed-preset=slow", "key-int-max=" + r.gop}
 	case "lossless":
 		return []string{"x265enc", "option-string=lossless=1", "tune=zerolatency", "speed-preset=veryfast", "key-int-max=" + r.gop}
-	case "abr", "vbr":
+	case "abr":
 		return []string{"x265enc", "bitrate=" + r.kbps, "speed-preset=medium", "key-int-max=" + r.gop}
 	case "cbr":
 		// vbv-bufsize is in kbit: the bitrate held over the VBV window, one second
@@ -269,8 +269,9 @@ func x265Encoder(s settings.Stream, r gstRates) []string {
 // sharing. end-usage selects the rate-control family. Constant quality is cq at
 // cq-level, where the bitrate is a burst cap and not a target: libvpx has no
 // unbounded constant-quality mode here, unlike the -b:v 0 the ffmpeg path uses.
-// Neither element implements lossless, which capabilities.Codecs declares as a gap
-// on this engine. vpxenc counts target-bitrate in bits/sec and buffer-size in
+// end-usage=vbr is libvpx's average-bitrate family and takes no ceiling, so vbr has
+// no branch and is a gap on this engine (gstNoRateCeiling), as lossless is for want
+// of a property. vpxenc counts target-bitrate in bits/sec and buffer-size in
 // milliseconds, unlike x264enc/x265enc's kbit.
 func vpxEncoder(elem string, extra ...string) func(settings.Stream, gstRates) []string {
 	return func(s settings.Stream, r gstRates) []string {
@@ -280,7 +281,7 @@ func vpxEncoder(elem string, extra ...string) func(settings.Stream, gstRates) []
 		switch s.Mode {
 		case "crf":
 			return append(base, "end-usage=cq", "cq-level="+r.cq, "target-bitrate="+bps)
-		case "abr", "vbr":
+		case "abr":
 			return append(base, "end-usage=vbr", "target-bitrate="+bps)
 		case "cbr":
 			enc := append(base, "end-usage=cbr", "target-bitrate="+bps)
@@ -303,7 +304,8 @@ func vpxEncoder(elem string, extra ...string) func(settings.Stream, gstRates) []
 // end-usage=q is libaom's unbounded constant-quality mode, the one place this
 // element goes further than vpxenc, which has only the bitrate-capped cq. av1enc
 // exposes no cq-level, so the quantizer target is pinned by setting both quantizer
-// bounds to it. target-bitrate is in kbit/s and buf-sz in milliseconds.
+// bounds to it. Its end-usage=vbr takes no ceiling either, so vbr is a gap on this
+// engine (gstNoRateCeiling). target-bitrate is in kbit/s and buf-sz in milliseconds.
 func aomEncoder(s settings.Stream, r gstRates) []string {
 	base := []string{
 		"av1enc", "usage-profile=realtime", "cpu-used=8", "row-mt=true",
@@ -312,7 +314,7 @@ func aomEncoder(s settings.Stream, r gstRates) []string {
 	switch s.Mode {
 	case "crf":
 		return append(base, "end-usage=q", "min-quantizer="+r.cq, "max-quantizer="+r.cq)
-	case "abr", "vbr":
+	case "abr":
 		return append(base, "end-usage=vbr", "target-bitrate="+r.kbps)
 	case "cbr":
 		enc := append(base, "end-usage=cbr", "target-bitrate="+r.kbps)
@@ -333,17 +335,16 @@ const svtav1Preset = "9"
 
 // svtav1Encoder maps the rate-control mode onto svtav1enc, the counterpart to the
 // ffmpeg libsvtav1 branch. Two of the library's constraints leave it with two
-// branches where the other elements have four: target-bitrate alone selects VBR and
-// max-bitrate is refused outside constant-quality mode, so abr and vbr come out as
-// one bitrate target, and cbr has no branch at all because capabilities.Codecs
-// declares it unreachable on this engine, the prediction structure it needs stalling
-// the element.
+// branches where the other elements have four, and capabilities.Codecs declares both
+// as gaps rather than letting a mode run as another: max-bitrate is refused outside
+// constant-quality mode, so vbr has no form on either engine, and cbr's low-delay
+// prediction structure stalls this element, so it has none on this one.
 func svtav1Encoder(s settings.Stream, r gstRates) []string {
 	base := []string{"svtav1enc", "preset=" + svtav1Preset, "intra-period-length=" + r.gop}
 	switch s.Mode {
 	case "crf":
 		return append(base, "crf="+r.cq)
-	case "abr", "vbr":
+	case "abr":
 		return append(base, "target-bitrate="+r.kbps)
 	default:
 		assert.Never("unexpected rate-control mode", s.Mode)
@@ -353,8 +354,9 @@ func svtav1Encoder(s settings.Stream, r gstRates) []string {
 
 // rav1eEncoder maps the rate-control mode onto rav1enc, the counterpart to the
 // ffmpeg librav1e branch. rav1e's rate control is one bitrate target with no
-// ceiling and no rate buffer, so cbr, vbr and abr differ only in whether frame
-// reordering is dropped for delay. bitrate is in bits/sec and the quantizer counts
+// ceiling and no rate buffer, so vbr has no form on either engine and cbr and abr
+// differ only in whether frame reordering is dropped for delay. bitrate is in
+// bits/sec and the quantizer counts
 // to 255. The element exposes no keyframe interval at all, so the configured GOP
 // does not reach it and rav1e's own default stands.
 func rav1eEncoder(s settings.Stream, r gstRates) []string {
@@ -362,7 +364,7 @@ func rav1eEncoder(s settings.Stream, r gstRates) []string {
 	switch s.Mode {
 	case "crf":
 		return append(base, "quantizer="+r.cq)
-	case "abr", "vbr":
+	case "abr":
 		return append(base, "bitrate="+strconv.Itoa(s.BitrateM*1_000_000))
 	case "cbr":
 		return append(base, "bitrate="+strconv.Itoa(s.BitrateM*1_000_000), "low-latency=true")
