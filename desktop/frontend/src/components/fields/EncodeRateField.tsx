@@ -6,6 +6,7 @@ import {
     EncodeVerdict,
     formatEncodeRate,
 } from "../../util/encodecheck";
+import Tip from "../Tip/Tip";
 import FieldShell from "./FieldShell";
 
 interface EncodeRateFieldProps {
@@ -17,6 +18,10 @@ interface EncodeRateFieldProps {
     stale: boolean;
     measuring: boolean;
     error: string;
+    /** Why a measurement cannot be taken now, empty when it can. What the figure
+     * means does not change; it is the act of measuring that is blocked, so the reason
+     * sits on the button rather than on the field's label. */
+    blockedReason?: string;
     onMeasure: () => void;
 }
 
@@ -44,8 +49,30 @@ export default function EncodeRateField({
     stale,
     measuring,
     error,
+    blockedReason,
     onMeasure,
 }: EncodeRateFieldProps) {
+    const measure = (
+        <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            disabled={measuring || !!blockedReason}
+            onClick={onMeasure}
+        >
+            {measuring ? (
+                <>
+                    <IconLoader2 size={14} className="animate-spin" /> Measuring
+                </>
+            ) : (
+                <>
+                    <IconCpu size={14} /> {rate ? "Remeasure" : "Measure"}
+                </>
+            )}
+        </Button>
+    );
+
     return (
         <FieldShell
             label="Encode capacity (fps)"
@@ -55,26 +82,11 @@ export default function EncodeRateField({
                 <span className="text-sm tabular-nums">
                     {rate ? formatEncodeRate(rate) : "not measured"}
                 </span>
-                <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    disabled={measuring}
-                    onClick={onMeasure}
-                >
-                    {measuring ? (
-                        <>
-                            <IconLoader2 size={14} className="animate-spin" />{" "}
-                            Measuring
-                        </>
-                    ) : (
-                        <>
-                            <IconCpu size={14} />{" "}
-                            {rate ? "Remeasure" : "Measure"}
-                        </>
-                    )}
-                </Button>
+                {blockedReason ? (
+                    <Tip text={blockedReason}>{measure}</Tip>
+                ) : (
+                    measure
+                )}
             </div>
             {error && <span className="text-destructive text-xs">{error}</span>}
             {!error && stale && (

@@ -10,7 +10,6 @@ import (
 
 	"bjoernblessin.de/screenshare/encoders"
 	"bjoernblessin.de/screenshare/ffmpeg"
-	"bjoernblessin.de/screenshare/publish"
 	"bjoernblessin.de/screenshare/relay"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/webviewer"
@@ -22,8 +21,8 @@ import (
 // app_watch.go; this file holds the struct and process lifecycle.
 //
 // Two mutexes guard the mutable state, never held together: settingsMu guards
-// settings, procMu guards the ffmpeg children (pub and watchers). Methods that
-// need both snapshot settings under settingsMu first, release it, then take
+// settings, procMu guards the children (the publish run and the watchers). Methods
+// that need both snapshot settings under settingsMu first, release it, then take
 // procMu, so there is no lock ordering to deadlock on.
 type App struct {
 	ctx context.Context
@@ -43,8 +42,11 @@ type App struct {
 	encodersOnce sync.Once
 	encoders     encoders.Availability
 
-	procMu      sync.Mutex
-	pub         publish.Handle
+	procMu sync.Mutex
+	// run is the publish session in force, nil while nothing publishes. It carries the
+	// settings its pipeline was built from, which is what a live stream is held against
+	// when the form moves off them (app_publish.go).
+	run         *publishRun
 	watchers    map[WatchKey]*ffmpeg.Proc
 	testStreams []*ffmpeg.Proc
 	nativeGrid  *ffmpeg.Proc
@@ -95,8 +97,8 @@ func (a *App) shutdown(ctx context.Context) {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	if a.pub != nil {
-		a.pub.Stop()
+	if a.run != nil {
+		a.run.handle.Stop()
 	}
 	for _, watcher := range a.watchers {
 		watcher.Stop()

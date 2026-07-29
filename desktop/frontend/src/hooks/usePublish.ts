@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-    StartPublish, StopPublish, Publishing,
+    StartPublish, StopPublish, GetPublishState, Republish,
 } from "../../wailsjs/go/main/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { PublishExit, PublishState, Stats, Stream } from "../types/stream";
@@ -26,9 +26,16 @@ const TICK_MS = 500;
  * A null mean, peak or sample age is the absence of a measurement, matching the
  * convention the samples themselves carry. Reads the current settings so
  * toggling publish always sends the live values.
+ *
+ * `live` is the settings the running pipeline was built from and `pending` says they
+ * are no longer the ones the form holds. Both come from the backend, which compares
+ * the pipelines the two build: a running publish is a child process built from an
+ * argv, so `apply` reaches the new values by relaunching it.
  */
 export function usePublish(s: Stream | null) {
     const [publishing, setPublishing] = useState(false);
+    const [live, setLive] = useState<Stream | null>(null);
+    const [pending, setPending] = useState(false);
     const [error, setError] = useState("");
     const [logPath, setLogPath] = useState("");
     const [stats, setStats] = useState<Stats | null>(null);
@@ -66,8 +73,26 @@ export function usePublish(s: Stream | null) {
         );
     }, []);
 
+    /** Takes the publish state the backend announced. The insights describe a running
+     * pipeline, so they go with it: the figures a stopped stream reached last are not
+     * figures of anything. */
+    const take = useCallback(
+        (state: PublishState) => {
+            setPublishing(state.publishing);
+            setLive(state.settings ?? null);
+            setPending(state.pending);
+            if (!state.publishing) {
+                resetInsights();
+            }
+        },
+        [resetInsights]
+    );
+
     useEffect(() => {
-        void (async () => setPublishing(await Publishing()))();
+        // Read once at mount, then followed by event: a window that opens over a
+        // publish somebody else started shows the same state as one that watched it
+        // start.
+        void (async () => take(await GetPublishState()))();
 
         const offStats = EventsOn("publish:stats", (st: Stats) => {
             const now = Date.now();
@@ -83,16 +108,15 @@ export function usePublish(s: Stream | null) {
             setStats(st);
         });
 
-        // The publish state also moves without this window: the native grid's
-        // sidebar reaches the same publish, and the form stays locked to whatever
-        // is actually running.
-        const offState = EventsOn("publish:state", (e: PublishState) =>
-            setPublishing(e.publishing)
-        );
+        // The publish state also moves without this window: the native grid's sidebar
+        // reaches the same publish, and every settings write moves whether the running
+        // pipeline still carries what the form shows.
+        const offState = EventsOn("publish:state", take);
 
+        // The exit carries why a pipeline ended and where its log is. That it ended is
+        // the state event's to report, so a stream that was stopped on purpose does not
+        // arrive here as an event with nothing to say.
         const offExit = EventsOn("publish:exit", (e: PublishExit) => {
-            setPublishing(false);
-            resetInsights();
             setLogPath(e.logPath ?? "");
             if (e.message) {
                 setError("Publisher exited: " + e.message);
@@ -104,7 +128,7 @@ export function usePublish(s: Stream | null) {
             offState();
             offExit();
         };
-    }, [age, resetInsights]);
+    }, [age, take]);
 
     useEffect(() => {
         if (!publishing) {
@@ -114,27 +138,49 @@ export function usePublish(s: Stream | null) {
         return () => clearInterval(id);
     }, [publishing, age]);
 
+    // The state the call moves is announced by the backend, so nothing is written here
+    // on the way: one owner reports what publishing became, and a start that failed
+    // leaves the button on the state the app is actually in rather than on the one this
+    // window asked for.
     const toggle = useCallback(async () => {
         setError("");
         setLogPath("");
         try {
             if (publishing) {
                 await StopPublish();
-                setPublishing(false);
-                resetInsights();
             } else if (s) {
                 resetInsights();
                 await StartPublish(s);
-                setPublishing(true);
             }
         } catch (e) {
             setError("Publishing failed: " + e);
         }
     }, [publishing, s, resetInsights]);
 
+    // Relaunches the live pipeline on the settings the form holds. The figures belong
+    // to the pipeline they were measured on, so they start over rather than carrying a
+    // peak the new encoder never reached.
+    const apply = useCallback(async () => {
+        if (!s) {
+            return;
+        }
+        setError("");
+        setLogPath("");
+        resetInsights();
+        try {
+            // The settings travel with the call rather than being read off the backend,
+            // which holds them on a debounce: a click inside that window would restart
+            // the stream onto the edit before this one.
+            await Republish(s);
+        } catch (e) {
+            setError("Applying the settings to the live stream failed: " + e);
+        }
+    }, [s, resetInsights]);
+
     const stale = sampleAgeSec !== null && sampleAgeSec >= STALE_AFTER_SEC;
 
     return {
-        publishing, error, logPath, stats, avg5, peak, sampleAgeSec, stale, toggle,
+        publishing, live, pending, error, logPath, stats, avg5, peak, sampleAgeSec,
+        stale, toggle, apply,
     };
 }

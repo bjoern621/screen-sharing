@@ -109,6 +109,50 @@ func For(capture string) (Publisher, error) {
 	return p, nil
 }
 
+// Command renders the pipeline the settings publish through, without running it. The
+// engine that owns the selected capture backend renders it, so the result is an
+// ffmpeg command line or a gst-launch pipeline.
+//
+// Every check a publish is refused for runs here, since the command is what a run
+// executes: a caller holding settings against the engines needs no second validation
+// path, and the line the UI displays is one the publish button can start.
+func Command(s settings.Stream) (string, error) {
+	p, err := For(s.Capture)
+	if err != nil {
+		return "", err
+	}
+	return p.Command(s)
+}
+
+// SamePipeline reports whether two settings publish through the same pipeline, which
+// is what says whether moving from one to the other needs the child process relaunched.
+//
+// The rendered command is the whole of what an engine hands its child, and both
+// engines render it from the settings alone. So a field no builder reads cannot change
+// the string, and one a builder reads always does. Comparing the render is therefore
+// the question itself, where a table of which fields matter would be a second
+// statement of it, and would fall behind the builders the first time one of them reads
+// a field the table does not name.
+//
+// Settings neither engine can render carry the reason instead of an answer: they name
+// a pipeline that cannot run, so whether some other pipeline equals it is not a
+// question with one. Identical settings are answered without a render, since they
+// build one pipeline whether or not that pipeline is buildable.
+func SamePipeline(before, after settings.Stream) (bool, error) {
+	if before == after {
+		return true, nil
+	}
+	beforeCmd, err := Command(before)
+	if err != nil {
+		return false, err
+	}
+	afterCmd, err := Command(after)
+	if err != nil {
+		return false, err
+	}
+	return beforeCmd == afterCmd, nil
+}
+
 // Captures lists the capture backends the app can run, sorted for a stable
 // order across the wire.
 func Captures() []string {

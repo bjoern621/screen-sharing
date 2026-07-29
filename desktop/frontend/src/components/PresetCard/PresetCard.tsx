@@ -17,9 +17,6 @@ interface PresetCardProps {
     userPresets: Preset[];
     /** Built-in preset -> reason no configuration on this machine delivers it. */
     presetDisabled: Record<string, string>;
-    /** Applying a preset mutates the stream settings, which is unsupported
-     * mid-stream, so the selector is disabled while a stream is live. */
-    publishing: boolean;
     onApplyPreset: (name: string) => void;
     onDeletePreset: (value: string) => void;
 }
@@ -31,7 +28,6 @@ export default function PresetCard({
     preset,
     userPresets,
     presetDisabled,
-    publishing,
     onApplyPreset,
     onDeletePreset,
 }: PresetCardProps) {
@@ -54,9 +50,12 @@ export default function PresetCard({
                 <CardTitle className="text-base">Preset</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap items-center gap-3">
+                {/* Applying a preset writes the whole settings object. A live stream
+                  * keeps running the pipeline it was started on until the settings
+                  * form's own bar sends the change, so a preset is picked over a live
+                  * stream like any single setting is. */}
                 <Select
                     value={preset}
-                    disabled={publishing}
                     onValueChange={(v: string | null) => v && onApplyPreset(v)}
                 >
                     <SelectTrigger className="w-72">
@@ -109,7 +108,6 @@ export default function PresetCard({
                         variant="ghost"
                         size="icon"
                         aria-label="Delete preset"
-                        disabled={publishing}
                         onClick={() => onDeletePreset(preset)}
                     >
                         <IconTrash />

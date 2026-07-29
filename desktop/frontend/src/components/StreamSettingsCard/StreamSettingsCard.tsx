@@ -29,6 +29,7 @@ import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import { encodeCheck } from "../../util/encodecheck";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
+import PublishPending from "../PublishPending/PublishPending";
 import ReadonlyField from "../fields/ReadonlyField";
 import SelectField from "../fields/SelectField";
 import NumberField from "../fields/NumberField";
@@ -99,12 +100,17 @@ interface StreamSettingsCardProps {
     nativeGrid: ViewVerdict;
     cmd: string;
     publishing: boolean;
+    /** The live stream runs a different pipeline than these settings build, so an
+     * edit has been made that has not reached it. */
+    pending: boolean;
     pubError: string;
     pubLogPath: string;
     uplink: UplinkState;
     encodeRate: EncodeRateState;
     onUpdate: (patch: Partial<Stream>) => void;
     onTogglePublish: () => void;
+    onApplyToLive: () => void;
+    onRevertToLive: () => void;
     onSavePreset: (name: string) => void;
     onOpenLog: (path: string) => void;
     onOpenLogsFolder: () => void;
@@ -124,12 +130,15 @@ export default function StreamSettingsCard({
     nativeGrid,
     cmd,
     publishing,
+    pending,
     pubError,
     pubLogPath,
     uplink,
     encodeRate,
     onUpdate,
     onTogglePublish,
+    onApplyToLive,
+    onRevertToLive,
     onSavePreset,
     onOpenLog,
     onOpenLogsFolder,
@@ -188,17 +197,6 @@ export default function StreamSettingsCard({
                 <CardTitle className="text-base">Stream settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-                {publishing && (
-                    <p className="text-xs text-muted-foreground">
-                        Settings are locked while publishing. Stop the stream to
-                        change them.
-                    </p>
-                )}
-                {/* Changing settings mid-stream is unsupported, so the whole
-                 * form is disabled while a stream is live. A disabled fieldset
-                 * propagates the disabled state to every native input and select
-                 * trigger inside it. */}
-                <fieldset disabled={publishing} className="space-y-4">
                 <Section
                     icon={<IconPlugConnected size={16} className="text-muted-foreground" />}
                     title="Connection"
@@ -513,6 +511,11 @@ export default function StreamSettingsCard({
                         value={s.uplinkMbps}
                         measuring={uplink.measuring}
                         error={uplink.error}
+                        blockedReason={
+                            publishing
+                                ? "A stream is live. The speed test uploads at full rate over the same line the stream is leaving on, so it would both slow the stream down and measure a line the stream is already using. It runs once publishing stops."
+                                : ""
+                        }
                         onChange={v => onUpdate({ uplinkMbps: v })}
                         onRemeasure={uplink.remeasure}
                     />
@@ -522,10 +525,23 @@ export default function StreamSettingsCard({
                         stale={encodeRate.stale}
                         measuring={encodeRate.measuring}
                         error={encodeRate.error}
+                        blockedReason={
+                            publishing
+                                ? "A stream is live. The measurement runs the configured encoder on generated frames, which would compete with the encoder carrying the stream for the same silicon, so the figure would describe neither. It runs once publishing stops."
+                                : ""
+                        }
                         onMeasure={encodeRate.measure}
                     />
                 </Section>
-                </fieldset>
+
+                {/* A live stream keeps running the pipeline it was started on, so the
+                  * form stays editable and the bar is what carries an edit to it. */}
+                {pending && (
+                    <PublishPending
+                        onApply={onApplyToLive}
+                        onRevert={onRevertToLive}
+                    />
+                )}
 
                 <div className="flex flex-wrap items-center gap-3">
                     <Button

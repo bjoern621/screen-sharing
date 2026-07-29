@@ -76,6 +76,34 @@ A transport without a URL watch form (WebRTC, whose playback is the WHEP exchang
 The **capabilities** package holds the codec facts both engines and the UI share.
 Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg encoder flags, `publish/gstreamer.go` to GStreamer elements.
 
+## Changing settings on a live stream
+
+A publish engine runs a child process built from a command line, and neither `gst-launch-1.0` nor `ffmpeg` takes a value back once it is running.
+A live stream carrying other settings is therefore another pipeline, and reaching it means relaunching the child.
+`App.Republish` is that operation: it tears the running pipeline down and starts one built from the settings it is handed.
+Viewers reconnect across the gap, which is why the relaunch is asked for rather than made on every edit.
+The settings form stays editable while a stream is live, and a bar appears once what it shows is no longer what is publishing.
+
+**The rendered command decides whether a relaunch is needed.**
+`publish.SamePipeline` renders both settings objects and compares the strings.
+The command is the whole of what an engine hands its child, so a field no builder reads cannot change it, and a field a builder reads always does.
+A table of which fields matter would be a second statement of the same fact, and would fall behind the builders the first time one of them read a field the table did not name.
+It is also what leaves the watch leg, the uplink figure and the relay's API port free to move under a running stream: no pipeline is built from them.
+
+**A run is replaced whole.**
+`App.run` is the publish in force, and it carries the settings its pipeline was built from.
+Those settings are what the pending state is measured against and what the form reverts to, so the value the user is shown as live is the one the child was started on rather than a copy kept beside it.
+A relaunch kills a child whose last progress sample and whose exit arrive after the replacement is already running, so both callbacks check the run they were created for.
+The `publish:exit` event reports the run the app still holds, which is the run nobody asked to end: a stop was asked for, and a relaunch has a pipeline running in its place already.
+
+**The order is refuse, tear down, launch.**
+The new settings are rendered before anything is stopped, so a combination no engine can build refuses the relaunch and leaves the stream on what it is running.
+The outgoing child is killed and not waited for: MediaMTX closes the publisher it holds when a new one connects to the same path, so the successor does not have to arrive after the old socket is gone.
+A launch that fails after the teardown leaves nothing publishing: the pipeline that was carrying the stream is gone by then, and there is nothing to return to.
+The reason is the failed launch's own error, or the new child's exit where it started and then died.
+
+Each launch opens a portal session of its own, and the stored restore token is what keeps the compositor's picker from popping on a relaunch (see "The portal handshake").
+
 ## Frame memory
 
 A capture backend that produces GPU frames and an encoder that reads GPU surfaces can be linked directly: the conversion to the encoder's layout runs on the device and no frame crosses the bus.

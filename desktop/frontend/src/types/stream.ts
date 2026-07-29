@@ -111,11 +111,16 @@ export interface PublishExit {
     logPath: string;
 }
 
-/** Payload of the "publish:state" event: whether the app is publishing. It
- * reports every change, including the ones this window did not make. */
-export interface PublishState {
-    publishing: boolean;
-}
+/**
+ * The publish state: whether the app is publishing, the settings the running
+ * pipeline was built from, and whether the settings the app holds build a different
+ * pipeline (`pending`).
+ *
+ * It arrives as the "publish:state" event on every change, including the ones this
+ * window did not make, and as the answer to `PublishState()` for a window that has
+ * just mounted. Both are the same shape because both are the same value.
+ */
+export type PublishState = main.PublishStateEvent;
 
 /** Payload of the "watch:exit" event. name and transport together identify
  * which viewer exited, since one stream can be watched over several transports. */

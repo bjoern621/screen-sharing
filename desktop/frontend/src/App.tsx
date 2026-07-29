@@ -147,7 +147,6 @@ export default function App() {
                     preset={settings.preset}
                     userPresets={settings.userPresets}
                     presetDisabled={settings.presetDisabled}
-                    publishing={publish.publishing}
                     onApplyPreset={settings.applyPreset}
                     onDeletePreset={settings.deletePreset}
                 />
@@ -165,12 +164,21 @@ export default function App() {
                         nativeGrid={settings.nativeGrid}
                         cmd={settings.cmd}
                         publishing={publish.publishing}
+                        pending={publish.pending}
                         pubError={publish.error}
                         pubLogPath={publish.logPath}
                         uplink={uplink}
                         encodeRate={encodeRate}
                         onUpdate={settings.update}
                         onTogglePublish={publish.toggle}
+                        onApplyToLive={publish.apply}
+                        // The settings the live pipeline was built from are the
+                        // backend's answer, so reverting writes them back through the
+                        // same path any edit takes rather than restoring a copy this
+                        // window kept.
+                        onRevertToLive={() =>
+                            publish.live && settings.update(publish.live)
+                        }
                         onSavePreset={settings.saveAsPreset}
                         onOpenLog={logs.openLog}
                         onOpenLogsFolder={logs.openLogsFolder}
@@ -181,7 +189,12 @@ export default function App() {
                     stats={publish.stats}
                     avg5={publish.avg5}
                     peak={publish.peak}
-                    targetFps={settings.s.fps}
+                    // The encoded rate is judged against the running pipeline's own
+                    // target, not the form's: an fps edit that has not been applied
+                    // describes a stream that is not running. The uplink is the form's,
+                    // because no pipeline carries it - it states what the line does, so
+                    // a corrected figure applies to the stream at once.
+                    targetFps={publish.live?.fps ?? settings.s.fps}
                     uplinkMbps={settings.s.uplinkMbps}
                     publishing={publish.publishing}
                     sampleAgeSec={publish.sampleAgeSec}

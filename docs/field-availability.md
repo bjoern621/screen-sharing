@@ -71,6 +71,12 @@ The test: would the tooltip teach a user on a different backend something worth 
 Yes means disable-with-reason.
 No means hide.
 
+## A live stream blocks no field
+
+Every field stays editable while a stream is publishing, and what reaches the stream is asked for separately (`capture-architecture.md`, "Changing settings on a live stream").
+The two controls a live stream does block are measurements rather than settings: the uplink speed test and the encode-capacity probe both run the real thing, so one would compete with the stream for the line and the other with the encoder for the silicon.
+Neither is a value the user chose, which is why the reason sits on the button that takes the measurement instead of greying the figure beside it.
+
 ## Why the split exists
 
 The settings form is pedagogical: dense tooltips explain the encoding model as the user configures it.

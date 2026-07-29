@@ -1,5 +1,7 @@
 package main
 
+import "bjoernblessin.de/screenshare/settings"
+
 // exitEvent is the payload of the "publish:exit", "teststream:exit" and
 // "nativegrid:exit" events: the (possibly empty) error message and the path of
 // the full run log.
@@ -8,11 +10,22 @@ type exitEvent struct {
 	LogPath string `json:"logPath"`
 }
 
-// publishStateEvent is the payload of the "publish:state" event: whether the app
-// is publishing now. It goes out on every change, whoever made it, which is what
-// keeps a window that did not ask for one from missing it.
-type publishStateEvent struct {
+// PublishStateEvent is the payload of the "publish:state" event and the answer
+// App.PublishState returns. It goes out on every change, whoever made it, which is
+// what keeps a window that did not ask for one from missing it, and a window that has
+// just mounted reads the same shape rather than a second one built for the query.
+//
+// It is exported because it crosses the binding boundary as a return value, unlike the
+// events beside it, which cross it as payloads alone.
+type PublishStateEvent struct {
 	Publishing bool `json:"publishing"`
+	// Settings are what the running pipeline was built from, null while nothing
+	// publishes. The form reverts to them, so what they describe is the stream the
+	// viewers are watching rather than what the form currently shows.
+	Settings *settings.Stream `json:"settings"`
+	// Pending reports that the settings the app holds build a different pipeline than
+	// the running one, so the stream is carrying values the form no longer shows.
+	Pending bool `json:"pending"`
 }
 
 // watchExitEvent is the payload of the "watch:exit" event. Name and Transport

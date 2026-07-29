@@ -372,7 +372,7 @@ The backend announces the write with a `settings:changed` event, because the set
 The second is a command (`watch.GridCommand`), which acts on the app instead of on a stream: the sidebar's foot raises the app window on the settings form, and starts or stops the publish of this machine's own capture on the settings the app holds.
 It is answered like a request, with the push that states what happened, so the publish button draws the app's state and keeps none of its own.
 The two publish commands name the state they want rather than toggling, since a button drawn from a push the app has since left would otherwise flip the state the other way, and a command the app refused comes back with its reason for the bar to show.
-Because a publish can also start from the app's own form, the state travels both to the window (in every push) and to the frontend (the `publish:state` event), which is what keeps the settings form locked over a publish the grid started.
+Because a publish can also start from the app's own form, the state travels both to the window (in every push) and to the frontend (the `publish:state` event), so a publish the grid started is one the form reports and can apply settings to (`capture-architecture.md`, "Changing settings on a live stream").
 
 The third is the watch set (`watch.GridStatus`): the streams with a tile open, reported whenever that set changes and exposed by the app as `NativeGridWatching`.
 It travels one way.

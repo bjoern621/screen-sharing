@@ -17,11 +17,19 @@ func (a *App) GetSettings() settings.Stream {
 	return a.settings
 }
 
+// SaveSettings takes the settings the form holds and persists them.
+//
+// A stream that is already publishing keeps running the pipeline it was started on,
+// since both engines build a child process from an argv and neither takes a value back
+// afterwards. So the publish state is announced from here too: what the form shows and
+// what the viewers are watching have just moved apart, and App.Republish is what closes
+// the gap.
 func (a *App) SaveSettings(s settings.Stream) error {
 	a.settingsMu.Lock()
 	a.settings = s
 	a.settingsMu.Unlock()
 
+	a.emitPublishState()
 	return settings.Save(s)
 }
 
