@@ -11,9 +11,11 @@ import (
 	"bjoernblessin.de/screenshare/transport"
 )
 
-// gstExe is the GStreamer pipeline launcher. It is supervised as a child process
-// exactly like ffmpeg, so it reuses the same lifecycle above the seam.
-const gstExe = "gst-launch-1.0"
+// GstExe is the GStreamer pipeline launcher. It is supervised as a child process
+// exactly like ffmpeg, so it reuses the same lifecycle above the seam. The encode
+// probe runs its pipelines through the same launcher, which is why the name is
+// exported rather than spelled a second time there.
+const GstExe = "gst-launch-1.0"
 
 // gstEngine runs one GStreamer capture backend: the backend produces raw frames,
 // this graph encodes and ships them, all in one process, so this engine owns the
@@ -39,7 +41,7 @@ func (g gstEngine) Command(s settings.Stream) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return gstExe + " " + strings.Join(pipeline, " "), nil
+	return GstExe + " " + strings.Join(pipeline, " "), nil
 }
 
 // captureOptions builds the source chain's run-independent parts and holds them
@@ -119,7 +121,7 @@ func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, e
 	}
 
 	handle, err := supervise(superviseConfig{
-		exe:         gstExe,
+		exe:         GstExe,
 		args:        pipeline,
 		tag:         tag,
 		extraFiles:  files,

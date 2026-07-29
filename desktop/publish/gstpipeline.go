@@ -41,11 +41,7 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 	if s.Fps <= 0 {
 		return nil, fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Fps)
 	}
-	gop := s.Gop
-	if gop <= 0 {
-		gop = s.Fps * 2
-	}
-	encoder, link, err := gstEncoder(s, gop)
+	encoder, link, err := gstEncoder(s, gstGop(s))
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +76,17 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 	pipeline = append(pipeline, sink...)
 	pipeline = append(pipeline, audio...)
 	return pipeline, nil
+}
+
+// gstGop returns the keyframe interval in frames. A settings value of zero is the
+// form's automatic setting, a keyframe every two seconds. It is the counterpart of
+// the ffmpeg builder's gopFor, and the encoder probe reads it as well, so a probe
+// and the run it predicts code at the same interval.
+func gstGop(s settings.Stream) int {
+	if s.Gop > 0 {
+		return s.Gop
+	}
+	return s.Fps * 2
 }
 
 // gstSystemConvert is the element that converts captured frames on the CPU. It is
@@ -201,6 +208,17 @@ func gstInputCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 	if s.Fps <= 0 {
 		return "", fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Fps)
 	}
+	return gstEncoderCaps(s, mem)
+}
+
+// gstEncoderCaps renders the capsfilter itself, without the checks gstInputCaps
+// runs ahead of it.
+//
+// The split is the encoder probe's: it pins the same encoder input to time the
+// encoder, and the transport checks would refuse the measurement over a leg that
+// is no part of what it measures. What the caps depend on is checked here all the
+// same, since both halves come from a table that can be missing the row.
+func gstEncoderCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 	format, err := gstChromaFormat(s.Codec, s.Chroma)
 	if err != nil {
 		return "", err

@@ -30,8 +30,8 @@ const encodeTimeout = 20 * time.Second
 // added there without a mapping, or a mode declared reachable that the element has no
 // property for.
 func TestGstEncodersAgainstGstLaunch(t *testing.T) {
-	if _, err := exec.LookPath(gstExe); err != nil {
-		t.Skipf("%s not installed", gstExe)
+	if _, err := exec.LookPath(GstExe); err != nil {
+		t.Skipf("%s not installed", GstExe)
 	}
 
 	for name := range gstCodecs {
@@ -85,7 +85,7 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 
 				ctx, cancel := context.WithTimeout(context.Background(), encodeTimeout)
 				defer cancel()
-				out, err := exec.CommandContext(ctx, gstExe, args...).CombinedOutput()
+				out, err := exec.CommandContext(ctx, GstExe, args...).CombinedOutput()
 				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 					err = errors.New("the pipeline stalled: two frames in, nothing out")
 				}

@@ -26,6 +26,11 @@ interface PublishInsightsCardProps {
 /** Placeholder for a figure the publish engine reported no measurement for. */
 const UNMEASURED = "–";
 
+/** How far under the target the encoder may run before the rate is called behind.
+ * A sample lands a frame either side of the target on a healthy stream, since the
+ * interval it is measured over does not line up with whole frames. */
+const FPS_TOLERANCE = 1.5;
+
 /** Header cell with an explanatory tooltip. */
 function HeadTip({ text, children }: { text: string; children: ReactNode }) {
     return (
@@ -105,6 +110,9 @@ export default function PublishInsightsCard({
                             <HeadTip text="Encoding speed relative to realtime, over the run. Below 1.00× the encoder falls behind.">
                                 speed
                             </HeadTip>
+                            <HeadTip text="Encoded rate vs the configured target. BEHIND means the encoder is not keeping up: it does not slow the stream down, it discards the frames it cannot take, so the difference is capture that never leaves the machine. Encode capacity in the settings form measures what these settings can reach before publishing.">
+                                encoder
+                            </HeadTip>
                             <HeadTip text="5 s mean vs the configured uplink capacity.">
                                 uplink
                             </HeadTip>
@@ -137,6 +145,23 @@ export default function PublishInsightsCard({
                                 {stats
                                     ? figure(stats.speed, v => `${v.toFixed(2)}×`)
                                     : dash}
+                            </TableCell>
+                            <TableCell>
+                                {stats && stats.fps !== null ? (
+                                    stats.fps < targetFps - FPS_TOLERANCE ? (
+                                        <Badge variant="destructive">
+                                            BEHIND: {stats.fps.toFixed(0)} /{" "}
+                                            {targetFps} fps
+                                        </Badge>
+                                    ) : (
+                                        <Badge variant="secondary">
+                                            ok ({stats.fps.toFixed(0)} / {targetFps}{" "}
+                                            fps)
+                                        </Badge>
+                                    )
+                                ) : (
+                                    dash
+                                )}
                             </TableCell>
                             <TableCell>
                                 {stats && avg5 !== null ? (

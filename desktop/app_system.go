@@ -9,16 +9,37 @@ import (
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/display"
+	"bjoernblessin.de/screenshare/encoderate"
 	"bjoernblessin.de/screenshare/encoders"
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/netspeed"
 	"bjoernblessin.de/screenshare/platform"
+	"bjoernblessin.de/screenshare/settings"
 )
 
 // MeasureUplink probes the machine's real upload throughput (Mbit/s) so the UI
 // can replace the guessed uplink figure with a measured one.
 func (a *App) MeasureUplink() (float64, error) {
 	return netspeed.MeasureUplink(a.ctx)
+}
+
+// MeasureEncodeRate times the configured encoder on generated frames of the
+// captured monitor's size, so the UI can warn when the target frame rate is above
+// what this machine encodes at these settings. The uplink probe's counterpart: one
+// bounds what the line carries away, this one what the encoder produces.
+//
+// The picture size comes from the selected monitor rather than from the caller,
+// since it is the same enumeration the capture backend crops to and the bitrate
+// estimate is priced from.
+func (a *App) MeasureEncodeRate(s settings.Stream) (encoderate.Rate, error) {
+	width, height := 0, 0
+	for _, m := range display.List() {
+		if m.Index == s.Monitor {
+			width, height = m.Width, m.Height
+			break
+		}
+	}
+	return encoderate.Measure(a.ctx, s, width, height)
 }
 
 // Monitors lists the display monitors (index, resolution, primary flag) so the

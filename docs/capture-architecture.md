@@ -178,6 +178,24 @@ It is a run's instrumentation like the rest, so a pipeline built without progres
 The two engines' figures are not exactly comparable.
 The GStreamer bytes are the video elementary stream, so its bitrate reads below the ffmpeg figure, which counts the muxed stream with its audio track and container overhead.
 
+### Encode capacity
+
+The counters above report a target the encoder could not reach only once the frames are already being discarded.
+`encoderate` measures the same limit before a publish: it runs the configured encoder on generated frames of the captured monitor's size and times them, so the settings form can hold the target rate against what the machine does with it.
+Nothing derives that figure, because it is the product of the CPU or fixed-function block, the picture size, the chroma and the rate-control mode together, and no table holds it.
+
+The answer is a range, for the reason the bitrate estimate is one: encode cost depends on content.
+The two ends are measured on the extremes an encoder can be handed, uncorrelated noise and a moving object over a flat field, and a screen sits between them.
+A target under the low end is one no content can push the encoder off, and a target over the high end is one none can reach.
+
+Each engine builds the probe out of what it would publish with, so the encoder, its rate-control properties and the conversion into its input are the run's own, and only frame acquisition and frame delivery are replaced.
+The generator runs on a thread of its own, since a probe that serialises it prices the instrument into the figure.
+A second run generates the same frames and encodes none, which bounds what the first could have measured: an encoder faster than the frames reaching it is timed against the generator, and the two readings together are what says so.
+Each end carries that flag separately, because a floor at the high end is what a target above the range would otherwise be refused on, and refusing a rate the probe never reached is the one verdict the measurement cannot support.
+
+The figure is not persisted, unlike the uplink one beside it in the form.
+A line's capacity is a property of the line and survives a restart; an encode rate is a property of one settings combination on one machine, so it lives for as long as the settings it was taken under and is marked stale the moment they move.
+
 ## Interfaces
 
 - `publish.Publisher`: `Command(s)` renders the pipeline for display; `Start(s, tag, Callbacks)` launches and supervises it.

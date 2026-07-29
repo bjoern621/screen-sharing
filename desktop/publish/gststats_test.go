@@ -128,8 +128,8 @@ func TestGstMeterSpeedBelowRealtime(t *testing.T) {
 // matches, and the fdsink has to reach the inherited descriptor. Both hold only
 // against a real gst-launch, so this runs one.
 func TestGstMeterAgainstGstLaunch(t *testing.T) {
-	if _, err := exec.LookPath(gstExe); err != nil {
-		t.Skipf("%s not installed", gstExe)
+	if _, err := exec.LookPath(GstExe); err != nil {
+		t.Skipf("%s not installed", GstExe)
 	}
 	if err := exec.Command("gst-inspect-1.0", "--exists", "x264enc").Run(); err != nil {
 		t.Skip("x264enc plugin not installed")
@@ -160,7 +160,7 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{
-		exe:         gstExe,
+		exe:         GstExe,
 		args:        args,
 		tag:         "gstmeter-test",
 		extraFiles:  []*os.File{meter.w},
@@ -252,8 +252,8 @@ func TestGstMeterCaptureRateIsZeroWithoutTheProbe(t *testing.T) {
 // is the portal path's shape: the encoder emits thirty, the screen produced five,
 // and only the probe ahead of the pacer can tell the two apart.
 func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
-	if _, err := exec.LookPath(gstExe); err != nil {
-		t.Skipf("%s not installed", gstExe)
+	if _, err := exec.LookPath(GstExe); err != nil {
+		t.Skipf("%s not installed", GstExe)
 	}
 	if err := exec.Command("gst-inspect-1.0", "--exists", "x264enc").Run(); err != nil {
 		t.Skip("x264enc plugin not installed")
@@ -289,7 +289,7 @@ func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{
-		exe:         gstExe,
+		exe:         GstExe,
 		args:        args,
 		tag:         "gstcapturerate-test",
 		extraFiles:  []*os.File{meter.w},

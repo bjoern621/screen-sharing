@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
 import {
     Deps,
+    EncodeRate,
     Monitor,
     Option,
     Stream,
@@ -25,6 +26,7 @@ import {
     AudioCodec, Capability, Engine, bitrateLimit, cqMax, familyOf,
 } from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
+import { encodeCheck } from "../../util/encodecheck";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
 import ReadonlyField from "../fields/ReadonlyField";
@@ -33,6 +35,7 @@ import NumberField from "../fields/NumberField";
 import NumberSelectField from "../fields/NumberSelectField";
 import TextField from "../fields/TextField";
 import UplinkField from "../fields/UplinkField";
+import EncodeRateField from "../fields/EncodeRateField";
 
 /** Auto-fitting field grid shared by every settings section. */
 const GRID =
@@ -70,6 +73,17 @@ interface UplinkState {
     remeasure: () => void;
 }
 
+/** The measured encode rate and the request that produces it. `rate` is null until
+ * one has been taken, and `stale` marks one taken at settings the form has since
+ * moved off. */
+interface EncodeRateState {
+    rate: EncodeRate | null;
+    stale: boolean;
+    measuring: boolean;
+    error: string;
+    measure: () => void;
+}
+
 interface StreamSettingsCardProps {
     s: Stream;
     deps: Deps;
@@ -88,6 +102,7 @@ interface StreamSettingsCardProps {
     pubError: string;
     pubLogPath: string;
     uplink: UplinkState;
+    encodeRate: EncodeRateState;
     onUpdate: (patch: Partial<Stream>) => void;
     onTogglePublish: () => void;
     onSavePreset: (name: string) => void;
@@ -112,6 +127,7 @@ export default function StreamSettingsCard({
     pubError,
     pubLogPath,
     uplink,
+    encodeRate,
     onUpdate,
     onTogglePublish,
     onSavePreset,
@@ -144,6 +160,10 @@ export default function StreamSettingsCard({
         caps,
         engine
     );
+    // A measurement the settings have moved off describes another encoder, so it
+    // yields no verdict rather than one about the wrong figure.
+    const encodeVerdict =
+        encodeRate.rate && !encodeRate.stale ? encodeCheck(s, encodeRate.rate) : null;
 
     // The codec picker is two dropdowns over one setting: the encoder family and
     // the video format within it. Picking a family jumps to that family's first
@@ -495,6 +515,14 @@ export default function StreamSettingsCard({
                         error={uplink.error}
                         onChange={v => onUpdate({ uplinkMbps: v })}
                         onRemeasure={uplink.remeasure}
+                    />
+                    <EncodeRateField
+                        rate={encodeRate.rate}
+                        verdict={encodeVerdict}
+                        stale={encodeRate.stale}
+                        measuring={encodeRate.measuring}
+                        error={encodeRate.error}
+                        onMeasure={encodeRate.measure}
                     />
                 </Section>
                 </fieldset>

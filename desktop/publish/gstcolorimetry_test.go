@@ -83,8 +83,8 @@ var (
 // off the decoded caps: the same pad the grid's stats card reads its colorimetry from,
 // since its render chain measures what decodebin produced.
 func TestPublishedColorimetryReachesTheDecoder(t *testing.T) {
-	if _, err := exec.LookPath(gstExe); err != nil {
-		t.Skipf("%s not installed", gstExe)
+	if _, err := exec.LookPath(GstExe); err != nil {
+		t.Skipf("%s not installed", GstExe)
 	}
 
 	for codec := range gstCodecs {
@@ -243,7 +243,7 @@ func runGst(t *testing.T, args []string) (string, error) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), encodeTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, gstExe, args...).CombinedOutput()
+	out, err := exec.CommandContext(ctx, GstExe, args...).CombinedOutput()
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return string(out), errors.New("the pipeline stalled: no end of stream")
 	}

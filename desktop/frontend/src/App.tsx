@@ -13,6 +13,7 @@ import { useLive } from "./hooks/useLive";
 import { useTestPublishers } from "./hooks/useTestPublishers";
 import { useNativeGrid } from "./hooks/useNativeGrid";
 import { useUplinkMeasure } from "./hooks/useUplinkMeasure";
+import { useEncodeRate } from "./hooks/useEncodeRate";
 import { useMonitors } from "./hooks/useMonitors";
 import { useLogs } from "./hooks/useLogs";
 import LoadingScreen from "./components/LoadingScreen/LoadingScreen";
@@ -41,6 +42,7 @@ export default function App() {
     const testPub = useTestPublishers();
     const nativeGrid = useNativeGrid();
     const uplink = useUplinkMeasure(settings.update);
+    const encodeRate = useEncodeRate(settings.s);
     const monitors = useMonitors();
     const logs = useLogs();
     const [webGridOpen, setWebGridOpen] = useState(false);
@@ -166,6 +168,7 @@ export default function App() {
                         pubError={publish.error}
                         pubLogPath={publish.logPath}
                         uplink={uplink}
+                        encodeRate={encodeRate}
                         onUpdate={settings.update}
                         onTogglePublish={publish.toggle}
                         onSavePreset={settings.saveAsPreset}

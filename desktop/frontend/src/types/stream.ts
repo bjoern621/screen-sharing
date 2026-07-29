@@ -1,4 +1,6 @@
-import { settings, relay, display, platform, encoders, gpupath, main } from "../../wailsjs/go/models";
+import {
+    settings, relay, display, platform, encoderate, encoders, gpupath, main,
+} from "../../wailsjs/go/models";
 
 /** Wire-format stream settings, shared verbatim with the Go backend. */
 export type Stream = settings.Stream;
@@ -61,6 +63,17 @@ export interface Stats {
     instMbps: number | null;
     avgMbps: number | null;
 }
+
+/**
+ * Frames per second this machine encodes the configured stream at, measured.
+ *
+ * The two ends bracket content, not measurement error: `lowFps` is what the hardest
+ * content codes at and `highFps` the easiest, so a target below `lowFps` is one no
+ * content can push the encoder off and a target above `highFps` is one none can
+ * reach. `bounded` marks a measurement the frame generator paced rather than the
+ * encoder, which makes that end a floor.
+ */
+export type EncodeRate = encoderate.Rate;
 
 /** A selectable option with an optional explanatory tooltip and reference link. */
 export interface Option {
