@@ -30,6 +30,7 @@ import { encodeCheck } from "../../util/encodecheck";
 import Tip from "../Tip/Tip";
 import ErrorLog from "../ErrorLog/ErrorLog";
 import PublishPending from "../PublishPending/PublishPending";
+import PublishRetrying from "../PublishRetrying/PublishRetrying";
 import ReadonlyField from "../fields/ReadonlyField";
 import SelectField from "../fields/SelectField";
 import NumberField from "../fields/NumberField";
@@ -103,6 +104,9 @@ interface StreamSettingsCardProps {
     /** The live stream runs a different pipeline than these settings build, so an
      * edit has been made that has not reached it. */
     pending: boolean;
+    /** The pipeline died on its own and the app is waiting to start it again, with
+     * the attempt this will be and how many it will spend. Null while nothing waits. */
+    retry: { attempt: number; budget: number } | null;
     pubError: string;
     pubLogPath: string;
     uplink: UplinkState;
@@ -131,6 +135,7 @@ export default function StreamSettingsCard({
     cmd,
     publishing,
     pending,
+    retry,
     pubError,
     pubLogPath,
     uplink,
@@ -540,6 +545,16 @@ export default function StreamSettingsCard({
                     <PublishPending
                         onApply={onApplyToLive}
                         onRevert={onRevertToLive}
+                    />
+                )}
+
+                {/* The publish is still in force while it waits, so the button keeps
+                  * offering the stop. The bar is what says the stream is not carrying
+                  * frames right now and what the app is doing about it. */}
+                {retry && (
+                    <PublishRetrying
+                        attempt={retry.attempt}
+                        budget={retry.budget}
                     />
                 )}
 

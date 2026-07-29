@@ -79,6 +79,11 @@ It states internal contracts, which are bugs in this code ("Entwicklungsfehler")
 An error value states an environment failure, which is a condition the app must survive ("Umgebungsfehler").
 A malformed roster push from another process is an error; an index a widget computed wrong is an assert.
 
+`logger.Errorf` ends the process through `log.Fatalf`, and `logger.Panicf` panics.
+Both are hard stops, and neither reports a failure the app continues past: the code after such a call is unreachable, including the code that would have carried the reason to the user.
+An Umgebungsfehler takes `logger.Warnf` and whatever the surrounding code already does to surface it.
+`Errorf` also fixes the exit status at 1, so a process that owes its caller a different one writes to `os.Stderr` and calls `os.Exit` itself.
+
 **Preconditions** go at the top of the function, before any work.
 A function asserts every parameter it cannot safely take garbage on: an index, a pointer or interface it will dereference, a callback it will call, a slice it will index, an enum value it will dispatch on, and any relation between two parameters.
 

@@ -165,6 +165,7 @@ export default function App() {
                         cmd={settings.cmd}
                         publishing={publish.publishing}
                         pending={publish.pending}
+                        retry={publish.retry}
                         pubError={publish.error}
                         pubLogPath={publish.logPath}
                         uplink={uplink}

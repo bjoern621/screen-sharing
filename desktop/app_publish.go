@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
@@ -23,6 +24,12 @@ import (
 type publishRun struct {
 	settings settings.Stream
 	handle   publish.Handle
+	// startedAt dates the launch, and attempts counts the retries that preceded it.
+	// The exit is weighed against both: how long the pipeline lasted says whether the
+	// settings run on this machine, and what the failure has already cost says how much
+	// budget is left for it (app_publish_retry.go).
+	startedAt time.Time
+	attempts  int
 }
 
 // PublishCommand returns the exact command line the given settings would run,
@@ -60,11 +67,13 @@ func (a *App) startPublishHeld() error {
 // the grid asked for it.
 func (a *App) startPublish(s settings.Stream) error {
 	a.procMu.Lock()
-	if a.run != nil && a.run.handle.Running() {
+	// A publish waiting out its backoff is one the user asked for and has not stopped,
+	// so it holds the same ground a running one does.
+	if (a.run != nil && a.run.handle.Running()) || a.retry != nil {
 		a.procMu.Unlock()
 		return fmt.Errorf("already publishing")
 	}
-	err := a.launchLocked(s)
+	err := a.launchLocked(s, 0)
 	a.procMu.Unlock()
 
 	// Announced after the lock is released: reading the state takes both mutexes in
@@ -109,6 +118,10 @@ func (a *App) Republish(s settings.Stream) error {
 // The outgoing child is killed and not waited for. The relay closes the publisher it
 // holds when a new one connects to the same path, so the successor does not have to
 // arrive after the old socket is gone, and viewers reconnect across the gap either way.
+//
+// A publish waiting out its backoff is restarted the same way, and the settings that
+// were failing take their attempts with them: the pipeline the user just named is not
+// the one those attempts were spent on.
 func (a *App) restartPublish(s settings.Stream) error {
 	if _, err := publish.Command(s); err != nil {
 		return err
@@ -117,30 +130,38 @@ func (a *App) restartPublish(s settings.Stream) error {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	if a.run == nil || !a.run.handle.Running() {
+	running := a.run != nil && a.run.handle.Running()
+	if !running && a.retry == nil {
 		return fmt.Errorf("nothing is publishing, so there is no pipeline to apply the settings to")
 	}
-	a.run.handle.Stop()
-	a.run = nil
+	if running {
+		a.run.handle.Stop()
+		a.run = nil
+	}
+	a.cancelRetryLocked()
 
 	logger.Infof("restarting the publish of '%s' on the settings the form holds", s.Name)
-	return a.launchLocked(s)
+	return a.launchLocked(s, 0)
 }
 
-// launchLocked starts the encoder child on s and takes the run it produced.
+// launchLocked starts the encoder child on s and takes the run it produced. attempts is
+// how many retries the app has already spent reaching this launch, zero for one the user
+// asked for.
 //
 // procMu is held by the caller, and the run is in place before the child can report
 // anything: a callback that fires first blocks on that lock, so it finds the run it
 // belongs to rather than a window with none in it.
-func (a *App) launchLocked(s settings.Stream) error {
+func (a *App) launchLocked(s settings.Stream, attempts int) error {
 	assert.Assert(a.run == nil || !a.run.handle.Running(), "a publish starts with no other one running", s.Name)
+	assert.Assert(a.retry == nil, "a publish starts with no relaunch pending", s.Name)
+	assert.Assert(attempts >= 0 && attempts <= len(publishBackoff), "a launch carries the retries it cost", attempts)
 
 	pub, err := publish.For(s.Capture)
 	if err != nil {
 		return err
 	}
 
-	run := &publishRun{settings: s}
+	run := &publishRun{settings: s, startedAt: time.Now(), attempts: attempts}
 	a.run = run
 	handle, err := pub.Start(s, "publish", publish.Callbacks{
 		OnStats: func(stats publish.Stats) {
@@ -150,25 +171,7 @@ func (a *App) launchLocked(s settings.Stream) error {
 			runtime.EventsEmit(a.ctx, "publish:stats", stats)
 		},
 		OnExit: func(err error, stderrTail string, logPath string) {
-			message := ""
-			if err != nil {
-				message = err.Error()
-				if stderrTail != "" {
-					message += "\n" + stderrTail
-				}
-				logger.Errorf("publish of '%s' failed: %v\n%s\nfull log: %s", s.Name, err, stderrTail, logPath)
-			} else {
-				logger.Infof("publish of '%s' ended (log: %s)", s.Name, logPath)
-			}
-			// The event reports the run the app still holds, which is the run nobody
-			// asked to end. A stop was asked for and a restart replaced the pipeline
-			// with one that is already running, so either would carry an exit the user
-			// has no reason to be shown and a log path for a pipeline they moved off.
-			if !a.dropRun(run) {
-				return
-			}
-			runtime.EventsEmit(a.ctx, "publish:exit", exitEvent{Message: message, LogPath: logPath})
-			a.emitPublishState()
+			a.publishEnded(run, err, stderrTail, logPath)
 		},
 	})
 	if err != nil {
@@ -188,25 +191,17 @@ func (a *App) isCurrentRun(run *publishRun) bool {
 	return a.run == run
 }
 
-// dropRun releases run if it is still the publish the app holds, and reports whether
-// it was. A run that has ended holds nothing worth keeping: the settings on it describe
-// a pipeline that is gone, and the state event answers with them while they are there.
-func (a *App) dropRun(run *publishRun) bool {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-
-	if a.run != run {
-		return false
-	}
-	a.run = nil
-	return true
-}
-
+// StopPublish ends the publish, whether it is running or waiting out a backoff. A stop
+// is the one answer the retry budget does not get a say in: the user asked for no
+// stream, and a relaunch arriving seconds later would be one they did not ask for.
 func (a *App) StopPublish() {
 	a.procMu.Lock()
-	if a.run != nil {
-		a.run.handle.Stop()
-		a.run = nil
+	if a.run != nil || a.retry != nil {
+		if a.run != nil {
+			a.run.handle.Stop()
+			a.run = nil
+		}
+		a.cancelRetryLocked()
 		logger.Infof("publishing stopped")
 	}
 	a.procMu.Unlock()
@@ -214,43 +209,55 @@ func (a *App) StopPublish() {
 	a.emitPublishState()
 }
 
-// GetPublishState reports whether a publish is running, the settings its pipeline was
+// GetPublishState reports whether a publish is in force, the settings its pipeline was
 // built from, and whether the settings the app now holds build a different one.
 //
 // It is what a window reads when it mounts and what every change announces, so a fresh
 // window and a running one cannot be told different things. The two mutexes are taken
 // in the order app.go fixes and neither is held for the comparison, which renders both
 // pipelines.
+//
+// A publish waiting out its backoff reports the settings it will come back on. It is
+// still the publish the user asked for and the only one they can stop, so it answers as
+// publishing, with Retrying separating the stream that is carrying frames from the one
+// that is between attempts.
 func (a *App) GetPublishState() PublishStateEvent {
 	a.settingsMu.Lock()
 	held := a.settings
 	a.settingsMu.Unlock()
 
 	a.procMu.Lock()
-	var running *settings.Stream
+	var live *settings.Stream
+	state := PublishStateEvent{Budget: len(publishBackoff)}
 	if a.run != nil && a.run.handle.Running() {
 		s := a.run.settings
-		running = &s
+		live = &s
+	} else if a.retry != nil {
+		s := a.retry.settings
+		live = &s
+		state.Retrying = true
+		state.Attempt = a.retry.attempts
 	}
 	a.procMu.Unlock()
 
-	if running == nil {
+	if live == nil {
 		return PublishStateEvent{}
 	}
+	state.Publishing = true
+	state.Settings = live
 
-	pending := false
-	if same, err := publish.SamePipeline(*running, held); err != nil {
+	if same, err := publish.SamePipeline(*live, held); err != nil {
 		// One of the two names a pipeline that cannot be built, so what the stream
 		// carries cannot be held against what the form shows. What the form shows is
 		// then not what is publishing, which is what pending says, and the reason is
 		// already in front of the user: the command preview renders through the same
 		// call and displays this error.
 		logger.Warnf("cannot tell whether the running publish carries the settings the form holds: %v", err)
-		pending = true
+		state.Pending = true
 	} else {
-		pending = !same
+		state.Pending = !same
 	}
-	return PublishStateEvent{Publishing: true, Settings: running, Pending: pending}
+	return state
 }
 
 // emitPublishState tells the frontend what the publish state became. The form's own
@@ -261,8 +268,11 @@ func (a *App) emitPublishState() {
 	runtime.EventsEmit(a.ctx, "publish:state", a.GetPublishState())
 }
 
+// Publishing reports whether a publish is in force, which a pipeline waiting out its
+// backoff still is: the tray and the native grid offer to stop it, and a start while one
+// is pending is refused.
 func (a *App) Publishing() bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
-	return a.run != nil && a.run.handle.Running()
+	return (a.run != nil && a.run.handle.Running()) || a.retry != nil
 }

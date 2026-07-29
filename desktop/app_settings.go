@@ -47,7 +47,7 @@ func (a *App) GetPresets() ([]settings.Preset, error) {
 		presets = []settings.Preset{}
 	}
 	if err != nil {
-		logger.Errorf("presets not restored: %v", err)
+		logger.Warnf("presets not restored: %v", err)
 	}
 	return presets, err
 }

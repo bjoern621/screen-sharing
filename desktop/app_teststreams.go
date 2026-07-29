@@ -54,7 +54,7 @@ func (a *App) StartTestStreams(count int) error {
 					if stderrTail != "" {
 						message += "\n" + stderrTail
 					}
-					logger.Errorf("test stream %s failed: %v\n%s\nfull log: %s", name, err, stderrTail, logPath)
+					logger.Warnf("test stream %s failed: %v\n%s\nfull log: %s", name, err, stderrTail, logPath)
 				} else {
 					logger.Infof("test stream %s closed (log: %s)", name, logPath)
 				}

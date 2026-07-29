@@ -46,7 +46,11 @@ type App struct {
 	// run is the publish session in force, nil while nothing publishes. It carries the
 	// settings its pipeline was built from, which is what a live stream is held against
 	// when the form moves off them (app_publish.go).
-	run         *publishRun
+	run *publishRun
+	// retry is the relaunch a pipeline that died on its own is waiting on, nil when none
+	// is pending. It and run are never both set: the retry exists exactly between the
+	// exit that armed it and the launch that consumes it (app_publish_retry.go).
+	retry       *publishRetry
 	watchers    map[WatchKey]*ffmpeg.Proc
 	testStreams []*ffmpeg.Proc
 	nativeGrid  *ffmpeg.Proc
@@ -62,7 +66,7 @@ func NewApp() *App {
 	if err != nil {
 		// The form is about to open on values the user did not choose, so the reason
 		// travels to it rather than staying in the log alone.
-		logger.Errorf("settings not restored: %v", err)
+		logger.Warnf("settings not restored: %v", err)
 		notice = err.Error()
 	}
 
@@ -100,6 +104,8 @@ func (a *App) shutdown(ctx context.Context) {
 	if a.run != nil {
 		a.run.handle.Stop()
 	}
+	// A pending relaunch would start an encoder into a process on its way out.
+	a.cancelRetryLocked()
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}

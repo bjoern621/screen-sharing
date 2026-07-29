@@ -104,6 +104,24 @@ The reason is the failed launch's own error, or the new child's exit where it st
 
 Each launch opens a portal session of its own, and the stored restore token is what keeps the compositor's picker from popping on a relaunch (see "The portal handshake").
 
+## A pipeline that dies on its own
+
+An encoder child can die without anyone asking it to: the relay restarts, a capture source goes away, a driver takes the GPU down under it.
+`App.publishEnded` meets that with a bounded relaunch on the settings the dead pipeline was running, over the backoff in `publishBackoff`.
+Only an unrequested exit reaches it, because a stop and a relaunch both replace what the app holds before their child's exit arrives.
+
+**How long the pipeline ran is what the budget turns on.**
+The exit alone cannot say whether another attempt would end differently: a relay that is not up yet and an encoder that hangs the GPU both leave a child dead within seconds, under the same signal and the same status.
+A pipeline that reaches `publishHealthy` and dies later met something that moved underneath it, so its failure starts from a full budget however many attempts an earlier outage cost.
+One that never reaches it is failing at launch, and the backoff is the whole of what the app will try before it reports the failure and stops.
+The bound is what keeps a settings combination this machine cannot run from being retried forever, which for a VAAPI encoder that wedges the video engine would mean a driver reset per attempt.
+
+**A publish between attempts is still a publish.**
+`App.retry` holds the pending relaunch, and `App.run` is nil for as long as it does; the two are never both set.
+`GetPublishState` answers `publishing` across that wait, with `retrying` and the attempt count separating a stream carrying frames from one waiting to come back.
+The form therefore keeps showing the settings the stream will return on rather than reverting, the button keeps offering the stop, and a start is refused the way it is against a running stream.
+`publish:exit` fires once the app stops retrying, so the reason reaches the user when publishing has actually ended rather than once per attempt.
+
 ## Frame memory
 
 A capture backend that produces GPU frames and an encoder that reads GPU surfaces can be linked directly: the conversion to the encoder's layout runs on the device and no frame crosses the bus.

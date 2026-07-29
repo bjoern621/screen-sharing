@@ -27,6 +27,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 
@@ -67,7 +68,11 @@ func main() {
 		// run's input and not a bug here. The process stops on it, instead of
 		// carrying a nil factory into the model one call later and failing there
 		// under the name of a missing decoder.
-		logger.Errorf("%v", err)
+		//
+		// The reason goes to stderr rather than through the logger: logger.Errorf
+		// exits with status 1, which would cost the caller the wrong-invocation
+		// status, and a log level below WARN would drop the line the caller reads.
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(exitBadFlag)
 	}
 
@@ -147,7 +152,7 @@ func config(raw string) roster.Config {
 	}
 	cfg, err := roster.Parse(raw)
 	if err != nil {
-		logger.Errorf("bad -config: %v", err)
+		fmt.Fprintf(os.Stderr, "bad -config: %v\n", err)
 		os.Exit(exitBadFlag)
 	}
 	return cfg

@@ -130,7 +130,7 @@ func (a *App) StartNativeGrid() error {
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
-				logger.Errorf("native grid failed: %v\n%s\nfull log: %s", err, stderrTail, logPath)
+				logger.Warnf("native grid failed: %v\n%s\nfull log: %s", err, stderrTail, logPath)
 			} else {
 				logger.Infof("native grid closed (log: %s)", logPath)
 			}
@@ -360,7 +360,7 @@ func (a *App) applyGridRequest(r watch.GridRequest, live []watch.LiveStream) {
 	}
 	logger.Infof("native grid watches over %s", next.GridTransport)
 	if err := settings.Save(next); err != nil {
-		logger.Errorf("native grid watch leg not saved: %v", err)
+		logger.Warnf("native grid watch leg not saved: %v", err)
 	}
 	// The frontend holds its own copy of the settings and writes the whole struct
 	// back on its next field change, so a change made here has to reach it or the

@@ -130,7 +130,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
-				logger.Errorf("viewer for '%s' over %s failed: %v\n%s\nfull log: %s", streamName, transportName, err, stderrTail, logPath)
+				logger.Warnf("viewer for '%s' over %s failed: %v\n%s\nfull log: %s", streamName, transportName, err, stderrTail, logPath)
 			} else {
 				logger.Infof("viewer for '%s' over %s closed (log: %s)", streamName, transportName, logPath)
 			}

@@ -31,11 +31,16 @@ const TICK_MS = 500;
  * are no longer the ones the form holds. Both come from the backend, which compares
  * the pipelines the two build: a running publish is a child process built from an
  * argv, so `apply` reaches the new values by relaunching it.
+ *
+ * `retry` is set while a pipeline that died on its own waits out its backoff. `publishing`
+ * stays true across that wait, since the publish is still the one the user asked for and
+ * the only one they can stop.
  */
 export function usePublish(s: Stream | null) {
     const [publishing, setPublishing] = useState(false);
     const [live, setLive] = useState<Stream | null>(null);
     const [pending, setPending] = useState(false);
+    const [retry, setRetry] = useState<{ attempt: number; budget: number } | null>(null);
     const [error, setError] = useState("");
     const [logPath, setLogPath] = useState("");
     const [stats, setStats] = useState<Stats | null>(null);
@@ -75,13 +80,19 @@ export function usePublish(s: Stream | null) {
 
     /** Takes the publish state the backend announced. The insights describe a running
      * pipeline, so they go with it: the figures a stopped stream reached last are not
-     * figures of anything. */
+     * figures of anything, and neither are the ones the pipeline before a retry reached.
+     */
     const take = useCallback(
         (state: PublishState) => {
             setPublishing(state.publishing);
             setLive(state.settings ?? null);
             setPending(state.pending);
-            if (!state.publishing) {
+            setRetry(
+                state.retrying
+                    ? { attempt: state.attempt, budget: state.budget }
+                    : null
+            );
+            if (!state.publishing || state.retrying) {
                 resetInsights();
             }
         },
@@ -130,13 +141,15 @@ export function usePublish(s: Stream | null) {
         };
     }, [age, take]);
 
+    // A pipeline between attempts reports nothing, so the tick has no samples to age
+    // and would only count the last one further into staleness.
     useEffect(() => {
-        if (!publishing) {
+        if (!publishing || retry) {
             return;
         }
         const id = setInterval(() => age(Date.now()), TICK_MS);
         return () => clearInterval(id);
-    }, [publishing, age]);
+    }, [publishing, retry, age]);
 
     // The state the call moves is announced by the backend, so nothing is written here
     // on the way: one owner reports what publishing became, and a start that failed
@@ -180,7 +193,7 @@ export function usePublish(s: Stream | null) {
     const stale = sampleAgeSec !== null && sampleAgeSec >= STALE_AFTER_SEC;
 
     return {
-        publishing, live, pending, error, logPath, stats, avg5, peak, sampleAgeSec,
-        stale, toggle, apply,
+        publishing, live, pending, retry, error, logPath, stats, avg5, peak,
+        sampleAgeSec, stale, toggle, apply,
     };
 }

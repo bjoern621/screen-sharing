@@ -26,6 +26,14 @@ type PublishStateEvent struct {
 	// Pending reports that the settings the app holds build a different pipeline than
 	// the running one, so the stream is carrying values the form no longer shows.
 	Pending bool `json:"pending"`
+	// Retrying reports that the pipeline died on its own and the app is waiting out a
+	// backoff before starting it again. Publishing stays true across that wait, so the
+	// three together separate a stream carrying frames from one between attempts.
+	Retrying bool `json:"retrying"`
+	// Attempt is which relaunch the pending one is, counting from one, and Budget how
+	// many the app will spend before it gives up. Both are zero while nothing retries.
+	Attempt int `json:"attempt"`
+	Budget  int `json:"budget"`
 }
 
 // watchExitEvent is the payload of the "watch:exit" event. Name and Transport
