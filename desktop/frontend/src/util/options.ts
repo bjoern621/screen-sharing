@@ -1,8 +1,8 @@
 import { Monitor, Option } from "../types/stream";
 import {
-    AUDIO_META, CHROMA_META, Capability, ENCODER_TIPS, ENGINE_LABEL, Engine,
-    FAMILY_META, FORMAT_META, Family, Format, MODE_META, bitrateLimit, cqMax,
-    metaOptions, scaleCq,
+    AUDIO_CODEC_META, AUDIO_META, AudioCodec, CHROMA_META, Capability,
+    ENCODER_TIPS, ENGINE_LABEL, Engine, FAMILY_META, FORMAT_META, Family, Format,
+    MODE_META, bitrateLimit, cqMax, metaOptions, scaleCq,
 } from "./domain";
 
 const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
@@ -14,6 +14,30 @@ const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 export const MODES: Option[] = metaOptions(MODE_META);
 export const CHROMAS: Option[] = metaOptions(CHROMA_META);
 export const AUDIO_SOURCES: Option[] = metaOptions(AUDIO_META);
+
+/**
+ * The "Audio codec" dropdown: one option per codec the backend audio table
+ * declares, in table order. Empty until the table loads.
+ *
+ * The rate and bitrate the track is coded at are the backend's figures, so the
+ * tooltip reads them off the row instead of restating them here: the form cannot
+ * promise a bitrate the encoder is not given.
+ */
+export function audioCodecOptions(codecs: AudioCodec[] | null): Option[] {
+    if (!codecs) {
+        return [];
+    }
+    return codecs.map(a => {
+        const m = AUDIO_CODEC_META[a.name];
+        const coded = `Coded as a stereo track at ${a.rate / 1000} kHz, ${a.bitrateK} kbit/s.`;
+        return {
+            value: a.name,
+            label: m?.label ?? a.name,
+            tip: m ? `${m.tip}\n${coded}` : coded,
+            link: m?.link,
+        };
+    });
+}
 
 /**
  * The "Encoder family" dropdown: one option per encoder family present in the
@@ -119,6 +143,11 @@ export const CAPTURES: Option[] = [
         tip: "GDI BitBlt (Windows): CPU copy of the whole desktop - all monitors as ONE frame; multi-monitor widths can exceed NVENC's 8192 px limit.\nRuns the ffmpeg publish engine.",
     },
     {
+        value: "d3d11screencapturesrc", label: "d3d11screencapturesrc - Desktop Duplication (GStreamer)",
+        link: "https://gstreamer.freedesktop.org/documentation/d3d11/d3d11screencapturesrc.html",
+        tip: "Direct3D 11 screen capture (Windows): the same Desktop Duplication surface ddagrab reads, taken by GStreamer instead, selected by monitor index with the cursor drawn in.\nRuns the GStreamer publish engine, which is what puts that engine's encoders and its WebRTC sink within reach on Windows.",
+    },
+    {
         value: "x11grab", label: "x11grab - X11 SHM",
         link: "https://ffmpeg.org/ffmpeg-devices.html#x11grab",
         tip: "X11 shared-memory capture (Linux, also XWayland windows). Default on Linux; pure-Wayland surfaces need the portal capture backend instead.\nRuns the ffmpeg publish engine.",
@@ -136,7 +165,17 @@ export const CAPTURES: Option[] = [
     {
         value: "portal", label: "portal - PipeWire ScreenCast",
         link: "https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.ScreenCast.html",
-        tip: "xdg-desktop-portal ScreenCast (Wayland): the compositor's own picker chooses monitor/window, captured over PipeWire. Unprivileged and consented.\nRuns the GStreamer publish engine, which reaches fewer pixel formats and rate-control knobs than ffmpeg; the fields say so where it matters.",
+        tip: "xdg-desktop-portal ScreenCast (Linux): the compositor's own picker chooses monitor or window, captured over PipeWire. Unprivileged and consented.\nIt is not Wayland's alone - the portal serves X11 sessions too, where the difference is the consent rather than the pixels: the X backends see the whole screen without asking, and the portal asks the compositor every time. Serving it is the compositor's, so a desktop with no ScreenCast backend fails the publish with the portal's own error.\nRuns the GStreamer publish engine, which reaches fewer pixel formats and rate-control knobs than ffmpeg; the fields say so where it matters.",
+    },
+    {
+        value: "avfoundation", label: "avfoundation - AVFoundation screen capture",
+        link: "https://developer.apple.com/documentation/avfoundation/avcapturescreeninput",
+        tip: "AVFoundation screen capture (macOS): reads a screen device by index, cursor drawn in. Desktop audio is out of reach here, since AVFoundation enumerates input devices and what the machine plays is not one.\nRuns the ffmpeg publish engine.",
+    },
+    {
+        value: "avfvideosrc", label: "avfvideosrc - AVFoundation screen capture (GStreamer)",
+        link: "https://gstreamer.freedesktop.org/documentation/applemedia/avfvideosrc.html",
+        tip: "AVFoundation screen capture (macOS), the same screen source as avfoundation read by GStreamer instead. The element picks the screen itself, so the monitor selection does not reach it.\nRuns the GStreamer publish engine: pick it over avfoundation to reach that engine's encoders on macOS.",
     },
 ];
 
@@ -217,7 +256,7 @@ export const TRANSPORT_META: Record<string, Option> = {
     webrtc: {
         value: "webrtc", label: "webrtc - WHIP ingest, WHEP playback",
         link: "https://en.wikipedia.org/wiki/WebRTC",
-        tip: "WebRTC through the relay's WHIP and WHEP endpoints: HTTP signaling, then SRTP. ICE runs connectivity checks before any media, and those checks are what opens the client's NAT, so this is the one transport that establishes its path rather than assuming it. The publish leg carries H.264 + Opus, the limit of ffmpeg's WHIP muxer. The watch leg is the native grid's and the browser's; no player opens it by URL, since WHEP is an exchange rather than an address.",
+        tip: "WebRTC through the relay's WHIP and WHEP endpoints: HTTP signaling, then SRTP. ICE runs connectivity checks before any media, and those checks are what opens the client's NAT, so this is the one transport that establishes its path rather than assuming it. What the publish leg carries follows the engine behind the capture backend, since the two WHIP sides negotiate different codec sets, and a codec one of them lacks is greyed with the reason. The watch leg is the native grid's and the browser's; no player opens it by URL, since WHEP is an exchange rather than an address.",
     },
     rtmp: {
         value: "rtmp", label: "rtmp - Real-Time Messaging Protocol",
@@ -252,29 +291,43 @@ export const RTSP_PROTOCOLS: Option[] = [
 
 /**
  * Tooltip for the quantizer target. Every encoder has this control under its own
- * name, and the scale follows the encoder: the H.26x ones stop at 51 where libvpx and
- * the software AV1 ones count to 63, and one taking a raw quantizer index reaches 127
- * or 255. The quality landmarks are therefore placed on the selected codec's own
- * scale rather than quoted from x264's.
+ * name, and the scale follows the encoder and the engine that drives it: the H.26x
+ * ones stop at 51 where libvpx and the software AV1 ones count to 63, and one taking
+ * a raw quantizer index reaches 127 or 255. The quality landmarks are therefore
+ * placed on the running combination's own scale rather than quoted from x264's, and
+ * a combination that declares none carries the description alone.
  */
-export function cqTip(codec: string, caps: Capability[] | null): string {
-    const max = cqMax(codec, caps);
-    const at = (onFiftyOne: number) => scaleCq(onFiftyOne, codec, caps);
+export function cqTip(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): string {
+    const base =
+        "Constant quantizer the encoder holds in constant-quality mode: x264 and libvpx call it CRF, x265 QP, NVENC CQ. Lower = better quality and more bits.";
+    const max = cqMax(codec, engine, caps);
+    if (max <= 0) {
+        return base;
+    }
+    const at = (onFiftyOne: number) => scaleCq(onFiftyOne, codec, engine, caps);
     return (
-        "Constant quantizer the encoder holds in constant-quality mode: x264 and libvpx call it CRF, x265 QP, NVENC CQ. Lower = better quality and more bits.\n" +
+        `${base}\n` +
         `This codec's scale runs 0-${max}: ${at(12)} ≈ visually lossless, ${at(19)} ≈ excellent, ${at(28)} ≈ visibly compressed.`
     );
 }
 
 /**
- * Tooltip for the bitrate target, which names the codec's ceiling where it has one.
- * An encoder that refuses a target above its own limit is worth saying so before the
- * user types a number the publish would die on.
+ * Tooltip for the bitrate target, which names the codec's ceiling on the running
+ * engine where it has one. An encoder that refuses a target above its own limit is
+ * worth saying so before the user types a number the publish would die on.
  */
-export function bitrateTip(codec: string, caps: Capability[] | null): string {
+export function bitrateTip(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): string {
     const base =
         "Target rate for CBR (held constant), VBR and ABR (averaged toward).";
-    const limit = bitrateLimit(codec, caps);
+    const limit = bitrateLimit(codec, engine, caps);
     return limit > 0
         ? `${base}\nThis encoder takes at most ${limit} Mbit/s and refuses anything above it.`
         : base;

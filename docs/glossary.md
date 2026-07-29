@@ -18,7 +18,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 
 | Term              | Means                                                                                                                                                         | Not                                                                |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| Capture backend   | How frames leave the desktop: `x11grab`, `ximagesrc`, `kmsgrab`, `ddagrab`, `gdigrab`, `portal`. The user's first choice, since it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source  |
+| Capture backend   | How frames leave the desktop, named as its own framework names the source (`x11grab`, `portal`, `d3d11screencapturesrc`, and the rest of `publish.Captures`). The user's first choice, since it fixes the publish engine. | capture API, capture path, capture method, grabber, screen source  |
 | Publish engine    | The media framework that runs capture, encode and publish in one process: ffmpeg or GStreamer. Follows from the capture backend and is never picked directly. | pipeline, publish path, portal path, media backend, capture engine |
 | ffmpeg            | The ffmpeg publish engine, and the executable.                                                                                                                | FFmpeg, FFMPEG                                                     |
 | GStreamer         | The GStreamer publish engine, driven as a `gst-launch-1.0` pipeline description.                                                                              | gstreamer (in prose), Gstreamer, gst                               |
@@ -26,7 +26,8 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Encoder family    | The silicon or library a group of encoders runs on: software, NVENC, VAAPI, QSV, AMF, V4L2 M2M, Rockchip MPP, Vulkan Video. The "Encoder family" dropdown.    | encoder backend, encoder type, hardware backend                    |
 | Encoder           | One concrete encoder within a family, named as the ffmpeg encoder: `libx264`, `hevc_nvenc`.                                                                   | codec (a codec is the format), encoder engine                      |
 | Video codec       | The coding format the encoder produces: H.264, HEVC, AV1, VP9, VP8. The "Video codec" dropdown.                                                               | codec family, video format (in the UI)                             |
-| Pixel format      | The color model, subsampling and bit depth handed to the encoder: `gbrp`, `yuv444p`, `yuv420p`, `p010le`.                                                     | chroma (alone), color format                                       |
+| Audio codec       | The coding format the desktop audio track is encoded in: Opus, AAC. Separate from the audio source, which says where the track comes from.                    | audio format, sound codec                                          |
+| Pixel format      | The color model, subsampling and bit depth handed to the encoder: `gbrp`, `yuv444p`, `yuv422p`, `yuv420p`, `p010le`.                                          | chroma (alone), color format                                       |
 | Rate-control mode | How the encoder spends bits over time: CBR, VBR, ABR, CRF, lossless.                                                                                          | bitrate mode, rate mode, quality mode                              |
 | Capability gap    | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. `capabilities.Gap`.                                          | limitation, restriction, exclusion                                 |
 | Relay             | The MediaMTX server every publisher pushes to and every viewer pulls from.                                                                                    | server, host, MediaMTX (when the role is meant)                    |
@@ -39,7 +40,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | ---- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | AVC  | Advanced Video Coding        | ITU-T H.264, the format every publish transport here can carry.                                                               |
 | HEVC | High Efficiency Video Coding | ITU-T H.265, roughly half the bitrate of AVC at equal quality.                                                                |
-| AV1  | AOMedia Video 1              | Royalty-free codec, published over RTSP and RTMP alone: neither MPEG-TS ingest nor the WHIP muxer takes it.                   |
+| AV1  | AOMedia Video 1              | Royalty-free codec, published over RTSP and RTMP alone: MPEG-TS has no mapping for it, and a WebRTC leg negotiates it and then yields no picture. |
 | VP8  | (no expansion)               | Royalty-free codec with one profile, 8-bit 4:2:0 only.                                                                        |
 | VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth, and the one 4:4:4 format the web viewer decodes. |
 | RExt | Range Extensions             | HEVC extension adding 4:2:2, 4:4:4 and bit depths above 10, the only VAAPI path to 4:4:4.                                     |
@@ -65,7 +66,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Term    | Expansion                       | Meaning                                                                                                                                                                             |
 | ------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | QP      | Quantization Parameter          | Per-block quantizer step, the main quality-to-bitrate control.                                                                                                                      |
-| CQ      | Constant Quality                | Quality-targeted rate control, whose scale differs per encoder (51 for the H.26x encoders, 63 for libvpx and software AV1, 127 or 255 for encoders exposing a raw quantizer index). |
+| CQ      | Constant Quality                | Quality-targeted rate control, whose scale differs per encoder and per publish engine (51 for the H.26x encoders, 63 for libvpx and software AV1, 127 or 255 for encoders exposing a raw quantizer index). |
 | CQP     | Constant QP                     | Rate control holding the quantizer fixed and letting bitrate vary.                                                                                                                  |
 | CRF     | Constant Rate Factor            | Quality target that varies QP by frame type and motion.                                                                                                                             |
 | CBR     | Constant Bitrate                | Rate control holding output bitrate fixed.                                                                                                                                          |
@@ -83,11 +84,13 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Term          | Expansion                           | Meaning                                                                                                             |
 | ------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | 4:4:4         | Chroma sampling ratio               | Full chroma resolution, required for text to stay free of color fringing.                                           |
+| 4:2:2         | Chroma sampling ratio               | Chroma halved horizontally and kept vertically, the step between the other two, coded here by x264 and x265 alone.  |
 | 4:2:0         | Chroma sampling ratio               | Chroma halved in both directions, the default for delivery codecs.                                                  |
 | YUV           | (historical analog term)            | Used as a synonym for Y′CbCr, the model separating luma from two color-difference channels.                         |
 | Y′CbCr        | Luma prime, Chroma blue, Chroma red | The gamma-encoded color model video codecs actually code.                                                           |
 | yuv420p       | Pixel format                        | 8-bit 4:2:0 in three planes.                                                                                        |
 | yuv444p       | Pixel format                        | 8-bit 4:4:4 in three planes.                                                                                        |
+| yuv422p       | Pixel format                        | 8-bit 4:2:2 in three planes.                                                                                        |
 | p010le        | Pixel format                        | 10-bit 4:2:0 stored in little-endian 16-bit samples, luma plane plus interleaved chroma.                            |
 | gbrp          | Pixel format                        | Planar RGB in green, blue, red plane order, coded through a codec's identity matrix so RGB stays RGB.               |
 | NV12          | Pixel format                        | 8-bit 4:2:0 with a luma plane and one interleaved chroma plane.                                                     |
@@ -138,15 +141,17 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Term     | Expansion                       | Meaning                                                                                          |
 | -------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Portal   | xdg-desktop-portal              | Sandboxed permission layer whose ScreenCast interface hands out a PipeWire capture node.         |
-| PipeWire | (no expansion)                  | Linux media routing daemon, the transport for Wayland screen capture.                            |
+| PipeWire | (no expansion)                  | Linux media routing daemon, the transport a portal capture's frames arrive on.                   |
 | KMS      | Kernel Mode Setting             | Linux kernel display mode control, the surface `kmsgrab` reads scanout buffers from.             |
 | DRM      | Direct Rendering Manager        | The Linux kernel graphics subsystem containing KMS.                                              |
 | X11      | X Window System version 11      | Legacy Linux display protocol, captured with `x11grab` on ffmpeg and `ximagesrc` on GStreamer.   |
 | SHM      | Shared Memory extension         | X11 extension both X capture backends read screen contents through without a server round trip.  |
 | XWayland | (no expansion)                  | X11 server running on a Wayland compositor, which SDL is pinned to for the ffplay viewer window. |
-| DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab`.                                |
+| DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab` on ffmpeg and `d3d11screencapturesrc` on GStreamer. |
 | DXGI     | DirectX Graphics Infrastructure | The Windows graphics layer DDA belongs to.                                                       |
+| D3D11    | Direct3D 11                     | The Windows graphics API `d3d11screencapturesrc` reads its textures through.                     |
 | GDI      | Graphics Device Interface       | Legacy Windows drawing and capture API, reached through `gdigrab`.                               |
+| AVF      | AVFoundation                    | Apple's media framework, the macOS screen source of both engines: `avfoundation` on ffmpeg, `avfvideosrc` on GStreamer. |
 
 A frame that stays on the GPU from capture to encoder crosses the bus not at all; one that does not crosses it twice.
 
@@ -179,9 +184,10 @@ Two rates describe one publish, and they part company on a damage-driven backend
 
 ## Audio
 
-| Term | Expansion      | Meaning                                                                                            |
-| ---- | -------------- | -------------------------------------------------------------------------------------------------- |
-| Opus | (no expansion) | The audio codec used for the desktop track, carried by MPEG-TS and decoded by every target player. |
+| Term | Expansion             | Meaning                                                                                            |
+| ---- | --------------------- | -------------------------------------------------------------------------------------------------- |
+| Opus | (no expansion)        | Low-latency audio codec, the only one a WebRTC leg negotiates, and the default for the desktop track. |
+| AAC  | Advanced Audio Coding | The audio codec FLV has always carried, so it is the one an RTMP leg takes.                        |
 
 ## General
 

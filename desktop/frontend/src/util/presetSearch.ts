@@ -2,7 +2,7 @@ import { Preset, Stream } from "../types/stream";
 import { holds } from "./claim";
 import { Environment, applyIntact, autoCaptures } from "./deps";
 import {
-    Capability, FAMILY_META, FORMAT_META, Family, Format, scaleCq,
+    Capability, FAMILY_META, FORMAT_META, Family, Format, engineFor, scaleCq,
 } from "./domain";
 import { CUSTOM_PRESET, PRESETS, Rung, userPresetValue } from "./presets";
 
@@ -93,11 +93,15 @@ export function resolvePreset(
     }
     for (const rung of spec.rungs) {
         for (const codec of codecOrder(s.codec, rung, env.caps)) {
-            const cq =
-                spec.cq51 === undefined
-                    ? {}
-                    : { cq: scaleCq(spec.cq51, codec, env.caps) };
             for (const capture of captureOrder(s.capture, env)) {
+                // The quantizer scale is the codec's on the engine that will drive
+                // it, and the capture backend fixes that engine, so the target a
+                // preset asks for is placed inside this loop rather than above it.
+                const engine = engineFor(capture, env.captureEngines);
+                const cq =
+                    spec.cq51 === undefined
+                        ? {}
+                        : { cq: scaleCq(spec.cq51, codec, engine, env.caps) };
                 const next = applyIntact(
                     s,
                     { ...spec.base, ...cq, chroma: rung.chroma, codec, capture },

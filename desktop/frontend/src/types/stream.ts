@@ -9,9 +9,11 @@ export type Preset = settings.Preset;
 /** Relay discovery snapshot (reachability + per-path live figures). */
 export type RelayStatus = relay.Status;
 
-/** One transport's carriage: the bitstream formats it takes to the relay and the
- * ones the relay serves back over it. The two sets differ per protocol, which is
- * why a publish rule and a watch verdict read different halves of one row. */
+/** What one engine carries over one leg of one transport: the video bitstream
+ * formats and the audio codec formats. The table holds a row per (transport, leg,
+ * engine) triple, and a slot with no row is an engine that cannot serialize that
+ * leg of that protocol, so a publish rule and a watch verdict each read their own
+ * rows rather than halves of a shared one. */
 export type TransportCarriage = main.TransportCarriage;
 
 /** One display output: capture index, resolution and primary flag. */

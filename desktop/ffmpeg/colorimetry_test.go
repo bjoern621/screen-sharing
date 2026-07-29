@@ -108,9 +108,9 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				s.Transport, s.RtspPublishProtocol = "rtsp", settings.Defaults().RtspPublishProtocol
 				s.Codec, s.ColorRange = cap.Name, colorRange
 				s.Chroma = yuvChroma(t, cap)
-				s.Cq = cap.CqMax / 2
-				if cap.BitrateLimitM > 0 && s.BitrateM > cap.BitrateLimitM {
-					s.BitrateM = cap.BitrateLimitM
+				s.Cq = cap.CqMaxOn(capabilities.EngineFfmpeg) / 2
+				if limit := cap.BitrateLimitOn(capabilities.EngineFfmpeg); limit > 0 && s.BitrateM > limit {
+					s.BitrateM = limit
 				}
 
 				// A colour range this engine has no way to state is declared as a gap and

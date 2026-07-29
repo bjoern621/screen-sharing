@@ -1,7 +1,7 @@
 # Capture and publish architecture
 
 Publishing a stream means capturing the screen, encoding it, and pushing it to the relay.
-Different capture methods need different machinery: a screen grabber that feeds one ffmpeg process, or a Wayland portal whose frames arrive over PipeWire and run through a separate media framework.
+Different capture methods need different machinery: a screen grabber that feeds one ffmpeg process, or a desktop portal whose frames arrive over PipeWire and run through a separate media framework.
 The architecture hides that difference behind one contract, so the code that starts, supervises and stops a stream never names ffmpeg or GStreamer.
 
 ## The seam
@@ -15,9 +15,9 @@ A screen grabber and a portal session are both just "a supervised process that p
 flowchart TD
     UI["Frontend (StreamSettingsCard)"] -->|StartPublish s| App["App.StartPublish"]
     App -->|"publish.For(s.Capture)"| Reg{"captureBackends"}
-    Reg -->|ddagrab / gdigrab / x11grab / kmsgrab| FE["ffmpegEngine"]
+    Reg -->|ddagrab / gdigrab / x11grab / kmsgrab / avfoundation| FE["ffmpegEngine"]
     Reg -->|portal| GP["gstEngine{portalCapture}"]
-    Reg -->|ximagesrc| GX["gstEngine{ximageCapture}"]
+    Reg -->|ximagesrc / avfvideosrc / d3d11screencapturesrc| GX["gstEngine{other gstCapture}"]
     FE -->|"BuildPublishArgs + FindCaptureExe"| FF["ffmpeg process:<br/>capture -> encode -> mux -> SRT"]
     GP -->|portal.Open| PortalSvc["xdg-desktop-portal ScreenCast<br/>(D-Bus)"]
     PortalSvc -->|PipeWire fd + node id| GP
@@ -37,16 +37,16 @@ It has no knowledge of how any backend captures or encodes.
 
 A **Publisher** owns the full pipeline for one family of capture backends.
 
-- `ffmpegEngine` covers the screen grabbers (ddagrab, gdigrab, x11grab, kmsgrab).
+- `ffmpegEngine` covers the screen grabbers (ddagrab, gdigrab, x11grab, kmsgrab, avfoundation).
   They differ only in ffmpeg input arguments, so one engine builds the whole `ffmpeg` command from `ffmpeg.BuildPublishArgs` and runs it as a single process.
 - `gstEngine` covers the GStreamer backends, one instance per screen source.
   The source is a `gstCapture` field, not a branch inside the engine, so the engine builds, supervises and tears down a pipeline without naming a source.
 
 Capture backend and publish engine are two axes.
 `captureBackends` is the table pairing them, and which engine a row names follows from which framework has an element or an input device for that source, not from a property of the engine.
-The pairing happens to be one-to-one, because no source has both: ffmpeg has the four screen grabbers and no PipeWire input device, GStreamer has `pipewiresrc` and `ximagesrc`.
-DRM/KMS is the asymmetry worth naming: GStreamer ships a `kmssink` and no capture element for scanout buffers at all, so kmsgrab exists once, under ffmpeg.
-A source both frameworks could read would be two rows and nothing else.
+A screen both frameworks read is two rows, one per engine, each named as its own framework names the source: the macOS screen is `avfoundation` under ffmpeg and `avfvideosrc` under GStreamer, the Windows desktop `ddagrab` or `gdigrab` under ffmpeg and `d3d11screencapturesrc` under GStreamer.
+A source only one framework reads is one row, and each framework has some: ffmpeg has no PipeWire input device, so the portal is GStreamer's, and GStreamer ships a `kmssink` and no capture element for DRM/KMS scanout buffers at all, so kmsgrab is ffmpeg's.
+Both engines therefore have a row on Linux, Windows and macOS, and no platform decides the publish engine on the user's behalf.
 
 A `gstCapture` produces raw frames up to and including the capsfilter that pins the encoder input, which is the point after which every backend is identical.
 `portalCapture` performs the ScreenCast handshake and hands the child a descriptor; `ximageCapture` reads the X screen and acquires nothing.
@@ -61,9 +61,10 @@ It knows nothing about encoding.
 The **transport** package holds the destination, and each engine's serialization lives with the transport that knows its dialect.
 A registry entry is one protocol, not one leg: the same entry serializes the publish leg for an encoder and the watch leg for a viewer, and the two legs of a stream need not use the same one (see `viewer-architecture.md`, "Two legs, two protocols").
 Everything on this page is the publish leg unless it names the watch one.
-The base `transport.Transport` is engine-neutral: it names itself and the bitstream formats it carries per leg.
+The base `transport.Transport` is engine-neutral: it names itself and states what it carries per leg and per engine.
 Each publish or watch engine has a peer capability interface a transport may implement: `FFmpegPublisher` (ffmpeg output args), `GstPublisher` (GStreamer muxer and sink), `Watcher` (a viewer URL), `GstWatcher` (receiving pipeline source).
 No engine is privileged in the base contract; an engine asks for its own serialization through the matching package helper, and a transport that cannot supply it is simply unusable with that engine.
+The carriage and the capability are two statements of one fact, so `transport.Register` asserts each against the other: an engine that states what it carries on a leg implements that leg's interface, and one that implements it says what it carries.
 The serializations are not interchangeable: ffmpeg's SRT protocol takes a query-string URL with latency in microseconds, while GStreamer's `srtsink` uses libsrt properties with latency in milliseconds.
 A transport carrying several engines implements several capabilities; keeping each dialect on the transport is what stops one engine's serialization from leaking into another.
 
@@ -115,9 +116,16 @@ It runs before anything is acquired and before the rendered command is produced,
 ## Audio
 
 The audio setting adds a second track to the same mux; nothing changes on the viewer side, players pick the second track out of the stream on their own (an MPEG-TS elementary stream over SRT, an RTP track of its own over RTSP).
-Both engines capture the monitor of the default sink through the PulseAudio protocol (which PipeWire also serves) and encode it as Opus: `ffmpeg/args.go` adds a `-f pulse` input and `-c:a libopus`, `publish/gstreamer.go` adds a `pulsesrc ! opusenc` branch into the muxer.
+
+Two settings describe that track.
+The source (`Audio`) says where it comes from: both engines capture the monitor of the default sink through the PulseAudio protocol, which PipeWire also serves.
+The codec (`AudioCodec`) says how it is coded, and the row in `capabilities.AudioCodecs` carries the element each engine uses, the sample rate the branch resamples to and the bitrate it targets.
+`ffmpeg/args.go` builds a `-f pulse` input and a `-c:a` from the row's ffmpeg encoder; `publish/gstreamer.go` builds a `pulsesrc` branch ending in the row's element and its parser, since a muxer pad needs framed caps to negotiate.
 The branch attaches by element name, which is why `GstPublisher` sinks name their muxer `transport.GstMuxName`.
-Desktop audio exists only on Linux: ffmpeg has no WASAPI loopback, so the Windows grabbers reject the option and the UI greys it there.
+Which legs carry which codec is the `Carriage.Audio` half of the transport table, so both engines refuse a codec they cannot code (`capabilities.ValidateAudio`) and one the publish leg does not carry (`transport.ValidatePublishAudio`).
+
+Desktop audio is Linux's alone, and each of the other platforms refuses it for its own reason.
+ffmpeg has no WASAPI loopback, so the Windows grabbers reach no monitor source, and AVFoundation enumerates input devices only, so what a Mac plays is not a source the macOS grabber can open.
 
 ## Colour
 
@@ -175,7 +183,7 @@ The GStreamer bytes are the video elementary stream, so its bitrate reads below 
 - `publish.Publisher`: `Command(s)` renders the pipeline for display; `Start(s, tag, Callbacks)` launches and supervises it.
 - `publish.Handle`: `Running()` and `Stop()`, the lifecycle the app drives.
 - `publish.Callbacks`: `OnStats` (best-effort progress) and `OnExit` (terminal result with the stderr tail and log path).
-- `transport.Transport` (engine-neutral identity) plus the peer capability interfaces `FFmpegPublisher`, `GstPublisher` and `Watcher`: each engine's serialization of the destination.
+- `transport.Transport` (engine-neutral identity and carriage) plus the peer capability interfaces `FFmpegPublisher`, `GstPublisher`, `Watcher` and `GstWatcher`: each engine's serialization of one leg.
 - `portal.Open(Options) (*Session, error)`: the ScreenCast handshake; `Session` carries `NodeID`, the remote `Fd`, a `Restore` token, and `Close`.
 
 ## The portal handshake
@@ -199,7 +207,7 @@ Storing it is best effort: a failure costs a picker on the next publish and noth
 A backend is a row in `captureBackends` pointing at the engine that runs it.
 Under the ffmpeg engine that is an entry in `ffmpeg.captureBackends` building the input arguments; under the GStreamer engine it is a `gstCapture` implementation and the engine instantiated with it.
 A backend that produces GPU frames adds a row per encoder family it can hand them to in `gpupath.Paths`, plus the engine's own half of that row: a caps feature and post-processor in `gstGpuMemories`, or a device and scaler in `gpuConverts`.
-A row without its engine half is asserted rather than approximated, since the alternative is picking a memory the elements do not negotiate.
+A row without its engine half is asserted rather than approximated, since the alternative is picking a memory the elements do not negotiate, so a backend whose engine states no half for any family it could pair with carries no row and captures into system memory.
 An ffmpeg backend refuses settings naming something it cannot capture, a monitor this machine has no output for or a DRM download strategy no table row carries, rather than capturing whatever it can: a command that captures a different source than the form shows selected is the one failure no field can state.
 An engine is one type satisfying `publish.Publisher`, and a new one is needed only for a framework neither covers.
 The backend's platform applicability (which OS and session it runs on) is a row in `CAPTURE_NEEDS`, with the other capture-gating facts in `frontend/src/util/deps.ts`, and its label and tooltip a row in `CAPTURES`.

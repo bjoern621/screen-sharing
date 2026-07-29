@@ -164,11 +164,11 @@
           [
             gstreamer # gst-launch-1.0
             gst-plugins-base # videoconvert
-            gst-plugins-good # pulsesrc (desktop audio), vpx (vp8enc/vp9enc), rtspsrc, progressreport
+            gst-plugins-good # pulsesrc (desktop audio), vpx (vp8enc/vp9enc), rtspsrc, progressreport, aacparse
             gst-plugins-bad # mpegtsmux, srtsink/srtsrc, h264parse/h265parse/av1parse, nvcodec, va (vah264enc and the other VAAPI encoders), qsv (Intel encode and decode), aom (av1enc), svtav1enc, opusenc
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
-            gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB)
+            gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB). avenc_aac: the AAC audio encoder
             # gtk4paintablesink (native grid video sink), rav1enc, rtpav1pay and
             # whipclientsink: rtspclientsink needs the payloader to carry AV1, and no
             # other plugin here has one, and whipclientsink is the GStreamer publish

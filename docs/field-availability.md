@@ -1,6 +1,6 @@
 # Field availability: hide vs disable
 
-A settings field can become inapplicable to the current combination of capture backend, codec and mode.
+A settings field can become inapplicable to the current combination of capture backend, codec, publish transport and mode.
 Two treatments express that, and the choice between them is a fixed rule, not a per-field judgement.
 A third form covers the neighbouring case, a field that stays applicable but means something else.
 
@@ -18,6 +18,7 @@ The reason comes from `deps.disabled` in `evaluateDeps` (`util/deps.ts`), for ex
 A dropdown keeps the option and greys that entry, whose tooltip carries the reason from `deps.optionDisabled`.
 This covers a value the current combination rules out while a neighbouring combination allows it: planar RGB is greyed on the portal capture backend, because no GStreamer encoder element takes it, and selectable on the capture backends that run ffmpeg, which codes it.
 The reason names the limit and which side has it, so the greyed entry tells the user what to change rather than only that the option is gone.
+The audio codec is greyed from two tables at once, and the reason names which one: the publish leg carries no such track (AAC under WebRTC, Opus under RTMP), or the capture backend's engine has no encoder for it.
 
 **Live with a note.**
 The field stays editable and its tooltip gains a sentence from `deps.note`.

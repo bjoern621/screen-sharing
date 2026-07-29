@@ -3,6 +3,7 @@ package transport
 import (
 	"testing"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -34,16 +35,18 @@ func TestHLSPublishesNothing(t *testing.T) {
 	s := hlsTestStream()
 	s.Transport = "hls"
 
-	if CanFFmpegPublish("hls") || CanGstPublish("hls") {
-		t.Error("hls must declare no publish form")
+	for _, engine := range capabilities.Engines {
+		if CanPublish("hls", engine) {
+			t.Errorf("hls must declare no publish form on the %s engine", engine)
+		}
+		if err := ValidatePublish("hls", engine, "libx264"); err == nil {
+			t.Errorf("publishing over hls on the %s engine must be refused whatever the codec", engine)
+		}
 	}
 	if _, ok := PublishArgs(s); ok {
 		t.Error("PublishArgs must report false for hls")
 	}
 	if _, ok := GstSink(s); ok {
 		t.Error("GstSink must report false for hls")
-	}
-	if err := ValidatePublish("hls", "libx264"); err == nil {
-		t.Error("publishing over hls must be refused whatever the codec")
 	}
 }

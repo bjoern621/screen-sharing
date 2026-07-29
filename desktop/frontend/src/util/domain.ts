@@ -42,6 +42,11 @@ export type GapOption = keyof Stream & string;
  * hardware the watchers have, so a hardware verdict means some GPU decodes this. */
 export type Decoder = capabilities.Decoder;
 
+/** One audio codec the second track can be coded in, from the backend audio table
+ * (`App.AudioCodecs`): the element each publish engine codes it with, the bitstream
+ * format transports carry it under, and the rate and bitrate the track is coded at. */
+export type AudioCodec = capabilities.AudioCodec;
+
 /** The decoder families, as the backend names them. Anything but "software" runs on
  * fixed-function silicon. */
 const DECODE_SOFTWARE = "software";
@@ -240,7 +245,7 @@ export type Family =
     "software" | "nvenc" | "vaapi" | "qsv" | "amf" | "v4l2" | "rkmpp" | "vulkan";
 /** Video coding formats, independent of the encoder family. */
 export type Format = "h264" | "hevc" | "av1" | "vp9" | "vp8";
-export type Chroma = "gbrp" | "yuv444p" | "yuv420p" | "p010le";
+export type Chroma = "gbrp" | "yuv444p" | "yuv422p" | "yuv420p" | "p010le";
 export type Mode = "cbr" | "vbr" | "abr" | "crf" | "lossless";
 export type AudioSource = "none" | "desktop";
 
@@ -363,6 +368,17 @@ export const CHROMA_META: Record<Chroma, ChromaMeta> = {
         bitDepth: 8,
         fullRange: false,
         whepBlock: "4:4:4 chroma",
+    },
+    yuv422p: {
+        label: "yuv422p - Y′CbCr 4:2:2",
+        link: "https://en.wikipedia.org/wiki/Chroma_subsampling",
+        tip: "Chroma at half horizontal resolution and full vertical (4:2:2). Keeps the vertical colour detail 4:2:0 discards, for two thirds of 4:4:4's chroma samples: the middle ground between the two.",
+        weight: 1.25,
+        rawBpp: 16,
+        is420: false,
+        bitDepth: 8,
+        fullRange: false,
+        whepBlock: "4:2:2 chroma",
     },
     yuv420p: {
         label: "yuv420p - Y′CbCr 4:2:0",
@@ -629,9 +645,43 @@ export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?
     desktop: {
         label: "desktop - system audio",
         link: "https://wiki.archlinux.org/title/PulseAudio#Monitor_sources",
-        tip: "Everything the machine plays, captured from the default output's monitor source (PulseAudio/PipeWire) and muxed in as 128 kbit/s stereo Opus.",
+        tip: "Everything the machine plays, captured from the default output's monitor source (PulseAudio/PipeWire) and muxed in as a stereo second track. What codes that track is the audio codec field.",
     },
 };
+
+/**
+ * Presentation for an audio codec, keyed as the backend table names it. The numbers
+ * a codec is coded at (sample rate, bitrate) are the backend's and are read off
+ * `App.AudioCodecs`, so this table carries what a reader needs to choose and nothing
+ * the wire already states.
+ */
+export const AUDIO_CODEC_META: Record<string, { label: string; tip: string; link: string }> = {
+    opus: {
+        label: "opus - Opus",
+        link: "https://en.wikipedia.org/wiki/Opus_(audio_format)",
+        tip: "Opus: royalty-free, low-delay, and the only audio codec WebRTC negotiates. Its bitstream carries no sample rate a decoder has to match, so a track keeps playing whatever leg it is watched over.",
+    },
+    aac: {
+        label: "aac - AAC",
+        link: "https://en.wikipedia.org/wiki/Advanced_Audio_Coding",
+        tip: "Advanced Audio Coding: what the FLV container carries and what a player opening an RTMP or HLS URL expects. Older and higher-delay than Opus, and no WebRTC leg negotiates it.",
+    },
+};
+
+/** Whether this publish engine has an encoder element for the audio codec. An
+ * engine absent from the row codes nothing, and the row's gap says why. */
+export function audioCodesOn(a: AudioCodec, engine: Engine): boolean {
+    return (a.encoders ?? []).some(e => e.engine === engine);
+}
+
+/**
+ * The gap stating why this engine has no encoder for the audio codec, or undefined
+ * where the table declares none. A gap naming no engine holds on both, as the video
+ * gaps do.
+ */
+export function audioEngineGap(a: AudioCodec, engine: Engine): Gap | undefined {
+    return (a.gaps ?? []).find(g => !g.engine || g.engine === engine);
+}
 
 /**
  * What one encoder implementation adds beyond its format, appended to the format's
@@ -678,44 +728,107 @@ export function formatOf(codec: string, caps: Capability[] | null): Format | und
  * protocols it does not ingest and ingests formats it cannot serve back. */
 export type Leg = "publish" | "watch";
 
-/** The formats a transport carries on one leg. A transport with no such leg at all
- * declares an empty set, which crosses the wire as a null: the relay serves HLS and
- * ingests nothing over it, so its publish set is one. */
-function legFormats(entry: TransportCarriage, leg: Leg): string[] {
-    return entry[leg] ?? [];
+/**
+ * The backend's carriage table row for one transport, leg and engine, or undefined
+ * where it has none.
+ *
+ * Carriage is per leg and per engine because the two axes each carry a fact: the
+ * relay serves HLS and ingests nothing over it, and the two engines wrap different
+ * muxers and source elements, so ffmpeg's WHIP muxer publishes H.264 alone where the
+ * GStreamer one payloads what webrtcbin negotiates. A missing row is that statement:
+ * the engine has no serialization for that leg of that protocol.
+ *
+ * On the publish leg the engine is the capture backend's publish engine. On the watch
+ * leg "ffmpeg" is the URL-opening players and "gstreamer" is the native grid's
+ * receiving pipeline; the browser is neither and carries its own table (webgrid.ts).
+ */
+function carriageRow(
+    carriage: TransportCarriage[],
+    transport: string,
+    leg: Leg,
+    engine: Engine
+): TransportCarriage | undefined {
+    return carriage.find(
+        c => c.name === transport && c.leg === leg && c.engine === engine
+    );
 }
 
 /**
- * Whether a transport carries a bitstream format on the given leg, from the
- * backend transport table. An unresolved table (still loading) and an unknown
- * transport both report true, so a rule built on this imposes no restriction
- * before the facts arrive, as every other unresolved fact here behaves.
+ * The video formats a transport carries on one leg with one engine, or null where
+ * the table states no such row. A null engine is the capture backend's before it
+ * resolves, which names no row and so states nothing.
+ */
+export function legFormats(
+    carriage: TransportCarriage[] | null,
+    transport: string,
+    leg: Leg,
+    engine: Engine | null
+): string[] | null {
+    if (!carriage || !engine) {
+        return null;
+    }
+    return carriageRow(carriage, transport, leg, engine)?.video ?? null;
+}
+
+/**
+ * The audio codec formats a transport carries on one leg with one engine, or null
+ * where the table states no such row. It reads the same rows as legFormats: a
+ * protocol carries a video bitstream and an audio one over the same wire, and the
+ * two sets differ, so RTMP takes AAC where WebRTC takes Opus.
+ */
+export function legAudioFormats(
+    carriage: TransportCarriage[] | null,
+    transport: string,
+    leg: Leg,
+    engine: Engine | null
+): string[] | null {
+    if (!carriage || !engine) {
+        return null;
+    }
+    return carriageRow(carriage, transport, leg, engine)?.audio ?? null;
+}
+
+/**
+ * Whether a transport carries a bitstream format on the given leg and engine.
+ *
+ * An unresolved table, engine or format states nothing, so a rule built on this
+ * imposes no restriction before the facts arrive, as every other unresolved fact
+ * here behaves. A resolved table with no matching row is the opposite: a transport
+ * the table does not name carries nothing, and an engine with no row for the leg
+ * cannot serialize it, so both report false rather than passing unnoticed.
  */
 export function carriesFormat(
     carriage: TransportCarriage[] | null,
     transport: string,
     leg: Leg,
+    engine: Engine | null,
     format: string | undefined
 ): boolean {
-    const entry = carriage?.find(c => c.name === transport);
-    if (!entry || !format) {
+    if (!carriage || !engine || !format) {
         return true;
     }
-    return legFormats(entry, leg).includes(format);
+    return legFormats(carriage, transport, leg, engine)?.includes(format) ?? false;
 }
 
-/** The transports carrying a format on the given leg, for a message that names
- * where the combination would have worked. Empty while the table is unresolved. */
+/** The transports carrying a format on the given leg with the given engine, for a
+ * message that names where the combination would have worked. Empty while the table
+ * or the engine is unresolved. */
 export function carriersOf(
     carriage: TransportCarriage[] | null,
     leg: Leg,
+    engine: Engine | null,
     format: string | undefined
 ): string[] {
-    if (!carriage || !format) {
+    if (!carriage || !engine || !format) {
         return [];
     }
     return carriage
-        .filter(c => legFormats(c, leg).includes(format))
+        .filter(
+            c =>
+                c.leg === leg &&
+                c.engine === engine &&
+                (c.video ?? []).includes(format)
+        )
         .map(c => c.name);
 }
 
@@ -801,14 +914,39 @@ export function familyOf(codec: string, caps: Capability[] | null): Family | und
 }
 
 /**
- * Scale the codec's constant-quality knob counts on. It follows the encoder rather
- * than the format: the H.26x encoders reach 51, libvpx and the software AV1 ones 63,
- * and an encoder taking a raw quantizer index counts to 127 or 255. The same CQ
- * number is therefore a different quality per codec. Falls back to the 51-point
- * scale while the capability table is unresolved or carries no figure for the codec.
+ * The 51-point quantizer scale every figure stated codec-independently counts on:
+ * the H.26x encoders' own. A number placed on it is converted to the running
+ * codec's scale by scaleCq.
  */
-export function cqMax(codec: string, caps: Capability[] | null): number {
-    return findCapability(caps, codec)?.cqMax || 51;
+export const ANCHOR_CQ_MAX = 51;
+
+/**
+ * Scale the codec's constant-quality knob counts on with the given engine, or 0
+ * where the table declares none. It follows the encoder rather than the format: the
+ * H.26x encoders reach 51, libvpx and the software AV1 ones 63, and an encoder taking
+ * a raw quantizer index counts to 127 or 255. The same CQ number is therefore a
+ * different quality per codec.
+ *
+ * The scale belongs to the property each engine sets rather than to the silicon
+ * underneath, which is why it is asked per engine: ffmpeg's QSV encoders state a
+ * quantizer on the H.26x scale where the qsv elements pass the format's own index
+ * through.
+ *
+ * A zero is a scale the table does not declare, which is the case for the families
+ * the argument builders do not map yet and while the engine or the table is
+ * unresolved. It means the quantizer is not bounded here, not that it is bounded at
+ * 51: pricing an unknown scale on the H.26x one would clamp a 255-point target to a
+ * fifth of its range.
+ */
+export function cqMax(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): number {
+    if (!engine) {
+        return 0;
+    }
+    return findCapability(caps, codec)?.cqMax?.[engine] ?? 0;
 }
 
 /**
@@ -817,23 +955,38 @@ export function cqMax(codec: string, caps: Capability[] | null): number {
  * codec and anything naming one has to say which scale it means. The quality
  * landmarks in the field's tooltip and the target a preset asks for are both stated
  * on the H.26x scale and converted here.
+ *
+ * A codec with no declared scale on this engine leaves the number where it was
+ * stated, since there is no scale to place it on.
  */
 export function scaleCq(
     cq51: number,
     codec: string,
+    engine: Engine | null,
     caps: Capability[] | null
 ): number {
-    return Math.round((cq51 * cqMax(codec, caps)) / 51);
+    const max = cqMax(codec, engine, caps);
+    if (max <= 0) {
+        return cq51;
+    }
+    return Math.round((cq51 * max) / ANCHOR_CQ_MAX);
 }
 
 /**
- * Highest bitrate target the codec's encoder accepts, in Mbit/s, or 0 when it takes
- * any rate. Only one encoder has a ceiling, and it refuses the encode rather than
- * clamping, so the field's own maximum comes from here and normalize repairs a value
- * carried over from a codec without one.
+ * Highest bitrate target the codec's encoder accepts on the given engine, in Mbit/s,
+ * or 0 when it takes any rate. An encoder with a ceiling refuses the encode rather
+ * than clamping, so the field's own maximum comes from here and normalize repairs a
+ * value carried over from a codec without one.
  */
-export function bitrateLimit(codec: string, caps: Capability[] | null): number {
-    return findCapability(caps, codec)?.bitrateLimitM ?? 0;
+export function bitrateLimit(
+    codec: string,
+    engine: Engine | null,
+    caps: Capability[] | null
+): number {
+    if (!engine) {
+        return 0;
+    }
+    return findCapability(caps, codec)?.bitrateLimitM?.[engine] ?? 0;
 }
 
 /** Human label for a codec, e.g. "HEVC / H.265 (VAAPI (Intel / AMD))". */

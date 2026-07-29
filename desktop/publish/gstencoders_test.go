@@ -62,7 +62,7 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 				s.Codec, s.Mode, s.Chroma = name, mode, engineChromas[len(engineChromas)-1]
 				// The quantizer target rides each encoder's own scale, and the default
 				// settings carry one from another codec's.
-				s.Cq = cap.CqMax / 2
+				s.Cq = cap.CqMaxOn(EngineGst) / 2
 
 				format, err := gstChromaFormat(name, s.Chroma)
 				if err != nil {
@@ -132,16 +132,19 @@ func TestNoGstMappingForAGappedCodec(t *testing.T) {
 
 // The quantizer target reaches every element on that element's own scale, so a codec
 // counting to 255 must not be handed a value clamped to 51, and the reverse.
+// The scale read here is this engine's: qsvvp9enc passes VP9's own quantizer index through
+// where the ffmpeg wrapper of the same silicon states a CQP on the H.26x scale.
 func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
-	for _, name := range []string{"libx264", "libvpx-vp9", "librav1e"} {
+	for _, name := range []string{"libx264", "libvpx-vp9", "librav1e", "vp9_qsv"} {
 		cap, _ := capabilities.Get(name)
+		cqMax := cap.CqMaxOn(EngineGst)
 		s := settings.Defaults()
-		s.Codec, s.Mode, s.Chroma, s.Cq = name, "crf", cap.EngineChromas("gstreamer")[0], cap.CqMax
+		s.Codec, s.Mode, s.Chroma, s.Cq = name, "crf", cap.EngineChromas(EngineGst)[0], cqMax
 		encoder, _, err := gstEncoder(s, 60)
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := strconv.Itoa(cap.CqMax)
+		want := strconv.Itoa(cqMax)
 		if line := strings.Join(encoder, " "); !strings.Contains(line, "="+want) {
 			t.Errorf("%s crf at its maximum quantizer: %s, want a property set to %s", name, line, want)
 		}

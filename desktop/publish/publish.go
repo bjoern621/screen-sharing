@@ -79,18 +79,25 @@ const (
 // framework has an element or an input device for that source, not from a
 // property of the engine.
 //
-// The pairing is one-to-one because no source has both. ffmpeg has the four
-// screen grabbers and no PipeWire input device; GStreamer has pipewiresrc and
-// ximagesrc and no DRM/KMS source element at all, which is why kmsgrab appears
-// once and under ffmpeg. A source both frameworks could read would be two rows,
-// one per engine, and nothing else would change.
+// A screen both frameworks can read is two rows, one per engine, and each row is
+// named as its own framework names the source: the macOS screen is avfoundation
+// under ffmpeg and avfvideosrc under GStreamer, the Windows desktop ddagrab or
+// gdigrab under ffmpeg and d3d11screencapturesrc under GStreamer.
+//
+// The rows with one engine are the sources the other framework has nothing for.
+// ffmpeg has no PipeWire input device, so the portal is GStreamer's alone;
+// GStreamer has no capture element for DRM/KMS scanout buffers at all, so kmsgrab
+// is ffmpeg's.
 var captureBackends = map[string]Publisher{
-	"ddagrab":   ffmpegEngine{},
-	"gdigrab":   ffmpegEngine{},
-	"x11grab":   ffmpegEngine{},
-	"kmsgrab":   ffmpegEngine{},
-	"portal":    gstEngine{capture: portalCapture{}},
-	"ximagesrc": gstEngine{capture: ximageCapture{}},
+	"ddagrab":               ffmpegEngine{},
+	"gdigrab":               ffmpegEngine{},
+	"x11grab":               ffmpegEngine{},
+	"kmsgrab":               ffmpegEngine{},
+	"avfoundation":          ffmpegEngine{},
+	"portal":                gstEngine{capture: portalCapture{}},
+	"ximagesrc":             gstEngine{capture: ximageCapture{}},
+	"avfvideosrc":           gstEngine{capture: avfCapture{}},
+	"d3d11screencapturesrc": gstEngine{capture: d3d11Capture{}},
 }
 
 // For returns the Publisher that runs the given capture backend.

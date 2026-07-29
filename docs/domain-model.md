@@ -10,18 +10,17 @@ A codec carries many rules: whether it runs on NVENC, which pixel formats it can
 Written imperatively, those rules spread across files and drift.
 The failure mode is two encodings of one constraint: the settings form greys out an option while the normalizer still lets the value through, or one copy is updated and the other is missed.
 
-The disable rules and the repair rules in the frontend were previously two hand-kept copies of the same codec/chroma/transport constraints, and the NVENC test was written once in Go and again in TypeScript.
-
 ## Where each fact lives
 
 Constraints the encoder and the UI must agree on live in Go and are the single source:
 
-- `capabilities/capabilities.go`: per codec, the encoder family and its NVENC flag, the pixel formats it may encode, what its encoder cannot do, and the scale its constant-quality knob counts on.
+- `capabilities/capabilities.go`: per codec, the encoder family, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer target and bitrate target count on, both stated per publish engine.
+- `capabilities/audio.go`: per audio codec, the element each publish engine codes it with, the sample rate the capture branch resamples to and the bitrate the track is coded at.
 - `gpupath/gpupath.go`: per capture backend and encoder family, whether their frames reach the encoder without a trip through system memory, and what carries them.
 - `capabilities/decoders.go`: per decoder element, the pixel formats it decodes and what bounds that list.
   It describes the viewers rather than this machine: a stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing in it restricts a choice.
   The form reads it to say what a pixel format costs a viewer, every format having a software decoder and the choice being between a viewer's GPU and a viewer's cores.
-- `transport/*.go`: per protocol, the bitstream formats it carries to the relay and the ones the relay serves back over it, declared beside the code that serializes each leg.
+- `transport/*.go`: per protocol, leg and engine, the video formats and audio codecs that engine puts through that leg, declared beside the code that serializes it.
 
 The two publish engines wrap different encoder implementations, so a pixel format, a colour range, a rate-control mode or a whole codec can be one engine's and not the other's.
 Each difference is a `Gap` naming the engine, the option, the value and the reason, rather than a row narrowed to what both engines manage.
@@ -32,14 +31,25 @@ The lookup, the validator and the frontend read that list rather than a field pe
 A gap naming no option takes the codec off that engine altogether, since no value of any option reaches an encoder that is not there.
 Gap values are the settings' own: the option is a `settings.Stream` JSON field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
 
+Audio is two settings against two tables, because the source and the codec answer different questions.
+Which sources exist is the platform's answer and is the `Audio` field.
+Which codec the track is coded in is the engine's and the publish leg's, and is `AudioCodec`, a row of `capabilities.AudioCodecs`.
+A row states the element each engine codes it with, the sample rate and the bitrate, so both engines build their branch from one declaration instead of a hardcoded element list each.
+
 Which protocol carries a codec is not a column here.
-A protocol carries a bitstream format, so each transport declares its own format set per leg (`transport.Formats`) and both directions read it: the publish set validates a publish command, the watch set answers what a viewer may receive over that leg (`viewer-architecture.md`, "Which protocol carries which format").
+A protocol carries a bitstream format, so each transport declares its own carriage (`transport.Formats`) and both directions read it: the publish entry validates a publish command, the watch entry answers what a viewer may receive over that leg (`viewer-architecture.md`, "Which protocol carries which format").
+A carriage is per leg and per engine, and it names video formats and audio codecs together, since what a listener carries as a bitstream and what it carries as a second track are one fact about that listener.
+The engine axis exists because a single list per leg would have to state the narrower of the two engines: the engine that carries more would be refused a format it serializes correctly, and no form could give a reason for the refusal.
+WebRTC is where the two part, publishing H.264 on the ffmpeg engine and H.264, VP8 and VP9 on the GStreamer one.
+`transport.Register` holds a stated carriage and the matching serialization capability to each other, so a transport can neither offer a leg it has no code to build nor build one no caller may reach.
 Adding a transport is therefore one file in the `transport` package and no edit to the codec table.
 
 The encoder reads this table directly.
 Each builder keys its family-wide behaviour off a table the row's `Family` indexes (`familyMappings`, `hwSurfaces`, `gstFamilyLimits`, `gstFamilyChromaFormats`) rather than off a per-family flag or a codec-name suffix, so a family gains a behaviour by gaining an entry.
 `capabilities.Validate` rejects a codec, option value or quantizer the table forbids, reading every option in `Options` the same way.
 Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
+The second track is validated twice beside it, by `capabilities.ValidateAudio` for a codec the engine has no encoder for and by `transport.ValidatePublishAudio` for one the publish leg does not carry.
+Two refusals rather than one because the fix differs: another capture backend for the first, another audio codec or another leg for the second.
 The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
 The decode table reaches it through `App.Decoders` beside it, and feeds a note on the pixel-format control rather than a greying, since a decoder the viewer lacks is a cost and not an illegal combination.
 
@@ -65,7 +75,7 @@ Each consumer reads the tables instead of restating a rule:
 - `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value, and leaves the value standing where the walk finds none.
 - `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
 - `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
-- `nativegrid.ts`: the native-grid viewability verdict, from the watch set the transport table gives the grid's selected watch leg.
+- `nativegrid.ts`: the native-grid viewability verdict, from what the transport table gives a receiving GStreamer pipeline over the grid's selected watch leg.
 - `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
 - `presets.ts`: the configuration a preset applies here, searched over the codecs the capability table declares and the capture backends the platform runs, and greyed where the tables leave none (`presets.md`).
 

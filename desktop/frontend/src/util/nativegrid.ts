@@ -1,7 +1,13 @@
 import { ViewVerdict, Stream, TransportCarriage } from "../types/stream";
 import {
-    Capability, carriersOf, carriesFormat, findCapability, Format, FORMAT_META,
+    Capability, Engine, carriersOf, carriesFormat, findCapability, Format,
+    FORMAT_META,
 } from "./domain";
+
+/** The grid receives through a GStreamer pipeline, so its watch leg is the
+ * GStreamer half of the carriage table. The ffmpeg half of the same leg is the
+ * URL-opening players', which reach a different set of protocols. */
+const GRID_ENGINE: Engine = "gstreamer";
 
 /**
  * Whether the native grid can decode the configured stream, with a reason either
@@ -31,8 +37,8 @@ export function nativeGridCheck(
 
     const transport = s.gridTransport.toUpperCase();
     const fmtLabel = FORMAT_META[cap.format as Format]?.label ?? cap.format;
-    if (!carriesFormat(carriage, s.gridTransport, "watch", cap.format)) {
-        const carriers = carriersOf(carriage, "watch", cap.format);
+    if (!carriesFormat(carriage, s.gridTransport, "watch", GRID_ENGINE, cap.format)) {
+        const carriers = carriersOf(carriage, "watch", GRID_ENGINE, cap.format);
         const alternatives = carriers.length
             ? ` Switch the grid's "Watch over" to ${carriers.join(" or ")} for it.`
             : "";

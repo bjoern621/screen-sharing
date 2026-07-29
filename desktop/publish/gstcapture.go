@@ -20,10 +20,10 @@ import (
 // encoder input. Everything after that point is the same for all of them, which
 // is why the seam sits there.
 //
-// The two backends differ in more than an element name. The portal one performs
-// a D-Bus handshake first and hands the child a descriptor; the X11 one opens
-// its display itself and needs nothing acquired. gstCapture is the contract that
-// covers both, so the engine below runs either without naming one.
+// The backends differ in more than an element name. The portal one performs a
+// D-Bus handshake first and hands the child a descriptor; the rest open their
+// source from the element alone and acquire nothing. gstCapture is the contract
+// that covers both shapes, so the engine below runs either without naming one.
 
 // childFdBase is the descriptor number ExtraFiles[0] is inherited as. A backend
 // that passes files gets the first ones, so the descriptors it writes into its
@@ -264,6 +264,104 @@ func (ximageCapture) elements(s settings.Stream, opts gstCaptureOptions) []strin
 		"!", opts.Convert,
 		"!", opts.InCaps,
 	)
+	if len(opts.RateProbe) > 0 {
+		src = append(src, "!")
+		src = append(src, opts.RateProbe...)
+	}
+	return src
+}
+
+// avfCapture is the macOS backend: avfvideosrc reads a screen through
+// AVFoundation, the GStreamer counterpart of the avfoundation grabber.
+//
+// capture-screen turns the element from a camera source into a screen one, and
+// capture-screen-cursor draws the pointer into the frames, which is what
+// -capture_cursor does on the ffmpeg side. Which screen it reads is the element's
+// own device choice, so the monitor setting does not reach it.
+//
+// The chain is ximageCapture's. AVFoundation paces a screen input by a frame
+// duration rather than by damage, so the framerate capsfilter on the source is
+// what the encoder is fed at and no imagefreeze is involved. That follows from
+// the element's properties rather than from a run, since macOS is not available
+// on the development machine.
+//
+// It carries no gpupath row. A row needs its engine half in gstGpuMemories, which
+// names the va family alone and so holds nothing a macOS pair could claim, and a
+// row without its half is what the pipeline builder asserts on.
+type avfCapture struct{}
+
+func (avfCapture) Name() string { return "avfvideosrc" }
+
+func (a avfCapture) Describe(s settings.Stream, opts gstCaptureOptions) []string {
+	return a.elements(s, opts)
+}
+
+func (a avfCapture) Open(s settings.Stream, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
+	return a.elements(s, opts), nil, func() {}, nil
+}
+
+func (avfCapture) HoldsOneDevice() error {
+	assert.Never("the macOS backend has no GPU path, so no run holds its devices against one")
+	return nil
+}
+
+// elements places the rate probe at the end of the chain, where nothing has
+// repeated a frame yet, so what it counts is what AVFoundation delivered.
+func (avfCapture) elements(s settings.Stream, opts gstCaptureOptions) []string {
+	src := []string{"avfvideosrc", "capture-screen=true", "capture-screen-cursor=true",
+		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
+		"!", opts.Convert,
+		"!", opts.InCaps,
+	}
+	if len(opts.RateProbe) > 0 {
+		src = append(src, "!")
+		src = append(src, opts.RateProbe...)
+	}
+	return src
+}
+
+// d3d11Capture is the Windows backend: d3d11screencapturesrc reads a monitor
+// through Desktop Duplication, the GStreamer counterpart of the ddagrab grabber.
+//
+// monitor-index selects the output and show-cursor draws the pointer into the
+// frames. The settings index reaches the element without a lookup, the way
+// ddagrab's output_idx does: both name a monitor in the Windows enumeration the
+// index already stands for.
+//
+// The chain is ximageCapture's: the framerate capsfilter on the source is what
+// paces the encoder and nothing downstream repeats a frame, so no imagefreeze is
+// involved. The element runs on Windows only, so that follows from its properties
+// rather than from a run here.
+//
+// It carries no gpupath row. Desktop Duplication hands out a Direct3D texture,
+// but gstGpuMemories names the va family alone, so no encoder family this source
+// could pair with has an engine half, and a row without its half is what the
+// pipeline builder asserts on.
+type d3d11Capture struct{}
+
+func (d3d11Capture) Name() string { return "d3d11screencapturesrc" }
+
+func (d d3d11Capture) Describe(s settings.Stream, opts gstCaptureOptions) []string {
+	return d.elements(s, opts)
+}
+
+func (d d3d11Capture) Open(s settings.Stream, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
+	return d.elements(s, opts), nil, func() {}, nil
+}
+
+func (d3d11Capture) HoldsOneDevice() error {
+	assert.Never("the Windows Direct3D backend has no GPU path, so no run holds its devices against one")
+	return nil
+}
+
+// elements places the rate probe at the end of the chain, where nothing has
+// repeated a frame yet, so what it counts is what Desktop Duplication delivered.
+func (d3d11Capture) elements(s settings.Stream, opts gstCaptureOptions) []string {
+	src := []string{"d3d11screencapturesrc", "show-cursor=true", "monitor-index=" + strconv.Itoa(s.Monitor),
+		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
+		"!", opts.Convert,
+		"!", opts.InCaps,
+	}
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)

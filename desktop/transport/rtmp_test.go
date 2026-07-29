@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -55,11 +56,11 @@ func TestRTMPCapabilities(t *testing.T) {
 	s := rtmpTestStream()
 	s.Transport = "rtmp"
 
-	if !CanFFmpegPublish("rtmp") {
-		t.Error("CanFFmpegPublish must report true for rtmp")
+	if !CanPublish("rtmp", capabilities.EngineFfmpeg) {
+		t.Error("CanPublish must report true for rtmp on the ffmpeg engine")
 	}
-	if CanGstPublish("rtmp") {
-		t.Error("CanGstPublish must report false for rtmp")
+	if CanPublish("rtmp", capabilities.EngineGst) {
+		t.Error("CanPublish must report false for rtmp on the gstreamer engine")
 	}
 	if _, ok := GstSink(s); ok {
 		t.Error("GstSink must report false for rtmp")
@@ -67,7 +68,11 @@ func TestRTMPCapabilities(t *testing.T) {
 	if _, ok := WatchURL("rtmp", s, "bob"); !ok {
 		t.Error("WatchURL must report true for rtmp")
 	}
-	if !CanGstWatch("rtmp") {
-		t.Error("CanGstWatch must report true for rtmp")
+	// Both watch engines read the legacy FLV tags, so the transport is watchable on the
+	// engine it cannot publish on.
+	for _, engine := range capabilities.Engines {
+		if !CanWatch("rtmp", engine) {
+			t.Errorf("CanWatch must report true for rtmp on the %s engine", engine)
+		}
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -84,7 +85,7 @@ type GridConfig struct {
 // names come off the relay's path list, and one bad path would otherwise cost
 // the window every other stream in the same roster.
 func BuildGridConfig(s settings.Stream, live []LiveStream, app GridApp) (string, error) {
-	if !transport.CanGstWatch(s.GridTransport) {
+	if !transport.CanWatch(s.GridTransport, capabilities.EngineGst) {
 		return "", fmt.Errorf("transport %q has no GStreamer watch form", s.GridTransport)
 	}
 
@@ -190,7 +191,7 @@ func watchLegOptions(s settings.Stream, legs []string) map[string][]transport.Wa
 // lists; refusing the name would leave that stream unable to state the leg it
 // is already on, and its knobs, which travel with the name, unreachable with it.
 func ApplyWatchLeg(base settings.Stream, l LiveStream, r GridRequest) (settings.Stream, error) {
-	assert.Assert(transport.CanGstWatch(base.GridTransport), "a grid window runs on a GStreamer watch leg", base.GridTransport)
+	assert.Assert(transport.CanWatch(base.GridTransport, capabilities.EngineGst), "a grid window runs on a GStreamer watch leg", base.GridTransport)
 
 	name := base.GridTransport
 	if r.Transport != "" && r.Transport != name {
@@ -223,11 +224,11 @@ func ApplyWatchLeg(base settings.Stream, l LiveStream, r GridRequest) (settings.
 // The list is the grid's alone and is wider than a player's: WHEP has no URL a
 // viewer program opens, and a receiving pipeline reaches it all the same.
 func GstWatchTransports(format string) []string {
-	out := transport.GstWatchNamesFor(format)
+	out := transport.WatchNamesFor(capabilities.EngineGst, format)
 	// A choice off this list reaches GstSource unexamined, so the narrowing must
 	// not leave a transport without a watch form in it.
 	for _, name := range out {
-		assert.Assert(transport.CanGstWatch(name), "an offered watch leg has a GStreamer watch form", name)
+		assert.Assert(transport.CanWatch(name, capabilities.EngineGst), "an offered watch leg has a GStreamer watch form", name)
 	}
 	return out
 }

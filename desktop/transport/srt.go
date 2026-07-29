@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -30,15 +31,32 @@ const srtBufBytes = 150_000_000
 
 func (SRT) Name() string { return "srt" }
 
-// srtFormats are the bitstream formats SRT carries in both directions, which is
-// what MediaMTX registers a stream type for in the MPEG-TS it ingests and
-// re-serves: H.264 and H.265. AV1, VP9 and VP8 have no such mapping there, so a
-// stream in one of them neither reaches an SRT publish nor comes back out of an
-// SRT read, whatever the relay ingested it over.
-var srtFormats = []string{"h264", "hevc"}
+// srtCarriage is what MediaMTX registers a stream type for in the MPEG-TS it
+// ingests and re-serves: H.264 and H.265, with Opus and AAC beside them. AV1, VP9
+// and VP8 have no such mapping there, so a stream in one of them neither reaches
+// an SRT publish nor comes back out of an SRT read, whatever the relay ingested
+// it over.
+//
+// One value covers all four engine legs because MPEG-TS is where the two engines
+// meet: ffmpeg's mpegts muxer and GStreamer's mpegtsmux write the same stream
+// types, and libavformat and tsdemux read them back. Naming it once is what makes
+// that agreement a statement rather than four lists that happen to match.
+var srtCarriage = Carriage{
+	Video: []string{"h264", "hevc"},
+	Audio: []string{"opus", "aac"},
+}
 
 func (SRT) Formats() Formats {
-	return Formats{Publish: srtFormats, Watch: srtFormats}
+	return Formats{
+		Publish: map[string]Carriage{
+			capabilities.EngineFfmpeg: srtCarriage,
+			capabilities.EngineGst:    srtCarriage,
+		},
+		Watch: map[string]Carriage{
+			capabilities.EngineFfmpeg: srtCarriage,
+			capabilities.EngineGst:    srtCarriage,
+		},
+	}
 }
 
 func (SRT) PublishArgs(s settings.Stream) []string {

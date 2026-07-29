@@ -210,11 +210,11 @@ func roundTripSettings(t *testing.T, codec, colorRange string) settings.Stream {
 	s.CaptureMemory = gpupath.MemorySystem
 	// The quantizer target rides each encoder's own scale, and the default settings
 	// carry one from another codec's.
-	s.Cq = c.CqMax / 2
+	s.Cq = c.CqMaxOn(EngineGst) / 2
 	// One encoder refuses a target above its ceiling outright, and the default settings
 	// carry one above it.
-	if c.BitrateLimitM > 0 && s.BitrateM > c.BitrateLimitM {
-		s.BitrateM = c.BitrateLimitM
+	if limit := c.BitrateLimitOn(EngineGst); limit > 0 && s.BitrateM > limit {
+		s.BitrateM = limit
 	}
 	return s
 }

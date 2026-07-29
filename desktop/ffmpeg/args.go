@@ -36,7 +36,13 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return nil, err
 	}
-	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Transport, capabilities.EngineFfmpeg, s.Codec); err != nil {
+		return nil, err
+	}
+	if err := capabilities.ValidateAudio(capabilities.EngineFfmpeg, s.AudioTrack()); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublishAudio(s.Transport, capabilities.EngineFfmpeg, s.AudioTrack()); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublishSettings(s); err != nil {
@@ -128,7 +134,11 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	}
 	args = append(args, "-g", strconv.Itoa(gopFor(s)))
 	if len(audioIn) > 0 {
-		args = append(args, audioEncodeArgs()...)
+		enc, err := audioEncodeArgs(s)
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, enc...)
 	}
 
 	pub, ok := transport.PublishArgs(s)
@@ -203,19 +213,21 @@ type captureSource struct {
 }
 
 // captureBackends is the input side of the command, one entry per screen grabber.
-// ddagrab and gdigrab are Windows-only; x11grab and kmsgrab are Linux-only, which
-// the capture list the UI offers already reflects (see publish.Captures). fps
-// arrives rendered because every grabber takes it as a string.
+// ddagrab and gdigrab are Windows-only, x11grab and kmsgrab Linux-only, and
+// avfoundation macOS-only, which the capture list the UI offers already reflects
+// (see publish.Captures). fps arrives rendered because every grabber takes it as a
+// string.
 //
 // A backend returns an error where the settings name something it cannot capture: a
 // monitor this machine does not have, a DRM download strategy no table row names.
 // The alternative is a command that captures something else, which is the one
 // outcome the form has no way to show.
 var captureBackends = map[string]func(s settings.Stream, fps, memory string) (captureSource, error){
-	"ddagrab": ddagrabArgs,
-	"gdigrab": gdigrabArgs,
-	"x11grab": x11grabArgs,
-	"kmsgrab": kmsgrabCaptureArgs,
+	"ddagrab":      ddagrabArgs,
+	"gdigrab":      gdigrabArgs,
+	"x11grab":      x11grabArgs,
+	"kmsgrab":      kmsgrabCaptureArgs,
+	"avfoundation": avfoundationArgs,
 }
 
 // captureArgs returns the input arguments and filter chain for the configured
@@ -298,16 +310,47 @@ func x11grabArgs(s settings.Stream, fps, _ string) (captureSource, error) {
 	)}, nil
 }
 
+// avfoundationScreenDevice is the name AVFoundation lists a screen under, with the
+// monitor index appended. ffmpeg takes one video and one audio device in a single
+// -i, separated by a colon, so the audio half is part of this string rather than an
+// input of its own.
+const avfoundationScreenDevice = "Capture screen "
+
+// avfNoAudioDevice is the audio half of the device string. It stays unset because
+// the two halves travel together: an audio device named here would become this
+// input's second stream whatever the audio setting says, and desktop audio is
+// refused on this backend for a reason of its own (audioInputArgs).
+const avfNoAudioDevice = ":none"
+
+// avfoundationArgs captures a macOS screen through AVFoundation.
+//
+// The monitor index goes into the device name without a lookup, the way ddagrab's
+// output_idx does. What it indexes is AVFoundation's own list of screen devices,
+// and display.List has no macOS enumerator to hold it against: the placeholder it
+// answers with there would refuse every index but zero.
+//
+// The device naming is ffmpeg's documented avfoundation input rather than a reading
+// off a machine, since macOS is not available here.
+func avfoundationArgs(s settings.Stream, fps, _ string) (captureSource, error) {
+	return captureSource{args: []string{
+		"-f", "avfoundation",
+		"-capture_cursor", "1",
+		"-framerate", fps,
+		"-i", avfoundationScreenDevice + strconv.Itoa(s.Monitor) + avfNoAudioDevice,
+	}}, nil
+}
+
 // pulseMonitorDevice is the libpulse magic name for the monitor of the default
 // sink: the mixed desktop audio. PipeWire's pulse server implements it as well,
 // so the same device string works on both sound servers.
 const pulseMonitorDevice = "@DEFAULT_MONITOR@"
 
 // audioInputArgs returns the audio capture input for the selected audio source.
-// Desktop audio comes from the PulseAudio/PipeWire monitor source, which the
-// Windows capture backends have no counterpart for: ffmpeg lacks WASAPI
-// loopback capture, so those backends reject the option instead of publishing
-// a silent track.
+// Desktop audio comes from the PulseAudio/PipeWire monitor source, which only a
+// Linux session serves. A backend on another platform rejects the option instead
+// of publishing a silent track, and each rejection names why that platform has no
+// mixed output to read: the two are different missing pieces, and a user who reads
+// one reason cannot act on the other.
 func audioInputArgs(s settings.Stream) ([]string, error) {
 	switch s.Audio {
 	case "", "none":
@@ -316,6 +359,8 @@ func audioInputArgs(s settings.Stream) ([]string, error) {
 		switch s.Capture {
 		case "ddagrab", "gdigrab":
 			return nil, fmt.Errorf("desktop audio capture needs PulseAudio/PipeWire, which the %s (Windows) backend cannot reach", s.Capture)
+		case "avfoundation":
+			return nil, fmt.Errorf("desktop audio capture needs PulseAudio/PipeWire, and the %s (macOS) backend reaches no equivalent: AVFoundation enumerates input devices only, so what the machine plays is not a source ffmpeg can open", s.Capture)
 		}
 		return []string{"-f", "pulse", "-i", pulseMonitorDevice}, nil
 	default:
@@ -323,11 +368,28 @@ func audioInputArgs(s settings.Stream) ([]string, error) {
 	}
 }
 
-// audioEncodeArgs encodes the captured audio as 128 kbit/s stereo Opus. Opus is
-// the one codec every hop already handles: ffmpeg muxes it into MPEG-TS,
-// MediaMTX forwards it over SRT and WebRTC, and ffplay/mpv/browsers decode it.
-func audioEncodeArgs() []string {
-	return []string{"-c:a", "libopus", "-b:a", "128k", "-ac", "2"}
+// audioEncodeArgs encodes the captured audio as a stereo track in the configured
+// codec. The encoder name, the sample rate and the bitrate all come from the
+// audio table, so this engine and the GStreamer one code the same track from one
+// declaration rather than from two hardcoded element lists.
+//
+// The stream reaching here is validated, so an unknown codec or one this engine
+// cannot code is a caller that skipped the validator rather than a user's value.
+func audioEncodeArgs(s settings.Stream) ([]string, error) {
+	a, ok := capabilities.GetAudio(s.AudioTrack())
+	if !ok {
+		return nil, fmt.Errorf("unknown audio codec %q", s.AudioTrack())
+	}
+	enc, ok := a.EncoderOn(capabilities.EngineFfmpeg)
+	if !ok {
+		return nil, fmt.Errorf("audio codec %s has no ffmpeg encoder", a.Name)
+	}
+	return []string{
+		"-c:a", enc.Element,
+		"-b:a", fmt.Sprintf("%dk", a.BitrateK),
+		"-ar", strconv.Itoa(a.Rate),
+		"-ac", "2",
+	}, nil
 }
 
 // monitorByIndex looks up an enumerated monitor by its capture index. The second

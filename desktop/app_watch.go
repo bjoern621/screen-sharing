@@ -10,6 +10,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/ffmpeg"
 	"bjoernblessin.de/screenshare/relay"
 	"bjoernblessin.de/screenshare/transport"
@@ -75,7 +76,7 @@ func (a *App) carriesStream(streamName, transportName string) error {
 	if format == "" {
 		return nil
 	}
-	carried := transport.WatchNamesFor(format)
+	carried := transport.WatchNamesFor(capabilities.EngineFfmpeg, format)
 	if slices.Contains(carried, transportName) {
 		return nil
 	}

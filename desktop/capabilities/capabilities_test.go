@@ -192,11 +192,13 @@ func TestEngineChromas(t *testing.T) {
 		codec, engine string
 		want          []string
 	}{
-		{"libx265", "ffmpeg", []string{"gbrp", "yuv444p", "yuv420p", "p010le"}},
-		{"libx265", "gstreamer", []string{"yuv444p", "yuv420p", "p010le"}},
+		// The two software H.26x rows are where the middle subsampling lives:
+		// x264 codes High 4:2:2 and x265 Main 4:2:2 10, and no hardware encoder here reaches either.
+		{"libx265", "ffmpeg", []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"}},
+		{"libx265", "gstreamer", []string{"yuv444p", "yuv422p", "yuv420p", "p010le"}},
 		{"libaom-av1", "ffmpeg", []string{"gbrp", "yuv444p", "yuv420p", "p010le"}},
 		{"libaom-av1", "gstreamer", []string{"yuv444p", "yuv420p"}},
-		{"libx264", "gstreamer", []string{"yuv444p", "yuv420p", "p010le"}},
+		{"libx264", "gstreamer", []string{"yuv444p", "yuv422p", "yuv420p", "p010le"}},
 	}
 	for _, tc := range cases {
 		c, ok := Get(tc.codec)
@@ -322,20 +324,53 @@ func TestValidate(t *testing.T) {
 // modes that send one. Every codec with no ceiling takes any target.
 func TestValidateBitrateCeiling(t *testing.T) {
 	for _, c := range Codecs {
-		if !c.Implemented || c.BitrateLimitM == 0 {
+		limit := c.BitrateLimitOn(EngineFfmpeg)
+		if !c.Implemented || limit == 0 {
 			continue
 		}
-		chroma := c.EngineChromas("ffmpeg")[0]
-		if err := Validate("ffmpeg", c.Name, options(chroma, "cbr", "pc"), 0, c.BitrateLimitM+1); err == nil {
-			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, c.BitrateLimitM)
+		chroma := c.EngineChromas(EngineFfmpeg)[0]
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit+1); err == nil {
+			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, limit)
 		}
-		if err := Validate("ffmpeg", c.Name, options(chroma, "cbr", "pc"), 0, c.BitrateLimitM); err != nil {
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit); err != nil {
 			t.Errorf("%s at its ceiling: %v", c.Name, err)
 		}
 		// crf sends no bitrate, so a stale target must not block the encode.
-		if _, gap := c.OptionGap("ffmpeg", OptionMode, "crf"); !gap {
-			if err := Validate("ffmpeg", c.Name, options(chroma, "crf", "pc"), 0, c.BitrateLimitM*2); err != nil {
+		if _, gap := c.OptionGap(EngineFfmpeg, OptionMode, "crf"); !gap {
+			if err := Validate(EngineFfmpeg, c.Name, options(chroma, "crf", "pc"), 0, limit*2); err != nil {
 				t.Errorf("%s in crf with a stale bitrate target: %v", c.Name, err)
+			}
+		}
+	}
+}
+
+// The two numeric limits are read per engine, and a missing entry reads as zero, which both
+// lookups spell "no bound declared".
+// A row naming one engine and not the other therefore validates unbounded on the engine it forgot:
+// a quantizer off the encoder's scale and a bitrate above its ceiling both reach the command,
+// and the refusal that should have named the value never fires.
+// So a limit covers every engine or none of them, and names no engine outside the set,
+// where a misspelled key is the same silent zero.
+func TestNumericLimitsCoverEveryEngineOrNone(t *testing.T) {
+	for _, c := range Codecs {
+		limits := map[string]map[string]int{
+			"CqMax":         c.CqMax,
+			"BitrateLimitM": c.BitrateLimitM,
+		}
+		for field, byEngine := range limits {
+			for engine := range byEngine {
+				if !slices.Contains(Engines, engine) {
+					t.Errorf("%s declares %s for engine %q, which is not one of %v", c.Name, field, engine, Engines)
+				}
+			}
+			if len(byEngine) == 0 {
+				continue
+			}
+			for _, engine := range Engines {
+				if _, ok := byEngine[engine]; !ok {
+					t.Errorf("%s declares %s on some engines and not on %s, which then reads as no bound at all",
+						c.Name, field, engine)
+				}
 			}
 		}
 	}

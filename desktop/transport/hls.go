@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -25,11 +26,18 @@ func init() {
 func (HLS) Name() string { return "hls" }
 
 // Formats: the relay's HLS muxer segments H.264 and H.265 into MPEG-TS and adds
-// AV1 and VP9 in its fMP4 form. VP8 has no segment form there at all, so a VP8
-// stream is the one the playlist never carries. The publish set is empty: the
-// relay serves HLS and does not read it.
+// AV1 and VP9 in its fMP4 form, with Opus and AAC beside them. VP8 has no segment
+// form there at all, so a VP8 stream is the one the playlist never carries.
+//
+// The watch leg is the players' alone and there is no publish leg: the relay
+// serves HLS and does not read it, and nothing on the GStreamer side reads the
+// relay's playlist, so neither engine states a set it cannot build a pipeline
+// for.
 func (HLS) Formats() Formats {
-	return Formats{Watch: []string{"h264", "hevc", "av1", "vp9"}}
+	return Formats{Watch: map[string]Carriage{capabilities.EngineFfmpeg: {
+		Video: []string{"h264", "hevc", "av1", "vp9"},
+		Audio: []string{"opus", "aac"},
+	}}}
 }
 
 // WatchURL returns the master playlist a player opens. Every viewer here follows

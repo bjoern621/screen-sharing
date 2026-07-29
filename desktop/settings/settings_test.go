@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/gpupath"
 )
 
@@ -93,6 +94,52 @@ func TestLoadMigratesMissingAudio(t *testing.T) {
 
 	if got := mustLoad(t); got.Audio != "none" {
 		t.Errorf("audio = %q, want migrated to \"none\"", got.Audio)
+	}
+}
+
+// The audio codec is read only where the source names one, so a stream with the source off
+// publishes no track whatever codec the file carries.
+// Both engines validate through this one value, which keeps "no track" from being a branch
+// each of them takes on its own, and a stale codec from turning a silent stream into a refusal.
+func TestAudioTrackFollowsTheSource(t *testing.T) {
+	cases := []struct {
+		source, audioCodec, want string
+	}{
+		{"desktop", "opus", "opus"},
+		{"desktop", "aac", "aac"},
+		{"none", "aac", capabilities.AudioNone},
+		// A settings file written before the audio option names no source at all.
+		{"", "opus", capabilities.AudioNone},
+	}
+	for _, tc := range cases {
+		s := Defaults()
+		s.Audio, s.AudioCodec = tc.source, tc.audioCodec
+		if got := s.AudioTrack(); got != tc.want {
+			t.Errorf("audio source %q with codec %q yields track %q, want %q",
+				tc.source, tc.audioCodec, got, tc.want)
+		}
+	}
+}
+
+// A file written before the audio codec became a setting names none, and both engines
+// refuse a track whose codec no row carries.
+// The migration fills it with the codec those builds encoded, so a stored stream keeps
+// publishing the track it always did rather than starting on one the file never chose.
+func TestLoadMigratesMissingAudioCodec(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Audio, s.AudioCodec = "desktop", ""
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := mustLoad(t)
+	if got.AudioCodec != defaultAudioCodec {
+		t.Errorf("audio codec = %q, want migrated to %q", got.AudioCodec, defaultAudioCodec)
+	}
+	if _, ok := capabilities.GetAudio(got.AudioTrack()); !ok {
+		t.Errorf("the migrated track %q is not a row of the audio table", got.AudioTrack())
 	}
 }
 

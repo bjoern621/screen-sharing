@@ -89,7 +89,7 @@ func TestHardwareDecodeVerdicts(t *testing.T) {
 		{"hevc", "p010le", []string{"vah265dec", "nvh265dec", "qsvh265dec", "d3d11h265dec"}},
 		{"hevc", "yuv444p", []string{"nvh265dec", "qsvh265dec"}},
 		{"hevc", "gbrp", []string{"nvh265dec", "qsvh265dec"}},
-		{"av1", "yuv420p", []string{"vaav1dec", "nvav1dec", "d3d11av1dec"}},
+		{"av1", "yuv420p", []string{"vaav1dec", "nvav1dec", "qsvav1dec", "d3d11av1dec"}},
 		{"av1", "yuv444p", nil},
 		{"vp9", "p010le", []string{"vavp9dec", "nvvp9dec", "qsvvp9dec", "d3d11vp9dec"}},
 		{"vp9", "gbrp", nil},

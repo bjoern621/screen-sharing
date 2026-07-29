@@ -17,12 +17,12 @@ import {
 } from "../../types/stream";
 import {
     AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, FRAME_MEMORIES, MODES,
-    RANGES, RTSP_PROTOCOLS, TRANSPORT_META, bitrateTip, codecOptions, cqTip,
-    engineTip, engineValue, familyOptions, fpsDisabled, fpsOptions,
-    maxRefreshHz, monitorOptions, withNote, cropNote,
+    RANGES, RTSP_PROTOCOLS, TRANSPORT_META, audioCodecOptions, bitrateTip,
+    codecOptions, cqTip, engineTip, engineValue, familyOptions, fpsDisabled,
+    fpsOptions, maxRefreshHz, monitorOptions, withNote, cropNote,
 } from "../../util/options";
 import {
-    Capability, Engine, bitrateLimit, cqMax, familyOf,
+    AudioCodec, Capability, Engine, bitrateLimit, cqMax, familyOf,
 } from "../../util/domain";
 import { estimateBitrate, formatEstimate } from "../../util/estimate";
 import Tip from "../Tip/Tip";
@@ -74,6 +74,9 @@ interface StreamSettingsCardProps {
     s: Stream;
     deps: Deps;
     caps: Capability[] | null;
+    /** The audio table, null until it resolves; the audio codec dropdown is built
+     * from it. */
+    audioCodecs: AudioCodec[] | null;
     transports: string[];
     /** Publish engine of the selected capture backend, null until it resolves. */
     engine: Engine | null;
@@ -98,6 +101,7 @@ export default function StreamSettingsCard({
     s,
     deps,
     caps,
+    audioCodecs,
     transports,
     engine,
     monitors,
@@ -315,6 +319,15 @@ export default function StreamSettingsCard({
                         optionDisabled={deps.optionDisabled.audio}
                         onChange={v => onUpdate({ audio: v })}
                     />
+                    <SelectField
+                        label="Audio codec"
+                        labelTip="Codec the audio track is coded in. Two facts withhold one: the capture backend's publish engine needs an encoder element for it, and the publish transport needs a mapping to carry it, so a codec is greyed with whichever of the two is missing."
+                        value={s.audioCodec}
+                        options={audioCodecOptions(audioCodecs)}
+                        disabledReason={deps.disabled.audioCodec}
+                        optionDisabled={deps.optionDisabled.audioCodec}
+                        onChange={v => onUpdate({ audioCodec: v })}
+                    />
                 </Section>
 
                 <Section
@@ -384,23 +397,23 @@ export default function StreamSettingsCard({
                     />
                     <NumberField
                         label="Quantizer target (CQ)"
-                        labelTip={withNote(cqTip(s.codec, caps), deps.note.cq)}
+                        labelTip={withNote(cqTip(s.codec, engine, caps), deps.note.cq)}
                         labelLink="https://en.wikipedia.org/wiki/Quantization_(image_processing)"
                         value={s.cq}
                         min={0}
-                        max={cqMax(s.codec, caps)}
+                        max={cqMax(s.codec, engine, caps) || undefined}
                         disabledReason={deps.disabled.cq}
                         onChange={v => onUpdate({ cq: v })}
                     />
                     <NumberField
                         label="Bitrate target (Mbit/s)"
                         labelTip={withNote(
-                            bitrateTip(s.codec, caps),
+                            bitrateTip(s.codec, engine, caps),
                             deps.note.bitrateM
                         )}
                         value={s.bitrateM}
                         min={0}
-                        max={bitrateLimit(s.codec, caps) || undefined}
+                        max={bitrateLimit(s.codec, engine, caps) || undefined}
                         disabledReason={deps.disabled.bitrateM}
                         onChange={v => onUpdate({ bitrateM: v })}
                     />

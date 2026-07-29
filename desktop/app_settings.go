@@ -54,36 +54,56 @@ func (a *App) DeletePreset(name string) error {
 	return settings.DeletePreset(name)
 }
 
-// Transports lists the transports the publish dropdown offers, the
-// publisher-to-relay leg: the ones a publish engine here can serialize.
-// WatchTransports answers the other leg, which is a wider list wherever the
-// relay serves a protocol it does not ingest.
-func (a *App) Transports() []string {
-	return transport.PublishNames()
-}
-
-// TransportCarriage is one transport's format sets on the wire, the binding
-// shape of transport.Formats. The Wails generator reaches a struct through a
-// return type and not through a map value, so the table crosses as a list.
+// TransportCarriage is one transport's carriage on one leg for one engine, the
+// binding shape of transport.Formats. The Wails generator reaches a struct
+// through a return type and not through a map value, so the two maps cross as one
+// list with the leg and the engine as columns.
 type TransportCarriage struct {
-	Name    string   `json:"name"`
-	Publish []string `json:"publish"`
-	Watch   []string `json:"watch"`
+	Name string `json:"name"`
+	// Leg is "publish" or "watch".
+	Leg string `json:"leg"`
+	// Engine is the publish or watch engine this row belongs to, one of
+	// capabilities.Engines.
+	Engine string   `json:"engine"`
+	Video  []string `json:"video"`
+	Audio  []string `json:"audio"`
 }
 
-// TransportFormats lists each registered transport with the bitstream formats it
-// carries per leg. The settings form greys a codec the selected publish
-// transport has no mapping for, and the native-grid verdict reads the watch set
-// of the selected watch leg, both off this one table rather than a copy per
-// rule.
+// TransportFormats lists what each registered transport carries, one row per leg
+// and engine. The settings form greys a codec the selected publish transport and
+// engine have no mapping for, and the native-grid verdict reads the GStreamer
+// watch row of the selected watch leg, both off this one table rather than a copy
+// per rule.
+//
+// A leg an engine cannot serialize contributes no row, which is what keeps the
+// wire shape and the registry's own invariant the same statement.
 func (a *App) TransportFormats() []TransportCarriage {
 	out := []TransportCarriage{}
 	for _, name := range transport.Names() {
 		f, ok := transport.FormatsOf(name)
 		assert.Assert(ok, "a listed transport is a registered one", name)
-		out = append(out, TransportCarriage{Name: name, Publish: f.Publish, Watch: f.Watch})
+		for _, engine := range capabilities.Engines {
+			if c, ok := f.Publish[engine]; ok {
+				out = append(out, TransportCarriage{
+					Name: name, Leg: "publish", Engine: engine, Video: c.Video, Audio: c.Audio,
+				})
+			}
+			if c, ok := f.Watch[engine]; ok {
+				out = append(out, TransportCarriage{
+					Name: name, Leg: "watch", Engine: engine, Video: c.Video, Audio: c.Audio,
+				})
+			}
+		}
 	}
 	return out
+}
+
+// AudioCodecs lists the audio codecs the second track can be encoded in, with the
+// engines that code each. The settings form greys one the selected capture
+// backend's engine cannot encode or the selected transport cannot carry, both off
+// this table and the carriage one.
+func (a *App) AudioCodecs() []capabilities.AudioCodec {
+	return capabilities.AudioCodecs
 }
 
 // WatchTransports lists the transports a stream can be received over: every
@@ -92,7 +112,7 @@ func (a *App) TransportFormats() []TransportCarriage {
 // of how a stream was published. Which of them can carry a particular stream is
 // the narrower question WatchTransportsByFormat answers.
 func (a *App) WatchTransports() []string {
-	return transport.WatchNames()
+	return transport.WatchNames(capabilities.EngineFfmpeg)
 }
 
 // GridTransports lists the watch legs the native grid can open on: the
@@ -102,7 +122,7 @@ func (a *App) WatchTransports() []string {
 // segments. The two lists therefore each hold a transport the other lacks, and
 // the grid button reads this one.
 func (a *App) GridTransports() []string {
-	return transport.GstWatchNames()
+	return transport.WatchNames(capabilities.EngineGst)
 }
 
 // WatchTransportsByFormat maps a bitstream format to the transports a viewer can
@@ -118,7 +138,7 @@ func (a *App) GridTransports() []string {
 func (a *App) WatchTransportsByFormat() map[string][]string {
 	out := map[string][]string{}
 	for _, format := range capabilities.Formats() {
-		out[format] = transport.WatchNamesFor(format)
+		out[format] = transport.WatchNamesFor(capabilities.EngineFfmpeg, format)
 	}
 	return out
 }

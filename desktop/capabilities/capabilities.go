@@ -119,6 +119,19 @@ func knownEngine(engine string) bool {
 	return contains(Engines, engine)
 }
 
+// EveryEngine states one numeric limit that every publish engine enforces, for
+// the encoders whose knob is the library's rather than one engine's wrapper. It is
+// how a shared fact is declared once without collapsing the per-engine axis: the
+// row still answers per engine, and a row that later diverges names the engines
+// separately without any consumer changing.
+func EveryEngine(limit int) map[string]int {
+	out := make(map[string]int, len(Engines))
+	for _, engine := range Engines {
+		out[engine] = limit
+	}
+	return out
+}
+
 // Gap is one thing a codec cannot do, with the reason the UI shows in place of the
 // option. Engine names the publish engine the gap applies to; empty means every
 // engine, i.e. the format or the library has no such capability rather than one
@@ -175,19 +188,24 @@ type Codec struct {
 	// take stays in the list and is declared as a Gap, so the UI can offer it where
 	// it works and say who lacks it where it does not.
 	Chromas []string `json:"chromas"`
-	// CqMax is the highest value this encoder's constant-quality knob accepts, i.e.
-	// the scale the crf mode's quantizer target runs on. It follows the encoder and
-	// not the format: the H.26x encoders reach 51, libvpx and the software AV1 ones
-	// 63, and an encoder whose knob is a raw quantizer index counts to 127 or 255.
-	// Zero means the scale is unknown, which is the case for every family the
-	// argument builders do not map yet.
-	CqMax int `json:"cqMax"`
-	// BitrateLimitM is the highest bitrate target the encoder accepts, in Mbit/s,
-	// for the modes that aim at one. Zero means the encoder takes any rate the
-	// machine can produce, which is the usual case; SVT-AV1 is the exception, and
-	// it refuses the whole encode rather than clamping. This is a ceiling on the
-	// target, not the VBR burst ceiling the user sets above it.
-	BitrateLimitM int `json:"bitrateLimitM"`
+	// CqMax is the highest value the constant-quality knob accepts per publish
+	// engine, i.e. the scale the crf mode's quantizer target runs on. It follows the
+	// encoder and not the format: the H.26x encoders reach 51, libvpx and the
+	// software AV1 ones 63, and an encoder whose knob is a raw quantizer index
+	// counts to 127 or 255.
+	//
+	// It is keyed by engine because the scale belongs to the property each engine
+	// sets, not to the silicon underneath: ffmpeg's QSV encoders state a CQP
+	// quantizer on the H.26x scale for every codec but AV1, where the qsv elements
+	// pass the format's own index through. An engine with no entry has no scale
+	// declared, which is the case for every family the argument builders do not map
+	// yet, and the quantizer is then not bounded here.
+	CqMax map[string]int `json:"cqMax"`
+	// BitrateLimitM is the highest bitrate target the encoder accepts per publish
+	// engine, in Mbit/s, for the modes that aim at one. An engine with no entry
+	// takes any rate the machine can produce, which is the usual case. This is a
+	// ceiling on the target, not the VBR burst ceiling the user sets above it.
+	BitrateLimitM map[string]int `json:"bitrateLimitM"`
 	// Gaps lists what this codec cannot do, per axis and per publish engine. Empty
 	// means every chroma above and all five rate-control modes reach the encoder on
 	// both engines.
@@ -225,6 +243,22 @@ func (c Codec) EngineGap(engine string) (Gap, bool) {
 		}
 	}
 	return Gap{}, false
+}
+
+// CqMaxOn returns the top of this codec's constant-quality scale on the named
+// engine, and 0 where the engine declares none.
+func (c Codec) CqMaxOn(engine string) int {
+	assert.Assert(knownEngine(engine), "a quantizer scale lookup names a publish engine", engine)
+
+	return c.CqMax[engine]
+}
+
+// BitrateLimitOn returns the highest bitrate target this codec accepts on the
+// named engine in Mbit/s, and 0 where the engine imposes no ceiling.
+func (c Codec) BitrateLimitOn(engine string) int {
+	assert.Assert(knownEngine(engine), "a bitrate ceiling lookup names a publish engine", engine)
+
+	return c.BitrateLimitM[engine]
 }
 
 // EngineChromas returns the pixel formats this codec encodes on the named engine, in
@@ -305,15 +339,16 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 	}
 	// The quantizer target reaches the encoder in crf mode only, and each
 	// encoder's knob has its own scale: 60 is a valid libvpx CQ and an error on
-	// x264.
-	if mode == ModeCrf && c.CqMax > 0 && (cq < 0 || cq > c.CqMax) {
-		return fmt.Errorf("quantizer target %d is outside codec %s's 0-%d range", cq, c.Name, c.CqMax)
+	// x264. The scale is the running engine's, since the two set different
+	// properties and one may pass a wider index through than the other clamps to.
+	if cqMax := c.CqMaxOn(engine); mode == ModeCrf && cqMax > 0 && (cq < 0 || cq > cqMax) {
+		return fmt.Errorf("quantizer target %d is outside codec %s's 0-%d range on the %s engine", cq, c.Name, cqMax, engine)
 	}
 	// The bitrate target reaches the encoder in the three bitrate modes only, so a
 	// value left over from a lossless preset must not block a constant-quality
 	// encode that never sends it.
-	if targetsBitrate(mode) && c.BitrateLimitM > 0 && bitrateM > c.BitrateLimitM {
-		return fmt.Errorf("bitrate target %d Mbit/s is above codec %s's %d Mbit/s ceiling", bitrateM, c.Name, c.BitrateLimitM)
+	if limit := c.BitrateLimitOn(engine); targetsBitrate(mode) && limit > 0 && bitrateM > limit {
+		return fmt.Errorf("bitrate target %d Mbit/s is above codec %s's %d Mbit/s ceiling on the %s engine", bitrateM, c.Name, limit, engine)
 	}
 	return nil
 }

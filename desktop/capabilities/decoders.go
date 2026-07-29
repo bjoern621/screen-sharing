@@ -99,6 +99,12 @@ var hardware420 = []string{"yuv420p", "p010le"}
 // GPU: NVDEC from Turing on, and Intel's from Ice Lake on. That makes hevc the one
 // format where a publisher can pick full chroma and still be decoded in hardware, and
 // only by those two vendors.
+//
+// 4:2:2 divides the same way and one step narrower. The two software H.26x rows
+// carry it because libavcodec codes every profile, and Intel's HEVC decoder is the
+// one hardware row that does: NVDEC implements the 4:4:4 Range Extensions profiles
+// without the 4:2:2 one, so the middle subsampling reaches fewer GPUs than full
+// chroma does.
 var Decoders = []Decoder{
 	// H.264. Every hardware row is the same 8-bit 4:2:0 set, and the profile lists the
 	// elements advertise say so: baseline through high, with no High 10 and no High
@@ -107,8 +113,8 @@ var Decoders = []Decoder{
 		Element: "avdec_h264",
 		Family:  DecodeSoftware,
 		Format:  "h264",
-		Chromas: []string{"yuv444p", "yuv420p", "p010le"},
-		Reason:  "libavcodec decodes every H.264 profile, which is what covers the 4:4:4 and 10-bit ones no hardware decoder carries",
+		Chromas: []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
+		Reason:  "libavcodec decodes every H.264 profile, which is what covers the 4:4:4, 4:2:2 and 10-bit ones no hardware decoder carries",
 	},
 	{
 		Element: "vah264dec",
@@ -145,8 +151,8 @@ var Decoders = []Decoder{
 		Element: "avdec_h265",
 		Family:  DecodeSoftware,
 		Format:  "hevc",
-		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "libavcodec decodes the Range Extensions profiles, RGB included, so it is the fallback for any HEVC a GPU refuses",
+		Chromas: []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
+		Reason:  "libavcodec decodes the Range Extensions profiles, 4:2:2 and RGB included, so it is the CPU path for any HEVC a GPU refuses",
 	},
 	{
 		Element: "vah265dec",
@@ -160,14 +166,14 @@ var Decoders = []Decoder{
 		Family:  DecodeNvcodec,
 		Format:  "hevc",
 		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "NVDEC decodes the HEVC 4:4:4 profiles from Turing on, and the element hands RGB back as RGB, so a full-chroma screen stream reaches the GPU on an NVIDIA viewer",
+		Reason:  "NVDEC decodes the HEVC 4:4:4 profiles from Turing on and no 4:2:2 one, and the element hands RGB back as RGB, so a full-chroma screen stream reaches the GPU on an NVIDIA viewer where the middle subsampling does not",
 	},
 	{
 		Element: "qsvh265dec",
 		Family:  DecodeQsv,
 		Format:  "hevc",
-		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "Intel's HEVC decoder carries the 4:4:4 profiles from Ice Lake on, the second hardware path a full-chroma screen stream has",
+		Chromas: []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
+		Reason:  "Intel's HEVC decoder carries the Range Extensions profiles from Ice Lake on, 4:2:2 and 4:4:4 both, the second hardware path a full-chroma screen stream has",
 	},
 	{
 		Element: "d3d11h265dec",
@@ -199,6 +205,13 @@ var Decoders = []Decoder{
 		Format:  "av1",
 		Chromas: hardware420,
 		Reason:  "NVDEC decodes AV1's main profile, which is 4:2:0 at both bit depths",
+	},
+	{
+		Element: "qsvav1dec",
+		Family:  DecodeQsv,
+		Format:  "av1",
+		Chromas: hardware420,
+		Reason:  "Intel's AV1 decoder carries profile 0 from Tiger Lake on, which is 4:2:0 at both bit depths",
 	},
 	{
 		Element: "d3d11av1dec",

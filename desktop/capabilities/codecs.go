@@ -10,13 +10,14 @@ package capabilities
 // Their Chromas are the formats that will apply once each is wired up, not a promise
 // that they work today.
 //
-// A row's Chromas is the union over the two publish engines, and each format the
+// A row's Chromas states every format either engine codes, and each format the
 // ffmpeg encoder and the GStreamer element disagree on carries a Gap naming the
-// engine that lacks it. The option then stays selectable on the engine that codes it
-// and is greyed with the element's own limit on the engine that does not, instead of
-// disappearing from both. Every chroma gap runs the same way round, since the
-// GStreamer elements are the narrower half: the ffmpeg engine reaches every format
-// the table lists.
+// engine that lacks it. The pair is read per engine (EngineChromas), so the wider
+// list is a base and the gaps are the deltas rather than an answer either engine
+// has to live with: the option stays selectable on the engine that codes it and is
+// greyed with the element's own limit on the engine that does not. Every chroma gap
+// runs the same way round, since the GStreamer elements are the narrower half: the
+// ffmpeg engine reaches every format the table lists.
 //
 // A chroma counts as reached when the encoder codes that subsampling and bit depth,
 // not that exact memory layout. The software encoders take planar 10-bit
@@ -24,14 +25,22 @@ package capabilities
 // the layout on the way in and the GStreamer pipeline pins I420_10LE; the coded
 // picture is the same 10-bit 4:2:0 either way.
 //
+// Chroma note for 4:2:2: it is the two software H.26x rows' alone. x264 codes it
+// through High 4:2:2 and x265 through Main 4:2:2 10, both engines reaching the
+// same profiles. No hardware encoder here has an entrypoint for it, VP8 and VP9
+// have no 4:2:2 profile, and AV1's is the professional profile 2, which libaom
+// codes and neither of the two fast AV1 encoders does. A row is added where the
+// encoder codes the subsampling, not where the format defines it.
+//
 // Chroma note for the hardware families: consumer VAAPI/QSV/AMF encoders emit
 // 4:2:0 (yuv420p), with 10-bit 4:2:0 (p010le) on the HEVC/AV1 Main-10 paths. Among
 // the hardware families the 4:4:4 and direct-RGB (gbrp) modes are NVENC's alone,
 // so those chromas are absent here on purpose: VAAPI reaches 4:4:4 only through the
 // HEVC Range Extensions profile, and QSV through the same profile plus VP9's profile 1,
-// which too few generations implement for encoding to declare per format. CqMax
-// stays zero on the unwired families as well: their quantizer scale is whatever
-// their builder will set, so guessing one would be a fact the code does not honor.
+// which too few generations implement for encoding to declare per format. The
+// unwired families state no CqMax entry for either engine: their quantizer scale is
+// whatever their builder will set, so guessing one would be a fact the code does not
+// honor.
 var Codecs = []Codec{
 	{
 		Name:        "hevc_nvenc",
@@ -39,7 +48,7 @@ var Codecs = []Codec{
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
@@ -51,7 +60,7 @@ var Codecs = []Codec{
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 	},
 	{
 		// NVENC's lossless tune is an H.264 and HEVC one. The AV1 encoder reports no
@@ -61,7 +70,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps: []Gap{{
 			Option: OptionMode,
 			Value:  ModeLossless,
@@ -69,22 +78,26 @@ var Codecs = []Codec{
 		}},
 	},
 	{
+		// 4:2:2 is the High 4:2:2 profile, which x264 codes and no hardware H.264
+		// encoder here does, so this row and libx265 are where the middle
+		// subsampling lives.
 		Name:        "libx264",
 		Family:      FamilySoftware,
 		Format:      "h264",
 		Implemented: true,
-		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
-		CqMax:       51,
+		Chromas:     []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
+		CqMax:       EveryEngine(51),
 	},
 	{
 		// Same format facts as hevc_nvenc: HEVC codes RGB through its Range
-		// Extensions profile, which is what puts gbrp in the list.
+		// Extensions profile, which is what puts gbrp in the list. 4:2:2 is in the
+		// same profile family (Main 4:2:2 10), which x265 codes.
 		Name:        "libx265",
 		Family:      FamilySoftware,
 		Format:      "hevc",
 		Implemented: true,
-		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		CqMax:       51,
+		Chromas:     []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
+		CqMax:       EveryEngine(51),
 		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
@@ -102,7 +115,7 @@ var Codecs = []Codec{
 		Format:      "vp9",
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		CqMax:       63,
+		CqMax:       EveryEngine(63),
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: EngineGst,
 			Option: OptionMode,
@@ -120,7 +133,7 @@ var Codecs = []Codec{
 		Format:      "vp8",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       63,
+		CqMax:       EveryEngine(63),
 		Gaps: []Gap{vp8NoFullRange, {
 			Option: OptionMode,
 			Value:  ModeLossless,
@@ -140,7 +153,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		CqMax:       63,
+		CqMax:       EveryEngine(63),
 		Gaps: []Gap{gstNoPlanarRGB, {
 			Engine: EngineGst,
 			Option: OptionChroma,
@@ -169,11 +182,13 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       63,
+		CqMax:       EveryEngine(63),
 		// SVT-AV1 refuses a target above 100 Mbit/s outright, where every other
-		// encoder here takes whatever it is given. AV1 at this preset has no use for
-		// that rate anyway, but the settings default sits above it.
-		BitrateLimitM: 100,
+		// encoder here takes whatever it is given. The refusal is the library's, so
+		// both engines meet it whichever property they set the rate through. AV1 at
+		// this preset has no use for that rate anyway, but the settings default sits
+		// above it.
+		BitrateLimitM: EveryEngine(100),
 		Gaps: []Gap{
 			{
 				Option: OptionMode,
@@ -207,7 +222,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv444p", "yuv420p", "p010le"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps: []Gap{{
 			Option: OptionMode,
 			Value:  ModeLossless,
@@ -233,7 +248,7 @@ var Codecs = []Codec{
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -244,7 +259,7 @@ var Codecs = []Codec{
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -256,7 +271,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -268,7 +283,7 @@ var Codecs = []Codec{
 		Format:      "vp9",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps:        vaapiGaps,
 	},
 	{
@@ -282,7 +297,7 @@ var Codecs = []Codec{
 		Format:      "vp8",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       127,
+		CqMax:       EveryEngine(127),
 		Gaps:        append([]Gap{vp8NoFullRange}, vaapiGaps...),
 	},
 
@@ -306,7 +321,7 @@ var Codecs = []Codec{
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        qsvGaps,
 	},
 	{
@@ -317,7 +332,7 @@ var Codecs = []Codec{
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        qsvGaps,
 	},
 	{
@@ -329,23 +344,26 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps:        qsvGaps,
 	},
 	{
 		// VP9 profile 0, as on VAAPI: profile 2 (10-bit) and profile 1 (4:4:4) stay out
 		// for the same reason as the HEVC Range Extensions.
 		//
-		// The quantizer counts to 51 and not to VP9's own 255, which is the publish
-		// path's scale rather than the format's: ffmpeg's QSV encoders state a CQP
-		// quantizer on the H.26x scale for every codec but AV1, so a target above 51
-		// would be clamped on the way to oneVPL instead of reaching it.
+		// The quantizer scale is the one row where the two engines differ, and it is
+		// the publish path's rather than the format's: ffmpeg's QSV encoders state a
+		// CQP quantizer on the H.26x 0-51 scale for every codec but AV1, so a target
+		// above 51 is clamped on the way to oneVPL instead of reaching it, while the
+		// qsvvp9enc element passes VP9's own 0-255 q_idx straight through. Stating
+		// either number for both would take a quality step away from one engine or
+		// promise one the other silently clamps.
 		Name:        "vp9_qsv",
 		Family:      FamilyQsv,
 		Format:      "vp9",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       51,
+		CqMax:       map[string]int{EngineFfmpeg: 51, EngineGst: 255},
 		Gaps:        qsvGaps,
 	},
 
@@ -370,7 +388,7 @@ var Codecs = []Codec{
 		// 8-bit only: 10-bit H.264 is the High 10 profile, which no VCN encoder
 		// implements. The AMF quantizer options count on the H.26x 0-51 scale.
 		Chromas: []string{"yuv420p"},
-		CqMax:   51,
+		CqMax:   EveryEngine(51),
 		Gaps:    amfGaps,
 	},
 	{
@@ -382,7 +400,7 @@ var Codecs = []Codec{
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        amfGaps,
 	},
 	{
@@ -398,7 +416,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps: append([]Gap{{
 			Engine: EngineFfmpeg,
 			Option: OptionColorRange,
@@ -426,7 +444,7 @@ var Codecs = []Codec{
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        vulkanGaps,
 	},
 	{
@@ -438,7 +456,7 @@ var Codecs = []Codec{
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       51,
+		CqMax:       EveryEngine(51),
 		Gaps:        vulkanGaps,
 	},
 	{
@@ -454,7 +472,7 @@ var Codecs = []Codec{
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       255,
+		CqMax:       EveryEngine(255),
 		Gaps: append([]Gap{{
 			Engine: EngineFfmpeg,
 			Option: OptionColorRange,

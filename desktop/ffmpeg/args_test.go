@@ -4,6 +4,7 @@ import (
 	"context"
 	"os/exec"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +41,10 @@ func baseStream() settings.Stream {
 		EncPreset:     "p7",
 		DrmMap:        "auto",
 		CaptureMemory: gpupath.MemoryAuto,
+		// The audio source is off here, so the codec matters only to the cases that turn it on.
+		// It is filled all the same, exactly as migrateStream fills it, because the builder
+		// validates the codec of every stream that names a source.
+		AudioCodec: "opus",
 	}
 }
 
@@ -426,9 +431,9 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				// The quantizer target rides each encoder's own scale, and the bitrate
 				// target has a ceiling on one encoder. baseStream carries values from
 				// another codec's, exactly as saved settings do before normalize runs.
-				s.Cq = cap.CqMax / 2
-				if cap.BitrateLimitM > 0 && s.BitrateM > cap.BitrateLimitM {
-					s.BitrateM = cap.BitrateLimitM
+				s.Cq = cap.CqMaxOn(capabilities.EngineFfmpeg) / 2
+				if limit := cap.BitrateLimitOn(capabilities.EngineFfmpeg); limit > 0 && s.BitrateM > limit {
+					s.BitrateM = limit
 				}
 				enc, err := encoderArgs(s, gopFor(s))
 				if err != nil {
@@ -621,26 +626,48 @@ func TestHwSurfaceDeviceFollowsTheFamily(t *testing.T) {
 	}
 }
 
+// The audio track is coded by whichever element the capability table states for this engine,
+// so the command names that element rather than one spelled here.
+// The two engines code the same codec with different libraries, and a name written into the
+// test would be one engine's answer asserted for both.
 func TestBuildPublishArgsAudio(t *testing.T) {
-	// Desktop audio on a Linux backend: pulse monitor input plus Opus encode.
-	s := baseStream()
-	s.Audio = "desktop"
-	args, err := BuildPublishArgs(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The first -i is the video capture input, so check membership instead.
-	if !slices.Contains(args, "pulse") || !slices.Contains(args, pulseMonitorDevice) {
-		t.Errorf("missing pulse monitor input, got %v", args)
-	}
-	if got := flagValue(args, "-c:a"); got != "libopus" {
-		t.Errorf("-c:a = %q, want libopus", got)
+	// Desktop audio on a Linux backend: the pulse monitor input plus the encode the selected
+	// codec's row declares.
+	// SRT carries both codecs, so the transport never decides which of them this covers.
+	for _, a := range capabilities.AudioCodecs {
+		enc, ok := a.EncoderOn(capabilities.EngineFfmpeg)
+		if !ok {
+			continue
+		}
+		s := baseStream()
+		s.Audio, s.AudioCodec = "desktop", a.Name
+		args, err := BuildPublishArgs(s)
+		if err != nil {
+			t.Fatalf("%s: %v", a.Name, err)
+		}
+		// The first -i is the video capture input, so check membership instead.
+		if !slices.Contains(args, "pulse") || !slices.Contains(args, pulseMonitorDevice) {
+			t.Errorf("missing pulse monitor input, got %v", args)
+		}
+		if got := flagValue(args, "-c:a"); got != enc.Element {
+			t.Errorf("%s: -c:a = %q, want the element the table states, %q", a.Name, got, enc.Element)
+		}
+		// The rate and the bitrate follow the codec too, since an encoder that codes at one
+		// rate alone is handed another rate's samples otherwise.
+		if got := flagValue(args, "-ar"); got != strconv.Itoa(a.Rate) {
+			t.Errorf("%s: -ar = %q, want %d", a.Name, got, a.Rate)
+		}
+		if got := flagValue(args, "-b:a"); got != strconv.Itoa(a.BitrateK)+"k" {
+			t.Errorf("%s: -b:a = %q, want %dk", a.Name, got, a.BitrateK)
+		}
 	}
 
-	// Audio off (or a pre-audio settings file): no audio args at all.
+	// Audio off, or a settings file from before the option: no audio args at all, whatever
+	// codec the settings carry.
 	for _, audio := range []string{"none", ""} {
+		s := baseStream()
 		s.Audio = audio
-		args, err = BuildPublishArgs(s)
+		args, err := BuildPublishArgs(s)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -649,18 +676,44 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		}
 	}
 
-	// Windows capture backends have no desktop audio path.
-	s = baseStream()
-	s.Capture = "gdigrab"
-	s.Audio = "desktop"
-	if _, err := BuildPublishArgs(s); err == nil {
-		t.Fatal("expected error for desktop audio with a Windows capture backend")
+	// A backend whose platform serves no monitor source refuses desktop audio rather than
+	// publishing a silent track.
+	// The Windows grabbers have no PulseAudio to read, and AVFoundation enumerates input
+	// devices alone, so what the machine plays is not a source ffmpeg can open.
+	for _, capture := range []string{"gdigrab", "ddagrab", "avfoundation"} {
+		s := baseStream()
+		s.Capture, s.Audio = capture, "desktop"
+		_, err := BuildPublishArgs(s)
+		if err == nil {
+			t.Errorf("the %s backend reaches no desktop audio and must refuse it", capture)
+			continue
+		}
+		if !strings.Contains(err.Error(), "desktop audio") {
+			t.Errorf("%s: refusal %q must name what it cannot capture", capture, err)
+		}
 	}
 
-	s.Capture = "x11grab"
+	s := baseStream()
 	s.Audio = "microphone"
 	if _, err := BuildPublishArgs(s); err == nil {
 		t.Fatal("expected error for an unknown audio source")
+	}
+
+	// An audio codec no row carries is refused before a command is built, since the encoder
+	// name would otherwise be read off an absent row.
+	s = baseStream()
+	s.Audio, s.AudioCodec = "desktop", "mp3"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for an audio codec the table does not carry")
+	}
+
+	// A codec the publish leg cannot carry is the transport's refusal, and this engine has to
+	// make it: WebRTC negotiates Opus and no AAC at all.
+	s = baseStream()
+	s.Transport, s.Codec, s.Chroma = "webrtc", "libx264", "yuv420p"
+	s.Audio, s.AudioCodec = "desktop", "aac"
+	if _, err := BuildPublishArgs(s); err == nil {
+		t.Fatal("expected error for an AAC track over webrtc")
 	}
 }
 

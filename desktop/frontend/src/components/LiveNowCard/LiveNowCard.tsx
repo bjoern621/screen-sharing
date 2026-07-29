@@ -27,7 +27,9 @@ interface LiveNowCardProps {
     watching: WatchKey[];
     /** Transports a stream can be received over, offered in the watch dropdown. */
     watchTransports: string[];
-    /** Which of those can carry each bitstream format, keyed by format. */
+    /** Which of those can carry each bitstream format, keyed by format. Both lists
+     * are the players' watch leg, the one a viewer opens by URL, rather than the
+     * receiving pipeline's that the native grid runs on. */
     watchTransportsByFormat: Record<string, string[]>;
     /** Persisted transport selection for the watch dropdown. */
     watchTransport: string;
@@ -62,6 +64,10 @@ function defaultTransport(watchTransports: string[]): string {
  * H.265, so SRT cannot deliver a VP9 or AV1 stream however it was published. A
  * viewer opened on that pair connects and receives nothing, which reads as a
  * broken stream rather than an impossible combination.
+ *
+ * The map is the watch leg of the URL-opening players, which is what a Watch click
+ * starts. The native grid receives through a pipeline of its own and reads the
+ * GStreamer half of the same table (nativegrid.ts).
  *
  * A stream whose format the snapshot does not name yet blocks nothing: the poll
  * can be older than the stream, and refusing on absent information would hide a

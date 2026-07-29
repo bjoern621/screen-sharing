@@ -68,7 +68,7 @@ func (gstEngine) Engine() string {
 
 // Carries reports whether the transport can terminate a GStreamer pipeline.
 func (gstEngine) Carries(transportName string) bool {
-	return transport.CanGstPublish(transportName)
+	return transport.CanPublish(transportName, EngineGst)
 }
 
 func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {

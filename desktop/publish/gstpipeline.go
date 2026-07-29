@@ -11,13 +11,6 @@ import (
 	"bjoernblessin.de/screenshare/transport"
 )
 
-// audioRate is the sample rate the audio branch resamples to, because opusenc
-// takes only 48 kHz whatever rate the monitor runs at.
-const audioRate = 48000
-
-// opusBitrate is the desktop track's bitrate in bits per second.
-const opusBitrate = 128000
-
 // buildPipeline assembles the gst-launch description: the capture backend's
 // source elements, the encoder for the selected codec, and the transport's muxer
 // and sink. capture is the already-built source, so a run and the displayed
@@ -27,7 +20,13 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 	if err := capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return nil, err
 	}
-	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Transport, EngineGst, s.Codec); err != nil {
+		return nil, err
+	}
+	if err := capabilities.ValidateAudio(EngineGst, s.AudioTrack()); err != nil {
+		return nil, err
+	}
+	if err := transport.ValidatePublishAudio(s.Transport, EngineGst, s.AudioTrack()); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublishSettings(s); err != nil {
@@ -187,7 +186,13 @@ func gstInputCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 	if err := capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM); err != nil {
 		return "", err
 	}
-	if err := transport.ValidatePublish(s.Transport, s.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Transport, EngineGst, s.Codec); err != nil {
+		return "", err
+	}
+	if err := capabilities.ValidateAudio(EngineGst, s.AudioTrack()); err != nil {
+		return "", err
+	}
+	if err := transport.ValidatePublishAudio(s.Transport, EngineGst, s.AudioTrack()); err != nil {
 		return "", err
 	}
 	if err := transport.ValidatePublishSettings(s); err != nil {
@@ -214,23 +219,45 @@ func gstInputCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 // of the default sink: the mixed desktop audio. PipeWire's pulse server
 // implements the same name. An attached record stream keeps the monitor source
 // running, so silence flows even while nothing plays and the muxer's audio pad
-// never starves. Opus because mpegtsmux carries it and MediaMTX, ffplay, mpv
-// and browsers all decode it; opusparse puts the caps mpegtsmux expects on the
-// stream. The capsfilter sits after audioresample because opusenc takes only
-// 48 kHz, whatever rate the monitor runs at.
+// never starves. A backend on a platform with no such server is refused here, the
+// way the ffmpeg engine refuses its own non-Linux backends.
+//
+// The encoder element, the parser after it and the rate the capsfilter pins all
+// come from the audio table. The capsfilter sits after audioresample because an
+// encoder codes at one rate whatever rate the monitor runs at, and the parser is
+// what puts the framed caps a muxer pad negotiates on the coded stream.
 func gstAudioBranch(s settings.Stream) ([]string, error) {
 	switch s.Audio {
 	case "", "none":
 		return nil, nil
 	case "desktop":
+		// pulsesrc reads a PulseAudio or PipeWire server, which only a Linux session
+		// runs. This engine's other two backends are on platforms that serve neither,
+		// and each names what is missing there rather than sharing one phrase: the
+		// piece a user would have to supply is different on each.
+		switch s.Capture {
+		case "d3d11screencapturesrc":
+			return nil, fmt.Errorf("desktop audio capture needs a PulseAudio or PipeWire server, which the %s (Windows) backend runs on no session of", s.Capture)
+		case "avfvideosrc":
+			return nil, fmt.Errorf("desktop audio capture needs a PulseAudio or PipeWire server, which the %s (macOS) backend runs on no session of: CoreAudio exposes no monitor of the default output", s.Capture)
+		}
+		a, ok := capabilities.GetAudio(s.AudioTrack())
+		if !ok {
+			return nil, fmt.Errorf("unknown audio codec %q", s.AudioTrack())
+		}
+		enc, ok := a.EncoderOn(EngineGst)
+		if !ok {
+			return nil, fmt.Errorf("audio codec %s has no GStreamer encoder", a.Name)
+		}
+		assert.Assert(enc.Parser != "", "a GStreamer audio encoder states its parser", a.Name)
 		return []string{
 			"pulsesrc", "device=@DEFAULT_MONITOR@",
 			"!", "queue",
 			"!", "audioconvert",
 			"!", "audioresample",
-			"!", fmt.Sprintf("audio/x-raw,rate=%d,channels=2", audioRate),
-			"!", "opusenc", fmt.Sprintf("bitrate=%d", opusBitrate),
-			"!", "opusparse",
+			"!", fmt.Sprintf("audio/x-raw,rate=%d,channels=2", a.Rate),
+			"!", enc.Element, fmt.Sprintf("bitrate=%d", a.BitrateK*1000),
+			"!", enc.Parser,
 			"!", transport.GstMuxName + ".",
 		}, nil
 	default:
@@ -249,6 +276,7 @@ func gstAudioBranch(s settings.Stream) ([]string, error) {
 // back.
 var gstChromaFormats = map[string]string{
 	"yuv420p": "I420",
+	"yuv422p": "Y42B",
 	"yuv444p": "Y444",
 	"p010le":  "I420_10LE",
 }

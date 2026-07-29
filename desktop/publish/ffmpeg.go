@@ -33,7 +33,7 @@ func (ffmpegEngine) Engine() string {
 
 // Carries reports whether the transport can terminate an ffmpeg command.
 func (ffmpegEngine) Carries(transportName string) bool {
-	return transport.CanFFmpegPublish(transportName)
+	return transport.CanPublish(transportName, EngineFfmpeg)
 }
 
 func (ffmpegEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {

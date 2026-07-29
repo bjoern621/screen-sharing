@@ -2,11 +2,12 @@ import {
     Deps, EncoderInfo, GpuPath, PlatformInfo, Stream, TransportCarriage,
 } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, Decoder, ENGINE_LABEL, Engine,
-    FAMILY_META, Family, Knob, MODE_META, Mode, bitrateLimit, carriesFormat,
-    codecLabel, cqMax, decodeNote, engineFor, engineGapFor,
-    familiesWith, familyMetaOf, familyOf, findCapability, findEngineRule,
-    optionGapFor, optionGapsFor,
+    AudioCodec, Capability, CHROMA_META, Chroma, Decoder, ENGINE_LABEL, Engine,
+    FAMILY_META, Family, Knob, MODE_META, Mode, audioCodesOn, audioEngineGap,
+    bitrateLimit, carriesFormat, carriersOf, codecLabel, cqMax, decodeNote,
+    engineFor, engineGapFor, familiesWith, familyMetaOf, familyOf,
+    findCapability, findEngineRule, legAudioFormats, legFormats, optionGapFor,
+    optionGapsFor,
 } from "./domain";
 
 /**
@@ -32,6 +33,9 @@ export interface Environment {
     /** The decode table, which describes the viewers rather than this machine and so
      * restricts nothing: it only lets the form say what a choice costs them. */
     decoders: Decoder[] | null;
+    /** The audio table: which engine codes each audio codec, and under which
+     * bitstream format a transport carries it. */
+    audioCodecs: AudioCodec[] | null;
     carriage: TransportCarriage[] | null;
     captureTransports: Record<string, string[]> | null;
     captureEngines: Record<string, string> | null;
@@ -47,6 +51,7 @@ export const UNKNOWN_ENV: Environment = {
     encoders: null,
     caps: null,
     decoders: null,
+    audioCodecs: null,
     carriage: null,
     captureTransports: null,
     captureEngines: null,
@@ -59,7 +64,7 @@ export const UNKNOWN_ENV: Environment = {
 // It lists every chroma, so the walk finds one wherever the codec encodes anything
 // at all on this engine.
 const CHROMA_FALLBACK_ORDER: Chroma[] = [
-    "yuv444p", "yuv420p", "p010le", "gbrp",
+    "yuv444p", "yuv422p", "yuv420p", "p010le", "gbrp",
 ];
 
 // Repair rate-control preference, quality first. normalize walks this order when the
@@ -100,6 +105,10 @@ const CAPTURE_NEEDS: Record<string, {
 }> = {
     ddagrab: { os: "windows", wrongOs: "DXGI Desktop Duplication is Windows-only" },
     gdigrab: { os: "windows", wrongOs: "GDI capture is Windows-only" },
+    d3d11screencapturesrc: {
+        os: "windows",
+        wrongOs: "Direct3D 11 screen capture is Windows-only",
+    },
     x11grab: {
         os: "linux", display: "x11",
         wrongOs: "X11 capture is Linux-only",
@@ -115,12 +124,26 @@ const CAPTURE_NEEDS: Record<string, {
         wrongOs: "DRM/KMS capture is Linux-only",
         grant: "kmsgrab reads scanout buffers below the compositor, which needs CAP_SYS_ADMIN",
     },
+    // No session gate: xdg-desktop-portal serves the ScreenCast interface on X11
+    // sessions too, so the backend is offered on either and the publish carries the
+    // portal's own error where the desktop has no backend for it.
     portal: {
-        os: "linux", display: "wayland",
+        os: "linux",
         wrongOs: "PipeWire ScreenCast is Linux-only",
-        wrongSession: "PipeWire ScreenCast needs a Wayland session",
+    },
+    avfoundation: {
+        os: "darwin",
+        wrongOs: "AVFoundation screen capture is macOS-only",
+    },
+    avfvideosrc: {
+        os: "darwin",
+        wrongOs: "AVFoundation screen capture is macOS-only",
     },
 };
+
+/** The operating systems the capture table names. An OS outside it runs no backend
+ * this app knows, so it restricts none of them rather than blocking every one. */
+const CAPTURE_OS = new Set(Object.values(CAPTURE_NEEDS).map(n => n.os));
 
 /**
  * Capture backends this platform runs that need nothing granted first, in table
@@ -143,11 +166,14 @@ export function autoCaptures(platform: PlatformInfo | null): string[] {
  * Capture backends that cannot run on the given platform, each mapped to the reason.
  * A null platform (not yet detected) and an operating system no backend names impose
  * no restriction.
+ *
+ * Which operating systems the table names is read off it, so a backend declared for a
+ * new one is gated at once rather than that platform quietly losing every rule.
  */
 function unavailableCaptures(
     platform: PlatformInfo | null
 ): Record<string, string> {
-    if (!platform || (platform.os !== "linux" && platform.os !== "windows")) {
+    if (!platform || !CAPTURE_OS.has(platform.os)) {
         return {};
     }
     const out: Record<string, string> = {};
@@ -325,20 +351,101 @@ function unavailableFamilies(
 }
 
 /**
- * Audio sources the given platform cannot capture, each mapped to the reason.
- * Desktop audio comes from the PulseAudio/PipeWire monitor source; ffmpeg has
- * no WASAPI loopback, so Windows has no equivalent.
+ * Why desktop audio is out of reach on an operating system, keyed by it. Both
+ * publish engines read the mixed output from the PulseAudio/PipeWire monitor source,
+ * which only a Linux session serves, and each other platform is missing a different
+ * piece: a user who reads one reason cannot act on the other, so the two are stated
+ * separately rather than merged into "Linux only".
  */
+const AUDIO_SOURCE_NEEDS: Record<string, string> = {
+    windows: "desktop audio capture reads the PulseAudio/PipeWire monitor source (Linux) - ffmpeg has no WASAPI loopback and the GStreamer branch records through pulsesrc, so neither engine reaches what Windows plays",
+    darwin: "desktop audio capture reads the PulseAudio/PipeWire monitor source (Linux) - AVFoundation enumerates input devices only, so what the machine plays is not a source macOS offers either engine",
+};
+
+/** Audio sources the given platform cannot capture, each mapped to the reason. */
 function unavailableAudio(
     platform: PlatformInfo | null
 ): Record<string, string> {
-    if (platform?.os === "windows") {
-        return {
-            desktop:
-                "desktop audio capture needs PulseAudio/PipeWire (Linux) - ffmpeg has no WASAPI loopback on Windows",
-        };
+    const reason = platform ? AUDIO_SOURCE_NEEDS[platform.os] : undefined;
+    return reason ? { desktop: reason } : {};
+}
+
+/**
+ * Audio codecs the stream cannot be published with, each mapped to the reason.
+ *
+ * Two independent facts withhold one: the capture backend's publish engine has no
+ * encoder element for the codec, and the publish transport carries no track in that
+ * codec's bitstream format. The first is the audio table's own gap, the second the
+ * carriage table's, and the reason names whichever applies, since the fix differs -
+ * another capture backend against another codec on the same one.
+ *
+ * An unresolved audio table, engine or carriage table withholds nothing, as every
+ * unresolved fact here.
+ */
+function unavailableAudioCodecs(
+    transport: string,
+    engine: Engine | null,
+    audioCodecs: AudioCodec[] | null,
+    carriage: TransportCarriage[] | null
+): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (!audioCodecs || !engine) {
+        return out;
     }
-    return {};
+    const carried = legAudioFormats(carriage, transport, "publish", engine);
+    // The codecs that would have worked: what this engine codes and this leg
+    // carries, which is the list a refusal points at.
+    const reachable = carried
+        ? audioCodecs.filter(
+              a => audioCodesOn(a, engine) && carried.includes(a.format)
+          )
+        : [];
+    for (const a of audioCodecs) {
+        if (!audioCodesOn(a, engine)) {
+            const gap = audioEngineGap(a, engine);
+            // A codec an engine cannot code normally states why in the table. Where
+            // it does not, the fact is still shown, without a cause invented for it.
+            out[a.name] = gap
+                ? gap.reason
+                : `the ${ENGINE_LABEL[engine]} publish engine has no encoder element for ${a.name}`;
+            continue;
+        }
+        if (carried && !carried.includes(a.format)) {
+            const others = reachable.map(o => o.name).join(" or ");
+            out[a.name] =
+                `the ${transport} publish leg carries no ${a.name} track on the ${ENGINE_LABEL[engine]} publish engine` +
+                (others
+                    ? ` - it carries ${others}`
+                    : " - it carries no audio codec this engine codes");
+        }
+    }
+    return out;
+}
+
+/**
+ * The publish-transport roster the form offers: every transport some capture
+ * backend's engine can carry, sorted, plus the selected one.
+ *
+ * There is no engine-neutral roster on the backend to read instead, and there should
+ * not be: a union over both engines is the narrowing this table exists to remove. The
+ * capture-to-transport map states each engine's own reach, so the roster is what it
+ * spans and unavailableTransports greys the entries the selected capture's engine has
+ * no sink for, from the same map.
+ *
+ * The selection is always in the list, so an unresolved map leaves the control
+ * showing the value it holds rather than an empty dropdown.
+ */
+export function publishTransports(
+    captureTransports: Record<string, string[]> | null,
+    selected: string
+): string[] {
+    const all = new Set<string>(selected ? [selected] : []);
+    for (const list of Object.values(captureTransports ?? {})) {
+        for (const t of list) {
+            all.add(t);
+        }
+    }
+    return [...all].sort();
 }
 
 /**
@@ -357,14 +464,8 @@ function unavailableTransports(
     if (!allowed) {
         return {};
     }
-    const all = new Set<string>();
-    for (const list of Object.values(captureTransports)) {
-        for (const t of list) {
-            all.add(t);
-        }
-    }
     const out: Record<string, string> = {};
-    for (const t of all) {
+    for (const t of publishTransports(captureTransports, "")) {
         if (!allowed.includes(t)) {
             out[t] = engine
                 ? `the ${capture} capture backend runs the ${ENGINE_LABEL[engine]} publish engine, which has no ${t} publish sink`
@@ -374,12 +475,48 @@ function unavailableTransports(
     return out;
 }
 
-/** The capture backend to fall back to when the current one is unavailable here. */
+/**
+ * The capture backend to fall back to when the current one is unavailable here: the
+ * one a desktop session on that platform normally has, which on Linux follows the
+ * session because a Wayland desktop leaves the X backends seeing XWayland alone.
+ */
 function preferredCapture(platform: PlatformInfo | null): string {
     if (platform?.os === "linux") {
         return platform.display === "wayland" ? "portal" : "x11grab";
     }
+    if (platform?.os === "darwin") {
+        return "avfoundation";
+    }
     return "ddagrab";
+}
+
+/**
+ * Reason the publish leg cannot take this codec's bitstream, naming the engine that
+ * lacks the mapping and where the combination would have worked.
+ *
+ * The engine belongs in the sentence because the same protocol carries a format on
+ * one engine and not the other: ffmpeg's WHIP muxer publishes H.264 alone where the
+ * GStreamer one payloads VP8 and VP9 with it. A reason naming the protocol by itself
+ * would send a user hunting for another transport where another capture backend is
+ * the fix, so both ways out are named where the table holds them.
+ */
+function carryBlockReason(
+    transport: string,
+    engine: Engine,
+    cap: Capability,
+    carriage: TransportCarriage[] | null
+): string {
+    const label = codecLabel(cap);
+    const here = carriersOf(carriage, "publish", engine, cap.format);
+    const other: Engine = engine === "ffmpeg" ? "gstreamer" : "ffmpeg";
+    const ways = [
+        here.length ? `publish it over ${here.join(" or ")}` : "",
+        carriesFormat(carriage, transport, "publish", other, cap.format)
+            ? `over ${transport} from a capture backend on the ${ENGINE_LABEL[other]} publish engine`
+            : "",
+    ].filter(Boolean);
+    const out = `${transport} carries no ${label} on the ${ENGINE_LABEL[engine]} publish engine`;
+    return ways.length ? `${out} - ${ways.join(", or ")}` : out;
 }
 
 /** Reason the codec with the given label cannot encode chroma on either engine.
@@ -495,7 +632,8 @@ function unavailableFrameMemories(
  */
 export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     const {
-        platform, encoders, caps, decoders, carriage, captureTransports, gpuPaths,
+        platform, encoders, caps, decoders, audioCodecs, carriage,
+        captureTransports, gpuPaths,
     } = env;
     const mode = MODE_META[s.mode as Mode];
     const chroma = CHROMA_META[s.chroma as Chroma];
@@ -523,11 +661,23 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
             transport: {},
             capture: unavailableCaptures(platform),
             audio: unavailableAudio(platform),
+            audioCodec: unavailableAudioCodecs(
+                s.transport, engine, audioCodecs, carriage
+            ),
             captureMemory: unavailableFrameMemories(
                 s.capture, s.codec, engine, caps, gpuPaths
             ),
         },
     };
+
+    // The audio codec is read only where the stream has a track to code, so with no
+    // source the control is inert rather than wrong. It is greyed with the reason
+    // instead of hidden: the codec is a general concept, and the greyed field plus
+    // its sentence say why it does not apply (docs/field-availability.md).
+    if (s.audio === "none") {
+        d.disabled.audioCodec =
+            "no audio source is selected, so the stream carries no track to code";
+    }
 
     // Transports the selected capture's engine cannot carry, disabled per
     // option: a transport the engine cannot serialize is greyed with the reason
@@ -536,14 +686,24 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
         d.optionDisabled.transport = unavailableTransports(s.capture, engine, captureTransports);
     }
 
-    // A codec whose bitstream the current publish transport has no mapping for,
-    // disabled per option. The protocol carries a format rather than an encoder,
-    // so every codec of that format greys out together.
+    // A codec whose bitstream the current publish leg has no mapping for, disabled
+    // per option. The protocol carries a format rather than an encoder, so every
+    // codec of that format greys out together, and the leg is the selected capture
+    // backend's engine: WebRTC takes VP9 from the GStreamer capture backends and
+    // H.264 alone from the ffmpeg ones.
+    //
+    // A leg this engine cannot serialize at all states nothing about any codec. That
+    // is the transport's own refusal, already on the transport control, and greying
+    // every codec under it would name the wrong control.
+    const carried = legFormats(carriage, s.transport, "publish", engine);
     if (caps) {
-        for (const cap of caps) {
-            if (!carriesFormat(carriage, s.transport, "publish", cap.format)) {
-                d.optionDisabled.codec[cap.name] =
-                    `${s.transport} cannot carry ${codecLabel(cap)}`;
+        if (carried && engine) {
+            for (const cap of caps) {
+                if (!carried.includes(cap.format)) {
+                    d.optionDisabled.codec[cap.name] = carryBlockReason(
+                        s.transport, engine, cap, carriage
+                    );
+                }
             }
         }
         // Codecs the encoder argument builders do not map yet: shown so the
@@ -683,7 +843,10 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
  * with it.
  */
 export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
-    const { platform, encoders, caps, carriage, captureTransports, gpuPaths } = env;
+    const {
+        platform, encoders, caps, audioCodecs, carriage, captureTransports,
+        gpuPaths,
+    } = env;
     const next = { ...s };
 
     // Capture first: the transport, codec and chroma repairs below depend on it, so
@@ -718,7 +881,7 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         const cap = findCapability(caps, codec);
         return (
             !!cap && cap.implemented &&
-            carriesFormat(carriage, next.transport, "publish", cap.format) &&
+            carriesFormat(carriage, next.transport, "publish", engine, cap.format) &&
             !engineGapFor(codec, engine, caps)
         );
     };
@@ -768,28 +931,46 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         }
     }
 
-    // Quantizer target: the constant-quality scales differ per encoder, so a
-    // value carried over from libvpx's 63-point scale is clamped into the 51 the
-    // H.26x and AV1 encoders accept. It is left alone while the table is
-    // unresolved, which would otherwise clamp a saved VP9 value against the
-    // fallback scale at startup.
-    if (caps) {
-        next.cq = Math.min(Math.max(next.cq, 0), cqMax(next.codec, caps));
-        // Bitrate target: one encoder rejects a target above its ceiling instead of
-        // clamping, and the defaults sit above that ceiling, so the value follows the
-        // codec down. The burst ceiling rides along, since a maxrate below the target
-        // would leave constrained VBR no room.
-        const limit = bitrateLimit(next.codec, caps);
-        if (limit > 0 && next.bitrateM > limit) {
-            next.bitrateM = limit;
-            next.maxrateM = Math.max(next.maxrateM, limit);
-        }
+    // Quantizer target: the constant-quality scales differ per encoder and per
+    // engine, so a value carried over from libvpx's 63-point scale is clamped into
+    // the 51 the H.26x encoders accept. A codec the table declares no scale for on
+    // this engine bounds nothing, so the value stands rather than being clamped
+    // against a scale nobody stated.
+    const scale = cqMax(next.codec, engine, caps);
+    if (scale > 0) {
+        next.cq = Math.min(Math.max(next.cq, 0), scale);
+    }
+    // Bitrate target: one encoder rejects a target above its ceiling instead of
+    // clamping, and the defaults sit above that ceiling, so the value follows the
+    // codec down. The burst ceiling rides along, since a maxrate below the target
+    // would leave constrained VBR no room.
+    const limit = bitrateLimit(next.codec, engine, caps);
+    if (limit > 0 && next.bitrateM > limit) {
+        next.bitrateM = limit;
+        next.maxrateM = Math.max(next.maxrateM, limit);
     }
 
-    // Audio: settings and presets from before the option lack the key, and
-    // desktop capture has no Windows path.
+    // Audio: settings and presets from before the option lack the key, and the
+    // monitor source desktop capture reads is a Linux one.
     if (!next.audio || unavailableAudio(platform)[next.audio]) {
         next.audio = "none";
+    }
+
+    // Audio codec: settings and presets from before the option lack the key, and a
+    // transport or capture change can strand a codec the new leg does not carry or
+    // the new engine cannot code.
+    //
+    // A stream with no audio source is left alone, since the codec reaches no
+    // encoder there: repairing it would rewrite a stored choice that changes nothing
+    // about the publish, and switching the source back runs this same repair.
+    const blockedAudio = unavailableAudioCodecs(
+        next.transport, engine, audioCodecs, carriage
+    );
+    if (!next.audioCodec || (next.audio !== "none" && blockedAudio[next.audioCodec])) {
+        const free = (audioCodecs ?? []).find(a => !blockedAudio[a.name]);
+        if (free) {
+            next.audioCodec = free.name;
+        }
     }
 
     // Frame memory: settings and presets from before the option lack the key, and a
@@ -814,7 +995,8 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
  * the same combination still accepts.
  */
 const SUBSTITUTED: (keyof Stream)[] = [
-    "capture", "transport", "codec", "chroma", "mode", "audio", "captureMemory",
+    "capture", "transport", "codec", "chroma", "mode", "audio", "audioCodec",
+    "captureMemory",
 ];
 
 /**

@@ -1,7 +1,7 @@
 import { Stream } from "../types/stream";
 import {
-    Capability, CHROMA_META, Chroma, Engine, FORMAT_META, cqMax, findEngineRule,
-    formatOf,
+    ANCHOR_CQ_MAX, Capability, CHROMA_META, Chroma, Engine, FORMAT_META, cqMax,
+    findEngineRule, formatOf,
 } from "./domain";
 
 /** A predicted bitrate for the current settings, before publishing. */
@@ -21,7 +21,6 @@ export interface BitrateEstimate {
 const QUALITY_ANCHOR_BPP = 0.07;
 const QUALITY_ANCHOR_CQ = 23;
 const CQ_STEP = 6;
-const ANCHOR_CQ_MAX = 51;
 
 // Content spread around the nominal quality bitrate: static desktop -> motion.
 const MOTION_LOW = 0.4;
@@ -111,7 +110,11 @@ export function estimateBitrate(
     }
     const codec = FORMAT_META[fmt].efficiency;
     const chroma = CHROMA_META[s.chroma as Chroma]?.weight ?? 1.0;
-    const cq = (s.cq * ANCHOR_CQ_MAX) / cqMax(s.codec, caps);
+    // The quantizer is placed on the anchor scale the model is calibrated against.
+    // A codec whose scale this engine declares none for leaves the number where it
+    // stands, since there is no ratio to convert it by.
+    const scale = cqMax(s.codec, engine, caps);
+    const cq = scale > 0 ? (s.cq * ANCHOR_CQ_MAX) / scale : s.cq;
     const bpp =
         QUALITY_ANCHOR_BPP *
         Math.pow(2, (QUALITY_ANCHOR_CQ - cq) / CQ_STEP) *

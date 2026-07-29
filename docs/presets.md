@@ -39,6 +39,7 @@ The three axes the search varies:
 
 The publish transport is not searched.
 It is how viewers are reached rather than a property of the picture, so a preset never moves it, and the sentence on an unavailable preset names it as the thing the search worked within.
+The leg stays put while the engine under it moves with the capture backend, and a leg carries different formats on the two engines, so which codecs a rung can reach changes as the search walks the backends.
 
 Applying twice equals applying once: the settings a search returns are themselves the candidate the next search reaches first.
 

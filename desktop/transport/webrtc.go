@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -24,20 +25,37 @@ func init() {
 
 func (WebRTC) Name() string { return "webrtc" }
 
-// Formats: the publish set is H.264 because ffmpeg's whip muxer carries H.264
-// and Opus, and the narrower of the two engines governs the list.
+// Formats: the two publish entries are what each engine's WHIP side negotiates,
+// and they differ. ffmpeg's whip muxer writes one H.264 video track and one Opus
+// audio track and has no payloader for anything else. whipclientsink picks its
+// payloader from the caps webrtcbin offers, which covers the WebRTC video set the
+// relay ingests, so the GStreamer engine reaches VP8 and VP9 over the same
+// endpoint.
 //
-// The watch set is what the relay negotiates back over WHEP and a receiving
-// pipeline then decodes. H.265 is absent because the relay refuses to serve it
-// over WebRTC whenever the stream carries B-frames, which is a property of the
-// encode rather than of the leg and unknowable for a stream this app did not
-// produce. AV1 is absent because its track negotiates and then yields no frame:
-// the relay reports the reader, and neither an autoplugged nor an explicit
-// rtpav1depay chain produces a picture from it.
+// AV1 is in neither set. Its WHEP track negotiates and then yields no frame here,
+// measured: the relay reports the reader, and neither an autoplugged nor an
+// explicit rtpav1depay chain produces a picture from it. A publish leg nothing
+// can read back is not a leg.
+//
+// Opus is the whole audio set on every entry, because it is the whole audio set
+// WebRTC negotiates. AAC has no SDP form there at all, which is a fact of the
+// protocol rather than of either engine.
+//
+// The watch entry is the receiving GStreamer pipeline's, and there is no player
+// entry: WHEP is a signaling exchange rather than an address, so no viewer
+// program opens it. H.265 is absent because the relay refuses to serve it over
+// WebRTC whenever the stream carries B-frames, which is a property of the encode
+// rather than of the leg and unknowable for a stream this app did not produce.
 func (WebRTC) Formats() Formats {
 	return Formats{
-		Publish: []string{"h264"},
-		Watch:   []string{"h264", "vp9", "vp8"},
+		Publish: map[string]Carriage{
+			capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"opus"}},
+			capabilities.EngineGst:    {Video: []string{"h264", "vp9", "vp8"}, Audio: []string{"opus"}},
+		},
+		Watch: map[string]Carriage{capabilities.EngineGst: {
+			Video: []string{"h264", "vp9", "vp8"},
+			Audio: []string{"opus"},
+		}},
 	}
 }
 

@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -94,17 +95,21 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The probe is matched as the whole element rather than by its name alone,
+	// which several source elements carry as a substring of their own ("capture-screen",
+	// "d3d11screencapturesrc").
+	probe := strings.Join(gstCaptureProbe, " ")
 	for name, p := range captureBackends {
 		g, ok := p.(gstEngine)
 		if !ok {
 			continue
 		}
 		plain := strings.Join(g.capture.Describe(s, opts), " ")
-		if strings.Contains(plain, gstCaptureName) {
+		if strings.Contains(plain, probe) {
 			t.Errorf("%s: a pipeline built without instrumentation carries the rate probe: %s", name, plain)
 		}
 		probed := strings.Join(g.capture.Describe(s, gstProbed(opts)), " ")
-		if !strings.Contains(probed, strings.Join(gstCaptureProbe, " ")) {
+		if !strings.Contains(probed, probe) {
 			t.Errorf("%s: capture elements drop the rate probe: %s", name, probed)
 		}
 	}
@@ -163,7 +168,7 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 // this transport has none of would leave the audio pad unlinked at launch.
 func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 	for _, name := range transport.Names() {
-		if !transport.CanGstPublish(name) {
+		if !transport.CanPublish(name, EngineGst) {
 			continue
 		}
 		s := settings.Defaults()
@@ -171,7 +176,7 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		// libx264 over every transport: the transport's own format set decides
 		// whether it may carry the codec, and this asserts the pipeline's shape.
 		s.Codec, s.Chroma = "libx264", "yuv420p"
-		if err := transport.ValidatePublish(name, s.Codec); err != nil {
+		if err := transport.ValidatePublish(name, EngineGst, s.Codec); err != nil {
 			continue
 		}
 		pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "")
@@ -186,6 +191,63 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		if !strings.HasSuffix(joined, transport.GstMuxName+".") {
 			t.Errorf("%s: the audio branch must end at the mux name: %s", name, joined)
 		}
+	}
+}
+
+// The audio branch is built from the capability table: the element that codes the selected
+// codec on this engine, the parser that frames it for the muxer pad, and the rate the
+// encoder codes at.
+// Spelling any of them here instead would state one codec's answer for every codec, where
+// the ffmpeg engine codes the same setting with an element of its own.
+func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
+	for _, a := range capabilities.AudioCodecs {
+		enc, ok := a.EncoderOn(EngineGst)
+		if !ok {
+			continue
+		}
+		s := settings.Defaults()
+		// RTSP carries every audio codec the table holds, so the transport never decides
+		// which of them this covers.
+		s.Transport, s.Audio, s.AudioCodec = "rtsp", "desktop", a.Name
+		branch, err := gstAudioBranch(s)
+		if err != nil {
+			t.Fatalf("%s: %v", a.Name, err)
+		}
+		joined := strings.Join(branch, " ")
+		for _, want := range []string{
+			enc.Element,
+			enc.Parser,
+			fmt.Sprintf("rate=%d", a.Rate),
+			fmt.Sprintf("bitrate=%d", a.BitrateK*1000),
+		} {
+			if !strings.Contains(joined, want) {
+				t.Errorf("%s: audio branch %q lacks %q", a.Name, joined, want)
+			}
+		}
+		// The branch ends at the muxer's request pad, which is what makes it a second track
+		// rather than a pipeline of its own.
+		if !strings.HasSuffix(joined, transport.GstMuxName+".") {
+			t.Errorf("%s: audio branch %q must end at the mux name", a.Name, joined)
+		}
+	}
+
+	// A source that is off yields no branch at all, whatever codec the settings carry,
+	// and one no backend records is refused rather than left silent.
+	for _, source := range []string{"none", ""} {
+		s := settings.Defaults()
+		s.Audio = source
+		branch, err := gstAudioBranch(s)
+		if err != nil {
+			t.Fatalf("audio source %q: %v", source, err)
+		}
+		if len(branch) > 0 {
+			t.Errorf("audio source %q yields %v, want no branch", source, branch)
+		}
+	}
+	s := settings.Defaults()
+	s.Audio = "microphone"
+	if _, err := gstAudioBranch(s); err == nil {
+		t.Error("an audio source no backend records must be refused")
 	}
 }
 

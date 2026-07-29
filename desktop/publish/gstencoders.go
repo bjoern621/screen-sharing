@@ -334,15 +334,21 @@ const svtav1Preset = "9"
 // svtav1Encoder maps the rate-control mode onto svtav1enc, the counterpart to the
 // ffmpeg libsvtav1 branch. Two of the library's constraints leave it with two
 // branches where the other elements have four: target-bitrate alone selects VBR and
-// max-bitrate is refused outside constant-quality mode, so cbr, vbr and abr all come
-// out as one bitrate target, and capabilities.Codecs declares cbr unreachable on this
-// engine because the prediction structure it needs stalls the element.
+// max-bitrate is refused outside constant-quality mode, so abr and vbr come out as
+// one bitrate target, and cbr has no branch at all because capabilities.Codecs
+// declares it unreachable on this engine, the prediction structure it needs stalling
+// the element.
 func svtav1Encoder(s settings.Stream, r gstRates) []string {
 	base := []string{"svtav1enc", "preset=" + svtav1Preset, "intra-period-length=" + r.gop}
-	if s.Mode == "crf" {
+	switch s.Mode {
+	case "crf":
 		return append(base, "crf="+r.cq)
+	case "abr", "vbr":
+		return append(base, "target-bitrate="+r.kbps)
+	default:
+		assert.Never("unexpected rate-control mode", s.Mode)
+		return nil
 	}
-	return append(base, "target-bitrate="+r.kbps)
 }
 
 // rav1eEncoder maps the rate-control mode onto rav1enc, the counterpart to the

@@ -29,6 +29,17 @@ const configDirMode = 0o755
 // storeFileMode is the permission the settings and preset files are written with.
 const storeFileMode = 0o644
 
+// audioSourceNone is the Audio value of a stream with no second track. The other
+// values name a capture source, which is the platform's question rather than this
+// package's, so only the absent one is spelled here.
+const audioSourceNone = "none"
+
+// defaultAudioCodec is the codec a fresh stream and a file written before the
+// option encode their track in. Opus is the one codec every transport here
+// carries, WebRTC included, so it is the value that keeps a stored publish leg
+// working whatever protocol it names.
+const defaultAudioCodec = "opus"
+
 // Stream holds every user-controllable aspect of the stream.
 type Stream struct {
 	Name       string `json:"name"`
@@ -42,7 +53,7 @@ type Stream struct {
 	Transport  string `json:"transport"`  // publish leg (publisher to relay): registry key, e.g. "srt"
 	Codec      string `json:"codec"`      // ffmpeg encoder name, a row of capabilities.Codecs
 	Mode       string `json:"mode"`       // rate control: cbr vbr abr crf lossless
-	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv420p p010le
+	Chroma     string `json:"chroma"`     // gbrp yuv444p yuv422p yuv420p p010le
 	ColorRange string `json:"colorRange"` // pc tv (ignored for gbrp, inherently full range)
 	Fps        int    `json:"fps"`
 	Cq         int    `json:"cq"`        // crf mode: constant-quality value, lower = better
@@ -52,10 +63,16 @@ type Stream struct {
 	Gop        int    `json:"gop"`       // keyframe interval in frames, 0 = auto (2*fps)
 	Bframes    int    `json:"bframes"`   // lossy modes only; adds reorder latency
 	EncPreset  string `json:"encPreset"` // nvenc p1..p7
-	Capture    string `json:"capture"`   // ddagrab gdigrab (Windows), x11grab kmsgrab (Linux)
+	Capture    string `json:"capture"`   // a row of publish.Captures, applicable per OS and session
 	Audio      string `json:"audio"`     // none desktop (desktop = monitor of the default sink via PulseAudio/PipeWire)
-	DrmMap     string `json:"drmMap"`    // kmsgrab DRM download strategy: auto vaapi vulkan none
-	Monitor    int    `json:"monitor"`   // ddagrab output_idx
+	// AudioCodec is the codec the second track is encoded in, a row of
+	// capabilities.AudioCodecs. It is a field of its own rather than a property of
+	// the source because the two answer to different tables: which sources exist is
+	// the platform's, which codecs reach the relay is the engine's and the publish
+	// leg's. It is read only where Audio names a source.
+	AudioCodec string `json:"audioCodec"`
+	DrmMap     string `json:"drmMap"`  // kmsgrab DRM download strategy: auto vaapi vulkan none
+	Monitor    int    `json:"monitor"` // ddagrab output_idx
 	// CaptureMemory is where the frames reach the encoder: auto gpu system, the
 	// values gpupath.Memories names. It decides whether the capture chain downloads
 	// every frame and converts it on the CPU, or hands the encoder the device memory
@@ -92,6 +109,17 @@ type Stream struct {
 	GridTransport string `json:"gridTransport"`
 }
 
+// AudioTrack is the audio codec the publish leg has to carry: the configured one
+// where a source is selected, and capabilities.AudioNone where none is. Both
+// publish engines validate with it, so "no track" is one value both tables read
+// rather than a branch each engine takes on its own.
+func (s Stream) AudioTrack() string {
+	if s.Audio == "" || s.Audio == audioSourceNone {
+		return capabilities.AudioNone
+	}
+	return s.AudioCodec
+}
+
 // CapabilityOptions are the option values a codec's gaps are read against, keyed as
 // capabilities.Options names them. Both publish engines hand it to
 // capabilities.Validate, so one place decides which value each option was asked
@@ -126,7 +154,8 @@ func Defaults() Stream {
 		Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
 		ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 		Gop: 0, Bframes: 0,
-		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0, Audio: "none",
+		EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0,
+		Audio: audioSourceNone, AudioCodec: defaultAudioCodec,
 		CaptureMemory:       gpupath.MemoryAuto,
 		SrtPublishLatencyMs: 300, SrtWatchLatencyMs: 1200, // sum ≈ glass-to-glass budget
 		// rtspsrc defaults to 2000 ms of jitter buffer, two seconds of display
@@ -232,7 +261,7 @@ func Load() (Stream, error) {
 	}
 	// Settings files from before the audio option lack the key.
 	if s.Audio == "" {
-		s.Audio = "none"
+		s.Audio = audioSourceNone
 	}
 	// A settings file written before a transport was registered lacks that
 	// listener's port, and no transport can be reached on port zero.
@@ -310,6 +339,13 @@ func migrateStream(s Stream) Stream {
 	// used, and one that has a path takes it.
 	if s.CaptureMemory == "" {
 		s.CaptureMemory = Defaults().CaptureMemory
+	}
+	// A file written before the audio codec became a setting names none, and both
+	// engines refuse an audio track whose codec no table row carries. Opus is what
+	// those builds encoded, so filling it keeps a stored stream publishing the track
+	// it always did rather than starting it on a codec the file never chose.
+	if s.AudioCodec == "" {
+		s.AudioCodec = defaultAudioCodec
 	}
 	return s
 }

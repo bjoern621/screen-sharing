@@ -28,9 +28,11 @@ A stream crosses the relay in two independent legs: the publish leg from the pub
 Each names its own protocol, because MediaMTX re-serves every ingested stream on all its listeners.
 A stream published over SRT is watched over RTSP by one viewer and over WHEP by another, at the same time.
 
-The two legs are not the same list of protocols.
-HLS is served and never ingested, so it is a watch leg alone; WebRTC ingest is narrower than WHEP playback; RTMP takes four formats in and hands one back.
-Each transport declares a format set per leg beside the code that serializes it (`transport.Formats`), and every rule that offers or refuses a protocol reads the set for the leg it means.
+The two legs are not the same list of protocols, and a leg is not one list either.
+HLS is served and never ingested, so it is a watch leg alone; RTMP takes four formats in and hands one back; WebRTC ingest is narrower than WHEP playback, and narrower on one publish engine than on the other.
+Each transport declares a carriage per leg and per engine beside the code that serializes it (`transport.Formats`), and every rule that offers or refuses a protocol reads the entry for the leg and the engine it means.
+The two watch engines are the two receivers here: ffplay and mpv open a URL through libavformat, and a receiving GStreamer pipeline is the native grid's.
+A web grid tile is neither, reaching the relay through the webview's own `RTCPeerConnection` and carrying its own table (`webgrid.ts`).
 
 The publish leg is one setting per app instance (`settings.Stream.Transport`, the "Publish transport protocol" field).
 The watch leg is two, one per viewer kind, because the two viewer kinds reach different protocol sets.
@@ -94,30 +96,33 @@ The native grid shares that shape: each watched tile's pipeline subscribes to th
 
 ## What each path decodes
 
-The published stream is the row; the two viewer columns give the watch leg each side receives it over, whatever protocol published it.
-
-| Published stream | Web grid, watch leg | Native grid, ffplay, mpv, watch leg | Notes |
-|---|---|---|---|
-| H.264, 8-bit 4:2:0 | WHEP | srt, rtsp | The only combination WHEP negotiates. |
-| H.264, 10-bit 4:2:0 (p010le) | none | srt, rtsp | WebRTC negotiates 8-bit H.264 profiles only. |
-| H.264, 4:4:4 | none | srt, rtsp | WHEP requires 4:2:0. |
-| HEVC, any chroma | none | srt, rtsp | The WHIP/WHEP leg carries H.264 and Opus only. |
-| VP9 profile 1, 8-bit 4:4:4 or gbrp | WebCodecs, in a LAN browser | rtsp | MPEG-TS has no VP9 mapping, so no leg can use SRT. The app's own webview refuses the profile, see "Where responsibilities lie". |
-| VP9 profile 0 (4:2:0) or profile 2 (10-bit) | none | rtsp | The WebCodecs path declares profile 1 and decodes no other bitstream, and WHEP carries no VP9. |
-
-The native column is one entry because a software decoder covers every row of it.
+A native path decodes every stream this app publishes, so what limits it is the watch leg rather than the decoder.
 ffplay and mpv decode through libavcodec.
 The grid's `decodebin` autoplugs by rank, so a hardware element takes the stream wherever its sink caps advertise the profile, and a software element takes the rest: `avdec_h264` and `avdec_h265` from gst-libav, `vp9dec` from libvpx, `dav1ddec` for AV1.
 Nothing prefers software: the hardware decoders outrank the software ones, and the pixel format the publisher chose is what decides which of them can take the stream.
+Which legs carry a format to a player and to the grid is "Which protocol carries which format" below.
 
-`capabilities.Decoders` is that fact per decoder element, and the settings form reads it to say what a chroma costs the viewer.
+The web grid is the side with a decode limit, because each of its paths pins a profile.
+
+| Published stream | Web grid, watch leg | Notes |
+|---|---|---|
+| H.264, 8-bit 4:2:0 | WHEP | The only combination the webview's WHEP path negotiates. |
+| H.264, 10-bit 4:2:0 (p010le) | none | WebRTC negotiates 8-bit H.264 profiles only. |
+| H.264, 4:4:4 or 4:2:2 | none | WHEP requires 4:2:0. |
+| HEVC, any chroma | none | No web-grid path carries the format. |
+| VP9 profile 1, 8-bit 4:4:4 or gbrp | WebCodecs, in a LAN browser | The app's own webview refuses the profile, see "Where responsibilities lie". |
+| VP9 profile 0 (4:2:0) or profile 2 (10-bit) | none | The WebCodecs path declares profile 1 and decodes no other bitstream, and the webview's WHEP negotiates H.264 alone. |
+
+`capabilities.Decoders` states what each decoder element takes, and the settings form reads it to say what a chroma costs the viewer.
 Every fixed-function decoder covers 4:2:0, with 10-bit where the format has a Main-10 equivalent.
 Full chroma and RGB reach silicon in HEVC alone, through the Range Extensions profiles NVDEC and Intel's decoder carry and Mesa's VA drivers and DXVA do not.
+4:2:2 divides the same way one step narrower: libavcodec decodes it in both H.26x formats, and Intel's HEVC decoder is the one hardware element that does, NVDEC implementing the 4:4:4 Range Extensions profiles without the 4:2:2 one.
 H.264 has no hardware 4:4:4 anywhere, no vendor having implemented High 4:4:4 Predictive, which is also why lossless H.264 is a software decode on every machine: the mode exists only in that profile.
 AV1 and VP9 are the same story in their own profiles, hardware decoding profile 0 and 2 and never the full-chroma ones.
 
 Audio follows the path, not the stream.
-`WhepSink` receives the Opus track and exposes a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent in either grid and audible in a native window.
+`WhepSink` receives the audio track and exposes a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent in either grid and audible in a native window.
+Which legs carry the track at all follows the audio codec rather than the path: WebRTC carries Opus alone and RTMP AAC alone, which the transport table's audio half states.
 
 ## Codec and chroma
 
@@ -131,8 +136,8 @@ Which protocol carries a row is not in it: that follows the bitstream format rat
 | `h264_nvenc` | yuv444p, yuv420p, p010le | `nvh264enc` |
 | `hevc_nvenc` | gbrp, yuv444p, yuv420p, p010le | `nvh265enc` |
 | `av1_nvenc` | yuv420p, p010le | `nvav1enc` |
-| `libx264` | yuv444p, yuv420p, p010le | `x264enc` |
-| `libx265` | gbrp, yuv444p, yuv420p, p010le | `x265enc` |
+| `libx264` | yuv444p, yuv422p, yuv420p, p010le | `x264enc` |
+| `libx265` | gbrp, yuv444p, yuv422p, yuv420p, p010le | `x265enc` |
 | `libvpx-vp9` | gbrp, yuv444p, yuv420p, p010le | `vp9enc` |
 | `libvpx` (VP8) | yuv420p | `vp8enc` |
 | `libaom-av1` | gbrp, yuv444p, yuv420p, p010le | `av1enc` |
@@ -156,6 +161,7 @@ Which protocol carries a row is not in it: that follows the bitstream format rat
 
 The chroma column is the union over the two publish engines.
 A format one engine's encoder will not take carries a `Gap` on the row, so the viewer side sees every chroma a stream may arrive in; which of them a given capture backend can publish is the settings form's question.
+4:2:2 is the two software H.26x rows' alone, coded through x264's High 4:2:2 and x265's Main 4:2:2 10: no hardware encoder here has an entrypoint for it, and the royalty-free formats have no 4:2:2 profile a fast encoder implements.
 
 The VAAPI, QSV, AMF and Vulkan rows are 4:2:0 throughout, so nothing they publish reaches the WebCodecs leg's 4:4:4 column, and their `h264` rows at yuv420p are those families' WHEP-viewable ones.
 Whether a given GPU runs any of them is the driver's answer, not the table's: `encoders.Detect` probes each per publish engine, test-encoding on the ffmpeg engine and querying the plugin registry for the GStreamer element, and the settings form greys away what this machine refuses on the selected capture backend.
@@ -167,35 +173,52 @@ On an AMD or Intel card the same silicon is reachable there through the VAAPI ro
 
 ## Which protocol carries which format
 
-Each transport declares its carriage per leg (`transport.Formats`), and the reason a format is in or out belongs to the protocol, not to the encoder that produced the bitstream.
+Each transport declares its carriage per leg and per engine (`transport.Formats`), and the reason a format is in or out belongs to the protocol and to the engine's muxer or source element, never to the encoder that produced the bitstream.
+A cell reading none is an engine with no serialization for that leg, and the capability interface is absent with it.
 
-| Transport | Publishes | Viewers receive | Why the sets differ |
-|---|---|---|---|
-| `srt` | h264, hevc | h264, hevc | MPEG-TS registers a stream type for the two H.26x formats and for none of the others. |
-| `rtsp` | all five | all five | RTP has a payload format for every format here, which is why RTSP is the fallback the others point at. |
-| `rtmp` | h264, hevc, av1, vp9 | h264 | The flv muxer writes enhanced-RTMP tags the relay ingests; the FLV demuxers behind the viewers read the original tag set. |
-| `webrtc` | h264 | h264, vp9, vp8 | WHIP ingest is ffmpeg's H.264 + Opus muxer; WHEP playback is what the relay negotiates back and a pipeline decodes. |
-| `hls` | none | h264, hevc, av1, vp9 | The relay segments and serves HLS and ingests nothing over it, so it has no publish form at all. |
+| Transport | ffmpeg publish | GStreamer publish | Player watch | Grid watch |
+|---|---|---|---|---|
+| `srt` | h264, hevc | h264, hevc | h264, hevc | h264, hevc |
+| `rtsp` | all five | all five | all five | all five |
+| `rtmp` | h264, hevc, av1, vp9 | none | h264 | h264 |
+| `webrtc` | h264 | h264, vp9, vp8 | none | h264, vp9, vp8 |
+| `hls` | none | none | h264, hevc, av1, vp9 | none |
 
-Two rules fall out of the table:
+Why each row is shaped that way:
 
-- A codec no transport publishes cannot be published at all: `transport.ValidatePublish` rejects the combination before an encoder is built, and names the transports that would have carried it.
-- What a viewer may receive over is the watch column of the leg it is on, never the publish one.
-  An SRT viewer opened on a VP9 stream would connect and receive nothing, so `WatchNamesFor` narrows the choice per stream instead.
+- **srt.** MPEG-TS registers a stream type for the two H.26x formats and for none of the others.
+  One value covers all four cells, because ffmpeg's `mpegts` muxer and `mpegtsmux` write the same stream types and libavformat and `tsdemux` read them back.
+- **rtsp.** RTP has a payload format for every video format and both audio codecs here, and both engines implement all of them, which is why RTSP is the fallback the other refusals point at.
+- **rtmp.** The `flv` muxer writes the enhanced-RTMP tags the relay ingests, where `flvmux` writes the legacy ones alone, so there is no GStreamer publish form.
+  Both watch cells sit on legacy-tag parsers, libavformat's FLV demuxer and `rtmp2src`.
+- **webrtc.** ffmpeg's `whip` muxer writes one H.264 track and has no payloader for anything else, where `whipclientsink` payloads whatever `webrtcbin` negotiates and so reaches VP8 and VP9 over the same endpoint.
+  Playback is the WHEP exchange rather than an address, so no player opens it and the grid's `whepsrc` is the only reader.
+- **hls.** The relay segments and serves HLS and ingests nothing over it, and nothing on the GStreamer side reads the relay's playlist.
+
+Audio is carried per protocol and not per engine: WebRTC carries Opus alone, RTMP AAC alone, and SRT, RTSP and HLS carry both.
+
+Three rules fall out of the table:
+
+- A codec no transport publishes cannot be published at all: `transport.ValidatePublish` rejects the combination before an encoder is built, and names the transports that would have carried it on the engine that is running.
+- What a viewer may receive over is the watch entry for the engine it runs on, never the publish one.
+  An SRT viewer opened on a VP9 stream would connect and receive nothing, so `WatchNamesFor` narrows the choice per stream and per engine instead.
+- A publish leg the two engines carry differently is the capture backend's business as much as the transport's, since the backend fixes the engine.
+  Publishing VP9 over WebRTC therefore means a GStreamer capture backend and no other.
 
 The VP9 and AV1 formats also need `-strict experimental` on the ffmpeg publish leg, which `RTSP.PublishArgs` adds for them.
 Both RTP payload formats are still IETF drafts, and the muxer refuses to write a draft payload without it.
 The relay ingests them either way.
 
-Two entries in the watch column are narrower than the protocol:
-the relay refuses H.265 over WebRTC for any stream carrying B-frames, which is a property of the encode and unknowable for a stream this app did not produce,
-and an AV1 track negotiates over WHEP and then yields no picture, with an autoplugged depayloader or an explicit one.
-Both stay out of the set rather than being offered and failing on the tile.
+Two formats WebRTC negotiates are missing from its row all the same.
+The relay refuses H.265 over WebRTC for any stream carrying B-frames, which is a property of the encode and unknowable for a stream this app did not produce.
+An AV1 track negotiates over WHEP and then yields no picture, with an autoplugged depayloader or an explicit one, which takes AV1 off the publish cells too: a leg nothing can read back is not a leg.
+Both stay out of the carriage rather than being offered and failing on the tile.
 
-Which rate-control modes a row offers is not uniform, and `ModeGaps` on each carries it.
+Which rate-control modes a row offers is not uniform, and a `Gap` naming the mode carries it.
 Lossless is the mode that goes missing: only x264, x265 and NVENC H.264/HEVC code bit-exact, VP9 does so through ffmpeg but not through `vp9enc`, and no AV1, VP8, VAAPI, AMF or Vulkan encoder does at all.
 
-Audio is Opus at 128 kbit/s stereo on both publish engines, the one codec every hop already handles.
+Audio is one of two codecs at 128 kbit/s stereo, coded by `libopus` or `aac` on the ffmpeg engine and by `opusenc` or `avenc_aac` on the GStreamer one (`capabilities.AudioCodecs`).
+Opus is the codec WebRTC negotiates and AAC the one FLV has always carried, so the publish leg decides which of the two a stream may use.
 
 ## Where the web grid and a native window disagree
 
@@ -317,8 +340,8 @@ A row's `available` is the host webview's answer, not a constant: each path test
 A webview without one drops that row, so the verdict explains the gap where the settings form already reports codec support, rather than letting the tile fail on a missing global.
 
 `nativeGridCheck` (`frontend/src/util/nativegrid.ts`) has no decode table of its own, because the native grid's `decodebin` reaches every format the app can encode, at any chroma and bit depth.
-That leaves the watch leg as the only gate, so the verdict asks the transport table whether the relay serves the codec's format over the grid's own (`GridTransport`, the leg the window opens on and its sidebar changes).
-It reads the watch half of that table and never the publish half, since the two are separate sets: a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
+That leaves the watch leg as the only gate, so the verdict asks the transport table whether a receiving GStreamer pipeline is served the codec's format over the grid's own leg (`GridTransport`, the leg the window opens on and its sidebar changes).
+It reads the GStreamer watch entry and never the publish one, since the two are separate sets: a stream published over RTMP is one the same protocol will not hand back at anything but H.264.
 A format with no listener on the selected leg reports not-viewable, names the leg as the reason, and names the protocols that would carry it.
 
 ## The native grid

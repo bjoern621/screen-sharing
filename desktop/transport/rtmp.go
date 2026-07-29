@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -24,15 +25,25 @@ func init() {
 
 func (RTMP) Name() string { return "rtmp" }
 
-// Formats: the publish set is what the relay's enhanced-RTMP ingest takes from
-// the flv muxer, and VP8 is absent because that muxer has no tag for it. The
-// watch set is H.264 alone, which is what the FLV demuxers behind the viewers
-// here read: ffplay, mpv and rtmp2src all sit on a legacy-tag parser, so a
-// stream in any other format connects and yields no frame.
+// Formats: the publish leg is the ffmpeg engine's alone, and its set is what the
+// relay's enhanced-RTMP ingest takes from the flv muxer. VP8 is absent because
+// that muxer has no tag for it, and AAC is the whole audio set because the tag
+// FLV has always carried is the one both ends agree on.
+//
+// Both watch entries read the legacy tags and no more, so each states H.264 and
+// AAC: the players sit on libavformat's FLV demuxer and the grid on rtmp2src.
+// They are two entries carrying the same list rather than one list standing for
+// two viewers, because nothing makes them move together.
 func (RTMP) Formats() Formats {
 	return Formats{
-		Publish: []string{"h264", "hevc", "av1", "vp9"},
-		Watch:   []string{"h264"},
+		Publish: map[string]Carriage{capabilities.EngineFfmpeg: {
+			Video: []string{"h264", "hevc", "av1", "vp9"},
+			Audio: []string{"aac"},
+		}},
+		Watch: map[string]Carriage{
+			capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"aac"}},
+			capabilities.EngineGst:    {Video: []string{"h264"}, Audio: []string{"aac"}},
+		},
 	}
 }
 

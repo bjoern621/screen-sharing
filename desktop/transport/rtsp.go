@@ -35,14 +35,30 @@ func init() {
 
 func (RTSP) Name() string { return "rtsp" }
 
-// rtspFormats are the bitstream formats RTSP carries in both directions. RTP has
-// a payload format for every format the app encodes and the relay ingests and
-// re-serves all of them, which makes RTSP the one transport that carries the
-// whole codec table and the fallback the other legs point at.
-var rtspFormats = []string{"h264", "hevc", "av1", "vp9", "vp8"}
+// rtspCarriage is what RTP has a payload format for, which is every format the
+// app encodes and every audio codec it offers. The relay ingests and re-serves
+// all of them, which makes RTSP the one transport that carries the whole codec
+// table and the leg the other refusals point at.
+//
+// One value covers all four engine legs because RTP payloading is per format and
+// both engines implement every one of them: ffmpeg's rtp muxer and the rtp*pay
+// elements write the same payload types, and their depayloaders read them back.
+var rtspCarriage = Carriage{
+	Video: []string{"h264", "hevc", "av1", "vp9", "vp8"},
+	Audio: []string{"opus", "aac"},
+}
 
 func (RTSP) Formats() Formats {
-	return Formats{Publish: rtspFormats, Watch: rtspFormats}
+	return Formats{
+		Publish: map[string]Carriage{
+			capabilities.EngineFfmpeg: rtspCarriage,
+			capabilities.EngineGst:    rtspCarriage,
+		},
+		Watch: map[string]Carriage{
+			capabilities.EngineFfmpeg: rtspCarriage,
+			capabilities.EngineGst:    rtspCarriage,
+		},
+	}
 }
 
 // draftRtpFormats are the video formats whose RTP payload format is still an IETF

@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -77,16 +78,60 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if _, ok := GstSource("webrtc", s, "bob"); !ok {
 		t.Error("GstSource must report true for webrtc")
 	}
-	if !CanGstWatch("webrtc") {
-		t.Error("CanGstWatch must report true for webrtc")
+	if !CanWatch("webrtc", capabilities.EngineGst) {
+		t.Error("CanWatch must report true for webrtc on the gstreamer engine")
 	}
-	if slices.Contains(WatchNames(), "webrtc") {
-		t.Error("WatchNames lists the transports a viewer program opens, which WHEP is not")
+	if CanWatch("webrtc", capabilities.EngineFfmpeg) {
+		t.Error("CanWatch must report false for webrtc on the ffmpeg engine, whose viewers open a URL")
 	}
-	if !slices.Contains(GstWatchNames(), "webrtc") {
-		t.Error("GstWatchNames must list webrtc")
+	if slices.Contains(WatchNames(capabilities.EngineFfmpeg), "webrtc") {
+		t.Error("the players' watch list holds the transports a viewer program opens, which WHEP is not")
+	}
+	if !slices.Contains(WatchNames(capabilities.EngineGst), "webrtc") {
+		t.Error("the receiving pipeline's watch list must hold webrtc")
 	}
 	if _, ok := PublishArgs(s); !ok {
 		t.Error("PublishArgs must report true for webrtc")
+	}
+	for _, engine := range capabilities.Engines {
+		if !CanPublish("webrtc", engine) {
+			t.Errorf("CanPublish must report true for webrtc on the %s engine", engine)
+		}
+	}
+}
+
+// The two engines negotiate different video sets over the same WHIP endpoint: ffmpeg's whip
+// muxer has one H.264 payloader, and whipclientsink payloads whatever webrtcbin offers.
+// Collapsing the two carriages into one list would have to take the narrower of them, which
+// refuses the GStreamer engine two formats it serializes correctly, and the narrowing is
+// invisible at the point it costs a publish.
+// So the difference is pinned here rather than left to hold by coincidence.
+func TestWebRTCPublishCarriagesDifferPerEngine(t *testing.T) {
+	ffmpeg, ok := PublishCarriage("webrtc", capabilities.EngineFfmpeg)
+	if !ok {
+		t.Fatal("webrtc states no ffmpeg publish carriage")
+	}
+	gst, ok := PublishCarriage("webrtc", capabilities.EngineGst)
+	if !ok {
+		t.Fatal("webrtc states no gstreamer publish carriage")
+	}
+
+	if slices.Equal(ffmpeg.Video, gst.Video) {
+		t.Errorf("both engines publish %v over WHIP, which makes one of the two lists a copy", ffmpeg.Video)
+	}
+	for _, format := range []string{"vp9", "vp8"} {
+		if slices.Contains(ffmpeg.Video, format) {
+			t.Errorf("ffmpeg's whip muxer has no %s payloader, so it must not be carried there", format)
+		}
+		if !slices.Contains(gst.Video, format) {
+			t.Errorf("whipclientsink payloads %s, so the gstreamer carriage must hold it", format)
+		}
+	}
+	// Opus is the whole audio set on both, which follows from what WebRTC negotiates
+	// rather than from either engine's muxer.
+	for _, c := range []Carriage{ffmpeg, gst} {
+		if !slices.Equal(c.Audio, []string{"opus"}) {
+			t.Errorf("a WebRTC publish carriage holds %v, want opus alone", c.Audio)
+		}
 	}
 }

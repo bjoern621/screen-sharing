@@ -49,7 +49,10 @@ func TestNoPairIsDeclaredTwice(t *testing.T) {
 func TestAutoResolvesForEveryPair(t *testing.T) {
 	for _, engine := range capabilities.Engines {
 		for _, family := range capabilities.Families {
-			for _, capture := range []string{"portal", "ximagesrc", "x11grab", "kmsgrab", "ddagrab", "gdigrab"} {
+			for _, capture := range []string{
+				"portal", "ximagesrc", "x11grab", "kmsgrab", "ddagrab", "gdigrab",
+				"avfoundation", "avfvideosrc", "d3d11screencapturesrc",
+			} {
 				memory, err := Resolve(engine, capture, family, MemoryAuto)
 				if err != nil {
 					t.Errorf("%s/%s/%s: auto must resolve, got %v", engine, capture, family, err)
