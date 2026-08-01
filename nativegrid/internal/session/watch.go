@@ -71,7 +71,11 @@ func (s *Session) start(i int) {
 	e.state = Loading
 	s.clearStall(i)
 
-	p, err := s.factory(e.stream, s.events(i, e.gen))
+	// The render chain is the window's choice and no stream's, so it travels beside
+	// the stream rather than in it. It is read back on every open rather than kept
+	// with the player: a chain is fixed when the pipeline is parsed, so this call is
+	// the only place a change to it can take effect.
+	p, err := s.factory(e.stream, player.Open{Chain: s.RenderChain(i)}, s.events(i, e.gen))
 	// The factory is the caller's, so the entry is read again rather than held
 	// across it: a stream added in between moves the slice it points into.
 	e = s.at(i)

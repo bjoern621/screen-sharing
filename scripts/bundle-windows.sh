@@ -14,6 +14,22 @@ set -euo pipefail
 
 bin=${1:?usage: bundle-windows.sh <bin-directory>}
 prefix=${MINGW_PREFIX:-/mingw64}
+
+# Both inputs reach this script in whichever form the caller happened to hold: Task
+# interpolates ROOT_DIR as a native Windows path, and MSYS2 rewrites MINGW_PREFIX into
+# one on its way to a native task.exe, while a MINGW64 shell passes POSIX paths for
+# both. ldd only reads POSIX, and only ever answers in the mount form, so handed
+# "C:\dir\grid.exe" it resolves nothing and, with its errors discarded below, reports an
+# empty closure rather than a failure. Each input is therefore pinned to one form here:
+# the directory to POSIX, because ldd is given it, and the prefix to Windows, because
+# ldd's answers are converted to that form to be compared against it.
+if ! command -v cygpath >/dev/null 2>&1; then
+    echo "cygpath not found: run this from the MSYS2 MINGW64 shell" >&2
+    exit 1
+fi
+bin=$(cygpath -u "$bin")
+prefix=$(cygpath -m "$prefix")
+
 grid="$bin/screenshare-nativegrid.exe"
 
 if [ ! -f "$grid" ]; then
@@ -39,6 +55,7 @@ cp -f "$prefix"/lib/gstreamer-1.0/*.dll "$bin/gstreamer-1.0/"
 # Flat beside the binary, which is where the Windows loader looks first for the
 # process and for anything the process loads later, plugins included.
 declare -A seen
+copied=0
 queue=("$grid")
 for plugin in "$bin"/gstreamer-1.0/*.dll; do
     queue+=("$plugin")
@@ -53,9 +70,12 @@ while [ ${#queue[@]} -gt 0 ]; do
                 continue
             fi
             seen[$dll]=1
+            copied=$((copied + 1))
             cp -f "$dll" "$bin/"
             queue+=("$bin/$(basename "$dll")")
-        done < <(ldd "$file" 2>/dev/null | awk -v p="$prefix/" '$3 ~ "^" p { print $3 }')
+        done < <(ldd "$file" 2>/dev/null | awk '$3 != "" { print $3 }' |
+            cygpath -m -f - 2>/dev/null |
+            awk -v p="$prefix/" 'index(tolower($0), tolower(p)) == 1')
     done
 done
 
@@ -66,4 +86,11 @@ done
 mkdir -p "$bin/share/glib-2.0/schemas"
 cp -f "$prefix/share/glib-2.0/schemas/gschemas.compiled" "$bin/share/glib-2.0/schemas/"
 
-echo "bundled ${#seen[@]} libraries and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"
+# The grid links GTK4 and GStreamer, so an empty closure is a broken walk rather than a
+# binary that needs nothing, and a bundle shipped without it fails at the user's end.
+if [ "$copied" -eq 0 ]; then
+    echo "no libraries found under $prefix: ldd resolved nothing for $grid" >&2
+    exit 1
+fi
+
+echo "bundled $copied libraries and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"

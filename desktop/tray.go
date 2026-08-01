@@ -1,17 +1,9 @@
 package main
 
 import (
-	_ "embed"
-
 	"fyne.io/systray"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
-
-// trayIcon is the settings app's own icon, shown in the system tray. It is the
-// image the packaged app already carries (desktop/build/appicon.png).
-//
-//go:embed build/appicon.png
-var trayIcon []byte
 
 // startTray runs the system tray in the background.
 //

@@ -155,9 +155,11 @@ func TestSupportsChroma(t *testing.T) {
 		{"hevc_vaapi", "ffmpeg", "gbrp", false},   // no VAAPI encoder codes RGB
 		{"h264_vaapi", "ffmpeg", "p010le", false}, // no VAAPI driver encodes H.264 10-bit
 		{"nope", "ffmpeg", "yuv420p", false},      // unknown codec supports nothing
-		// Planar RGB is the ffmpeg engine's alone: every GStreamer encoder element
-		// negotiates YUV, so each RGB-coding codec keeps the format on one engine.
-		{"hevc_nvenc", "gstreamer", "gbrp", false},
+		// Planar RGB is the ffmpeg engine's on every RGB-coding codec but one: x265enc,
+		// vp9enc and av1enc negotiate YUV alone, so those keep the format on one engine.
+		// The nvcodec HEVC elements are the exception, taking a GBR sink format and
+		// coding it in the Range Extensions profile, so hevc_nvenc reaches RGB on both.
+		{"hevc_nvenc", "gstreamer", "gbrp", true},
 		{"libx265", "gstreamer", "gbrp", false},
 		{"libvpx-vp9", "gstreamer", "gbrp", false},
 		{"libaom-av1", "gstreamer", "gbrp", false},
@@ -255,9 +257,10 @@ func TestValidate(t *testing.T) {
 		{"unknown codec", "ffmpeg", "nope", "yuv420p", "cbr", "", 19, true},
 		{"unimplemented family", "ffmpeg", "hevc_v4l2m2m", "yuv420p", "cbr", "", 19, true},
 		{"chroma the codec rejects", "ffmpeg", "libx264", "gbrp", "cbr", "", 19, true},
-		// Planar RGB reaches the ffmpeg encoders and none of the GStreamer elements,
-		// so the same codec and chroma passes on one engine and fails on the other.
-		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", "", 19, true},
+		// Planar RGB reaches the ffmpeg encoders and all but one GStreamer element, so
+		// the same codec and chroma passes on one engine and fails on the other for the
+		// software rows. The nvcodec HEVC elements take GBR, so that row passes on both.
+		{"nvenc hevc rgb over gstreamer", "gstreamer", "hevc_nvenc", "gbrp", "crf", "", 19, false},
 		{"x265 rgb over ffmpeg", "ffmpeg", "libx265", "gbrp", "crf", "", 19, false},
 		{"x265 rgb over gstreamer", "gstreamer", "libx265", "gbrp", "crf", "", 19, true},
 		{"x265 4:4:4 over gstreamer", "gstreamer", "libx265", "yuv444p", "crf", "", 19, false},

@@ -6,7 +6,6 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/capabilities"
-	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 	"bjoernblessin.de/screenshare/transport"
 )
@@ -41,7 +40,17 @@ func buildPipeline(s settings.Stream, capture []string, meterFd string) ([]strin
 	if s.Fps <= 0 {
 		return nil, fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Fps)
 	}
-	encoder, link, err := gstEncoder(s, gstGop(s))
+	// The frame memory is resolved here as well as where the source was built, because
+	// the encoder element is one of the things it decides: a family whose plugin ships
+	// one element per memory kind is encoded by a different one on each path. Both
+	// resolutions read the same two tables from the same settings, so the pipeline
+	// cannot be assembled from a source and an encoder that disagree about where the
+	// frames are.
+	mem, err := gstMemory(s)
+	if err != nil {
+		return nil, err
+	}
+	encoder, link, err := gstEncoder(s, gstGop(s), mem.memory)
 	if err != nil {
 		return nil, err
 	}
@@ -87,69 +96,6 @@ func gstGop(s settings.Stream) int {
 		return s.Gop
 	}
 	return s.Fps * 2
-}
-
-// gstSystemConvert is the element that converts captured frames on the CPU. It is
-// the conversion every pair without a GPU path runs, whichever end lacks one.
-const gstSystemConvert = "videoconvert"
-
-// gstGpuMemory is how one encoder family's elements read frames on the GPU path: the
-// caps feature its surfaces carry, and the element that converts captured frames into
-// them without leaving the device.
-type gstGpuMemory struct {
-	feature string
-	convert string
-}
-
-// gstGpuMemories is the GPU path per encoder family, keyed as capabilities.Codecs
-// names the family, and the engine's half of the pairs gpupath.Paths declares. A
-// family named in a row here and not there has no pipeline reaching it; one named
-// there and not here is a table half declared, which the builder asserts.
-//
-// Only the va family has an entry. Its elements negotiate VASurface caps and take
-// DMABuf on their sink pads, and vapostproc is the VA post-processor: it imports the
-// portal's dmabuf, converts to the encoder's semi-planar layout and applies the
-// quantization range, all on the device. The nvcodec elements read system memory
-// unless the whole graph runs on CUDA memory, which no capture backend here produces,
-// and the qsv ones take VA surfaces only through an interop the plugin does not
-// negotiate from a foreign dmabuf.
-var gstGpuMemories = map[string]gstGpuMemory{
-	capabilities.FamilyVaapi: {feature: "(memory:VAMemory)", convert: "vapostproc"},
-}
-
-// gstFrameMemory is where a run's frames reach the encoder, in the vocabulary the
-// pipeline states it in: the caps feature the encoder input carries, and the element
-// that converts into it.
-type gstFrameMemory struct {
-	// memory is the resolved gpupath value, MemoryGpu or MemorySystem.
-	memory string
-	// feature is the caps feature both the encoder input and everything pinned
-	// downstream of it carry, empty for system memory.
-	feature string
-	convert string
-}
-
-// gstMemory resolves the frame memory for these settings against the pair table, and
-// refuses a demand this engine cannot meet.
-//
-// The device check is the caller's, not this function's: it reads the machine, and
-// this answers from the tables alone so that a settings combination is refused for
-// what it names rather than for the hardware it happens to run on.
-func gstMemory(s settings.Stream) (gstFrameMemory, error) {
-	c, ok := capabilities.Get(s.Codec)
-	if !ok {
-		return gstFrameMemory{}, fmt.Errorf("unknown codec %q", s.Codec)
-	}
-	memory, err := gpupath.Resolve(EngineGst, s.Capture, c.Family, s.CaptureMemory)
-	if err != nil {
-		return gstFrameMemory{}, err
-	}
-	if memory == gpupath.MemorySystem {
-		return gstFrameMemory{memory: memory, convert: gstSystemConvert}, nil
-	}
-	gpu, ok := gstGpuMemories[c.Family]
-	assert.Assert(ok, "a family with a GPU path states the memory its surfaces carry", c.Family)
-	return gstFrameMemory{memory: memory, feature: gpu.feature, convert: gpu.convert}, nil
 }
 
 // gstSourceOptions builds the parts of the source chain that follow from the tables
@@ -219,7 +165,7 @@ func gstInputCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 // is no part of what it measures. What the caps depend on is checked here all the
 // same, since both halves come from a table that can be missing the row.
 func gstEncoderCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
-	format, err := gstChromaFormat(s.Codec, s.Chroma)
+	format, err := gstChromaFormat(s.Codec, s.Chroma, mem.memory)
 	if err != nil {
 		return "", err
 	}
@@ -304,36 +250,64 @@ var gstChromaFormats = map[string]string{
 // planar format at all. It is the GStreamer counterpart of vaapiFormats in the
 // ffmpeg builder, and the reason capabilities.Codecs declares no other chroma for
 // the family.
+//
+// The same layouts on either path: a VA surface holds what these elements read whether
+// vapostproc converted into it or the frames were converted on the CPU and uploaded, so
+// the family's device row names this map as well (gstGpuMemories).
 var gstVaChromaFormats = map[string]string{
 	"yuv420p": "NV12",
 	"p010le":  "P010_10LE",
 }
 
-// gstFamilyChromaFormats is the raw-format mapping per encoder family, keyed as
-// capabilities.Codecs names the family. Every family with a row in gstCodecs carries
-// an entry, so which layout an element negotiates is stated rather than assumed: a
-// family added there without one is refused, where taking the planar layouts by
-// default would pin caps its elements do not negotiate and the pipeline would fail
-// in negotiation instead of naming the family.
+// gstNvChromaFormats is the mapping for the nvcodec plugin's encoders, which negotiate
+// the semi-planar 4:2:0 and 10-bit layouts and the packed 4:4:4 one, and no planar YUV
+// at all: handed I420, Y42B or I420_10LE they refuse to link.
+//
+// The 4:4:4 and RGB entries are not every element's. Only the HEVC elements take GBR,
+// and the AV1 one takes neither it nor Y444, which costs nothing here because the
+// chroma a codec may be published at is its own row in capabilities.Codecs and no
+// nvenc row offers a layout its element lacks. This map therefore states the family's
+// union and the rows narrow it, the same division gstChromaFormats works under.
+//
+// The auto-GPU elements that encode the family's Direct3D 11 surfaces negotiate the same
+// union there, so the device row names this map as well (gstGpuMemories).
+var gstNvChromaFormats = map[string]string{
+	"yuv420p": "NV12",
+	"yuv444p": "Y444",
+	"p010le":  "P010_10LE",
+	"gbrp":    "GBR",
+}
+
+// gstFamilyChromaFormats is the raw-format mapping per encoder family for frames in
+// system memory, keyed as capabilities.Codecs names the family. Every family with a row
+// in gstCodecs carries an entry, so which layout an element negotiates is stated rather
+// than assumed: a family added there without one is refused, where taking the planar
+// layouts by default would pin caps its elements do not negotiate and the pipeline would
+// fail in negotiation instead of naming the family.
+//
+// The device path reads gstGpuMemories instead, one family's device elements negotiating
+// what they negotiate rather than what its system ones do (gstRawFormats).
 //
 // The QSV entry is the semi-planar one because the qsv plugin drives oneVPL over VA
 // on Linux and D3D11 on Windows, and both store surfaces in the layouts the VAAPI
 // drivers do.
 var gstFamilyChromaFormats = map[string]map[string]string{
 	capabilities.FamilySoftware: gstChromaFormats,
-	capabilities.FamilyNvenc:    gstChromaFormats,
+	capabilities.FamilyNvenc:    gstNvChromaFormats,
 	capabilities.FamilyVaapi:    gstVaChromaFormats,
 	capabilities.FamilyQsv:      gstVaChromaFormats,
 }
 
 // gstChromaFormat returns the raw format the capture chain pins ahead of the codec's
-// encoder element.
-func gstChromaFormat(codec, chroma string) (string, error) {
+// encoder element, for frames reaching it in the resolved memory: a family's device
+// elements can negotiate other layouts than its system ones, and gstRawFormats is where
+// the memory decides which mapping applies.
+func gstChromaFormat(codec, chroma, memory string) (string, error) {
 	c, ok := capabilities.Get(codec)
 	if !ok {
 		return "", fmt.Errorf("unknown codec %q", codec)
 	}
-	formats, ok := gstFamilyChromaFormats[c.Family]
+	formats, ok := gstRawFormats(c.Family, memory)
 	if !ok {
 		return "", fmt.Errorf("the %s encoder family has no GStreamer raw-format mapping", c.Family)
 	}

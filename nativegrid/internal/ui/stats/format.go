@@ -110,6 +110,51 @@ func decoderText(s player.Stats) string {
 	return s.Decoder + " (software)"
 }
 
+// chainText names the render chain and what it claims about the colour it
+// produces, which is the choice behind picking one chain over another.
+func chainText(s player.Stats) string {
+	if s.Chain == "" {
+		return ""
+	}
+	if s.ChainExact {
+		return s.Chain + " (colour stated)"
+	}
+	return s.Chain + " (colour unstated)"
+}
+
+// pathText is the verdict on what happened to the frames between the decoder and
+// the sink.
+func pathText(s player.Stats) string {
+	p, ok := pathOf(s)
+	if !ok {
+		return ""
+	}
+	return p.label
+}
+
+// pathTip explains the verdict the path row shows, since the four verdicts mean
+// four different things.
+func pathTip(s player.Stats) string {
+	p, ok := pathOf(s)
+	if !ok {
+		return ""
+	}
+	return p.tip
+}
+
+// memoryText is where each end of the chain holds its frames, as the caps spell it
+// rather than as a summary: the row is the evidence the path row's verdict is read
+// from, so a reader can check the verdict against it.
+//
+// Both ends have to have negotiated. One feature alone does not say which end it
+// belongs to.
+func memoryText(s player.Stats) string {
+	if s.DecodeMemory == "" || s.RenderMemory == "" {
+		return ""
+	}
+	return s.DecodeMemory + " → " + s.RenderMemory
+}
+
 // bitrateText is an encoded stream's measured rate and the bytes it has carried. A
 // stream nobody decodes has no encoded side to count, and the row stays away.
 func bitrateText(rate float64, bytes uint64) string {

@@ -187,6 +187,12 @@ export const CAPTURES: Option[] = [
 // converts it on the CPU and, for a hardware encoder, uploads it again. Which pairs
 // have the direct path is the backend's gpupath.Paths, which the form reads rather
 // than restates: a value greyed here carries that table's own reason.
+//
+// Two of the values are that direct path and differ only in who converts, which the
+// same table states per pair: a conversion on the device takes the colour selected, and
+// a pair with no converter between its two ends leaves that to the encoder. The second
+// is a value of its own so the trade is asked for rather than taken, which is why one
+// of the two is always greyed once the pair is known.
 export const FRAME_MEMORIES: Option[] = [
     {
         value: "auto", label: "auto - direct where possible",
@@ -195,7 +201,11 @@ export const FRAME_MEMORIES: Option[] = [
     {
         value: "gpu", label: "gpu - stay on the device",
         link: "https://en.wikipedia.org/wiki/Direct_Rendering_Manager#DRM_PRIME",
-        tip: "Hand the encoder the memory the capture already produced: no download, no CPU conversion, no upload. Refused where the selected capture backend and encoder have no shared path, rather than falling back.",
+        tip: "Hand the encoder the memory the capture already produced: no download, no CPU conversion, no upload. It demands the colour with it, so it is refused both where the selected capture backend and encoder have no shared path and where their shared path converts nothing on the way, rather than falling back.",
+    },
+    {
+        value: "gpu-encoder-color", label: "gpu-encoder-color - device, encoder's colour",
+        tip: "Hand the encoder the memory the capture already produced even where nothing on the way can convert it: no download and no CPU conversion, but the encoder reads the captured surface as it is and converts it itself, so the colour range and pixel format the stream carries are its choice rather than the ones selected - both fields grey with what it produces. Where the pair does convert on the device there is nothing to trade and this is the direct path itself; where the pair shares no memory at all it is refused, as gpu is.",
     },
     {
         value: "system", label: "system - copy to RAM",

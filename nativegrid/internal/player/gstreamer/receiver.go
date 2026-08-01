@@ -23,11 +23,14 @@ const stopTimeout = time.Second
 
 // receiver is one stream's pipeline behind the player.Player contract.
 type receiver struct {
-	name      string
+	name string
+	// chain is the row the pipeline was built from, kept because what a stream
+	// renders through is part of what the overlay reports and because the size
+	// bound and the memory check are written from it.
+	chain     chain
 	pipeline  gst.Pipeline
 	sink      gst.Element
-	scale     gst.Element // videoscale, whose input caps are the decoded frames
-	fit       gst.Element // the capsfilter that bounds what the scaler produces
+	fit       gst.Element // the capsfilter that bounds what the chain's scaler produces
 	paintable *gdk.Paintable
 	cancel    context.CancelFunc
 	started   time.Time
@@ -46,12 +49,14 @@ type receiver struct {
 	stats []elementStats
 }
 
-// New parses and starts the pipeline for one stream.
-func New(st roster.Stream, ev player.Events) (player.Player, error) {
+// New parses and starts the pipeline for one stream, on the render chain the
+// caller asked for.
+func New(st roster.Stream, open player.Open, ev player.Events) (player.Player, error) {
 	assert.Assert(st.Source != "", "a stream carries the source fragment to decode", st.Name)
 	initGStreamer()
 
-	desc := Describe(st.Source)
+	c := resolve(open.Chain)
+	desc := c.launch(st.Source)
 	logger.Debugf("stream %q pipeline: %s", st.Name, desc)
 
 	el, err := gst.ParseLaunch(desc)
@@ -70,19 +75,20 @@ func New(st roster.Stream, ev player.Events) (player.Player, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	r := &receiver{
 		name:      st.Name,
+		chain:     c,
 		pipeline:  pipeline,
 		sink:      sink,
-		scale:     pipeline.GetByName(scaleName),
 		fit:       pipeline.GetByName(fitName),
 		paintable: paintableOf(sink),
 		cancel:    cancel,
 		started:   time.Now(),
 	}
 	assert.IsNotNil(r.paintable, "the sink hands out its paintable from construction", st.Name)
-	// renderChain names both elements, so a missing one is that constant and these names having
-	// drifted apart, not anything a stream can cause.
-	assert.Assert(r.scale != nil, "the render chain names its scaler", st.Name)
-	assert.Assert(r.fit != nil, "the render chain names the filter it scales into", st.Name)
+	// A chain writes a size bound exactly where it names a filter to write it into.
+	// The two come from one row, so a mismatch is that row's elements and its fit caps
+	// having drifted apart rather than anything a stream can cause.
+	assert.Assert((r.fit != nil) == (c.fitCaps != ""),
+		"a chain names the filter it bounds its size with", c.name, st.Name)
 
 	r.watchFrames(ev.OnLive)
 	r.watchDecodePads(ev.OnAudio)
@@ -90,7 +96,10 @@ func New(st roster.Stream, ev player.Events) (player.Player, error) {
 
 	go r.watchBus(ctx, ev.OnEnd)
 	pipeline.SetState(gst.StatePlaying)
-	logger.Infof("stream %q playing over %s", st.Name, st.Transport)
+	// The chain is named here rather than only where one is chosen, because the
+	// chain that plays is not always the one that was asked for: a machine that
+	// cannot run it falls back, and this is the line that says what ran.
+	logger.Infof("stream %q playing over %s through the %s render chain", st.Name, st.Transport, c.name)
 	return r, nil
 }
 
@@ -120,6 +129,10 @@ func (r *receiver) watchFrames(onLive func()) {
 		r.frames.Add(1)
 		if r.live.CompareAndSwap(false, true) {
 			logger.Debugf("stream %q rendered its first frame", r.name)
+			// A frame on the surface is the proof that every pad from the decoder to
+			// the sink negotiated, which is what makes the memory the chain asked for
+			// comparable to the memory it got.
+			r.verifyMemory()
 			if onLive != nil {
 				onLive()
 			}
@@ -208,23 +221,29 @@ func (r *receiver) SetMuted(muted bool) {
 // pixels away again at draw time.
 //
 // The bound is a maximum, not a size.
-// videoscale fixates inside the range and corrects the pixel aspect ratio to hold the display aspect
-// ratio, so the picture needs no borders and a tile larger than its stream negotiates the stream's
-// own size rather than an upscale nobody asked for.
+// The chain's scaler fixates inside the range and corrects the pixel aspect ratio to hold the display
+// aspect ratio, so the picture needs no borders and a tile larger than its stream negotiates the
+// stream's own size rather than an upscale nobody asked for.
+//
+// The caps come from the chain, feature and all, because caps that name no memory feature pin the
+// frames into system memory: on a device chain, writing a bare video/x-raw here is a download of
+// every frame from the moment a tile first reports its size.
+// A chain that names no filter to write them into renders at the size the source sends.
 //
 // Writing the filter renegotiates the branch, so only a size that changed is written.
 // A zero width or height is a widget GTK has not allocated yet and leaves the pipeline where it is.
 func (r *receiver) SetRenderSize(width, height int) {
-	if width <= 0 || height <= 0 {
+	if width <= 0 || height <= 0 || r.fit == nil {
 		return
 	}
 	size := uint64(uint32(width))<<32 | uint64(uint32(height))
 	if r.renderSize.Swap(size) == size {
 		return
 	}
-	caps := fmt.Sprintf("video/x-raw,width=[1,%d],height=[1,%d]", width, height)
+	caps := r.chain.fit(width, height)
+	assert.Assert(caps != "", "a chain that names a fit filter bounds it with caps", r.chain.name, r.name)
 	r.fit.SetObjectProperty("caps", gst.CapsFromString(caps))
-	logger.Debugf("stream %q renders at most %dx%d", r.name, width, height)
+	logger.Debugf("stream %q renders at most %dx%d, bounded by %s", r.name, width, height, caps)
 }
 
 // setAudioProperty writes one property of the audio branch's volume element, and

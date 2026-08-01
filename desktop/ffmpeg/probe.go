@@ -74,7 +74,7 @@ func BuildEncodeProbeArgs(s settings.Stream, width, height, frames int, heavy bo
 	}
 
 	var filters []string
-	if colour := colourFilter(s); colour != "" {
+	if colour := colourFilter(s.Chroma); colour != "" {
 		filters = append(filters, colour)
 	}
 	if uploads {

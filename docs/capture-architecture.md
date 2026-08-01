@@ -128,8 +128,8 @@ A capture backend that produces GPU frames and an encoder that reads GPU surface
 Where either end speaks system memory, every frame is downloaded, converted on the CPU, and uploaded again for a surface encoder.
 The difference is a full round trip per frame at capture resolution, which is why the pair decides the shape of the whole capture chain rather than one filter in it.
 
-`gpupath.Paths` is the pair table, and the `captureMemory` setting is how a run asks for one of the two.
-`auto` takes the direct path where the pair has one and the copy where it does not, `gpu` refuses a pair with no row, and `system` is the copy every pair can run.
+`gpupath.Paths` is the pair table, and the `captureMemory` setting is how a run asks for one of the paths.
+`auto` takes the direct path where the pair has one whose colour is the form's and the copy otherwise, `gpu` refuses a pair with no row, `gpu-encoder-color` takes a direct path whose colour is the encoder's, and `system` is the copy every pair can run.
 Auto is the value every pair satisfies, which is what makes it the default a settings file with no frame memory migrates to.
 
 Each engine states the direct path its own way, and both replace more than one element.
@@ -141,16 +141,25 @@ Each engine states the direct path its own way, and both replace more than one e
   The conversion is the family's own device-side scaler, which also states the colour description, since there is no software stage left for a `setparams` tag.
   `gpuConverts` is the engine's half of the table.
 
-The colour contract is what keeps a family out of the table rather than the absence of a filter.
-ffmpeg's nvenc encoder reads CUDA frames, and `scale_cuda` is the only CUDA filter that converts a captured BGRA texture to the encoder's semi-planar layout: it states no output matrix, primaries, transfer or range.
-A conversion that cannot say what it produced makes the stream's colour a property of the filter's internals, so the family stays on the system-memory path, where swscale converts by `-color_range` and `setparams` tags what it wrote.
-`scale_vaapi` and `vpp_qsv` carry all four `out_` options, which is why their families do have rows.
+Who converts is the second fact a row carries, because it decides whose colour the stream ends up in.
+A row is `ColourExact` where a device-side filter is told the matrix, primaries, transfer and range and states them on what it wrote: `scale_vaapi` and `vpp_qsv` carry all four `out_` options, and `d3d11convert` is told the same four as a colorimetry on its output caps.
+A row is `ColourEncoder` where the platform offers no such filter at all and the encoder converts the captured RGB itself.
+
+The ffmpeg nvenc row on Windows is the one of those.
+Nothing can stand between `ddagrab` and that encoder: `hwmap` derives neither a CUDA nor a Vulkan device from a Direct3D11 frame, answering `ENOSYS`, so `scale_cuda` and `libplacebo` are unreachable however they state their colour, and `scale_d3d11` is reachable and cannot create the encoder's layout from the captured BGRA.
+So nvenc reads the texture on its own device and converts it, at BT.601 and limited range in 8-bit 4:2:0, and signals exactly that.
+The description is complete and true, and it is not the one the form shows: `-color_range` and `-pix_fmt` are discarded, so the command drops them rather than displaying an option the run ignores.
+
+That is a trade the publisher is entitled to make once it is stated, so the row is offered rather than withheld, under a frame memory of its own.
+`gpu` asks to keep the frames on the device *and* keep the colour the form shows, and is refused on such a row with the cost named; `gpu-encoder-color` asks for the device path at the encoder's colour; `auto` never picks it, because a setting the user never touched must not change what the stream looks like.
+The two fields the encoder overrides grey with the row's `Cost`, and `normalize` moves them onto what it actually signals.
 
 ### Capture GPU and encode GPU
 
 Sharing memory needs one device holding both ends, and which check establishes that differs per row.
 
-The two ffmpeg rows map the captured frames onto a device derived from the frames themselves, so the encoder runs on the GPU the capture came off by construction and there is nothing to check.
+Three rows need no check.
+The two ffmpeg ones map the captured frames onto a device derived from the frames themselves, and the Windows GStreamer one names the nvcodec auto-GPU encoder, which takes its adapter from the frames it is handed, so in all three the encoder runs on the GPU the capture came off by construction.
 The portal names no device at all: the compositor renders where it renders, the PipeWire node carries frames without saying which GPU allocated them, and the va elements open their own.
 The two are the same GPU exactly when the machine has one render node, so that is the condition `portalCapture.HoldsOneDevice` holds, and a machine with several is refused with them named.
 
@@ -195,6 +204,11 @@ An Annex B or OBU stream needs no framing at all; where a format does, it travel
 Limited range is lossy by construction and viewers disagree about the expansion.
 The native grid's `videoconvert` lands about two code values below what ffplay and mpv land on for the same limited-range frame.
 Full range has no expansion step, so both agree.
+
+On Windows and NVIDIA the two engines differ in whose colour the stream carries, which is measured rather than argued.
+The GStreamer device path is exact: `d3d11convert` is told a colorimetry on its output caps and converts to it, so a white patch published at full range stores Y=255 and at limited range Y=235, with all four components signalled.
+The ffmpeg device path into the same encoder has no filter to tell anything, so the same patch arrives as BT.601 limited-range 4:2:0 whatever the form said.
+GStreamer negotiates colour in caps and ffmpeg states it in filter options, which is why the contract holds by construction on one engine and has to be traded away on the other.
 
 ## Progress
 

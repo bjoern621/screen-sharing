@@ -43,6 +43,7 @@ import (
 	"bjoernblessin.de/screenshare-nativegrid/internal/player/gstreamer"
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
+	"bjoernblessin.de/screenshare-nativegrid/internal/threadname"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/window"
 )
 
@@ -54,6 +55,10 @@ const appID = "de.bjoernblessin.ScreenshareNativeGrid"
 const exitBadFlag = 2
 
 func main() {
+	// Before any element exists, because the exception it disarms is raised while
+	// one is being built and a handler that arrives afterwards missed it.
+	threadname.Ignore()
+
 	configArg := flag.String("config", "", "stream list as JSON; empty runs the demo streams")
 	backendArg := flag.String("player", gstreamer.Backend, "decode backend: "+strings.Join(player.Names(), ", "))
 	flag.Parse()
@@ -80,7 +85,11 @@ func main() {
 	// arrive on pipeline threads and hop here; so do the relayouts a drag must not
 	// perform from inside its own callback.
 	dispatch := idle.Dispatch(func(f func()) { coreglib.IdleAdd(f) })
-	sess := session.New(cfg, factory, layout.NewFileStore(), sender(fromApp), reporter(fromApp), runner(fromApp), dispatch)
+	// The chains are the backend's to answer for, and it answers off the element
+	// registry of this machine, so the model asks rather than being handed a list. The
+	// name is the one the factory came from, which the lookup above made sure exists.
+	chains := func() []player.Chain { return player.Chains(*backendArg) }
+	sess := session.New(cfg, factory, chains, layout.NewFileStore(), sender(fromApp), reporter(fromApp), runner(fromApp), dispatch)
 
 	// NonUnique: a second grid must not activate inside the first one's process; the
 	// app replaces the window by killing and respawning it.

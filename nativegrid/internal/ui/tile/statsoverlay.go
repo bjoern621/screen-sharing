@@ -2,6 +2,7 @@ package tile
 
 import (
 	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
+	"github.com/diamondburned/gotk4/pkg/gsk/v4"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/stats"
 )
@@ -36,6 +37,28 @@ func (t *Tile) refreshStats() bool {
 	if !t.statsOpen || t.current == nil || t.root.Parent() == nil {
 		return false
 	}
-	t.statsCard.Update(t.poller.Poll(t.stream, t.current.Stats()))
+	v := t.poller.Poll(t.stream, t.current.Stats())
+	// The renderer is the tile's to report for the same reason the render size is:
+	// it is a property of the window the picture hangs in, which no pipeline can see.
+	v.Renderer = t.rendererName()
+	t.statsCard.Update(v)
 	return true
+}
+
+// rendererName is the GSK renderer drawing the picture, by its type name. It is the
+// last link in the render path: what the pipeline hands over as a GL texture is
+// downloaded again by a renderer that does not draw GL textures.
+//
+// A widget that is not in a window has no renderer, and one that is has it for as
+// long as it stays realized, so it is read per poll rather than kept.
+func (t *Tile) rendererName() string {
+	native := t.picture.Native()
+	if native == nil {
+		return ""
+	}
+	renderer := native.Renderer()
+	if renderer == nil {
+		return ""
+	}
+	return gsk.BaseRenderer(renderer).Type().Name()
 }

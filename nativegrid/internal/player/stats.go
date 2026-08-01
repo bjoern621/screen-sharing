@@ -54,12 +54,29 @@ type Stats struct {
 	FPSNum, FPSDen int
 
 	// Decode and render.
-	Decoder  string // decoder factory name, "" until the pipeline picks one
-	Hardware bool   // the decoder decodes on the GPU
+	Decoder string // decoder factory name, "" until the pipeline picks one
+	// Hardware says where the decoding ran, and nothing about where the frames
+	// went afterwards: a hardware decoder that downloads its own output into
+	// system memory reports true. DecodeMemory is what answers that.
+	Hardware bool
 	Render   string // pixel format and colorimetry the sink takes
 	Frames   uint64 // frames the paintable has put on screen
 	Rendered uint64 // frames the sink rendered, off the sink's own counters
 	Dropped  uint64 // frames the sink dropped for arriving late
+
+	// The render chain the player built and what its two ends negotiated.
+	//
+	// Chain is the chain's name, ChainGPU whether it asks for GPU memory and
+	// ChainExact whether it states the colour it produces. The two memory fields
+	// are the memory features the caps carry, verbatim, on the decoder's output
+	// and on the sink's input: they are the evidence a download or an upload
+	// between decode and display is read from, and both are "" until the pads
+	// negotiate.
+	Chain        string
+	ChainGPU     bool
+	ChainExact   bool
+	DecodeMemory string
+	RenderMemory string
 
 	// Pipeline timing.
 	Live       bool
@@ -78,4 +95,22 @@ type Stats struct {
 
 	// Transport counters, one group per element that keeps them.
 	Groups []StatGroup
+}
+
+// MemorySystem is the memory feature of frames held in ordinary system memory. It
+// is the one value DecodeMemory and RenderMemory can carry that is not a device's,
+// and caps that name no feature at all mean it too.
+const MemorySystem = "memory:SystemMemory"
+
+// DecodeOnDevice reports whether the decoder left its frames in a device's memory.
+// Memory nothing has negotiated is not a device's: an unknown is not a claim.
+func (s Stats) DecodeOnDevice() bool { return onDevice(s.DecodeMemory) }
+
+// RenderOnDevice reports whether the frames were still in a device's memory when
+// they reached the sink.
+func (s Stats) RenderOnDevice() bool { return onDevice(s.RenderMemory) }
+
+// onDevice is the one reading of a memory feature both ends share.
+func onDevice(memory string) bool {
+	return memory != "" && memory != MemorySystem
 }

@@ -146,6 +146,9 @@ func (s *Server) stream(ctx context.Context, conn *websocket.Conn, host string, 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start ffmpeg: %w", err)
 	}
+	// The context kills this child when the page disconnects or the server stops,
+	// neither of which happens if the app itself is killed outright.
+	ffmpeg.KillOnAppExit(cmd)
 	defer func() { _ = cmd.Wait() }()
 
 	return readIVF(stdout, func(payload []byte, ptsUs uint64, keyframe bool) error {

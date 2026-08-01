@@ -29,8 +29,8 @@ import (
 )
 
 // The memory setting: where a run's frames reach the encoder, as the user asks for
-// it. The resolved value is one of MemoryGpu and MemorySystem; MemoryAuto is a
-// question, not an answer.
+// it. The resolved value is one of MemoryGpu, MemoryGpuEncoderColor and MemorySystem;
+// MemoryAuto is a question, not an answer.
 const (
 	// MemoryAuto takes the GPU path where the pair has one and system memory where it
 	// does not. It is the one value every combination satisfies, which is what makes
@@ -39,8 +39,19 @@ const (
 	MemoryAuto = "auto"
 	// MemoryGpu demands the GPU path and refuses a pair that has none, so a machine
 	// that was meant to publish without the round trip says so instead of running at
-	// a frame cost nothing on the form names.
+	// a frame cost nothing on the form names. It demands the colour as well: a pair
+	// whose only device path lets the encoder convert is refused here rather than
+	// served, because a setting that named the memory alone cannot stand for consent
+	// to a colour the user did not choose.
 	MemoryGpu = "gpu"
+	// MemoryGpuEncoderColor demands a device path and accepts the encoder's colour in
+	// exchange, which is the only way to ask for the one path where the two cannot both
+	// be had. It is a value of its own rather than a relaxation of MemoryGpu so that the
+	// trade is recorded in the settings the user can read back, and so that a pair which
+	// later grows an exact-colour path stops trading without the setting changing
+	// meaning: the demand is for a device path, and this one takes the cost if there is
+	// one to take.
+	MemoryGpuEncoderColor = "gpu-encoder-color"
 	// MemorySystem is the round trip: capture downloads, the CPU converts, and a
 	// surface encoder uploads. It is what every pair without a row does, and the
 	// answer for a machine whose two GPUs make the import unavailable.
@@ -48,7 +59,7 @@ const (
 )
 
 // Memories lists the values the setting takes, in UI display order.
-var Memories = []string{MemoryAuto, MemoryGpu, MemorySystem}
+var Memories = []string{MemoryAuto, MemoryGpu, MemoryGpuEncoderColor, MemorySystem}
 
 // Path is one capture backend and encoder family whose frames reach the encoder
 // without leaving the GPU.
@@ -62,6 +73,18 @@ type Path struct {
 	// Import names what carries the frames from the capture end to the encode end, so
 	// a row states which mechanism has to work rather than only that one does.
 	Import string `json:"import"`
+	// Colour is what this path does to the colour the settings name, which decides
+	// whether a memory setting may resolve to it without being asked twice.
+	Colour Colour `json:"colour"`
+	// Cost is one sentence naming what a ColourEncoder path takes instead of the
+	// settings' colour, phrased like Import: lowercase, no trailing period. The refusal
+	// under MemoryGpu carries it, and so does every field the run overrides, so a greyed
+	// control states why it is greyed at the control rather than in a log line. A
+	// ColourExact row leaves it empty, having taken nothing.
+	Cost string `json:"cost"`
+	// Signalled is the colour a ColourEncoder path's stream carries, empty on a
+	// ColourExact row.
+	Signalled Signalled `json:"signalled"`
 }
 
 // Paths is the pair table. A pair absent from it encodes from system memory, which is
@@ -80,24 +103,60 @@ type Path struct {
 // runs on the GPU the capture came off by construction. The portal names no device at
 // all, and the va elements open their own, so the two are the same one only on a
 // machine that has one (Undetermined).
+//
+// Every row here converts on the device and states the colour it produces, so no pair
+// the table currently carries asks the user to choose between hardware and colour. The
+// verdict rides on the row rather than following from membership because a pair can have
+// a device path with no converter to put on it, and such a row belongs in this table
+// too: leaving it out would hide a path that works, and adding it unlabelled would let
+// a default take a colour nobody asked for.
 var Paths = []Path{
 	{
 		Engine:  capabilities.EngineGst,
 		Capture: "portal",
 		Family:  capabilities.FamilyVaapi,
 		Import:  "the va elements import the portal's DMABuf and vapostproc converts on the GPU",
+		Colour:  ColourExact,
+	},
+	{
+		Engine:  capabilities.EngineGst,
+		Capture: "d3d11screencapturesrc",
+		Family:  capabilities.FamilyNvenc,
+		Import:  "d3d11convert converts the Desktop Duplication texture on the GPU and the nvcodec auto-GPU encoder negotiates the Direct3D 11 memory it produces",
+		Colour:  ColourExact,
 	},
 	{
 		Engine:  capabilities.EngineFfmpeg,
 		Capture: "kmsgrab",
 		Family:  capabilities.FamilyVaapi,
 		Import:  "the scanout buffer maps to a VAAPI surface and scale_vaapi converts on the GPU",
+		Colour:  ColourExact,
 	},
 	{
 		Engine:  capabilities.EngineFfmpeg,
 		Capture: "ddagrab",
 		Family:  capabilities.FamilyQsv,
 		Import:  "the Desktop Duplication texture maps to a QSV frame and vpp_qsv converts on the GPU",
+		Colour:  ColourExact,
+	},
+	// The one row whose colour is the encoder's. Nothing converts between the two ends:
+	// hwmap derives neither a CUDA nor a Vulkan device from a Direct3D11 frame, and
+	// scale_d3d11 cannot create the encoder's layout from the captured BGRA, so nvenc
+	// reads the texture on its own device and converts it itself. What it chose it also
+	// signals, so the stream is described truthfully and described as something other
+	// than the form shows, which is the whole of what this row costs.
+	{
+		Engine:  capabilities.EngineFfmpeg,
+		Capture: "ddagrab",
+		Family:  capabilities.FamilyNvenc,
+		Import:  "nvenc reads the Desktop Duplication texture on its own device with no conversion between",
+		Colour:  ColourEncoder,
+		Cost:    "nvenc converts the captured RGB itself: it writes BT.601 at limited range in 8-bit 4:2:0 and signals that, whatever colour range and pixel format are selected",
+		Signalled: Signalled{
+			Matrix: "bt470bg",
+			Range:  "tv",
+			Chroma: "yuv420p",
+		},
 	},
 }
 
@@ -114,8 +173,26 @@ func For(engine, capture, family string) (Path, bool) {
 	return Path{}, false
 }
 
-// Resolve returns the memory the frames reach the encoder in, MemoryGpu or
-// MemorySystem, and refuses a demand the pair cannot meet.
+// Resolve returns the memory the frames reach the encoder in, one of MemoryGpu,
+// MemoryGpuEncoderColor and MemorySystem, and refuses a demand the pair cannot meet.
+//
+// It is the single arbiter: the pair table and the colour verdict on the row it finds
+// are read here and nowhere else, so both publish engines and the form take the same
+// answer from the same two facts and cannot disagree about what a run will do.
+//
+// The two demands differ in what they will pay. MemoryGpu wants the device path and the
+// colour, and a row offering only the first is a refusal naming what it would have cost
+// and both values that get the user publishing again. MemoryGpuEncoderColor wants the
+// device path and will pay the colour for it, so it takes an encoder-colour row and
+// still answers MemoryGpu where the row converts on the device: there is nothing to
+// trade, and refusing a run that gives more than was asked for would be a refusal with
+// no cause.
+//
+// Auto answers whichever of the two costs nothing. A pair whose only device path lets
+// the encoder convert resolves to system memory under auto, because auto is the value a
+// settings file with no frame memory is filled with and the colour fields it would
+// override are ones the user set on purpose. Trading them is a choice, and a default is
+// not where a choice gets made.
 //
 // A value outside Memories is refused rather than read as auto. The setting decides
 // whether the capture chain downloads every frame, so substituting one would run a
@@ -124,24 +201,65 @@ func For(engine, capture, family string) (Path, bool) {
 func Resolve(engine, capture, family, memory string) (string, error) {
 	assert.Assert(engine != "", "a memory resolution names a publish engine")
 
-	_, ok := For(engine, capture, family)
+	path, ok := For(engine, capture, family)
 	switch memory {
 	case MemoryAuto:
-		if ok {
+		if ok && !path.Colour.tradesColour() {
 			return MemoryGpu, nil
 		}
 		return MemorySystem, nil
 	case MemoryGpu:
 		if !ok {
+			return "", noPath(engine, capture, family)
+		}
+		if path.Colour.tradesColour() {
 			return "", fmt.Errorf(
-				"%s capture into a %s encoder has no GPU path on the %s engine: its frames reach the encoder through system memory, so pick %q",
-				capture, family, engine, MemorySystem)
+				"%s capture into a %s encoder on the %s engine reaches the encoder on the GPU but converts nothing on the way: %s. Pick %q to publish on the GPU at that cost, or %q to convert on the CPU and keep the colour selected",
+				capture, family, engine, path.Cost, MemoryGpuEncoderColor, MemorySystem)
+		}
+		return MemoryGpu, nil
+	case MemoryGpuEncoderColor:
+		if !ok {
+			return "", noPath(engine, capture, family)
+		}
+		if path.Colour.tradesColour() {
+			return MemoryGpuEncoderColor, nil
 		}
 		return MemoryGpu, nil
 	case MemorySystem:
 		return MemorySystem, nil
 	default:
 		return "", fmt.Errorf("frame memory %q is not one of %s", memory, strings.Join(Memories, ", "))
+	}
+}
+
+// noPath is the refusal both device demands give a pair the table has no row for. The
+// pair is the reason either one fails, so they fail with one sentence: nothing about
+// which colour the caller was willing to pay changes that the frames have no way onto
+// the device in the first place.
+func noPath(engine, capture, family string) error {
+	return fmt.Errorf(
+		"%s capture into a %s encoder has no GPU path on the %s engine: its frames reach the encoder through system memory, so pick %q",
+		capture, family, engine, MemorySystem)
+}
+
+// OnDevice reports whether a resolved frame memory keeps the frames on the GPU, which is
+// the question a capture chain actually has to answer. Both device values link capture to
+// encoder with no download and differ only in who converts, so a check written against
+// MemoryGpu alone would silently build the round trip for the other one.
+//
+// It takes a resolved value, which is why MemoryAuto is not among them: auto is a
+// question Resolve has already answered by the time any chain is built, and reading it
+// here would mean a caller asked where the frames live before deciding.
+func OnDevice(memory string) bool {
+	switch memory {
+	case MemoryGpu, MemoryGpuEncoderColor:
+		return true
+	case MemorySystem:
+		return false
+	default:
+		assert.Never("a resolved frame memory is one of the two device values or system memory", memory)
+		return false
 	}
 }
 

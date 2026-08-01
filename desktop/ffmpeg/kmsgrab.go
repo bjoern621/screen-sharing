@@ -100,7 +100,7 @@ func kmsgrabCaptureArgs(s settings.Stream, fps, memory string) (captureSource, e
 		return captureSource{}, err
 	}
 	input := []string{"-device", device, "-f", "kmsgrab", "-framerate", fps, "-i", "-"}
-	if memory == gpupath.MemoryGpu {
+	if gpupath.OnDevice(memory) {
 		return captureSource{args: input}, nil
 	}
 

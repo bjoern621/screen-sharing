@@ -1,5 +1,14 @@
 version: "3"
 
+vars:
+  # Where MSYS2 keeps the Windows toolchain, GTK4 and GStreamer the native grid links
+  # through cgo. It is named here rather than taken from the shell, so a Windows build
+  # works from whichever shell is open: Git Bash announces MSYSTEM=MINGW64 and carries a
+  # /mingw64 of its own that holds none of this, and a plain PowerShell carries nothing.
+  # Set MSYS2_ROOT for an install somewhere other than the default.
+  MSYS2_ROOT: '{{default "C:/msys64" .MSYS2_ROOT}}'
+  MSYS2_MINGW: '{{.MSYS2_ROOT}}/mingw64'
+
 tasks:
   default:
     desc: List available tasks
@@ -10,7 +19,15 @@ tasks:
   relay:
     desc: Run the MediaMTX relay natively (SRT 8890/udp, API 9997)
     cmds:
-      - mediamtx mediamtx.yml
+      # The flake's dev shell carries the mediamtx binary. Windows has no such shell, so
+      # the relay comes from scripts/relay.ps1 instead, which fetches mediamtx.exe into
+      # bin/ on first run and launches it against this same config. Docker is not the
+      # Windows substitute: its UDP proxy rewrites the source port and breaks SRT's
+      # handshake, which is what that script's header explains.
+      - platforms: [linux, darwin]
+        cmd: mediamtx mediamtx.yml
+      - platforms: [windows]
+        cmd: powershell -NoProfile -File scripts/relay.ps1
 
   relay:docker:
     desc: Run the relay in Docker (Linux relay box / VPS)
@@ -20,17 +37,35 @@ tasks:
   nativegrid:
     desc: Build the native grid binary into desktop/build/bin
     dir: nativegrid
+    env:
+      # gotk4 and go-gst are cgo bindings, so every file in them is gated on cgo. Go
+      # turns CGO_ENABLED off by itself when it finds no C compiler, which makes a build
+      # run outside the toolchain's shell fail as "build constraints exclude all Go
+      # files" in packages that look unrelated to the compiler. Asking for cgo outright
+      # means that case names the missing compiler instead.
+      CGO_ENABLED: "1"
+    # ROOT_DIR is quoted wherever it reaches a command: on Windows it holds a
+    # backslash path, and the shell interpreting these lines would otherwise read each
+    # separator as an escape and turn the argument into one relative path component.
     cmds:
       # The nativegrid shell carries gtk4 and libadwaita, which the app's own
       # shell does not.
       - platforms: [linux, darwin]
-        cmd: nix develop {{.ROOT_DIR}}#nativegrid --command go build -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid .
-      # Windows has no flake shell: the toolchain, GTK4 and GStreamer come from
-      # MSYS2, so this runs from its MINGW64 shell (docs/packaging.md, "Windows").
+        cmd: nix develop '{{.ROOT_DIR}}#nativegrid' --command go build -o '{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid' .
+      # Windows has no flake shell: the toolchain, GTK4 and GStreamer come from MSYS2
+      # (docs/packaging.md, "Windows"), reached here by path so no particular shell has to
+      # be open. Its prefix goes on PATH because the toolchain loads its own DLLs from
+      # there and cgo looks gcc up by name, and GOROOT is set because the Go MSYS2 ships
+      # is trimmed and finds none by itself. GOROOT stays in this branch: pointing the
+      # Nix build at a Windows GOROOT would break it.
+      #
       # -H=windowsgui gives the binary the GUI subsystem; a console-subsystem one
       # opens a console window beside the grid whenever the app spawns it.
       - platforms: [windows]
-        cmd: go build -ldflags -H=windowsgui -o {{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid.exe .
+        cmd: >-
+          PATH="{{.MSYS2_MINGW}}/bin;$PATH" GOROOT="{{.MSYS2_MINGW}}/lib/go"
+          '{{.MSYS2_MINGW}}/bin/go.exe' build -ldflags -H=windowsgui
+          -o '{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid.exe' .
 
   dev:
     desc: Run the Wails app with live reload
@@ -41,35 +76,57 @@ tasks:
       # found next to the executable; point the app at the freshly built one.
       SCREENSHARE_NATIVEGRID: "{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid"
     cmds:
-      # webkit2_41 targets webkitgtk 4.1 (libsoup3), matching the flake's dev shell
-      - wails dev -tags webkit2_41
+      # webkit2_41 targets webkitgtk 4.1 (libsoup3), matching the flake's dev shell.
+      # The tag selects the cgo file that links gtk+-3.0 and webkit2gtk-4.1, so it
+      # belongs to the webkitgtk platforms alone; Windows renders in WebView2 and has
+      # neither library.
+      - platforms: [linux, darwin]
+        cmd: wails dev -tags webkit2_41
+      - platforms: [windows]
+        cmd: wails dev
 
   build:
     desc: Build the Wails app binary into desktop/build/bin
     dir: desktop
     cmds:
-      - wails build -tags webkit2_41
+      - platforms: [linux, darwin]
+        cmd: wails build -tags webkit2_41
+      - platforms: [windows]
+        cmd: wails build
       # after wails build, so the native grid always sits next to the app binary
       - task: nativegrid
 
   build:windows:
     desc: Cross-build the Windows app binary and bundle ffmpeg/ffplay into desktop/build/bin
     dir: desktop
-    # No webkit2_41 tag: Windows uses WebView2, not webkitgtk. The postBuildHook
-    # in wails.json copies build/windows/redist/{ffmpeg,ffplay}.exe next to the
-    # binary, so drop those two executables there first (see that directory's README).
+    # No webkit2_41 tag: Windows uses WebView2, not webkitgtk.
     #
     # The app only. The native grid links GTK4 and GStreamer through cgo, which
     # no cross toolchain here builds, so it is built on Windows with 'task
     # nativegrid' and given its runtime with 'task bundle:windows'.
     cmds:
       - wails build -platform windows/amd64
+      # ffmpeg and ffplay ship beside the binary, so drop those two executables in
+      # build/windows/redist first (see that directory's README). The copy lives here
+      # rather than in a wails postBuildHook because wails execs a hook instead of
+      # running it through a shell, so a hook copying with 'cp' aborts every build on a
+      # Windows host, 'wails dev' included.
+      - platforms: [linux, darwin]
+        cmd: cp -f build/windows/redist/ffmpeg.exe build/windows/redist/ffplay.exe build/bin/
+      - platforms: [windows]
+        cmd: powershell -NoProfile -Command "Copy-Item -Force build/windows/redist/ffmpeg.exe,build/windows/redist/ffplay.exe build/bin/"
 
   bundle:windows:
     desc: Copy the GTK4 and GStreamer runtime the native grid needs next to the built binaries
     platforms: [windows]
     deps: [nativegrid]
-    # Run from the MSYS2 MINGW64 shell: the script reads the DLL closure with
-    # that shell's ldd, which is what resolves the mingw prefix.
+    # MSYS2's own sh runs the script, and MINGW_PREFIX names the prefix to copy out of,
+    # because both have to be MSYS2's: Git Bash ships an ldd and a cygpath of its own and
+    # sets MINGW_PREFIX to a /mingw64 that carries no GStreamer at all, so left to the
+    # shell this would bundle the wrong tree or nothing. The prefix is on PATH so ldd can
+    # resolve the DLLs it reports.
     cmds:
-      - sh {{.ROOT_DIR}}/scripts/bundle-windows.sh {{.ROOT_DIR}}/desktop/build/bin
+      - cmd: >-
+          MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;$PATH"
+          '{{.MSYS2_ROOT}}/usr/bin/sh.exe' '{{.ROOT_DIR}}/scripts/bundle-windows.sh'
+          '{{.ROOT_DIR}}/desktop/build/bin'

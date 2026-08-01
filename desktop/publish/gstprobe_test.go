@@ -98,7 +98,11 @@ func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("building the probe: %v", err)
 	}
-	encoder, _, err := gstEncoder(s, gstGop(s))
+	mem, err := gstMemory(s)
+	if err != nil {
+		t.Fatalf("resolving the frame memory: %v", err)
+	}
+	encoder, _, err := gstEncoder(s, gstGop(s), mem.memory)
 	if err != nil {
 		t.Fatalf("building the encoder: %v", err)
 	}
@@ -107,10 +111,6 @@ func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 			strings.Join(probe, " "), strings.Join(encoder, " "))
 	}
 
-	mem, err := gstMemory(s)
-	if err != nil {
-		t.Fatalf("resolving the frame memory: %v", err)
-	}
 	caps, err := gstEncoderCaps(s, mem)
 	if err != nil {
 		t.Fatalf("building the encoder caps: %v", err)
@@ -118,6 +118,40 @@ func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	if !strings.Contains(strings.Join(probe, " "), caps) {
 		t.Errorf("the probe feeds the encoder caps a run does not\nprobe: %s\ncaps:  %s",
 			strings.Join(probe, " "), caps)
+	}
+}
+
+// A probe of a device path has to reach that path's encoder, which is a different element
+// reading a different memory. The generated frames start in system memory where a captured
+// one is already on the device, so the family's upload has to sit between the generator and
+// the conversion: without it the probe builds a pipeline whose first link fails, and the
+// measurement is missing exactly where the publish it predicts runs fastest.
+func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
+	s := gstD3d11Stream()
+	s.Fps = 30
+	probe, err := GstEncodeProbe(s, 320, 240, 2, true)
+	if err != nil {
+		t.Fatalf("building the probe: %v", err)
+	}
+	mem, err := gstMemory(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mem.upload == "" {
+		t.Fatalf("the %s path names no upload, so nothing puts generated frames where %s reads them",
+			mem.memory, mem.convert)
+	}
+	line := strings.Join(probe, " ")
+	upload, convert := strings.Index(line, mem.upload), strings.Index(line, mem.convert)
+	if upload < 0 || convert < 0 || upload > convert {
+		t.Errorf("the probe must upload before it converts: %s", line)
+	}
+	elem, named := GstEncoderElementOn(s.Codec, mem.memory)
+	if !named {
+		t.Fatalf("%s names no encoder element in %s memory", s.Codec, mem.memory)
+	}
+	if !strings.Contains(line, elem) {
+		t.Errorf("the probe measures something other than the element a run on this path launches (%s): %s", elem, line)
 	}
 }
 

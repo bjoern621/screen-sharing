@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"testing"
 )
 
@@ -30,13 +29,23 @@ func raw(t *testing.T, f *FileStore) map[string]json.RawMessage {
 	return file
 }
 
-// The two owners have to claim different keys, or a merge that replaces one
-// record's keys silently rewrites the other's.
+// Every record has to claim keys of its own, or a write that replaces one record's
+// keys silently rewrites another's. It holds between two records of one owner as
+// much as between the owners: each is written on its own.
 func TestRecordsOwnDisjointKeys(t *testing.T) {
-	window := keysOf(WindowState{})
-	for _, k := range keysOf(Layout{}) {
-		if slices.Contains(window, k) {
-			t.Errorf("%q is claimed by both owners of the state file", k)
+	records := map[string][]string{
+		"Layout":      keysOf(Layout{}),
+		"WindowState": keysOf(WindowState{}),
+		"Render":      keysOf(Render{}),
+	}
+	claimed := map[string]string{}
+	for name, keys := range records {
+		for _, k := range keys {
+			if by, taken := claimed[k]; taken {
+				t.Errorf("%q is claimed by both %s and %s", k, by, name)
+				continue
+			}
+			claimed[k] = name
 		}
 	}
 }

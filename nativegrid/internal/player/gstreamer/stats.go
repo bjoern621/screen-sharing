@@ -12,10 +12,10 @@ import (
 )
 
 // Stats reads the running pipeline: the caps on three pads (the decoder's input,
-// the decoded frames entering the scaler, the format and size the sink takes),
-// the sink's own render counters, a latency and a position query, and the
-// counters of the transport's elements. Nothing is cached, so a field stays zero
-// for exactly as long as the pipeline has not learned it.
+// the decoded frames leaving it, the format and size the sink takes), the sink's
+// own render counters, a latency and a position query, and the counters of the
+// transport's elements. Nothing is cached, so a field stays zero for exactly as
+// long as the pipeline has not learned it.
 func (r *receiver) Stats() player.Stats {
 	s := player.Stats{
 		Frames: r.frames.Load(),
@@ -25,6 +25,10 @@ func (r *receiver) Stats() player.Stats {
 		VideoFrames: r.video.frames.Load(),
 		Keyframes:   r.video.keyframes.Load(),
 		AudioBytes:  r.audio.bytes.Load(),
+
+		Chain:      r.chain.name,
+		ChainGPU:   r.chain.device != "",
+		ChainExact: r.chain.colour == ColourStated,
 	}
 	if ns := r.video.lastKey.Load(); ns > 0 {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
@@ -39,7 +43,7 @@ func (r *receiver) Stats() player.Stats {
 	r.mu.Unlock()
 
 	readEncoded(&s, videoDec)
-	readDecoded(&s, r.scale)
+	readDecoded(&s, videoDec)
 	r.readRender(&s)
 	r.readTiming(&s)
 	readAudio(&s, audioDec, audioConvert)
@@ -68,17 +72,22 @@ func readEncoded(s *player.Stats, dec gst.Element) {
 	s.Level = st.GetString("level")
 }
 
-// readDecoded describes the decoded frames, off the caps entering the scaler.
+// readDecoded describes the decoded frames, off the decoder's own output pad.
 // That pad carries what the decoder produced, and everything downstream of it is this side's own
 // doing: the picture size a stream sends is not the size a tile scaled it to.
-func readDecoded(s *player.Stats, scale gst.Element) {
-	if scale == nil {
+//
+// It is the decoder's pad rather than the next element's because every video decoder has one,
+// whichever chain it sits in and whichever bin decodebin built it inside, and because the memory
+// feature on it is where the decoder put the frames rather than where something after it moved them.
+func readDecoded(s *player.Stats, dec gst.Element) {
+	if dec == nil {
 		return
 	}
-	caps := padCaps(scale, "sink")
+	caps := padCaps(dec, "src")
 	if caps == nil {
 		return
 	}
+	s.DecodeMemory = memoryOf(caps)
 	st := caps.GetStructure(0)
 	if w, ok := st.GetInt("width"); ok {
 		s.Width = int(w)
@@ -104,11 +113,13 @@ func readDecoded(s *player.Stats, scale gst.Element) {
 	}
 }
 
-// readRender describes what the sink does with the frames: the format and size
-// it takes, and its own count of what it rendered and what it threw away for
-// arriving past its deadline, which the paintable's count cannot tell apart.
+// readRender describes what the sink does with the frames: the memory they are
+// in when they reach it, the format and size it takes, and its own count of what
+// it rendered and what it threw away for arriving past its deadline, which the
+// paintable's count cannot tell apart.
 func (r *receiver) readRender(s *player.Stats) {
 	if caps := padCaps(r.sink, "sink"); caps != nil {
+		s.RenderMemory = memoryOf(caps)
 		st := caps.GetStructure(0)
 		s.Render = strings.TrimSpace(st.GetString("format") + " " + st.GetString("colorimetry"))
 		// The size shows only where the scaler took the frames down to a tile.

@@ -42,18 +42,18 @@ func (r *receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 		return
 	}
 
-	chain, ok := r.buildAudioChain()
+	branch, ok := r.buildAudioChain()
 	if !ok {
 		return
 	}
-	if ret := pad.Link(chain[0].GetStaticPad("sink")); ret != gst.PadLinkOK {
+	if ret := pad.Link(branch[0].GetStaticPad("sink")); ret != gst.PadLinkOK {
 		logger.Warnf("stream %q audio pad link failed (%d), audio stays off", r.name, ret)
 		return
 	}
 
 	r.mu.Lock()
-	r.volume = chain[slices.Index(audioChain, "volume")]
-	r.audioConvert = chain[slices.Index(audioChain, "audioconvert")]
+	r.volume = branch[slices.Index(audioChain, "volume")]
+	r.audioConvert = branch[slices.Index(audioChain, "audioconvert")]
 	r.mu.Unlock()
 	assert.IsNotNil(r.volume, "the audio chain carries a volume element")
 
@@ -77,26 +77,26 @@ func isAudioPad(pad gst.Pad) bool {
 // when the build failed at any step. Every element is named after its factory
 // with an "a" prefix, so an audio queue is told apart from the video branch's.
 func (r *receiver) buildAudioChain() ([]gst.Element, bool) {
-	chain := make([]gst.Element, 0, len(audioChain))
+	branch := make([]gst.Element, 0, len(audioChain))
 	for _, factory := range audioChain {
 		e := gst.ElementFactoryMake(factory, "a"+factory)
 		if e == nil {
 			logger.Warnf("stream %q has no %s element, audio stays off", r.name, factory)
 			return nil, false
 		}
-		chain = append(chain, e)
+		branch = append(branch, e)
 	}
-	for _, e := range chain {
+	for _, e := range branch {
 		r.pipeline.Add(e)
 	}
-	for i := range chain[:len(chain)-1] {
-		if !chain[i].Link(chain[i+1]) {
+	for i := range branch[:len(branch)-1] {
+		if !branch[i].Link(branch[i+1]) {
 			logger.Warnf("stream %q audio branch link failed at %s, audio stays off", r.name, audioChain[i])
 			return nil, false
 		}
 	}
-	for _, e := range chain {
+	for _, e := range branch {
 		e.SyncStateWithParent()
 	}
-	return chain, true
+	return branch, true
 }

@@ -11,6 +11,22 @@ type row struct {
 	// card prints keys and numbers, so the reading is only explained here.
 	tip   string
 	value func(v View) string
+	// tipOf explains the reading the row currently shows, on a row whose value is a
+	// verdict rather than a figure: what "no download" means depends on which of the
+	// four paths produced it. It falls back to tip, so a poll that has no verdict yet
+	// still explains the row.
+	tipOf func(v View) string
+}
+
+// tipAt is the explanation the row shows for one poll.
+func (r row) tipAt(v View) string {
+	if r.tipOf == nil {
+		return r.tip
+	}
+	if tip := r.tipOf(v); tip != "" {
+		return tip
+	}
+	return r.tip
 }
 
 // block is one titled group of rows. visible reports whether the whole block
@@ -126,8 +142,32 @@ var blocks = []block{
 	{title: "decode", tip: "What this side does with the frames it receives.", rows: []row{
 		{
 			key:   "decoder",
-			tip:   "Decoder element the pipeline picked, and whether it decodes on the GPU.",
+			tip:   "Decoder element the pipeline picked, and whether it decodes on the GPU. It says where the decoding ran and nothing about where the frames went afterwards: a hardware decoder can download its own output. The memory and path rows are what answer that.",
 			value: func(v View) string { return decoderText(v.Stats) },
+		},
+		{
+			key:   "chain",
+			tip:   "Render chain the pipeline was built from, and whether it states the colour it produces. A chain that states it converts to a colour the caps describe; one that does not leaves the interpretation to the driver or to GTK.",
+			value: func(v View) string { return chainText(v.Stats) },
+		},
+		{
+			key:   "path",
+			hides: true,
+			tip:   "What happened to the frames between the decoder and the sink, read off the memory each end negotiated.",
+			value: func(v View) string { return pathText(v.Stats) },
+			tipOf: func(v View) string { return pathTip(v.Stats) },
+		},
+		{
+			key:   "memory",
+			hides: true,
+			tip:   "Memory features the caps carry on the decoder's output and on the sink's input, verbatim and in that order. They are the evidence the path row's verdict is read from.",
+			value: func(v View) string { return memoryText(v.Stats) },
+		},
+		{
+			key:   "renderer",
+			hides: true,
+			tip:   "GSK renderer drawing the window. It is the last link in the path: a GL texture handed to a renderer that does not draw GL textures is downloaded again, after everything the pipeline did to keep it on the GPU.",
+			value: func(v View) string { return v.Renderer },
 		},
 		{
 			key:   "render",

@@ -40,15 +40,35 @@ type gpuConvert struct {
 // named in a row there and not here is a table half declared, which the builder
 // asserts rather than mapping onto some other device.
 //
-// The nvenc family has no entry, which is why no gpupath row pairs a grabber with it.
-// scale_cuda is the only CUDA filter that converts a captured BGRA texture to the
-// encoder's semi-planar layout, and it states no output matrix, primaries, transfer or
-// range. A conversion that cannot say what it produced makes the stream's colour a
-// property of the filter's internals, so the family stays on the system-memory path,
-// where swscale converts by -color_range and setparams tags what it wrote.
+// The nvenc entry names neither a device nor a filter, which is the whole of what this
+// platform offers between a Windows grabber and that encoder. hwmap derives no CUDA and
+// no Vulkan device from a Direct3D11 frame, answering ENOSYS, so scale_cuda and
+// libplacebo are both unreachable however they state their colour; scale_d3d11 is
+// reachable and cannot create an NV12 target from the captured BGRA. Nothing is left to
+// stand between the two ends, so nvenc reads the texture on its own device and converts
+// it itself, at a matrix and a range of its own choosing which it then signals. That is
+// what makes its row a gpupath.ColourEncoder one, and why an empty entry here is a
+// declared fact rather than a missing one.
 var gpuConverts = map[string]gpuConvert{
 	capabilities.FamilyVaapi: {device: "vaapi", scale: "scale_vaapi"},
 	capabilities.FamilyQsv:   {device: "qsv", scale: "vpp_qsv"},
+	capabilities.FamilyNvenc: {},
+}
+
+// GpuStatesColour reports whether this codec's family converts on the device and states
+// the colour it produced, which is what decides whether the command's colour options
+// reach anything on the GPU path.
+//
+// It answers false for a family with no entry as well as for one whose entry names no
+// conversion: neither states a colour, and the caller's question is what the command
+// should carry rather than whether the pair has a path at all (gpupath.Paths answers
+// that).
+func GpuStatesColour(codec string) bool {
+	c, ok := capabilities.Get(codec)
+	if !ok {
+		return false
+	}
+	return gpuConverts[c.Family].scale != ""
 }
 
 // GpuFilters returns the filter chain mapping captured device frames onto the encoder's
@@ -60,6 +80,12 @@ var gpuConverts = map[string]gpuConvert{
 // dropped along with them, and the stream then signals nothing and is watched in the
 // viewer's own default. out_range takes the settings value as it stands, since ffmpeg
 // spells the two ranges pc and tv here exactly as the form does.
+//
+// A family whose entry names no conversion has no such chain, and the colour tag is the
+// whole of what it contributes: the encoder converts the captured frames and signals the
+// matrix and range it chose, so the primaries and the transfer are all this side still
+// has to state. setparams accepts hardware frames, so the tag is placed the same way it
+// is on the system path.
 func GpuFilters(codec, chroma, colorRange string) ([]string, error) {
 	// Both are held against the codec's own table by capabilities.Validate before the
 	// command is built, so an empty one is a caller that skipped it.
@@ -74,6 +100,19 @@ func GpuFilters(codec, chroma, colorRange string) ([]string, error) {
 	// Only a pair gpupath.Paths carries reaches here, and every such row names a family
 	// this table maps.
 	assert.Assert(ok, "a GPU-path encode names a family whose device-side conversion is declared", c.Family)
+	// The two halves of a conversion arrive together or not at all: a device with no
+	// filter would map the frames and leave them in a layout the encoder cannot read,
+	// and a filter with no device would convert on whichever device the frames are
+	// already on rather than the encoder's.
+	assert.Assert((convert.device == "") == (convert.scale == ""),
+		"a device-side conversion names both the device it maps onto and the filter that converts there", c.Family)
+
+	if convert.scale == "" {
+		if colour := colourFilter(chroma); colour != "" {
+			return []string{colour}, nil
+		}
+		return nil, nil
+	}
 
 	format, ok := hwSurfaceFormats[chroma]
 	if !ok {

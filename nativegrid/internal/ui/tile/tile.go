@@ -26,6 +26,7 @@ import (
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
+	"bjoernblessin.de/screenshare-nativegrid/internal/ui/renderpick"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/stats"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/theme"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/widgets"
@@ -37,6 +38,9 @@ type Hooks struct {
 	Retry      func()
 	ToggleSpot func()
 	Disconnect func()
+	// SetRenderChain pins the stream to one render chain, and hands it back to the
+	// window's default with "".
+	SetRenderChain func(name string)
 }
 
 // Tile is one stream's tile.
@@ -109,6 +113,13 @@ type Tile struct {
 	volRevealer *gtk.Revealer
 	volScale    *gtk.Scale
 
+	// renderPick is the control bar's render-chain picker, renderButton the button that
+	// opens it, and renderChoice what the picker draws: what the backend offers, this
+	// stream's own chain and the window's default. The grid pushes it on every sync pass.
+	renderPick   *renderpick.Picker
+	renderButton *gtk.MenuButton
+	renderChoice renderpick.Choice
+
 	statsToggle *widgets.IconToggle
 	statsCard   *stats.Card
 	statsOpen   bool
@@ -126,6 +137,7 @@ func New(st roster.Stream, hooks Hooks) *Tile {
 	assert.IsNotNil(hooks.Retry, "a tile retries through its hooks", st.Name)
 	assert.IsNotNil(hooks.ToggleSpot, "a tile spotlights through its hooks", st.Name)
 	assert.IsNotNil(hooks.Disconnect, "a tile disconnects through its hooks", st.Name)
+	assert.IsNotNil(hooks.SetRenderChain, "a tile moves its render chain through its hooks", st.Name)
 
 	t := &Tile{
 		picture: gtk.NewPicture(),

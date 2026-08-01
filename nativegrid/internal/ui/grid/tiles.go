@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare-nativegrid/internal/ui/renderpick"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/tile"
 )
 
@@ -29,9 +30,10 @@ func (v *View) syncTile(i int) (changed bool) {
 	}
 	if !open {
 		t = tile.New(v.sess.Stream(i), tile.Hooks{
-			Retry:      func() { v.sess.Restart(i) },
-			ToggleSpot: func() { v.sess.ToggleSpot(i) },
-			Disconnect: func() { v.sess.SetWatched(i, false) },
+			Retry:          func() { v.sess.Restart(i) },
+			ToggleSpot:     func() { v.sess.ToggleSpot(i) },
+			Disconnect:     func() { v.sess.SetWatched(i, false) },
+			SetRenderChain: func(name string) { v.sess.SetRenderChain(i, name) },
 		})
 		v.drag.AttachSource(t.Widget(), i)
 		v.tiles[i] = t
@@ -48,6 +50,9 @@ func (v *View) syncTile(i int) (changed bool) {
 	// already stopped.
 	t.Attach(v.sess.Player(i))
 	t.SetAudioAvailable(v.sess.HasAudio(i))
+	// The render chain goes over on every pass like the rest: a tile that opens on a
+	// stream with a chain of its own draws that chain from its first frame.
+	t.SetRenderChoice(v.renderChoice(i))
 	return !open
 }
 
@@ -58,6 +63,30 @@ func (v *View) syncTile(i int) (changed bool) {
 func (v *View) refreshStreams() {
 	for i, t := range v.tiles {
 		t.SetStream(v.sess.Stream(i))
+	}
+}
+
+// refreshChains reads the render choice back into the open tiles.
+//
+// Every tile is redrawn whichever half of the choice moved: a stream's own chain is
+// one tile's, but the window's default is what every other tile's leading entry
+// names, so a default that moved reaches all of them.
+func (v *View) refreshChains() {
+	for i, t := range v.tiles {
+		t.SetRenderChoice(v.renderChoice(i))
+	}
+}
+
+// renderChoice is what stream i's picker draws: what the backend offers, the chain
+// the stream chose, and the window's default. All three are read through, so nothing
+// on a tile can name a chain the model has left.
+func (v *View) renderChoice(i int) renderpick.Choice {
+	assert.Assert(i >= 0 && i < v.sess.Len(), "a render chain belongs to a stream the model knows", i, v.sess.Len())
+
+	return renderpick.Choice{
+		Chains:  v.sess.Chains(),
+		Chosen:  v.sess.RenderOverride(i),
+		Default: v.sess.DefaultRenderChain(),
 	}
 }
 

@@ -89,13 +89,18 @@ The file has two owners, the model and the window, so a write replaces the keys 
   Nothing changes here until that push arrives, and a watched stream whose source fragment moved with it restarts on the new one.
 - Stdout carries a second kind of line, told apart from the first by a `type` field: the names of the streams with a tile open, stated whenever that set changes.
   It is one-way, and the app has no answer to it: what the window watches is the window's, and the report only lets the app say what is on screen.
-- The GStreamer backend completes that fragment with `decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink`, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
+- The GStreamer backend completes that fragment with a render chain from a table of them (`internal/player/gstreamer/chains.go`), every row `decodebin` and `gtk4paintablesink` with a different conversion between, so it plays everything a native ffplay/mpv window plays, HEVC 4:4:4 and RGB included.
+  `gl` uploads and converts on the GPU and hands the sink a texture; `cpu` scales and converts in system memory; `d3d11` and `d3d12` convert on the device and download, because the sink negotiates GL or system memory and no D3D memory; `raw` converts nothing.
+  `gl` is the default, measured equal to `cpu` and not merely faster: flat dark, flat bright and gradient content come out bit-identical and a saturated colour-bar frame differs by at most one code value per channel, which is shader rounding rather than the shadow-heavy error a transfer-function mismatch gives.
+  What it saves is the download, which at 1440p144 in 4:4:4 is gigabytes a second per tile.
+  The window owns the choice, as a default for itself and an override per stream, both remembered in its state file; a machine missing a chain's elements falls back and the picker greys the row with what is missing.
   `decodebin` autoplugs by rank: a hardware decoder takes the stream where its sink caps advertise the profile, and a software one (gst-libav for H.264 and HEVC, libvpx for VP9, dav1d for AV1) takes the rest.
   The hardware decoders rank above the software ones, so which of them takes a stream follows the pixel format the publisher chose rather than a preference here.
   `capabilities.Decoders` in the app states that per element: every hardware decoder covers 4:2:0 at both bit depths, HEVC's 4:4:4 and RGB profiles are NVDEC's and Intel's alone, and H.264 4:4:4 is nobody's, which leaves those combinations on the software path.
   When decodebin exposes an audio pad, the pipeline grows an audio branch (`queue ! audioconvert ! audioresample ! volume ! autoaudiosink`) while it plays; a video-only stream carries no idle audio elements.
-  The `RGBA/sRGB` capsfilter is not optional: without it GTK color-manages the raw YUV itself and washes out dark screen content.
-  The scaler ahead of the conversion is what keeps a tile from converting more pixels than it draws: a thumbnail in the film strip would otherwise convert every frame of a 4K stream to RGBA to draw it at thumbnail size.
+  The `RGBA/sRGB` caps every converting row ends in are not optional: without them the sink also takes raw YUV, GTK color-manages it itself, and dark screen content washes out.
+  The scaler ahead of a CPU conversion is what keeps a tile from converting more pixels than it draws: a thumbnail in the film strip would otherwise convert every frame of a 4K stream to RGBA to draw it at thumbnail size.
+  Only the CPU row bounds itself that way: a GPU conversion costs little enough that whole frames are cheaper than the renegotiation, and writing the bound mid-stream is what the GL row cannot survive, the reconfigure travelling past the scaler to a decoder that cannot answer it.
   It scales in the format the decoder produced, well under the four bytes a pixel the conversion works in, so the cheaper operation runs on the larger picture.
   The tile bounds it through the `capsfilter` behind it, as a range rather than a fixed size, so the scaler corrects the pixel aspect instead of adding borders and a tile larger than its stream negotiates the stream's own size.
   The size comes from the widget, over the `player.RenderSizer` seam, and a backend that cannot resize its output does not implement it and renders as it always did.

@@ -36,13 +36,28 @@ type stubBackend struct {
 	fail    error
 }
 
-func (b *stubBackend) factory(_ roster.Stream, ev player.Events) (player.Player, error) {
+func (b *stubBackend) factory(_ roster.Stream, _ player.Open, ev player.Events) (player.Player, error) {
 	if b.fail != nil {
 		return nil, b.fail
 	}
 	p := &stubPlayer{events: ev}
 	b.players = append(b.players, p)
 	return p, nil
+}
+
+// chains is what a test's backend offers to render with: one that runs and is the
+// default, one more that runs, and one this machine cannot.
+// It is what a chosen chain is held against and what a picker would grey.
+//
+// The default is marked rather than placed first, and it is deliberately not the first
+// row here: a session reading the default off the order would pass every test that
+// listed it first and none of the ones that matter.
+func (b *stubBackend) chains() []player.Chain {
+	return []player.Chain{
+		{Name: "cpu", Label: "System memory", Tip: "Scales and converts on the CPU.", Available: true},
+		{Name: "gl", Label: "OpenGL", Tip: "Scales and converts on the GPU.", Available: true, Default: true},
+		{Name: "d3d11", Label: "Direct3D 11", Tip: "Converts with Direct3D 11.", Reason: "This GStreamer has no d3d11convert element."},
+	}
 }
 
 // newTestSession builds a model whose UI loop runs inline, so every change and
@@ -56,7 +71,7 @@ func newTestSession(t *testing.T, l layout.Layout, names ...string) (*Session, *
 	}
 	backend := &stubBackend{}
 	store := &layout.Memory{Layout: l}
-	s := New(roster.Config{Streams: streams}, backend.factory, store, roster.Discard, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
+	s := New(roster.Config{Streams: streams}, backend.factory, backend.chains, store, roster.Discard, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
 	testTimings(s)
 	return s, backend, store
 }
@@ -102,7 +117,7 @@ func newAskingSession(t *testing.T, names ...string) (*Session, *stubBackend, *r
 	}
 	backend := &stubBackend{}
 	asked := &requests{}
-	sess := New(roster.Config{Streams: streams}, backend.factory, &layout.Memory{}, asked.send, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
+	sess := New(roster.Config{Streams: streams}, backend.factory, backend.chains, &layout.Memory{}, asked.send, roster.DiscardReport, roster.DiscardCommand, func(f func()) { f() })
 	testTimings(sess)
 	return sess, backend, asked
 }

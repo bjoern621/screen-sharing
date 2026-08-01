@@ -9,6 +9,7 @@ import (
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
+	"bjoernblessin.de/screenshare-nativegrid/internal/ui/renderpick"
 )
 
 // visual is which of the tile's overlay pages a watch state shows. The picture
@@ -75,6 +76,18 @@ func (t *Tile) SetStream(st roster.Stream) {
 	t.apply()
 }
 
+// SetRenderChoice draws what this stream can be rendered through: the chains the
+// backend offers, the one the stream chose, and the window's default the picker's
+// leading entry follows.
+//
+// It is pushed on every sync pass rather than read once, because two of the three move
+// without this tile doing anything: the sidebar moving the default renames the entry
+// that follows it, and the choice itself is the model's to hold.
+func (t *Tile) SetRenderChoice(c renderpick.Choice) {
+	t.renderChoice = c
+	t.apply()
+}
+
 // apply is the tile's render function: it maps every state field to the widgets, and it
 // is the only place that writes one.
 // Each property is set in both of its branches, so one call restores the whole tile
@@ -109,6 +122,11 @@ func (t *Tile) apply() {
 
 	t.statsCard.SetVisible(t.statsOpen)
 	t.statsToggle.SetOn(t.statsOpen)
+
+	// A backend with nothing to offer leaves no chain to pick, so the control goes with
+	// the choice instead of opening on an empty popover.
+	t.renderButton.SetVisible(len(t.renderChoice.Chains) > 0)
+	t.renderPick.Draw(t.renderChoice)
 
 	size := sizingOf(t.shape)
 	t.root.SetSizeRequest(size.width, size.height)

@@ -82,7 +82,8 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	// in one chain: the conversion states the colour it wrote, and the encoder takes
 	// its device from the frames it is handed (gpu.go).
 	var device []string
-	surface := memory == gpupath.MemoryGpu
+	onDevice := gpupath.OnDevice(memory)
+	surface := onDevice
 	if surface {
 		gpu, err := GpuFilters(s.Codec, s.Chroma, s.ColorRange)
 		if err != nil {
@@ -92,7 +93,7 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	} else {
 		// The colour description rides on the frames, so it is tagged while they are
 		// still software ones, ahead of the upload a surface encode ends its chain in.
-		if colour := colourFilter(s); colour != "" {
+		if colour := colourFilter(s.Chroma); colour != "" {
 			src.filters = append(src.filters, colour)
 		}
 
@@ -129,7 +130,12 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 		args = append(args, "-pix_fmt", s.Chroma)
 	}
 	// color_range only applies to YUV formats; gbrp is inherently full range.
-	if s.Chroma != "gbrp" {
+	//
+	// It is also dropped on a device path whose family converts nothing: there is no
+	// swscale stage for the option to steer, the encoder converts the captured RGB by a
+	// range of its own and signals that one, and a displayed command must not carry an
+	// option the run ignores (gpu.go, gpupath.ColourEncoder).
+	if s.Chroma != "gbrp" && !(onDevice && !GpuStatesColour(s.Codec)) {
 		args = append(args, "-color_range", s.ColorRange)
 	}
 	args = append(args, "-g", strconv.Itoa(gopFor(s)))
@@ -178,8 +184,13 @@ const colourDescription = "bt709"
 //
 // Planar RGB is skipped for the reason it carries no -color_range: it has no matrix
 // and is full range by construction.
-func colourFilter(s settings.Stream) string {
-	if s.Chroma == "gbrp" {
+//
+// It takes the chroma rather than the settings because the GPU path needs the same tag
+// from a caller that holds no settings struct: on a pair whose only device path leaves
+// the conversion to the encoder, this tag is the whole of what the command still states
+// about the colour (gpu.go).
+func colourFilter(chroma string) string {
+	if chroma == "gbrp" {
 		return ""
 	}
 	return fmt.Sprintf("setparams=colorspace=%s:color_primaries=%s:color_trc=%s",
@@ -266,12 +277,13 @@ func frameMemory(s settings.Stream) (string, error) {
 // ddagrabArgs captures on the GPU as a filter source.
 //
 // On the system-memory path hwdownload hands the frames back so any encoder can read
-// them, and format=bgra pins the layout swscale converts from. On the GPU path the
-// texture stays where Desktop Duplication put it and the map that follows derives the
-// encoder's device from it, so the chain here ends at the grabber.
+// them, and format=bgra pins the layout swscale converts from. On either device path the
+// texture stays where Desktop Duplication put it, and what follows is the family's own
+// business: a map onto the encoder's device where the family converts there, and nothing
+// at all where the encoder reads the texture itself.
 func ddagrabArgs(s settings.Stream, fps, memory string) (captureSource, error) {
 	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s", s.Monitor, fps)}
-	if memory != gpupath.MemoryGpu {
+	if !gpupath.OnDevice(memory) {
 		filters = append(filters, "hwdownload", "format=bgra")
 	}
 	return captureSource{filterFlag: "-filter_complex", filters: filters}, nil

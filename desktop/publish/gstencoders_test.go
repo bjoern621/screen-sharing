@@ -11,6 +11,7 @@ import (
 
 	"bjoernblessin.de/screenshare/capabilities"
 	"bjoernblessin.de/screenshare/ffmpeg"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -64,11 +65,15 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 				// settings carry one from another codec's.
 				s.Cq = cap.CqMaxOn(EngineGst) / 2
 
-				format, err := gstChromaFormat(name, s.Chroma)
+				// System memory: what this covers is the properties an element takes,
+				// and the frames come off videotestsrc with no device in the chain. The
+				// device elements and the layouts they negotiate are measured where the
+				// conversion into them is (TestPublishedColorimetryReachesTheDecoder).
+				format, err := gstChromaFormat(name, s.Chroma, gpupath.MemorySystem)
 				if err != nil {
 					t.Fatal(err)
 				}
-				encoder, link, err := gstEncoder(s, 60)
+				encoder, link, err := gstEncoder(s, 60, gpupath.MemorySystem)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -140,7 +145,7 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 		cqMax := cap.CqMaxOn(EngineGst)
 		s := settings.Defaults()
 		s.Codec, s.Mode, s.Chroma, s.Cq = name, "crf", cap.EngineChromas(EngineGst)[0], cqMax
-		encoder, _, err := gstEncoder(s, 60)
+		encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -159,7 +164,7 @@ func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	s := settings.Defaults()
 	s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", "vbr"
 	s.BitrateM, s.MaxrateM = 20, 200
-	_, _, err := gstEncoder(s, 60)
+	_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err == nil {
 		t.Fatalf("h264_vaapi vbr at %d/%d Mbit/s must be refused, not encoded at another rate", s.BitrateM, s.MaxrateM)
 	}
@@ -172,7 +177,7 @@ func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	// Half the ceiling is the lowest ratio the property expresses, so it builds, and
 	// what it builds targets what the settings state.
 	s.BitrateM = 100
-	encoder, _, err := gstEncoder(s, 60)
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +204,7 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 			s := settings.Defaults()
 			s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", tc.mode
 			s.BitrateM, s.MaxrateM = tc.bitrateM, tc.maxrateM
-			_, _, err := gstEncoder(s, 60)
+			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err == nil {
 				t.Fatalf("h264_vaapi %s at %d Mbit/s must be refused, not clamped", tc.mode, tc.bitrateM)
 			}
@@ -213,7 +218,7 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	s := settings.Defaults()
 	s.Codec, s.Chroma, s.Mode = "h264_vaapi", "yuv420p", "cbr"
 	s.BitrateM = vaMaxBitrateKbps / 1000
-	if _, _, err := gstEncoder(s, 60); err != nil {
+	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 		t.Errorf("h264_vaapi cbr at the property's highest rate: %v", err)
 	}
 }
@@ -236,7 +241,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 			s := settings.Defaults()
 			s.Codec, s.Chroma, s.Mode = "av1_qsv", "yuv420p", tc.mode
 			s.BitrateM, s.MaxrateM = tc.bitrateM, tc.maxrateM
-			_, _, err := gstEncoder(s, 60)
+			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err == nil {
 				t.Fatalf("av1_qsv %s at %d Mbit/s must be refused, not clamped", tc.mode, tc.bitrateM)
 			}
@@ -247,7 +252,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 			// The same rate on an H.26x element is inside its property's range, so the
 			// bound must not reach it.
 			s.Codec = "h264_qsv"
-			if _, _, err := gstEncoder(s, 60); err != nil {
+			if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 				t.Errorf("h264_qsv %s at %d Mbit/s: %v", tc.mode, tc.bitrateM, err)
 			}
 		})
@@ -257,11 +262,11 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 	s := settings.Defaults()
 	s.Codec, s.Chroma, s.Mode = "av1_qsv", "yuv420p", "cbr"
 	s.BitrateM = qsvShortBitrateKbps / 1000
-	if _, _, err := gstEncoder(s, 60); err != nil {
+	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 		t.Errorf("av1_qsv cbr at the property's highest rate: %v", err)
 	}
 	s.Mode, s.BitrateM = "crf", aboveBoundM
-	if _, _, err := gstEncoder(s, 60); err != nil {
+	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 		t.Errorf("av1_qsv crf sends no bitrate, so the bound must not bind: %v", err)
 	}
 }
@@ -334,7 +339,7 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			if capabilities.Validate(EngineGst, s.Codec, s.CapabilityOptions(), s.Cq, s.BitrateM) != nil {
 				continue
 			}
-			enc, _, err := gstEncoder(s, 60)
+			enc, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err != nil {
 				t.Fatalf("%s %s: %v", c.Name, mode, err)
 			}

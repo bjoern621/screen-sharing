@@ -379,14 +379,27 @@ It travels one way.
 The window decides what it watches and states it, the app reads it and never answers with a watch set of its own, so the view state has a single owner even though two processes know it.
 
 Transport knowledge stays in the app, decode knowledge in the binary.
-A watched tile runs its own receive pipeline
+A watched tile runs its own receive pipeline, whose paintable the tile's `GtkPicture` draws, so full chroma reaches the GTK scene graph with no subsampling on the way.
+Which elements sit between the source and the sink is a render chain, and the binary carries a table of them rather than one line: the decoder is the same on every row and what differs is where the frames are converted and what that says about their colour.
 
-```
-<source> ! decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink
-```
+| Chain | Between source and sink | Colour |
+|---|---|---|
+| `gl` | `glupload ! glcolorconvert ! glcolorscale`, RGBA/sRGB in `GLMemory` | stated |
+| `cpu` | `videoscale ! capsfilter ! videoconvert`, RGBA/sRGB in system memory | stated |
+| `d3d11`, `d3d12` | `d3d11upload ! d3d11convert`, then a download | the driver's |
+| `raw` | nothing | unstated |
 
-whose paintable the tile's `GtkPicture` draws, so full chroma reaches the GTK scene graph with no subsampling on the way.
-The capsfilter behind the scaler is what the tile bounds to its own size, so a thumbnail in the spotlight's film strip converts a thumbnail rather than the source's full frame (`nativegrid/README.md`).
+`gl` is the default, and it is the default because it was measured equal to `cpu` rather than because it is faster: rendered through both, flat dark, flat bright and gradient content are bit-identical, and a saturated colour-bar frame differs by at most one code value per channel.
+Dark content agreeing is the evidence that matters, since washed-out shadows are the failure the pinned sRGB caps exist to prevent — without them the sink also takes YUV and GTK reads an unknown transfer function as BT.709, lifting every shadow.
+What `gl` saves is the download: the CPU chain pulls every decoded frame into system memory and converts and scales it there, which at 1440p144 in 4:4:4 is gigabytes a second per tile.
+The two Direct3D rows convert on the device and download because `gtk4paintablesink` negotiates GL memory or system memory and no D3D memory at all, and they state a colorimetry the driver may not honour, so they are offered and never defaulted to.
+
+Only the CPU chain bounds its conversion to the tile's size, through the capsfilter behind its scaler, so a thumbnail in the spotlight's film strip converts a thumbnail rather than the source's full frame (`nativegrid/README.md`).
+A GPU chain bounds nothing: the bound pays for itself where a conversion costs its output pixels, and writing it mid-stream is what the GL chain cannot survive, because the reconfigure travels past the scaler to a decoder that cannot answer it.
+
+The choice belongs to the window rather than to the app, for the reason the seam is drawn where it is: whether this machine registers `glcolorscale` is decode knowledge, and the app links no GStreamer to ask.
+It is remembered in the window's own state file, as a default for the window and an override per stream, so one window can run two chains at once.
+What a running pipeline actually did is the stats overlay's business: it reports the chain, the memory the decoder handed its frames over in, the memory the sink read them from, and the GSK renderer, because a hardware decoder that downloaded its own frames and a GL texture under the Vulkan renderer both cost the download the row promised to avoid.
 The tile grid consumes a `Player` interface (the paintable, a first-frame callback, an error callback), not GStreamer, mirroring the web grid's `StreamSink` seam; backends register under a name, so the GStreamer one is a package rather than the binary's only option.
 Inside the binary the window is one model and two views of it: a session package decides and remembers what is watched, and the sidebar and the tile area redraw from what they read back off it (`nativegrid/README.md`).
 

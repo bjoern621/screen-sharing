@@ -82,13 +82,22 @@ func GstEncodeProbe(s settings.Stream, width, height, frames int, heavy bool) ([
 	if err != nil {
 		return nil, err
 	}
-	encoder, link, err := gstEncoder(s, gstGop(s))
+	encoder, link, err := gstEncoder(s, gstGop(s), mem.memory)
 	if err != nil {
 		return nil, err
 	}
 	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Codec)
 
-	pipeline := append(gstProbeFrames(s, width, height, frames, heavy), "!", mem.convert, "!", inCaps, "!")
+	pipeline := gstProbeFrames(s, width, height, frames, heavy)
+	// The generator produces system memory whatever a screen capture would have
+	// produced, so a device path's converter is reached through the upload its family
+	// names: what the measurement has to keep is the encoder and the caps it reads,
+	// and one memory move ahead of the conversion is the least that gets the generated
+	// frames to where a captured one already is.
+	if mem.upload != "" {
+		pipeline = append(pipeline, "!", mem.upload)
+	}
+	pipeline = append(pipeline, "!", mem.convert, "!", inCaps, "!")
 	pipeline = append(pipeline, encoder...)
 	// The link elements stay in: they are what a run puts between encoder and sink,
 	// and a parser that repeats parameter sets per keyframe reads every frame the

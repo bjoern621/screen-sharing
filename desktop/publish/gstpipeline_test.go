@@ -16,6 +16,10 @@ import (
 // name a raw format the capture chain can pin, or a portal publish fails after the
 // UI offered the combination.
 //
+// Both memories, since which layouts an element negotiates is a fact about the element
+// and a family's device elements are not its system ones: a chroma the form offers and
+// only one of the two maps holds is a publish that fails on the path it resolves to.
+//
 // The reverse is not a rule: the format map keys off the encoder family, so a chroma
 // one element rejects can still name a layout the family's other elements take. What
 // keeps that combination out of a pipeline is the gap, checked below.
@@ -24,9 +28,15 @@ func TestGstChromaFormatCoversTheEngineChromas(t *testing.T) {
 		if !c.Implemented {
 			continue
 		}
+		memories := []string{gpupath.MemorySystem}
+		if _, onDevice := gstGpuMemories[c.Family]; onDevice {
+			memories = append(memories, gpupath.MemoryGpu)
+		}
 		for _, chroma := range c.EngineChromas("gstreamer") {
-			if _, err := gstChromaFormat(c.Name, chroma); err != nil {
-				t.Errorf("%s: %v", c.Name, err)
+			for _, memory := range memories {
+				if _, err := gstChromaFormat(c.Name, chroma, memory); err != nil {
+					t.Errorf("%s in %s memory: %v", c.Name, memory, err)
+				}
 			}
 		}
 	}
@@ -133,9 +143,14 @@ func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 }
 
 // A chroma this engine's encoder element cannot take is refused rather than
-// converted to the nearest format the element does negotiate. The default
-// settings are exactly that case: they carry planar RGB, which the ffmpeg engine
-// codes and no GStreamer element here does.
+// converted to the nearest format the element does negotiate. Planar RGB on the
+// software HEVC row is that case: x265enc negotiates YUV alone where the ffmpeg
+// engine codes the format directly.
+//
+// It is not the default settings' case any more. Those carry planar RGB on
+// hevc_nvenc, whose nvcodec elements do take a GBR sink format, so the codec is
+// named here rather than taken from the defaults: the combination this covers has
+// to stay a gapped one whatever the defaults move to.
 //
 // The rejection has to come from the caps step, because that is the one the
 // engine runs before it acquires a source: refused later, a gapped chroma would
@@ -144,8 +159,14 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 	s := settings.Defaults()
 	s.Capture = "portal"
 	s.Transport = "srt"
-	if s.Chroma != "gbrp" {
-		t.Skipf("the default chroma is %s, no longer the gapped format this covers", s.Chroma)
+	s.Codec = "libx265"
+	s.Chroma = "gbrp"
+	cap, ok := capabilities.Get(s.Codec)
+	if !ok {
+		t.Fatalf("codec %s has no capability row", s.Codec)
+	}
+	if _, gapped := cap.OptionGap(EngineGst, capabilities.OptionChroma, s.Chroma); !gapped {
+		t.Skipf("%s at %s is no longer gapped on this engine, so it no longer covers the refusal", s.Codec, s.Chroma)
 	}
 
 	_, err := gstTestCaps(s)
@@ -289,17 +310,164 @@ func gstGpuStream() settings.Stream {
 	return s
 }
 
+// gstD3d11Stream returns settings publishing the Windows Direct3D capture into an nvenc
+// encoder over the direct path, the pair whose conversion keeps the colour on the device.
+func gstD3d11Stream() settings.Stream {
+	s := settings.Defaults()
+	s.Capture, s.Codec = "d3d11screencapturesrc", "h264_nvenc"
+	s.Chroma, s.Mode, s.ColorRange = "yuv420p", "cbr", "pc"
+	s.Transport = "rtsp"
+	s.CaptureMemory = gpupath.MemoryGpu
+	return s
+}
+
 // Every pair the table declares for this engine has to name the memory its surfaces
-// carry, or a run resolved onto the direct path reaches an assertion instead of a
-// pipeline.
+// carry and the layouts its elements negotiate there, or a run resolved onto the direct
+// path reaches an assertion instead of a pipeline.
 func TestEveryGstGpuPathNamesItsMemory(t *testing.T) {
 	for _, p := range gpupath.Paths {
 		if p.Engine != EngineGst {
 			continue
 		}
-		if _, ok := gstGpuMemories[p.Family]; !ok {
+		gpu, ok := gstGpuMemories[p.Family]
+		if !ok {
 			t.Errorf("%s/%s: the family has a GPU path and no caps feature", p.Capture, p.Family)
+			continue
 		}
+		if len(gpu.formats) == 0 {
+			t.Errorf("%s/%s: the family has a GPU path and names no layout its elements negotiate on the device",
+				p.Capture, p.Family)
+		}
+	}
+}
+
+// A family whose plugin ships one encoder element per memory kind has to name one for
+// every codec it encodes. Missing an entry is worse than missing the table: the run
+// resolves onto the device and launches the element that refuses the memory, so the
+// failure lands in negotiation with nothing naming the codec.
+//
+// The reverse holds too, an entry for a codec of another family or one this engine has no
+// mapping for being an element no run can ever reach.
+func TestEveryGstDeviceEncoderCoversItsFamilysCodecs(t *testing.T) {
+	for family, gpu := range gstGpuMemories {
+		if len(gpu.encoders) == 0 {
+			continue
+		}
+		for codec, elem := range gpu.encoders {
+			c, ok := capabilities.Get(codec)
+			if !ok {
+				t.Errorf("%s names a device encoder for %s, which is no codec the table holds", family, codec)
+				continue
+			}
+			if c.Family != family {
+				t.Errorf("%s names a device encoder for %s, which belongs to the %s family", family, codec, c.Family)
+			}
+			if _, ok := gstCodecs[codec]; !ok {
+				t.Errorf("%s names a device encoder for %s, which this engine has no mapping for", family, codec)
+			}
+			if elem == "" {
+				t.Errorf("%s/%s names an empty device encoder element", family, codec)
+			}
+		}
+		for codec := range gstCodecs {
+			cap, ok := capabilities.Get(codec)
+			if !ok || cap.Family != family {
+				continue
+			}
+			if _, named := gpu.encoders[codec]; !named {
+				plain, _ := GstEncoderElement(codec)
+				t.Errorf("%s encodes %s and the family's device path names no element for it, so a run on the device would launch %s against %s",
+					family, codec, plain, gpu.feature)
+			}
+		}
+	}
+}
+
+// A run on the device is encoded by the element that negotiates the memory the conversion
+// produced, and the same codec off system memory by the one that reads system frames. The
+// nvcodec plugin ships both, and they are not interchangeable: the plain elements take
+// CUDA and Direct3D 12 memory and refuse Direct3D 11.
+func TestTheGstDevicePathNamesTheDeviceEncoderElement(t *testing.T) {
+	s := gstD3d11Stream()
+	device, _, err := gstEncoder(s, 60, gpupath.MemoryGpu)
+	if err != nil {
+		t.Fatal(err)
+	}
+	system, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if device[0] == system[0] {
+		t.Fatalf("%s names %s on both paths, so one of the two memories is encoded by an element that refuses it",
+			s.Codec, device[0])
+	}
+	want := gstGpuMemories[capabilities.FamilyNvenc].encoders[s.Codec]
+	if device[0] != want {
+		t.Errorf("the device path encodes %s with %s, want the family's device element %s", s.Codec, device[0], want)
+	}
+	// The properties are the base class's and shared by both elements, so the memory
+	// changes the element name and nothing else about the encode.
+	if strings.Join(device[1:], " ") != strings.Join(system[1:], " ") {
+		t.Errorf("the two elements are configured differently:\ndevice: %s\nsystem: %s",
+			strings.Join(device, " "), strings.Join(system, " "))
+	}
+	// What the registry is asked for has to be what a run launches, or the availability
+	// probe reports the family present while the element is missing.
+	elem, named := GstEncoderElementOn(s.Codec, gpupath.MemoryGpu)
+	if !named || elem != device[0] {
+		t.Errorf("GstEncoderElementOn names %q on the device path, want %s", elem, device[0])
+	}
+	if elem, named := GstEncoderElement(s.Codec); !named || elem != system[0] {
+		t.Errorf("GstEncoderElement names %q, want the system-memory element %s", elem, system[0])
+	}
+}
+
+// Plain video/x-raw means system memory, so the Direct3D chain has to carry the feature on
+// every caps it pins, the rate one on the source included: Desktop Duplication offers a
+// texture and nothing else, so a capsfilter naming no feature both fails the negotiation
+// and asks for the round trip the path exists to avoid.
+func TestTheGstD3d11GpuPathCarriesTheMemoryFeatureOnEveryCaps(t *testing.T) {
+	s := gstD3d11Stream()
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	feature := gstGpuMemories[capabilities.FamilyNvenc].feature
+	if !strings.Contains(opts.InCaps, feature) {
+		t.Errorf("the encoder input caps %q lack the memory feature %q", opts.InCaps, feature)
+	}
+	for _, caps := range (d3d11Capture{}).Describe(s, gstProbed(opts)) {
+		if !strings.HasPrefix(caps, "video/x-raw") || strings.Contains(caps, feature) {
+			continue
+		}
+		t.Errorf("caps %q pin system memory on the GPU path", caps)
+	}
+	// The conversion has to run on the device as well. videoconvert reads system memory,
+	// so its presence would mean the frames were downloaded after all.
+	line := strings.Join((d3d11Capture{}).Describe(s, opts), " ")
+	if strings.Contains(line, gstSystemConvert) {
+		t.Errorf("the GPU path converts on the device, not with %s: %s", gstSystemConvert, line)
+	}
+	if !strings.Contains(line, gstGpuMemories[capabilities.FamilyNvenc].convert) {
+		t.Errorf("the GPU path must convert with the family's post-processor: %s", line)
+	}
+}
+
+// The same backend off system memory is the chain it was before the pair had a row: a CPU
+// conversion and caps naming no device memory.
+func TestTheGstD3d11SystemPathPinsNoDeviceMemory(t *testing.T) {
+	s := gstD3d11Stream()
+	s.CaptureMemory = gpupath.MemorySystem
+	opts, err := gstSourceOptions(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Join((d3d11Capture{}).Describe(s, opts), " ")
+	if strings.Contains(line, "memory:") {
+		t.Errorf("the system-memory path must pin no device memory: %s", line)
+	}
+	if !strings.Contains(line, gstSystemConvert) {
+		t.Errorf("the system-memory path converts on the CPU: %s", line)
 	}
 }
 

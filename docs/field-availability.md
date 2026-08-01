@@ -43,14 +43,20 @@ A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live 
 When two of them block the same field, the reason names the one the user can act on.
 B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
 
-## Two facts decide the frame memory
+## Three facts decide the frame memory
 
 The frame-memory control is the one field neither the capture backend nor the codec decides alone.
 Its direct value needs both ends to share device memory, which is a pair rather than a property of either: the portal capture shares memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
 `gpupath.Paths` declares the pairs, `App.GpuPaths` hands them to the form, and `unavailableFrameMemories` greys the direct value for a selection matching no row, naming both ends so either one is a way to reach it.
 
-The remaining two values are never greyed.
+The third fact is who converts, and it splits the direct value in two.
+A row whose device-side filter is told the colour and states it reaches `gpu`; a row where the platform has no such filter and the encoder converts the captured RGB itself reaches `gpu-encoder-color` instead, and `gpu` greys with what that costs.
+So two of the four values can be greyed and each greying names the other as the way across: a pair with no row greys both direct values, an exact row greys the encoder-colour one as having nothing to trade, and a trading row greys `gpu` and names the capture backend that reaches both.
+That last reason is the useful one, since the same screen is often reachable on the other engine where the conversion does state its colour.
+
+Auto and the system copy are never greyed.
 Auto answers with whichever path the pair has, and the system copy is the path every pair has, so a combination with no row leaves a working control rather than a dead one.
+Auto also never answers with the encoder-colour path: it is the value nobody chose, so it may not change what the stream looks like.
 
 Where the pair does have a row, the DRM download strategy is hidden's neighbour: it stays rendered under kmsgrab and greys, because a run that downloads nothing chooses no mapping device.
 It is greyed rather than hidden because the field is already gated on the capture backend, and a second gate would make it appear and vanish while the user changes codecs.

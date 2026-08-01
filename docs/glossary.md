@@ -159,7 +159,7 @@ A frame that stays on the GPU from capture to encoder crosses the bus not at all
 | ------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | DMA-BUF      | Direct Memory Access Buffer | Linux kernel mechanism for sharing a GPU buffer between processes and devices by file descriptor. What a Wayland compositor exports capture frames as. |
 | PRIME        | (no expansion)             | The DRM buffer-sharing framework DMA-BUF file descriptors are imported and exported through.                                                          |
-| Frame memory | (no expansion)             | Where a run's captured frames reach the encoder: the same device memory the capture produced, or a copy in system RAM. The "Frame memory" dropdown.   |
+| Frame memory | (no expansion)             | Where a run's captured frames reach the encoder: the same device memory the capture produced, or a copy in system RAM. Four values, since a device path can be one whose conversion states the colour the form shows (`gpu`) or one where no such filter exists and the encoder converts by a colour of its own (`gpu-encoder-color`). The "Frame memory" dropdown. |
 | VPP          | Video Post-Processing      | A driver's fixed-function scale, format and colour conversion block, reached as `vapostproc`, `scale_vaapi` and `vpp_qsv`.                            |
 
 Two rates describe one publish, and they part company on a damage-driven backend.

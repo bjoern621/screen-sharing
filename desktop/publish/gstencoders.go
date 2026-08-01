@@ -7,6 +7,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/capabilities"
+	"bjoernblessin.de/screenshare/gpupath"
 	"bjoernblessin.de/screenshare/settings"
 )
 
@@ -109,17 +110,40 @@ var gstCodecs = map[string]gstCodec{
 	"vp9_qsv": {encode: qsvEncoder("qsvvp9enc"), link: vp9Parser, limits: qsvShortRateLimits},
 }
 
-// GstEncoderElement returns the GStreamer element that encodes codec, and false when
-// this engine has no mapping for it. The name is read off a built encoder rather than
-// stored beside the mapping, so it cannot drift from the element a pipeline runs.
+// GstEncoderElement returns the GStreamer element that encodes codec from frames in
+// system memory, and false when this engine has no mapping for it.
 //
 // The element is what the encoder probe asks the plugin registry about: unlike the
 // ffmpeg encoders, each of these lives in a plugin an install may not carry, and the
 // hardware ones register per detected device.
+//
+// System memory is the path every pair has, which is why it is this form's answer and why
+// a caller asking "can this machine encode that codec at all" needs no memory to ask it
+// with. A caller holding a resolved memory asks GstEncoderElementOn instead: on a family
+// whose plugin ships one element per memory kind the two differ, and a registry query for
+// the wrong one reports the family present while the element a run would launch is
+// missing.
 func GstEncoderElement(codec string) (string, bool) {
-	c, ok := gstCodecs[codec]
+	return GstEncoderElementOn(codec, gpupath.MemorySystem)
+}
+
+// GstEncoderElementOn returns the element that encodes codec from frames reaching it in
+// the resolved memory, and false when this engine has no mapping for the codec.
+//
+// The system-memory name is read off a built encoder rather than stored beside the
+// mapping, so it cannot drift from the element a pipeline runs; the device name comes from
+// the family's device row, which is the same lookup gstEncoder builds with.
+func GstEncoderElementOn(codec, memory string) (string, bool) {
+	gst, ok := gstCodecs[codec]
 	if !ok {
 		return "", false
+	}
+	c, ok := capabilities.Get(codec)
+	if !ok {
+		return "", false
+	}
+	if device, named := gstDeviceEncoderElement(c.Family, codec, memory); named {
+		return device, true
 	}
 	mode, ok := firstGstMode(codec)
 	if !ok {
@@ -127,7 +151,7 @@ func GstEncoderElement(codec string) (string, bool) {
 	}
 	s := settings.Defaults()
 	s.Mode = mode
-	return c.encode(s, gstRates{})[0], true
+	return gst.encode(s, gstRates{})[0], true
 }
 
 // firstGstMode names a rate-control mode this codec's element has on this engine, and
@@ -163,10 +187,10 @@ var gstFamilyLimits = map[string]func(settings.Stream) error{
 	capabilities.FamilyVaapi: vaRateLimits,
 }
 
-// gstEncoder returns the encoder element (with its properties) and the elements
-// that link it to the sink for the selected codec. A rate outside the element's
-// property range is refused rather than moved into it.
-func gstEncoder(s settings.Stream, gop int) (encoder []string, link []string, err error) {
+// gstEncoder returns the encoder element (with its properties) and the elements that
+// link it to the sink for the selected codec, reading frames in the resolved memory. A
+// rate outside the element's property range is refused rather than moved into it.
+func gstEncoder(s settings.Stream, gop int, memory string) (encoder []string, link []string, err error) {
 	gst, ok := gstCodecs[s.Codec]
 	if !ok {
 		return nil, nil, fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Codec)
@@ -188,7 +212,17 @@ func gstEncoder(s settings.Stream, gop int) (encoder []string, link []string, er
 			return nil, nil, err
 		}
 	}
-	return gst.encode(s, gstRatesFor(s, gop)), gst.link, nil
+	encoder = gst.encode(s, gstRatesFor(s, gop))
+	assert.Assert(len(encoder) > 0, "a codec mapping names its element ahead of its properties", s.Codec)
+	// The element name is the first word every mapping writes, which is also how
+	// GstEncoderElement reads it back out. A family whose plugin ships one element per
+	// memory kind changes that word and nothing after it: the two elements derive from
+	// one base class and take the same rate-control properties, the memory deciding only
+	// which of them can link to the conversion ahead of it.
+	if device, named := gstDeviceEncoderElement(c.Family, s.Codec, memory); named {
+		encoder[0] = device
+	}
+	return encoder, gst.link, nil
 }
 
 // x264Encoder maps the rate-control mode onto x264enc's pass property, the
@@ -602,7 +636,10 @@ func nvencEncoder(elem string) func(settings.Stream, gstRates) []string {
 	return func(s settings.Stream, r gstRates) []string {
 		withBframes := func(enc []string) []string {
 			if s.Bframes > 0 {
-				return append(enc, "b-frames="+strconv.Itoa(s.Bframes))
+				// bframes, not b-frames: the nvcodec elements spell it without the
+				// separator, and a property name no element carries fails the launch
+				// rather than being ignored.
+				return append(enc, "bframes="+strconv.Itoa(s.Bframes))
 			}
 			return enc
 		}
@@ -610,9 +647,22 @@ func nvencEncoder(elem string) func(settings.Stream, gstRates) []string {
 		case "lossless":
 			// No B-frames: bit-exact coding gains nothing from them, which is why the
 			// UI greys the field here.
-			return []string{elem, "preset=lossless", "gop-size=" + r.gop}
+			//
+			// tune, not preset: the elements' preset enum is deprecated in favour of the
+			// p1-p7 ladder with a tune, and its lossless entry no longer reaches the
+			// H.264 encoder at 4:2:0 at all, failing session init with
+			// NV_ENC_ERR_INVALID_PARAM. The tune reaches every element and chroma the
+			// mode is offered on.
+			return []string{elem, "tune=lossless", "gop-size=" + r.gop}
 		case "crf":
-			return withBframes([]string{elem, "rc-mode=constqp", "qp-const=" + r.cq, "gop-size=" + r.gop})
+			// The quantizer goes on the three frame types rather than through qp-const,
+			// which the AV1 element does not carry: nvav1enc exposes qp-const-i, -p and
+			// -b and no combined one, where the H.26x elements expose both. One quantizer
+			// on all three frame types is what the combined property sets anyway, so this
+			// is the spelling every element in the family reads.
+			return withBframes([]string{elem, "rc-mode=constqp",
+				"qp-const-i=" + r.cq, "qp-const-p=" + r.cq, "qp-const-b=" + r.cq,
+				"gop-size=" + r.gop})
 		case "abr":
 			return withBframes([]string{elem, "rc-mode=vbr", "bitrate=" + r.kbps, "gop-size=" + r.gop})
 		case "vbr":

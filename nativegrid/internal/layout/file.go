@@ -25,13 +25,15 @@ const (
 	fileMode = 0o644
 )
 
-// FileStore keeps both remembered records in one JSON file in the app's config
+// FileStore keeps every remembered record in one JSON file in the app's config
 // directory.
 //
-// The file has two owners: internal/session writes the arrangement (Layout), the
-// window writes its geometry (WindowState). Both write from the UI thread, so no
-// two writes interleave, but each owner holds only its own record and would drop
-// the other's keys by writing the object it knows.
+// The file has two owners: internal/session writes the arrangement (Layout) and
+// the render chains (Render), the window writes its geometry (WindowState). Both
+// write from the UI thread, so no two writes interleave, but each owner holds only
+// its own records and would drop the other's keys by writing the object it knows.
+// Two records of one owner are written apart for the same reason: they change at
+// different moments, and a write of one must not restate the other.
 //
 // Every write is therefore a read-modify-write of the JSON object: the keys the
 // written record declares are replaced, every other key is carried over as it
@@ -67,6 +69,11 @@ func (f *FileStore) Load() Layout { return load[Layout](f) }
 // WindowState, which Remembered reports as the first run it is.
 func (f *FileStore) LoadWindow() WindowState { return load[WindowState](f) }
 
+// LoadRender reads the remembered render chains. A missing file yields the zero
+// Render, which is a window that chose nothing and renders through the backend's
+// own default.
+func (f *FileStore) LoadRender() Render { return load[Render](f) }
+
 // Save writes the arrangement and leaves the window's keys as they were.
 func (f *FileStore) Save(l Layout) {
 	assertLayout(l)
@@ -74,11 +81,30 @@ func (f *FileStore) Save(l Layout) {
 	f.save(l)
 }
 
-// SaveWindow writes the geometry and leaves the arrangement's keys as they were.
+// SaveWindow writes the geometry and leaves the other records' keys as they were.
 func (f *FileStore) SaveWindow(w WindowState) {
 	assert.Assert(w.Width >= 0 && w.Height >= 0, "a remembered window carries a size or none", w.Width, w.Height)
 
 	f.save(w)
+}
+
+// SaveRender writes the render chains and leaves the other records' keys as they
+// were.
+func (f *FileStore) SaveRender(r Render) {
+	assertRender(r)
+
+	f.save(r)
+}
+
+// assertRender holds what a render choice has to be for the next run to read it
+// back: every override names a stream to look it up under and a chain to render it
+// on. An entry with an empty half stands for a stream no lookup can reach, or an
+// override that cannot be told from the absence of one.
+func assertRender(r Render) {
+	for name, chain := range r.Streams {
+		assert.Assert(name != "", "a remembered render chain belongs to a named stream", chain)
+		assert.Assert(chain != "", "a remembered render chain names a chain", name)
+	}
 }
 
 // assertLayout holds what an arrangement has to be for the next run to open on

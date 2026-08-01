@@ -102,7 +102,7 @@ func (c *Card) Update(v View) {
 			c.boxes[bi].SetVisible(b.visible(v))
 		}
 		for ri, r := range b.rows {
-			c.lines[bi][ri].set(r.value(v))
+			c.lines[bi][ri].set(r.value(v), r.tipAt(v))
 		}
 	}
 	c.syncGroups(v.Stats.Groups)
@@ -127,7 +127,7 @@ func (c *Card) syncGroups(groups []player.StatGroup) {
 	}
 	for gi, g := range groups {
 		for ri, r := range g.Rows {
-			c.groupLines[gi][ri].set(r.Value)
+			c.groupLines[gi][ri].set(r.Value, r.Tip)
 		}
 	}
 }

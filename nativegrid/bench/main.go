@@ -149,7 +149,7 @@ func main() {
 	var desc string
 	switch elements, ok := chains[*chain]; {
 	case *chain == shipped:
-		desc = gstreamer.Describe(source)
+		desc = gstreamer.Describe(source, gstreamer.DefaultChain)
 	case ok:
 		desc = strings.Join(append([]string{source}, elements...), " ! ")
 	default:
@@ -250,8 +250,11 @@ func start(desc string, opts sinkOptions) (*tile, *gtk.Picture, error) {
 		w, h := pic.Width()*scale, pic.Height()*scale
 		if w > 0 && h > 0 && (w != lastW || h != lastH) {
 			lastW, lastH = w, h
-			fitEl.SetObjectProperty("caps", gst.CapsFromString(
-				fmt.Sprintf("video/x-raw,width=[1,%d],height=[1,%d]", w, h)))
+			// The bound comes from the backend, so it carries the memory feature the chain
+			// works in. Caps that name no feature pin the frames into system memory, which
+			// on a device chain measures a download the chain itself does not do.
+			fitEl.SetObjectProperty("caps",
+				gst.CapsFromString(gstreamer.FitCaps(gstreamer.DefaultChain, w, h)))
 		}
 		return true
 	})

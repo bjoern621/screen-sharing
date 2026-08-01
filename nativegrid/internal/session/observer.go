@@ -29,6 +29,12 @@ const (
 	// the app is publishing, and what the last command it was sent cost. It
 	// carries no index: the state is about the app, not about a stream.
 	AppChanged
+	// RenderChanged reports a new render chain. Change.Index is the stream that
+	// chose one of its own, and noStream the window's default moving, which every
+	// stream that chose nothing follows.
+	// A watched stream restarts on the new chain, which arrives separately as its
+	// own StateChanged: what this kind carries is the choice, not its consequence.
+	RenderChanged
 )
 
 func (k ChangeKind) String() string {
@@ -47,6 +53,8 @@ func (k ChangeKind) String() string {
 		return "stall changed"
 	case AppChanged:
 		return "app changed"
+	case RenderChanged:
+		return "render changed"
 	}
 	assert.Never("unexpected change kind", int(k))
 	return ""

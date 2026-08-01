@@ -36,6 +36,43 @@ func TestEveryFfmpegGpuPathBuildsAChain(t *testing.T) {
 	}
 }
 
+// A path whose family converts nothing states no colour on the way in, and the two
+// options that would have steered a conversion are dropped with it: there is no swscale
+// stage for -color_range to aim, and -pix_fmt would ask ffmpeg to convert a GPU surface
+// it cannot read. What the command still carries is the tag, since the primaries and the
+// transfer are the capture's whatever the encoder does with the matrix and the range.
+//
+// The values the stream ends up with are the row's own claim (gpupath.Signalled), so a
+// row that starts honouring the settings fails here and gets promoted to ColourExact.
+func TestTheEncoderColourPathDropsTheOptionsItsEncoderIgnores(t *testing.T) {
+	p, ok := gpupath.For(capabilities.EngineFfmpeg, "ddagrab", capabilities.FamilyNvenc)
+	if !ok {
+		t.Skip("no ffmpeg ddagrab/nvenc row to cover")
+	}
+	if p.Colour != gpupath.ColourEncoder {
+		t.Skipf("the row is %s, so it no longer covers the encoder-colour path", p.Colour)
+	}
+
+	s := gpuStream("ddagrab", "h264_nvenc")
+	s.CaptureMemory = gpupath.MemoryGpuEncoderColor
+	args, err := BuildPublishArgs(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	line := strings.Join(args, " ")
+	for _, forbidden := range []string{"hwdownload", "hwupload", "-pix_fmt", "-color_range"} {
+		if strings.Contains(line, forbidden) {
+			t.Errorf("the encoder-colour path must not carry %s, which its encoder ignores: %s", forbidden, line)
+		}
+	}
+	if !strings.Contains(line, "setparams") {
+		t.Errorf("the primaries and the transfer are still this side's to state: %s", line)
+	}
+	if GpuStatesColour("h264_nvenc") {
+		t.Error("the nvenc family states no device-side colour, so GpuStatesColour must say so")
+	}
+}
+
 // The whole point of the path is that no frame crosses the bus, so a chain that still
 // downloads or uploads one has kept the round trip while claiming to have dropped it.
 // The device option goes with them: the map derives the encoder's device from the

@@ -15,7 +15,8 @@ import (
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 )
 
-// View is one poll of a player's figures, plus the rates only two polls can give.
+// View is one poll of a player's figures, plus the rates only two polls can give
+// and the one figure the player cannot see.
 type View struct {
 	Stream roster.Stream
 	Stats  player.Stats
@@ -23,6 +24,11 @@ type View struct {
 	FPS string
 	// VideoRate and AudioRate are the measured bitrates, in Mbps.
 	VideoRate, AudioRate float64
+	// Renderer is the GSK renderer drawing the window, which is the last link in
+	// the render path and the view's own knowledge: the pipeline hands over a
+	// texture and has no say in what draws it. The tile fills it the way it reports
+	// the size it draws at, and it is "" while the widget is not in a window.
+	Renderer string
 }
 
 // Poller turns the monotonic counters a player reports into rates. The player

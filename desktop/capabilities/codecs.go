@@ -43,13 +43,15 @@ package capabilities
 // honor.
 var Codecs = []Codec{
 	{
+		// The one RGB-coding row with no planar-RGB gap: the nvcodec HEVC elements take
+		// a GBR sink format and code it in the Range Extensions profile, the same
+		// profile family that puts gbrp in this list, so both publish engines reach it.
 		Name:        "hevc_nvenc",
 		Family:      FamilyNvenc,
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
-		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
 		// 8-bit only, the same limit every other H.264 row states: 10-bit H.264 is
@@ -627,15 +629,19 @@ var gstNoRateCeiling = Gap{
 	Reason: "no GStreamer software encoder element takes a rate ceiling above the target, so constrained VBR is reachable on the ffmpeg publish engine only; abr is the same encode named for what it does",
 }
 
-// gstNoPlanarRGB is the planar-RGB gap every RGB-coding row carries on the GStreamer
-// publish engine. No encoder element there takes a GBR sink format: x265enc, vp9enc
-// and av1enc take YUV only, as do the nvcodec elements, so the pipeline could only
-// convert RGB to 4:4:4 YUV and spend RGB's bitrate without its exactness. The ffmpeg
-// publish engine codes each of those formats as RGB, which is why this is a gap per
-// engine and not a pixel format the rows leave out.
+// gstNoPlanarRGB is the planar-RGB gap the software RGB-coding rows carry on the
+// GStreamer publish engine. x265enc, vp9enc and av1enc take YUV only, so the pipeline
+// could only convert RGB to 4:4:4 YUV and spend RGB's bitrate without its exactness.
+// The ffmpeg publish engine codes each of those formats as RGB, which is why this is a
+// gap per engine and not a pixel format the rows leave out.
+//
+// It is not every RGB-coding row: the nvcodec HEVC elements do take a GBR sink format
+// and code it in the Range Extensions profile, so hevc_nvenc carries no such gap and
+// reaches planar RGB on both engines. Which elements take which layout is
+// publish.gstFamilyChromaFormats, and this gap states only where none of them does.
 var gstNoPlanarRGB = Gap{
 	Engine: EngineGst,
 	Option: OptionChroma,
 	Value:  "gbrp",
-	Reason: "no GStreamer encoder element takes planar-RGB input, so direct RGB coding is reachable on the ffmpeg publish engine only",
+	Reason: "the x265, VP9 and AV1 encoder elements take no planar-RGB input, so direct RGB coding on this codec is reachable on the ffmpeg publish engine only",
 }

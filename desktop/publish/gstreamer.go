@@ -56,7 +56,7 @@ func (g gstEngine) captureOptions(s settings.Stream) (gstCaptureOptions, error) 
 	if err != nil {
 		return gstCaptureOptions{}, err
 	}
-	if opts.Memory == gpupath.MemoryGpu {
+	if gpupath.OnDevice(opts.Memory) {
 		if err := g.capture.HoldsOneDevice(); err != nil {
 			return gstCaptureOptions{}, err
 		}

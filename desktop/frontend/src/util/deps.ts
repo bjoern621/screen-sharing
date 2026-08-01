@@ -589,16 +589,54 @@ function gpuPathFor(
 }
 
 /**
+ * Whether taking this path leaves the colour the settings name out of the stream, which
+ * is the second fact a row states and the one that decides which of the two device
+ * values it serves.
+ *
+ * It is the only place the verdict is read here, mirroring gpupath.Colour.tradesColour
+ * on the backend, so a verdict this form does not know keeps the exact treatment and
+ * greys nothing new: what a run actually does stays the backend's resolution to answer.
+ */
+function tradesColour(path: GpuPath): boolean {
+    return path.colour === "encoder";
+}
+
+/**
+ * How this encoder family is reached on the device with the colour the form shows,
+ * empty where the pair table declares no such row.
+ *
+ * It is the way out the greyed direct value carries, and the one the dropdown cannot
+ * show by itself: the fix is another capture backend rather than another value of this
+ * field. The sentence is assembled from the row - the capture backend, the engine that
+ * runs it, and the import naming what converts - so it names whichever pair the table
+ * declares instead of a platform written in here.
+ */
+function exactColourReach(family: string, gpuPaths: GpuPath[]): string {
+    const alt = gpuPaths.find(p => p.family === family && !tradesColour(p));
+    if (!alt) {
+        return "";
+    }
+    return `${alt.capture} runs the same screen through the ${ENGINE_LABEL[alt.engine as Engine]} publish engine, where ${alt.import}, and the colour is the one selected`;
+}
+
+/**
  * Frame memories this capture backend and codec cannot publish through, each mapped
  * to the reason.
  *
- * Only the direct value is ever blocked. Auto answers whichever path the pair has, and
- * system memory is the path every pair has, so a combination with no row leaves one
- * value greyed and two live. An unresolved pair table blocks nothing, as everywhere
- * else here, so the control stays live during startup rather than greying and coming
- * back.
+ * Two facts of the pair decide it, and both come off the pair table: whether the pair
+ * has a device path at all, and what that path does to the colour. With no row both
+ * device values are greyed under one sentence, since neither has a way onto the device
+ * to demand. Where the row converts on the device the value that pays for the path with
+ * the colour is greyed, having nothing to trade for it; where the row converts nothing,
+ * the value that demands the colour too is greyed and carries the cost it would have
+ * paid, leaving the value that accepts that cost as the live one.
  *
- * The reason names both ends, because neither decides on its own: the same portal
+ * Auto and the system copy are never greyed. Auto answers with whichever path costs the
+ * user nothing and system memory is the path every pair has, so no combination leaves a
+ * dead control. An unresolved pair table blocks nothing, as everywhere else here, so the
+ * control stays live during startup rather than greying and coming back.
+ *
+ * Every reason names both ends, because neither decides on its own: the same portal
  * capture shares memory with a VAAPI encoder and not with an x264 one, and switching
  * either side is a way to reach the path.
  */
@@ -612,14 +650,24 @@ function unavailableFrameMemories(
     if (!gpuPaths || !engine) {
         return {};
     }
-    if (gpuPathFor(capture, codec, engine, caps, gpuPaths)) {
-        return {};
-    }
     const cap = findCapability(caps, codec);
     const label = cap ? codecLabel(cap) : codec;
-    return {
-        gpu: `${capture} capture and ${label} have no shared memory on the ${ENGINE_LABEL[engine]} publish engine - the frames reach the encoder through system memory`,
-    };
+    const path = gpuPathFor(capture, codec, engine, caps, gpuPaths);
+    // One sentence for both device values: with no row the frames have no way onto the
+    // device in the first place, and which colour the user was willing to pay for one
+    // changes nothing about that.
+    if (!path) {
+        const reason = `${capture} capture and ${label} have no shared memory on the ${ENGINE_LABEL[engine]} publish engine - the frames reach the encoder through system memory`;
+        return { gpu: reason, "gpu-encoder-color": reason };
+    }
+    if (!tradesColour(path)) {
+        return {
+            "gpu-encoder-color": `${capture} capture and ${label} convert on the GPU by the colour this form shows, so there is nothing here to trade - gpu keeps the frames on the device and the colour selected`,
+        };
+    }
+    const reach = exactColourReach(path.family, gpuPaths);
+    const traded = `${capture} capture and ${label} share device memory on the ${ENGINE_LABEL[engine]} publish engine with nothing converting between the two ends - ${path.cost}`;
+    return { gpu: reach ? `${traded} - ${reach}` : traded };
 }
 
 /**
@@ -818,11 +866,37 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     // DRM download strategy goes the other way: it picks the device a tiled scanout
     // buffer is mapped through so it can be read into system memory, and a run that
     // downloads nothing never chooses one.
+    //
+    // Whether the run stays on the device follows the row and the value together, the
+    // same two facts gpupath.Resolve reads. Auto is the value that reads the colour
+    // verdict as well: it takes a device path only where that path costs nothing, so a
+    // pair whose only path leaves the conversion to the encoder downloads under auto and
+    // has nothing to say about the device here.
     const path = gpuPathFor(s.capture, s.codec, engine, caps, gpuPaths);
-    if (path && s.captureMemory !== "system") {
-        d.note.captureMemory = path.import;
+    const trades = !!path && tradesColour(path);
+    if (
+        path && s.captureMemory !== "system" &&
+        !(s.captureMemory === "auto" && trades)
+    ) {
+        // A path that converts nothing carries its cost beside the import, so the field
+        // that chose the trade states it too instead of leaving it to the two colour
+        // fields it overrides.
+        d.note.captureMemory = trades
+            ? `${path.import}\n${path.cost}`
+            : path.import;
         d.disabled.drmMap =
             "the frames stay on the GPU, so nothing is downloaded and no mapping device is chosen: the map targets the encoder's own device";
+    }
+    // The colour fields the encoder overrides on the path that trades them. Both are
+    // general encoding concepts this combination blocks rather than knobs of one
+    // backend, so each greys with the reason instead of vanishing
+    // (docs/field-availability.md, "The rule"), and both carry the same sentence,
+    // because one conversion is what happens to the pair of them. normalize moves each
+    // onto what the encoder signals, so neither greyed field holds a value this same
+    // evaluation greys.
+    if (path && trades && s.captureMemory === "gpu-encoder-color") {
+        d.disabled.colorRange = path.cost;
+        d.disabled.chroma = path.cost;
     }
 
     return d;
@@ -974,15 +1048,34 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     }
 
     // Frame memory: settings and presets from before the option lack the key, and a
-    // capture or codec change can strand a direct path that the new pair does not
-    // have. Both land on auto, the one value every pair satisfies, rather than on the
-    // system copy: auto takes the direct path wherever the pair regains one, so a
-    // repair made for this combination does not follow the settings into the next.
+    // capture or codec change can strand a device path that the new pair does not
+    // have, or one whose colour the new pair has nothing to trade. All of them land on
+    // auto, the one value every pair satisfies, rather than on the system copy: auto
+    // takes the device path wherever the pair has one that costs nothing, so a repair
+    // made for this combination does not follow the settings into the next.
     const blockedMemories = unavailableFrameMemories(
         next.capture, next.codec, engine, caps, gpuPaths
     );
     if (!next.captureMemory || blockedMemories[next.captureMemory]) {
         next.captureMemory = "auto";
+    }
+
+    // The colour a run that trades it away actually carries. The encoder converts the
+    // captured surface on its own terms there and signals what it chose, so the two
+    // fields hold that instead of the values last selected: evaluateDeps greys both with
+    // the row's cost, and a greyed field showing something other than what the run
+    // produces is the one disagreement between the form and the publish these two
+    // functions exist to prevent (docs/field-availability.md, "Where the rules live").
+    //
+    // It runs after the memory repair, so a value that repair moved off trades nothing
+    // and overrides nothing.
+    const memPath = gpuPathFor(next.capture, next.codec, engine, caps, gpuPaths);
+    if (
+        memPath && tradesColour(memPath) &&
+        next.captureMemory === "gpu-encoder-color"
+    ) {
+        next.chroma = memPath.signalled.chroma || next.chroma;
+        next.colorRange = memPath.signalled.range || next.colorRange;
     }
 
     return next;

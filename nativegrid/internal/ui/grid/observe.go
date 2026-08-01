@@ -46,6 +46,12 @@ func (v *View) Changed(c session.Change) {
 	case session.AppChanged:
 		// The publish state is the app's own and the sidebar carries its controls, so
 		// nothing in the tile area stands for it.
+	case session.RenderChanged:
+		// The chain a tile renders through is on its own control bar, and the window's
+		// default is what every tile's leading entry names, so a change with no index
+		// reaches all of them.
+		// The restart it costs a watched stream arrives separately, as a state change.
+		v.refreshChains()
 	default:
 		assert.Never("unexpected change kind", int(c.Kind))
 	}

@@ -1,8 +1,12 @@
 // Package session is the grid's model: which streams the window knows, which of
 // them are watched, in what order, and which one is spotlit.
 //
-// It owns the players behind the watched streams and the arrangement carried
-// across runs, and holds no widget. Views subscribe as Observers and read the
+// It owns the players behind the watched streams, the arrangement carried across
+// runs and the render chain each stream draws through (render.go), which is the
+// window's choice rather than the roster's because only the decode backend knows
+// which chains this machine can run.
+//
+// It holds no widget. Views subscribe as Observers and read the
 // model back, so the tile area and the sidebar cannot drift apart: there is one
 // place a watch state is decided and one place it is remembered.
 package session
@@ -66,7 +70,11 @@ type Session struct {
 	order   []int
 	spot    int
 	factory player.Factory
-	store   layout.Store
+	// chains is what the decode backend offers to render with. It is the backend's
+	// function rather than its answer: what this machine registers is read through it
+	// on demand, so nothing here holds a second version of it.
+	chains player.Chainer
+	store  layout.Store
 	// send asks the app for a watch leg. It is the model's only way out of the
 	// process: what a leg means is the app's business, and the answer arrives as
 	// a roster push like any other.
@@ -85,6 +93,17 @@ type Session struct {
 	observers []Observer
 	// persist coalesces the writes of a burst of changes into one.
 	persist *idle.Coalescer
+	// renderChain is the chain the window renders every stream through, and "" while
+	// nobody has chosen one and the backend's own default stands (render.go).
+	renderChain string
+	// renderChains are the streams that render on a chain of their own, by stream
+	// name. A stream the current roster does not carry keeps its entry, the rule the
+	// display order follows, so its choice survives the run it is away for.
+	renderChains map[string]string
+	// persistRender coalesces the render-chain writes of a burst into one, beside the
+	// arrangement's coalescer rather than sharing it: the two records are written
+	// apart, so a change to one does not restate the other.
+	persistRender *idle.Coalescer
 	// watchSet coalesces the reports of a burst of watch changes into one, and
 	// reported is the last set that went out.
 	watchSet *idle.Coalescer
@@ -117,8 +136,9 @@ type Session struct {
 
 // New builds the model for the config the window opens with. The remembered
 // arrangement is read here and applied by Restore, once the views are in place.
-func New(cfg roster.Config, factory player.Factory, store layout.Store, send roster.Send, report roster.Report, run roster.Run, dispatch idle.Dispatch) *Session {
+func New(cfg roster.Config, factory player.Factory, chains player.Chainer, store layout.Store, send roster.Send, report roster.Report, run roster.Run, dispatch idle.Dispatch) *Session {
 	assert.IsNotNil(factory, "a session decodes through a player factory")
+	assert.IsNotNil(chains, "a session offers the render chains its backend can run")
 	assert.IsNotNil(store, "a session remembers its arrangement in a store")
 	assert.IsNotNil(send, "a session asks the app for a watch leg")
 	assert.IsNotNil(report, "a session reports the streams it watches")
@@ -126,23 +146,31 @@ func New(cfg roster.Config, factory player.Factory, store layout.Store, send ros
 	assert.IsNotNil(dispatch, "a session hops player callbacks to the UI loop")
 
 	saved := store.Load()
+	// The chains are resolved against what the backend offers here rather than at the
+	// first open: a name this build cannot place is a file to survive, and the run
+	// that reads it is the one that should say so.
+	chain, own := rememberedRender(store.LoadRender(), chains())
 	s := &Session{
-		spot:        noSpot,
-		factory:     factory,
-		store:       store,
-		send:        send,
-		report:      report,
-		run:         run,
-		app:         cfg.App,
-		dispatch:    dispatch,
-		retryDelays: retryBackoff,
-		stagger:     restoreStagger,
-		sweepEvery:  sweepInterval,
-		savedOrder:  rememberedOrder(saved.Order),
-		wantWatched: make(map[string]bool, len(saved.Watched)),
-		wantSpot:    saved.Spot,
+		spot:         noSpot,
+		factory:      factory,
+		chains:       chains,
+		store:        store,
+		send:         send,
+		report:       report,
+		run:          run,
+		app:          cfg.App,
+		dispatch:     dispatch,
+		retryDelays:  retryBackoff,
+		stagger:      restoreStagger,
+		sweepEvery:   sweepInterval,
+		savedOrder:   rememberedOrder(saved.Order),
+		wantWatched:  make(map[string]bool, len(saved.Watched)),
+		wantSpot:     saved.Spot,
+		renderChain:  chain,
+		renderChains: own,
 	}
 	s.persist = idle.New(dispatch, s.write)
+	s.persistRender = idle.New(dispatch, s.writeRender)
 	s.watchSet = idle.New(dispatch, s.sendWatchSet)
 	for _, n := range saved.Watched {
 		s.wantWatched[n] = true
@@ -265,9 +293,10 @@ func (s *Session) Close() {
 		logger.Warnf("pipelines still stopping after %s, closing anyway", stopTimeout)
 	}
 
-	// The loop the write was deferred to has already returned, so the coalescer
-	// runs it here and drops the pass it will never get.
+	// The loop the writes were deferred to has already returned, so the coalescers
+	// run them here and drop the pass they will never get.
 	s.persist.Flush()
+	s.persistRender.Flush()
 	logger.Infof("session closed")
 }
 

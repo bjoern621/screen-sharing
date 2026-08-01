@@ -72,33 +72,90 @@ type Events struct {
 	OnEnd func(message string)
 }
 
+// Open is what a player is opened with besides the stream itself: the render
+// choices that belong to the window rather than to the roster.
+//
+// It is a struct so a choice can be added without every caller learning about
+// it, and its zero value is what a caller with no choice to make passes.
+type Open struct {
+	// Chain names the render chain the backend completes the stream's source
+	// with, one of the names its Chains report. Empty asks for the backend's
+	// default, and so does a name this machine cannot run.
+	Chain string
+}
+
+// Chain is one render chain a backend offers, as a view shows it: a name to ask
+// for it back by, a label and an explanation, and whether this machine can run
+// it at all.
+//
+// The grid names no framework, so the elements a chain is built from stay behind
+// the seam and only the reading of them crosses it.
+type Chain struct {
+	Name  string
+	Label string
+	// Tip is what the chain does and what it says about the colour it produces,
+	// which is the choice a picker offers.
+	Tip string
+	// Available is whether this machine registers the elements the chain needs.
+	// Reason says what is missing on one that does not, so an offer that cannot
+	// be taken explains itself instead of just being refused.
+	Available bool
+	Reason    string
+	// Default marks the chain a stream renders through when nothing chose one.
+	//
+	// The backend states it rather than implying it by position: a default read off
+	// the order of this slice is a default that moves whenever the list is
+	// reordered for a picker's sake, and the two facts then disagree without either
+	// side changing. Exactly one offer carries it.
+	Default bool
+}
+
 // Factory opens the receive pipeline for one configured stream. The grid takes a
 // factory rather than a concrete constructor, so its tiles can be driven by
 // another backend or by a stub in a test.
-type Factory func(st roster.Stream, ev Events) (Player, error)
+type Factory func(st roster.Stream, open Open, ev Events) (Player, error)
+
+// Chainer lists the render chains a backend offers on this machine.
+type Chainer func() []Chain
+
+// backend is one registered decode backend: what opens a stream and what it can
+// be asked to render it with.
+type backend struct {
+	open   Factory
+	chains Chainer
+}
 
 // backends holds the registered decode backends by name.
-var backends = map[string]Factory{}
+var backends = map[string]backend{}
 
 // Register adds a decode backend. Registering the same name twice is a
 // programming error.
-func Register(name string, f Factory) {
+func Register(name string, f Factory, chains Chainer) {
 	assert.Assert(name != "", "a backend registers under a name")
 	assert.IsNotNil(f, "a backend registers a factory", name)
+	assert.IsNotNil(chains, "a backend registers the chains it offers", name)
 	_, exists := backends[name]
 	assert.Assert(!exists, "player backend registered twice", name)
 
-	backends[name] = f
+	backends[name] = backend{open: f, chains: chains}
 	logger.Debugf("player backend %q registered", name)
 }
 
 // For returns the factory registered under name.
 func For(name string) (Factory, error) {
-	f, ok := backends[name]
+	b, ok := backends[name]
 	if !ok {
 		return nil, fmt.Errorf("unknown player backend %q, have %v", name, Names())
 	}
-	return f, nil
+	return b.open, nil
+}
+
+// Chains lists the render chains the named backend offers, which is what a
+// picker draws.
+func Chains(name string) []Chain {
+	b, ok := backends[name]
+	assert.Assert(ok, "a backend answers for the chains it registered", name)
+	return b.chains()
 }
 
 // Names lists the registered backends, sorted for a stable order in the flag

@@ -10,12 +10,31 @@ import (
 	"bjoernblessin.de/screenshare/gpupath"
 )
 
-// isolateConfig points os.UserConfigDir at a fresh temp directory so tests
-// never read or clobber the real settings file. Effective on Linux, where
-// os.UserConfigDir honors XDG_CONFIG_HOME.
+// isolateConfig points os.UserConfigDir at a fresh temp directory so tests never
+// read or clobber the real settings file.
+//
+// Every platform's variable is set, because os.UserConfigDir reads a different one
+// on each and a test that isolates only one platform's is a test that writes the
+// developer's own settings, presets and portal token on the others: XDG_CONFIG_HOME
+// on Linux, AppData on Windows, HOME on macOS.
+//
+// The result is asserted rather than assumed. Setting the wrong variable fails
+// silently and destructively, so the one thing this helper must not do is return
+// while os.UserConfigDir still answers with the real directory.
 func isolateConfig(t *testing.T) {
 	t.Helper()
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("AppData", dir)
+	t.Setenv("HOME", dir)
+
+	got, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("isolating the config directory: %v", err)
+	}
+	if !strings.HasPrefix(got, dir) {
+		t.Fatalf("os.UserConfigDir is %s, outside the temp directory %s: this test would read and overwrite the real settings store", got, dir)
+	}
 }
 
 // mustLoad loads the settings and fails the test on the reason instead of

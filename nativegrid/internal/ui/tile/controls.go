@@ -5,6 +5,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare-nativegrid/internal/ui/renderpick"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/theme"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/widgets"
 )
@@ -15,6 +16,19 @@ const (
 	volumeHeight   = 96
 	revealDuration = 200
 )
+
+// The render-chain control's geometry, the icon at the size every control on the bar
+// is drawn at.
+const (
+	renderIconSize = 16
+	renderMargin   = 12
+	renderSpacing  = 8
+)
+
+// renderTip describes the control on the bar. It says what the choice is about and
+// what it costs, and each row of the picker says what that chain does.
+const renderTip = "Render chain this tile draws through: what scales and converts its decoded frames on the way to the screen, where it does that, and what it says about the colour they arrive in. " +
+	"Picking one restarts this tile on it, since a chain is fixed when the pipeline is built. The sidebar's header holds the chain every other tile follows."
 
 // buildControls assembles the bottom-center control bar and the volume slider card
 // that slides up over it. The bar carries the web tile's controls in its order:
@@ -48,6 +62,7 @@ func (t *Tile) buildControls() {
 	bar.AddCSSClass("controls-card")
 	bar.Append(t.volume.Widget())
 	bar.Append(t.statsToggle.Widget())
+	bar.Append(t.buildRenderButton())
 	bar.Append(t.spot.Widget())
 	bar.Append(disconnect)
 
@@ -58,6 +73,37 @@ func (t *Tile) buildControls() {
 	t.controls.SetMarginBottom(8)
 	t.controls.Append(t.buildVolumeCard())
 	t.controls.Append(bar)
+}
+
+// buildRenderButton is the bar's render-chain control: a button whose popover holds
+// the picker of this stream's own chain, leading with the entry that follows the
+// window's default.
+//
+// It is on the bar rather than in the sidebar row's watch-leg popover on purpose.
+// That popover composes a whole leg and commits it on Apply, and one popover with two
+// commit models is a trap: a chain is one change, and this control applies it the
+// moment it is picked.
+func (t *Tile) buildRenderButton() *gtk.MenuButton {
+	assert.IsNotNil(t.hooks.SetRenderChain, "a control bar moves its stream's render chain through the tile's hooks", t.stream.Name)
+
+	t.renderPick = renderpick.New(true, t.hooks.SetRenderChain)
+
+	body := gtk.NewBox(gtk.OrientationVertical, renderSpacing)
+	body.SetMarginTop(renderMargin)
+	body.SetMarginBottom(renderMargin)
+	body.SetMarginStart(renderMargin)
+	body.SetMarginEnd(renderMargin)
+	body.Append(t.renderPick.Widget())
+
+	popover := gtk.NewPopover()
+	popover.SetChild(body)
+
+	t.renderButton = gtk.NewMenuButton()
+	t.renderButton.AddCSSClass("flat")
+	t.renderButton.SetChild(t.icons.Image("video", renderIconSize, theme.Foreground))
+	t.renderButton.SetTooltipText(renderTip)
+	t.renderButton.SetPopover(popover)
+	return t.renderButton
 }
 
 // buildVolumeCard is the vertical slider that slides up over the bar.

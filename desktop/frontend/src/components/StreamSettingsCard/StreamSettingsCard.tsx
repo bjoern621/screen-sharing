@@ -381,6 +381,7 @@ export default function StreamSettingsCard({
                         )}
                         value={s.chroma}
                         options={CHROMAS}
+                        disabledReason={deps.disabled.chroma}
                         optionDisabled={deps.optionDisabled.chroma}
                         onChange={v => onUpdate({ chroma: v })}
                     />

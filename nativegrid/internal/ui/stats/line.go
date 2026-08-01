@@ -5,13 +5,14 @@ import (
 	"github.com/diamondburned/gotk4/pkg/pango"
 )
 
-// line is one rendered row: its box, so it can hide, its value label, and the
-// explanation the row carries.
+// line is one rendered row: its box, so it can hide, and its value label.
+//
+// The explanation is not kept here. Every pass writes it with the value it
+// explains, so a row whose reading is a verdict can explain the verdict it shows.
 type line struct {
 	row   *gtk.Box
 	value *gtk.Label
 	hides bool
-	tip   string
 }
 
 // tipTarget is a widget a tooltip can be put on.
@@ -32,9 +33,9 @@ func setTip(w tipTarget, text string) {
 	w.SetTooltipText(text)
 }
 
-// set writes one value, hiding the row or showing the placeholder when there is
-// none.
-func (l *line) set(v string) {
+// set writes one value under the explanation of it, hiding the row or showing the
+// placeholder when there is no value.
+func (l *line) set(v, tip string) {
 	if v == "" {
 		if l.hides {
 			l.row.SetVisible(false)
@@ -44,11 +45,12 @@ func (l *line) set(v string) {
 	}
 	l.row.SetVisible(true)
 	l.value.SetText(v)
+	setTip(l.row, tip)
 	// Codec descriptions outrun the card, so they ellipsize. The value then carries
 	// the full text above the row's explanation; a value that fits carries no
 	// tooltip of its own and the row's reaches the pointer.
 	if len(v) > valueChars {
-		setTip(l.value, joinTip(v, l.tip))
+		setTip(l.value, joinTip(v, tip))
 	} else {
 		setTip(l.value, "")
 	}
@@ -89,5 +91,5 @@ func newLine(block *gtk.Box, key, tip string, hides bool) *line {
 	row.Append(v)
 	setTip(row, tip)
 	block.Append(row)
-	return &line{row: row, value: v, hides: hides, tip: tip}
+	return &line{row: row, value: v, hides: hides}
 }

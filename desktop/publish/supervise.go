@@ -85,6 +85,9 @@ func supervise(cfg superviseConfig) (Handle, error) {
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", cfg.exe, err)
 	}
+	// Before the goroutine that waits on the child, for the reason KillOnAppExit
+	// documents. A GStreamer pipeline orphans exactly like an ffmpeg one.
+	ffmpeg.KillOnAppExit(cmd)
 
 	proc := &child{cmd: cmd}
 	proc.running.Store(true)

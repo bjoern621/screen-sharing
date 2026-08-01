@@ -40,8 +40,8 @@ const (
 // gstCaptureOptions are the parts of the source chain that belong to the run
 // rather than to the backend.
 type gstCaptureOptions struct {
-	// Memory is the resolved frame memory, gpupath.MemoryGpu or MemorySystem. A
-	// backend reads it to pin its source: an import needs the source to negotiate
+	// Memory is the resolved frame memory. A backend reads it through
+	// gpupath.OnDevice to pin its source: an import needs the source to negotiate
 	// device memory, which plain video/x-raw caps would never ask for.
 	Memory string
 	// InCaps is the capsfilter pinning memory, chroma and colorimetry on the encoder
@@ -63,8 +63,14 @@ type gstCaptureOptions struct {
 	RateProbe []string
 }
 
-// rateCaps returns the capsfilter pinning the output rate, in the memory the encoder
-// input was negotiated in.
+// rateCaps returns the capsfilter pinning a framerate, in the memory the encoder input
+// was negotiated in.
+//
+// Every capture chain pins its rate through this one function, wherever in the chain it
+// does so. Plain video/x-raw means system memory and nothing else, so a hardcoded rate
+// capsfilter pins the frames of a device path back into the round trip the path exists to
+// avoid, and the negotiation fails against a source offering device memory alone. On the
+// two backends whose Feature is empty it renders exactly what it always did.
 func (o gstCaptureOptions) rateCaps(fps int) string {
 	return "video/x-raw" + o.Feature + ",framerate=" + strconv.Itoa(fps) + "/1"
 }
@@ -188,7 +194,7 @@ func renderNodes() []string {
 // dmabuf fail in negotiation rather than quietly deliver copies.
 func portalElements(s settings.Stream, fd, node string, opts gstCaptureOptions) []string {
 	elements := []string{"pipewiresrc", "fd=" + fd, "path=" + node, "provide-clock=false"}
-	if opts.Memory == gpupath.MemoryGpu {
+	if gpupath.OnDevice(opts.Memory) {
 		elements = append(elements, "!", "video/x-raw(memory:DMABuf)")
 	}
 	elements = append(elements,
@@ -260,7 +266,7 @@ func (ximageCapture) elements(s settings.Stream, opts gstCaptureOptions) []strin
 		)
 	}
 	src = append(src,
-		"!", "video/x-raw,framerate="+strconv.Itoa(s.Fps)+"/1",
+		"!", opts.rateCaps(s.Fps),
 		"!", opts.Convert,
 		"!", opts.InCaps,
 	)
@@ -285,9 +291,10 @@ func (ximageCapture) elements(s settings.Stream, opts gstCaptureOptions) []strin
 // the element's properties rather than from a run, since macOS is not available
 // on the development machine.
 //
-// It carries no gpupath row. A row needs its engine half in gstGpuMemories, which
-// names the va family alone and so holds nothing a macOS pair could claim, and a
-// row without its half is what the pipeline builder asserts on.
+// It carries no gpupath row. A row needs its engine half in gstGpuMemories, which names
+// the va family, a Linux interface, and the nvcodec one, which reaches the device through
+// Direct3D 11: neither holds anything a macOS pair could claim, and a row without its half
+// is what the pipeline builder asserts on.
 type avfCapture struct{}
 
 func (avfCapture) Name() string { return "avfvideosrc" }
@@ -309,7 +316,7 @@ func (avfCapture) HoldsOneDevice() error {
 // repeated a frame yet, so what it counts is what AVFoundation delivered.
 func (avfCapture) elements(s settings.Stream, opts gstCaptureOptions) []string {
 	src := []string{"avfvideosrc", "capture-screen=true", "capture-screen-cursor=true",
-		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
+		"!", opts.rateCaps(s.Fps),
 		"!", opts.Convert,
 		"!", opts.InCaps,
 	}
@@ -332,11 +339,6 @@ func (avfCapture) elements(s settings.Stream, opts gstCaptureOptions) []string {
 // paces the encoder and nothing downstream repeats a frame, so no imagefreeze is
 // involved. The element runs on Windows only, so that follows from its properties
 // rather than from a run here.
-//
-// It carries no gpupath row. Desktop Duplication hands out a Direct3D texture,
-// but gstGpuMemories names the va family alone, so no encoder family this source
-// could pair with has an engine half, and a row without its half is what the
-// pipeline builder asserts on.
 type d3d11Capture struct{}
 
 func (d3d11Capture) Name() string { return "d3d11screencapturesrc" }
@@ -349,16 +351,28 @@ func (d d3d11Capture) Open(s settings.Stream, opts gstCaptureOptions) ([]string,
 	return d.elements(s, opts), nil, func() {}, nil
 }
 
+// HoldsOneDevice holds on every machine this backend runs on, so it refuses none.
+//
+// This is the reason the two ffmpeg rows need no check either: the auto-GPU encoder
+// element takes its adapter from the frames it is handed rather than opening a device of
+// its own, so the encode runs on the GPU that allocated the Desktop Duplication texture
+// whatever else the machine carries. A second card is then a monitor on that card, and
+// capturing it moves the encode along with it.
 func (d3d11Capture) HoldsOneDevice() error {
-	assert.Never("the Windows Direct3D backend has no GPU path, so no run holds its devices against one")
 	return nil
 }
 
 // elements places the rate probe at the end of the chain, where nothing has
 // repeated a frame yet, so what it counts is what Desktop Duplication delivered.
+//
+// The rate capsfilter carries the encoder input's memory feature, which the source
+// already produces here: Desktop Duplication hands out a Direct3D 11 texture, and that is
+// the memory the nvcodec device path converts and encodes in (gstGpuMemories). Pinning it
+// is what keeps the frames on the device, plain video/x-raw between the two being system
+// memory and nothing else.
 func (d3d11Capture) elements(s settings.Stream, opts gstCaptureOptions) []string {
 	src := []string{"d3d11screencapturesrc", "show-cursor=true", "monitor-index=" + strconv.Itoa(s.Monitor),
-		"!", "video/x-raw,framerate=" + strconv.Itoa(s.Fps) + "/1",
+		"!", opts.rateCaps(s.Fps),
 		"!", opts.Convert,
 		"!", opts.InCaps,
 	}

@@ -12,3 +12,14 @@ ffmpeg-*/
 
 # Wails bindings, regenerated from the Go app by `wails dev` / `wails build`
 desktop/frontend/wailsjs/
+
+# MediaMTX's MoQ listener generates a self-signed pair in whatever directory the relay
+# runs from, which for `task relay` is this one. Regenerated whenever it is absent, and
+# auto.key is a private key, so neither belongs in a commit.
+auto.crt
+auto.key
+
+# The pre-restructure module directory, which the "restructure" commit replaced with
+# desktop/ and left behind untracked. What survives in it is the ffmpeg package as it
+# stood then, kept only because two of its files were never committed anywhere.
+app/

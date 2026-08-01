@@ -19,7 +19,7 @@ func newAppSession(t *testing.T, app *roster.App) (*Session, *commands) {
 
 	ran := &commands{}
 	backend := &stubBackend{}
-	s := New(roster.Config{App: app}, backend.factory, &layout.Memory{},
+	s := New(roster.Config{App: app}, backend.factory, backend.chains, &layout.Memory{},
 		roster.Discard, roster.DiscardReport, ran.run, func(f func()) { f() })
 	testTimings(s)
 	return s, ran

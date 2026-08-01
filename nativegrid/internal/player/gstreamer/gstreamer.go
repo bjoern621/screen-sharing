@@ -1,13 +1,18 @@
 // Package gstreamer decodes a stream with GStreamer: the transport's source
 // fragment, then decode and render into a gtk4paintablesink.
 //
+// The render chains between the two are a table (chains.go), which is the only
+// place a launch line is written and the only place that says where a chain holds
+// its frames and what it claims about their colour. What a run then negotiated is
+// read back off the pads (memory.go), so the overlay reports what happened rather
+// than what was asked for.
+//
 // It is the receive-side counterpart of the publish pipeline in
 // desktop/publish/gstreamer.go, and registers itself as a player backend, so
 // nothing above the seam names GStreamer.
 package gstreamer
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/go-gst/go-gst/pkg/gst"
@@ -20,16 +25,14 @@ import (
 const Backend = "gstreamer"
 
 func init() {
-	player.Register(Backend, New)
+	player.Register(Backend, New, Chains)
 }
 
 // Element names the launch line gives the elements the player reads back.
 const (
-	decodeName  = "dec"
-	scaleName   = "scale"
-	fitName     = "fit"
-	convertName = "conv"
-	sinkName    = "sink"
+	decodeName = "dec"
+	fitName    = "fit"
+	sinkName   = "sink"
 )
 
 // renderQueue is the buffer between the decode thread and the render thread,
@@ -46,50 +49,6 @@ const (
 // rendered 22 fps where the same chain without the leak rendered 46, the rate
 // the source delivered.
 const renderQueue = "queue max-size-buffers=0 max-size-bytes=0 max-size-time=100000000"
-
-// renderChain is what a stream's source fragment is completed with:
-//
-//	<source> ! decodebin ! videoscale ! capsfilter ! videoconvert ! RGBA/sRGB ! queue ! gtk4paintablesink
-//
-// decodebin picks the depayloader/demuxer and decoder from the stream's caps, backed by gst-libav,
-// so the grid decodes everything a native ffplay/mpv window decodes, HEVC 4:4:4 and RGB included.
-//
-// videoscale directly after decodebin keeps parse-launch's delayed linking off the audio pads:
-// their caps never match, so only the video pad joins the branch.
-// An audio pad instead gets its own branch, built when the pad appears (audio.go), so a video-only
-// stream carries no idle audio elements.
-//
-// The scaler sits ahead of the conversion because that is the cheaper order.
-// A frame is scaled in the format the decoder produced, 1.5 bytes a pixel for the 4:2:0 most
-// streams arrive in, and the conversion to 4 bytes a pixel then runs on the tile's pixel count
-// instead of the source's.
-// It scales nothing until SetRenderSize bounds the capsfilter behind it, so a pipeline nobody tells
-// a size to converts what it always converted.
-//
-// The RGBA/sRGB capsfilter is not optional.
-// Without it the sink also accepts raw YUV, videoconvert passes the decoded frames through, and GTK
-// color-manages the texture itself: gtk4paintablesink maps an unknown transfer function to BT.709
-// for YUV, so GTK linearizes sRGB-encoded screen content with the BT.709 EOTF and lifts every
-// shadow, a visibly washed-out picture on dark content.
-// Pinned to RGBA, videoconvert applies matrix and range only (gamma-mode defaults to none) and tags
-// the result sRGB, the same interpretation ffplay uses.
-// 4:4:4 and RGB streams keep full chroma; nothing on this path subsamples.
-var renderChain = []string{
-	"decodebin name=" + decodeName,
-	"videoscale name=" + scaleName + " n-threads=0",
-	"capsfilter name=" + fitName + " caps=video/x-raw",
-	"videoconvert name=" + convertName + " n-threads=0",
-	"video/x-raw,format=RGBA,colorimetry=sRGB",
-	renderQueue,
-	"gtk4paintablesink name=" + sinkName,
-}
-
-// Describe renders the launch line one stream's source fragment is played
-// through. It is exported so a measurement runs the line this backend actually
-// plays rather than a copy of it.
-func Describe(source string) string {
-	return strings.Join(append([]string{source}, renderChain...), " ! ")
-}
 
 // initOnce initializes GStreamer with the first pipeline, so the binary has no
 // init-order dependency between main and the players.

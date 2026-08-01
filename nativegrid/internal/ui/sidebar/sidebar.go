@@ -18,6 +18,7 @@ import (
 	"bjoernblessin.de/screenshare-nativegrid/internal/idle"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/dnd"
+	"bjoernblessin.de/screenshare-nativegrid/internal/ui/renderpick"
 	"bjoernblessin.de/screenshare-nativegrid/internal/ui/theme"
 )
 
@@ -39,6 +40,11 @@ type View struct {
 	rank map[uintptr]int
 	// resort coalesces the reordering bursts a drag produces.
 	resort *idle.Coalescer
+	// render is the header's render-chain picker and renderButton the button that
+	// opens it (chrome.go). The chain is the window's choice, so it belongs to the
+	// header rather than to a row.
+	render       *renderpick.Picker
+	renderButton *gtk.MenuButton
 	// icons holds the row icons, which stay for the process lifetime: a row is
 	// hidden when its stream goes away, never removed.
 	icons theme.Icons
@@ -74,6 +80,7 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	v.app = newAppBar(&v.icons, sess.RunAppCommand)
 	v.root = v.build()
 	v.drawApp()
+	v.drawRender()
 	return v
 }
 
@@ -113,6 +120,11 @@ func (v *View) Changed(c session.Change) {
 		v.resort.Schedule()
 	case session.AppChanged:
 		v.drawApp()
+	case session.RenderChanged:
+		// The window's default is the half of the choice the header holds. A stream's own
+		// override is on its tile, and the default is what a tile's leading entry names,
+		// so both directions of the change reach this control and it redraws for either.
+		v.drawRender()
 	default:
 		assert.Never("unexpected change kind", int(c.Kind))
 	}

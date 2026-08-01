@@ -219,6 +219,10 @@ func Start(
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", exe, err)
 	}
+	// Here rather than beside the reaping goroutine below: the assignment needs the
+	// pid to still be this child's, which holding the process handle guarantees only
+	// until cmd.Wait releases it.
+	KillOnAppExit(cmd)
 
 	proc := &Proc{cmd: cmd, Stdin: stdin}
 	proc.running.Store(true)
