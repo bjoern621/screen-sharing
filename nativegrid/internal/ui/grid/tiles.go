@@ -34,7 +34,7 @@ func (v *View) syncTile(i int) (changed bool) {
 			ToggleSpot:     func() { v.sess.ToggleSpot(i) },
 			Disconnect:     func() { v.sess.SetWatched(i, false) },
 			SetRenderChain: func(name string) { v.sess.SetRenderChain(i, name) },
-		})
+		}, v.dispatch)
 		v.drag.AttachSource(t.Widget(), i)
 		v.tiles[i] = t
 	}

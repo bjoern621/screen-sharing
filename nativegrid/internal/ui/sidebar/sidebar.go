@@ -45,6 +45,9 @@ type View struct {
 	// header rather than to a row.
 	render       *renderpick.Picker
 	renderButton *gtk.MenuButton
+	// dispatch is the UI loop the picker defers a pick to, kept because the header is
+	// built after New has returned its argument.
+	dispatch idle.Dispatch
 	// icons holds the row icons, which stay for the process lifetime: a row is
 	// hidden when its stream goes away, never removed.
 	icons theme.Icons
@@ -56,11 +59,12 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	assert.IsNotNil(dispatch, "the sidebar defers its resorting to a UI loop")
 
 	v := &View{
-		title: adw.NewWindowTitle("Streams", ""),
-		list:  gtk.NewListBox(),
-		sess:  sess,
-		drag:  drag,
-		rank:  map[uintptr]int{},
+		title:    adw.NewWindowTitle("Streams", ""),
+		list:     gtk.NewListBox(),
+		sess:     sess,
+		drag:     drag,
+		rank:     map[uintptr]int{},
+		dispatch: dispatch,
 	}
 	v.resort = idle.New(dispatch, v.resortRows)
 

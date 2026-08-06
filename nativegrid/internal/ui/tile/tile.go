@@ -23,6 +23,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare-nativegrid/internal/idle"
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
 	"bjoernblessin.de/screenshare-nativegrid/internal/roster"
 	"bjoernblessin.de/screenshare-nativegrid/internal/session"
@@ -53,6 +54,10 @@ type Tile struct {
 	picture *gtk.Picture
 	icons   *theme.Icons
 	hooks   Hooks
+	// dispatch is the UI loop the render-chain picker defers a pick to, so the model
+	// change and the redraw answering it stay out of the dropdown's own signal
+	// emission (renderpick).
+	dispatch idle.Dispatch
 
 	// stream is the configuration the tile draws, refreshed through SetStream.
 	// The overlay names the transport and source fragment it plays, and a watch leg the
@@ -133,17 +138,19 @@ type Tile struct {
 
 // New builds a tile in the loading state. The stream's player arrives through
 // Attach, which the grid calls as soon as one runs.
-func New(st roster.Stream, hooks Hooks) *Tile {
+func New(st roster.Stream, hooks Hooks, dispatch idle.Dispatch) *Tile {
 	assert.IsNotNil(hooks.Retry, "a tile retries through its hooks", st.Name)
 	assert.IsNotNil(hooks.ToggleSpot, "a tile spotlights through its hooks", st.Name)
 	assert.IsNotNil(hooks.Disconnect, "a tile disconnects through its hooks", st.Name)
 	assert.IsNotNil(hooks.SetRenderChain, "a tile moves its render chain through its hooks", st.Name)
+	assert.IsNotNil(dispatch, "a tile defers a picked render chain to a UI loop", st.Name)
 
 	t := &Tile{
-		picture: gtk.NewPicture(),
-		icons:   &theme.Icons{},
-		hooks:   hooks,
-		stream:  st,
+		picture:  gtk.NewPicture(),
+		icons:    &theme.Icons{},
+		hooks:    hooks,
+		dispatch: dispatch,
+		stream:   st,
 		// The tile draws a state before the grid hands it the first one, and fills its
 		// cell until a layout says otherwise.
 		state: session.Loading,

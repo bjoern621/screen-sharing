@@ -83,10 +83,17 @@ func (t *Tile) buildControls() {
 // That popover composes a whole leg and commits it on Apply, and one popover with two
 // commit models is a trap: a chain is one change, and this control applies it the
 // moment it is picked.
+// The popover closes with the pick, because the picker is the whole of what it holds:
+// there is nothing left in it to do once a chain was chosen, and a list that stays
+// open reads as a choice that has not been taken yet.
 func (t *Tile) buildRenderButton() *gtk.MenuButton {
 	assert.IsNotNil(t.hooks.SetRenderChain, "a control bar moves its stream's render chain through the tile's hooks", t.stream.Name)
 
-	t.renderPick = renderpick.New(true, t.hooks.SetRenderChain)
+	popover := gtk.NewPopover()
+	t.renderPick = renderpick.New(true, t.dispatch, func(name string) {
+		t.hooks.SetRenderChain(name)
+		popover.Popdown()
+	})
 
 	body := gtk.NewBox(gtk.OrientationVertical, renderSpacing)
 	body.SetMarginTop(renderMargin)
@@ -95,7 +102,6 @@ func (t *Tile) buildRenderButton() *gtk.MenuButton {
 	body.SetMarginEnd(renderMargin)
 	body.Append(t.renderPick.Widget())
 
-	popover := gtk.NewPopover()
 	popover.SetChild(body)
 
 	t.renderButton = gtk.NewMenuButton()

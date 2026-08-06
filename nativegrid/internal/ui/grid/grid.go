@@ -56,6 +56,9 @@ type View struct {
 	flush bool
 	// relayout coalesces the reordering bursts a drag produces.
 	relayout *idle.Coalescer
+	// dispatch is the UI loop handed to every tile opened here, kept because a tile is
+	// built whenever a stream is watched rather than while the view is.
+	dispatch idle.Dispatch
 }
 
 func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *View {
@@ -64,15 +67,16 @@ func New(sess *session.Session, drag *dnd.Controller, dispatch idle.Dispatch) *V
 	assert.IsNotNil(dispatch, "the tile area defers its relayout to a UI loop")
 
 	v := &View{
-		root:    gtk.NewOverlay(),
-		stack:   gtk.NewStack(),
-		grid:    gtk.NewGrid(),
-		spotBox: gtk.NewBox(gtk.OrientationVertical, gap),
-		strip:   gtk.NewBox(gtk.OrientationHorizontal, gap),
-		probe:   gtk.NewDrawingArea(),
-		sess:    sess,
-		drag:    drag,
-		tiles:   map[int]*tile.Tile{},
+		root:     gtk.NewOverlay(),
+		stack:    gtk.NewStack(),
+		grid:     gtk.NewGrid(),
+		spotBox:  gtk.NewBox(gtk.OrientationVertical, gap),
+		strip:    gtk.NewBox(gtk.OrientationHorizontal, gap),
+		probe:    gtk.NewDrawingArea(),
+		sess:     sess,
+		drag:     drag,
+		tiles:    map[int]*tile.Tile{},
+		dispatch: dispatch,
 	}
 	v.relayout = idle.New(dispatch, v.rebuild)
 

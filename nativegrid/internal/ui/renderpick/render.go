@@ -4,13 +4,16 @@ import (
 	"slices"
 	"strings"
 
-	coreglib "github.com/diamondburned/gotk4/pkg/core/glib"
 	"github.com/diamondburned/gotk4/pkg/gtk/v4"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
 )
+
+// rowPadding is the space a row keeps around its label, so the list reads as a menu
+// rather than as lines of text.
+const rowPadding = 6
 
 // Choice is the state a picker draws: what the backend offers, the chain in force,
 // and the default the leading entry names.
@@ -36,18 +39,12 @@ type entry struct {
 	available bool
 }
 
-// Draw is the picker's render function: it puts one Choice on the dropdown, rows and
+// Draw is the picker's render function: it puts one Choice on the list, rows and
 // selection alike.
 //
 // The rows are replaced only where the table moved, so a second pass on an unchanged
-// Choice writes the same selection into the same rows, rebuilds nothing and leaks no
-// handler.
+// Choice writes the same selection into the same rows and rebuilds nothing.
 func (p *Picker) Draw(c Choice) {
-	// A splice moves the selection, and a written selection is not a viewer picking
-	// one, so the whole pass is held out of the dropdown's own signal.
-	p.syncing = true
-	defer func() { p.syncing = false }()
-
 	p.drawn = c
 	entries := entriesOf(c, p.withDefault)
 	if !slices.Equal(entries, p.entries) {
@@ -62,7 +59,7 @@ func (p *Picker) Draw(c Choice) {
 	i := slices.IndexFunc(p.entries, func(e entry) bool { return e.name == c.Chosen })
 	assert.Assert(i >= 0, "a picker offers the chain it is drawn on", c.Chosen)
 
-	p.drop.SetSelected(uint(i))
+	p.list.SelectRow(p.rows[i])
 }
 
 // entriesOf is the rows one Choice draws: the leading default entry where the form
@@ -110,63 +107,46 @@ func rowTip(c player.Chain) string {
 	return strings.Join(slices.DeleteFunc(notes, func(s string) bool { return s == "" }), "\n\n")
 }
 
-// refill replaces the dropdown's rows with the ones a Choice derives.
+// refill replaces the list's rows with the ones a Choice derives.
 //
-// The table is written before the model, because the splice recreates every row and
-// the factory binds each of them out of the table while it runs.
+// The table and the widgets are written together, because a row is read back by its
+// position in both (Draw, commit): a table naming other rows than the list holds
+// would pick the wrong chain.
 func (p *Picker) refill(entries []entry) {
-	removals := uint(len(p.entries))
-	p.entries = entries
-
-	labels := make([]string, 0, len(entries))
-	for _, e := range entries {
-		labels = append(labels, e.label)
+	for _, row := range p.rows {
+		p.list.Remove(row)
 	}
-	assert.Assert(len(labels) == len(p.entries), "a label per row", len(labels), len(p.entries))
+	p.entries = entries
+	p.rows = make([]*gtk.ListBoxRow, 0, len(entries))
 
-	p.model.Splice(0, removals, labels)
+	for _, e := range entries {
+		row := buildRow(e)
+		p.list.Append(row)
+		p.rows = append(p.rows, row)
+	}
+	assert.Assert(len(p.rows) == len(p.entries), "a row per entry", len(p.rows), len(p.entries))
 }
 
-// rowFactory builds the popup's rows. The list view creates one widget per visible
-// row and recycles it, so bind is the list refilling a row that already exists out of
-// the table Draw wrote: it sets everything a row shows, the branch that greys it
-// included.
+// buildRow is one row of the list: the chain's label, and the tooltip that says what
+// the chain does.
 //
-// It is the popup's factory alone. The dropdown's button keeps the plain one GTK
-// gives it, which draws the selected row's label and nothing else.
-func (p *Picker) rowFactory() *gtk.ListItemFactory {
-	f := gtk.NewSignalListItemFactory()
-	f.ConnectSetup(func(o *coreglib.Object) {
-		label := gtk.NewLabel("")
-		label.SetXAlign(0)
-		listItem(o).SetChild(label)
-	})
-	f.ConnectBind(func(o *coreglib.Object) {
-		item := listItem(o)
-		pos := int(item.Position())
-		assert.Assert(pos >= 0 && pos < len(p.entries), "a bound row is one the table holds", pos, len(p.entries))
+// A chain this machine cannot run is shown and not offered. The row refuses to be
+// taken, and the label rather than the row carries the greying and the tooltip: GTK
+// draws no tooltip for an insensitive widget, so a row greyed as a whole would be one
+// whose reason for being inert cannot be read.
+func buildRow(e entry) *gtk.ListBoxRow {
+	label := gtk.NewLabel(e.label)
+	label.SetXAlign(0)
+	label.SetMarginTop(rowPadding)
+	label.SetMarginBottom(rowPadding)
+	label.SetMarginStart(rowPadding)
+	label.SetMarginEnd(rowPadding)
+	label.SetTooltipText(e.tip)
+	label.SetSensitive(e.available)
 
-		e := p.entries[pos]
-		label, ok := item.Child().(*gtk.Label)
-		assert.Assert(ok, "a render-chain row holds the label its setup gave it", e.label)
-
-		label.SetText(e.label)
-		label.SetTooltipText(e.tip)
-		// A chain this machine cannot run is shown and not offered: the row explains
-		// itself in its tooltip and refuses to be taken.
-		label.SetSensitive(e.available)
-		item.SetSelectable(e.available)
-		item.SetActivatable(e.available)
-	})
-	return &f.ListItemFactory
-}
-
-// listItem is the row a factory signal is about.
-func listItem(o *coreglib.Object) *gtk.ListItem {
-	assert.IsNotNil(o, "a list factory signal carries an object")
-
-	item, ok := o.Cast().(*gtk.ListItem)
-	assert.Assert(ok, "a list factory signal is about a list item")
-
-	return item
+	row := gtk.NewListBoxRow()
+	row.SetChild(label)
+	row.SetActivatable(e.available)
+	row.SetSelectable(e.available)
+	return row
 }

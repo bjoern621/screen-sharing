@@ -48,8 +48,16 @@ func (v *View) build() gtk.Widgetter {
 // The pick applies at once, unlike the watch-leg popover's Apply. Nothing is being
 // composed here: one chain is one change, and the tiles restart on it whenever it
 // lands.
+//
+// The popover closes with the pick, because the picker is the whole of what it holds:
+// there is nothing left in it to do once a chain was chosen, and a list that stays
+// open reads as a choice that has not been taken yet.
 func (v *View) buildRender() *gtk.MenuButton {
-	v.render = renderpick.New(false, v.sess.SetDefaultRenderChain)
+	popover := gtk.NewPopover()
+	v.render = renderpick.New(false, v.dispatch, func(name string) {
+		v.sess.SetDefaultRenderChain(name)
+		popover.Popdown()
+	})
 
 	body := gtk.NewBox(gtk.OrientationVertical, legSpacing)
 	body.SetMarginTop(renderMargin)
@@ -58,7 +66,6 @@ func (v *View) buildRender() *gtk.MenuButton {
 	body.SetMarginEnd(renderMargin)
 	body.Append(legRow("Render through", renderTip, v.render.Widget()))
 
-	popover := gtk.NewPopover()
 	popover.SetChild(body)
 
 	v.renderButton = gtk.NewMenuButton()
