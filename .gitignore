@@ -7,7 +7,7 @@ recordings/
 *.log
 bin/
 # extracted ffmpeg binary distributions (e.g. ffmpeg-7.x-essentials_build/),
-# NOT the desktop/ffmpeg source package
+# NOT the desktop/internal/ffmpeg source package
 ffmpeg-*/
 
 # Wails bindings, regenerated from the Go app by `wails dev` / `wails build`
@@ -22,4 +22,7 @@ auto.key
 # The pre-restructure module directory, which the "restructure" commit replaced with
 # desktop/ and left behind untracked. What survives in it is the ffmpeg package as it
 # stood then, kept only because two of its files were never committed anywhere.
-app/
+#
+# Anchored to the repository root: an unanchored "app/" matches a directory of that
+# name at any depth, which silently swallowed desktop/internal/app.
+/app/

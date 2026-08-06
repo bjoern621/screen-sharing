@@ -28,7 +28,7 @@ known-good dependency set during development.
 Nothing beyond those two is needed to open a viewer, on any platform. A viewer
 counts as connected once the relay reports a reader on the path, which `Live()`
 already polls, and no window-system probe takes part in that signal, so a package
-declares no dependency for it (`StartWatch` in `desktop/app_watch.go` states the
+declares no dependency for it (`StartWatch` in `desktop/internal/app/watch.go` states the
 same).
 
 ### The AMD AMF runtime
@@ -221,6 +221,17 @@ closure of the grid and of every installed plugin flat next to the executables,
 where the Windows loader looks first; the plugins under `gstreamer-1.0`; and
 GLib's `gschemas.compiled` under `share/glib-2.0/schemas`, which GTK aborts
 without.
+
+The window's look travels with it as well, under the same `share/`: the Adwaita
+icon theme with `hicolor` behind it, and Cantarell beside the `fonts.conf` that
+makes it the font Pango resolves to, which needs `mingw-w64-x86_64-cantarell-fonts`
+and `mingw-w64-x86_64-adwaita-icon-theme` installed to bundle. Both are inputs
+GTK would otherwise answer with the machine's own preference, which is what makes
+an unbundled Windows run look unlike a Linux one; `nativegrid/README.md`, "One
+look on both platforms", says what each is and why it is stated rather than
+inherited. Every path in the generated `fonts.conf` is relative to the file, so
+the bundle survives being moved, and its cache goes to the user's directory
+rather than into a bundle that may sit somewhere unwritable.
 GStreamer looks for plugins in the prefix it was built against, which is a path
 that exists on no machine but the one that built it, so the grid prepends its own
 `gstreamer-1.0` directory to `GST_PLUGIN_PATH` before it initializes the library.

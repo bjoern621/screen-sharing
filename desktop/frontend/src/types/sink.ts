@@ -1,8 +1,8 @@
 /**
  * The decode seam. A grid tile drives a stream through a StreamSink without
- * knowing how it is decoded: WHEP into a <video>, or (VP9 4:4:4) WebCodecs into
- * a <canvas>. The sink owns its render surface and its audio, so the tile stays
- * decoder-agnostic.
+ * knowing how it is decoded: WHEP into a <video>, (VP9 4:4:4) WebCodecs into a
+ * <canvas>, or Media over QUIC into a canvas the relay's own reader owns. The
+ * sink owns its render surface and its audio, so the tile stays decoder-agnostic.
  */
 
 /**
@@ -23,7 +23,7 @@ export type SinkPhase = "requesting" | "negotiating" | "buffering";
 export const SINK_PHASES: SinkPhase[] = ["requesting", "negotiating", "buffering"];
 
 /** Which decoder backs a sink. Adding one is a new SinkKind + a new impl. */
-export type SinkKind = "whep" | "webcodecs";
+export type SinkKind = "whep" | "webcodecs" | "moq";
 
 /** Mute and volume of a sink that has audio. */
 export interface AudioSnapshot {
@@ -78,6 +78,13 @@ export interface SinkStats {
     packetsLost?: number;
     /** Glass-to-glass latency in ms when the decoder can measure it. */
     latencyMs?: number;
+    /**
+     * Whether the leg's TLS certificate was pinned by fingerprint rather than
+     * verified against a trusted root. MoQ-only: it is the one leg that must run
+     * over TLS and whose relay certificate is self-signed by default, so it is the
+     * one leg where the two cases differ. Absent on decoders that never ask.
+     */
+    certPinned?: boolean;
 }
 
 /**

@@ -22,7 +22,7 @@ func (s *Session) App() (roster.App, bool) {
 //
 // A push carrying no app state leaves the state in force standing. Whether there
 // is an app behind this window is settled at launch by the config it opened on,
-// and every push an app writes carries the field (desktop/watch.GridConfig), so
+// and every push an app writes carries the field (desktop/internal/watch.GridConfig), so
 // a push without one is a run that never had an app rather than an app that
 // went away. Dropping the controls on it would take the sidebar's publish button
 // off a window whose app is still there.

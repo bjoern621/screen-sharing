@@ -6,8 +6,14 @@ The relay and transport background is documented in the repository root README.
 ## Layout
 
 The Go module `bjoernblessin.de/screenshare` is the Wails backend.
-Package `main` binds one `App` struct to the frontend; its methods are grouped by domain across `app_settings.go`, `app_system.go`, `app_publish.go` and `app_watch.go`, with the struct and process lifecycle in `app.go`.
-Domain logic lives in leaf packages, one concern each:
+
+Package `main` at the module root holds only what `go:embed` pins there, since an embed reads no path above its own directory: the frontend bundle in `main.go` and the tray icon in `tray_icon_windows.go` / `tray_icon_other.go`.
+It calls `app.New` with those icon bytes and binds the result.
+
+Package `internal/app` is that backend. It binds one `App` struct to the frontend, its methods grouped by domain across `settings.go`, `system.go`, `publish.go` and `watch.go`, with the struct and process lifecycle in `app.go`.
+`startup` and `shutdown` stay unexported and reach `wails.Run` through `app.Hooks`, because Wails binds every exported method on the struct it is given and neither belongs in the frontend's API.
+
+Domain logic lives in leaf packages under `internal/`, one concern each, imported as `bjoernblessin.de/screenshare/internal/<package>`:
 
 | Package | Responsibility |
 |---------|----------------|

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Monitors } from "../../wailsjs/go/main/App";
+import { Monitors } from "../../wailsjs/go/app/App";
 import { Monitor } from "../types/stream";
 
 /**

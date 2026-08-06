@@ -12,4 +12,7 @@ services:
       - "8888:8888/tcp"   # HLS  (browser watch)
       - "8889:8889/tcp"   # WebRTC signaling
       - "8189:8189/udp"   # WebRTC media
+      - "8892:8892/tcp"   # MoQ  (fingerprint + relay page over HTTPS/HTTP2)
+      - "8892:8892/udp"   # MoQ  (WebTransport over HTTP3 - the web grid's leg)
+      - "8893:8893/udp"   # MoQ  (native QUIC, for a non-browser client)
       - "9997:9997/tcp"   # API  (who-is-live discovery)

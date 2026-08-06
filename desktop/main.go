@@ -6,13 +6,19 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+
+	"bjoernblessin.de/screenshare/internal/app"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	app := NewApp()
+	// The backend lives in internal/app; what stays in package main is what go:embed
+	// pins here, since it reads no path above its own directory: the frontend bundle
+	// above and the tray icon in tray_icon_windows.go / tray_icon_other.go.
+	a := app.New(trayIcon)
+	startup, shutdown := app.Hooks(a)
 
 	err := wails.Run(&options.App{
 		Title:  "screen-sharing",
@@ -25,10 +31,10 @@ func main() {
 		// Closing the window hides it instead of quitting, so the native grid the
 		// app spawned keeps running; the tray icon brings the settings back.
 		HideWindowOnClose: true,
-		OnStartup:         app.startup,
-		OnShutdown:        app.shutdown,
+		OnStartup:         startup,
+		OnShutdown:        shutdown,
 		Bind: []interface{}{
-			app,
+			a,
 		},
 	})
 

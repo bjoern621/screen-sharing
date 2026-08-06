@@ -10,7 +10,7 @@ import (
 // Status is what the window has open: the names of the streams with a tile, sorted.
 // It is the whole set rather than what changed, so the app replaces what it held and neither side merges.
 //
-// It travels as a KindWatchSet line; the consuming half is watch.GridStatus in desktop/watch/grid.go.
+// It travels as a KindWatchSet line; the consuming half is watch.GridStatus in desktop/internal/watch/grid.go.
 type Status struct {
 	Watching []string `json:"watching"`
 }

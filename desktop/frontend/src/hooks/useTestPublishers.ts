@@ -3,7 +3,7 @@ import {
     StartTestStreams,
     StopTestStreams,
     TestStreamsRunning,
-} from "../../wailsjs/go/main/App";
+} from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { PublishExit } from "../types/stream";
 

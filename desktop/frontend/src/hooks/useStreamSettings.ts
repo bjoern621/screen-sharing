@@ -3,7 +3,7 @@ import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
     PublishCommand, AudioCodecs, TransportFormats, CaptureTransports,
     CaptureEngines, GpuPaths, StoreNotice,
-} from "../../wailsjs/go/main/App";
+} from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
     Deps, EncoderInfo, GpuPath, PlatformInfo, Preset, Stream, TransportCarriage,

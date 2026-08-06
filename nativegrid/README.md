@@ -6,7 +6,7 @@ Styling maps the web design language (`docs/design-language.md`); the icons are 
 
 ## Running
 
-The app spawns the built binary from its "Native grid" button (`desktop/app_nativegrid.go`), passes the stream list as one JSON argument, and pushes the full list again as one JSON line on stdin whenever it changes.
+The app spawns the built binary from its "Native grid" button (`desktop/internal/app/nativegrid.go`), passes the stream list as one JSON argument, and pushes the full list again as one JSON line on stdin whenever it changes.
 The list may be empty; the sidebar shows a placeholder until streams appear.
 The app state the sidebar's foot draws travels in the same line.
 The window writes on stdout only to ask the app for something and to report what it watches, so everything it logs goes to stderr.
@@ -26,6 +26,36 @@ It also carries GStreamer core for go-gst's cgo build and exports the plugin pat
 On Windows the same dependencies come from MSYS2 instead, and `task nativegrid` builds from its MINGW64 shell.
 The binary is built for the GUI subsystem there, so the app spawning it opens no console window beside the grid.
 See `docs/packaging.md`, "Windows", for the packages and for the runtime the bundle has to carry.
+
+## One look on both platforms
+
+GTK draws every widget itself and calls no platform toolkit, so this is the same window on Windows and on Linux by construction; it is not a native-looking window on either, and it has no menu bar because libadwaita has none.
+What does differ is what GTK resolves that drawing against, and left alone each of those inputs answers with the machine's own preference rather than with this window's.
+Each is therefore stated: `internal/gtkenv` writes the ones GTK reads out of the environment as it initializes, and `theme.PinSettings` the ones it keeps in `GtkSettings`.
+
+The font matters most. No widget here names a family and `style.css` declares none, so all of them draw in whatever the platform calls its default: the desktop's setting on Linux, Segoe UI on Windows.
+A different family is different metrics, and a window whose text is a fraction wider lays out its sidebar rows, its header and its stats card differently, so nothing else about the look can match while this does not.
+It is pinned to Cantarell, which is what a GNOME desktop already draws.
+
+Pinning the name is not enough on Windows, because two things underneath it differ as well.
+Pango builds a `PangoCairoWin32FontMap` there, resolving families through GDI and rasterizing their glyphs with it, where Linux resolves through fontconfig and rasterizes with FreeType: the same string, shaped by the same HarfBuzz, still comes out as different outlines filled by a different rasterizer.
+`PANGOCAIRO_BACKEND` moves Windows onto the fontconfig font map, and `FONTCONFIG_FILE` points that map at the font the bundle carries, which the stock configuration would never find because it scans the system font directory alone.
+Neither half works without the other: the backend switch reaches only the fonts Windows ships, and the configuration is read by a font map GTK is not using.
+
+Those variables are written with `g_setenv` rather than `os.Setenv`.
+Go sets a variable by writing the Win32 environment block, which the C runtime never consults: it copies the environment as it starts and answers `getenv` out of that copy, and cgo does not sync the two on this platform.
+A pin written the Go way is one Pango cannot see, which is a pin that silently does nothing on the only platform it exists for.
+
+The rest are smaller.
+Hinting and antialiasing are stated so an outline becomes pixels the same way, grayscale rather than a subpixel order, because subpixel antialiasing rasterizes for the panel it is drawn on and two machines are not the same panel.
+The icon theme is pinned to Adwaita, where libadwaita's own widgets take the window buttons and the dropdown chevrons from; the grid's own icons are vendored SVGs and come from no theme at all.
+The Windows bundle carries the font and the theme, because a bundle that resolves them on the machine it lands on is a bundle that looks like that machine (`scripts/bundle-windows.sh`), and the Linux side takes both from the shell (`flake.nix`), the way every other dependency arrives there.
+
+The scale factor is deliberately not pinned: pinning it would size the window for a display it was not pinned for, and the font size is in points, which both platforms already scale the same way.
+
+The renderer is pinned to GL, so a machine that offers Vulkan does not rasterize through a different backend than one that does not.
+GTK on Windows will not realize it unless the toplevel gets a Direct Composition surface, and where that fails it falls back to the Cairo renderer, which is the fallback an unpinned run takes as well.
+That fallback is worth noticing rather than accepting: a tile's paintable is a GL texture, and a software renderer is the one case where it has to come back through system memory.
 
 ## Measuring the render path
 
@@ -80,7 +110,7 @@ The file has two owners, the model and the window, so a write replaces the keys 
 ## The decode seam
 
 - `internal/roster` parses the roster JSON, both the `-config` argument and each stdin push: one entry per live stream, the name of the watch leg it arrives over, and that transport's gst-launch source fragment.
-  The producing half is `watch.BuildGridConfig` (`desktop/watch/grid.go`); the fragment comes from the transport registry (`transport.GstWatcher`), so this binary holds no transport knowledge.
+  The producing half is `watch.BuildGridConfig` (`desktop/internal/watch/grid.go`); the fragment comes from the transport registry (`transport.GstWatcher`), so this binary holds no transport knowledge.
   The transport name is a label for the stats overlay, nothing this side acts on, and it is always the relay-to-viewer leg: how the stream was published is not visible here.
 - An entry also carries the legs that stream could move to and the knobs of every one of them, which the sidebar's watch-leg popover renders one control per, without knowing what any of them mean.
   Holding all of them is what lets the popover swap its controls the instant another leg is picked, instead of waiting for the app to say what that leg offers.

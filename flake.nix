@@ -264,6 +264,10 @@
               gtk4
               libadwaita
               gobject-introspection
+              # The look's inputs, pinned rather than taken from the host
+              # (nativegrid/README.md, "One look on both platforms").
+              adwaita-icon-theme
+              cantarell-fonts
             ]
             ++ [
               gst_all_1.gstreamer
@@ -275,6 +279,17 @@
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
               pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
             }"
+
+            # The font and the icon theme the window is pinned to, named here
+            # rather than left to the host: a shell that let them fall through
+            # would draw this window in whatever font and icons the machine
+            # running it happens to install, which is the difference the pin
+            # exists to remove. The Windows bundle carries the same two files
+            # and points at them the same way (scripts/bundle-windows.sh).
+            export FONTCONFIG_FILE="${
+              pkgs.makeFontsConf { fontDirectories = [ pkgs.cantarell-fonts ]; }
+            }"
+            export XDG_DATA_DIRS="${pkgs.adwaita-icon-theme}/share:${pkgs.gtk4}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
           ''
           + pkgs.lib.optionalString (vplRuntime != [ ]) ''
             # The qsv decoders load Intel's oneVPL runtime through the same dispatcher

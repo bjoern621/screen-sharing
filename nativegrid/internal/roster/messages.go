@@ -12,7 +12,7 @@ import (
 // One pipe holds both kinds, so the discriminator is what keeps a reader from taking one for the other,
 // and what lets it skip a kind it does not know instead of refusing the line.
 //
-// The reading half is watch.ParseGridMessage in desktop/watch/grid.go.
+// The reading half is watch.ParseGridMessage in desktop/internal/watch/grid.go.
 // The two packages are the two halves of one contract and name each other,
 // because no Go type crosses the module boundary.
 const (

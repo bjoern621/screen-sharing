@@ -2,7 +2,7 @@
 
 Abbreviations and initialisms this project uses, in code, configuration, documentation or the user interface.
 A term earns a row by appearing somewhere in the repository, not by being common in the field.
-Which combinations are actually offered is decided by the capability table in `desktop/capabilities`, not here.
+Which combinations are actually offered is decided by the capability table in `desktop/internal/capabilities`, not here.
 
 Expansion first, meaning second.
 Where an abbreviation carries two senses in this repository, each sense gets its own row.
@@ -115,6 +115,11 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | WebRTC  | Web Real-Time Communication            | Browser real-time media stack, reached here through WHIP and WHEP.                                         |
 | WHIP    | WebRTC-HTTP Ingestion Protocol         | RFC 9725, an SDP offer posted over HTTP to start a WebRTC publish session.                                 |
 | WHEP    | WebRTC-HTTP Egress Protocol            | The playback counterpart of WHIP.                                                                          |
+| MoQ     | Media over QUIC                        | Publish-subscribe streaming over QUIC. The relay re-serves every ingested stream on it, and the web grid is the only thing here that reads it: no engine this app drives publishes it and no player opens it. |
+| MoQT    | Media over QUIC Transport              | The IETF draft MoQ speaks on the wire, subscribing to named tracks whose objects arrive on their own unidirectional streams. |
+| Catalog | (no expansion)                         | The MoQ track a publisher describes its other tracks in, naming each one's codec. It is why a MoQ reader decodes five formats without pinning a profile. |
+| WebTransport | (no expansion)                    | Browser API carrying MoQ over HTTP/3. It refuses a plain listener, which is why the relay's MoQ port runs TLS and the web grid pins its certificate. |
+| QUIC    | (no expansion, not an acronym)          | UDP transport with per-stream reliability and its own TLS, under HTTP/3 and MoQ.                           |
 | SDP     | Session Description Protocol           | Text format describing media streams, codecs and transport parameters.                                     |
 | ICE     | Interactive Connectivity Establishment | Candidate gathering and connectivity checking that finds a working path between peers.                     |
 | STUN    | Session Traversal Utilities for NAT    | Protocol a client learns its mapped public address:port from, and the binding checks ICE probes candidate paths with. |

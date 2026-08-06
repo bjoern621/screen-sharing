@@ -265,6 +265,16 @@ export default function StreamSettingsCard({
                             onChange={v => onUpdate({ hlsPort: v })}
                         />
                     )}
+                    {/* MoQ is gated on neither leg the others follow: no engine
+                     * publishes it and no player opens it, so it is reachable
+                     * from the web grid alone and shown whatever either dropdown
+                     * says. */}
+                    <NumberField
+                        label="Relay port (MoQ, QUIC)"
+                        labelTip="Port of the relay's Media-over-QUIC listener (default 8892), which the web grid watches over. One number covers two listeners: the WebTransport endpoint over UDP and the certificate endpoint over TCP."
+                        value={s.moqPort}
+                        onChange={v => onUpdate({ moqPort: v })}
+                    />
                     <NumberField
                         label="Relay API port (HTTP)"
                         labelTip="TCP port of the relay's HTTP API (default 9997), used for the Live-now list."

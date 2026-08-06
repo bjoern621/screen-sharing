@@ -4,7 +4,7 @@
 //
 // The app passes what it knows at spawn as one JSON argument and pushes the full
 // state again as one JSON line per change (Pushes). The producing half is
-// watch.BuildGridConfig in desktop/watch/grid.go; the two name each other
+// watch.BuildGridConfig in desktop/internal/watch/grid.go; the two name each other
 // because no Go type crosses the module boundary.
 //
 // The window writes back on stdout in three kinds, each line tagged with its type
@@ -113,7 +113,7 @@ func Parse(raw string) (Config, error) {
 //
 // Transport is not checked against Transports. The app names the legs the
 // stream's format can be re-served on and opens the window on the leg it was
-// configured for, which need not be one of them (desktop/watch.WatchLeg), and
+// configured for, which need not be one of them (desktop/internal/watch.WatchLeg), and
 // the sidebar offers the current leg beside the declared ones for that reason.
 func validate(streams []Stream) error {
 	seen := make(map[string]bool, len(streams))

@@ -15,7 +15,7 @@
     ./relay.ps1 -Background      # launch hidden, return control
 #>
 param(
-  [string]$Version = "1.19.2",
+  [string]$Version = "1.20.0",
   [switch]$Background
 )
 

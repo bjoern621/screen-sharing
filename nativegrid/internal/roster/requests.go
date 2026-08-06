@@ -12,7 +12,7 @@ import (
 // control that moved, so the app replaces what it held and neither side merges.
 //
 // It travels as a KindWatchLeg line; the consuming half is
-// watch.ParseGridRequest in desktop/watch/gridrequest.go.
+// watch.ParseGridRequest in desktop/internal/watch/gridrequest.go.
 type Request struct {
 	Stream    string            `json:"stream"`
 	Transport string            `json:"transport"`

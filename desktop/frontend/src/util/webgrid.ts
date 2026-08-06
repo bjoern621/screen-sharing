@@ -21,12 +21,12 @@ import {
  * the host webview owns the API the path needs, so a build without it produces a
  * verdict instead of a runtime failure on the tile.
  *
- * Each path pins its own watch leg, relay to viewer, and neither follows the
- * publish leg: a stream published over SRT still reaches whep over WebRTC and
- * webcodecs over the viewer service's RTSP subscription.
+ * Each path pins its own watch leg, relay to viewer, and none follows the publish
+ * leg: a stream published over SRT still reaches whep over WebRTC, webcodecs over
+ * the viewer service's RTSP subscription, and moq over WebTransport.
  */
 interface WebGridPath {
-    decoder: Extract<SinkKind, "whep" | "webcodecs">;
+    decoder: SinkKind;
     formats: Format[];
     /** Subsampling of the profile the path decodes, matched exactly in both
      * directions: a 4:2:0 profile refuses full chroma and a full-chroma one
@@ -46,11 +46,28 @@ interface WebGridPath {
 /**
  * WebKitGTK carries the WebRTC bindings only when built with ENABLE_WEB_RTC,
  * which the nixpkgs default build leaves off, so the constructor is the
- * capability check (see viewer-architecture.md). Both paths are probed the same
- * way, since neither API is guaranteed by the webview the app is embedded in.
+ * capability check (see viewer-architecture.md). Every path is probed the same
+ * way, since none of these APIs is guaranteed by the webview the app is embedded
+ * in: WebTransport in particular is a Chromium-family binding, so the MoQ rows
+ * drop out of the WebKitGTK window and stay in a LAN browser.
  */
 export const HAS_WEBRTC = typeof RTCPeerConnection !== "undefined";
 const HAS_WEBCODECS = typeof VideoDecoder !== "undefined";
+export const HAS_WEBTRANSPORT = typeof WebTransport !== "undefined";
+
+/**
+ * The formats the relay re-serves over Media over QUIC. Unlike the other two
+ * paths, MoQ pins no profile of its own: the catalog names the codec and the
+ * reader hands that string to a VideoDecoder, so the limit is the webview's
+ * WebCodecs reach rather than the leg's.
+ *
+ * The rows below therefore claim the one profile every WebCodecs implementation
+ * accepts, 8-bit 4:2:0, and claim it for all five formats. A full-chroma stream
+ * may well decode here on a Chromium webview, but the verdict does not promise
+ * what only some hosts deliver: it under-promises and the tile over-delivers,
+ * which is the right way round for a badge shown before anyone is watching.
+ */
+const MOQ_FORMATS: Format[] = ["h264", "hevc", "av1", "vp9", "vp8"];
 
 export const WEB_GRID_DECODE: WebGridPath[] = [
     {
@@ -69,6 +86,18 @@ export const WEB_GRID_DECODE: WebGridPath[] = [
         codecString: "vp09.01.10.08",
         available: HAS_WEBCODECS,
         label: "the WebCodecs viewer decodes VP9 profile 1, 8-bit full chroma",
+    },
+    // Last, so a format an earlier path already carries keeps the path it had:
+    // H.264 4:2:0 stays on WHEP, which is one hop and needs no certificate, and
+    // VP9 full chroma stays on the viewer service. What MoQ adds is the formats
+    // neither of them reaches at all.
+    {
+        decoder: "moq",
+        formats: MOQ_FORMATS,
+        is420: true,
+        bitDepth: 8,
+        available: HAS_WEBTRANSPORT && HAS_WEBCODECS,
+        label: "Media over QUIC decodes 8-bit 4:2:0 H.264, HEVC, AV1, VP9 and VP8",
     },
 ];
 
@@ -121,7 +150,7 @@ export function webGridCheck(s: Stream, caps: Capability[] | null): ViewVerdict 
             : `${fmtLabel} at ${s.chroma} has no web-grid path: ${
                   paths.length
                       ? paths.join(", and ")
-                      : "this webview owns neither web-grid decoder"
+                      : "this webview owns no web-grid decoder"
               }`;
     const whep = HAS_WEBRTC
         ? ""

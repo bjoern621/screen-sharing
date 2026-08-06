@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { OpenLog, OpenLogsFolder } from "../../wailsjs/go/main/App";
+import { OpenLog, OpenLogsFolder } from "../../wailsjs/go/app/App";
 
 /**
  * Opens run logs in the OS. openLog opens a single run's log file; openLogsFolder

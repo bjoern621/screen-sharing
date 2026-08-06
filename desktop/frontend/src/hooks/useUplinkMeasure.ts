@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { MeasureUplink } from "../../wailsjs/go/main/App";
+import { MeasureUplink } from "../../wailsjs/go/app/App";
 import { Stream } from "../types/stream";
 
 /**

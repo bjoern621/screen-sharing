@@ -4,7 +4,7 @@ import {
     NativeGridRunning,
     StartNativeGrid,
     StopNativeGrid,
-} from "../../wailsjs/go/main/App";
+} from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { PublishExit } from "../types/stream";
 

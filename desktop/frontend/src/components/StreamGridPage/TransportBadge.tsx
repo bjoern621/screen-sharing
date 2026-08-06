@@ -8,6 +8,7 @@ import { SinkKind } from "../../types/sink";
 const TRANSPORT_LABEL: Record<SinkKind, string> = {
     whep: "webrtc",
     webcodecs: "websocket",
+    moq: "moq",
 };
 
 interface TransportBadgeProps {

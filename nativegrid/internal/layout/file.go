@@ -15,7 +15,7 @@ import (
 // dirName and fileName put the remembered state beside the app's settings.json,
 // the directory os.UserConfigDir resolves for both processes (%APPDATA% on
 // Windows, XDG_CONFIG_HOME or ~/.config on Linux). The directory name is
-// repeated from desktop/settings rather than shared because no Go symbol
+// repeated from desktop/internal/settings rather than shared because no Go symbol
 // crosses the module boundary.
 const (
 	dirName  = "screenshare"

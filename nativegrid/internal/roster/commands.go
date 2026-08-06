@@ -36,7 +36,7 @@ func IsCommand(name string) bool { return slices.Contains(Commands, name) }
 // the other way.
 //
 // It travels as a KindCommand line; the consuming half is watch.GridCommand in
-// desktop/watch/grid.go.
+// desktop/internal/watch/grid.go.
 type Command struct {
 	Name string `json:"command"`
 }

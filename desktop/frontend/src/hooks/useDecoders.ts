@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Decoders } from "../../wailsjs/go/main/App";
+import { Decoders } from "../../wailsjs/go/app/App";
 import { Decoder } from "../util/domain";
 
 /**

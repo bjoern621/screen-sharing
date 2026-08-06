@@ -8,7 +8,7 @@
 // than what was asked for.
 //
 // It is the receive-side counterpart of the publish pipeline in
-// desktop/publish/gstreamer.go, and registers itself as a player backend, so
+// desktop/internal/publish/gstreamer.go, and registers itself as a player backend, so
 // nothing above the seam names GStreamer.
 package gstreamer
 

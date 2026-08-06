@@ -9,7 +9,9 @@
 #   sh scripts/bundle-windows.sh desktop/build/bin
 #
 # It produces the layout docs/packaging.md describes: DLLs beside the binary,
-# GStreamer plugins in gstreamer-1.0/, GLib's compiled schemas under share/.
+# GStreamer plugins in gstreamer-1.0/, and under share/ the compiled GLib
+# schemas together with the icon theme and the font the window's look is pinned
+# to (nativegrid/README.md, "One look on both platforms").
 set -euo pipefail
 
 bin=${1:?usage: bundle-windows.sh <bin-directory>}
@@ -86,6 +88,64 @@ done
 mkdir -p "$bin/share/glib-2.0/schemas"
 cp -f "$prefix/share/glib-2.0/schemas/gschemas.compiled" "$bin/share/glib-2.0/schemas/"
 
+# The look's inputs travel with the bundle too, for the reason the whole runtime
+# does: a bundle that resolves them against the machine it lands on is a bundle
+# that looks like that machine, and this window is supposed to look like itself
+# on both platforms (nativegrid/internal/gtkenv states the other half).
+#
+# The icon theme is what libadwaita's own widgets draw from, the window buttons
+# and the dropdown chevrons among them; the grid's own icons are vendored SVGs
+# and need none of it. hicolor comes along as the fallback every theme inherits
+# from and every lookup that misses ends in.
+for theme in Adwaita hicolor; do
+    if [ ! -d "$prefix/share/icons/$theme" ]; then
+        echo "$prefix/share/icons/$theme does not exist: install mingw-w64-x86_64-adwaita-icon-theme first" >&2
+        exit 1
+    fi
+done
+mkdir -p "$bin/share/icons"
+cp -rf "$prefix/share/icons/Adwaita" "$prefix/share/icons/hicolor" "$bin/share/icons/"
+
+# The font, and the configuration that makes it the one Pango finds. Neither can
+# be left to the machine: Windows resolves families through GDI unless told
+# otherwise, and its fontconfig scans the system font directory alone, so a
+# bundle carrying the file without the configuration ships a font nothing looks
+# at. FONTCONFIG_FILE names this file at startup (gtkenv_windows.go).
+font=$prefix/share/fonts/cantarell/Cantarell-VF.otf
+if [ ! -f "$font" ]; then
+    echo "$font does not exist: install mingw-w64-x86_64-cantarell-fonts first" >&2
+    exit 1
+fi
+mkdir -p "$bin/share/fonts/cantarell"
+cp -f "$font" "$bin/share/fonts/cantarell/"
+
+# Every path in it is relative to the file itself, so a bundle that is moved or
+# renamed still resolves its own fonts. The cache is the exception and goes to
+# the user's own directory, because the one the bundle sits in is often not
+# writable and a cache that cannot be written is rebuilt on every start.
+cat > "$bin/share/fonts/fonts.conf" <<'CONF'
+<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<!-- The native grid's fonts. Written by scripts/bundle-windows.sh; edit it there. -->
+<fontconfig>
+  <!-- This file's own directory, scanned through: the families that shipped. -->
+  <dir prefix="relative">.</dir>
+  <!-- Behind them, so a glyph no bundled family carries still resolves. -->
+  <dir>WINDOWSFONTDIR</dir>
+  <cachedir prefix="xdg">fontconfig</cachedir>
+
+  <!-- How the Linux side turns an outline into pixels, stated so this side
+       does the same. Grayscale rather than a subpixel order, because subpixel
+       antialiasing rasterizes for one panel and these are two machines. -->
+  <match target="font">
+    <edit name="antialias" mode="assign"><bool>true</bool></edit>
+    <edit name="hinting" mode="assign"><bool>true</bool></edit>
+    <edit name="hintstyle" mode="assign"><const>hintslight</const></edit>
+    <edit name="rgba" mode="assign"><const>none</const></edit>
+  </match>
+</fontconfig>
+CONF
+
 # The grid links GTK4 and GStreamer, so an empty closure is a broken walk rather than a
 # binary that needs nothing, and a bundle shipped without it fails at the user's end.
 if [ "$copied" -eq 0 ]; then
@@ -93,4 +153,4 @@ if [ "$copied" -eq 0 ]; then
     exit 1
 fi
 
-echo "bundled $copied libraries and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"
+echo "bundled $copied libraries, $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins, the Adwaita icon theme and Cantarell into $bin"

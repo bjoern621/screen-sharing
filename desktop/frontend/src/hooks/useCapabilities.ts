@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Capabilities } from "../../wailsjs/go/main/App";
+import { Capabilities } from "../../wailsjs/go/app/App";
 import { Capability } from "../util/domain";
 
 /**

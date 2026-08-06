@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { MeasureEncodeRate } from "../../wailsjs/go/main/App";
+import { MeasureEncodeRate } from "../../wailsjs/go/app/App";
 import { EncodeRate, Stream } from "../types/stream";
 
 /**

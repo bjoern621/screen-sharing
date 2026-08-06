@@ -76,6 +76,9 @@ func New(app *adw.Application, sess *session.Session, dispatch idle.Dispatch) *a
 	assert.IsNotNil(sess, "a window draws a session")
 	assert.IsNotNil(dispatch, "a window defers its deferred work to a UI loop")
 
+	// Before the stylesheet, which sizes part of what it draws against the font
+	// this settles.
+	theme.PinSettings()
 	theme.LoadStyle()
 
 	c := &chrome{

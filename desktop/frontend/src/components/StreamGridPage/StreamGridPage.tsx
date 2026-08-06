@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RelayStatus, Stream } from "../../types/stream";
 import { SinkKind } from "../../types/sink";
 import { useSinks } from "../../hooks/useSinks";
+import { moqCert } from "../../util/moqCert";
 import { sinkKindForTracks } from "../../util/webgrid";
 import StreamRoster from "./StreamRoster";
 import Tile from "./Tile";
@@ -27,8 +28,9 @@ const VIEWER_PORT = 8899;
 
 /**
  * The web grid: a full-screen page watching live streams in an auto-layouting
- * tile grid, Discord style. Each tile decodes through a StreamSink (WHEP today,
- * WebCodecs for 4:4:4), so the grid is decoder-agnostic. The roster connects and
+ * tile grid, Discord style. Each tile decodes through a StreamSink (WHEP for
+ * H.264, WebCodecs for 4:4:4, Media over QUIC for the formats neither reaches),
+ * so the grid is decoder-agnostic. The roster connects and
  * disconnects streams; a tile offers mute, volume, stats, pop-out, hide-video
  * and spotlight. A stream with hidden video moves to an audio-only strip where
  * its sound keeps playing. Closing the page tears everything down.
@@ -38,6 +40,8 @@ export default function StreamGridPage({ paths, s, onClose }: StreamGridPageProp
         relayHost: s.relayHost,
         webrtcPort: s.webrtcPort,
         viewerPort: VIEWER_PORT,
+        moqPort: s.moqPort,
+        moqCert,
     });
     const [videoHidden, setVideoHidden] = useState<Record<string, boolean>>({});
     const [spotlight, setSpotlight] = useState<string | null>(null);

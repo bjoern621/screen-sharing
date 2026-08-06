@@ -82,4 +82,4 @@ The app bar under the rows is the exception that stays in the binary: its two co
 - A new select option: add `tip` (and optional `link`) to the `Option` in `util/options.ts`. `OptionRow` renders it.
 - Anything else: wrap the element in `Tip` with a `text` prop.
 - A native grid stat row: add `tip` beside its `key` in the blocks table, or `tip` to the field in `statSources` for a transport counter.
-- A native grid watch option: write it into the knob's declaration in the transport's `watchKnob` list (`desktop/transport`). It travels in the roster and the popover renders it.
+- A native grid watch option: write it into the knob's declaration in the transport's `watchKnob` list (`desktop/internal/transport`). It travels in the roster and the popover renders it.

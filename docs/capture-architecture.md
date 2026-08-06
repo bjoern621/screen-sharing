@@ -31,7 +31,7 @@ Both engines return a `publish.Handle`, and the app supervises every backend thr
 
 ## Where responsibilities lie
 
-The **app layer** (`app_publish.go`) is engine-agnostic.
+The **app layer** (`publish.go`) is engine-agnostic.
 It selects a `Publisher` for the settings, holds the running `Handle`, forwards progress and exit to the frontend as events, and rejects a second concurrent publish.
 It has no knowledge of how any backend captures or encodes.
 

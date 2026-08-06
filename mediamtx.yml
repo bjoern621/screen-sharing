@@ -43,6 +43,25 @@ hlsVariant: lowLatency
 webrtc: yes
 webrtcAddress: :8889
 
+# --- Media over QUIC (watch only here: no publish engine speaks it) ---
+# The relay re-serves every ingested stream over MoQ, and a browser reads it with
+# WebTransport + WebCodecs. It is the only web-grid leg carrying all five formats.
+#
+# TLS is not optional: WebTransport refuses a plain listener. auto.crt/auto.key
+# make MediaMTX generate a self-signed pair on first start, which the web grid
+# pins by SHA-256 fingerprint rather than by a CA (see viewer-architecture.md,
+# "Reading Media over QUIC"). Point these at a real certificate to drop the pin.
+#
+# MediaMTX rejects an unknown key outright, so these have to be the keys of the
+# pinned version (scripts/relay.ps1), not of whatever main has. moqQUICAddress
+# arrived in v1.20.0; a relay older than that refuses to start on this file.
+moq: yes
+moqHTTP2Address: :8892 # TCP: the fingerprint endpoint and the relay's own page
+moqHTTP3Address: :8892 # UDP: the WebTransport endpoint the web grid subscribes on
+moqQUICAddress: :8893 # UDP: native MoQ-over-QUIC, for a client that is not a browser
+moqServerCert: auto.crt
+moqServerKey: auto.key
+
 # Paths: 'all_others' = any path name auto-created, no auth.
 # Each publisher picks own name via SRT streamid=publish:<name>
 pathDefaults:

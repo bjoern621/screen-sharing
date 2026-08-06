@@ -1,5 +1,5 @@
 import {
-    settings, relay, display, platform, encoderate, encoders, gpupath, main,
+    settings, relay, display, platform, encoderate, encoders, gpupath, app,
 } from "../../wailsjs/go/models";
 
 /** Wire-format stream settings, shared verbatim with the Go backend. */
@@ -16,7 +16,7 @@ export type RelayStatus = relay.Status;
  * engine) triple, and a slot with no row is an engine that cannot serialize that
  * leg of that protocol, so a publish rule and a watch verdict each read their own
  * rows rather than halves of a shared one. */
-export type TransportCarriage = main.TransportCarriage;
+export type TransportCarriage = app.TransportCarriage;
 
 /** One display output: capture index, resolution and primary flag. */
 export type Monitor = display.Monitor;
@@ -120,7 +120,7 @@ export interface PublishExit {
  * window did not make, and as the answer to `PublishState()` for a window that has
  * just mounted. Both are the same shape because both are the same value.
  */
-export type PublishState = main.PublishStateEvent;
+export type PublishState = app.PublishStateEvent;
 
 /** Payload of the "watch:exit" event. name and transport together identify
  * which viewer exited, since one stream can be watched over several transports. */

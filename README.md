@@ -32,7 +32,7 @@ Add `-Background` to run hidden. Ctrl+C to stop foreground.
 docker compose up -d
 ```
 
-Either way: SRT (8890/udp), API (9997), plus RTSP/RTMP/HLS/WebRTC.
+Either way: SRT (8890/udp), API (9997), plus RTSP/RTMP/HLS/WebRTC and MoQ (8892 tcp+udp).
 
 ## 2. Publish your screen
 

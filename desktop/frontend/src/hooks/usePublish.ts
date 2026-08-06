@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     StartPublish, StopPublish, GetPublishState, Republish,
-} from "../../wailsjs/go/main/App";
+} from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import { PublishExit, PublishState, Stats, Stream } from "../types/stream";
 

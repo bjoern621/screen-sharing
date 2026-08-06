@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Platform } from "../../wailsjs/go/main/App";
+import { Platform } from "../../wailsjs/go/app/App";
 import { PlatformInfo } from "../types/stream";
 
 /**

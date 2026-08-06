@@ -6,7 +6,7 @@ The architecture hides that difference behind one contract on the frontend, so a
 
 Four ways to watch exist, in order of reach:
 
-- The web grid (`StreamGridPage`): a tile grid inside the app window where each tile decodes through a `StreamSink`.
+- The web grid (`StreamGridPage`): a tile grid inside the app window where each tile decodes through a `StreamSink`, over WHEP, the viewer service or Media over QUIC.
 - The native grid (`nativegrid`): a GTK4 tile window decoding through GStreamer, with the installed decoder set's breadth instead of the webview's.
 - A single-stream native viewer (ffplay or mpv): one window per stream, the same decoder breadth as the native grid.
 - A standalone browser page served by the viewer service: the same WebCodecs path as the web grid, for a plain browser on the LAN.
@@ -71,6 +71,11 @@ web grid tile, VP9
   MediaMTX ══ RTSP :8554 ════════════════▶ ffmpeg ──IVF pipe──▶ webviewer ──ws://127.0.0.1:8899──▶ VideoDecoder ──▶ <canvas>
   └─────────────── network ──────────────┘ └────────────────────────────── receiver machine ───────────────────────────────┘
 
+web grid tile, Media over QUIC
+
+  MediaMTX ══ WebTransport :8892/udp ════▶ VideoDecoder ──▶ <canvas>
+  └─────────────── network ──────────────┘ └── receiver machine ──┘
+
 native window
 
   MediaMTX ══ SRT :8890 or RTSP :8554 ═══▶ ffplay or mpv window
@@ -79,6 +84,9 @@ native window
 
 WHEP is one hop.
 The webview's own `RTCPeerConnection` negotiates with the relay and receives SRTP; no process on the receiver sits between them.
+
+Media over QUIC is one hop as well, and the same shape for a different reason: the page holds the subscription itself, over WebTransport, and decodes with WebCodecs.
+It is the WebCodecs path without the viewer service, which is what "Reading Media over QUIC" below is about.
 
 The WebCodecs path is two hops, and only the first is network.
 The `webviewer` service runs in-process inside the receiving app, so the RTSP subscription and the WebSocket both belong to the machine showing the web grid.
@@ -106,12 +114,15 @@ The web grid is the side with a decode limit, because each of its paths pins a p
 
 | Published stream | Web grid, watch leg | Notes |
 |---|---|---|
-| H.264, 8-bit 4:2:0 | WHEP | The only combination the webview's WHEP path negotiates. |
-| H.264, 10-bit 4:2:0 (p010le) | none | WebRTC negotiates 8-bit H.264 profiles only. |
+| H.264, 8-bit 4:2:0 | WHEP | The only combination the webview's WHEP path negotiates, and one hop with no certificate to settle, so it keeps the format even though MoQ also carries it. |
+| H.264, 10-bit 4:2:0 (p010le) | none | WebRTC negotiates 8-bit H.264 profiles only, and the MoQ rows promise 8-bit. |
 | H.264, 4:4:4 or 4:2:2 | none | WHEP requires 4:2:0. |
-| HEVC, any chroma | none | No web-grid path carries the format. |
+| HEVC, 8-bit 4:2:0 | MoQ | The format WHEP refuses outright and MPEG-TS carries: a stream published over SRT is watchable in the web grid through this leg alone. |
+| HEVC, 10-bit or full chroma | none promised | The MoQ leg may decode it where the host's WebCodecs does; the verdict promises 8-bit 4:2:0 and nothing wider. |
+| AV1 or VP8, 8-bit 4:2:0 | MoQ | Neither reaches WHEP: AV1 negotiates over WebRTC and yields no picture, and VP8 has no other web-grid path. |
 | VP9 profile 1, 8-bit 4:4:4 or gbrp | WebCodecs, in a LAN browser | The app's own webview refuses the profile, see "Where responsibilities lie". |
-| VP9 profile 0 (4:2:0) or profile 2 (10-bit) | none | The WebCodecs path declares profile 1 and decodes no other bitstream, and the webview's WHEP negotiates H.264 alone. |
+| VP9 profile 0 (4:2:0) | MoQ | The WebCodecs path declares profile 1 and decodes no other bitstream, so 4:2:0 VP9 reached no tile before the MoQ leg existed. |
+| VP9 profile 2 (10-bit) | none | Above what any web-grid row promises. |
 
 `capabilities.Decoders` states what each decoder element takes, and the settings form reads it to say what a chroma costs the viewer.
 Every fixed-function decoder covers 4:2:0, with 10-bit where the format has a Main-10 equivalent.
@@ -121,7 +132,9 @@ H.264 has no hardware 4:4:4 anywhere, no vendor having implemented High 4:4:4 Pr
 AV1 and VP9 are the same story in their own profiles, hardware decoding profile 0 and 2 and never the full-chroma ones.
 
 Audio follows the path, not the stream.
-`WhepSink` receives the audio track and exposes a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent in either grid and audible in a native window.
+`WhepSink` and `MoqSink` receive the audio track and expose a volume control; the WebCodecs leg and the native grid map video only, so a stream published with desktop audio is silent on those two and audible on the other two.
+The two that carry it do so through different machinery: WHEP's rides on the `<video>` element, and MoQ's is an `AudioContext` the reader feeds decoded buffers into, which starts suspended because a page may not make sound before a gesture.
+A MoQ tile therefore arrives muted and says so, where a WHEP tile arrives muted only if autoplay was refused.
 Which legs carry the track at all follows the audio codec rather than the path: WebRTC carries Opus alone and RTMP AAC alone, which the transport table's audio half states.
 
 ## Codec and chroma
@@ -233,9 +246,9 @@ Opus is the codec WebRTC negotiates and AAC the one FLV has always carried, so t
   A single-stream native window picks its watch leg per Watch click, and the grid picks one for the whole window in its sidebar, so the same stream can be open over SRT in a player and RTSP in the grid at once.
   WebRTC is absent from the player's choice because it implements no `Watcher`: playback needs WHEP, which neither ffplay nor mpv speaks.
 - **Codec breadth.**
-  The web grid decodes two formats.
-  A native window decodes whatever the ffmpeg build supports.
-  HEVC 4:2:0 is the least obvious gap: the chroma is browser-shaped, but no web-grid path carries the format.
+  The web grid decodes all five formats at 8-bit 4:2:0, and two of them beyond that.
+  A native window decodes whatever the ffmpeg build supports, at any chroma and depth.
+  The gap is no longer a format but a profile: what the web grid cannot promise is 10-bit and full chroma outside the one VP9 profile the viewer service declares.
 - **Rendering.**
   ffplay is pinned to the SDL X11/XWayland backend, whose window a compositor renders reliably where the SDL Wayland backend may not.
   mpv renders 4:4:4 and a native Wayland window, which is what `SCREENSHARE_VIEWER=mpv` selects.
@@ -251,6 +264,7 @@ flowchart LR
     Hook -->|createSink| Sink{"StreamSink"}
     Sink -->|whep| Whep["WhepSink<br/>WebRTC -> MediaStream -> video"]
     Sink -->|webcodecs| WC["WebCodecsSink<br/>WebSocket -> VideoDecoder -> canvas"]
+    Sink -->|moq| Moq["MoqSink<br/>WebTransport -> VideoDecoder -> canvas"]
     Tile["Tile"] -->|"useSinkView: mount + snapshot"| Sink
 ```
 
@@ -280,8 +294,9 @@ The seam follows the frontend layering (`frontend-coding-style.md`): the sinks a
 
 - **services/sinks/** holds the stateful, framework-agnostic sinks.
   `BaseSink` carries the subscriber set, the cached snapshot and the connect deadline.
-  `WhepSink` renders a `MediaStream` into a `<video>` and owns the autoplay-muted fallback; `WebCodecsSink` renders decoded `VideoFrame`s into a `<canvas>`.
+  `WhepSink` renders a `MediaStream` into a `<video>` and owns the autoplay-muted fallback; `WebCodecsSink` renders decoded `VideoFrame`s into a `<canvas>`; `MoqSink` drives the vendored MoQ reader, which owns its own canvas.
   `createSink` maps a `SinkKind` to the concrete sink.
+  `ElementAudioControl` and `MoqAudioControl` are the two shapes of `AudioControl`, one over a media element and one over an `AudioContext`.
 - **hooks/** drives the seam.
   `useSinks` owns the live sink map (in a ref, created on connect, so React StrictMode's double-invoke cannot close a connection); `useSinkSnapshot` reads one sink's state and `useSinkView` adds the mount ref for a tile; `useSinkStats` polls `stats()` only while the overlay is open; `usePictureInPicture` moves a tile into a Document Picture-in-Picture window.
 - **components/StreamGridPage/** renders.
@@ -302,7 +317,7 @@ Full-chroma streams therefore reach a LAN browser or the native grid, not the we
 ## The web viewer service
 
 The `webviewer` package (Go) serves the WebCodecs path.
-It runs in-process, supervised by the app (`app_webviewer.go`), and starts and stops with the window.
+It runs in-process, supervised by the app (`webviewer.go`), and starts and stops with the window.
 An ffmpeg child pulls the stream from the relay over RTSP and remuxes it to IVF; the server parses each frame and pushes it to the browser over a WebSocket.
 Using ffmpeg for the RTSP leg keeps the depayload and reassembly in a component the app already ships, with no RTSP client library.
 
@@ -320,12 +335,49 @@ The keyframe flag comes from parsing the VP9 uncompressed header; the PTS comes 
 The relay location is read from settings per connection, so a host or port change reaches the next viewer without restarting the service.
 A bind failure is logged rather than fatal: the rest of the app runs without the WebCodecs path.
 
+## Reading Media over QUIC
+
+MoQ is the third web-grid decode path, and the only one that is a watch leg and nothing else.
+No engine this app drives publishes it: ffmpeg has no muxer for it and GStreamer no sink, and no player opens it either, so it is absent from `transport.Formats` rather than being a row with empty cells.
+The `transport` registry could not hold it if we wanted it to - `Register` asserts that an entry carries a leg on an engine, and MoQ carries neither - which is the same reason the web grid's other legs live in `webgrid.ts` and not in the Go table.
+A MoQ tile is therefore always watching a stream the relay ingested over some other protocol and re-serves here, which is the two-legs rule at its most literal.
+
+What it buys is codec breadth, and it buys it by not pinning a profile.
+The other two web-grid paths each declare one: WHEP negotiates the 8-bit 4:2:0 H.264 profiles and the viewer service declares `vp09.01.10.08`.
+MoQ subscribes to a catalog that names the codec, and the reader hands that string to a `VideoDecoder`, so the limit is the host webview's WebCodecs reach rather than anything about the leg.
+That is why HEVC, AV1, VP8 and 4:2:0 VP9 reach a web grid tile at all, and it is also why `WEB_GRID_DECODE` promises only 8-bit 4:2:0 for the row: a table read before anyone is watching should under-promise where the answer is the host's rather than the protocol's.
+
+The certificate is the part that is not like the others.
+WebTransport refuses a plain listener, so the MoQ leg runs over TLS and the relay's certificate is self-signed unless someone gives it a real one.
+A browser on the relay's own MoQ page has already accepted that certificate to load the page; the web grid runs on the app's origin and has accepted nothing, so the fingerprint fetch the relay's reader makes fails there before WebTransport is reached.
+The app makes that request from Go instead (`moq.Fetch`, `App.MoqCert`), where the verification decision is ours: a verified fetch is tried first so a relay with a real certificate is held to it, and only its failure falls back to an unverified fetch whose answer is still pinned through `serverCertificateHashes`.
+The tile's stats overlay reports which of the two happened, because "pinned" means the relay was taken on trust and held to that exact certificate, not that it proved who it is.
+
+Which certificate the endpoint describes is the part worth being precise about, because the obvious reading is wrong.
+WebTransport will only pin a certificate that is ECDSA and lives at most fourteen days, and `moqServerCert` is generated for 3650, so pinning that one could never work.
+The endpoint does not serve that one: it answers with the HTTP/3 listener's certificate, which MediaMTX generates separately, and the HTTP/3 listener is exactly the peer WebTransport connects to.
+Measured against a v1.20.0 relay, the TCP listener presents `auto.crt` byte for byte and the fingerprint endpoint answers with something else, which is the whole reason the endpoint exists.
+The consequence is that the pin has a lifetime: `moq.Fetch` runs per sink so every new tile pins afresh, and what it cannot help is a reader retrying inside a tile left open longer than the certificate lived, which fails until the tile is reconnected.
+
+Two more things are worth knowing before the first tile is opened.
+The relay has to be at least v1.20.0, because `mediamtx.yml` names `moqQUICAddress` and MediaMTX refuses to start on a key it does not know; `scripts/relay.ps1` pins the version that has it.
+And WebTransport is a Chromium-family binding, so the MoQ rows drop out of the WebKitGTK window the way the WHEP row does without `ENABLE_WEB_RTC`; on that host MoQ is a LAN browser's path and the native grid remains the one that decodes everything.
+
+`moqQUICAddress` is native MoQ-over-QUIC, and nothing here reads it.
+It is configured anyway because it is the one endpoint a non-browser client could subscribe on, which is what a native MoQ watcher would need: v1.20.0 also widened the accepted drafts to 16, 17 and 19, so an out-of-tree `moqsrc` has a far better chance of handshaking than it did.
+That is a leg for the `transport` registry rather than for this file, and it stays unbuilt while the native grid has no format it cannot already decode over RTSP.
+
+The reader itself is vendored (`services/sinks/vendor/mediamtxMoqReader.js`, MIT) rather than loaded from the relay, for the reason the fingerprint is fetched in Go: a cross-origin script load from a self-signed origin fails the same way.
+It carries six marked local changes over upstream - an export, a supplied fingerprint, a terminal `close()`, decode counters, a per-frame callback and a gain node - and the header lists them so a re-vendor is a copy plus six patches.
+It reconnects on its own after a failure, which is left in place: a stream that drops and comes back is what a grid tile wants, so `MoqSink` treats a reported error as narration and lets `BaseSink`'s connect deadline be what ends a wait that will not resolve.
+
 ## The two viewability verdicts
 
 The settings form carries one verdict per grid, both shaped as `ViewVerdict` and both derived rather than restated: whether the web grid can show the configured stream, and whether the native grid can.
 Two badges instead of one because the two grids fail on different things, and a stream the web grid refuses is usually still watchable in the native one.
 
 `WEB_GRID_DECODE` (`frontend/src/util/webgrid.ts`) is one row per web-grid decode path: the formats it decodes, the subsampling and bit depth its profile pins, the codec string it declares to `VideoDecoder` where it declares one, and whether it is available.
+The MoQ row sits last, so a format an earlier path already carries keeps the path it had and what MoQ adds is the formats neither of the others reaches.
 Its consumers read it, so they cannot disagree:
 
 - `webGridCheck` produces the "viewable in web grid" verdict.
@@ -336,7 +388,7 @@ That verdict derives from the same `FORMAT_META` and `CHROMA_META` tables as the
 A codec no path decodes reports not-viewable and points at the native grid.
 `sinkKindForTracks` falls back to the first available path for an unrecognized track codec, so the tile connects and surfaces its own decode failure instead of silently doing nothing.
 
-A row's `available` is the host webview's answer, not a constant: each path tests for the API it needs (`RTCPeerConnection`, `VideoDecoder`) as the module loads.
+A row's `available` is the host webview's answer, not a constant: each path tests for the API it needs (`RTCPeerConnection`, `VideoDecoder`, `WebTransport`) as the module loads.
 A webview without one drops that row, so the verdict explains the gap where the settings form already reports codec support, rather than letting the tile fail on a missing global.
 
 `nativeGridCheck` (`frontend/src/util/nativegrid.ts`) has no decode table of its own, because the native grid's `decodebin` reaches every format the app can encode, at any chroma and bit depth.
@@ -346,7 +398,7 @@ A format with no listener on the selected leg reports not-viewable, names the le
 
 ## The native grid
 
-The native grid is a separate GTK4 binary (`nativegrid`), spawned by the app (`app_nativegrid.go`): the webview process is GTK3, and the two toolkits cannot share a process.
+The native grid is a separate GTK4 binary (`nativegrid`), spawned by the app (`nativegrid.go`): the webview process is GTK3, and the two toolkits cannot share a process.
 The process contract is a JSON roster built by `watch.BuildGridConfig`: every stream the relay reports live, each as a display name plus the gst-launch source fragment of its watch transport (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), and the app state the window's own controls read (`watch.GridApp`).
 It is passed once as the `-config` argument, which may be empty, and again as one JSON line on the child's stdin whenever the config the app builds differs from the one the window holds (`pushRoster`), so the window opens on an idle relay and fills up as streams appear.
 The config is the whole state rather than what moved in it, which is what makes that comparison the push rule.
@@ -405,7 +457,7 @@ Inside the binary the window is one model and two views of it: a session package
 
 ## The native escape hatch
 
-The single-stream ffplay/mpv viewer (`watch` package, `app_watch.go`) stays alongside the grids.
+The single-stream ffplay/mpv viewer (`watch` package, `watch.go`) stays alongside the grids.
 `watch.Select` picks the engine (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each builds its command from the transport's `Watcher` URL.
 It is the one path with audio for non-WHEP streams, and the dependency-free fallback when the native grid binary is not installed.
 
@@ -415,4 +467,7 @@ A viewer is identified by stream name and transport together, not by name alone,
 
 Add a `SinkKind`, a `StreamSink` implementation under `services/sinks/`, and a case in `createSink`.
 If the decoder should back live relay streams, add its row to `WEB_GRID_DECODE`; the verdict and the runtime selection follow with no further edits.
-The tile, chrome and stats overlay need no change, because they consume the interface, not the implementation.
+
+Two things are keyed by `SinkKind` rather than read off the interface, and the compiler names both: `createSink`'s switch and `TransportBadge`'s label map.
+Everything else on the tile consumes the interface, so a new decoder reaches the grid without touching the chrome.
+The stats overlay is the exception worth stating: a figure only one decoder can take is an optional field on `SinkStats` and a row that renders when it is present, which is how `certPinned` and the WebRTC-only `jitterMs` and `packetsLost` are carried.

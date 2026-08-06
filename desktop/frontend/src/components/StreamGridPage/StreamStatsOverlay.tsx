@@ -73,6 +73,16 @@ export default function StreamStatsOverlay({
                         label="transport"
                         value={stats.transport || UNKNOWN}
                     />
+                    {/* Only the MoQ leg reports this, being the one that must run
+                     * over TLS against a relay whose certificate is self-signed by
+                     * default. "pinned" says the relay was taken on trust and held
+                     * to that exact certificate, not that it proved who it is. */}
+                    {stats.certPinned !== undefined && (
+                        <Row
+                            label="certificate"
+                            value={stats.certPinned ? "pinned" : "verified"}
+                        />
+                    )}
                     {stats.latencyMs !== undefined && (
                         <Row
                             label="latency"

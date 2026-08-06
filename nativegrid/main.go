@@ -37,6 +37,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare-nativegrid/internal/gtkenv"
 	"bjoernblessin.de/screenshare-nativegrid/internal/idle"
 	"bjoernblessin.de/screenshare-nativegrid/internal/layout"
 	"bjoernblessin.de/screenshare-nativegrid/internal/player"
@@ -58,6 +59,10 @@ func main() {
 	// Before any element exists, because the exception it disarms is raised while
 	// one is being built and a handler that arrives afterwards missed it.
 	threadname.Ignore()
+
+	// Before GTK initializes, because it reads these once while it does and a
+	// value written afterwards is one it has already used.
+	gtkenv.Pin()
 
 	configArg := flag.String("config", "", "stream list as JSON; empty runs the demo streams")
 	backendArg := flag.String("player", gstreamer.Backend, "decode backend: "+strings.Join(player.Names(), ", "))
@@ -150,7 +155,7 @@ func runner(fromApp bool) roster.Run {
 // config is the roster the window opens on: the app's, or the demo one.
 //
 // The argument is the run's input, whether the app that spawns this process
-// wrote it (desktop/watch.BuildGridConfig) or a person typed it, so a roster
+// wrote it (desktop/internal/watch.BuildGridConfig) or a person typed it, so a roster
 // that does not parse ends the process the way an unknown -player does. The
 // exit status and the stderr line are what the spawning app reads; a panic
 // would bury both under this side's stack.
