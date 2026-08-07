@@ -1,0 +1,293 @@
+using System.Globalization;
+using ScreenShare.Api.V1;
+
+namespace ScreenShare.App.Copy;
+
+/// <summary>
+/// How this shell names one option of one control, and what it says about it.
+///
+/// The backend sends an entry as a bare value - <c>hevc_nvenc</c>, <c>2</c>,
+/// <c>1280x720</c> - and which control it belongs to. Naming it needs both: <c>auto</c>
+/// means one thing under the frame path and another under the download route, and no
+/// table keyed on the value alone can tell them apart. So the field key is the switch and
+/// the value is the lookup, which is also why a control added to the contract shows up
+/// here as a row rather than as a change anywhere else.
+///
+/// Two entries need more than their own value to be named, and both read the catalog: a
+/// codec is named by the format and the family its row carries, and a monitor by the size
+/// and refresh rate of the output at that index. The catalog is optional and absent until
+/// the first read lands, and every method answers without it - a codec falls back to its
+/// encoder name and a screen to its index, which are exactly what the backend called them.
+/// </summary>
+public sealed class Vocabulary
+{
+    /// <summary>The one used before the catalog has arrived. Everything answers; some answers are shorter.</summary>
+    public static readonly Vocabulary Empty = new(null);
+
+    private readonly Catalog? _catalog;
+
+    public Vocabulary(Catalog? catalog) => _catalog = catalog;
+
+    /// <summary>What one entry of one control is called, in the width a dropdown row has.</summary>
+    public string Name(string fieldKey, string value) => fieldKey switch
+    {
+        "capture" => Words.Capture(value),
+        "monitor" => Screen(value),
+        "output_resolution" => Resolution(value),
+        "capture_memory" => Words.Memory(value),
+        "drm_map" => Words.DrmMap(value),
+        "codec" => Codec(value),
+        "chroma" => Chroma(value),
+        "color_range" => Words.ColorRange(value),
+        "enc_preset" => Words.EncPreset(value),
+        "mode" => Words.Mode(value),
+        "audio" => Words.AudioSource(value),
+        "audio_codec" => Words.AudioCodec(value),
+        "transport" or "watch_transport" => Words.Transport(value),
+        "rtsp_publish_protocol" or "rtsp_watch_protocol" => Words.RtspProtocol(value),
+        _ => value,
+    };
+
+    /// <summary>
+    /// The paragraph behind one entry, and nothing where the name says it all. It is what
+    /// a radio card shows under its title and what a dropdown shows where there is room.
+    /// </summary>
+    public string Describe(string fieldKey, string value) => fieldKey switch
+    {
+        "capture" => Descriptions.Capture(value),
+        "output_resolution" => Scaling(value),
+        "capture_memory" => Descriptions.Memory(value),
+        "drm_map" => Descriptions.DrmMap(value),
+        "codec" => DescribeCodec(value),
+        "chroma" => Descriptions.Chroma(value),
+        "color_range" => Descriptions.ColorRange(value),
+        "enc_preset" => Descriptions.EncPreset(value),
+        "mode" => Descriptions.Mode(value),
+        "audio" => Descriptions.AudioSource(value),
+        "audio_codec" => Descriptions.AudioCodec(value),
+        "transport" or "watch_transport" => Descriptions.Transport(value),
+        "rtsp_publish_protocol" or "rtsp_watch_protocol" => Descriptions.RtspProtocol(value),
+        _ => "",
+    };
+
+    /// <summary>
+    /// What one group settled on, in the few words a step chip repeats.
+    ///
+    /// It is composed here and not received, because it is a shorthand: a separator, an
+    /// abbreviation and a length, all decided by the strip it sits in. The values behind it
+    /// are the draft's own, so it cannot say anything the form does not.
+    ///
+    /// A group with nothing worth a line answers with nothing rather than with a string of
+    /// numbers. The relay ports settle on values that mean nothing without their labels,
+    /// and "8890 · 8554 · 8889" beside a step name says less than a blank does.
+    /// </summary>
+    public string Shorthand(string groupKey, StreamSettings? settings)
+    {
+        if (settings is null)
+        {
+            return "";
+        }
+
+        return groupKey switch
+        {
+            "stream" => Join(settings.Name, settings.RelayHost),
+            "source" => Join(Words.Capture(settings.Capture), Picture(settings)),
+            "quality" => Join(CodecShorthand(settings.Codec), Quality(settings)),
+            "audio" => settings.Audio is "" or "none"
+                ? "No audio"
+                : Join(Words.AudioSource(settings.Audio), Words.AudioCodec(settings.AudioCodec)),
+            "transport" => Words.Transport(settings.Transport),
+            "watch" => Words.Transport(settings.WatchTransport),
+            _ => "",
+        };
+    }
+
+    /// <summary>
+    /// The whole configuration in one line: what quality it holds, and on what picture.
+    /// The two answer the questions a reader glancing at a running stream has, in that
+    /// order, because the picture is the part they can see for themselves.
+    /// </summary>
+    public string Headline(StreamSettings? settings) =>
+        settings is null ? "" : Join(Quality(settings), Picture(settings));
+
+    /// <summary>
+    /// What the rate control settled on. Each mode names the number it is actually holding,
+    /// because that number is the answer and the mode's name alone is not: "20 Mbit/s" is
+    /// what a reader checks against their connection.
+    /// </summary>
+    private static string Quality(StreamSettings s) => s.Mode switch
+    {
+        "crf" => $"quality {s.Cq}",
+        "cbr" => $"{s.BitrateMbps} Mbit/s fixed",
+        "abr" => $"{s.BitrateMbps} Mbit/s average",
+        "vbr" => $"{s.BitrateMbps}-{s.MaxrateMbps} Mbit/s",
+        "lossless" => "lossless",
+        _ => s.Mode,
+    };
+
+    /// <summary>
+    /// The picture, in the shorthand every viewer already reads: "1080p60". The size is the
+    /// one being sent, which is the scaled size where one is set and the screen's own where
+    /// it is not - and where neither is known, the frame rate stands alone rather than the
+    /// line claiming a size nothing measured.
+    /// </summary>
+    private string Picture(StreamSettings s)
+    {
+        var height = Height(s);
+        return height > 0 ? $"{height}p{s.Fps}" : $"{s.Fps} fps";
+    }
+
+    /// <summary>The height being sent: the scaled one, or the captured screen's own.</summary>
+    private int Height(StreamSettings s)
+    {
+        if (s.OutputResolution.Length > 0)
+        {
+            var parts = s.OutputResolution.Split('x');
+            if (parts.Length == 2 && int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var scaled))
+            {
+                return scaled;
+            }
+        }
+
+        return Monitor(s.Monitor.ToString(CultureInfo.InvariantCulture))?.Height ?? 0;
+    }
+
+    /// <summary>
+    /// A codec named by what it produces and what produces it, which are the two questions
+    /// it answers: the format is what a viewer has to decode and the family is what this
+    /// machine has to have. Without the catalog the encoder's own name stands, which is
+    /// what the backend called it and what a log line will spell.
+    /// </summary>
+    private string Codec(string name)
+    {
+        var row = Row(name);
+        return row is null ? name : $"{Words.Format(row.Format)} · {Words.Family(row.Family)}";
+    }
+
+    /// <summary>The same two facts in the shorthand a step chip has room for.</summary>
+    private string CodecShorthand(string name)
+    {
+        var row = Row(name);
+        return row is null ? name : Words.Format(row.Format);
+    }
+
+    /// <summary>
+    /// What a codec is, which is the format's paragraph plus whatever the encoder adds
+    /// beyond it. Only the three software AV1 encoders add anything: the format does not
+    /// identify them and they differ enough to choose between.
+    /// </summary>
+    private string DescribeCodec(string name)
+    {
+        var row = Row(name);
+        if (row is null)
+        {
+            return "";
+        }
+
+        var lines = new List<string> { Descriptions.Format(row.Format), Descriptions.Family(row.Family) };
+        var encoder = Descriptions.Encoder(name);
+        if (encoder.Length > 0)
+        {
+            lines.Add(encoder);
+        }
+
+        return string.Join("\n", lines.Where(line => line.Length > 0));
+    }
+
+    /// <summary>
+    /// A pixel format, with the identifier kept beside the plain-language half. The reader
+    /// will meet <c>yuv420p</c> again in the command preview and in every answer they find
+    /// elsewhere, so hiding it would make this app the only place it has another name.
+    /// </summary>
+    private static string Chroma(string value)
+    {
+        var word = Words.Chroma(value);
+        return word == value ? value : $"{value} · {word}";
+    }
+
+    /// <summary>
+    /// A screen, named by its index and what it can show. The index leads because it is
+    /// what the reader matches against their own arrangement and what the settings carry.
+    /// </summary>
+    private string Screen(string value)
+    {
+        var monitor = Monitor(value);
+        if (monitor is null)
+        {
+            return $"Screen {value}";
+        }
+
+        var name = $"Screen {monitor.Index} · {monitor.Width} × {monitor.Height}";
+        if (monitor.HasRefreshHz)
+        {
+            name += $" · {monitor.RefreshHz} Hz";
+        }
+
+        return monitor.Primary ? name + " · main" : name;
+    }
+
+    /// <summary>
+    /// An output size. The empty value is the capture's own size, which is the entry that
+    /// scales nothing.
+    /// </summary>
+    private static string Resolution(string value)
+    {
+        if (value.Length == 0)
+        {
+            return "Same as the screen";
+        }
+
+        var parts = value.Split('x');
+        return parts.Length == 2 ? $"{parts[0]} × {parts[1]}" : value;
+    }
+
+    /// <summary>What scaling costs and buys, said once for every scaled entry.</summary>
+    private static string Scaling(string value) => value.Length == 0
+        ? ""
+        : "Costs sharpness and saves everything downstream at once: fewer bits to encode, to upload and for your "
+          + "viewers to decode.";
+
+    private VideoCodec? Row(string name)
+    {
+        if (_catalog is null || name.Length == 0)
+        {
+            return null;
+        }
+
+        foreach (var codec in _catalog.Codecs)
+        {
+            if (codec.Name == name)
+            {
+                return codec;
+            }
+        }
+
+        return null;
+    }
+
+    private Api.V1.Monitor? Monitor(string value)
+    {
+        if (_catalog is null || !int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var index))
+        {
+            return null;
+        }
+
+        foreach (var monitor in _catalog.Monitors)
+        {
+            if (monitor.Index == index)
+            {
+                return monitor;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// A shorthand out of its parts, dropping the ones that had nothing to say. An empty
+    /// part joined anyway would leave a separator with nothing on one side of it, which
+    /// reads as something having failed to render.
+    /// </summary>
+    private static string Join(params string[] parts) =>
+        string.Join(" · ", parts.Where(part => part.Length > 0));
+}

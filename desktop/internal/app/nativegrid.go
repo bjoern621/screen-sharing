@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
@@ -16,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/watch"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // EnvNativeGrid overrides where the native grid binary is found, for runs
@@ -60,7 +59,7 @@ func (a *App) StartNativeGrid() error {
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	status := a.relay.Fetch(s.RelayHost, s.ApiPort)
+	status := a.fetchRelay()
 	if !status.Reachable {
 		return fmt.Errorf("relay not reachable: %s", status.Error)
 	}
@@ -137,7 +136,7 @@ func (a *App) StartNativeGrid() error {
 			// A window that exited watches nothing.
 			// Start reports the exit only once its stdout is drained, so this cannot undo a later report.
 			a.setNativeGridWatching(&self, nil)
-			runtime.EventsEmit(a.ctx, "nativegrid:exit", exitEvent{Message: message, LogPath: logPath})
+			a.emitLocal(eventGridExit, exitEvent{Message: message, LogPath: logPath})
 		})
 	if err != nil {
 		return err
@@ -176,8 +175,8 @@ func (a *App) setNativeGridWatching(from **ffmpeg.Proc, watching []string) {
 	a.setNativeGridWatchingLocked(watching)
 }
 
-// setNativeGridWatchingLocked replaces the watch set and tells the frontend when it changed.
-// The event is emitted under the lock, so two windows cannot reach the frontend
+// setNativeGridWatchingLocked replaces the watch set and announces it when it changed.
+// The event is emitted under the lock, so two windows cannot reach a surface
 // in the other order than they changed the set and leave it showing the one that is gone.
 // The caller holds procMu.
 func (a *App) setNativeGridWatchingLocked(watching []string) {
@@ -186,7 +185,11 @@ func (a *App) setNativeGridWatchingLocked(watching []string) {
 	}
 	a.nativeGridWatching = watching
 	logger.Infof("native grid watching %v", watching)
-	runtime.EventsEmit(a.ctx, "nativegrid:watching", watchingEvent{Streams: gridWatching(watching)})
+
+	// This window is the frontend's alone. It used to be announced on the control
+	// contract as well, and it is not any more: how a viewer arranges what it receives
+	// is the shell's business, so a grid is not something the backend describes.
+	a.emitLocal(eventGridState, watchingEvent{Streams: gridWatching(watching)})
 }
 
 // gridWatching copies the watch set into the form the frontend receives it in,
@@ -255,9 +258,6 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, live []watch.LiveStream, held string
 			if !proc.Running() {
 				return
 			}
-			a.settingsMu.Lock()
-			s := a.settings
-			a.settingsMu.Unlock()
 
 			// The publish state is the app's own,
 			// so it is read before the relay is asked anything
@@ -272,7 +272,7 @@ func (a *App) pushRoster(proc *ffmpeg.Proc, live []watch.LiveStream, held string
 			if publishing := a.Publishing(); publishing != app.Publishing {
 				app = watch.GridApp{Publishing: publishing}
 			}
-			if status := a.relay.Fetch(s.RelayHost, s.ApiPort); status.Reachable {
+			if status := a.fetchRelay(); status.Reachable {
 				if next := liveStreams(status); !slices.Equal(next, live) {
 					live = next
 					logger.Infof("native grid roster now %v", streamNames(live))
@@ -362,10 +362,12 @@ func (a *App) applyGridRequest(r watch.GridRequest, live []watch.LiveStream) {
 	if err := settings.Save(next); err != nil {
 		logger.Warnf("native grid watch leg not saved: %v", err)
 	}
-	// The frontend holds its own copy of the settings and writes the whole struct
-	// back on its next field change, so a change made here has to reach it or the
-	// next edit in the form would put the old leg back.
-	runtime.EventsEmit(a.ctx, "settings:changed")
+	// A surface holds its own copy of the settings and writes the whole struct back on
+	// its next field change, so a change made here has to reach it or the next edit in
+	// the form would put the old leg back. Nothing about what they became travels with
+	// the event: both surfaces re-read the settings, so there is one way to learn them
+	// rather than two that can disagree.
+	a.emit(wire.SettingsChangedEvent())
 }
 
 // pushGrid writes the state the window should be showing, given the state held there.
@@ -423,9 +425,18 @@ func (a *App) NativeGridRunning() bool {
 // It is empty while no window is open, and while one is opening and has yet to report.
 // The frontend polls it beside NativeGridRunning,
 // and the "nativegrid:watching" event carries the same list as it changes.
+// A window that has ended has a tile on nothing, whatever its last report said, and
+// the running check here is what holds that. The report that clears the set arrives
+// only once the child's stdout is drained, so a read taken in that gap would otherwise
+// name tiles nobody can see. Both halves are read under the one lock, which is what
+// makes this and NativeGridRunning describe a single instant: read separately, a window
+// that ended between them would be reported closed with tiles open on it.
 func (a *App) NativeGridWatching() []string {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
+	if a.nativeGrid == nil || !a.nativeGrid.Running() {
+		return nil
+	}
 	return gridWatching(a.nativeGridWatching)
 }

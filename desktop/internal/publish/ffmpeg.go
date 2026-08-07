@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"fmt"
 	"strings"
 
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
@@ -13,8 +14,27 @@ import (
 // and kmsgrab backends, which differ only in ffmpeg input arguments.
 type ffmpegEngine struct{}
 
+// buildArgs renders the command this engine runs, refusing first what the ffmpeg
+// argument builder cannot refuse for itself.
+//
+// The builder is pure over the settings: it names no operating system, which is what
+// lets a Windows pipeline be rendered and tested on a Linux machine. The second-track
+// source is the one field whose validity depends on which platform the capture backend
+// runs on, and that column is captureNeeds', in this package. So the check is made
+// where both facts are reachable and the builder below stays a builder - the same split
+// capabilities.Validate and transport.ValidatePublish already sit on.
+//
+// Both entry points render through here so the displayed command and the started run
+// are refused alike, which is what publish.Command promises.
+func buildArgs(s settings.Stream) ([]string, error) {
+	if available, _ := AudioAvailable(s.Capture, s.Audio); !available {
+		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Capture, s.Audio)
+	}
+	return ffmpeg.BuildPublishArgs(s)
+}
+
 func (ffmpegEngine) Command(s settings.Stream) (string, error) {
-	args, err := ffmpeg.BuildPublishArgs(s)
+	args, err := buildArgs(s)
 	if err != nil {
 		return "", err
 	}
@@ -37,7 +57,7 @@ func (ffmpegEngine) Carries(transportName string) bool {
 }
 
 func (ffmpegEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, error) {
-	args, err := ffmpeg.BuildPublishArgs(s)
+	args, err := buildArgs(s)
 	if err != nil {
 		return nil, err
 	}

@@ -57,11 +57,11 @@ type Signalled struct {
 	Chroma string `json:"chroma"`
 }
 
-// tradesColour reports whether taking this path means giving up the colour the settings
+// TradesColour reports whether taking this path means giving up the colour the settings
 // name. It is the one place a Colour value is dispatched on, so a third verdict added to
 // the enum stops here rather than being read as one of the two by an equality check
 // somewhere in Resolve.
-func (c Colour) tradesColour() bool {
+func (c Colour) TradesColour() bool {
 	switch c {
 	case ColourExact:
 		return false

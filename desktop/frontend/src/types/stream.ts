@@ -28,6 +28,12 @@ export type GpuPath = gpupath.Path;
 /** Running platform: OS and, on Linux, the display server (x11/wayland). */
 export type PlatformInfo = platform.Info;
 
+/** One second-track capture source as this machine's platform answers for it: the
+ * settings value, whether a session here serves it, why not where it does not, and
+ * what serves it where it does. Which sources exist is the platform's question, so
+ * the list is the backend's and no control here holds one of its own. */
+export type AudioSource = platform.AudioSource;
+
 /**
  * Which video encoders this machine can run, probed at startup: publish engine ->
  * codec -> whether it ran. An engine or codec the probe left out imposes no

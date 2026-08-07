@@ -1,0 +1,5 @@
+# MSBuild output. The repository root already ignores bin/ at any depth; obj/ is
+# unique to the .NET projects and is named here rather than widening the root list.
+obj/
+[Bb]in/
+*.user

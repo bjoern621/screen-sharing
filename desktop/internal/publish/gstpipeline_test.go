@@ -228,7 +228,10 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 		}
 		s := settings.Defaults()
 		// RTSP carries every audio codec the table holds, so the transport never decides
-		// which of them this covers.
+		// which of them this covers. The backend is one this engine runs on a platform that
+		// serves the monitor source, since the branch is refused for the backend's platform
+		// before any element is named and the defaults carry an ffmpeg Windows grabber.
+		s.Capture = "portal"
 		s.Transport, s.Audio, s.AudioCodec = "rtsp", "desktop", a.Name
 		branch, err := gstAudioBranch(s)
 		if err != nil {

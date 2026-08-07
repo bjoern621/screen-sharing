@@ -1,0 +1,100 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:ScreenShare.App.Controls"
+                    xmlns:ti="using:TablerIcons">
+
+  <!--
+    A pre-publish line. The satisfied mark is grey rather than green on purpose: the palette
+    holds one hue and it is spent on faults, so "done" is carried by the glyph and the
+    filled badge instead of by a colour.
+
+    A grid rather than a horizontal stack, and the text wraps. The line used to be a label
+    that fitted; it now carries the backend's own diagnostic, which is a sentence, and a
+    stack measures its children against infinite width - so every one of them ran off the
+    end of the rail. The badge sits at the top of the run rather than centred on it, because
+    a two-line sentence with a mark floating at its middle reads as two items.
+  -->
+  <ControlTheme x:Key="{x:Type controls:CheckItem}" TargetType="controls:CheckItem">
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Grid ColumnDefinitions="Auto,*">
+          <Border Name="Badge"
+                  Grid.Column="0"
+                  Width="15" Height="15"
+                  CornerRadius="{StaticResource RadiusSegment}"
+                  Background="{StaticResource ChipBorderBrush}"
+                  BorderThickness="1"
+                  BorderBrush="Transparent"
+                  VerticalAlignment="Top"
+                  Margin="0,1,0,0">
+            <ti:TablerIcon Name="Glyph"
+                           Classes="badge"
+                           Icon="{Binding $parent[controls:CheckItem].State, Converter={x:Static controls:CheckGlyphConverter.Instance}}"
+                           Brush="{StaticResource ForegroundBrush}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center" />
+          </Border>
+
+          <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
+            <TextBlock Name="Body"
+                       Text="{TemplateBinding Text}"
+                       Classes="muted"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       LineHeight="{StaticResource LineHeightSmall}" />
+
+            <!-- Only a line with a control behind it names a step, so the clause never dangles. -->
+            <TextBlock Name="FixIn"
+                       Text="{TemplateBinding FixedInStep}"
+                       Classes="hint"
+                       TextWrapping="Wrap"
+                       TextTrimming="None"
+                       IsVisible="{Binding $parent[controls:CheckItem].FixedInStep, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </Grid>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^[State=Pending] /template/ Border#Badge">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
+    </Style>
+    <Style Selector="^[State=Pending] /template/ ti|TablerIcon#Glyph">
+      <Setter Property="Brush" Value="{StaticResource MutedBrush}" />
+    </Style>
+
+    <!--
+      A note is the quietest line on the card: an outlined badge and hint-weight prose, so a
+      run of them does not compete with the one warning above it.
+    -->
+    <Style Selector="^[State=Note] /template/ Border#Badge">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
+    </Style>
+    <Style Selector="^[State=Note] /template/ ti|TablerIcon#Glyph">
+      <Setter Property="Brush" Value="{StaticResource HintBrush}" />
+    </Style>
+    <Style Selector="^[State=Note] /template/ TextBlock#Body">
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+
+    <!--
+      A warning is louder by weight and fill, not by colour. Red is the publish-stopping
+      signal and spending it here would leave the two indistinguishable across a room.
+    -->
+    <Style Selector="^[State=Warned] /template/ Border#Badge">
+      <Setter Property="Background" Value="{StaticResource ChipBorderBrush}" />
+    </Style>
+    <Style Selector="^[State=Warned] /template/ TextBlock#Body">
+      <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
+    </Style>
+
+    <Style Selector="^[State=Blocking] /template/ Border#Badge">
+      <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+    </Style>
+    <Style Selector="^[State=Blocking] /template/ TextBlock#Body">
+      <Setter Property="Foreground" Value="{StaticResource OnAirBrush}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

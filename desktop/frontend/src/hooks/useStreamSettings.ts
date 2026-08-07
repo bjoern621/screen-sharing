@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     GetSettings, SaveSettings, GetPresets, SavePreset, DeletePreset,
-    PublishCommand, AudioCodecs, TransportFormats, CaptureTransports,
-    CaptureEngines, GpuPaths, StoreNotice,
+    PublishCommand, AudioCodecs, AudioSources, TransportFormats,
+    CaptureTransports, CaptureEngines, GpuPaths, StoreNotice,
 } from "../../wailsjs/go/app/App";
 import { EventsOn } from "../../wailsjs/runtime/runtime";
 import {
-    Deps, EncoderInfo, GpuPath, PlatformInfo, Preset, Stream, TransportCarriage,
-    ViewVerdict,
+    AudioSource, Deps, EncoderInfo, GpuPath, PlatformInfo, Preset, Stream,
+    TransportCarriage, ViewVerdict,
 } from "../types/stream";
 import {
     Environment, evaluateDeps, normalize, publishTransports,
@@ -55,6 +55,10 @@ export function useStreamSettings(
     const [s, setS] = useState<Stream | null>(null);
     const [userPresets, setUserPresets] = useState<Preset[]>([]);
     const [audioCodecs, setAudioCodecs] = useState<AudioCodec[] | null>(null);
+    // The second-track sources this machine's platform serves. Fetched rather than
+    // held, because which sources exist and which of them a session here serves is
+    // the platform's answer and no control may hold a list of its own.
+    const [audioSources, setAudioSources] = useState<AudioSource[] | null>(null);
     const [carriage, setCarriage] = useState<TransportCarriage[] | null>(null);
     const [captureTransports, setCaptureTransports] =
         useState<Record<string, string[]> | null>(null);
@@ -75,12 +79,12 @@ export function useStreamSettings(
     // the repairs cannot be handed different subsets.
     const env: Environment = useMemo(
         () => ({
-            platform, encoders, caps, decoders, audioCodecs, carriage,
-            captureTransports, captureEngines, gpuPaths,
+            platform, encoders, caps, decoders, audioCodecs, audioSources,
+            carriage, captureTransports, captureEngines, gpuPaths,
         }),
         [
-            platform, encoders, caps, decoders, audioCodecs, carriage,
-            captureTransports, captureEngines, gpuPaths,
+            platform, encoders, caps, decoders, audioCodecs, audioSources,
+            carriage, captureTransports, captureEngines, gpuPaths,
         ]
     );
 
@@ -215,6 +219,7 @@ export function useStreamSettings(
             setS(normalize(await GetSettings()));
             setSettingsNotice(await StoreNotice());
             setAudioCodecs(await AudioCodecs());
+            setAudioSources(await AudioSources());
             setCarriage(await TransportFormats());
             setCaptureTransports(await CaptureTransports());
             setCaptureEngines(await CaptureEngines());
@@ -226,17 +231,19 @@ export function useStreamSettings(
     // capture backend (ddagrab on Linux falls back), the encoder probe and capability
     // table gate the codec/chroma (hevc_nvenc drops to x264 without an NVIDIA
     // encoder), the transport table gates the codec (MPEG-TS carries no VP9), the
-    // audio table gates the audio codec (WebRTC negotiates no AAC), the
+    // audio table gates the audio codec (WebRTC negotiates no AAC), the platform's
+    // source table gates the audio source (no session but a Linux one serves what the
+    // machine plays), the
     // capture->transport map gates the transport (the GStreamer engine has no RTMP
     // sink), the capture->engine map gates the chroma (the portal path's encoders drop
     // planar RGB), and the GPU pair table gates the frame memory (a direct path exists
     // for some capture and codec pairs and not others). Any illegal carryover from the
     // persisted settings is repaired to a valid combination.
     useEffect(() => {
-        if (platform || encoders || caps || audioCodecs || carriage || captureTransports || captureEngines || gpuPaths) {
+        if (platform || encoders || caps || audioCodecs || audioSources || carriage || captureTransports || captureEngines || gpuPaths) {
             setS(prev => (prev ? normalize(prev, env) : prev));
         }
-    }, [platform, encoders, caps, audioCodecs, carriage, captureTransports, captureEngines, gpuPaths, env]);
+    }, [platform, encoders, caps, audioCodecs, audioSources, carriage, captureTransports, captureEngines, gpuPaths, env]);
 
     // The native grid's sidebar writes the watch leg and knobs it was moved to
     // into these same settings, and the backend announces it. Taking the change
@@ -275,8 +282,8 @@ export function useStreamSettings(
     }, [s]);
 
     return {
-        s, preset, presetDisabled, userPresets, transports, audioCodecs, engine,
-        deps, webGrid, nativeGrid, cmd,
+        s, preset, presetDisabled, userPresets, transports, audioCodecs,
+        audioSources, engine, deps, webGrid, nativeGrid, cmd,
         storeError: [settingsNotice, presetError].filter(Boolean).join("\n"),
         update, applyPreset, saveAsPreset, deletePreset,
     };

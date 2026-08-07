@@ -2,10 +2,12 @@ package publish
 
 import (
 	"fmt"
+	"strconv"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -173,18 +175,34 @@ func gstEncoderCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return "video/x-raw" + mem.feature + ",format=" + format + ",colorimetry=" + colorimetry, nil
+
+	caps := "video/x-raw" + mem.feature + ",format=" + format + ",colorimetry=" + colorimetry
+	// The size is pinned on the encoder input rather than asked of a scaler, which is
+	// what GStreamer negotiation is: the capsfilter states what the encoder is given and
+	// the resampler upstream of it - videoscale on the CPU, the family's post-processor
+	// on the device - produces it. That is the same statement on both paths, so the
+	// device path needs no element of its own (gstgpu.go, gstSystemScale).
+	size, scaled, err := s.OutputSize()
+	if err != nil {
+		return "", err
+	}
+	if scaled {
+		caps += ",width=" + strconv.Itoa(size.Width) + ",height=" + strconv.Itoa(size.Height)
+	}
+	return caps, nil
 }
 
 // gstAudioBranch returns the elements that capture desktop audio and attach it
 // to the muxer as a second track, or nil when audio is off.
 //
-// pulsesrc records @DEFAULT_MONITOR@, the libpulse magic name for the monitor
-// of the default sink: the mixed desktop audio. PipeWire's pulse server
-// implements the same name. An attached record stream keeps the monitor source
-// running, so silence flows even while nothing plays and the muxer's audio pad
-// never starves. A backend on a platform with no such server is refused here, the
-// way the ffmpeg engine refuses its own non-Linux backends.
+// pulsesrc records platform.AudioMonitorDevice, the libpulse magic name for the
+// monitor of the default sink: the mixed desktop audio. An attached record stream
+// keeps the monitor source running, so silence flows even while nothing plays and
+// the muxer's audio pad never starves. A backend whose platform serves no such
+// source is refused before the elements are built, on the verdict and in the words
+// publish.AudioAvailable reads off the source table - the same table the form greys
+// the option by, so what a user is told before publishing and what a refused publish
+// says are one sentence.
 //
 // The encoder element, the parser after it and the rate the capsfilter pins all
 // come from the audio table. The capsfilter sits after audioresample because an
@@ -192,18 +210,11 @@ func gstEncoderCaps(s settings.Stream, mem gstFrameMemory) (string, error) {
 // what puts the framed caps a muxer pad negotiates on the coded stream.
 func gstAudioBranch(s settings.Stream) ([]string, error) {
 	switch s.Audio {
-	case "", "none":
+	case "", platform.AudioSourceNone:
 		return nil, nil
-	case "desktop":
-		// pulsesrc reads a PulseAudio or PipeWire server, which only a Linux session
-		// runs. This engine's other two backends are on platforms that serve neither,
-		// and each names what is missing there rather than sharing one phrase: the
-		// piece a user would have to supply is different on each.
-		switch s.Capture {
-		case "d3d11screencapturesrc":
-			return nil, fmt.Errorf("desktop audio capture needs a PulseAudio or PipeWire server, which the %s (Windows) backend runs on no session of", s.Capture)
-		case "avfvideosrc":
-			return nil, fmt.Errorf("desktop audio capture needs a PulseAudio or PipeWire server, which the %s (macOS) backend runs on no session of: CoreAudio exposes no monitor of the default output", s.Capture)
+	case platform.AudioSourceDesktop:
+		if available, _ := AudioAvailable(s.Capture, s.Audio); !available {
+			return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Capture, s.Audio)
 		}
 		a, ok := capabilities.GetAudio(s.AudioTrack())
 		if !ok {
@@ -215,7 +226,7 @@ func gstAudioBranch(s settings.Stream) ([]string, error) {
 		}
 		assert.Assert(enc.Parser != "", "a GStreamer audio encoder states its parser", a.Name)
 		return []string{
-			"pulsesrc", "device=@DEFAULT_MONITOR@",
+			"pulsesrc", "device=" + platform.AudioMonitorDevice,
 			"!", "queue",
 			"!", "audioconvert",
 			"!", "audioresample",

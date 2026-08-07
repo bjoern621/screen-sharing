@@ -2,7 +2,8 @@
 
 The native stream grid: an Adwaita window with a retractable stream sidebar and one video tile per watched stream, each decoding through its own GStreamer pipeline into a `gtk4paintablesink` paintable.
 It is a separate GTK4 binary because the app's webview process is GTK3, and the two toolkits cannot share a process.
-Styling maps the web design language (`docs/design-language.md`); the icons are the web app's Tabler set, vendored as SVGs.
+Styling maps the Wails frontend's zinc-and-emerald palette; the icons are the web app's Tabler set, vendored as SVGs.
+That palette is no longer the product's design language: `docs/design-language.md` now states a greyscale one with a single red, and this binary has not been ported to it yet.
 
 ## Running
 

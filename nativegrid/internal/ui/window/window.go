@@ -33,13 +33,16 @@ const (
 )
 
 // decoration is the window buttons the content header carries, in GTK's layout
-// syntax: nothing before the colon, maximize beside close after it.
+// syntax: nothing before the colon, the platform's three after it.
 //
-// The desktop's own layout is overridden rather than followed. Maximize is what the
-// sidebar toggle leaves the window needing, since neither the toggle nor fullscreen
-// gives back the shape between windowed and the whole screen, and a desktop that
-// puts its buttons at the start would stack them on the toggle.
-const decoration = ":maximize,close"
+// The desktop's own layout is overridden rather than followed, and what is overridden
+// is where the buttons sit, not which ones there are. All three are named because a
+// window is a window: minimising it is what a viewer does to get at what is behind it,
+// and maximise is what the sidebar toggle and fullscreen between them still leave it
+// needing, since neither gives back the shape between windowed and the whole screen. A
+// desktop that puts its buttons at the start would stack them on the toggle, which is
+// the one thing the side of the colon they are named on settles.
+const decoration = ":minimize,maximize,close"
 
 // chromeIcons holds the window chrome's icons, which stay registered for the process
 // lifetime: the chrome outlives every tile.

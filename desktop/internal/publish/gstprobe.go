@@ -97,7 +97,9 @@ func GstEncodeProbe(s settings.Stream, width, height, frames int, heavy bool) ([
 	if mem.upload != "" {
 		pipeline = append(pipeline, "!", mem.upload)
 	}
-	pipeline = append(pipeline, "!", mem.convert, "!", inCaps, "!")
+	pipeline = append(pipeline, "!")
+	pipeline = append(pipeline, mem.convert...)
+	pipeline = append(pipeline, "!", inCaps, "!")
 	pipeline = append(pipeline, encoder...)
 	// The link elements stay in: they are what a run puts between encoder and sink,
 	// and a parser that repeats parameter sets per keyframe reads every frame the

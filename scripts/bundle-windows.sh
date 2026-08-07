@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 #
-# bundle-windows.sh - put the GTK4 and GStreamer runtime the native grid links
-# next to the built binaries, so the app runs on a machine without MSYS2.
+# bundle-windows.sh - put the GTK4 and GStreamer runtime the native grid links,
+# and the gst-launch-1.0.exe the app spawns, next to the built binaries, so both
+# run on a machine without MSYS2.
 #
 # Run from the MSYS2 MINGW64 shell, whose ldd resolves the mingw DLLs:
 #
 #   task bundle:windows
 #   sh scripts/bundle-windows.sh desktop/build/bin
 #
-# It produces the layout docs/packaging.md describes: DLLs beside the binary,
-# GStreamer plugins in gstreamer-1.0/, and under share/ the compiled GLib
+# It produces the layout docs/packaging.md describes: DLLs and the launcher beside
+# the binary, GStreamer plugins in gstreamer-1.0/, and under share/ the compiled GLib
 # schemas together with the icon theme and the font the window's look is pinned
 # to (nativegrid/README.md, "One look on both platforms").
 set -euo pipefail
@@ -33,6 +34,7 @@ bin=$(cygpath -u "$bin")
 prefix=$(cygpath -m "$prefix")
 
 grid="$bin/screenshare-nativegrid.exe"
+launcher=gst-launch-1.0.exe
 
 if [ ! -f "$grid" ]; then
     echo "$grid does not exist: build it with 'task nativegrid' first" >&2
@@ -42,6 +44,18 @@ if [ ! -d "$prefix/lib/gstreamer-1.0" ]; then
     echo "$prefix/lib/gstreamer-1.0 does not exist: install the MSYS2 gstreamer packages first" >&2
     exit 1
 fi
+if [ ! -f "$prefix/bin/$launcher" ]; then
+    echo "$prefix/bin/$launcher does not exist: install the MSYS2 gstreamer packages first" >&2
+    exit 1
+fi
+
+# The app spawns the launcher for a GStreamer publish, for the encode probe and for
+# the test streams (desktop/internal/publish, GstExe), so the bundle ships the
+# program as well as the libraries the grid links. It goes beside the binaries
+# because that is where the app looks first (ffmpeg.FindExe), and the plugins it
+# loads are named to it by GST_PLUGIN_PATH at spawn (publish.GstChildEnv): its own
+# build-time prefix exists on no machine this bundle lands on.
+cp -f "$prefix/bin/$launcher" "$bin/"
 
 # Every installed plugin rather than a chosen subset. Which ones a run needs
 # follows from the transport and the codec of whatever is being watched, so
@@ -58,7 +72,7 @@ cp -f "$prefix"/lib/gstreamer-1.0/*.dll "$bin/gstreamer-1.0/"
 # process and for anything the process loads later, plugins included.
 declare -A seen
 copied=0
-queue=("$grid")
+queue=("$grid" "$bin/$launcher")
 for plugin in "$bin"/gstreamer-1.0/*.dll; do
     queue+=("$plugin")
 done
@@ -153,4 +167,4 @@ if [ "$copied" -eq 0 ]; then
     exit 1
 fi
 
-echo "bundled $copied libraries, $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins, the Adwaita icon theme and Cantarell into $bin"
+echo "bundled $copied libraries, $launcher, $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins, the Adwaita icon theme and Cantarell into $bin"

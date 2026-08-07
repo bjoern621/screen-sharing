@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+// The screen-sharing control plane, version 1.
+//
+// Everything a shell needs in order to draw the product and to act on it crosses
+// this package. A shell holds no domain knowledge of its own: it draws what these
+// messages describe and calls the methods control.proto declares. See
+// docs/ipc-api.md for the boundary rule and the reasoning behind it.
+package screenshare.v1;
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// StreamSettings is every user-controllable aspect of the stream, and it is the
+// only settings shape on the wire: the same message is read back, edited, resolved
+// into a form, saved, published from and stored in a preset.
+//
+// Field names mirror the Go settings struct's JSON tags one for one, because a
+// capability gap and a form field are the same identifier on both sides
+// (docs/domain-model.md). A shell that receives a gap naming "chroma" therefore
+// knows which control it greys with no translation table of its own.
+//
+// A shell never constructs one of these from nothing. It receives a draft from
+// GetSettings or from a preset, changes the one field the user moved, and sends the
+// whole message back. Which values each field may take is not encoded here on
+// purpose: it depends on the other fields, and Form is where that answer lives.
+message StreamSettings {
+  // Name is the stream's path on the relay, which is what a viewer asks for.
+  string name = 1;
+
+  // The relay's address and its listeners. One host, one port per protocol, since
+  // the relay serves each on its own.
+  string relay_host = 2;
+  // relay_port is the UDP port of the relay's SRT listener.
+  int32 relay_port = 3;
+  // api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
+  int32 api_port = 4;
+  int32 rtsp_port = 5;
+  int32 webrtc_port = 6;
+  int32 rtmp_port = 7;
+  int32 hls_port = 8;
+  // moq_port is one number for two listeners: the Media-over-QUIC fingerprint
+  // endpoint on TCP and the WebTransport endpoint on UDP. It is a watch-leg port
+  // with no publish counterpart, since nothing here publishes MoQ.
+  int32 moq_port = 9;
+
+  // transport is the publish leg, publisher to relay, keyed as the transport
+  // registry names it ("srt", "rtsp", "rtmp", "webrtc", ...).
+  string transport = 10;
+  // codec is an encoder name, a row of the codec table in catalog.proto.
+  string codec = 11;
+  // mode is the rate control: cbr, vbr, abr, crf or lossless.
+  string mode = 12;
+  // chroma is the pixel format: gbrp, yuv444p, yuv422p, yuv420p, p010le.
+  string chroma = 13;
+  // color_range is pc or tv, and is ignored for gbrp, which is full range by
+  // construction.
+  string color_range = 14;
+  int32 fps = 15;
+  // cq is the constant-quality target crf mode aims at. Lower keeps more detail,
+  // and the scale it counts on is the codec's, so the ceiling is a per-codec fact
+  // the catalog carries rather than a constant.
+  int32 cq = 16;
+  // bitrate_mbps is the target the three bitrate modes aim at, maxrate_mbps the
+  // burst ceiling vbr may rise to above it.
+  int32 bitrate_mbps = 17;
+  int32 maxrate_mbps = 18;
+  // vbv_ms sizes the rate buffer for cbr and vbr. Zero means the encoder's own
+  // default rather than no buffer.
+  int32 vbv_ms = 19;
+  // gop is the keyframe interval in frames. Zero means auto, which every builder
+  // reads as twice the frame rate.
+  int32 gop = 20;
+  // bframes is the reorder depth, lossy modes only. It buys compression with
+  // latency, which is why it is a field and not a preset property.
+  int32 bframes = 21;
+  // enc_preset is the NVENC preset ladder, p1 through p7. The engines that take no
+  // ladder grey it rather than ignore it, so a value here always reached an encoder
+  // that read it.
+  string enc_preset = 22;
+
+  // capture is the capture backend, a row of the capture list in catalog.proto. It
+  // decides the publish engine, which is why so many other fields' availability
+  // hangs off it.
+  string capture = 23;
+  // audio names the capture source of the second track, or "none". Which sources
+  // exist is the platform's question; which codec the track is coded in is the
+  // engine's and the publish leg's, and is the field below.
+  string audio = 24;
+  string audio_codec = 25;
+  // drm_map is the kmsgrab DRM download strategy: auto, vaapi, vulkan or none. It
+  // is a knob of the kmsgrab scanout path and of nothing else, so the form hides it
+  // rather than greying it under every other backend.
+  string drm_map = 26;
+  // monitor is the display output to capture, as the index the monitor list carries.
+  int32 monitor = 27;
+  // capture_memory is where the frames reach the encoder: auto, gpu,
+  // gpu-encoder-color or system. Which of them a selection may take is decided by
+  // the capture backend and the encoder family together, which is the one
+  // constraint neither end declares alone.
+  string capture_memory = 28;
+
+  // The SRT latency window per hop. Glass-to-glass delay is the sum of both plus
+  // encode and decode: publisher to relay and relay to viewer are independent SRT
+  // links, each holding packets for its own retransmit window.
+  int32 srt_publish_latency_ms = 29;
+  int32 srt_watch_latency_ms = 30;
+
+  // The RTSP lower transport, one field per leg: "tcp" interleaves every track over
+  // the connection the session already holds, "udp" negotiates a port pair per
+  // track. The legs are separate values because they cross different networks.
+  string rtsp_publish_protocol = 31;
+  string rtsp_watch_protocol = 32;
+
+  // uplink_mbps is the upload capacity the user says this machine has. Nothing is
+  // enforced against it; it is what the warnings in Form.summary are weighed
+  // against, and MeasureUplink replaces the guess with a measurement.
+  int32 uplink_mbps = 34;
+
+  // watch_transport is the leg an external viewer receives over.
+  string watch_transport = 35;
+
+  // output_resolution is the picture the encoder is fed, as "WIDTHxHEIGHT", and the
+  // empty string where the capture's own size reaches the encoder unscaled.
+  //
+  // One compound field rather than a width and a height, because the user picks one
+  // thing: two fields would be two controls that are only ever legal in pairs, and a
+  // form has no way to say that. It is a string for the reason chroma and mode are:
+  // the legal values are a list the backend generates, so the only strings that ever
+  // arrive are ones it wrote.
+  string output_resolution = 37;
+
+  // 36 was grid_transport and 33 rtsp_watch_latency_ms: the watch leg every tile of
+  // the GTK4 grid window received over, and the jitter buffer that window's receiving
+  // pipeline sized itself by. That window and the Wails app it was launched from are
+  // obsolete, and both knobs were theirs alone - the external players this contract
+  // does describe buffer by reorder queue rather than by time, which is not the same
+  // knob under another name.
+  //
+  // The second will be back. A viewer that decodes through a receiving pipeline needs
+  // it again, and it is declared then, against a viewer that reads it - not left on
+  // the wire as a control no shell can honour. The Go settings struct carries both for
+  // as long as the old binary is in the tree, which is why nothing on the wire may
+  // reuse these numbers; wire.StreamSettingsOnto is what stops a draft that cannot see
+  // them from clearing them.
+  reserved 33, 36;
+  reserved "rtsp_watch_latency_ms", "grid_transport";
+}
+
+// Preset is a named StreamSettings the user saved. The settings travel whole rather
+// than as a diff against the defaults, so applying one is an assignment and not a
+// merge whose result depends on what the form held first.
+message Preset {
+  string name = 1;
+  StreamSettings settings = 2;
+}

@@ -1,0 +1,128 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    x:CompileBindings="False">
+
+  <!--
+    The dropdown. A closed face that states the held value and what it was derived from, and
+    a menu that lists the alternatives with the same two columns.
+
+    It is a Button with a MenuFlyout rather than a ComboBox. A ComboBox owns a selection, and
+    an owned selection is a second copy of a value the resolved form already carries: a render
+    pass that reassigned it would fight the list, and a list that reassigned itself would
+    write a setting nobody picked. Here the closed face is drawn from the form and the menu
+    reports a pick, so there is one owner and one direction (docs/ipc-api.md).
+
+    A MenuItem closes the flyout when it is invoked and takes keyboard traversal with it,
+    which is the whole reason the menu is a MenuFlyout and not a panel of buttons.
+
+    Compiled bindings are off in this file alone. An item container theme binds against the
+    item the flyout generated it for, and that item's type is only known where the control is
+    used - there is no x:DataType a theme could declare.
+  -->
+
+  <!--
+    The closed face. It carries no content of its own: the caller supplies the two columns,
+    because what a value and its provenance are called is the form's answer.
+  -->
+  <ControlTheme x:Key="SelectFace" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Height" Value="{StaticResource ActionHeight}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+
+    <!--
+      Inert. A colour change and the pointer, and nothing else: the field's own reason is
+      printed under it, so the control does not have to carry the explanation as well.
+    -->
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    </Style>
+
+    <!--
+      The two columns grey with the face, but the rule cannot live here: the caller supplies
+      them, so reaching them takes a descendant selector, and a ControlTheme may not carry one
+      - Avalonia throws when the theme is built, which is the first time the face is measured.
+      The caller states it instead, beside the classes it gave that text.
+    -->
+  </ControlTheme>
+
+  <!-- The surface the entries sit on, matching the expert menu's. -->
+  <ControlTheme x:Key="SelectMenu" TargetType="MenuFlyoutPresenter">
+    <Setter Property="Background" Value="{StaticResource ChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusPanel}" />
+    <Setter Property="Padding" Value="6" />
+    <Setter Property="MaxHeight" Value="360" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <ItemsPresenter />
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!--
+    One entry. The three bindings are the whole of what an entry is: what picking it does,
+    whether it can be picked, and why not where it cannot.
+
+    A refused entry stays in the list and greys, because a neighbouring configuration allows
+    it and the greyed row plus its reason says what to change. Dropping it instead would say
+    nothing (docs/field-availability.md, "One option disabled with a reason").
+
+    The reason is rendered by the caller's item template rather than shown as a tooltip on
+    this row. A disabled control in Avalonia is not hit-testable, so it receives no pointer
+    entry and its tooltip can never open - the setter that used to be here was dead on
+    exactly the entries it was written for. Height is left unset for the same feature: an
+    entry carrying a reason is two lines tall.
+  -->
+  <ControlTheme x:Key="SelectMenuItem" TargetType="MenuItem">
+    <Setter Property="Command" Value="{Binding Choose}" />
+    <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+    <Setter Property="MinHeight" Value="{StaticResource MenuItemHeight}" />
+    <Setter Property="Padding" Value="9,5" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Root"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <!--
+            ContentTemplate is the whole of what the flyout's ItemTemplate travels through.
+            Without it the presenter has a view model and no template to draw it with, falls
+            back to ToString, and the menu prints the record's own field dump - which is
+            exactly what it did.
+          -->
+          <ContentPresenter Content="{TemplateBinding Header}"
+                            ContentTemplate="{TemplateBinding HeaderTemplate}"
+                            VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    </Style>
+    <Style Selector="^:selected /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Cursor" Value="Arrow" />
+      <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

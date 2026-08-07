@@ -23,8 +23,11 @@ import (
 // parseStdout, when set, consumes the child's stdout, which is where an engine
 // prints its progress; the stream is teed into the run log on the way, so the
 // log holds everything the child said either way.
+// env adds to this process's environment rather than replacing it, so a child
+// keeps everything the app was started with (GstChildEnv is what fills it).
 type superviseConfig struct {
 	exe         string
+	env         []string
 	args        []string
 	tag         string
 	extraFiles  []*os.File
@@ -62,6 +65,9 @@ func supervise(cfg superviseConfig) (Handle, error) {
 
 	cmd := exec.Command(cfg.exe, cfg.args...)
 	cmd.ExtraFiles = cfg.extraFiles
+	if len(cfg.env) > 0 {
+		cmd.Env = append(os.Environ(), cfg.env...)
+	}
 
 	tail := &tailBuffer{max: 4096}
 	stderr, err := cmd.StderrPipe()

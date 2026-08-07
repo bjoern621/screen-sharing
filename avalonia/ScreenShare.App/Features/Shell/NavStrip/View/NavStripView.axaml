@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.NavStrip.ViewModel"
+             xmlns:shell="using:ScreenShare.App.Features.Shell.ViewModel"
+             x:Class="ScreenShare.App.Features.Shell.NavStrip.View.NavStripView"
+             x:DataType="vm:NavStripViewModel">
+
+  <!--
+    Docked and full-bleed, ruled off from the body below. The 12px inset is the design's
+    strip padding; Design/Metrics.axaml names the same 12 as GapPanel, but a Thickness has
+    no token to point at, so the number is written out here.
+  -->
+  <Border Classes="navstrip" Padding="12,0">
+    <Grid ColumnDefinitions="Auto,*,Auto">
+
+      <!-- Where you may go. The hint hugs the segments, so it sits here. -->
+      <StackPanel Grid.Column="0"
+                  Orientation="Horizontal"
+                  Spacing="{StaticResource GapControl}"
+                  VerticalAlignment="Center">
+
+        <!--
+          The three destinations. Pinned to the control height so the track lines up with
+          the buttons either side of it whatever the platform face measures a segment at.
+        -->
+        <ListBox Theme="{StaticResource SegmentedControlTheme}"
+                 ItemContainerTheme="{StaticResource SegmentItemTheme}"
+                 Height="{StaticResource ControlHeight}"
+                 ItemsSource="{Binding Tabs}"
+                 SelectedItem="{Binding SelectedTab, Mode=TwoWay}">
+
+          <ListBox.Styles>
+            <!--
+              Unavailable is a disabled segment, and the segment theme turns that into a
+              colour change and nothing else. Bound on the container rather than inside the
+              item, because it is the container the theme's :disabled selector watches.
+            -->
+            <Style Selector="ListBoxItem" x:DataType="shell:DestinationTab">
+              <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
+            </Style>
+          </ListBox.Styles>
+
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="shell:DestinationTab">
+              <!--
+                Foreground and weight are read back off the container: the app states a
+                Foreground on every TextBlock, so plain inheritance would lose to it and the
+                selected, available and dimmed segments would all come out one colour.
+              -->
+              <TextBlock Text="{Binding Label}"
+                         Foreground="{Binding $parent[ListBoxItem].Foreground}"
+                         FontWeight="{Binding $parent[ListBoxItem].FontWeight}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+
+        <TextBlock Classes="hint"
+                   Text="{Binding Hint}"
+                   IsVisible="{Binding ShowsHint}"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+
+      <!-- Live state. -->
+      <StackPanel Grid.Column="2"
+                  Orientation="Horizontal"
+                  Spacing="{StaticResource GapControl}"
+                  VerticalAlignment="Center">
+
+        <controls:StatusPill Label="{Binding OnAirLabel}"
+                             Detail="{Binding OnAirTimer}"
+                             IsVisible="{Binding ShowsOnAir}" />
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

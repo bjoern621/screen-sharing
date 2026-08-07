@@ -1,0 +1,183 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:ScreenShare.App.Ui"
+        x:Class="ScreenShare.App.Ui.MainWindow"
+        x:DataType="ui:MainViewModel"
+        Title="Screen share"
+        Width="780" Height="580"
+        MinWidth="560" MinHeight="380"
+        Background="{StaticResource SurfaceBrush}">
+
+  <Window.Styles>
+    <!--
+      The status dot is state, not decoration: it stays 6px, and it pulses only when the
+      relay is connected. Red never means live (docs/design-language.md).
+    -->
+    <Style Selector="Ellipse.pulse">
+      <Style.Animations>
+        <Animation Duration="0:0:1.8" IterationCount="Infinite">
+          <KeyFrame Cue="0%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+          <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.35" /></KeyFrame>
+          <KeyFrame Cue="100%"><Setter Property="Opacity" Value="1" /></KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+
+    <Style Selector="Ellipse.spinner">
+      <Setter Property="RenderTransform" Value="rotate(0deg)" />
+      <Style.Animations>
+        <Animation Duration="0:0:0.9" IterationCount="Infinite">
+          <KeyFrame Cue="0%"><Setter Property="RotateTransform.Angle" Value="0" /></KeyFrame>
+          <KeyFrame Cue="100%"><Setter Property="RotateTransform.Angle" Value="360" /></KeyFrame>
+        </Animation>
+      </Style.Animations>
+    </Style>
+
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="TextBlock.figure">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+      <!-- Figures are identifiers, not prose, so they read in the stats voice. -->
+      <Setter Property="FontFamily" Value="Cascadia Mono,Consolas,Menlo,monospace" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource HairlineBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="20" >
+
+    <!-- Header: the connection state, in the one status vocabulary. -->
+    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,16">
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+        <Panel Width="14" Height="14">
+          <Ellipse Width="6" Height="6"
+                   IsVisible="{Binding StatusDotVisible}"
+                   Classes.pulse="{Binding StatusPulses}">
+            <Ellipse.Fill>
+              <SolidColorBrush Color="{Binding StatusColor}" />
+            </Ellipse.Fill>
+          </Ellipse>
+          <Ellipse Width="13" Height="13"
+                   StrokeThickness="2"
+                   StrokeDashArray="3,2"
+                   RenderTransformOrigin="50%,50%"
+                   IsVisible="{Binding StatusSpins}"
+                   Classes.spinner="{Binding StatusSpins}">
+            <Ellipse.Stroke>
+              <SolidColorBrush Color="{Binding StatusColor}" />
+            </Ellipse.Stroke>
+          </Ellipse>
+        </Panel>
+        <TextBlock Text="{Binding StatusLabel}"
+                   FontSize="15"
+                   Foreground="{StaticResource ForegroundBrush}"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+
+      <TextBlock Grid.Column="2"
+                 Classes="figure"
+                 Text="{Binding Summary}" />
+    </Grid>
+
+    <!-- The relay the check targets. -->
+    <Border Grid.Row="1" Classes="card" Padding="14" Margin="0,0,0,12">
+      <Grid ColumnDefinitions="Auto,*,Auto,140,Auto,Auto" >
+        <TextBlock Grid.Column="0" Classes="label" Text="Relay host" Margin="0,0,10,0" />
+        <TextBox Grid.Column="1"
+                 Text="{Binding Host, Mode=TwoWay}"
+                 PlaceholderText="127.0.0.1"
+                 MinWidth="140" />
+
+        <TextBlock Grid.Column="2" Classes="label" Text="API port" Margin="14,0,10,0" />
+        <NumericUpDown Grid.Column="3"
+                       Value="{Binding ApiPort, Mode=TwoWay}"
+                       Minimum="1" Maximum="65535"
+                       Increment="1"
+                       FormatString="0"
+                       ToolTip.Tip="TCP port of the relay's HTTP API (default 9997), used for the live-now list." />
+
+        <!-- A flag is the switch, the same one every other surface draws; there is no tick box. -->
+        <StackPanel Grid.Column="4"
+                    Orientation="Horizontal"
+                    Spacing="{StaticResource GapTight}"
+                    Margin="16,0,10,0"
+                    VerticalAlignment="Center"
+                    ToolTip.Tip="Re-checks the relay every two seconds. Turning it off leaves the last answer on screen.">
+          <TextBlock Classes="label" Text="Keep checking" VerticalAlignment="Center" />
+          <ToggleButton Theme="{StaticResource SwitchTheme}" IsChecked="{Binding AutoRefresh, Mode=TwoWay}" />
+        </StackPanel>
+
+        <Button Grid.Column="5"
+                Content="Check connection"
+                Command="{Binding CheckNowCommand}"
+                ToolTip.Tip="Asks the relay for its path list once. It changes nothing on the relay." />
+      </Grid>
+    </Border>
+
+    <!-- Failure: the message the relay gave, beside a retry the button already is. -->
+    <Border Grid.Row="2"
+            IsVisible="{Binding HasError}"
+            Background="{StaticResource DestructiveSurfaceBrush}"
+            BorderBrush="{StaticResource DestructiveBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="12,10"
+            Margin="0,0,0,12">
+      <TextBlock Text="{Binding ErrorText}"
+                 TextWrapping="Wrap"
+                 FontSize="12"
+                 Foreground="{StaticResource DestructiveBrush}" />
+    </Border>
+
+    <!-- Who is live. -->
+    <Border Grid.Row="3" Classes="card" Padding="0">
+      <Panel>
+        <TextBlock IsVisible="{Binding IsEmpty}"
+                   Classes="label"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   TextAlignment="Center"
+                   Text="Nothing is live on this relay." />
+
+        <ScrollViewer IsVisible="{Binding !IsEmpty}">
+          <ItemsControl ItemsSource="{Binding Paths}" Margin="4">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="ui:PathRow">
+                <Grid ColumnDefinitions="Auto,*,90,Auto,110,90" Height="38" Margin="8,0">
+                  <Ellipse Grid.Column="0"
+                           Width="6" Height="6"
+                           Margin="0,0,10,0"
+                           VerticalAlignment="Center"
+                           Fill="{StaticResource PrimaryBrush}"
+                           IsVisible="{Binding Ready}" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding Name}"
+                             Foreground="{StaticResource ForegroundBrush}"
+                             FontSize="13"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis" />
+                  <TextBlock Grid.Column="2" Classes="figure" Text="{Binding Format}" />
+                  <TextBlock Grid.Column="3" Classes="figure" Text="{Binding Tracks}" Margin="0,0,14,0" />
+                  <TextBlock Grid.Column="4" Classes="figure" Text="{Binding Readers}" />
+                  <TextBlock Grid.Column="5" Classes="figure" Text="{Binding Bitrate}" TextAlignment="Right" />
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Panel>
+    </Border>
+
+  </Grid>
+</Window>

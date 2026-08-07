@@ -157,6 +157,7 @@ export default function App() {
                         deps={settings.deps}
                         caps={capabilities}
                         audioCodecs={settings.audioCodecs}
+                        audioSources={settings.audioSources}
                         transports={settings.transports}
                         engine={settings.engine}
                         monitors={monitors}

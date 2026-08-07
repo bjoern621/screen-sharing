@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // maxTestStreams bounds StartTestStreams: each test stream runs its own x264
@@ -29,10 +28,17 @@ func (a *App) StartTestStreams(count int) error {
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	exe, err := ffmpeg.FindExe(publish.TestStreamExe)
+	exe, err := publish.FindGstExe()
 	if err != nil {
 		return err
 	}
+	// The launcher a bundle ships runs against the plugins beside it, not against a
+	// prefix that exists only on the machine that built the bundle.
+	env := publish.GstChildEnv()
+
+	// Announced after the lock is released, for the reason StartWatch states: the count
+	// is read back through a method that takes the same mutex.
+	defer a.emitTestStreamState()
 
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
@@ -46,7 +52,7 @@ func (a *App) StartTestStreams(count int) error {
 			a.stopTestStreamsLocked()
 			return err
 		}
-		proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, nil, nil, nil,
+		proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, env, nil, nil,
 			func(err error, stderrTail string, logPath string) {
 				message := ""
 				if err != nil {
@@ -58,7 +64,11 @@ func (a *App) StartTestStreams(count int) error {
 				} else {
 					logger.Infof("test stream %s closed (log: %s)", name, logPath)
 				}
-				runtime.EventsEmit(a.ctx, "teststream:exit", exitEvent{Message: message, LogPath: logPath})
+				// The exit says why this one stopped; the count beside it says how many are
+				// left. A publisher that died on its own moves the count with nothing having
+				// been called, which is the case the state event exists for.
+				a.emit(wire.TestStreamExitEvent(message, logPath), exitEvent{Message: message, LogPath: logPath})
+				a.emitTestStreamState()
 			})
 		if err != nil {
 			a.stopTestStreamsLocked()
@@ -73,10 +83,22 @@ func (a *App) StartTestStreams(count int) error {
 
 // StopTestStreams stops every synthetic publisher.
 func (a *App) StopTestStreams() {
+	defer a.emitTestStreamState()
+
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
 	a.stopTestStreamsLocked()
+}
+
+// emitTestStreamState announces how many synthetic publishers are alive.
+//
+// It counts through TestStreamsRunning rather than being handed a number, so what is
+// announced is what a read would answer with: a publisher that died between the call
+// and this is already out of the count. That read takes procMu, so a caller holding it
+// defers this rather than calling it in place.
+func (a *App) emitTestStreamState() {
+	a.emit(wire.TestStreamStateEvent(a.TestStreamsRunning()))
 }
 
 // stopTestStreamsLocked stops and forgets the synthetic publishers.

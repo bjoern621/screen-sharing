@@ -1,0 +1,43 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The quantizer's track, and nothing else. The track it rides on is drawn by the form
+    behind it as three coloured zones - below the recommended band, the band itself, and the
+    tail where the picture stops being usable - so this slider paints no track at all and
+    both halves stay blank.
+
+    The thumb and the blank half are the shared ones from Design/Inputs.axaml: what a slider
+    grip looks like is the design's answer, not this step's, and a second copy of it here
+    would be a second grip the moment either moved. All that is special about the quantizer
+    is the template that leaves the track to the form, which is the one thing stated below.
+
+    A separate dictionary because a control skin and a form layout are two responsibilities,
+    and the form is long enough already. It is merged by the one view that uses it, which is
+    why nothing had to be registered in App.axaml.
+  -->
+
+  <ControlTheme x:Key="QuantizerSliderTheme" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent">
+          <Track Name="PART_Track"
+                 Orientation="Horizontal"
+                 Minimum="{TemplateBinding Minimum}"
+                 Maximum="{TemplateBinding Maximum}"
+                 Value="{TemplateBinding Value, Mode=TwoWay}">
+            <Track.DecreaseButton>
+              <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource SliderTrackBlank}" />
+            </Track.DecreaseButton>
+            <Track.IncreaseButton>
+              <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource SliderTrackBlank}" />
+            </Track.IncreaseButton>
+            <Thumb Theme="{StaticResource SliderThumb}" Width="14" Height="14" />
+          </Track>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

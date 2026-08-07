@@ -1,0 +1,67 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.StatusBar.ViewModel"
+             xmlns:sys="using:System"
+             x:Class="ScreenShare.App.Features.Shell.StatusBar.View.StatusBarView"
+             x:DataType="vm:StatusBarViewModel">
+
+  <!--
+    The second chrome band, and the quietest row on screen. No top rule and no separators
+    between segments: spacing alone groups them, which is what keeps a line of running
+    figures from reading as a table the reader is meant to study.
+
+    The 12px inset matches the two bands above it. Same story as there - GapPanel states the
+    12, but a Thickness has no token to name.
+  -->
+  <Border Classes="chromeband"
+          Height="{StaticResource StatusBarHeight}"
+          Padding="12,0">
+
+    <Grid ColumnDefinitions="Auto,*,Auto">
+
+      <!--
+        Prose and figures share one baseline and one face, and differ in colour: the
+        sentence and the measurements are both the small size, the figures a shade quieter
+        and set in tabular numerals so a run of them stops shuffling as the numbers tick.
+      -->
+      <StackPanel Grid.Column="0"
+                  Orientation="Horizontal"
+                  Spacing="{StaticResource GapSection}"
+                  VerticalAlignment="Center">
+
+        <TextBlock Classes="muted"
+                   Text="{Binding Streams}"
+                   IsVisible="{Binding ShowsMetrics}" />
+
+        <!--
+          The measurements, however many the destination in front of the band reports. A
+          tighter gap between them than the one that separates them from the sentence: the
+          run of figures is one group, and the spacing is what says so.
+        -->
+        <ItemsControl ItemsSource="{Binding Load}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal"
+                          Spacing="{StaticResource GapPanel}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="sys:String">
+              <TextBlock Classes="figure"
+                         Text="{Binding}"
+                         VerticalAlignment="Center" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <!-- The contextual hint, pushed to the far edge by the spacer between. -->
+      <TextBlock Grid.Column="2"
+                 Classes="muted"
+                 Text="{Binding Hint}"
+                 IsVisible="{Binding ShowsHint}"
+                 VerticalAlignment="Center" />
+    </Grid>
+  </Border>
+</UserControl>

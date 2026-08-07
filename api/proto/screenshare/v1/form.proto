@@ -1,0 +1,308 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+import "screenshare/v1/settings.proto";
+import "screenshare/v1/text.proto";
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// Form is the whole answer to "what may the user do with these settings".
+//
+// Every list a control offers, every greyed entry, every disabled field and the reason
+// for each, every note and every diagnostic is computed in Go from the capability
+// tables and arrives here already decided. A shell renders the fields in the order it
+// is given them and sends back a changed StreamSettings; it evaluates no rule and
+// invents no value.
+//
+// What it does own is every word on screen. A field arrives as a key, an option as a
+// value, a greying as a Text code and its identifiers - and the label above the
+// control, the paragraph behind it and the sentence in place of a greyed entry are the
+// shell's, written for its layout, its typography and its reader (text.proto). The two
+// halves meet on identifiers and nowhere else, which is what lets the domain gain a
+// codec without a shell being edited and lets a shell reword its whole screen without
+// the domain being touched.
+//
+// The rule this encodes is docs/field-availability.md: a field is hidden, disabled with
+// a reason, live with a note, or has one option disabled with a reason, and which of the
+// four is a fixed consequence of the tables rather than a per-field judgement. Restating
+// that logic in a shell forks it, and a fork between a form that greys an option and a
+// backend that accepts it is invisible until it is a stream nobody can explain.
+
+// ControlKind is what kind of widget a field is, in terms of behaviour rather than
+// appearance. A shell maps it to whatever its toolkit draws; the design language is
+// the shell's, the behaviour is not.
+//
+// The messages in this file are named to survive contact with a generated language:
+// Control, Option, Value and Range are all types the .NET base library or Avalonia
+// already owns, and a contract whose every use site needs an alias is a contract
+// that will be aliased inconsistently.
+enum ControlKind {
+  CONTROL_KIND_UNSPECIFIED = 0;
+  // A free-text value.
+  CONTROL_KIND_TEXT = 1;
+  // A whole number within range.
+  CONTROL_KIND_NUMBER = 2;
+  // A number the user drags, within range. The distinction from CONTROL_KIND_NUMBER
+  // is that the value is expected to be swept rather than typed, which is what
+  // decides whether a control debounces.
+  CONTROL_KIND_SLIDER = 3;
+  // On or off.
+  CONTROL_KIND_TOGGLE = 4;
+  // One of options, where the value identifies the choice well enough for a shell to
+  // name it in one line. A shell may keep the unchosen options behind an interaction.
+  CONTROL_KIND_SELECT = 5;
+  // One of options, where the reader needs each option's own paragraph before
+  // choosing - the rate-control mode is the case that exists. The behavioural
+  // requirement is that no option may be hidden behind an interaction; how they are
+  // laid out once visible is the shell's.
+  CONTROL_KIND_RADIO = 6;
+  // A read-back figure with no input on it at all. It is not a disabled input: a
+  // disabled select still carries the options it would have offered, and this
+  // carries none because there was never a choice to make. Field.enabled is false
+  // with the reason naming who decided.
+  CONTROL_KIND_READONLY = 7;
+}
+
+// Unit is what a numeric field's value means.
+//
+// An enum and not the string "Mbit/s", because how a unit is spelled and where it sits
+// relative to the figure are typography: a shell setting numerals in mono and units in
+// sans has to know which half is which, and a field carrying one string cannot say.
+enum Unit {
+  // The field is not a quantity.
+  UNIT_UNSPECIFIED = 0;
+  UNIT_MEGABITS_PER_SECOND = 1;
+  UNIT_MILLISECONDS = 2;
+  UNIT_FRAMES_PER_SECOND = 3;
+  UNIT_FRAMES = 4;
+}
+
+// Severity ranks a diagnostic by what it costs the user to ignore.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  // Worth knowing; the stream works.
+  SEVERITY_INFO = 1;
+  // The stream runs and something about it is likely to disappoint: frames the line
+  // cannot carry, an encoder that cannot keep up, a pixel format most viewers
+  // decode on the CPU.
+  SEVERITY_WARNING = 2;
+  // The settings cannot be published as they stand. Form.publishable is false
+  // whenever one of these is present, so a shell need not rank them itself.
+  SEVERITY_ERROR = 3;
+}
+
+// FieldValue is one settings value in the shape a control edits it. The oneof is
+// what lets a shell bind a field generically instead of switching on the field key.
+message FieldValue {
+  oneof kind {
+    string text = 1;
+    int64 number = 2;
+    double decimal = 3;
+    bool flag = 4;
+  }
+}
+
+// NumericRange bounds a numeric field. Absent on a field that takes any number the
+// type allows, which is rare enough that a shell should treat absence as unbounded
+// rather than as zero.
+message NumericRange {
+  int64 min = 1;
+  int64 max = 2;
+  // step is the granularity a slider moves in, 0 meaning one.
+  int64 step = 3;
+}
+
+// FieldOption is one entry of a select or radio field.
+//
+// An option that the current combination rules out is kept and greyed rather than
+// removed, whenever a neighbouring combination allows it: the greyed entry plus its
+// reason tells the user what to change, where a missing entry tells them nothing.
+// An option a shell must not show at all simply is not in the list.
+message FieldOption {
+  // value is what StreamSettings would carry if this option were picked, and the whole
+  // of this entry's identity. What it is called and how it is described are the
+  // shell's, keyed by this value and the field it belongs to.
+  string value = 1;
+  // note is the annotation that makes the entry honest by naming what it was derived
+  // from or what it depends on: the source size a scaled resolution came from, the
+  // publish engine a capture backend runs, the rate an audio track is coded at. Absent
+  // on an entry that needs none.
+  Text note = 8;
+  // enabled is false for an option the current settings rule out, and reason states
+  // why, naming the limit and which side has it.
+  bool enabled = 5;
+  Text reason = 9;
+  // recommended marks the entry a shell may emphasise, which is a hint about this
+  // combination and not a default: the default is whatever Field.value already
+  // holds.
+  bool recommended = 7;
+
+  // 2, 4, 3 and 6 were label, detail, note and reason as prose. The first two are the
+  // shell's outright - an entry's name and the paragraph behind it are written for a
+  // layout the backend cannot see - and the second two are the statements above, which
+  // say what is true without saying it in words (text.proto).
+  reserved 2, 3, 4, 6;
+  reserved "label", "detail";
+}
+
+// Field is one control, fully decided.
+message Field {
+  // key is the StreamSettings field this control edits, named as that message names
+  // it. It is the identity a shell keys its widgets by, the identity a Gap names, and
+  // the identity a shell looks its label and its help text up by, which is what lets
+  // all three meet with no mapping in between.
+  string key = 1;
+  ControlKind control = 2;
+  // unit is what the number means, absent on a field that is not a quantity.
+  Unit unit = 14;
+
+  // visible is false for a backend implementation knob that has no meaning outside
+  // one selection - the DRM download strategy away from its capture backend. The
+  // test is whether the help text would teach a user on another backend something
+  // worth knowing: no means hidden, yes means shown and disabled.
+  bool visible = 7;
+  // enabled is false for a general encoding concept the current combination blocks,
+  // and reason is the statement shown in its place. Where two facts block the same
+  // field, the reason names the one the user can act on.
+  bool enabled = 8;
+  Text reason = 15;
+  // note is carried by a field that stays editable and means something its label does
+  // not describe here, such as a bitrate that becomes a burst ceiling in
+  // constant-quality mode. It is not a third form of unavailability: it exists so a
+  // knob the builder does forward is never greyed.
+  Text note = 16;
+
+  // value is what the field holds now, which is always a value present in
+  // StreamSettings. Where a dimension has no legal value left, the field keeps the
+  // one it has and stays disabled with its reason, rather than showing a value the
+  // same evaluation would grey.
+  FieldValue value = 11;
+  // options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
+  // CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER. Both are empty on the controls they
+  // do not apply to.
+  repeated FieldOption options = 12;
+  NumericRange range = 13;
+
+  // 3, 4 and 5 were label, help and doc_url, and 6 and 9 and 10 were unit, reason and
+  // note as prose. A control's name, the paragraph teaching what it does and the
+  // article it points at are the shell's: they are what the screen says rather than
+  // what the settings allow, and a form that shipped them decided the tone, the length
+  // and the reading level of a surface it has never seen.
+  reserved 3, 4, 5, 6, 9, 10;
+  reserved "label", "help", "doc_url";
+}
+
+// FieldGroup is a run of fields under one heading, in the order a shell renders
+// them. The grouping is the backend's because it follows the domain - what the
+// source is, what the quality is, where it goes - and a shell that regrouped them
+// would be making an argument about the model.
+message FieldGroup {
+  // key is a stable identifier for the group: "stream", "source", "quality", "audio",
+  // "transport", "watch", "advanced". A shell uses it to decide placement and to look
+  // up the heading it draws; it must not use it to decide contents.
+  string key = 1;
+  repeated Field fields = 4;
+
+  // 2, 3 and 5 were title, help and summary. The first two are the heading and the
+  // paragraph under it, which are the shell's for the reason a field's label is. The
+  // third was a shorthand for what the group settled on - "hevc - nvenc" - composed in
+  // Go from values the shell already holds; a shell that can name a codec can compose
+  // its own shorthand at its own width, and one composed elsewhere was a second
+  // vocabulary arriving beside the first.
+  reserved 2, 3, 5;
+  reserved "title", "help", "summary";
+}
+
+// Diagnostic is one thing worth saying about the settings as a whole, as against
+// about one field.
+//
+// It is not called a warning because the severity is the whole point of the message
+// and one of the three values is an error: a "warning" that stops the publish is a
+// name arguing with its own contents.
+message Diagnostic {
+  Severity severity = 1;
+  // text is the statement to show.
+  Text text = 4;
+  // field_key names the control the diagnostic is about, empty for one that is about
+  // the combination rather than any single field. A shell may use it to anchor the
+  // diagnostic beside the control.
+  string field_key = 3;
+
+  // 2 was message, the sentence itself.
+  reserved 2;
+  reserved "message";
+}
+
+// Estimate is what the settings are predicted to cost, before anything runs.
+message Estimate {
+  // bitrate_mbps is the predicted encoded rate, from the picture size, the frame
+  // rate, the codec's coding efficiency and the chroma's weight. It is a
+  // prediction and not a promise, which is why it is separate from the measured
+  // figures that arrive on the event stream once a stream is live.
+  double bitrate_mbps = 1;
+  // raw_mbps is the uncompressed rate the capture produces, which is what makes the
+  // compression ratio legible.
+  double raw_mbps = 2;
+  // headroom_mbps is the stated uplink minus the predicted bitrate. Negative means
+  // the line cannot carry the stream, and a diagnostic of matching severity is
+  // present.
+  double headroom_mbps = 3;
+}
+
+// Summary is what the whole form settled on: the command the settings would run, and
+// the derived figures behind the diagnostics.
+message Summary {
+  // command is the exact command line or pipeline description the settings would
+  // run. It is shown for transparency and is never parsed: a shell that read a
+  // value back out of it would have two definitions of that value.
+  string command = 2;
+  // command_error is why no command could be rendered, empty when one was. It is the
+  // publish builder's own refusal and one of the three raw strings on this contract
+  // (text.proto): the same text crosses as a gRPC status when the publish is
+  // attempted, so it is an operational failure rather than a statement about the
+  // domain. The matching diagnostic carries TEXT_CODE_PUBLISH_REFUSED and a shell
+  // shows this beside it.
+  string command_error = 3;
+  Estimate estimate = 4;
+
+  // 1 was headline, a shorthand for the whole configuration composed in Go. See
+  // FieldGroup for why a shell composes its own.
+  reserved 1;
+  reserved "headline";
+}
+
+// Form is the resolved answer.
+//
+// It is a pure function of the draft and the catalog: the same draft resolves to the
+// same form for as long as the catalog behind it has not moved, so a shell may call
+// it on every keystroke and compare, and a shell that re-renders from an unchanged
+// form changes nothing on screen. The catalog does move once - the encoder probe
+// fills in, and codecs this machine cannot run come back greyed - which is why the
+// probe announces itself on the event stream rather than leaving a shell to wonder
+// why one draft resolved two ways.
+message Form {
+  // settings is the draft after repair: where the sent draft named a value the
+  // tables forbid, the backend walked to the first legal one and this is what it
+  // reached. A shell adopts it wholesale, which is what keeps a greyed option and
+  // its replacement from disagreeing.
+  StreamSettings settings = 1;
+  // repaired_field_keys lists the fields whose values changed between the request
+  // and settings above, so a shell can say what it moved rather than silently
+  // rewriting what the user typed. They are Field.key values.
+  repeated string repaired_field_keys = 7;
+
+  repeated FieldGroup groups = 3;
+  repeated Diagnostic diagnostics = 8;
+  Summary summary = 5;
+
+  // publishable is false when at least one SEVERITY_ERROR diagnostic is present. It
+  // is stated rather than derived so a shell disables its start button without
+  // ranking diagnostics itself.
+  bool publishable = 6;
+
+  // 2 was repaired and 4 was warnings, both renamed above to say what they hold.
+  reserved 2, 4;
+  reserved "repaired", "warnings";
+}

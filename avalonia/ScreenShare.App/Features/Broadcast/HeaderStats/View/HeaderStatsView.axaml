@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Broadcast.HeaderStats.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.HeaderStats.View.HeaderStatsView"
+             x:DataType="vm:HeaderStatsViewModel">
+
+  <!--
+    The pill and the five figures, separated by spacing alone. No rules, no dots, no pipes:
+    the design carries the grouping in the gap, and a separator here would make five
+    numbers read as five columns.
+  -->
+  <StackPanel Orientation="Horizontal"
+              Spacing="{StaticResource GapControl}"
+              VerticalAlignment="Center">
+
+    <controls:StatusPill Label="On air"
+                         Detail="{Binding Elapsed}"
+                         IsVisible="{Binding IsOnAir}" />
+
+    <!-- The extra 6px after the pill: the one place the rhythm widens, so the red stops. -->
+    <ItemsControl ItemsSource="{Binding Figures}" Margin="6,0,0,0" VerticalAlignment="Center">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="model:StatFigure">
+          <!--
+            Bottom alignment stands in for the design's baseline alignment, which Avalonia's
+            stack panels do not offer. At a 26px figure against its 13px unit the two read
+            the same, because one face means one descender depth on both.
+          -->
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}">
+            <TextBlock Classes="promoted" Text="{Binding Value}" VerticalAlignment="Bottom" />
+            <TextBlock Classes="unit" Text="{Binding Unit}" VerticalAlignment="Bottom" />
+          </StackPanel>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+  </StackPanel>
+</UserControl>

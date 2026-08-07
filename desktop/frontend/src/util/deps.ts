@@ -1,5 +1,6 @@
 import {
-    Deps, EncoderInfo, GpuPath, PlatformInfo, Stream, TransportCarriage,
+    AudioSource, Deps, EncoderInfo, GpuPath, PlatformInfo, Stream,
+    TransportCarriage,
 } from "../types/stream";
 import {
     AudioCodec, Capability, CHROMA_META, Chroma, Decoder, ENGINE_LABEL, Engine,
@@ -36,6 +37,10 @@ export interface Environment {
     /** The audio table: which engine codes each audio codec, and under which
      * bitstream format a transport carries it. */
     audioCodecs: AudioCodec[] | null;
+    /** The second-track capture sources, resolved for this machine's platform: which
+     * ones exist, which of them a session here serves, and why not where it does not.
+     * Which sources exist is the platform's question and never this file's. */
+    audioSources: AudioSource[] | null;
     carriage: TransportCarriage[] | null;
     captureTransports: Record<string, string[]> | null;
     captureEngines: Record<string, string> | null;
@@ -52,6 +57,7 @@ export const UNKNOWN_ENV: Environment = {
     caps: null,
     decoders: null,
     audioCodecs: null,
+    audioSources: null,
     carriage: null,
     captureTransports: null,
     captureEngines: null,
@@ -351,23 +357,27 @@ function unavailableFamilies(
 }
 
 /**
- * Why desktop audio is out of reach on an operating system, keyed by it. Both
- * publish engines read the mixed output from the PulseAudio/PipeWire monitor source,
- * which only a Linux session serves, and each other platform is missing a different
- * piece: a user who reads one reason cannot act on the other, so the two are stated
- * separately rather than merged into "Linux only".
+ * Audio sources this machine does not serve, each mapped to the reason.
+ *
+ * Both the verdict and its sentence are the backend's: which sources exist and which of
+ * them a session here serves is the platform's question, and the rows arrive already
+ * answered. This file used to hold the reasons as AUDIO_SOURCE_NEEDS, keyed by operating
+ * system, which was the same rule the Go table states written a second time in a second
+ * language - so a source the backend refused could be offered live here, and neither side
+ * would say which was wrong (docs/ipc-api.md).
+ *
+ * An unresolved table withholds nothing, as every unresolved fact here.
  */
-const AUDIO_SOURCE_NEEDS: Record<string, string> = {
-    windows: "desktop audio capture reads the PulseAudio/PipeWire monitor source (Linux) - ffmpeg has no WASAPI loopback and the GStreamer branch records through pulsesrc, so neither engine reaches what Windows plays",
-    darwin: "desktop audio capture reads the PulseAudio/PipeWire monitor source (Linux) - AVFoundation enumerates input devices only, so what the machine plays is not a source macOS offers either engine",
-};
-
-/** Audio sources the given platform cannot capture, each mapped to the reason. */
 function unavailableAudio(
-    platform: PlatformInfo | null
+    sources: AudioSource[] | null
 ): Record<string, string> {
-    const reason = platform ? AUDIO_SOURCE_NEEDS[platform.os] : undefined;
-    return reason ? { desktop: reason } : {};
+    const out: Record<string, string> = {};
+    for (const s of sources ?? []) {
+        if (!s.available) {
+            out[s.id] = s.reason;
+        }
+    }
+    return out;
 }
 
 /**
@@ -680,7 +690,7 @@ function unavailableFrameMemories(
  */
 export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
     const {
-        platform, encoders, caps, decoders, audioCodecs, carriage,
+        platform, encoders, caps, decoders, audioCodecs, audioSources, carriage,
         captureTransports, gpuPaths,
     } = env;
     const mode = MODE_META[s.mode as Mode];
@@ -708,7 +718,7 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
             colorRange: optionGapsFor(s.codec, engine, "colorRange", caps),
             transport: {},
             capture: unavailableCaptures(platform),
-            audio: unavailableAudio(platform),
+            audio: unavailableAudio(audioSources),
             audioCodec: unavailableAudioCodecs(
                 s.transport, engine, audioCodecs, carriage
             ),
@@ -918,8 +928,8 @@ export function evaluateDeps(s: Stream, env: Environment = UNKNOWN_ENV): Deps {
  */
 export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
     const {
-        platform, encoders, caps, audioCodecs, carriage, captureTransports,
-        gpuPaths,
+        platform, encoders, caps, audioCodecs, audioSources, carriage,
+        captureTransports, gpuPaths,
     } = env;
     const next = { ...s };
 
@@ -1024,10 +1034,20 @@ export function normalize(s: Stream, env: Environment = UNKNOWN_ENV): Stream {
         next.maxrateM = Math.max(next.maxrateM, limit);
     }
 
-    // Audio: settings and presets from before the option lack the key, and the
-    // monitor source desktop capture reads is a Linux one.
-    if (!next.audio || unavailableAudio(platform)[next.audio]) {
-        next.audio = "none";
+    // Audio: settings and presets from before the option lack the key, and a file
+    // written on another machine can name a source no session here serves.
+    //
+    // The replacement is the first source the platform table marks served rather than
+    // the absent one by name. The table leads with the absent source and every platform
+    // serves it, so the walk lands there today; reaching for it by name would be this
+    // file deciding which value a repair is allowed to pick, which is the rule the table
+    // exists to hold.
+    const blockedSources = unavailableAudio(audioSources);
+    if (!next.audio || blockedSources[next.audio]) {
+        const free = (audioSources ?? []).find(a => a.available);
+        if (free) {
+            next.audio = free.id;
+        }
     }
 
     // Audio codec: settings and presets from before the option lack the key, and a

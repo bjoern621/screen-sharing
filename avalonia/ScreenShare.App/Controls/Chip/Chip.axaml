@@ -1,0 +1,72 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:ScreenShare.App.Controls">
+
+  <!--
+    The chip's three skins. Every one of them is set on every state, including the branch
+    that turns the detail figure off, so a chip toggled twice looks exactly like a chip
+    that was never touched.
+  -->
+  <ControlTheme x:Key="{x:Type controls:Chip}" TargetType="controls:Chip">
+    <Setter Property="Height" Value="{StaticResource ChipHeight}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusChip}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Root"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+            <TextBlock Name="LabelText"
+                       Text="{TemplateBinding Label}"
+                       Foreground="{TemplateBinding Foreground}"
+                       FontSize="{TemplateBinding FontSize}"
+                       VerticalAlignment="Center" />
+            <TextBlock Name="DetailText"
+                       Text="{TemplateBinding Detail}"
+                       Classes="figure"
+                       FontSize="{StaticResource FontSizeMinor}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!--
+      Off. The stream is gone and its decoder with it, so there is no figure left to print
+      and the label is struck through rather than merely dimmed.
+    -->
+    <Style Selector="^:unchecked /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    </Style>
+    <Style Selector="^:unchecked /template/ TextBlock#LabelText">
+      <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
+      <Setter Property="TextDecorations" Value="Strikethrough" />
+    </Style>
+    <Style Selector="^:unchecked /template/ TextBlock#DetailText">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <!--
+      A chip has two skins and not three. A stream in trouble says so in its detail figure,
+      which is words, and takes no border and no colour of its own: the fault belongs to the
+      stream and the chip row is the control that drops it, so recolouring the control would
+      make the row read as broken rather than the stream.
+    -->
+
+    <Style Selector="^:pointerover /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

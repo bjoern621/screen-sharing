@@ -9,9 +9,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// TestStreamExe launches one synthetic test publisher: a gst-launch-1.0
-// process encodes a videotestsrc pattern and pushes it to the relay.
-const TestStreamExe = "gst-launch-1.0"
+// A test stream is one gst-launch-1.0 process encoding a videotestsrc pattern
+// into the relay, so it is launched by the binary GstExe names and resolved by
+// FindGstExe, exactly as a GStreamer publish is. It named its own executable
+// before, which was the same string written twice and one of them free to drift.
 
 // testPatterns are the videotestsrc patterns handed out round-robin,
 // so simultaneous test streams are visually distinct.

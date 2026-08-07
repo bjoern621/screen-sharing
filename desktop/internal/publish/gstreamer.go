@@ -81,6 +81,14 @@ func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, e
 		return nil, err
 	}
 
+	// A missing launcher belongs to the same set: it is known before anything is
+	// opened, so it is answered before the picker rather than after the user has
+	// chosen a surface for a pipeline nothing can run.
+	exe, err := FindGstExe()
+	if err != nil {
+		return nil, err
+	}
+
 	// The instrumentation exists only for a caller that wants progress; without
 	// OnStats the pipeline runs as the displayed command reads. The rate probe is
 	// part of it, so the source the backend builds differs between a run that
@@ -121,7 +129,8 @@ func (g gstEngine) Start(s settings.Stream, tag string, cb Callbacks) (Handle, e
 	}
 
 	handle, err := supervise(superviseConfig{
-		exe:         GstExe,
+		exe:         exe,
+		env:         GstChildEnv(),
 		args:        pipeline,
 		tag:         tag,
 		extraFiles:  files,

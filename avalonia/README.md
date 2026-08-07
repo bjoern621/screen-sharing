@@ -1,0 +1,314 @@
+# avalonia
+
+The Avalonia app, and the intended successor to both existing desktop surfaces: the Wails
+app in `desktop/` and the GTK4 grid in `nativegrid/`. That is the whole surface, not the
+grid alone - the settings form, the encoder and transport pickers, the live-now list and
+the tile grid all end up here. Neither existing module is touched yet, and nothing is
+replaced until the video path below is proven.
+
+Today it is one vertical slice: the relay connection check. That slice is deliberate
+rather than a hello world - it is a port of `desktop/internal/relay`, so it exercises
+polling, byte-delta arithmetic, an unreachable relay as an environment condition, and the
+status vocabulary, on real infrastructure.
+
+## Running it
+
+```sh
+task avalonia          # run it
+task avalonia:build    # build into desktop/build/bin/avalonia
+task avalonia:test     # 55 tests, no relay and no backend needed
+```
+
+`task relay` first, or the app renders its failure state, which is also worth looking at.
+
+The setup flow needs the Go backend running, since everything on it is resolved there. Without
+one it says so and offers to look again, which is the other state worth looking at.
+
+## Layout
+
+Four layers, and the direction of dependency runs one way through them: a feature reads the
+design system and the controls, and neither of those has ever heard of a feature.
+
+| Path | Holds |
+| --- | --- |
+| `Contracts/Assert.cs` | always-on assertions, the C# counterpart of the Go `assert` package |
+| `Mvvm/` | `Observable` and `DelegateCommand`: the change notification a compiled binding reads, and nothing else |
+| `Design/` | the whole design system as tokens and styles - `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Tooltips`, `Icons` |
+| `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch |
+| `Copy/` | every word on screen: what each identifier the backend sends is called, the paragraph behind each choice, each control's heading and help, and the sentence for each statement the backend makes |
+| `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
+| `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
+| `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
+| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the per-viewer table, the sparklines |
+| `Features/Viewer/` | the relay roster: one row per stream the relay carries, and a toggle per watch leg |
+| `Relay/` | one poll of `GET /v3/paths/list`, the byte deltas bitrates come from, and the poller that owns the current status |
+| `Ui/` | the original relay-check slice. Still built and still tested; it has not been folded into `Features/Setup` yet |
+
+### The two rules the tree encodes
+
+**A slice per component, and MVVM inside it.** A feature directory holds `Model/`,
+`ViewModel/` and `View/` for the feature itself, and a further directory per component that
+is substantial enough to have its own three. `Features/Setup/QualityStep/ViewModel/QualityStepViewModel.cs`
+is the shape. Namespaces mirror the path exactly, so a file's name says where it sits.
+
+**Nothing outside `Design/` states a colour, a size, a font or a radius.** A component asks
+for the role it wants - `MutedBrush`, `RadiusPanel`, `FontSizeLabel` - and the palette
+decides what that is. That is what keeps a light variant a second dictionary rather than a
+sweep through eighty files, and it is why the greyscale ramp is listed once and then never
+named again.
+
+### The design language
+
+Greyscale everywhere except a single red, `#E5484D`, reserved strictly for "on air" and
+"something is wrong". It is the only hue on any screen and the only one a colour-blind
+reader still separates from grey reliably, so spending it on state that is merely on would
+cost the app its one unmistakable signal.
+
+Two families and two weights carry everything: Inter, which is bundled with the app rather
+than named and hoped for, and IBM Plex Mono. The rule holds without exception: anything
+machine-generated or numeric is mono - identifiers, timers, throughput, resolutions, the enum
+values the backend spells - and anything a person wrote is sans. A line that mixes both
+switches family mid-run. Sizes are seven whole pixels; the half-pixel steps the mockups were
+written in are gone, because 11.5px and 11px land on the same pixel grid.
+
+There is **one button and one of every input**, and both tables are keyed on the type rather
+than on a name: `Design/Buttons.axaml` skins `Button` itself and `Design/Inputs.axaml` skins
+`TextBox`, `NumericUpDown` and `Slider`, so a view that writes a bare control gets the design
+without asking for it. A named theme is only ever a variant - `ActionButton`, `FooterButton`,
+`DangerButton`, `PrimaryButton`, `LinkButton`, `CardButton` and the `OptionCard` built on it -
+and every one of them inherits the base and states only its difference. A variant that
+restates the template is a second button, and two buttons drift: that is exactly how setup's
+"Look again" ended up wearing Fluent while the control beside it wore the design. A flag is
+the switch in `Controls/Toggle`, never a `CheckBox`, for the same reason.
+
+Every icon is a Tabler outline icon from the `TablerIcons.Avalonia` package, and `Design/Icons.axaml`
+is the single rule that sizes and strokes them: three sizes off the design's 12-22px range,
+one 1.2px stroke, one brush role. Nothing here draws a path and nothing here uses a character
+as a glyph - a `✓`, a `⌄` or a hand-written close cross is the platform text face rather than
+the icon set, so it lands at a different weight beside a real icon and cannot be restated at
+another size. The web frontend takes the same set from `@tabler/icons-react` and the GTK grid
+from vendored Tabler SVGs, which is what makes a tick mean one thing across all three.
+
+`docs/design-language.md` states these rules for the whole product, and this module is its
+reference implementation: `Design/` is where the numbers live. The Wails frontend and the
+GTK grid still carry the zinc-and-emerald language this replaced, so they are non-conforming
+rather than exempt, and porting them is outstanding work.
+
+`ScreenShare.App` is the shell rather than a viewer, because the publish side lands here
+too. The settings form is now the `Setup` slice, which was the surface with the most state
+and the most cross-field rules from `docs/domain-model.md` - the one that said most about
+whether this shape holds.
+
+### This module is a display
+
+It decides nothing. Every value a control offers, every label on it, every greyed entry and
+the sentence explaining the greying, every warning and every derived figure comes from the
+Go backend over the control API. This module contributes layout, typography, colour, motion,
+input handling and accessibility, and that is its whole job.
+
+`docs/ipc-api.md` states the rule and the reasoning; `api/proto/screenshare/v1` is the
+contract. The message to read first is `Form`: `ResolveForm` takes a settings draft and
+returns the complete description of the screen, and a view model renders it rather than
+evaluating it.
+
+The practical consequence for anything written here: a `switch` over a codec name, a list of
+rate-control modes, a hardcoded resolution ladder or a hand-written tooltip is a defect, in
+the same way a view field mirroring a model field is. The seeded values described below are
+the one exception, and they are exceptions with an expiry date - the setup flow's have already
+expired, and its screen is drawn from `ResolveForm`.
+
+The shape that consequence takes in the wizard is worth stating, because it is the whole
+argument in one place. Every step but two is **one component**, `Features/Setup/Fields/`,
+instanced once per group. They differ in nothing this module can see: each is a `FieldGroup`
+of the resolved form, a run of fields with different keys, and the renderer switches on
+`ControlKind` rather than on what the field means. A capture view and an encode view written
+separately would be this module writing down what a capture and an encode are.
+
+**Which steps there are is the form's answer too.** They used to be a table of seven rows here,
+each naming the group key it drew - and three of those keys named groups the backend does not
+answer with, so three steps of the wizard drew an empty column and four real groups were
+unreachable. Nothing said so, and the tests passed, because the fixture had been written
+against the same table. `SetupSteps.For` derives the strip from `Form.groups` instead: a group
+added to the contract is a step that appears and works with nothing here to edit, and one
+renamed cannot leave a hole. What is still this module's is placement - the terminal step, and
+the one group drawn by a layout of its own (`Model/QualityLayout.cs`).
+
+Two things keep the rest honest. A field's key is a `StreamSettings` field name, so a write
+goes through the message descriptor (`Backend/SettingsDraft.cs`) and a field added to the
+contract is a control that appears and works with nothing here to edit. And the form's answer
+is adopted whole: `SetupViewModel` replaces its draft with the one `ResolveForm` returned
+rather than merging, which is what keeps a greyed option and its replacement from disagreeing.
+
+`Backend/ControlBackend.cs` is what answers `IBackend`: a gRPC client over the named pipe on
+Windows and the Unix socket elsewhere (`Backend/ControlEndpoint.cs`). It names no codec, no
+encoder family and no rule - a greyed option arrives greyed, carrying the sentence that says
+why - and the stand-in it replaced now lives in the test project, where a hand-written form is
+a fixture rather than a second copy of the domain.
+
+Two things about it are worth knowing before reading the class.
+
+**The encoder probe is asked for once, in the background.** `ResolveForm` reads what has been
+probed rather than probing, because a resolve is called on every keystroke and the probe
+test-encodes on every engine. So the first forms of a session grey no codec for missing
+hardware - which is the honest reading of a fact nobody has established, and also a dropdown
+still offering Quick Sync on a machine with no Intel GPU. The client asks for the probe behind
+the handshake, and raises `IBackend.Changed` when it lands; the setup flow re-reads, and the
+codecs this machine cannot run come back greyed with what is missing. Nothing about which
+codecs those are reaches this module.
+
+**A backend that is not running is a sentence, not a gap.** The reads throw
+`BackendUnavailableException`, the flow shows its message above the steps with a "look again"
+button, and no form is invented in the meantime. Retrying is the reader's rather than a timer's,
+so an absent socket is not hammered for as long as the window is open.
+
+That is the transport. What the flow finally does with it is the commit, and that is worth its
+own paragraph because it is the one control on this surface that changes the world.
+
+**Go live is real, and it is gated on four states rather than on one.** It sends the
+draft to `StartPublish`, which persists it and starts the encoder on it; the reply says nothing
+and the stream that resulted arrives on the event stream, so the window that pressed the button
+and the window that did not learn it the same way. What locks the button is
+`Features/Setup/Model/PublishGate.cs`, and every condition in it is a whole state some other
+side stated: `Form.publishable` for the settings, the backend's own sentence when it cannot
+describe them at all, the presence of `PublishState.live` for a stream already on the air, and
+`RelayStatus.reachable` for somewhere to send to. None of them is ranked or re-decided here, and
+only one sentence is shown - a reader fixes them in that order anyway. A settings problem gets no
+sentence of its own at all, because the preflight card beside the button already carries every
+one of them in the backend's words; paraphrasing a diagnostic would be this module writing a rule
+down twice.
+
+The relay half is worth stating, because it is the one state the shell reads from a poll it does
+not run: the backend records a snapshot per poll and answers `GetRelayStatus` from it, and its
+opening value is unreachable with no reason - which is the honest reading of a relay nobody has
+asked yet, and which the gate says as much about.
+
+Where the window goes afterwards is the window's. The flow raises `WentLive`, the shell records
+whether the review's switch asked for the broadcast screen, and it moves on the pass where the
+stream is actually in force - a start that was accepted is not yet a stream, and navigating on
+the reply would be the window claiming a state the backend has not reported.
+
+### What is seeded rather than real
+
+The setup flow is real: it is resolved by the Go backend end to end, and its commit starts a real
+stream. The broadcast screen is not - every figure on it is a static seed taken verbatim from the
+mockups, so the shape can be reviewed before that part of the contract is consumed. The seeds are
+placeholders for `Form` fields and catalog rows, not a model this module is entitled to keep.
+
+The review's "Save as preset" switch is the one control on that screen that still does nothing.
+`SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this
+module inventing what a preset is called (`docs/presets.md`).
+
+**The viewer is real, and it is a roster rather than a tile grid.** Every row comes off
+`GetRelayStatus` and `GetViewerState`: which streams the relay carries, whether each is being
+served, what it says they carry, how many readers each has, what each is ingesting, and which
+legs this machine already has a viewer open on. The legs a row offers are the options of the
+form's watch-leg field, so this module holds no list of protocols; whether a given leg can
+carry a given stream is the backend's answer when the viewer is opened, and its refusal is
+shown as it stands. The relay snapshot can be older than the stream, so greying a leg here
+from a stale format would refuse a viewer that would have worked.
+
+**The tile grid, the spotlight, the per-tile menu, the chip row and the pop-out windows were
+removed.** They drew mockup figures beside real ones, and the thing they were mockups *of*
+needs frames - which deliberately do not cross the control API and have no second channel yet
+("What is not settled yet" below). Nothing in the contract replaces them either, and that is
+the point: how a viewer arranges what it receives is this module's job, so the backend
+describes no grid to open, no tiles to report and no layout to pick (`docs/ipc-api.md`). When
+frames land, the surface that shows them is designed against a real decode path rather than
+against a seed.
+
+`⇧S` is the tile's own key rather than the window's. A shortcut on the window would have to
+invent a rule for which tile it meant; hanging it off the tile makes the pointer that rule,
+which is why a press on a tile takes the keyboard and nothing is drawn for it.
+
+## How the repository's principles land in C#
+
+`docs/development-principles.md` governs this module too. Three of its four rules
+translate directly; the fourth needed a decision.
+
+**State has one owner.** `RelayPoller` owns the status. `MainViewModel.Apply` reads
+`poller.Latest` through on every pass and keeps no copy of what it found there.
+
+**One render function.** `Apply` is it. It sets every output property on every pass,
+including the branches that turn something off, which is what makes a recovered relay
+clear the error banner a failure left behind. Nothing else writes those properties - they
+have private setters and the compiler enforces it. The user's inputs (host, port, the
+auto-refresh toggle) are the other half of the split: their setters are the named writes,
+and `Apply` never touches them, because a render pass that reassigned a text box would
+fight whoever is typing in it.
+
+**Idempotency.** `Apply` twice over unchanged state raises no notification: the property
+setters compare first, and the path list is rebuilt only when the rendered rows differ.
+`PathRow` is a record for exactly that reason. `RelayPoller.Reconcile` takes the desired
+target and converges onto it, so `Apply` can call it unconditionally.
+
+**Assertions.** `Contracts/Assert.cs` throws in Release as well as Debug, which
+`System.Diagnostics.Debug.Assert` does not - a contract that only holds in Debug is not a
+contract. Message style follows the Go one: a present-tense sentence naming the invariant,
+offending values in the trailing arguments.
+
+**A round trip does not get to bend any of them.** `IBackend` is asynchronous because the
+thing behind it is a socket, and a render pass that awaited one would be a window that
+stops painting. The split that avoids it is the first rule applied literally: the last
+form the backend answered with is state `SetupViewModel` holds, `Apply` reads it and
+returns, and a draft change starts a resolve whose answer lands on a later pass. A flow
+with no form yet is a state rather than a gap - every group renders its unresolved branch,
+the same one a step the form does not carry renders.
+
+Two guards keep that honest, and both are the third rule. Asking is skipped entirely while
+the draft still equals the one the backend was last handed, so `Apply` costs one round
+trip however many times it runs - which matters, because `ShellViewModel.Apply` renders
+every destination on every pass. And the latest answer wins: each resolve cancels the one
+before it and carries a request number, so an older draft's form arriving late is dropped
+rather than drawn. Cancellation alone would not do it - it is cooperative, and a call can
+already hold its answer when the token is set.
+
+The answer arrives on whichever thread the transport completed on, so the write back is
+marshalled through an injected dispatcher rather than a toolkit reached for in place -
+`Dispatcher.UIThread.Post` in the window, a straight-through call in a test, the same
+arrangement `RelayPoller` has.
+
+The decision: **MVVM as Avalonia means it, not as it is usually written.** Compiled
+bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them produces
+bad Avalonia code. What is dropped is the usual habit of letting handlers poke individual
+properties. Every write goes through the one render function, so the binding layer is a
+transport and never a second definition of what the window looks like.
+
+## What is not settled yet
+
+**Video.** Nothing here renders a frame, and that is the whole question the module exists
+to answer. `NativeControlHost` plus `gst_video_overlay_set_window_handle` is the easy path
+and the wrong one: the native child window draws above all Avalonia content, so tile
+overlays would disappear behind the video. The path worth building is zero-copy import
+through `Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`,
+which has no ready-made sink - it is `appsink` plus a per-platform handle:
+
+- **Windows** - D3D11 shared NT handle with a keyed mutex. Supported by the compositor
+  today, and better than the current GTK path, where `gtk4paintablesink` negotiates no
+  D3D memory and the `d3d11`/`d3d12` chains download to system memory
+  (`docs/viewer-architecture.md`).
+- **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as
+  planned rather than shipped, so the near-term route is `OpenGlControlBase` plus
+  `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`. Format modifiers and a sync-file fence have
+  to travel with the frame.
+- **macOS** - IOSurface from VideoToolbox, with no first-class import handle type. The
+  weakest leg, and the one to schedule last.
+
+**GStreamer bindings.** `gstreamer-sharp` wraps the 1.12 API and is effectively
+unmaintained, so the pipeline is not being rewritten in C#. The plan that avoids the
+problem entirely is two processes: Go keeps the pipeline and `go-gst`, this shell keeps
+the UI, and frames cross as shared GPU handles. That makes the buffer-ownership protocol -
+pool ownership, per-frame fences, release-back messages, and what each side does when the
+other dies - the actual design work, not the import call.
+
+That split has a second consequence worth stating: it also settles where the publish side
+lives. Capture, encode and the publish pipeline stay in Go, and this module owns the
+settings form that configures them, so the shell talks to one Go process whether it is
+asking for frames or for an encoder change.
+
+The control half of that conversation is settled and defined: `api/proto/screenshare/v1`,
+gRPC over a named pipe on Windows and a Unix socket elsewhere (`docs/ipc-api.md`). The frame
+half is the open question above, and it is deliberately not on that API - shared GPU handles
+and a buffer-ownership protocol are a second channel, and no pixel crosses the control one.
+
+**No DevTools.** `Avalonia.Diagnostics` was dropped from the Avalonia repository in 12 and
+stops at 11.3.19. The replacements on NuGet are third-party, so none is pulled in here.

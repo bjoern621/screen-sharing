@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:plots="using:ScreenShare.App.Features.Broadcast.Plots.View"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.Plots.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.Plots.View.PlotsView"
+             x:DataType="vm:PlotsViewModel">
+
+  <UserControl.Styles>
+    <!-- The plot frame: a recessed surface with the inner radius, and nothing else. -->
+    <Style Selector="Border.plot">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusButton}" />
+      <Setter Property="Height" Value="104" />
+      <Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <!--
+      An in-plot annotation. Without axes it is the only thing that states a scale, so it
+      is set in tabular figures: the ceiling this plot is drawn against is re-rendered as
+      the traffic moves, and a number that changes width drags its own baseline sideways
+      under a line that has not moved.
+    -->
+    <Style Selector="TextBlock.annotation">
+      <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+      <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.range">
+      <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+      <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Grid ColumnDefinitions="*,*">
+
+    <Border Grid.Column="0" Classes="card" Padding="13,12">
+      <StackPanel Spacing="{StaticResource GapControl}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="caption" Text="Egress bitrate" VerticalAlignment="Bottom" />
+          <TextBlock Grid.Column="1" Classes="range" Text="60 s" VerticalAlignment="Bottom" />
+        </Grid>
+
+        <Border Classes="plot">
+          <Panel>
+            <plots:Sparkline Points="{Binding Egress}"
+                             Extent="{Binding Extent}"
+                             Stroke="{StaticResource ForegroundBrush}"
+                             GridlineBrush="{StaticResource ChipBorderBrush}"
+                             GridlineFraction="0.33">
+              <plots:Sparkline.Fill>
+                <SolidColorBrush Color="{StaticResource White}" Opacity="0.09" />
+              </plots:Sparkline.Fill>
+            </plots:Sparkline>
+
+            <!--
+              The gridline at 33% is the ceiling; the label rides on top of it, 4% above,
+              which is why it is placed by proportion rather than by a pixel margin.
+            -->
+            <Grid RowDefinitions="29*,71*">
+              <TextBlock Grid.Row="1"
+                         Classes="annotation"
+                         Text="{Binding Ceiling}"
+                         Margin="7,0,0,0"
+                         HorizontalAlignment="Left"
+                         VerticalAlignment="Top" />
+            </Grid>
+          </Panel>
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Column="1" Classes="card" Padding="13,12" Margin="10,0,0,0">
+      <StackPanel Spacing="{StaticResource GapControl}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="caption" Text="Round trip &amp; buffer" VerticalAlignment="Bottom" />
+          <TextBlock Grid.Column="1" Classes="range" Text="60 s" VerticalAlignment="Bottom" />
+        </Grid>
+
+        <Border Classes="plot">
+          <Panel>
+            <!--
+              Buffer fill sits behind round trip: thinner, grey, and drawn first. The band
+              is where the two visibly diverge, which is the whole reason it is marked.
+            -->
+            <plots:Sparkline Points="{Binding Rtt}"
+                             Secondary="{Binding Buffer}"
+                             Extent="{Binding Extent}"
+                             Stroke="{StaticResource ForegroundBrush}"
+                             SecondaryStroke="{StaticResource MutedBrush}"
+                             BandEdgeBrush="{StaticResource OnAirBrush}"
+                             BandStart="0.26"
+                             BandWidth="0.14">
+              <plots:Sparkline.BandBrush>
+                <SolidColorBrush Color="{StaticResource OnAir}" Opacity="0.1" />
+              </plots:Sparkline.BandBrush>
+            </plots:Sparkline>
+
+            <Grid ColumnDefinitions="27*,73*">
+              <TextBlock Grid.Column="1"
+                         Classes="annotation"
+                         Foreground="{StaticResource OnAirBrush}"
+                         Text="{Binding Band}"
+                         Margin="0,6,0,0"
+                         HorizontalAlignment="Left"
+                         VerticalAlignment="Top" />
+            </Grid>
+
+            <!-- The swatch is the em dash itself, in the series colour. No separate key. -->
+            <StackPanel Orientation="Horizontal"
+                        Spacing="{StaticResource GapPanel}"
+                        Margin="7,0,0,5"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom">
+              <TextBlock Classes="annotation" Foreground="{StaticResource ForegroundBrush}" Text="— rtt" />
+              <TextBlock Classes="annotation" Text="— buffer fill" />
+            </StackPanel>
+          </Panel>
+        </Border>
+      </StackPanel>
+    </Border>
+
+  </Grid>
+</UserControl>

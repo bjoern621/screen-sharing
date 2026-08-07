@@ -1,0 +1,58 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The switch. On is the one light surface with a near-black knob; off is a raised control
+    with a grey one. Both knobs are drawn at the same 11px here - the source has them at
+    12 and 11, which reads as an oversight rather than as intent, and a knob that changes
+    size mid-travel is the kind of detail a first sweep should not inherit.
+
+    Built on ToggleButton rather than ToggleSwitch: ToggleSwitch demands a set of named
+    template parts for its own knob animation, and inheriting that machinery to then hide
+    it costs more than drawing the two states outright.
+  -->
+  <ControlTheme x:Key="SwitchTheme" TargetType="ToggleButton">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Track"
+                Width="34" Height="18"
+                CornerRadius="9"
+                Background="{StaticResource ControlBrush}"
+                BorderThickness="1"
+                BorderBrush="{StaticResource ChipBorderBrush}">
+          <Ellipse Name="Knob"
+                   Width="11" Height="11"
+                   Margin="3,0"
+                   Fill="{StaticResource MutedBrush}"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:checked /template/ Border#Track">
+      <Setter Property="Background" Value="{StaticResource SelectedBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource SelectedBrush}" />
+    </Style>
+    <Style Selector="^:checked /template/ Ellipse#Knob">
+      <Setter Property="Fill" Value="{StaticResource OnSelectedBrush}" />
+      <Setter Property="HorizontalAlignment" Value="Right" />
+    </Style>
+
+    <Style Selector="^:pointerover /template/ Border#Track">
+      <Setter Property="BorderBrush" Value="{StaticResource MutedBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled /template/ Border#Track">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Ellipse#Knob">
+      <Setter Property="Fill" Value="{StaticResource DisabledBrush}" />
+    </Style>
+  </ControlTheme>
+
+</ResourceDictionary>

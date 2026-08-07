@@ -394,7 +394,7 @@ func gstRoundTripEncode(t *testing.T, s settings.Stream, pattern string) string 
 		[]string{"videotestsrc", "num-buffers=" + strconv.Itoa(roundTripFrames), "pattern=" + pattern},
 		[]string{"video/x-raw,format=" + gstProbeSource + roundTripPicture},
 		upload,
-		[]string{mem.convert},
+		mem.convert,
 		[]string{inCaps + roundTripPicture},
 		encoder, link, framing.write,
 		[]string{"filesink", "location=" + stream})

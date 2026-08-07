@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Setup.Model"
+             xmlns:view="using:ScreenShare.App.Features.Setup.CostRail.View"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.CostRail.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.CostRail.View.CostRailView"
+             x:DataType="vm:CostRailViewModel">
+
+  <UserControl.Styles>
+    <!-- Past the marker the fill takes the one hue, because that is the fault this bar shows. -->
+    <Style Selector="view|MeterBar.over">
+      <Setter Property="FillBrush" Value="{StaticResource OnAirBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <!--
+    What the current configuration costs, and what stands in its way. Both sit beside the form
+    rather than after it: a price shown on a confirmation screen arrives after the decision,
+    and a check list met at the end is a validation wall.
+
+    Every figure is the backend's prediction for the draft on screen, and the uplink the bar is
+    measured against is a control on this panel - so the reader changes the limit where they
+    read it, and the bar moves under their hand.
+  -->
+
+  <StackPanel Spacing="{StaticResource GapControl}">
+
+    <Border Classes="card" Padding="12" IsVisible="{Binding IsResolved}">
+      <StackPanel>
+        <TextBlock Classes="caption" Text="Estimated cost" Margin="0,0,0,10" />
+
+        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,6">
+          <TextBlock Grid.Column="0" Classes="promoted" Text="{Binding Bitrate}" />
+          <TextBlock Grid.Column="1"
+                     Classes="secondary"
+                     Margin="8,0,0,0"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     VerticalAlignment="Bottom"
+                     Text="{Binding BitrateCaption}" />
+        </Grid>
+
+        <!--
+          The bar and its limit marker, both proportions of the same scale. The fill turns red
+          past the marker rather than being clamped at it: a prediction the line cannot carry
+          is the one thing this panel exists to show, and a bar pinned at full would say the
+          same thing as one that exactly fits.
+        -->
+        <view:MeterBar Height="11"
+                       Margin="0,0,0,6"
+                       Classes.over="{Binding IsOverUplink}"
+                       Fill="{Binding FillShare}"
+                       Limit="{Binding UplinkShare}"
+                       TrackHeight="5"
+                       TrackBrush="{StaticResource DividerBrush}"
+                       FillBrush="{StaticResource ForegroundBrush}"
+                       LimitBrush="{StaticResource OnAirBrush}" />
+
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0" />
+          <TextBlock Grid.Column="1" Classes="figure" Foreground="{StaticResource OnAirBrush}" Text="{Binding UplinkCaption}" />
+        </Grid>
+
+        <Border Classes="dividerh" Margin="0,12" />
+
+        <!-- What the capture costs before coding, and what the line has left once it is on. -->
+        <ItemsControl ItemsSource="{Binding Metrics}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:CostMetricRow">
+              <Grid ColumnDefinitions="*,Auto" Height="{StaticResource TextRowHeight}">
+                <TextBlock Grid.Column="0" Classes="secondary" VerticalAlignment="Center" Text="{Binding Label}" />
+                <TextBlock Grid.Column="1"
+                           Classes="ident"
+                           Foreground="{StaticResource SecondaryBrush}"
+                           VerticalAlignment="Center"
+                           Text="{Binding Value}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!--
+          The uplink, edited where it is read. It is the same field view model the step that
+          owns it draws, not a second control over the same setting, so a figure typed here
+          and a figure typed there are one write (Model/RailLayout.cs).
+        -->
+        <StackPanel IsVisible="{Binding HasUplink}">
+          <Border Classes="dividerh" Margin="0,12" />
+
+          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,7">
+            <TextBlock Grid.Column="0"
+                       Classes="secondary"
+                       VerticalAlignment="Center"
+                       Text="{Binding Uplink.Label}" />
+            <TextBlock Grid.Column="1"
+                       Classes="figure"
+                       VerticalAlignment="Center"
+                       Text="{Binding Uplink.Unit}" />
+          </Grid>
+
+          <Grid ColumnDefinitions="*,Auto">
+            <NumericUpDown Grid.Column="0"
+                           IsEnabled="{Binding Uplink.IsEnabled}"
+                           Value="{Binding Uplink.Number, Mode=TwoWay}"
+                           Minimum="{Binding Uplink.NumberMinimum}"
+                           Maximum="{Binding Uplink.NumberMaximum}"
+                           Increment="{Binding Uplink.NumberStep}"
+                           FormatString="0" />
+
+            <!--
+              The measurement is an effect: it uploads a real payload, takes seconds, and the
+              backend refuses it outright while a stream is publishing. Hence a button the
+              reader presses rather than a figure that fills itself in.
+            -->
+            <Button Grid.Column="1"
+                    Margin="8,0,0,0"
+                    Content="{Binding MeasureLabel}"
+                    Command="{Binding MeasureCommand}"
+                    ToolTip.Tip="Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live." />
+          </Grid>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!--
+      Everything the form said about the settings as a whole, met early and watched as it
+      resolves. It used to be a stack of panels under the form, repeated identically on every
+      step; here it is the answer to the question the card already asks, and a line with a
+      control behind it names the step that owns it - which is why nobody has to hunt for it.
+    -->
+    <Border Classes="card" Padding="12">
+      <StackPanel>
+        <TextBlock Classes="caption" Text="Checks before going live" Margin="0,0,0,10" />
+        <ItemsControl ItemsSource="{Binding Checks}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="model:PreflightCheckRow">
+              <controls:CheckItem Margin="0,0,0,9"
+                                  Text="{Binding Text}"
+                                  State="{Binding State}"
+                                  FixedInStep="{Binding FixedInStep}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+  </StackPanel>
+
+</UserControl>

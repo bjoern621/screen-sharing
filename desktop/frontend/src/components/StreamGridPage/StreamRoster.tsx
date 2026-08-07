@@ -80,10 +80,14 @@ function RosterChip({ path, sink, onToggle }: RosterChipProps) {
             pressed={sink !== undefined}
             disabled={!path.ready && sink === undefined}
             onPressedChange={onToggle}
+            // A watched chip carries its own on-fill, so it states its own
+            // on-hover too: the toggle's default one is written as
+            // aria-pressed:hover: and would otherwise outrank the tint below and
+            // grey the chip out under the pointer.
             className={cn(
-                "rounded-full aria-pressed:border-primary/50 aria-pressed:bg-primary/15 aria-pressed:text-foreground",
+                "rounded-full aria-pressed:border-primary/50 aria-pressed:bg-primary/15 aria-pressed:text-foreground aria-pressed:hover:bg-primary/25",
                 state === "failed" &&
-                    "aria-pressed:border-destructive/50 aria-pressed:bg-destructive/10"
+                    "aria-pressed:border-destructive/50 aria-pressed:bg-destructive/10 aria-pressed:hover:bg-destructive/20"
             )}
         >
             {state === "connecting" ? (

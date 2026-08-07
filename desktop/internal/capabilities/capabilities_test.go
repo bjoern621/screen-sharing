@@ -1,6 +1,8 @@
 package capabilities
 
 import (
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"slices"
 	"testing"
 )
@@ -230,7 +232,7 @@ func TestGapsDoNotCrossOptions(t *testing.T) {
 	// value rather than on the table.
 	oneEngine := Codec{
 		Name: "hypothetical",
-		Gaps: []Gap{{Engine: "gstreamer", Reason: "no element encodes it"}},
+		Gaps: []Gap{{Engine: "gstreamer", Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB}},
 	}
 	if _, gap := oneEngine.EngineGap("gstreamer"); !gap {
 		t.Error("a gap naming no option must take the codec off its engine")

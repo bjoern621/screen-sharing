@@ -631,10 +631,10 @@ func nvencArgs(s settings.Stream, r rates) []string {
 	}
 }
 
-// nvencPresets is the p1-p7 preset ladder, the values the encoder preset setting may
+// NvencPresets is the p1-p7 preset ladder, the values the encoder preset setting may
 // hold. The frontend's ENC_PRESETS carries the same seven with their tooltips, the
 // way every other option list is spelled on both sides of the wire.
-var nvencPresets = []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7"}
+var NvencPresets = []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7"}
 
 // nvencPresetLimit rejects a preset outside the ladder.
 //
@@ -644,11 +644,11 @@ var nvencPresets = []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7"}
 // it behind -preset for ffmpeg to reject, in a message about an option the form never
 // showed rather than about the control that holds it.
 func nvencPresetLimit(s settings.Stream) error {
-	if slices.Contains(nvencPresets, s.EncPreset) {
+	if slices.Contains(NvencPresets, s.EncPreset) {
 		return nil
 	}
 	return fmt.Errorf("encoder preset %q is not one of the NVENC ladder steps %s",
-		s.EncPreset, strings.Join(nvencPresets, ", "))
+		s.EncPreset, strings.Join(NvencPresets, ", "))
 }
 
 // bufsizeArg returns the ffmpeg -bufsize value in kbit for a rate (Mbit/s) held

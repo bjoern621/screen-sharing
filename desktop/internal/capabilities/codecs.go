@@ -1,5 +1,7 @@
 package capabilities
 
+import screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 // Codecs is the capability table. Order is the UI display order: implemented
 // backends first, then the not-yet-implemented hardware families.
 //
@@ -76,7 +78,7 @@ var Codecs = []Codec{
 		Gaps: []Gap{{
 			Option: OptionMode,
 			Value:  ModeLossless,
-			Reason: "NVENC codes bit-exact through its lossless tune, which its AV1 encoder does not implement",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_NVENC_AV1_NO_LOSSLESS_TUNE,
 		}},
 	},
 	{
@@ -123,7 +125,7 @@ var Codecs = []Codec{
 			Engine: EngineGst,
 			Option: OptionMode,
 			Value:  ModeLossless,
-			Reason: "the vp9enc element exposes no lossless property, so libvpx's lossless coding is reachable on the ffmpeg publish engine only",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_VP9ENC_NO_LOSSLESS,
 		}},
 	},
 	{
@@ -140,7 +142,7 @@ var Codecs = []Codec{
 		Gaps: []Gap{vp8NoFullRange, gstNoRateCeiling, {
 			Option: OptionMode,
 			Value:  ModeLossless,
-			Reason: "VP8 has no lossless coding mode; libvpx added that with VP9",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_VP8_HAS_NO_LOSSLESS,
 		}},
 	},
 	{
@@ -161,11 +163,11 @@ var Codecs = []Codec{
 			Engine: EngineGst,
 			Option: OptionChroma,
 			Value:  "p010le",
-			Reason: "the av1enc element takes 8-bit input only, so 10-bit libaom AV1 is reachable on the ffmpeg publish engine only",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_AV1ENC_EIGHT_BIT_ONLY,
 		}, {
 			Option: OptionMode,
 			Value:  ModeLossless,
-			Reason: "neither the ffmpeg libaom encoder nor the av1enc element exposes libaom's lossless switch",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_LIBAOM_NO_LOSSLESS_SWITCH,
 		}, {
 			// Measured: the element's streams are byte-identical for a full-range and a
 			// limited-range encode, and what a decoder produces from either carries no
@@ -173,7 +175,7 @@ var Codecs = []Codec{
 			Engine: EngineGst,
 			Option: OptionColorRange,
 			Value:  "pc",
-			Reason: "the av1enc element writes no colour description into the sequence header, so a full-range stream arrives at every viewer expanded as limited range; full range is reachable on the ffmpeg publish engine, whose libaom encoder tags what it codes",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_AV1ENC_NO_COLOUR_DESCRIPTION,
 		}},
 	},
 	{
@@ -196,7 +198,7 @@ var Codecs = []Codec{
 			{
 				Option: OptionMode,
 				Value:  ModeLossless,
-				Reason: "SVT-AV1 has no lossless coding mode",
+				Reason: screensharev1.TextCode_TEXT_CODE_GAP_SVTAV1_NO_LOSSLESS,
 			},
 			{
 				// Both engines, unlike the software rows around it: the refusal is the
@@ -204,7 +206,7 @@ var Codecs = []Codec{
 				// property to put the ceiling in.
 				Option: OptionMode,
 				Value:  ModeVbr,
-				Reason: "SVT-AV1 accepts a rate ceiling in constant-quality mode only and rejects a VBR encode given one, so no publish engine can constrain the burst; abr is the same encode named for what it does",
+				Reason: screensharev1.TextCode_TEXT_CODE_GAP_SVTAV1_NO_CONSTRAINED_VBR,
 			},
 			{
 				// SVT-AV1 takes CBR in its low-delay prediction structure only, and
@@ -215,7 +217,7 @@ var Codecs = []Codec{
 				Engine: EngineGst,
 				Option: OptionMode,
 				Value:  ModeCbr,
-				Reason: "the svtav1enc element stalls in the low-delay prediction structure SVT-AV1's CBR requires, so constant bitrate is reachable on the ffmpeg publish engine only",
+				Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_SVTAV1ENC_NO_CBR,
 			},
 		},
 	},
@@ -237,13 +239,13 @@ var Codecs = []Codec{
 		Gaps: []Gap{{
 			Option: OptionMode,
 			Value:  ModeLossless,
-			Reason: "rav1e has no lossless coding mode",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_RAV1E_NO_LOSSLESS,
 		}, {
 			// Both engines, as on libsvtav1: rav1e's rate control is one target and
 			// nothing above it, whichever wrapper sets it.
 			Option: OptionMode,
 			Value:  ModeVbr,
-			Reason: "rav1e's one-pass rate control takes a bitrate target and nothing above it, so no publish engine can constrain the burst; abr is the same encode named for what it does",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_RAV1E_NO_CONSTRAINED_VBR,
 		}},
 	},
 
@@ -438,7 +440,7 @@ var Codecs = []Codec{
 			Engine: EngineFfmpeg,
 			Option: OptionColorRange,
 			Value:  "pc",
-			Reason: "the AMF AV1 encoder writes limited range into the sequence header whatever colour range it is given, so a full-range stream arrives at every viewer expanded as limited range",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_AMF_AV1_LIMITED_RANGE_ONLY,
 		}}, amfGaps...),
 	},
 
@@ -494,7 +496,7 @@ var Codecs = []Codec{
 			Engine: EngineFfmpeg,
 			Option: OptionColorRange,
 			Value:  "pc",
-			Reason: "the Vulkan AV1 encoder writes limited range into the sequence header whatever colour range it is given, so a full-range stream arrives at every viewer expanded as limited range",
+			Reason: screensharev1.TextCode_TEXT_CODE_GAP_VULKAN_AV1_LIMITED_RANGE_ONLY,
 		}}, vulkanGaps...),
 	},
 
@@ -526,13 +528,13 @@ var vaapiGaps = []Gap{
 	{
 		Option: OptionMode,
 		Value:  ModeLossless,
-		Reason: "VAAPI's fixed-function encoders quantize every frame, and no VA profile codes bit-exact",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VAAPI_NO_LOSSLESS,
 	},
 	{
 		Engine: EngineGst,
 		Option: OptionColorRange,
 		Value:  "pc",
-		Reason: "the va encoder elements signal no colour description, so a full-range stream arrives at every viewer expanded as limited range; full range is reachable on the ffmpeg publish engine, which tags the frames it encodes",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_VA_NO_COLOUR_DESCRIPTION,
 	},
 }
 
@@ -544,7 +546,7 @@ var vaapiGaps = []Gap{
 var qsvGaps = []Gap{{
 	Option: OptionMode,
 	Value:  ModeLossless,
-	Reason: "Intel's fixed-function encoders quantize every frame, and oneVPL exposes no transform-bypass path",
+	Reason: screensharev1.TextCode_TEXT_CODE_GAP_QSV_NO_LOSSLESS,
 }}
 
 // amfGaps are the gaps every AMF row carries.
@@ -562,12 +564,12 @@ var qsvGaps = []Gap{{
 var amfGaps = []Gap{
 	{
 		Engine: EngineGst,
-		Reason: "the GStreamer amfcodec plugin builds for Windows only, so AMD AMF is reachable on the ffmpeg publish engine alone",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_AMFCODEC_WINDOWS_ONLY,
 	},
 	{
 		Option: OptionMode,
 		Value:  ModeLossless,
-		Reason: "AMF's fixed-function encoders quantize every frame, and no AMF profile codes bit-exact",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_AMF_NO_LOSSLESS,
 	},
 }
 
@@ -587,12 +589,12 @@ var amfGaps = []Gap{
 var vulkanGaps = []Gap{
 	{
 		Engine: EngineGst,
-		Reason: "the GStreamer vulkan plugin encodes from Vulkan device memory, which no capture backend on this engine produces, so Vulkan Video is reachable on the ffmpeg publish engine alone",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_VULKAN_NO_CAPTURE_MEMORY,
 	},
 	{
 		Option: OptionMode,
 		Value:  ModeLossless,
-		Reason: "Vulkan's lossless tuning mode is a hint rather than a coding mode, and its encoders quantize under it all the same",
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VULKAN_NO_LOSSLESS,
 	},
 }
 
@@ -607,7 +609,7 @@ var vulkanGaps = []Gap{
 var vp8NoFullRange = Gap{
 	Option: OptionColorRange,
 	Value:  "pc",
-	Reason: "the VP8 bitstream has no colour range field, so a full-range stream arrives at every viewer expanded as limited range; the other formats here carry the range and reach both",
+	Reason: screensharev1.TextCode_TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD,
 }
 
 // gstNoRateCeiling is the constrained-VBR gap every software row carries on the
@@ -626,7 +628,7 @@ var gstNoRateCeiling = Gap{
 	Engine: EngineGst,
 	Option: OptionMode,
 	Value:  ModeVbr,
-	Reason: "no GStreamer software encoder element takes a rate ceiling above the target, so constrained VBR is reachable on the ffmpeg publish engine only; abr is the same encode named for what it does",
+	Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING,
 }
 
 // gstNoPlanarRGB is the planar-RGB gap the software RGB-coding rows carry on the
@@ -643,5 +645,5 @@ var gstNoPlanarRGB = Gap{
 	Engine: EngineGst,
 	Option: OptionChroma,
 	Value:  "gbrp",
-	Reason: "the x265, VP9 and AV1 encoder elements take no planar-RGB input, so direct RGB coding on this codec is reachable on the ffmpeg publish engine only",
+	Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB,
 }

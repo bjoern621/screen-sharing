@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // publishRun is one publish session: the settings its pipeline was built from and the
@@ -168,7 +167,7 @@ func (a *App) launchLocked(s settings.Stream, attempts int) error {
 			if !a.isCurrentRun(run) {
 				return
 			}
-			runtime.EventsEmit(a.ctx, "publish:stats", stats)
+			a.emit(wire.PublishStatsEvent(stats), stats)
 		},
 		OnExit: func(err error, stderrTail string, logPath string) {
 			a.publishEnded(run, err, stderrTail, logPath)
@@ -228,7 +227,7 @@ func (a *App) GetPublishState() PublishStateEvent {
 
 	a.procMu.Lock()
 	var live *settings.Stream
-	state := PublishStateEvent{Budget: len(publishBackoff)}
+	var state PublishStateEvent
 	if a.run != nil && a.run.handle.Running() {
 		s := a.run.settings
 		live = &s
@@ -236,7 +235,13 @@ func (a *App) GetPublishState() PublishStateEvent {
 		s := a.retry.settings
 		live = &s
 		state.Retrying = true
+		// The budget is set with the attempt because the two are one fact: "attempt 2 of
+		// 3" is the whole of what either number says, and a budget reported beside a
+		// stream that is carrying frames would name attempts nothing is spending. Both
+		// are zero while nothing retries, which is what this shape promises the frontend
+		// and what the contract asserts of it (wire.PublishState).
 		state.Attempt = a.retry.attempts
+		state.Budget = len(publishBackoff)
 	}
 	a.procMu.Unlock()
 
@@ -257,15 +262,28 @@ func (a *App) GetPublishState() PublishStateEvent {
 	} else {
 		state.Pending = !same
 	}
+
+	// Stated here because this is where the pair is set, and because it is what both
+	// consumers go on to assume: the contract asserts it of the snapshot this becomes
+	// (wire.PublishState), and the frontend renders "attempt n of m" off it. A state
+	// that broke it should fail where it was built rather than at the far end of a
+	// conversion that only copied it.
+	assert.Assert(state.Retrying || (state.Attempt == 0 && state.Budget == 0),
+		"an attempt and a budget belong to a retry", state.Attempt, state.Budget)
 	return state
 }
 
-// emitPublishState tells the frontend what the publish state became. The form's own
+// emitPublishState tells both surfaces what the publish state became. The form's own
 // toggle knows what it asked for; this carries the changes it did not make, so the
 // native grid's publish button cannot leave the form showing a stopped stream, and an
 // edit cannot leave it claiming the live stream carries it.
+//
+// The state is read once and announced twice, rather than read per surface: two reads
+// of a state that moved between them would tell the two surfaces different things,
+// which is the whole failure this function exists to prevent.
 func (a *App) emitPublishState() {
-	runtime.EventsEmit(a.ctx, "publish:state", a.GetPublishState())
+	state := a.GetPublishState()
+	a.emit(wire.PublishStateEvent(publishSnapshot(state)), state)
 }
 
 // Publishing reports whether a publish is in force, which a pipeline waiting out its

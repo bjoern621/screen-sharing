@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ViewModel"
+             xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.View"
+             xmlns:quality="using:ScreenShare.App.Features.Setup.QualityStep.View"
+             xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
+             xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
+             xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
+             xmlns:fields="using:ScreenShare.App.Features.Setup.Fields.View"
+             x:Class="ScreenShare.App.Features.Setup.View.SetupView"
+             x:DataType="vm:SetupViewModel"
+             Background="{StaticResource SurfaceBrush}">
+
+  <!--
+    The setup flow: the strip across the top, then a form column and a fixed rail beside it.
+    No title bar and no nav strip - the shell owns the window's chrome, and this view owns
+    only what is inside it.
+
+    Which form the main column draws is the current step's answer. Five of the seven are one
+    component: they are groups of the resolved form, and a shell that hand-wrote a capture
+    screen and an encode screen would be writing down what a capture and an encode are
+    (docs/ipc-api.md).
+  -->
+
+  <DockPanel>
+    <strip:StepStripView DockPanel.Dock="Top" Margin="12,12,12,0" />
+
+    <!--
+      What the backend said when it could not describe the screen, above every step rather
+      than inside one: it is the reason none of them can be drawn from anything newer. A shell
+      with nothing to talk to says so and offers to look again; it does not invent a form to
+      fill the space (docs/ipc-api.md, "What each side owes").
+    -->
+    <Border DockPanel.Dock="Top"
+            Classes="panel"
+            Padding="12,10"
+            Margin="12,10,12,0"
+            IsVisible="{Binding IsUnavailable}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Classes="hint danger"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   TextTrimming="None"
+                   Text="{Binding Unavailable}" />
+
+        <Button Grid.Column="1"
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                Content="Look again"
+                Command="{Binding RetryCommand}" />
+      </Grid>
+    </Border>
+
+    <Grid Margin="12" ColumnDefinitions="*,Auto">
+
+      <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
+        <Panel>
+          <StackPanel Spacing="{StaticResource GapControl}" IsVisible="{Binding ShowsQuality}">
+            <quality:QualityStepView DataContext="{Binding Quality}" />
+            <drawer:AdvancedDrawerView DataContext="{Binding Advanced}" />
+          </StackPanel>
+
+          <!--
+            The form-driven steps. One renderer, one instance per group, and the group it
+            draws decides everything on it.
+
+            What the form said about the settings as a whole used to be a stack of panels
+            under this one, which put it below the fold on every step long enough to scroll
+            and repeated it identically on all of them. It is in the rail now, in the card
+            that already asks what stands between these settings and going live - which is
+            the same question (CostRail/View/CostRailView.axaml).
+          -->
+          <StackPanel Spacing="{StaticResource GapControl}" IsVisible="{Binding ShowsFields}">
+            <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
+
+            <!--
+              Why no command could be rendered. It is the same sentence that would refuse the
+              publish, which is what makes the form and the refusal one answer rather than two.
+            -->
+            <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasCommandError}">
+              <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding CommandError}" />
+            </Border>
+          </StackPanel>
+        </Panel>
+      </ScrollViewer>
+
+      <!--
+        The review stands outside that scroller and spans both columns: it scrolls its own
+        two columns separately so the commit stays on screen, which a single scroller around
+        the whole step cannot do. The wrapper is load-bearing - IsVisible has to read this
+        view's model, so it cannot sit on the element that hands its DataContext to the child.
+      -->
+      <Panel Grid.Column="0" Grid.ColumnSpan="2" IsVisible="{Binding ShowsReview}">
+        <review:ReviewStepView DataContext="{Binding Review}" />
+      </Panel>
+
+      <!--
+        The rail is a fixed 330 because it prices the form beside it: a column that reflowed
+        would move the figure the reader is watching while they change the thing that sets it.
+        It stands aside on the review, which carries its own checks and its own commit.
+      -->
+      <Grid Grid.Column="1"
+            Width="330"
+            Margin="10,0,0,0"
+            RowDefinitions="*,Auto"
+            IsVisible="{Binding IsRailVisible}">
+
+        <!--
+          The rail scrolls on its own. Its length is the number of checks the settings
+          raise, which the reader does not control, so on a short window the cards would
+          otherwise push the commit buttons off the bottom - the one control that must
+          stay reachable.
+        -->
+        <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
+          <rail:CostRailView DataContext="{Binding Rail}" />
+        </ScrollViewer>
+
+        <!-- Bottom-aligned with the tallest column, rather than floating in a footer bar. -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,10,0,0">
+          <Button Grid.Column="0"
+                  Theme="{StaticResource FooterButton}"
+                  Content="Back"
+                  Command="{Binding BackCommand}"
+                  IsVisible="{Binding CanGoBack}" />
+
+          <!-- Names the next step rather than saying "Next", so the button says where it goes. -->
+          <Button Grid.Column="1"
+                  Theme="{StaticResource PrimaryButton}"
+                  Height="{StaticResource FooterButtonHeight}"
+                  Margin="8,0,0,0"
+                  Content="{Binding ContinueLabel}"
+                  Command="{Binding ContinueCommand}"
+                  IsVisible="{Binding CanContinue}" />
+        </Grid>
+      </Grid>
+    </Grid>
+  </DockPanel>
+
+</UserControl>

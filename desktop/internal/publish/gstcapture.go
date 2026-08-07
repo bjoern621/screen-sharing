@@ -53,14 +53,29 @@ type gstCaptureOptions struct {
 	// that pins caps of its own downstream of InCaps repeats it, since a capsfilter
 	// naming no feature pins system memory and would break the negotiation InCaps won.
 	Feature string
-	// Convert is the element converting captured frames into InCaps: videoconvert on
-	// the CPU, or the encoder family's own post-processor on the GPU path.
-	Convert string
+	// Convert is the chain converting captured frames into InCaps: videoconvert on the
+	// CPU, preceded by videoscale where the run scales, or the encoder family's own
+	// post-processor on the GPU path. Backends place it through convertInto rather than
+	// naming it, so what the chain holds is gstgpu.go's business alone.
+	Convert []string
 	// RateProbe counts the frames the source really produced, empty for a
 	// pipeline built without instrumentation. A backend places it at the last
 	// point where one buffer is one new picture, so what it counts is the rate the
 	// screen changed at and not the rate the encoder was paced to.
 	RateProbe []string
+}
+
+// convertInto is the conversion chain and the capsfilter it converts into, with the
+// links between them and the one that attaches it to what comes before.
+//
+// Every backend places the pair through here, so a chain that grows an element is one
+// place to change rather than four. The links are part of the answer because the chain's
+// length is: a caller that wrote its own "!" would have to know how many.
+func (o gstCaptureOptions) convertInto() []string {
+	out := make([]string, 0, len(o.Convert)+3)
+	out = append(out, "!")
+	out = append(out, o.Convert...)
+	return append(out, "!", o.InCaps)
 }
 
 // rateCaps returns the capsfilter pinning a framerate, in the memory the encoder input
@@ -197,11 +212,8 @@ func portalElements(s settings.Stream, fd, node string, opts gstCaptureOptions) 
 	if gpupath.OnDevice(opts.Memory) {
 		elements = append(elements, "!", "video/x-raw(memory:DMABuf)")
 	}
-	elements = append(elements,
-		"!", "queue", "max-size-buffers=1", "leaky=downstream",
-		"!", opts.Convert,
-		"!", opts.InCaps,
-	)
+	elements = append(elements, "!", "queue", "max-size-buffers=1", "leaky=downstream")
+	elements = append(elements, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		elements = append(elements, "!")
 		elements = append(elements, opts.RateProbe...)
@@ -265,11 +277,8 @@ func (ximageCapture) elements(s settings.Stream, opts gstCaptureOptions) []strin
 			"endy="+strconv.Itoa(m.OffsetY+m.Height-1),
 		)
 	}
-	src = append(src,
-		"!", opts.rateCaps(s.Fps),
-		"!", opts.Convert,
-		"!", opts.InCaps,
-	)
+	src = append(src, "!", opts.rateCaps(s.Fps))
+	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)
@@ -317,9 +326,8 @@ func (avfCapture) HoldsOneDevice() error {
 func (avfCapture) elements(s settings.Stream, opts gstCaptureOptions) []string {
 	src := []string{"avfvideosrc", "capture-screen=true", "capture-screen-cursor=true",
 		"!", opts.rateCaps(s.Fps),
-		"!", opts.Convert,
-		"!", opts.InCaps,
 	}
+	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)
@@ -373,9 +381,8 @@ func (d3d11Capture) HoldsOneDevice() error {
 func (d3d11Capture) elements(s settings.Stream, opts gstCaptureOptions) []string {
 	src := []string{"d3d11screencapturesrc", "show-cursor=true", "monitor-index=" + strconv.Itoa(s.Monitor),
 		"!", opts.rateCaps(s.Fps),
-		"!", opts.Convert,
-		"!", opts.InCaps,
 	}
+	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)

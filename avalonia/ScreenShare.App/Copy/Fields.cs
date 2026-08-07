@@ -1,0 +1,238 @@
+namespace ScreenShare.App.Copy;
+
+/// <summary>
+/// What each control is called, what it teaches, and where to read more.
+///
+/// The backend sends a field as a key - <c>bitrate_mbps</c>, <c>capture_memory</c> - and
+/// this is where that key becomes a heading and a paragraph. Which controls exist, in what
+/// order, under which heading, and which of them are reachable is the backend's answer and
+/// is not restated here; what any of it says is this file's (docs/ipc-api.md).
+///
+/// The help text is the reason the form is worth reading rather than clicking through. It
+/// answers three things in this order: what the control does, what moving it costs, and
+/// what to do about it. A control whose help only expands its own label has been left
+/// without help.
+///
+/// A key with no entry renders with the key itself as its heading and no paragraph. That
+/// is a defect - a control the reader has to guess at - and it is visible on screen rather
+/// than swallowed, which is what makes it get fixed.
+/// </summary>
+public static class Fields
+{
+    /// <summary>
+    /// One control's copy: the heading over it, the paragraph behind it, and the article
+    /// for the concept where one exists.
+    /// </summary>
+    public sealed record Entry(string Label, string Help, string Doc = "");
+
+    /// <summary>
+    /// One group's copy: the heading and the sentence under it. A group heading is a step
+    /// name in the wizard as well, so it stays short enough for a chip.
+    /// </summary>
+    public sealed record GroupEntry(string Title, string Help);
+
+    private const string DocChroma = "https://en.wikipedia.org/wiki/Chroma_subsampling";
+    private const string DocYCbCr = "https://en.wikipedia.org/wiki/YCbCr";
+    private const string DocBitrate = "https://en.wikipedia.org/wiki/Variable_bitrate";
+    private const string DocQuantization = "https://en.wikipedia.org/wiki/Quantization_(image_processing)";
+    private const string DocVbv = "https://en.wikipedia.org/wiki/Video_buffering_verifier";
+    private const string DocGop = "https://en.wikipedia.org/wiki/Group_of_pictures";
+    private const string DocNvenc = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
+    private const string DocDrm = "https://en.wikipedia.org/wiki/Direct_Rendering_Manager";
+    private const string DocDrmPrime = "https://en.wikipedia.org/wiki/Direct_Rendering_Manager#DRM_PRIME";
+    private const string DocSrt = "https://en.wikipedia.org/wiki/Secure_Reliable_Transport";
+    private const string DocRtsp = "https://en.wikipedia.org/wiki/Real-Time_Streaming_Protocol";
+
+    private static readonly Dictionary<string, Entry> Entries = new()
+    {
+        ["name"] = new(
+            "Stream name",
+            "The name your viewers open. It becomes the last part of the address you send them, so keep it short and free of spaces."),
+
+        ["relay_host"] = new(
+            "Relay address",
+            "The machine running the relay. You push to it and everyone watching pulls from it, so it needs to be reachable from both sides - a machine on the same network for a LAN stream, a server with a public address for anyone further away."),
+
+        ["capture"] = new(
+            "How to capture",
+            "How frames leave your desktop. This is the first choice to get right: it also fixes which encoder software runs, so almost everything below follows from it. Prefer the one your system is built around - Desktop Duplication on Windows, the screen picker on a Wayland desktop."),
+
+        ["monitor"] = new(
+            "Which screen",
+            "The monitor to share. Only what this screen shows is sent; windows on your other screens stay private."),
+
+        ["output_resolution"] = new(
+            "Size sent",
+            "The size the encoder is fed. Leave it at the source to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: fewer bits to encode, to upload, and for your viewers to decode - the single most effective knob when the connection is the problem."),
+
+        ["fps"] = new(
+            "Frame rate",
+            "How many pictures a second. Higher is smoother and costs proportionally more upload and more encoding. Above your monitor's own refresh rate the extra frames are duplicates: they cost bandwidth and buy no smoothness.",
+            ""),
+
+        ["capture_memory"] = new(
+            "Where frames travel",
+            "Whether the frames stay on the graphics card on their way to the encoder or take a trip through main memory. Staying on the card is free but only possible when the capture and the encoder can share it, so this follows both choices above. Automatic is right unless you are chasing the last of the CPU.",
+            DocDrmPrime),
+
+        ["drm_map"] = new(
+            "Frame download route",
+            "How scanout frames are brought into main memory. They are usually stored in a GPU-specific layout, so they have to be read back through a device that understands it. Leave it automatic unless the capture fails to start.",
+            DocDrm),
+
+        ["codec"] = new(
+            "Encoder",
+            "What compresses the picture, in two parts: the format your viewers have to decode, and the hardware or library that produces it. Hardware encoders are nearly free and slightly less efficient; the CPU encoders squeeze harder and charge you for it."),
+
+        ["chroma"] = new(
+            "Colour detail",
+            "How much colour information is kept. Video normally throws away three quarters of it, which nobody notices in a film and everyone notices in coloured text. Keeping more costs bits and narrows which viewers can decode it on their GPU - every format still plays everywhere, on the CPU if nothing else.",
+            DocChroma),
+
+        ["color_range"] = new(
+            "Colour range",
+            "Which code values carry picture. Your desktop is full range; broadcast video is not. Getting this wrong is what makes a stream look washed out or crushed at the other end.",
+            DocYCbCr),
+
+        ["enc_preset"] = new(
+            "Encoder effort",
+            "How hard NVIDIA's encoder looks for savings, from p1 to p7. More effort means a smaller stream at the same quality and no extra delay worth measuring - the chip is separate from the graphics cores. Only the NVIDIA encoders have this ladder.",
+            DocNvenc),
+
+        ["mode"] = new(
+            "What to hold steady",
+            "The one decision behind everything else in this step: whether the encoder holds a bandwidth or holds a quality. Hold bandwidth when the connection has a limit you know. Hold quality when it does not, and let the bitrate go where the picture takes it.",
+            DocBitrate),
+
+        ["cq"] = new(
+            "Quality target",
+            "How much detail the encoder is allowed to discard. Lower keeps more and costs more; higher is smaller and softer. Around 20 is visually clean for a desktop and around 30 starts to show. The scale belongs to the encoder, so the same number is a different quality on a different one - and the range moves with your choice above.",
+            DocQuantization),
+
+        ["bitrate_mbps"] = new(
+            "Bitrate",
+            "How much bandwidth the stream aims at. Set it below what you can reliably upload, not at it: a stream that fills the line has nothing left for the moments the picture moves."),
+
+        ["maxrate_mbps"] = new(
+            "Burst ceiling",
+            "How far above the target the stream may go when the picture moves. Bandwidth rises to here on motion and falls back on a still screen, which is what keeps quality from dipping. Set it above the target, and below what your line can carry."),
+
+        ["vbv_ms"] = new(
+            "Rate buffer",
+            "How many milliseconds of slack the encoder has to even bandwidth out. Smaller holds the rate tighter and adds less delay; larger keeps quality steadier across bursts. Zero leaves the encoder's own default alone.",
+            DocVbv),
+
+        ["gop"] = new(
+            "Keyframe interval",
+            "How many frames between complete pictures. A viewer cannot start until one arrives, so a long interval saves bandwidth and makes joining slower - and makes packet loss last longer on screen. Zero means twice the frame rate, which is a good default.",
+            DocGop),
+
+        ["bframes"] = new(
+            "Look-ahead frames",
+            "Frames that also reference the future, which saves bandwidth and adds delay in exact proportion. Useful when you are sending to a viewer rather than playing with one; zero is right for anything interactive.",
+            DocGop),
+
+        ["audio"] = new(
+            "Audio",
+            "Whether to send sound with the picture, and where it comes from. Viewers hear it automatically."),
+
+        ["audio_codec"] = new(
+            "Audio format",
+            "What compresses the sound. Opus unless something on the other end insists otherwise - it is lower delay and the only one browsers negotiate."),
+
+        ["transport"] = new(
+            "How to send",
+            "The protocol carrying the stream from here to the relay. This is only the way out: viewers pick their own way back, so a stream sent over SRT can still be watched over RTSP. They differ in how they handle loss and in how much delay you can tune away."),
+
+        ["srt_publish_latency_ms"] = new(
+            "Retransmit window, sending",
+            "How long the relay waits for a packet to arrive again before giving up on it. Longer survives a worse connection at the cost of delay. This window and the viewer's add up, and the relay asks for at least 120 ms, so anything lower is raised to that.",
+            DocSrt),
+
+        ["rtsp_publish_protocol"] = new(
+            "RTSP transport, sending",
+            "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too - a home router normally allows that, a corporate network often does not.",
+            DocRtsp),
+
+        ["uplink_mbps"] = new(
+            "Upload speed",
+            "What you can actually upload, not what the plan says. Nothing is enforced against it: it is what the prediction is weighed against, so a configuration this connection cannot carry says so here rather than at your viewers. Measure it if you are not sure."),
+
+        ["watch_transport"] = new(
+            "How viewers watch",
+            "The protocol an external player is opened on. Independent of how you send: the relay re-serves every stream on all its listeners, so this can differ from the way out without anything being re-encoded."),
+
+        ["srt_watch_latency_ms"] = new(
+            "Retransmit window, watching",
+            "The same window on the viewer's side, where most internet loss actually happens. It is delay they see: a distant viewer on a poor connection wants more, a viewer on your own network wants less.",
+            DocSrt),
+
+        ["rtsp_watch_protocol"] = new(
+            "RTSP transport, watching",
+            "How the media travels inside the RTSP session on the way back. TCP carries both tracks on the connection the player already made, which is what a restrictive network is likeliest to allow. UDP is lower delay and needs the viewer's router to let it through.",
+            DocRtsp),
+
+        ["relay_port"] = new("SRT port", "The relay's SRT port. The default is 8890."),
+        ["rtsp_port"] = new("RTSP port", "The relay's RTSP port. The default is 8554."),
+        ["webrtc_port"] = new("WebRTC port", "The relay's WebRTC port, which serves both sending and watching. The default is 8889."),
+        ["rtmp_port"] = new("RTMP port", "The relay's RTMP port. The default is 1935."),
+        ["hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. It is a watching port only: nothing is ever sent this way."),
+        ["moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, which the browser view uses. The default is 8892."),
+        ["api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),
+    };
+
+    private static readonly Dictionary<string, GroupEntry> Groups = new()
+    {
+        ["stream"] = new(
+            "Stream",
+            "What this stream is called and which relay carries it. The name is the one setting your viewers see."),
+
+        ["source"] = new(
+            "Capture",
+            "Which screen is shared and how the frames reach the encoder. The capture method also fixes which encoder software runs, which is why the rest of the form follows from it."),
+
+        ["quality"] = new(
+            "Encode",
+            "What compresses the picture and how it spends bandwidth. Everything here is offered against the capture method you chose above, so an entry greyed out with an encoder's name is telling you to change the capture rather than the encoder."),
+
+        ["audio"] = new(
+            "Audio",
+            "The sound track: where it comes from and what compresses it. Which sources exist depends on your operating system; which formats reach the relay depends on how you send."),
+
+        ["transport"] = new(
+            "Sending",
+            "How the stream travels from this machine to the relay, and what that protocol lets you tune. Nothing here limits what your viewers can watch over."),
+
+        ["watch"] = new(
+            "Watching",
+            "How the stream comes back from the relay to a player. Separate from how you send, and separate per viewer."),
+
+        ["advanced"] = new(
+            "Relay ports",
+            "Which port each of the relay's listeners uses. The defaults are the relay's own, so these only matter against a relay someone set up differently."),
+    };
+
+    /// <summary>
+    /// The copy for one field key. A key with no entry falls back to the key itself, which
+    /// draws a control the reader can at least identify and report.
+    /// </summary>
+    public static Entry Of(string key) =>
+        key.Length > 0 && Entries.TryGetValue(key, out var entry) ? entry : new Entry(key, "");
+
+    /// <summary>The copy for one group key, falling back to the key for the same reason.</summary>
+    public static GroupEntry Group(string key) =>
+        key.Length > 0 && Groups.TryGetValue(key, out var entry) ? entry : new GroupEntry(key, "");
+
+    /// <summary>
+    /// How a unit is written after its figure. It is a separate word rather than part of
+    /// the number, because the design sets figures in mono and everything else in sans.
+    /// </summary>
+    public static string Unit(Api.V1.Unit unit) => unit switch
+    {
+        Api.V1.Unit.MegabitsPerSecond => "Mbit/s",
+        Api.V1.Unit.Milliseconds => "ms",
+        Api.V1.Unit.FramesPerSecond => "fps",
+        Api.V1.Unit.Frames => "frames",
+        _ => "",
+    };
+}

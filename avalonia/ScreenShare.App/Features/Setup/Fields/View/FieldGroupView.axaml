@@ -1,0 +1,149 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.Fields.View.FieldGroupView"
+             x:DataType="vm:FieldGroupViewModel">
+
+  <!--
+    One group of the resolved form, drawn generically. Which controls appear, what they are
+    called, which are greyed and why all arrive in the message; this file decides only how
+    each control kind looks and where it sits (docs/ipc-api.md).
+
+    That is why there is no capture view, no encode view and no transport view: the five
+    steps differ in nothing this layer can see.
+  -->
+
+  <!--
+    Nothing is skinned here. The option row is the design's OptionCard and the picked
+    treatment travels with it (Design/Buttons.axaml); the text roles the card's interior
+    plays are in Design/Text.axaml, because a rule that reaches inside a button's content
+    needs a descendant selector and a ControlTheme may not carry one.
+  -->
+
+  <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
+    <StackPanel>
+      <TextBlock Classes="heading" Text="{Binding Title}" />
+      <TextBlock Classes="secondary"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Margin="0,3,0,16"
+                 IsVisible="{Binding HasHelp}"
+                 Text="{Binding Help}" />
+
+      <ItemsControl ItemsSource="{Binding Fields}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:FieldViewModel">
+            <StackPanel Spacing="6" Margin="0,0,0,18">
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Grid.Column="0" Classes="secondary" Text="{Binding Label}" />
+                <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasUnit}" Text="{Binding Unit}" />
+              </Grid>
+
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         IsVisible="{Binding HasHelp}"
+                         Text="{Binding Help}" />
+
+              <TextBox IsVisible="{Binding IsText}"
+                       IsEnabled="{Binding IsEnabled}"
+                       Text="{Binding Text, Mode=TwoWay}" />
+
+              <NumericUpDown IsVisible="{Binding IsNumber}"
+                             IsEnabled="{Binding IsEnabled}"
+                             Value="{Binding Number, Mode=TwoWay}"
+                             Minimum="{Binding NumberMinimum}"
+                             Maximum="{Binding NumberMaximum}"
+                             Increment="{Binding NumberStep}"
+                             FormatString="0"
+                             HorizontalAlignment="Left"
+                             MinWidth="160" />
+
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}">
+                <Slider Grid.Column="0"
+                        IsEnabled="{Binding IsEnabled}"
+                        Minimum="{Binding Minimum}"
+                        Maximum="{Binding Maximum}"
+                        TickFrequency="{Binding Step}"
+                        Value="{Binding Slide, Mode=TwoWay}" />
+                <TextBlock Grid.Column="1"
+                           Classes="figure"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding Readback}" />
+              </Grid>
+
+              <!--
+                A flag is the switch, the same one the review step and the expert menu
+                draw. A CheckBox stood here and was the only tick-box in the product: one
+                domain concept rendered two ways is the defect the shared control exists
+                to prevent (docs/design-language.md, "Selection").
+              -->
+              <ToggleButton IsVisible="{Binding IsToggle}"
+                            Theme="{StaticResource SwitchTheme}"
+                            IsEnabled="{Binding IsEnabled}"
+                            IsChecked="{Binding Flag, Mode=TwoWay}" />
+
+              <TextBlock Classes="figure"
+                         IsVisible="{Binding IsReadonly}"
+                         Text="{Binding Readback}" />
+
+              <!--
+                One list for both option kinds. The difference the contract draws between
+                them is whether each entry carries a paragraph, and an entry with none
+                simply renders without one - which is why there is one list here and not
+                two that differed in their spacing.
+
+                The card is wrapped, and the wrapper is what carries the refusal. A
+                disabled control in Avalonia takes no pointer events, so a tooltip set on
+                the card itself could only ever open on the entries that do not need one;
+                the enabled border behind it is what the pointer lands on instead.
+              -->
+              <ItemsControl IsVisible="{Binding IsChoice}" ItemsSource="{Binding Options}" IsEnabled="{Binding IsEnabled}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:OptionViewModel">
+                    <Border Background="Transparent" Margin="0,0,0,4" ToolTip.Tip="{Binding Refusal}">
+                      <Button Theme="{StaticResource OptionCard}"
+                              Classes.picked="{Binding IsSelected}"
+                              IsEnabled="{Binding IsEnabled}"
+                              Command="{Binding Choose}">
+                        <StackPanel Spacing="4">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
+                            <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+                          </Grid>
+                          <TextBlock Classes="cardbody"
+                                     IsVisible="{Binding HasBody}"
+                                     Text="{Binding Body}" />
+                        </StackPanel>
+                      </Button>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <!-- Why the control is inert, in its place rather than in a log line. -->
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         IsVisible="{Binding HasReason}"
+                         Text="{Binding Reason}" />
+
+              <!--
+                A live field that means something its label does not describe here. Not a
+                third form of unavailability: the knob does reach the encoder.
+              -->
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         IsVisible="{Binding HasNote}"
+                         Text="{Binding Note}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </Border>
+
+</UserControl>

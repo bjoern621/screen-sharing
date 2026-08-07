@@ -1,0 +1,102 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+  <!--
+    Sizes the design states, named by the thing they measure.
+
+    One conversion runs through all of them: the mockup is CSS with content-box sizing, so
+    a declared height there excludes its border, while an Avalonia Height includes it. Every
+    height below is the Avalonia one - the CSS number plus its borders - and says so where
+    the two differ.
+  -->
+
+  <!-- Corner radii. Seven values, each tied to a kind of thing rather than a size step. -->
+  <CornerRadius x:Key="RadiusSegment">4</CornerRadius>
+  <CornerRadius x:Key="RadiusControl">5</CornerRadius>
+  <CornerRadius x:Key="RadiusButton">6</CornerRadius>
+  <CornerRadius x:Key="RadiusStrip">7</CornerRadius>
+  <CornerRadius x:Key="RadiusPanel">8</CornerRadius>
+  <CornerRadius x:Key="RadiusTile">9</CornerRadius>
+  <!-- The one capsule in the design: a stream chip. -->
+  <CornerRadius x:Key="RadiusChip">14</CornerRadius>
+
+  <!--
+    Chrome bands. Full-bleed, so their heights set the window's fixed rows.
+
+    Every height in this block and the next grew by 2-5px when the type ladder's default
+    went from 13px to 14px (Design/Typography.axaml). A band sized to the old face left a
+    14px line box with one or two pixels of air, and a row that tight is exactly where
+    vertical centring stops looking centred: the rounding that puts a 17px line box inside
+    28px of control has nowhere to go, so the glyphs sit high. The rule is the same one the
+    design already followed - the band is sized from the text it holds, not the other way
+    round.
+  -->
+  <sys:Double x:Key="TitleBarHeight">36</sys:Double>
+  <!--
+    The caption glyphs, and the line they are drawn with. Both numbers are Windows' own:
+    minimise, maximise, restore and close are a 10px box at a hairline, and these three stand
+    in for the platform's, so they take the platform's measurements rather than a step off
+    this design's icon ladder (docs/design-language.md).
+  -->
+  <sys:Double x:Key="CaptionGlyphSize">10</sys:Double>
+  <sys:Double x:Key="CaptionStroke">1</sys:Double>
+  <!-- The 30px control it holds, 6px of air either side, plus the 1px bottom rule. -->
+  <sys:Double x:Key="NavStripHeight">43</sys:Double>
+  <sys:Double x:Key="StatusBarHeight">30</sys:Double>
+
+  <!-- Controls. The 20px line box a 14px label draws, plus 4px either side and two borders. -->
+  <sys:Double x:Key="ControlHeight">30</sys:Double>
+  <!-- The on-air pill carries no border, so it is the same box two pixels shorter. -->
+  <sys:Double x:Key="PillHeight">28</sys:Double>
+  <sys:Double x:Key="ChipHeight">30</sys:Double>
+  <!--
+    A read-only row of text: a config key and its value, a cost metric, a log line. It is
+    pinned rather than left to the text because a list of them has to keep one rhythm even
+    where one row's value happens to be taller, and it is one number rather than three
+    because the three lists were 21, 23 and 24 for no reason anyone could state - the kind
+    of near-miss that reads as a wobble down a column.
+  -->
+  <sys:Double x:Key="TextRowHeight">26</sys:Double>
+  <sys:Double x:Key="MenuItemHeight">32</sys:Double>
+  <!-- A live-safe action in the broadcast header. -->
+  <sys:Double x:Key="ActionHeight">32</sys:Double>
+  <!-- A wizard footer button, and the go-live button that matches it. -->
+  <sys:Double x:Key="FooterButtonHeight">38</sys:Double>
+  <sys:Double x:Key="RoundButtonSize">40</sys:Double>
+
+  <!-- Spacing rhythm. The design uses a small set repeatedly rather than a scale. -->
+  <sys:Double x:Key="GapTight">7</sys:Double>
+  <sys:Double x:Key="GapControl">10</sys:Double>
+  <sys:Double x:Key="GapPanel">12</sys:Double>
+  <sys:Double x:Key="GapSection">16</sys:Double>
+
+  <!-- The state dot stays small: it is state, not decoration (docs/design-language.md). -->
+  <sys:Double x:Key="DotSize">7</sys:Double>
+
+  <!--
+    Icons. Two sizes off the design's 12-22px range, named by where the glyph sits rather
+    than by the number, and one stroke for both of them.
+
+    The stroke is a width rather than a weight baked into the artwork, which is the whole
+    reason the icons are drawn as paths: a 12px badge glyph and a 14px control glyph are the
+    same line, so the two do not read as two different sets (docs/design-language.md).
+
+    The window controls are not on this ladder. They are the platform's glyphs at the
+    platform's size, above.
+  -->
+  <sys:Single x:Key="IconStroke">1.2</sys:Single>
+  <!-- Inside a badge or a pill, where the surrounding shape is already 15-16px. -->
+  <sys:Double x:Key="IconSizeBadge">12</sys:Double>
+  <!-- On a line of text: a select's caret, a menu row's tick. -->
+  <sys:Double x:Key="IconSizeControl">14</sys:Double>
+
+  <!--
+    A thumbnail in the film strip under a spotlit stream. The height the two existing viewers
+    already use for it (docs/viewer-architecture.md), and a height alone: the width follows
+    from the shape the grid cuts its cells to, and a short window shrinks the band rather than
+    letting it take the spotlight's room.
+  -->
+  <sys:Double x:Key="StripTileHeight">112</sys:Double>
+
+</ResourceDictionary>

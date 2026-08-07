@@ -2,8 +2,10 @@ package publish
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
+	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -149,5 +151,62 @@ func TestSamePipelineRefusesSettingsNoEngineRenders(t *testing.T) {
 	}
 	if _, err := SamePipeline(after, before); err == nil {
 		t.Error("SamePipeline must error whichever side cannot be rendered")
+	}
+}
+
+// A backend whose platform serves no monitor source refuses desktop audio rather than
+// publishing a silent track, whichever engine runs it.
+//
+// The refusal is asserted through Command, because that is the one path a run and the
+// displayed line both take: an engine that only refused inside Start would show a user
+// a command the publish button cannot execute. The verdict is the source table's, so
+// what a greyed option says before publishing and what a refused publish says rest on
+// one answer rather than two that drift; the refusal names the backend and the source
+// rather than quoting the table's statement, because it is an operational error and
+// the statement is what the greyed option shows (api/proto/screenshare/v1/text.proto).
+func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testing.T) {
+	for capture := range captureBackends {
+		available, _ := AudioAvailable(capture, platform.AudioSourceDesktop)
+
+		s := settings.Defaults()
+		s.Capture, s.Transport, s.Audio = capture, "rtsp", platform.AudioSourceDesktop
+		_, err := Command(s)
+
+		if available {
+			// A backend on a serving platform is left to fail, or not, on everything else a
+			// pipeline needs; what is asserted is only that the audio source was not what
+			// refused it.
+			if err != nil && strings.Contains(err.Error(), "desktop audio") {
+				t.Errorf("%s runs on a platform serving desktop audio and must not refuse it: %v", capture, err)
+			}
+			continue
+		}
+
+		if err == nil {
+			t.Errorf("the %s backend reaches no desktop audio and must refuse it", capture)
+			continue
+		}
+		if !strings.Contains(err.Error(), capture) || !strings.Contains(err.Error(), platform.AudioSourceDesktop) {
+			t.Errorf("%s: refusal %q must name the backend and the source it cannot record", capture, err)
+		}
+	}
+}
+
+// Every registered backend is answerable for, and the absent source is refused by none:
+// a stream with no second track asks nothing of the machine, so a platform cannot be
+// missing the piece that serves it.
+func TestEveryCaptureBackendAnswersForEveryAudioSource(t *testing.T) {
+	for capture := range captureBackends {
+		available, reason := AudioAvailable(capture, platform.AudioSourceNone)
+		if !available {
+			t.Errorf("%s: the absent audio source is served everywhere, got %v", capture, reason)
+		}
+		for _, source := range []string{platform.AudioSourceNone, platform.AudioSourceDesktop} {
+			available, reason := AudioAvailable(capture, source)
+			if available != (reason == nil) {
+				t.Errorf("%s/%s: an unserved source says what is missing, available=%v reason=%v",
+					capture, source, available, reason)
+			}
+		}
 	}
 }

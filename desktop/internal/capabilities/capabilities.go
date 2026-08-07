@@ -29,6 +29,8 @@ import (
 	"fmt"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
 // The publish engines a capability can differ between. This package depends on
@@ -76,6 +78,21 @@ const (
 
 // Modes lists every rate-control mode a Gap may name and Validate may be given.
 var Modes = []string{ModeCbr, ModeVbr, ModeAbr, ModeCrf, ModeLossless}
+
+// The quantization ranges a picture may be coded at: all code values carrying image
+// data, or the 16-235 studio swing a broadcast chain expects.
+//
+// They are declared here for the reason the modes above are. The colour range is an
+// option a Gap may take a value away from, so a table that names the axis without
+// naming its values leaves every consumer to type the two strings itself, and the
+// consumer that types them differently greys the wrong option.
+const (
+	ColorRangeFull    = "pc"
+	ColorRangeLimited = "tv"
+)
+
+// ColorRanges lists every colour range a Gap may name and Validate may be given.
+var ColorRanges = []string{ColorRangeFull, ColorRangeLimited}
 
 // The settings options a Gap may take a value away from. The names are the JSON
 // field names settings.Stream carries, so a gap the table declares names the form
@@ -154,10 +171,12 @@ type Gap struct {
 	// Value is the option value the engine's encoder will not take, empty exactly
 	// when Option is.
 	Value string `json:"value"`
-	// Reason states which library or element lacks the capability. Where the other
-	// engine has it, the reason says so, since switching capture backend is the
-	// user's way to reach it.
-	Reason string `json:"reason"`
+	// Reason names which library or element lacks the capability, as a code and not
+	// as a sentence about it (api/proto/screenshare/v1/text.proto). It is one code per
+	// row and takes no arguments: the three fields above already say which codec, which
+	// engine and which value, so a surface rendering the code has everything the
+	// sentence names and writes it at its own length.
+	Reason screensharev1.TextCode `json:"reason"`
 }
 
 // covers reports whether the gap binds on the named engine.
@@ -318,8 +337,12 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 	if !contains(Modes, mode) {
 		return fmt.Errorf("unknown rate-control mode %q", mode)
 	}
-	if gap, ok := c.EngineGap(engine); ok {
-		return fmt.Errorf("codec %s has no %s encoder: %s", c.Name, engine, gap.Reason)
+	// The refusals below name identifiers and nothing else. They are operational
+	// errors - the same text crosses as a gRPC status when the publish is attempted -
+	// and the reason a gap exists is a statement a surface makes from the gap itself
+	// rather than a sentence quoted into an error string (docs/ipc-api.md).
+	if _, ok := c.EngineGap(engine); ok {
+		return fmt.Errorf("codec %s has no %s encoder", c.Name, engine)
 	}
 	if !contains(c.Chromas, chroma) {
 		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, chroma)
@@ -328,14 +351,14 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 	// of them names the first rather than the one an axis-by-axis validator happened
 	// to check first.
 	for _, option := range Options {
-		gap, ok := c.OptionGap(engine, option, options[option])
+		_, ok := c.OptionGap(engine, option, options[option])
 		if !ok {
 			continue
 		}
 		refusal, ok := optionRefusals[option]
 		assert.Assert(ok, "a gappable option states how its refusal reads", option)
-		return fmt.Errorf("codec %s %s on the %s engine: %s",
-			c.Name, fmt.Sprintf(refusal, options[option]), engine, gap.Reason)
+		return fmt.Errorf("codec %s %s on the %s engine",
+			c.Name, fmt.Sprintf(refusal, options[option]), engine)
 	}
 	// The quantizer target reaches the encoder in crf mode only, and each
 	// encoder's knob has its own scale: 60 is a valid libvpx CQ and an error on

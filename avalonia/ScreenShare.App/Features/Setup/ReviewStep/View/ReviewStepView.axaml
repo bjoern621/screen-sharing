@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:model="using:ScreenShare.App.Features.Setup.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ReviewStep.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.ReviewStep.View.ReviewStepView"
+             x:DataType="vm:ReviewStepViewModel">
+
+  <!--
+    The last step. It edits nothing - every tile hands back to the step that owns its values
+    - and it carries its own preflight list and its own commit, which is why the cost rail
+    steps aside here rather than repeating the same checks beside it.
+  -->
+
+  <Grid ColumnDefinitions="*,Auto">
+
+    <!-- The tiles are as many as the resolved form has groups, so this column scrolls. -->
+    <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
+      <Border Classes="card" Padding="16,14" VerticalAlignment="Top">
+        <StackPanel>
+          <TextBlock Classes="heading" Text="Review" />
+          <TextBlock Classes="secondary"
+                     Margin="0,3,0,15"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     Text="Everything resolved. Click any row to jump back to the step that owns it." />
+
+          <!--
+            Tiles, not key/value rows: the fields name themselves (cq 21, latency 120 ms), so a
+            key column would print the word twice and halve the width left for the value.
+          -->
+          <ItemsControl ItemsSource="{Binding Tiles}" Margin="-5">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <UniformGrid Columns="2" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ReviewTile">
+                <Border Classes="panel"
+                        BorderBrush="{StaticResource DividerBrush}"
+                        CornerRadius="{StaticResource RadiusStrip}"
+                        Padding="12"
+                        Margin="5">
+                  <StackPanel>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                      <TextBlock Grid.Column="0" Classes="caption" Text="{Binding Heading}" />
+                      <Button Grid.Column="1" Theme="{StaticResource LinkButton}" Content="Edit" Command="{Binding Edit}" />
+                    </Grid>
+                    <TextBlock Classes="ident"
+                               LineHeight="{StaticResource LineHeightBody}"
+                               TextTrimming="None"
+                               Text="{Binding Lines}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </ScrollViewer>
+
+    <Grid Grid.Column="1" Width="330" Margin="10,0,0,0" RowDefinitions="*,Auto">
+
+      <!--
+        Everything above the commit scrolls. The preflight list is as long as the settings
+        make it, and a column that grew with it would push the one control this step exists
+        for off the bottom of the window.
+      -->
+      <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel VerticalAlignment="Top">
+
+          <!--
+            The two decisions that take effect the moment publishing starts. Asked here
+            because a dialog that interrupts a live stream to ask is worse than a switch that
+            was already set.
+          -->
+          <Border Classes="card" Padding="12" Margin="0,0,0,10">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="On going live" Margin="0,0,0,10" />
+
+              <Grid ColumnDefinitions="*,Auto" Height="{StaticResource ControlHeight}">
+                <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" Text="Open Broadcast window" />
+                <ToggleButton Grid.Column="1" Theme="{StaticResource SwitchTheme}" IsChecked="{Binding OpenBroadcastWindow, Mode=TwoWay}" />
+              </Grid>
+              <Grid ColumnDefinitions="*,Auto" Height="{StaticResource ControlHeight}">
+                <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" Text="Save as preset" />
+                <ToggleButton Grid.Column="1" Theme="{StaticResource SwitchTheme}" IsChecked="{Binding SaveAsPreset, Mode=TwoWay}" />
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <!-- The same list the rail carried, at the state that lets the button light. -->
+          <Border Classes="card" Padding="12" Margin="0,0,0,10">
+            <StackPanel>
+              <TextBlock Classes="caption" Text="Preflight" Margin="0,0,0,10" />
+              <ItemsControl ItemsSource="{Binding Checks}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="model:PreflightCheckRow">
+                    <controls:CheckItem Margin="0,0,0,8"
+                                        Text="{Binding Text}"
+                                        State="{Binding State}"
+                                        FixedInStep="{Binding FixedInStep}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Pinned to the bottom of the column, not to a footer bar, and never scrolled away. -->
+      <Border Grid.Row="1" Classes="card" Padding="12">
+        <StackPanel>
+          <!--
+            The name is the draft's own rather than one written here, so what this promises is
+            the path a viewer will actually ask for. It comes up to full strength inside the
+            sentence because it is the identifier the promise is about.
+          -->
+          <TextBlock Classes="hint"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     LineHeight="{StaticResource LineHeightSmall}"
+                     Margin="0,0,0,11"
+                     IsVisible="{Binding HasStreamName}">
+            <Run Text="Going live starts sending immediately. Viewers on " />
+            <Run Text="{Binding StreamName}"
+                 FontWeight="SemiBold"
+                 Foreground="{StaticResource ForegroundBrush}" />
+            <Run Text=" will see the stream within about two seconds." />
+          </TextBlock>
+
+          <!--
+            Why the button is locked. It is never a settings problem - those are in the preflight
+            card above, in the backend's own words - so this line only ever names the backend,
+            the stream already on the air or the relay.
+          -->
+          <TextBlock Classes="hint danger"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     LineHeight="{StaticResource LineHeightSmall}"
+                     Margin="0,0,0,11"
+                     IsVisible="{Binding IsBlocked}"
+                     Text="{Binding Blocked}" />
+
+          <!-- What the backend said when it refused the last start, as it stands. -->
+          <TextBlock Classes="hint danger"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     LineHeight="{StaticResource LineHeightSmall}"
+                     Margin="0,0,0,11"
+                     IsVisible="{Binding HasRefusal}"
+                     Text="{Binding Refusal}" />
+
+          <Grid ColumnDefinitions="Auto,*">
+            <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
+
+            <!--
+              The one red on the screen, on the one control that changes the world. Nothing
+              inside it states a brush of its own: the button's Foreground is what the disabled
+              treatment moves, and content that named the colour would stay bright on a locked
+              button.
+            -->
+            <Button Grid.Column="1"
+                    Theme="{StaticResource DangerButton}"
+                    Height="{StaticResource FooterButtonHeight}"
+                    Margin="8,0,0,0"
+                    Command="{Binding GoLiveCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
+                <Ellipse Width="{StaticResource DotSize}"
+                         Height="{StaticResource DotSize}"
+                         Fill="{Binding $parent[Button].Foreground}"
+                         VerticalAlignment="Center" />
+                <TextBlock Text="Go live"
+                           FontSize="{StaticResource FontSizeHeading}"
+                           FontWeight="SemiBold" />
+              </StackPanel>
+            </Button>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+    </Grid>
+  </Grid>
+
+</UserControl>

@@ -67,10 +67,6 @@ type Decoder struct {
 	// advertises the subset its driver and GPU generation implement, which is at most
 	// this.
 	Chromas []string `json:"chromas"`
-	// Reason states what bounds the chroma list: the profiles the API carries, or the
-	// ones the silicon implements. It is shown where a publish choice costs a software
-	// decode, so it says why rather than restating the list.
-	Reason string `json:"reason"`
 }
 
 // Hardware reports whether this decoder runs on fixed-function silicon.
@@ -114,35 +110,30 @@ var Decoders = []Decoder{
 		Family:  DecodeSoftware,
 		Format:  "h264",
 		Chromas: []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
-		Reason:  "libavcodec decodes every H.264 profile, which is what covers the 4:4:4, 4:2:2 and 10-bit ones no hardware decoder carries",
 	},
 	{
 		Element: "vah264dec",
 		Family:  DecodeVa,
 		Format:  "h264",
 		Chromas: []string{"yuv420p"},
-		Reason:  "no VA driver exposes an H.264 decode profile above High, so 10-bit and 4:4:4 have no VA form",
 	},
 	{
 		Element: "nvh264dec",
 		Family:  DecodeNvcodec,
 		Format:  "h264",
 		Chromas: []string{"yuv420p"},
-		Reason:  "NVDEC's H.264 decoder is 8-bit 4:2:0 on every generation",
 	},
 	{
 		Element: "qsvh264dec",
 		Family:  DecodeQsv,
 		Format:  "h264",
 		Chromas: []string{"yuv420p"},
-		Reason:  "Intel's H.264 decoder is 8-bit 4:2:0 on every generation",
 	},
 	{
 		Element: "d3d11h264dec",
 		Family:  DecodeDxva,
 		Format:  "h264",
 		Chromas: []string{"yuv420p"},
-		Reason:  "DXVA carries one H.264 decode profile, and it is 8-bit 4:2:0",
 	},
 
 	// HEVC, the one format whose full-chroma profiles reached silicon. The two vendor
@@ -152,35 +143,30 @@ var Decoders = []Decoder{
 		Family:  DecodeSoftware,
 		Format:  "hevc",
 		Chromas: []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
-		Reason:  "libavcodec decodes the Range Extensions profiles, 4:2:2 and RGB included, so it is the CPU path for any HEVC a GPU refuses",
 	},
 	{
 		Element: "vah265dec",
 		Family:  DecodeVa,
 		Format:  "hevc",
 		Chromas: hardware420,
-		Reason:  "Mesa's VA drivers expose HEVC Main and Main 10 for decoding and no Range Extensions profile, so 4:4:4 and RGB have no VA form on an AMD GPU",
 	},
 	{
 		Element: "nvh265dec",
 		Family:  DecodeNvcodec,
 		Format:  "hevc",
 		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "NVDEC decodes the HEVC 4:4:4 profiles from Turing on and no 4:2:2 one, and the element hands RGB back as RGB, so a full-chroma screen stream reaches the GPU on an NVIDIA viewer where the middle subsampling does not",
 	},
 	{
 		Element: "qsvh265dec",
 		Family:  DecodeQsv,
 		Format:  "hevc",
 		Chromas: []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
-		Reason:  "Intel's HEVC decoder carries the Range Extensions profiles from Ice Lake on, 4:2:2 and 4:4:4 both, the second hardware path a full-chroma screen stream has",
 	},
 	{
 		Element: "d3d11h265dec",
 		Family:  DecodeDxva,
 		Format:  "hevc",
 		Chromas: hardware420,
-		Reason:  "DXVA carries HEVC Main and Main 10 only, so a Windows viewer needs its vendor's own plugin for 4:4:4",
 	},
 
 	// AV1. Profile 0 covers both bit depths, and no decoder implements profile 1, so
@@ -190,35 +176,30 @@ var Decoders = []Decoder{
 		Family:  DecodeSoftware,
 		Format:  "av1",
 		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "dav1d decodes every AV1 profile, which is what covers the full-chroma profile 1 no hardware decoder carries",
 	},
 	{
 		Element: "vaav1dec",
 		Family:  DecodeVa,
 		Format:  "av1",
 		Chromas: hardware420,
-		Reason:  "the VA drivers expose AV1 profile 0, which is 4:2:0 at both bit depths",
 	},
 	{
 		Element: "nvav1dec",
 		Family:  DecodeNvcodec,
 		Format:  "av1",
 		Chromas: hardware420,
-		Reason:  "NVDEC decodes AV1's main profile, which is 4:2:0 at both bit depths",
 	},
 	{
 		Element: "qsvav1dec",
 		Family:  DecodeQsv,
 		Format:  "av1",
 		Chromas: hardware420,
-		Reason:  "Intel's AV1 decoder carries profile 0 from Tiger Lake on, which is 4:2:0 at both bit depths",
 	},
 	{
 		Element: "d3d11av1dec",
 		Family:  DecodeDxva,
 		Format:  "av1",
 		Chromas: hardware420,
-		Reason:  "DXVA carries AV1 profile 0 alone",
 	},
 
 	// VP9. Profiles 0 and 2 are the 4:2:0 pair every decoder carries; profiles 1 and 3
@@ -228,35 +209,30 @@ var Decoders = []Decoder{
 		Family:  DecodeSoftware,
 		Format:  "vp9",
 		Chromas: []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
-		Reason:  "libvpx decodes all four VP9 profiles, and profile 1 is what carries 4:4:4 and the identity matrix RGB travels in",
 	},
 	{
 		Element: "vavp9dec",
 		Family:  DecodeVa,
 		Format:  "vp9",
 		Chromas: hardware420,
-		Reason:  "the VA drivers expose VP9 profiles 0 and 2, the 8-bit and 10-bit 4:2:0 pair",
 	},
 	{
 		Element: "nvvp9dec",
 		Family:  DecodeNvcodec,
 		Format:  "vp9",
 		Chromas: hardware420,
-		Reason:  "NVDEC decodes VP9 profiles 0 and 2",
 	},
 	{
 		Element: "qsvvp9dec",
 		Family:  DecodeQsv,
 		Format:  "vp9",
 		Chromas: hardware420,
-		Reason:  "Intel's VP9 decoder carries profiles 0 and 2",
 	},
 	{
 		Element: "d3d11vp9dec",
 		Family:  DecodeDxva,
 		Format:  "vp9",
 		Chromas: hardware420,
-		Reason:  "DXVA carries VP9 profile 0 and the 10-bit profile 2",
 	},
 
 	// VP8: one profile, one chroma, one bit depth, so every row is the whole format.
@@ -265,28 +241,24 @@ var Decoders = []Decoder{
 		Family:  DecodeSoftware,
 		Format:  "vp8",
 		Chromas: []string{"yuv420p"},
-		Reason:  "VP8 has one profile, and it is 8-bit 4:2:0",
 	},
 	{
 		Element: "vavp8dec",
 		Family:  DecodeVa,
 		Format:  "vp8",
 		Chromas: []string{"yuv420p"},
-		Reason:  "VP8 has one profile, and it is 8-bit 4:2:0",
 	},
 	{
 		Element: "nvvp8dec",
 		Family:  DecodeNvcodec,
 		Format:  "vp8",
 		Chromas: []string{"yuv420p"},
-		Reason:  "VP8 has one profile, and it is 8-bit 4:2:0",
 	},
 	{
 		Element: "d3d11vp8dec",
 		Family:  DecodeDxva,
 		Format:  "vp8",
 		Chromas: []string{"yuv420p"},
-		Reason:  "VP8 has one profile, and it is 8-bit 4:2:0",
 	},
 }
 

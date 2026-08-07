@@ -19,6 +19,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -77,6 +78,11 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	assert.Assert(len(src.args) > 0 || len(src.filters) > 0, "a validated stream yields a capture source", s.Capture)
 	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Codec)
 
+	size, scaled, err := s.OutputSize()
+	if err != nil {
+		return nil, err
+	}
+
 	// On the GPU path the frames never become software ones, so the map and the
 	// device-side conversion replace the colour tag, the upload and the device option
 	// in one chain: the conversion states the colour it wrote, and the encoder takes
@@ -85,12 +91,25 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	onDevice := gpupath.OnDevice(memory)
 	surface := onDevice
 	if surface {
-		gpu, err := GpuFilters(s.Codec, s.Chroma, s.ColorRange)
+		// The scale is the device-side conversion's own, because there is no software
+		// stage left to put one in: the frames are already on the device and a swscale
+		// filter cannot read them. A family whose only device path leaves the conversion
+		// to the encoder has nothing to carry the size either, and GpuFilters refuses it
+		// rather than dropping the setting.
+		gpu, err := GpuFilters(s.Codec, s.Chroma, s.ColorRange, size, scaled)
 		if err != nil {
 			return nil, err
 		}
 		src.filters = append(src.filters, gpu...)
 	} else {
+		// Scaled while the frames are still software ones and before anything else reads
+		// them: the colour tag describes what the encoder is given, and the upload pins a
+		// surface layout, so a scale after either would resize a picture both had already
+		// been told the shape of.
+		if scaled {
+			src.filters = append(src.filters, scaleFilter(size))
+		}
+
 		// The colour description rides on the frames, so it is tagged while they are
 		// still software ones, ahead of the upload a surface encode ends its chain in.
 		if colour := colourFilter(s.Chroma); colour != "" {
@@ -154,6 +173,23 @@ func BuildPublishArgs(s settings.Stream) ([]string, error) {
 	args = append(args, pub...)
 
 	return args, nil
+}
+
+// scaleAlgorithm is what swscale resamples the picture with.
+//
+// Lanczos rather than the bicubic default, because what is being scaled is a desktop: the
+// picture is text and hairlines rather than photographs, and a softer kernel costs
+// exactly the edges a reader is trying to read. It is stated rather than left to the
+// default so a displayed command says which resampler ran.
+const scaleAlgorithm = "lanczos"
+
+// scaleFilter resamples software frames to the picture the encoder is fed.
+//
+// The aspect ratio is not preserved and is not asked to be: the size came from a list
+// derived from the capture's own dimensions, so a value that does not match the source's
+// ratio is one this side generated deliberately.
+func scaleFilter(size settings.Size) string {
+	return fmt.Sprintf("scale=%d:%d:flags=%s", size.Width, size.Height, scaleAlgorithm)
 }
 
 // colourDescription is the colour space this engine encodes against, spelled as
@@ -352,29 +388,23 @@ func avfoundationArgs(s settings.Stream, fps, _ string) (captureSource, error) {
 	}}, nil
 }
 
-// pulseMonitorDevice is the libpulse magic name for the monitor of the default
-// sink: the mixed desktop audio. PipeWire's pulse server implements it as well,
-// so the same device string works on both sound servers.
-const pulseMonitorDevice = "@DEFAULT_MONITOR@"
-
 // audioInputArgs returns the audio capture input for the selected audio source.
-// Desktop audio comes from the PulseAudio/PipeWire monitor source, which only a
-// Linux session serves. A backend on another platform rejects the option instead
-// of publishing a silent track, and each rejection names why that platform has no
-// mixed output to read: the two are different missing pieces, and a user who reads
-// one reason cannot act on the other.
+// Desktop audio is opened as the monitor of the default sink, by the name the
+// platform's sound server answers to (platform.AudioMonitorDevice); "-f pulse"
+// against GStreamer's "pulsesrc device=" is the whole of what the two engines
+// differ by, and the name itself is stated once for both.
+//
+// Whether the backend's platform serves that source at all is settled above this
+// builder, in publish.AudioAvailable, for the reason the package comment gives:
+// the arguments are built from the settings alone and the capture backend's
+// operating system is publish's column to read. What reaches here is a stream a
+// caller already had refused, the way an unknown codec is (audioEncodeArgs).
 func audioInputArgs(s settings.Stream) ([]string, error) {
 	switch s.Audio {
-	case "", "none":
+	case "", platform.AudioSourceNone:
 		return nil, nil
-	case "desktop":
-		switch s.Capture {
-		case "ddagrab", "gdigrab":
-			return nil, fmt.Errorf("desktop audio capture needs PulseAudio/PipeWire, which the %s (Windows) backend cannot reach", s.Capture)
-		case "avfoundation":
-			return nil, fmt.Errorf("desktop audio capture needs PulseAudio/PipeWire, and the %s (macOS) backend reaches no equivalent: AVFoundation enumerates input devices only, so what the machine plays is not a source ffmpeg can open", s.Capture)
-		}
-		return []string{"-f", "pulse", "-i", pulseMonitorDevice}, nil
+	case platform.AudioSourceDesktop:
+		return []string{"-f", "pulse", "-i", platform.AudioMonitorDevice}, nil
 	default:
 		return nil, fmt.Errorf("unknown audio source %q", s.Audio)
 	}

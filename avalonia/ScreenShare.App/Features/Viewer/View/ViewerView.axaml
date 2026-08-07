@@ -1,0 +1,121 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Viewer.ViewModel"
+             x:Class="ScreenShare.App.Features.Viewer.View.ViewerView"
+             x:DataType="vm:ViewerViewModel"
+             Background="{StaticResource SurfaceBrush}">
+
+  <Design.DataContext>
+    <vm:ViewerViewModel />
+  </Design.DataContext>
+
+  <UserControl.Styles>
+    <Style Selector="TextBlock.cell">
+      <Setter Property="Margin" Value="13,7" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.colhead">
+      <Setter Property="FontSize" Value="{StaticResource FontSizeMinor}" />
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+    <!-- A path the relay knows about but nothing is publishing to reads as absent, not broken. -->
+    <Style Selector="TextBlock.idle">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.watched">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </UserControl.Styles>
+
+  <!--
+    A roster and not a tile grid, and the difference is the frame channel: a grid shows decoded
+    pictures, and frames do not cross the control API (docs/ipc-api.md). Everything the contract
+    does carry about the relay is here and is real.
+
+    No title bar, no nav strip and no status bar - the shell owns all three, and a second copy
+    would be a second definition of where the reader is. The counts this view derives still reach
+    the band: the shell reads them off this view model on every pass.
+  -->
+  <DockPanel Margin="16">
+
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
+      <TextBlock Grid.Column="0" Classes="caption" Text="{Binding ShowingLabel}" VerticalAlignment="Center" />
+      <TextBlock Grid.Column="2" Classes="hint" Text="{Binding ShownSummary}" VerticalAlignment="Center" />
+    </Grid>
+
+    <!-- The backend's own sentence when it refused to open or close a viewer, shown as it stands. -->
+    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" IsVisible="{Binding HasRefusal}">
+      <TextBlock Classes="cell" Text="{Binding Refusal}" TextWrapping="Wrap" />
+    </Border>
+
+    <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Hint}" Margin="0,12,0,0" />
+
+    <!-- Why the list is empty, which separates an unread relay from an idle one. -->
+    <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
+               IsVisible="{Binding HasNotice}" VerticalAlignment="Top" />
+
+    <Border Classes="card" ClipToBounds="True" IsVisible="{Binding HasStreams}" VerticalAlignment="Top">
+      <DockPanel>
+
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource DividerBrush}"
+                BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="200,140,120,100,*">
+            <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="stream" />
+            <TextBlock Grid.Column="1" Classes="ident cell colhead" Text="tracks" />
+            <TextBlock Grid.Column="2" Classes="ident cell colhead" Text="rate" TextAlignment="Right" />
+            <TextBlock Grid.Column="3" Classes="ident cell colhead" Text="readers" TextAlignment="Right" />
+            <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="watch on" />
+          </Grid>
+        </Border>
+
+        <ItemsControl ItemsSource="{Binding Streams}" VerticalAlignment="Top">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:StreamRowViewModel">
+              <StackPanel>
+                <Grid ColumnDefinitions="200,140,120,100,*">
+                  <TextBlock Grid.Column="0" Classes="ident cell" Text="{Binding Name}"
+                             Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
+                  <TextBlock Grid.Column="1" Classes="ident cell" Text="{Binding Tracks}"
+                             Classes.idle="{Binding !IsReady}" />
+                  <TextBlock Grid.Column="2" Classes="ident cell" Text="{Binding Detail}" TextAlignment="Right"
+                             Classes.idle="{Binding !IsReady}" />
+                  <TextBlock Grid.Column="3" Classes="ident cell" Text="{Binding Readers}" TextAlignment="Right"
+                             Classes.idle="{Binding !IsReady}" />
+
+                  <!--
+                    One toggle per leg the backend offered. Whether a leg can carry this stream is
+                    the backend's answer when the viewer is opened, not a greying decided here: the
+                    relay snapshot can be older than the stream, so refusing from a stale format
+                    would block a viewer that would have worked.
+                  -->
+                  <ItemsControl Grid.Column="4" ItemsSource="{Binding Legs}" Margin="9,4">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <WrapPanel />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="vm:WatchLegViewModel">
+                        <ToggleButton Margin="4,3"
+                                      Content="{Binding Label}"
+                                      IsChecked="{Binding IsOpen, Mode=OneWay}"
+                                      Command="{Binding Toggle}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </Grid>
+                <Border Classes="rowrule" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+      </DockPanel>
+    </Border>
+
+  </DockPanel>
+
+</UserControl>

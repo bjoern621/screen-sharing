@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
 // The audio half of the codec facts: which codec the second track is encoded in,
@@ -183,8 +185,11 @@ func ValidateAudio(engine, audioCodec string) error {
 		return nil
 	}
 	gap, ok := a.EngineGap(engine)
-	// A codec no engine entry codes states why, so a refusal names the missing
-	// element rather than reporting that the table is short a row.
+	// A codec no engine entry codes states why, so a surface greying it names the
+	// missing element rather than reporting that the table is short a row. The refusal
+	// itself names identifiers alone, for the reason Validate's do.
 	assert.Assert(ok, "an audio codec an engine cannot code states why", audioCodec, engine)
-	return fmt.Errorf("audio codec %s has no %s encoder: %s", audioCodec, engine, gap.Reason)
+	assert.Assert(gap.Reason != screensharev1.TextCode_TEXT_CODE_UNSPECIFIED,
+		"an audio codec gap names which fact it is", audioCodec, engine)
+	return fmt.Errorf("audio codec %s has no %s encoder", audioCodec, engine)
 }

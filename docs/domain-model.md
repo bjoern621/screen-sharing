@@ -16,6 +16,7 @@ Constraints the encoder and the UI must agree on live in Go and are the single s
 
 - `capabilities/capabilities.go`: per codec, the encoder family, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer target and bitrate target count on, both stated per publish engine.
 - `capabilities/audio.go`: per audio codec, the element each publish engine codes it with, the sample rate the capture branch resamples to and the bitrate the track is coded at.
+- `platform/audio.go`: per second-track capture source, the operating systems whose sessions serve it, what serves it on each, and what an operating system that does not is missing.
 - `gpupath/gpupath.go`: per capture backend and encoder family, whether their frames reach the encoder without a trip through system memory, and what carries them.
 - `capabilities/decoders.go`: per decoder element, the pixel formats it decodes and what bounds that list.
   It describes the viewers rather than this machine: a stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing in it restricts a choice.
@@ -32,9 +33,36 @@ A gap naming no option takes the codec off that engine altogether, since no valu
 Gap values are the settings' own: the option is a `settings.Stream` JSON field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
 
 Audio is two settings against two tables, because the source and the codec answer different questions.
-Which sources exist is the platform's answer and is the `Audio` field.
+Which sources exist is the platform's answer and is the `Audio` field, a row of `platform.AudioSources`.
 Which codec the track is coded in is the engine's and the publish leg's, and is `AudioCodec`, a row of `capabilities.AudioCodecs`.
 A row states the element each engine codes it with, the sample rate and the bitrate, so both engines build their branch from one declaration instead of a hardcoded element list each.
+
+### The second-track capture sources
+
+`platform/audio.go` is the source table, and it is a table for the reason every other one here is: the same fact was being restated by whoever asked.
+The list lived in the frontend as the keys of `AUDIO_META` and the refusals as `AUDIO_SOURCE_NEEDS` beside them, so what a machine could capture was written once in Go's publish engines and twice more in TypeScript.
+A row names the settings value, the operating systems whose sessions serve it, what serves it on each, and what an operating system that does not serve it is missing.
+
+It differs per platform because the engines do, and that is the whole reason it is not a list of strings.
+Both open desktop audio as the monitor of the default sink - ffmpeg through `-f pulse -i`, GStreamer through `pulsesrc device=` - and neither has anything to open where no PulseAudio or PipeWire server runs.
+The name they open it by is `platform.AudioMonitorDevice`, one constant for both, because the engines differ in how they pass the handle and not in what they pass; it was spelled once per engine, and two spellings of one server's name are two things able to disagree about which device a stream records.
+So Linux serves that source and the other two are refused it, each with what it is missing rather than both with "Linux only": a user who reads why Windows cannot do it cannot act on why macOS cannot.
+A Windows WASAPI loopback or a macOS aggregate device would be another platform on the row and another sentence naming what serves it there; neither engine has one, and a row that claimed otherwise would grey nothing and fail at launch.
+
+The lookup is a table read and nothing else: the same `platform.Info` yields the same ordered list on every call, so a form may resolve on every keystroke without paying for it.
+Nothing enumerates the machine's audio devices, and if anything ever does, it is cached for the process lifetime and read back separately from the probing call, the way the encoder probe already divides them.
+
+Every consumer reads those rows.
+The catalog carries what this machine serves.
+The form offers every declared source, greys the ones the machine does not serve with the row's own sentence (`field-availability.md`), and notes beside each of the others what serves it here.
+The repair walks a stranded draft onto the first source the same rows leave standing, and `settings.Stream.Audio` spells the absent source by reading the table's constant rather than typing `"none"` a second time.
+The list a form offers and the list a machine serves are therefore two projections of one table rather than two lists that agree until one is edited.
+
+The publish engines read them too, and through one derivation rather than each with a table of its own.
+An engine builds its arguments from the settings alone, so it names no operating system - that is what lets a Windows pipeline be rendered and tested on a Linux machine, and what makes the displayed command the one the publish button starts.
+Which operating system a capture backend runs on is `publish.captureNeeds`' column, so `publish.AudioAvailable` is where the backend is turned into a platform and the source table asked, and it is the only place that conversion is made.
+Before it, each engine refused desktop audio per capture backend with a sentence of its own, so one source's absence was written four times in Go and the greying a form showed came from a fifth.
+A refused publish now carries the same sentence the greyed option does.
 
 Which protocol carries a codec is not a column here.
 A protocol carries a bitstream format, so each transport declares its own carriage (`transport.Formats`) and both directions read it: the publish entry validates a publish command, the watch entry answers what a viewer may receive over that leg (`viewer-architecture.md`, "Which protocol carries which format").
@@ -61,7 +89,11 @@ Whether captured frames reach the encoder without a trip through system memory d
 A `Gap` cannot express that, since a gap is a fact about one codec, so the pairs are their own table and `App.GpuPaths` carries it to the frontend whole.
 Each engine holds its own half beside its builder (`gstGpuMemories`, `gpuConverts`), and a row whose engine half is missing is asserted rather than filled in, because the alternative is negotiating a memory the elements do not carry (`capture-architecture.md`, "Frame memory").
 
-Presentation and heuristics are UI-only and live in the frontend:
+Presentation and heuristics live in the Wails frontend today, and are moving to Go.
+
+That is the direction `docs/ipc-api.md` settles: a shell shows what the backend describes and decides nothing, so the labels, the greyings and the predictions below belong beside the tables they derive from rather than restated per shell.
+With one frontend the split was defensible; with three it means one rule written three times in three languages, which is the drift this page exists to prevent.
+Until the move lands, the tables below are the frontend's, and the `Form` message in `api/proto/screenshare/v1/form.proto` is where each of them arrives afterwards.
 
 - `frontend/src/util/domain.ts`: per codec, chroma and mode, the label, tooltip, reference link, coding efficiency, raw bits-per-pixel, what a non-4:2:0 chroma asks of a decoder, and which controls each mode uses.
 - `frontend/src/util/domain.ts` `ENGINE_RULES`: per engine and control, where a builder departs from the mode table, either dropping a knob the mode uses or forwarding one it marks unused.

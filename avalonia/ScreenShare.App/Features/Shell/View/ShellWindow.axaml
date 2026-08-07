@@ -1,0 +1,104 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="using:ScreenShare.App.Features.Shell.ViewModel"
+        xmlns:titlebar="using:ScreenShare.App.Features.Shell.TitleBar.View"
+        xmlns:navstrip="using:ScreenShare.App.Features.Shell.NavStrip.View"
+        xmlns:statusbar="using:ScreenShare.App.Features.Shell.StatusBar.View"
+        xmlns:setup="using:ScreenShare.App.Features.Setup.View"
+        xmlns:setupVm="using:ScreenShare.App.Features.Setup.ViewModel"
+        xmlns:broadcast="using:ScreenShare.App.Features.Broadcast.View"
+        xmlns:broadcastVm="using:ScreenShare.App.Features.Broadcast.ViewModel"
+        xmlns:viewer="using:ScreenShare.App.Features.Viewer.View"
+        xmlns:viewerVm="using:ScreenShare.App.Features.Viewer.ViewModel"
+        xmlns:chrome="using:Avalonia.Controls.Chrome"
+        x:Class="ScreenShare.App.Features.Shell.View.ShellWindow"
+        x:DataType="shell:ShellViewModel"
+        Title="{Binding TitleBar.Title}"
+        Width="1240" Height="760"
+        MinWidth="960" MinHeight="600"
+        Background="{StaticResource SurfaceBrush}"
+        Foreground="{StaticResource ControlForegroundBrush}"
+        ExtendClientAreaToDecorationsHint="True">
+
+  <!--
+    The decorations stay Full and the client area is extended over them, rather than the
+    window asking for BorderOnly. BorderOnly drops the caption from the native frame, and on
+    Win32 the caption is what the compositor animates: without it the window has no open,
+    close, minimise or restore transition, and the top edge widens to the bare resize frame
+    because no caption is drawn over it. Extending keeps the native frame whole and merely
+    paints the app underneath it, so the platform's animations, snap and shadow survive.
+
+    What that costs is hit-testing: with the caption present but invisible, every part of the
+    title bar below has to tell the platform which caption element it stands in for. Those
+    are the WindowDecorationProperties.ElementRole marks in TitleBarView, and they are also
+    what puts the Windows 11 snap-layout flyout back under the maximise button.
+  -->
+
+  <!--
+    Extending makes the platform ask the theme for a replacement caption, and the stock one
+    would paint its own title and its own four buttons over the band below. This window
+    already has a title bar, so the theme it hands over draws nothing: an empty decorations
+    content, with the three geometry parts switched off so no frame, shadow or caption strip
+    is reserved either. The band below is then the only chrome, and it is the ElementRole
+    marks rather than a drawn overlay that make it behave like one.
+  -->
+  <Window.WindowDecorationsTheme>
+    <ControlTheme TargetType="chrome:WindowDrawnDecorations">
+      <Setter Property="DefaultTitleBarHeight" Value="0" />
+      <Setter Property="DefaultFrameThickness" Value="0" />
+      <Setter Property="DefaultShadowThickness" Value="0" />
+      <Setter Property="Template">
+        <WindowDrawnDecorationsTemplate>
+          <chrome:WindowDrawnDecorationsContent />
+        </WindowDrawnDecorationsTemplate>
+      </Setter>
+    </ControlTheme>
+  </Window.WindowDecorationsTheme>
+
+  <!--
+    How a destination becomes a screen. The shell picks the view model; the template picks
+    the view. Nothing in the shell names a view type, which is what lets the three slices be
+    built and changed without the window knowing.
+  -->
+  <Window.DataTemplates>
+    <DataTemplate DataType="setupVm:SetupViewModel" x:DataType="setupVm:SetupViewModel">
+      <setup:SetupView />
+    </DataTemplate>
+    <DataTemplate DataType="broadcastVm:BroadcastViewModel" x:DataType="broadcastVm:BroadcastViewModel">
+      <broadcast:BroadcastView />
+    </DataTemplate>
+    <DataTemplate DataType="viewerVm:ViewerViewModel" x:DataType="viewerVm:ViewerViewModel">
+      <viewer:ViewerView />
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <!--
+    Four rows: two fixed chrome bands, the strip, and everything else. The three fixed
+    heights come from the bands themselves, so the window states none of them twice.
+
+    Maximised, Windows hangs the frame's resize border off every edge of the work area, and
+    the client area goes with it: unpadded, the title bar's inset and the status bar's last
+    line sit under the screen edge. OffScreenMargin is exactly that overhang, and it is read
+    continuously rather than recomputed per state, so restoring gives the margin back to zero
+    on its own.
+  -->
+  <Grid RowDefinitions="Auto,Auto,*,Auto"
+        Margin="{Binding $parent[Window].OffScreenMargin}">
+
+    <!--
+      The drag region. The move gesture is the platform's: the band marks itself as the
+      caption's drag area, so no press handler here has to start one.
+    -->
+    <titlebar:TitleBarView Grid.Row="0" DataContext="{Binding TitleBar}" />
+
+    <navstrip:NavStripView Grid.Row="1" DataContext="{Binding Nav}" />
+
+    <!-- Stretched on both axes: a destination owns the whole body, not a centred island. -->
+    <ContentControl Grid.Row="2"
+                    Content="{Binding Body}"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch" />
+
+    <statusbar:StatusBarView Grid.Row="3" DataContext="{Binding StatusBar}" />
+  </Grid>
+</Window>

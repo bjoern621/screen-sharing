@@ -1,0 +1,21 @@
+version: v2
+
+modules:
+  - path: proto
+
+lint:
+  use:
+    - STANDARD
+  except:
+    # A response message is named for the state it carries, not for the method that
+    # returned it, in the four cases where that state also travels on the event stream:
+    # GetPublishState and the publish_state event answer with the same PublishState, and
+    # the same holds for RelayStatus, ViewerState and TestStreamState. Two names for one
+    # shape is the drift this contract exists to prevent, so the rule that would demand
+    # them is off - for those four and nothing else. Every other read is wrapped, so a
+    # response can grow a field the state itself has no business carrying.
+    - RPC_RESPONSE_STANDARD_NAME
+
+breaking:
+  use:
+    - FILE

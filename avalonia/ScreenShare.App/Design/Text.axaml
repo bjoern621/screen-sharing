@@ -1,0 +1,214 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The text roles, as one table. A view picks the role the line plays and never states a
+    size, a weight or a colour, which is what keeps a status figure on one screen identical
+    to the same figure on another.
+
+    One family carries all of them (Design/Typography.axaml), so a role differs from its
+    neighbour by size, weight and colour only. Two weights: Medium for everything, SemiBold
+    where a line is the point of its row. Regular is not used anywhere - Inter at 400 on this
+    palette's dark surfaces reads thin enough that muted grey copy starts to disappear, and
+    the whole app is dark surfaces.
+  -->
+
+  <!--
+    The family every window starts in. FontFamily, FontSize and FontWeight inherit down the
+    tree in Avalonia, so stating them once on the window is what makes the design's face the
+    default for a control nothing here has restyled - a Fluent menu, a scroll bar's tooltip,
+    a ComboBox someone adds tomorrow. Without it, only the controls named below spoke the
+    design's face and everything else fell through to the platform's.
+  -->
+  <Style Selector="Window">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+
+  <!--
+    Deliberately no Foreground here. A bare TextBlock selector also matches the one a
+    ContentPresenter builds for a button's string content, so a colour set at this level
+    would beat the colour the button's own theme set - and every light-surfaced button in
+    the app would print grey text on white. Colour is inherited instead, and the roles
+    below state it where the role is what decides it.
+  -->
+  <Style Selector="TextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <!--
+    A tooltip carries a sentence, so it wraps and it does not trim. The rule lives here
+    rather than in the tooltip's own theme because the TextBlock it reaches is one a content
+    presenter built, and a ControlTheme may not carry a descendant selector.
+  -->
+  <Style Selector="ToolTip TextBlock">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="LineHeight" Value="{DynamicResource LineHeightSmall}" />
+  </Style>
+
+  <!-- A window title. -->
+  <Style Selector="TextBlock.title">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+  </Style>
+
+  <!-- A panel's name. The largest text on any screen that is not a promoted figure. -->
+  <Style Selector="TextBlock.heading">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeHeading}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+  </Style>
+
+  <!-- A small caps-free section label above a group. -->
+  <Style Selector="TextBlock.caption">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!-- A control's own label. The default role, stated so a view can name it. -->
+  <Style Selector="TextBlock.label">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
+  </Style>
+
+  <!-- Body copy that carries detail rather than the point of the line. -->
+  <Style Selector="TextBlock.secondary">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
+  </Style>
+
+  <!-- A key beside a value, a status-bar segment, an unselected destination. -->
+  <Style Selector="TextBlock.muted">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!-- A sentence that explains a control instead of labelling it. -->
+  <Style Selector="TextBlock.hint">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
+  </Style>
+
+  <!-- The whole unavailable treatment: a colour change, and nothing else. -->
+  <Style Selector="TextBlock.disabled">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+
+  <!-- A fault, and only a fault. -->
+  <Style Selector="TextBlock.danger">
+    <Setter Property="Foreground" Value="{DynamicResource OnAirBrush}" />
+  </Style>
+
+  <!--
+    An identifier: a session name, a path, an encoder the backend spells (hevc_nvenc, gbrp).
+    It used to be the mono role, and it is the same idea without the second family - the
+    thing that says "the machine wrote this" is the quieter colour it takes and the fact
+    that it sits where a value sits, not a change of face mid-sentence.
+  -->
+  <Style Selector="TextBlock.ident">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
+  </Style>
+
+  <!-- A measurement: throughput, a percentage, a round-trip time. -->
+  <Style Selector="TextBlock.figure">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!-- The five numbers a publisher watches, sized to read from across a room. -->
+  <Style Selector="TextBlock.promoted">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizePromoted}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
+    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+  </Style>
+
+  <!-- The unit that trails a promoted figure, and the key above a table column. -->
+  <Style Selector="TextBlock.unit">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!--
+    The two lines inside an option card, and what picking or refusing one does to them.
+    They live in this table rather than beside the card because a rule that reaches into a
+    button's content needs a descendant selector, and a ControlTheme may not carry one -
+    Avalonia throws when the theme is built. Stating them once here is what keeps the two
+    surfaces that draw option cards, the generic form and the quality step, in one voice.
+
+    Both titles are the same size and weight now. They used to differ in family, because an
+    option named by the encoder (h264_nvenc) was an identifier and an option named in words
+    (Constant quality) was prose; with one family the distinction has nowhere to live and
+    nothing was lost, since the reader already knows which list they are looking at.
+  -->
+  <Style Selector="TextBlock.optiontitle">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.cardtitle">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
+  </Style>
+
+  <!-- The paragraph under either title: what the option costs, in the reader's words. -->
+  <Style Selector="TextBlock.cardbody">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="LineHeight" Value="{DynamicResource LineHeightSmall}" />
+  </Style>
+
+  <!-- Picked. The card's own fill already moved; its text comes up one step to meet it. -->
+  <Style Selector="Button.picked TextBlock.optiontitle">
+    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+  </Style>
+  <Style Selector="Button.picked TextBlock.cardtitle">
+    <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+  </Style>
+  <Style Selector="Button.picked TextBlock.cardbody">
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!--
+    The same treatment on a refused dropdown entry, which is a MenuItem rather than a
+    button. It has to be stated: the row's theme greys its Foreground, but a role that sets
+    a colour of its own beats an inherited one, so a refused entry's label went on printing
+    at full strength beside its own explanation.
+
+    App-level rather than beside the dropdown, because a flyout is hosted in a popup root
+    and a style on the view that opened it does not reach inside.
+  -->
+  <Style Selector="MenuItem:disabled TextBlock.ident">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+  <Style Selector="MenuItem:disabled TextBlock.cardbody">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+
+  <!-- Refused. The whole unavailable treatment: a colour change, and nothing else. -->
+  <Style Selector="Button:disabled TextBlock.optiontitle">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+  <Style Selector="Button:disabled TextBlock.cardtitle">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+  <Style Selector="Button:disabled TextBlock.cardbody">
+    <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+  </Style>
+
+</Styles>

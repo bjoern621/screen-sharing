@@ -24,6 +24,15 @@ import (
 // the conversion every pair without a GPU path runs, whichever end lacks one.
 const gstSystemConvert = "videoconvert"
 
+// gstSystemScale is the CPU resampler, placed ahead of the conversion when a run scales.
+//
+// Ahead of it, not after: the captured frames are RGB and the conversion produces the
+// encoder's subsampled layout, so scaling last would resample chroma that has already
+// been thrown away. The device converters need no counterpart - vapostproc, d3d11convert
+// and qsvvpp all resize as part of the negotiation, so pinning the size on the encoder
+// input is the whole of what asks them to.
+const gstSystemScale = "videoscale"
+
 // gstGpuMemory is how one encoder family's elements read frames on the GPU path: the
 // caps feature its surfaces carry, and the element that converts captured frames into
 // them without leaving the device.
@@ -102,7 +111,11 @@ type gstFrameMemory struct {
 	// feature is the caps feature both the encoder input and everything pinned
 	// downstream of it carry, empty for system memory.
 	feature string
-	convert string
+	// convert is the chain that turns captured frames into the encoder input, one
+	// element per entry. It is a chain rather than an element because a scaled run on the
+	// CPU needs two of them, and where the second one sits is a fact of this file rather
+	// than of the four backends that place the chain.
+	convert []string
 	// upload is the element a source of system frames needs ahead of convert, empty
 	// where the converter takes them itself (gstGpuMemory.upload).
 	upload string
@@ -123,15 +136,25 @@ func gstMemory(s settings.Stream) (gstFrameMemory, error) {
 	if err != nil {
 		return gstFrameMemory{}, err
 	}
+	// A malformed size is refused here rather than at the capsfilter, so the message
+	// names the setting instead of a negotiation that failed for reasons of its own.
+	_, scaled, err := s.OutputSize()
+	if err != nil {
+		return gstFrameMemory{}, err
+	}
 	if !gpupath.OnDevice(memory) {
-		return gstFrameMemory{memory: memory, convert: gstSystemConvert}, nil
+		convert := []string{gstSystemConvert}
+		if scaled {
+			convert = []string{gstSystemScale, "!", gstSystemConvert}
+		}
+		return gstFrameMemory{memory: memory, convert: convert}, nil
 	}
 	gpu, ok := gstGpuMemories[c.Family]
 	assert.Assert(ok, "a family with a GPU path states the memory its surfaces carry", c.Family)
 	return gstFrameMemory{
 		memory:  memory,
 		feature: gpu.feature,
-		convert: gpu.convert,
+		convert: []string{gpu.convert},
 		upload:  gpu.upload,
 	}, nil
 }

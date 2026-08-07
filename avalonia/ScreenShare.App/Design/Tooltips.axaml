@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The tooltip, which this design now leans on rather than tolerates.
+
+    A refused option keeps its place in the list and greys, and the sentence saying why is
+    the whole value of keeping it there (docs/field-availability.md). Where that sentence
+    does not fit beside the control it belongs to, the tooltip is where it goes - so a
+    tooltip here carries a full sentence rather than a repeated label, and it is sized for
+    prose: a width to wrap against, and the wrap itself, which Fluent's does not do.
+
+    It is skinned like the context menu rather than like a control, because that is what it
+    is: a surface that floats above the window. The menu's shadow is the second of the two
+    the design allows, and a tooltip is the same kind of thing.
+  -->
+
+  <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
+    <Setter Property="Background" Value="{StaticResource ChromeBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+    <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+    <Setter Property="Padding" Value="10,7" />
+    <!-- Wide enough for a clause, narrow enough that the eye does not have to travel back. -->
+    <Setter Property="MaxWidth" Value="320" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Top" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <!--
+      The wrap is not here. A tooltip's string content is drawn by a TextBlock the content
+      presenter builds, reaching it needs a descendant selector, and a ControlTheme may not
+      carry one - Avalonia throws when the theme is built. Design/Text.axaml states it.
+    -->
+  </ControlTheme>
+
+</ResourceDictionary>

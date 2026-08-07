@@ -31,6 +31,7 @@ package encoderate
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"time"
 
@@ -91,10 +92,15 @@ type Rate struct {
 }
 
 // engineProbe is one publish engine's half of the measurement: where its executable
-// is, the command that encodes generated frames, and the command that generates them
-// and encodes nothing.
+// is, what its child needs in the environment, the command that encodes generated
+// frames, and the command that generates them and encodes nothing.
+//
+// The probe runs the same binary a publish would, so it resolves and launches it the
+// same way: a measurement taken against a different copy of the encoder than the one
+// that will encode the stream is a figure about another machine's install.
 type engineProbe struct {
 	exe     func() (string, error)
+	env     func() []string
 	encode  func(s settings.Stream, width, height, frames int, heavy bool) ([]string, error)
 	ceiling func(s settings.Stream, width, height, frames int, heavy bool) []string
 }
@@ -113,7 +119,8 @@ var engineProbes = map[string]engineProbe{
 		},
 	},
 	publish.EngineGst: {
-		exe:    func() (string, error) { return exec.LookPath(publish.GstExe) },
+		exe:    publish.FindGstExe,
+		env:    publish.GstChildEnv,
 		encode: publish.GstEncodeProbe,
 		ceiling: func(s settings.Stream, width, height, frames int, heavy bool) []string {
 			return publish.GstProbeCeiling(s, width, height, frames, heavy)
@@ -200,11 +207,18 @@ func measureEnd(
 		return 0, false, err
 	}
 
-	startup, err := run(ctx, exe, first)
+	// Read once and given to all three runs, so the three are timed under one
+	// environment and a difference between them is the pipeline's.
+	var env []string
+	if probe.env != nil {
+		env = probe.env()
+	}
+
+	startup, err := run(ctx, exe, env, first)
 	if err != nil {
 		return 0, false, err
 	}
-	elapsed, err := run(ctx, exe, full)
+	elapsed, err := run(ctx, exe, env, full)
 	if err != nil {
 		return 0, false, err
 	}
@@ -217,7 +231,7 @@ func measureEnd(
 	// reads a little low, which can only make an encode look closer to it than it is:
 	// the probe then reports a floor where it might have reported a rate, and never a
 	// rate where it should have reported a floor.
-	ceilingElapsed, err := run(ctx, exe, probe.ceiling(s, width, height, probeFrames, heavy))
+	ceilingElapsed, err := run(ctx, exe, env, probe.ceiling(s, width, height, probeFrames, heavy))
 	if err != nil {
 		return 0, false, err
 	}
@@ -234,11 +248,18 @@ func measureEnd(
 // A process that fails carries the reason in its own output, which is another
 // program's error text, so it is handed back as one. Neither engine writes anything
 // on a successful run: both probes are launched at an error-only log level.
-func run(ctx context.Context, exe string, args []string) (time.Duration, error) {
+func run(ctx context.Context, exe string, env []string, args []string) (time.Duration, error) {
 	assert.Assert(len(args) > 0, "a probe process is launched with arguments", exe)
 
+	cmd := exec.CommandContext(ctx, exe, args...)
+	// Added to this process's environment rather than replacing it, the way every
+	// other child here is launched.
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
+
 	start := time.Now()
-	out, err := exec.CommandContext(ctx, exe, args...).CombinedOutput()
+	out, err := cmd.CombinedOutput()
 	elapsed := time.Since(start)
 	if err != nil {
 		if ctx.Err() != nil {

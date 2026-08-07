@@ -11,6 +11,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -131,7 +132,7 @@ func TestNvencPresetLimitRefusesAStepOutsideTheLadder(t *testing.T) {
 			t.Errorf("preset %q was accepted", preset)
 		}
 	}
-	for _, preset := range nvencPresets {
+	for _, preset := range NvencPresets {
 		s := baseStream()
 		s.Codec, s.Chroma, s.EncPreset = "hevc_nvenc", "yuv420p", preset
 		if _, err := encoderArgs(s, gopFor(s)); err != nil {
@@ -649,7 +650,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 			t.Fatalf("%s: %v", a.Name, err)
 		}
 		// The first -i is the video capture input, so check membership instead.
-		if !slices.Contains(args, "pulse") || !slices.Contains(args, pulseMonitorDevice) {
+		if !slices.Contains(args, "pulse") || !slices.Contains(args, platform.AudioMonitorDevice) {
 			t.Errorf("missing pulse monitor input, got %v", args)
 		}
 		if got := flagValue(args, "-c:a"); got != enc.Element {
@@ -680,21 +681,10 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	}
 
 	// A backend whose platform serves no monitor source refuses desktop audio rather than
-	// publishing a silent track.
-	// The Windows grabbers have no PulseAudio to read, and AVFoundation enumerates input
-	// devices alone, so what the machine plays is not a source ffmpeg can open.
-	for _, capture := range []string{"gdigrab", "ddagrab", "avfoundation"} {
-		s := baseStream()
-		s.Capture, s.Audio = capture, "desktop"
-		_, err := BuildPublishArgs(s)
-		if err == nil {
-			t.Errorf("the %s backend reaches no desktop audio and must refuse it", capture)
-			continue
-		}
-		if !strings.Contains(err.Error(), "desktop audio") {
-			t.Errorf("%s: refusal %q must name what it cannot capture", capture, err)
-		}
-	}
+	// publishing a silent track. That refusal is not this builder's: the source table
+	// answers it and publish holds the backend's operating system, so it is asserted in
+	// publish (TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio) against
+	// the engine entry points a run and the displayed command both go through.
 
 	s := baseStream()
 	s.Audio = "microphone"

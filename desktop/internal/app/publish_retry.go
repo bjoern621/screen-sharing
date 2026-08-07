@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // publishBackoff is the wait before each relaunch of a publish that ended on its own,
@@ -114,7 +113,7 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 		if err != nil && spent > 0 {
 			message = fmt.Sprintf("%s (gave up after %d retries)", message, spent)
 		}
-		runtime.EventsEmit(a.ctx, "publish:exit", exitEvent{Message: message, LogPath: logPath})
+		a.emit(wire.PublishExitEvent(message, logPath), exitEvent{Message: message, LogPath: logPath})
 	}
 	a.emitPublishState()
 }
@@ -155,7 +154,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 		// The child never started, so no exit is coming to carry this one further. The
 		// attempt chain ends here rather than on a budget nothing is spending.
 		logger.Warnf("retry %d of the publish of '%s' did not start: %v", r.attempts, r.settings.Name, err)
-		runtime.EventsEmit(a.ctx, "publish:exit", exitEvent{Message: err.Error()})
+		a.emit(wire.PublishExitEvent(err.Error(), ""), exitEvent{Message: err.Error()})
 	}
 	a.emitPublishState()
 }

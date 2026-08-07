@@ -2,11 +2,13 @@ package ffmpeg
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/settings"
 )
 
 // The GPU path's half of the publish command: a grabber that already holds its frames
@@ -86,7 +88,12 @@ func GpuStatesColour(codec string) bool {
 // matrix and range it chose, so the primaries and the transfer are all this side still
 // has to state. setparams accepts hardware frames, so the tag is placed the same way it
 // is on the system path.
-func GpuFilters(codec, chroma, colorRange string) ([]string, error) {
+// The size is the device conversion's own business for the reason the layout and the
+// colour are: the frames never come back to system memory, so the one filter on the path
+// is the only thing that can resize them. A family whose entry names no conversion has no
+// such filter, and a scaled run on it is refused here rather than published at the
+// capture's size under a setting that says otherwise.
+func GpuFilters(codec, chroma, colorRange string, size settings.Size, scaled bool) ([]string, error) {
 	// Both are held against the codec's own table by capabilities.Validate before the
 	// command is built, so an empty one is a caller that skipped it.
 	assert.Assert(chroma != "", "a GPU-path encode names the pixel format it converts to")
@@ -108,6 +115,11 @@ func GpuFilters(codec, chroma, colorRange string) ([]string, error) {
 		"a device-side conversion names both the device it maps onto and the filter that converts there", c.Family)
 
 	if convert.scale == "" {
+		if scaled {
+			return nil, fmt.Errorf(
+				"codec %q reads the captured frames on its own device with no filter between, so nothing on that path can scale them to %s: publish at the capture's size, or pick the system-memory frame path",
+				codec, size)
+		}
 		if colour := colourFilter(chroma); colour != "" {
 			return []string{colour}, nil
 		}
@@ -118,12 +130,20 @@ func GpuFilters(codec, chroma, colorRange string) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("chroma %q has no hardware surface layout", chroma)
 	}
-	scale := strings.Join([]string{
-		convert.scale + "=format=" + format,
-		"out_color_matrix=" + colourDescription,
-		"out_color_primaries=" + colourDescription,
-		"out_color_transfer=" + colourDescription,
-		"out_range=" + colorRange,
-	}, ":")
-	return []string{"hwmap=derive_device=" + convert.device, scale}, nil
+	options := []string{convert.scale + "=format=" + format}
+	// The size leads the colour options because it is what the filter is being asked to
+	// produce; the four colour ones describe what it produced. Absent, the filter keeps
+	// the size it was given, which is the unscaled run.
+	if scaled {
+		options = append(options,
+			"w="+strconv.Itoa(size.Width),
+			"h="+strconv.Itoa(size.Height))
+	}
+	options = append(options,
+		"out_color_matrix="+colourDescription,
+		"out_color_primaries="+colourDescription,
+		"out_color_transfer="+colourDescription,
+		"out_range="+colorRange)
+
+	return []string{"hwmap=derive_device=" + convert.device, strings.Join(options, ":")}, nil
 }

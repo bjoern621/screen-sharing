@@ -1,6 +1,8 @@
 package gpupath
 
 import (
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"strings"
 	"testing"
 
@@ -24,7 +26,7 @@ func TestEveryPathNamesAKnownEngineAndFamily(t *testing.T) {
 		// The import is what the form shows in place of the greyed control and what a
 		// reader checks the machine against, so a row without one states that a path
 		// exists and nothing about what carries it.
-		if p.Import == "" {
+		if p.Import == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 			t.Errorf("%s/%s/%s: a row states no import", p.Engine, p.Capture, p.Family)
 		}
 	}
@@ -62,7 +64,7 @@ func TestAutoResolvesForEveryPair(t *testing.T) {
 				// lets the encoder pick the colour, auto is the round trip.
 				p, path := For(engine, capture, family)
 				want := MemorySystem
-				if path && !p.Colour.tradesColour() {
+				if path && !p.Colour.TradesColour() {
 					want = MemoryGpu
 				}
 				if memory != want {
@@ -96,7 +98,7 @@ func TestEveryPathResolvesUnderTheDemandThatFitsIt(t *testing.T) {
 	for _, p := range Paths {
 		want := MemoryGpu
 		demand := MemoryGpu
-		if p.Colour.tradesColour() {
+		if p.Colour.TradesColour() {
 			want = MemoryGpuEncoderColor
 			demand = MemoryGpuEncoderColor
 		}
@@ -122,7 +124,7 @@ func TestEveryPathStatesWhatItsColourCosts(t *testing.T) {
 	for _, p := range Paths {
 		switch p.Colour {
 		case ColourEncoder:
-			if p.Cost == "" {
+			if p.Cost == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 				t.Errorf("%s/%s/%s: an encoder-colour row states no cost", p.Engine, p.Capture, p.Family)
 			}
 			if p.Signalled.Matrix == "" || p.Signalled.Range == "" || p.Signalled.Chroma == "" {
@@ -130,7 +132,7 @@ func TestEveryPathStatesWhatItsColourCosts(t *testing.T) {
 					p.Engine, p.Capture, p.Family, p.Signalled)
 			}
 		case ColourExact:
-			if p.Cost != "" {
+			if p.Cost != screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 				t.Errorf("%s/%s/%s: an exact-colour row costs nothing, yet names %q",
 					p.Engine, p.Capture, p.Family, p.Cost)
 			}
@@ -167,10 +169,11 @@ func TestAutoNeverResolvesToTheEncoderColourMemory(t *testing.T) {
 // until the first such path lands, and the phase that lands it would be the phase that
 // finds out what they do.
 func TestAnEncoderColourRowResolvesByWhatEachDemandWillPay(t *testing.T) {
-	const cost = "the encoder reads the captured texture and picks the colour itself"
 	row := Path{
 		Engine: capabilities.EngineGst, Capture: "testsrc", Family: capabilities.FamilySoftware,
-		Import: "the test row imports nothing", Colour: ColourEncoder, Cost: cost,
+		Import:    screensharev1.TextCode_TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_NVENC,
+		Colour:    ColourEncoder,
+		Cost:      screensharev1.TextCode_TEXT_CODE_COST_ENCODER_SIGNALS_ITS_OWN_COLOUR,
 		Signalled: Signalled{Matrix: "bt470bg", Range: "tv", Chroma: "yuv420p"},
 	}
 	shipped := Paths
@@ -189,13 +192,14 @@ func TestAnEncoderColourRowResolvesByWhatEachDemandWillPay(t *testing.T) {
 	}
 
 	// The demand for the device and the colour is refused, and the refusal has to leave
-	// the user somewhere to go: what the path takes, the value that takes it knowingly,
-	// and the value that keeps the colour instead.
+	// the user somewhere to go: the value that takes the cost knowingly, and the value
+	// that keeps the colour instead. What the path takes is the row's Cost statement,
+	// which the form shows on the greyed control rather than inside this string.
 	_, err := Resolve(row.Engine, row.Capture, row.Family, MemoryGpu)
 	if err == nil {
 		t.Fatalf("a row that trades the colour must refuse the gpu setting")
 	}
-	for _, want := range []string{cost, MemoryGpuEncoderColor, MemorySystem} {
+	for _, want := range []string{MemoryGpuEncoderColor, MemorySystem} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("the refusal must name %q: %v", want, err)
 		}

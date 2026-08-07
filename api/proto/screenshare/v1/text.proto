@@ -1,0 +1,421 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// Nothing on this contract is a sentence.
+//
+// The backend decides what is true about a configuration; a shell decides how to say
+// it. Those are two jobs, and this file is the seam between them: every statement the
+// backend makes crosses as a Text - a code naming which statement it is, and the
+// identifiers and figures the statement is about - and the shell turns that into words.
+//
+// The rule this encodes is docs/ipc-api.md: a shell holds no domain knowledge and
+// invents no value, but it owns every label, every paragraph and every sentence on
+// screen. The two halves meet on identifiers. "hevc_nvenc", "gstreamer", "yuv420p" and
+// "srt" are the vocabulary both sides share, because they are what the encoder, the
+// element registry and the relay themselves use; "HEVC / H.265 (NVIDIA NVENC)" is one
+// shell's answer to how that reads in its typography, at its width, for its reader.
+//
+// Why this way round. Wording is a display concern with a display's constraints: it
+// wraps, it truncates, it has a tone, it needs a short form for a chip and a long one
+// for a tooltip, and it changes when the screen changes. A backend that ships the
+// sentence decides all of that from a place that can see none of it, and every shell
+// then either accepts a sentence built for a different layout or quietly writes its
+// own - which is the fork the contract exists to prevent, arrived at from the other
+// side. A backend that ships the code decides nothing about layout and cannot be
+// disagreed with about facts.
+//
+// What is NOT a Text is as much of the rule as what is. Three things stay raw strings
+// on this contract, and each is data rather than vocabulary: the rendered command line
+// (Summary.command), a child process's own failure (ExitInfo.message), and the relay's
+// own error (RelayStatus.error). They are produced outside this app's vocabulary, are
+// shown verbatim, and are never matched against.
+
+// TextArgName names one substitution in a statement.
+//
+// It is an enum rather than a string key for the reason EventKind is one: a name typed
+// into a table is a name that can be misspelt, and a misspelt argument is a sentence
+// that renders with a hole in it on one screen and nowhere else.
+//
+// The names divide into three kinds, and the kind decides what a shell does with the
+// value. An identifier is looked up in the shell's own vocabulary - TEXT_ARG_NAME_CODEC
+// carries "hevc_nvenc" and the shell knows how it spells that. A figure is formatted -
+// TEXT_ARG_NAME_BITRATE_MBPS carries a number and the shell knows it is megabits. A nested
+// statement is rendered by the same machinery one level down, which is what lets a
+// reason quote the fact behind it without either half knowing the other's wording.
+enum TextArgName {
+  TEXT_ARG_NAME_UNSPECIFIED = 0;
+
+  // Identifiers, each a value of the domain table its name says.
+  TEXT_ARG_NAME_CAPTURE = 1;
+  TEXT_ARG_NAME_ENGINE = 2;
+  // TEXT_ARG_NAME_OTHER_ENGINE is the engine a statement points at as the way out, where
+  // TEXT_ARG_NAME_ENGINE is the one that refused. Two names rather than two positions,
+  // because a sentence naming both has to know which is which.
+  TEXT_ARG_NAME_OTHER_ENGINE = 3;
+  TEXT_ARG_NAME_TRANSPORT = 4;
+  TEXT_ARG_NAME_CODEC = 5;
+  TEXT_ARG_NAME_FORMAT = 6;
+  TEXT_ARG_NAME_FAMILY = 7;
+  TEXT_ARG_NAME_CHROMA = 8;
+  TEXT_ARG_NAME_COLOR_RANGE = 9;
+  TEXT_ARG_NAME_MODE = 10;
+  TEXT_ARG_NAME_MEMORY = 11;
+  TEXT_ARG_NAME_AUDIO = 12;
+  TEXT_ARG_NAME_AUDIO_CODEC = 13;
+  TEXT_ARG_NAME_ENC_PRESET = 14;
+  TEXT_ARG_NAME_RTSP_PROTOCOL = 15;
+  TEXT_ARG_NAME_DECODE_FAMILY = 16;
+  // TEXT_ARG_NAME_DECODER is a decoder element as the receiving pipeline names it, e.g.
+  // "avdec_h264". It is the one identifier here that is not a settings value: a
+  // publisher never picks it, and a statement about what a viewer spends names it all
+  // the same.
+  TEXT_ARG_NAME_DECODER = 17;
+  // TEXT_ARG_NAME_OS and TEXT_ARG_NAME_DISPLAY are the operating system and the Linux display
+  // server, spelled as Platform spells them.
+  TEXT_ARG_NAME_OS = 18;
+  TEXT_ARG_NAME_DISPLAY = 19;
+  // TEXT_ARG_NAME_OPTION is a settings field a gap takes a value away from, named as
+  // StreamSettings names it, and TEXT_ARG_NAME_VALUE the value taken.
+  TEXT_ARG_NAME_OPTION = 20;
+  TEXT_ARG_NAME_VALUE = 21;
+  // TEXT_ARG_NAME_PATH is a filesystem path the backend handed out. It is not vocabulary:
+  // the backend and the shell are the same application on the same machine
+  // (docs/ipc-api.md), so a path crosses as a path.
+  TEXT_ARG_NAME_PATH = 22;
+
+  // Lists of identifiers, each of the axis its name says. A shell joins them in its
+  // own language; the backend states which ones, never how they read together.
+  TEXT_ARG_NAME_FAMILIES = 30;
+  TEXT_ARG_NAME_TRANSPORTS = 31;
+  TEXT_ARG_NAME_AUDIO_CODECS = 32;
+  TEXT_ARG_NAME_DECODERS = 33;
+  TEXT_ARG_NAME_DECODE_FAMILIES = 34;
+  TEXT_ARG_NAME_RTSP_PROTOCOLS = 35;
+
+  // Figures. Each carries the unit its name says, so a shell formats without a second
+  // field telling it what it is holding.
+  TEXT_ARG_NAME_MONITOR = 40;
+  TEXT_ARG_NAME_WIDTH = 41;
+  TEXT_ARG_NAME_HEIGHT = 42;
+  TEXT_ARG_NAME_FPS = 43;
+  TEXT_ARG_NAME_REFRESH_HZ = 44;
+  TEXT_ARG_NAME_CQ = 45;
+  TEXT_ARG_NAME_CQ_MAX = 46;
+  TEXT_ARG_NAME_BITRATE_MBPS = 47;
+  TEXT_ARG_NAME_MAXRATE_MBPS = 48;
+  TEXT_ARG_NAME_BITRATE_LIMIT_MBPS = 49;
+  TEXT_ARG_NAME_UPLINK_MBPS = 50;
+  TEXT_ARG_NAME_RAW_MBPS = 51;
+  TEXT_ARG_NAME_LOW_MBPS = 52;
+  TEXT_ARG_NAME_HIGH_MBPS = 53;
+  TEXT_ARG_NAME_RATE_HZ = 54;
+  TEXT_ARG_NAME_BITRATE_KBPS = 55;
+  // TEXT_ARG_NAME_OTHER_COUNT is how many further cases a statement is standing in for,
+  // where listing them would bury the one that carries the point.
+  TEXT_ARG_NAME_OTHER_COUNT = 56;
+
+  // Nested statements.
+  //
+  // TEXT_ARG_NAME_CAUSE is the fact behind the statement - a probe's verdict inside a
+  // diagnostic about the probe. TEXT_ARG_NAME_IMPORT is what carries frames across a GPU
+  // path, TEXT_ARG_NAME_COST what a path takes in exchange, and TEXT_ARG_NAME_REACH the way to
+  // the same path without that cost. Each is a Text so the half that knows the fact
+  // never has to know the sentence it lands in.
+  TEXT_ARG_NAME_CAUSE = 60;
+  TEXT_ARG_NAME_IMPORT = 61;
+  TEXT_ARG_NAME_COST = 62;
+  TEXT_ARG_NAME_REACH = 63;
+}
+
+// IdList is several identifiers of one axis. Repeated fields cannot sit in a oneof,
+// which is why it exists.
+message IdList {
+  repeated string ids = 1;
+}
+
+// TextArg is one substitution.
+message TextArg {
+  TextArgName name = 1;
+  oneof value {
+    // id is one identifier of the axis name declares.
+    string id = 2;
+    int64 number = 3;
+    double decimal = 4;
+    IdList ids = 5;
+    Text text = 6;
+  }
+}
+
+// Text is one statement the backend makes: which statement, and what it is about.
+//
+// A shell renders it by switching on the code. An unknown code is a shell built against
+// an older contract meeting a newer backend, which Hello settles before any of this is
+// reached; a shell that meets one anyway shows the code rather than nothing, because a
+// blank where a reason belongs reads as a control with no reason at all.
+message Text {
+  TextCode code = 1;
+  repeated TextArg args = 2;
+}
+
+// TextCode names one statement.
+//
+// The numbering is grouped by subject with room between the groups, so a statement
+// added beside its neighbours takes the next free number in its own range rather than
+// landing at the end of the list. Nothing here is ever renumbered: a code is the whole
+// identity of a sentence, and a reused number would silently change what a shell says.
+enum TextCode {
+  TEXT_CODE_UNSPECIFIED = 0;
+
+  // --- Capture backends and monitors --------------------------------------------
+
+  // The capture backend needs another operating system. TEXT_ARG_NAME_CAPTURE and
+  // TEXT_ARG_NAME_OS, the second being the one it needs rather than the one running.
+  TEXT_CODE_CAPTURE_WRONG_OS = 1;
+  // The right operating system in the wrong session. TEXT_ARG_NAME_CAPTURE and
+  // TEXT_ARG_NAME_DISPLAY, the display server the backend needs.
+  TEXT_CODE_CAPTURE_WRONG_SESSION = 2;
+  // The backend needs a privilege nothing here can establish. It is not an
+  // unavailability: the process holds it or the capture dies at launch, and no probe
+  // tells which in advance. TEXT_ARG_NAME_CAPTURE.
+  TEXT_CODE_CAPTURE_NEEDS_GRANT = 3;
+  // The backend takes no monitor index, and captures something else. TEXT_ARG_NAME_CAPTURE.
+  TEXT_CODE_CAPTURE_TAKES_NO_MONITOR = 4;
+  // The selected monitor is not among the enumerated outputs. TEXT_ARG_NAME_MONITOR.
+  TEXT_CODE_MONITOR_NOT_ENUMERATED = 5;
+  // A scaled output resolution, and the source it was derived from. TEXT_ARG_NAME_WIDTH and
+  // TEXT_ARG_NAME_HEIGHT are the source's.
+  TEXT_CODE_SCALED_FROM_SOURCE = 6;
+
+  // --- Publish engines and the encoder probe ------------------------------------
+
+  // The engine's own tooling is missing, so nothing on it was probed. TEXT_ARG_NAME_ENGINE.
+  TEXT_CODE_ENGINE_TOOLING_MISSING = 10;
+  // The capture backend's engine has no publish sink for the transport.
+  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT.
+  TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK = 11;
+  // Nothing on this engine was probed, so no codec on it is greyed for being absent.
+  // TEXT_ARG_NAME_ENGINE and TEXT_ARG_NAME_CAUSE.
+  TEXT_CODE_ENGINE_NOT_PROBED = 12;
+  // The probe found no encoder, and the family's encoders come with a device: this
+  // machine has no such GPU, or no driver exposing that encode entrypoint.
+  // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_FAMILY.
+  TEXT_CODE_PROBE_NO_DEVICE = 13;
+  // The probe found no encoder, and the family's encoders come with a build: nothing
+  // compiled it in, or no plugin provides the element. TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_PROBE_NO_BUILD = 14;
+  // The probe could not run the encoder and the codec's family is one no table here
+  // describes, so the verdict stands without a cause. TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_PROBE_FAILED = 15;
+  // The app builds no pipeline for the codec yet. It stays offered so the roadmap is
+  // visible. No arguments.
+  TEXT_CODE_CODEC_NOT_IMPLEMENTED = 16;
+
+  // --- Carriage -----------------------------------------------------------------
+
+  // The publish leg has no mapping for the codec's bitstream on this engine.
+  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, and the two ways out where the
+  // tables hold one: TEXT_ARG_NAME_TRANSPORTS are the legs that carry it on this engine, and
+  // TEXT_ARG_NAME_OTHER_ENGINE the engine that carries it on this leg. Either may be absent.
+  TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC = 20;
+  // The publish leg carries no track in this audio codec's format on this engine.
+  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_AUDIO_CODEC, TEXT_ARG_NAME_ENGINE, and TEXT_ARG_NAME_AUDIO_CODECS
+  // for the ones it does carry, which may be empty.
+  TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC = 21;
+  // The engine has no encoder element for the audio codec. TEXT_ARG_NAME_ENGINE,
+  // TEXT_ARG_NAME_AUDIO_CODEC.
+  TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER = 22;
+  // No viewer on this engine receives over the transport at all. TEXT_ARG_NAME_ENGINE,
+  // TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_TRANSPORTS for what it does receive over.
+  TEXT_CODE_NO_VIEWER_RECEIVES_OVER = 23;
+  // The relay re-serves no stream of this format on that listener, so a viewer
+  // connects and receives nothing. TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_TRANSPORT,
+  // TEXT_ARG_NAME_TRANSPORTS.
+  TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER = 24;
+
+  // --- Pixel format, colour and decoding ----------------------------------------
+
+  // The codec reaches no direct RGB on either engine, which needs a coding tool rather
+  // than a subsampling. TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_CODEC_CODES_NO_RGB = 30;
+  // The codec's encoder codes this pixel format on no engine. TEXT_ARG_NAME_CODEC,
+  // TEXT_ARG_NAME_CHROMA.
+  TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA = 31;
+  // RGB is full range by construction, so no quantization range choice exists under it.
+  // No arguments.
+  TEXT_CODE_RGB_IS_FULL_RANGE = 32;
+  // Viewers decode this format and pixel format on the GPU, on the named decode
+  // families. TEXT_ARG_NAME_DECODE_FAMILIES.
+  TEXT_CODE_DECODES_IN_HARDWARE = 33;
+  // No GPU decode path takes this pair, so every viewer spends cores.
+  // TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_CHROMA, TEXT_ARG_NAME_DECODER for the software element, and
+  // TEXT_ARG_NAME_DECODE_FAMILY for the hardware family whose limit stands for the rest,
+  // absent where none declares one.
+  TEXT_CODE_DECODES_ON_CPU = 34;
+  // The pair reaches a GPU on some decode families and not others. TEXT_ARG_NAME_FORMAT,
+  // TEXT_ARG_NAME_CHROMA, TEXT_ARG_NAME_DECODE_FAMILIES for the ones it reaches,
+  // TEXT_ARG_NAME_DECODER for the software element, TEXT_ARG_NAME_DECODE_FAMILY for the family
+  // whose limit is quoted and TEXT_ARG_NAME_OTHER_COUNT for how many further ones agree.
+  TEXT_CODE_DECODES_IN_HARDWARE_PARTLY = 35;
+
+  // --- Frame memory and the GPU path --------------------------------------------
+
+  // The capture backend and the codec share no device memory on this engine.
+  // TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE.
+  TEXT_CODE_PAIR_HAS_NO_DEVICE_MEMORY = 40;
+  // The pair converts on the device by the colour the form shows, so there is nothing
+  // to trade. TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_MEMORY for the value that
+  // keeps both.
+  TEXT_CODE_PAIR_CONVERTS_ON_DEVICE = 41;
+  // The pair shares device memory with nothing converting between the two ends, so the
+  // encoder converts in its own colour. TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC,
+  // TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_COST for what that takes, and TEXT_ARG_NAME_REACH for the pair
+  // that reaches the device without the trade, absent where the table declares none.
+  TEXT_CODE_PAIR_TRADES_COLOUR = 42;
+  // Another capture backend runs the same screen onto the device with the colour
+  // selected. TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_IMPORT.
+  TEXT_CODE_EXACT_COLOUR_REACH = 43;
+  // A device path with no conversion on it has nothing that can resize, so a scaled
+  // picture is out of reach there. TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_MEMORY
+  // for the way across.
+  TEXT_CODE_DEVICE_PATH_HAS_NO_SCALER = 44;
+  // The frames stay on the GPU, so nothing is downloaded and no mapping device is
+  // chosen. No arguments.
+  TEXT_CODE_DRM_MAP_UNUSED_ON_DEVICE = 45;
+
+  // What carries the frames on each GPU path the table declares. One code per row
+  // rather than one code with the mechanism as an argument, because the mechanism is
+  // exactly the part that differs and a shell describing it generically would describe
+  // none of them.
+  TEXT_CODE_IMPORT_GST_PORTAL_VAAPI = 50;
+  TEXT_CODE_IMPORT_GST_D3D11_NVENC = 51;
+  TEXT_CODE_IMPORT_FFMPEG_KMSGRAB_VAAPI = 52;
+  TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_QSV = 53;
+  TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_NVENC = 54;
+  // What the one colour-trading row takes: the encoder converts the captured RGB
+  // itself and signals what it chose. TEXT_ARG_NAME_CHROMA and TEXT_ARG_NAME_COLOR_RANGE are what
+  // it signals.
+  TEXT_CODE_COST_ENCODER_SIGNALS_ITS_OWN_COLOUR = 55;
+
+  // --- Rate control -------------------------------------------------------------
+
+  // The quantizer target exists in constant-quality mode alone. No arguments.
+  TEXT_CODE_CQ_ONLY_IN_CONSTANT_QUALITY = 60;
+  // This mode aims at no bitrate. TEXT_ARG_NAME_MODE.
+  TEXT_CODE_BITRATE_NOT_IN_MODE = 61;
+  // The burst ceiling exists in constrained VBR alone. No arguments.
+  TEXT_CODE_MAXRATE_ONLY_IN_CONSTRAINED_VBR = 62;
+  // The rate buffer bounds the rate in the bitrate-bounded modes alone. No arguments.
+  TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES = 63;
+  // B-frames are forced off in this mode: no gain, only reorder delay. TEXT_ARG_NAME_MODE.
+  TEXT_CODE_BFRAMES_OFF_IN_MODE = 64;
+  // Only some encoder families take a B-frame count. TEXT_ARG_NAME_FAMILIES.
+  TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES = 65;
+  // Only some encoder families take a preset ladder. TEXT_ARG_NAME_FAMILIES.
+  TEXT_CODE_PRESET_ONLY_ON_FAMILIES = 66;
+  // The mode pins the preset to one step. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_ENC_PRESET.
+  TEXT_CODE_PRESET_PINNED_BY_MODE = 67;
+  // No audio source is selected, so the stream carries no track to code. No arguments.
+  TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE = 68;
+  // No session of this operating system serves the capture source. TEXT_ARG_NAME_AUDIO,
+  // TEXT_ARG_NAME_OS.
+  TEXT_CODE_AUDIO_SOURCE_UNSERVED = 69;
+  // What serves the capture source here. TEXT_ARG_NAME_AUDIO, TEXT_ARG_NAME_OS.
+  TEXT_CODE_AUDIO_SOURCE_SERVER = 70;
+  // The rate and bitrate the audio table codes a track at. TEXT_ARG_NAME_RATE_HZ,
+  // TEXT_ARG_NAME_BITRATE_KBPS.
+  TEXT_CODE_AUDIO_TRACK_CODED_AT = 71;
+
+  // --- Where a publish engine departs from the mode table ------------------------
+  //
+  // One code per row of that table. They are separate codes rather than one with the
+  // element named, because what each says is a different fact about a different piece
+  // of software, and a generic "this element has no such property" teaches nothing
+  // about which of them to change.
+
+  TEXT_CODE_GST_NO_PRESET_LADDER = 80;
+  TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER = 81;
+  TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL = 82;
+  TEXT_CODE_GST_NVENC_NO_RATE_BUFFER = 83;
+  TEXT_CODE_GST_QSV_NO_RATE_BUFFER = 84;
+  TEXT_CODE_NVENC_CQ_BITRATE_CAPS_BURSTS = 85;
+  TEXT_CODE_GST_VPX_CQ_BITRATE_IS_CAP = 86;
+  TEXT_CODE_FIXED_FUNCTION_ABR_DERIVES_CEILING = 87;
+  TEXT_CODE_AMF_CODES_NO_BFRAMES = 88;
+  // The VAAPI elements place the target as a percentage of the ceiling, at half at the
+  // lowest, so a ceiling above twice the target has no form there. TEXT_ARG_NAME_MAXRATE_MBPS
+  // is the highest ceiling that fits and TEXT_ARG_NAME_BITRATE_MBPS the target it is against.
+  TEXT_CODE_VAAPI_CEILING_BOUND = 89;
+
+  // --- Codec capability gaps -----------------------------------------------------
+  //
+  // One code per row of the gap tables in the capability model. A gap is a fact about
+  // one library or one element, so each carries its own code and none of them takes an
+  // argument: the codec, the engine and the value the gap removes are already on the
+  // Gap that holds the code.
+
+  TEXT_CODE_GAP_NVENC_AV1_NO_LOSSLESS_TUNE = 100;
+  TEXT_CODE_GAP_GST_VP9ENC_NO_LOSSLESS = 101;
+  TEXT_CODE_GAP_VP8_HAS_NO_LOSSLESS = 102;
+  TEXT_CODE_GAP_GST_AV1ENC_EIGHT_BIT_ONLY = 103;
+  TEXT_CODE_GAP_LIBAOM_NO_LOSSLESS_SWITCH = 104;
+  TEXT_CODE_GAP_GST_AV1ENC_NO_COLOUR_DESCRIPTION = 105;
+  TEXT_CODE_GAP_SVTAV1_NO_LOSSLESS = 106;
+  TEXT_CODE_GAP_SVTAV1_NO_CONSTRAINED_VBR = 107;
+  TEXT_CODE_GAP_GST_SVTAV1ENC_NO_CBR = 108;
+  TEXT_CODE_GAP_RAV1E_NO_LOSSLESS = 109;
+  TEXT_CODE_GAP_RAV1E_NO_CONSTRAINED_VBR = 110;
+  TEXT_CODE_GAP_AMF_AV1_LIMITED_RANGE_ONLY = 111;
+  TEXT_CODE_GAP_VULKAN_AV1_LIMITED_RANGE_ONLY = 112;
+  TEXT_CODE_GAP_VAAPI_NO_LOSSLESS = 113;
+  TEXT_CODE_GAP_GST_VA_NO_COLOUR_DESCRIPTION = 114;
+  TEXT_CODE_GAP_QSV_NO_LOSSLESS = 115;
+  TEXT_CODE_GAP_GST_AMFCODEC_WINDOWS_ONLY = 116;
+  TEXT_CODE_GAP_AMF_NO_LOSSLESS = 117;
+  TEXT_CODE_GAP_GST_VULKAN_NO_CAPTURE_MEMORY = 118;
+  TEXT_CODE_GAP_VULKAN_NO_LOSSLESS = 119;
+  TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD = 120;
+  TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING = 121;
+  TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB = 122;
+
+  // --- Diagnostics ---------------------------------------------------------------
+
+  // No engine can build these settings, and Summary.command_error carries the
+  // builder's own refusal. It is the one statement that quotes a raw string, because
+  // what refused is an operational failure rather than a fact about the domain: the
+  // same text crosses as a gRPC status when the publish is attempted. No arguments.
+  TEXT_CODE_PUBLISH_REFUSED = 130;
+  // No uplink capacity is stated, so nothing holds the prediction against the line.
+  // No arguments.
+  TEXT_CODE_NO_UPLINK_STATED = 131;
+  // The prediction is above the stated uplink. TEXT_ARG_NAME_BITRATE_MBPS,
+  // TEXT_ARG_NAME_UPLINK_MBPS.
+  TEXT_CODE_UPLINK_BELOW_PREDICTION = 132;
+  // The prediction is an average and the top of its spread is above the uplink.
+  // TEXT_ARG_NAME_LOW_MBPS, TEXT_ARG_NAME_HIGH_MBPS, TEXT_ARG_NAME_UPLINK_MBPS, TEXT_ARG_NAME_MODE.
+  TEXT_CODE_BURST_ABOVE_UPLINK = 133;
+  // The target frame rate is above the captured monitor's refresh rate, so the extra
+  // frames are repeats. TEXT_ARG_NAME_FPS, TEXT_ARG_NAME_REFRESH_HZ.
+  TEXT_CODE_FPS_ABOVE_REFRESH = 134;
+  // The monitor the prediction would rest on is not enumerated here, so no bitrate is
+  // predicted. TEXT_ARG_NAME_MONITOR.
+  TEXT_CODE_MONITOR_NOT_PRICED = 135;
+  // These settings resolve to no picture the prediction can be priced from. No
+  // arguments.
+  TEXT_CODE_NO_PICTURE_TO_PRICE = 136;
+  // What the capture produces and what the encode is predicted to leave of it.
+  // TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
+  TEXT_CODE_COMPRESSION_RATIO = 137;
+
+  // --- Notices -------------------------------------------------------------------
+
+  // The persisted settings could not be restored, and the file holding the old values
+  // has been moved aside rather than overwritten. TEXT_ARG_NAME_PATH names where they are.
+  TEXT_CODE_SETTINGS_STORE_UNREADABLE = 150;
+  // The preset store could not be read, so the list is empty because nothing readable
+  // remained rather than because nothing was saved. TEXT_ARG_NAME_PATH.
+  TEXT_CODE_PRESET_STORE_UNREADABLE = 151;
+}

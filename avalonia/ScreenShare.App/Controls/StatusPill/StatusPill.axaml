@@ -1,0 +1,44 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:ScreenShare.App.Controls">
+
+  <ControlTheme x:Key="{x:Type controls:StatusPill}" TargetType="controls:StatusPill">
+    <Setter Property="Height" Value="{StaticResource PillHeight}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <!-- The dot stays small: it is state, not decoration. -->
+            <Ellipse Width="{StaticResource DotSize}"
+                     Height="{StaticResource DotSize}"
+                     Fill="{TemplateBinding Foreground}"
+                     VerticalAlignment="Center" />
+            <TextBlock Text="{TemplateBinding Label}"
+                       FontSize="{StaticResource FontSizeBody}"
+                       FontWeight="SemiBold"
+                       Foreground="{TemplateBinding Foreground}"
+                       VerticalAlignment="Center" />
+            <!--
+              Tabular figures, because it is a running timer: with proportional numerals
+              every tick that swaps a 1 for a 0 changes the pill's width and shoves the
+              label beside it sideways.
+            -->
+            <TextBlock Text="{TemplateBinding Detail}"
+                       FontFeatures="{StaticResource FigureFeatures}"
+                       FontSize="{StaticResource FontSizeBody}"
+                       Foreground="{TemplateBinding Foreground}"
+                       VerticalAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

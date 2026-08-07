@@ -13,9 +13,14 @@ distribution channel is expected to provide it.
 |---------|----------|---------|------------|
 | `ffmpeg` | yes | Capture, encode, publish. | The ffmpeg project. |
 | `ffplay` | yes | The watch/viewer window. | The same ffmpeg distribution. |
+| `gst-launch-1.0` | for the GStreamer publish engine | The engine that runs the portal and `*src` capture backends, the encode-rate probe on that engine, and the synthetic test streams. | GStreamer (`gstreamer` plus the plugin packages below). |
 
 `ffplay` is part of a full ffmpeg build, so a single ffmpeg install satisfies
 both.
+The GStreamer launcher is a separate program from the libraries the native grid
+links: the grid renders in-process through those, while the app publishes by
+spawning `gst-launch-1.0` the way it spawns `ffmpeg`, so a machine carrying the
+libraries alone still fails every GStreamer publish at lookup.
 Minimal ffmpeg builds sometimes omit `ffplay` and the capture demuxers; the
 build has to include the demuxer for the target platform (`ddagrab` on Windows,
 `x11grab` and `kmsgrab` on Linux).
@@ -47,15 +52,23 @@ as it does on a machine with no AMD card.
 The dev shell puts the package on `LD_LIBRARY_PATH` for the same reason a
 packaged build has to.
 
-## How the app locates ffmpeg
+## How the app locates the programs it spawns
 
-`FindExe` in the `ffmpeg` package resolves the executable name (`ffmpeg` or
-`ffplay`, suffixed with `.exe` on Windows) in this order:
+`FindExe` in the `ffmpeg` package resolves the executable name (`ffmpeg`,
+`ffplay` or `gst-launch-1.0`, suffixed with `.exe` on Windows) in this order:
 
 1. A copy sitting next to the app binary, in the same directory.
 2. The first match on `PATH`.
-3. Otherwise an error instructing the user to install ffmpeg or drop it beside
-   the app.
+3. Otherwise an error naming the missing program and the two places it is looked
+   for.
+
+Every GStreamer child goes through the same lookup, through `publish.FindGstExe`:
+the publish engine, the encode probe and the test streams spawn one binary, and a
+bare name handed to `exec.Command` would search `PATH` alone and pass over the copy
+a bundle ships beside the app.
+A bundled launcher is also given `GST_PLUGIN_PATH` at spawn
+(`publish.GstChildEnv`), for the reason the grid sets it on itself: the prefix it
+was built against exists on no machine but the build host.
 
 Two provisioning models follow from that rule.
 A channel either bundles ffmpeg next to the binary for a self-contained install,
@@ -158,6 +171,10 @@ host resolves, and one written for a Linux cross-build aborts every build on a
 Windows host, `wails dev` included.
 A development run on either host needs no bundle, because `FindExe` falls back to
 `PATH`.
+The GStreamer launcher is the exception: on Windows it comes from MSYS2, whose
+prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the
+run. It is appended rather than prepended because MSYS2 ships an ffmpeg of its own,
+and a prefix in front would move every capture and encode onto it.
 Use a recent third-party build (Gyan or BtbN); `ddagrab` needs a current ffmpeg.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
 
@@ -169,7 +186,7 @@ Install MSYS2, then from its MINGW64 shell:
 
 ```bash
 pacman -S mingw-w64-x86_64-{toolchain,pkgconf,go,gtk4,libadwaita,gobject-introspection} \
-          mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,libav}
+          mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
 ```
 
 `gobject-introspection` is a build input rather than a runtime one: gotk4 resolves it
@@ -208,19 +225,25 @@ missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a n
 child of the current shell resolves.
 
 `gtk4paintablesink`, the element every tile renders into, comes from
-`gst-plugins-rs`, as does `whepsrc`; RTSP comes from `gst-plugins-good` and SRT
-and RTMP from `gst-plugins-bad`, so a bundle missing one of those packages is a
-bundle missing a transport.
+`gst-plugins-rs`, as does `whepsrc`; SRT and RTMP come from `gst-plugins-bad`, so
+a bundle missing one of those packages is a bundle missing a transport.
+RTSP is split across two packages by direction: `rtspsrc`, which the grid and the
+test streams watch with, is in `gst-plugins-good`, while `rtspclientsink`, which
+every RTSP publish and every test stream sends with, is in `gst-rtsp-server`.
+That package is not pulled in by any of the `gst-plugins-*` ones, and its absence
+shows up as `no element "rtspclientsink"` the first time a test stream or an RTSP
+publish starts, long after the build succeeded.
 `x264enc` comes from `gst-plugins-ugly`, which the grid's own demo run needs as well as
 the GStreamer publish engine, so its absence shows up as `no element "x264enc"` on the
 first tile rather than at publish time.
 
 A machine that runs the app has no MSYS2, so `bundle:windows`
 (`scripts/bundle-windows.sh`) copies the runtime beside the binaries: the DLL
-closure of the grid and of every installed plugin flat next to the executables,
-where the Windows loader looks first; the plugins under `gstreamer-1.0`; and
-GLib's `gschemas.compiled` under `share/glib-2.0/schemas`, which GTK aborts
-without.
+closure of the grid, of `gst-launch-1.0.exe` and of every installed plugin flat
+next to the executables, where the Windows loader looks first; `gst-launch-1.0.exe`
+itself, which the app spawns for every GStreamer publish; the plugins under
+`gstreamer-1.0`; and GLib's `gschemas.compiled` under `share/glib-2.0/schemas`,
+which GTK aborts without.
 
 The window's look travels with it as well, under the same `share/`: the Adwaita
 icon theme with `hicolor` behind it, and Cantarell beside the `fonts.conf` that

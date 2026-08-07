@@ -54,8 +54,13 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
+      // The hover is scoped to the body. A header row is the same component, and
+      // left unscoped it lit up under the pointer while offering nothing to do
+      // with it. On a body row the highlight earns its place: these tables are
+      // wide - a publisher's name, then transport, resolution, bitrate, rtt - and
+      // the band is what keeps the eye on one path while it crosses them.
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b transition-colors has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted [tbody_&]:hover:bg-muted/50",
         className
       )}
       {...props}

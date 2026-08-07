@@ -247,7 +247,6 @@ export type Family =
 export type Format = "h264" | "hevc" | "av1" | "vp9" | "vp8";
 export type Chroma = "gbrp" | "yuv444p" | "yuv422p" | "yuv420p" | "p010le";
 export type Mode = "cbr" | "vbr" | "abr" | "crf" | "lossless";
-export type AudioSource = "none" | "desktop";
 
 const HEVC_LINK = "https://en.wikipedia.org/wiki/High_Efficiency_Video_Coding";
 const AVC_LINK = "https://en.wikipedia.org/wiki/Advanced_Video_Coding";
@@ -601,7 +600,17 @@ export function findEngineRule(
     });
 }
 
-export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?: string }> = {
+/**
+ * Presentation for a second-track capture source, keyed as the backend table names
+ * it. Which sources exist and which of them this machine serves are the platform's
+ * answers and are read off `App.AudioSources`, so this table carries what a reader
+ * needs to choose and nothing the wire already states.
+ *
+ * Where the samples are read from is one of the things the wire states: it differs per
+ * platform, so the row's own `server` is shown beside the label instead of a sentence
+ * here naming one platform's mechanism to users on all three.
+ */
+export const AUDIO_META: Record<string, { label: string; tip: string; link?: string }> = {
     none: {
         label: "none - video only",
         tip: "No audio track: the stream carries video only.",
@@ -609,7 +618,7 @@ export const AUDIO_META: Record<AudioSource, { label: string; tip: string; link?
     desktop: {
         label: "desktop - system audio",
         link: "https://wiki.archlinux.org/title/PulseAudio#Monitor_sources",
-        tip: "Everything the machine plays, captured from the default output's monitor source (PulseAudio/PipeWire) and muxed in as a stereo second track. What codes that track is the audio codec field.",
+        tip: "Everything the machine plays, muxed in as a stereo second track. What codes that track is the audio codec field.",
     },
 };
 

@@ -18,6 +18,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/platform"
 )
 
 const configDirName = "screenshare"
@@ -29,10 +30,14 @@ const configDirMode = 0o755
 // storeFileMode is the permission the settings and preset files are written with.
 const storeFileMode = 0o644
 
-// audioSourceNone is the Audio value of a stream with no second track. The other
-// values name a capture source, which is the platform's question rather than this
-// package's, so only the absent one is spelled here.
-const audioSourceNone = "none"
+// audioSourceNone is the Audio value of a stream with no second track.
+//
+// It is read from the platform table rather than spelled here, because which sources
+// exist is that table's question and the absent one is a row of it: a constant typed in
+// this package would be a second spelling of a value the table produces, and the two
+// would agree until one of them was edited (docs/domain-model.md, "The second-track
+// capture sources").
+const audioSourceNone = platform.AudioSourceNone
 
 // defaultAudioCodec is the codec a fresh stream and a file written before the
 // option encode their track in. Opus is the one codec every transport here
@@ -70,7 +75,10 @@ type Stream struct {
 	Bframes    int    `json:"bframes"`   // lossy modes only; adds reorder latency
 	EncPreset  string `json:"encPreset"` // nvenc p1..p7
 	Capture    string `json:"capture"`   // a row of publish.Captures, applicable per OS and session
-	Audio      string `json:"audio"`     // none desktop (desktop = monitor of the default sink via PulseAudio/PipeWire)
+	// Audio is where the second track comes from: a row of the platform's own source
+	// table (platform.AudioSources), which is what declares the values and which
+	// platform serves each.
+	Audio string `json:"audio"`
 	// AudioCodec is the codec the second track is encoded in, a row of
 	// capabilities.AudioCodecs. It is a field of its own rather than a property of
 	// the source because the two answer to different tables: which sources exist is
@@ -106,6 +114,15 @@ type Stream struct {
 	// relay re-serves every stream on all its listeners, so the two legs of one
 	// stream can run different protocols.
 	WatchTransport string `json:"watchTransport"`
+	// OutputResolution is the picture the encoder is fed, as "WIDTHxHEIGHT", and the
+	// empty string where the capture's own size reaches it unscaled.
+	//
+	// One compound field rather than a width and a height, because the user picks one
+	// thing: two fields would be two controls that are only ever legal in pairs, and no
+	// form can say that. A string rather than a struct for the reason Chroma is one:
+	// the legal values are a list the backend generates from the selected monitor, so
+	// the only strings that arrive are ones this side wrote (api/proto/screenshare/v1).
+	OutputResolution string `json:"outputResolution"`
 	// GridTransport is the watch leg the native grid window receives every tile
 	// over. It is a field of its own rather than WatchTransport because the two
 	// viewers reach different protocol sets: the grid decodes through a GStreamer
@@ -223,13 +240,32 @@ const corruptSuffix = ".corrupt"
 func setAside(path string, cause error) error {
 	kept := path + corruptSuffix
 	if _, err := os.Stat(kept); err == nil {
-		return fmt.Errorf("%w - %s holds an earlier unreadable copy and is left untouched", cause, kept)
+		return &StoreUnreadable{Kept: kept, cause: fmt.Errorf("%w - %s holds an earlier unreadable copy and is left untouched", cause, kept)}
 	}
 	if err := os.Rename(path, kept); err != nil {
-		return fmt.Errorf("%w - moving it to %s failed: %v", cause, kept, err)
+		return &StoreUnreadable{cause: fmt.Errorf("%w - moving it to %s failed: %v", cause, kept, err)}
 	}
-	return fmt.Errorf("%w - it was moved to %s, so the values in it survive the next write", cause, kept)
+	return &StoreUnreadable{Kept: kept, cause: fmt.Errorf("%w - it was moved to %s, so the values in it survive the next write", cause, kept)}
 }
+
+// StoreUnreadable is a store file that could not be used, and where the values in it
+// went.
+//
+// The path is a field rather than a phrase inside the message because it is the one
+// part of this a surface has to show: a user whose settings did not come back wants to
+// know where they are, and a surface that had to find that by reading an error string
+// would be parsing prose. What went wrong stays prose, since it is the operating
+// system's answer or the JSON decoder's and neither is this app's vocabulary
+// (api/proto/screenshare/v1/text.proto).
+type StoreUnreadable struct {
+	// Kept is the copy holding the old values, and is empty where none could be made.
+	Kept  string
+	cause error
+}
+
+func (e *StoreUnreadable) Error() string { return e.cause.Error() }
+
+func (e *StoreUnreadable) Unwrap() error { return e.cause }
 
 // Load reads the persisted settings, and answers with Defaults() and the reason
 // when the stored ones cannot be used. A missing file is not a failure: a first

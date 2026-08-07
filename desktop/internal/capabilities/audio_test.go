@@ -1,8 +1,9 @@
 package capabilities
 
 import (
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"slices"
-	"strings"
 	"testing"
 )
 
@@ -140,7 +141,7 @@ func TestEveryAudioGapStatesAReasonAndAKnownEngine(t *testing.T) {
 			if g.Engine != "" && !slices.Contains(Engines, g.Engine) {
 				t.Errorf("audio codec %s has a gap on engine %q, which is not one of %v", a.Name, g.Engine, Engines)
 			}
-			if strings.TrimSpace(g.Reason) == "" {
+			if g.Reason == screensharev1.TextCode_TEXT_CODE_UNSPECIFIED {
 				t.Errorf("audio codec %s has a gap on engine %q with no reason", a.Name, g.Engine)
 			}
 			// Every gappable option is a video one, and EngineGap matches on the engine alone,

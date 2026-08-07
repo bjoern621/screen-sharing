@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      WinExe gives the binary the GUI subsystem on Windows, which is what the native
+      grid's -H=windowsgui does: a console-subsystem build opens a console window
+      beside the app whenever it is launched from Explorer.
+    -->
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>ScreenShare.App</RootNamespace>
+    <AssemblyName>screenshare-avalonia</AssemblyName>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+    <!--
+      The icon set, as a package rather than as vendored artwork. It carries the whole Tabler
+      outline set as geometry and draws it with a settable brush and stroke width, which is
+      what lets Design/Icons.axaml state the 1.2px stroke once instead of every icon arriving
+      at whatever weight it was exported at (docs/design-language.md).
+    -->
+    <PackageReference Include="TablerIcons.Avalonia" Version="3.44.0" />
+    <!--
+      No Avalonia.Diagnostics: the F12 inspector was dropped from the Avalonia repository
+      in 12 and the package stops at 11.3.19. The replacements on NuGet are third-party,
+      so none is pulled in here until one is picked deliberately.
+    -->
+  </ItemGroup>
+
+  <!--
+    The control contract. Grpc.Tools compiles the same .proto files the Go side generates
+    from, during this build and into obj/, so there is no checked-in C# copy and no step
+    that can be skipped on one side only (api/README.md).
+
+    GrpcServices="Client" because a shell only ever calls: it implements no service of its
+    own, which is the boundary rule stated as a build setting (docs/ipc-api.md).
+  -->
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.33.0" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.76.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.76.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="../../api/proto/screenshare/v1/*.proto" ProtoRoot="../../api/proto" GrpcServices="Client" />
+  </ItemGroup>
+
+</Project>

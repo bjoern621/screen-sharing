@@ -89,7 +89,7 @@ func TestRTSPProtocolPerLeg(t *testing.T) {
 }
 
 func TestRTSPValidatePublishSettings(t *testing.T) {
-	for _, protocol := range rtspProtocols {
+	for _, protocol := range RtspProtocols {
 		s := rtspStream()
 		s.RtspPublishProtocol = protocol
 		if err := (RTSP{}).ValidatePublishSettings(s); err != nil {

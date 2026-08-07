@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldSet, FieldLegend } from "@/components/ui/field";
 import {
+    AudioSource,
     Deps,
     EncodeRate,
     Monitor,
@@ -17,8 +18,9 @@ import {
     ViewVerdict,
 } from "../../types/stream";
 import {
-    AUDIO_SOURCES, CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, FRAME_MEMORIES, MODES,
-    RANGES, RTSP_PROTOCOLS, TRANSPORT_META, audioCodecOptions, bitrateTip,
+    CAPTURES, CHROMAS, DRM_MAPS, ENC_PRESETS, FRAME_MEMORIES, MODES,
+    RANGES, RTSP_PROTOCOLS, TRANSPORT_META, audioCodecOptions,
+    audioSourceOptions, bitrateTip,
     codecOptions, cqTip, engineTip, engineValue, familyOptions, fpsDisabled,
     fpsOptions, maxRefreshHz, monitorOptions, withNote, cropNote,
 } from "../../util/options";
@@ -93,6 +95,10 @@ interface StreamSettingsCardProps {
     /** The audio table, null until it resolves; the audio codec dropdown is built
      * from it. */
     audioCodecs: AudioCodec[] | null;
+    /** The second-track capture sources this platform serves, null until they
+     * resolve; the audio source dropdown is built from them. Which sources exist is
+     * the backend's answer, so this card holds no list of its own. */
+    audioSources: AudioSource[] | null;
     transports: string[];
     /** Publish engine of the selected capture backend, null until it resolves. */
     engine: Engine | null;
@@ -127,6 +133,7 @@ export default function StreamSettingsCard({
     deps,
     caps,
     audioCodecs,
+    audioSources,
     transports,
     engine,
     monitors,
@@ -348,7 +355,7 @@ export default function StreamSettingsCard({
                         label="Audio"
                         labelTip="Audio source muxed into the stream as a second track. Viewers hear it automatically."
                         value={s.audio}
-                        options={AUDIO_SOURCES}
+                        options={audioSourceOptions(audioSources)}
                         optionDisabled={deps.optionDisabled.audio}
                         onChange={v => onUpdate({ audio: v })}
                     />

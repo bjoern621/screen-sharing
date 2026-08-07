@@ -110,19 +110,19 @@ func (RTSP) GstSource(s settings.Stream, streamName string) []string {
 	}
 }
 
-// rtspProtocols are the RTP lower transports this protocol offers, the values
+// RtspProtocols are the RTP lower transports this protocol offers, the values
 // both RtspPublishProtocol and RtspWatchProtocol take. One list for both legs:
 // which transports carry RTP is a fact of RTSP, not of a direction.
-var rtspProtocols = []string{"tcp", "udp"}
+var RtspProtocols = []string{"tcp", "udp"}
 
 // ValidatePublishSettings rejects a lower transport RTSP does not run over.
 // ffmpeg's -rtsp_transport and rtspclientsink's protocols property both take a
 // fixed set of names, so a value outside it fails inside the publish process,
 // where the reason reaches the user as another program's error text.
 func (RTSP) ValidatePublishSettings(s settings.Stream) error {
-	if !slices.Contains(rtspProtocols, s.RtspPublishProtocol) {
+	if !slices.Contains(RtspProtocols, s.RtspPublishProtocol) {
 		return fmt.Errorf("rtsp publish protocol %q is not one of %s",
-			s.RtspPublishProtocol, strings.Join(rtspProtocols, ", "))
+			s.RtspPublishProtocol, strings.Join(RtspProtocols, ", "))
 	}
 	return nil
 }
@@ -142,7 +142,7 @@ var rtspWatchKnobs = []watchKnob{
 			"but the media travels toward the viewer on it, so nothing arrives until the viewer's own probe packets have opened "+
 			"the mapping through its NAT and the relay answers where they came from. "+
 			"TCP interleaves both tracks on the RTSP connection, which needs no second port and is what a filtering network is likeliest to pass.",
-		rtspProtocols,
+		RtspProtocols,
 		func(s *settings.Stream) *string { return &s.RtspWatchProtocol }),
 }
 

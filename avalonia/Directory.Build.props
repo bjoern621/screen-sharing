@@ -1,0 +1,31 @@
+<Project>
+
+  <!--
+    Settings shared by every project under avaloniagrid/. Avalonia 12 targets .NET 10,
+    so that is what the projects here build against; its packages keep a net8.0 floor,
+    which only means the reference assemblies resolve from lib/net8.0.
+
+    Nullable and warnings-as-errors are on for the same reason the Go modules run with
+    always-on assertions: a contract the compiler can check should not wait for a test.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+  </PropertyGroup>
+
+  <!--
+    Compiled bindings are Avalonia 12's default; naming it here keeps the intent
+    readable and makes a binding whose type does not line up a build failure rather
+    than a line in the runtime log.
+  -->
+  <PropertyGroup>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,383 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+import "screenshare/v1/text.proto";
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// The catalog is every fixed fact the backend holds about this machine and about
+// the encoding model: which codecs exist, what each can encode, which of them this
+// machine can actually run, what the display outputs are, and what each transport
+// carries.
+//
+// A shell fetches it to explain, never to decide. Deciding which value a control
+// may offer is Form's job (form.proto), because that answer depends on the whole
+// settings draft and not on any one table. The catalog exists beside it so a shell
+// can show the reference material behind a decision - what a codec's ceiling is,
+// which viewer hardware decodes a pixel format - without inventing the numbers.
+//
+// Nothing in here is a shell's to hardcode. A shell that ships its own list of
+// rate-control modes has forked the domain model, and the fork is invisible until
+// the two disagree.
+
+// Engine is a publish engine: the implementation that builds and runs the pipeline.
+// The two wrap different encoders, so a pixel format, a colour range, a rate-control
+// mode or a whole codec can be one engine's and not the other's.
+enum Engine {
+  // Absent, as on every other enum in this package. A field that arrives holding it
+  // was not set, and no reader may read that as a claim about either engine.
+  ENGINE_UNSPECIFIED = 0;
+  ENGINE_FFMPEG = 1;
+  ENGINE_GSTREAMER = 2;
+  // Every engine at once. It exists so that "this gap binds on both" and "this gap
+  // forgot to name an engine" are different values: they were the same value while
+  // ENGINE_UNSPECIFIED carried the first meaning, which made a dropped field the
+  // strongest claim the message can make.
+  ENGINE_ANY = 3;
+}
+
+// Leg is which half of the path a fact is about: the publisher-to-relay hop, or the
+// relay-to-viewer one. A carriage is per leg because the relay re-serves an
+// ingested stream on every listener whose protocol has a mapping for it, so the two
+// legs of one stream routinely run different protocols.
+enum Leg {
+  LEG_UNSPECIFIED = 0;
+  LEG_PUBLISH = 1;
+  LEG_WATCH = 2;
+}
+
+// Gap is one thing a codec or an audio codec cannot do, with the reason a shell
+// shows in place of the option.
+//
+// A gap takes one value of one settings option away rather than narrowing the row:
+// an option value one engine reaches stays offered on that engine's capture
+// backends, and the engine that lacks it says why. That is what lets a form say "no
+// GStreamer encoder element takes planar-RGB input" instead of hiding the format
+// from everyone.
+message Gap {
+  // engine is the publish engine the gap applies to. ENGINE_ANY means the format or
+  // the library has no such capability, rather than one builder failing to reach it.
+  Engine engine = 1;
+  // option is the settings field the gap takes a value away from, named as
+  // StreamSettings names it. A gap naming no option takes the codec off that engine
+  // altogether, since no value of any option reaches an encoder that is not there.
+  string option = 2;
+  // value is the one value of that option the gap removes.
+  string value = 3;
+  // reason states which library or element lacks the capability, as a code naming that
+  // fact rather than as a sentence about it. It takes no arguments: the codec, the
+  // engine and the value it removes are the three fields above, so a shell already
+  // holds everything the sentence names (text.proto).
+  Text reason = 5;
+
+  // 4 was reason as prose.
+  reserved 4;
+}
+
+// EngineLimit is what one publish engine bounds one codec by.
+//
+// It is a row per engine rather than a map keyed by engine name, because a proto map
+// takes no enum key and the name-keyed form meant the contract carried the engine as
+// an enum in five messages and as a string in four more. One axis, one type.
+//
+// Both figures carry presence, so an engine that bounds neither contributes no row and
+// an engine that bounds one states only that one. An absent ceiling is not a ceiling
+// of zero.
+message EngineLimit {
+  Engine engine = 1;
+  // cq_max is the ceiling of the constant-quality scale. The scale is the library's
+  // rather than the app's, so it is a fact of the row and not a constant a shell may
+  // assume.
+  optional int32 cq_max = 2;
+  // bitrate_limit_mbps is the highest bitrate the encoder accepts on this engine.
+  optional int32 bitrate_limit_mbps = 3;
+}
+
+// VideoCodec is one encoder the app knows about, and the fixed facts that decide
+// what it may be asked for.
+message VideoCodec {
+  // name is the encoder as the engine names it, e.g. "hevc_nvenc". It is the value
+  // StreamSettings.codec carries.
+  string name = 1;
+  // family is the backend the encoder belongs to: software, nvenc, vaapi, qsv, amf,
+  // v4l2, rkmpp or vulkan. Every per-backend behaviour keys off the family rather
+  // than off a name suffix, and the frame-memory table below is indexed by it.
+  string family = 2;
+  // format is the bitstream this encoder produces, e.g. "h264", "hevc", "av1". It
+  // is what a transport carries, which is why carriage is stated per format and not
+  // per encoder.
+  string format = 3;
+  // implemented reports whether this app builds a pipeline for the codec at all, as
+  // against a row that exists so the table can state why it is absent.
+  bool implemented = 4;
+  // chromas are the pixel formats the encoder may be given, before gaps narrow them
+  // per engine.
+  repeated string chromas = 5;
+  // limits are the numeric ceilings, one row per engine that imposes any.
+  repeated EngineLimit limits = 9;
+  repeated Gap gaps = 8;
+
+  // 6 and 7 were cq_max and bitrate_limit_mbps, two maps keyed by engine name. They
+  // are one repeated row above, for the reason EngineLimit states.
+  reserved 6, 7;
+  reserved "cq_max", "bitrate_limit_mbps";
+}
+
+// Decoder is one decode path a viewer might have. The decode table describes other
+// people's hardware, not this machine: a stream is published once and watched on
+// whatever the watchers have, so nothing here is probed and nothing here forbids a
+// choice.
+//
+// A shell reads it to say what a publish choice costs a viewer. Every format has a
+// software decoder, so a pixel format no GPU takes is a viewer spending cores,
+// which is a trade the publisher is entitled to make once it is stated.
+message Decoder {
+  // element is the decoder as the receiving pipeline names it.
+  string element = 1;
+  // family is which kind of decode path it is: software, va, nvcodec, qsv or dxva.
+  string family = 2;
+  string format = 3;
+  repeated string chromas = 4;
+
+  // 5 was reason, a sentence stating what bounds the chroma list. What bounds it is a
+  // fact about one decode family and one format - "NVDEC's H.264 decoder is 8-bit
+  // 4:2:0 on every generation" - and family and format are both on this row, so a
+  // shell says it from the two identifiers it already has.
+  reserved 5;
+  reserved "reason";
+}
+
+// AudioEncoder is how one publish engine codes one audio codec.
+message AudioEncoder {
+  Engine engine = 1;
+  // element is the encoder element or ffmpeg encoder name.
+  string element = 2;
+  // parser is the element that has to follow it where the muxer needs framed input,
+  // empty where none does.
+  string parser = 3;
+}
+
+// AudioCodec is one codec the second track can be coded in.
+//
+// The source and the codec are two settings against two tables, because they answer
+// different questions: which sources exist is the platform's answer, which codecs
+// reach the relay is the engine's and the publish leg's.
+message AudioCodec {
+  string name = 1;
+  // format is what the transport tables name this track by, which is how a leg's
+  // carriage and this row meet.
+  string format = 2;
+  // rate_hz is the sample rate the capture branch resamples to, bitrate_kbps the
+  // rate the track is coded at. Both are the row's rather than the user's: they are
+  // stated once so the two engines build the same branch.
+  int32 rate_hz = 3;
+  int32 bitrate_kbps = 4;
+  repeated AudioEncoder encoders = 5;
+  repeated Gap gaps = 6;
+}
+
+// EngineCodecs is what one probe run found. It exists as a message because a oneof
+// cannot hold a map directly.
+message EngineCodecs {
+  // usable maps a codec name to whether the probe ran it. A codec absent from the
+  // map was not reached on this engine at all.
+  map<string, bool> usable = 1;
+}
+
+// EngineProbe is one engine's probe result.
+//
+// The oneof is the invariant: an engine is either probed or carries the reason it was
+// not, and it was previously possible to state both by writing an engine into two
+// parallel maps. An engine that could not be probed is not an engine with nothing
+// usable, and a form must not present it as one.
+message EngineProbe {
+  Engine engine = 1;
+  oneof result {
+    EngineCodecs probed = 2;
+    // unprobed states that this engine could not be probed at all - its own tooling
+    // missing, rather than its encoders being absent. The tool's own "not found" text
+    // is a machine's answer rather than a fact about the domain and goes to the run
+    // log, not here.
+    Text unprobed = 4;
+  }
+
+  // 3 was unprobed as prose.
+  reserved 3;
+}
+
+// EncoderAvailability is what this machine can really encode, as against what the
+// codec table says exists. It is the one probed part of the catalog, so a form can
+// grey NVENC on a machine with no NVIDIA GPU and a codec whose GStreamer plugin is
+// missing on the portal backend alone.
+message EncoderAvailability {
+  repeated EngineProbe engines = 3;
+
+  // 1 and 2 were usable and unprobed, two maps keyed by engine name whose keys could
+  // disagree with each other. EngineProbe holds both halves in one row.
+  reserved 1, 2;
+  reserved "usable", "unprobed";
+}
+
+// PathColour says who converts the captured frames to the encoder's layout on a GPU
+// path. It is what decides whether the memory setting may resolve to that path
+// without asking the user a second question.
+enum PathColour {
+  PATH_COLOUR_UNSPECIFIED = 0;
+  // Device-side conversion that takes the settings' colour and states it.
+  PATH_COLOUR_EXACT = 1;
+  // A device path with no conversion on it: the encoder converts, in its own
+  // colour, and the settings' colour is what the path costs.
+  PATH_COLOUR_ENCODER = 2;
+}
+
+// GpuPath is one capture backend and encoder family whose frames reach the encoder
+// without leaving the GPU.
+//
+// It is a table of pairs rather than of codecs because neither end decides alone:
+// the portal capture shares device memory with a VAAPI encoder and not with an x264
+// one, and a VAAPI encoder shares it with the portal capture and not with
+// ximagesrc. A selection matching no row can only take the system-memory copy.
+message GpuPath {
+  Engine engine = 1;
+  string capture = 2;
+  string family = 3;
+  PathColour colour = 5;
+  // import states what carries the frames from the capture end to the encode end, so
+  // a row says which mechanism has to work rather than only that one does. One code
+  // per row: the mechanism is exactly what differs between them, and a statement
+  // generic enough to cover all five would describe none.
+  Text import = 7;
+  // cost states what a PATH_COLOUR_ENCODER path takes instead of the settings'
+  // colour, and carries the pixel format and colour range the encoder signals
+  // instead. Absent on an exact row, which takes nothing.
+  Text cost = 8;
+
+  // 4 and 6 were import and cost as prose.
+  reserved 4, 6;
+}
+
+// TransportCarriage is what one transport carries, on one leg, for one engine.
+//
+// The engine axis exists because a single list per leg would have to state the
+// narrower of the two: the engine that carries more would be refused a format it
+// serializes correctly, and no form could give a reason for the refusal.
+message TransportCarriage {
+  string name = 1;
+  Leg leg = 2;
+  Engine engine = 3;
+  // video are the bitstream formats this leg carries, audio the second-track
+  // codecs. They travel together because what a listener carries as a bitstream and
+  // what it carries as a track are one fact about that listener.
+  repeated string video = 4;
+  repeated string audio = 5;
+}
+
+// CaptureBackend is one way of getting pictures off this machine.
+message CaptureBackend {
+  // name is the value StreamSettings.capture carries.
+  string name = 1;
+  // engine is the publish engine that runs it. It is the fact most other
+  // availability hangs off, because the two engines express the same rate-control
+  // modes through different properties.
+  Engine engine = 2;
+  // transports are the publish legs this backend's engine can carry, which is why
+  // the portal path never offers WebRTC: there is no GStreamer sink for it.
+  repeated string transports = 3;
+  // available reports whether this backend can run on this platform and session at
+  // all, and reason states why not when it cannot: the operating system it needs, or
+  // the session it needs on that operating system.
+  bool available = 4;
+  Text reason = 6;
+  // grant states the privilege this backend needs and no probe can establish, absent
+  // for a backend behind none. It is not an unavailability: the process holds the
+  // privilege or the capture dies at launch, and nothing can tell which in advance.
+  Text grant = 7;
+
+  // 5 was reason as prose.
+  reserved 5;
+}
+
+// Monitor is one display output.
+message Monitor {
+  // index is the capture index, and the value StreamSettings.monitor carries.
+  int32 index = 1;
+  int32 width = 2;
+  int32 height = 3;
+  // offset_x and offset_y place the output's top-left corner in the virtual
+  // desktop, and are absent on a platform that selects an output by index and has no
+  // virtual-desktop origin to report.
+  int32 offset_x = 4;
+  int32 offset_y = 5;
+  bool primary = 6;
+  // refresh_hz is the active mode's refresh rate, absent where it could not be read.
+  // A monitor whose rate is unknown is not a monitor that refreshes at no rate.
+  optional int32 refresh_hz = 7;
+}
+
+// Platform is the machine the backend is running on.
+message Platform {
+  // os is the operating system: "windows", "linux", "darwin".
+  string os = 1;
+  // display is the Linux display server, "x11" or "wayland", and empty where the
+  // question does not apply or could not be answered.
+  string display = 2;
+}
+
+// TransportList is one map value in WatchTransportsByFormat. Repeated fields cannot
+// be map values, which is why it exists.
+message TransportList {
+  repeated string transports = 1;
+}
+
+// Catalog is the whole reference set, fetched in one call.
+//
+// It is one message rather than a call per table because the tables are read
+// together and constrain each other: a shell that fetched them separately could
+// hold a codec list from before a probe finished and a probe result from after it.
+message Catalog {
+  Platform platform = 1;
+  repeated Monitor monitors = 2;
+
+  repeated VideoCodec codecs = 3;
+  repeated Decoder decoders = 4;
+  repeated AudioCodec audio_codecs = 5;
+  EncoderAvailability encoders = 6;
+  repeated GpuPath gpu_paths = 7;
+  repeated CaptureBackend captures = 8;
+  repeated TransportCarriage carriage = 9;
+
+  // The closed value sets the domain model declares. They are on the wire so a
+  // shell can iterate them rather than restate them, and so a value added in Go
+  // reaches every shell without an edit. The publish engines are not among them:
+  // they are the Engine enum, and a list of their names beside it was the same set
+  // spelled twice.
+  repeated string families = 11;
+  repeated string modes = 12;
+  repeated string frame_memories = 13;
+  // capability_options are the settings fields a Gap may name.
+  repeated string capability_options = 14;
+
+  // watch_transports are the legs an external viewer can be opened on.
+  repeated string watch_transports = 15;
+  // watch_transports_by_format narrows that list per bitstream format: the relay
+  // re-serves a stream only on the listeners whose protocol has a mapping for it.
+  // Offering the whole list instead would put a viewer in front of a stream its
+  // protocol cannot carry, and the failure would read as a broken stream rather
+  // than an impossible combination.
+  map<string, TransportList> watch_transports_by_format = 17;
+
+  // audio_sources are the second-track capture sources this platform offers,
+  // "none" among them.
+  repeated string audio_sources = 18;
+
+  // 10 was engines, the Engine enum's values restated as strings. 16 was
+  // grid_transports, the legs the GTK4 grid window could receive over; that window is
+  // obsolete and the legs were never anything but the GStreamer watch rows of
+  // carriage. 19 was store_notice, which is why the persisted settings could not be
+  // restored - a fact about the settings and not about this machine, and it now
+  // arrives on GetSettingsResponse beside the settings it is about.
+  reserved 10, 16, 19;
+  reserved "engines", "grid_transports", "store_notice";
+}

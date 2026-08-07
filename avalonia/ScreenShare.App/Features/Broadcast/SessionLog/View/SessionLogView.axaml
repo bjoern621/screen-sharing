@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:model="using:ScreenShare.App.Features.Broadcast.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.SessionLog.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.SessionLog.View.SessionLogView"
+             x:DataType="vm:SessionLogViewModel">
+
+  <UserControl.Styles>
+    <!--
+      Three tiers on one line: when it happened is dimmest, what happened carries the
+      words, and the level brightens only when it is worth interrupting a reader for.
+      Warning is declared last so it wins over the level's resting colour.
+    -->
+    <Style Selector="TextBlock.stamp">
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+    <Style Selector="TextBlock.level">
+      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
+    </Style>
+    <Style Selector="TextBlock.message">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.warn">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" Padding="13,12">
+    <DockPanel>
+
+      <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+        <TextBlock Grid.Column="0" Classes="caption" Text="Session log" VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+                Content="Open full log"
+                VerticalAlignment="Center"
+                Command="{Binding OpenFullLogCommand}" />
+      </Grid>
+
+      <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="model:LogLine">
+            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" Height="{StaticResource TextRowHeight}">
+              <TextBlock Classes="ident stamp" Text="{Binding Time}" VerticalAlignment="Center" />
+              <TextBlock Classes="ident level"
+                         Classes.warn="{Binding IsWarning}"
+                         Text="{Binding Level}"
+                         VerticalAlignment="Center" />
+              <TextBlock Classes="ident message" Text="{Binding Message}" VerticalAlignment="Center" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </DockPanel>
+  </Border>
+</UserControl>

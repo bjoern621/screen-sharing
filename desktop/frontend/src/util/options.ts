@@ -1,4 +1,4 @@
-import { Monitor, Option } from "../types/stream";
+import { AudioSource, Monitor, Option } from "../types/stream";
 import {
     AUDIO_CODEC_META, AUDIO_META, AudioCodec, CHROMA_META, Capability,
     ENCODER_TIPS, ENGINE_LABEL, Engine, FAMILY_META, FORMAT_META, Family, Format,
@@ -13,7 +13,33 @@ const NVENC_LINK = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
 // table instead, so they list exactly the codecs the backend declares.
 export const MODES: Option[] = metaOptions(MODE_META);
 export const CHROMAS: Option[] = metaOptions(CHROMA_META);
-export const AUDIO_SOURCES: Option[] = metaOptions(AUDIO_META);
+
+/**
+ * The "Audio" dropdown: one option per second-track source the backend platform table
+ * declares, in table order. Empty until the table loads.
+ *
+ * The list used to be built from AUDIO_META's own keys, which made this file the place
+ * that knew there were two sources - a rule written once in Go and once here, and the
+ * drift docs/ipc-api.md exists to end. Which sources exist is the platform's answer, so
+ * the values are the backend's rows and only the label and the paragraph are ours.
+ *
+ * Every declared source is offered, including the ones this machine does not serve:
+ * those are greyed by `evaluateDeps` from the same rows, so a user reads what their
+ * machine is missing instead of finding a shorter list (docs/field-availability.md).
+ * Where the samples come from is the row's own `server`, appended rather than written
+ * into the paragraph, because it is the part that differs per platform.
+ */
+export function audioSourceOptions(sources: AudioSource[] | null): Option[] {
+    if (!sources) {
+        return [];
+    }
+    return sources.map(s => {
+        const m = AUDIO_META[s.id];
+        const served = s.server ? `Read from the ${s.server}.` : "";
+        const tip = [m?.tip, served].filter(Boolean).join("\n");
+        return { value: s.id, label: m?.label ?? s.id, tip, link: m?.link };
+    });
+}
 
 /**
  * The "Audio codec" dropdown: one option per codec the backend audio table

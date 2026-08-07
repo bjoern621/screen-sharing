@@ -195,6 +195,49 @@
         # On a machine with no Intel GPU it loads and reports no hardware
         # implementation, which is the encoder probe's answer rather than a table fact.
         vplRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.vpl-gpu-rt ];
+        # The Avalonia shell's toolchain (avalonia/README.md). The SDK is the whole
+        # build, run and test story for that module, and Directory.Build.props pins
+        # net10.0 because Avalonia 12 targets it, so the 10 in the attribute name is
+        # the version the projects will not build without.
+        #
+        # protobuf and grpc are here for a reason specific to this package set.
+        # Grpc.Tools compiles api/proto during the build, with prebuilt protoc and
+        # grpc_csharp_plugin binaries it carries inside the NuGet package. Those are
+        # linked against /lib64/ld-linux-x86-64.so.2, an interpreter NixOS does not
+        # have, so the build dies with "cannot execute: required file not found"
+        # before a single .cs file is generated. The shellHook points Grpc.Tools at
+        # this pair instead; nothing else in the repo consumes them, since the Go
+        # side generates through buf and buf carries its own compiler.
+        dotnetDeps = with pkgs; [
+          dotnet-sdk_10
+          protobuf
+          grpc
+        ];
+        # Everything the Avalonia app resolves by soname at run time, and therefore
+        # everything that has to be on the loader path rather than merely in the
+        # shell closure. Two sources: the X11 backend dlopens libX11 and its
+        # extensions, and Skia - the renderer behind every pixel Avalonia draws -
+        # arrives as a prebuilt libSkiaSharp.so from NuGet that expects fontconfig,
+        # freetype and libstdc++ to be findable the same way. Neither is patched by
+        # nix, since neither passes through a derivation.
+        #
+        # Unlike the AMF directory, this list does shadow libraries the rest of
+        # the shell already uses. It resolves to the store paths they link against,
+        # because it comes from the same package set, so the shadowing is nominal for
+        # as long as that holds.
+        avaloniaRuntimeDeps = with pkgs; [
+          fontconfig
+          freetype
+          libglvnd # libGL and libEGL: the X11 backend's GPU render path
+          stdenv.cc.cc.lib # libstdc++, for libSkiaSharp
+          xorg.libICE
+          xorg.libSM
+          xorg.libX11
+          xorg.libXcursor
+          xorg.libXext
+          xorg.libXi
+          xorg.libXrandr
+        ];
       in
       {
         devShells.default = pkgs.mkShell {
@@ -215,8 +258,14 @@
               nil
               nixfmt
             ]
+            ++ dotnetDeps
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux (
-              linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime ++ vplRuntime
+              linuxDeps
+              ++ linuxCaptureDeps
+              ++ gstDeps
+              ++ amfRuntime
+              ++ vplRuntime
+              ++ avaloniaRuntimeDeps
             );
 
           shellHook = ''
@@ -227,6 +276,19 @@
             # watch.Select reads this; mpv is the viewer for this shell. Unset it
             # to fall back to the in-code default, ffplay.
             export SCREENSHARE_VIEWER=mpv
+
+            # Grpc.Tools resolves both of these itself when they are empty, to the
+            # prebuilt binaries in its NuGet package that this platform cannot run.
+            # MSBuild reads the environment as global properties and Grpc.Tools sets
+            # both under a "is it still empty" condition, so naming them here is the
+            # whole override - no property in a .csproj, and nothing a Windows
+            # checkout of the same tree picks up.
+            export Protobuf_ProtocFullPath="${pkgs.protobuf}/bin/protoc"
+            export gRPC_PluginFullPath="${pkgs.grpc}/bin/grpc_csharp_plugin"
+
+            # The first `dotnet` of a session otherwise prints a telemetry notice
+            # into whatever output the task runner is showing.
+            export DOTNET_CLI_TELEMETRY_OPTOUT=1
           ''
           + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
@@ -247,6 +309,15 @@
             # directory holds nothing but libamfrt64, so it shadows no system
             # library for the processes that inherit this.
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath amfRuntime}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          ''
+          + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+            # The X11 backend and libSkiaSharp dlopen their way to these, so a shell
+            # that only carried them as build inputs would still fail at the first
+            # window: `task avalonia` dies in Avalonia's platform init, before any
+            # code in the app runs.
+            export LD_LIBRARY_PATH="${
+              pkgs.lib.makeLibraryPath avaloniaRuntimeDeps
+            }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
 

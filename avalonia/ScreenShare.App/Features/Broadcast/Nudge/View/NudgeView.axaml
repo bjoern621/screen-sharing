@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.Nudge.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.Nudge.View.NudgeView"
+             x:DataType="vm:NudgeViewModel">
+
+  <UserControl.Styles>
+    <!-- The two ends of the track. Not labels for a value - they name a direction. -->
+    <Style Selector="TextBlock.end">
+      <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+      <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" Padding="12">
+    <StackPanel Spacing="{StaticResource GapControl}">
+
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Classes="caption" Text="Live quality nudge" VerticalAlignment="Center" />
+        <!-- The caption is the permission slip: this is why the one editable control is here. -->
+        <TextBlock Grid.Column="1"
+                   Classes="hint"
+                   FontSize="{StaticResource FontSizeSmall}"
+                   Text="applies without a reconnect"
+                   VerticalAlignment="Center" />
+      </Grid>
+
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <TextBlock Grid.Column="0" Classes="end" Text="Smoother" />
+        <Slider Grid.Column="1"
+                Minimum="0"
+                Maximum="100"
+                Margin="11,0"
+                VerticalAlignment="Center"
+                Value="{Binding Sharpness, Mode=TwoWay}" />
+        <TextBlock Grid.Column="2" Classes="end" Text="Sharper" />
+      </Grid>
+
+      <TextBlock Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding Estimate}" />
+
+    </StackPanel>
+  </Border>
+</UserControl>

@@ -31,9 +31,6 @@ func TestEveryDecoderRowSpeaksTheCodecTablesVocabulary(t *testing.T) {
 				t.Errorf("%s decodes chroma %q, which no codec row encodes", d.Element, chroma)
 			}
 		}
-		if d.Reason == "" {
-			t.Errorf("%s states no reason for where its chroma list stops", d.Element)
-		}
 	}
 }
 

@@ -10,9 +10,9 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// FindExe locates a media executable (ffmpeg, ffplay, mpv). A copy shipped
-// next to the app binary wins over one on PATH, so a bundled build is
-// self-contained.
+// FindExe locates a media executable (ffmpeg, ffplay, mpv, gst-launch-1.0). A
+// copy shipped next to the app binary wins over one on PATH, so a bundled build
+// is self-contained.
 func FindExe(name string) (string, error) {
 	assert.Assert(name != "", "an executable lookup names the program to find")
 
@@ -29,7 +29,11 @@ func FindExe(name string) (string, error) {
 
 	path, err := exec.LookPath(name)
 	if err != nil {
-		return "", fmt.Errorf("%s not found: install ffmpeg or place %s next to the app", name, name)
+		// The program is named rather than the project shipping it: this resolves the
+		// GStreamer launcher as well as the ffmpeg pair, and a GStreamer binary reported
+		// missing under an instruction to install ffmpeg sends the reader after the wrong
+		// package.
+		return "", fmt.Errorf("%s not found: put it on PATH or place %s next to the app", name, name)
 	}
 	return path, nil
 }

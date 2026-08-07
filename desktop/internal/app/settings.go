@@ -6,9 +6,11 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 func (a *App) GetSettings() settings.Stream {
@@ -24,12 +26,20 @@ func (a *App) GetSettings() settings.Stream {
 // afterwards. So the publish state is announced from here too: what the form shows and
 // what the viewers are watching have just moved apart, and App.Republish is what closes
 // the gap.
+//
+// The settings themselves are announced for the same reason one leg further out. This
+// is the one place the held settings are written, so it is the one place that can say
+// they moved, and a shell that did not make the change reads it here rather than by
+// asking again on a timer. The announcement carries no settings: on the contract's rule
+// a shell re-reads the state the event names, which is what keeps the persisted copy
+// and the announced one from being two answers.
 func (a *App) SaveSettings(s settings.Stream) error {
 	a.settingsMu.Lock()
 	a.settings = s
 	a.settingsMu.Unlock()
 
 	a.emitPublishState()
+	a.emit(wire.SettingsChangedEvent())
 	return settings.Save(s)
 }
 
@@ -104,6 +114,28 @@ func (a *App) TransportFormats() []TransportCarriage {
 		}
 	}
 	return out
+}
+
+// AudioSources lists where the second track can come from, resolved for this
+// machine's platform: every source the domain declares, in the order the form
+// presents them, each carrying whether a session here serves it, the sentence
+// saying what the machine is missing where it does not, and what serves it where
+// it does.
+//
+// Which sources exist is the platform's answer and not the frontend's. The list
+// was typed into util/domain.ts as AUDIO_META's keys and the reasons into
+// util/deps.ts as AUDIO_SOURCE_NEEDS, which is one rule written twice in two
+// languages - the drift docs/ipc-api.md exists to end. This is the binding that
+// takes the second copy away: the frontend keeps the label and the paragraph for
+// each value, which is a shell's own work, and reads which values there are and
+// which of them this machine serves from here.
+//
+// It is answered for the platform the app detected rather than for one passed in,
+// because there is one machine and the frontend already reads it through Platform:
+// a source list resolved for somebody else's operating system is a screen
+// describing a machine the user is not sitting at.
+func (a *App) AudioSources() []platform.AudioSource {
+	return platform.AudioSources(platform.Detect())
 }
 
 // AudioCodecs lists the audio codecs the second track can be encoded in, with the

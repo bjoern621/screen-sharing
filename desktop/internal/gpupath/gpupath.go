@@ -25,6 +25,8 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/capabilities"
 )
 
@@ -71,17 +73,21 @@ type Path struct {
 	// Family is the encoder family, one of capabilities.Families.
 	Family string `json:"family"`
 	// Import names what carries the frames from the capture end to the encode end, so
-	// a row states which mechanism has to work rather than only that one does.
-	Import string `json:"import"`
+	// a row states which mechanism has to work rather than only that one does. It is a
+	// code and not a sentence (api/proto/screenshare/v1/text.proto): one per row,
+	// because the mechanism is exactly what differs between the rows and a statement
+	// general enough to cover all of them would describe none.
+	Import screensharev1.TextCode `json:"import"`
 	// Colour is what this path does to the colour the settings name, which decides
 	// whether a memory setting may resolve to it without being asked twice.
 	Colour Colour `json:"colour"`
-	// Cost is one sentence naming what a ColourEncoder path takes instead of the
-	// settings' colour, phrased like Import: lowercase, no trailing period. The refusal
-	// under MemoryGpu carries it, and so does every field the run overrides, so a greyed
-	// control states why it is greyed at the control rather than in a log line. A
-	// ColourExact row leaves it empty, having taken nothing.
-	Cost string `json:"cost"`
+	// Cost names what a ColourEncoder path takes instead of the settings' colour. The
+	// refusal under MemoryGpu carries it, and so does every field the run overrides, so
+	// a greyed control states why it is greyed at the control rather than in a log
+	// line. A ColourExact row leaves it unset, having taken nothing; what the encoder
+	// signals instead is Signalled below, which is what a surface names in the
+	// statement's place.
+	Cost screensharev1.TextCode `json:"cost"`
 	// Signalled is the colour a ColourEncoder path's stream carries, empty on a
 	// ColourExact row.
 	Signalled Signalled `json:"signalled"`
@@ -115,28 +121,28 @@ var Paths = []Path{
 		Engine:  capabilities.EngineGst,
 		Capture: "portal",
 		Family:  capabilities.FamilyVaapi,
-		Import:  "the va elements import the portal's DMABuf and vapostproc converts on the GPU",
+		Import:  screensharev1.TextCode_TEXT_CODE_IMPORT_GST_PORTAL_VAAPI,
 		Colour:  ColourExact,
 	},
 	{
 		Engine:  capabilities.EngineGst,
 		Capture: "d3d11screencapturesrc",
 		Family:  capabilities.FamilyNvenc,
-		Import:  "d3d11convert converts the Desktop Duplication texture on the GPU and the nvcodec auto-GPU encoder negotiates the Direct3D 11 memory it produces",
+		Import:  screensharev1.TextCode_TEXT_CODE_IMPORT_GST_D3D11_NVENC,
 		Colour:  ColourExact,
 	},
 	{
 		Engine:  capabilities.EngineFfmpeg,
 		Capture: "kmsgrab",
 		Family:  capabilities.FamilyVaapi,
-		Import:  "the scanout buffer maps to a VAAPI surface and scale_vaapi converts on the GPU",
+		Import:  screensharev1.TextCode_TEXT_CODE_IMPORT_FFMPEG_KMSGRAB_VAAPI,
 		Colour:  ColourExact,
 	},
 	{
 		Engine:  capabilities.EngineFfmpeg,
 		Capture: "ddagrab",
 		Family:  capabilities.FamilyQsv,
-		Import:  "the Desktop Duplication texture maps to a QSV frame and vpp_qsv converts on the GPU",
+		Import:  screensharev1.TextCode_TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_QSV,
 		Colour:  ColourExact,
 	},
 	// The one row whose colour is the encoder's. Nothing converts between the two ends:
@@ -149,9 +155,9 @@ var Paths = []Path{
 		Engine:  capabilities.EngineFfmpeg,
 		Capture: "ddagrab",
 		Family:  capabilities.FamilyNvenc,
-		Import:  "nvenc reads the Desktop Duplication texture on its own device with no conversion between",
+		Import:  screensharev1.TextCode_TEXT_CODE_IMPORT_FFMPEG_DDAGRAB_NVENC,
 		Colour:  ColourEncoder,
-		Cost:    "nvenc converts the captured RGB itself: it writes BT.601 at limited range in 8-bit 4:2:0 and signals that, whatever colour range and pixel format are selected",
+		Cost:    screensharev1.TextCode_TEXT_CODE_COST_ENCODER_SIGNALS_ITS_OWN_COLOUR,
 		Signalled: Signalled{
 			Matrix: "bt470bg",
 			Range:  "tv",
@@ -204,7 +210,7 @@ func Resolve(engine, capture, family, memory string) (string, error) {
 	path, ok := For(engine, capture, family)
 	switch memory {
 	case MemoryAuto:
-		if ok && !path.Colour.tradesColour() {
+		if ok && !path.Colour.TradesColour() {
 			return MemoryGpu, nil
 		}
 		return MemorySystem, nil
@@ -212,17 +218,21 @@ func Resolve(engine, capture, family, memory string) (string, error) {
 		if !ok {
 			return "", noPath(engine, capture, family)
 		}
-		if path.Colour.tradesColour() {
+		if path.Colour.TradesColour() {
+			// The refusal names identifiers and the two values that get the user
+			// publishing again. What the path costs is the row's Cost code, which the
+			// form states on the greyed control itself: an operational error is read
+			// once and a greyed control is read where the choice is made.
 			return "", fmt.Errorf(
-				"%s capture into a %s encoder on the %s engine reaches the encoder on the GPU but converts nothing on the way: %s. Pick %q to publish on the GPU at that cost, or %q to convert on the CPU and keep the colour selected",
-				capture, family, engine, path.Cost, MemoryGpuEncoderColor, MemorySystem)
+				"%s capture into a %s encoder on the %s engine reaches the encoder on the GPU but converts nothing on the way. Pick %q to publish on the GPU at that cost, or %q to convert on the CPU and keep the colour selected",
+				capture, family, engine, MemoryGpuEncoderColor, MemorySystem)
 		}
 		return MemoryGpu, nil
 	case MemoryGpuEncoderColor:
 		if !ok {
 			return "", noPath(engine, capture, family)
 		}
-		if path.Colour.tradesColour() {
+		if path.Colour.TradesColour() {
 			return MemoryGpuEncoderColor, nil
 		}
 		return MemoryGpu, nil

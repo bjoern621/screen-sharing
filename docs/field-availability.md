@@ -4,6 +4,10 @@ A settings field can become inapplicable to the current combination of capture b
 Two treatments express that, and the choice between them is a fixed rule, not a per-field judgement.
 A third form covers the neighbouring case, a field that stays applicable but means something else.
 
+**Every "reason" on this page is a fact, not a sentence.**
+Which fact greys a control is decided in Go and crosses as a code with the identifiers it is about; the wording is the shell's, written where the column width and the tone are visible (`ipc-api.md`, `api/proto/screenshare/v1/text.proto`).
+So the quoted sentences below are one shell's rendering of the rule beside them, and the rule is what this page is about: a reason names the limit, names which side has it, and where two facts block one field, names the one the user can act on.
+
 ## The treatments
 
 **Hidden.**

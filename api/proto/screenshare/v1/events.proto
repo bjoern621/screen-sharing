@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+import "screenshare/v1/catalog.proto";
+import "screenshare/v1/session.proto";
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// The event stream is how the backend tells a shell what changed without being
+// asked. It carries the changes a shell did not make: another window's stop, a
+// pipeline that died on its own, a viewer that closed, an encoder probe that landed.
+//
+// Two rules keep it from becoming a second definition of the state.
+//
+// Every event carries a whole state, never a delta. A shell that receives
+// PublishState renders it; it does not apply it to something it was holding. That
+// is what lets a shell recover from a dropped connection by reading state again,
+// and what makes a duplicate event harmless.
+//
+// A shell that acted still waits for the event. The reply to StopPublish does not
+// say what the state became; the event does. One path into the display means a
+// window that pressed the button and a window that did not cannot end up showing
+// different things. Every effect on ControlService therefore has a state event that
+// answers it, and an effect without one is the bug that rule exists to name.
+
+// ExitInfo is how a child process ended.
+message ExitInfo {
+  // message is the failure, empty for a clean exit. It is prose meant for a person,
+  // and is never matched against.
+  string message = 1;
+  // log_path is the full run log on disk. A shell offers to open it through
+  // OpenLog rather than reading it, because the backend rotates these files and
+  // decides which of them are still around: a shell that opened a path itself would
+  // be reading a name the backend may have already moved.
+  string log_path = 2;
+}
+
+// ViewerExit says which external viewer ended.
+message ViewerExit {
+  WatchKey viewer = 4;
+  ExitInfo exit = 3;
+
+  // 1 and 2 were name and transport, the pair WatchKey exists to be.
+  reserved 1, 2;
+  reserved "name", "transport";
+}
+
+// ViewerState is every external viewer currently open.
+message ViewerState {
+  repeated WatchKey viewers = 1;
+}
+
+// TestStreamState is how many synthetic publishers are alive, which is not the count
+// that was asked for: one that died on its own drops out of it.
+message TestStreamState {
+  int32 running_count = 1;
+}
+
+// SettingsChanged says the backend's held settings moved for a reason that did not
+// come from this shell. A shell re-reads the settings and re-resolves its form; the
+// new values are not in the event, so there is one way to learn them.
+message SettingsChanged {}
+
+// ShowSettings asks the shell to bring its own configuration surface to the front.
+//
+// It is the one event that asks for something rather than reporting something, and it
+// is a user intent routed rather than a UI command: something outside the window - a
+// tray menu - reports that the user asked to configure, and which surface that is
+// remains the shell's answer.
+message ShowSettings {}
+
+// EventKind names one payload of Event, for a shell that wants some of them.
+//
+// It is an enum rather than the oneof's field names as strings, because a name typed
+// into a request is a name that can be misspelt, and the three places this build
+// already restates the set are three places one of them can be missed.
+enum EventKind {
+  // Absent. A subscription naming it is refused rather than served everything, since
+  // a request that failed to say what it wanted is not a request for all of it.
+  EVENT_KIND_UNSPECIFIED = 0;
+  EVENT_KIND_PUBLISH_STATE = 1;
+  EVENT_KIND_PUBLISH_STATS = 2;
+  EVENT_KIND_PUBLISH_EXIT = 3;
+  EVENT_KIND_RELAY_STATUS = 4;
+  EVENT_KIND_VIEWER_STATE = 5;
+  EVENT_KIND_VIEWER_EXIT = 6;
+  EVENT_KIND_TEST_STREAM_STATE = 7;
+  EVENT_KIND_TEST_STREAM_EXIT = 8;
+  EVENT_KIND_CATALOG = 9;
+  EVENT_KIND_SETTINGS_CHANGED = 10;
+  EVENT_KIND_SHOW_SETTINGS = 11;
+}
+
+// Event is one thing that happened.
+message Event {
+  // sequence counts the events this subscription was sent, from one. It is stamped
+  // per subscriber rather than per broker, because a subscription that named kinds is
+  // not sent the ones it filtered out: a number shared across subscribers would show
+  // a gap for every event a filter dropped, which is indistinguishable from the drop
+  // that means the reader fell behind. The states are whole, so a gap costs nothing
+  // but is worth knowing about.
+  uint64 sequence = 1;
+
+  oneof payload {
+    // The publish state after any change to it, whoever made the change. It is the
+    // same message GetPublishState returns.
+    PublishState publish_state = 2;
+    // One progress sample from the running encoder. High rate: roughly one per
+    // second per running pipeline.
+    PublishStats publish_stats = 3;
+    // The publish pipeline ended. The state event that follows says what the backend
+    // did about it; this one says why it happened and where the log is.
+    ExitInfo publish_exit = 4;
+
+    // A relay snapshot, at the backend's poll interval. It is pushed rather than
+    // polled by the shell so the byte-delta bitrates are computed against one steady
+    // interval instead of against whatever cadence each shell chose.
+    RelayStatus relay_status = 5;
+
+    // The open external viewers, whenever one opens or closes.
+    ViewerState viewer_state = 12;
+    // One external viewer ended. The state event says which are left; this one says
+    // why that one stopped and where its log is.
+    ViewerExit viewer_exit = 6;
+
+    // How many synthetic test publishers are alive, whenever that changes.
+    TestStreamState test_stream_state = 13;
+    // A synthetic test publisher ended.
+    ExitInfo test_stream_exit = 9;
+
+    // The whole reference set again, after the encoder probe filled in. It carries
+    // the catalog rather than the probe result alone because a shell holding a
+    // catalog has nothing to merge a half-state into, which is the same rule every
+    // other event here follows.
+    Catalog catalog = 14;
+
+    SettingsChanged settings_changed = 10;
+    ShowSettings show_settings = 11;
+  }
+
+  // 7 and 8 were grid_state and grid_exit, the GTK4 grid window's state and its exit.
+  // That window and the app that launched it are obsolete, and no surface this
+  // contract describes has a grid: how a viewer arranges what it receives is the
+  // shell's, and was never the backend's to report.
+  reserved 7, 8;
+  reserved "grid_state", "grid_exit";
+}

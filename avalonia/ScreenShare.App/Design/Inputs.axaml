@@ -1,0 +1,213 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!--
+    The controls a person types into or drags, as one table, keyed on the type so a view
+    that writes a bare TextBox or Slider gets the design rather than Fluent. Nothing here
+    is opt-in: a field that had to name a theme is a field that can forget to.
+
+    Everything Fluent draws for these controls - its own accent, its own corner, its own
+    hover - is replaced rather than dressed, for the reason Buttons.axaml gives: a Fluent
+    template paints its states from inside itself and wins over any setter layered on top.
+
+    The toggle is not here. A flag is a switch (Controls/Toggle), which is the same control
+    the broadcast surfaces and the advanced table already draw, so there is no CheckBox in
+    the product and no CheckBox theme to write.
+  -->
+
+  <!-- Text  -->
+
+  <!--
+    A typed value takes the app's one face at the default size, with tabular figures on: a
+    field someone types a bitrate or a port into is read digit by digit, and proportional
+    numerals move the text under the caret as it is typed (docs/design-language.md,
+    "Typography").
+
+    The placeholder is drawn here rather than left to Fluent, and it is a hint rather than a
+    dimmed value: it is prose the field's author wrote about what belongs in the box, so it
+    takes the hint colour and the proportional numerals prose is set in.
+  -->
+  <ControlTheme x:Key="{x:Type TextBox}" TargetType="TextBox">
+    <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+    <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
+    <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
+    <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="CaretBrush" Value="{StaticResource ForegroundBrush}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource SelectedBrush}" />
+    <Setter Property="SelectionForegroundBrush" Value="{StaticResource OnSelectedBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Root"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ScrollViewer Name="PART_ScrollViewer"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Hidden"
+                        Padding="{TemplateBinding Padding}">
+            <Panel>
+              <TextBlock Name="PART_Watermark"
+                         Text="{TemplateBinding PlaceholderText}"
+                         FontFamily="{StaticResource UiFont}"
+                         Foreground="{StaticResource HintBrush}"
+                         IsVisible="{TemplateBinding Text, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                         VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+              <TextPresenter Name="PART_TextPresenter"
+                           Text="{TemplateBinding Text, Mode=TwoWay}"
+                           CaretIndex="{TemplateBinding CaretIndex}"
+                           SelectionStart="{TemplateBinding SelectionStart}"
+                           SelectionEnd="{TemplateBinding SelectionEnd}"
+                           CaretBrush="{TemplateBinding CaretBrush}"
+                           SelectionBrush="{TemplateBinding SelectionBrush}"
+                           SelectionForegroundBrush="{TemplateBinding SelectionForegroundBrush}"
+                           PasswordChar="{TemplateBinding PasswordChar}"
+                           RevealPassword="{TemplateBinding RevealPassword}"
+                           TextAlignment="{TemplateBinding TextAlignment}"
+                           TextWrapping="{TemplateBinding TextWrapping}"
+                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Panel>
+          </ScrollViewer>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:pointerover /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
+    </Style>
+
+    <!-- Focus is the edge, not a fill: the box the caret sits in must not move under it. -->
+    <Style Selector="^:focus /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+      <Setter Property="BorderBrush" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!--
+    A number is the same box. The spinner is dropped rather than restyled: the design states
+    no stepper anywhere, and the control keeps its minimum, its maximum and its increment
+    whether or not two arrows are drawn - a value typed past either end is still clamped.
+    A field whose steps are worth dragging is offered as a slider by the form instead.
+  -->
+  <ControlTheme x:Key="{x:Type NumericUpDown}" TargetType="NumericUpDown">
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <TextBox Name="PART_TextBox"
+                 Text="{TemplateBinding Text, Mode=TwoWay}"
+                 IsReadOnly="{TemplateBinding IsReadOnly}"
+                 HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                 VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!-- Slider  -->
+
+  <!-- The 3px ring is the surface behind it, which is what punches the thumb out of the track. -->
+  <ControlTheme x:Key="SliderThumb" TargetType="Thumb">
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Ellipse Name="Knob"
+                 Fill="{StaticResource ForegroundBrush}"
+                 Stroke="{StaticResource CardBrush}"
+                 StrokeThickness="3" />
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="^:disabled /template/ Ellipse#Knob">
+      <Setter Property="Fill" Value="{StaticResource DisabledBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!-- The travelled part of the track: the one light surface, as far as the thumb has come. -->
+  <ControlTheme x:Key="SliderTrackFill" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Name="Fill"
+                Height="6"
+                VerticalAlignment="Center"
+                CornerRadius="{StaticResource RadiusSegment}"
+                Background="{StaticResource ForegroundBrush}" />
+      </ControlTemplate>
+    </Setter>
+
+    <Style Selector="^:disabled">
+      <Setter Property="Cursor" Value="Arrow" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#Fill">
+      <Setter Property="Background" Value="{StaticResource DisabledBrush}" />
+    </Style>
+  </ControlTheme>
+
+  <!--
+    A half of the track that paints nothing: the part still ahead of the thumb on a plain
+    slider, and both halves of the quantizer, whose zones are drawn by the form behind it.
+    Transparent rather than absent, because the half is still the click target that moves
+    the thumb a page.
+  -->
+  <ControlTheme x:Key="SliderTrackBlank" TargetType="RepeatButton">
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent" />
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+  <!--
+    Horizontal only. Every slider in the product runs left to right, and a vertical arm the
+    design never states is an arm nobody would notice had rotted.
+  -->
+  <ControlTheme x:Key="{x:Type Slider}" TargetType="Slider">
+    <Setter Property="Background" Value="{StaticResource DividerBrush}" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="Transparent">
+          <Border Height="6"
+                  VerticalAlignment="Center"
+                  CornerRadius="{StaticResource RadiusSegment}"
+                  Background="{TemplateBinding Background}" />
+          <Track Name="PART_Track"
+                 Orientation="Horizontal"
+                 Minimum="{TemplateBinding Minimum}"
+                 Maximum="{TemplateBinding Maximum}"
+                 Value="{TemplateBinding Value, Mode=TwoWay}">
+            <Track.DecreaseButton>
+              <RepeatButton Name="PART_DecreaseButton" Theme="{StaticResource SliderTrackFill}" />
+            </Track.DecreaseButton>
+            <Track.IncreaseButton>
+              <RepeatButton Name="PART_IncreaseButton" Theme="{StaticResource SliderTrackBlank}" />
+            </Track.IncreaseButton>
+            <Thumb Theme="{StaticResource SliderThumb}" Width="14" Height="14" />
+          </Track>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </ControlTheme>
+
+</ResourceDictionary>

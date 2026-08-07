@@ -139,10 +139,10 @@ func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 	}
 	if mem.upload == "" {
 		t.Fatalf("the %s path names no upload, so nothing puts generated frames where %s reads them",
-			mem.memory, mem.convert)
+			mem.memory, strings.Join(mem.convert, " "))
 	}
 	line := strings.Join(probe, " ")
-	upload, convert := strings.Index(line, mem.upload), strings.Index(line, mem.convert)
+	upload, convert := strings.Index(line, mem.upload), strings.Index(line, strings.Join(mem.convert, " "))
 	if upload < 0 || convert < 0 || upload > convert {
 		t.Errorf("the probe must upload before it converts: %s", line)
 	}

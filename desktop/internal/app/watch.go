@@ -5,8 +5,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
@@ -15,16 +13,49 @@ import (
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/watch"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // Live returns the relay snapshot. The frontend polls this every 2 seconds;
 // per-path bitrates are only meaningful with such a steady poll interval.
 func (a *App) Live() relay.Status {
+	return a.fetchRelay()
+}
+
+// fetchRelay asks the relay what is live, records the answer and announces it.
+//
+// Every fetch in this package goes through here, which is what makes the recorded
+// snapshot the last one taken rather than the last one some caller remembered to
+// record. That matters to the control service: it reads the snapshot rather than
+// fetching its own, so several shells asking what is live do not multiply the
+// requests the relay sees, and the byte-delta bitrates stay computed against the
+// poll interval this app already runs on instead of against each shell's cadence.
+//
+// The announcement carries no runtime event, because the frontend is the surface
+// doing the polling and already has the answer in its hand (events.go).
+func (a *App) fetchRelay() relay.Status {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	return a.relay.Fetch(s.RelayHost, s.ApiPort)
+	status := a.relay.Fetch(s.RelayHost, s.ApiPort)
+	a.relayLast.Store(&status)
+	a.emit(wire.RelayStatusEvent(status))
+	return status
+}
+
+// lastRelayStatus is the snapshot the last fetch produced, and an unreachable relay
+// with no reason given while none has been taken.
+//
+// That starting value is the honest one rather than a placeholder: before anything
+// has asked the relay, this app knows nothing about what is live, and "reachable" is
+// the one thing it must not claim. The first poll replaces it, which the frontend
+// runs every two seconds for as long as its window exists.
+func (a *App) lastRelayStatus() relay.Status {
+	if last := a.relayLast.Load(); last != nil {
+		return *last
+	}
+	return relay.Status{}
 }
 
 // WatchKey identifies one viewer window: a stream received over a specific
@@ -107,6 +138,14 @@ func (a *App) StartWatch(streamName, transportName string) error {
 		return err
 	}
 
+	// Announced after the lock is released, which is what the order of these two defers
+	// buys: emitViewerState reads the set through Watching and would deadlock against
+	// the mutex the rest of this function holds. It runs on the failed paths below too,
+	// where it announces the set unchanged - every event carries a whole state, so a
+	// duplicate is harmless, and the alternative is an effect that sometimes announces
+	// nothing.
+	defer a.emitViewerState()
+
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
@@ -134,9 +173,13 @@ func (a *App) StartWatch(streamName, transportName string) error {
 			} else {
 				logger.Infof("viewer for '%s' over %s closed (log: %s)", streamName, transportName, logPath)
 			}
-			runtime.EventsEmit(a.ctx, "watch:exit", watchExitEvent{
-				Name: streamName, Transport: transportName, Message: message, LogPath: logPath,
-			})
+			// The exit says why this one stopped; the state event beside it says which
+			// viewers are left. A viewer that closed on its own moves the set with nothing
+			// having been called, so the state has to be announced here as well as at the
+			// two calls that change it.
+			a.emit(wire.ViewerExitEvent(wire.WatchKey{StreamName: streamName, Transport: transportName}, message, logPath),
+				watchExitEvent{Name: streamName, Transport: transportName, Message: message, LogPath: logPath})
+			a.emitViewerState()
 		})
 	if err != nil {
 		return err
@@ -154,6 +197,8 @@ func (a *App) StartWatch(streamName, transportName string) error {
 }
 
 func (a *App) StopWatch(streamName, transportName string) {
+	defer a.emitViewerState()
+
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
@@ -164,4 +209,30 @@ func (a *App) StopWatch(streamName, transportName string) {
 		delete(a.watchers, key)
 		logger.Infof("stopped watching '%s' over %s", streamName, transportName)
 	}
+}
+
+// watchKeys is the open viewers in the contract's shape.
+//
+// It is the one conversion between the two structs, which hold the same pair under
+// almost the same names and differ only in which package declares them: the app's is
+// what the Wails binding generates a TypeScript type from, and wire's is what the
+// contract is built out of.
+func (a *App) watchKeys() []wire.WatchKey {
+	open := a.Watching()
+
+	keys := make([]wire.WatchKey, 0, len(open))
+	for _, key := range open {
+		keys = append(keys, wire.WatchKey{StreamName: key.Name, Transport: key.Transport})
+	}
+	return keys
+}
+
+// emitViewerState announces which external viewers are open.
+//
+// It reads the set through Watching rather than being handed one, so what is announced
+// is what a read would answer with rather than what a caller believed it had just
+// done. It takes procMu, so a caller holding that lock defers this rather than calling
+// it in place.
+func (a *App) emitViewerState() {
+	a.emit(wire.ViewerStateEvent(a.watchKeys()))
 }

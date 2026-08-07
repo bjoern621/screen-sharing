@@ -1,0 +1,129 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Shell.TitleBar.ViewModel"
+             xmlns:chrome="using:Avalonia.Controls.Chrome"
+             x:Class="ScreenShare.App.Features.Shell.TitleBar.View.TitleBarView"
+             x:DataType="vm:TitleBarViewModel">
+
+  <!--
+    The four caption shapes, as Windows draws them, in a 10x10 box that Design/Icons.axaml
+    maps one-to-one onto pixels.
+
+    Every coordinate is a half: a 1px stroke is centred on the line it is given, so x.5 puts
+    it across whole pixel column x and an integer would split it over two at half strength.
+    That is the difference between a crisp hairline and the grey smear a naive 0..10 square
+    renders as.
+
+    Restore is the two-window shape and not a second square: the front is the 8x8 the window
+    would return to, and the back is the part of the maximised one it no longer covers - up
+    the left edge to the top, across, down the right, and back to where the front hides it.
+  -->
+  <UserControl.Resources>
+    <StreamGeometry x:Key="CaptionMinimise">M0,5.5 H10</StreamGeometry>
+    <StreamGeometry x:Key="CaptionMaximise">M0.5,0.5 H9.5 V9.5 H0.5 Z</StreamGeometry>
+    <StreamGeometry x:Key="CaptionRestore">M0.5,2.5 H7.5 V9.5 H0.5 Z M2.5,2.5 V0.5 H9.5 V7.5 H7.5</StreamGeometry>
+    <StreamGeometry x:Key="CaptionClose">M0.5,0.5 L9.5,9.5 M0.5,9.5 L9.5,0.5</StreamGeometry>
+  </UserControl.Resources>
+
+  <!--
+    One of the two chrome bands. No rule under it: the nav strip below draws the only line
+    in this region, and a second one would fence the title off from the app rather than
+    joining it to it.
+
+    The 12px left padding is the design's strip inset. Design/Metrics.axaml states it as the
+    GapPanel spacing token, but there is no Thickness token to name here, so the number is
+    written out.
+
+    The band stands in for the native caption the window extended itself over, so it claims
+    the TitleBar role: drag, double-click to maximise and the right-click window menu are
+    then the platform's, not a handler's.
+  -->
+  <Border Classes="chromeband"
+          Height="{StaticResource TitleBarHeight}"
+          Padding="12,0,0,0"
+          chrome:WindowDecorationProperties.ElementRole="TitleBar">
+
+    <Grid ColumnDefinitions="Auto,*,Auto">
+
+      <StackPanel Grid.Column="0"
+                  Orientation="Horizontal"
+                  Spacing="{StaticResource GapControl}"
+                  VerticalAlignment="Center">
+
+        <!--
+          The app mark, and the live indicator, in one 12px rounded square. It carries the
+          one red in the palette, which is what lets a glance at the taskbar say the machine
+          is sending. 12px has no metric token of its own; the radius takes the smallest one
+          the design states.
+        -->
+        <Border Width="12"
+                Height="12"
+                CornerRadius="{StaticResource RadiusSegment}"
+                Background="{StaticResource OnAirBrush}"
+                VerticalAlignment="Center" />
+
+        <TextBlock Classes="title"
+                   Text="{Binding Title}"
+                   VerticalAlignment="Center" />
+      </StackPanel>
+
+      <!--
+        Minimise, maximise, close. The glyphs are the platform's shapes rather than this
+        app's icons: these buttons replace the ones Windows hid when the client area was
+        extended over the caption, and a caption button is read against every other window
+        on the screen.
+
+        The stroke is read off the button rather than named here, so the glyph follows
+        whatever state the button's theme puts it in.
+
+        Each one names the caption button it stands in for. On Win32 that role is the
+        HTMINBUTTON/HTMAXBUTTON/HTCLOSE the platform expects, which is what restores the
+        system's own minimise and restore animations and the snap-layout flyout that hovering
+        maximise opens. Elsewhere the role is inert and the command below does the work, so
+        both paths stay wired.
+      -->
+      <StackPanel Grid.Column="2" Orientation="Horizontal">
+
+        <Button Theme="{StaticResource WindowControlButton}"
+                Command="{Binding MinimiseCommand}"
+                chrome:WindowDecorationProperties.ElementRole="MinimizeButton"
+                ToolTip.Tip="Minimise">
+          <Path Classes="caption"
+                Data="{StaticResource CaptionMinimise}"
+                Stroke="{Binding $parent[Button].Foreground}" />
+        </Button>
+
+        <!--
+          One button with two glyphs, because that is one button on Windows: maximise while
+          the window is normal, restore while it is maximised. Both are always present and
+          the state picks which is shown, rather than a handler writing the shape, so the
+          glyph cannot disagree with the window it names.
+        -->
+        <Button Theme="{StaticResource WindowControlButton}"
+                Command="{Binding MaximiseCommand}"
+                chrome:WindowDecorationProperties.ElementRole="MaximizeButton"
+                ToolTip.Tip="{Binding MaximiseLabel}">
+          <Panel>
+            <Path Classes="caption"
+                  Data="{StaticResource CaptionMaximise}"
+                  Stroke="{Binding $parent[Button].Foreground}"
+                  IsVisible="{Binding !IsMaximised}" />
+            <Path Classes="caption"
+                  Data="{StaticResource CaptionRestore}"
+                  Stroke="{Binding $parent[Button].Foreground}"
+                  IsVisible="{Binding IsMaximised}" />
+          </Panel>
+        </Button>
+
+        <Button Theme="{StaticResource WindowControlButton}"
+                Command="{Binding CloseCommand}"
+                chrome:WindowDecorationProperties.ElementRole="CloseButton"
+                ToolTip.Tip="Close">
+          <Path Classes="caption"
+                Data="{StaticResource CaptionClose}"
+                Stroke="{Binding $parent[Button].Foreground}" />
+        </Button>
+      </StackPanel>
+    </Grid>
+  </Border>
+</UserControl>

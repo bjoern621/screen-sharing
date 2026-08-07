@@ -1,0 +1,72 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="using:System">
+
+  <!--
+    One family carries the whole product.
+
+    Inter is bundled rather than hoped for: the package is referenced in the csproj and
+    registered by Program.WithInterFont, so the name resolves to the shipped face on every
+    platform and the app reads the same on all three. The chain behind it is the platform
+    sans, which only ever runs if that registration is gone.
+
+    The second family is gone. A sans/mono split says "this value came from a machine", but
+    it says it by changing the shape of every letter mid-line, and the product's lines mix
+    prose and figures constantly - a status bar segment, a chip's detail, a card's title.
+    What the split was bought for is column alignment in a run of digits, and that is a font
+    feature rather than a font: FigureFeatures below turns on Inter's tabular numerals, which
+    gives every digit the same advance width without changing the face. Machine-ness is
+    carried by colour and by position instead, which is what the rest of the design already
+    does.
+  -->
+
+  <FontFamily x:Key="UiFont">Inter,Segoe UI,system-ui,sans-serif</FontFamily>
+
+  <!--
+    Tabular figures, for anything that is read as a column or that ticks: a timer whose
+    digits must not shuffle the text beside them, a table cell, a plot's annotation. Prose
+    keeps the proportional default, where a 1 next to a 4 is meant to look like prose.
+  -->
+  <FontFeatureCollection x:Key="FigureFeatures">+tnum</FontFeatureCollection>
+
+  <!--
+    The size ladder: four whole pixels, plus one promoted figure.
+
+    It replaces a seven-step 11-to-16 set, and both changes are legibility rather than taste.
+    The set was small - 11px badge glyphs and 13px body copy on a 1440p panel sit at or under
+    the 12px floor every published desktop scale starts at, and the sentences this form is
+    made of are the product's actual content rather than chrome. And seven steps inside a
+    5px range is not a ladder anyone can hear: 13 beside 14 beside 15 reads as one size
+    rendered unevenly, so the steps cost churn and bought no hierarchy.
+
+    Four steps, each a clear jump, and one 26px figure at the top. Whole pixels only: a half
+    step does not survive rasterisation, since 13.5px and 13px land on the same pixel grid at
+    100% scaling.
+  -->
+  <!--
+    Text that labels rather than says: the number inside a 16px step badge, a table's column
+    keys, a chip's trailing count. The floor - nothing in the product is set smaller.
+  -->
+  <sys:Double x:Key="FontSizeMinor">12</sys:Double>
+  <!-- Detail beside the point of the line: a hint, a muted key, a figure, a column head. -->
+  <sys:Double x:Key="FontSizeSmall">13</sys:Double>
+  <!-- The default. A control's label, body copy, and the size a bare TextBlock renders at. -->
+  <sys:Double x:Key="FontSizeBody">14</sys:Double>
+  <!-- A panel's name, and the action that commits a screen. The largest text anywhere. -->
+  <sys:Double x:Key="FontSizeHeading">16</sys:Double>
+  <!-- The figures in the broadcast header, sized to read from across a room. -->
+  <sys:Double x:Key="FontSizePromoted">26</sys:Double>
+
+  <!--
+    Line heights, for the two roles that wrap. A single-line label is left alone: setting a
+    line box taller than the glyphs on a row that is already centred vertically only moves
+    the text off the centre it was placed on.
+
+    Both are ~1.4x their size, which is the ratio prose is comfortable at and the reason the
+    numbers are stated rather than left to the face's own metrics - Inter's default leading
+    is tighter than a paragraph of explanation wants.
+  -->
+  <sys:Double x:Key="LineHeightSmall">18</sys:Double>
+  <sys:Double x:Key="LineHeightBody">20</sys:Double>
+
+</ResourceDictionary>

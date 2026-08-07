@@ -1,0 +1,45 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ScreenShare.App.App"
+             RequestedThemeVariant="Dark">
+
+  <!--
+    The design system, merged once. Order matters and is not cosmetic: the token
+    dictionaries define the values every theme below them asks for, so they come first and
+    the control themes come after.
+
+    Nothing outside Design/ states a colour, a size or a font. A component names the role
+    it wants, which is what keeps a light variant a second Palette rather than a sweep
+    through every view (docs/design-language.md).
+  -->
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Design/Palette.axaml" />
+        <ResourceInclude Source="/Design/Typography.axaml" />
+        <ResourceInclude Source="/Design/Metrics.axaml" />
+        <ResourceInclude Source="/Design/Buttons.axaml" />
+        <ResourceInclude Source="/Design/Inputs.axaml" />
+        <ResourceInclude Source="/Design/Tooltips.axaml" />
+        <ResourceInclude Source="/Controls/Chip/Chip.axaml" />
+        <ResourceInclude Source="/Controls/StatusPill/StatusPill.axaml" />
+        <ResourceInclude Source="/Controls/CheckItem/CheckItem.axaml" />
+        <ResourceInclude Source="/Controls/Segmented/Segmented.axaml" />
+        <ResourceInclude Source="/Controls/Select/Select.axaml" />
+        <ResourceInclude Source="/Controls/Toggle/Toggle.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <!--
+      Fluent underneath, so a control this design has not restyled still behaves and still
+      looks like it belongs. Everything the design does state overrides it below.
+    -->
+    <FluentTheme />
+    <StyleInclude Source="/Design/Text.axaml" />
+    <StyleInclude Source="/Design/Surfaces.axaml" />
+    <StyleInclude Source="/Design/Icons.axaml" />
+  </Application.Styles>
+
+</Application>

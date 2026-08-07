@@ -30,7 +30,7 @@ func TestEveryFfmpegGpuPathBuildsAChain(t *testing.T) {
 			t.Errorf("%s/%s: the family has no implemented codec to publish it with", p.Capture, p.Family)
 			continue
 		}
-		if _, err := GpuFilters(codec, "yuv420p", "pc"); err != nil {
+		if _, err := GpuFilters(codec, "yuv420p", "pc", settings.Size{}, false); err != nil {
 			t.Errorf("%s/%s: %v", p.Capture, p.Family, err)
 		}
 	}
@@ -205,4 +205,47 @@ func firstCodecOfFamily(family string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// A scaled run on the device path is the conversion filter's own business: the frames
+// never come back to system memory, so the one filter on the path is the only thing that
+// can resize them, and it takes the size beside the layout and the colour.
+func TestTheDeviceConversionCarriesTheOutputSize(t *testing.T) {
+	filters, err := GpuFilters("hevc_vaapi", "yuv420p", "pc", settings.Size{Width: 1280, Height: 720}, true)
+	if err != nil {
+		t.Fatalf("GpuFilters = %v, want a scaled device chain", err)
+	}
+
+	chain := strings.Join(filters, ",")
+	for _, want := range []string{"w=1280", "h=720"} {
+		if !strings.Contains(chain, want) {
+			t.Errorf("the device chain %q does not carry %s", chain, want)
+		}
+	}
+}
+
+// An unscaled run states no size at all rather than restating the capture's: a filter
+// told to produce the size it was given is a size the command claims to have chosen.
+func TestAnUnscaledDeviceConversionStatesNoSize(t *testing.T) {
+	filters, err := GpuFilters("hevc_vaapi", "yuv420p", "pc", settings.Size{}, false)
+	if err != nil {
+		t.Fatalf("GpuFilters = %v, want a device chain", err)
+	}
+
+	if chain := strings.Join(filters, ","); strings.Contains(chain, "w=") || strings.Contains(chain, "h=") {
+		t.Errorf("the device chain %q carries a size for a run that scales nothing", chain)
+	}
+}
+
+// A family whose device path carries no conversion has nothing on it that resizes: the
+// encoder reads the captured surfaces directly. The run is refused with the way across
+// named, rather than published at the capture's size under a setting that says otherwise.
+func TestAPathWithNoConversionRefusesAScaledRun(t *testing.T) {
+	_, err := GpuFilters("hevc_nvenc", "yuv420p", "pc", settings.Size{Width: 1280, Height: 720}, true)
+	if err == nil {
+		t.Fatal("a scaled run was accepted on a device path with no filter on it")
+	}
+	if !strings.Contains(err.Error(), "1280x720") {
+		t.Errorf("the refusal reads %q, which does not name the size that was asked for", err)
+	}
 }

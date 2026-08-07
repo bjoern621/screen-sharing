@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:config="using:ScreenShare.App.Features.Broadcast.ConfigCard.View"
+             xmlns:header="using:ScreenShare.App.Features.Broadcast.HeaderStats.View"
+             xmlns:log="using:ScreenShare.App.Features.Broadcast.SessionLog.View"
+             xmlns:nudge="using:ScreenShare.App.Features.Broadcast.Nudge.View"
+             xmlns:plots="using:ScreenShare.App.Features.Broadcast.Plots.View"
+             xmlns:preview="using:ScreenShare.App.Features.Broadcast.Preview.View"
+             xmlns:viewers="using:ScreenShare.App.Features.Broadcast.ViewerTable.View"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.View.BroadcastView"
+             x:DataType="vm:BroadcastViewModel">
+
+  <DockPanel>
+
+    <!--
+      The header band. The five figures on the left, the live-safe actions on the right,
+      and nothing between them that could be mistaken for configuration. Stop is the only
+      red button on the screen; the on-air pill is the only other red at all.
+    -->
+    <Border DockPanel.Dock="Top"
+            Background="{StaticResource PanelBrush}"
+            BorderBrush="{StaticResource HairlineBrush}"
+            BorderThickness="0,0,0,1"
+            Padding="12,11">
+      <Grid ColumnDefinitions="Auto,*,Auto">
+        <header:HeaderStatsView Grid.Column="0" DataContext="{Binding Stats}" />
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    Spacing="{StaticResource GapControl}"
+                    VerticalAlignment="Center">
+          <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}" />
+          <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}" />
+          <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}" />
+          <Button Theme="{StaticResource DangerButton}" Content="Stop" Command="{Binding StopCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!--
+      Two columns: a fixed one for what this stream is, and an elastic one for what it is
+      doing. The fixed width is what keeps the preview at 16:9 and the config values from
+      reflowing every time the window changes size.
+    -->
+    <Grid ColumnDefinitions="396,*" Margin="12">
+
+      <!--
+        Every card here takes its natural height and the column scrolls if the window is
+        shorter than they are. Handing the config card the leftover instead would clip its
+        last rows in silence, and a configuration list that quietly stops at "Transport" is
+        worse than one the reader has to scroll.
+      -->
+      <ScrollViewer Grid.Column="0"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <Grid RowDefinitions="Auto,Auto,Auto">
+          <preview:PreviewView Grid.Row="0" DataContext="{Binding Preview}" Margin="0,0,0,10" />
+          <nudge:NudgeView Grid.Row="1" DataContext="{Binding Nudge}" Margin="0,0,0,10" />
+          <config:ConfigCardView Grid.Row="2" DataContext="{Binding Config}" />
+        </Grid>
+      </ScrollViewer>
+
+      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="10,0,0,0">
+        <plots:PlotsView Grid.Row="0" DataContext="{Binding Plots}" Margin="0,0,0,10" />
+        <viewers:ViewerTableView Grid.Row="1" DataContext="{Binding Viewers}" Margin="0,0,0,10" />
+        <log:SessionLogView Grid.Row="2" DataContext="{Binding Log}" />
+      </Grid>
+
+    </Grid>
+
+  </DockPanel>
+</UserControl>

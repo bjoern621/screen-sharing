@@ -1,0 +1,405 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+import "screenshare/v1/catalog.proto";
+import "screenshare/v1/events.proto";
+import "screenshare/v1/form.proto";
+import "screenshare/v1/session.proto";
+import "screenshare/v1/settings.proto";
+import "screenshare/v1/text.proto";
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// ControlService is the whole surface a shell may reach. There is no second way in:
+// no shared file the shell parses, no relay endpoint it calls directly, no
+// environment variable it reads to learn a port. Everything it knows, it learned
+// from a method here.
+//
+// The methods divide into three kinds, and the division is the boundary rule
+// (docs/ipc-api.md):
+//
+//   Reads    hand the shell something to draw. They compute; they change nothing,
+//            and they are cheap enough to call on a keystroke or a mount.
+//   Effects  do the one thing the user asked for. They are the only methods that
+//            change the world, and the measurements are among them: probing the
+//            uplink, timing the encoder and running the encoder probe all start real
+//            work, take seconds, and leave something behind that a later read sees.
+//   Stream   is the one server-streaming method, which carries what changed.
+//
+// A method that is neither a read nor one of the listed effects does not belong
+// here, and a shell that wants one is a shell about to hold state the backend owns.
+service ControlService {
+  // --- Handshake ---------------------------------------------------------------
+
+  // Hello is the first call on a connection. It settles which contract version both
+  // sides are on before any other method is reached, so a mismatch is a sentence
+  // rather than a field that silently arrives empty.
+  rpc Hello(HelloRequest) returns (HelloResponse);
+
+  // --- Reads -------------------------------------------------------------------
+
+  // GetCatalog returns every fixed fact about this machine and the encoding model,
+  // as it is known now. It changes nothing and is answered immediately: the encoder
+  // probe is ProbeEncoders below, and what it finds arrives here on the next call
+  // and on the event stream for every shell, including the ones that did not ask.
+  rpc GetCatalog(GetCatalogRequest) returns (GetCatalogResponse);
+
+  // GetSettings returns the settings the backend holds. They are the starting draft
+  // for a form and the values a fresh shell opens on.
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+
+  // ResolveForm turns a settings draft into the complete description of the screen:
+  // every field, every option, every greying and its reason, the diagnostics and the
+  // derived figures. It is the method that makes a shell a display.
+  //
+  // It has no side effect and is safe to call on every keystroke. It reads what has
+  // been probed rather than probing, and it does not save: a form is resolved far
+  // more often than a value is committed, and a resolve that wrote would make every
+  // intermediate keystroke a persisted setting.
+  rpc ResolveForm(ResolveFormRequest) returns (ResolveFormResponse);
+
+  // ListPresets returns the user's saved configurations. The notice states why the
+  // store could not be read, in which case the list is empty because nothing
+  // readable remained rather than because nothing was saved, and the difference is
+  // the user's to see.
+  rpc ListPresets(ListPresetsRequest) returns (ListPresetsResponse);
+
+  // GetPublishState reports whether a stream is in force and whether the held
+  // settings have moved off it. A shell reads it when it mounts and receives the
+  // same message on the event stream thereafter.
+  rpc GetPublishState(GetPublishStateRequest) returns (PublishState);
+
+  // GetRelayStatus returns the current relay snapshot. The backend polls the relay
+  // on its own interval and this returns the latest, so several shells reading it
+  // do not multiply the polling and the byte-delta bitrates stay computed against
+  // one steady interval.
+  rpc GetRelayStatus(GetRelayStatusRequest) returns (RelayStatus);
+
+  // GetViewerState returns the external viewers currently open.
+  rpc GetViewerState(GetViewerStateRequest) returns (ViewerState);
+
+  // GetTestStreamState reports how many synthetic publishers are alive.
+  rpc GetTestStreamState(GetTestStreamStateRequest) returns (TestStreamState);
+
+  // GetMoqCert reads the relay's Media-over-QUIC certificate fingerprint for one
+  // stream, so a viewer can pin it.
+  rpc GetMoqCert(GetMoqCertRequest) returns (GetMoqCertResponse);
+
+  // --- Effects -----------------------------------------------------------------
+
+  // SaveSettings persists the settings the shell holds. It does not touch a running
+  // stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
+  // because both engines run a child built from an argv and neither takes a value
+  // back afterwards.
+  rpc SaveSettings(SaveSettingsRequest) returns (SaveSettingsResponse);
+
+  // SavePreset stores the settings under a name, replacing a same-named preset.
+  rpc SavePreset(SavePresetRequest) returns (SavePresetResponse);
+
+  // DeletePreset removes a named preset.
+  rpc DeletePreset(DeletePresetRequest) returns (DeletePresetResponse);
+
+  // StartPublish persists the settings and starts the encoder on them. It is
+  // refused while a stream is already in force, a retry backoff included, because
+  // that is a stream the user asked for and has not stopped.
+  rpc StartPublish(StartPublishRequest) returns (StartPublishResponse);
+
+  // ApplyToStream restarts the running stream on new settings. It is how an edit
+  // reaches a live pipeline, and it is a separate method from SaveSettings because
+  // the user's two intentions are different: keep this for next time, and put this
+  // on the air now.
+  //
+  // The command is rendered before anything is torn down, so a combination no engine
+  // can build refuses the call and leaves the stream running what it has. A launch
+  // that fails after the teardown leaves nothing publishing: the pipeline carrying
+  // the stream is gone by then, and there is no earlier one to return to.
+  rpc ApplyToStream(ApplyToStreamRequest) returns (ApplyToStreamResponse);
+
+  // StopPublish ends the stream, whether it is running or waiting out a backoff. A
+  // stop is the one answer the retry budget has no say in.
+  rpc StopPublish(StopPublishRequest) returns (StopPublishResponse);
+
+  // StartWatch opens an external viewer for one stream over one transport. The
+  // transport is per viewer and independent of the publish leg, so the same stream
+  // can be watched over any leg the relay serves it on. A leg that cannot carry the
+  // stream's format is refused with the format named, rather than opening a viewer
+  // that connects and receives nothing.
+  rpc StartWatch(StartWatchRequest) returns (StartWatchResponse);
+
+  // StopWatch closes one open viewer.
+  rpc StopWatch(StopWatchRequest) returns (StopWatchResponse);
+
+  // StartTestStreams launches synthetic publishers, which exercise the viewing
+  // paths without a screen capture. A running set is replaced.
+  rpc StartTestStreams(StartTestStreamsRequest) returns (StartTestStreamsResponse);
+
+  // StopTestStreams stops every synthetic publisher.
+  rpc StopTestStreams(StopTestStreamsRequest) returns (StopTestStreamsResponse);
+
+  // ProbeEncoders test-encodes on every engine and records what this machine can
+  // really run, so a form can grey NVENC on a machine with no NVIDIA GPU.
+  //
+  // It is an effect and not a flag on GetCatalog, which is what it used to be. It
+  // costs seconds on its first call and nothing afterwards, it replaces the result
+  // that ResolveForm answers from, and the answer it lands reaches every shell on
+  // the event stream. A read carrying it meant one shell's request changed what a
+  // different shell's next resolve said, with nothing on the wire to announce it.
+  rpc ProbeEncoders(ProbeEncodersRequest) returns (ProbeEncodersResponse);
+
+  // MeasureUplink probes this machine's real upload throughput, so a shell can
+  // replace the user's guessed uplink figure with a measured one.
+  //
+  // It and MeasureEncodeRate both run the real thing, take seconds, and are refused
+  // while a stream is publishing: one would compete with the stream for the line and
+  // the other with the encoder for the silicon. The refusal is FAILED_PRECONDITION
+  // with that as the reason, and the form carries it on the button rather than
+  // greying the figure.
+  rpc MeasureUplink(MeasureUplinkRequest) returns (MeasureUplinkResponse);
+
+  // MeasureEncodeRate times the configured encoder on generated frames of the
+  // captured monitor's size, so a shell can say whether the target frame rate is
+  // above what this machine encodes at these settings.
+  rpc MeasureEncodeRate(MeasureEncodeRateRequest) returns (MeasureEncodeRateResponse);
+
+  // ForgetPortalConsent drops the stored screen-capture consent, so the next
+  // capture asks the compositor to pick again. It is how a share aimed at the wrong
+  // window or monitor is corrected.
+  rpc ForgetPortalConsent(ForgetPortalConsentRequest) returns (ForgetPortalConsentResponse);
+
+  // OpenLog opens one run log in the machine's default application, and
+  // OpenLogsFolder the directory holding them. They are backend methods because the
+  // files are the backend's: it writes them, it rotates them, and it is the only
+  // side that knows which of them still exist under the name it handed out.
+  rpc OpenLog(OpenLogRequest) returns (OpenLogResponse);
+  rpc OpenLogsFolder(OpenLogsFolderRequest) returns (OpenLogsFolderResponse);
+
+  // --- Stream ------------------------------------------------------------------
+
+  // Subscribe delivers what changed, for as long as the shell holds the call. See
+  // events.proto for why every event carries a whole state and why a shell that
+  // acted still waits for the event.
+  rpc Subscribe(SubscribeRequest) returns (stream Event);
+}
+
+// --- Handshake ------------------------------------------------------------------
+
+message HelloRequest {
+  // client is what the shell calls itself, for the backend's log: "avalonia",
+  // "cli". It carries no behaviour.
+  string client = 1;
+  // protocol_major is the contract version the shell was generated against. The
+  // backend refuses a major it does not implement, with FAILED_PRECONDITION and both
+  // versions named.
+  uint32 protocol_major = 2;
+}
+
+message HelloResponse {
+  // protocol_major is the contract this backend implements, and protocol_minor how
+  // far into it: a shell built against a lower minor works, and one built against a
+  // higher minor may find a method missing.
+  uint32 protocol_major = 1;
+  uint32 protocol_minor = 2;
+  // backend_version is the build, for display and for bug reports.
+  string backend_version = 3;
+}
+
+// --- Read requests and responses --------------------------------------------------
+//
+// A read whose state also travels on the event stream answers with that state's own
+// message and not with a wrapper, because two shapes for one state is the drift this
+// contract exists to end. The rest are wrapped, so that a response can grow a field
+// the state itself has no business carrying.
+
+message GetCatalogRequest {
+  // 1 was probe_encoders, which made this read start the probe. It is the
+  // ProbeEncoders effect now.
+  reserved 1;
+  reserved "probe_encoders";
+}
+
+message GetCatalogResponse {
+  Catalog catalog = 1;
+}
+
+message GetSettingsRequest {}
+
+message GetSettingsResponse {
+  StreamSettings settings = 1;
+  // store_notice states why the persisted settings could not be restored, absent when
+  // they were. The settings above are then the defaults, and the file holding the old
+  // values has been moved aside rather than overwritten, so the notice carries where
+  // they are.
+  Text store_notice = 3;
+
+  // 2 was store_notice as prose.
+  reserved 2;
+}
+
+// ResolveFormRequest carries the draft the user is editing. It is the whole
+// settings message and not a diff, because availability is a function of every
+// field at once and a diff would leave the backend guessing what it is against.
+message ResolveFormRequest {
+  StreamSettings settings = 1;
+}
+
+message ResolveFormResponse {
+  Form form = 1;
+}
+
+message ListPresetsRequest {}
+
+message ListPresetsResponse {
+  repeated Preset presets = 1;
+  // notice states why the preset store could not be read, absent when it was.
+  Text notice = 3;
+
+  // 2 was notice as prose.
+  reserved 2;
+}
+
+message GetPublishStateRequest {}
+
+message GetRelayStatusRequest {}
+
+message GetViewerStateRequest {}
+
+message GetTestStreamStateRequest {}
+
+message GetMoqCertRequest {
+  string stream_name = 1;
+}
+
+message GetMoqCertResponse {
+  MoqCert cert = 1;
+}
+
+// --- Effect requests and responses ------------------------------------------------
+//
+// Every effect answers with an empty message rather than with the new state, except
+// the two measurements, whose figure is the answer and belongs to the caller that
+// paid the seconds for it. What the state became arrives on the event stream, which
+// is the one path into the display: a shell that read the answer here and a shell
+// that only listened would otherwise be two ways of learning one fact.
+
+message SaveSettingsRequest {
+  StreamSettings settings = 1;
+}
+
+message SaveSettingsResponse {}
+
+message SavePresetRequest {
+  string name = 1;
+  StreamSettings settings = 2;
+}
+
+message SavePresetResponse {}
+
+message DeletePresetRequest {
+  string name = 1;
+}
+
+message DeletePresetResponse {}
+
+message StartPublishRequest {
+  StreamSettings settings = 1;
+}
+
+message StartPublishResponse {}
+
+message ApplyToStreamRequest {
+  StreamSettings settings = 1;
+}
+
+message ApplyToStreamResponse {}
+
+message StopPublishRequest {}
+
+message StopPublishResponse {}
+
+message StartWatchRequest {
+  WatchKey viewer = 3;
+
+  // 1 and 2 were stream_name and transport, the pair WatchKey exists to be.
+  reserved 1, 2;
+  reserved "stream_name", "transport";
+}
+
+message StartWatchResponse {}
+
+message StopWatchRequest {
+  WatchKey viewer = 3;
+
+  reserved 1, 2;
+  reserved "stream_name", "transport";
+}
+
+message StopWatchResponse {}
+
+message StartTestStreamsRequest {
+  // count is how many synthetic publishers to run. Each runs its own software
+  // encoder, so the backend bounds it and refuses a larger number rather than
+  // saturating the machine.
+  int32 count = 1;
+}
+
+message StartTestStreamsResponse {}
+
+message StopTestStreamsRequest {}
+
+message StopTestStreamsResponse {}
+
+message ProbeEncodersRequest {}
+
+message ProbeEncodersResponse {}
+
+message MeasureUplinkRequest {}
+
+message MeasureUplinkResponse {
+  double mbps = 1;
+}
+
+message MeasureEncodeRateRequest {
+  // settings decide what is timed, and the picture size comes from the monitor they
+  // name rather than from the caller: it is the same enumeration the capture crops
+  // to and the estimate is priced from.
+  StreamSettings settings = 1;
+}
+
+message MeasureEncodeRateResponse {
+  EncodeRate rate = 1;
+}
+
+message ForgetPortalConsentRequest {}
+
+message ForgetPortalConsentResponse {}
+
+message OpenLogRequest {
+  // path is a log path the backend handed out, on an ExitInfo. A shell does not
+  // construct one.
+  string path = 1;
+}
+
+message OpenLogResponse {}
+
+message OpenLogsFolderRequest {}
+
+message OpenLogsFolderResponse {}
+
+// --- Stream requests --------------------------------------------------------------
+
+// SubscribeRequest opens the stream.
+message SubscribeRequest {
+  // A shell receives every kind by default. Naming kinds here narrows the stream to
+  // those, which exists for a surface that wants the state changes without the
+  // per-second statistics.
+  //
+  // EVENT_KIND_UNSPECIFIED is refused rather than ignored, so a shell that sent a
+  // kind this build's enum has no value for learns it on the call it made the
+  // mistake on rather than by waiting forever.
+  repeated EventKind kinds = 2;
+
+  // 1 was kinds as strings naming this message's own oneof fields.
+  reserved 1;
+}

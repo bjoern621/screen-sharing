@@ -3,13 +3,27 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/*
+ * A toggle is on or off, and it is also hovered or not, so the two have to stay
+ * separable: an on toggle brightens further under the pointer instead of sitting
+ * at the same fill as an off one being hovered. The pressed-state classes are
+ * stacked on the on-state ones (`aria-pressed:hover:`) so they outrank the plain
+ * on-state fill by specificity rather than by whatever order Tailwind happens to
+ * emit the two variants in. The price is that a call site giving a toggle its own
+ * on-fill has to give it an on-hover as well, or this one wins and greys it out
+ * under the pointer - StreamRoster's chip is the one place that does.
+ *
+ * The focus ring matches the button's - 2px at 30% - so tabbing across a row of
+ * mixed controls does not change the shape of the ring that follows the caret.
+ */
 const toggleVariants = cva(
-  "group/toggle inline-flex items-center justify-center gap-1 rounded-md text-xs font-medium whitespace-nowrap transition-all outline-none hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted data-[state=on]:bg-muted dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/toggle inline-flex cursor-pointer items-center justify-center gap-1 rounded-md text-xs font-medium whitespace-nowrap outline-none transition-[color,background-color,border-color,box-shadow,transform] hover:bg-muted-hover hover:text-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 active:translate-y-px active:bg-muted-active disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 aria-pressed:bg-muted aria-pressed:hover:bg-muted-hover data-[state=on]:bg-muted data-[state=on]:hover:bg-muted-hover dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: "bg-transparent",
-        outline: "border border-input bg-transparent hover:bg-muted",
+        outline:
+          "border border-input bg-transparent hover:border-ring/60 hover:bg-muted-hover",
       },
       size: {
         default:

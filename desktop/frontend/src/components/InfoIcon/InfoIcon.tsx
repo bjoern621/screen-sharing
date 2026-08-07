@@ -16,7 +16,7 @@ export default function InfoIcon({ url }: InfoIconProps) {
             role="button"
             tabIndex={0}
             aria-label="Open reference article"
-            className="ml-auto shrink-0 cursor-pointer text-muted-foreground hover:text-primary"
+            className="ml-auto shrink-0 cursor-pointer text-muted-foreground transition-colors hover:text-primary active:text-primary-active"
             onPointerDown={e => e.stopPropagation()}
             onPointerUp={e => e.stopPropagation()}
             onMouseDown={e => e.stopPropagation()}
