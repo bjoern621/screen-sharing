@@ -40,7 +40,7 @@ var fieldDeclaredKeys = []string{
 // fieldDeclaredGroups is every group key, for the same reason.
 var fieldDeclaredGroups = []string{
 	GroupStream, GroupSource, GroupQuality, GroupAudio,
-	GroupTransport, GroupWatch, GroupAdvanced,
+	GroupTransport, GroupWatch, GroupRelay,
 }
 
 // fieldTestDeps is a machine with two monitors, so a test resolves a form for hardware it
@@ -170,7 +170,7 @@ func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	declared := []string{
 		GroupStream, GroupSource, GroupQuality, GroupAudio,
-		GroupTransport, GroupWatch, GroupAdvanced,
+		GroupTransport, GroupWatch, GroupRelay,
 	}
 	seen := make(map[string]bool, len(groups))
 	for _, g := range groups {
@@ -189,10 +189,12 @@ func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	}
 }
 
-// The contract fills options for a select and a radio and a range for a number and a
-// slider, and leaves each empty on the controls it does not apply to. A select with no
-// options is a dropdown a shell cannot open; a number with no range is a field with no
-// ends, which the contract says a shell must read as unbounded rather than as zero.
+// The contract fills options for a select and a radio, a range for a number and a
+// slider, both for the number that carries a ladder, and leaves each empty on the
+// controls it does not apply to. A select with no options is a dropdown a shell cannot
+// open; a number with no range is a field with no ends, which the contract says a shell
+// must read as unbounded rather than as zero; and a number-select missing either half is
+// one of the two ordinary controls mislabelled as the combined one.
 func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 	for _, f := range fieldTable {
 		switch f.control {
@@ -212,11 +214,51 @@ func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 			if f.options != nil {
 				t.Errorf("%s is a number or slider carrying options", f.key)
 			}
+		case screensharev1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
+			if f.options == nil {
+				t.Errorf("%s is a number-select with no ladder", f.key)
+			}
+			if f.bounds == nil {
+				t.Errorf("%s is a number-select with no range", f.key)
+			}
 		default:
 			if f.options != nil || f.bounds != nil {
 				t.Errorf("%s is a %v carrying options or a range", f.key, f.control)
 			}
 		}
+	}
+}
+
+// The ladder is a shortcut and not the domain: every step is a rate the range admits, so
+// picking one can never write a value the same form would refuse. It is the claim the
+// combined control rests on, and the two halves are stated in two places.
+func TestTheFrameRateLadderStaysInsideItsRange(t *testing.T) {
+	d := fieldTestDeps()
+	s := settings.Defaults()
+
+	bounds := fieldFpsBounds(d, s)
+	for _, o := range optionFpsPresets(d, s) {
+		fps, err := strconv.Atoi(o.GetValue())
+		if err != nil {
+			t.Fatalf("frame rate ladder offers %q, which is not a number", o.GetValue())
+		}
+		if int64(fps) < bounds.GetMin() || int64(fps) > bounds.GetMax() {
+			t.Errorf("frame rate ladder offers %d, outside the %d-%d range the field states",
+				fps, bounds.GetMin(), bounds.GetMax())
+		}
+	}
+}
+
+// A saved rate the ladder does not carry is offered all the same, so the closed control
+// shows the rate the stream is captured at rather than the nearest step to it.
+func TestTheFrameRateLadderCarriesASavedRateOffIt(t *testing.T) {
+	s := settings.Defaults()
+	s.Fps = 37
+
+	if !slices.ContainsFunc(optionFpsPresets(fieldTestDeps(), s), func(o *screensharev1.FieldOption) bool {
+		return o.GetValue() == "37"
+	}) {
+		t.Error("the frame rate ladder drops a saved rate that is not one of its steps")
 	}
 }
 

@@ -78,8 +78,11 @@ without asking for it. A named theme is only ever a variant - `ActionButton`, `F
 `DangerButton`, `PrimaryButton`, `LinkButton`, `CardButton` and the `OptionCard` built on it -
 and every one of them inherits the base and states only its difference. A variant that
 restates the template is a second button, and two buttons drift: that is exactly how setup's
-"Look again" ended up wearing Fluent while the control beside it wore the design. A flag is
-the switch in `Controls/Toggle`, never a `CheckBox`, for the same reason.
+"Look again" ended up wearing Fluent while the control beside it wore the design. The inputs
+have one variant on the same terms - `Controls/NumberSelect`, the number box and the button
+glued into the one control that is both, each inheriting its type's theme and setting only
+the corner that differs. A flag is the switch in `Controls/Toggle`, never a `CheckBox`, for
+the same reason.
 
 Every icon is a Tabler outline icon from the `TablerIcons.Avalonia` package, and `Design/Icons.axaml`
 is the single rule that sizes and strokes them: three sizes off the design's 12-22px range,
@@ -160,6 +163,15 @@ codecs those are reaches this module.
 `BackendUnavailableException`, the flow shows its message above the steps with a "look again"
 button, and no form is invented in the meantime. Retrying is the reader's rather than a timer's,
 so an absent socket is not hammered for as long as the window is open.
+
+**Which sentence it is depends on who wrote the status, not on which code it carries.** A
+status the backend served carries prose written for a person and is shown as it arrived: the
+contract's table gives `UNAVAILABLE` to a relay that could not be reached and to a child
+process that would not start, so reading that code as absence answered a press of Go live with
+a sentence about the endpoint the shell had just resolved a form through. What says the backend
+is absent is `Status.DebugException`, which the client library sets on a status it made from a
+local failure and leaves null on one that arrived - told apart by code rather than by matching
+on a sentence, which is the input that changes without anything failing to compile.
 
 That is the transport. What the flow finally does with it is the commit, and that is worth its
 own paragraph because it is the one control on this surface that changes the world.

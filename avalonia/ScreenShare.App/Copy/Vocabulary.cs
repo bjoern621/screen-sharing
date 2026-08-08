@@ -34,6 +34,7 @@ public sealed class Vocabulary
         "capture" => Words.Capture(value),
         "monitor" => Screen(value),
         "output_resolution" => Resolution(value),
+        "fps" => Rate(value),
         "capture_memory" => Words.Memory(value),
         "drm_map" => Words.DrmMap(value),
         "codec" => Codec(value),
@@ -78,8 +79,9 @@ public sealed class Vocabulary
     /// are the draft's own, so it cannot say anything the form does not.
     ///
     /// A group with nothing worth a line answers with nothing rather than with a string of
-    /// numbers. The relay ports settle on values that mean nothing without their labels,
-    /// and "8890 · 8554 · 8889" beside a step name says less than a blank does.
+    /// numbers. The relay settles on an address and seven ports, and only the address is worth
+    /// repeating: "8890 · 8554 · 8889" beside a step name says less than a blank does, because
+    /// a port means nothing without the label it sat under.
     /// </summary>
     public string Shorthand(string groupKey, StreamSettings? settings)
     {
@@ -90,7 +92,7 @@ public sealed class Vocabulary
 
         return groupKey switch
         {
-            "stream" => Join(settings.Name, settings.RelayHost),
+            "stream" => settings.Name,
             "source" => Join(Words.Capture(settings.Capture), Picture(settings)),
             "quality" => Join(CodecShorthand(settings.Codec), Quality(settings)),
             "audio" => settings.Audio is "" or "none"
@@ -98,6 +100,7 @@ public sealed class Vocabulary
                 : Join(Words.AudioSource(settings.Audio), Words.AudioCodec(settings.AudioCodec)),
             "transport" => Words.Transport(settings.Transport),
             "watch" => Words.Transport(settings.WatchTransport),
+            "relay" => settings.RelayHost,
             _ => "",
         };
     }
@@ -240,6 +243,16 @@ public sealed class Vocabulary
         var parts = value.Split('x');
         return parts.Length == 2 ? $"{parts[0]} × {parts[1]}" : value;
     }
+
+    /// <summary>
+    /// A step of the frame rate's ladder, named with its unit.
+    ///
+    /// The unit is repeated here although the field already states it beside its label,
+    /// because these entries are read where that label is not: an opened menu is a list of
+    /// bare figures otherwise, and "60" and "120" say what they are only to a reader who
+    /// still has the heading in view.
+    /// </summary>
+    private static string Rate(string value) => $"{value} fps";
 
     /// <summary>What scaling costs and buys, said once for every scaled entry.</summary>
     private static string Scaling(string value) => value.Length == 0

@@ -50,4 +50,13 @@
     <Protobuf Include="../../api/proto/screenshare/v1/*.proto" ProtoRoot="../../api/proto" GrpcServices="Client" />
   </ItemGroup>
 
+  <!--
+    The tests see internals, for the one thing that cannot be reached through IBackend: how a
+    gRPC failure becomes the sentence a screen shows. Everything else is asserted against the
+    fakes, because everything else is a view model's.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="ScreenShare.App.Tests" />
+  </ItemGroup>
+
 </Project>

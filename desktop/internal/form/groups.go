@@ -8,19 +8,27 @@ package form
 // (api/proto/screenshare/v1/form.proto): the order and the membership are arguments
 // about the domain, and the wording is an argument about a screen.
 //
-// The order is the domain's rather than the screen's. A stream is named and pointed at
-// a relay, then the picture is chosen, then how that picture is coded, then what rides
-// beside it, then how it leaves this machine, and last how it comes back. Each step is
-// answerable with the ones before it settled and none of the ones after it, which is
-// what lets a shell walk the groups as a wizard without the backend having said so.
+// The order is the domain's rather than the screen's. A stream is named, then the
+// picture is chosen, then how that picture is coded, then what rides beside it, then how
+// it leaves this machine, then how it comes back, and last where the relay carrying all
+// of it sits. Each step is answerable with the ones before it settled and none of the
+// ones after it, which is what lets a shell walk the groups as a wizard without the
+// backend having said so.
 //
-// The two ends are where the ordering is doing work. The name and the relay come first
-// because they are the only fields that depend on no other: a stream not yet named is
-// not yet anything, and every greying further down is a consequence of a choice made
-// after these two. The relay's listener ports come last because each of them is a
-// number some earlier choice already decided the relevance of - the publish leg picks
-// which ingest port is read, the watch leg which serving one - so a reader who leaves
-// the defaults alone never has to meet them.
+// The two ends are where the ordering is doing work. The name comes first because it
+// depends on no other field and is the one setting other people see: a stream not yet
+// named is not yet anything, and every greying further down is a consequence of a choice
+// made after it. The relay comes last because it is one question - which machine carries
+// the stream, and on which of its listeners - and every part of it is answered by a
+// default that holds for the relay this repository ships: the address is the machine
+// running it, and each port's relevance was already decided by a leg chosen further up,
+// the publish leg picking which ingest port is read and the watch leg which serving one.
+// A reader on those defaults therefore never has to meet the group.
+//
+// The address sits with the ports rather than beside the name for the same reason. Where
+// the relay is and how it is reached are one decision made once against one machine, and
+// splitting them put the first half in front of a reader who had no relay to name yet
+// and the second half seven groups behind it.
 //
 // Capture precedes encode because the capture backend fixes the publish engine, and the
 // engine is what decides which codecs, pixel formats and rate-control knobs the encode
@@ -46,5 +54,5 @@ var groups = []group{
 	{key: GroupAudio},
 	{key: GroupTransport},
 	{key: GroupWatch},
-	{key: GroupAdvanced},
+	{key: GroupRelay},
 }

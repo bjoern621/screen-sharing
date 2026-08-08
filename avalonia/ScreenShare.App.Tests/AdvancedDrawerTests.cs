@@ -57,6 +57,26 @@ public sealed class AdvancedDrawerTests
         Options = { new FieldOption { Value = value, Enabled = true } },
     };
 
+    /// <summary>A number carrying a ladder: both halves filled, which is what the kind means.</summary>
+    private static Field NumberSelect(string key, long value, params long[] ladder)
+    {
+        var field = new Field
+        {
+            Key = key,
+            Control = ControlKind.NumberSelect,
+            Visible = true,
+            Enabled = true,
+            Value = new FieldValue { Number = value },
+            Range = new NumericRange { Min = 1, Max = 1000, Step = 1 },
+        };
+        foreach (var step in ladder)
+        {
+            field.Options.Add(new FieldOption { Value = step.ToString(), Enabled = true });
+        }
+
+        return field;
+    }
+
     [Fact]
     public void TheDrawerDrawsTheNumbersTheStepPlacesNowhere()
     {
@@ -105,6 +125,45 @@ public sealed class AdvancedDrawerTests
         var (key, value) = Assert.Single(writes);
         Assert.Equal("bframes", key);
         Assert.Equal(2L, value.Number);
+    }
+
+    /// <summary>
+    /// A number carrying a ladder is one control and not two. It is drawn where typed values
+    /// are drawn, and it is neither of the two kinds it is built from: a renderer that read it
+    /// as a plain number would drop the ladder, and one that read it as a select would put a
+    /// dropdown on the screen with no box to type a rate the ladder does not carry.
+    /// </summary>
+    [Fact]
+    public void ANumberCarryingALadderIsOneControlAndNotTwo()
+    {
+        var (group, _) = GroupOf(NumberSelect("fps", 60, 30, 60, 120));
+
+        var row = new AdvancedDrawerViewModel(group).Rows.Single();
+
+        Assert.True(row.IsNumberSelect);
+        Assert.False(row.IsNumber);
+        Assert.False(row.IsSelect);
+        Assert.False(row.IsChoice);
+        Assert.Equal(60m, row.Number);
+        Assert.Equal(["30", "60", "120"], row.Options.Select(option => option.Value));
+        Assert.Single(row.Options, option => option.IsSelected);
+    }
+
+    /// <summary>
+    /// The two halves write the same setting, and both write it as a number. Picking a step
+    /// through a control whose options are strings is where a value silently becomes zero,
+    /// which is the whole reason the field carries the kind its value arrived in.
+    /// </summary>
+    [Fact]
+    public void BothHalvesOfALadderedNumberWriteTheSameNumber()
+    {
+        var (group, writes) = GroupOf(NumberSelect("fps", 60, 30, 60, 120));
+        var row = new AdvancedDrawerViewModel(group).Rows.Single();
+
+        row.Options.Single(option => option.Value == "120").Choose.Execute(null);
+        row.Number = 37;
+
+        Assert.Equal([("fps", 120L), ("fps", 37L)], writes.Select(write => (write.Key, write.Value.Number)));
     }
 
     /// <summary>A group whose every field the step places leaves the drawer undrawn rather than empty.</summary>

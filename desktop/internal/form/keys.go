@@ -65,5 +65,5 @@ const (
 	GroupAudio     = "audio"
 	GroupTransport = "transport"
 	GroupWatch     = "watch"
-	GroupAdvanced  = "advanced"
+	GroupRelay     = "relay"
 )

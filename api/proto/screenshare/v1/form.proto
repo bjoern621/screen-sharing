@@ -63,6 +63,17 @@ enum ControlKind {
   // carries none because there was never a choice to make. Field.enabled is false
   // with the reason naming who decided.
   CONTROL_KIND_READONLY = 7;
+  // A whole number within range that also carries a ladder of values worth
+  // reaching in one move - the frame rate is the case that exists. It fills both
+  // options and range, and the behavioural requirement is that the two write the
+  // same value: an entry is a shortcut, not the set of legal numbers, so a value
+  // off the ladder is typed rather than refused.
+  //
+  // The distinction from CONTROL_KIND_SELECT is that the ladder is not the domain.
+  // A select over a number offers every value the backend accepts, and typing a
+  // value it did not offer is an error; here the range is what accepts, and the
+  // entries only save the reader from finding the usual answers themselves.
+  CONTROL_KIND_NUMBER_SELECT = 8;
 }
 
 // Unit is what a numeric field's value means.
@@ -180,8 +191,10 @@ message Field {
   // same evaluation would grey.
   FieldValue value = 11;
   // options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
-  // CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER. Both are empty on the controls they
-  // do not apply to.
+  // CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for
+  // CONTROL_KIND_NUMBER_SELECT, which is the one control that carries a ladder and
+  // the ends it may be typed past. Each is empty on the controls it does not apply
+  // to.
   repeated FieldOption options = 12;
   NumericRange range = 13;
 
@@ -200,7 +213,7 @@ message Field {
 // would be making an argument about the model.
 message FieldGroup {
   // key is a stable identifier for the group: "stream", "source", "quality", "audio",
-  // "transport", "watch", "advanced". A shell uses it to decide placement and to look
+  // "transport", "watch", "relay". A shell uses it to decide placement and to look
   // up the heading it draws; it must not use it to decide contents.
   string key = 1;
   repeated Field fields = 4;

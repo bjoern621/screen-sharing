@@ -69,19 +69,13 @@ const (
 )
 
 var fieldTable = []field{
-	// The stream: the two fields that depend on nothing else, and the only settings other
-	// people see.
+	// The stream: the one field that depends on nothing else, and the only setting other
+	// people see. Where it is carried is the relay's group, at the far end of the table.
 	{
 		key:     KeyName,
 		group:   GroupStream,
 		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return stringValue(s.Name) },
-	},
-	{
-		key:     KeyRelayHost,
-		group:   GroupStream,
-		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
-		value:   func(s settings.Stream) *screensharev1.FieldValue { return stringValue(s.RelayHost) },
 	},
 
 	// The capture: what is grabbed, how much of it, and how it reaches the encoder.
@@ -115,11 +109,16 @@ var fieldTable = []field{
 		options: optionOutputResolutions,
 	},
 	{
+		// The one control that is both. The rate is a number the whole range accepts, and
+		// it is also a short list of answers - a film's, a game's, each panel's - that a
+		// reader should not have to remember to type, so the row carries a ladder and the
+		// ends it may be typed past.
 		key:     KeyFps,
 		group:   GroupSource,
-		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
+		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER_SELECT,
 		unit:    screensharev1.Unit_UNIT_FRAMES_PER_SECOND,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.Fps) },
+		options: optionFpsPresets,
 		bounds:  fieldFpsBounds,
 	},
 	{
@@ -299,53 +298,61 @@ var fieldTable = []field{
 		options: optionRtspProtocols,
 	},
 
-	// The relay's listeners. One number each, and which of them is read follows from a leg
-	// chosen further up rather than from anything here.
+	// The relay: which machine carries the stream, then one number per listener it serves
+	// it on. The address leads because the ports are that machine's - a port answered
+	// against no host is a number about nothing - and which of them is read follows from a
+	// leg chosen further up rather than from anything here.
+	{
+		key:     KeyRelayHost,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
+		value:   func(s settings.Stream) *screensharev1.FieldValue { return stringValue(s.RelayHost) },
+	},
 	{
 		key:     KeyRelayPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.RelayPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyRtspPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.RtspPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyWebrtcPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.WebrtcPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyRtmpPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.RtmpPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyHlsPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.HlsPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyMoqPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.MoqPort) },
 		bounds:  fieldPortBounds,
 	},
 	{
 		key:     KeyAPIPort,
-		group:   GroupAdvanced,
+		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
 		value:   func(s settings.Stream) *screensharev1.FieldValue { return number(s.ApiPort) },
 		bounds:  fieldPortBounds,

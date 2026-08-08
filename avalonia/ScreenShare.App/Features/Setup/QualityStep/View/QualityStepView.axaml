@@ -229,46 +229,19 @@
                 </Grid>
 
                 <Button.Flyout>
+                  <!--
+                    The entry, and why it is out where it is out. The row is shared
+                    (Fields/View/SelectEntry.axaml): the refusal is a line in it rather than
+                    a tooltip on it, because the row is a disabled MenuItem wherever there is
+                    something to explain, a disabled control takes no pointer events, and a
+                    tooltip that can only open on the entries with nothing to say is worse
+                    than none.
+                  -->
                   <MenuFlyout ItemsSource="{Binding Options}"
+                              ItemTemplate="{StaticResource SelectEntry}"
                               ItemContainerTheme="{StaticResource SelectMenuItem}"
                               FlyoutPresenterTheme="{StaticResource SelectMenu}"
-                              Placement="BottomEdgeAlignedLeft">
-                    <!--
-                      The entry, and why it is out where it is out. The refusal is a line in
-                      the row rather than a tooltip on it: the row is a disabled MenuItem
-                      wherever there is something to explain, a disabled control takes no
-                      pointer events, and a tooltip that can only open on the entries with
-                      nothing to say is worse than none.
-                    -->
-                    <MenuFlyout.ItemTemplate>
-                      <DataTemplate x:DataType="fields:OptionViewModel">
-                        <StackPanel MinWidth="260" MaxWidth="380" Spacing="2">
-                          <Grid ColumnDefinitions="Auto,*,Auto">
-                            <TextBlock Grid.Column="0"
-                                       Classes="ident"
-                                       Text="{Binding Label}"
-                                       VerticalAlignment="Center" />
-                            <ti:TablerIcon Grid.Column="1"
-                                           Icon="IconCheck"
-                                           Brush="{StaticResource ForegroundBrush}"
-                                           Margin="8,0,0,0"
-                                           IsVisible="{Binding IsSelected}"
-                                           VerticalAlignment="Center" />
-                            <TextBlock Grid.Column="2"
-                                       Classes="figure"
-                                       Foreground="{StaticResource HintBrush}"
-                                       Margin="16,0,0,0"
-                                       IsVisible="{Binding HasNote}"
-                                       Text="{Binding Note}"
-                                       VerticalAlignment="Center" />
-                          </Grid>
-                          <TextBlock Classes="cardbody"
-                                     IsVisible="{Binding HasBody}"
-                                     Text="{Binding Body}" />
-                        </StackPanel>
-                      </DataTemplate>
-                    </MenuFlyout.ItemTemplate>
-                  </MenuFlyout>
+                              Placement="BottomEdgeAlignedLeft" />
                 </Button.Flyout>
               </Button>
 

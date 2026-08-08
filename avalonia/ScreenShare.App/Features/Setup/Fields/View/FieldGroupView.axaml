@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+             xmlns:ti="using:TablerIcons"
              x:Class="ScreenShare.App.Features.Setup.Fields.View.FieldGroupView"
              x:DataType="vm:FieldGroupViewModel">
 
@@ -59,6 +60,39 @@
                              FormatString="0"
                              HorizontalAlignment="Left"
                              MinWidth="160" />
+
+              <!--
+                A number that also carries a ladder. The box takes any value the range
+                admits and the caret beside it opens the few worth reaching in one move;
+                both write the same setting, which is what the glued edge says
+                (Controls/NumberSelect).
+
+                The caret carries no value of its own. What is held is in the box to its
+                left, and a face repeating it would be one figure printed twice.
+              -->
+              <StackPanel Orientation="Horizontal"
+                          IsVisible="{Binding IsNumberSelect}"
+                          HorizontalAlignment="Left">
+                <NumericUpDown Theme="{StaticResource NumberSelectInput}"
+                               IsEnabled="{Binding IsEnabled}"
+                               Value="{Binding Number, Mode=TwoWay}"
+                               Minimum="{Binding NumberMinimum}"
+                               Maximum="{Binding NumberMaximum}"
+                               Increment="{Binding NumberStep}"
+                               FormatString="0"
+                               MinWidth="160" />
+                <Button Theme="{StaticResource NumberSelectCaret}"
+                        IsEnabled="{Binding IsEnabled}">
+                  <ti:TablerIcon Icon="IconChevronDown" Brush="{StaticResource MutedBrush}" />
+                  <Button.Flyout>
+                    <MenuFlyout ItemsSource="{Binding Options}"
+                                ItemTemplate="{StaticResource SelectEntry}"
+                                ItemContainerTheme="{StaticResource SelectMenuItem}"
+                                FlyoutPresenterTheme="{StaticResource SelectMenu}"
+                                Placement="BottomEdgeAlignedRight" />
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
 
               <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}">
                 <Slider Grid.Column="0"

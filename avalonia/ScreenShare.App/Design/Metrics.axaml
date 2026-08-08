@@ -22,6 +22,16 @@
   <CornerRadius x:Key="RadiusChip">14</CornerRadius>
 
   <!--
+    The two halves of a control built from two widgets glued at a shared edge - the frame
+    rate's typed box and the ladder beside it. They are the control radius with the inner
+    corners taken off, so the pair reads as one box rather than as two that happen to touch.
+    Stated here rather than written as literals at the joint, for the reason every other
+    number in this file is: a radius that moved would move on one side only.
+  -->
+  <CornerRadius x:Key="RadiusControlLeading">5,0,0,5</CornerRadius>
+  <CornerRadius x:Key="RadiusControlTrailing">0,5,5,0</CornerRadius>
+
+  <!--
     Chrome bands. Full-bleed, so their heights set the window's fixed rows.
 
     Every height in this block and the next grew by 2-5px when the type ladder's default

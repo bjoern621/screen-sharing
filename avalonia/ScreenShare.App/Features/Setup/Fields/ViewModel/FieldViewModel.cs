@@ -151,6 +151,7 @@ public sealed class FieldViewModel : Observable
     private bool _hasUnit;
     private bool _isText;
     private bool _isNumber;
+    private bool _isNumberSelect;
     private bool _isSlider;
     private bool _isToggle;
     private bool _isSelect;
@@ -217,6 +218,13 @@ public sealed class FieldViewModel : Observable
 
     public bool IsNumber { get => _isNumber; private set => Set(ref _isNumber, value); }
 
+    /// <summary>
+    /// A number that also carries a ladder, drawn as the typed box and the ladder glued into
+    /// one control. It is not <see cref="IsNumber"/>: the two write the same setting, so a
+    /// renderer that drew both would put two boxes on the screen for one knob.
+    /// </summary>
+    public bool IsNumberSelect { get => _isNumberSelect; private set => Set(ref _isNumberSelect, value); }
+
     public bool IsSlider { get => _isSlider; private set => Set(ref _isSlider, value); }
 
     public bool IsToggle { get => _isToggle; private set => Set(ref _isToggle, value); }
@@ -226,8 +234,10 @@ public sealed class FieldViewModel : Observable
     public bool IsRadio { get => _isRadio; private set => Set(ref _isRadio, value); }
 
     /// <summary>
-    /// Either of the two kinds that carry options. The generic renderer draws one list for
-    /// both, so it asks this rather than binding two lists that differed in nothing.
+    /// Either of the two kinds whose whole control is its options. The generic renderer draws
+    /// one list for both, so it asks this rather than binding two lists that differed in
+    /// nothing. A number carrying a ladder is not one of them: its options sit behind a caret
+    /// beside a box, which is a different control and not a differently spaced list.
     /// </summary>
     public bool IsChoice { get => _isChoice; private set => Set(ref _isChoice, value); }
 
@@ -283,6 +293,7 @@ public sealed class FieldViewModel : Observable
 
         IsText = field.Control == ControlKind.Text;
         IsNumber = field.Control == ControlKind.Number;
+        IsNumberSelect = field.Control == ControlKind.NumberSelect;
         IsSlider = field.Control == ControlKind.Slider;
         IsToggle = field.Control == ControlKind.Toggle;
         IsSelect = field.Control == ControlKind.Select;
@@ -311,8 +322,8 @@ public sealed class FieldViewModel : Observable
         HasPickedNote = PickedNote.Length > 0;
 
         Assert.That(
-            Options.Count == 0 || IsSelect || IsRadio,
-            "only a select or a radio carries options", Key, field.Control, Options.Count);
+            Options.Count == 0 || IsSelect || IsRadio || IsNumberSelect,
+            "only a control that offers entries carries options", Key, field.Control, Options.Count);
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
     }
 

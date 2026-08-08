@@ -67,7 +67,7 @@ The rule also buys something the current design cannot have: a shell that decide
 The contract carried a grid until recently: `StartGrid`, `GridState`, a `grid_transports` list and a `grid_transport` setting, all describing the GTK4 window in `nativegrid/`. That window and the Wails app that launched it are obsolete, and the surface went with them rather than being renamed, because renaming it would have kept the mistake and spelled it better. A viewer that decodes through a receiving pipeline will want a watch leg and a jitter buffer again; both are declared then, against a viewer that reads them, and neither comes back as a layout.
 
 `Form` is the one to read first, because it is what makes a shell a display.
-`ResolveForm` takes a settings draft and returns the complete description of the screen: the groups, the fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its current value, and for a select or a radio, every option with its value, its note, its enabled flag and its reason.
+`ResolveForm` takes a settings draft and returns the complete description of the screen: the groups, the fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its current value, and for every control that offers entries — a select, a radio, and the number that carries a ladder — each option with its value, its note, its enabled flag and its reason.
 A shell renders that and sends back a changed `StreamSettings`. It evaluates no rule, and it writes every word.
 
 `ResolveForm` has no side effect and is cheap enough to call on every keystroke.
@@ -117,6 +117,8 @@ An **Umgebungsfehler** - a condition the app must survive - is a gRPC status. It
 | `RESOURCE_EXHAUSTED` | a bounded resource was over-asked, such as the test-stream count |
 
 An **Entwicklungsfehler** - a broken internal contract - never crosses. `assert` panics in the backend, as it does everywhere else in this repository. A shell that could receive a bug as a status would start handling bugs, and a handled bug is a bug that ships.
+
+**A served status is shown as the backend wrote it, and no code in the table means "the backend is absent".** A shell learns that from the connection failing, not from a status: the client library produces one of its own for a local failure, and which code that wears is the platform's business - an absent named pipe is `INTERNAL` on Windows and an unbound socket is `UNAVAILABLE`. Reading `UNAVAILABLE` as absence instead is what turns a relay that refused a publish into a sentence about the endpoint, on a connection the same shell had just resolved a form through.
 
 One consequence is worth stating on its own: **an unreachable relay is not a call failure.** `GetRelayStatus` succeeds and returns a snapshot whose `reachable` is false, carrying the reason, because "the relay is down" is a thing the screen has to say rather than a thing the call failed at.
 

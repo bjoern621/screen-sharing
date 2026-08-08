@@ -19,7 +19,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// The option builders, one per select or radio in fieldTable.
+// The option builders, one per control in fieldTable that offers entries: every select
+// and radio, and the one number that carries a ladder beside its range.
 //
 // Every one of them takes its values from a domain table and never from a list
 // written here: publish.Captures for the capture backends, capabilities.Codecs for the
@@ -30,6 +31,12 @@ import (
 // encoder would accept what the form never offered, or the form would offer what the
 // encoder refuses, and neither disagreement is visible until it is a stream nobody can
 // explain (docs/ipc-api.md).
+//
+// The two ladders are the exception that proves it. optionScaleHeights and
+// optionFpsLadder are typed here because neither is a domain: what the encoder accepts is
+// the range beside them, and the steps are the answers worth reaching in one move. A step
+// dropped from either loses a shortcut and nothing else, where a value dropped from a
+// domain list loses a setting.
 //
 // A builder answers one question: which entries exist at all. It fills the value, and
 // a note where the entry depends on something the value does not say. It does not fill
@@ -214,6 +221,45 @@ func optionOutputResolutions(d Deps, s settings.Stream) []*screensharev1.FieldOp
 		out = append(out, optionEntry(fmt.Sprintf("%dx%d", width, height),
 			say(scaledFromSource, argWidth(m.Width), argHeight(m.Height)), false))
 	}
+	return out
+}
+
+// optionFpsLadder is the ladder the frame rate is offered on: the rate a film, a game
+// and each of the panel refreshes this app has met run at.
+//
+// It is a ladder and not a domain, which is the whole of what separates this field from
+// a select. The frame rate's legal values are the range fieldFpsBounds states, every one
+// of them; these are the answers worth reaching in one move, and a rate off the ladder is
+// typed rather than refused (api/proto/screenshare/v1/form.proto,
+// CONTROL_KIND_NUMBER_SELECT).
+//
+// Nothing here is greyed against a monitor. Capturing above a panel's refresh is legal
+// and yields duplicate frames, which diagnostics.go says once as a warning; saying it a
+// second time by disabling the entry would make a legal rate look refused.
+var optionFpsLadder = []int{30, 60, 90, 120, 144, 165, 240}
+
+// optionFpsPresets offers the ladder, with the held rate among it wherever the settings
+// carry one the ladder does not.
+//
+// The held rate is present for the same reason a stale monitor index is (optionMonitors):
+// the entry is what marks the closed control as showing a value that came from somewhere,
+// and a ladder that silently dropped it would leave the dropdown claiming a rate the
+// stream is not captured at.
+func optionFpsPresets(_ Deps, s settings.Stream) []*screensharev1.FieldOption {
+	rates := optionFpsLadder
+	if !slices.Contains(rates, s.Fps) {
+		rates = append(append([]int{}, rates...), s.Fps)
+		slices.Sort(rates)
+	}
+
+	out := make([]*screensharev1.FieldOption, 0, len(rates))
+	for _, fps := range rates {
+		out = append(out, optionEntry(strconv.Itoa(fps), nil, false))
+	}
+	assert.Assert(slices.ContainsFunc(out, func(o *screensharev1.FieldOption) bool {
+		return o.GetValue() == strconv.Itoa(s.Fps)
+	}), "the ladder offers the rate the settings hold", s.Fps)
+
 	return out
 }
 

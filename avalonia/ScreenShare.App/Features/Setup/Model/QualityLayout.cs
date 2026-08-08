@@ -36,7 +36,9 @@ public static class QualityLayout
 
     /// <summary>
     /// Whether the step itself places this control: the two it lays out by name, and every
-    /// field that carries options, which the read-back row draws as a dropdown.
+    /// field whose whole control is a choice, which the read-back row draws as a dropdown.
+    /// A number carrying a ladder is not one of those - it is a typed value first, and the
+    /// drawer is where typed values live.
     /// </summary>
     public static bool OnStep(FieldViewModel field)
     {

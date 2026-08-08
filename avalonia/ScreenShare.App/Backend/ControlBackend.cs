@@ -399,7 +399,7 @@ public sealed class ControlBackend : IBackend
     /// text is blank says less than one naming a status, and the assertion upstairs is right
     /// to refuse it.
     /// </summary>
-    private static Exception Translate(RpcException e, CancellationToken cancellation)
+    internal static Exception Translate(RpcException e, CancellationToken cancellation)
     {
         if (e.StatusCode == StatusCode.Cancelled && cancellation.IsCancellationRequested)
         {

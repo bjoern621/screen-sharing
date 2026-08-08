@@ -89,9 +89,15 @@
                              Text="{Binding Label}" />
 
                   <!--
-                    One widget per control kind, the same four the generic renderer draws.
-                    A row the form disabled greys rather than disappearing, and the reason
-                    it carries is printed in the note column beside it.
+                    One widget per control kind the drawer can be handed, the same ones the
+                    generic renderer draws. A row the form disabled greys rather than
+                    disappearing, and the reason it carries is printed in the note column
+                    beside it.
+
+                    Which kinds arrive here is QualityLayout's partition and not a list kept
+                    here, so a kind the step above places nowhere must be drawable here -
+                    a kind neither of them draws is a setting the backend offered and nobody
+                    can reach.
                   -->
                   <Panel Grid.Column="1" Margin="14,7" HorizontalAlignment="Left">
                     <TextBox IsVisible="{Binding IsText}"
@@ -107,6 +113,29 @@
                                    Increment="{Binding NumberStep}"
                                    FormatString="0"
                                    MinWidth="140" />
+
+                    <!-- The typed box and its ladder, glued (Controls/NumberSelect). -->
+                    <StackPanel Orientation="Horizontal" IsVisible="{Binding IsNumberSelect}">
+                      <NumericUpDown Theme="{StaticResource NumberSelectInput}"
+                                     IsEnabled="{Binding IsEnabled}"
+                                     Value="{Binding Number, Mode=TwoWay}"
+                                     Minimum="{Binding NumberMinimum}"
+                                     Maximum="{Binding NumberMaximum}"
+                                     Increment="{Binding NumberStep}"
+                                     FormatString="0"
+                                     MinWidth="140" />
+                      <Button Theme="{StaticResource NumberSelectCaret}"
+                              IsEnabled="{Binding IsEnabled}">
+                        <ti:TablerIcon Icon="IconChevronDown" Brush="{StaticResource MutedBrush}" />
+                        <Button.Flyout>
+                          <MenuFlyout ItemsSource="{Binding Options}"
+                                      ItemTemplate="{StaticResource SelectEntry}"
+                                      ItemContainerTheme="{StaticResource SelectMenuItem}"
+                                      FlyoutPresenterTheme="{StaticResource SelectMenu}"
+                                      Placement="BottomEdgeAlignedRight" />
+                        </Button.Flyout>
+                      </Button>
+                    </StackPanel>
 
                     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}" Width="140">
                       <Slider Grid.Column="0"

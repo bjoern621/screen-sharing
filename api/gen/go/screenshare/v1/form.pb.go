@@ -56,6 +56,17 @@ const (
 	// carries none because there was never a choice to make. Field.enabled is false
 	// with the reason naming who decided.
 	ControlKind_CONTROL_KIND_READONLY ControlKind = 7
+	// A whole number within range that also carries a ladder of values worth
+	// reaching in one move - the frame rate is the case that exists. It fills both
+	// options and range, and the behavioural requirement is that the two write the
+	// same value: an entry is a shortcut, not the set of legal numbers, so a value
+	// off the ladder is typed rather than refused.
+	//
+	// The distinction from CONTROL_KIND_SELECT is that the ladder is not the domain.
+	// A select over a number offers every value the backend accepts, and typing a
+	// value it did not offer is an error; here the range is what accepts, and the
+	// entries only save the reader from finding the usual answers themselves.
+	ControlKind_CONTROL_KIND_NUMBER_SELECT ControlKind = 8
 )
 
 // Enum value maps for ControlKind.
@@ -69,16 +80,18 @@ var (
 		5: "CONTROL_KIND_SELECT",
 		6: "CONTROL_KIND_RADIO",
 		7: "CONTROL_KIND_READONLY",
+		8: "CONTROL_KIND_NUMBER_SELECT",
 	}
 	ControlKind_value = map[string]int32{
-		"CONTROL_KIND_UNSPECIFIED": 0,
-		"CONTROL_KIND_TEXT":        1,
-		"CONTROL_KIND_NUMBER":      2,
-		"CONTROL_KIND_SLIDER":      3,
-		"CONTROL_KIND_TOGGLE":      4,
-		"CONTROL_KIND_SELECT":      5,
-		"CONTROL_KIND_RADIO":       6,
-		"CONTROL_KIND_READONLY":    7,
+		"CONTROL_KIND_UNSPECIFIED":   0,
+		"CONTROL_KIND_TEXT":          1,
+		"CONTROL_KIND_NUMBER":        2,
+		"CONTROL_KIND_SLIDER":        3,
+		"CONTROL_KIND_TOGGLE":        4,
+		"CONTROL_KIND_SELECT":        5,
+		"CONTROL_KIND_RADIO":         6,
+		"CONTROL_KIND_READONLY":      7,
+		"CONTROL_KIND_NUMBER_SELECT": 8,
 	}
 )
 
@@ -535,8 +548,10 @@ type Field struct {
 	// same evaluation would grey.
 	Value *FieldValue `protobuf:"bytes,11,opt,name=value,proto3" json:"value,omitempty"`
 	// options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
-	// CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER. Both are empty on the controls they
-	// do not apply to.
+	// CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for
+	// CONTROL_KIND_NUMBER_SELECT, which is the one control that carries a ladder and
+	// the ends it may be typed past. Each is empty on the controls it does not apply
+	// to.
 	Options       []*FieldOption `protobuf:"bytes,12,rep,name=options,proto3" json:"options,omitempty"`
 	Range         *NumericRange  `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -650,7 +665,7 @@ func (x *Field) GetRange() *NumericRange {
 type FieldGroup struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is a stable identifier for the group: "stream", "source", "quality", "audio",
-	// "transport", "watch", "advanced". A shell uses it to decide placement and to look
+	// "transport", "watch", "relay". A shell uses it to decide placement and to look
 	// up the heading it draws; it must not use it to decide contents.
 	Key           string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Fields        []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
@@ -1074,7 +1089,7 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\x06groups\x18\x03 \x03(\v2\x1a.screenshare.v1.FieldGroupR\x06groups\x12<\n" +
 	"\vdiagnostics\x18\b \x03(\v2\x1a.screenshare.v1.DiagnosticR\vdiagnostics\x121\n" +
 	"\asummary\x18\x05 \x01(\v2\x17.screenshare.v1.SummaryR\asummary\x12 \n" +
-	"\vpublishable\x18\x06 \x01(\bR\vpublishableJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings*\xd9\x01\n" +
+	"\vpublishable\x18\x06 \x01(\bR\vpublishableJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings*\xf9\x01\n" +
 	"\vControlKind\x12\x1c\n" +
 	"\x18CONTROL_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11CONTROL_KIND_TEXT\x10\x01\x12\x17\n" +
@@ -1083,7 +1098,8 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\x13CONTROL_KIND_TOGGLE\x10\x04\x12\x17\n" +
 	"\x13CONTROL_KIND_SELECT\x10\x05\x12\x16\n" +
 	"\x12CONTROL_KIND_RADIO\x10\x06\x12\x19\n" +
-	"\x15CONTROL_KIND_READONLY\x10\a*~\n" +
+	"\x15CONTROL_KIND_READONLY\x10\a\x12\x1e\n" +
+	"\x1aCONTROL_KIND_NUMBER_SELECT\x10\b*~\n" +
 	"\x04Unit\x12\x14\n" +
 	"\x10UNIT_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18UNIT_MEGABITS_PER_SECOND\x10\x01\x12\x15\n" +

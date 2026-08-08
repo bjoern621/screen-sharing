@@ -185,7 +185,7 @@ public static class Fields
     {
         ["stream"] = new(
             "Stream",
-            "What this stream is called and which relay carries it. The name is the one setting your viewers see."),
+            "What this stream is called. It is the one setting your viewers see, and it is the last part of the address you send them."),
 
         ["source"] = new(
             "Capture",
@@ -207,9 +207,9 @@ public static class Fields
             "Watching",
             "How the stream comes back from the relay to a player. Separate from how you send, and separate per viewer."),
 
-        ["advanced"] = new(
-            "Relay ports",
-            "Which port each of the relay's listeners uses. The defaults are the relay's own, so these only matter against a relay someone set up differently."),
+        ["relay"] = new(
+            "Relay",
+            "Which machine carries the stream, and which port each of its listeners uses. The ports default to the relay's own, so they only matter against a relay someone set up differently."),
     };
 
     /// <summary>
