@@ -201,6 +201,16 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(settings, "applying to the running stream names the settings it restarts on");
+
+        return ReadAsync(
+            c => c.ApplyToStreamAsync(new ApplyToStreamRequest { Settings = settings }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => ReadAsync(c => c.StopPublishAsync(new StopPublishRequest(), cancellationToken: cancellation), cancellation);
 

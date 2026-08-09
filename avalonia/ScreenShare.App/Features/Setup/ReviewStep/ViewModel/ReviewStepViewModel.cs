@@ -19,6 +19,12 @@ namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 /// form's diagnostics, the name is the draft's, and whether the button lights is the
 /// <see cref="PublishGate"/> - which reads <c>Form.publishable</c>, what is publishing and
 /// what the relay said, so the button and the refusal that would follow it cannot disagree.
+///
+/// <b>What the button says is the same gate's answer, and that is the point of it being one.</b>
+/// A stream already on the air no longer locks the commit; it decides which effect the press is
+/// (<see cref="PublishGate.Commit"/>), and the label and the sentence under it are that answer
+/// read out of one table. The alternative was a ternary at the binding site and a second one
+/// beside the call, which is one fact written down twice and free to drift.
 /// </summary>
 public sealed class ReviewStepViewModel : Observable
 {
@@ -73,6 +79,9 @@ public sealed class ReviewStepViewModel : Observable
     // --- Outputs ------------------------------------------------------------------
 
     private bool _canGoLive;
+    private string _commitLabel = "";
+    private string _promiseLead = "";
+    private string _promiseTail = "";
     private string _blocked = "";
     private bool _isBlocked;
     private string _refusal = "";
@@ -99,6 +108,24 @@ public sealed class ReviewStepViewModel : Observable
     /// would follow it are one decision.
     /// </summary>
     public bool CanGoLive { get => _canGoLive; private set => Set(ref _canGoLive, value); }
+
+    /// <summary>
+    /// What the button says it will do: start a stream, or restart the one already on the air on
+    /// these settings. It comes off the gate's <see cref="PublishGate.Commit"/> through one table
+    /// (<see cref="CommitCopy"/>), so the word on the control and the call the press makes are
+    /// the same answer read twice rather than two answers that happen to agree.
+    /// </summary>
+    public string CommitLabel { get => _commitLabel; private set => Set(ref _commitLabel, value); }
+
+    /// <summary>
+    /// The promise under the button, up to the stream name. It is two halves because the name
+    /// sits inside the sentence at full strength, and the sentence itself is what tells a reader
+    /// that applying restarts the stream rather than changing it under the viewers.
+    /// </summary>
+    public string PromiseLead { get => _promiseLead; private set => Set(ref _promiseLead, value); }
+
+    /// <summary>The rest of that sentence, after the name.</summary>
+    public string PromiseTail { get => _promiseTail; private set => Set(ref _promiseTail, value); }
 
     /// <summary>
     /// Why the button is locked, empty while it is not. It is never this step's own prose about
@@ -148,6 +175,14 @@ public sealed class ReviewStepViewModel : Observable
         Reconcile.Onto(Tiles, ReviewTiles.Of(groups, _edit));
         Reconcile.Onto(Checks, checks);
 
+        // Read out of the one table on every pass, including the branch that puts the label back
+        // to a start: a stream that ended has to take the word "restart" off the button with it,
+        // and a property written only in the apply branch is one that sticks.
+        var words = CommitCopy.Of(gate.Commit);
+        CommitLabel = words.Label;
+        PromiseLead = words.Lead;
+        PromiseTail = words.Tail;
+
         CanGoLive = gate.CanGoLive;
         Blocked = gate.Blocked;
         IsBlocked = Blocked.Length > 0;
@@ -161,6 +196,10 @@ public sealed class ReviewStepViewModel : Observable
         GoLiveCommand.Refresh();
 
         Assert.That(Tiles.Count == groups.Count, "a tile per group of the form", Tiles.Count, groups.Count);
+        Assert.That(CommitLabel.Length > 0, "the commit says what pressing it will do", gate.Commit);
+        Assert.That(
+            PromiseLead.Length > 0 && PromiseTail.Length > 0,
+            "the promise carries both halves of the sentence the name sits in", gate.Commit);
         Assert.That(!CanGoLive || !IsBlocked, "a commit that is offered has nothing standing in its way", Blocked);
         Assert.That(IsBlocked == (Blocked.Length > 0), "the locked notice and its sentence agree", IsBlocked);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);

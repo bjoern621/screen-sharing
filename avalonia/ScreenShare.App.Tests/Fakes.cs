@@ -109,6 +109,9 @@ internal sealed class DeferredBackend : IBackend
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
         => _seed.StartPublishAsync(settings, cancellation);
 
+    public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
+        => _seed.ApplyToStreamAsync(settings, cancellation);
+
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => _seed.StopPublishAsync(cancellation);
 
@@ -176,9 +179,9 @@ internal sealed class DeferredBackend : IBackend
 ///
 /// It exists because the commit depends on states <see cref="SeededBackend"/> deliberately does
 /// not seed - there is no relay behind that fixture and no pipeline - and every condition that
-/// locks the Go live button is one of them. What it does not do is answer a form: the resolve is
-/// the seed's, so the settings half of the gate stays the one real fixture rather than a second
-/// copy of the domain.
+/// locks the commit is one of them, as is the one that decides which effect pressing it is. What
+/// it does not do is answer a form: the resolve is the seed's, so the settings half of the gate
+/// stays the one real fixture rather than a second copy of the domain.
 /// </summary>
 internal sealed class PublishingBackend : IBackend
 {
@@ -196,14 +199,21 @@ internal sealed class PublishingBackend : IBackend
     /// <summary>What is publishing. Nothing by default, which the absent <c>Live</c> is what says.</summary>
     public PublishState Publish { get; set; } = new();
 
-    /// <summary>Why a start is refused, empty while one is accepted.</summary>
+    /// <summary>Why a commit is refused, empty while one is accepted.</summary>
     public string Refusal { get; set; } = "";
 
     /// <summary>The settings every accepted start was asked for, in order.</summary>
     public List<Settings> Started { get; } = [];
 
     /// <summary>
-    /// A start that has been asked for and not answered, held open by a test.
+    /// The settings every accepted apply was asked for, in order. Kept apart from
+    /// <see cref="Started"/> because which of the two lists a commit lands in is the whole
+    /// question: the backend refuses each of them in the state the other one is for.
+    /// </summary>
+    public List<Settings> Applied { get; } = [];
+
+    /// <summary>
+    /// A commit that has been asked for and not answered, held open by a test.
     ///
     /// It is what makes the round trip an interval a test can read the screen in the middle of.
     /// Every other answer here is immediate, which is the honest default - it keeps the tests
@@ -212,11 +222,11 @@ internal sealed class PublishingBackend : IBackend
     /// </summary>
     private TaskCompletionSource? _held;
 
-    /// <summary>Holds every start open from here on, so one can be read while it is in flight.</summary>
+    /// <summary>Holds every commit open from here on, so one can be read while it is in flight.</summary>
     public void HoldStarts() => _held = new TaskCompletionSource();
 
     /// <summary>
-    /// Answers the held start. Everything it sets off has happened by the time this returns,
+    /// Answers the held commit. Everything it sets off has happened by the time this returns,
     /// for the reason <see cref="Answers.Now"/> states.
     /// </summary>
     public void AnswerStarts()
@@ -228,6 +238,19 @@ internal sealed class PublishingBackend : IBackend
     }
 
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
+        => Commit(Started, settings);
+
+    public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
+        => Commit(Applied, settings);
+
+    /// <summary>
+    /// One commit, recorded where a test will look for it.
+    ///
+    /// The two effects differ in nothing this fixture does - both carry the whole draft, both
+    /// answer with nothing, and both are refused or held on the same terms - so the one thing a
+    /// test reads off it is which list the settings landed in.
+    /// </summary>
+    private Task Commit(List<Settings> into, Settings settings)
     {
         if (Refusal.Length > 0)
         {
@@ -236,7 +259,7 @@ internal sealed class PublishingBackend : IBackend
             return Task.FromException(new BackendUnavailableException(Refusal));
         }
 
-        Started.Add(settings);
+        into.Add(settings);
         return _held?.Task ?? Task.CompletedTask;
     }
 

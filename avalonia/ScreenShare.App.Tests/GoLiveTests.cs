@@ -1,19 +1,23 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The commit: when the one red button is pressable, what it sends, and what it says when it
-/// is not.
+/// The commit: when the one red button is pressable, what it sends, what it calls itself, and
+/// what it says when it cannot be pressed.
 ///
-/// <b>Four states have to hold at once, and none of them is this module's opinion.</b> The
-/// settings publish (<c>Form.publishable</c>), the backend is answering, nothing is already on
-/// the air (<c>PublishState.live</c>), and the relay answered (<c>RelayStatus.reachable</c>).
-/// Each is a whole state some other side stated, so these tests state the reading and assert
-/// what the button did with it - never how a rule was evaluated here.
+/// <b>Four states decide it, and none of them is this module's opinion.</b> The settings publish
+/// (<c>Form.publishable</c>), the backend is answering, and the relay answered
+/// (<c>RelayStatus.reachable</c>) are the three that let it be pressed at all. The fourth,
+/// whether a stream is already on the air (<c>PublishState.live</c>), decides what pressing it
+/// does rather than whether it can be done: with nothing publishing the commit starts a stream,
+/// and with one running it restarts that stream on these settings. Each is a whole state some
+/// other side stated, so these tests state the reading and assert what the button did with it -
+/// never how a rule was evaluated here.
 /// </summary>
 public sealed class GoLiveTests
 {
@@ -136,12 +140,13 @@ public sealed class GoLiveTests
     }
 
     /// <summary>
-    /// A stream already on the air locks the commit. The backend refuses a second start anyway,
-    /// so the lock and the refusal are one answer - and the reader is pointed at the screen that
-    /// owns stopping it.
+    /// A stream already on the air no longer locks the commit. It used to, because the only
+    /// effect the shell could reach was <c>StartPublish</c> and the backend refuses that while a
+    /// pipeline is in force; <c>ApplyToStream</c> is the effect for exactly that state, so
+    /// refusing here would be this module standing in front of a call that would succeed.
     /// </summary>
     [Fact]
-    public void AStreamAlreadyPublishingLocksTheCommit()
+    public void AStreamAlreadyPublishingLeavesTheCommitPressable()
     {
         var backend = new PublishingBackend();
         var flow = Flow(backend, out var session);
@@ -151,8 +156,132 @@ public sealed class GoLiveTests
         backend.Publish = Live("lab04");
         Reload(session, flow);
 
-        Assert.False(flow.Review.CanGoLive);
-        Assert.NotEqual("", flow.Review.Blocked);
+        Assert.True(flow.Review.CanGoLive);
+        Assert.False(flow.Review.IsBlocked);
+        Assert.Equal("", flow.Review.Blocked);
+    }
+
+    /// <summary>
+    /// What a live stream changes is the commit rather than the lock, and the button says so
+    /// before it is pressed. The words come out of one table read off the gate's own answer, so
+    /// this states that the flow picked the right row rather than restating the wording - which
+    /// would be the sentence written down in a second place, free to drift from the first.
+    /// </summary>
+    [Fact]
+    public void TheCommitsWordsFollowWhatPressingItWillDo()
+    {
+        var backend = new PublishingBackend();
+        var flow = Flow(backend, out var session);
+
+        var start = CommitCopy.Of(PublishCommit.Start);
+        Assert.Equal(start.Label, flow.Review.CommitLabel);
+        Assert.Equal(start.Lead, flow.Review.PromiseLead);
+        Assert.Equal(start.Tail, flow.Review.PromiseTail);
+
+        backend.Publish = Live("lab04");
+        Reload(session, flow);
+
+        var apply = CommitCopy.Of(PublishCommit.Apply);
+        Assert.Equal(apply.Label, flow.Review.CommitLabel);
+        Assert.Equal(apply.Lead, flow.Review.PromiseLead);
+        Assert.Equal(apply.Tail, flow.Review.PromiseTail);
+        Assert.NotEqual(start.Label, apply.Label);
+    }
+
+    /// <summary>
+    /// The apply wording says the stream restarts, in the copy itself. The backend has no
+    /// live-safe change and never had one, so a reader who presses this expecting a seamless
+    /// swap has been misled by the button - which is the one thing this table exists to prevent.
+    /// </summary>
+    [Fact]
+    public void TheApplyWordingSaysTheStreamRestarts()
+    {
+        var apply = CommitCopy.Of(PublishCommit.Apply);
+
+        Assert.Contains("restart", apply.Label, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("restarts the stream", apply.Lead, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Pressing it while a stream is live applies to that stream rather than asking for a second
+    /// one. Which of the two it is is read off the running state on the pass the press happens
+    /// on, so the label the reader saw and the call that goes out cannot come apart.
+    /// </summary>
+    [Fact]
+    public void PressingTheCommitWhileAStreamIsLiveAppliesToItRatherThanStartingAnother()
+    {
+        var backend = new PublishingBackend();
+        var flow = Flow(backend, out var session);
+
+        backend.Publish = Live("lab04");
+        Reload(session, flow);
+
+        flow.Review.GoLiveCommand.Execute(null);
+
+        var applied = Assert.Single(backend.Applied);
+        Assert.Equal(flow.Review.StreamName, applied.Publish.Name);
+        Assert.Empty(backend.Started);
+        Assert.Equal("", flow.Review.Refusal);
+    }
+
+    /// <summary>
+    /// A stream that ended puts the commit back to a start, with nothing here having remembered
+    /// that it was an apply. It is the render function's own property applied to the words on the
+    /// button: every output is written on every pass, including the branch that turns one back.
+    /// </summary>
+    [Fact]
+    public void AStreamThatEndedPutsTheCommitBackToAStart()
+    {
+        var backend = new PublishingBackend { Publish = Live("lab04") };
+        var flow = Flow(backend, out var session);
+
+        Assert.Equal(CommitCopy.Of(PublishCommit.Apply).Label, flow.Review.CommitLabel);
+
+        backend.Publish = new PublishState();
+        Reload(session, flow);
+
+        Assert.Equal(CommitCopy.Of(PublishCommit.Start).Label, flow.Review.CommitLabel);
+
+        flow.Review.GoLiveCommand.Execute(null);
+
+        Assert.Single(backend.Started);
+        Assert.Empty(backend.Applied);
+    }
+
+    /// <summary>
+    /// Two readings of one running state produce gates that compare equal, which is what lets the
+    /// review render twice over unchanged state and write nothing
+    /// (docs/development-principles.md, "Idempotency"). It is a record for exactly this.
+    /// </summary>
+    [Fact]
+    public void TwoReadingsOfOneStateProduceTheSameGate()
+    {
+        var publish = Live("lab04");
+        var relay = new RelayStatus { Reachable = true };
+
+        Assert.Equal(
+            PublishGate.Of(true, "", publish, relay, starting: false),
+            PublishGate.Of(true, "", publish, relay, starting: false));
+    }
+
+    /// <summary>
+    /// A second render pass over unchanged state notifies nothing on the review, which is what
+    /// makes the commit safe to reconcile from a pass that runs on every keystroke. The words on
+    /// the button are the ones this covers that the earlier idempotency tests did not.
+    /// </summary>
+    [Fact]
+    public void ASecondRenderPassOverAnUnchangedCommitNotifiesNothing()
+    {
+        var backend = new PublishingBackend { Publish = Live("lab04") };
+        var flow = Flow(backend, out _);
+
+        var moved = new List<string?>();
+        flow.Review.PropertyChanged += (_, e) => moved.Add(e.PropertyName);
+
+        flow.Apply();
+        flow.Apply();
+
+        Assert.Empty(moved);
     }
 
     /// <summary>
@@ -194,6 +323,7 @@ public sealed class GoLiveTests
 
         var started = Assert.Single(backend.Started);
         Assert.Equal(flow.Review.StreamName, started.Publish.Name);
+        Assert.Empty(backend.Applied);
         Assert.Equal(1, announced);
         Assert.Equal("", flow.Review.Refusal);
         Assert.True(flow.Review.CanGoLive);
@@ -212,6 +342,7 @@ public sealed class GoLiveTests
 
         Assert.False(flow.Review.GoLiveCommand.CanExecute(null));
         Assert.Empty(backend.Started);
+        Assert.Empty(backend.Applied);
     }
 
     /// <summary>
