@@ -37,9 +37,18 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 /// dropped connection recoverable by reading again, and a shell that pressed the button and a
 /// shell that did not show the same thing.
 ///
-/// The one thing it accumulates is <see cref="Samples"/>, and that is not an exception. A
-/// sparkline is a history of readings by construction: each sample is a whole state, the
-/// window is bounded, and nothing is derived from the series that the backend also states.
+/// What it accumulates is <see cref="Samples"/> and <see cref="RelaySamples"/>, and neither is
+/// an exception. A sparkline is a history of readings by construction: each entry is a whole
+/// state the backend sent, the window is bounded, and nothing is derived from a series that the
+/// backend also states. The relay series earns its place on the same three counts - a snapshot
+/// is whole, the bound is the one below, and the latency plot draws the shape those snapshots
+/// went through rather than a figure the backend would have answered differently.
+///
+/// The relay series carries one thing the encoder series does not, and it is worth stating: a
+/// relay snapshot describes every path the relay is carrying, and the plot wants one of them.
+/// The path is picked when the series is drawn rather than when it is stored, because which path
+/// is ours is the publish state's answer and it can change under a series that has already been
+/// recorded (<c>Features/Broadcast/Model/BroadcastSnapshot.cs</c>, <c>PathOf</c>).
 ///
 /// The two writes are <see cref="Start"/> and the subscription loop, both of which land on
 /// the UI loop through the dispatcher they were handed, so a screen reading this never sees a
@@ -48,9 +57,15 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 public sealed class Session
 {
     /// <summary>
-    /// How many encoder samples the series keeps. Roughly one arrives per second per running
-    /// pipeline, so this is about four minutes of stream - enough for a sparkline to show a
-    /// dip and short enough that a session left open overnight costs nothing.
+    /// How many samples a series keeps. Roughly one encoder sample arrives per second per
+    /// running pipeline, so this is about four minutes of stream - enough for a sparkline to
+    /// show a dip and short enough that a session left open overnight costs nothing.
+    ///
+    /// The relay series is bounded by the same number rather than by a span of its own, and it
+    /// is deliberately a count of samples and not of seconds: how often the backend polls the
+    /// relay is not on the contract, so a window stated in seconds here would be a period this
+    /// side made up. What the two series therefore share is a length in readings, not a length
+    /// in time, which is why neither plot claims the other's window.
     /// </summary>
     private const int SampleWindow = 240;
 
@@ -65,6 +80,7 @@ public sealed class Session
     private readonly Action<Action> _dispatch;
     private readonly TimeProvider _clock;
     private readonly List<PublishStats> _samples = [];
+    private readonly List<RelayStatus> _relaySamples = [];
     private readonly List<SessionExit> _exits = [];
 
     private CancellationTokenSource? _cancel;
@@ -97,6 +113,22 @@ public sealed class Session
     /// </summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised on the UI loop after <see cref="Levels"/> has moved, and never raised by anything
+    /// else.
+    ///
+    /// <b>A second signal rather than a second reason to raise the first, and the reason is
+    /// cadence.</b> Every screen re-renders on <see cref="Changed"/>, which is right for a state
+    /// that moves when something happened; levels move fifteen times a second, and putting them
+    /// on that signal would re-render the whole shell at metering rate to move one bar. Only the
+    /// meters subscribe here, so the cost of a tick is the meters and nothing else.
+    ///
+    /// This is the shell-side half of why <c>SubscribeAudioLevels</c> is a stream of its own
+    /// rather than an event kind (<c>docs/ipc-api.md</c>): the separation is worth nothing if
+    /// both ends of it land on one notification here.
+    /// </summary>
+    public event Action? Metered;
+
     // --- What the backend last said ------------------------------------------------
 
     /// <summary>Whether a stream is in force, and what it is carrying. Null until the first read lands.</summary>
@@ -113,7 +145,14 @@ public sealed class Session
     public IReadOnlyList<PublishStats> Samples => _samples;
 
     /// <summary>The relay snapshot. Null until the first read lands; an unreachable relay is a snapshot that says so.</summary>
-    public RelayStatus? Relay { get; private set; }
+    public RelayStatus? Relay => _relaySamples.Count == 0 ? null : _relaySamples[^1];
+
+    /// <summary>
+    /// The relay snapshots of this run, oldest first, bounded to the sparkline's window. The
+    /// newest of them is <see cref="Relay"/>, read off the same list rather than held beside it,
+    /// so the figure a card reads and the last point of the curve under it cannot disagree.
+    /// </summary>
+    public IReadOnlyList<RelayStatus> RelaySamples => _relaySamples;
 
     /// <summary>
     /// How this shell names the values the backend sends, built from the catalog.
@@ -140,6 +179,39 @@ public sealed class Session
     /// request instead of a result.
     /// </summary>
     public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
+
+    /// <summary>
+    /// How loud every decode carrying audio is, as of the last tick.
+    ///
+    /// Whole per tick like every other state here, and read through by the meters rather than
+    /// accumulated: a decode with no audio track has no entry, and a silent one has an entry
+    /// reading negative infinity. The two are different facts and stay different - one draws no
+    /// meter and the other an empty one.
+    ///
+    /// Empty while nothing is being metered, which includes the case where the level stream is
+    /// down. A meter frozen at whatever was last measured would be the one reading that is
+    /// certainly wrong.
+    /// </summary>
+    public IReadOnlyList<AudioLevel> Levels { get; private set; } = [];
+
+    /// <summary>
+    /// The level of one decode, or null where it carries no audio or is not being metered.
+    ///
+    /// The join is on the pair the whole receive contract keys a decode by, because the relay
+    /// re-serves each stream on all its listeners and a name alone is not an identity.
+    /// </summary>
+    public AudioLevel? LevelOf(string streamName, string transport)
+    {
+        foreach (var level in Levels)
+        {
+            if (level.Stream.StreamName == streamName && level.Stream.Transport == transport)
+            {
+                return level;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The child processes that ended this session, oldest first: the publish pipeline, a
@@ -174,7 +246,10 @@ public sealed class Session
         _cancel?.Dispose();
         _cancel = new CancellationTokenSource();
 
-        return RunAsync(_cancel.Token);
+        // Two loops rather than one, because they are two streams with two cadences and one
+        // ending is not a reason to reopen the other. The event stream owns the report of an
+        // absent backend; the meter loop stays quiet about it and simply empties the levels.
+        return Task.WhenAll(RunAsync(_cancel.Token), MeterAsync(_cancel.Token));
     }
 
     /// <summary>
@@ -256,7 +331,7 @@ public sealed class Session
             Unavailable = "";
             Words = new Vocabulary(catalog);
             Publish = publish;
-            Relay = relay;
+            TakeRelay(relay);
             Watching = watching;
             Receiving = receiving;
             IsLoaded = true;
@@ -279,6 +354,53 @@ public sealed class Session
         }
     }
 
+    /// <summary>
+    /// Follows the level stream for as long as the session runs, reopening it after it drops.
+    ///
+    /// Its own loop rather than a branch of <see cref="RunAsync"/>, because the two streams end
+    /// for their own reasons and neither ending should reopen the other. It reads nothing back
+    /// on reconnect either: a level is an instant rather than a state that accumulated, so the
+    /// next tick is the whole recovery.
+    ///
+    /// An absent backend is not reported from here. <see cref="RunAsync"/> owns that sentence,
+    /// and a second writer of it would be two ways of saying one thing.
+    /// </summary>
+    private async Task MeterAsync(CancellationToken cancellation)
+    {
+        while (!cancellation.IsCancellationRequested)
+        {
+            try
+            {
+                await foreach (var tick in _backend.SubscribeAudioLevelsAsync(cancellation).ConfigureAwait(false))
+                {
+                    Meter(() => Levels = tick.Levels);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (BackendUnavailableException)
+            {
+                // Said once, by the loop that owns saying it.
+            }
+
+            // The meters are emptied rather than left where the last tick put them. A bar frozen
+            // at the last figure a dead stream carried is the one reading that is certainly
+            // wrong, and no level is the honest state of a shell that is being told none.
+            Meter(() => Levels = []);
+
+            try
+            {
+                await Task.Delay(ReconnectDelay, cancellation).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
     private void Take(Event change)
     {
         Assert.NotNull(change, "an event stream delivers events");
@@ -289,9 +411,16 @@ public sealed class Session
                 // A run that ended takes its samples with it. They belong to the pipeline that
                 // produced them, and a sparkline that carried them across a restart would draw
                 // two runs as one.
+                //
+                // The relay series goes with them, and for the same reason rather than a
+                // weaker one: the relay keeps answering after the stream stops, but the plot
+                // beside the egress curve describes this run's viewers, and readers of a path
+                // that is no longer being published to are not what its next run started with.
+                // The newest snapshot goes too, and it comes straight back on the next poll.
                 if (change.PublishState.Live is null)
                 {
                     _samples.Clear();
+                    _relaySamples.Clear();
                 }
 
                 Publish = change.PublishState;
@@ -307,7 +436,7 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.RelayStatus:
-                Relay = change.RelayStatus;
+                TakeRelay(change.RelayStatus);
                 break;
 
             case Event.PayloadOneofCase.Catalog:
@@ -353,6 +482,24 @@ public sealed class Session
         }
     }
 
+    /// <summary>
+    /// Records one relay snapshot, which is both the newest state and the newest point of the
+    /// series. One method for both so that there is one place a snapshot enters this class, and
+    /// so that a read on reconnect and an event on the stream cannot take different paths in.
+    /// </summary>
+    private void TakeRelay(RelayStatus relay)
+    {
+        Assert.NotNull(relay, "a relay snapshot is the whole state the backend answered with");
+
+        _relaySamples.Add(relay);
+        if (_relaySamples.Count > SampleWindow)
+        {
+            _relaySamples.RemoveRange(0, _relaySamples.Count - SampleWindow);
+        }
+
+        Assert.That(ReferenceEquals(Relay, relay), "the newest snapshot is the one just taken");
+    }
+
     private void Ended(string what, ExitInfo info)
     {
         Assert.That(what.Length > 0, "an ended process is named");
@@ -392,6 +539,22 @@ public sealed class Session
         {
             write();
             Changed?.Invoke();
+        });
+    }
+
+    /// <summary>
+    /// Runs one level write on the UI loop and announces it to the meters alone.
+    ///
+    /// Deliberately not <see cref="Write"/>. It raises <see cref="Metered"/> and never
+    /// <see cref="Changed"/>, so a tick costs the bars that draw it rather than every screen in
+    /// the shell.
+    /// </summary>
+    private void Meter(Action write)
+    {
+        _dispatch(() =>
+        {
+            write();
+            Metered?.Invoke();
         });
     }
 }

@@ -117,6 +117,15 @@ type Backend interface {
 	// what they open is a decode and never a tile.
 	StartReceive(key wire.WatchKey) error
 	StopReceive(key wire.WatchKey)
+	// SetReceiveAudio sets how loud one decode plays and whether it plays at all, and
+	// refuses where nothing is decoding the pair. The loudness belongs to the decode
+	// and not to a window drawing it: one pipeline holds one audio branch, so a
+	// per-window volume would be several controls over one element.
+	SetReceiveAudio(key wire.WatchKey, volume float64, muted bool) error
+	// AudioLevels is how loud every decode carrying audio is, at this instant. A read
+	// rather than a stream, because the cadence belongs to the service that ticks it
+	// and not to the backend that measures.
+	AudioLevels() []wire.AudioLevel
 	// SubscribeFrames opens one consumer's view of a decode that is already running,
 	// and refuses where nothing is decoding the pair.
 	//

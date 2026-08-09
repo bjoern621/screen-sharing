@@ -98,6 +98,11 @@ public sealed class ShellViewModel : Observable
         // viewer's figures whichever destination is showing.
         _session.Changed += OnSessionChanged;
 
+        // The meters are on their own notification and go to the viewer alone. Every destination
+        // re-renders on a change; a level moves fifteen times a second, and putting it through
+        // the same path would re-render three screens to move one bar (<c>Backend/Session.cs</c>).
+        _session.Metered += Viewer.Meter;
+
         _body = BodyFor(_current);
 
         // The status band prints figures the viewer owns, and a reader toggling a chip

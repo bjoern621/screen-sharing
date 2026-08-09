@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Viewer.Model;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Viewer.ViewModel;
 
@@ -99,6 +100,27 @@ public sealed class StreamRowViewModel : Observable
     /// <summary>Puts this stream in the grid, or takes it out again.</summary>
     public PendingCommand Show { get; }
 
+    private string _watchLabel = "";
+
+    /// <summary>
+    /// What the entry's action says it will do.
+    ///
+    /// It names the effect rather than the state, because the entry already draws the state: the
+    /// dot says whether anything is publishing and the pressed toggle says whether it is in the
+    /// grid, so a label repeating either would be a third opinion about the same fact.
+    /// </summary>
+    public string WatchLabel { get => _watchLabel; private set => Set(ref _watchLabel, value); }
+
+    private Icons _watchGlyph = Icons.IconPlayerPlay;
+
+    /// <summary>
+    /// The action's glyph: put this stream on screen, or take it off.
+    ///
+    /// One glyph that changes rather than two controls one of which is hidden, so the entry's
+    /// action never moves under the pointer.
+    /// </summary>
+    public Icons WatchGlyph { get => _watchGlyph; private set => Set(ref _watchGlyph, value); }
+
     /// <summary>
     /// The one render function. Safe to run twice: every output is written on every pass, the
     /// legs compare equal across two passes over one row, and the commands are reused by value.
@@ -112,6 +134,8 @@ public sealed class StreamRowViewModel : Observable
         _watchedOn = row.WatchedOn;
         _tiled = tiled;
         IsTiled = tiled;
+        WatchLabel = tiled ? "Take out of the grid" : "Watch in the grid";
+        WatchGlyph = tiled ? Icons.IconX : Icons.IconPlayerPlay;
 
         Detail = row.Detail;
         Tracks = row.Tracks;

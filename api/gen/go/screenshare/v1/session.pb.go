@@ -209,6 +209,167 @@ func (x *PublishStats) GetAvgMbps() float64 {
 	return 0
 }
 
+// RelayReader is one connection the relay is serving a path to.
+//
+// Every figure carries presence, because what a relay measures about a reader depends on
+// the protocol it is watching over and not on the moment: SRT is the one leg the relay
+// times a round trip and states a loss rate on, and the rest report what was sent to them
+// and little more. An absent figure is therefore a permanent fact about that reader's leg
+// rather than a reading that has not landed yet, and a screen shows both the same way -
+// absent, never zero. Presence is spelled with proto3 optional and never with a list of
+// field names beside the figures, for the reason PublishStats gives above.
+type RelayReader struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is the relay's own token for what this reader is, e.g. srtConn, and id is the
+	// relay's handle on it. Both are passed through unchanged so a reader of this message
+	// can find the same connection in the relay's own API.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Id   string `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
+	// transport is type in the vocabulary every other leg in this contract is named in -
+	// srt, rtsp, rtmp, webrtc, hls, moq. A reader on a protocol the backend has no row for
+	// keeps the relay's token here, so an unknown leg reads as what the relay called it.
+	Transport string `protobuf:"bytes,3,opt,name=transport,proto3" json:"transport,omitempty"`
+	// remote_addr is host:port as the relay saw it. Absent where the relay named a reader
+	// it then described nowhere: one that ended between the two reads, or one whose
+	// protocol this relay serves no list for.
+	RemoteAddr *string `protobuf:"bytes,4,opt,name=remote_addr,json=remoteAddr,proto3,oneof" json:"remote_addr,omitempty"`
+	// joined is when the relay accepted this reader, RFC 3339, on the relay's clock. It is
+	// the relay's own spelling: the relay is the only side that can date its connections,
+	// and a backend that reformatted it would be putting a second clock on the wire.
+	Joined    *string `protobuf:"bytes,5,opt,name=joined,proto3,oneof" json:"joined,omitempty"`
+	BytesSent *uint64 `protobuf:"varint,6,opt,name=bytes_sent,json=bytesSent,proto3,oneof" json:"bytes_sent,omitempty"`
+	// rtt_ms is the smoothed round trip to this reader, and loss_percent SRT's own
+	// send-side loss rate, which SRT defines as resent data against sent data. Both are the
+	// relay's figures rather than ones computed from counters here, and both are absent on
+	// every leg but SRT.
+	RttMs       *float64 `protobuf:"fixed64,7,opt,name=rtt_ms,json=rttMs,proto3,oneof" json:"rtt_ms,omitempty"`
+	LossPercent *float64 `protobuf:"fixed64,8,opt,name=loss_percent,json=lossPercent,proto3,oneof" json:"loss_percent,omitempty"`
+	// The counters are cumulative over the connection. packets_lost were lost on the way,
+	// packets_dropped were given up on by the sender, and frames_discarded were dropped by
+	// the relay itself because this reader's outgoing queue was full - the last is a fact
+	// about the relay rather than about the line, which is why it is counted apart.
+	PacketsSent     *uint64 `protobuf:"varint,9,opt,name=packets_sent,json=packetsSent,proto3,oneof" json:"packets_sent,omitempty"`
+	PacketsLost     *uint64 `protobuf:"varint,10,opt,name=packets_lost,json=packetsLost,proto3,oneof" json:"packets_lost,omitempty"`
+	PacketsDropped  *uint64 `protobuf:"varint,11,opt,name=packets_dropped,json=packetsDropped,proto3,oneof" json:"packets_dropped,omitempty"`
+	FramesDiscarded *uint64 `protobuf:"varint,12,opt,name=frames_discarded,json=framesDiscarded,proto3,oneof" json:"frames_discarded,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RelayReader) Reset() {
+	*x = RelayReader{}
+	mi := &file_screenshare_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelayReader) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelayReader) ProtoMessage() {}
+
+func (x *RelayReader) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelayReader.ProtoReflect.Descriptor instead.
+func (*RelayReader) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RelayReader) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *RelayReader) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *RelayReader) GetTransport() string {
+	if x != nil {
+		return x.Transport
+	}
+	return ""
+}
+
+func (x *RelayReader) GetRemoteAddr() string {
+	if x != nil && x.RemoteAddr != nil {
+		return *x.RemoteAddr
+	}
+	return ""
+}
+
+func (x *RelayReader) GetJoined() string {
+	if x != nil && x.Joined != nil {
+		return *x.Joined
+	}
+	return ""
+}
+
+func (x *RelayReader) GetBytesSent() uint64 {
+	if x != nil && x.BytesSent != nil {
+		return *x.BytesSent
+	}
+	return 0
+}
+
+func (x *RelayReader) GetRttMs() float64 {
+	if x != nil && x.RttMs != nil {
+		return *x.RttMs
+	}
+	return 0
+}
+
+func (x *RelayReader) GetLossPercent() float64 {
+	if x != nil && x.LossPercent != nil {
+		return *x.LossPercent
+	}
+	return 0
+}
+
+func (x *RelayReader) GetPacketsSent() uint64 {
+	if x != nil && x.PacketsSent != nil {
+		return *x.PacketsSent
+	}
+	return 0
+}
+
+func (x *RelayReader) GetPacketsLost() uint64 {
+	if x != nil && x.PacketsLost != nil {
+		return *x.PacketsLost
+	}
+	return 0
+}
+
+func (x *RelayReader) GetPacketsDropped() uint64 {
+	if x != nil && x.PacketsDropped != nil {
+		return *x.PacketsDropped
+	}
+	return 0
+}
+
+func (x *RelayReader) GetFramesDiscarded() uint64 {
+	if x != nil && x.FramesDiscarded != nil {
+		return *x.FramesDiscarded
+	}
+	return 0
+}
+
 // RelayPath is one stream the relay is carrying.
 type RelayPath struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -228,14 +389,23 @@ type RelayPath struct {
 	// in_mbps is the live ingest rate, computed from byte deltas between polls. It is
 	// meaningful only against a steady poll interval, which is why the backend owns
 	// the polling and a shell reads the result.
-	InMbps        float64 `protobuf:"fixed64,6,opt,name=in_mbps,json=inMbps,proto3" json:"in_mbps,omitempty"`
+	InMbps float64 `protobuf:"fixed64,6,opt,name=in_mbps,json=inMbps,proto3" json:"in_mbps,omitempty"`
+	// reader_roster is who those readers are, one entry per reader counted above. The two
+	// are read off the one array the relay answered with, so the count is the roster's
+	// length by construction and cannot drift from it.
+	//
+	// It is a second field rather than a rename of readers because the count is what every
+	// reader of this contract already asks for and a stream's viewer figure must not go
+	// missing to gain a roster; a shell that only wants the number keeps reading the
+	// number.
+	ReaderRoster  []*RelayReader `protobuf:"bytes,7,rep,name=reader_roster,json=readerRoster,proto3" json:"reader_roster,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RelayPath) Reset() {
 	*x = RelayPath{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[2]
+	mi := &file_screenshare_v1_session_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -247,7 +417,7 @@ func (x *RelayPath) String() string {
 func (*RelayPath) ProtoMessage() {}
 
 func (x *RelayPath) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[2]
+	mi := &file_screenshare_v1_session_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -260,7 +430,7 @@ func (x *RelayPath) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayPath.ProtoReflect.Descriptor instead.
 func (*RelayPath) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{2}
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RelayPath) GetName() string {
@@ -305,6 +475,13 @@ func (x *RelayPath) GetInMbps() float64 {
 	return 0
 }
 
+func (x *RelayPath) GetReaderRoster() []*RelayReader {
+	if x != nil {
+		return x.ReaderRoster
+	}
+	return nil
+}
+
 // RelayStatus is one snapshot of the relay.
 type RelayStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -320,7 +497,7 @@ type RelayStatus struct {
 
 func (x *RelayStatus) Reset() {
 	*x = RelayStatus{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[3]
+	mi := &file_screenshare_v1_session_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -332,7 +509,7 @@ func (x *RelayStatus) String() string {
 func (*RelayStatus) ProtoMessage() {}
 
 func (x *RelayStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[3]
+	mi := &file_screenshare_v1_session_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -345,7 +522,7 @@ func (x *RelayStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RelayStatus.ProtoReflect.Descriptor instead.
 func (*RelayStatus) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{3}
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RelayStatus) GetReachable() bool {
@@ -387,7 +564,7 @@ type WatchKey struct {
 
 func (x *WatchKey) Reset() {
 	*x = WatchKey{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[4]
+	mi := &file_screenshare_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -399,7 +576,7 @@ func (x *WatchKey) String() string {
 func (*WatchKey) ProtoMessage() {}
 
 func (x *WatchKey) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[4]
+	mi := &file_screenshare_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -412,7 +589,7 @@ func (x *WatchKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WatchKey.ProtoReflect.Descriptor instead.
 func (*WatchKey) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{4}
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *WatchKey) GetStreamName() string {
@@ -427,6 +604,130 @@ func (x *WatchKey) GetTransport() string {
 		return x.Transport
 	}
 	return ""
+}
+
+// AudioLevel is how loud one decode's audio branch is right now.
+//
+// It is a measurement of the branch before the volume element, so a muted decode
+// still reports what it is carrying. That is the point of the figure: a reader who
+// muted a stream has to be able to see that it started making noise again, which a
+// meter reading what the speakers got could not say.
+//
+// Decibels relative to full scale, so the figures are at most zero and silence is
+// negative infinity. A decode carrying no audio track has no entry at all, which is
+// a different fact from a silent one and is drawn differently.
+type AudioLevel struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// stream is the decode this level belongs to, the same identity every other
+	// receive message carries.
+	Stream *WatchKey `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	// peak_db is the loudest sample of the interval and rms_db its power average.
+	// Both are the maximum over the channels: a meter is one bar per stream, and
+	// which side of a stereo pair was louder is not a thing a tile asks.
+	PeakDb        float64 `protobuf:"fixed64,2,opt,name=peak_db,json=peakDb,proto3" json:"peak_db,omitempty"`
+	RmsDb         float64 `protobuf:"fixed64,3,opt,name=rms_db,json=rmsDb,proto3" json:"rms_db,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudioLevel) Reset() {
+	*x = AudioLevel{}
+	mi := &file_screenshare_v1_session_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudioLevel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudioLevel) ProtoMessage() {}
+
+func (x *AudioLevel) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_session_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudioLevel.ProtoReflect.Descriptor instead.
+func (*AudioLevel) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AudioLevel) GetStream() *WatchKey {
+	if x != nil {
+		return x.Stream
+	}
+	return nil
+}
+
+func (x *AudioLevel) GetPeakDb() float64 {
+	if x != nil {
+		return x.PeakDb
+	}
+	return 0
+}
+
+func (x *AudioLevel) GetRmsDb() float64 {
+	if x != nil {
+		return x.RmsDb
+	}
+	return 0
+}
+
+// AudioLevels is every decode that is carrying audio, at one instant.
+//
+// A whole state per tick and never a delta, for the reason every other state here is
+// whole: a reader that joined late, missed a tick or fell behind is correct again on
+// the next one rather than after replaying what it missed.
+type AudioLevels struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Levels        []*AudioLevel          `protobuf:"bytes,1,rep,name=levels,proto3" json:"levels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudioLevels) Reset() {
+	*x = AudioLevels{}
+	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudioLevels) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudioLevels) ProtoMessage() {}
+
+func (x *AudioLevels) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudioLevels.ProtoReflect.Descriptor instead.
+func (*AudioLevels) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *AudioLevels) GetLevels() []*AudioLevel {
+	if x != nil {
+		return x.Levels
+	}
+	return nil
 }
 
 // EncodeRate is what the encode-capacity probe measured: the frame rate this
@@ -448,7 +749,7 @@ type EncodeRate struct {
 
 func (x *EncodeRate) Reset() {
 	*x = EncodeRate{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[5]
+	mi := &file_screenshare_v1_session_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -460,7 +761,7 @@ func (x *EncodeRate) String() string {
 func (*EncodeRate) ProtoMessage() {}
 
 func (x *EncodeRate) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[5]
+	mi := &file_screenshare_v1_session_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -473,7 +774,7 @@ func (x *EncodeRate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EncodeRate.ProtoReflect.Descriptor instead.
 func (*EncodeRate) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{5}
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *EncodeRate) GetLowFps() float64 {
@@ -518,7 +819,7 @@ type PublishState_Retry struct {
 
 func (x *PublishState_Retry) Reset() {
 	*x = PublishState_Retry{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[6]
+	mi := &file_screenshare_v1_session_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -530,7 +831,7 @@ func (x *PublishState_Retry) String() string {
 func (*PublishState_Retry) ProtoMessage() {}
 
 func (x *PublishState_Retry) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[6]
+	mi := &file_screenshare_v1_session_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -587,7 +888,7 @@ type PublishState_Live struct {
 
 func (x *PublishState_Live) Reset() {
 	*x = PublishState_Live{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -599,7 +900,7 @@ func (x *PublishState_Live) String() string {
 func (*PublishState_Live) ProtoMessage() {}
 
 func (x *PublishState_Live) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,14 +982,40 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
 	"_inst_mbpsB\v\n" +
 	"\t_avg_mbpsJ\x04\b\x01\x10\x02J\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\x05frameR\n" +
-	"duplicatedR\adroppedR\amissing\"\x98\x01\n" +
+	"duplicatedR\adroppedR\amissing\"\xb9\x04\n" +
+	"\vRelayReader\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\x12\x1c\n" +
+	"\ttransport\x18\x03 \x01(\tR\ttransport\x12$\n" +
+	"\vremote_addr\x18\x04 \x01(\tH\x00R\n" +
+	"remoteAddr\x88\x01\x01\x12\x1b\n" +
+	"\x06joined\x18\x05 \x01(\tH\x01R\x06joined\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"bytes_sent\x18\x06 \x01(\x04H\x02R\tbytesSent\x88\x01\x01\x12\x1a\n" +
+	"\x06rtt_ms\x18\a \x01(\x01H\x03R\x05rttMs\x88\x01\x01\x12&\n" +
+	"\floss_percent\x18\b \x01(\x01H\x04R\vlossPercent\x88\x01\x01\x12&\n" +
+	"\fpackets_sent\x18\t \x01(\x04H\x05R\vpacketsSent\x88\x01\x01\x12&\n" +
+	"\fpackets_lost\x18\n" +
+	" \x01(\x04H\x06R\vpacketsLost\x88\x01\x01\x12,\n" +
+	"\x0fpackets_dropped\x18\v \x01(\x04H\aR\x0epacketsDropped\x88\x01\x01\x12.\n" +
+	"\x10frames_discarded\x18\f \x01(\x04H\bR\x0fframesDiscarded\x88\x01\x01B\x0e\n" +
+	"\f_remote_addrB\t\n" +
+	"\a_joinedB\r\n" +
+	"\v_bytes_sentB\t\n" +
+	"\a_rtt_msB\x0f\n" +
+	"\r_loss_percentB\x0f\n" +
+	"\r_packets_sentB\x0f\n" +
+	"\r_packets_lostB\x12\n" +
+	"\x10_packets_droppedB\x13\n" +
+	"\x11_frames_discarded\"\xda\x01\n" +
 	"\tRelayPath\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
 	"\x05ready\x18\x02 \x01(\bR\x05ready\x12\x16\n" +
 	"\x06tracks\x18\x03 \x01(\tR\x06tracks\x12\x16\n" +
 	"\x06format\x18\x04 \x01(\tR\x06format\x12\x18\n" +
 	"\areaders\x18\x05 \x01(\x05R\areaders\x12\x17\n" +
-	"\ain_mbps\x18\x06 \x01(\x01R\x06inMbps\"r\n" +
+	"\ain_mbps\x18\x06 \x01(\x01R\x06inMbps\x12@\n" +
+	"\rreader_roster\x18\a \x03(\v2\x1b.screenshare.v1.RelayReaderR\freaderRoster\"r\n" +
 	"\vRelayStatus\x12\x1c\n" +
 	"\treachable\x18\x01 \x01(\bR\treachable\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12/\n" +
@@ -696,7 +1023,14 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\bWatchKey\x12\x1f\n" +
 	"\vstream_name\x18\x03 \x01(\tR\n" +
 	"streamName\x12\x1c\n" +
-	"\ttransport\x18\x02 \x01(\tR\ttransportJ\x04\b\x01\x10\x02R\x04name\"\x84\x01\n" +
+	"\ttransport\x18\x02 \x01(\tR\ttransportJ\x04\b\x01\x10\x02R\x04name\"n\n" +
+	"\n" +
+	"AudioLevel\x120\n" +
+	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x17\n" +
+	"\apeak_db\x18\x02 \x01(\x01R\x06peakDb\x12\x15\n" +
+	"\x06rms_db\x18\x03 \x01(\x01R\x05rmsDb\"A\n" +
+	"\vAudioLevels\x122\n" +
+	"\x06levels\x18\x01 \x03(\v2\x1a.screenshare.v1.AudioLevelR\x06levels\"\x84\x01\n" +
 	"\n" +
 	"EncodeRate\x12\x17\n" +
 	"\alow_fps\x18\x01 \x01(\x01R\x06lowFps\x12\x19\n" +
@@ -717,30 +1051,36 @@ func file_screenshare_v1_session_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_session_proto_rawDescData
 }
 
-var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_screenshare_v1_session_proto_goTypes = []any{
 	(*PublishState)(nil),       // 0: screenshare.v1.PublishState
 	(*PublishStats)(nil),       // 1: screenshare.v1.PublishStats
-	(*RelayPath)(nil),          // 2: screenshare.v1.RelayPath
-	(*RelayStatus)(nil),        // 3: screenshare.v1.RelayStatus
-	(*WatchKey)(nil),           // 4: screenshare.v1.WatchKey
-	(*EncodeRate)(nil),         // 5: screenshare.v1.EncodeRate
-	(*PublishState_Retry)(nil), // 6: screenshare.v1.PublishState.Retry
-	(*PublishState_Live)(nil),  // 7: screenshare.v1.PublishState.Live
-	(*PublishSettings)(nil),    // 8: screenshare.v1.PublishSettings
-	(*RelaySettings)(nil),      // 9: screenshare.v1.RelaySettings
+	(*RelayReader)(nil),        // 2: screenshare.v1.RelayReader
+	(*RelayPath)(nil),          // 3: screenshare.v1.RelayPath
+	(*RelayStatus)(nil),        // 4: screenshare.v1.RelayStatus
+	(*WatchKey)(nil),           // 5: screenshare.v1.WatchKey
+	(*AudioLevel)(nil),         // 6: screenshare.v1.AudioLevel
+	(*AudioLevels)(nil),        // 7: screenshare.v1.AudioLevels
+	(*EncodeRate)(nil),         // 8: screenshare.v1.EncodeRate
+	(*PublishState_Retry)(nil), // 9: screenshare.v1.PublishState.Retry
+	(*PublishState_Live)(nil),  // 10: screenshare.v1.PublishState.Live
+	(*PublishSettings)(nil),    // 11: screenshare.v1.PublishSettings
+	(*RelaySettings)(nil),      // 12: screenshare.v1.RelaySettings
 }
 var file_screenshare_v1_session_proto_depIdxs = []int32{
-	7, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
-	2, // 1: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
-	8, // 2: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
-	9, // 3: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
-	6, // 4: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	10, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
+	2,  // 1: screenshare.v1.RelayPath.reader_roster:type_name -> screenshare.v1.RelayReader
+	3,  // 2: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
+	5,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.WatchKey
+	6,  // 4: screenshare.v1.AudioLevels.levels:type_name -> screenshare.v1.AudioLevel
+	11, // 5: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
+	12, // 6: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
+	9,  // 7: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
+	8,  // [8:8] is the sub-list for method output_type
+	8,  // [8:8] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_session_proto_init() }
@@ -750,13 +1090,14 @@ func file_screenshare_v1_session_proto_init() {
 	}
 	file_screenshare_v1_settings_proto_init()
 	file_screenshare_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
+	file_screenshare_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_session_proto_rawDesc), len(file_screenshare_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

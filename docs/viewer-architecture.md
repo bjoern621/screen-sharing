@@ -7,6 +7,8 @@ Two ways to watch exist.
 - A single-stream native player (ffplay or mpv): one window per stream, opened from the shell's viewer roster, decoding through libavcodec.
 - The shell's tile grid: a receiving GStreamer pipeline in the Go backend, whose decoded frames reach the Avalonia window over the frame channel.
 
+The broadcast screen's preview is the second of those pointed at this machine's own stream rather than a third way to watch; "What the broadcast preview draws" below states why it is a loopback.
+
 The first works today and needs nothing installed beyond ffmpeg.
 The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports; the Linux and macOS legs of the frame channel are not built, and on those platforms a tile says so rather than falling back to a copy through system memory.
 
@@ -109,6 +111,19 @@ Audio follows the path.
 A player plays the second track the mux carries.
 A receive pipeline grows a branch for it when `decodebin` exposes an audio pad, and that branch ends in a sink of its own rather than travelling to the shell: the backend runs on the machine the shell is on, so a second channel would carry the samples across a process boundary to reach the same output device.
 The frame channel is therefore about frames alone, and the volume and mute a tile offers are effects on the receiver rather than anything the channel carries.
+
+The branch is `queue ! audioconvert ! level ! audioresample ! volume ! autoaudiosink`, and two of its elements are reachable from the control API.
+
+`SetReceiveAudio` writes the `volume` element, keyed by the pair every other receive message is keyed by.
+The loudness is a property of the decode and not of a window: one pipeline holds one audio branch, so a per-window volume would be several controls over one element, each showing a value the others had overwritten.
+It is idempotent in the way the rest of the contract is - a request for the loudness a decode already has succeeds and does nothing - and it is held rather than dropped when it arrives before the decoder has exposed an audio pad, so the effect does not depend on when it was sent.
+What it became is reported back on `ReceiveStream` (`has_audio`, `volume`, `muted`), which is what lets two shells agree about one decode's loudness instead of each remembering what it last sent.
+
+`level` is measured **before** `volume` rather than after it, and the order is the whole point: measured after, a muted stream would meter as silent, and a reader who muted one stream could not see that it had started making noise again.
+What the meter shows is therefore what the stream is carrying, never what the speakers were given.
+Its readings leave on `SubscribeAudioLevels`, which is a stream of its own rather than an event kind because the two differ in cadence: the event stream carries whole states when something changed, and a level changes continuously, so folding it in would push the receive state at metering rate and make every consumer of that state re-render for a figure none of them reads.
+One tick is fifteen a second and carries the whole set; a decode with no audio track has no entry, and a silent one has an entry reading negative infinity, which a tile draws as no meter and as an empty meter respectively.
+The interval is one constant (`receive.LevelInterval`) read by both the element and the service, so a tick is one measurement rather than a repeat or a skip.
 
 ## Codec and chroma
 
@@ -294,7 +309,30 @@ It is a count of pixels a consumer will draw at, which is a fact about frames; t
 What the control API says about receiving is unchanged.
 `StartReceive` and `StopReceive` are effects, and receive state travels on the existing event stream, whole rather than as a delta, so a shell that asked and a shell that did not learn the same thing at the same time.
 Nothing about a grid, a tile or a layout is on that contract: how a viewer arranges what it receives is the shell's job.
+
+**The render size a consumer asks for is quantised and debounced, and both are about this channel's cost.**
+A pool is re-announced whenever the size moves, which is three texture allocations and a renegotiation of the branch.
+A shell whose grid rearranges - a window dragged, a tile focused, a stream joining - moves every tile's exact size, so the shell rounds each ask up onto a ladder of heights and sends it only once the size has held still for a quarter of a second.
+Most rearrangements then ask for the size already in force and cost nothing; what is paid for it is a tile between two rungs drawing frames slightly larger than it needs, which is a resample the GPU was doing anyway.
 A subscription therefore names a decode that already exists and never opens one - the two staying separate is what lets a decode outlive every window drawing it.
+
+### What the broadcast preview draws
+
+Two surfaces consume frames, and the second one consumes its own stream.
+The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **received back off the relay** over the same watch leg a tile uses.
+
+**It is a loopback and not a tee, and where the encoder runs is why.**
+Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it.
+Splitting the encoded stream in-process would mean giving that isolation up, or inventing a second private transport with its own port, its own payloader and a synthetic stream identity for a picture nobody outside the window would ever see.
+The loopback adds no concept at all: `StartReceive` on `WatchKey{this machine's stream, the tile leg}` is a true statement about a decode, there stays exactly one frame path in the repository, and what the card shows is what a viewer gets - the encode, the transport and the decode included, which is the question the broadcast screen exists to answer.
+
+Its cost is the relay round trip and the downstream bandwidth, and the card states both in its own words rather than presenting itself as a local mirror.
+
+**The preview never closes the decode it opened**, and that is a consequence of what a decode is keyed by.
+A decode is `WatchKey` and nothing else, and this backend does not count its consumers: `StopReceive` takes the receiver out of the map and `Receiver.Stop` ends every subscription on it (`internal/app/receive.go`, `internal/receive/receiver.go`).
+The reader can be watching their own stream on the viewer screen at the same time and over the same leg - the tile leg is one setting for every tile - so a stop from the preview would close their tile.
+Which of two consumers may close a shared decode is not a question a shell may answer, so the shell answers none of it: the preview drops its subscription when it goes off screen or off air and leaves the decode running, and the decode ends when the stream it is receiving does.
+A refcount belongs on this side of the seam if it is wanted, because the backend is the side that knows how many subscriptions a receiver has.
 
 ## The native player
 

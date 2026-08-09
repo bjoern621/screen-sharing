@@ -1,6 +1,8 @@
 using ScreenShare.Api.V1;
+using ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
+using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
@@ -102,7 +104,8 @@ public sealed class BroadcastFiguresTests
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4.25, 12), null),
         };
 
-        // Round trip and loss, which nothing in the pipeline reports.
+        // Round trip and loss, with no relay snapshot to read a viewer's out of. They are the
+        // relay's figures, so no snapshot is no measurement - and no measurement is an ellipsis.
         Assert.Equal(Figure.NoValue, bar.Figures[2].Value);
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
     }
@@ -169,5 +172,58 @@ public sealed class BroadcastFiguresTests
         };
 
         Assert.Equal("", plots.Band);
+    }
+
+    /// <summary>
+    /// The nudge card promised a live-safe apply in its markup while its view model stated, in
+    /// the same breath, that no such effect exists - and the reader saw the promise, because the
+    /// markup drew the promise and bound neither the greying nor the reason.
+    ///
+    /// Both sentences come off one table now, so the test states the property that made the
+    /// contradiction possible: the card's words and the card's behaviour agree.
+    /// </summary>
+    [Fact]
+    public void TheNudgeCardNeverPromisesAnApplyTheBackendHasNoEffectFor()
+    {
+        var nudge = new NudgeViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 12), null),
+        };
+
+        Assert.False(nudge.IsEnabled);
+        Assert.NotEqual("", nudge.Reason);
+        Assert.NotEqual("", nudge.Caveat);
+        Assert.DoesNotContain("without a reconnect", nudge.Caveat);
+        Assert.Contains("restarts the stream", nudge.Reason);
+    }
+
+    /// <summary>
+    /// The configuration card used to divide its settings into ones needing a restart and ones
+    /// that did not. Nothing has ever reached a running pipeline without restarting it, so the
+    /// second half of that sentence described an effect that does not exist.
+    /// </summary>
+    [Fact]
+    public void TheConfigurationCardSaysEverySettingRestartsTheStream()
+    {
+        var card = new ConfigCardViewModel();
+
+        Assert.Contains("restarting it", card.ReadOnly);
+        Assert.DoesNotContain("do not", card.ReadOnly);
+    }
+
+    /// <summary>
+    /// The broadcast destination cannot be reached unless a stream is live, and stopping one
+    /// takes the window off it. So "nothing is publishing" is the one thing an empty card here
+    /// is never showing - it is showing a form resolve that has not answered yet, which is the
+    /// ordinary first second of every broadcast.
+    /// </summary>
+    [Fact]
+    public void AnUndescribedConfigurationSaysItIsBeingReadRatherThanThatNothingIsPublishing()
+    {
+        var card = new ConfigCardViewModel();
+
+        Assert.False(card.HasRows);
+        Assert.DoesNotContain("Nothing is publishing", card.Notice);
+        Assert.Contains("Reading what the running stream", card.Notice);
     }
 }

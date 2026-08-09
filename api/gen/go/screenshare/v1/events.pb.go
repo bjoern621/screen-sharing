@@ -435,8 +435,23 @@ type ReceiveStream struct {
 	// decoder is the element decodebin picked, and hardware whether it ran on silicon.
 	// Hardware says where the decoding ran and nothing about where the frames went
 	// afterwards, which decode_memory is what answers.
-	Decoder       string `protobuf:"bytes,6,opt,name=decoder,proto3" json:"decoder,omitempty"`
-	Hardware      bool   `protobuf:"varint,7,opt,name=hardware,proto3" json:"hardware,omitempty"`
+	Decoder  string `protobuf:"bytes,6,opt,name=decoder,proto3" json:"decoder,omitempty"`
+	Hardware bool   `protobuf:"varint,7,opt,name=hardware,proto3" json:"hardware,omitempty"`
+	// has_audio is whether the decoder exposed an audio pad and the branch was built.
+	// Until it did there is nothing to set a volume on, and a tile draws no meter and
+	// offers no slider rather than offering one that controls nothing.
+	HasAudio bool `protobuf:"varint,8,opt,name=has_audio,json=hasAudio,proto3" json:"has_audio,omitempty"`
+	// volume and muted are what SetReceiveAudio last asked for, held here whether or
+	// not the branch exists yet: a volume set before the audio pad arrives is applied
+	// when it does, so the effect is not order-dependent. They are reported rather
+	// than remembered by the caller, which is what lets two shells agree about one
+	// decode's loudness.
+	//
+	// volume is a linear gain from zero, where one is unchanged. muted is separate
+	// from a volume of zero because unmuting has to return to the level the reader
+	// chose rather than to silence.
+	Volume        float64 `protobuf:"fixed64,9,opt,name=volume,proto3" json:"volume,omitempty"`
+	Muted         bool    `protobuf:"varint,10,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -516,6 +531,27 @@ func (x *ReceiveStream) GetDecoder() string {
 func (x *ReceiveStream) GetHardware() bool {
 	if x != nil {
 		return x.Hardware
+	}
+	return false
+}
+
+func (x *ReceiveStream) GetHasAudio() bool {
+	if x != nil {
+		return x.HasAudio
+	}
+	return false
+}
+
+func (x *ReceiveStream) GetVolume() float64 {
+	if x != nil {
+		return x.Volume
+	}
+	return 0
+}
+
+func (x *ReceiveStream) GetMuted() bool {
+	if x != nil {
+		return x.Muted
 	}
 	return false
 }
@@ -865,7 +901,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x0fSettingsChanged\"Y\n" +
 	"\vReceiveExit\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xeb\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xb6\x02\n" +
 	"\rReceiveStream\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x12\n" +
 	"\x04live\x18\x02 \x01(\bR\x04live\x12\x14\n" +
@@ -873,7 +909,11 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\rdecode_memory\x18\x04 \x01(\tR\fdecodeMemory\x12#\n" +
 	"\rrender_memory\x18\x05 \x01(\tR\frenderMemory\x12\x18\n" +
 	"\adecoder\x18\x06 \x01(\tR\adecoder\x12\x1a\n" +
-	"\bhardware\x18\a \x01(\bR\bhardware\"G\n" +
+	"\bhardware\x18\a \x01(\bR\bhardware\x12\x1b\n" +
+	"\thas_audio\x18\b \x01(\bR\bhasAudio\x12\x16\n" +
+	"\x06volume\x18\t \x01(\x01R\x06volume\x12\x14\n" +
+	"\x05muted\x18\n" +
+	" \x01(\bR\x05muted\"G\n" +
 	"\fReceiveState\x127\n" +
 	"\astreams\x18\x01 \x03(\v2\x1d.screenshare.v1.ReceiveStreamR\astreams\"\x91\a\n" +
 	"\x05Event\x12\x1a\n" +

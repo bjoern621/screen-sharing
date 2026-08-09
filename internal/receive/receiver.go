@@ -116,9 +116,24 @@ type Receiver struct {
 	video      decodeTrack
 	audio      decodeTrack
 
+	// peakDB and rmsDB are the last measurement the level element posted, as bit
+	// patterns, and hasLevel whether one has been posted at all. Atomic rather than
+	// under mu because they are written from the bus thread at the metering rate and
+	// read by every level tick, and neither reader needs them consistent with anything
+	// else the receiver holds.
+	peakDB   atomic.Uint64
+	rmsDB    atomic.Uint64
+	hasLevel atomic.Bool
+
 	mu           sync.Mutex
 	volume       gst.Element // the audio branch's volume element, nil without audio
 	audioConvert gst.Element // the audio branch's audioconvert, for the raw audio caps
+	// wantVolume and wantMuted are the loudness SetAudio last asked for, held whether
+	// or not the branch exists. A decode that has not exposed an audio pad yet is the
+	// ordinary case for a volume arriving early, and dropping it there would make the
+	// effect's result depend on when it was sent.
+	wantVolume float64
+	wantMuted  bool
 	// stats are the transport elements statSources matched, in discovery order.
 	stats []elementStats
 	// subs are the consumers the frames are handed to, each with its own pool
@@ -162,6 +177,10 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 		fit:      pipeline.GetByName(fitName),
 		cancel:   cancel,
 		started:  time.Now(),
+		// A decode plays at the loudness it arrived with until something asks for
+		// another. Unchanged is the only default that does not silently alter a stream
+		// nobody has said anything about.
+		wantVolume: 1,
 	}
 	// A chain writes a size bound exactly where it names a filter to write it into.
 	// The two come from one row, so a mismatch is that row's elements and its fit caps
@@ -275,6 +294,14 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 			message, debug = err.Error(), d
 		case gst.MessageEOS:
 			message = "stream ended"
+		case gst.MessageElement:
+			// The level element posts here, at the metering rate. It is the one message
+			// on this bus that is not about the pipeline ending, which is why it is read
+			// on the watch that was already running rather than on a second one.
+			if msg.HasName(levelMessage) {
+				r.onLevelMessage(msg)
+			}
+			continue
 		default:
 			continue
 		}
@@ -293,17 +320,6 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		}
 		return
 	}
-}
-
-// SetVolume sets the audio branch's volume, 0 to 1. A no-op until OnAudio fired.
-func (r *Receiver) SetVolume(v float64) {
-	assert.Assert(v >= 0 && v <= 1, "volume is a fraction", v)
-	r.setAudioProperty("volume", v)
-}
-
-// SetMuted mutes or unmutes the audio branch. A no-op until OnAudio fired.
-func (r *Receiver) SetMuted(muted bool) {
-	r.setAudioProperty("mute", muted)
 }
 
 // SetRenderSize bounds the branch to the pixels the tile drawing the stream shows.
@@ -338,18 +354,6 @@ func (r *Receiver) SetRenderSize(width, height int) {
 	assert.Assert(caps != "", "a chain that names a fit filter bounds it with caps", r.chain.name, r.name)
 	r.fit.SetObjectProperty("caps", gst.CapsFromString(caps))
 	logger.Debugf("stream %q renders at most %dx%d, bounded by %s", r.name, width, height, caps)
-}
-
-// setAudioProperty writes one property of the audio branch's volume element, and
-// does nothing while the stream has no audio branch.
-func (r *Receiver) setAudioProperty(name string, value any) {
-	r.mu.Lock()
-	vol := r.volume
-	r.mu.Unlock()
-	if vol == nil {
-		return
-	}
-	vol.SetObjectProperty(name, value)
 }
 
 // Stop tears the pipeline down, from whichever thread the caller is on. The bus

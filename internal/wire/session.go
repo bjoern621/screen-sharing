@@ -164,15 +164,63 @@ func RelayStatus(s relay.Status) *screensharev1.RelayStatus {
 // RelayPath carries one live stream across.
 func RelayPath(p relay.Path) *screensharev1.RelayPath {
 	assert.Assert(p.Readers >= 0, "a path counts the readers it is serving", p.Readers)
+	assert.Assert(len(p.Roster) == p.Readers,
+		"a path's roster names every reader it counts", len(p.Roster), p.Readers)
+
+	roster := make([]*screensharev1.RelayReader, 0, len(p.Roster))
+	for _, reader := range p.Roster {
+		roster = append(roster, RelayReader(reader))
+	}
 
 	return &screensharev1.RelayPath{
-		Name:    p.Name,
-		Ready:   p.Ready,
-		Tracks:  p.Tracks,
-		Format:  p.Format,
-		Readers: int32(p.Readers),
-		InMbps:  p.InMbps,
+		Name:         p.Name,
+		Ready:        p.Ready,
+		Tracks:       p.Tracks,
+		Format:       p.Format,
+		Readers:      int32(p.Readers),
+		ReaderRoster: roster,
+		InMbps:       p.InMbps,
 	}
+}
+
+// RelayReader carries one reader across.
+//
+// Every figure is copied through its presence rather than through its value, so a leg
+// that reports no round trip crosses as a message with no rtt_ms and not as one with a
+// zero. optional pointers on both sides means the copy is the pointer itself, which is
+// the one shape that cannot lose the distinction on the way.
+//
+// Nothing here asserts on the strings. They are the relay's words rather than this code's,
+// and a relay that answered with a reader carrying no type is an Umgebungsfehler the app
+// has to survive - an empty one crosses as empty and reads as unknown, which is what an
+// empty format on the path beside it already means (docs/development-principles.md,
+// "Contracts").
+func RelayReader(r relay.Reader) *screensharev1.RelayReader {
+	return &screensharev1.RelayReader{
+		Type:            r.Type,
+		Id:              r.ID,
+		Transport:       r.Transport,
+		RemoteAddr:      optional(r.RemoteAddr),
+		Joined:          optional(r.Joined),
+		BytesSent:       r.BytesSent,
+		RttMs:           r.RttMs,
+		LossPercent:     r.LossPercent,
+		PacketsSent:     r.PacketsSent,
+		PacketsLost:     r.PacketsLost,
+		PacketsDropped:  r.PacketsDropped,
+		FramesDiscarded: r.FramesDiscarded,
+	}
+}
+
+// optional carries a string the relay may not have stated at all. An empty one is
+// absence and not a measured empty string: the fields it is used on are an address and a
+// timestamp, and neither has a meaningful empty value to tell apart from a missing one.
+func optional(value string) *string {
+	if value == "" {
+		return nil
+	}
+
+	return &value
 }
 
 // ViewerState carries the open external viewers across. A nil or empty slice converts
@@ -216,6 +264,46 @@ type ReceiveStream struct {
 	// went afterwards, which DecodeMemory is what answers.
 	Decoder  string
 	Hardware bool
+	// HasAudio is whether the decoder exposed an audio pad and the branch was built.
+	// Until it did there is nothing to set a volume on, and a tile draws no meter
+	// rather than one that measures nothing.
+	HasAudio bool
+	// Volume and Muted are the loudness in force, held by the receiver whether or not
+	// the branch exists. They are reported rather than remembered by whoever set them,
+	// which is what lets two shells agree about one decode's loudness.
+	Volume float64
+	Muted  bool
+}
+
+// AudioLevel is how loud one decode is right now, measured before its volume element
+// so that a muted stream still reports what it is carrying.
+type AudioLevel struct {
+	Stream WatchKey
+	// PeakDB is the loudest sample of the interval and RMSDB its power average, in
+	// decibels relative to full scale. Silence is negative infinity rather than a
+	// floor chosen here, because a floor is a drawing decision and this is a
+	// measurement.
+	PeakDB float64
+	RMSDB  float64
+}
+
+// AudioLevels carries one instant's levels across. A decode carrying no audio has no
+// entry, which is a different fact from a silent one and is drawn differently.
+func AudioLevels(levels []AudioLevel) *screensharev1.AudioLevels {
+	out := make([]*screensharev1.AudioLevel, 0, len(levels))
+	for _, l := range levels {
+		assert.Assert(l.Stream.StreamName != "" && l.Stream.Transport != "",
+			"a level belongs to a decode identified by a stream and a transport",
+			l.Stream.StreamName, l.Stream.Transport)
+		out = append(out, &screensharev1.AudioLevel{
+			Stream: WatchKeyMessage(l.Stream),
+			PeakDb: l.PeakDB,
+			RmsDb:  l.RMSDB,
+		})
+	}
+
+	assert.Assert(len(out) == len(levels), "a message per metered decode", len(out), len(levels))
+	return &screensharev1.AudioLevels{Levels: out}
 }
 
 // ReceiveState carries the running decodes across. A nil or empty slice converts to an
@@ -234,6 +322,9 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 			RenderMemory: r.RenderMemory,
 			Decoder:      r.Decoder,
 			Hardware:     r.Hardware,
+			HasAudio:     r.HasAudio,
+			Volume:       r.Volume,
+			Muted:        r.Muted,
 		})
 	}
 

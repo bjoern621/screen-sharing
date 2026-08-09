@@ -105,6 +105,22 @@ message ReceiveStream {
   // afterwards, which decode_memory is what answers.
   string decoder = 6;
   bool hardware = 7;
+
+  // has_audio is whether the decoder exposed an audio pad and the branch was built.
+  // Until it did there is nothing to set a volume on, and a tile draws no meter and
+  // offers no slider rather than offering one that controls nothing.
+  bool has_audio = 8;
+  // volume and muted are what SetReceiveAudio last asked for, held here whether or
+  // not the branch exists yet: a volume set before the audio pad arrives is applied
+  // when it does, so the effect is not order-dependent. They are reported rather
+  // than remembered by the caller, which is what lets two shells agree about one
+  // decode's loudness.
+  //
+  // volume is a linear gain from zero, where one is unchanged. muted is separate
+  // from a volume of zero because unmuting has to return to the level the reader
+  // chose rather than to silence.
+  double volume = 9;
+  bool muted = 10;
 }
 
 // ReceiveState is every stream the backend is decoding.

@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 70 tests, no relay and no backend needed
+task avalonia:test     # 112 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -45,8 +45,8 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
 | `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
-| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the per-viewer table, the sparklines |
-| `Features/Viewer/` | the relay roster: one row per stream the relay carries, and a toggle per watch leg |
+| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the program preview, the per-viewer table, the sparklines |
+| `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, and the arrangement of the ones being watched |
 
 ### The two rules the tree encodes
 
@@ -195,18 +195,38 @@ on a sentence, which is the input that changes without anything failing to compi
 That is the transport. What the flow finally does with it is the commit, and that is worth its
 own paragraph because it is the one control on this surface that changes the world.
 
-**Go live is real, and it is gated on four states rather than on one.** It sends the
-draft to `StartPublish`, which persists it and starts the encoder on it; the reply says nothing
-and the stream that resulted arrives on the event stream, so the window that pressed the button
-and the window that did not learn it the same way. What locks the button is
+**The commit is real, and it reads four states rather than one.** It sends the draft to
+`StartPublish`, which persists it and starts the encoder on it; the reply says nothing and the
+stream that resulted arrives on the event stream, so the window that pressed the button and the
+window that did not learn it the same way. What decides it is
 `Features/Setup/Model/PublishGate.cs`, and every condition in it is a whole state some other
 side stated: `Form.publishable` for the settings, the backend's own sentence when it cannot
-describe them at all, the presence of `PublishState.live` for a stream already on the air, and
-`RelayStatus.reachable` for somewhere to send to. None of them is ranked or re-decided here, and
-only one sentence is shown - a reader fixes them in that order anyway. A settings problem gets no
-sentence of its own at all, because the preflight card beside the button already carries every
-one of them in the backend's words; paraphrasing a diagnostic would be this module writing a rule
-down twice.
+describe them at all, `RelayStatus.reachable` for somewhere to send to, and the presence of
+`PublishState.live` for a stream already on the air. None of them is ranked or re-decided here,
+and only one sentence is shown - a reader fixes them in that order anyway. A settings problem
+gets no sentence of its own at all, because the preflight card beside the button already carries
+every one of them in the backend's words; paraphrasing a diagnostic would be this module writing
+a rule down twice.
+
+**The fourth of those is not a lock, and the difference is the whole shape of that file.** A
+stream already on the air used to refuse the commit and send the reader to the broadcast screen
+to stop it, because the only effect this shell could reach was `StartPublish` and the backend
+refuses that while a pipeline is in force. `ApplyToStream` is the effect for exactly that state,
+so a live stream now decides *what the commit does* rather than whether it can be done, and the
+gate says which of the two as data (`PublishGate.Commit`) instead of leaving the label, the
+sentence and the call to look at the publish state again and each reach their own answer. The
+press reads that state once more on its own pass rather than trusting the gate the last render
+composed: a stream can start or end in between, and the backend refuses each of the two effects
+in precisely the state the other one is for.
+
+**The word on the button says which it is, and says what applying costs.** `Model/CommitCopy.cs`
+is one row per commit - the label, and the two halves of the sentence the stream name sits in -
+read by the view model and bound whole, rather than a ternary at the binding site. The apply row
+says in plain words that the stream restarts, because it does: both engines run a child built
+from an argv, so new settings tear the pipeline down and launch another, and every viewer loses
+the picture across the gap. That is the same fact the broadcast screen's quality track is greyed
+and carrying (`Features/Broadcast/Nudge`), and a button that promised a seamless change would be
+the one place in the app that lied about it.
 
 The relay half is worth stating, because it is the one state the shell reads from a poll it does
 not run: the backend polls the relay for as long as it is up, records each snapshot and answers
@@ -234,9 +254,24 @@ stream.
 **The broadcast screen is real too now, and what it cannot measure it says so about.** Every
 figure on it is composed in `Features/Broadcast/Model/BroadcastSnapshot.cs` out of three whole
 states the backend sent - the publish state, the newest encoder sample and the relay snapshot -
-and a figure with no source prints an ellipsis rather than a zero. That covers round trip, packet
-loss and buffer fill, which nothing in the pipeline reports, and it is why the viewer table is a
-reader count with a sentence instead of a row per viewer.
+and a figure with no source prints an ellipsis rather than a zero.
+
+**The viewer table is a row per viewer, and the relay measures them one leg at a time.** The
+backend reads the relay's reader array per path and joins each entry to the per-protocol
+connection list its type names, so a row is an address, a join time, and whatever that leg is
+instrumented for (`internal/relay/readers.go`). SRT is the one the relay times a round trip and
+states a loss rate on; the rest report what was sent to them and what the relay's own queue had
+to discard. A cell with no measurement behind it is an ellipsis, so a viewer over RTMP reads as
+untimed and never as a viewer with a perfect link - which is also why the severity rule in
+`Features/Broadcast/Model/ViewerRow.cs` reads presence rather than value, and why the header
+promotes the *worst* viewer's round trip and loss under a label that says so. Two of the design's
+columns named figures nobody reports to a publisher, buffer fill and the decoder in use, and they
+carry what the relay does measure at that width instead: what was dropped, and the leg it went
+out over.
+
+What is still absent is the congestion band. The relay states its figures as they stand at each
+poll and marks no interval, so a window shaded on the latency plot would be a detection this side
+performed and attributed to the backend.
 
 What went with the seeds is worth listing, because each was a mockup number that read as a
 measurement: the on-air pill's timer, which stood at `00:42:18` in every window whatever was
@@ -249,8 +284,22 @@ is scaled to the run's own peak, so it marked the ceiling only by coincidence an
 against that peak or not drawn at all; and the viewer table's `every 5 s`, a period the contract
 does not carry and which the backend did not use.
 
-The tile is still a placeholder rather than a frame, for the reason "What is not settled yet"
-gives below, and the figures over it are real.
+**The preview tile draws a frame now, and what it draws is this machine's own stream received
+back off the relay.** It opens a decode with `StartReceive` and subscribes to it exactly as the
+viewer's grid does for anyone else's stream, reusing the same `Features/Viewer/Tile` view model
+and control rather than growing a second frame consumer - two frame paths would be two answers
+to what a dropped frame is and where a lent handle goes back. The route is a loopback and not a
+tee because the encoder is an external child process, and the card states the two costs that
+buys - the round trip it lags by, and the downstream bandwidth it spends
+(`docs/viewer-architecture.md`, "What the broadcast preview draws").
+
+Two things about it are the shell's own arrangement. Whether the card is on screen is an input
+the view writes on attach and detach, because the window renders every destination on every
+pass and a decode nobody is looking at is bandwidth nobody asked for. And the preview closes no
+decode: a decode is keyed by the stream and the leg alone and the backend counts no consumers,
+so a stop here would close a tile on the viewer screen watching the same pair. The placeholder
+stays for the states where there is no picture - nothing publishing, no leg resolved, the relay
+not carrying the path yet, the start refused - and each of them says which one it is.
 
 The review's "Save as preset" switch is the one control on that screen that still does nothing.
 `SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this
@@ -364,6 +413,58 @@ bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them 
 bad Avalonia code. What is dropped is the usual habit of letting handlers poke individual
 properties. Every write goes through the one render function, so the binding layer is a
 transport and never a second definition of what the window looks like.
+
+## The viewer's arrangement
+
+The grid is the one screen with a second window in it, and the rules it follows are worth
+stating because none of them crosses the control contract. The backend describes decodes; how a
+viewer arranges what it receives is this shell's whole job (`docs/ipc-api.md`).
+
+**The arrangement is a pure function, and the panel only draws it.**
+`Features/Viewer/Model/TileLayout.cs` takes aspect ratios and a box and answers rectangles. It
+holds no control and no view model, so what the grid does is asserted in tests rather than looked
+at in a screenshot. `Features/Viewer/View/TileGrid.cs` is the two Avalonia passes around it and
+contains no arithmetic of its own.
+
+**Every tile is one height, and it is a constraint rather than a result.** Each tile is as wide as
+its own aspect ratio makes it at that height, so nothing is cropped or stretched. Letting each row
+instead fill the width exactly would give each row its own height, and a row of one tile would come
+out about twice the height of a row of two - which draws as one big tile beside some small ones
+rather than as a grid. The height is therefore chosen once: the largest that lets every row fit the
+width and the whole stack fit the box. Rows are centred in whatever width their contents leave over.
+
+**Both layout passes solve the same box, and it is the viewport.** Inside a scroll viewer, measure
+is handed an unbounded height and arrange is handed back the height measure returned. Solving
+against whatever each pass was given solves two different boxes, picks two different arrangements,
+and places the tiles by one having measured them by the other.
+
+**Fullscreen and pop-out are window states, not layout modes.** `LayoutMode` has two members,
+Grid and Focus, and says how tiles sit relative to each other. Which window a tile is drawn in is
+a separate fact, which is what lets three windows be fullscreen on three monitors at once - a
+state a single app-wide fullscreen could not express. Folding either into the enum would give one
+field two meanings.
+
+**Windows are reconciled, not opened by an event.** The view model names the streams that should
+be in windows of their own; `ViewerView.axaml.cs` runs a pass that opens, closes and re-states
+windows until that is true. Running it twice with unchanged state does nothing, which is the same
+apply discipline everything else here follows - it is the code-behind exception only because
+nothing binds a window into existence.
+
+**A popped-out stream keeps its slot.** The tile stays in the arrangement at its stream's shape
+and draws a plate saying where the picture went, so nothing reflows when a stream pops out or
+comes back. That plate holds no frame subscription and asks for no render size: the popped window
+is the decode's only consumer, and a black box costing a full-size texture pool would be the one
+arrangement this shell paid for twice.
+
+**Levels have their own notification.** `Session.Changed` re-renders every screen and is right
+for a state that moved when something happened. Levels move fifteen times a second, so they land
+on `Session.Metered`, which only the meters subscribe to. The separation on the wire
+(`docs/ipc-api.md`) would be worth nothing if both ends of it arrived on one signal here.
+
+**A tile's render-size ask is quantised and debounced.** Every distinct size re-announces a pool
+in the backend, and a rearranging grid moves every tile's exact size. `StreamTile` rounds the ask
+up onto a ladder of heights and sends it once the size has settled, so most rearrangements ask
+for the size already in force.
 
 ## What is not settled yet
 

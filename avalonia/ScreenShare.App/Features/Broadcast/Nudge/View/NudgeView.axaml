@@ -18,26 +18,44 @@
 
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" Classes="caption" Text="Live quality nudge" VerticalAlignment="Center" />
-        <!-- The caption is the permission slip: this is why the one editable control is here. -->
+        <!--
+          The caveat, and it is bound rather than written here. A sentence spelled into the
+          markup cannot be read beside the one it has to agree with, which is how this line
+          came to promise a live-safe apply while the track below it was inert for the
+          opposite reason.
+        -->
         <TextBlock Grid.Column="1"
                    Classes="hint"
                    FontSize="{StaticResource FontSizeSmall}"
-                   Text="applies without a reconnect"
+                   Text="{Binding Caveat}"
                    VerticalAlignment="Center" />
       </Grid>
 
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Classes="end" Text="Smoother" />
+        <!--
+          Greyed by the view model's own answer. It was drawn live for a while, which made the
+          track a control that took a hand and changed nothing - worse than a disabled one,
+          because a disabled control at least says what it is.
+        -->
         <Slider Grid.Column="1"
                 Minimum="0"
                 Maximum="100"
                 Margin="11,0"
                 VerticalAlignment="Center"
+                IsEnabled="{Binding IsEnabled}"
                 Value="{Binding Sharpness, Mode=TwoWay}" />
         <TextBlock Grid.Column="2" Classes="end" Text="Sharper" />
       </Grid>
 
       <TextBlock Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding Estimate}" />
+
+      <!-- Why the track is inert, on the control the way the settings form carries a blocked knob's reason. -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Text="{Binding Reason}"
+                 IsVisible="{Binding !IsEnabled}" />
 
     </StackPanel>
   </Border>

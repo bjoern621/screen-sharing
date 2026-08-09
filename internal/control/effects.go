@@ -324,6 +324,33 @@ func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceive
 	return &screensharev1.StopReceiveResponse{}, nil
 }
 
+// SetReceiveAudio sets how loud one decode plays and whether it plays at all.
+//
+// The pair is checked for the reason every receive method checks it. What differs from
+// the two above is the refusal: a decode that is not running is NOT_FOUND rather than
+// a quiet success, because this is a request about something absent and not a request
+// for a state that already holds. A repeat of a volume, by contrast, is exactly that
+// state and succeeds - the backend holds what it was asked for and writes it again.
+//
+// The volume is not range-checked here. A figure past the end of the range is brought
+// back by the backend, which is where the bound lives, and a refusal would make a
+// slider that overshot into an error a reader has to read.
+func (s *Server) SetReceiveAudio(ctx context.Context, req *screensharev1.SetReceiveAudioRequest) (*screensharev1.SetReceiveAudioResponse, error) {
+	key := wire.WatchKeyOf(req.GetStream())
+	if key.StreamName == "" {
+		return nil, invalidArgument("no stream named to set the audio of")
+	}
+	if key.Transport == "" {
+		return nil, invalidArgument("no transport named to set the audio of '%s' over", key.StreamName)
+	}
+
+	if err := s.backend.SetReceiveAudio(key, req.GetVolume(), req.GetMuted()); err != nil {
+		return nil, notFound("cannot set the audio of '%s' over %s: %v", key.StreamName, key.Transport, err)
+	}
+
+	return &screensharev1.SetReceiveAudioResponse{}, nil
+}
+
 // ProbeEncoders test-encodes on every engine and records what this machine can really
 // run, then announces the catalog that result changed.
 //

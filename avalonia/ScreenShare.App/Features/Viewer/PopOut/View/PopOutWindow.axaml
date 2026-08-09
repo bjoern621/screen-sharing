@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
+        xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
+        x:Class="ScreenShare.App.Features.Viewer.PopOut.View.PopOutWindow"
+        x:DataType="tile:TileViewModel"
+        Title="{Binding Title}"
+        Width="640" Height="360"
+        MinWidth="240" MinHeight="160"
+        Background="{StaticResource SurfaceBrush}">
+
+  <!--
+    One stream in a window of its own.
+
+    It draws the same tile the grid does, chrome and menu and all, so what a stream affords does
+    not depend on which window it is in. Its fullscreen is its own: this window going fullscreen
+    is a fact about this window, which is why several popped-out streams can each fill a different
+    monitor at the same time (docs/viewer-architecture.md is about decodes, and none of this
+    crosses that contract).
+
+    The grid keeps the slot this stream came from and draws a plate in it. That tile holds no
+    subscription while this window is open, so the decode has exactly one consumer either way.
+  -->
+  <tiles:TileCard />
+
+</Window>

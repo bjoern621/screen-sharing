@@ -147,6 +147,25 @@ service ControlService {
   // StopReceive closes one running decode.
   rpc StopReceive(StopReceiveRequest) returns (StopReceiveResponse);
 
+  // SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
+  //
+  // It is an effect on the receiver rather than anything the frame channel carries.
+  // The audio branch ends in a sink of its own inside this process, because the
+  // backend runs on the machine the shell is on and carrying samples across the
+  // process boundary would only be a longer way to the same output device
+  // (docs/viewer-architecture.md).
+  //
+  // The volume is a property of the decode and not of a window drawing it. Two
+  // windows on one decode share one audio branch, so a per-window volume would be
+  // two controls over one element, each showing a value the other had overwritten.
+  //
+  // Idempotent in both directions: a request for the loudness a decode already has
+  // succeeds and does nothing, and a volume set before the decoder has exposed an
+  // audio pad is held and applied when it does. A decode that does not exist is
+  // NOT_FOUND with the pair named - that is a request about something absent rather
+  // than a state that already holds.
+  rpc SetReceiveAudio(SetReceiveAudioRequest) returns (SetReceiveAudioResponse);
+
   // StartTestStreams launches synthetic publishers, which exercise the viewing
   // paths without a screen capture. A running set is replaced.
   rpc StartTestStreams(StartTestStreamsRequest) returns (StartTestStreamsResponse);
@@ -197,6 +216,25 @@ service ControlService {
   // events.proto for why every event carries a whole state and why a shell that
   // acted still waits for the event.
   rpc Subscribe(SubscribeRequest) returns (stream Event);
+
+  // SubscribeAudioLevels delivers how loud every decode is, on a fixed cadence, for
+  // as long as the shell holds the call.
+  //
+  // A stream of its own rather than an event kind, and the difference is cadence.
+  // Subscribe carries whole states when something changed, and a level changes
+  // continuously: folding it in would push the receive state at metering rate and
+  // make every consumer of that state re-render for a number none of them read.
+  //
+  // A read and not an effect, so it belongs on this service rather than on the frame
+  // channel. That channel carries frames alone, and a level is not one; being
+  // frequent is not what put it there.
+  //
+  // One call covers every decode, so a tile appearing needs no second subscription
+  // and a tile leaving needs no cancellation. Each tick is the whole set: a decode
+  // with no audio track has no entry, and one that is silent has an entry reading
+  // negative infinity. The backend coalesces to the newest tick, so a reader that
+  // fell behind receives the present rather than a queue of the past.
+  rpc SubscribeAudioLevels(SubscribeAudioLevelsRequest) returns (stream AudioLevels);
 }
 
 // --- Handshake ------------------------------------------------------------------
@@ -378,6 +416,25 @@ message StopReceiveRequest {
 
 message StopReceiveResponse {}
 
+// SetReceiveAudioRequest names both halves of the loudness at once, rather than a
+// volume method and a mute method.
+//
+// One request because they are one state. Sent apart, a shell that muted and then
+// set a volume would have to know whether the second undid the first, and the
+// backend would have to decide the same thing twice.
+message SetReceiveAudioRequest {
+  WatchKey stream = 1;
+  // volume is a linear gain from zero, where one is the stream unchanged. Values
+  // above one amplify; the backend bounds them rather than letting a slider clip the
+  // output device.
+  double volume = 2;
+  // muted silences the branch without losing the volume, so unmuting returns to the
+  // level the reader chose.
+  bool muted = 3;
+}
+
+message SetReceiveAudioResponse {}
+
 message StartTestStreamsRequest {
   // count is how many synthetic publishers to run. Each runs its own software
   // encoder, so the backend bounds it and refuses a larger number rather than
@@ -448,3 +505,11 @@ message SubscribeRequest {
   // 1 was kinds as strings naming this message's own oneof fields.
   reserved 1;
 }
+
+// SubscribeAudioLevelsRequest carries nothing.
+//
+// Empty and present rather than absent: the cadence is the backend's, because a
+// shell asking for a rate is asking for a cost it does not pay, and the set of
+// decodes is the backend's too. A message with no fields is what lets either become
+// a request field later without a new method.
+message SubscribeAudioLevelsRequest {}

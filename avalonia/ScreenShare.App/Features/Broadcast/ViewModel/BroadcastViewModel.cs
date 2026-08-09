@@ -93,7 +93,11 @@ public sealed class BroadcastViewModel : Observable
         _dispatch = dispatch;
 
         Stats = new HeaderStatsViewModel();
-        Preview = new PreviewViewModel();
+
+        // The one card here that asks the backend for something. It receives this machine's
+        // own stream back off the relay, so it needs the seam and the running state rather
+        // than the composed reading alone (Preview/ViewModel/PreviewViewModel.cs).
+        Preview = new PreviewViewModel(backend, session, dispatch);
         Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();
@@ -205,14 +209,21 @@ public sealed class BroadcastViewModel : Observable
         Nudge.Snapshot = reading;
         Plots.Snapshot = reading;
         Plots.Samples = _session.Samples;
+        Plots.RelaySamples = _session.RelaySamples;
 
         Config.Reported = Rows(_form, _session.Words);
+        Viewers.Reported = Watching(_session.Relay, reading.Stream);
         Viewers.Readers = reading.Viewers;
         Log.Recorded = Recorded(_session.Exits);
 
         Config.Apply();
         Viewers.Apply();
         Log.Apply();
+
+        // Rendered as well as told its reading, unlike the cards above it: the preview also
+        // reads what is decoding, which is a state the composed reading does not carry, so a
+        // pass where only that moved would otherwise write nothing into it.
+        Preview.Apply();
 
         HasRefusal = Refusal.Length > 0;
 
@@ -326,6 +337,32 @@ public sealed class BroadcastViewModel : Observable
             {
                 rows.Add(new ConfigRow(Copy.Fields.Group(group.Key).Title, summary));
             }
+        }
+
+        return rows;
+    }
+
+    /// <summary>
+    /// The viewer rows: one per reader the relay named on this stream's path, in the relay's own
+    /// order. Nothing is sorted or ranked here - the roster's order is the relay's answer, and a
+    /// table that put the struggling viewer first would be re-deciding, every pass, which row the
+    /// reader's eye had already learned the position of.
+    ///
+    /// A stream with no path in the snapshot yet, an unreachable relay and nothing publishing all
+    /// come out as no rows, and the card says which of them it is from the count beside this.
+    /// </summary>
+    private static IReadOnlyList<ViewerRow> Watching(RelayStatus? relay, string stream)
+    {
+        var path = BroadcastSnapshot.PathOf(relay, stream);
+        if (path is null)
+        {
+            return [];
+        }
+
+        var rows = new List<ViewerRow>(path.ReaderRoster.Count);
+        foreach (var reader in path.ReaderRoster)
+        {
+            rows.Add(ViewerRow.Of(reader));
         }
 
         return rows;

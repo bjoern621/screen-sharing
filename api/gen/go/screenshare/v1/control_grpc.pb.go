@@ -19,35 +19,37 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlService_Hello_FullMethodName               = "/screenshare.v1.ControlService/Hello"
-	ControlService_GetCatalog_FullMethodName          = "/screenshare.v1.ControlService/GetCatalog"
-	ControlService_GetSettings_FullMethodName         = "/screenshare.v1.ControlService/GetSettings"
-	ControlService_ResolveForm_FullMethodName         = "/screenshare.v1.ControlService/ResolveForm"
-	ControlService_ListPresets_FullMethodName         = "/screenshare.v1.ControlService/ListPresets"
-	ControlService_GetPublishState_FullMethodName     = "/screenshare.v1.ControlService/GetPublishState"
-	ControlService_GetRelayStatus_FullMethodName      = "/screenshare.v1.ControlService/GetRelayStatus"
-	ControlService_GetViewerState_FullMethodName      = "/screenshare.v1.ControlService/GetViewerState"
-	ControlService_GetTestStreamState_FullMethodName  = "/screenshare.v1.ControlService/GetTestStreamState"
-	ControlService_GetReceiveState_FullMethodName     = "/screenshare.v1.ControlService/GetReceiveState"
-	ControlService_SaveSettings_FullMethodName        = "/screenshare.v1.ControlService/SaveSettings"
-	ControlService_SavePreset_FullMethodName          = "/screenshare.v1.ControlService/SavePreset"
-	ControlService_DeletePreset_FullMethodName        = "/screenshare.v1.ControlService/DeletePreset"
-	ControlService_StartPublish_FullMethodName        = "/screenshare.v1.ControlService/StartPublish"
-	ControlService_ApplyToStream_FullMethodName       = "/screenshare.v1.ControlService/ApplyToStream"
-	ControlService_StopPublish_FullMethodName         = "/screenshare.v1.ControlService/StopPublish"
-	ControlService_StartWatch_FullMethodName          = "/screenshare.v1.ControlService/StartWatch"
-	ControlService_StopWatch_FullMethodName           = "/screenshare.v1.ControlService/StopWatch"
-	ControlService_StartReceive_FullMethodName        = "/screenshare.v1.ControlService/StartReceive"
-	ControlService_StopReceive_FullMethodName         = "/screenshare.v1.ControlService/StopReceive"
-	ControlService_StartTestStreams_FullMethodName    = "/screenshare.v1.ControlService/StartTestStreams"
-	ControlService_StopTestStreams_FullMethodName     = "/screenshare.v1.ControlService/StopTestStreams"
-	ControlService_ProbeEncoders_FullMethodName       = "/screenshare.v1.ControlService/ProbeEncoders"
-	ControlService_MeasureUplink_FullMethodName       = "/screenshare.v1.ControlService/MeasureUplink"
-	ControlService_MeasureEncodeRate_FullMethodName   = "/screenshare.v1.ControlService/MeasureEncodeRate"
-	ControlService_ForgetPortalConsent_FullMethodName = "/screenshare.v1.ControlService/ForgetPortalConsent"
-	ControlService_OpenLog_FullMethodName             = "/screenshare.v1.ControlService/OpenLog"
-	ControlService_OpenLogsFolder_FullMethodName      = "/screenshare.v1.ControlService/OpenLogsFolder"
-	ControlService_Subscribe_FullMethodName           = "/screenshare.v1.ControlService/Subscribe"
+	ControlService_Hello_FullMethodName                = "/screenshare.v1.ControlService/Hello"
+	ControlService_GetCatalog_FullMethodName           = "/screenshare.v1.ControlService/GetCatalog"
+	ControlService_GetSettings_FullMethodName          = "/screenshare.v1.ControlService/GetSettings"
+	ControlService_ResolveForm_FullMethodName          = "/screenshare.v1.ControlService/ResolveForm"
+	ControlService_ListPresets_FullMethodName          = "/screenshare.v1.ControlService/ListPresets"
+	ControlService_GetPublishState_FullMethodName      = "/screenshare.v1.ControlService/GetPublishState"
+	ControlService_GetRelayStatus_FullMethodName       = "/screenshare.v1.ControlService/GetRelayStatus"
+	ControlService_GetViewerState_FullMethodName       = "/screenshare.v1.ControlService/GetViewerState"
+	ControlService_GetTestStreamState_FullMethodName   = "/screenshare.v1.ControlService/GetTestStreamState"
+	ControlService_GetReceiveState_FullMethodName      = "/screenshare.v1.ControlService/GetReceiveState"
+	ControlService_SaveSettings_FullMethodName         = "/screenshare.v1.ControlService/SaveSettings"
+	ControlService_SavePreset_FullMethodName           = "/screenshare.v1.ControlService/SavePreset"
+	ControlService_DeletePreset_FullMethodName         = "/screenshare.v1.ControlService/DeletePreset"
+	ControlService_StartPublish_FullMethodName         = "/screenshare.v1.ControlService/StartPublish"
+	ControlService_ApplyToStream_FullMethodName        = "/screenshare.v1.ControlService/ApplyToStream"
+	ControlService_StopPublish_FullMethodName          = "/screenshare.v1.ControlService/StopPublish"
+	ControlService_StartWatch_FullMethodName           = "/screenshare.v1.ControlService/StartWatch"
+	ControlService_StopWatch_FullMethodName            = "/screenshare.v1.ControlService/StopWatch"
+	ControlService_StartReceive_FullMethodName         = "/screenshare.v1.ControlService/StartReceive"
+	ControlService_StopReceive_FullMethodName          = "/screenshare.v1.ControlService/StopReceive"
+	ControlService_SetReceiveAudio_FullMethodName      = "/screenshare.v1.ControlService/SetReceiveAudio"
+	ControlService_StartTestStreams_FullMethodName     = "/screenshare.v1.ControlService/StartTestStreams"
+	ControlService_StopTestStreams_FullMethodName      = "/screenshare.v1.ControlService/StopTestStreams"
+	ControlService_ProbeEncoders_FullMethodName        = "/screenshare.v1.ControlService/ProbeEncoders"
+	ControlService_MeasureUplink_FullMethodName        = "/screenshare.v1.ControlService/MeasureUplink"
+	ControlService_MeasureEncodeRate_FullMethodName    = "/screenshare.v1.ControlService/MeasureEncodeRate"
+	ControlService_ForgetPortalConsent_FullMethodName  = "/screenshare.v1.ControlService/ForgetPortalConsent"
+	ControlService_OpenLog_FullMethodName              = "/screenshare.v1.ControlService/OpenLog"
+	ControlService_OpenLogsFolder_FullMethodName       = "/screenshare.v1.ControlService/OpenLogsFolder"
+	ControlService_Subscribe_FullMethodName            = "/screenshare.v1.ControlService/Subscribe"
+	ControlService_SubscribeAudioLevels_FullMethodName = "/screenshare.v1.ControlService/SubscribeAudioLevels"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -163,6 +165,24 @@ type ControlServiceClient interface {
 	StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error)
 	// StopReceive closes one running decode.
 	StopReceive(ctx context.Context, in *StopReceiveRequest, opts ...grpc.CallOption) (*StopReceiveResponse, error)
+	// SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
+	//
+	// It is an effect on the receiver rather than anything the frame channel carries.
+	// The audio branch ends in a sink of its own inside this process, because the
+	// backend runs on the machine the shell is on and carrying samples across the
+	// process boundary would only be a longer way to the same output device
+	// (docs/viewer-architecture.md).
+	//
+	// The volume is a property of the decode and not of a window drawing it. Two
+	// windows on one decode share one audio branch, so a per-window volume would be
+	// two controls over one element, each showing a value the other had overwritten.
+	//
+	// Idempotent in both directions: a request for the loudness a decode already has
+	// succeeds and does nothing, and a volume set before the decoder has exposed an
+	// audio pad is held and applied when it does. A decode that does not exist is
+	// NOT_FOUND with the pair named - that is a request about something absent rather
+	// than a state that already holds.
+	SetReceiveAudio(ctx context.Context, in *SetReceiveAudioRequest, opts ...grpc.CallOption) (*SetReceiveAudioResponse, error)
 	// StartTestStreams launches synthetic publishers, which exercise the viewing
 	// paths without a screen capture. A running set is replaced.
 	StartTestStreams(ctx context.Context, in *StartTestStreamsRequest, opts ...grpc.CallOption) (*StartTestStreamsResponse, error)
@@ -204,6 +224,24 @@ type ControlServiceClient interface {
 	// events.proto for why every event carries a whole state and why a shell that
 	// acted still waits for the event.
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
+	// SubscribeAudioLevels delivers how loud every decode is, on a fixed cadence, for
+	// as long as the shell holds the call.
+	//
+	// A stream of its own rather than an event kind, and the difference is cadence.
+	// Subscribe carries whole states when something changed, and a level changes
+	// continuously: folding it in would push the receive state at metering rate and
+	// make every consumer of that state re-render for a number none of them read.
+	//
+	// A read and not an effect, so it belongs on this service rather than on the frame
+	// channel. That channel carries frames alone, and a level is not one; being
+	// frequent is not what put it there.
+	//
+	// One call covers every decode, so a tile appearing needs no second subscription
+	// and a tile leaving needs no cancellation. Each tick is the whole set: a decode
+	// with no audio track has no entry, and one that is silent has an entry reading
+	// negative infinity. The backend coalesces to the newest tick, so a reader that
+	// fell behind receives the present rather than a queue of the past.
+	SubscribeAudioLevels(ctx context.Context, in *SubscribeAudioLevelsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AudioLevels], error)
 }
 
 type controlServiceClient struct {
@@ -414,6 +452,16 @@ func (c *controlServiceClient) StopReceive(ctx context.Context, in *StopReceiveR
 	return out, nil
 }
 
+func (c *controlServiceClient) SetReceiveAudio(ctx context.Context, in *SetReceiveAudioRequest, opts ...grpc.CallOption) (*SetReceiveAudioResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SetReceiveAudioResponse)
+	err := c.cc.Invoke(ctx, ControlService_SetReceiveAudio_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) StartTestStreams(ctx context.Context, in *StartTestStreamsRequest, opts ...grpc.CallOption) (*StartTestStreamsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StartTestStreamsResponse)
@@ -512,6 +560,25 @@ func (c *controlServiceClient) Subscribe(ctx context.Context, in *SubscribeReque
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_SubscribeClient = grpc.ServerStreamingClient[Event]
+
+func (c *controlServiceClient) SubscribeAudioLevels(ctx context.Context, in *SubscribeAudioLevelsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AudioLevels], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[1], ControlService_SubscribeAudioLevels_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribeAudioLevelsRequest, AudioLevels]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_SubscribeAudioLevelsClient = grpc.ServerStreamingClient[AudioLevels]
 
 // ControlServiceServer is the server API for ControlService service.
 // All implementations must embed UnimplementedControlServiceServer
@@ -626,6 +693,24 @@ type ControlServiceServer interface {
 	StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error)
 	// StopReceive closes one running decode.
 	StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error)
+	// SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
+	//
+	// It is an effect on the receiver rather than anything the frame channel carries.
+	// The audio branch ends in a sink of its own inside this process, because the
+	// backend runs on the machine the shell is on and carrying samples across the
+	// process boundary would only be a longer way to the same output device
+	// (docs/viewer-architecture.md).
+	//
+	// The volume is a property of the decode and not of a window drawing it. Two
+	// windows on one decode share one audio branch, so a per-window volume would be
+	// two controls over one element, each showing a value the other had overwritten.
+	//
+	// Idempotent in both directions: a request for the loudness a decode already has
+	// succeeds and does nothing, and a volume set before the decoder has exposed an
+	// audio pad is held and applied when it does. A decode that does not exist is
+	// NOT_FOUND with the pair named - that is a request about something absent rather
+	// than a state that already holds.
+	SetReceiveAudio(context.Context, *SetReceiveAudioRequest) (*SetReceiveAudioResponse, error)
 	// StartTestStreams launches synthetic publishers, which exercise the viewing
 	// paths without a screen capture. A running set is replaced.
 	StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error)
@@ -667,6 +752,24 @@ type ControlServiceServer interface {
 	// events.proto for why every event carries a whole state and why a shell that
 	// acted still waits for the event.
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
+	// SubscribeAudioLevels delivers how loud every decode is, on a fixed cadence, for
+	// as long as the shell holds the call.
+	//
+	// A stream of its own rather than an event kind, and the difference is cadence.
+	// Subscribe carries whole states when something changed, and a level changes
+	// continuously: folding it in would push the receive state at metering rate and
+	// make every consumer of that state re-render for a number none of them read.
+	//
+	// A read and not an effect, so it belongs on this service rather than on the frame
+	// channel. That channel carries frames alone, and a level is not one; being
+	// frequent is not what put it there.
+	//
+	// One call covers every decode, so a tile appearing needs no second subscription
+	// and a tile leaving needs no cancellation. Each tick is the whole set: a decode
+	// with no audio track has no entry, and one that is silent has an entry reading
+	// negative infinity. The backend coalesces to the newest tick, so a reader that
+	// fell behind receives the present rather than a queue of the past.
+	SubscribeAudioLevels(*SubscribeAudioLevelsRequest, grpc.ServerStreamingServer[AudioLevels]) error
 	mustEmbedUnimplementedControlServiceServer()
 }
 
@@ -737,6 +840,9 @@ func (UnimplementedControlServiceServer) StartReceive(context.Context, *StartRec
 func (UnimplementedControlServiceServer) StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopReceive not implemented")
 }
+func (UnimplementedControlServiceServer) SetReceiveAudio(context.Context, *SetReceiveAudioRequest) (*SetReceiveAudioResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetReceiveAudio not implemented")
+}
 func (UnimplementedControlServiceServer) StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartTestStreams not implemented")
 }
@@ -763,6 +869,9 @@ func (UnimplementedControlServiceServer) OpenLogsFolder(context.Context, *OpenLo
 }
 func (UnimplementedControlServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
+}
+func (UnimplementedControlServiceServer) SubscribeAudioLevels(*SubscribeAudioLevelsRequest, grpc.ServerStreamingServer[AudioLevels]) error {
+	return status.Error(codes.Unimplemented, "method SubscribeAudioLevels not implemented")
 }
 func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
 func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
@@ -1145,6 +1254,24 @@ func _ControlService_StopReceive_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_SetReceiveAudio_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetReceiveAudioRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).SetReceiveAudio(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_SetReceiveAudio_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).SetReceiveAudio(ctx, req.(*SetReceiveAudioRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_StartTestStreams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartTestStreamsRequest)
 	if err := dec(in); err != nil {
@@ -1300,6 +1427,17 @@ func _ControlService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_SubscribeServer = grpc.ServerStreamingServer[Event]
 
+func _ControlService_SubscribeAudioLevels_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeAudioLevelsRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlServiceServer).SubscribeAudioLevels(m, &grpc.GenericServerStream[SubscribeAudioLevelsRequest, AudioLevels]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_SubscribeAudioLevelsServer = grpc.ServerStreamingServer[AudioLevels]
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1388,6 +1526,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_StopReceive_Handler,
 		},
 		{
+			MethodName: "SetReceiveAudio",
+			Handler:    _ControlService_SetReceiveAudio_Handler,
+		},
+		{
 			MethodName: "StartTestStreams",
 			Handler:    _ControlService_StartTestStreams_Handler,
 		},
@@ -1424,6 +1566,11 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Subscribe",
 			Handler:       _ControlService_Subscribe_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribeAudioLevels",
+			Handler:       _ControlService_SubscribeAudioLevels_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -1,7 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Viewer.ViewModel"
+             xmlns:view="using:ScreenShare.App.Features.Viewer.View"
              xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Viewer.View.ViewerView"
@@ -13,14 +15,6 @@
   </Design.DataContext>
 
   <UserControl.Styles>
-    <Style Selector="TextBlock.cell">
-      <Setter Property="Margin" Value="13,7" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-    <Style Selector="TextBlock.colhead">
-      <Setter Property="FontSize" Value="{StaticResource FontSizeMinor}" />
-      <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
-    </Style>
     <!-- A path the relay knows about but nothing is publishing to reads as absent, not broken. -->
     <Style Selector="TextBlock.idle">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
@@ -29,168 +23,229 @@
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+
+    <!--
+      The live dot: one shape, on or off, rather than a word per entry. Its size is the design's
+      dot rather than a number chosen here.
+    -->
+    <Style Selector="Ellipse.live">
+      <Setter Property="Width" Value="{StaticResource DotSize}" />
+      <Setter Property="Height" Value="{StaticResource DotSize}" />
+      <Setter Property="Fill" Value="{StaticResource MutedBrush}" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Ellipse.live.on">
+      <Setter Property="Fill" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+
+    <!--
+      One rail entry. The action inside it appears on hover or while the stream is in the grid, so
+      a rail of eight streams is eight names rather than eight buttons.
+    -->
+    <Style Selector="Border.entry">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+      <Setter Property="Padding" Value="7,3,3,3" />
+      <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+    </Style>
+    <Style Selector="Border.entry:pointerover">
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+    </Style>
+    <Style Selector="Border.entry Button.action">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </Style>
+    <Style Selector="Border.entry:pointerover Button.action, Border.entry Button.action.on">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
   </UserControl.Styles>
 
   <!--
-    A grid over a roster. The roster is what the relay is carrying and what this machine has
-    open on it; the grid is the streams the reader asked to see, drawn from the GPU memory the
-    backend decoded them into (docs/viewer-architecture.md, "The frame channel").
+    A rail beside a grid. The rail is what the relay is carrying and what this machine has open on
+    it; the grid is the streams the reader asked to see, drawn from the GPU memory the backend
+    decoded them into (docs/viewer-architecture.md, "The frame channel").
 
-    The arrangement is this shell's whole business and nothing about it crosses the contract:
-    the backend describes decodes, and a decode is not a tile (docs/ipc-api.md).
+    Beside rather than above, which is the whole of the change from the table this replaces: a
+    list stacked over the grid made the two compete for height, and the grid is the thing being
+    watched.
+
+    The arrangement is this shell's whole business and nothing about it crosses the contract: the
+    backend describes decodes, and a decode is not a tile (docs/ipc-api.md).
 
     No title bar, no nav strip and no status bar - the shell owns all three, and a second copy
-    would be a second definition of where the reader is. The counts this view derives still reach
-    the band: the shell reads them off this view model on every pass.
+    would be a second definition of where the reader is.
   -->
-  <DockPanel Margin="16">
+  <Grid ColumnDefinitions="Auto,*">
 
-    <Grid DockPanel.Dock="Top" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,12">
-      <TextBlock Grid.Column="0" Classes="caption" Text="{Binding ShowingLabel}" VerticalAlignment="Center" />
-      <TextBlock Grid.Column="2" Classes="hint" Text="{Binding ShownSummary}" VerticalAlignment="Center" />
-    </Grid>
+    <!-- === The rail ============================================================== -->
 
-    <!-- The backend's own sentence when it refused to open or close a viewer, shown as it stands. -->
-    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" IsVisible="{Binding HasRefusal}">
-      <TextBlock Classes="cell" Text="{Binding Refusal}" TextWrapping="Wrap" />
-    </Border>
+    <Border Grid.Column="0"
+            Width="{Binding RailWidth}"
+            Background="{StaticResource PanelBrush}"
+            BorderBrush="{StaticResource DividerBrush}"
+            BorderThickness="0,0,1,0">
+      <DockPanel Margin="{StaticResource GapControl}">
 
-    <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Hint}" Margin="0,12,0,0" />
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+          <TextBlock Grid.Column="0" Classes="caption" Text="{Binding ShowingLabel}"
+                     VerticalAlignment="Center" Margin="7,0,0,0"
+                     IsVisible="{Binding !IsRailCollapsed}" />
+          <Button Grid.Column="1" Theme="{StaticResource LinkButton}"
+                  Command="{Binding ToggleRail}"
+                  ToolTip.Tip="{Binding RailToggleTip}">
+            <ti:TablerIcon Icon="{Binding RailGlyph}" />
+          </Button>
+        </Grid>
 
-    <!--
-      The grid. Each tile is a composition surface rather than a native child window, which is
-      what lets the figures under the picture stay over it: a native window would draw above
-      every Avalonia control (avalonia/README.md, "What is not settled yet").
+        <!-- The backend's own sentence when it refused to open or close something, shown as it stands. -->
+        <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Refusal}" TextWrapping="Wrap"
+                   IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
 
-      Wrapped rather than laid out in fixed columns, so the arrangement follows the window's
-      width instead of a count nobody chose.
-    -->
-    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" IsVisible="{Binding HasTiles}">
-      <ItemsControl ItemsSource="{Binding Tiles}" Margin="8">
-        <ItemsControl.ItemsPanel>
-          <ItemsPanelTemplate>
-            <WrapPanel />
-          </ItemsPanelTemplate>
-        </ItemsControl.ItemsPanel>
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="tile:TileViewModel">
-            <StackPanel Width="360" Margin="6">
-              <TextBlock Classes="ident" Text="{Binding Title}" Margin="2,0,2,4" />
+        <!-- Why the list is empty, which separates an unread relay from an idle one. -->
+        <TextBlock DockPanel.Dock="Top" Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
+                   IsVisible="{Binding HasNotice}" Margin="2,0" />
 
-              <!--
-                The picture and what stands in for it occupy the same cell, so a tile that is
-                connecting is the same size as one that is drawing and the grid does not reflow
-                when a stream comes up.
-              -->
-              <Panel Height="203" Background="{StaticResource PanelBrush}">
-                <tiles:StreamTile Source="{Binding}" />
-                <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
-                           IsVisible="{Binding HasNotice}"
-                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                           TextAlignment="Center" Margin="16" />
-              </Panel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <ItemsControl ItemsSource="{Binding Streams}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:StreamRowViewModel">
 
-              <!--
-                What the pipeline turned out to be and what this window did with it. Both are
-                measurements: the chain that ran is not always the one the settings asked for,
-                and the drop count is the only place a window too slow to draw becomes visible.
-              -->
-              <ItemsControl ItemsSource="{Binding Figures}" Margin="2,4,2,0">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <WrapPanel />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="x:String">
-                    <TextBlock Classes="hint" Text="{Binding}" Margin="0,0,10,0" />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </Border>
+                <!--
+                  One entry per relay path: the name, whether anything is publishing to it, and
+                  the action that puts it in the grid. Everything else the relay says about it -
+                  tracks, rate, readers - is in the entry's own menu, because those are
+                  diagnostics and this list is navigation.
+                -->
+                <Border Classes="entry" Margin="0,1" ToolTip.Tip="{Binding Detail}">
 
-    <!-- Why the list is empty, which separates an unread relay from an idle one. -->
-    <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
-               IsVisible="{Binding HasNotice}" VerticalAlignment="Top" />
+                  <Border.ContextFlyout>
+                    <MenuFlyout>
+                      <!--
+                        One item per leg the backend offered. Whether a leg can carry this stream
+                        is the backend's answer when the viewer is opened, not a greying decided
+                        here: the relay snapshot can be older than the stream, so refusing from a
+                        stale format would block a viewer that would have worked.
+                      -->
+                      <MenuItem Header="Open in player" ItemsSource="{Binding Legs}">
+                        <MenuItem.ItemContainerTheme>
+                          <ControlTheme TargetType="MenuItem" x:DataType="vm:WatchLegViewModel"
+                                        BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Label}" />
+                            <Setter Property="Command" Value="{Binding Toggle}" />
+                            <Setter Property="ToggleType" Value="CheckBox" />
+                            <Setter Property="IsChecked" Value="{Binding IsOpen, Mode=OneWay}" />
+                          </ControlTheme>
+                        </MenuItem.ItemContainerTheme>
+                      </MenuItem>
+                      <Separator />
+                      <MenuItem Header="{Binding Tracks}" IsEnabled="False" />
+                      <MenuItem Header="{Binding Detail}" IsEnabled="False" />
+                      <MenuItem Header="{Binding Readers}" IsEnabled="False" />
+                    </MenuFlyout>
+                  </Border.ContextFlyout>
 
-    <Border Classes="card" ClipToBounds="True" IsVisible="{Binding HasStreams}" VerticalAlignment="Top">
-      <DockPanel>
+                  <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource GapTight}">
+                    <Ellipse Grid.Column="0" Classes="live" Classes.on="{Binding IsReady}" />
 
-        <Border DockPanel.Dock="Top"
-                Background="{StaticResource PanelBrush}"
-                BorderBrush="{StaticResource DividerBrush}"
-                BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="200,140,120,100,90,*">
-            <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="stream" />
-            <TextBlock Grid.Column="1" Classes="ident cell colhead" Text="tracks" />
-            <TextBlock Grid.Column="2" Classes="ident cell colhead" Text="rate" TextAlignment="Right" />
-            <TextBlock Grid.Column="3" Classes="ident cell colhead" Text="readers" TextAlignment="Right" />
-            <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="in grid" />
-            <TextBlock Grid.Column="5" Classes="ident cell colhead" Text="watch on" />
-          </Grid>
-        </Border>
+                    <TextBlock Grid.Column="1" Classes="ident" Text="{Binding Name}"
+                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                               IsVisible="{Binding $parent[UserControl].((vm:ViewerViewModel)DataContext).IsRailCollapsed, Converter={x:Static BoolConverters.Not}}"
+                               Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
 
-        <ItemsControl ItemsSource="{Binding Streams}" VerticalAlignment="Top">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate x:DataType="vm:StreamRowViewModel">
-              <StackPanel>
-                <Grid ColumnDefinitions="200,140,120,100,90,*">
-                  <TextBlock Grid.Column="0" Classes="ident cell" Text="{Binding Name}"
-                             Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
-                  <TextBlock Grid.Column="1" Classes="ident cell" Text="{Binding Tracks}"
-                             Classes.idle="{Binding !IsReady}" />
-                  <TextBlock Grid.Column="2" Classes="ident cell" Text="{Binding Detail}" TextAlignment="Right"
-                             Classes.idle="{Binding !IsReady}" />
-                  <TextBlock Grid.Column="3" Classes="ident cell" Text="{Binding Readers}" TextAlignment="Right"
-                             Classes.idle="{Binding !IsReady}" />
+                    <!--
+                      The watch action. One control and not one per leg, because which protocol a
+                      tile receives on is a setting the backend resolves and not a choice this
+                      entry offers (docs/viewer-architecture.md, "Two legs, two protocols").
 
-                  <!--
-                    The grid toggle. It is one control and not one per leg, because which
-                    protocol a tile receives on is a setting the backend resolves and not a
-                    choice this row offers (docs/viewer-architecture.md, "Two legs, two
-                    protocols").
-                  -->
-                  <ToggleButton Grid.Column="4" Margin="9,4" Content="show"
-                                IsChecked="{Binding IsTiled, Mode=OneWay}"
-                                Command="{Binding Show}"
-                                controls:Pending.IsActive="{Binding Show.IsRunning}" />
+                      A button rather than a toggle: there is no themed toggle here, and a bare one
+                      arrives wearing Fluent beside controls that wear the design
+                      (avalonia/README.md, "one button and one of every input"). What it is doing
+                      is said by its glyph and by the entry it sits in, which already draws watched
+                      streams differently.
+                    -->
+                    <Button Grid.Column="2" Classes="action"
+                            Classes.on="{Binding IsTiled}"
+                            Theme="{StaticResource LinkButton}"
+                            Command="{Binding Show}"
+                            ToolTip.Tip="{Binding WatchLabel}"
+                            controls:Pending.IsActive="{Binding Show.IsRunning}">
+                      <ti:TablerIcon Icon="{Binding WatchGlyph}" />
+                    </Button>
+                  </Grid>
+                </Border>
 
-                  <!--
-                    One toggle per leg the backend offered. Whether a leg can carry this stream is
-                    the backend's answer when the viewer is opened, not a greying decided here: the
-                    relay snapshot can be older than the stream, so refusing from a stale format
-                    would block a viewer that would have worked.
-                  -->
-                  <ItemsControl Grid.Column="5" ItemsSource="{Binding Legs}" Margin="9,4">
-                    <ItemsControl.ItemsPanel>
-                      <ItemsPanelTemplate>
-                        <WrapPanel />
-                      </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="vm:WatchLegViewModel">
-                        <ToggleButton Margin="4,3"
-                                      Content="{Binding Label}"
-                                      IsChecked="{Binding IsOpen, Mode=OneWay}"
-                                      Command="{Binding Toggle}"
-                                      controls:Pending.IsActive="{Binding Toggle.IsRunning}" />
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                </Grid>
-                <Border Classes="rowrule" />
-              </StackPanel>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
 
       </DockPanel>
     </Border>
 
-  </DockPanel>
+    <!-- === The grid ============================================================== -->
+
+    <!--
+      No summary and no hint in here. The shell's status band already prints both, off this same
+      view model, and a second copy on the screen the band describes is two places one fact is
+      written (Features/Shell).
+    -->
+    <DockPanel Grid.Column="1" Margin="12">
+
+      <!--
+        Each tile is a composition surface rather than a native child window, which is what lets
+        the chrome over the picture stay over it: a native window would draw above every Avalonia
+        control (avalonia/README.md, "What is not settled yet").
+
+        The panel arranges; the arrangement itself is computed by a pure solver that is tested
+        without a window (Features/Viewer/Model/TileLayout.cs).
+      -->
+      <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Tiles}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <view:TileGrid Mode="{Binding Mode}"
+                             Viewport="{Binding #GridScroll.Bounds.Height}" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemContainerTheme>
+            <ControlTheme TargetType="ContentPresenter" x:DataType="tile:TileViewModel">
+              <!--
+                The two facts the panel arranges by, declared on the container rather than read
+                out of anybody's data context: the shape of the stream, and whether this is the
+                focused tile.
+              -->
+              <Setter Property="view:TileGrid.Aspect" Value="{Binding Aspect}" />
+              <Setter Property="view:TileGrid.IsStaged" Value="{Binding IsFocused}" />
+            </ControlTheme>
+          </ItemsControl.ItemContainerTheme>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="tile:TileViewModel">
+              <tiles:TileCard />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+    </DockPanel>
+
+    <!--
+      The fullscreen tile. It is drawn over both columns rather than inside the grid, because
+      fullscreen is a property of this window and not an arrangement of tiles: the chrome goes,
+      the rail goes, and one stream has the window.
+    -->
+    <Panel Grid.Column="0" Grid.ColumnSpan="2"
+           Background="{StaticResource SurfaceBrush}"
+           IsVisible="{Binding HasFullscreen}">
+      <ContentControl Content="{Binding FullscreenTile}">
+        <ContentControl.ContentTemplate>
+          <DataTemplate x:DataType="tile:TileViewModel">
+            <tiles:TileCard />
+          </DataTemplate>
+        </ContentControl.ContentTemplate>
+      </ContentControl>
+    </Panel>
+
+  </Grid>
 
 </UserControl>
