@@ -67,7 +67,6 @@ public sealed class ViewerTableViewModel : Observable
     // --- Outputs ------------------------------------------------------------------
 
     private int _strugglingCount;
-    private string _summary = "";
     private string _notice = "";
     private bool _hasRows;
 
@@ -83,9 +82,6 @@ public sealed class ViewerTableViewModel : Observable
     /// summary of its rows and a test states it, not because a second surface prints it.
     /// </summary>
     public int StrugglingCount { get => _strugglingCount; private set => Set(ref _strugglingCount, value); }
-
-    /// <summary>How many are watching, which is the figure the relay does report.</summary>
-    public string Summary { get => _summary; private set => Set(ref _summary, value); }
 
     /// <summary>
     /// Why there are no rows, empty while there are some. It is now only ever the honest reading
@@ -115,9 +111,9 @@ public sealed class ViewerTableViewModel : Observable
         StrugglingCount = Rows.Count(row => row.IsStruggling);
         HasRows = Rows.Count > 0;
 
-        Summary = Readers is null
-            ? "The relay has not been asked yet."
-            : $"{Readers} watching.";
+        // How many are watching is not stated here. The header pill above this card already
+        // carries the count, and one figure written by two render functions is the case that
+        // ends with two screens disagreeing. This card is the roster; the count is the header's.
 
         // Two absences and two sentences, because they leave a publisher with different things
         // to do next: wait for the relay to be asked, or send somebody the link.

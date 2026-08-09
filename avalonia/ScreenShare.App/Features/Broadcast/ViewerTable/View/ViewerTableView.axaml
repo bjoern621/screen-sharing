@@ -61,10 +61,22 @@
         machine field names, not prose, and reading them that way is what stops anyone
         treating this card as a form.
       -->
+      <!--
+        What stands in for the rows, and it is drawn instead of the column heads rather than
+        under them: a header rank over nothing names five figures that are not there.
+      -->
+      <TextBlock DockPanel.Dock="Top"
+                 Classes="hint"
+                 Text="{Binding Notice}"
+                 IsVisible="{Binding !HasRows}"
+                 TextWrapping="Wrap"
+                 Margin="13,4,13,15" />
+
       <Border DockPanel.Dock="Top"
               Background="{StaticResource PanelBrush}"
               BorderBrush="{StaticResource DividerBrush}"
-              BorderThickness="0,1">
+              BorderThickness="0,1"
+              IsVisible="{Binding HasRows}">
         <!--
           Two of the design's headers name figures the relay does not have. Buffer fill and the
           decoder in use are the viewer's own facts and nothing carries them back to a publisher,

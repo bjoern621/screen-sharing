@@ -8,10 +8,14 @@ namespace ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 /// <summary>
 /// The active configuration, read-only while live.
 ///
-/// It carries no setters on purpose: capture source, codec and protocol need a restart,
-/// and a control that appears both here and in setup is a control with two owners. The
-/// one thing this card can do is leave - <see cref="EditInSetupCommand"/> raises
+/// It carries no setters on purpose: every setting here reaches a running pipeline by
+/// restarting it, and a control that appears both here and in setup is a control with two
+/// owners. The one thing this card can do is leave - <see cref="EditInSetupCommand"/> raises
 /// <see cref="EditRequested"/> and lets the shell navigate.
+///
+/// The note at the foot of it used to divide the settings into ones needing a restart and ones
+/// that did not. There was never a live-safe apply for the second group to use, so the division
+/// described nothing; <see cref="Copy.Cards.ConfigReadOnly"/> states the one rule that holds.
 /// </summary>
 public sealed class ConfigCardViewModel : Observable
 {
@@ -59,6 +63,13 @@ public sealed class ConfigCardViewModel : Observable
 
     /// <summary>What stands in for the rows while there is no running pipeline to describe.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
+
+    /// <summary>
+    /// Why the card takes no edits, read from the copy table rather than spelled into the
+    /// markup - which is where the sentence that divided the settings into restarting and
+    /// live-safe ones sat, unread beside the card that says nothing here is live-safe.
+    /// </summary>
+    public string ReadOnly => Copy.Cards.ConfigReadOnly;
 
     public bool HasRows { get => _hasRows; private set => Set(ref _hasRows, value); }
 

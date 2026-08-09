@@ -66,9 +66,24 @@
             -->
             <TextBlock Classes="annotation"
                        Text="{Binding Ceiling}"
+                       IsVisible="{Binding HasEgress}"
                        Margin="7,6,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top" />
+
+            <!--
+              What stands in for the curve while there is none. The view model has composed it
+              all along and nothing drew it, so an empty plot was an empty rectangle saying
+              neither which of the reasons it was nor that anything was missing.
+            -->
+            <TextBlock Classes="hint"
+                       Text="{Binding EgressNotice}"
+                       IsVisible="{Binding !HasEgress}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="16" />
           </Panel>
         </Border>
       </StackPanel>
@@ -129,10 +144,21 @@
                         Spacing="{StaticResource GapPanel}"
                         Margin="7,0,0,5"
                         HorizontalAlignment="Left"
-                        VerticalAlignment="Bottom">
+                        VerticalAlignment="Bottom"
+                        IsVisible="{Binding HasLatency}">
               <TextBlock Classes="annotation" Foreground="{StaticResource ForegroundBrush}" Text="— rtt" />
               <TextBlock Classes="annotation" Text="— loss" />
             </StackPanel>
+
+            <!-- The same stand-in the card beside it draws, for the same reason. -->
+            <TextBlock Classes="hint"
+                       Text="{Binding LatencyNotice}"
+                       IsVisible="{Binding !HasLatency}"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="16" />
           </Panel>
         </Border>
       </StackPanel>

@@ -65,4 +65,41 @@ public static class Cards
 
     /// <summary>A decode has been asked for and the backend has not answered yet.</summary>
     public const string PreviewOpening = "Asking the relay for this stream back.";
+
+    /// <summary>
+    /// The caveat beside the nudge card's title, and it is the opposite of the permission slip
+    /// that used to stand there.
+    ///
+    /// The caption read "applies without a reconnect" while the control below it was inert for
+    /// precisely the reason that sentence denied. Two files stating opposite things about one
+    /// slider is the case a copy table exists to make impossible: this sentence and
+    /// <see cref="NudgeInert"/> are read side by side here, and neither can drift without the
+    /// other being in view.
+    /// </summary>
+    public const string NudgeCaveat = "no live-safe quality change exists";
+
+    /// <summary>
+    /// Why the nudge track takes no hand, shown on the card rather than only in a comment.
+    ///
+    /// Both engines run a child process built from an argv and neither takes a value back
+    /// afterwards, so there is no effect that changes an encoder's quality without rebuilding
+    /// the pipeline. <c>ApplyToStream</c> is reachable from setup now and it restarts the
+    /// stream, which is the honest thing to send a reader to - a slider wired to it would be a
+    /// control whose whole promise is false (<c>docs/field-availability.md</c>, "The rule").
+    /// </summary>
+    public const string NudgeInert =
+        "Both engines run a child built from an argv and neither takes a new quality back, so "
+        + "changing it restarts the stream. Setup applies it, and says so before it does.";
+
+    /// <summary>
+    /// Why the configuration card is read-only, and what a change to it now costs.
+    ///
+    /// It used to say quality and latency did not need a restart, which was a statement about a
+    /// live-safe apply that has never existed. Every setting on this card reaches a running
+    /// pipeline the one way there is - setup's commit, which tears the encoder down and launches
+    /// it again on the new settings.
+    /// </summary>
+    public const string ConfigReadOnly =
+        "Read-only while live. Every setting here reaches a running stream by restarting it, "
+        + "which is what setup's commit does.";
 }

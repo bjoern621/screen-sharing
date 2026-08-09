@@ -1,6 +1,8 @@
 using ScreenShare.Api.V1;
+using ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
+using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
@@ -170,5 +172,42 @@ public sealed class BroadcastFiguresTests
         };
 
         Assert.Equal("", plots.Band);
+    }
+
+    /// <summary>
+    /// The nudge card promised a live-safe apply in its markup while its view model stated, in
+    /// the same breath, that no such effect exists - and the reader saw the promise, because the
+    /// markup drew the promise and bound neither the greying nor the reason.
+    ///
+    /// Both sentences come off one table now, so the test states the property that made the
+    /// contradiction possible: the card's words and the card's behaviour agree.
+    /// </summary>
+    [Fact]
+    public void TheNudgeCardNeverPromisesAnApplyTheBackendHasNoEffectFor()
+    {
+        var nudge = new NudgeViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 12), null),
+        };
+
+        Assert.False(nudge.IsEnabled);
+        Assert.NotEqual("", nudge.Reason);
+        Assert.NotEqual("", nudge.Caveat);
+        Assert.DoesNotContain("without a reconnect", nudge.Caveat);
+        Assert.Contains("restarts the stream", nudge.Reason);
+    }
+
+    /// <summary>
+    /// The configuration card used to divide its settings into ones needing a restart and ones
+    /// that did not. Nothing has ever reached a running pipeline without restarting it, so the
+    /// second half of that sentence described an effect that does not exist.
+    /// </summary>
+    [Fact]
+    public void TheConfigurationCardSaysEverySettingRestartsTheStream()
+    {
+        var card = new ConfigCardViewModel();
+
+        Assert.Contains("restarting it", card.ReadOnly);
+        Assert.DoesNotContain("do not", card.ReadOnly);
     }
 }

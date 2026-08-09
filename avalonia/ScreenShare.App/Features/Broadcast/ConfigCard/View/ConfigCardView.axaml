@@ -47,8 +47,15 @@
         <TextBlock Classes="hint"
                    TextWrapping="Wrap"
                    TextTrimming="None"
-                   Text="Read-only while live. Capture source, codec and protocol need a restart; quality and latency do not." />
+                   Text="{Binding ReadOnly}" />
       </Border>
+
+      <!-- What stands in for the rows while nothing is publishing. Composed all along, drawn now. -->
+      <TextBlock DockPanel.Dock="Top"
+                 Classes="hint"
+                 Text="{Binding Notice}"
+                 IsVisible="{Binding !HasRows}"
+                 TextWrapping="Wrap" />
 
       <ItemsControl ItemsSource="{Binding Rows}" VerticalAlignment="Top">
         <ItemsControl.ItemTemplate>

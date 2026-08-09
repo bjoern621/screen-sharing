@@ -209,7 +209,6 @@ public sealed class ViewerRosterTests
         var watched = Table(Serving());
         Assert.False(watched.HasRows);
         Assert.Contains("Nobody is connected", watched.Notice);
-        Assert.Equal("0 watching.", watched.Summary);
     }
 
     /// <summary>
