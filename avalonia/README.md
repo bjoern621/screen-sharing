@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 70 tests, no relay and no backend needed
+task avalonia:test     # 91 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -45,7 +45,7 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
 | `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
-| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the per-viewer table, the sparklines |
+| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the program preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the relay roster: one row per stream the relay carries, and a toggle per watch leg |
 
 ### The two rules the tree encodes
@@ -249,8 +249,22 @@ is scaled to the run's own peak, so it marked the ceiling only by coincidence an
 against that peak or not drawn at all; and the viewer table's `every 5 s`, a period the contract
 does not carry and which the backend did not use.
 
-The tile is still a placeholder rather than a frame, for the reason "What is not settled yet"
-gives below, and the figures over it are real.
+**The preview tile draws a frame now, and what it draws is this machine's own stream received
+back off the relay.** It opens a decode with `StartReceive` and subscribes to it exactly as the
+viewer's grid does for anyone else's stream, reusing the same `Features/Viewer/Tile` view model
+and control rather than growing a second frame consumer - two frame paths would be two answers
+to what a dropped frame is and where a lent handle goes back. The route is a loopback and not a
+tee because the encoder is an external child process, and the card states the two costs that
+buys - the round trip it lags by, and the downstream bandwidth it spends
+(`docs/viewer-architecture.md`, "What the broadcast preview draws").
+
+Two things about it are the shell's own arrangement. Whether the card is on screen is an input
+the view writes on attach and detach, because the window renders every destination on every
+pass and a decode nobody is looking at is bandwidth nobody asked for. And the preview closes no
+decode: a decode is keyed by the stream and the leg alone and the backend counts no consumers,
+so a stop here would close a tile on the viewer screen watching the same pair. The placeholder
+stays for the states where there is no picture - nothing publishing, no leg resolved, the relay
+not carrying the path yet, the start refused - and each of them says which one it is.
 
 The review's "Save as preset" switch is the one control on that screen that still does nothing.
 `SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this
