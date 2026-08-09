@@ -102,4 +102,14 @@ public static class Cards
     public const string ConfigReadOnly =
         "Read-only while live. Every setting here reaches a running stream by restarting it, "
         + "which is what setup's commit does.";
+
+    /// <summary>
+    /// What the configuration card says before its rows arrive.
+    ///
+    /// The obvious sentence for an empty card - nothing is publishing - is the one state it can
+    /// never be in, because the destination it sits on is unreachable unless a stream is live.
+    /// What it is really showing is a resolve that has not answered yet, and saying so is the
+    /// difference between a card that looks broken and one that looks busy.
+    /// </summary>
+    public const string ConfigUndescribed = "Reading what the running stream was built from.";
 }

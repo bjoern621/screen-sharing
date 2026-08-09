@@ -210,4 +210,20 @@ public sealed class BroadcastFiguresTests
         Assert.Contains("restarting it", card.ReadOnly);
         Assert.DoesNotContain("do not", card.ReadOnly);
     }
+
+    /// <summary>
+    /// The broadcast destination cannot be reached unless a stream is live, and stopping one
+    /// takes the window off it. So "nothing is publishing" is the one thing an empty card here
+    /// is never showing - it is showing a form resolve that has not answered yet, which is the
+    /// ordinary first second of every broadcast.
+    /// </summary>
+    [Fact]
+    public void AnUndescribedConfigurationSaysItIsBeingReadRatherThanThatNothingIsPublishing()
+    {
+        var card = new ConfigCardViewModel();
+
+        Assert.False(card.HasRows);
+        Assert.DoesNotContain("Nothing is publishing", card.Notice);
+        Assert.Contains("Reading what the running stream", card.Notice);
+    }
 }

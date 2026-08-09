@@ -61,7 +61,17 @@ public sealed class ConfigCardViewModel : Observable
 
     public DelegateCommand EditInSetupCommand { get; }
 
-    /// <summary>What stands in for the rows while there is no running pipeline to describe.</summary>
+    /// <summary>
+    /// What stands in for the rows, and there is only one state it can stand in for.
+    ///
+    /// It used to say nothing was publishing. That reads as the obvious reason for an empty
+    /// card and it is one this card can never be showing: the broadcast destination exists
+    /// only while a stream is live, and stopping one navigates the window off it
+    /// (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>, <c>SetBroadcastAvailable</c>). So an
+    /// empty row set here means the rows have not arrived yet - the screen resolves a form for
+    /// the settings the running pipeline was built from, and the first passes of every
+    /// broadcast happen before that answer lands.
+    /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
     /// <summary>
@@ -83,7 +93,7 @@ public sealed class ConfigCardViewModel : Observable
         EditInSetupCommand.Refresh();
 
         HasRows = Rows.Count > 0;
-        Notice = HasRows ? "" : "Nothing is publishing, so there is no running configuration to describe.";
+        Notice = HasRows ? "" : Copy.Cards.ConfigUndescribed;
 
         Assert.That(Rows.Count == Reported.Count, "a row per reported setting", Rows.Count, Reported.Count);
         Assert.That(HasRows == (Notice.Length == 0), "rows and the sentence standing in for them are never both on screen", HasRows);
