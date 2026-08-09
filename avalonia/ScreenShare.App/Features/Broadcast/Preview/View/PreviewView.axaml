@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.Preview.ViewModel"
+             xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Broadcast.Preview.View.PreviewView"
              x:DataType="vm:PreviewViewModel">
 
@@ -22,51 +23,82 @@
     </Style>
   </UserControl.Styles>
 
-  <!-- 16:9 at the left column's fixed 396px. Avalonia has no aspect ratio, so it is stated. -->
-  <Border Classes="tile" Height="223">
-    <Panel>
+  <StackPanel Spacing="7">
 
-      <TextBlock Classes="disabled"
-                 FontSize="{StaticResource FontSizeBody}"
-                 Text="{Binding Placeholder}"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center" />
+    <!-- 16:9 at the left column's fixed 396px. Avalonia has no aspect ratio, so it is stated. -->
+    <Border Classes="tile" Height="223">
+      <Panel>
 
-      <!-- The inset red edge says this tile is on air. It is the same red as the pill. -->
-      <Border BorderBrush="{StaticResource OnAirBrush}"
-              BorderThickness="2"
-              CornerRadius="{StaticResource RadiusTile}"
-              IsVisible="{Binding IsOnAir}" />
+        <!--
+          The picture, drawn from the GPU memory the backend decoded this machine's own stream
+          into. A composition surface rather than a native child window, which is what lets the
+          badge and the figure strip stay over it: a native window would draw above every
+          Avalonia control (avalonia/README.md, "What is not settled yet").
 
-      <Border Background="{StaticResource OnAirBrush}"
-              CornerRadius="{StaticResource RadiusControl}"
-              Padding="9,3"
-              Margin="8"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Top"
-              IsVisible="{Binding IsOnAir}">
-        <TextBlock Classes="caption" Foreground="{StaticResource ForegroundBrush}" Text="Program" />
-      </Border>
+          It is the viewer's tile control and not a second one. A tile is a stream, a
+          subscription and what the window did with it, and this card is one of those.
+        -->
+        <tiles:StreamTile Source="{Binding Tile}" />
 
-      <Panel Margin="8" VerticalAlignment="Bottom">
-        <!-- Opacity on a bare fill, so the text over it keeps its own contrast. -->
-        <Border Background="{StaticResource TileBrush}"
-                Opacity="0.62"
-                CornerRadius="{StaticResource RadiusControl}" />
-        <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="9,5">
-          <TextBlock Grid.Column="0" Classes="overlay" Text="{Binding Encoded}" />
-          <TextBlock Grid.Column="1" Classes="overlay" Text="{Binding Quality}" Margin="9,0,0,0" />
-          <!-- A level meter, not a chart: five bars that say the encoder is moving. -->
-          <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
-            <Rectangle Classes="meter" Height="3.85" Fill="{StaticResource MutedBrush}" />
-            <Rectangle Classes="meter" Height="6.6" Fill="{StaticResource SecondaryBrush}" />
-            <Rectangle Classes="meter" Height="9.35" Fill="{StaticResource ForegroundBrush}" />
-            <Rectangle Classes="meter" Height="5.5" Fill="{StaticResource SecondaryBrush}" />
-            <Rectangle Classes="meter" Height="2.75" Fill="{StaticResource MutedBrush}" />
-          </StackPanel>
-        </Grid>
+        <!--
+          Why the tile is dark, when it is. The sentence names which of the states it is -
+          nothing publishing, no leg named, the relay not carrying the path yet, the decode
+          asked for, or the tile's own reason once there is one.
+        -->
+        <TextBlock Classes="disabled"
+                   FontSize="{StaticResource FontSizeBody}"
+                   Text="{Binding Placeholder}"
+                   IsVisible="{Binding HasPlaceholder}"
+                   TextWrapping="Wrap"
+                   TextAlignment="Center"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Margin="24" />
+
+        <!-- The inset red edge says this tile is on air. It is the same red as the pill. -->
+        <Border BorderBrush="{StaticResource OnAirBrush}"
+                BorderThickness="2"
+                CornerRadius="{StaticResource RadiusTile}"
+                IsVisible="{Binding IsOnAir}" />
+
+        <Border Background="{StaticResource OnAirBrush}"
+                CornerRadius="{StaticResource RadiusControl}"
+                Padding="9,3"
+                Margin="8"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Top"
+                IsVisible="{Binding IsOnAir}">
+          <TextBlock Classes="caption" Foreground="{StaticResource ForegroundBrush}" Text="Program" />
+        </Border>
+
+        <Panel Margin="8" VerticalAlignment="Bottom">
+          <!-- Opacity on a bare fill, so the text over it keeps its own contrast. -->
+          <Border Background="{StaticResource TileBrush}"
+                  Opacity="0.62"
+                  CornerRadius="{StaticResource RadiusControl}" />
+          <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="9,5">
+            <TextBlock Grid.Column="0" Classes="overlay" Text="{Binding Encoded}" />
+            <TextBlock Grid.Column="1" Classes="overlay" Text="{Binding Quality}" Margin="9,0,0,0" />
+            <!-- A level meter, not a chart: five bars that say the encoder is moving. -->
+            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
+              <Rectangle Classes="meter" Height="3.85" Fill="{StaticResource MutedBrush}" />
+              <Rectangle Classes="meter" Height="6.6" Fill="{StaticResource SecondaryBrush}" />
+              <Rectangle Classes="meter" Height="9.35" Fill="{StaticResource ForegroundBrush}" />
+              <Rectangle Classes="meter" Height="5.5" Fill="{StaticResource SecondaryBrush}" />
+              <Rectangle Classes="meter" Height="2.75" Fill="{StaticResource MutedBrush}" />
+            </StackPanel>
+          </Grid>
+        </Panel>
+
       </Panel>
+    </Border>
 
-    </Panel>
-  </Border>
+    <!--
+      What the picture costs. The card is a viewer of this machine's own stream rather than a
+      local mirror, so it lags by the watch leg and it spends downstream bandwidth - and the
+      sentence saying so is written in Copy/Cards.cs, like every other word on screen.
+    -->
+    <TextBlock Classes="hint" Text="{Binding Cost}" TextWrapping="Wrap" />
+
+  </StackPanel>
 </UserControl>

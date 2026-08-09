@@ -93,7 +93,11 @@ public sealed class BroadcastViewModel : Observable
         _dispatch = dispatch;
 
         Stats = new HeaderStatsViewModel();
-        Preview = new PreviewViewModel();
+
+        // The one card here that asks the backend for something. It receives this machine's
+        // own stream back off the relay, so it needs the seam and the running state rather
+        // than the composed reading alone (Preview/ViewModel/PreviewViewModel.cs).
+        Preview = new PreviewViewModel(backend, session, dispatch);
         Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();
@@ -215,6 +219,11 @@ public sealed class BroadcastViewModel : Observable
         Config.Apply();
         Viewers.Apply();
         Log.Apply();
+
+        // Rendered as well as told its reading, unlike the cards above it: the preview also
+        // reads what is decoding, which is a state the composed reading does not carry, so a
+        // pass where only that moved would otherwise write nothing into it.
+        Preview.Apply();
 
         HasRefusal = Refusal.Length > 0;
 

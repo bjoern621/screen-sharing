@@ -7,6 +7,8 @@ Two ways to watch exist.
 - A single-stream native player (ffplay or mpv): one window per stream, opened from the shell's viewer roster, decoding through libavcodec.
 - The shell's tile grid: a receiving GStreamer pipeline in the Go backend, whose decoded frames reach the Avalonia window over the frame channel.
 
+The broadcast screen's preview is the second of those pointed at this machine's own stream rather than a third way to watch; "What the broadcast preview draws" below states why it is a loopback.
+
 The first works today and needs nothing installed beyond ffmpeg.
 The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports; the Linux and macOS legs of the frame channel are not built, and on those platforms a tile says so rather than falling back to a copy through system memory.
 
@@ -295,6 +297,24 @@ What the control API says about receiving is unchanged.
 `StartReceive` and `StopReceive` are effects, and receive state travels on the existing event stream, whole rather than as a delta, so a shell that asked and a shell that did not learn the same thing at the same time.
 Nothing about a grid, a tile or a layout is on that contract: how a viewer arranges what it receives is the shell's job.
 A subscription therefore names a decode that already exists and never opens one - the two staying separate is what lets a decode outlive every window drawing it.
+
+### What the broadcast preview draws
+
+Two surfaces consume frames, and the second one consumes its own stream.
+The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **received back off the relay** over the same watch leg a tile uses.
+
+**It is a loopback and not a tee, and where the encoder runs is why.**
+Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it.
+Splitting the encoded stream in-process would mean giving that isolation up, or inventing a second private transport with its own port, its own payloader and a synthetic stream identity for a picture nobody outside the window would ever see.
+The loopback adds no concept at all: `StartReceive` on `WatchKey{this machine's stream, the tile leg}` is a true statement about a decode, there stays exactly one frame path in the repository, and what the card shows is what a viewer gets - the encode, the transport and the decode included, which is the question the broadcast screen exists to answer.
+
+Its cost is the relay round trip and the downstream bandwidth, and the card states both in its own words rather than presenting itself as a local mirror.
+
+**The preview never closes the decode it opened**, and that is a consequence of what a decode is keyed by.
+A decode is `WatchKey` and nothing else, and this backend does not count its consumers: `StopReceive` takes the receiver out of the map and `Receiver.Stop` ends every subscription on it (`internal/app/receive.go`, `internal/receive/receiver.go`).
+The reader can be watching their own stream on the viewer screen at the same time and over the same leg - the tile leg is one setting for every tile - so a stop from the preview would close their tile.
+Which of two consumers may close a shared decode is not a question a shell may answer, so the shell answers none of it: the preview drops its subscription when it goes off screen or off air and leaves the decode running, and the decode ends when the stream it is receiving does.
+A refcount belongs on this side of the seam if it is wanted, because the backend is the side that knows how many subscriptions a receiver has.
 
 ## The native player
 

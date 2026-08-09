@@ -3,6 +3,7 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Viewer.Model;
+using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 using ScreenShare.App.Mvvm;
 
@@ -53,11 +54,9 @@ public sealed class ViewerViewModel : Observable
     /// <summary>
     /// The leg a tile's decode is opened on, empty until the settings have been resolved once.
     ///
-    /// It is the value of the form's tile watch-leg field rather than one of its options, and
-    /// it is a separate field from the roster's for the reason the contract states: the two
-    /// receivers reach different protocol sets, so a tile can take WebRTC that no player opens
-    /// by address and a player can open the relay's HLS that no tile reads
-    /// (<c>docs/viewer-architecture.md</c>).
+    /// It is read through <see cref="TileLeg"/>, which is the one site that answers the
+    /// question for every screen that puts a tile on the air - this grid and the broadcast
+    /// screen's preview - so neither of them derives a protocol of its own.
     /// </summary>
     private string _tileLeg = "";
 
@@ -339,7 +338,7 @@ public sealed class ViewerViewModel : Observable
             _dispatch(() =>
             {
                 _legs = LegsOf(form);
-                _tileLeg = TileLegOf(form);
+                _tileLeg = TileLeg.Of(form);
                 Apply();
             });
         }
@@ -380,32 +379,6 @@ public sealed class ViewerViewModel : Observable
         }
 
         return [];
-    }
-
-    /// <summary>
-    /// The leg a tile's decode is opened on: the <i>value</i> of the form's tile watch-leg
-    /// field, not one of its options.
-    ///
-    /// A value rather than a choice, because a tile is not a place to pick a protocol. Which
-    /// leg tiles receive on is a setting, resolved and repaired by the backend like every
-    /// other, and offering it per row would be this screen deciding something the settings
-    /// screen already decides. An empty answer is a form that does not carry the field, which
-    /// leaves the grid refusing to add tiles rather than guessing a protocol.
-    /// </summary>
-    private static string TileLegOf(Form form)
-    {
-        foreach (var group in form.Groups)
-        {
-            foreach (var field in group.Fields)
-            {
-                if (field.Key == "viewer.tile_watch_transport")
-                {
-                    return FieldValues.AsText(field.Value);
-                }
-            }
-        }
-
-        return "";
     }
 
     /// <summary>
