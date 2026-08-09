@@ -39,9 +39,11 @@ service FrameService {
   // than a message, and a consumer that dies mid-frame is one dead stream instead of
   // every stream stalling on a slot nobody will return.
   //
-  // The call fails with FAILED_PRECONDITION when nothing is decoding the named
-  // stream. This service does not open decodes: StartReceive is the effect that does,
-  // and a channel that started one would be a channel deciding that a tile exists.
+  // The call fails with FAILED_PRECONDITION when nothing is decoding what the
+  // subscription named - an unopened relay decode, or a preview with no publish behind
+  // it. This service does not open decodes: StartReceive opens a relay one and the
+  // publish itself opens its preview, and a channel that started either would be a
+  // channel deciding that a tile exists.
   rpc Frames(stream FramesRequest) returns (stream FrameEvent);
 }
 
@@ -57,12 +59,39 @@ message FramesRequest {
 
 // FrameSubscribe names the decode this call draws from.
 //
-// The identity is the stream name and the leg together, for the reason WatchKey exists:
-// the relay re-serves each ingested stream on all its listeners, so one stream can be
-// decoded over several protocols at once and each of those decodes is its own pipeline.
+// There are two kinds of decode and they are named separately on purpose. A relay
+// decode is identified by the stream name and the leg together, for the reason
+// WatchKey exists: the relay re-serves each ingested stream on all its listeners, so
+// one stream can be decoded over several protocols at once and each of those decodes
+// is its own pipeline. The running publish's local preview is identified by nothing at
+// all, because there is at most one publish and the preview is part of it.
+//
+// It is a oneof rather than a leg added to the transport table. The preview never
+// reaches the relay: the publish child copies its already-encoded video to a loopback
+// port and the backend decodes it there (docs/viewer-architecture.md, "What the
+// broadcast preview draws"). A synthetic entry in the transport table would state that
+// some protocol carries this stream, which every consumer of that table reads and none
+// of them could act on.
 message FrameSubscribe {
-  WatchKey stream = 1;
+  oneof source {
+    WatchKey stream = 1;
+    PublishPreview publish_preview = 2;
+  }
 }
+
+// PublishPreview names the running publish's local preview decode.
+//
+// It carries no fields and needs none. PublishState.live is singular, so "the publish
+// that is running" is already a complete identity, and a name or a port on this
+// message would be the consumer restating something it read from the state - which is
+// the second copy of a fact this contract exists to prevent. What the port turned out
+// to be is reported on PublishState.Preview, for a reader that wants to see it.
+//
+// The call fails FAILED_PRECONDITION when nothing is publishing, or when a publish is
+// running with no preview behind it. This service opens nothing either way: the
+// preview pipeline goes up with the publish child and down with it, which is the same
+// division StartReceive draws for a relay decode (docs/ipc-api.md).
+message PublishPreview {}
 
 // FrameRelease hands one slot back, and is the whole of the flow control.
 //

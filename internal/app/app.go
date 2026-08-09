@@ -90,7 +90,12 @@ type App struct {
 	// retry is the relaunch a pipeline that died on its own is waiting on, nil when none
 	// is pending. It and run are never both set: the retry exists exactly between the
 	// exit that armed it and the launch that consumes it (publish_retry.go).
-	retry    *publishRetry
+	retry *publishRetry
+	// preview is the local decode of the stream this machine is sending, nil while
+	// nothing publishes or while a publish runs without one. It is a field of its own
+	// rather than an entry in receivers because it is not keyed by a WatchKey: the
+	// frames never crossed the relay, so no transport carried them (preview.go).
+	preview  *previewRun
 	watchers map[WatchKey]*ffmpeg.Proc
 	// receivers are the decodes running inside this process, keyed the way the watchers
 	// are: a stream and the leg it is received over, because the relay re-serves each
@@ -182,6 +187,10 @@ func (a *App) Stop() {
 	}
 	// A pending relaunch would start an encoder into a process on its way out.
 	a.cancelRetryLocked()
+	// The preview is a receive pipeline like the ones below, and is stopped here rather
+	// than with them because it is not in that map: it goes with the publish it belongs
+	// to (preview.go).
+	a.stopPreviewLocked()
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}

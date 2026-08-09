@@ -33,10 +33,13 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// The empty meter port and the empty rate probe leave the progress
-	// instrumentation out, the counterpart to the ffmpeg engine appending
-	// -progress only for a run.
-	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "")
+	// The empty meter port, the empty rate probe and the absent preview leg leave a
+	// run's own branches out, the counterpart to the ffmpeg engine appending -progress
+	// only for a run. Each of them carries a port the kernel handed out for one launch,
+	// so a rendered command that showed them would be a different string every time it
+	// was rendered - and whether two settings build one pipeline is decided by comparing
+	// exactly that string (SamePipeline).
+	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "", PreviewLeg{})
 	if err != nil {
 		return "", err
 	}
@@ -72,7 +75,7 @@ func (gstEngine) Carries(transportName string) bool {
 	return transport.CanPublish(transportName, EngineGst)
 }
 
-func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle, error) {
+func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error) {
 	// Validating first means a settings combination this engine cannot encode, and a
 	// machine whose two ends are not one GPU, never pop the compositor's picker.
 	opts, err := g.captureOptions(s)
@@ -113,7 +116,7 @@ func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle,
 		return nil, err
 	}
 
-	pipeline, err := buildPipeline(s, source, meterArg)
+	pipeline, err := buildPipeline(s, source, meterArg, preview)
 	if err != nil {
 		meter.close()
 		closeSource()

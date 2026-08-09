@@ -178,7 +178,7 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 	if !strings.Contains(err.Error(), "gbrp") || !strings.Contains(err.Error(), "ffmpeg") {
 		t.Errorf("the rejection must name the format and the engine that codes it: %v", err)
 	}
-	if _, err := buildPipeline(s, []string{"videotestsrc"}, ""); err == nil {
+	if _, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{}); err == nil {
 		t.Error("a chroma gapped on this engine must not build a pipeline either")
 	}
 }
@@ -200,7 +200,7 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		if err := transport.ValidatePublish(name, EngineGst, s.Publish.Codec); err != nil {
 			continue
 		}
-		pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "")
+		pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
 		if err != nil {
 			t.Errorf("%s: %v", name, err)
 			continue

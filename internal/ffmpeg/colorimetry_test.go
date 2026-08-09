@@ -118,7 +118,7 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				// for it. Encoding it anyway is the outcome the gap exists to prevent: a
 				// stream watched in another range than the form shows.
 				if gap, gapped := cap.OptionGap(capabilities.EngineFfmpeg, capabilities.OptionColorRange, colorRange); gapped {
-					if _, err := BuildPublishArgs(s); err == nil {
+					if _, err := BuildPublishArgs(s, nil); err == nil {
 						t.Fatalf("colour range %s is gapped on this engine, so it must be refused rather than encoded: %s",
 							colorRange, gap.Reason)
 					}
@@ -276,7 +276,7 @@ func yuvChroma(t *testing.T, cap capabilities.Codec) string {
 // options with their values, and the filter links that tag the frames.
 func publishColour(t *testing.T, s settings.Settings) (options, filters []string) {
 	t.Helper()
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

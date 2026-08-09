@@ -14,6 +14,43 @@ import (
 // has no contract value is a kind this build declared and did not carry, which is a
 // broken internal contract rather than a condition to survive, so it asserts.
 
+// FrameSource is what one frame subscription draws from.
+//
+// It is the domain side of screenshare.v1.FrameSubscribe and discriminates the same way
+// PublishSnapshot does: the inner pointer is the whole of the distinction. A relay
+// decode carries the pair that identifies it, because the relay re-serves each stream on
+// all its listeners and one stream can be decoded over several protocols at once. The
+// running publish's local preview carries nothing, because at most one publish runs and
+// the preview is part of it - a name or a port here would be the caller restating
+// something it read off the publish state.
+type FrameSource struct {
+	// Stream is the relay decode this subscription names, nil for the publish preview.
+	Stream *WatchKey
+}
+
+// Preview reports whether this subscription draws from the publish's local preview
+// rather than from a relay decode.
+func (f FrameSource) Preview() bool { return f.Stream == nil }
+
+// FrameSourceOf reads what a subscription named back off the contract, and false where
+// it named neither - a request the control service refuses with INVALID_ARGUMENT rather
+// than guessing at.
+//
+// A relay decode with half a key is left as it arrived rather than rejected here: which
+// half is missing is a sentence the service writes, and this is the shape it reads to
+// write it.
+func FrameSourceOf(m *screensharev1.FrameSubscribe) (FrameSource, bool) {
+	switch {
+	case m.GetStream() != nil:
+		key := WatchKeyOf(m.GetStream())
+		return FrameSource{Stream: &key}, true
+	case m.GetPublishPreview() != nil:
+		return FrameSource{}, true
+	default:
+		return FrameSource{}, false
+	}
+}
+
 // FrameEventOf is one thing a subscription said, as the message that carries it.
 func FrameEventOf(event receive.Event) *screensharev1.FrameEvent {
 	switch {

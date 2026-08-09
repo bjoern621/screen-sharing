@@ -16,11 +16,11 @@ import (
 // gstStatsName names the progressreport element counting encoded frames;
 // gstCaptureName names the one counting the frames the screen really produced,
 // which the capture backend places ahead of anything that repeats or paces them;
-// gstMeterName names the tee the sink branch continues from.
+// gstTeeName names the tee every extra branch and the sink itself continue from.
 const (
 	gstStatsName   = "stats"
 	gstCaptureName = "capture"
-	gstMeterName   = "meter"
+	gstTeeName     = "meter"
 )
 
 // gstCaptureProbe is the progressreport element a capture backend splices in to
@@ -40,35 +40,61 @@ var gstCaptureProbe = []string{
 // differently, hence the optional spaces.
 var gstProgressLine = regexp.MustCompile(`^(` + gstStatsName + `|` + gstCaptureName + `) \(\s*(\d+):\s*(\d+):\s*(\d+)\):\s+(\d+) buffers`)
 
-// gstProgressElements returns the instrumentation buildPipeline splices in
-// between the parser and the sink, the pair gstMeter reads. It sits next to the
-// parser because both halves of the wire format are one decision: the element
-// properties here produce the lines gstProgressLine matches.
+// gstProgressElement is the counter buildPipeline splices in between the parser
+// and the tee, the line gstMeter reads. It sits next to the pattern that reads it
+// because both halves of the wire format are one decision: the element properties
+// here produce the lines gstProgressLine matches.
 //
 // progressreport counts buffers rather than querying a position, because no
 // element upstream of an encoded stream answers a byte or time query, and it
 // prints the count and the pipeline running time to stdout once a second.
-//
-// The tee exists because no GStreamer element reports byte throughput: the
-// second branch hands a copy of the encoded video to a tcpclientsink on a
-// loopback socket the app weighs. The branch cannot hold up the encode path,
-// since its queue leaks and its sink neither synchronizes to the clock nor
-// prerolls. Its bytes are the video elementary stream, so the figures come out
-// below ffmpeg's, which counts the muxed stream with its audio track and
+var gstProgressElement = []string{
+	"progressreport", "name=" + gstStatsName, "update-freq=1", "format=buffers", "do-query=false",
+}
+
+// gstMeterTap is the branch that weighs the encoded stream, because no GStreamer
+// element reports byte throughput: it hands a copy of the encoded video to a
+// tcpclientsink on a loopback socket the app counts. The branch cannot hold up
+// the encode path, since its queue leaks and its sink neither synchronizes to the
+// clock nor prerolls. Its bytes are the video elementary stream, so the figures
+// come out below ffmpeg's, which counts the muxed stream with its audio track and
 // container overhead.
 //
 // A socket rather than an inherited descriptor because Windows inherits none:
 // os/exec supports ExtraFiles on Unix alone, and a child handed one there fails
 // to start at all. The one mechanism both platforms carry is the one both use,
 // so the meter has a single wire format rather than one per operating system.
-func gstProgressElements(meterPort string) []string {
+func gstMeterTap(meterPort string) []string {
+	assert.Assert(meterPort != "", "a meter branch names the port it reports to")
+
 	return []string{
-		"progressreport", "name=" + gstStatsName, "update-freq=1", "format=buffers", "do-query=false",
-		"!", "tee", "name=" + gstMeterName,
-		"!", "queue", "max-size-buffers=8", "leaky=downstream",
+		"queue", "max-size-buffers=8", "leaky=downstream",
 		"!", "tcpclientsink", "host=" + gstMeterHost, "port=" + meterPort, "sync=false", "async=false",
-		gstMeterName + ".", "!",
 	}
+}
+
+// gstTapElements returns the tee and the branches that take a copy of the encoded
+// stream off it, ending in the reference the trunk resumes from. It is empty for a
+// run that taps nothing, which is what a rendered command is.
+//
+// The trunk is a branch of the tee like the others rather than the element the tee
+// was linked into, so which branch is which is one rule: every branch, the muxer's
+// included, starts from the tee by name. That is also what lets a second tap be
+// added without the first one's shape changing.
+func gstTapElements(taps [][]string) []string {
+	if len(taps) == 0 {
+		return nil
+	}
+
+	out := []string{"tee", "name=" + gstTeeName}
+	for _, tap := range taps {
+		assert.Assert(len(tap) > 0, "a tap off the encoded stream yields elements")
+
+		out = append(out, "!")
+		out = append(out, tap...)
+		out = append(out, gstTeeName+".")
+	}
+	return append(out, "!")
 }
 
 // gstMeterHost is the address the meter listens on and the child connects back

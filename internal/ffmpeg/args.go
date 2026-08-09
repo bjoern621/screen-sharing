@@ -24,12 +24,34 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
+// Tap is a second output a publish command copies its already-encoded video to.
+//
+// It is a copy and never a second encode. ffmpeg builds one encoder per output, so two
+// outputs written the ordinary way are two encoders on one capture; the tee muxer is
+// what takes the packets one encoder produced and writes them to several muxers, and it
+// is the only shape here that does.
+//
+// The options are the slave's own, already in the tee muxer's key=value spelling, and
+// they are the tap's business rather than this package's: what to select, which muxer,
+// and whatever that muxer needs. What this package owns is where the tee goes and which
+// streams reach it.
+type Tap struct {
+	Options []string
+	URL     string
+}
+
 // BuildPublishArgs returns the ffmpeg arguments (without the executable) that
 // capture the selected monitor and push the encoded stream to the relay.
 //
 // The order matches scripts/publish.ps1: capture input, encoder, pixel format
 // and color range, GOP, then the transport's muxer and destination URL.
-func BuildPublishArgs(s settings.Settings) ([]string, error) {
+//
+// tap is a second output the encoded video is copied to, nil for a command with one
+// output. A command that carries one is written through the tee muxer, which changes
+// two things and nothing else: automatic stream selection does not apply to a tee, so
+// the streams are mapped by hand, and the transport's own output arguments are rendered
+// as a slave of it rather than as the command's single output.
+func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	if _, ok := transport.Get(s.Publish.Transport); !ok {
 		return nil, fmt.Errorf("unknown transport %q", s.Publish.Transport)
 	}
@@ -134,13 +156,42 @@ func BuildPublishArgs(s settings.Settings) ([]string, error) {
 		surface = uploads
 	}
 
+	// The filter chain and the maps are one decision when there is a tee, because a
+	// filter source has no input to map: its chain's output is labelled, and the label is
+	// what the map names. Without a tee neither exists and the command is what it has
+	// always been, ffmpeg's automatic stream selection picking the one video and the one
+	// audio stream there are.
+	filters := src.filters
+	var maps []string
+	if tap != nil {
+		// The audio input follows the capture's, so which index it takes is a count of
+		// what came before it rather than a constant: a filter source contributes no -i
+		// at all, and the one grabber that is one would otherwise have its audio mapped
+		// off an input that is not there.
+		inputs := inputCount(src.args)
+		video := strconv.Itoa(inputs-1) + ":v"
+		if src.filterFlag == "-filter_complex" {
+			assert.Assert(len(filters) > 0, "a filter source yields a chain", s.Publish.Capture)
+			assert.Assert(inputs == 0, "a filter source captures without an input", s.Publish.Capture, inputs)
+
+			filters = append([]string{}, filters...)
+			filters[len(filters)-1] += filterOutLabel
+			video = filterOutLabel
+		}
+		maps = append(maps, "-map", video)
+		if len(audioIn) > 0 {
+			maps = append(maps, "-map", strconv.Itoa(inputs)+":a")
+		}
+	}
+
 	args := []string{"-hide_banner"}
 	args = append(args, device...)
 	args = append(args, src.args...)
 	args = append(args, audioIn...)
-	if len(src.filters) > 0 {
-		args = append(args, src.filterFlag, strings.Join(src.filters, ","))
+	if len(filters) > 0 {
+		args = append(args, src.filterFlag, strings.Join(filters, ","))
 	}
+	args = append(args, maps...)
 	args = append(args, enc...)
 	// The upload filter has already pinned a surface encode's layout, and the encoder's
 	// own pixel format is the opaque hardware one, so -pix_fmt would ask ffmpeg to
@@ -170,9 +221,84 @@ func BuildPublishArgs(s settings.Settings) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("transport %q has no ffmpeg publish form", s.Publish.Transport)
 	}
-	args = append(args, pub...)
+	if tap == nil {
+		return append(args, pub...), nil
+	}
 
-	return args, nil
+	// The relay leg is rendered from the same arguments it would be the whole output of,
+	// rather than declared a second time per transport. What a transport states is one
+	// output: option pairs and the destination last, and a tee slave is that statement in
+	// the tee muxer's own spelling. A second declaration would be the one that fell behind
+	// the first the next time a transport grew an option.
+	relay, err := teeSlaveOf(pub)
+	if err != nil {
+		return nil, err
+	}
+	return append(args, "-f", "tee", relay+"|"+teeSlave(tap.Options, tap.URL)), nil
+}
+
+// filterOutLabel names the output of a filter source's chain, so a map has something to
+// name where there is no input to name instead. It is only ever written on a command
+// that tees, because it exists for the map and the map exists for the tee.
+const filterOutLabel = "[out]"
+
+// inputCount is how many inputs a capture backend's arguments open. It counts -i rather
+// than reading a field, because the field would be the same fact written twice and the
+// one that could disagree with the arguments actually built.
+func inputCount(args []string) int {
+	n := 0
+	for _, arg := range args {
+		if arg == "-i" {
+			n++
+		}
+	}
+	assert.Assert(n <= 1, "a capture backend opens at most one input", n)
+	return n
+}
+
+// teeSlaveOf renders one output's arguments as a slave of the tee muxer.
+//
+// The shape it takes is the shape every transport already yields: pairs of an option and
+// its value, then the destination. "-f mpegts srt://..." becomes "[f=mpegts]srt://...",
+// and an option a protocol adds for itself travels with it.
+//
+// The two spellings differ in what may appear in them, so the ones that cannot be
+// written are refused rather than escaped. A colon separates the options inside the
+// bracket and a bar separates the slaves, so neither can appear in an option; the URL is
+// everything after the bracket and so may hold colons, which every one of these
+// destinations does.
+func teeSlaveOf(args []string) (string, error) {
+	assert.Assert(len(args) > 0, "an output yields arguments")
+
+	url := args[len(args)-1]
+	pairs := args[:len(args)-1]
+	if len(pairs)%2 != 0 {
+		return "", fmt.Errorf("output arguments %q are not option pairs and a destination", strings.Join(args, " "))
+	}
+
+	options := make([]string, 0, len(pairs)/2)
+	for i := 0; i < len(pairs); i += 2 {
+		name, value := strings.TrimPrefix(pairs[i], "-"), pairs[i+1]
+		if name == pairs[i] {
+			return "", fmt.Errorf("output argument %q is not an option, so it cannot be teed", pairs[i])
+		}
+		if strings.ContainsAny(name+value, ":|][") {
+			return "", fmt.Errorf("output option %s=%s cannot be written as a tee slave", name, value)
+		}
+		options = append(options, name+"="+value)
+	}
+	if strings.Contains(url, "|") {
+		return "", fmt.Errorf("destination %q cannot be written as a tee slave", url)
+	}
+	return teeSlave(options, url), nil
+}
+
+// teeSlave writes one slave of the tee muxer: its options in brackets, then its
+// destination.
+func teeSlave(options []string, url string) string {
+	assert.Assert(url != "", "a tee slave names its destination", strings.Join(options, ":"))
+
+	return "[" + strings.Join(options, ":") + "]" + url
 }
 
 // scaleAlgorithm is what swscale resamples the picture with.

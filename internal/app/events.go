@@ -6,6 +6,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // Announcing a change is one act, and this file is where it happens.
@@ -50,6 +51,11 @@ type PublishState struct {
 	// many the app will spend before it gives up. Both are zero while nothing retries.
 	Attempt int `json:"attempt"`
 	Budget  int `json:"budget"`
+	// Preview is what the local preview of this stream turned out to be, null while
+	// nothing publishes and while a publish runs without one. It is here rather than
+	// beside the running decodes because the pipeline behind it belongs to the publish
+	// and is keyed by nothing else (preview.go).
+	Preview *wire.PreviewSnapshot `json:"preview"`
 }
 
 // watchExitEvent is the payload of the "watch:exit" event. Name and Transport

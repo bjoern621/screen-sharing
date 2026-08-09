@@ -25,16 +25,30 @@ type ffmpegEngine struct{}
 // capabilities.Validate and transport.ValidatePublish already sit on.
 //
 // Both entry points render through here so the displayed command and the started run
-// are refused alike, which is what publish.Command promises.
-func buildArgs(s settings.Settings) ([]string, error) {
+// are refused alike, which is what publish.Command promises. preview is the one thing
+// they differ by, for the reason the GStreamer engine's meter branch is: it carries a
+// port the kernel handed out for this run, so a rendered command that showed it would
+// be a different string every time it was rendered - and whether two settings build one
+// pipeline is decided by comparing exactly that string (SamePipeline).
+func buildArgs(s settings.Settings, preview PreviewLeg) ([]string, error) {
 	if available, _ := AudioAvailable(s.Publish.Capture, s.Publish.Audio); !available {
 		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, s.Publish.Audio)
 	}
-	return ffmpeg.BuildPublishArgs(s)
+	if !preview.Wanted() {
+		return ffmpeg.BuildPublishArgs(s, nil)
+	}
+	// A format with no local carriage publishes without a preview rather than failing to
+	// publish. The backend has already read the same table to decide whether to bring a
+	// receiver up at all, so this branch is the one that survives the two disagreeing.
+	tap, ok := ffmpegPreviewTap(s.Publish.Codec, preview)
+	if !ok {
+		return ffmpeg.BuildPublishArgs(s, nil)
+	}
+	return ffmpeg.BuildPublishArgs(s, &tap)
 }
 
 func (ffmpegEngine) Command(s settings.Settings) (string, error) {
-	args, err := buildArgs(s)
+	args, err := buildArgs(s, PreviewLeg{})
 	if err != nil {
 		return "", err
 	}
@@ -56,8 +70,8 @@ func (ffmpegEngine) Carries(transportName string) bool {
 	return transport.CanPublish(transportName, EngineFfmpeg)
 }
 
-func (ffmpegEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle, error) {
-	args, err := buildArgs(s)
+func (ffmpegEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error) {
+	args, err := buildArgs(s, preview)
 	if err != nil {
 		return nil, err
 	}

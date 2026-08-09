@@ -7,13 +7,17 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// Which protocol a tile's decode is opened on, read off the one field the contract carries
 /// it in.
 ///
-/// <b>It exists so the answer is read at one site rather than derived at two.</b> Two screens
-/// now put a tile on the air - the viewer's grid and the broadcast screen's preview - and both
-/// have to name a leg when they call <see cref="IBackend.StartReceiveAsync"/>. A leg picked
-/// per screen would be this module deciding something it may not decide, and two screens
-/// picking it separately would be that rule written twice: the moment one of them learned
-/// about a format the other did not, the same stream would be received over two protocols for
-/// no reason a reader could see.
+/// <b>It exists so the answer is read at one site rather than derived at each row.</b> Every
+/// tile the viewer's grid opens has to name a leg when it calls
+/// <see cref="IBackend.StartReceiveAsync"/>, and a leg derived per caller would be this module
+/// deciding something it may not decide.
+///
+/// <b>The broadcast screen's preview is not one of its callers, and that is the point.</b> It
+/// used to be: the preview opened a decode of this machine's own stream and read it back off
+/// the relay, so it needed a leg exactly as a viewer tile does. It now draws a copy the publish
+/// child writes to a loopback port, which crossed no protocol at all, so there is no leg for it
+/// to name (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws"). This field
+/// is the viewer's alone again.
 ///
 /// <b>What it reads is a value and not a choice.</b> <c>viewer.tile_watch_transport</c> is a
 /// setting, resolved and repaired by the backend against the transport table and the format

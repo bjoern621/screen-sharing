@@ -861,6 +861,122 @@ func (x *PublishState_Retry) GetBudget() int32 {
 	return 0
 }
 
+// Preview is the local decode of the stream this machine is sending.
+//
+// It exists because the publish child copies its already-encoded video to a loopback
+// port and the backend decodes what arrives there, which never leaves this machine
+// and never reaches the relay (docs/viewer-architecture.md, "What the broadcast
+// preview draws"). It is nested under Live because that is its whole lifetime: the
+// pipeline goes up with the child and down with it, so there is no state in which a
+// preview outlives the publish it previews.
+//
+// Everything below the port is reported rather than asked for, exactly as
+// ReceiveStream's is: a render chain falls back on a machine that cannot run its
+// elements, and a hardware decoder may download its own frames.
+type PublishState_Preview struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// port is the loopback UDP port the publish child sends the copy to and the
+	// backend receives it on. The backend allocates it per run - the kernel picks it,
+	// this side reads it off the socket - so it is a fact to be read and never a
+	// constant a consumer may assume.
+	Port uint32 `protobuf:"varint,1,opt,name=port,proto3" json:"port,omitempty"`
+	// live is whether a decoded frame has left the pipeline. Until it has, the
+	// pipeline is up and nothing has negotiated, and the fields below are empty.
+	Live bool `protobuf:"varint,2,opt,name=live,proto3" json:"live,omitempty"`
+	// chain is the render chain the pipeline was built with, decode_memory and
+	// render_memory the memory features the decoder's output pad and the sink's input
+	// pad carried, decoder the element decodebin picked, and hardware whether it ran
+	// on silicon. They are ReceiveStream's fields under different ownership, because
+	// what a running decode turned out to be is one question wherever the stream came
+	// from.
+	Chain         string `protobuf:"bytes,3,opt,name=chain,proto3" json:"chain,omitempty"`
+	DecodeMemory  string `protobuf:"bytes,4,opt,name=decode_memory,json=decodeMemory,proto3" json:"decode_memory,omitempty"`
+	RenderMemory  string `protobuf:"bytes,5,opt,name=render_memory,json=renderMemory,proto3" json:"render_memory,omitempty"`
+	Decoder       string `protobuf:"bytes,6,opt,name=decoder,proto3" json:"decoder,omitempty"`
+	Hardware      bool   `protobuf:"varint,7,opt,name=hardware,proto3" json:"hardware,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PublishState_Preview) Reset() {
+	*x = PublishState_Preview{}
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PublishState_Preview) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishState_Preview) ProtoMessage() {}
+
+func (x *PublishState_Preview) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishState_Preview.ProtoReflect.Descriptor instead.
+func (*PublishState_Preview) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{0, 1}
+}
+
+func (x *PublishState_Preview) GetPort() uint32 {
+	if x != nil {
+		return x.Port
+	}
+	return 0
+}
+
+func (x *PublishState_Preview) GetLive() bool {
+	if x != nil {
+		return x.Live
+	}
+	return false
+}
+
+func (x *PublishState_Preview) GetChain() string {
+	if x != nil {
+		return x.Chain
+	}
+	return ""
+}
+
+func (x *PublishState_Preview) GetDecodeMemory() string {
+	if x != nil {
+		return x.DecodeMemory
+	}
+	return ""
+}
+
+func (x *PublishState_Preview) GetRenderMemory() string {
+	if x != nil {
+		return x.RenderMemory
+	}
+	return ""
+}
+
+func (x *PublishState_Preview) GetDecoder() string {
+	if x != nil {
+		return x.Decoder
+	}
+	return ""
+}
+
+func (x *PublishState_Preview) GetHardware() bool {
+	if x != nil {
+		return x.Hardware
+	}
+	return false
+}
+
 // Live is a stream the user asked for and has not stopped.
 type PublishState_Live struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -881,14 +997,19 @@ type PublishState_Live struct {
 	// retry is set while the pipeline died on its own and a relaunch is waiting out a
 	// backoff. Its presence is the retry, and the stream stays live across that wait:
 	// it is still the one the user asked for, and one call stops it either way.
-	Retry         *PublishState_Retry `protobuf:"bytes,3,opt,name=retry,proto3" json:"retry,omitempty"`
+	Retry *PublishState_Retry `protobuf:"bytes,3,opt,name=retry,proto3" json:"retry,omitempty"`
+	// preview is the local decode of this stream, absent where the backend is running
+	// none - a format with no local carriage, or a pipeline that would not start.
+	// Its presence is what says a frame subscription naming PublishPreview will be
+	// served, so a shell reads it rather than asking and being refused.
+	Preview       *PublishState_Preview `protobuf:"bytes,5,opt,name=preview,proto3" json:"preview,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PublishState_Live) Reset() {
 	*x = PublishState_Live{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	mi := &file_screenshare_v1_session_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -900,7 +1021,7 @@ func (x *PublishState_Live) String() string {
 func (*PublishState_Live) ProtoMessage() {}
 
 func (x *PublishState_Live) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[10]
+	mi := &file_screenshare_v1_session_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -913,7 +1034,7 @@ func (x *PublishState_Live) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublishState_Live.ProtoReflect.Descriptor instead.
 func (*PublishState_Live) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{0, 1}
+	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{0, 2}
 }
 
 func (x *PublishState_Live) GetPublish() *PublishSettings {
@@ -944,21 +1065,37 @@ func (x *PublishState_Live) GetRetry() *PublishState_Retry {
 	return nil
 }
 
+func (x *PublishState_Live) GetPreview() *PublishState_Preview {
+	if x != nil {
+		return x.Preview
+	}
+	return nil
+}
+
 var File_screenshare_v1_session_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\xaf\x03\n" +
+	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\xb9\x05\n" +
 	"\fPublishState\x125\n" +
 	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a9\n" +
 	"\x05Retry\x12\x18\n" +
 	"\aattempt\x18\x01 \x01(\x05R\aattempt\x12\x16\n" +
-	"\x06budget\x18\x02 \x01(\x05R\x06budget\x1a\xd4\x01\n" +
+	"\x06budget\x18\x02 \x01(\x05R\x06budget\x1a\xc7\x01\n" +
+	"\aPreview\x12\x12\n" +
+	"\x04port\x18\x01 \x01(\rR\x04port\x12\x12\n" +
+	"\x04live\x18\x02 \x01(\bR\x04live\x12\x14\n" +
+	"\x05chain\x18\x03 \x01(\tR\x05chain\x12#\n" +
+	"\rdecode_memory\x18\x04 \x01(\tR\fdecodeMemory\x12#\n" +
+	"\rrender_memory\x18\x05 \x01(\tR\frenderMemory\x12\x18\n" +
+	"\adecoder\x18\x06 \x01(\tR\adecoder\x12\x1a\n" +
+	"\bhardware\x18\a \x01(\bR\bhardware\x1a\x94\x02\n" +
 	"\x04Live\x129\n" +
 	"\apublish\x18\x01 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x123\n" +
 	"\x05relay\x18\x04 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x12\x18\n" +
 	"\apending\x18\x02 \x01(\bR\apending\x128\n" +
-	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retryR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
+	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retry\x12>\n" +
+	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreviewR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
 	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf1\x03\n" +
 	"\fPublishStats\x12\x1f\n" +
 	"\vframe_count\x18\f \x01(\x03R\n" +
@@ -1051,36 +1188,38 @@ func file_screenshare_v1_session_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_session_proto_rawDescData
 }
 
-var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_screenshare_v1_session_proto_goTypes = []any{
-	(*PublishState)(nil),       // 0: screenshare.v1.PublishState
-	(*PublishStats)(nil),       // 1: screenshare.v1.PublishStats
-	(*RelayReader)(nil),        // 2: screenshare.v1.RelayReader
-	(*RelayPath)(nil),          // 3: screenshare.v1.RelayPath
-	(*RelayStatus)(nil),        // 4: screenshare.v1.RelayStatus
-	(*WatchKey)(nil),           // 5: screenshare.v1.WatchKey
-	(*AudioLevel)(nil),         // 6: screenshare.v1.AudioLevel
-	(*AudioLevels)(nil),        // 7: screenshare.v1.AudioLevels
-	(*EncodeRate)(nil),         // 8: screenshare.v1.EncodeRate
-	(*PublishState_Retry)(nil), // 9: screenshare.v1.PublishState.Retry
-	(*PublishState_Live)(nil),  // 10: screenshare.v1.PublishState.Live
-	(*PublishSettings)(nil),    // 11: screenshare.v1.PublishSettings
-	(*RelaySettings)(nil),      // 12: screenshare.v1.RelaySettings
+	(*PublishState)(nil),         // 0: screenshare.v1.PublishState
+	(*PublishStats)(nil),         // 1: screenshare.v1.PublishStats
+	(*RelayReader)(nil),          // 2: screenshare.v1.RelayReader
+	(*RelayPath)(nil),            // 3: screenshare.v1.RelayPath
+	(*RelayStatus)(nil),          // 4: screenshare.v1.RelayStatus
+	(*WatchKey)(nil),             // 5: screenshare.v1.WatchKey
+	(*AudioLevel)(nil),           // 6: screenshare.v1.AudioLevel
+	(*AudioLevels)(nil),          // 7: screenshare.v1.AudioLevels
+	(*EncodeRate)(nil),           // 8: screenshare.v1.EncodeRate
+	(*PublishState_Retry)(nil),   // 9: screenshare.v1.PublishState.Retry
+	(*PublishState_Preview)(nil), // 10: screenshare.v1.PublishState.Preview
+	(*PublishState_Live)(nil),    // 11: screenshare.v1.PublishState.Live
+	(*PublishSettings)(nil),      // 12: screenshare.v1.PublishSettings
+	(*RelaySettings)(nil),        // 13: screenshare.v1.RelaySettings
 }
 var file_screenshare_v1_session_proto_depIdxs = []int32{
-	10, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
+	11, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
 	2,  // 1: screenshare.v1.RelayPath.reader_roster:type_name -> screenshare.v1.RelayReader
 	3,  // 2: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
 	5,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.WatchKey
 	6,  // 4: screenshare.v1.AudioLevels.levels:type_name -> screenshare.v1.AudioLevel
-	11, // 5: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
-	12, // 6: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
+	12, // 5: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
+	13, // 6: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
 	9,  // 7: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	10, // 8: screenshare.v1.PublishState.Live.preview:type_name -> screenshare.v1.PublishState.Preview
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_session_proto_init() }
@@ -1097,7 +1236,7 @@ func file_screenshare_v1_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_session_proto_rawDesc), len(file_screenshare_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   11,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

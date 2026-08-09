@@ -45,6 +45,28 @@ type LiveSnapshot struct {
 	// Retry is set while the pipeline died on its own and a relaunch is waiting out a
 	// backoff, and nil otherwise.
 	Retry *RetrySnapshot
+	// Preview is the local decode of this stream, nil where the backend is running
+	// none. It is nested here because that is its whole lifetime: the pipeline goes up
+	// with the publish child and down with it.
+	Preview *PreviewSnapshot
+}
+
+// PreviewSnapshot is what the local preview of the running stream turned out to be.
+//
+// The publish child copies its already-encoded video to a loopback port and the backend
+// decodes what arrives there, so nothing here crossed the relay and nothing here is
+// keyed by a transport. Port is the number the kernel handed out for this run;
+// everything after it is read off the running pipeline, exactly as ReceiveStream's
+// fields are, because a chain falls back on a machine that cannot run its elements and a
+// hardware decoder may download its own frames.
+type PreviewSnapshot struct {
+	Port         int
+	Live         bool
+	Chain        string
+	DecodeMemory string
+	RenderMemory string
+	Decoder      string
+	Hardware     bool
 }
 
 // RetrySnapshot is a relaunch waiting out a backoff. Attempt is which one is pending,
@@ -96,6 +118,17 @@ func PublishState(p PublishSnapshot) *screensharev1.PublishState {
 		live.Retry = &screensharev1.PublishState_Retry{
 			Attempt: int32(r.Attempt),
 			Budget:  int32(r.Budget),
+		}
+	}
+	if v := p.Live.Preview; v != nil {
+		live.Preview = &screensharev1.PublishState_Preview{
+			Port:         uint32(v.Port),
+			Live:         v.Live,
+			Chain:        v.Chain,
+			DecodeMemory: v.DecodeMemory,
+			RenderMemory: v.RenderMemory,
+			Decoder:      v.Decoder,
+			Hardware:     v.Hardware,
 		}
 	}
 	return &screensharev1.PublishState{Live: live}

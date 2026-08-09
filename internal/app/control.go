@@ -104,6 +104,17 @@ func (b controlBackend) SubscribeFrames(key wire.WatchKey) (control.FrameStream,
 	return b.app.SubscribeFrames(key.StreamName, key.Transport)
 }
 
+// SubscribePreviewFrames returns the interface value rather than the concrete
+// subscription, because a nil pointer in a non-nil interface is not nil: handed straight
+// back, a refusal would arrive as a FrameStream the service would go on to call.
+func (b controlBackend) SubscribePreviewFrames() (control.FrameStream, error) {
+	frames, err := b.app.SubscribePreviewFrames()
+	if err != nil {
+		return nil, err
+	}
+	return frames, nil
+}
+
 func (b controlBackend) StartReceive(key wire.WatchKey) error {
 	return b.app.StartReceive(key.StreamName, key.Transport)
 }
@@ -154,7 +165,7 @@ func publishSnapshot(state PublishState) wire.PublishSnapshot {
 		return wire.PublishSnapshot{}
 	}
 
-	live := &wire.LiveSnapshot{Settings: *state.Settings, Pending: state.Pending}
+	live := &wire.LiveSnapshot{Settings: *state.Settings, Pending: state.Pending, Preview: state.Preview}
 	if state.Retrying {
 		live.Retry = &wire.RetrySnapshot{Attempt: state.Attempt, Budget: state.Budget}
 	}

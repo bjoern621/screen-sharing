@@ -287,7 +287,7 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	s.Publish.Mode = "crf"
 	s.Publish.Capture = "x11grab"
 
-	args, err := ffmpeg.BuildPublishArgs(s)
+	args, err := ffmpeg.BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

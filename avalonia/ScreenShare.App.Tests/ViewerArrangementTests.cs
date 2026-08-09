@@ -128,6 +128,10 @@ public sealed class ViewerArrangementTests
         public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.OpenFramesAsync(streamName, transport, cancellation);
 
+        /// <summary>The arrangement this suite is about is the viewer's grid, which the publish's own preview is not in.</summary>
+        public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+            => _seed.OpenPreviewFramesAsync(cancellation);
+
         public Task OpenLogAsync(string path, CancellationToken cancellation = default)
             => _seed.OpenLogAsync(path, cancellation);
 

@@ -229,6 +229,15 @@ Falling behind and running ahead are two events with two counters.
 Naming one after the other is how a health column ends up structurally unable to move.
 The instrumentation belongs to a run, not to the pipeline, so `Command` renders neither, the same way `-progress` stays out of the displayed ffmpeg line.
 
+## The second sink
+
+A run has one more branch than a rendered command shows, and it is not instrumentation: the broadcast screen's preview is decoded from a copy the child sends to a loopback port.
+On the GStreamer engine it is a second branch off the meter's own `tee` - a payloader and a `udpsink`, behind a leaky queue so a slow preview can never backpressure the encode path.
+On the ffmpeg engine it is a second slave of the `tee` **muxer**, which is the one shape that writes the packets of one encoder to two muxers; two ordinary outputs would be two encoders on one capture.
+That slave carries `onfail=ignore`, so a preview that cannot open leaves the stream alone, and the tee's own rule that automatic stream selection does not apply is what adds the `-map` arguments a tapped command has and a plain one does not.
+The port is allocated per run, like the meter's, and `Command` renders neither for the same reason: whether two settings build one pipeline is decided by comparing the rendered string (`publish.SamePipeline`), and a per-run port would make every render differ.
+`docs/viewer-architecture.md`, "What the broadcast preview draws", holds the carriage and the receiving half.
+
 ### Capture rate against encoded rate
 
 How often the encoder emitted a frame and how often the screen produced a new one are two figures, and on a damage-driven backend they are far apart.

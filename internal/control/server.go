@@ -134,6 +134,14 @@ type Backend interface {
 	// is the one StartReceive opened, and two interfaces onto it would be two ideas of
 	// which decodes exist.
 	SubscribeFrames(key wire.WatchKey) (FrameStream, error)
+	// SubscribePreviewFrames opens one consumer's view of the running publish's local
+	// preview, and refuses where nothing is publishing with one behind it.
+	//
+	// It is a second method rather than a key the first one could take, because the
+	// preview has no key: what it draws never crossed the relay, so there is no
+	// transport to name it by and a synthetic one would put a protocol in the table
+	// every consumer reads (preview.go).
+	SubscribePreviewFrames() (FrameStream, error)
 	// StartTestStreams launches synthetic publishers, replacing a running set.
 	StartTestStreams(count int) error
 	// StopTestStreams stops every synthetic publisher.

@@ -58,9 +58,11 @@ type FrameServiceClient interface {
 	// than a message, and a consumer that dies mid-frame is one dead stream instead of
 	// every stream stalling on a slot nobody will return.
 	//
-	// The call fails with FAILED_PRECONDITION when nothing is decoding the named
-	// stream. This service does not open decodes: StartReceive is the effect that does,
-	// and a channel that started one would be a channel deciding that a tile exists.
+	// The call fails with FAILED_PRECONDITION when nothing is decoding what the
+	// subscription named - an unopened relay decode, or a preview with no publish behind
+	// it. This service does not open decodes: StartReceive opens a relay one and the
+	// publish itself opens its preview, and a channel that started either would be a
+	// channel deciding that a tile exists.
 	Frames(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[FramesRequest, FrameEvent], error)
 }
 
@@ -121,9 +123,11 @@ type FrameServiceServer interface {
 	// than a message, and a consumer that dies mid-frame is one dead stream instead of
 	// every stream stalling on a slot nobody will return.
 	//
-	// The call fails with FAILED_PRECONDITION when nothing is decoding the named
-	// stream. This service does not open decodes: StartReceive is the effect that does,
-	// and a channel that started one would be a channel deciding that a tile exists.
+	// The call fails with FAILED_PRECONDITION when nothing is decoding what the
+	// subscription named - an unopened relay decode, or a preview with no publish behind
+	// it. This service does not open decodes: StartReceive opens a relay one and the
+	// publish itself opens its preview, and a channel that started either would be a
+	// channel deciding that a tile exists.
 	Frames(grpc.BidiStreamingServer[FramesRequest, FrameEvent]) error
 	mustEmbedUnimplementedFrameServiceServer()
 }

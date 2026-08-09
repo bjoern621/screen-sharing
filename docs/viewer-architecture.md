@@ -7,7 +7,7 @@ Two ways to watch exist.
 - A single-stream native player (ffplay or mpv): one window per stream, opened from the shell's viewer roster, decoding through libavcodec.
 - The shell's tile grid: a receiving GStreamer pipeline in the Go backend, whose decoded frames reach the Avalonia window over the frame channel.
 
-The broadcast screen's preview is the second of those pointed at this machine's own stream rather than a third way to watch; "What the broadcast preview draws" below states why it is a loopback.
+The broadcast screen's preview is neither: it decodes a copy the publish child makes on the loopback interface, so it is the second consumer of the frame channel rather than a third way to watch, and the relay never sees it. "What the broadcast preview draws" below states how.
 
 The first works today and needs nothing installed beyond ffmpeg.
 The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports; the Linux and macOS legs of the frame channel are not built, and on those platforms a tile says so rather than falling back to a copy through system memory.
@@ -315,24 +315,50 @@ A pool is re-announced whenever the size moves, which is three texture allocatio
 A shell whose grid rearranges - a window dragged, a tile focused, a stream joining - moves every tile's exact size, so the shell rounds each ask up onto a ladder of heights and sends it only once the size has held still for a quarter of a second.
 Most rearrangements then ask for the size already in force and cost nothing; what is paid for it is a tile between two rungs drawing frames slightly larger than it needs, which is a resample the GPU was doing anyway.
 A subscription therefore names a decode that already exists and never opens one - the two staying separate is what lets a decode outlive every window drawing it.
+The publish's local preview is the second kind of decode a subscription may name, and it holds to the same rule from the other side: what opens it is the publish, and the frame channel finds one or is refused.
 
 ### What the broadcast preview draws
 
 Two surfaces consume frames, and the second one consumes its own stream.
-The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **received back off the relay** over the same watch leg a tile uses.
+The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **decoded from a copy that never leaves the machine**.
 
-**It is a loopback and not a tee, and where the encoder runs is why.**
-Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it.
-Splitting the encoded stream in-process would mean giving that isolation up, or inventing a second private transport with its own port, its own payloader and a synthetic stream identity for a picture nobody outside the window would ever see.
-The loopback adds no concept at all: `StartReceive` on `WatchKey{this machine's stream, the tile leg}` is a true statement about a decode, there stays exactly one frame path in the repository, and what the card shows is what a viewer gets - the encode, the transport and the decode included, which is the question the broadcast screen exists to answer.
+**The constraint that shapes it is where the encoder runs.**
+Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it, and what makes the ffmpeg engine reachable at all.
+So there is no in-process pipeline to hang an `appsink` on, and nothing this process can do to the encoded stream before the child has already sent it somewhere.
 
-Its cost is the relay round trip and the downstream bandwidth, and the card states both in its own words rather than presenting itself as a local mirror.
+**What both engines can do is send it twice.**
+The child writes the encoded video to the transport's own sink and to a second sink on the loopback interface, off one encoder; the backend runs a receive pipeline reading that port.
+One encode, one local decode, no network hop and no relay.
 
-**The preview never closes the decode it opened**, and that is a consequence of what a decode is keyed by.
-A decode is `WatchKey` and nothing else, and this backend does not count its consumers: `StopReceive` takes the receiver out of the map and `Receiver.Stop` ends every subscription on it (`internal/app/receive.go`, `internal/receive/receiver.go`).
-The reader can be watching their own stream on the viewer screen at the same time and over the same leg - the tile leg is one setting for every tile - so a stop from the preview would close their tile.
-Which of two consumers may close a shared decode is not a question a shell may answer, so the shell answers none of it: the preview drops its subscription when it goes off screen or off air and leaves the decode running, and the decode ends when the stream it is receiving does.
-A refcount belongs on this side of the seam if it is wanted, because the backend is the side that knows how many subscriptions a receiver has.
+The local carriage is **RTP over UDP on 127.0.0.1**, and it is RTP for the reason RTSP is the transport that carries the whole codec table: RTP has a payload format for every format this app publishes, both engines implement the payloader, and a receive pipeline has a depayloader that reads it back.
+All five - H.264, H.265, AV1, VP9 and VP8 - are carried, which is the same reach `transport.Formats` gives RTSP and is why no publishable stream is left without a preview.
+MPEG-TS would have needed no caps and would have carried the two H.26x formats alone.
+
+The two halves of that leg live in one file (`internal/publish/preview.go`), for the reason the progress meter's two halves do: the payloader the child is given and the caps the receiving pipeline is built with have to agree on a payload type and an encoding name, and there is no exchange here to negotiate one.
+There is none because there is no session protocol: the payload type is pinned at 96 and the encoding name is stated per format, since one process writes both ends.
+The two draft payload formats, AV1 and VP9, need ffmpeg's compliance loosened on that output alone, which is the same fact `transport.draftRtpFormats` carries for the RTSP publish leg.
+
+**The port is allocated per run and reported, not fixed.**
+The backend binds a loopback UDP socket, reads the port the kernel picked off it and hands the number to both ends - the child's sink and the receiving `udpsrc` - exactly as the progress meter reads its port off its own listener.
+It travels on `PublishState.Live.preview`, so a reader can see it; nothing assumes it.
+
+**It is not a relay stream, and it is modelled as its own thing.**
+A subscription names either a `WatchKey` or the running publish's preview (`FrameSubscribe`, `frame.proto`), and the preview carries no fields at all: `PublishState.live` is singular, so "the preview" is already a complete identity.
+Giving it a synthetic `transport` entry instead would state that some protocol carries this stream, and every consumer of that table - the settings form, the viewability verdict, `WatchNamesFor` - would read a protocol nothing can be done with.
+
+**The publish opens it and the publish closes it**, which is the answer to the question `docs/ipc-api.md` asks of every effect.
+The port has to be in the child's argv, so the decision belongs to the launch; there is no `StartPreview` on the contract and nothing for a shell to call.
+Both halves are idempotent: a second bring-up with one already running changes nothing, and a stop with none running succeeds.
+Every path that ends the child ends the preview with it - a stop, an apply, a retry's exit, the process shutting down - and a preview that fails to come up costs the preview and never the stream (`internal/app/preview.go`).
+
+**The cost moved, and so did what the picture means.**
+It costs one local decode, it spends no bandwidth, and the relay serves no reader for it, so the broadcast screen's viewer count and its worst-viewer round trip describe viewers rather than this machine watching itself - which is what the loopback this replaces got wrong.
+What it gives up is the half the card has to say out loud: the picture is taken **before** the relay, so it shows what is being sent and nothing about what anybody receives.
+A congested uplink, a relay dropping packets and a viewer on a bad link all leave it looking perfect, and what answers those is the viewer table and the round-trip plot beside it.
+
+The route used to be a loopback: `StartReceive` on `WatchKey{this machine's stream, the tile leg}`, read back off the relay like any other tile.
+It worked, it needed no new concept, and its fault was exactly the one above - the preview was a relay client, so it occupied a reader slot and the screen reported a viewer nobody had.
+The rendered command still carries none of the preview leg, for the reason it carries none of the meter's: the port belongs to one launch, and whether two settings build the same pipeline is decided by comparing that rendered string (`publish.SamePipeline`).
 
 ## The native player
 

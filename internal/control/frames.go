@@ -2,6 +2,7 @@ package control
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"bjoernblessin.de/go-utils/util/assert"
@@ -60,27 +61,36 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 	if subscribe == nil {
 		return invalidArgument("the first message on a frame stream says which decode it is for")
 	}
-	key := wire.WatchKeyOf(subscribe.GetStream())
-	if key.StreamName == "" {
-		return invalidArgument("no stream named to receive frames of")
+	source, named := wire.FrameSourceOf(subscribe)
+	if !named {
+		return invalidArgument("a frame stream draws from a relay decode or from the publish preview, and this one names neither")
 	}
-	if key.Transport == "" {
-		return invalidArgument("no transport named to receive frames of '%s' over", key.StreamName)
+	// A relay decode is named by a pair, and half of one names nothing that could exist.
+	// The preview is named by the choice itself and has nothing left to check, which is
+	// the point of it having no key.
+	if !source.Preview() {
+		if source.Stream.StreamName == "" {
+			return invalidArgument("no stream named to receive frames of")
+		}
+		if source.Stream.Transport == "" {
+			return invalidArgument("no transport named to receive frames of '%s' over", source.Stream.StreamName)
+		}
 	}
 
-	frames, err := s.backend.SubscribeFrames(key)
+	frames, err := s.subscribe(source)
 	if err != nil {
-		// The world is not ready rather than the request being malformed: the decode is
-		// opened by StartReceive, and a shell that asked for one and lost the race asks
-		// again rather than being told it named something impossible.
-		return failedPrecondition("cannot draw '%s' over %s: %v", key.StreamName, key.Transport, err)
+		// The world is not ready rather than the request being malformed: a relay decode
+		// is opened by StartReceive and the preview by the publish itself, and a shell
+		// that asked for either and lost the race asks again rather than being told it
+		// named something impossible.
+		return failedPrecondition("cannot draw %s: %v", describe(source), err)
 	}
 	// Closed on every way out, including the ones that never reach the loop below. It is
 	// what frees the pool, so a consumer that died is a consumer whose GPU memory comes
 	// back rather than one that leaks it for the life of the stream.
 	defer frames.Close()
 
-	logger.Debugf("control: drawing '%s' over %s", key.StreamName, key.Transport)
+	logger.Debugf("control: drawing %s", describe(source))
 
 	hungUp := make(chan error, 1)
 	go func() { hungUp <- readRequests(stream, frames) }()
@@ -108,6 +118,29 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 			return stream.Context().Err()
 		}
 	}
+}
+
+// subscribe opens what the request named.
+//
+// The two kinds are dispatched here rather than by the backend, because they are two
+// different questions with two different answers: which decode of several, and the one
+// preview there can be. A single method taking a key would need a key the preview does
+// not have.
+func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
+	if source.Preview() {
+		return s.backend.SubscribePreviewFrames()
+	}
+	return s.backend.SubscribeFrames(*source.Stream)
+}
+
+// describe names what a subscription draws from, for a log line and for the refusal a
+// consumer is shown. It is written once because both of those read it, and because the
+// preview has no pair to print.
+func describe(source wire.FrameSource) string {
+	if source.Preview() {
+		return "the local preview of the running stream"
+	}
+	return fmt.Sprintf("'%s' over %s", source.Stream.StreamName, source.Stream.Transport)
 }
 
 // readRequests drives the consumer's half of the call until it ends.

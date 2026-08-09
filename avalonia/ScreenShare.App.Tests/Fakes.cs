@@ -140,6 +140,9 @@ internal sealed class DeferredBackend : IBackend
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.OpenFramesAsync(streamName, transport, cancellation);
 
+    public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+        => _seed.OpenPreviewFramesAsync(cancellation);
+
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);
 
@@ -318,6 +321,9 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.OpenFramesAsync(streamName, transport, cancellation);
+
+    public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+        => _seed.OpenPreviewFramesAsync(cancellation);
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);

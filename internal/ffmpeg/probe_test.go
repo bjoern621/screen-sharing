@@ -115,7 +115,7 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 			for _, mode := range capabilities.Modes {
 				s := probeStream()
 				s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = c.Name, chroma, mode
-				if _, err := BuildPublishArgs(s); err != nil {
+				if _, err := BuildPublishArgs(s, nil); err != nil {
 					continue
 				}
 				if _, err := BuildEncodeProbeArgs(s, 320, 240, 2, true); err != nil {
