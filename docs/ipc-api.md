@@ -26,7 +26,7 @@ The methods a shell may call divide into three kinds, and the division is the ru
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. They compute; they change nothing, and they are cheap enough to call on a keystroke or a mount. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe` |
 
 A method that is neither a read nor one of the listed effects does not belong on this service, and a shell that wants one is a shell about to hold state the backend owns.
@@ -35,11 +35,12 @@ The measurements are effects and not a fourth kind, which is the test applied ra
 
 ## Why
 
-The app already has two shells, is growing a third, and the third is meant to replace both (`avalonia/README.md`).
-Three shells with three copies of the domain model is three chances to disagree with the encoder, and the disagreement is invisible until it is a stream nobody can explain.
+The app had three shells and now has one (`avalonia/README.md`).
+Three shells with three copies of the domain model was three chances to disagree with the encoder, and the disagreement is invisible until it is a stream nobody can explain.
 
-The failure is not hypothetical. The Wails frontend today holds `util/domain.ts`, `util/deps.ts` and `util/options.ts`: labels, tooltips, coding efficiencies, mode metadata, engine rules, the dropdown lists and the greying logic, all in TypeScript, all derived from tables that live in Go and cross the wire as raw rows.
-That split was defensible with one frontend. With three it means the same rule is written three times in three languages, and `docs/domain-model.md` exists precisely because a rule written twice drifts.
+The failure was not hypothetical. The Wails frontend held `util/domain.ts`, `util/deps.ts` and `util/options.ts`: labels, tooltips, coding efficiencies, mode metadata, engine rules, the dropdown lists and the greying logic, all in TypeScript, all derived from tables that live in Go and crossing the wire as raw rows.
+That split was defensible with one frontend. With three it meant the same rule written three times in three languages, and `docs/domain-model.md` exists precisely because a rule written twice drifts.
+The Wails app, its web grid and the GTK4 grid were deleted rather than kept in step, and what they knew about decoding moved into Go with them (`viewer-architecture.md`).
 
 There is a second reason, and it is the one that decides the shape rather than the direction. The capture, encode and publish pipeline stays in Go, and frames will cross to the shell as shared GPU handles.
 The shell therefore already talks to one Go process about frames; giving it a second, private idea of what a codec is would mean the process holding the encoder and the process drawing the encoder's settings can disagree about which encoders exist.
@@ -54,7 +55,7 @@ The rule also buys something the current design cannot have: a shell that decide
 
 | File | Holds |
 | --- | --- |
-| `settings.proto` | `StreamSettings`, the one settings shape on the wire, and `Preset` |
+| `settings.proto` | `PublishSettings`, `ViewerSettings` and `RelaySettings`, the three settings shapes on the wire, and `Preset` |
 | `catalog.proto` | the fixed facts: codecs, decoders, audio codecs, encoder availability, GPU paths, capture backends, transport carriage, monitors, platform |
 | `text.proto` | `Text`: one statement the backend makes, as a code and the identifiers it is about. Nothing on this contract is a sentence |
 | `form.proto` | `Form`: every field, option, greying, reason, note, warning and derived figure, already decided |
@@ -64,14 +65,20 @@ The rule also buys something the current design cannot have: a shell that decide
 
 **What is not here is as much of the rule as what is.** The contract describes no grid, no tile, no window layout and no widget arrangement. How a viewer arranges the streams it receives is the shell's whole job, alongside layout, typography, colour, motion, input handling and accessibility - the list above is exhaustive in both directions.
 
-The contract carried a grid until recently: `StartGrid`, `GridState`, a `grid_transports` list and a `grid_transport` setting, all describing the GTK4 window in `nativegrid/`. That window and the Wails app that launched it are obsolete, and the surface went with them rather than being renamed, because renaming it would have kept the mistake and spelled it better. A viewer that decodes through a receiving pipeline will want a watch leg and a jitter buffer again; both are declared then, against a viewer that reads them, and neither comes back as a layout.
+The contract carried a grid once: `StartGrid`, `GridState`, a `grid_transports` list and a `grid_transport` setting, all describing the GTK4 window in `nativegrid/`. That window and the Wails app that launched it are gone, and the surface went with them rather than being renamed, because renaming it would have kept the mistake and spelled it better.
+
+What comes back in their place is a viewer that reads it. `StartReceive` and `StopReceive` open and close a decode for one stream on one leg, receive state travels on the event stream, and `ViewerSettings` carries the watch leg, the jitter buffer and the render chain that decode is built from. Every one of those is a fact about receiving; none of them is a tile, an arrangement or a window. The distinction is the whole reason the first surface was wrong: `StartGrid` opened a *window*, and a window is the one thing this contract may not describe.
 
 `Form` is the one to read first, because it is what makes a shell a display.
-`ResolveForm` takes a settings draft and returns the complete description of the screen: the groups, the fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its current value, and for every control that offers entries — a select, a radio, and the number that carries a ladder — each option with its value, its note, its enabled flag and its reason.
-A shell renders that and sends back a changed `StreamSettings`. It evaluates no rule, and it writes every word.
+`ResolveForm` takes the three settings drafts and returns the complete description of the screen: the groups, the fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its current value, and for every control that offers entries — a select, a radio, and the number that carries a ladder — each option with its value, its note, its enabled flag and its reason.
+A shell renders that and sends back a changed draft. It evaluates no rule, and it writes every word.
+
+**A field's key names its message.** `publish.codec`, `viewer.render_chain`, `relay.host`: the key is the shell's only handle on where a value is written, and a bare name across three messages would need a lookup to say which descriptor it meant, which is one rule stated twice. One resolve over all three is also what keeps a cross-message greying possible - a tile leg that cannot carry the publish codec is one call's answer rather than two calls compared by a shell.
+
+Three messages rather than one because they answer to different owners. `PublishSettings` is what a preset copies between machines (`presets.md`); `ViewerSettings` is what this machine's drivers and this user's watching decide, and a render chain copied to another machine is a chain it may not register; `RelaySettings` is the one both sides need, since the relay is the publish destination and the subscribe source, and one host stored twice is two hosts able to disagree.
 
 `ResolveForm` has no side effect and is cheap enough to call on every keystroke.
-It returns a possibly repaired draft alongside the form, and names the fields it repaired: where the sent draft held a value the tables forbid, the backend walked to the first legal one, exactly as `normalize` does today.
+It returns a possibly repaired draft alongside the form, and names the fields it repaired: where the sent draft held a value the tables forbid, the backend walked to the first legal one (`form/repair.go`).
 A shell adopts the returned settings wholesale, which is what keeps a greyed option and its replacement from disagreeing.
 
 ## The format, and why this one
@@ -97,10 +104,12 @@ gRPC over protobuf then comes with the two things a hand-rolled framing would ha
 | Linux, macOS | Unix socket `$XDG_RUNTIME_DIR/screenshare/control-v1.sock`, mode `0600`, falling back to the user's config directory where `XDG_RUNTIME_DIR` is unset |
 
 No TCP listener, not even on loopback: a loopback port is reachable by every process on the machine and by anything the browser can be persuaded to fetch, and this service starts screen captures.
-The socket path is the only discovery mechanism; a shell that cannot open it reports that the backend is not running.
+The socket path is the only discovery mechanism.
+A shell that cannot open it starts the backend and asks again, because the backend is a headless binary and a user who opened the app asked for both halves of it; a shell that then still cannot open it reports that the backend is not running, naming the endpoint.
+That is a shell's own arrangement and not a contract rule: a backend already listening is connected to rather than duplicated, and one the shell did not start is not one it stops.
 Both ends use gRPC over that stream - Go dials the pipe with a custom dialer, .NET with `SocketsHttpHandler.ConnectCallback` - so nothing about the service definition changes with the platform.
 
-**Video frames do not cross this API.** They are the separate problem `avalonia/README.md` states: shared GPU handles, a buffer-ownership protocol, per-frame fences, release-back messages, and what each side does when the other dies. This contract carries control and description; it will name the frame channel once that channel exists, and it will not carry pixels.
+**Video frames do not cross this API.** The frame channel is a second gRPC service on the same socket, carrying handle metadata, per-frame fences and release-back messages; the pixels live in shared GPU memory that the handle names and never enter a message. Riding the same socket is what avoids reinventing framing, versioning and cancellation for a metadata stream, and it changes nothing about the rule: `ControlService` carries control and description, the frame service carries handles, and neither carries pixels. Pool ownership and what each side does when the other dies are the design work `avalonia/README.md` states, and they are not settled here.
 
 ## Errors
 
@@ -135,6 +144,8 @@ Two rules keep the event stream from becoming a second definition of the state.
 The package is `screenshare.v1` and the directory says so, which is what makes a `v2` a new directory rather than an edit.
 
 Within v1, evolution is additive: new fields take new numbers, no number is reused, no field changes type or meaning, and `buf breaking` checks it against the previous commit.
+
+**Before the first release, a rename is a rename.** `transport` became `publish_transport` and `watch_transport` became `player_watch_transport` in place, keeping their numbers and types; `buf breaking` reports a rename as breaking under `FIELD_SAME_NAME`, and the check was overridden for that one commit. Nothing was deployed and both sides build from this tree, so the alternative - two new numbers and two tombstones - would have spent the compatibility mechanism to preserve compatibility with nobody. The exception ends at the first release, and it is written here rather than left as an unexplained override in the CI configuration.
 `Hello` is the first call on a connection and settles the major version before any other method is reached, so a mismatch is a sentence naming both versions rather than a field that silently arrives empty.
 The minor version is informational: a shell built against a lower minor works, and one built against a higher minor may find a method missing.
 
@@ -147,7 +158,7 @@ Defining the API first means the contract can name something the backend does no
   This field carries what this machine serves, which is one entry shorter away from Linux. The reason a source is out of reach is a sentence a screen shows, so it arrives on the form's own option instead, and the same rows decide both: the form offers every declared source and greys the ones the machine does not serve, because a general concept a machine blocks is taught by a greyed entry and its reason rather than by a control that is quietly one item shorter (`field-availability.md`, "The rule").
   Nothing here touches the machine. A source is declared and not enumerated, so a resolve reads a table and pays nothing for it. Should a probe ever enumerate real devices, it is cached for the process lifetime and the cached read is kept separate from the probing one, the way `ControlService`'s backend divides `Encoders` from `CachedEncoders`: a resolve reads what is known now, and an unenumerated machine is one nothing is greyed on rather than one with no audio.
 
-**`StreamSettings.output_resolution` was the other, and it is the case worth keeping on this page.** It was declared before anything could honour it: both shells drew an output resolution, the Go pipeline had no scaling stage, and `ResolveForm` answered with the field disabled and that as its reason. The scaling stage has since landed - a `scale` filter on the ffmpeg software path, the size on the device conversion's own filter where the frames never leave the GPU, and `videoscale` plus a size on the encoder input caps for GStreamer - and the field became an ordinary one.
+**`PublishSettings.output_resolution` was the other, and it is the case worth keeping on this page.** It was declared before anything could honour it: both shells drew an output resolution, the Go pipeline had no scaling stage, and `ResolveForm` answered with the field disabled and that as its reason. The scaling stage has since landed - a `scale` filter on the ffmpeg software path, the size on the device conversion's own filter where the frames never leave the GPU, and `videoscale` plus a size on the encoder input caps for GStreamer - and the field became an ordinary one.
 
 Nothing above the backend changed in the move. The ladder the dropdown offers is the one it always offered, the shell that drew it greyed is the shell that draws it live, and what decides which of the two is on screen is still the backend's answer and never the shell's knowledge. One case survives as a greying rather than a feature: a pair whose device path carries no conversion at all - the encoder reading captured surfaces directly - has nothing on that path that can resize, so the scaled entries grey with the frame memory named as the way across.
 
@@ -155,8 +166,8 @@ That is the discipline the contract-first order buys. A control the shell invent
 
 ## What each side owes
 
-**The backend owes** one `ControlService` implementation, and every rule that today lives in `frontend/src/util` moved into Go beside the tables it derives from: the greyings and repairs of `deps.ts`, the dropdown construction of `options.ts`, the prediction of `estimate.ts`, the viewability verdicts, and the preset search.
-Once moved, `domain-model.md`'s list of what derives from the tables has one consumer instead of one per shell.
+**The backend owes** one `ControlService` implementation, and every rule that used to live in `frontend/src/util` beside the tables it derives from: the greyings and repairs of `deps.ts`, the dropdown construction of `options.ts`, the prediction of `estimate.ts`, the viewability verdict, and the preset search.
+They live in `internal/form` now, so `domain-model.md`'s list of what derives from the tables has one consumer rather than one per shell.
 
 It owes a **code** rather than a sentence for every one of those verdicts, and the identifiers behind it. A greying that arrived as prose would be a rule and a wording travelling together, and the wording is the half no backend can get right for a surface it has never seen.
 
@@ -175,4 +186,4 @@ So a shell calls `ProbeEncoders` once, in the background, and goes on drawing wh
 `ProbeEncoders` announces the whole catalog on the event stream, so the shell that asked and the shell that did not are told the same thing at the same time, by the same mechanism every other change already uses.
 What comes back is still the backend's answer in every particular - which encoders are missing, and the sentence naming what is missing about each. A shell learns only that the answer moved.
 
-**Neither side owes** a compatibility shim for the other's absence. A shell without a backend shows that the backend is not running. A backend without a shell keeps publishing.
+**Neither side owes** a compatibility shim for the other's absence. A shell that cannot reach a backend and cannot start one shows that the backend is not running. A backend without a shell keeps publishing.

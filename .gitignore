@@ -4,12 +4,14 @@
 # local logs / binaries
 *.log
 bin/
+build/bin
 # extracted ffmpeg binary distributions (e.g. ffmpeg-7.x-essentials_build/),
-# NOT the desktop/internal/ffmpeg source package
+# NOT the internal/ffmpeg source package
 ffmpeg-*/
 
-# Wails bindings, regenerated from the Go app by `wails dev` / `wails build`
-desktop/frontend/wailsjs/
+# vendored Windows ffmpeg/ffplay payload, copied into build/bin by the bundle task;
+# large and separately licensed, so not committed
+build/windows/redist/*.exe
 
 # MediaMTX's MoQ listener generates a self-signed pair in whatever directory the relay
 # runs from, which for `task relay` is this one. Regenerated whenever it is absent, and
@@ -17,10 +19,10 @@ desktop/frontend/wailsjs/
 auto.crt
 auto.key
 
-# The pre-restructure module directory, which the "restructure" commit replaced with
-# desktop/ and left behind untracked. What survives in it is the ffmpeg package as it
-# stood then, kept only because two of its files were never committed anywhere.
+# The pre-restructure module directory, which the "restructure" commit replaced and
+# left behind untracked. What survives in it is the ffmpeg package as it stood then,
+# kept only because two of its files were never committed anywhere.
 #
 # Anchored to the repository root: an unanchored "app/" matches a directory of that
-# name at any depth, which silently swallowed desktop/internal/app.
-/app/
+# name at any depth, which silently swallowed the app package under internal/.
+/_app/

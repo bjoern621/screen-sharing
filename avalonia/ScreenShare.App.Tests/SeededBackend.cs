@@ -61,7 +61,7 @@ internal sealed class SeededBackend : IBackend
     /// <summary>One seeded control, before the draft supplies its value.</summary>
     private sealed record FieldSeed
     {
-        /// <summary>The <see cref="StreamSettings"/> field this control edits, named as that message names it.</summary>
+        /// <summary>The <see cref="Settings"/> field this control edits, named as that message names it.</summary>
         public required string Key { get; init; }
 
         public required ControlKind Control { get; init; }
@@ -164,53 +164,64 @@ internal sealed class SeededBackend : IBackend
         return Task.FromResult(catalog);
     }
 
-    public Task<StreamSettings> SettingsAsync(CancellationToken cancellation = default)
+    public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
         // Honoured rather than ignored: a caller that has already abandoned this read
         // gets the answer the socket would have given it, so the cancellation path is
         // the same one whichever implementation is behind the seam.
         return cancellation.IsCancellationRequested
-            ? Task.FromCanceled<StreamSettings>(cancellation)
+            ? Task.FromCanceled<Settings>(cancellation)
             : Task.FromResult(Defaults());
     }
 
-    private StreamSettings Defaults() => new()
+    private Settings Defaults() => new()
     {
-        Name = Environment.MachineName.Length > 0 ? Environment.MachineName : "me",
-        RelayHost = "127.0.0.1",
-        RelayPort = 8890,
-        ApiPort = 9997,
-        RtspPort = 8554,
-        WebrtcPort = 8889,
-        RtmpPort = 1935,
-        HlsPort = 8888,
-        MoqPort = 8892,
-        Transport = "srt",
-        Codec = "hevc_nvenc",
-        Mode = "lossless",
-        Chroma = "gbrp",
-        ColorRange = "pc",
-        Fps = 60,
-        Cq = 19,
-        BitrateMbps = 150,
-        MaxrateMbps = 200,
-        VbvMs = 0,
-        Gop = 0,
-        Bframes = 0,
-        EncPreset = "p7",
-        Capture = _os == "windows" ? "ddagrab" : _os == "darwin" ? "avfoundation" : "x11grab",
-        Audio = "none",
-        AudioCodec = "opus",
-        DrmMap = "auto",
-        Monitor = 0,
-        CaptureMemory = "auto",
-        SrtPublishLatencyMs = 300,
-        SrtWatchLatencyMs = 1200,
-        RtspPublishProtocol = "tcp",
-        RtspWatchProtocol = "tcp",
-        UplinkMbps = 50,
-        WatchTransport = "srt",
-        OutputResolution = "",
+        Relay = new RelaySettings
+        {
+            Host = "127.0.0.1",
+            SrtPort = 8890,
+            ApiPort = 9997,
+            RtspPort = 8554,
+            WebrtcPort = 8889,
+            RtmpPort = 1935,
+            HlsPort = 8888,
+        },
+        Publish = new PublishSettings
+        {
+            Name = Environment.MachineName.Length > 0 ? Environment.MachineName : "me",
+            PublishTransport = "srt",
+            Codec = "hevc_nvenc",
+            Mode = "lossless",
+            Chroma = "gbrp",
+            ColorRange = "pc",
+            Fps = 60,
+            Cq = 19,
+            BitrateMbps = 150,
+            MaxrateMbps = 200,
+            VbvMs = 0,
+            Gop = 0,
+            Bframes = 0,
+            EncPreset = "p7",
+            Capture = _os == "windows" ? "ddagrab" : _os == "darwin" ? "avfoundation" : "x11grab",
+            Audio = "none",
+            AudioCodec = "opus",
+            DrmMap = "auto",
+            Monitor = 0,
+            CaptureMemory = "auto",
+            SrtPublishLatencyMs = 300,
+            RtspPublishProtocol = "tcp",
+            UplinkMbps = 50,
+            OutputResolution = "",
+        },
+        Viewer = new ViewerSettings
+        {
+            PlayerWatchTransport = "srt",
+            TileWatchTransport = "srt",
+            RtspWatchProtocol = "tcp",
+            SrtWatchLatencyMs = 1200,
+            RtspWatchLatencyMs = 200,
+            RenderChain = "gl",
+        },
     };
 
     /// <summary>
@@ -218,7 +229,7 @@ internal sealed class SeededBackend : IBackend
     /// <see cref="Form.RepairedFieldKeys"/> is always empty: a stand-in that walked the tables
     /// to a legal value would be walking tables it does not have.
     /// </summary>
-    public Task<Form> ResolveFormAsync(StreamSettings draft, CancellationToken cancellation = default)
+    public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
         Assert.NotNull(draft, "resolving a form needs the draft it is resolved against");
 
@@ -258,7 +269,7 @@ internal sealed class SeededBackend : IBackend
     public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
         => Task.FromResult<IReadOnlyList<WatchKey>>([]);
 
-    public Task StartPublishAsync(StreamSettings settings, CancellationToken cancellation = default)
+    public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         Assert.NotNull(settings, "starting a publish names the settings the encoder runs on");
 
@@ -300,7 +311,7 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>The whole of the resolve, with no wire in front of it.</summary>
-    private Form Resolve(StreamSettings draft)
+    private Form Resolve(Settings draft)
     {
         var settings = draft.Clone();
         var form = new Form { Settings = settings, Publishable = true };
@@ -314,18 +325,18 @@ internal sealed class SeededBackend : IBackend
         {
             Command = "",
             CommandError = "no backend behind this shell yet, so no command was rendered",
-            Estimate = new Estimate { BitrateMbps = 11.8, RawMbps = 3110.4, HeadroomMbps = settings.UplinkMbps - 11.8 },
+            Estimate = new Estimate { BitrateMbps = 11.8, RawMbps = 3110.4, HeadroomMbps = settings.Publish.UplinkMbps - 11.8 },
         };
 
-        if (settings.UplinkMbps < form.Summary.Estimate.BitrateMbps)
+        if (settings.Publish.UplinkMbps < form.Summary.Estimate.BitrateMbps)
         {
             form.Diagnostics.Add(new Diagnostic
             {
                 Severity = Severity.Warning,
-                FieldKey = "uplink_mbps",
+                FieldKey = "publish.uplink_mbps",
                 Text = Say(TextCode.UplinkBelowPrediction,
                     Dec(TextArgName.BitrateMbps, form.Summary.Estimate.BitrateMbps),
-                    Num(TextArgName.UplinkMbps, settings.UplinkMbps)),
+                    Num(TextArgName.UplinkMbps, settings.Publish.UplinkMbps)),
             });
         }
 
@@ -337,7 +348,7 @@ internal sealed class SeededBackend : IBackend
     /// One group with its draft-dependent parts filled in: each field's value, its
     /// visibility and enabled state, and which option is picked.
     /// </summary>
-    private FieldGroup Resolve(GroupSeed seed, StreamSettings settings)
+    private FieldGroup Resolve(GroupSeed seed, Settings settings)
     {
         var group = new FieldGroup { Key = seed.Key };
 
@@ -349,7 +360,7 @@ internal sealed class SeededBackend : IBackend
         return group;
     }
 
-    private Field Resolve(FieldSeed seed, StreamSettings settings)
+    private Field Resolve(FieldSeed seed, Settings settings)
     {
         var (visible, enabled, reason, note) = Availability(seed.Key, settings);
 
@@ -394,78 +405,64 @@ internal sealed class SeededBackend : IBackend
     private static string Picked(FieldValue value) => FieldValues.AsText(value);
 
     /// <summary>
-    /// The field's current value, read off the draft through the descriptor rather than a
-    /// switch. The key is the settings field's own name, which is what makes that possible
-    /// and what the contract relies on everywhere else.
+    /// The field's current value, read off the draft through the descriptors rather than a
+    /// switch. The key is a settings group and a field in it, which is what makes that
+    /// possible and what the contract relies on everywhere else. It goes through the shell's
+    /// own reader, so the fixture and the screen resolve a key the same way.
     /// </summary>
-    private static FieldValue ValueOf(string key, StreamSettings settings)
-    {
-        var descriptor = StreamSettings.Descriptor.FindFieldByName(key);
-        Assert.NotNull(descriptor, "a form field names a settings field");
-
-        var raw = descriptor.Accessor.GetValue(settings);
-        return descriptor.FieldType switch
-        {
-            FieldType.String => new FieldValue { Text = (string)raw },
-            FieldType.Int32 => new FieldValue { Number = (int)raw },
-            FieldType.Int64 => new FieldValue { Number = (long)raw },
-            FieldType.Bool => new FieldValue { Flag = (bool)raw },
-            FieldType.Double => new FieldValue { Decimal = (double)raw },
-            _ => Assert.Never<FieldValue>("a form field's settings type is one the contract carries", key, descriptor.FieldType),
-        };
-    }
+    private static FieldValue ValueOf(string key, Settings settings) => SettingsDraft.Read(settings, key);
 
     /// <summary>
     /// The four treatments, seeded. Each entry here mirrors a rule that lives in the Go
     /// tables today and will be evaluated there: a hidden backend knob, a disabled general
     /// concept with the reason the reader can act on, and a live field with a note.
     /// </summary>
-    private (bool Visible, bool Enabled, Text? Reason, Text? Note) Availability(string key, StreamSettings settings)
+    private (bool Visible, bool Enabled, Text? Reason, Text? Note) Availability(string key, Settings settings)
     {
         switch (key)
         {
             // Hidden: a knob of the kmsgrab scanout path and of nothing else, whose help
             // text would teach a reader on another backend nothing.
-            case "drm_map":
-                return (settings.Capture == "kmsgrab", true, null, null);
+            case "publish.drm_map":
+                return (settings.Publish.Capture == "kmsgrab", true, null, null);
 
             // Disabled with a reason: a general encoding concept this combination blocks.
             // Where two facts block it, the reason names the one the reader can act on -
             // the family before the engine, since another codec is nearer to hand.
-            case "enc_preset":
-                if (FamilyOf.GetValueOrDefault(settings.Codec, "") != "nvenc")
+            case "publish.enc_preset":
+                if (FamilyOf.GetValueOrDefault(settings.Publish.Codec, "") != "nvenc")
                 {
                     return (true, false, Say(TextCode.PresetOnlyOnFamilies, Ids(TextArgName.Families, "nvenc")), null);
                 }
-                if (EngineOf.GetValueOrDefault(settings.Capture, "") == "gstreamer")
+                if (EngineOf.GetValueOrDefault(settings.Publish.Capture, "") == "gstreamer")
                 {
                     return (true, false, Say(TextCode.GstNoPresetLadder), null);
                 }
                 return (true, true, null, null);
 
-            case "audio_codec":
-                return settings.Audio == "none"
+            case "publish.audio_codec":
+                return settings.Publish.Audio == "none"
                     ? (true, false, Say(TextCode.AudioCodecNeedsSource), null)
                     : (true, true, null, null);
 
-            case "srt_publish_latency_ms":
-                return (settings.Transport == "srt", true, null, null);
+            case "publish.srt_publish_latency_ms":
+                return (settings.Publish.PublishTransport == "srt", true, null, null);
 
-            case "rtsp_publish_protocol":
-                return (settings.Transport == "rtsp", true, null, null);
+            case "publish.rtsp_publish_protocol":
+                return (settings.Publish.PublishTransport == "rtsp", true, null, null);
 
             // Disabled with a reason, from the mode rather than from the codec: only the
             // constant-quality mode aims at a quality, so the modes that aim at a bitrate
             // grey the quantizer and name the mode, which is the fact the reader can act on.
-            case "cq":
-                return settings.Mode == "crf"
+            case "publish.cq":
+                return settings.Publish.Mode == "crf"
                     ? (true, true, null, null)
                     : (true, false, Say(TextCode.CqOnlyInConstantQuality), null);
 
             // Live with a note: the value still reaches the encoder and means something the
             // heading does not describe here.
-            case "monitor":
-                return (true, true, null, Say(TextCode.MonitorNotEnumerated, Num(TextArgName.Monitor, settings.Monitor)));
+            case "publish.monitor":
+                return (true, true, null, Say(TextCode.MonitorNotEnumerated, Num(TextArgName.Monitor, settings.Publish.Monitor)));
 
             default:
                 return (true, true, null, null);
@@ -477,68 +474,69 @@ internal sealed class SeededBackend : IBackend
     /// kinds the tables produce: a platform gate, a pair with no device path, and an
     /// engine that lacks the element.
     /// </summary>
-    private Text? OptionRefusal(string key, string value, StreamSettings settings)
+    private Text? OptionRefusal(string key, string value, Settings settings)
     {
-        var engine = EngineOf.GetValueOrDefault(settings.Capture, "");
+        var publish = settings.Publish;
+        var engine = EngineOf.GetValueOrDefault(publish.Capture, "");
 
         switch (key)
         {
-            case "capture":
+            case "publish.capture":
                 if (!PlatformOf.TryGetValue(value, out var platform) || platform.Os == _os)
                 {
                     return null;
                 }
                 return Say(TextCode.CaptureWrongOs, Id(TextArgName.Capture, value), Id(TextArgName.Os, platform.Os));
 
-            case "audio":
+            case "publish.audio":
                 return value == "desktop" && _os != "linux"
                     ? Say(TextCode.AudioSourceUnserved, Id(TextArgName.Audio, value), Id(TextArgName.Os, _os))
                     : null;
 
-            case "capture_memory":
+            case "publish.capture_memory":
                 if (value is not ("gpu" or "gpu-encoder-color"))
                 {
                     // Auto and the system copy are never greyed: auto answers with whichever
                     // path the pair has, and the copy is the path every pair has.
                     return null;
                 }
-                return HasDevicePath(engine, settings.Capture, FamilyOf.GetValueOrDefault(settings.Codec, ""))
+                return HasDevicePath(engine, publish.Capture, FamilyOf.GetValueOrDefault(publish.Codec, ""))
                     ? null
                     : Say(
                         TextCode.PairHasNoDeviceMemory,
-                        Id(TextArgName.Capture, settings.Capture),
-                        Id(TextArgName.Codec, settings.Codec),
+                        Id(TextArgName.Capture, publish.Capture),
+                        Id(TextArgName.Codec, publish.Codec),
                         Id(TextArgName.Engine, engine));
 
-            case "transport":
+            case "publish.publish_transport":
                 return value == "rtmp" && engine == "gstreamer"
                     ? Say(
                         TextCode.EngineHasNoPublishSink,
-                        Id(TextArgName.Capture, settings.Capture),
+                        Id(TextArgName.Capture, publish.Capture),
                         Id(TextArgName.Engine, engine),
                         Id(TextArgName.Transport, value))
                     : null;
 
-            case "codec":
+            case "publish.codec":
                 return engine == "gstreamer" && FamilyOf.GetValueOrDefault(value, "") == "amf"
                     ? Say(TextCode.GapGstAmfcodecWindowsOnly)
                     : null;
 
-            case "chroma":
+            case "publish.chroma":
                 // Seeded from the two chroma facts that hold for every codec in the list:
                 // 4:2:2 is the software H.26x rows' alone, and direct RGB needs a codec
                 // whose encoder takes a GBR input.
-                var family = FamilyOf.GetValueOrDefault(settings.Codec, "");
+                var family = FamilyOf.GetValueOrDefault(publish.Codec, "");
                 if (value == "yuv422p" && family != "software")
                 {
                     return Say(
                         TextCode.CodecCannotEncodeChroma,
-                        Id(TextArgName.Codec, settings.Codec),
+                        Id(TextArgName.Codec, publish.Codec),
                         Id(TextArgName.Chroma, value));
                 }
-                if (value == "gbrp" && settings.Codec is not ("hevc_nvenc" or "libx265" or "libvpx-vp9"))
+                if (value == "gbrp" && publish.Codec is not ("hevc_nvenc" or "libx265" or "libvpx-vp9"))
                 {
-                    return Say(TextCode.CodecCodesNoRgb, Id(TextArgName.Codec, settings.Codec));
+                    return Say(TextCode.CodecCodesNoRgb, Id(TextArgName.Codec, publish.Codec));
                 }
                 return null;
 
@@ -704,7 +702,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "capture",
+                    Key = "publish.capture",
                     Control = ControlKind.Radio,
                     Options =
                     [
@@ -721,7 +719,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "capture_memory",
+                    Key = "publish.capture_memory",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -733,7 +731,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "drm_map",
+                    Key = "publish.drm_map",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -745,13 +743,13 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "monitor",
+                    Key = "publish.monitor",
                     Control = ControlKind.Number,
                     Range = Bounded(0, 7),
                 },
                 new()
                 {
-                    Key = "audio",
+                    Key = "publish.audio",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -768,7 +766,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "codec",
+                    Key = "publish.codec",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -788,7 +786,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "chroma",
+                    Key = "publish.chroma",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -801,7 +799,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "color_range",
+                    Key = "publish.color_range",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -811,7 +809,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "enc_preset",
+                    Key = "publish.enc_preset",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -826,7 +824,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "audio_codec",
+                    Key = "publish.audio_codec",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -843,7 +841,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "mode",
+                    Key = "publish.mode",
                     Control = ControlKind.Radio,
                     Options =
                     [
@@ -856,25 +854,25 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "cq",
+                    Key = "publish.cq",
                     Control = ControlKind.Slider,
                     Range = Bounded(0, 51),
                 },
                 new()
                 {
-                    Key = "output_resolution",
+                    Key = "publish.output_resolution",
                     Control = ControlKind.Select,
                     Options = ResolutionOptions(),
                 },
                 new()
                 {
-                    Key = "fps",
+                    Key = "publish.fps",
                     Control = ControlKind.Select,
                     Options = FrameRateOptions(),
                 },
                 new()
                 {
-                    Key = "gop",
+                    Key = "publish.gop",
                     Control = ControlKind.Select,
                     Options = KeyframeOptions(),
                 },
@@ -887,7 +885,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "transport",
+                    Key = "publish.publish_transport",
                     Control = ControlKind.Radio,
                     Options =
                     [
@@ -899,14 +897,14 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "srt_publish_latency_ms",
+                    Key = "publish.srt_publish_latency_ms",
                     Control = ControlKind.Slider,
                     Unit = Unit.Milliseconds,
                     Range = Bounded(20, 2000, 10),
                 },
                 new()
                 {
-                    Key = "rtsp_publish_protocol",
+                    Key = "publish.rtsp_publish_protocol",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -923,7 +921,7 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "uplink_mbps",
+                    Key = "publish.uplink_mbps",
                     Control = ControlKind.Number,
                     Unit = Unit.MegabitsPerSecond,
                     Range = Bounded(1, 10000),
@@ -935,15 +933,14 @@ internal sealed class SeededBackend : IBackend
             Key = "destination",
             Fields =
             [
-                new() { Key = "name", Control = ControlKind.Text },
-                new() { Key = "relay_host", Control = ControlKind.Text },
-                new() { Key = "relay_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "webrtc_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "rtmp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "hls_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "moq_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
-                new() { Key = "api_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "publish.name", Control = ControlKind.Text },
+                new() { Key = "relay.host", Control = ControlKind.Text },
+                new() { Key = "relay.srt_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "relay.rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "relay.webrtc_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "relay.rtmp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "relay.hls_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
+                new() { Key = "relay.api_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
             ],
         },
     ];

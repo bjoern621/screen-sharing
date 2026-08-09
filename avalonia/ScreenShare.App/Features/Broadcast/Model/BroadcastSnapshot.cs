@@ -85,7 +85,7 @@ public sealed record BroadcastSnapshot
         // no combination here to reconcile. A retry hangs off the live stream, which is what
         // makes "an attempt belongs to a retry" something this reading cannot get wrong.
         var live = publish.Live;
-        var settings = live?.Settings;
+        var settings = live?.Publish;
         var retry = live?.Retry;
 
         return new BroadcastSnapshot

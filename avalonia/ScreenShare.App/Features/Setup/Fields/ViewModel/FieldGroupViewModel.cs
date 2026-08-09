@@ -74,7 +74,7 @@ public sealed class FieldGroupViewModel : Observable
     /// A null group is the branch that turns everything off, which is what a step whose
     /// group the form did not carry has to render.
     /// </summary>
-    public void Apply(FieldGroup? group, Vocabulary words, StreamSettings? settings)
+    public void Apply(FieldGroup? group, Vocabulary words, Settings? settings)
     {
         Assert.NotNull(words, "rendering a group needs the vocabulary that names its entries");
 

@@ -63,10 +63,10 @@ public interface IBackend
 
     /// <summary>
     /// The stored settings, as <c>GetSettings</c> answers. A shell never constructs a
-    /// <see cref="StreamSettings"/> from nothing: it receives a draft, changes the one
+    /// <see cref="Settings"/> from nothing: it receives a draft, changes the one
     /// field the user moved, and sends the whole message back.
     /// </summary>
-    Task<StreamSettings> SettingsAsync(CancellationToken cancellation = default);
+    Task<Settings> SettingsAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Every fixed fact about this machine and the encoding model, as <c>GetCatalog</c>
@@ -95,7 +95,7 @@ public interface IBackend
     /// repair is a walk to the first legal value rather than a suggestion, so the draft
     /// that comes back resolves to the form that carried it.
     /// </summary>
-    Task<Form> ResolveFormAsync(StreamSettings draft, CancellationToken cancellation = default);
+    Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default);
 
     /// <summary>
     /// Whether a stream is in force, what it is carrying, and whether the held settings
@@ -144,7 +144,7 @@ public interface IBackend
     /// the stream, so the window that pressed the button and the window that did not learn it
     /// the same way.
     /// </summary>
-    Task StartPublishAsync(StreamSettings settings, CancellationToken cancellation = default);
+    Task StartPublishAsync(Settings settings, CancellationToken cancellation = default);
 
     /// <summary>Ends the stream, whether it is running or waiting out a retry backoff.</summary>
     Task StopPublishAsync(CancellationToken cancellation = default);

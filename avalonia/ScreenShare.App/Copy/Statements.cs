@@ -120,6 +120,10 @@ public static class Statements
                 : $"{Words.Transport(a.Transport)} carries no audio at all on {Words.Engine(a.Engine)}. "
                   + "Send over another protocol, or turn audio off.",
 
+            TextCode.RenderChainElementMissing =>
+                $"This machine has no {a.Element}, which {Words.RenderChain(a.Value)} needs. "
+                + "Another route converts the frames instead.",
+
             TextCode.EngineHasNoAudioEncoder =>
                 $"{Words.Engine(a.Engine)} has no {Words.AudioCodec(a.AudioCodec)} encoder. "
                 + "Change the capture method to reach the other engine.",
@@ -529,6 +533,10 @@ public static class Statements
         public string Display => Id(TextArgName.Display);
 
         public string Path => Id(TextArgName.Path);
+
+        public string Value => Id(TextArgName.Value);
+
+        public string Element => Id(TextArgName.Element);
 
         public IReadOnlyList<string> Families => Ids(TextArgName.Families);
 

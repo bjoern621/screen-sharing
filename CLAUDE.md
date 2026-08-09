@@ -6,7 +6,7 @@ Read the relevant page before guessing.
 `docs/development-principles.md` governs the shape of every change: explicit state writes and continuous reads, one render function per component, idempotent apply paths, and preconditions, postconditions and invariants asserted with `bjoernblessin.de/go-utils/util/assert`.
 It outranks brevity and convenience. Read it before writing code, not after.
 
-`docs/frontend-coding-style.md` adds the layer rules for the React frontend.
+`avalonia/README.md` adds the layer rules for the shell; `docs/ipc-api.md` states what the shell may decide, which is nothing.
 `docs/domain-model.md` covers the codec and transport tables every consumer derives from.
 
 # Never drive the GUI

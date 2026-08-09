@@ -67,13 +67,17 @@ const (
 	TextArgName_TEXT_ARG_NAME_OS      TextArgName = 18
 	TextArgName_TEXT_ARG_NAME_DISPLAY TextArgName = 19
 	// TEXT_ARG_NAME_OPTION is a settings field a gap takes a value away from, named as
-	// StreamSettings names it, and TEXT_ARG_NAME_VALUE the value taken.
+	// the settings name it, and TEXT_ARG_NAME_VALUE the value taken.
 	TextArgName_TEXT_ARG_NAME_OPTION TextArgName = 20
 	TextArgName_TEXT_ARG_NAME_VALUE  TextArgName = 21
 	// TEXT_ARG_NAME_PATH is a filesystem path the backend handed out. It is not vocabulary:
 	// the backend and the shell are the same application on the same machine
 	// (docs/ipc-api.md), so a path crosses as a path.
 	TextArgName_TEXT_ARG_NAME_PATH TextArgName = 22
+	// TEXT_ARG_NAME_ELEMENT is a GStreamer element factory, e.g. "glcolorconvert". Like
+	// TEXT_ARG_NAME_DECODER it is not a settings value: nobody picks one, and a statement
+	// about what this machine cannot run names the one that is missing.
+	TextArgName_TEXT_ARG_NAME_ELEMENT TextArgName = 23
 	// Lists of identifiers, each of the axis its name says. A shell joins them in its
 	// own language; the backend states which ones, never how they read together.
 	TextArgName_TEXT_ARG_NAME_FAMILIES        TextArgName = 30
@@ -142,6 +146,7 @@ var (
 		20: "TEXT_ARG_NAME_OPTION",
 		21: "TEXT_ARG_NAME_VALUE",
 		22: "TEXT_ARG_NAME_PATH",
+		23: "TEXT_ARG_NAME_ELEMENT",
 		30: "TEXT_ARG_NAME_FAMILIES",
 		31: "TEXT_ARG_NAME_TRANSPORTS",
 		32: "TEXT_ARG_NAME_AUDIO_CODECS",
@@ -194,6 +199,7 @@ var (
 		"TEXT_ARG_NAME_OPTION":             20,
 		"TEXT_ARG_NAME_VALUE":              21,
 		"TEXT_ARG_NAME_PATH":               22,
+		"TEXT_ARG_NAME_ELEMENT":            23,
 		"TEXT_ARG_NAME_FAMILIES":           30,
 		"TEXT_ARG_NAME_TRANSPORTS":         31,
 		"TEXT_ARG_NAME_AUDIO_CODECS":       32,
@@ -318,6 +324,10 @@ const (
 	// connects and receives nothing. TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_TRANSPORT,
 	// TEXT_ARG_NAME_TRANSPORTS.
 	TextCode_TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER TextCode = 24
+	// This GStreamer registers none of the elements the render chain is built from, so a
+	// receive pipeline cannot be built on it. TEXT_ARG_NAME_VALUE is the chain and
+	// TEXT_ARG_NAME_ELEMENT the first element it needs and this machine does not have.
+	TextCode_TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING TextCode = 25
 	// The codec reaches no direct RGB on either engine, which needs a coding tool rather
 	// than a subsampling. TEXT_ARG_NAME_CODEC.
 	TextCode_TEXT_CODE_CODEC_CODES_NO_RGB TextCode = 30
@@ -493,6 +503,7 @@ var (
 		22:  "TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER",
 		23:  "TEXT_CODE_NO_VIEWER_RECEIVES_OVER",
 		24:  "TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER",
+		25:  "TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING",
 		30:  "TEXT_CODE_CODEC_CODES_NO_RGB",
 		31:  "TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA",
 		32:  "TEXT_CODE_RGB_IS_FULL_RANGE",
@@ -587,6 +598,7 @@ var (
 		"TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER":          22,
 		"TEXT_CODE_NO_VIEWER_RECEIVES_OVER":              23,
 		"TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER":          24,
+		"TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING":         25,
 		"TEXT_CODE_CODEC_CODES_NO_RGB":                   30,
 		"TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA":           31,
 		"TEXT_CODE_RGB_IS_FULL_RANGE":                    32,
@@ -951,7 +963,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x8b\v\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xa6\v\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -976,7 +988,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x15TEXT_ARG_NAME_DISPLAY\x10\x13\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_OPTION\x10\x14\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_VALUE\x10\x15\x12\x16\n" +
-	"\x12TEXT_ARG_NAME_PATH\x10\x16\x12\x1a\n" +
+	"\x12TEXT_ARG_NAME_PATH\x10\x16\x12\x19\n" +
+	"\x15TEXT_ARG_NAME_ELEMENT\x10\x17\x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_TRANSPORTS\x10\x1f\x12\x1e\n" +
 	"\x1aTEXT_ARG_NAME_AUDIO_CODECS\x10 \x12\x1a\n" +
@@ -1003,7 +1016,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\xb2\x1c\n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?*\xde\x1c\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1024,7 +1037,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"$TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC\x10\x15\x12)\n" +
 	"%TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER\x10\x16\x12%\n" +
 	"!TEXT_CODE_NO_VIEWER_RECEIVES_OVER\x10\x17\x12)\n" +
-	"%TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER\x10\x18\x12 \n" +
+	"%TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER\x10\x18\x12*\n" +
+	"&TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING\x10\x19\x12 \n" +
 	"\x1cTEXT_CODE_CODEC_CODES_NO_RGB\x10\x1e\x12(\n" +
 	"$TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA\x10\x1f\x12\x1f\n" +
 	"\x1bTEXT_CODE_RGB_IS_FULL_RANGE\x10 \x12!\n" +

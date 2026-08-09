@@ -504,74 +504,6 @@ func (x *EncodeRate) GetHighBounded() bool {
 	return false
 }
 
-// MoqCert is the relay's Media-over-QUIC certificate fingerprint, which a viewer
-// pins when it opens a WebTransport session. It exists as a backend call because a
-// viewer running in a web context cannot make it: that origin has never accepted the
-// relay's self-signed certificate, so the fetch fails there before WebTransport is
-// reached.
-type MoqCert struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// algorithm is the hash the fingerprint was taken with, e.g. "sha-256".
-	Algorithm string `protobuf:"bytes,1,opt,name=algorithm,proto3" json:"algorithm,omitempty"`
-	// value is the fingerprint itself, in the form the pinning API takes.
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
-	// url is the endpoint the viewer connects to.
-	Url           string `protobuf:"bytes,3,opt,name=url,proto3" json:"url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *MoqCert) Reset() {
-	*x = MoqCert{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *MoqCert) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MoqCert) ProtoMessage() {}
-
-func (x *MoqCert) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MoqCert.ProtoReflect.Descriptor instead.
-func (*MoqCert) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *MoqCert) GetAlgorithm() string {
-	if x != nil {
-		return x.Algorithm
-	}
-	return ""
-}
-
-func (x *MoqCert) GetValue() string {
-	if x != nil {
-		return x.Value
-	}
-	return ""
-}
-
-func (x *MoqCert) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
 // Retry is a relaunch waiting out a backoff, after a pipeline died on its own.
 type PublishState_Retry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -586,7 +518,7 @@ type PublishState_Retry struct {
 
 func (x *PublishState_Retry) Reset() {
 	*x = PublishState_Retry{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	mi := &file_screenshare_v1_session_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -598,7 +530,7 @@ func (x *PublishState_Retry) String() string {
 func (*PublishState_Retry) ProtoMessage() {}
 
 func (x *PublishState_Retry) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[7]
+	mi := &file_screenshare_v1_session_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -631,9 +563,15 @@ func (x *PublishState_Retry) GetBudget() int32 {
 // Live is a stream the user asked for and has not stopped.
 type PublishState_Live struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// settings are what the running pipeline was built from. They are the stream the
-	// viewers are watching, which is not necessarily what a form is showing.
-	Settings *StreamSettings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	// publish and relay are what the running pipeline was built from: the two groups
+	// an encoder command is rendered out of. They are the stream the viewers are
+	// watching, which is not necessarily what a form is showing.
+	//
+	// The viewer group is not here, and its absence is the point of the split: how
+	// this machine watches has never been part of what it publishes, and a live state
+	// carrying it would say the running pipeline was built from a render chain.
+	Publish *PublishSettings `protobuf:"bytes,1,opt,name=publish,proto3" json:"publish,omitempty"`
+	Relay   *RelaySettings   `protobuf:"bytes,4,opt,name=relay,proto3" json:"relay,omitempty"`
 	// pending reports that the settings the backend holds would build a different
 	// pipeline than this one: the form has moved off the live stream. Applying the
 	// change is a separate call, because both engines run a child process built from
@@ -649,7 +587,7 @@ type PublishState_Live struct {
 
 func (x *PublishState_Live) Reset() {
 	*x = PublishState_Live{}
-	mi := &file_screenshare_v1_session_proto_msgTypes[8]
+	mi := &file_screenshare_v1_session_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -661,7 +599,7 @@ func (x *PublishState_Live) String() string {
 func (*PublishState_Live) ProtoMessage() {}
 
 func (x *PublishState_Live) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_session_proto_msgTypes[8]
+	mi := &file_screenshare_v1_session_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -677,9 +615,16 @@ func (*PublishState_Live) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{0, 1}
 }
 
-func (x *PublishState_Live) GetSettings() *StreamSettings {
+func (x *PublishState_Live) GetPublish() *PublishSettings {
 	if x != nil {
-		return x.Settings
+		return x.Publish
+	}
+	return nil
+}
+
+func (x *PublishState_Live) GetRelay() *RelaySettings {
+	if x != nil {
+		return x.Relay
 	}
 	return nil
 }
@@ -702,16 +647,17 @@ var File_screenshare_v1_session_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\xf1\x02\n" +
+	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\xaf\x03\n" +
 	"\fPublishState\x125\n" +
 	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a9\n" +
 	"\x05Retry\x12\x18\n" +
 	"\aattempt\x18\x01 \x01(\x05R\aattempt\x12\x16\n" +
-	"\x06budget\x18\x02 \x01(\x05R\x06budget\x1a\x96\x01\n" +
-	"\x04Live\x12:\n" +
-	"\bsettings\x18\x01 \x01(\v2\x1e.screenshare.v1.StreamSettingsR\bsettings\x12\x18\n" +
+	"\x06budget\x18\x02 \x01(\x05R\x06budget\x1a\xd4\x01\n" +
+	"\x04Live\x129\n" +
+	"\apublish\x18\x01 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x123\n" +
+	"\x05relay\x18\x04 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x12\x18\n" +
 	"\apending\x18\x02 \x01(\bR\apending\x128\n" +
-	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retryJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
+	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retryR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
 	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf1\x03\n" +
 	"\fPublishStats\x12\x1f\n" +
 	"\vframe_count\x18\f \x01(\x03R\n" +
@@ -757,11 +703,7 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\bhigh_fps\x18\x02 \x01(\x01R\ahighFps\x12\x1f\n" +
 	"\vlow_bounded\x18\x03 \x01(\bR\n" +
 	"lowBounded\x12!\n" +
-	"\fhigh_bounded\x18\x04 \x01(\bR\vhighBounded\"O\n" +
-	"\aMoqCert\x12\x1c\n" +
-	"\talgorithm\x18\x01 \x01(\tR\talgorithm\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value\x12\x10\n" +
-	"\x03url\x18\x03 \x01(\tR\x03urlB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\fhigh_bounded\x18\x04 \x01(\bR\vhighBoundedB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_session_proto_rawDescOnce sync.Once
@@ -775,7 +717,7 @@ func file_screenshare_v1_session_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_session_proto_rawDescData
 }
 
-var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_screenshare_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_screenshare_v1_session_proto_goTypes = []any{
 	(*PublishState)(nil),       // 0: screenshare.v1.PublishState
 	(*PublishStats)(nil),       // 1: screenshare.v1.PublishStats
@@ -783,21 +725,22 @@ var file_screenshare_v1_session_proto_goTypes = []any{
 	(*RelayStatus)(nil),        // 3: screenshare.v1.RelayStatus
 	(*WatchKey)(nil),           // 4: screenshare.v1.WatchKey
 	(*EncodeRate)(nil),         // 5: screenshare.v1.EncodeRate
-	(*MoqCert)(nil),            // 6: screenshare.v1.MoqCert
-	(*PublishState_Retry)(nil), // 7: screenshare.v1.PublishState.Retry
-	(*PublishState_Live)(nil),  // 8: screenshare.v1.PublishState.Live
-	(*StreamSettings)(nil),     // 9: screenshare.v1.StreamSettings
+	(*PublishState_Retry)(nil), // 6: screenshare.v1.PublishState.Retry
+	(*PublishState_Live)(nil),  // 7: screenshare.v1.PublishState.Live
+	(*PublishSettings)(nil),    // 8: screenshare.v1.PublishSettings
+	(*RelaySettings)(nil),      // 9: screenshare.v1.RelaySettings
 }
 var file_screenshare_v1_session_proto_depIdxs = []int32{
-	8, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
+	7, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
 	2, // 1: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
-	9, // 2: screenshare.v1.PublishState.Live.settings:type_name -> screenshare.v1.StreamSettings
-	7, // 3: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	8, // 2: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
+	9, // 3: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
+	6, // 4: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_session_proto_init() }
@@ -813,7 +756,7 @@ func file_screenshare_v1_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_session_proto_rawDesc), len(file_screenshare_v1_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

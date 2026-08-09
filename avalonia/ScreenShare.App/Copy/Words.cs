@@ -185,6 +185,21 @@ public static class Words
     };
 
     /// <summary>
+    /// The render chains, named by where the frames are converted and what that says about
+    /// their colour, which are the two things the choice is between. The element names the
+    /// backend builds each from stay behind the seam; a reader picking one is picking a
+    /// place and a promise, not a pipeline.
+    /// </summary>
+    private static readonly Dictionary<string, string> RenderChains = new()
+    {
+        ["gl"] = "Graphics card, OpenGL - exact colour",
+        ["cpu"] = "System memory - exact colour",
+        ["d3d11"] = "Graphics card, Direct3D 11 - driver's colour",
+        ["d3d12"] = "Graphics card, Direct3D 12 - driver's colour",
+        ["raw"] = "No conversion",
+    };
+
+    /// <summary>
     /// The decode paths, named by the hardware a viewer would have rather than by the
     /// plugin the element comes from. A reader deciding what to publish is deciding whose
     /// machine will cope, and "vaapi" is not the name of a machine.
@@ -238,6 +253,8 @@ public static class Words
     public static string EncPreset(string id) => Look(EncPresets, id);
 
     public static string RtspProtocol(string id) => Look(RtspProtocols, id);
+
+    public static string RenderChain(string id) => Look(RenderChains, id);
 
     public static string DecodeFamily(string id) => Look(DecodeFamilies, id);
 

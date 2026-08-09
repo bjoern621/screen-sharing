@@ -1,10 +1,10 @@
 version: "3"
 
 vars:
-  # Where MSYS2 keeps the Windows toolchain, GTK4 and GStreamer the native grid links
-  # through cgo. It is named here rather than taken from the shell, so a Windows build
-  # works from whichever shell is open: Git Bash announces MSYSTEM=MINGW64 and carries a
-  # /mingw64 of its own that holds none of this, and a plain PowerShell carries nothing.
+  # Where MSYS2 keeps the Windows toolchain and the GStreamer the backend links through
+  # cgo. It is named here rather than taken from the shell, so a Windows build works from
+  # whichever shell is open: Git Bash announces MSYSTEM=MINGW64 and carries a /mingw64 of
+  # its own that holds none of this, and a plain PowerShell carries nothing.
   # Set MSYS2_ROOT for an install somewhere other than the default.
   MSYS2_ROOT: '{{default "C:/msys64" .MSYS2_ROOT}}'
   MSYS2_MINGW: '{{.MSYS2_ROOT}}/mingw64'
@@ -33,39 +33,6 @@ tasks:
     desc: Run the relay in Docker (Linux relay box / VPS)
     cmds:
       - docker compose up
-
-  nativegrid:
-    desc: Build the native grid binary into desktop/build/bin
-    dir: nativegrid
-    env:
-      # gotk4 and go-gst are cgo bindings, so every file in them is gated on cgo. Go
-      # turns CGO_ENABLED off by itself when it finds no C compiler, which makes a build
-      # run outside the toolchain's shell fail as "build constraints exclude all Go
-      # files" in packages that look unrelated to the compiler. Asking for cgo outright
-      # means that case names the missing compiler instead.
-      CGO_ENABLED: "1"
-    # ROOT_DIR is quoted wherever it reaches a command: on Windows it holds a
-    # backslash path, and the shell interpreting these lines would otherwise read each
-    # separator as an escape and turn the argument into one relative path component.
-    cmds:
-      # The nativegrid shell carries gtk4 and libadwaita, which the app's own
-      # shell does not.
-      - platforms: [linux, darwin]
-        cmd: nix develop '{{.ROOT_DIR}}#nativegrid' --command go build -o '{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid' .
-      # Windows has no flake shell: the toolchain, GTK4 and GStreamer come from MSYS2
-      # (docs/packaging.md, "Windows"), reached here by path so no particular shell has to
-      # be open. Its prefix goes on PATH because the toolchain loads its own DLLs from
-      # there and cgo looks gcc up by name, and GOROOT is set because the Go MSYS2 ships
-      # is trimmed and finds none by itself. GOROOT stays in this branch: pointing the
-      # Nix build at a Windows GOROOT would break it.
-      #
-      # -H=windowsgui gives the binary the GUI subsystem; a console-subsystem one
-      # opens a console window beside the grid whenever the app spawns it.
-      - platforms: [windows]
-        cmd: >-
-          PATH="{{.MSYS2_MINGW}}/bin;$PATH" GOROOT="{{.MSYS2_MINGW}}/lib/go"
-          '{{.MSYS2_MINGW}}/bin/go.exe' build -ldflags -H=windowsgui
-          -o '{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid.exe' .
 
   api:
     desc: Lint, breaking-check and regenerate the control contract
@@ -104,10 +71,10 @@ tasks:
       - dotnet run --project ScreenShare.App
 
   avalonia:build:
-    desc: Build the Avalonia app into desktop/build/bin
+    desc: Build the Avalonia app into build/bin
     dir: avalonia
     cmds:
-      - dotnet build -c Release -o '{{.ROOT_DIR}}/desktop/build/bin/avalonia' ScreenShare.App/ScreenShare.App.csproj
+      - dotnet build -c Release -o '{{.ROOT_DIR}}/build/bin/avalonia' ScreenShare.App/ScreenShare.App.csproj
 
   avalonia:test:
     desc: Run the Avalonia app's tests (no relay needed)
@@ -116,66 +83,65 @@ tasks:
       - dotnet test
 
   dev:
-    desc: Run the Wails app with live reload
-    dir: desktop
-    deps: [nativegrid]
+    desc: Run the backend in the foreground
     env:
-      # wails dev runs the app from a temp dir, so the native grid is not
-      # found next to the executable; point the app at the freshly built one.
-      SCREENSHARE_NATIVEGRID: "{{.ROOT_DIR}}/desktop/build/bin/screenshare-nativegrid"
+      # go-gst is a cgo binding, so every file in internal/receive is gated on cgo. Go
+      # turns CGO_ENABLED off by itself when it finds no C compiler, which makes a build
+      # run outside the toolchain's reach fail as "build constraints exclude all Go
+      # files" in packages that look unrelated to the compiler. Asking for cgo outright
+      # means that case names the missing compiler instead.
+      CGO_ENABLED: "1"
     cmds:
-      # webkit2_41 targets webkitgtk 4.1 (libsoup3), matching the flake's dev shell.
-      # The tag selects the cgo file that links gtk+-3.0 and webkit2gtk-4.1, so it
-      # belongs to the webkitgtk platforms alone; Windows renders in WebView2 and has
-      # neither library.
-      - platforms: [linux, darwin]
-        cmd: wails dev -tags webkit2_41
-      # gst-launch-1.0.exe comes from MSYS2 on Windows and nothing puts that prefix on a
-      # normal PATH, so a dev run finds no launcher and every GStreamer publish, the
-      # encode probe and the test streams fail at lookup. A packaged build carries its
-      # own copy beside the binary instead (scripts/bundle-windows.sh).
+      # The backend has no window: it opens the control socket and waits, and the
+      # Avalonia shell connects to it ('task avalonia'). Ending this task ends the
+      # children it supervises, which is what the signal handler in cmd/backend is for.
       #
-      # Appended rather than prepended, unlike the nativegrid build above: MSYS2 ships an
-      # ffmpeg of its own, and putting the prefix first would silently move every capture
-      # and encode onto it instead of the ffmpeg the machine was set up with.
+      # The MSYS2 prefix on Windows answers two needs at once: the toolchain and the
+      # GStreamer development files cgo compiles the receive pipelines against, and the
+      # gst-launch-1.0.exe the publish side spawns. Nothing puts that prefix on a normal
+      # PATH, so without it a dev run does not build, and a build that skipped cgo would
+      # find no launcher either. A packaged build carries its own copy of both beside
+      # the binary instead (scripts/bundle-windows.sh).
+      #
+      # Appended rather than prepended: MSYS2 ships an ffmpeg of its own, and putting
+      # the prefix first would silently move every capture and encode onto it instead of
+      # the ffmpeg the machine was set up with. gcc and pkg-config have no such rival on
+      # a Windows PATH, so appending still finds them.
+      - platforms: [linux, darwin]
+        cmd: go run ./cmd/backend
       - platforms: [windows]
-        cmd: PATH="$PATH;{{.MSYS2_MINGW}}/bin" wails dev
+        cmd: PATH="$PATH;{{.MSYS2_MINGW}}/bin" go run ./cmd/backend
 
   build:
-    desc: Build the Wails app binary into desktop/build/bin
-    dir: desktop
+    desc: Build the backend binary into build/bin
+    # The toolchain and the GStreamer development files come from the flake's dev
+    # shell here. On Windows they come from MSYS2 and the task that names it is
+    # build:windows.
+    env:
+      CGO_ENABLED: "1"
     cmds:
-      - platforms: [linux, darwin]
-        cmd: wails build -tags webkit2_41
-      - platforms: [windows]
-        cmd: wails build
-      # after wails build, so the native grid always sits next to the app binary
-      - task: nativegrid
+      - go build -o build/bin/screenshare-backend ./cmd/backend
 
   build:windows:
-    desc: Cross-build the Windows app binary and bundle ffmpeg/ffplay into desktop/build/bin
-    dir: desktop
-    # No webkit2_41 tag: Windows uses WebView2, not webkitgtk.
-    #
-    # The app only. The native grid links GTK4 and GStreamer through cgo, which
-    # no cross toolchain here builds, so it is built on Windows with 'task
-    # nativegrid' and given its runtime with 'task bundle:windows'.
+    desc: Build the Windows backend binary and copy ffmpeg/ffplay in beside it
+    # Built on Windows and never cross-compiled, which is what docs/packaging.md
+    # already says: the receive pipelines link GStreamer through cgo, and a cgo build
+    # needs the target's own toolchain and development files.
+    platforms: [windows]
+    env:
+      CGO_ENABLED: "1"
     cmds:
-      - wails build -platform windows/amd64
+      - cmd: >-
+          PATH="$PATH;{{.MSYS2_MINGW}}/bin"
+          go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary, so drop those two executables in
-      # build/windows/redist first (see that directory's README). The copy lives here
-      # rather than in a wails postBuildHook because wails execs a hook instead of
-      # running it through a shell, so a hook copying with 'cp' aborts every build on a
-      # Windows host, 'wails dev' included.
-      - platforms: [linux, darwin]
-        cmd: cp -f build/windows/redist/ffmpeg.exe build/windows/redist/ffplay.exe build/bin/
-      - platforms: [windows]
-        cmd: powershell -NoProfile -Command "Copy-Item -Force build/windows/redist/ffmpeg.exe,build/windows/redist/ffplay.exe build/bin/"
+      # build/windows/redist first (see that directory's README).
+      - cmd: powershell -NoProfile -Command "Copy-Item -Force build/windows/redist/ffmpeg.exe,build/windows/redist/ffplay.exe build/bin/"
 
   bundle:windows:
-    desc: Copy the GTK4 and GStreamer runtime the native grid needs next to the built binaries
+    desc: Copy the GStreamer runtime the backend needs next to the built binaries
     platforms: [windows]
-    deps: [nativegrid]
+    deps: [build:windows]
     # MSYS2's own sh runs the script, and MINGW_PREFIX names the prefix to copy out of,
     # because both have to be MSYS2's: Git Bash ships an ldd and a cygpath of its own and
     # sets MINGW_PREFIX to a /mingw64 that carries no GStreamer at all, so left to the
@@ -185,4 +151,4 @@ tasks:
       - cmd: >-
           MINGW_PREFIX="{{.MSYS2_MINGW}}" PATH="{{.MSYS2_MINGW}}/bin;$PATH"
           '{{.MSYS2_ROOT}}/usr/bin/sh.exe' '{{.ROOT_DIR}}/scripts/bundle-windows.sh'
-          '{{.ROOT_DIR}}/desktop/build/bin'
+          '{{.ROOT_DIR}}/build/bin'

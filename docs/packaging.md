@@ -1,9 +1,12 @@
 # Packaging and runtime dependencies
 
-The desktop app is a Wails binary that shells out to `ffmpeg` and `ffplay` for
-every capture, encode, publish and watch operation.
-The binary carries none of that itself, so a build is only complete once those
-programs are reachable at run time.
+The app is two binaries: a headless Go backend that owns capture, encode, publish
+and decode, and the Avalonia shell that talks to it over a local socket
+(`ipc-api.md`). The backend shells out to `ffmpeg` and `ffplay` for capture,
+encode, publish and the single-stream viewer, and links GStreamer through go-gst
+for the receive pipelines a tile decodes through.
+The binaries carry none of ffmpeg or GStreamer themselves, so a build is only
+complete once those programs and libraries are reachable at run time.
 This document describes what the app needs, how it finds it, and how each
 distribution channel is expected to provide it.
 
@@ -14,13 +17,15 @@ distribution channel is expected to provide it.
 | `ffmpeg` | yes | Capture, encode, publish. | The ffmpeg project. |
 | `ffplay` | yes | The watch/viewer window. | The same ffmpeg distribution. |
 | `gst-launch-1.0` | for the GStreamer publish engine | The engine that runs the portal and `*src` capture backends, the encode-rate probe on that engine, and the synthetic test streams. | GStreamer (`gstreamer` plus the plugin packages below). |
+| GStreamer libraries | for the shell's tile grid | Linked into the backend through go-gst; a receive pipeline decodes and converts in-process, and the single-stream player needs none of them. | The same GStreamer packages, plus their development files at build time. |
 
 `ffplay` is part of a full ffmpeg build, so a single ffmpeg install satisfies
 both.
-The GStreamer launcher is a separate program from the libraries the native grid
-links: the grid renders in-process through those, while the app publishes by
-spawning `gst-launch-1.0` the way it spawns `ffmpeg`, so a machine carrying the
-libraries alone still fails every GStreamer publish at lookup.
+The GStreamer launcher is a separate program from the libraries the backend
+links: a receive pipeline runs in-process through those, while a publish spawns
+`gst-launch-1.0` the way it spawns `ffmpeg`, so a machine carrying the libraries
+alone still fails every GStreamer publish at lookup, and one carrying the
+launcher alone decodes no tile.
 Minimal ffmpeg builds sometimes omit `ffplay` and the capture demuxers; the
 build has to include the demuxer for the target platform (`ddagrab` on Windows,
 `x11grab` and `kmsgrab` on Linux).
@@ -33,7 +38,7 @@ known-good dependency set during development.
 Nothing beyond those two is needed to open a viewer, on any platform. A viewer
 counts as connected once the relay reports a reader on the path, which `Live()`
 already polls, and no window-system probe takes part in that signal, so a package
-declares no dependency for it (`StartWatch` in `desktop/internal/app/watch.go` states the
+declares no dependency for it (`StartWatch` in `internal/app/watch.go` states the
 same).
 
 ### The AMD AMF runtime
@@ -163,14 +168,9 @@ driver is a real GPU rather than `simple-framebuffer`) instead of hard-coding on
 
 Windows has no dependency manager the installer can rely on, so the app ships
 ffmpeg with it.
-`task build:windows` copies `ffmpeg.exe` and `ffplay.exe` into the Wails output
-directory next to `screen-sharing.exe`, where `FindExe` finds them first.
-The copy belongs to that task rather than to a Wails post-build hook: Wails execs
-a hook instead of running it through a shell, so a hook is bound to the tools its
-host resolves, and one written for a Linux cross-build aborts every build on a
-Windows host, `wails dev` included.
-A development run on either host needs no bundle, because `FindExe` falls back to
-`PATH`.
+The Windows build task copies `ffmpeg.exe` and `ffplay.exe` into the output
+directory next to the backend binary, where `FindExe` finds them first.
+A development run needs no bundle, because `FindExe` falls back to `PATH`.
 The GStreamer launcher is the exception: on Windows it comes from MSYS2, whose
 prefix nothing puts on a normal `PATH`, so `task dev` appends `mingw64/bin` for the
 run. It is appended rather than prepended because MSYS2 ships an ffmpeg of its own,
@@ -178,27 +178,28 @@ and a prefix in front would move every capture and encode onto it.
 Use a recent third-party build (Gyan or BtbN); `ddagrab` needs a current ffmpeg.
 No privilege step: `ddagrab` and `gdigrab` capture without elevation.
 
-The native grid is a second binary with a second dependency set: GTK4, libadwaita
-and GStreamer, all linked through cgo.
-No cross toolchain builds those from Linux, so `task build:windows` produces the
-app alone and the grid is built on Windows, against the toolchain MSYS2 provides.
+The backend links GStreamer through cgo for its receive pipelines, and no cross
+toolchain builds that from Linux, so the Windows binary is built on Windows
+against the toolchain MSYS2 provides.
 Install MSYS2, then from its MINGW64 shell:
 
 ```bash
-pacman -S mingw-w64-x86_64-{toolchain,pkgconf,go,gtk4,libadwaita,gobject-introspection} \
+pacman -S mingw-w64-x86_64-{toolchain,pkgconf,go,gstreamer} \
           mingw-w64-x86_64-gst-{plugins-base,plugins-good,plugins-bad,plugins-ugly,plugins-rs,rtsp-server,libav}
 ```
 
-`gobject-introspection` is a build input rather than a runtime one: gotk4 resolves it
-through cgo's `pkg-config`, the same as the nativegrid dev shell in `flake.nix` does.
+GTK4, libadwaita and `gobject-introspection` are no longer inputs: they belonged to
+the GTK grid, and the window is Avalonia's now.
 
-Building needs no particular shell. `task nativegrid` and `task bundle:windows` reach the
+Building needs no particular shell. The Windows build and bundle tasks reach the
 toolchain, `MINGW_PREFIX` and MSYS2's own `sh` by path, from the `MSYS2_ROOT` variable in
 `Taskfile.yml`, so they behave the same from Git Bash, PowerShell or cmd; set
-`MSYS2_ROOT` for an install somewhere other than `C:/msys64`. Two details that variable
-exists to absorb: the toolchain loads its own DLLs out of its prefix and cgo looks `gcc`
-up by name, so the prefix has to be on `PATH`, and the Go MSYS2 ships is trimmed and
-needs `GOROOT` named for it.
+`MSYS2_ROOT` for an install somewhere other than `C:/msys64`. What that variable exists
+to absorb is the prefix on `PATH`: cgo looks `gcc` and `pkg-config` up by name, and the
+GStreamer the built binary then loads is in the same directory. The Go is the machine's
+own rather than MSYS2's, which ships a trimmed one that would need `GOROOT` named for it.
+The prefix is appended for the same reason `task dev` appends it, and appending still
+finds `gcc` and `pkg-config`, which nothing else on a Windows `PATH` provides.
 
 Reaching MSYS2 by path rather than through the shell is what makes Git for Windows' Git
 Bash safe to build from, which is the trap otherwise worth knowing: it is built on MSYS2,
@@ -207,57 +208,53 @@ Git's own prefix and carries neither the toolchain nor GStreamer. Its `ldd`, `cy
 `MINGW_PREFIX` are Git's too, which is why `bundle:windows` names MSYS2's `sh` instead of
 taking whichever is on `PATH`.
 
-One Windows runtime quirk belongs to the grid rather than to its build. libsrt names its
-threads by raising the debugger's thread-naming exception, which the Go runtime has no
-owner for and ends the process over, so every pipeline carrying an `srtsrc` or `srtsink`
-died as it was built, reported as `Exception 0x406d1388 ... signal arrived during external
-code execution`. `internal/threadname` disarms it for the grid; the same exception reaches
-any Go process that builds one of those elements, the app's GStreamer publish engine
-included. A C program never sees it, which is why `gst-launch-1.0` plays the same
-pipeline, and RTSP is unaffected because no libsrt is loaded.
+One Windows runtime quirk belongs to the running process rather than to the build. libsrt
+names its threads by raising the debugger's thread-naming exception, which the Go runtime
+has no owner for and ends the process over, so every pipeline carrying an `srtsrc` or
+`srtsink` died as it was built, reported as `Exception 0x406d1388 ... signal arrived during
+external code execution`. `internal/threadname` disarms it in the backend, which is now the
+process that builds those elements in-process; a spawned `gst-launch-1.0` is a C program and
+never sees it, which is why the same pipeline plays there. RTSP is unaffected because no
+libsrt is loaded.
 
-A build that reports `build constraints exclude all Go files` for a gotk4 or go-gst
-package ran against a `go` that found no C compiler and disabled cgo, which excludes
-every file in a binding whose files are all cgo. The extra tell is a `go: downloading
-go1.26.4` line, which a `go` newer than `go.mod` would never print, betraying the Windows
-Go rather than MSYS2's. `task nativegrid` asks for cgo outright so this surfaces as the
-missing compiler instead, and `cmd //c "where go gcc"` shows which toolchain a native
-child of the current shell resolves.
+A build that reports `build constraints exclude all Go files` for a go-gst package ran
+against a `go` that found no C compiler and disabled cgo, which excludes every file in a
+binding whose files are all cgo. The extra tell is a `go: downloading go1.26.4` line, which
+a `go` newer than `go.mod` would never print, betraying the Windows Go rather than MSYS2's.
+The build task asks for cgo outright so this surfaces as the missing compiler instead, and
+`cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
 
-`gtk4paintablesink`, the element every tile renders into, comes from
-`gst-plugins-rs`, as does `whepsrc`; SRT and RTMP come from `gst-plugins-bad`, so
-a bundle missing one of those packages is a bundle missing a transport.
-RTSP is split across two packages by direction: `rtspsrc`, which the grid and the
-test streams watch with, is in `gst-plugins-good`, while `rtspclientsink`, which
+A receive pipeline ends in `appsink`, which is core, so the tile path needs no plugin of
+its own; what it needs is the source element of the leg it watches on.
+`whepsrc` comes from `gst-plugins-rs`; SRT and RTMP come from `gst-plugins-bad`, so a
+bundle missing one of those packages is a bundle missing a transport.
+RTSP is split across two packages by direction: `rtspsrc`, which a receive pipeline and
+the test streams watch with, is in `gst-plugins-good`, while `rtspclientsink`, which
 every RTSP publish and every test stream sends with, is in `gst-rtsp-server`.
 That package is not pulled in by any of the `gst-plugins-*` ones, and its absence
 shows up as `no element "rtspclientsink"` the first time a test stream or an RTSP
 publish starts, long after the build succeeded.
-`x264enc` comes from `gst-plugins-ugly`, which the grid's own demo run needs as well as
-the GStreamer publish engine, so its absence shows up as `no element "x264enc"` on the
-first tile rather than at publish time.
+`x264enc` comes from `gst-plugins-ugly`, which the GStreamer publish engine and the
+encode-rate probe both need.
+The render chains name elements of their own: `glupload`, `glcolorconvert` and
+`glcolorscale` come from `gst-plugins-base`, and a machine registering none of them
+falls back to the CPU chain rather than failing (`viewer-architecture.md`).
 
-A machine that runs the app has no MSYS2, so `bundle:windows`
+A machine that runs the app has no MSYS2, so the bundle task
 (`scripts/bundle-windows.sh`) copies the runtime beside the binaries: the DLL
-closure of the grid, of `gst-launch-1.0.exe` and of every installed plugin flat
+closure of the backend, of `gst-launch-1.0.exe` and of every installed plugin flat
 next to the executables, where the Windows loader looks first; `gst-launch-1.0.exe`
-itself, which the app spawns for every GStreamer publish; the plugins under
-`gstreamer-1.0`; and GLib's `gschemas.compiled` under `share/glib-2.0/schemas`,
-which GTK aborts without.
+itself, which the backend spawns for every GStreamer publish; and the plugins under
+`gstreamer-1.0`.
 
-The window's look travels with it as well, under the same `share/`: the Adwaita
-icon theme with `hicolor` behind it, and Cantarell beside the `fonts.conf` that
-makes it the font Pango resolves to, which needs `mingw-w64-x86_64-cantarell-fonts`
-and `mingw-w64-x86_64-adwaita-icon-theme` installed to bundle. Both are inputs
-GTK would otherwise answer with the machine's own preference, which is what makes
-an unbundled Windows run look unlike a Linux one; `nativegrid/README.md`, "One
-look on both platforms", says what each is and why it is stated rather than
-inherited. Every path in the generated `fonts.conf` is relative to the file, so
-the bundle survives being moved, and its cache goes to the user's directory
-rather than into a bundle that may sit somewhere unwritable.
+The GTK-era inputs are gone with the window that needed them: no `gschemas.compiled`,
+no Adwaita icon theme, no Cantarell and no generated `fonts.conf`, because the shell
+bundles its own font and icon set (`avalonia/README.md`) and no GLib schema is read.
+
 GStreamer looks for plugins in the prefix it was built against, which is a path
-that exists on no machine but the one that built it, so the grid prepends its own
-`gstreamer-1.0` directory to `GST_PLUGIN_PATH` before it initializes the library.
+that exists on no machine but the one that built it, so the backend prepends its own
+`gstreamer-1.0` directory to `GST_PLUGIN_PATH` before it initializes the library, and
+passes the same to every `gst-launch-1.0` child (`publish.GstChildEnv`).
 A directory that is not there is an ordinary installation, which is left to find
 its plugins itself.
 
@@ -291,8 +288,10 @@ postInstall = ''
 
 The runtime dependency is expressed in the closure, not bundled by hand, which is
 what nixpkgs expects.
-The full derivation also builds the React frontend (`buildNpmPackage`) and the Go
-backend (`buildGoModule` with the `webkit2_41` tag), matching `Taskfile.yml`.
+The full derivation builds the Go backend with `buildGoModule` and the Avalonia
+shell with the .NET SDK, matching `Taskfile.yml`; the GStreamer libraries the
+backend links are ordinary build inputs, and the plugin path is set by the wrapper
+the same way ffmpeg's is.
 `kmsgrab` capability is a system concern, handled by the `security.wrappers` entry
 above, not by the package.
 

@@ -7,10 +7,9 @@ implementation: `Palette.axaml`, `Typography.axaml` and `Metrics.axaml` hold the
 and `Text.axaml`, `Surfaces.axaml` and `Buttons.axaml` hold the roles built from them.
 This page states the rules.
 
-The older surfaces do not speak it yet.
-`desktop/frontend` (shadcn on a zinc base, emerald accent) and `nativegrid` (that palette
-flattened to hex constants) still carry the language this page replaced.
-They are non-conforming rather than exempt; see "Where each surface stands".
+One surface speaks it, and it is the only one there is.
+The two that carried the language this page replaced were deleted with the shells they
+belonged to; see "Where each surface stands".
 
 ## Palette
 
@@ -241,9 +240,7 @@ metrics cannot be relied on — on Windows the caption glyphs live in Segoe Flue
 private use area, so a face that is missing paints a tofu box where the close button was.
 Sizes range 12 to 22px by surface.
 
-`desktop/frontend`, `nativegrid` and `avalonia` use the Tabler outline set
-(`@tabler/icons-react` on the web, vendored SVGs recoloured at load on the GTK grid, the
-`TablerIcons.Avalonia` package in the Avalonia shell).
+The shell uses the Tabler outline set, through the `TablerIcons.Avalonia` package.
 Platform icon themes are deliberately not used, so every surface shows the same glyphs.
 No surface draws its own path: a tick or a chevron that was hand-written would be a fourth
 icon set nobody maintains, and it would miss the stroke rule above the first time it was
@@ -286,15 +283,11 @@ A figure the app has not measured prints `…`; it never prints zero.
 
 | Surface | Speaks this language |
 | --- | --- |
-| `avalonia/ScreenShare.App` | Yes. It is the reference implementation, and `Design/` is where the numbers live. |
-| `desktop/frontend` | No. Still shadcn on zinc with an emerald accent; tokens in `desktop/frontend/src/index.css`. |
-| `nativegrid` | No. Still the flattened zinc mapping in `nativegrid/internal/ui/theme/style.css`, switched by a `.dark` class from `AdwStyleManager`. |
-| `docs/web-viewer.md` surfaces | No. They follow the frontend. |
+| `avalonia/ScreenShare.App` | Yes, and it is the only surface. It is the reference implementation, and `Design/` is where the numbers live. |
 
-Porting the two older surfaces is outstanding work, not a decision left open.
-The parts of this page they already satisfy — the wording rules, the status vocabulary, the
-figure names, motion and empty states — did not change, so what is left is the palette, the
-type rule and the ownership split.
-
-GTK CSS has no token pipeline, so when `nativegrid` is ported its values will again be
-flattened to hex constants rather than derived; the ramp above is the source it flattens.
+There is nothing left to port.
+The two surfaces that did not speak this language — the Wails frontend on shadcn zinc with
+an emerald accent, and the GTK grid carrying that palette flattened to hex constants — were
+deleted rather than restyled (`ipc-api.md`, `viewer-architecture.md`).
+A language with one speaker needs no conformance column, and this section stays only to
+record that the split it described is closed.

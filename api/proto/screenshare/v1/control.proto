@@ -83,9 +83,8 @@ service ControlService {
   // GetTestStreamState reports how many synthetic publishers are alive.
   rpc GetTestStreamState(GetTestStreamStateRequest) returns (TestStreamState);
 
-  // GetMoqCert reads the relay's Media-over-QUIC certificate fingerprint for one
-  // stream, so a viewer can pin it.
-  rpc GetMoqCert(GetMoqCertRequest) returns (GetMoqCertResponse);
+  // GetReceiveState returns the streams the backend is decoding.
+  rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
   // --- Effects -----------------------------------------------------------------
 
@@ -130,6 +129,23 @@ service ControlService {
 
   // StopWatch closes one open viewer.
   rpc StopWatch(StopWatchRequest) returns (StopWatchResponse);
+
+  // StartReceive opens a decode for one stream on one leg, inside the backend. It is
+  // the tile path's counterpart of StartWatch, and the difference between the two is
+  // where the frames end up: a watch opens a player window the backend does not draw
+  // in, and a receive decodes into this process, from where the frame channel hands
+  // the frames to the shell (docs/viewer-architecture.md).
+  //
+  // What it opens is a decode and not a tile. Nothing here says where the frames are
+  // drawn, how large, beside which others or in what order: that is the shell's whole
+  // job, and it is why the grid this replaces was the wrong surface.
+  //
+  // A leg that cannot carry the stream's format is refused with the format named,
+  // rather than opening a pipeline that connects and decodes nothing.
+  rpc StartReceive(StartReceiveRequest) returns (StartReceiveResponse);
+
+  // StopReceive closes one running decode.
+  rpc StopReceive(StopReceiveRequest) returns (StopReceiveResponse);
 
   // StartTestStreams launches synthetic publishers, which exercise the viewing
   // paths without a screen capture. A running set is replaced.
@@ -226,7 +242,7 @@ message GetCatalogResponse {
 message GetSettingsRequest {}
 
 message GetSettingsResponse {
-  StreamSettings settings = 1;
+  Settings settings = 1;
   // store_notice states why the persisted settings could not be restored, absent when
   // they were. The settings above are then the defaults, and the file holding the old
   // values has been moved aside rather than overwritten, so the notice carries where
@@ -241,7 +257,7 @@ message GetSettingsResponse {
 // settings message and not a diff, because availability is a function of every
 // field at once and a diff would leave the backend guessing what it is against.
 message ResolveFormRequest {
-  StreamSettings settings = 1;
+  Settings settings = 1;
 }
 
 message ResolveFormResponse {
@@ -267,13 +283,7 @@ message GetViewerStateRequest {}
 
 message GetTestStreamStateRequest {}
 
-message GetMoqCertRequest {
-  string stream_name = 1;
-}
-
-message GetMoqCertResponse {
-  MoqCert cert = 1;
-}
+message GetReceiveStateRequest {}
 
 // --- Effect requests and responses ------------------------------------------------
 //
@@ -284,14 +294,18 @@ message GetMoqCertResponse {
 // that only listened would otherwise be two ways of learning one fact.
 
 message SaveSettingsRequest {
-  StreamSettings settings = 1;
+  Settings settings = 1;
 }
 
 message SaveSettingsResponse {}
 
+// SavePresetRequest stores one way of publishing. A preset is a PublishSettings and
+// nothing else: where the relay is belongs to a deployment and how this machine
+// watches belongs to a viewer, and neither is part of what a saved configuration
+// means.
 message SavePresetRequest {
   string name = 1;
-  StreamSettings settings = 2;
+  PublishSettings settings = 2;
 }
 
 message SavePresetResponse {}
@@ -302,14 +316,18 @@ message DeletePresetRequest {
 
 message DeletePresetResponse {}
 
+// StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than
+// the two groups a pipeline is built from, because both persist the draft they are
+// given: they are how the settings a shell holds reach the backend, and half of them
+// arriving would leave the other half at whatever was stored before.
 message StartPublishRequest {
-  StreamSettings settings = 1;
+  Settings settings = 1;
 }
 
 message StartPublishResponse {}
 
 message ApplyToStreamRequest {
-  StreamSettings settings = 1;
+  Settings settings = 1;
 }
 
 message ApplyToStreamResponse {}
@@ -336,6 +354,29 @@ message StopWatchRequest {
 }
 
 message StopWatchResponse {}
+
+// StartReceiveRequest names the stream and the leg, which together are the identity a
+// receive is keyed by, for the reason WatchKey exists: the relay re-serves each stream
+// on all its listeners, so one stream can be decoded over several legs at once.
+//
+// The leg is named here rather than read off ViewerSettings.tile_watch_transport,
+// which is the same rule StartWatch follows: the setting is what a shell offers by
+// default, and the call is what was chosen.
+//
+// The render chain is not on this message. It is one value for every decode
+// (ViewerSettings), because a chain falls back where a driver cannot run it and that
+// is a property of the machine rather than of a stream.
+message StartReceiveRequest {
+  WatchKey stream = 1;
+}
+
+message StartReceiveResponse {}
+
+message StopReceiveRequest {
+  WatchKey stream = 1;
+}
+
+message StopReceiveResponse {}
 
 message StartTestStreamsRequest {
   // count is how many synthetic publishers to run. Each runs its own software
@@ -364,7 +405,11 @@ message MeasureEncodeRateRequest {
   // settings decide what is timed, and the picture size comes from the monitor they
   // name rather than from the caller: it is the same enumeration the capture crops
   // to and the estimate is priced from.
-  StreamSettings settings = 1;
+  //
+  // The whole Settings rather than the publish group alone: what is timed is the
+  // command the same builders would render for a publish, and holding a narrower
+  // message here would mean two shapes reaching one set of builders.
+  Settings settings = 1;
 }
 
 message MeasureEncodeRateResponse {

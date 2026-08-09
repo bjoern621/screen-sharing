@@ -79,13 +79,17 @@ enum TextArgName {
   TEXT_ARG_NAME_OS = 18;
   TEXT_ARG_NAME_DISPLAY = 19;
   // TEXT_ARG_NAME_OPTION is a settings field a gap takes a value away from, named as
-  // StreamSettings names it, and TEXT_ARG_NAME_VALUE the value taken.
+  // the settings name it, and TEXT_ARG_NAME_VALUE the value taken.
   TEXT_ARG_NAME_OPTION = 20;
   TEXT_ARG_NAME_VALUE = 21;
   // TEXT_ARG_NAME_PATH is a filesystem path the backend handed out. It is not vocabulary:
   // the backend and the shell are the same application on the same machine
   // (docs/ipc-api.md), so a path crosses as a path.
   TEXT_ARG_NAME_PATH = 22;
+  // TEXT_ARG_NAME_ELEMENT is a GStreamer element factory, e.g. "glcolorconvert". Like
+  // TEXT_ARG_NAME_DECODER it is not a settings value: nobody picks one, and a statement
+  // about what this machine cannot run names the one that is missing.
+  TEXT_ARG_NAME_ELEMENT = 23;
 
   // Lists of identifiers, each of the axis its name says. A shell joins them in its
   // own language; the backend states which ones, never how they read together.
@@ -235,6 +239,10 @@ enum TextCode {
   // connects and receives nothing. TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_TRANSPORT,
   // TEXT_ARG_NAME_TRANSPORTS.
   TEXT_CODE_RELAY_SERVES_NO_FORMAT_OVER = 24;
+  // This GStreamer registers none of the elements the render chain is built from, so a
+  // receive pipeline cannot be built on it. TEXT_ARG_NAME_VALUE is the chain and
+  // TEXT_ARG_NAME_ELEMENT the first element it needs and this machine does not have.
+  TEXT_CODE_RENDER_CHAIN_ELEMENT_MISSING = 25;
 
   // --- Pixel format, colour and decoding ----------------------------------------
 

@@ -36,7 +36,7 @@ internal sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> 
 /// </summary>
 internal sealed class DeferredBackend : IBackend
 {
-    private sealed record Held(StreamSettings Draft, TaskCompletionSource<Form> Answer, CancellationToken Cancellation);
+    private sealed record Held(Settings Draft, TaskCompletionSource<Form> Answer, CancellationToken Cancellation);
 
     private readonly SeededBackend _seed = new("linux");
     private readonly List<Held> _held = [];
@@ -57,10 +57,10 @@ internal sealed class DeferredBackend : IBackend
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
         => _seed.CatalogAsync(cancellation);
 
-    public Task<StreamSettings> SettingsAsync(CancellationToken cancellation = default)
+    public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => _seed.SettingsAsync(cancellation);
 
-    public Task<Form> ResolveFormAsync(StreamSettings draft, CancellationToken cancellation = default)
+    public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
         var held = new Held(draft.Clone(), new TaskCompletionSource<Form>(), cancellation);
         _held.Add(held);
@@ -80,7 +80,7 @@ internal sealed class DeferredBackend : IBackend
     public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
         => _seed.WatchingAsync(cancellation);
 
-    public Task StartPublishAsync(StreamSettings settings, CancellationToken cancellation = default)
+    public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
         => _seed.StartPublishAsync(settings, cancellation);
 
     public Task StopPublishAsync(CancellationToken cancellation = default)
@@ -105,7 +105,7 @@ internal sealed class DeferredBackend : IBackend
         => _seed.SubscribeAsync(cancellation);
 
     /// <summary>The draft one held resolve was asked about.</summary>
-    public StreamSettings Draft(int resolve) => _held[resolve].Draft;
+    public Settings Draft(int resolve) => _held[resolve].Draft;
 
     /// <summary>Whether one held resolve has been asked to stop.</summary>
     public bool IsCancelled(int resolve) => _held[resolve].Cancellation.IsCancellationRequested;
@@ -189,9 +189,9 @@ internal sealed class PublishingBackend : IBackend
     public string Refusal { get; set; } = "";
 
     /// <summary>The settings every accepted start was asked for, in order.</summary>
-    public List<StreamSettings> Started { get; } = [];
+    public List<Settings> Started { get; } = [];
 
-    public Task StartPublishAsync(StreamSettings settings, CancellationToken cancellation = default)
+    public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         if (Refusal.Length > 0)
         {
@@ -216,10 +216,10 @@ internal sealed class PublishingBackend : IBackend
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
         => _seed.CatalogAsync(cancellation);
 
-    public Task<StreamSettings> SettingsAsync(CancellationToken cancellation = default)
+    public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
         => _seed.SettingsAsync(cancellation);
 
-    public Task<Form> ResolveFormAsync(StreamSettings draft, CancellationToken cancellation = default)
+    public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
         => _seed.ResolveFormAsync(draft, cancellation);
 
     public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)

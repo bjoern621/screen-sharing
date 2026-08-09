@@ -1,5 +1,5 @@
 {
-  description = "screen-sharing: high-quality group screen sharing (MediaMTX relay + Wails app)";
+  description = "screen-sharing: high-quality group screen sharing (MediaMTX relay + Go backend + Avalonia shell)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -15,26 +15,6 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        # WebKitGTK gets its WebRTC bindings from ENABLE_WEB_RTC, which rides on
-        # ENABLE_EXPERIMENTAL_FEATURES.
-        # The nixpkgs default leaves that off, so the stock webview has no
-        # RTCPeerConnection at all and every WHEP tile in the grid fails on the
-        # missing constructor.
-        #
-        # cache.nixos.org carries the experimental build, but this package set
-        # cannot substitute it.
-        # The gst-plugins-bad override below rewrites a package webkitgtk links
-        # against, and a dependency's store path is part of the dependent's
-        # derivation hash, so the overlaid webkitgtk resolves to an output path no
-        # substituter has.
-        # Enabling WebRTC therefore costs a WebKit source build, and so does every
-        # later edit to the gst override.
-        # Moving that override out of webkitgtk's closure would restore the
-        # substitute at the price of a second gst-plugins-bad in the shell.
-        #
-        # It is an overlay rather than a list entry because the wails package
-        # pulls webkitgtk in too, and whichever copy lands first on
-        # PKG_CONFIG_PATH is the one the app links against.
         pkgs = import nixpkgs {
           inherit system;
           # AMF and its encode core library are AMD's closed-source binaries.
@@ -46,8 +26,6 @@
             ];
           overlays = [
             (final: prev: {
-              webkitgtk_4_1 = prev.webkitgtk_4_1.override { enableExperimental = true; };
-
               # Two plugins of gst-plugins-bad that the cached build does not carry.
               #
               # The GStreamer publish engine's only Vulkan Video path is the vulkan
@@ -60,9 +38,9 @@
               # shaders with.
               #
               # The qsv plugin is both halves of the Intel path: qsvh264enc and its
-              # siblings for the publish engine, qsvh264dec and its siblings for the
-              # native grid, which reaches an Intel GPU's 4:4:4 HEVC decoding that no
-              # va element advertises. Its meson option defaults to auto and nixpkgs
+              # siblings for the publish engine, qsvh264dec and its siblings for a
+              # receive pipeline, which reaches an Intel GPU's 4:4:4 HEVC decoding that
+              # no va element advertises. Its meson option defaults to auto and nixpkgs
               # passes no flag, so the plugin is silently absent from the cached build.
               # It needs no new inputs: the plugin vendors the oneVPL dispatcher and
               # links the va library gst-plugins-bad already builds, and only the Intel
@@ -127,8 +105,8 @@
           ];
         };
         linuxDeps = with pkgs; [
-          gtk3
-          webkitgtk_4_1 # Wails v2 Linux backend (build with tag webkit2_41)
+          # cgo's pkg-config, which is how internal/receive finds the GStreamer
+          # development files gstDeps below carries.
           pkg-config
           xrandr # X11 monitor enumeration (display pkg listX11)
         ];
@@ -144,21 +122,16 @@
           libdrm # modetest: enumerate CRTCs and planes to pick a kmsgrab device
           drm_info # DRM connector, plane, and format dump
         ];
-        # GStreamer runs on both sides of the wire. Publish: pipewiresrc reads
-        # the xdg-desktop-portal ScreenCast node, the rest encodes and ships
-        # over SRT or RTSP. Watch: the native grid binary decodes each stream
-        # through decodebin into a gtk4paintablesink; it inherits this plugin
-        # path from the app that spawns it. gst-launch-1.0 finds these plugins
-        # through GST_PLUGIN_SYSTEM_PATH_1_0 (set in the shellHook).
+        # GStreamer runs on both sides of the wire, and in two processes rather
+        # than one. Publish: pipewiresrc reads the xdg-desktop-portal ScreenCast
+        # node, the rest encodes and ships over SRT or RTSP, in a gst-launch-1.0
+        # child. Watch: a receive pipeline decodes each stream through decodebin
+        # into an appsink (internal/receive), linked into the backend itself, so
+        # this list is also what cgo compiles that package against.
         #
-        # The shellHook replaces that variable rather than extending it, so this
-        # list is also the only plugin path WebKitGTK sees. Anything the webview
-        # needs at runtime belongs here too, libnice included: where WebKit has
-        # the WebRTC bindings it implements RTCPeerConnection on webrtcbin, which
-        # refuses to start without the nice elements. The nixpkgs webkitgtk is
-        # built without those bindings (see docs/viewer-architecture.md), so
-        # libnice only matters against a webkitgtk built with experimental
-        # features on.
+        # Both find these plugins through GST_PLUGIN_SYSTEM_PATH_1_0, set in the
+        # shellHook. The shellHook replaces that variable rather than extending
+        # it, so anything either side needs at runtime belongs here.
         gstDeps =
           with pkgs.gst_all_1;
           [
@@ -169,15 +142,17 @@
             gst-plugins-ugly # x264enc
             gst-rtsp-server # rtspclientsink
             gst-libav # avdec_h264/avdec_h265: the only decoders for H.264 4:4:4 and HEVC RExt (RGB). avenc_aac: the AAC audio encoder
-            # gtk4paintablesink (native grid video sink), rav1enc, rtpav1pay and
-            # whipclientsink: rtspclientsink needs the payloader to carry AV1, and no
-            # other plugin here has one, and whipclientsink is the GStreamer publish
-            # engine's WHIP sink.
+            # rav1enc, rtpav1pay, whipclientsink and whepsrc: rtspclientsink needs the
+            # payloader to carry AV1 and no other plugin here has one, whipclientsink is
+            # the GStreamer publish engine's WHIP sink, and whepsrc is the only reader of
+            # the relay's WHEP endpoint (docs/viewer-architecture.md).
             gst-plugins-rs
           ]
           ++ [
             pkgs.pipewire # pipewiresrc gst plugin
-            pkgs.libnice # nice elements: ICE for webrtcbin, i.e. WHEP in the webview
+            # nice elements: ICE for webrtcbin, which is what both WebRTC legs sit on -
+            # whipclientsink publishing and whepsrc receiving.
+            pkgs.libnice
           ];
         # AMD's hardware encoder, reachable through ffmpeg's h264_amf, hevc_amf
         # and av1_amf. GStreamer has no Linux AMF path at all: its amfcodec
@@ -245,8 +220,6 @@
             with pkgs;
             [
               go
-              nodejs_22
-              wails
               # ffmpeg-full for x11grab/kmsgrab, ffplay, and the software encoder
               # libraries: libvpx, libaom, SVT-AV1 and rav1e are all optional build
               # inputs, and encoders.Detect greys whichever the build lacks.
@@ -318,54 +291,6 @@
             export LD_LIBRARY_PATH="${
               pkgs.lib.makeLibraryPath avaloniaRuntimeDeps
             }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-          '';
-        };
-
-        # Shell for nativegrid, the native grid binary. Kept out of the
-        # default shell so the app's build inputs stay unchanged; gtk4 and
-        # libadwaita exist only here. GStreamer core and base satisfy go-gst's
-        # cgo pkg-config; the plugin path mirrors the default shell's so the
-        # grid also runs from this shell directly, decoding included.
-        devShells.nativegrid = pkgs.mkShell {
-          packages =
-            with pkgs;
-            [
-              go
-              pkg-config
-              gtk4
-              libadwaita
-              gobject-introspection
-              # The look's inputs, pinned rather than taken from the host
-              # (nativegrid/README.md, "One look on both platforms").
-              adwaita-icon-theme
-              cantarell-fonts
-            ]
-            ++ [
-              gst_all_1.gstreamer
-              gst_all_1.gst-plugins-base
-            ]
-            ++ vplRuntime;
-
-          shellHook = ''
-            export GST_PLUGIN_SYSTEM_PATH_1_0="${
-              pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
-            }"
-
-            # The font and the icon theme the window is pinned to, named here
-            # rather than left to the host: a shell that let them fall through
-            # would draw this window in whatever font and icons the machine
-            # running it happens to install, which is the difference the pin
-            # exists to remove. The Windows bundle carries the same two files
-            # and points at them the same way (scripts/bundle-windows.sh).
-            export FONTCONFIG_FILE="${
-              pkgs.makeFontsConf { fontDirectories = [ pkgs.cantarell-fonts ]; }
-            }"
-            export XDG_DATA_DIRS="${pkgs.adwaita-icon-theme}/share:${pkgs.gtk4}/share''${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
-          ''
-          + pkgs.lib.optionalString (vplRuntime != [ ]) ''
-            # The qsv decoders load Intel's oneVPL runtime through the same dispatcher
-            # the publish side uses, so the grid needs the search path as well.
-            export ONEVPL_SEARCH_PATH="${pkgs.lib.makeLibraryPath vplRuntime}"
           '';
         };
       }

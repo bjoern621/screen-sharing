@@ -13,7 +13,7 @@ A screen grabber and a portal session are both just "a supervised process that p
 
 ```mermaid
 flowchart TD
-    UI["Frontend (StreamSettingsCard)"] -->|StartPublish s| App["App.StartPublish"]
+    UI["Shell (settings form)"] -->|StartPublish s| App["App.StartPublish"]
     App -->|"publish.For(s.Capture)"| Reg{"captureBackends"}
     Reg -->|ddagrab / gdigrab / x11grab / kmsgrab / avfoundation| FE["ffmpegEngine"]
     Reg -->|portal| GP["gstEngine{portalCapture}"]
@@ -70,8 +70,8 @@ A transport carrying several engines implements several capabilities; keeping ea
 
 The **watch** package mirrors this seam from the viewer side.
 `watch.Select` picks the viewer engine for the chosen watch leg (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each engine builds its own command line from the transport's `Watcher` URL.
-The leg is passed in by name rather than read off `settings.Stream.Transport`, which is what keeps a viewer free to receive over a protocol the stream was not published with.
-A transport without a URL watch form (WebRTC, whose playback is the WHEP exchange rather than an address) is reachable by the native grid's `GstWatcher` and by no viewer program here; an engine keyed on a capability of its own would touch only the watch package.
+The leg is passed in by name rather than read off `settings.Publish.Transport`, which is what keeps a viewer free to receive over a protocol the stream was not published with.
+A transport without a URL watch form (WebRTC, whose playback is the WHEP exchange rather than an address) is reachable by a receive pipeline's `GstWatcher` and by no viewer program here; an engine keyed on a capability of its own would touch only the watch package.
 
 The **capabilities** package holds the codec facts both engines and the UI share.
 Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg encoder flags, `publish/gstreamer.go` to GStreamer elements.
@@ -152,7 +152,7 @@ The description is complete and true, and it is not the one the form shows: `-co
 
 That is a trade the publisher is entitled to make once it is stated, so the row is offered rather than withheld, under a frame memory of its own.
 `gpu` asks to keep the frames on the device *and* keep the colour the form shows, and is refused on such a row with the cost named; `gpu-encoder-color` asks for the device path at the encoder's colour; `auto` never picks it, because a setting the user never touched must not change what the stream looks like.
-The two fields the encoder overrides grey with the row's `Cost`, and `normalize` moves them onto what it actually signals.
+The two fields the encoder overrides grey with the row's `Cost`, and the repair moves them onto what it actually signals.
 
 ### Capture GPU and encode GPU
 
@@ -202,7 +202,7 @@ Both hand the decoder the bitstream and its framing alone, since a container tha
 An Annex B or OBU stream needs no framing at all; where a format does, it travels in IVF, whose header carries a fourcc, the picture size, the frame rate and the frame count, and nothing about colour.
 
 Limited range is lossy by construction and viewers disagree about the expansion.
-The native grid's `videoconvert` lands about two code values below what ffplay and mpv land on for the same limited-range frame.
+A receive pipeline's `videoconvert` lands about two code values below what ffplay and mpv land on for the same limited-range frame.
 Full range has no expansion step, so both agree.
 
 On Windows and NVIDIA the two engines differ in whose colour the stream carries, which is measured rather than argued.
@@ -288,4 +288,4 @@ A backend that produces GPU frames adds a row per encoder family it can hand the
 A row without its engine half is asserted rather than approximated, since the alternative is picking a memory the elements do not negotiate, so a backend whose engine states no half for any family it could pair with carries no row and captures into system memory.
 An ffmpeg backend refuses settings naming something it cannot capture, a monitor this machine has no output for or a DRM download strategy no table row carries, rather than capturing whatever it can: a command that captures a different source than the form shows selected is the one failure no field can state.
 An engine is one type satisfying `publish.Publisher`, and a new one is needed only for a framework neither covers.
-The backend's platform applicability (which OS and session it runs on) is a row in `CAPTURE_NEEDS`, with the other capture-gating facts in `frontend/src/util/deps.ts`, and its label and tooltip a row in `CAPTURES`.
+The backend's platform applicability (which OS and session it runs on) is its column in `publish.captureNeeds`, with the other capture-gating facts beside it in `form/availability.go`; its label and tooltip are the shell's, keyed by the identifier the row already carries (`ipc-api.md`).

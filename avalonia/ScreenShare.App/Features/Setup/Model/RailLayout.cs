@@ -16,5 +16,5 @@ namespace ScreenShare.App.Features.Setup.Model;
 public static class RailLayout
 {
     /// <summary>The upload capacity the line is measured against.</summary>
-    public const string UplinkKey = "uplink_mbps";
+    public const string UplinkKey = "publish.uplink_mbps";
 }

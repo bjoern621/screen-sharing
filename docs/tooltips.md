@@ -1,85 +1,43 @@
 # Tooltips
 
-Every settings field and select option can carry an explanatory tooltip.
-The tooltips are the form's teaching layer: they explain the encoding model as it is configured, and on the native grid they explain the figures the stats overlay prints.
-This doc covers how one is wired, where its text comes from, how an unavailability note is appended, and how the native grid does without the component the form uses.
+Every settings field and every option a control offers can carry an explanatory tooltip.
+They are the form's teaching layer: they explain the encoding model as it is configured, rather than labelling a control the user is already looking at.
 
-## The layers
+**Every word of them is the shell's.**
+The backend sends a field, its options and, where something is inert, a code naming the fact that made it so; the sentence a reader sees is written where the column width, the tone and the language are visible (`ipc-api.md`).
+So this page is about what a tooltip must say, not about the component that renders one - that belongs to the shell, and `avalonia/README.md` states its layering.
 
-A tooltip passes through three layers, from the Base UI primitive up to the app-facing text.
+## Where the text lives
 
-**Primitive.** `components/ui/tooltip.tsx` wraps `@base-ui/react/tooltip`.
-`TooltipContent` sets the popup styling, the arrow, and the collision rule: prefer the requested side flipping left/right, fall back to the perpendicular axis preferring above.
-`TooltipProvider` is mounted once at the root (`App.tsx`) with `delay=0`, so a hovered trigger shows its tooltip immediately.
+The shell keeps one name and one sentence per identifier the backend can send, in `avalonia/ScreenShare.App/Copy`: `Fields.cs` for a control's heading and help, `Vocabulary.cs` for what each identifier is called, `Descriptions.cs` for the paragraph behind a choice, and `Statements.cs` for the sentence each code the backend can send is rendered as.
 
-**`Tip`.** `components/Tip/Tip.tsx` is the app-facing wrapper every component uses.
-It takes a `text` string and renders `children` as a non-interactive trigger.
-Base UI takes the trigger through its `render` prop, not a Radix-style `asChild`.
-`TooltipContent` carries `whitespace-pre-line`, so a `\n` in `text` renders as a line break.
+An identifier with no name renders as the raw identifier, and a statement with no sentence renders as its code.
+Both are visible rather than swallowed, because that is what gets them written.
 
-**Consumers.** Two components build a `Tip`: `FieldShell` for a field's label, `OptionRow` for a select option.
-Neither is used directly. Field wrappers (`SelectField`, `NumberField`, `TextField`, `UplinkField`) compose `FieldShell`, and `SelectField` renders one `OptionRow` per option.
+A tip whose text depends on the settings is still the shell's sentence, built from what the form resolved rather than from a rule the shell evaluates.
+The quantizer scale is the case that needs it: the scale follows the codec and, where the two engines set different properties, the capture backend's engine, so the tip places its quality landmarks on the scale the running combination actually counts on - and which scale that is arrives on the field.
 
-## Where the text comes from
+## A tooltip that names a transport names its leg
 
-Field label text is the `labelTip` prop, written at the call site in `StreamSettingsCard`.
-Text that depends on the current settings is built by a helper in `util/options.ts` instead of hard-coded there, so it cannot describe a codec the user did not select.
-`cqTip` is the case that needs it: the quantizer scale follows the codec and, where the two engines set different properties, the capture backend's engine, so the tip places its quality landmarks on the scale the running combination actually counts on.
-
-A tooltip that mentions a transport names its leg, publish (publisher to relay) or watch (relay to viewer), because the two are chosen independently and a bare protocol name would read as both.
-Leg-neutral protocol facts stay in `TRANSPORT_META`, whose entries serve the publish select and the watch dropdown alike; whatever holds for one leg only belongs in that field's own `labelTip`.
-
-Option text is the `tip` field on an `Option`, declared once in the option metadata (`util/options.ts` and the domain meta tables) and never inlined twice.
-An `Option` may also carry a `link`; `OptionRow` renders it as an `InfoIcon` beside the label that opens the reference article in the system browser.
-
-```ts
-{
-    value: "srt", label: "srt - Secure Reliable Transport",
-    link: "https://en.wikipedia.org/wiki/Secure_Reliable_Transport",
-    tip: "Secure Reliable Transport: UDP with selective retransmission (ARQ) ...",
-}
-```
+Publish (publisher to relay) or watch (relay to viewer), never the bare protocol name, because the two legs are chosen independently and one name would read as both (`viewer-architecture.md`, "Two legs, two protocols").
+A fact that holds on one leg only belongs to that field's own text.
+A leg-neutral fact about the protocol itself - what SRT's retransmission is, what HLS segments - is said once and serves every field that offers the protocol.
 
 ## Availability notes are additive
 
-When a control or option is unavailable, its reason is appended to the normal tip rather than replacing it.
+When a control or an option is unavailable, its reason is appended to the normal tip rather than replacing it.
 The tooltip states what the thing does, then a blank line, then why it is inert, so the description is never lost.
 
-`FieldShell` appends `Ignored: <reason>` for a whole control that the current settings ignore.
-`OptionRow` appends `Unavailable: <reason>` for a single disabled option.
-Both join with a blank line and drop the empty half, so a field with no `labelTip` shows only the status note.
+A whole control the current settings ignore carries the field's own statement; a single greyed option carries its entry's.
+A field with no help text of its own shows the status note alone rather than an empty line above it.
 
-```ts
-const ignored = disabledReason ? `Ignored: ${disabledReason}` : "";
-const tip = [labelTip, ignored].filter(Boolean).join("\n\n");
-```
+A live control can carry a note the same way, appended without greying the field: the value still reaches the encoder and does something the base text does not describe (`field-availability.md`).
 
-A live control can also carry a note, appended by `withNote` at the call site: `deps.note` explains what the value does in a combination the base text does not cover, without greying the field.
-
-The reasons are not hand-written here.
-They come from `deps.disabled` (whole control), `deps.note` (live control) and `deps.optionDisabled` (single option) produced by `evaluateDeps` in `util/deps.ts`.
-See `field-availability.md` for the rule deciding whether an inapplicable field is hidden or disabled-with-a-reason, and `domain-model.md` for the tables the reasons derive from.
-
-## The native grid
-
-GTK carries a tooltip on any widget and walks up to the first ancestor that has one, so the grid needs no wrapper component.
-The teaching layer there is the stats overlay: a card of keys and numbers explains nothing on its own, so every row and block heading carries a tooltip, declared in the same table as the row (`internal/ui/stats/rows.go`).
-The row's box holds it, which covers the key, the value and the gap between them.
-
-A value too long for the card ellipsizes, and its label then carries the full text above the row's explanation, joined by the same blank line the form uses for its notes.
-Where the value fits, the label takes itself out of the tooltip query instead of carrying an empty one, so the row's explanation reaches the pointer.
-
-Transport counters are not in that table: the player labels them, so `player.StatRow` carries a `Tip` beside its `Label` and the element table in the GStreamer backend fills both.
-
-The sidebar's watch-leg popover is the other teaching surface there, and none of its text lives in that binary.
-Each knob crosses the process boundary in the roster with the transport that declared it (`transport.WatchTunable`), tip included, so what SRT's latency window means sits beside the code that writes it into the source fragment.
-
-The app bar under the rows is the exception that stays in the binary: its two controls act on the app rather than on a stream, and their tooltips say what each reaches into the other process for and what it leaves playing.
+The reasons are not written per field.
+They are the codes the availability pass produces from the tables (`form/availability.go`), so a tooltip cannot explain a greying the encoder does not have.
 
 ## Adding a tooltip
 
-- A new field: pass `labelTip` (and optional `labelLink`) to the field wrapper. The shell renders the tooltip; there is no markup to write.
-- A new select option: add `tip` (and optional `link`) to the `Option` in `util/options.ts`. `OptionRow` renders it.
-- Anything else: wrap the element in `Tip` with a `text` prop.
-- A native grid stat row: add `tip` beside its `key` in the blocks table, or `tip` to the field in `statSources` for a transport counter.
-- A native grid watch option: write it into the knob's declaration in the transport's `watchKnob` list (`desktop/internal/transport`). It travels in the roster and the popover renders it.
+- A new field or option: add the sentence to `Copy` under the identifier the backend sends. Nothing renders it specially, and no markup is written.
+- A new reason: the backend adds a code, and the shell adds the sentence for it. A code with no sentence is visible on screen, which is the point at which somebody writes one.
+- A figure on a live screen: name it as the glossary names it, and say what a reader is meant to do with it rather than restating the unit already printed beside it.

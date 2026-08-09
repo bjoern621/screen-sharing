@@ -77,7 +77,7 @@ public sealed class QualityStepTests
     [Fact]
     public async Task TheOutputResolutionOffersTheSourceAndTheScalesBelowIt()
     {
-        var resolution = Select(await FlowAsync(), "output_resolution");
+        var resolution = Select(await FlowAsync(), "publish.output_resolution");
 
         Assert.Contains(resolution.Options, option => option.Value == "1920x1080");
         Assert.Contains(resolution.Options, option => option.Value == "2560x1440");
@@ -91,7 +91,7 @@ public sealed class QualityStepTests
     [Fact]
     public async Task AScaledResolutionSaysWhatItWasScaledFrom()
     {
-        var scaled = Select(await FlowAsync(), "output_resolution").Options.Single(option => option.Value == "1920x1080");
+        var scaled = Select(await FlowAsync(), "publish.output_resolution").Options.Single(option => option.Value == "1920x1080");
 
         Assert.True(scaled.HasNote);
         Assert.Contains("2560", scaled.Note);
@@ -101,12 +101,12 @@ public sealed class QualityStepTests
     public async Task PickingAResolutionMovesTheDraftAndTheControlShowsIt()
     {
         var flow = await FlowAsync();
-        var resolution = Select(flow, "output_resolution");
+        var resolution = Select(flow, "publish.output_resolution");
         var picked = resolution.Options.Single(option => option.Value == "1280x720");
 
         await ChooseAsync(flow, picked);
 
-        var after = Select(flow, "output_resolution");
+        var after = Select(flow, "publish.output_resolution");
         Assert.Equal(picked.Label, after.PickedLabel);
         Assert.Single(after.Options, option => option.IsSelected);
         Assert.Equal("1280x720", after.Options.Single(option => option.IsSelected).Value);
@@ -120,11 +120,11 @@ public sealed class QualityStepTests
     public async Task PickingAFramerateStoresTheNumberAndNotAZero()
     {
         var flow = await FlowAsync();
-        var picked = Select(flow, "fps").Options.Single(option => option.Value == "30");
+        var picked = Select(flow, "publish.fps").Options.Single(option => option.Value == "30");
 
         await ChooseAsync(flow, picked);
 
-        var after = Select(flow, "fps");
+        var after = Select(flow, "publish.fps");
         Assert.Equal("30", after.Options.Single(option => option.IsSelected).Value);
         Assert.Equal("30", after.Number.ToString());
     }
@@ -138,7 +138,7 @@ public sealed class QualityStepTests
     [Fact]
     public async Task AFramerateAboveTheSourceIsStillOffered()
     {
-        var above = Select(await FlowAsync(), "fps").Options.Single(option => option.Value == "120");
+        var above = Select(await FlowAsync(), "publish.fps").Options.Single(option => option.Value == "120");
 
         Assert.True(above.IsEnabled);
         Assert.Empty(above.Reason);
@@ -183,11 +183,11 @@ public sealed class QualityStepTests
     public async Task ASecondRenderPassLeavesTheEntriesAlone()
     {
         var flow = await FlowAsync();
-        var before = Select(flow, "output_resolution").Options.ToList();
+        var before = Select(flow, "publish.output_resolution").Options.ToList();
 
         flow.Apply();
         await flow.Settled;
 
-        Assert.Equal(before, Select(flow, "output_resolution").Options);
+        Assert.Equal(before, Select(flow, "publish.output_resolution").Options);
     }
 }

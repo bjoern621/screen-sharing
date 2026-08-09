@@ -44,16 +44,70 @@ internal static class ControlEndpoint
     public static string Describe() => OperatingSystem.IsWindows() ? $@"\\.\pipe\{PipeName}" : SocketPath();
 
     /// <summary>
+    /// How long a freshly started backend is given to bind, and how often it is asked in the
+    /// meantime.
+    ///
+    /// The wait exists because a process that has been started is not a process that is
+    /// listening yet, and the shell has nothing else to wait on: the endpoint is the whole
+    /// discovery mechanism, so being able to open it is the only signal that the backend is up.
+    /// Both figures are short - the backend opens its socket before it does anything else, and
+    /// a window that hesitates for seconds on every launch would be paying for the case where
+    /// there is no backend to start at all.
+    /// </summary>
+    private static readonly TimeSpan StartDeadline = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan StartPoll = TimeSpan.FromMilliseconds(50);
+
+    /// <summary>
     /// Opens one stream to the backend, which is what a gRPC channel calls whenever it needs a
     /// connection - the first call, and every call after one was lost. That is the whole of
     /// this shell's reconnect: a backend that was started after the window was is reached by
     /// asking again, with nothing here holding a dead handle.
     ///
     /// A refused connection throws, and it throws quickly on both platforms: an absent pipe and
-    /// an unbound socket both fail at once rather than waiting. The caller turns that into the
+    /// an unbound socket both fail at once rather than waiting. Nothing listening is also the
+    /// one condition the shell can act on rather than report, so it starts a backend and asks
+    /// again until the deadline (<see cref="BackendProcess"/>). A start that fails, or one that
+    /// never binds, leaves the original failure standing and the caller turns it into the
     /// message the screen shows.
     /// </summary>
     public static async ValueTask<Stream> ConnectAsync(CancellationToken cancellation)
+    {
+        try
+        {
+            return await OpenAsync(cancellation).ConfigureAwait(false);
+        }
+        catch (Exception) when (!cancellation.IsCancellationRequested && BackendProcess.EnsureStarted())
+        {
+            return await OpenStartingAsync(cancellation).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Asks the endpoint until a backend that is coming up answers, and rethrows the last
+    /// refusal once the deadline passes.
+    ///
+    /// The failure it ends on is a connect failure exactly like the first one, which is what
+    /// keeps the sentence the screen shows the same whether a backend was started or not: what
+    /// the reader is told is that nothing is listening, which is true in both cases.
+    /// </summary>
+    private static async ValueTask<Stream> OpenStartingAsync(CancellationToken cancellation)
+    {
+        var deadline = DateTime.UtcNow + StartDeadline;
+        while (true)
+        {
+            try
+            {
+                return await OpenAsync(cancellation).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellation.IsCancellationRequested && DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(StartPoll, cancellation).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>One attempt at the endpoint, per platform.</summary>
+    private static async ValueTask<Stream> OpenAsync(CancellationToken cancellation)
     {
         if (OperatingSystem.IsWindows())
         {

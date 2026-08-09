@@ -115,7 +115,7 @@ public sealed class SetupViewModel : Observable
     /// in place by <see cref="Write"/>, which is why nothing else ever holds this instance -
     /// the backend is handed a copy and the form keeps its own.
     /// </summary>
-    private StreamSettings? _draft;
+    private Settings? _draft;
 
     /// <summary>
     /// The draft the backend was last asked about: the copy handed to the resolve, replaced
@@ -123,7 +123,7 @@ public sealed class SetupViewModel : Observable
     /// the draft against it answers exactly one question - has anything moved since the
     /// backend was last asked - and that is the whole of the round-trip guard.
     /// </summary>
-    private StreamSettings? _asked;
+    private Settings? _asked;
 
     /// <summary>
     /// Which resolve the flow is waiting for, counting up. An answer arriving with an older
@@ -415,7 +415,7 @@ public sealed class SetupViewModel : Observable
         // so a relay that came back unlocks the button on the next pass without anything having
         // to remember that it was locked.
         var gate = PublishGate.Of(IsPublishable, _unreachable, _session.Publish, _session.Relay, _starting);
-        Review.Apply(gate, _draft?.Name ?? "", _refusal, Summaries(form), checks);
+        Review.Apply(gate, _draft?.Publish?.Name ?? "", _refusal, Summaries(form), checks);
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));
 
@@ -429,7 +429,7 @@ public sealed class SetupViewModel : Observable
         // The one-line shorthand for the whole configuration. Composed here out of the draft
         // the form carried, for the reason each group's is: it picks a separator, an
         // abbreviation and a length, none of which is visible from the backend.
-        Headline = _session.Words.Headline(form?.Settings);
+        Headline = _session.Words.Headline(form?.Settings?.Publish);
         CommandError = form?.Summary?.CommandError ?? "";
         HasCommandError = CommandError.Length > 0;
         Unavailable = _unreachable;
@@ -511,7 +511,7 @@ public sealed class SetupViewModel : Observable
     /// Starts one read and supersedes whatever was in flight. The token asks the older call
     /// to stop; the request number it stamps is what settles the race the token can lose.
     /// </summary>
-    private Task Start(StreamSettings? draft)
+    private Task Start(Settings? draft)
     {
         _cancel?.Cancel();
         _cancel?.Dispose();
@@ -530,7 +530,7 @@ public sealed class SetupViewModel : Observable
     /// The draft to resolve, or null on the first read, where the stored settings are the
     /// draft and fetching them is the hop in front of it.
     /// </param>
-    private async Task ResolveAsync(StreamSettings? draft, int request, CancellationToken cancellation)
+    private async Task ResolveAsync(Settings? draft, int request, CancellationToken cancellation)
     {
         try
         {
@@ -895,7 +895,7 @@ public sealed class SetupViewModel : Observable
         _ = GoLiveAsync(_draft.Clone());
     }
 
-    private async Task GoLiveAsync(StreamSettings settings)
+    private async Task GoLiveAsync(Settings settings)
     {
         try
         {

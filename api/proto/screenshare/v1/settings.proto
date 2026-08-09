@@ -11,42 +11,65 @@ package screenshare.v1;
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// StreamSettings is every user-controllable aspect of the stream, and it is the
-// only settings shape on the wire: the same message is read back, edited, resolved
-// into a form, saved, published from and stored in a preset.
+// Settings is every user-controllable aspect of the product, in the three groups it
+// divides into, and it is the only settings shape on the wire: the same message is
+// read back, edited, resolved into a form and saved.
 //
-// Field names mirror the Go settings struct's JSON tags one for one, because a
-// capability gap and a form field are the same identifier on both sides
-// (docs/domain-model.md). A shell that receives a gap naming "chroma" therefore
-// knows which control it greys with no translation table of its own.
+// The three are separate messages because they answer to different things and change
+// at different times. Where the relay is is one machine's deployment; what this
+// machine publishes is one publisher's choice; how this machine watches is one
+// viewer's, and a viewer that publishes nothing still has all of it. Flattened into
+// one message, every consumer had to know which of the three a field belonged to and
+// nothing said so.
 //
 // A shell never constructs one of these from nothing. It receives a draft from
 // GetSettings or from a preset, changes the one field the user moved, and sends the
 // whole message back. Which values each field may take is not encoded here on
 // purpose: it depends on the other fields, and Form is where that answer lives.
-message StreamSettings {
-  // Name is the stream's path on the relay, which is what a viewer asks for.
+message Settings {
+  RelaySettings relay = 1;
+  PublishSettings publish = 2;
+  ViewerSettings viewer = 3;
+}
+
+// Field keys are qualified by the group they belong to: the field name this file
+// spells, under the name Settings gives its group. So "relay.host", "publish.codec"
+// and "viewer.render_chain".
+//
+// The qualification is what makes a key an address rather than a hint. A shell writes
+// a value back by resolving the key against these descriptors - a group, then a field
+// in it - and a capability gap naming a key names a control with no translation table
+// in between (docs/domain-model.md). Two groups may therefore carry the same field
+// name without the two ever being confused, which the flat message could not allow and
+// which is why several fields used to carry the leg in their own name.
+
+// RelaySettings is where the relay is and which of its listeners are on which port.
+//
+// One host and one port per protocol, because the relay serves each on its own. Every
+// port here is a port on the relay, so none of them names the protocol twice.
+message RelaySettings {
+  string host = 1;
+  // srt_port is the UDP port of the relay's SRT listener.
+  int32 srt_port = 2;
+  // api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
+  int32 api_port = 3;
+  int32 rtsp_port = 4;
+  int32 webrtc_port = 5;
+  int32 rtmp_port = 6;
+  int32 hls_port = 7;
+}
+
+// PublishSettings is what this machine sends to the relay and how it is encoded. A
+// preset is one of these and nothing else: what a saved configuration means is a way
+// of publishing, and neither where the relay is nor how this machine watches is part
+// of it.
+message PublishSettings {
+  // name is the stream's path on the relay, which is what a viewer asks for.
   string name = 1;
 
-  // The relay's address and its listeners. One host, one port per protocol, since
-  // the relay serves each on its own.
-  string relay_host = 2;
-  // relay_port is the UDP port of the relay's SRT listener.
-  int32 relay_port = 3;
-  // api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
-  int32 api_port = 4;
-  int32 rtsp_port = 5;
-  int32 webrtc_port = 6;
-  int32 rtmp_port = 7;
-  int32 hls_port = 8;
-  // moq_port is one number for two listeners: the Media-over-QUIC fingerprint
-  // endpoint on TCP and the WebTransport endpoint on UDP. It is a watch-leg port
-  // with no publish counterpart, since nothing here publishes MoQ.
-  int32 moq_port = 9;
-
-  // transport is the publish leg, publisher to relay, keyed as the transport
+  // publish_transport is the publish leg, publisher to relay, keyed as the transport
   // registry names it ("srt", "rtsp", "rtmp", "webrtc", ...).
-  string transport = 10;
+  string publish_transport = 10;
   // codec is an encoder name, a row of the codec table in catalog.proto.
   string codec = 11;
   // mode is the rate control: cbr, vbr, abr, crf or lossless.
@@ -100,25 +123,27 @@ message StreamSettings {
   // constraint neither end declares alone.
   string capture_memory = 28;
 
-  // The SRT latency window per hop. Glass-to-glass delay is the sum of both plus
-  // encode and decode: publisher to relay and relay to viewer are independent SRT
-  // links, each holding packets for its own retransmit window.
+  // srt_publish_latency_ms is this leg's SRT retransmit window. The watch leg has its
+  // own (ViewerSettings), and glass-to-glass delay is the sum of the two plus encode
+  // and decode: the two hops are independent SRT links, each holding packets for its
+  // own window.
   int32 srt_publish_latency_ms = 29;
-  int32 srt_watch_latency_ms = 30;
 
-  // The RTSP lower transport, one field per leg: "tcp" interleaves every track over
-  // the connection the session already holds, "udp" negotiates a port pair per
-  // track. The legs are separate values because they cross different networks.
+  // rtsp_publish_protocol is the RTP lower transport of this leg: "tcp" interleaves
+  // every track over the connection the session already holds, "udp" negotiates a port
+  // pair per track. The watch leg names its own, because the two cross different
+  // networks and it is the network that decides whether a port pair survives.
+  //
+  // Both legs keep the leg in the field name even though the message they sit in now
+  // says it. The pair is read as a pair wherever the two are compared, and a reader
+  // holding "publish.rtsp_protocol" beside "viewer.rtsp_protocol" has to carry the
+  // group along to keep them apart.
   string rtsp_publish_protocol = 31;
-  string rtsp_watch_protocol = 32;
 
   // uplink_mbps is the upload capacity the user says this machine has. Nothing is
   // enforced against it; it is what the warnings in Form.summary are weighed
   // against, and MeasureUplink replaces the guess with a measurement.
   int32 uplink_mbps = 34;
-
-  // watch_transport is the leg an external viewer receives over.
-  string watch_transport = 35;
 
   // output_resolution is the picture the encoder is fed, as "WIDTHxHEIGHT", and the
   // empty string where the capture's own size reaches the encoder unscaled.
@@ -130,27 +155,73 @@ message StreamSettings {
   // arrive are ones it wrote.
   string output_resolution = 37;
 
-  // 36 was grid_transport and 33 rtsp_watch_latency_ms: the watch leg every tile of
-  // the GTK4 grid window received over, and the jitter buffer that window's receiving
-  // pipeline sized itself by. That window and the Wails app it was launched from are
-  // obsolete, and both knobs were theirs alone - the external players this contract
-  // does describe buffer by reorder queue rather than by time, which is not the same
-  // knob under another name.
+  // The numbers this message does not use are the ones the flat StreamSettings spent
+  // on the other two groups, kept out of reach so a field of this group never lands on
+  // a number an older build read as a relay port or a watch leg. 2 to 9 were the relay
+  // host and its listeners, 30, 32, 33, 35 and 36 the watch leg's own knobs, and 33
+  // and 36 were already reserved before the split.
   //
-  // The second will be back. A viewer that decodes through a receiving pipeline needs
-  // it again, and it is declared then, against a viewer that reads it - not left on
-  // the wire as a control no shell can honour. The Go settings struct carries both for
-  // as long as the old binary is in the tree, which is why nothing on the wire may
-  // reuse these numbers; wire.StreamSettingsOnto is what stops a draft that cannot see
-  // them from clearing them.
-  reserved 33, 36;
-  reserved "rtsp_watch_latency_ms", "grid_transport";
+  // "transport" is reserved for the rename above rather than for a removal: the field
+  // is publish_transport now, on the same number, and a build that still spells it the
+  // old way should fail to compile rather than to parse.
+  reserved 2 to 9, 30, 32, 33, 35, 36;
+  reserved
+    "relay_host",
+    "relay_port",
+    "api_port",
+    "rtsp_port",
+    "webrtc_port",
+    "rtmp_port",
+    "hls_port",
+    "moq_port",
+    "transport",
+    "srt_watch_latency_ms",
+    "rtsp_watch_protocol",
+    "rtsp_watch_latency_ms",
+    "watch_transport",
+    "grid_transport";
 }
 
-// Preset is a named StreamSettings the user saved. The settings travel whole rather
+// ViewerSettings is how this machine watches, which is independent of what it
+// publishes: the relay re-serves every ingested stream on all its listeners, so a
+// viewer receives over a leg chosen here rather than over the one a stream arrived on.
+//
+// There are two watch legs rather than one because there are two receivers, and they
+// reach different protocol sets (docs/viewer-architecture.md). One field would let
+// each store a leg the other cannot run.
+message ViewerSettings {
+  // player_watch_transport is the leg an external player opens, narrowed to the
+  // protocols a player reaches by URL.
+  string player_watch_transport = 1;
+  // tile_watch_transport is the leg a receive pipeline decodes from, which also
+  // reaches WHEP, whose playback is an exchange rather than an address.
+  string tile_watch_transport = 2;
+
+  // rtsp_watch_protocol is the RTP lower transport of the watch leg, "tcp" or "udp".
+  // Both receivers read it: a player passes it to libavformat, a receive pipeline to
+  // rtspsrc.
+  string rtsp_watch_protocol = 3;
+  // srt_watch_latency_ms is the watch leg's SRT retransmit window, the second half of
+  // the pair PublishSettings holds the first of.
+  int32 srt_watch_latency_ms = 4;
+
+  // rtsp_watch_latency_ms sizes a receive pipeline's jitter buffer in milliseconds and
+  // reaches the tile alone: an external player buffers by reorder queue rather than by
+  // time, which is not the same knob under another name. It was on the flat message
+  // once, left with the GTK grid, and comes back here against a viewer that reads it.
+  int32 rtsp_watch_latency_ms = 5;
+
+  // render_chain names the elements a receive pipeline converts decoded frames with,
+  // one of the chains the form offers. It is one value for every tile rather than one
+  // per stream: a chain falls back because a driver cannot run it, and that is a
+  // property of the machine (docs/viewer-architecture.md, "The receive package").
+  string render_chain = 6;
+}
+
+// Preset is a named PublishSettings the user saved. The settings travel whole rather
 // than as a diff against the defaults, so applying one is an assignment and not a
 // merge whose result depends on what the form held first.
 message Preset {
   string name = 1;
-  StreamSettings settings = 2;
+  PublishSettings settings = 2;
 }

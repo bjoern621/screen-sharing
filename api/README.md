@@ -13,7 +13,7 @@ Read that first. What follows is how to work in this directory.
 ```
 api/
   proto/screenshare/v1/     the schema, one file per concern
-    settings.proto            StreamSettings and Preset
+    settings.proto            Settings, its three groups and Preset
     catalog.proto             the fixed facts: codecs, decoders, monitors, carriage
     form.proto                Form: every field, option, greying and reason, decided
     session.proto             the running state: publish, relay, viewers
@@ -64,7 +64,7 @@ A change that cannot be additive is a `v2`: a new directory beside this one, bot
 
 Adding a settings field is three edits and they belong together:
 
-1. the field in `StreamSettings`, with the comment saying what it means and why it is its own field;
+1. the field in the settings group it belongs to, with the comment saying what it means and why it is its own field;
 2. the `Field` the backend emits for it from `ResolveForm`, with its label, help text and options;
 3. the backend rule that reads it.
 

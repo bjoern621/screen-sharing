@@ -1,28 +1,31 @@
 # avalonia
 
-The Avalonia app, and the intended successor to both existing desktop surfaces: the Wails
-app in `desktop/` and the GTK4 grid in `nativegrid/`. That is the whole surface, not the
-grid alone - the settings form, the encoder and transport pickers, the live-now list and
-the tile grid all end up here. Neither existing module is touched yet, and nothing is
-replaced until the video path below is proven.
+The Avalonia app, and the only desktop surface there is. The Wails app and the GTK4 grid
+it launched were both deleted rather than kept in step (`docs/viewer-architecture.md`), so
+this is the whole surface - the settings form, the encoder and transport pickers, the
+live-now list and the tile grid all live here.
 
 Today it is one vertical slice: the relay connection check. That slice is deliberate
-rather than a hello world - it is a port of `desktop/internal/relay`, so it exercises
-polling, byte-delta arithmetic, an unreachable relay as an environment condition, and the
-status vocabulary, on real infrastructure.
+rather than a hello world - it is a port of `internal/relay`, so it exercises polling,
+byte-delta arithmetic, an unreachable relay as an environment condition, and the status
+vocabulary, on real infrastructure.
 
 ## Running it
 
 ```sh
 task avalonia          # run it
-task avalonia:build    # build into desktop/build/bin/avalonia
+task avalonia:build    # build into build/bin/avalonia
 task avalonia:test     # 55 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
 
-The setup flow needs the Go backend running, since everything on it is resolved there. Without
-one it says so and offers to look again, which is the other state worth looking at.
+The setup flow needs the Go backend running, since everything on it is resolved there. The app
+starts one itself when nothing is listening on the control endpoint, so `task avalonia` is the
+whole of what a reader has to run; a backend already up - a `task dev` run, a second window -
+is connected to rather than duplicated, and one this app started is stopped when the window
+closes. Where there is no backend binary to start, the app says so and offers to look again,
+which is the other state worth looking at.
 
 ## Layout
 
@@ -89,13 +92,11 @@ is the single rule that sizes and strokes them: three sizes off the design's 12-
 one 1.2px stroke, one brush role. Nothing here draws a path and nothing here uses a character
 as a glyph - a `✓`, a `⌄` or a hand-written close cross is the platform text face rather than
 the icon set, so it lands at a different weight beside a real icon and cannot be restated at
-another size. The web frontend takes the same set from `@tabler/icons-react` and the GTK grid
-from vendored Tabler SVGs, which is what makes a tick mean one thing across all three.
+another size.
 
 `docs/design-language.md` states these rules for the whole product, and this module is its
-reference implementation: `Design/` is where the numbers live. The Wails frontend and the
-GTK grid still carry the zinc-and-emerald language this replaced, so they are non-conforming
-rather than exempt, and porting them is outstanding work.
+reference implementation: `Design/` is where the numbers live. The two surfaces that carried
+the zinc-and-emerald language this replaced are deleted, so there is nothing left to port.
 
 `ScreenShare.App` is the shell rather than a viewer, because the publish side lands here
 too. The settings form is now the `Setup` slice, which was the surface with the most state
@@ -136,7 +137,7 @@ added to the contract is a step that appears and works with nothing here to edit
 renamed cannot leave a hole. What is still this module's is placement - the terminal step, and
 the one group drawn by a layout of its own (`Model/QualityLayout.cs`).
 
-Two things keep the rest honest. A field's key is a `StreamSettings` field name, so a write
+Two things keep the rest honest. A field's key is a settings group and a field in it, so a write
 goes through the message descriptor (`Backend/SettingsDraft.cs`) and a field added to the
 contract is a control that appears and works with nothing here to edit. And the form's answer
 is adopted whole: `SetupViewModel` replaces its draft with the one `ResolveForm` returned
@@ -163,6 +164,13 @@ codecs those are reaches this module.
 `BackendUnavailableException`, the flow shows its message above the steps with a "look again"
 button, and no form is invented in the meantime. Retrying is the reader's rather than a timer's,
 so an absent socket is not hammered for as long as the window is open.
+
+That state is narrower than it was, and deliberately not gone. `ControlEndpoint` starts a backend
+when the endpoint refuses a connection and asks again until it binds (`BackendProcess`), because
+the backend is a headless binary and a reader who opened the app asked for both halves of it.
+What is left is the case the shell cannot act on: no binary beside the app or on `PATH`, or an
+operating system that refused to run it. The sentence is the same one either way - nothing is
+listening on this endpoint - because that is what is true whether a start was attempted or not.
 
 **Which sentence it is depends on who wrote the status, not on which code it carries.** A
 status the backend served carries prose written for a person and is shown as it arrived: the

@@ -45,140 +45,152 @@ public static class Fields
 
     private static readonly Dictionary<string, Entry> Entries = new()
     {
-        ["name"] = new(
+        ["publish.name"] = new(
             "Stream name",
             "The name your viewers open. It becomes the last part of the address you send them, so keep it short and free of spaces."),
 
-        ["relay_host"] = new(
+        ["relay.host"] = new(
             "Relay address",
             "The machine running the relay. You push to it and everyone watching pulls from it, so it needs to be reachable from both sides - a machine on the same network for a LAN stream, a server with a public address for anyone further away."),
 
-        ["capture"] = new(
+        ["publish.capture"] = new(
             "How to capture",
             "How frames leave your desktop. This is the first choice to get right: it also fixes which encoder software runs, so almost everything below follows from it. Prefer the one your system is built around - Desktop Duplication on Windows, the screen picker on a Wayland desktop."),
 
-        ["monitor"] = new(
+        ["publish.monitor"] = new(
             "Which screen",
             "The monitor to share. Only what this screen shows is sent; windows on your other screens stay private."),
 
-        ["output_resolution"] = new(
+        ["publish.output_resolution"] = new(
             "Size sent",
             "The size the encoder is fed. Leave it at the source to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: fewer bits to encode, to upload, and for your viewers to decode - the single most effective knob when the connection is the problem."),
 
-        ["fps"] = new(
+        ["publish.fps"] = new(
             "Frame rate",
             "How many pictures a second. Higher is smoother and costs proportionally more upload and more encoding. Above your monitor's own refresh rate the extra frames are duplicates: they cost bandwidth and buy no smoothness.",
             ""),
 
-        ["capture_memory"] = new(
+        ["publish.capture_memory"] = new(
             "Where frames travel",
             "Whether the frames stay on the graphics card on their way to the encoder or take a trip through main memory. Staying on the card is free but only possible when the capture and the encoder can share it, so this follows both choices above. Automatic is right unless you are chasing the last of the CPU.",
             DocDrmPrime),
 
-        ["drm_map"] = new(
+        ["publish.drm_map"] = new(
             "Frame download route",
             "How scanout frames are brought into main memory. They are usually stored in a GPU-specific layout, so they have to be read back through a device that understands it. Leave it automatic unless the capture fails to start.",
             DocDrm),
 
-        ["codec"] = new(
+        ["publish.codec"] = new(
             "Encoder",
             "What compresses the picture, in two parts: the format your viewers have to decode, and the hardware or library that produces it. Hardware encoders are nearly free and slightly less efficient; the CPU encoders squeeze harder and charge you for it."),
 
-        ["chroma"] = new(
+        ["publish.chroma"] = new(
             "Colour detail",
             "How much colour information is kept. Video normally throws away three quarters of it, which nobody notices in a film and everyone notices in coloured text. Keeping more costs bits and narrows which viewers can decode it on their GPU - every format still plays everywhere, on the CPU if nothing else.",
             DocChroma),
 
-        ["color_range"] = new(
+        ["publish.color_range"] = new(
             "Colour range",
             "Which code values carry picture. Your desktop is full range; broadcast video is not. Getting this wrong is what makes a stream look washed out or crushed at the other end.",
             DocYCbCr),
 
-        ["enc_preset"] = new(
+        ["publish.enc_preset"] = new(
             "Encoder effort",
             "How hard NVIDIA's encoder looks for savings, from p1 to p7. More effort means a smaller stream at the same quality and no extra delay worth measuring - the chip is separate from the graphics cores. Only the NVIDIA encoders have this ladder.",
             DocNvenc),
 
-        ["mode"] = new(
+        ["publish.mode"] = new(
             "What to hold steady",
             "The one decision behind everything else in this step: whether the encoder holds a bandwidth or holds a quality. Hold bandwidth when the connection has a limit you know. Hold quality when it does not, and let the bitrate go where the picture takes it.",
             DocBitrate),
 
-        ["cq"] = new(
+        ["publish.cq"] = new(
             "Quality target",
             "How much detail the encoder is allowed to discard. Lower keeps more and costs more; higher is smaller and softer. Around 20 is visually clean for a desktop and around 30 starts to show. The scale belongs to the encoder, so the same number is a different quality on a different one - and the range moves with your choice above.",
             DocQuantization),
 
-        ["bitrate_mbps"] = new(
+        ["publish.bitrate_mbps"] = new(
             "Bitrate",
             "How much bandwidth the stream aims at. Set it below what you can reliably upload, not at it: a stream that fills the line has nothing left for the moments the picture moves."),
 
-        ["maxrate_mbps"] = new(
+        ["publish.maxrate_mbps"] = new(
             "Burst ceiling",
             "How far above the target the stream may go when the picture moves. Bandwidth rises to here on motion and falls back on a still screen, which is what keeps quality from dipping. Set it above the target, and below what your line can carry."),
 
-        ["vbv_ms"] = new(
+        ["publish.vbv_ms"] = new(
             "Rate buffer",
             "How many milliseconds of slack the encoder has to even bandwidth out. Smaller holds the rate tighter and adds less delay; larger keeps quality steadier across bursts. Zero leaves the encoder's own default alone.",
             DocVbv),
 
-        ["gop"] = new(
+        ["publish.gop"] = new(
             "Keyframe interval",
             "How many frames between complete pictures. A viewer cannot start until one arrives, so a long interval saves bandwidth and makes joining slower - and makes packet loss last longer on screen. Zero means twice the frame rate, which is a good default.",
             DocGop),
 
-        ["bframes"] = new(
+        ["publish.bframes"] = new(
             "Look-ahead frames",
             "Frames that also reference the future, which saves bandwidth and adds delay in exact proportion. Useful when you are sending to a viewer rather than playing with one; zero is right for anything interactive.",
             DocGop),
 
-        ["audio"] = new(
+        ["publish.audio"] = new(
             "Audio",
             "Whether to send sound with the picture, and where it comes from. Viewers hear it automatically."),
 
-        ["audio_codec"] = new(
+        ["publish.audio_codec"] = new(
             "Audio format",
             "What compresses the sound. Opus unless something on the other end insists otherwise - it is lower delay and the only one browsers negotiate."),
 
-        ["transport"] = new(
+        ["publish.publish_transport"] = new(
             "How to send",
             "The protocol carrying the stream from here to the relay. This is only the way out: viewers pick their own way back, so a stream sent over SRT can still be watched over RTSP. They differ in how they handle loss and in how much delay you can tune away."),
 
-        ["srt_publish_latency_ms"] = new(
+        ["publish.srt_publish_latency_ms"] = new(
             "Retransmit window, sending",
             "How long the relay waits for a packet to arrive again before giving up on it. Longer survives a worse connection at the cost of delay. This window and the viewer's add up, and the relay asks for at least 120 ms, so anything lower is raised to that.",
             DocSrt),
 
-        ["rtsp_publish_protocol"] = new(
+        ["publish.rtsp_publish_protocol"] = new(
             "RTSP transport, sending",
             "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too - a home router normally allows that, a corporate network often does not.",
             DocRtsp),
 
-        ["uplink_mbps"] = new(
+        ["publish.uplink_mbps"] = new(
             "Upload speed",
             "What you can actually upload, not what the plan says. Nothing is enforced against it: it is what the prediction is weighed against, so a configuration this connection cannot carry says so here rather than at your viewers. Measure it if you are not sure."),
 
-        ["watch_transport"] = new(
+        ["viewer.player_watch_transport"] = new(
             "How viewers watch",
             "The protocol an external player is opened on. Independent of how you send: the relay re-serves every stream on all its listeners, so this can differ from the way out without anything being re-encoded."),
 
-        ["srt_watch_latency_ms"] = new(
+        ["viewer.srt_watch_latency_ms"] = new(
             "Retransmit window, watching",
             "The same window on the viewer's side, where most internet loss actually happens. It is delay they see: a distant viewer on a poor connection wants more, a viewer on your own network wants less.",
             DocSrt),
 
-        ["rtsp_watch_protocol"] = new(
+        ["viewer.rtsp_watch_protocol"] = new(
             "RTSP transport, watching",
             "How the media travels inside the RTSP session on the way back. TCP carries both tracks on the connection the player already made, which is what a restrictive network is likeliest to allow. UDP is lower delay and needs the viewer's router to let it through.",
             DocRtsp),
 
-        ["relay_port"] = new("SRT port", "The relay's SRT port. The default is 8890."),
-        ["rtsp_port"] = new("RTSP port", "The relay's RTSP port. The default is 8554."),
-        ["webrtc_port"] = new("WebRTC port", "The relay's WebRTC port, which serves both sending and watching. The default is 8889."),
-        ["rtmp_port"] = new("RTMP port", "The relay's RTMP port. The default is 1935."),
-        ["hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. It is a watching port only: nothing is ever sent this way."),
-        ["moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, which the browser view uses. The default is 8892."),
-        ["api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),
+        ["viewer.tile_watch_transport"] = new(
+            "How tiles watch",
+            "The protocol a tile in this window receives on. It is a separate choice from the player's because the two reach different protocols: a tile can take WebRTC, which no player opens by address, and a player can open the relay's HLS, which a tile cannot read."),
+
+        ["viewer.rtsp_watch_latency_ms"] = new(
+            "Reorder window, tiles",
+            "How long a tile holds RTSP packets waiting for late or out-of-order ones before playing what it has. It is delay you see, and it is the tile's alone: an external player reorders by count rather than by time.",
+            DocRtsp),
+
+        ["viewer.render_chain"] = new(
+            "How frames are converted",
+            "What turns decoded frames into the picture a tile draws. The graphics-card routes keep the frames on the card and cost nothing to convert; the system-memory route pulls every frame across and converts it on the CPU. Some of them state exactly what colour they produce and some leave it to the driver, which is what the entries say. A route this machine has no elements for is greyed with the missing one named."),
+
+        ["relay.srt_port"] = new("SRT port", "The relay's SRT port. The default is 8890."),
+        ["relay.rtsp_port"] = new("RTSP port", "The relay's RTSP port. The default is 8554."),
+        ["relay.webrtc_port"] = new("WebRTC port", "The relay's WebRTC port, which serves both sending and watching. The default is 8889."),
+        ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. The default is 1935."),
+        ["relay.hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. It is a watching port only: nothing is ever sent this way."),
+        ["relay.api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),
     };
 
     private static readonly Dictionary<string, GroupEntry> Groups = new()
@@ -205,7 +217,7 @@ public static class Fields
 
         ["watch"] = new(
             "Watching",
-            "How the stream comes back from the relay to a player. Separate from how you send, and separate per viewer."),
+            "How the stream comes back from the relay, and how it is decoded once it does. Separate from how you send, and separate per receiver: a player window and a tile in this window reach different protocols and are chosen apart."),
 
         ["relay"] = new(
             "Relay",

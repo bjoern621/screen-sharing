@@ -28,41 +28,190 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// StreamSettings is every user-controllable aspect of the stream, and it is the
-// only settings shape on the wire: the same message is read back, edited, resolved
-// into a form, saved, published from and stored in a preset.
+// Settings is every user-controllable aspect of the product, in the three groups it
+// divides into, and it is the only settings shape on the wire: the same message is
+// read back, edited, resolved into a form and saved.
 //
-// Field names mirror the Go settings struct's JSON tags one for one, because a
-// capability gap and a form field are the same identifier on both sides
-// (docs/domain-model.md). A shell that receives a gap naming "chroma" therefore
-// knows which control it greys with no translation table of its own.
+// The three are separate messages because they answer to different things and change
+// at different times. Where the relay is is one machine's deployment; what this
+// machine publishes is one publisher's choice; how this machine watches is one
+// viewer's, and a viewer that publishes nothing still has all of it. Flattened into
+// one message, every consumer had to know which of the three a field belonged to and
+// nothing said so.
 //
 // A shell never constructs one of these from nothing. It receives a draft from
 // GetSettings or from a preset, changes the one field the user moved, and sends the
 // whole message back. Which values each field may take is not encoded here on
 // purpose: it depends on the other fields, and Form is where that answer lives.
-type StreamSettings struct {
+type Settings struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Relay         *RelaySettings         `protobuf:"bytes,1,opt,name=relay,proto3" json:"relay,omitempty"`
+	Publish       *PublishSettings       `protobuf:"bytes,2,opt,name=publish,proto3" json:"publish,omitempty"`
+	Viewer        *ViewerSettings        `protobuf:"bytes,3,opt,name=viewer,proto3" json:"viewer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Settings) Reset() {
+	*x = Settings{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Settings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Settings) ProtoMessage() {}
+
+func (x *Settings) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Settings.ProtoReflect.Descriptor instead.
+func (*Settings) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Settings) GetRelay() *RelaySettings {
+	if x != nil {
+		return x.Relay
+	}
+	return nil
+}
+
+func (x *Settings) GetPublish() *PublishSettings {
+	if x != nil {
+		return x.Publish
+	}
+	return nil
+}
+
+func (x *Settings) GetViewer() *ViewerSettings {
+	if x != nil {
+		return x.Viewer
+	}
+	return nil
+}
+
+// RelaySettings is where the relay is and which of its listeners are on which port.
+//
+// One host and one port per protocol, because the relay serves each on its own. Every
+// port here is a port on the relay, so none of them names the protocol twice.
+type RelaySettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Name is the stream's path on the relay, which is what a viewer asks for.
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The relay's address and its listeners. One host, one port per protocol, since
-	// the relay serves each on its own.
-	RelayHost string `protobuf:"bytes,2,opt,name=relay_host,json=relayHost,proto3" json:"relay_host,omitempty"`
-	// relay_port is the UDP port of the relay's SRT listener.
-	RelayPort int32 `protobuf:"varint,3,opt,name=relay_port,json=relayPort,proto3" json:"relay_port,omitempty"`
+	Host  string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	// srt_port is the UDP port of the relay's SRT listener.
+	SrtPort int32 `protobuf:"varint,2,opt,name=srt_port,json=srtPort,proto3" json:"srt_port,omitempty"`
 	// api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
-	ApiPort    int32 `protobuf:"varint,4,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
-	RtspPort   int32 `protobuf:"varint,5,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
-	WebrtcPort int32 `protobuf:"varint,6,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
-	RtmpPort   int32 `protobuf:"varint,7,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
-	HlsPort    int32 `protobuf:"varint,8,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
-	// moq_port is one number for two listeners: the Media-over-QUIC fingerprint
-	// endpoint on TCP and the WebTransport endpoint on UDP. It is a watch-leg port
-	// with no publish counterpart, since nothing here publishes MoQ.
-	MoqPort int32 `protobuf:"varint,9,opt,name=moq_port,json=moqPort,proto3" json:"moq_port,omitempty"`
-	// transport is the publish leg, publisher to relay, keyed as the transport
+	ApiPort       int32 `protobuf:"varint,3,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
+	RtspPort      int32 `protobuf:"varint,4,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
+	WebrtcPort    int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
+	RtmpPort      int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
+	HlsPort       int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelaySettings) Reset() {
+	*x = RelaySettings{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelaySettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelaySettings) ProtoMessage() {}
+
+func (x *RelaySettings) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelaySettings.ProtoReflect.Descriptor instead.
+func (*RelaySettings) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RelaySettings) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *RelaySettings) GetSrtPort() int32 {
+	if x != nil {
+		return x.SrtPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetApiPort() int32 {
+	if x != nil {
+		return x.ApiPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetRtspPort() int32 {
+	if x != nil {
+		return x.RtspPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetWebrtcPort() int32 {
+	if x != nil {
+		return x.WebrtcPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetRtmpPort() int32 {
+	if x != nil {
+		return x.RtmpPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetHlsPort() int32 {
+	if x != nil {
+		return x.HlsPort
+	}
+	return 0
+}
+
+// PublishSettings is what this machine sends to the relay and how it is encoded. A
+// preset is one of these and nothing else: what a saved configuration means is a way
+// of publishing, and neither where the relay is nor how this machine watches is part
+// of it.
+type PublishSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// name is the stream's path on the relay, which is what a viewer asks for.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// publish_transport is the publish leg, publisher to relay, keyed as the transport
 	// registry names it ("srt", "rtsp", "rtmp", "webrtc", ...).
-	Transport string `protobuf:"bytes,10,opt,name=transport,proto3" json:"transport,omitempty"`
+	PublishTransport string `protobuf:"bytes,10,opt,name=publish_transport,json=publishTransport,proto3" json:"publish_transport,omitempty"`
 	// codec is an encoder name, a row of the codec table in catalog.proto.
 	Codec string `protobuf:"bytes,11,opt,name=codec,proto3" json:"codec,omitempty"`
 	// mode is the rate control: cbr, vbr, abr, crf or lossless.
@@ -114,22 +263,25 @@ type StreamSettings struct {
 	// the capture backend and the encoder family together, which is the one
 	// constraint neither end declares alone.
 	CaptureMemory string `protobuf:"bytes,28,opt,name=capture_memory,json=captureMemory,proto3" json:"capture_memory,omitempty"`
-	// The SRT latency window per hop. Glass-to-glass delay is the sum of both plus
-	// encode and decode: publisher to relay and relay to viewer are independent SRT
-	// links, each holding packets for its own retransmit window.
+	// srt_publish_latency_ms is this leg's SRT retransmit window. The watch leg has its
+	// own (ViewerSettings), and glass-to-glass delay is the sum of the two plus encode
+	// and decode: the two hops are independent SRT links, each holding packets for its
+	// own window.
 	SrtPublishLatencyMs int32 `protobuf:"varint,29,opt,name=srt_publish_latency_ms,json=srtPublishLatencyMs,proto3" json:"srt_publish_latency_ms,omitempty"`
-	SrtWatchLatencyMs   int32 `protobuf:"varint,30,opt,name=srt_watch_latency_ms,json=srtWatchLatencyMs,proto3" json:"srt_watch_latency_ms,omitempty"`
-	// The RTSP lower transport, one field per leg: "tcp" interleaves every track over
-	// the connection the session already holds, "udp" negotiates a port pair per
-	// track. The legs are separate values because they cross different networks.
+	// rtsp_publish_protocol is the RTP lower transport of this leg: "tcp" interleaves
+	// every track over the connection the session already holds, "udp" negotiates a port
+	// pair per track. The watch leg names its own, because the two cross different
+	// networks and it is the network that decides whether a port pair survives.
+	//
+	// Both legs keep the leg in the field name even though the message they sit in now
+	// says it. The pair is read as a pair wherever the two are compared, and a reader
+	// holding "publish.rtsp_protocol" beside "viewer.rtsp_protocol" has to carry the
+	// group along to keep them apart.
 	RtspPublishProtocol string `protobuf:"bytes,31,opt,name=rtsp_publish_protocol,json=rtspPublishProtocol,proto3" json:"rtsp_publish_protocol,omitempty"`
-	RtspWatchProtocol   string `protobuf:"bytes,32,opt,name=rtsp_watch_protocol,json=rtspWatchProtocol,proto3" json:"rtsp_watch_protocol,omitempty"`
 	// uplink_mbps is the upload capacity the user says this machine has. Nothing is
 	// enforced against it; it is what the warnings in Form.summary are weighed
 	// against, and MeasureUplink replaces the guess with a measurement.
 	UplinkMbps int32 `protobuf:"varint,34,opt,name=uplink_mbps,json=uplinkMbps,proto3" json:"uplink_mbps,omitempty"`
-	// watch_transport is the leg an external viewer receives over.
-	WatchTransport string `protobuf:"bytes,35,opt,name=watch_transport,json=watchTransport,proto3" json:"watch_transport,omitempty"`
 	// output_resolution is the picture the encoder is fed, as "WIDTHxHEIGHT", and the
 	// empty string where the capture's own size reaches the encoder unscaled.
 	//
@@ -143,21 +295,21 @@ type StreamSettings struct {
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *StreamSettings) Reset() {
-	*x = StreamSettings{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[0]
+func (x *PublishSettings) Reset() {
+	*x = PublishSettings{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StreamSettings) String() string {
+func (x *PublishSettings) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StreamSettings) ProtoMessage() {}
+func (*PublishSettings) ProtoMessage() {}
 
-func (x *StreamSettings) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[0]
+func (x *PublishSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,270 +320,301 @@ func (x *StreamSettings) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StreamSettings.ProtoReflect.Descriptor instead.
-func (*StreamSettings) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{0}
+// Deprecated: Use PublishSettings.ProtoReflect.Descriptor instead.
+func (*PublishSettings) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *StreamSettings) GetName() string {
+func (x *PublishSettings) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetRelayHost() string {
+func (x *PublishSettings) GetPublishTransport() string {
 	if x != nil {
-		return x.RelayHost
+		return x.PublishTransport
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetRelayPort() int32 {
-	if x != nil {
-		return x.RelayPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetApiPort() int32 {
-	if x != nil {
-		return x.ApiPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetRtspPort() int32 {
-	if x != nil {
-		return x.RtspPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetWebrtcPort() int32 {
-	if x != nil {
-		return x.WebrtcPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetRtmpPort() int32 {
-	if x != nil {
-		return x.RtmpPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetHlsPort() int32 {
-	if x != nil {
-		return x.HlsPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetMoqPort() int32 {
-	if x != nil {
-		return x.MoqPort
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetTransport() string {
-	if x != nil {
-		return x.Transport
-	}
-	return ""
-}
-
-func (x *StreamSettings) GetCodec() string {
+func (x *PublishSettings) GetCodec() string {
 	if x != nil {
 		return x.Codec
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetMode() string {
+func (x *PublishSettings) GetMode() string {
 	if x != nil {
 		return x.Mode
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetChroma() string {
+func (x *PublishSettings) GetChroma() string {
 	if x != nil {
 		return x.Chroma
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetColorRange() string {
+func (x *PublishSettings) GetColorRange() string {
 	if x != nil {
 		return x.ColorRange
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetFps() int32 {
+func (x *PublishSettings) GetFps() int32 {
 	if x != nil {
 		return x.Fps
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetCq() int32 {
+func (x *PublishSettings) GetCq() int32 {
 	if x != nil {
 		return x.Cq
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetBitrateMbps() int32 {
+func (x *PublishSettings) GetBitrateMbps() int32 {
 	if x != nil {
 		return x.BitrateMbps
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetMaxrateMbps() int32 {
+func (x *PublishSettings) GetMaxrateMbps() int32 {
 	if x != nil {
 		return x.MaxrateMbps
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetVbvMs() int32 {
+func (x *PublishSettings) GetVbvMs() int32 {
 	if x != nil {
 		return x.VbvMs
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetGop() int32 {
+func (x *PublishSettings) GetGop() int32 {
 	if x != nil {
 		return x.Gop
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetBframes() int32 {
+func (x *PublishSettings) GetBframes() int32 {
 	if x != nil {
 		return x.Bframes
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetEncPreset() string {
+func (x *PublishSettings) GetEncPreset() string {
 	if x != nil {
 		return x.EncPreset
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetCapture() string {
+func (x *PublishSettings) GetCapture() string {
 	if x != nil {
 		return x.Capture
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetAudio() string {
+func (x *PublishSettings) GetAudio() string {
 	if x != nil {
 		return x.Audio
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetAudioCodec() string {
+func (x *PublishSettings) GetAudioCodec() string {
 	if x != nil {
 		return x.AudioCodec
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetDrmMap() string {
+func (x *PublishSettings) GetDrmMap() string {
 	if x != nil {
 		return x.DrmMap
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetMonitor() int32 {
+func (x *PublishSettings) GetMonitor() int32 {
 	if x != nil {
 		return x.Monitor
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetCaptureMemory() string {
+func (x *PublishSettings) GetCaptureMemory() string {
 	if x != nil {
 		return x.CaptureMemory
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetSrtPublishLatencyMs() int32 {
+func (x *PublishSettings) GetSrtPublishLatencyMs() int32 {
 	if x != nil {
 		return x.SrtPublishLatencyMs
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetSrtWatchLatencyMs() int32 {
-	if x != nil {
-		return x.SrtWatchLatencyMs
-	}
-	return 0
-}
-
-func (x *StreamSettings) GetRtspPublishProtocol() string {
+func (x *PublishSettings) GetRtspPublishProtocol() string {
 	if x != nil {
 		return x.RtspPublishProtocol
 	}
 	return ""
 }
 
-func (x *StreamSettings) GetRtspWatchProtocol() string {
-	if x != nil {
-		return x.RtspWatchProtocol
-	}
-	return ""
-}
-
-func (x *StreamSettings) GetUplinkMbps() int32 {
+func (x *PublishSettings) GetUplinkMbps() int32 {
 	if x != nil {
 		return x.UplinkMbps
 	}
 	return 0
 }
 
-func (x *StreamSettings) GetWatchTransport() string {
-	if x != nil {
-		return x.WatchTransport
-	}
-	return ""
-}
-
-func (x *StreamSettings) GetOutputResolution() string {
+func (x *PublishSettings) GetOutputResolution() string {
 	if x != nil {
 		return x.OutputResolution
 	}
 	return ""
 }
 
-// Preset is a named StreamSettings the user saved. The settings travel whole rather
+// ViewerSettings is how this machine watches, which is independent of what it
+// publishes: the relay re-serves every ingested stream on all its listeners, so a
+// viewer receives over a leg chosen here rather than over the one a stream arrived on.
+//
+// There are two watch legs rather than one because there are two receivers, and they
+// reach different protocol sets (docs/viewer-architecture.md). One field would let
+// each store a leg the other cannot run.
+type ViewerSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// player_watch_transport is the leg an external player opens, narrowed to the
+	// protocols a player reaches by URL.
+	PlayerWatchTransport string `protobuf:"bytes,1,opt,name=player_watch_transport,json=playerWatchTransport,proto3" json:"player_watch_transport,omitempty"`
+	// tile_watch_transport is the leg a receive pipeline decodes from, which also
+	// reaches WHEP, whose playback is an exchange rather than an address.
+	TileWatchTransport string `protobuf:"bytes,2,opt,name=tile_watch_transport,json=tileWatchTransport,proto3" json:"tile_watch_transport,omitempty"`
+	// rtsp_watch_protocol is the RTP lower transport of the watch leg, "tcp" or "udp".
+	// Both receivers read it: a player passes it to libavformat, a receive pipeline to
+	// rtspsrc.
+	RtspWatchProtocol string `protobuf:"bytes,3,opt,name=rtsp_watch_protocol,json=rtspWatchProtocol,proto3" json:"rtsp_watch_protocol,omitempty"`
+	// srt_watch_latency_ms is the watch leg's SRT retransmit window, the second half of
+	// the pair PublishSettings holds the first of.
+	SrtWatchLatencyMs int32 `protobuf:"varint,4,opt,name=srt_watch_latency_ms,json=srtWatchLatencyMs,proto3" json:"srt_watch_latency_ms,omitempty"`
+	// rtsp_watch_latency_ms sizes a receive pipeline's jitter buffer in milliseconds and
+	// reaches the tile alone: an external player buffers by reorder queue rather than by
+	// time, which is not the same knob under another name. It was on the flat message
+	// once, left with the GTK grid, and comes back here against a viewer that reads it.
+	RtspWatchLatencyMs int32 `protobuf:"varint,5,opt,name=rtsp_watch_latency_ms,json=rtspWatchLatencyMs,proto3" json:"rtsp_watch_latency_ms,omitempty"`
+	// render_chain names the elements a receive pipeline converts decoded frames with,
+	// one of the chains the form offers. It is one value for every tile rather than one
+	// per stream: a chain falls back because a driver cannot run it, and that is a
+	// property of the machine (docs/viewer-architecture.md, "The receive package").
+	RenderChain   string `protobuf:"bytes,6,opt,name=render_chain,json=renderChain,proto3" json:"render_chain,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ViewerSettings) Reset() {
+	*x = ViewerSettings{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ViewerSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ViewerSettings) ProtoMessage() {}
+
+func (x *ViewerSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ViewerSettings.ProtoReflect.Descriptor instead.
+func (*ViewerSettings) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *ViewerSettings) GetPlayerWatchTransport() string {
+	if x != nil {
+		return x.PlayerWatchTransport
+	}
+	return ""
+}
+
+func (x *ViewerSettings) GetTileWatchTransport() string {
+	if x != nil {
+		return x.TileWatchTransport
+	}
+	return ""
+}
+
+func (x *ViewerSettings) GetRtspWatchProtocol() string {
+	if x != nil {
+		return x.RtspWatchProtocol
+	}
+	return ""
+}
+
+func (x *ViewerSettings) GetSrtWatchLatencyMs() int32 {
+	if x != nil {
+		return x.SrtWatchLatencyMs
+	}
+	return 0
+}
+
+func (x *ViewerSettings) GetRtspWatchLatencyMs() int32 {
+	if x != nil {
+		return x.RtspWatchLatencyMs
+	}
+	return 0
+}
+
+func (x *ViewerSettings) GetRenderChain() string {
+	if x != nil {
+		return x.RenderChain
+	}
+	return ""
+}
+
+// Preset is a named PublishSettings the user saved. The settings travel whole rather
 // than as a diff against the defaults, so applying one is an assignment and not a
 // merge whose result depends on what the form held first.
 type Preset struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Settings      *StreamSettings        `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	Settings      *PublishSettings       `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Preset) Reset() {
 	*x = Preset{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -443,7 +626,7 @@ func (x *Preset) String() string {
 func (*Preset) ProtoMessage() {}
 
 func (x *Preset) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[1]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,7 +639,7 @@ func (x *Preset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Preset.ProtoReflect.Descriptor instead.
 func (*Preset) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{1}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Preset) GetName() string {
@@ -466,7 +649,7 @@ func (x *Preset) GetName() string {
 	return ""
 }
 
-func (x *Preset) GetSettings() *StreamSettings {
+func (x *Preset) GetSettings() *PublishSettings {
 	if x != nil {
 		return x.Settings
 	}
@@ -477,22 +660,24 @@ var File_screenshare_v1_settings_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\n" +
-	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\xf8\b\n" +
-	"\x0eStreamSettings\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
-	"\n" +
-	"relay_host\x18\x02 \x01(\tR\trelayHost\x12\x1d\n" +
-	"\n" +
-	"relay_port\x18\x03 \x01(\x05R\trelayPort\x12\x19\n" +
-	"\bapi_port\x18\x04 \x01(\x05R\aapiPort\x12\x1b\n" +
-	"\trtsp_port\x18\x05 \x01(\x05R\brtspPort\x12\x1f\n" +
-	"\vwebrtc_port\x18\x06 \x01(\x05R\n" +
+	"\x1dscreenshare/v1/settings.proto\x12\x0escreenshare.v1\"\xb2\x01\n" +
+	"\bSettings\x123\n" +
+	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
+	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xcf\x01\n" +
+	"\rRelaySettings\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
+	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
+	"\bapi_port\x18\x03 \x01(\x05R\aapiPort\x12\x1b\n" +
+	"\trtsp_port\x18\x04 \x01(\x05R\brtspPort\x12\x1f\n" +
+	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
-	"\trtmp_port\x18\a \x01(\x05R\brtmpPort\x12\x19\n" +
-	"\bhls_port\x18\b \x01(\x05R\ahlsPort\x12\x19\n" +
-	"\bmoq_port\x18\t \x01(\x05R\amoqPort\x12\x1c\n" +
-	"\ttransport\x18\n" +
-	" \x01(\tR\ttransport\x12\x14\n" +
+	"\trtmp_port\x18\x06 \x01(\x05R\brtmpPort\x12\x19\n" +
+	"\bhls_port\x18\a \x01(\x05R\ahlsPort\"\xcc\a\n" +
+	"\x0fPublishSettings\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
+	"\x11publish_transport\x18\n" +
+	" \x01(\tR\x10publishTransport\x12\x14\n" +
 	"\x05codec\x18\v \x01(\tR\x05codec\x12\x12\n" +
 	"\x04mode\x18\f \x01(\tR\x04mode\x12\x16\n" +
 	"\x06chroma\x18\r \x01(\tR\x06chroma\x12\x1f\n" +
@@ -514,17 +699,24 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\adrm_map\x18\x1a \x01(\tR\x06drmMap\x12\x18\n" +
 	"\amonitor\x18\x1b \x01(\x05R\amonitor\x12%\n" +
 	"\x0ecapture_memory\x18\x1c \x01(\tR\rcaptureMemory\x123\n" +
-	"\x16srt_publish_latency_ms\x18\x1d \x01(\x05R\x13srtPublishLatencyMs\x12/\n" +
-	"\x14srt_watch_latency_ms\x18\x1e \x01(\x05R\x11srtWatchLatencyMs\x122\n" +
-	"\x15rtsp_publish_protocol\x18\x1f \x01(\tR\x13rtspPublishProtocol\x12.\n" +
-	"\x13rtsp_watch_protocol\x18  \x01(\tR\x11rtspWatchProtocol\x12\x1f\n" +
+	"\x16srt_publish_latency_ms\x18\x1d \x01(\x05R\x13srtPublishLatencyMs\x122\n" +
+	"\x15rtsp_publish_protocol\x18\x1f \x01(\tR\x13rtspPublishProtocol\x12\x1f\n" +
 	"\vuplink_mbps\x18\" \x01(\x05R\n" +
-	"uplinkMbps\x12'\n" +
-	"\x0fwatch_transport\x18# \x01(\tR\x0ewatchTransport\x12+\n" +
-	"\x11output_resolution\x18% \x01(\tR\x10outputResolutionJ\x04\b!\x10\"J\x04\b$\x10%R\x15rtsp_watch_latency_msR\x0egrid_transport\"X\n" +
+	"uplinkMbps\x12+\n" +
+	"\x11output_resolution\x18% \x01(\tR\x10outputResolutionJ\x04\b\x02\x10\n" +
+	"J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\n" +
+	"relay_hostR\n" +
+	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\xaf\x02\n" +
+	"\x0eViewerSettings\x124\n" +
+	"\x16player_watch_transport\x18\x01 \x01(\tR\x14playerWatchTransport\x120\n" +
+	"\x14tile_watch_transport\x18\x02 \x01(\tR\x12tileWatchTransport\x12.\n" +
+	"\x13rtsp_watch_protocol\x18\x03 \x01(\tR\x11rtspWatchProtocol\x12/\n" +
+	"\x14srt_watch_latency_ms\x18\x04 \x01(\x05R\x11srtWatchLatencyMs\x121\n" +
+	"\x15rtsp_watch_latency_ms\x18\x05 \x01(\x05R\x12rtspWatchLatencyMs\x12!\n" +
+	"\frender_chain\x18\x06 \x01(\tR\vrenderChain\"Y\n" +
 	"\x06Preset\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
-	"\bsettings\x18\x02 \x01(\v2\x1e.screenshare.v1.StreamSettingsR\bsettingsB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
+	"\bsettings\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\bsettingsB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_settings_proto_rawDescOnce sync.Once
@@ -538,18 +730,24 @@ func file_screenshare_v1_settings_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_settings_proto_rawDescData
 }
 
-var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_screenshare_v1_settings_proto_goTypes = []any{
-	(*StreamSettings)(nil), // 0: screenshare.v1.StreamSettings
-	(*Preset)(nil),         // 1: screenshare.v1.Preset
+	(*Settings)(nil),        // 0: screenshare.v1.Settings
+	(*RelaySettings)(nil),   // 1: screenshare.v1.RelaySettings
+	(*PublishSettings)(nil), // 2: screenshare.v1.PublishSettings
+	(*ViewerSettings)(nil),  // 3: screenshare.v1.ViewerSettings
+	(*Preset)(nil),          // 4: screenshare.v1.Preset
 }
 var file_screenshare_v1_settings_proto_depIdxs = []int32{
-	0, // 0: screenshare.v1.Preset.settings:type_name -> screenshare.v1.StreamSettings
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: screenshare.v1.Settings.relay:type_name -> screenshare.v1.RelaySettings
+	2, // 1: screenshare.v1.Settings.publish:type_name -> screenshare.v1.PublishSettings
+	3, // 2: screenshare.v1.Settings.viewer:type_name -> screenshare.v1.ViewerSettings
+	2, // 3: screenshare.v1.Preset.settings:type_name -> screenshare.v1.PublishSettings
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_settings_proto_init() }
@@ -563,7 +761,7 @@ func file_screenshare_v1_settings_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_settings_proto_rawDesc), len(file_screenshare_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

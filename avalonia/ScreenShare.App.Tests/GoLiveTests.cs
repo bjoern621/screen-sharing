@@ -53,7 +53,7 @@ public sealed class GoLiveTests
 
     private static PublishState Live(string name) => new()
     {
-        Live = new PublishState.Types.Live { Settings = new StreamSettings { Name = name } },
+        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = name } },
     };
 
     [Fact]
@@ -193,7 +193,7 @@ public sealed class GoLiveTests
         flow.Review.GoLiveCommand.Execute(null);
 
         var started = Assert.Single(backend.Started);
-        Assert.Equal(flow.Review.StreamName, started.Name);
+        Assert.Equal(flow.Review.StreamName, started.Publish.Name);
         Assert.Equal(1, announced);
         Assert.Equal("", flow.Review.Refusal);
         Assert.True(flow.Review.CanGoLive);

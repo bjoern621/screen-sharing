@@ -7,7 +7,11 @@ A stored set of field values can only be right on the machine it was written on.
 So the table states the goal, and a search finds a configuration for it here.
 
 Three presets exist: `lossless`, `gaming` and `readability`.
-They live in `util/presets.ts`, and the region algebra they are written in lives in `util/claim.ts`.
+They live in Go beside the capability table the search walks, with the shells that used to hold them (`ipc-api.md`).
+
+**A preset is a `PublishSettings` and nothing else.**
+Relay coordinates are per-site and the viewer's own fields are per-driver - a render chain this machine registers is one the machine it is copied to may not - so neither travels in a preset.
+A preset that carried either would be the thing that breaks on the machine it was copied to, which is the failure the whole page is written against.
 
 ## The two halves of a preset
 
@@ -25,7 +29,7 @@ That part is the preset's identity rather than something to search for.
 ## Applying searches, it does not assign
 
 `resolvePreset` walks rungs, and inside a rung codecs, and inside a codec capture backends.
-Each candidate is put through `normalize` and kept only if it comes back intact (`applyIntact`): a candidate normalize had to repair is a different configuration under the same name, so it is rejected and the next one tried.
+Each candidate is put through the same repair the form uses (`form/repair.go`) and kept only if it comes back intact: a candidate the repair had to touch is a different configuration under the same name, so it is rejected and the next one tried.
 The first candidate that survives and delivers the claim is written to the settings whole.
 
 The three axes the search varies:
@@ -62,7 +66,7 @@ Because the answer is derived, there is no stored selection to disagree with the
 Two presets whose claims intersect would both describe one settings object, and the selector has one value to show.
 The claims are therefore written to be pairwise disjoint, each pair parting on one axis: the rate-control mode separates `lossless` from the other two, and the frame rate separates those two from each other.
 
-`overlaps` in `util/claim.ts` decides that question from the same axis table `holds` reads, and the preset table is checked against it at load.
+The overlap check decides that question from the same axis table the claim test reads, and the preset table is checked against it at load.
 A claim widened past its neighbour fails there, rather than at a selector left to pick one of two right answers.
 
 Settings that satisfy no claim read as `Custom`.
@@ -71,7 +75,7 @@ That is a state and not a choice, so the entry carries the reason and cannot be 
 ## Saved presets
 
 A user's own preset is the other thing entirely: a snapshot of every field, stored by the Go `settings` package and applied whole.
-It goes through `normalize` on the way in and nothing else, since it was written on some machine and may name a codec or a capture backend this one lacks.
+It goes through the repair on the way in and nothing else, since it was written on some machine and may name a codec or a capture backend this one lacks.
 Where a built-in preset rejects a repaired candidate and tries the next, a snapshot has no next to try.
 
 It carries no claim, so it is selected only while the settings equal it field for field, and it wins over a claim when they do, being the more exact statement.

@@ -11,21 +11,20 @@ So the quoted sentences below are one shell's rendering of the rule beside them,
 ## The treatments
 
 **Hidden.**
-The field is not rendered at all.
-Conditional JSX in `StreamSettingsCard` gates it on the parent selection, for example the DRM download field rendered only when the capture backend is `kmsgrab`.
+The field is not in the form at all: `Form` marks it not visible for this combination and the shell has nothing to draw, for example the DRM download field present only when the capture backend is `kmsgrab`.
 
 **Disabled with a reason.**
-The field renders greyed, carrying a `disabledReason` tooltip that states why it is inert.
-The reason comes from `deps.disabled` in `evaluateDeps` (`util/deps.ts`), for example the encoder preset ladder greyed under software x264 with "only the NVIDIA NVENC encoders take an encoder preset".
+The field arrives disabled, carrying the code that says why it is inert.
+The code comes from the availability pass (`form/availability.go`), for example the encoder preset ladder greyed under software x264 with "only the NVIDIA NVENC encoders take an encoder preset".
 
 **One option disabled with a reason.**
-A dropdown keeps the option and greys that entry, whose tooltip carries the reason from `deps.optionDisabled`.
+The control keeps the option and greys that entry, and the entry carries its own reason.
 This covers a value the current combination rules out while a neighbouring combination allows it: planar RGB is greyed on the portal capture backend, because no GStreamer encoder element takes it, and selectable on the capture backends that run ffmpeg, which codes it.
 The reason names the limit and which side has it, so the greyed entry tells the user what to change rather than only that the option is gone.
 The audio codec is greyed from two tables at once, and the reason names which one: the publish leg carries no such track (AAC under WebRTC, Opus under RTMP), or the capture backend's engine has no encoder for it.
 
 **Live with a note.**
-The field stays editable and its tooltip gains a sentence from `deps.note`.
+The field stays editable and gains a note the shell renders beside its own text.
 This is for a combination where the value still reaches the encoder but does something the field's own text does not describe, such as the bitrate becoming a burst ceiling in constant-quality mode on NVENC.
 A note is not a third treatment of inapplicability: it exists so a knob that a builder does forward is never greyed, which would leave the encoder using a number the form refused to show.
 
@@ -40,9 +39,9 @@ Every format has a software decoder, so a pixel format no GPU takes is a viewer 
 
 A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live only when all three agree.
 
-- The **mode's concept** uses the knob: `MODE_META` in `util/domain.ts` says which controls each rate-control mode needs.
-- The **codec's encoder** takes the knob: `FAMILY_META` flags the families whose encoders read the B-frame count and the preset (`takesBframes`, `takesPreset`), so both fields grey for a family that carries neither flag, whatever its hardware could do with them, and the reason lists the families that do from the same table.
-- The capture backend's **publish engine** forwards the value: `ENGINE_RULES` records where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
+- The **mode's concept** uses the knob: the mode table says which controls each rate-control mode needs.
+- The **codec's encoder** takes the knob: the family table flags the families whose encoders read the B-frame count and the preset, so both fields grey for a family that carries neither flag, whatever its hardware could do with them, and the reason lists the families that do from the same table.
+- The capture backend's **publish engine** forwards the value: the engine rules record where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
 
 When two of them block the same field, the reason names the one the user can act on.
 B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
@@ -51,7 +50,7 @@ B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a 
 
 The frame-memory control is the one field neither the capture backend nor the codec decides alone.
 Its direct value needs both ends to share device memory, which is a pair rather than a property of either: the portal capture shares memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
-`gpupath.Paths` declares the pairs, `App.GpuPaths` hands them to the form, and `unavailableFrameMemories` greys the direct value for a selection matching no row, naming both ends so either one is a way to reach it.
+`gpupath.Paths` declares the pairs, the catalog carries them, and the availability pass greys the direct value for a selection matching no row, naming both ends so either one is a way to reach it.
 
 The third fact is who converts, and it splits the direct value in two.
 A row whose device-side filter is told the colour and states it reaches `gpu`; a row where the platform has no such filter and the encoder converts the captured RGB itself reaches `gpu-encoder-color` instead, and `gpu` greys with what that costs.
@@ -96,6 +95,6 @@ A hidden field removes noise that would teach nothing, so a backend implementati
 ## Where the rules live
 
 Disable reasons are derived, never hand-set per field.
-`evaluateDeps` produces `deps.disabled` and `deps.note` from the capability table, the domain meta tables and the engine rules, the same source `normalize` repairs settings from, so a disabled option and its replacement cannot disagree.
-Where a dimension has nothing legal left, `normalize` picks nothing and the field stays disabled with its reason, rather than holding a value the same evaluation greys.
-See `domain-model.md` for the capability and meta tables, and `frontend-coding-style.md` for the layer that `deps.ts` belongs to.
+`form/availability.go` produces the greyings and the notes from the capability table, the domain tables and the engine rules, the same source `form/repair.go` repairs settings from, so a disabled option and its replacement cannot disagree.
+Where a dimension has nothing legal left, the repair picks nothing and the field stays disabled with its reason, rather than holding a value the same evaluation greys.
+See `domain-model.md` for the capability and domain tables, and `ipc-api.md` for why the reason crosses as a code and the sentence is the shell's.

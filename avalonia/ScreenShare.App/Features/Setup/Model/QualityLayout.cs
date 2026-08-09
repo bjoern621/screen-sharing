@@ -29,10 +29,10 @@ public static class QualityLayout
     public const string GroupKey = "quality";
 
     /// <summary>The rate control, drawn as cards because each of its options carries a paragraph.</summary>
-    public const string ModeKey = "mode";
+    public const string ModeKey = "publish.mode";
 
     /// <summary>The quantizer, drawn on the banded track because its scale has named zones.</summary>
-    public const string QuantizerKey = "cq";
+    public const string QuantizerKey = "publish.cq";
 
     /// <summary>
     /// Whether the step itself places this control: the two it lays out by name, and every

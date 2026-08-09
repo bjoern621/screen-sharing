@@ -32,7 +32,12 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Capability gap    | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. `capabilities.Gap`.                                          | limitation, restriction, exclusion                                 |
 | Relay             | The MediaMTX server every publisher pushes to and every viewer pulls from.                                                                                    | server, host, MediaMTX (when the role is meant)                    |
 | Publish leg       | Publisher to relay. The only leg an encoder is built for, and the only one the settings form configures.                                                      | hop 1, publish hop, upstream                                       |
-| Watch leg         | Relay to viewer. Chosen per viewer, independent of the publish leg.                                                                                           | hop 2, viewer hop, downstream, playback path                       |
+| Watch leg         | Relay to viewer. Chosen per receiver, independent of the publish leg: `player_watch_transport` for a player window, `tile_watch_transport` for a tile.         | hop 2, viewer hop, downstream, playback path                       |
+| Shell             | The Avalonia window, and the only one. It decides nothing and draws what the backend describes.                                                                | frontend, client, UI process                                       |
+| Backend           | The headless Go process that owns capture, encode, publish, decode and the domain model.                                                                      | server, daemon, core (when the role is meant)                      |
+| Receive pipeline  | The in-process GStreamer pipeline that pulls one stream off the relay and decodes it for a tile. `internal/receive`.                                           | player pipeline, decode chain, grid pipeline                       |
+| Render chain      | The elements between a receive pipeline's decoder and its sink, and what they say about the colour they produce: `gl`, `cpu`, `d3d11`, `d3d12`, `raw`.         | render path, conversion path, video sink chain                     |
+| Frame channel     | The second gRPC service carrying GPU handle metadata, fences and release-backs from the backend to the shell. Carries no pixels and no control.                | video channel, frame API, stream channel                           |
 
 ## Video codecs
 
@@ -42,7 +47,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | HEVC | High Efficiency Video Coding | ITU-T H.265, roughly half the bitrate of AVC at equal quality.                                                                |
 | AV1  | AOMedia Video 1              | Royalty-free codec, published over RTSP and RTMP alone: MPEG-TS has no mapping for it, and a WebRTC leg negotiates it and then yields no picture. |
 | VP8  | (no expansion)               | Royalty-free codec with one profile, 8-bit 4:2:0 only.                                                                        |
-| VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth, and the one 4:4:4 format the web viewer decodes. |
+| VP9  | (no expansion)               | Royalty-free codec whose profiles 0-3 cover 4:2:0, 4:4:4 and high bit depth.                                                  |
 | RExt | Range Extensions             | HEVC extension adding 4:2:2, 4:4:4 and bit depths above 10, the only VAAPI path to 4:4:4.                                     |
 
 ## Encoder families
@@ -95,7 +100,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | gbrp          | Pixel format                        | Planar RGB in green, blue, red plane order, coded through a codec's identity matrix so RGB stays RGB.               |
 | NV12          | Pixel format                        | 8-bit 4:2:0 with a luma plane and one interleaved chroma plane.                                                     |
 | I420          | Pixel format                        | 8-bit 4:2:0 in three planes, the GStreamer name for yuv420p.                                                        |
-| RGBA          | Pixel format                        | Packed 8-bit red, green, blue and alpha, the format the native grid pins for its sink.                              |
+| RGBA          | Pixel format                        | Packed 8-bit red, green, blue and alpha, the format a render chain pins on the frames it hands the sink.            |
 | BT.709        | ITU-R Recommendation BT.709         | High definition color primaries, matrix and transfer function.                                                      |
 | sRGB          | standard Red Green Blue             | The color space desktop content is authored in, whose transfer differs from BT.709.                                 |
 | EOTF          | Electro-Optical Transfer Function   | Mapping from code value to displayed light, the assumption that washes out sRGB content when a sink guesses BT.709. |
@@ -115,10 +120,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | WebRTC  | Web Real-Time Communication            | Browser real-time media stack, reached here through WHIP and WHEP.                                         |
 | WHIP    | WebRTC-HTTP Ingestion Protocol         | RFC 9725, an SDP offer posted over HTTP to start a WebRTC publish session.                                 |
 | WHEP    | WebRTC-HTTP Egress Protocol            | The playback counterpart of WHIP.                                                                          |
-| MoQ     | Media over QUIC                        | Publish-subscribe streaming over QUIC. The relay re-serves every ingested stream on it, and the web grid is the only thing here that reads it: no engine this app drives publishes it and no player opens it. |
-| MoQT    | Media over QUIC Transport              | The IETF draft MoQ speaks on the wire, subscribing to named tracks whose objects arrive on their own unidirectional streams. |
-| Catalog | (no expansion)                         | The MoQ track a publisher describes its other tracks in, naming each one's codec. It is why a MoQ reader decodes five formats without pinning a profile. |
-| WebTransport | (no expansion)                    | Browser API carrying MoQ over HTTP/3. It refuses a plain listener, which is why the relay's MoQ port runs TLS and the web grid pins its certificate. |
+| MoQ     | Media over QUIC                        | Publish-subscribe streaming over QUIC. The relay re-serves every ingested stream on it and nothing here reads it: no engine this app drives publishes it, no player opens it, and the browser tile that once did is gone. |
 | QUIC    | (no expansion, not an acronym)          | UDP transport with per-stream reliability and its own TLS, under HTTP/3 and MoQ.                           |
 | SDP     | Session Description Protocol           | Text format describing media streams, codecs and transport parameters.                                     |
 | ICE     | Interactive Connectivity Establishment | Candidate gathering and connectivity checking that finds a working path between peers.                     |
@@ -127,19 +129,18 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | SSRC    | Synchronization Source                 | 32-bit RTP identifier of one media source.                                                                 |
 | MPEG-TS | MPEG Transport Stream                  | Container of fixed 188-byte packets built for lossy links, the SRT payload here.                           |
 | TS      | Transport Stream                       | Short form of MPEG-TS, also the packet unit that `alignment=7` groups seven of per SRT datagram.           |
-| IVF     | Indeo Video Format                     | Minimal container the web viewer's ffmpeg child remuxes to, one length-and-timestamp header per frame.     |
+| IVF     | Indeo Video Format                     | Minimal container carrying a bitstream with one length-and-timestamp header per frame and nothing about colour, which is why the colorimetry tests decode through it. |
 | WebM    | (no expansion)                         | Matroska subset restricted to royalty-free codecs, the container name browsers associate with VP8 and VP9. |
 | HLS     | HTTP Live Streaming                    | Segment-and-playlist protocol the relay serves and does not ingest, so it is a watch leg and never a publish one. |
 | RTMP    | Real-Time Messaging Protocol           | TCP protocol carrying FLV, the one broadcast tools speak.                                                  |
 | E-RTMP  | Enhanced RTMP                          | Extension adding codec tags past FLV's H.264, which is what carries H.265, AV1 and VP9 over RTMP here.     |
 | FLV     | Flash Video                            | The container RTMP carries, whose original tag set is H.264 and AAC.                                       |
 | HTTP    | Hypertext Transfer Protocol            | Carries WHIP and WHEP signaling and the relay's HLS segments.                                              |
-| WS      | WebSocket                              | Bidirectional connection the web viewer pushes decoded frame data over.                                    |
 | TCP     | Transmission Control Protocol          | Reliable ordered transport, the RTSP default here because interleaving needs no port beyond the one the session connected on. |
 | UDP     | User Datagram Protocol                 | Unreliable datagram transport, the basis of SRT and WebRTC media.                                          |
 | NAT     | Network Address Translation            | Router address rewriting. Return traffic reaches a private host only through a mapping one of its own outbound packets created, which is why RTSP's separate UDP port pair has to be punched open and WebRTC uses ICE. |
 | Hole punching | (no expansion)                   | Sending outbound from the port that has to receive, so the NAT creates the mapping the far end's packets return through.    |
-| PTS     | Presentation Timestamp                 | When a frame is displayed, recovered from the IVF frame header through the stream time base.               |
+| PTS     | Presentation Timestamp                 | When a frame is displayed, carried by the container or the pipeline that framed it.                        |
 
 ## Capture backends
 
@@ -152,6 +153,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | X11      | X Window System version 11      | Legacy Linux display protocol, captured with `x11grab` on ffmpeg and `ximagesrc` on GStreamer.   |
 | SHM      | Shared Memory extension         | X11 extension both X capture backends read screen contents through without a server round trip.  |
 | XWayland | (no expansion)                  | X11 server running on a Wayland compositor, which SDL is pinned to for the ffplay viewer window. |
+| EGL      | (no expansion)                  | The GL context and surface API a dmabuf is imported through on Linux, via `eglCreateImageKHR`.   |
 | DDA      | Desktop Duplication API         | Windows DXGI screen capture interface, reached through `ddagrab` on ffmpeg and `d3d11screencapturesrc` on GStreamer. |
 | DXGI     | DirectX Graphics Infrastructure | The Windows graphics layer DDA belongs to.                                                       |
 | D3D11    | Direct3D 11                     | The Windows graphics API `d3d11screencapturesrc` reads its textures through.                     |
@@ -181,11 +183,12 @@ Two rates describe one publish, and they part company on a damage-driven backend
 
 | Term         | Expansion                | Meaning                                                                                                |
 | ------------ | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| WebCodecs    | (no expansion)           | W3C browser API giving script direct access to a decoder, bypassing a media element.                   |
-| VideoDecoder | (no expansion)           | The WebCodecs decoder object, whose `isConfigSupported` reports which codec strings a browser accepts. |
-| MSE          | Media Source Extensions  | Older W3C API feeding container segments to a media element from script.                               |
-| GTK4         | GIMP Toolkit version 4   | The widget toolkit the native grid viewer is built on.                                                 |
 | SDL          | Simple DirectMedia Layer | The output layer ffplay renders through.                                                               |
+| appsink      | (no expansion)           | The GStreamer element a receive pipeline ends in, handing each decoded frame to Go instead of drawing it. |
+| NT handle    | (no expansion)           | The Windows kernel handle a D3D11 texture is shared across processes by, paired with a keyed mutex.     |
+| Keyed mutex  | (no expansion)           | The D3D11 synchronization object two processes hand a shared texture back and forth with.               |
+| IOSurface    | (no expansion)           | The macOS shareable framebuffer VideoToolbox decodes into, and the frame channel's weakest import leg.  |
+| Fence        | (no expansion)           | The synchronization primitive travelling with a frame, saying when the producer's writes are complete.  |
 
 ## Audio
 

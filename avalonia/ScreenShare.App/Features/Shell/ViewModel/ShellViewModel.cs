@@ -246,7 +246,7 @@ public sealed class ShellViewModel : Observable
         //
         // The stream's own name once there is one, because that is what the window is showing.
         // It is the backend's name for it and never one composed here.
-        TitleBar.Show(_current, _session.Publish?.Live?.Settings?.Name is { Length: > 0 } name ? name : Idle);
+        TitleBar.Show(_current, _session.Publish?.Live?.Publish?.Name is { Length: > 0 } name ? name : Idle);
         Nav.Show(_current, _broadcastAvailable);
 
         // All three, not only the current one. A destination that rendered only while it was

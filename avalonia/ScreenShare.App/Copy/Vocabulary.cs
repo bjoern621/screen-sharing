@@ -31,21 +31,23 @@ public sealed class Vocabulary
     /// <summary>What one entry of one control is called, in the width a dropdown row has.</summary>
     public string Name(string fieldKey, string value) => fieldKey switch
     {
-        "capture" => Words.Capture(value),
-        "monitor" => Screen(value),
-        "output_resolution" => Resolution(value),
-        "fps" => Rate(value),
-        "capture_memory" => Words.Memory(value),
-        "drm_map" => Words.DrmMap(value),
-        "codec" => Codec(value),
-        "chroma" => Chroma(value),
-        "color_range" => Words.ColorRange(value),
-        "enc_preset" => Words.EncPreset(value),
-        "mode" => Words.Mode(value),
-        "audio" => Words.AudioSource(value),
-        "audio_codec" => Words.AudioCodec(value),
-        "transport" or "watch_transport" => Words.Transport(value),
-        "rtsp_publish_protocol" or "rtsp_watch_protocol" => Words.RtspProtocol(value),
+        "publish.capture" => Words.Capture(value),
+        "publish.monitor" => Screen(value),
+        "publish.output_resolution" => Resolution(value),
+        "publish.fps" => Rate(value),
+        "publish.capture_memory" => Words.Memory(value),
+        "publish.drm_map" => Words.DrmMap(value),
+        "publish.codec" => Codec(value),
+        "publish.chroma" => Chroma(value),
+        "publish.color_range" => Words.ColorRange(value),
+        "publish.enc_preset" => Words.EncPreset(value),
+        "publish.mode" => Words.Mode(value),
+        "publish.audio" => Words.AudioSource(value),
+        "publish.audio_codec" => Words.AudioCodec(value),
+        "publish.publish_transport" or "viewer.player_watch_transport" or "viewer.tile_watch_transport"
+            => Words.Transport(value),
+        "publish.rtsp_publish_protocol" or "viewer.rtsp_watch_protocol" => Words.RtspProtocol(value),
+        "viewer.render_chain" => Words.RenderChain(value),
         _ => value,
     };
 
@@ -55,19 +57,21 @@ public sealed class Vocabulary
     /// </summary>
     public string Describe(string fieldKey, string value) => fieldKey switch
     {
-        "capture" => Descriptions.Capture(value),
-        "output_resolution" => Scaling(value),
-        "capture_memory" => Descriptions.Memory(value),
-        "drm_map" => Descriptions.DrmMap(value),
-        "codec" => DescribeCodec(value),
-        "chroma" => Descriptions.Chroma(value),
-        "color_range" => Descriptions.ColorRange(value),
-        "enc_preset" => Descriptions.EncPreset(value),
-        "mode" => Descriptions.Mode(value),
-        "audio" => Descriptions.AudioSource(value),
-        "audio_codec" => Descriptions.AudioCodec(value),
-        "transport" or "watch_transport" => Descriptions.Transport(value),
-        "rtsp_publish_protocol" or "rtsp_watch_protocol" => Descriptions.RtspProtocol(value),
+        "publish.capture" => Descriptions.Capture(value),
+        "publish.output_resolution" => Scaling(value),
+        "publish.capture_memory" => Descriptions.Memory(value),
+        "publish.drm_map" => Descriptions.DrmMap(value),
+        "publish.codec" => DescribeCodec(value),
+        "publish.chroma" => Descriptions.Chroma(value),
+        "publish.color_range" => Descriptions.ColorRange(value),
+        "publish.enc_preset" => Descriptions.EncPreset(value),
+        "publish.mode" => Descriptions.Mode(value),
+        "publish.audio" => Descriptions.AudioSource(value),
+        "publish.audio_codec" => Descriptions.AudioCodec(value),
+        "publish.publish_transport" or "viewer.player_watch_transport" or "viewer.tile_watch_transport"
+            => Descriptions.Transport(value),
+        "publish.rtsp_publish_protocol" or "viewer.rtsp_watch_protocol" => Descriptions.RtspProtocol(value),
+        "viewer.render_chain" => Descriptions.RenderChain(value),
         _ => "",
     };
 
@@ -83,24 +87,28 @@ public sealed class Vocabulary
     /// repeating: "8890 · 8554 · 8889" beside a step name says less than a blank does, because
     /// a port means nothing without the label it sat under.
     /// </summary>
-    public string Shorthand(string groupKey, StreamSettings? settings)
+    public string Shorthand(string groupKey, Settings? settings)
     {
         if (settings is null)
         {
             return "";
         }
 
+        var publish = settings.Publish;
         return groupKey switch
         {
-            "stream" => settings.Name,
-            "source" => Join(Words.Capture(settings.Capture), Picture(settings)),
-            "quality" => Join(CodecShorthand(settings.Codec), Quality(settings)),
-            "audio" => settings.Audio is "" or "none"
+            "stream" => publish.Name,
+            "source" => Join(Words.Capture(publish.Capture), Picture(publish)),
+            "quality" => Join(CodecShorthand(publish.Codec), Quality(publish)),
+            "audio" => publish.Audio is "" or "none"
                 ? "No audio"
-                : Join(Words.AudioSource(settings.Audio), Words.AudioCodec(settings.AudioCodec)),
-            "transport" => Words.Transport(settings.Transport),
-            "watch" => Words.Transport(settings.WatchTransport),
-            "relay" => settings.RelayHost,
+                : Join(Words.AudioSource(publish.Audio), Words.AudioCodec(publish.AudioCodec)),
+            "transport" => Words.Transport(publish.PublishTransport),
+            // The watch group holds two legs now, and the shorthand names the player's:
+            // it is the one a reader acts on from the roster, where the tile's leg is what
+            // a tile opens for itself.
+            "watch" => Words.Transport(settings.Viewer.PlayerWatchTransport),
+            "relay" => settings.Relay.Host,
             _ => "",
         };
     }
@@ -110,7 +118,7 @@ public sealed class Vocabulary
     /// The two answer the questions a reader glancing at a running stream has, in that
     /// order, because the picture is the part they can see for themselves.
     /// </summary>
-    public string Headline(StreamSettings? settings) =>
+    public string Headline(PublishSettings? settings) =>
         settings is null ? "" : Join(Quality(settings), Picture(settings));
 
     /// <summary>
@@ -118,7 +126,7 @@ public sealed class Vocabulary
     /// because that number is the answer and the mode's name alone is not: "20 Mbit/s" is
     /// what a reader checks against their connection.
     /// </summary>
-    private static string Quality(StreamSettings s) => s.Mode switch
+    private static string Quality(PublishSettings s) => s.Mode switch
     {
         "crf" => $"quality {s.Cq}",
         "cbr" => $"{s.BitrateMbps} Mbit/s fixed",
@@ -134,14 +142,14 @@ public sealed class Vocabulary
     /// it is not - and where neither is known, the frame rate stands alone rather than the
     /// line claiming a size nothing measured.
     /// </summary>
-    private string Picture(StreamSettings s)
+    private string Picture(PublishSettings s)
     {
         var height = Height(s);
         return height > 0 ? $"{height}p{s.Fps}" : $"{s.Fps} fps";
     }
 
     /// <summary>The height being sent: the scaled one, or the captured screen's own.</summary>
-    private int Height(StreamSettings s)
+    private int Height(PublishSettings s)
     {
         if (s.OutputResolution.Length > 0)
         {

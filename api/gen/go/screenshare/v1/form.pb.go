@@ -430,8 +430,8 @@ func (x *NumericRange) GetStep() int64 {
 // An option a shell must not show at all simply is not in the list.
 type FieldOption struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// value is what StreamSettings would carry if this option were picked, and the whole
-	// of this entry's identity. What it is called and how it is described are the
+	// value is what the settings field would carry if this option were picked, and the
+	// whole of this entry's identity. What it is called and how it is described are the
 	// shell's, keyed by this value and the field it belongs to.
 	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	// note is the annotation that makes the entry honest by naming what it was derived
@@ -519,10 +519,13 @@ func (x *FieldOption) GetRecommended() bool {
 // Field is one control, fully decided.
 type Field struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the StreamSettings field this control edits, named as that message names
-	// it. It is the identity a shell keys its widgets by, the identity a Gap names, and
-	// the identity a shell looks its label and its help text up by, which is what lets
-	// all three meet with no mapping in between.
+	// key is the settings field this control edits, qualified by the group it belongs
+	// to: "relay.host", "publish.codec", "viewer.render_chain" (settings.proto). It is
+	// the identity a shell keys its widgets by, the identity a Gap names, and the
+	// identity a shell looks its label and its help text up by, which is what lets all
+	// three meet with no mapping in between - and the qualification is what makes it an
+	// address a shell can write through rather than a name it has to search three
+	// messages for.
 	Key     string      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Control ControlKind `protobuf:"varint,2,opt,name=control,proto3,enum=screenshare.v1.ControlKind" json:"control,omitempty"`
 	// unit is what the number means, absent on a field that is not a quantity.
@@ -542,8 +545,8 @@ type Field struct {
 	// constant-quality mode. It is not a third form of unavailability: it exists so a
 	// knob the builder does forward is never greyed.
 	Note *Text `protobuf:"bytes,16,opt,name=note,proto3" json:"note,omitempty"`
-	// value is what the field holds now, which is always a value present in
-	// StreamSettings. Where a dimension has no legal value left, the field keeps the
+	// value is what the field holds now, which is always a value present in the
+	// settings. Where a dimension has no legal value left, the field keeps the
 	// one it has and stays disabled with its reason, rather than showing a value the
 	// same evaluation would grey.
 	Value *FieldValue `protobuf:"bytes,11,opt,name=value,proto3" json:"value,omitempty"`
@@ -943,7 +946,7 @@ type Form struct {
 	// tables forbid, the backend walked to the first legal one and this is what it
 	// reached. A shell adopts it wholesale, which is what keeps a greyed option and
 	// its replacement from disagreeing.
-	Settings *StreamSettings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
+	Settings *Settings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
 	// repaired_field_keys lists the fields whose values changed between the request
 	// and settings above, so a shell can say what it moved rather than silently
 	// rewriting what the user typed. They are Field.key values.
@@ -989,7 +992,7 @@ func (*Form) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_form_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *Form) GetSettings() *StreamSettings {
+func (x *Form) GetSettings() *Settings {
 	if x != nil {
 		return x.Settings
 	}
@@ -1082,9 +1085,9 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aSummary\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12#\n" +
 	"\rcommand_error\x18\x03 \x01(\tR\fcommandError\x124\n" +
-	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xd9\x02\n" +
-	"\x04Form\x12:\n" +
-	"\bsettings\x18\x01 \x01(\v2\x1e.screenshare.v1.StreamSettingsR\bsettings\x12.\n" +
+	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xd3\x02\n" +
+	"\x04Form\x124\n" +
+	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\x12.\n" +
 	"\x13repaired_field_keys\x18\a \x03(\tR\x11repairedFieldKeys\x122\n" +
 	"\x06groups\x18\x03 \x03(\v2\x1a.screenshare.v1.FieldGroupR\x06groups\x12<\n" +
 	"\vdiagnostics\x18\b \x03(\v2\x1a.screenshare.v1.DiagnosticR\vdiagnostics\x121\n" +
@@ -1127,20 +1130,20 @@ func file_screenshare_v1_form_proto_rawDescGZIP() []byte {
 var file_screenshare_v1_form_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_screenshare_v1_form_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_screenshare_v1_form_proto_goTypes = []any{
-	(ControlKind)(0),       // 0: screenshare.v1.ControlKind
-	(Unit)(0),              // 1: screenshare.v1.Unit
-	(Severity)(0),          // 2: screenshare.v1.Severity
-	(*FieldValue)(nil),     // 3: screenshare.v1.FieldValue
-	(*NumericRange)(nil),   // 4: screenshare.v1.NumericRange
-	(*FieldOption)(nil),    // 5: screenshare.v1.FieldOption
-	(*Field)(nil),          // 6: screenshare.v1.Field
-	(*FieldGroup)(nil),     // 7: screenshare.v1.FieldGroup
-	(*Diagnostic)(nil),     // 8: screenshare.v1.Diagnostic
-	(*Estimate)(nil),       // 9: screenshare.v1.Estimate
-	(*Summary)(nil),        // 10: screenshare.v1.Summary
-	(*Form)(nil),           // 11: screenshare.v1.Form
-	(*Text)(nil),           // 12: screenshare.v1.Text
-	(*StreamSettings)(nil), // 13: screenshare.v1.StreamSettings
+	(ControlKind)(0),     // 0: screenshare.v1.ControlKind
+	(Unit)(0),            // 1: screenshare.v1.Unit
+	(Severity)(0),        // 2: screenshare.v1.Severity
+	(*FieldValue)(nil),   // 3: screenshare.v1.FieldValue
+	(*NumericRange)(nil), // 4: screenshare.v1.NumericRange
+	(*FieldOption)(nil),  // 5: screenshare.v1.FieldOption
+	(*Field)(nil),        // 6: screenshare.v1.Field
+	(*FieldGroup)(nil),   // 7: screenshare.v1.FieldGroup
+	(*Diagnostic)(nil),   // 8: screenshare.v1.Diagnostic
+	(*Estimate)(nil),     // 9: screenshare.v1.Estimate
+	(*Summary)(nil),      // 10: screenshare.v1.Summary
+	(*Form)(nil),         // 11: screenshare.v1.Form
+	(*Text)(nil),         // 12: screenshare.v1.Text
+	(*Settings)(nil),     // 13: screenshare.v1.Settings
 }
 var file_screenshare_v1_form_proto_depIdxs = []int32{
 	12, // 0: screenshare.v1.FieldOption.note:type_name -> screenshare.v1.Text
@@ -1156,7 +1159,7 @@ var file_screenshare_v1_form_proto_depIdxs = []int32{
 	2,  // 10: screenshare.v1.Diagnostic.severity:type_name -> screenshare.v1.Severity
 	12, // 11: screenshare.v1.Diagnostic.text:type_name -> screenshare.v1.Text
 	9,  // 12: screenshare.v1.Summary.estimate:type_name -> screenshare.v1.Estimate
-	13, // 13: screenshare.v1.Form.settings:type_name -> screenshare.v1.StreamSettings
+	13, // 13: screenshare.v1.Form.settings:type_name -> screenshare.v1.Settings
 	7,  // 14: screenshare.v1.Form.groups:type_name -> screenshare.v1.FieldGroup
 	8,  // 15: screenshare.v1.Form.diagnostics:type_name -> screenshare.v1.Diagnostic
 	10, // 16: screenshare.v1.Form.summary:type_name -> screenshare.v1.Summary

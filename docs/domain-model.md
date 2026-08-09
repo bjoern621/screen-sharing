@@ -28,9 +28,9 @@ Each difference is a `Gap` naming the engine, the option, the value and the reas
 An option one engine reaches therefore stays offered on that engine's capture backends and is greyed with the element's own limit on the other, so the form can say "no GStreamer encoder element takes planar-RGB input" instead of hiding the format from everyone.
 
 A gap takes one value of one settings option away, and which options exist is the `capabilities.Options` list.
-The lookup, the validator and the frontend read that list rather than a field per axis, so an option becomes gappable by being named there, given a refusal phrase, and carried in `settings.Stream.CapabilityOptions`.
+The lookup, the validator and the frontend read that list rather than a field per axis, so an option becomes gappable by being named there, given a refusal phrase, and carried in `settings.Publish.CapabilityOptions`.
 A gap naming no option takes the codec off that engine altogether, since no value of any option reaches an encoder that is not there.
-Gap values are the settings' own: the option is a `settings.Stream` JSON field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
+Gap values are the settings' own: the option is a settings field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
 
 Audio is two settings against two tables, because the source and the codec answer different questions.
 Which sources exist is the platform's answer and is the `Audio` field, a row of `platform.AudioSources`.
@@ -55,7 +55,7 @@ Nothing enumerates the machine's audio devices, and if anything ever does, it is
 Every consumer reads those rows.
 The catalog carries what this machine serves.
 The form offers every declared source, greys the ones the machine does not serve with the row's own sentence (`field-availability.md`), and notes beside each of the others what serves it here.
-The repair walks a stranded draft onto the first source the same rows leave standing, and `settings.Stream.Audio` spells the absent source by reading the table's constant rather than typing `"none"` a second time.
+The repair walks a stranded draft onto the first source the same rows leave standing, and `settings.Publish.Audio` spells the absent source by reading the table's constant rather than typing `"none"` a second time.
 The list a form offers and the list a machine serves are therefore two projections of one table rather than two lists that agree until one is edited.
 
 The publish engines read them too, and through one derivation rather than each with a table of its own.
@@ -78,26 +78,25 @@ Each builder keys its family-wide behaviour off a table the row's `Family` index
 Both publish engines call that validator, naming themselves, so neither path accepts what the other rejects and a gap that belongs to one engine binds only there.
 The second track is validated twice beside it, by `capabilities.ValidateAudio` for a codec the engine has no encoder for and by `transport.ValidatePublishAudio` for one the publish leg does not carry.
 Two refusals rather than one because the fix differs: another capture backend for the first, another audio codec or another leg for the second.
-The same table reaches the frontend through the `App.Capabilities` binding, so a combination the encoder would reject is the same combination the UI greys out.
-The decode table reaches it through `App.Decoders` beside it, and feeds a note on the pixel-format control rather than a greying, since a decoder the viewer lacks is a cost and not an illegal combination.
+The same table reaches the shell in the `Catalog`, so a combination the encoder would reject is the same combination the form greys out.
+The decode table travels beside it and feeds a note on the pixel-format control rather than a greying, since a decoder the viewer lacks is a cost and not an illegal combination.
 
-Which publish engine runs a capture backend is a fact of the publish layer, and `App.CaptureEngines` carries it to the frontend.
+Which publish engine runs a capture backend is a fact of the publish layer, and the catalog carries it too.
 It is a settings input because the two engines express the same five rate-control modes through different properties, so a knob one forwards the other may drop.
 
 `gpupath/gpupath.go` is a table of pairs rather than of codecs, and it is the one constraint neither end declares alone.
 Whether captured frames reach the encoder without a trip through system memory depends on the capture backend and the encoder family together: the portal capture shares device memory with a VAAPI encoder and not with an x264 one, and a VAAPI encoder shares it with the portal capture and not with ximagesrc.
-A `Gap` cannot express that, since a gap is a fact about one codec, so the pairs are their own table and `App.GpuPaths` carries it to the frontend whole.
+A `Gap` cannot express that, since a gap is a fact about one codec, so the pairs are their own table and the catalog carries it whole.
 Each engine holds its own half beside its builder (`gstGpuMemories`, `gpuConverts`), and a row whose engine half is missing is asserted rather than filled in, because the alternative is negotiating a memory the elements do not carry (`capture-architecture.md`, "Frame memory").
 
-Presentation and heuristics live in the Wails frontend today, and are moving to Go.
+Heuristics live in Go, and the words do not live here at all.
 
-That is the direction `docs/ipc-api.md` settles: a shell shows what the backend describes and decides nothing, so the labels, the greyings and the predictions below belong beside the tables they derive from rather than restated per shell.
-With one frontend the split was defensible; with three it means one rule written three times in three languages, which is the drift this page exists to prevent.
-Until the move lands, the tables below are the frontend's, and the `Form` message in `api/proto/screenshare/v1/form.proto` is where each of them arrives afterwards.
+That is what `docs/ipc-api.md` settles: a shell shows what the backend describes and decides nothing, so the greyings, the predictions and the option lists sit beside the tables they derive from, and every label, tooltip and refusal sentence is written where the layout is, keyed by the identifiers this model already uses.
+The split used to run the other way - `frontend/src/util/domain.ts` held the labels, the coding efficiencies, the mode metadata and the engine rules in TypeScript, derived from tables that live in Go and crossed the wire as raw rows.
+That was defensible with one frontend and became three copies of one rule with three shells, which is the drift this page exists to prevent, so the shells that held copies were deleted and what they knew moved here.
 
-- `frontend/src/util/domain.ts`: per codec, chroma and mode, the label, tooltip, reference link, coding efficiency, raw bits-per-pixel, what a non-4:2:0 chroma asks of a decoder, and which controls each mode uses.
-- `frontend/src/util/domain.ts` `ENGINE_RULES`: per engine and control, where a builder departs from the mode table, either dropping a knob the mode uses or forwarding one it marks unused.
-  Each rule mirrors a branch of `encoderArgs` or `gstEncoder` and carries the sentence the form shows for it.
+The engine rules were part of that move.
+Per engine and control, a rule states where a builder departs from the mode table, either dropping a knob the mode uses or forwarding one it marks unused; each mirrors a branch of `encoderArgs` or `gstEncoder`, and each carries a code the form sends rather than the sentence a shell writes for it.
 
 A dropped knob and a mode the encoder cannot run are two different facts, and the line between them is what the mode still is without the knob.
 A rule here withholds a knob the mode can do without: the encode is still that mode, with one field greyed.
@@ -108,16 +107,16 @@ Constrained VBR is the case: without a ceiling it is ABR, so the encoders that t
 
 Each consumer reads the tables instead of restating a rule:
 
-- `deps.ts` `evaluateDeps`: greys out an option when the tables make it illegal for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
-- `deps.ts` `normalize`: repairs an illegal combination by walking the same tables to the first legal value, and leaves the value standing where the walk finds none.
-- `estimate.ts`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
-- `webgrid.ts`: the web-grid viewability verdict, from the codec's format, the chroma's 4:2:0 flag and the `WEB_GRID_DECODE` paths.
-- `nativegrid.ts`: the native-grid viewability verdict, from what the transport table gives a receiving GStreamer pipeline over the grid's selected watch leg.
-- `options.ts`: the dropdown lists, built from the meta tables so a control cannot offer a value the tables do not define.
-- `presets.ts`: the configuration a preset applies here, searched over the codecs the capability table declares and the capture backends the platform runs, and greyed where the tables leave none (`presets.md`).
+- `form/availability.go`: greys out an option when the tables make it illegal for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
+- `form/repair.go`: repairs an illegal combination by walking the same tables to the first legal value, and leaves the value standing where the walk finds none.
+- `form/estimate.go`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
+- `form/options.go`: the option lists, built from the same tables so a control cannot offer a value the tables do not define.
+- The viewability verdict: what the transport table gives a receiving GStreamer pipeline over the selected tile watch leg (`viewer-architecture.md`).
+  There is one verdict where there were two, because the two grids that failed on different things are gone and a tile decodes whatever this machine's GStreamer decodes.
+- The preset search: the configuration a preset applies here, searched over the codecs the capability table declares and the capture backends the platform runs, and greyed where the tables leave none (`presets.md`).
 
-Because `evaluateDeps` and `normalize` read one source, a greyed option and its replacement always agree.
-That holds only while every value `normalize` can pick satisfies the rules `evaluateDeps` greys by, so a dimension with nothing legal left keeps the value it has instead of taking one from outside them.
+Because the greying and the repair read one source, a greyed option and its replacement always agree.
+That holds only while every value the repair can pick satisfies the rules the availability pass greys by, so a dimension with nothing legal left keeps the value it has instead of taking one from outside them.
 The field then carries its reason and the publish refuses with it, which is the same answer from both sides rather than a form that offers what the encoder rejects.
 
 ## Adding a codec, chroma or mode
@@ -125,8 +124,8 @@ The field then carries its reason and the publish refuses with it, which is the 
 Add the row to the table.
 The dropdowns, constraints, estimate and verdict follow with no further edits.
 Where the two engines disagree about the addition, the row states the wider fact and carries a `Gap` for the engine that lacks it; narrowing the row instead would take the capability away from the engine that has it, with no reason shown anywhere.
-The `Codec`, `Chroma` and `Mode` union types force a new value into every meta table, so an incomplete addition fails to compile instead of falling through a runtime default.
-A codec whose constraints also reach the encoder is added to the Go `capabilities` table, and the frontend receives it over the wire.
+The shell owes the new value a name and nothing else, and a value it has no name for renders as the raw identifier - honest, visible, and still a defect, which is what gets it written (`ipc-api.md`).
+Nothing about the addition can fall through a shell's runtime default, because no shell holds a table to fall through.
 
 ## What stays imperative
 

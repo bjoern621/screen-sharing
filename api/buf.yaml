@@ -15,7 +15,16 @@ lint:
     # them is off - for those four and nothing else. Every other read is wrapped, so a
     # response can grow a field the state itself has no business carrying.
     - RPC_RESPONSE_STANDARD_NAME
+    # GetReceiveState answers with ReceiveState for the same reason: the read and the
+    # receive_state event carry one shape.
 
 breaking:
   use:
     - FILE
+  # Nothing is excepted here, and the one commit that needed an exception did not take
+  # one. Splitting StreamSettings into RelaySettings, PublishSettings and ViewerSettings
+  # renamed fields in place - transport to publish_transport, watch_transport to
+  # player_watch_transport - which buf reports under FIELD_SAME_NAME, and that report
+  # was read and accepted rather than configured away. The reasoning and the fact that
+  # it ends at the first release are in docs/ipc-api.md, "Versioning"; an except entry
+  # here would have outlived the commit it was for.

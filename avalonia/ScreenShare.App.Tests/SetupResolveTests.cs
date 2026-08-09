@@ -94,8 +94,8 @@ public sealed class SetupResolveTests
         var flow = Flow(backend);
         await backend.AnswerAsync(0);
 
-        var picked = PickedValue(flow, "fps");
-        Choose(flow, "fps", picked);
+        var picked = PickedValue(flow, "publish.fps");
+        Choose(flow, "publish.fps", picked);
 
         Assert.Equal(1, backend.Resolves);
     }
@@ -107,15 +107,15 @@ public sealed class SetupResolveTests
         var flow = Flow(backend);
         await backend.AnswerAsync(0);
 
-        Choose(flow, "fps", "30");
+        Choose(flow, "publish.fps", "30");
         Assert.Equal(2, backend.Resolves);
 
         // Still the old form until the new one lands: the render pass draws what the backend
         // has said, never what it is about to say.
-        Assert.Equal("60", PickedValue(flow, "fps"));
+        Assert.Equal("60", PickedValue(flow, "publish.fps"));
 
         await backend.AnswerAsync(1);
-        Assert.Equal("30", PickedValue(flow, "fps"));
+        Assert.Equal("30", PickedValue(flow, "publish.fps"));
     }
 
     /// <summary>A superseded resolve is asked to stop, rather than left to finish unwatched.</summary>
@@ -126,8 +126,8 @@ public sealed class SetupResolveTests
         var flow = Flow(backend);
         await backend.AnswerAsync(0);
 
-        Choose(flow, "fps", "30");
-        Choose(flow, "fps", "24");
+        Choose(flow, "publish.fps", "30");
+        Choose(flow, "publish.fps", "24");
 
         Assert.True(backend.IsCancelled(1));
         Assert.False(backend.IsCancelled(2));
@@ -146,17 +146,17 @@ public sealed class SetupResolveTests
         var flow = Flow(backend);
         await backend.AnswerAsync(0);
 
-        Choose(flow, "fps", "30");
-        Choose(flow, "fps", "24");
+        Choose(flow, "publish.fps", "30");
+        Choose(flow, "publish.fps", "24");
         Assert.Equal(3, backend.Resolves);
 
         // The newer draft's answer first, then the one it superseded.
         await backend.AnswerAsync(2);
-        Assert.Equal("24", PickedValue(flow, "fps"));
+        Assert.Equal("24", PickedValue(flow, "publish.fps"));
 
         await backend.AnswerAsync(1);
 
-        Assert.Equal("24", PickedValue(flow, "fps"));
+        Assert.Equal("24", PickedValue(flow, "publish.fps"));
         Assert.Equal(3, backend.Resolves);
     }
 
@@ -174,11 +174,11 @@ public sealed class SetupResolveTests
         await backend.AnswerAsync(0);
         Assert.Equal(1, backend.Resolves);
 
-        Choose(flow, "fps", "30");
+        Choose(flow, "publish.fps", "30");
         await backend.AnswerAsync(1);
 
         Assert.Equal(2, backend.Resolves);
-        Assert.Equal(30, backend.Draft(1).Fps);
+        Assert.Equal(30, backend.Draft(1).Publish.Fps);
     }
 
     /// <summary>

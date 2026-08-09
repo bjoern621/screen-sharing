@@ -147,6 +147,20 @@ public static class Descriptions
         ["udp"] = "Each track gets its own port pair, which drops the delay that in-order delivery adds. Lost packets are never resent, so loss shows up as artefacts rather than as a stall. A network that blocks outgoing UDP kills it silently: the session sets up and no picture follows.",
     };
 
+    /// <summary>
+    /// What each render chain does and what it says about the colour it produces. Both
+    /// halves matter: where the frames are converted decides what the conversion costs, and
+    /// whether the route states its colour decides whether dark content survives it.
+    /// </summary>
+    private static readonly Dictionary<string, string> RenderChains = new()
+    {
+        ["gl"] = "Converts on the graphics card and hands the picture over as a texture, so no frame crosses the bus. It states the colour it produces exactly, and it was measured indistinguishable from the system-memory route on everything but a saturated colour bar.",
+        ["cpu"] = "Pulls every frame into main memory and converts it there. It states the colour it produces exactly, and it is the route that always works - at the cost of the download, which at high resolutions and frame rates is gigabytes a second.",
+        ["d3d11"] = "Converts on the graphics card with Direct3D 11 and brings the result back. The driver may do the conversion in its video processor, which is configured through an interface that cannot say what it did, so the colour is labelled rather than guaranteed.",
+        ["d3d12"] = "The same as Direct3D 11 on the newer interface, which reaches a decoder that already produces frames in the form it wants. The same reservation about colour applies.",
+        ["raw"] = "Hands the decoded frames over untouched. Nothing states a colour, so the window interprets them itself and reads an unstated one as broadcast video - which washes out dark content on a desktop. It also draws at the size the sender chose, since nothing in it scales.",
+    };
+
     public static string Capture(string id) => Look(Captures, id);
 
     public static string Memory(string id) => Look(Memories, id);
@@ -174,6 +188,8 @@ public static class Descriptions
     public static string Transport(string id) => Look(Transports, id);
 
     public static string RtspProtocol(string id) => Look(RtspProtocols, id);
+
+    public static string RenderChain(string id) => Look(RenderChains, id);
 
     /// <summary>
     /// The paragraph for an identifier, and nothing where this build has none. Absence is

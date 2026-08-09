@@ -66,7 +66,7 @@ public sealed class BroadcastViewModel : Observable
     /// re-resolved on every event. A pipeline emits a sample per second and its settings do not
     /// move while it runs.
     /// </summary>
-    private StreamSettings? _described;
+    private Settings? _described;
 
     /// <summary>What that resolve answered with, and null until one has landed.</summary>
     private Form? _form;
@@ -241,7 +241,13 @@ public sealed class BroadcastViewModel : Observable
     /// </summary>
     private void Describe()
     {
-        var settings = _session.Publish?.Live?.Settings;
+        // The live state carries the two groups the running pipeline was built from, and a
+        // resolve takes all three. The viewer group is left absent and the resolve fills it
+        // with the defaults, which is the honest shape: how this machine watches was never
+        // part of what it publishes, so the watch rows on this card describe the machine
+        // rather than the stream.
+        var live = _session.Publish?.Live;
+        var settings = live is null ? null : new Settings { Publish = live.Publish, Relay = live.Relay };
 
         if (settings is null)
         {
@@ -264,7 +270,7 @@ public sealed class BroadcastViewModel : Observable
         _ = DescribeAsync(settings.Clone(), _cancel.Token);
     }
 
-    private async Task DescribeAsync(StreamSettings settings, CancellationToken cancellation)
+    private async Task DescribeAsync(Settings settings, CancellationToken cancellation)
     {
         try
         {

@@ -13,7 +13,7 @@ option csharp_namespace = "ScreenShare.Api.V1";
 // Every list a control offers, every greyed entry, every disabled field and the reason
 // for each, every note and every diagnostic is computed in Go from the capability
 // tables and arrives here already decided. A shell renders the fields in the order it
-// is given them and sends back a changed StreamSettings; it evaluates no rule and
+// is given them and sends back a changed Settings; it evaluates no rule and
 // invents no value.
 //
 // What it does own is every word on screen. A field arrives as a key, an option as a
@@ -132,8 +132,8 @@ message NumericRange {
 // reason tells the user what to change, where a missing entry tells them nothing.
 // An option a shell must not show at all simply is not in the list.
 message FieldOption {
-  // value is what StreamSettings would carry if this option were picked, and the whole
-  // of this entry's identity. What it is called and how it is described are the
+  // value is what the settings field would carry if this option were picked, and the
+  // whole of this entry's identity. What it is called and how it is described are the
   // shell's, keyed by this value and the field it belongs to.
   string value = 1;
   // note is the annotation that makes the entry honest by naming what it was derived
@@ -160,10 +160,13 @@ message FieldOption {
 
 // Field is one control, fully decided.
 message Field {
-  // key is the StreamSettings field this control edits, named as that message names
-  // it. It is the identity a shell keys its widgets by, the identity a Gap names, and
-  // the identity a shell looks its label and its help text up by, which is what lets
-  // all three meet with no mapping in between.
+  // key is the settings field this control edits, qualified by the group it belongs
+  // to: "relay.host", "publish.codec", "viewer.render_chain" (settings.proto). It is
+  // the identity a shell keys its widgets by, the identity a Gap names, and the
+  // identity a shell looks its label and its help text up by, which is what lets all
+  // three meet with no mapping in between - and the qualification is what makes it an
+  // address a shell can write through rather than a name it has to search three
+  // messages for.
   string key = 1;
   ControlKind control = 2;
   // unit is what the number means, absent on a field that is not a quantity.
@@ -185,8 +188,8 @@ message Field {
   // knob the builder does forward is never greyed.
   Text note = 16;
 
-  // value is what the field holds now, which is always a value present in
-  // StreamSettings. Where a dimension has no legal value left, the field keeps the
+  // value is what the field holds now, which is always a value present in the
+  // settings. Where a dimension has no legal value left, the field keeps the
   // one it has and stays disabled with its reason, rather than showing a value the
   // same evaluation would grey.
   FieldValue value = 11;
@@ -300,7 +303,7 @@ message Form {
   // tables forbid, the backend walked to the first legal one and this is what it
   // reached. A shell adopts it wholesale, which is what keeps a greyed option and
   // its replacement from disagreeing.
-  StreamSettings settings = 1;
+  Settings settings = 1;
   // repaired_field_keys lists the fields whose values changed between the request
   // and settings above, so a shell can say what it moved rather than silently
   // rewriting what the user typed. They are Field.key values.

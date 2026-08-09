@@ -102,7 +102,7 @@ public sealed class ControlBackend : IBackend
     public event Action? Changed;
 
     /// <inheritdoc />
-    public async Task<StreamSettings> SettingsAsync(CancellationToken cancellation = default)
+    public async Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
         var answer = await ReadAsync(
             c => c.GetSettingsAsync(new GetSettingsRequest(), cancellationToken: cancellation), cancellation)
@@ -122,7 +122,7 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
-    public Task<Form> ResolveFormAsync(StreamSettings draft, CancellationToken cancellation = default)
+    public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
         Assert.NotNull(draft, "resolving a form needs the draft it is resolved against");
 
@@ -151,7 +151,7 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
-    public Task StartPublishAsync(StreamSettings settings, CancellationToken cancellation = default)
+    public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         Assert.NotNull(settings, "starting a publish names the settings the encoder runs on");
 

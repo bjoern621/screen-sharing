@@ -28,7 +28,7 @@ const (
 	ControlService_GetRelayStatus_FullMethodName      = "/screenshare.v1.ControlService/GetRelayStatus"
 	ControlService_GetViewerState_FullMethodName      = "/screenshare.v1.ControlService/GetViewerState"
 	ControlService_GetTestStreamState_FullMethodName  = "/screenshare.v1.ControlService/GetTestStreamState"
-	ControlService_GetMoqCert_FullMethodName          = "/screenshare.v1.ControlService/GetMoqCert"
+	ControlService_GetReceiveState_FullMethodName     = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_SaveSettings_FullMethodName        = "/screenshare.v1.ControlService/SaveSettings"
 	ControlService_SavePreset_FullMethodName          = "/screenshare.v1.ControlService/SavePreset"
 	ControlService_DeletePreset_FullMethodName        = "/screenshare.v1.ControlService/DeletePreset"
@@ -37,6 +37,8 @@ const (
 	ControlService_StopPublish_FullMethodName         = "/screenshare.v1.ControlService/StopPublish"
 	ControlService_StartWatch_FullMethodName          = "/screenshare.v1.ControlService/StartWatch"
 	ControlService_StopWatch_FullMethodName           = "/screenshare.v1.ControlService/StopWatch"
+	ControlService_StartReceive_FullMethodName        = "/screenshare.v1.ControlService/StartReceive"
+	ControlService_StopReceive_FullMethodName         = "/screenshare.v1.ControlService/StopReceive"
 	ControlService_StartTestStreams_FullMethodName    = "/screenshare.v1.ControlService/StartTestStreams"
 	ControlService_StopTestStreams_FullMethodName     = "/screenshare.v1.ControlService/StopTestStreams"
 	ControlService_ProbeEncoders_FullMethodName       = "/screenshare.v1.ControlService/ProbeEncoders"
@@ -110,9 +112,8 @@ type ControlServiceClient interface {
 	GetViewerState(ctx context.Context, in *GetViewerStateRequest, opts ...grpc.CallOption) (*ViewerState, error)
 	// GetTestStreamState reports how many synthetic publishers are alive.
 	GetTestStreamState(ctx context.Context, in *GetTestStreamStateRequest, opts ...grpc.CallOption) (*TestStreamState, error)
-	// GetMoqCert reads the relay's Media-over-QUIC certificate fingerprint for one
-	// stream, so a viewer can pin it.
-	GetMoqCert(ctx context.Context, in *GetMoqCertRequest, opts ...grpc.CallOption) (*GetMoqCertResponse, error)
+	// GetReceiveState returns the streams the backend is decoding.
+	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
 	// SaveSettings persists the settings the shell holds. It does not touch a running
 	// stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
 	// because both engines run a child built from an argv and neither takes a value
@@ -147,6 +148,21 @@ type ControlServiceClient interface {
 	StartWatch(ctx context.Context, in *StartWatchRequest, opts ...grpc.CallOption) (*StartWatchResponse, error)
 	// StopWatch closes one open viewer.
 	StopWatch(ctx context.Context, in *StopWatchRequest, opts ...grpc.CallOption) (*StopWatchResponse, error)
+	// StartReceive opens a decode for one stream on one leg, inside the backend. It is
+	// the tile path's counterpart of StartWatch, and the difference between the two is
+	// where the frames end up: a watch opens a player window the backend does not draw
+	// in, and a receive decodes into this process, from where the frame channel hands
+	// the frames to the shell (docs/viewer-architecture.md).
+	//
+	// What it opens is a decode and not a tile. Nothing here says where the frames are
+	// drawn, how large, beside which others or in what order: that is the shell's whole
+	// job, and it is why the grid this replaces was the wrong surface.
+	//
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a pipeline that connects and decodes nothing.
+	StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error)
+	// StopReceive closes one running decode.
+	StopReceive(ctx context.Context, in *StopReceiveRequest, opts ...grpc.CallOption) (*StopReceiveResponse, error)
 	// StartTestStreams launches synthetic publishers, which exercise the viewing
 	// paths without a screen capture. A running set is replaced.
 	StartTestStreams(ctx context.Context, in *StartTestStreamsRequest, opts ...grpc.CallOption) (*StartTestStreamsResponse, error)
@@ -288,10 +304,10 @@ func (c *controlServiceClient) GetTestStreamState(ctx context.Context, in *GetTe
 	return out, nil
 }
 
-func (c *controlServiceClient) GetMoqCert(ctx context.Context, in *GetMoqCertRequest, opts ...grpc.CallOption) (*GetMoqCertResponse, error) {
+func (c *controlServiceClient) GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMoqCertResponse)
-	err := c.cc.Invoke(ctx, ControlService_GetMoqCert_FullMethodName, in, out, cOpts...)
+	out := new(ReceiveState)
+	err := c.cc.Invoke(ctx, ControlService_GetReceiveState_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -372,6 +388,26 @@ func (c *controlServiceClient) StopWatch(ctx context.Context, in *StopWatchReque
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StopWatchResponse)
 	err := c.cc.Invoke(ctx, ControlService_StopWatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartReceiveResponse)
+	err := c.cc.Invoke(ctx, ControlService_StartReceive_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) StopReceive(ctx context.Context, in *StopReceiveRequest, opts ...grpc.CallOption) (*StopReceiveResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopReceiveResponse)
+	err := c.cc.Invoke(ctx, ControlService_StopReceive_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -539,9 +575,8 @@ type ControlServiceServer interface {
 	GetViewerState(context.Context, *GetViewerStateRequest) (*ViewerState, error)
 	// GetTestStreamState reports how many synthetic publishers are alive.
 	GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error)
-	// GetMoqCert reads the relay's Media-over-QUIC certificate fingerprint for one
-	// stream, so a viewer can pin it.
-	GetMoqCert(context.Context, *GetMoqCertRequest) (*GetMoqCertResponse, error)
+	// GetReceiveState returns the streams the backend is decoding.
+	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
 	// SaveSettings persists the settings the shell holds. It does not touch a running
 	// stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
 	// because both engines run a child built from an argv and neither takes a value
@@ -576,6 +611,21 @@ type ControlServiceServer interface {
 	StartWatch(context.Context, *StartWatchRequest) (*StartWatchResponse, error)
 	// StopWatch closes one open viewer.
 	StopWatch(context.Context, *StopWatchRequest) (*StopWatchResponse, error)
+	// StartReceive opens a decode for one stream on one leg, inside the backend. It is
+	// the tile path's counterpart of StartWatch, and the difference between the two is
+	// where the frames end up: a watch opens a player window the backend does not draw
+	// in, and a receive decodes into this process, from where the frame channel hands
+	// the frames to the shell (docs/viewer-architecture.md).
+	//
+	// What it opens is a decode and not a tile. Nothing here says where the frames are
+	// drawn, how large, beside which others or in what order: that is the shell's whole
+	// job, and it is why the grid this replaces was the wrong surface.
+	//
+	// A leg that cannot carry the stream's format is refused with the format named,
+	// rather than opening a pipeline that connects and decodes nothing.
+	StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error)
+	// StopReceive closes one running decode.
+	StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error)
 	// StartTestStreams launches synthetic publishers, which exercise the viewing
 	// paths without a screen capture. A running set is replaced.
 	StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error)
@@ -654,8 +704,8 @@ func (UnimplementedControlServiceServer) GetViewerState(context.Context, *GetVie
 func (UnimplementedControlServiceServer) GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTestStreamState not implemented")
 }
-func (UnimplementedControlServiceServer) GetMoqCert(context.Context, *GetMoqCertRequest) (*GetMoqCertResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetMoqCert not implemented")
+func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetReceiveState not implemented")
 }
 func (UnimplementedControlServiceServer) SaveSettings(context.Context, *SaveSettingsRequest) (*SaveSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveSettings not implemented")
@@ -680,6 +730,12 @@ func (UnimplementedControlServiceServer) StartWatch(context.Context, *StartWatch
 }
 func (UnimplementedControlServiceServer) StopWatch(context.Context, *StopWatchRequest) (*StopWatchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopWatch not implemented")
+}
+func (UnimplementedControlServiceServer) StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartReceive not implemented")
+}
+func (UnimplementedControlServiceServer) StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopReceive not implemented")
 }
 func (UnimplementedControlServiceServer) StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartTestStreams not implemented")
@@ -891,20 +947,20 @@ func _ControlService_GetTestStreamState_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlService_GetMoqCert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMoqCertRequest)
+func _ControlService_GetReceiveState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetReceiveStateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ControlServiceServer).GetMoqCert(ctx, in)
+		return srv.(ControlServiceServer).GetReceiveState(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ControlService_GetMoqCert_FullMethodName,
+		FullMethod: ControlService_GetReceiveState_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServiceServer).GetMoqCert(ctx, req.(*GetMoqCertRequest))
+		return srv.(ControlServiceServer).GetReceiveState(ctx, req.(*GetReceiveStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1049,6 +1105,42 @@ func _ControlService_StopWatch_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).StopWatch(ctx, req.(*StopWatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_StartReceive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartReceiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).StartReceive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_StartReceive_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).StartReceive(ctx, req.(*StartReceiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_StopReceive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopReceiveRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).StopReceive(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_StopReceive_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).StopReceive(ctx, req.(*StopReceiveRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1252,8 +1344,8 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_GetTestStreamState_Handler,
 		},
 		{
-			MethodName: "GetMoqCert",
-			Handler:    _ControlService_GetMoqCert_Handler,
+			MethodName: "GetReceiveState",
+			Handler:    _ControlService_GetReceiveState_Handler,
 		},
 		{
 			MethodName: "SaveSettings",
@@ -1286,6 +1378,14 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopWatch",
 			Handler:    _ControlService_StopWatch_Handler,
+		},
+		{
+			MethodName: "StartReceive",
+			Handler:    _ControlService_StartReceive_Handler,
+		},
+		{
+			MethodName: "StopReceive",
+			Handler:    _ControlService_StopReceive_Handler,
 		},
 		{
 			MethodName: "StartTestStreams",

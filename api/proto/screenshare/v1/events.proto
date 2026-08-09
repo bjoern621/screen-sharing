@@ -63,13 +63,54 @@ message TestStreamState {
 // new values are not in the event, so there is one way to learn them.
 message SettingsChanged {}
 
-// ShowSettings asks the shell to bring its own configuration surface to the front.
+// ReceiveExit says which receive pipeline ended, and why.
 //
-// It is the one event that asks for something rather than reporting something, and it
-// is a user intent routed rather than a UI command: something outside the window - a
-// tray menu - reports that the user asked to configure, and which surface that is
-// remains the shell's answer.
-message ShowSettings {}
+// It carries no log path, unlike a publish or a viewer exit: a receive pipeline runs
+// inside the backend rather than as a child process, so there is no run log of its own
+// to open. The message is the one the pipeline reported, in its own wording.
+message ReceiveExit {
+  WatchKey stream = 1;
+  string message = 2;
+}
+
+// ReceiveStream is one stream the backend is decoding, and what the pipeline behind it
+// turned out to be.
+//
+// Everything after the first two fields is reported rather than asked for. A chain
+// falls back on a machine that cannot run its elements, and a hardware decoder may
+// download its own frames, so the chain that ran and the memory the frames were in are
+// facts about the run and not a copy of ViewerSettings.
+message ReceiveStream {
+  // stream is the stream name and the leg it is received over, which together are the
+  // identity, for the reason WatchKey exists.
+  WatchKey stream = 1;
+  // live is whether a decoded frame has left the pipeline. Until it has, the pipeline
+  // is connecting or receiving something it cannot decode, and the fields below are
+  // empty because nothing has negotiated.
+  bool live = 2;
+
+  // chain is the render chain the pipeline was built with, which is not always the one
+  // ViewerSettings asked for.
+  string chain = 3;
+  // decode_memory is the memory feature the decoder's output pad carried, and
+  // render_memory the one the sink's input pad did. The pair is the evidence of a
+  // download or an upload between decode and display, which is what a chain promising
+  // to keep frames on the device is judged against. Both are empty until the pads
+  // negotiate.
+  string decode_memory = 4;
+  string render_memory = 5;
+
+  // decoder is the element decodebin picked, and hardware whether it ran on silicon.
+  // Hardware says where the decoding ran and nothing about where the frames went
+  // afterwards, which decode_memory is what answers.
+  string decoder = 6;
+  bool hardware = 7;
+}
+
+// ReceiveState is every stream the backend is decoding.
+message ReceiveState {
+  repeated ReceiveStream streams = 1;
+}
 
 // EventKind names one payload of Event, for a shell that wants some of them.
 //
@@ -90,7 +131,12 @@ enum EventKind {
   EVENT_KIND_TEST_STREAM_EXIT = 8;
   EVENT_KIND_CATALOG = 9;
   EVENT_KIND_SETTINGS_CHANGED = 10;
-  EVENT_KIND_SHOW_SETTINGS = 11;
+  EVENT_KIND_RECEIVE_STATE = 12;
+  EVENT_KIND_RECEIVE_EXIT = 13;
+
+  // 11 was EVENT_KIND_SHOW_SETTINGS. See Event for why the payload went.
+  reserved 11;
+  reserved "EVENT_KIND_SHOW_SETTINGS";
 }
 
 // Event is one thing that happened.
@@ -125,6 +171,15 @@ message Event {
     // why that one stopped and where its log is.
     ViewerExit viewer_exit = 6;
 
+    // The streams the backend is decoding, whenever one starts, stops or learns
+    // something about itself: a first frame, the chain it fell back to, the memory its
+    // pads negotiated. It is the receive-side counterpart of viewer_state, and it
+    // describes decodes rather than tiles - how a shell arranges what it receives is
+    // the shell's, and is on no message here.
+    ReceiveState receive_state = 15;
+    // One receive pipeline ended. The state event says which are left.
+    ReceiveExit receive_exit = 16;
+
     // How many synthetic test publishers are alive, whenever that changes.
     TestStreamState test_stream_state = 13;
     // A synthetic test publisher ended.
@@ -137,13 +192,18 @@ message Event {
     Catalog catalog = 14;
 
     SettingsChanged settings_changed = 10;
-    ShowSettings show_settings = 11;
   }
 
   // 7 and 8 were grid_state and grid_exit, the GTK4 grid window's state and its exit.
   // That window and the app that launched it are obsolete, and no surface this
   // contract describes has a grid: how a viewer arranges what it receives is the
   // shell's, and was never the backend's to report.
-  reserved 7, 8;
-  reserved "grid_state", "grid_exit";
+  //
+  // 11 was show_settings, which asked a shell to bring its configuration surface to
+  // the front. Its one producer was the tray menu the Wails app owned, and the tray is
+  // the shell's own now, so the event asked a shell to do something on behalf of
+  // itself. It was also the one payload here that asked rather than reported, which is
+  // the rule it should have been measured against in the first place.
+  reserved 7, 8, 11;
+  reserved "grid_state", "grid_exit", "show_settings";
 }

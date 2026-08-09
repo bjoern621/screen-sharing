@@ -204,7 +204,7 @@ type Gap struct {
 	// the library has no such capability, rather than one builder failing to reach it.
 	Engine Engine `protobuf:"varint,1,opt,name=engine,proto3,enum=screenshare.v1.Engine" json:"engine,omitempty"`
 	// option is the settings field the gap takes a value away from, named as
-	// StreamSettings names it. A gap naming no option takes the codec off that engine
+	// PublishSettings names it. A gap naming no option takes the codec off that engine
 	// altogether, since no value of any option reaches an encoder that is not there.
 	Option string `protobuf:"bytes,2,opt,name=option,proto3" json:"option,omitempty"`
 	// value is the one value of that option the gap removes.
@@ -354,7 +354,7 @@ func (x *EngineLimit) GetBitrateLimitMbps() int32 {
 type VideoCodec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name is the encoder as the engine names it, e.g. "hevc_nvenc". It is the value
-	// StreamSettings.codec carries.
+	// PublishSettings.codec carries.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// family is the backend the encoder belongs to: software, nvenc, vaapi, qsv, amf,
 	// v4l2, rkmpp or vulkan. Every per-backend behaviour keys off the family rather
@@ -1073,7 +1073,7 @@ func (x *TransportCarriage) GetAudio() []string {
 // CaptureBackend is one way of getting pictures off this machine.
 type CaptureBackend struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// name is the value StreamSettings.capture carries.
+	// name is the value PublishSettings.capture carries.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// engine is the publish engine that runs it. It is the fact most other
 	// availability hangs off, because the two engines express the same rate-control
@@ -1170,7 +1170,7 @@ func (x *CaptureBackend) GetGrant() *Text {
 // Monitor is one display output.
 type Monitor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// index is the capture index, and the value StreamSettings.monitor carries.
+	// index is the capture index, and the value PublishSettings.monitor carries.
 	Index  int32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	Width  int32 `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
 	Height int32 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`

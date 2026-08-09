@@ -61,7 +61,7 @@ message Gap {
   // the library has no such capability, rather than one builder failing to reach it.
   Engine engine = 1;
   // option is the settings field the gap takes a value away from, named as
-  // StreamSettings names it. A gap naming no option takes the codec off that engine
+  // PublishSettings names it. A gap naming no option takes the codec off that engine
   // altogether, since no value of any option reaches an encoder that is not there.
   string option = 2;
   // value is the one value of that option the gap removes.
@@ -99,7 +99,7 @@ message EngineLimit {
 // what it may be asked for.
 message VideoCodec {
   // name is the encoder as the engine names it, e.g. "hevc_nvenc". It is the value
-  // StreamSettings.codec carries.
+  // PublishSettings.codec carries.
   string name = 1;
   // family is the backend the encoder belongs to: software, nvenc, vaapi, qsv, amf,
   // v4l2, rkmpp or vulkan. Every per-backend behaviour keys off the family rather
@@ -276,7 +276,7 @@ message TransportCarriage {
 
 // CaptureBackend is one way of getting pictures off this machine.
 message CaptureBackend {
-  // name is the value StreamSettings.capture carries.
+  // name is the value PublishSettings.capture carries.
   string name = 1;
   // engine is the publish engine that runs it. It is the fact most other
   // availability hangs off, because the two engines express the same rate-control
@@ -301,7 +301,7 @@ message CaptureBackend {
 
 // Monitor is one display output.
 message Monitor {
-  // index is the capture index, and the value StreamSettings.monitor carries.
+  // index is the capture index, and the value PublishSettings.monitor carries.
   int32 index = 1;
   int32 width = 2;
   int32 height = 3;
