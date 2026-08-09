@@ -125,7 +125,7 @@ An **Umgebungsfehler** - a condition the app must survive - is a gRPC status. It
 | Status | Means |
 | --- | --- |
 | `INVALID_ARGUMENT` | the request names something that cannot exist: an unknown transport, a stream name that is empty |
-| `FAILED_PRECONDITION` | the request is well formed and the world is not ready for it: already publishing, nothing to apply settings to, a measurement while a stream is live |
+| `FAILED_PRECONDITION` | the request is well formed and the world is not ready for it: already publishing *a different pipeline*, nothing to apply settings to, a measurement while a stream is live |
 | `UNAVAILABLE` | the relay could not be reached, or the child process could not be started |
 | `NOT_FOUND` | a named preset, log or stream does not exist |
 | `RESOURCE_EXHAUSTED` | a bounded resource was over-asked, such as the test-stream count |

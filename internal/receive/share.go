@@ -127,6 +127,10 @@ type sharer interface {
 // samplePointer is the C GstSample behind a sample, for the platform files to pass
 // into their own graphics API. It is here rather than in each of them so the one
 // unsafe conversion this package makes is written once.
+//
+// What it yields is an address and not a reference: the collector cannot see it, so
+// the Go wrapper is dead the moment the call's arguments are evaluated. Every caller
+// therefore keeps the sample alive across the C call it hands the pointer to.
 func samplePointer(sample *gst.Sample) unsafe.Pointer {
 	return gst.UnsafeSampleToGlibNone(sample)
 }

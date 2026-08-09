@@ -35,6 +35,23 @@ const (
 	stopAttempts = 2
 )
 
+// renderSize is a width and a height carried as one word, width in the high half.
+//
+// It is a type with a pack and an unpack rather than the shift spelled at each site,
+// because the packing is one fact and three sites knowing it are three chances to unpack
+// the halves the other way round - which the compiler cannot catch, since every packed
+// size is the same uint64 as every other. One word rather than two fields is what lets a
+// size be swapped and compared in one atomic operation.
+type renderSize uint64
+
+func packSize(width, height int) renderSize {
+	return renderSize(uint64(uint32(width))<<32 | uint64(uint32(height)))
+}
+
+func (s renderSize) unpack() (width, height int) {
+	return int(uint32(s >> 32)), int(uint32(s))
+}
+
 // Stream is one stream a receive pipeline is opened for.
 //
 // Source is the transport's own launch-line fragment, the elements up to the
@@ -190,6 +207,12 @@ func (r *Receiver) watchSamples(onLive func()) {
 		if sample == nil {
 			return gst.FlowEOS
 		}
+		// A pulled sample is owned here, and the binding otherwise drops it from a
+		// finalizer whenever the collector next runs. That is not a lifetime a decoder
+		// can be held to: every sample pins one of its textures, and a pool the
+		// collector has not got around to freeing is a decoder that cannot allocate the
+		// next frame. Released here, the sample lives exactly as long as the handover.
+		defer gst.UnsafeSampleUnref(sample)
 		r.frames.Add(1)
 		r.fanOut(sample)
 		if r.live.CompareAndSwap(false, true) {
@@ -307,7 +330,7 @@ func (r *Receiver) SetRenderSize(width, height int) {
 	if width <= 0 || height <= 0 || r.fit == nil {
 		return
 	}
-	size := uint64(uint32(width))<<32 | uint64(uint32(height))
+	size := uint64(packSize(width, height))
 	if r.renderSize.Swap(size) == size {
 		return
 	}

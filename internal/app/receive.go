@@ -32,6 +32,32 @@ func (a *App) StartReceive(streamName, transportName string) error {
 	assert.Assert(streamName != "", "a decode names the stream it receives")
 	assert.Assert(transportName != "", "a decode names the leg it receives over", streamName)
 
+	// Announced after the lock is released, for the reason StartWatch defers its own:
+	// the state is read back through the map this function holds the lock on. It runs on
+	// the refusals below too, where it announces the set unchanged - every event carries a
+	// whole state, so a duplicate is harmless and the alternative is an effect that
+	// sometimes announces nothing.
+	defer a.emitReceiveState()
+
+	key := WatchKey{Name: streamName, Transport: transportName}
+
+	// Read before anything is validated, and that order is the whole of what makes this
+	// method safe to repeat. Asking for a decode that is already open is not an error,
+	// because it is not a second decode: this method names the state it wants and that
+	// state is already true. It used to refuse, which made a retry unsafe to send - a
+	// shell whose answer was lost could not find out whether it had been heard without
+	// risking a refusal for having been, and so had nothing to do but wait for an answer
+	// that was never coming.
+	//
+	// Validating first would put the same trap back one step further out: the relay's
+	// snapshot moves under a running decode - the publisher republishes in a format this
+	// leg does not carry - and the resend would then fail a precondition on behalf of a
+	// state that already holds.
+	if a.receiving(key) {
+		logger.Debugf("'%s' over %s is already being received", streamName, transportName)
+		return nil
+	}
+
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
@@ -45,16 +71,14 @@ func (a *App) StartReceive(streamName, transportName string) error {
 		return fmt.Errorf("transport %q has no GStreamer watch form, so no pipeline can receive over it", transportName)
 	}
 
-	// Announced after the lock is released, for the reason StartWatch defers its own:
-	// the state is read back through the map this function holds the lock on.
-	defer a.emitReceiveState()
-
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
 	if _, present := a.receivers[key]; present {
-		return fmt.Errorf("already receiving %s over %s", streamName, transportName)
+		// The same question again, under the lock this time: the read above is what keeps a
+		// repeat cheap and this is what keeps two starts racing for one pair from building
+		// two pipelines.
+		return nil
 	}
 
 	stream := receive.Stream{
@@ -79,15 +103,30 @@ func (a *App) StartReceive(streamName, transportName string) error {
 	return nil
 }
 
+// receiving reports whether a decode is open for the pair.
+//
+// It reads the map rather than anything a caller believed it had started, which is what
+// lets it stand in front of the validation StartReceive would otherwise run over a state
+// that already holds.
+func (a *App) receiving(key WatchKey) bool {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	_, present := a.receivers[key]
+	return present
+}
+
 // StopReceive closes one running decode. A stream nothing is decoding is not an error,
 // for the reason StopWatch takes a viewer that is already gone: a stop is what the user
 // asked for and it is already true.
 func (a *App) StopReceive(streamName, transportName string) {
 	defer a.emitReceiveState()
 
+	key := WatchKey{Name: streamName, Transport: transportName}
+
 	a.procMu.Lock()
-	receiver, present := a.receivers[WatchKey{Name: streamName, Transport: transportName}]
-	delete(a.receivers, WatchKey{Name: streamName, Transport: transportName})
+	receiver, present := a.receivers[key]
+	delete(a.receivers, key)
 	a.procMu.Unlock()
 
 	if !present {

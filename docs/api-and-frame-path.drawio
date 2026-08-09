@@ -1,0 +1,138 @@
+<mxfile host="app.diagrams.net" version="29.3.4">
+  <diagram id="api-and-frame-path" name="Control API and frame path">
+    <mxGraphModel dx="1779" dy="1114" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1460" pageHeight="990" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="relay" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;MediaMTX relay&lt;/b&gt;&lt;br&gt;SRT :8890 · RTSP :8554 · WHEP :8889&lt;br&gt;RTMP :1935 · HLS :8888 · HTTP API :9997&lt;br&gt;re-serves each ingested stream on every listener">
+          <mxGeometry x="480" y="40" width="320" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="machine" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9aa5b5;dashed=1;verticalAlign=top;align=left;spacing=10;fontStyle=1;fontSize=13;fontColor=#66707f;" value="one machine · backend and shell are two modules of one application">
+          <mxGeometry x="40" y="220" width="1380" height="730" as="geometry" />
+        </mxCell>
+
+        <mxCell id="backend" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=12;container=1;collapsible=0;" value="screenshare backend · Go · headless · decides what is true">
+          <mxGeometry x="70" y="260" width="520" height="650" as="geometry" />
+        </mxCell>
+        <mxCell id="b-publish" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;publish pipeline&lt;/b&gt;&lt;br&gt;ffmpeg or gst-launch-1.0 child process&lt;br&gt;capture · encode · publish leg">
+          <mxGeometry x="30" y="38" width="250" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="b-source" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;watch-leg source&lt;/b&gt; · transport.GstWatcher&lt;br&gt;srtsrc · rtspsrc · rtmp2src · whepsrc">
+          <mxGeometry x="30" y="132" width="250" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="b-decode" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;decodebin&lt;/b&gt;&lt;br&gt;depayload · parse · decode, autoplugged by rank">
+          <mxGeometry x="30" y="218" width="250" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="b-chain" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;render chain&lt;/b&gt; · ViewerSettings, one per machine&lt;br&gt;Windows default d3d11:&lt;br&gt;d3d11upload ! d3d11convert ! RGBA/sRGB&lt;br&gt;render size fixates the scaler inside it">
+          <mxGeometry x="30" y="296" width="250" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="b-sink" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;appsink&lt;/b&gt; max-buffers=1 · sync=true&lt;br&gt;emit-signals · one sample per frame">
+          <mxGeometry x="30" y="390" width="250" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="b-export" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;frame export&lt;/b&gt; · internal/receive&lt;br&gt;pool on the decoder's own D3D11 device&lt;br&gt;IDXGIResource::GetSharedHandle per slot">
+          <mxGeometry x="30" y="468" width="250" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="b-control" parent="backend" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;control server&lt;/b&gt;&lt;br&gt;internal/control · internal/form&lt;br&gt;tables, greyings, repairs, estimates&lt;br&gt;emits a whole state on every change">
+          <mxGeometry x="320" y="132" width="170" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="socket" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=12;container=1;collapsible=0;" value="control socket · one gRPC server, two services&lt;br&gt;Windows \\.\pipe\screenshare-control-v1&lt;br&gt;Linux/macOS $XDG_RUNTIME_DIR/screenshare/control-v1.sock">
+          <mxGeometry x="700" y="350" width="250" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="s-control" parent="socket" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;ControlService&lt;/b&gt;&lt;br&gt;reads · GetCatalog · ResolveForm&lt;br&gt;effects · StartReceive · StartPublish&lt;br&gt;stream · Subscribe, whole states">
+          <mxGeometry x="25" y="42" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="s-frame" parent="socket" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;FrameService&lt;/b&gt; · Frames, bidirectional&lt;br&gt;up · Subscribe · Release · RenderSize&lt;br&gt;down · Pool · Ready · End&lt;br&gt;handle metadata only, never pixels">
+          <mxGeometry x="25" y="180" width="200" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="shell" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#666666;verticalAlign=top;fontStyle=1;fontSize=12;container=1;collapsible=0;" value="Avalonia shell · C# · draws and names, decides nothing">
+          <mxGeometry x="1080" y="260" width="280" height="650" as="geometry" />
+        </mxCell>
+        <mxCell id="a-session" parent="shell" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;Session · ControlBackend&lt;/b&gt;&lt;br&gt;renders Form as widgets, evaluates no rule&lt;br&gt;names every identifier (Copy)&lt;br&gt;StartReceive opens the decode">
+          <mxGeometry x="25" y="132" width="230" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="a-channel" parent="shell" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;FrameChannel&lt;/b&gt;&lt;br&gt;one call per decode, opens none&lt;br&gt;releases a slot, never draws one">
+          <mxGeometry x="25" y="300" width="230" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="a-tile" parent="shell" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;StreamTile&lt;/b&gt; · CompositionSurfaceVisual&lt;br&gt;interop.ImportImage once per slot&lt;br&gt;UpdateWithKeyedMutexAsync, then release&lt;br&gt;a visual among visuals, not a child window">
+          <mxGeometry x="25" y="450" width="230" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pool" parent="1" vertex="1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;fontStyle=0;" value="&lt;b&gt;shared texture pool&lt;/b&gt; · 3 slots&lt;br&gt;DXGI shared texture · keyed mutex&lt;br&gt;backend allocates and lends">
+          <mxGeometry x="700" y="740" width="250" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-publish" parent="1" edge="1" source="b-publish" target="relay" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2b6cc9;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=0.2;exitY=0;entryX=0.25;entryY=1;" value="publish leg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="240" />
+              <mxPoint x="560" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-watch" parent="1" edge="1" source="relay" target="b-source" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2b6cc9;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=0.4375;exitY=1;entryX=0.5;entryY=0;" value="watch leg · tile_watch_transport">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="372" />
+              <mxPoint x="225" y="372" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-src-dec" parent="1" edge="1" source="b-source" target="b-decode" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-dec-chain" parent="1" edge="1" source="b-decode" target="b-chain" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-chain-sink" parent="1" edge="1" source="b-chain" target="b-sink" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-sink-export" parent="1" edge="1" source="b-sink" target="b-export" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-export-pool" parent="1" edge="1" source="b-export" target="pool" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1f8a52;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="GPU blit">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="760" />
+              <mxPoint x="660" y="800" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-pool-tile" parent="1" edge="1" source="pool" target="a-tile" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1f8a52;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" value="import · no copy">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1030" y="800" />
+              <mxPoint x="1030" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-serve-control" parent="1" edge="1" source="b-control" target="s-control" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=1;exitY=0.4;entryX=0;entryY=0.5;" value="serves">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-call-control" parent="1" edge="1" source="a-session" target="s-control" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#d79b00;strokeWidth=1.5;dashed=1;startArrow=classic;startFill=1;labelBackgroundColor=#ffffff;exitX=0;exitY=0.4615;entryX=1;entryY=0.5;" value="calls · event stream">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-export-frames" parent="1" edge="1" source="b-export" target="s-frame" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7d4fc4;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=1;exitY=0.2656;entryX=0;entryY=0.5833;" value="handles">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="620" y="745" />
+              <mxPoint x="620" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-frames-channel" parent="1" edge="1" source="s-frame" target="a-channel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#7d4fc4;strokeWidth=2;startArrow=classic;startFill=1;labelBackgroundColor=#ffffff;exitX=1;exitY=0.625;entryX=0;entryY=0.409;" value="loan · release">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-session-channel" parent="1" edge="1" source="a-session" target="a-channel" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=0.326;exitY=1;entryX=0.326;entryY=0;" value="opens">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-channel-tile" parent="1" edge="1" source="a-channel" target="a-tile" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#454d59;strokeWidth=2;labelBackgroundColor=#ffffff;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" value="slot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

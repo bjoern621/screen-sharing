@@ -19,17 +19,21 @@
     dev` should stop rather than start a backend no shell will ever reach.
 
   What it stops:
-    Every backend running out of a build tree this repo produces - the `go run` cache
-    under LOCALAPPDATA\go-build, or build/bin from `task build:windows` - and not only
-    the one holding the pipe. A leftover that lost the race for the pipe is just as
-    much in the way: it is still capturing, still publishing to the relay, and nothing
-    in the app's own state will ever mention it. The postcondition wanted here is "no
-    backend from this tree is running", not "the pipe happens to be free".
+    Every backend running out of a directory this repo starts one from - the one `go
+    run` links its binary into under TEMP, or build/bin from `task build:windows` -
+    and not only the one holding the pipe. A leftover that lost the race for the pipe
+    is just as much in the way: it is still capturing, still publishing to the relay,
+    and nothing in the app's own state will ever mention it. The postcondition wanted
+    here is "no backend from this tree is running", not "the pipe happens to be free".
 
-    The `go run` cache is shared by every Go project on the machine, so a second
-    project whose main package is also called backend would be caught by this too.
-    That is the price of that cache having no per-project path; the alternative -
-    stopping only the pipe's holder - leaves the rest running.
+    The build cache under LOCALAPPDATA\go-build is not one of them and is not swept:
+    it holds the compiled packages and never a process. What is swept is where the
+    binary is run from.
+
+    The temp directory has no per-project path, so a second project whose main package
+    is also called backend would be caught by this too. That is the price of `go run`
+    naming its output after the package alone; the alternative - stopping only the
+    pipe's holder - leaves the rest running.
 
   Idempotent: with nothing running and the pipe free it does nothing and succeeds,
   which is what lets `task dev` run it unconditionally.
@@ -66,8 +70,16 @@ function pipeTaken {
   }
 }
 
+# The temp directory is where the process this script is looking for lives. `go run`
+# does not run the binary out of the build cache: it links it into a fresh
+# %TEMP%\go-buildNNNNNNNN\b001\exe\backend.exe and runs that, and the cache under
+# LOCALAPPDATA holds only the compiled packages behind it. A sweep that looked at the
+# cache matched nothing a dev run ever started, and `task dev` reported the pipe as held
+# by something it could not name - which is the state this script exists to prevent. So
+# the cache is not listed: a prefix nothing can run from is a claim of coverage that
+# sends the next reader looking in the wrong place.
 $devTrees = @(
-  (Join-Path $env:LOCALAPPDATA "go-build"),
+  (Join-Path $env:TEMP "go-build"),
   (Join-Path (Split-Path $PSScriptRoot -Parent) "build\bin")
 )
 

@@ -53,6 +53,16 @@ public readonly record struct TileReport(
     ulong Dropped,
     string Notice)
 {
+    /// <summary>
+    /// What a tile has to report before it has drawn anything.
+    ///
+    /// It exists because <c>default</c> is not it: a record struct's default leaves
+    /// <see cref="Notice"/> null, and a tile is rendered once when it is added and before its
+    /// first report, so the field every tile starts from has to be a report and not a zeroed
+    /// struct. Nothing has happened yet, and the empty notice is that said out loud.
+    /// </summary>
+    public static readonly TileReport Nothing = new(0, 0, 0, 0, "");
+
     /// <summary>Whether a frame has ever been drawn, which is what separates a live tile from a connecting one.</summary>
     public bool Live => Frames > 0;
 }

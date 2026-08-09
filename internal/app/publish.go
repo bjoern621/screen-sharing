@@ -66,19 +66,69 @@ func (a *App) startPublishHeld() error {
 // the grid asked for it.
 func (a *App) startPublish(s settings.Settings) error {
 	a.procMu.Lock()
-	// A publish waiting out its backoff is one the user asked for and has not stopped,
-	// so it holds the same ground a running one does.
-	if (a.run != nil && a.run.handle.Running()) || a.retry != nil {
-		a.procMu.Unlock()
-		return fmt.Errorf("already publishing")
-	}
-	err := a.launchLocked(s, 0)
+	err := a.startPublishLocked(s)
 	a.procMu.Unlock()
 
 	// Announced after the lock is released: reading the state takes both mutexes in
 	// the order app.go fixes, and holding one of them here would invert it.
 	a.emitPublishState()
 	return err
+}
+
+// startPublishLocked is the decision itself, with procMu held.
+//
+// A start naming the pipeline that is already publishing is a request for a state that
+// already holds, and a state that already holds is a success (docs/development-principles.md,
+// "Effects across a process boundary"): it is what lets a shell whose answer went missing
+// ask again rather than wait for one that is not coming. What it is not is a licence to run
+// two encoders on one relay path - a start naming a different pipeline is still refused,
+// which is the whole of what that refusal was ever for.
+//
+// Same is decided by publish.SamePipeline, which is where "these two settings are one
+// stream" is defined for the pending flag as well. Two definitions of that would be two
+// answers to whether a repeat is a repeat.
+func (a *App) startPublishLocked(s settings.Settings) error {
+	live, _ := a.livePublishLocked()
+	if live == nil {
+		return a.launchLocked(s, 0)
+	}
+
+	same, err := publish.SamePipeline(*live, s)
+	if err != nil {
+		// One of the two names a pipeline that cannot be built, so whether this start is a
+		// repeat cannot be told. Refusing is the answer that cannot start a second encoder.
+		logger.Warnf("cannot tell whether the running publish carries the settings this start asks for: %v", err)
+		return fmt.Errorf("already publishing")
+	}
+	if !same {
+		return fmt.Errorf("already publishing")
+	}
+
+	logger.Debugf("'%s' is already publishing on these settings", s.Publish.Name)
+	return nil
+}
+
+// livePublishLocked is the publish in force: the settings its pipeline was built from and
+// the relaunch pending on it. Both are nil with nothing in force, and the second alone is
+// nil while the pipeline is carrying frames. procMu is held by the caller.
+//
+// It is one function because "what is publishing" is one fact. A start deciding whether it
+// is a repeat and a state read deciding what to report are the two consumers, and two
+// spellings of this would let them disagree about whether anything is publishing at all.
+//
+// A publish waiting out its backoff is in force: it is one the user asked for and has not
+// stopped, it will come back on its own, and the one call that ends a running pipeline
+// ends it too.
+func (a *App) livePublishLocked() (*settings.Settings, *publishRetry) {
+	if a.run != nil && a.run.handle.Running() {
+		s := a.run.settings
+		return &s, nil
+	}
+	if a.retry != nil {
+		s := a.retry.settings
+		return &s, a.retry
+	}
+	return nil, nil
 }
 
 // Republish validates s, persists it and restarts the running publish on it. It is how
@@ -225,22 +275,18 @@ func (a *App) GetPublishState() PublishState {
 	held := a.settings
 	a.settingsMu.Unlock()
 
-	a.procMu.Lock()
-	var live *settings.Settings
 	var state PublishState
-	if a.run != nil && a.run.handle.Running() {
-		s := a.run.settings
-		live = &s
-	} else if a.retry != nil {
-		s := a.retry.settings
-		live = &s
+
+	a.procMu.Lock()
+	live, retry := a.livePublishLocked()
+	if retry != nil {
 		state.Retrying = true
 		// The budget is set with the attempt because the two are one fact: "attempt 2 of
 		// 3" is the whole of what either number says, and a budget reported beside a
 		// stream that is carrying frames would name attempts nothing is spending. Both
 		// are zero while nothing retries, which is what this shape promises the frontend
 		// and what the contract asserts of it (wire.PublishState).
-		state.Attempt = a.retry.attempts
+		state.Attempt = retry.attempts
 		state.Budget = len(publishBackoff)
 	}
 	a.procMu.Unlock()

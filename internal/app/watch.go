@@ -128,6 +128,20 @@ func (a *App) Watching() []WatchKey {
 	return keys
 }
 
+// watching reports whether a viewer is open for the pair, which a window that has since
+// closed on its own is not.
+//
+// It reads the processes rather than anything a caller believed it had opened, which is
+// what lets it stand in front of the validation StartWatch would otherwise run over a
+// state that already holds.
+func (a *App) watching(key WatchKey) bool {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	watcher, present := a.watchers[key]
+	return present && watcher.Running()
+}
+
 // carriesStream reports whether the named transport can deliver the live stream to the
 // named receiving engine, and the reason it cannot.
 //
@@ -168,6 +182,27 @@ func (a *App) carriesStream(streamName, transportName, engine string) error {
 // relay serves it on. The watch package selects the viewer engine (ffplay by
 // default, SCREENSHARE_VIEWER=mpv switches to mpv).
 func (a *App) StartWatch(streamName, transportName string) error {
+	// Announced after the lock is released, which is what the order of these two defers
+	// buys: emitViewerState reads the set through Watching and would deadlock against
+	// the mutex the rest of this function holds. It runs on the failed paths below too,
+	// where it announces the set unchanged - every event carries a whole state, so a
+	// duplicate is harmless, and the alternative is an effect that sometimes announces
+	// nothing.
+	defer a.emitViewerState()
+
+	key := WatchKey{Name: streamName, Transport: transportName}
+
+	// Read before anything is validated, for the reason StartReceive reads its own state
+	// first. The viewer this asks for is open, which is what was asked for. Refusing here
+	// made the call unsafe to repeat, and a call that cannot be repeated leaves a shell
+	// whose answer went missing with no way to find out what happened - and validating
+	// ahead of the question puts that same refusal back under another name, since the
+	// relay's snapshot and the settings both move under a viewer that is already running.
+	if a.watching(key) {
+		logger.Debugf("'%s' over %s is already being watched", streamName, transportName)
+		return nil
+	}
+
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
@@ -185,21 +220,14 @@ func (a *App) StartWatch(streamName, transportName string) error {
 		return err
 	}
 
-	// Announced after the lock is released, which is what the order of these two defers
-	// buys: emitViewerState reads the set through Watching and would deadlock against
-	// the mutex the rest of this function holds. It runs on the failed paths below too,
-	// where it announces the set unchanged - every event carries a whole state, so a
-	// duplicate is harmless, and the alternative is an effect that sometimes announces
-	// nothing.
-	defer a.emitViewerState()
-
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
-	watcher, present := a.watchers[key]
-	if present && watcher.Running() {
-		return fmt.Errorf("already watching %s over %s", streamName, transportName)
+	if watcher, present := a.watchers[key]; present && watcher.Running() {
+		// The same question again, under the lock this time: the read above is what keeps a
+		// repeat cheap and this is what keeps two starts racing for one pair from opening
+		// two windows.
+		return nil
 	}
 
 	exe, err := ffmpeg.FindExe(engine.Exe())

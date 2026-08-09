@@ -14,6 +14,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -157,10 +158,18 @@ func (s *Server) DeletePreset(ctx context.Context, req *screensharev1.DeletePres
 
 // StartPublish persists the settings and starts the encoder on them.
 //
-// A stream already in force refuses it, and a pipeline waiting out a retry backoff is
-// in force: it is the stream the user asked for and has not stopped, it will come back
-// on its own, and the one call that ends a running pipeline ends it too. Letting a
-// start through in that gap would put two encoders on one relay path seconds apart.
+// A stream already in force refuses a start naming a *different* pipeline, and a pipeline
+// waiting out a retry backoff is in force: it is the stream the user asked for and has not
+// stopped, it will come back on its own, and the one call that ends a running pipeline ends
+// it too. Letting a different start through in that gap would put two encoders on one relay
+// path seconds apart.
+//
+// A start naming the pipeline that is already publishing is not that case. It is a request
+// for a state that already holds, and a state that already holds is a success
+// (docs/development-principles.md, "Effects across a process boundary"): a shell whose
+// answer went missing cannot tell "not done" from "done, answer lost", and asking again is
+// the only move that resolves it. publish.SamePipeline decides sameness here and at the
+// backend, because "these two settings are one stream" is one fact.
 func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPublishRequest) (*screensharev1.StartPublishResponse, error) {
 	draft, err := draftOf(req.GetSettings(), "publish")
 	if err != nil {
@@ -168,6 +177,9 @@ func (s *Server) StartPublish(ctx context.Context, req *screensharev1.StartPubli
 	}
 
 	if state := s.backend.PublishState(); state.Publishing() {
+		if same, err := publish.SamePipeline(state.Live.Settings, draft); err == nil && same {
+			return &screensharev1.StartPublishResponse{}, nil
+		}
 		if retry := state.Retry(); retry != nil {
 			return nil, failedPrecondition(
 				"a stream is already publishing and is waiting out attempt %d of %d after its pipeline died; stop it before starting another",

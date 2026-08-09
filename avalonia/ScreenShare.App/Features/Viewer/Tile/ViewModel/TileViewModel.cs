@@ -28,8 +28,14 @@ public sealed class TileViewModel : Observable, IFrameSource
     private readonly IBackend _backend;
     private readonly Action<Action> _dispatch;
 
-    /// <summary>What the control last reported. The one piece of state here, and it is this window's own.</summary>
-    private TileReport _report;
+    /// <summary>
+    /// What the control last reported. The one piece of state here, and it is this window's own.
+    ///
+    /// It starts at <see cref="TileReport.Nothing"/> rather than at the struct's default,
+    /// because a tile is rendered as soon as it is added and its first report arrives after
+    /// that: a default carries a null notice, and the render reads the notice.
+    /// </summary>
+    private TileReport _report = TileReport.Nothing;
 
     public TileViewModel(string streamName, string transport, IBackend backend, Action<Action> dispatch)
     {

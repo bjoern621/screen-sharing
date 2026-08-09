@@ -11,6 +11,7 @@ import "C"
 
 import (
 	"errors"
+	"runtime"
 	"unsafe"
 
 	"github.com/go-gst/go-gst/pkg/gst"
@@ -48,19 +49,35 @@ type d3d11Sharer struct {
 // the caps a chain asked for.
 func newSharer() sharer { return &d3d11Sharer{} }
 
+// onSample runs one C export entry point over a sample and turns its answer into an
+// error, which is the whole of what this file's two calls have in common: the fault
+// buffer, the sample's lifetime and the "0 means it wrote a reason" convention.
+//
+// The lifetime is why it is one function rather than two call sites. The sample is a C
+// object the Go wrapper owns and unrefs from a finalizer, and samplePointer yields a bare
+// address the collector cannot see: without the KeepAlive the wrapper is dead from the
+// moment the argument is evaluated, and a collection during the call frees the buffer
+// whose texture is being allocated from or blitted out of. Held here, no caller can
+// forget it.
+func onSample(sample *gst.Sample, run func(sample unsafe.Pointer, fault *C.char, size C.int) C.int) error {
+	fault := make([]byte, errorBytes)
+	ok := run(samplePointer(sample), (*C.char)(unsafe.Pointer(&fault[0])), C.int(len(fault)))
+	runtime.KeepAlive(sample)
+
+	if ok == 0 {
+		return errors.New(reason(fault))
+	}
+	return nil
+}
+
 func (s *d3d11Sharer) open(sample *gst.Sample, slots int) (Pool, error) {
 	s.close()
 
-	fault := make([]byte, errorBytes)
-	ok := C.screenshare_share_open(
-		samplePointer(sample),
-		C.int(slots),
-		&s.pool,
-		(*C.char)(unsafe.Pointer(&fault[0])),
-		C.int(len(fault)),
-	)
-	if ok == 0 {
-		return Pool{}, errors.New(reason(fault))
+	err := onSample(sample, func(frame unsafe.Pointer, fault *C.char, size C.int) C.int {
+		return C.screenshare_share_open(frame, C.int(slots), &s.pool, fault, size)
+	})
+	if err != nil {
+		return Pool{}, err
 	}
 	s.opened = true
 
@@ -93,18 +110,9 @@ func (s *d3d11Sharer) write(slot int, sample *gst.Sample) error {
 		return errors.New("no pool has been opened for these frames")
 	}
 
-	fault := make([]byte, errorBytes)
-	ok := C.screenshare_share_blit(
-		&s.pool,
-		C.int(slot),
-		samplePointer(sample),
-		(*C.char)(unsafe.Pointer(&fault[0])),
-		C.int(len(fault)),
-	)
-	if ok == 0 {
-		return errors.New(reason(fault))
-	}
-	return nil
+	return onSample(sample, func(frame unsafe.Pointer, fault *C.char, size C.int) C.int {
+		return C.screenshare_share_blit(&s.pool, C.int(slot), frame, fault, size)
+	})
 }
 
 func (s *d3d11Sharer) close() {

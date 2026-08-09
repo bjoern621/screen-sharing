@@ -1,10 +1,27 @@
 # Development principles
 
-Four rules govern every package in both modules.
-They are ordered by what they protect: state that cannot drift, work that can be repeated, files that hold one idea, and contracts that fail loudly.
-
 Everything else in `docs/` describes what the app does.
 This page describes how its code is allowed to be shaped.
+
+## The two paradigms
+
+**Idempotent** and **declarative** outrank every other rule on this page, and the rules below are how they are held to.
+Where a design decision is open, the one that keeps these two is the one taken, and neither is traded for brevity, for a round trip, or for a shorter diff.
+
+**Idempotent** means an operation is safe to run twice.
+Applying, syncing, reconciling and asking the backend for something are all repeatable: the second run with unchanged input changes nothing, creates nothing and restarts nothing.
+What this buys is a caller that never has to know what has already happened.
+A step that cannot be repeated forces every caller to track whether it ran, and a caller whose answer went missing then has nothing left to do but wait.
+
+**Declarative** means code states the state it wants and lets one converge decide what to do about it.
+A call names the world it wants to be true, not the transition it wants performed; a table states the facts and every consumer reads it; a render function states what the screen shows and is free to run at any time.
+What this buys is one definition of each fact.
+Imperative steps spread that definition across the paths that perform them, and two paths then disagree without either being wrong.
+
+The two hold each other up.
+An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it, and an operation that is idempotent can be called from a render pass, which is what lets that pass stay declarative.
+
+The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts that are stated once, files that hold one idea, and contracts that fail loudly.
 
 ## State is written explicitly and read continuously
 
@@ -50,6 +67,53 @@ Where a subtree is small, clear-then-fill is preferred over an incremental patch
 
 Where an operation is expensive, the guard belongs inside it.
 `Attach(p)` with the player already attached returns without renegotiating, rather than asking every caller to check first.
+
+### Effects across a process boundary
+
+An effect on the control contract names the state it wants, and a request for a state that already holds succeeds.
+`StartReceive` on a decode that is already open is not a second decode and is not an error; `StopReceive` on one that is already closed is not a failure.
+`StartPublish` naming the pipeline that is already publishing is the same case, backoff and all.
+Each of them is the state the caller asked for, and it is true.
+
+The state is read before the request is validated, and the order is not an economy.
+A precondition moves under a state that already holds - the relay reports a format the running decode's leg stopped carrying, the settings the viewer was opened on changed - and a validation placed first would refuse a repeat on behalf of a state it was never asked to establish.
+
+The reason is the answer, not the effect.
+A shell that sent a call and did not hear back cannot tell "not done" from "done, answer lost", and the only move that resolves it is asking again.
+A method that refuses a repeat takes that move away and leaves the caller waiting on an answer that is not coming, which is a control that never comes back rather than one that failed.
+
+What a repeat is not is a second, different request.
+`StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path; `ApplyToStream` names a transition on purpose and a second one is a second restart.
+Those are the departures, they are written down where they happen, and the sentence a timed-out call shows is worded against them.
+
+Every call over the socket is bounded.
+An unbounded call turns a lost answer into a permanent wait, and on a local socket "no answer" means the other side died, wedged or lost the connection - all facts worth showing rather than waiting through.
+The bound belongs on the channel, in one place, and not at each call site: a rule applied per call site holds only where somebody remembered it.
+
+A failure that says the backend went quiet says what is and is not known about the attempt, and says that anything naming a state is safe to ask for again.
+That sentence is only truthful because those effects are idempotent, which is the paradigm paying for itself - and it says "naming a state" rather than "every call" because of the two departures above.
+
+## Declarative
+
+Three shapes carry the paradigm, and each is stated in full elsewhere on this page.
+They are collected here because they are one idea wearing three costumes.
+
+**A pass states what it wants.**
+A render function writes every property the component can show, including the off branch, and a reconcile takes desired state and converges to it.
+Neither performs a diff it was handed, unless the diff is genuinely what the process received.
+
+**A fact lives in one table.**
+Static knowledge - which transports carry which formats, which chain a platform renders through, what a row shows - is a table every consumer reads, never a `switch` restated at each site.
+`docs/domain-model.md` covers the codec and transport tables; the render chains in `internal/receive/chains.go` are the same shape.
+
+**A reader reads through.**
+Nothing here reports what a caller believed it had just done.
+An effect answers empty and the state arrives on the event stream, read back off the thing that owns it: the receive state is assembled from the running pipelines, the viewer roster from the processes, the relay snapshot from the poll.
+A value cached at construction and never refreshed is the defect this removes.
+
+The one departure is written down where it happens.
+The shell's tile grid is shell state and not the backend's, because the contract describes no grid, and `internal/app` has nothing to read one back from.
+A departure that is not written down is a bug.
 
 ## Components
 

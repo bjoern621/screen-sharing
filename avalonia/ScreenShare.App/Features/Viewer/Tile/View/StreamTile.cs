@@ -72,7 +72,7 @@ public sealed class StreamTile : Control
     private CancellationTokenSource? _cancel;
 
     /// <summary>What has been reported, so a report that changed nothing raises no pass.</summary>
-    private TileReport _reported;
+    private TileReport _reported = TileReport.Nothing;
 
     /// <summary>The size last sent to the backend, in device pixels, so an unchanged size renegotiates nothing.</summary>
     private PixelSize _asked;
@@ -200,7 +200,10 @@ public sealed class StreamTile : Control
         _visual = null;
         _asked = default;
         _generation = 0;
-        _reported = default;
+        // Back to what the field was constructed with rather than to the struct's default:
+        // a tile is stopped and started again whenever its row is replaced, and a default
+        // here would put the null notice back that TileReport.Nothing exists to keep out.
+        _reported = TileReport.Nothing;
     }
 
     /// <summary>

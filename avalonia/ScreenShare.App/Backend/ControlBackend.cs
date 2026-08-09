@@ -1,4 +1,5 @@
 using Grpc.Core;
+using Grpc.Core.Interceptors;
 using Grpc.Net.Client;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Contracts;
@@ -45,13 +46,29 @@ public sealed class ControlBackend : IBackend
     private const string ClientName = "avalonia";
 
     /// <summary>
-    /// Bounds the handshake, and nothing else. The reads after it are bounded by their
-    /// caller's token instead, because a resolve is superseded by the next keystroke rather
-    /// than by a clock. This one has no such caller: it runs on the first read and a backend
-    /// that accepted the connection and then never answered would otherwise leave every later
-    /// call waiting behind it.
+    /// Bounds the handshake, and it is shorter than the bound every other call gets because
+    /// it is the one call that answers off state the backend already holds. A backend that
+    /// accepted the connection and did not answer this is not one worth waiting on.
     /// </summary>
     private static readonly TimeSpan HandshakeDeadline = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Bounds every other call, through <see cref="CallDeadline"/>, and the number is the
+    /// slowest honest effect rather than a guess: taking a decode down waits on the pipeline
+    /// reaching NULL, which the receive package gives two attempts of three seconds each.
+    /// Everything else on this contract answers in well under that.
+    /// </summary>
+    private static readonly TimeSpan CallDeadlineSpan = TimeSpan.FromSeconds(20);
+
+    /// <summary>
+    /// The probe's own bound, which is longer because it is the one method that does real
+    /// work per call: it test-encodes on every engine this machine has. It is stated here
+    /// rather than left to the general bound above, which it would exceed on a machine with
+    /// several GPUs - and a probe that timed out is asked for again by the next read
+    /// (<see cref="GreetAsync"/>), so the general bound would mean re-running it for as long
+    /// as the window is open and never finishing one.
+    /// </summary>
+    private static readonly TimeSpan ProbeDeadline = TimeSpan.FromMinutes(3);
 
     private readonly ControlService.ControlServiceClient _client;
 
@@ -98,7 +115,11 @@ public sealed class ControlBackend : IBackend
             },
         });
 
-        _client = new ControlService.ControlServiceClient(channel);
+        // The control client goes through the deadline interceptor and the frame client does
+        // not, which is the division that type is written around: everything on the control
+        // service is a question with an answer, and the frame service is one call that stays
+        // open for as long as a tile is drawn.
+        _client = new ControlService.ControlServiceClient(channel.Intercept(new CallDeadline(CallDeadlineSpan)));
         // The frame channel is the second service on that same connection. One channel for
         // both is what the contract's own reasoning asks for: riding the same socket is what
         // avoids reinventing framing, versioning and cancellation for a stream of handle
@@ -192,50 +213,27 @@ public sealed class ControlBackend : IBackend
 
     /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
-    {
-        Assert.That(streamName.Length > 0, "opening a viewer names the stream it watches");
-        Assert.That(transport.Length > 0, "opening a viewer names the leg it receives over", streamName);
-
-        return ReadAsync(
-            c => c.StartWatchAsync(
-                new StartWatchRequest { Viewer = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+        => KeyedAsync(streamName, transport, "opening a viewer",
+            (c, key) => c.StartWatchAsync(new StartWatchRequest { Viewer = key }, cancellationToken: cancellation),
             cancellation);
-    }
 
     /// <inheritdoc />
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
-    {
-        Assert.That(streamName.Length > 0, "closing a viewer names the stream it was watching");
-        Assert.That(transport.Length > 0, "closing a viewer names the leg it received over", streamName);
-
-        return ReadAsync(
-            c => c.StopWatchAsync(
-                new StopWatchRequest { Viewer = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+        => KeyedAsync(streamName, transport, "closing a viewer",
+            (c, key) => c.StopWatchAsync(new StopWatchRequest { Viewer = key }, cancellationToken: cancellation),
             cancellation);
-    }
+
     /// <inheritdoc />
     public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-    {
-        Assert.That(streamName.Length > 0, "opening a decode names the stream it receives");
-        Assert.That(transport.Length > 0, "opening a decode names the leg it receives over", streamName);
-
-        return ReadAsync(
-            c => c.StartReceiveAsync(
-                new StartReceiveRequest { Stream = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+        => KeyedAsync(streamName, transport, "opening a decode",
+            (c, key) => c.StartReceiveAsync(new StartReceiveRequest { Stream = key }, cancellationToken: cancellation),
             cancellation);
-    }
 
     /// <inheritdoc />
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-    {
-        Assert.That(streamName.Length > 0, "closing a decode names the stream it was receiving");
-        Assert.That(transport.Length > 0, "closing a decode names the leg it received over", streamName);
-
-        return ReadAsync(
-            c => c.StopReceiveAsync(
-                new StopReceiveRequest { Stream = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+        => KeyedAsync(streamName, transport, "closing a decode",
+            (c, key) => c.StopReceiveAsync(new StopReceiveRequest { Stream = key }, cancellationToken: cancellation),
             cancellation);
-    }
 
     /// <inheritdoc />
     public async Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
@@ -313,12 +311,34 @@ public sealed class ControlBackend : IBackend
 
         try
         {
-            return await call(_client);
+            return await call(_client).ResponseAsync.ConfigureAwait(false);
         }
         catch (RpcException e)
         {
             throw Translate(e, cancellation);
         }
+    }
+
+    /// <summary>
+    /// One effect keyed by the pair a viewer and a decode are identified by.
+    ///
+    /// The four methods above differ in the request they wrap that pair in and in nothing
+    /// else, so the pair is asserted and built here. <paramref name="what"/> is the effect
+    /// named as its assertions name it, which is the only part of the sentence that is the
+    /// caller's; the invariant itself is one sentence because it is one invariant.
+    /// </summary>
+    private Task KeyedAsync<TResponse>(
+        string streamName,
+        string transport,
+        string what,
+        Func<ControlService.ControlServiceClient, WatchKey, AsyncUnaryCall<TResponse>> call,
+        CancellationToken cancellation)
+    {
+        Assert.That(streamName.Length > 0, $"{what} names the stream it is for");
+        Assert.That(transport.Length > 0, $"{what} names the leg it runs over", streamName);
+
+        var key = new WatchKey { StreamName = streamName, Transport = transport };
+        return ReadAsync(c => call(c, key), cancellation);
     }
 
     /// <summary>
@@ -341,9 +361,17 @@ public sealed class ControlBackend : IBackend
     /// The handshake is shared rather than per call, so two reads racing produce one
     /// <c>Hello</c>. It is deliberately not given the caller's token: one caller abandoning
     /// its read would otherwise cancel the handshake every other caller is waiting on.
+    ///
+    /// The probe is asked for here rather than from inside the handshake, and that is what
+    /// makes "a probe that failed is not remembered as done" true. A settled handshake is
+    /// kept and never re-run, so a flag only the handshake consults is a flag nothing reads
+    /// again; asked for on every read, the reset takes effect on the next one.
+    /// <see cref="Probe"/> is idempotent, so every read after the first asks for a state
+    /// that already holds and does nothing.
     /// </summary>
-    private Task GreetAsync()
+    private async Task GreetAsync()
     {
+        Task handshake;
         lock (_gate)
         {
             if (_handshake is null || _handshake.IsFaulted || _handshake.IsCanceled)
@@ -351,8 +379,11 @@ public sealed class ControlBackend : IBackend
                 _handshake = HelloAsync();
             }
 
-            return _handshake;
+            handshake = _handshake;
         }
+
+        await handshake.ConfigureAwait(false);
+        Probe();
     }
 
     private async Task HelloAsync()
@@ -362,7 +393,7 @@ public sealed class ControlBackend : IBackend
         {
             hello = await _client.HelloAsync(
                 new HelloRequest { Client = ClientName, ProtocolMajor = ProtocolMajor },
-                deadline: DateTime.UtcNow.Add(HandshakeDeadline));
+                deadline: DateTime.UtcNow.Add(HandshakeDeadline)).ResponseAsync.ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -372,8 +403,6 @@ public sealed class ControlBackend : IBackend
         Assert.That(
             hello.ProtocolMajor == ProtocolMajor,
             "a settled handshake leaves both sides on one contract major", ProtocolMajor, hello.ProtocolMajor);
-
-        Probe();
     }
 
     /// <summary>
@@ -386,7 +415,7 @@ public sealed class ControlBackend : IBackend
     /// lands.
     ///
     /// A probe that failed is not remembered as done. The backend was unreachable, so nothing
-    /// was probed and the next handshake asks again.
+    /// was probed and the next read asks again (<see cref="GreetAsync"/>).
     /// </summary>
     private void Probe()
     {
@@ -407,7 +436,9 @@ public sealed class ControlBackend : IBackend
     {
         try
         {
-            await _client.ProbeEncodersAsync(new ProbeEncodersRequest());
+            await _client.ProbeEncodersAsync(
+                new ProbeEncodersRequest(), deadline: DateTime.UtcNow.Add(ProbeDeadline))
+                .ResponseAsync.ConfigureAwait(false);
         }
         catch (RpcException)
         {
@@ -465,6 +496,25 @@ public sealed class ControlBackend : IBackend
         if (e.StatusCode == StatusCode.Cancelled && cancellation.IsCancellationRequested)
         {
             return new OperationCanceledException(cancellation);
+        }
+
+        // A deadline is this side's own clock running out, so it is named before the check
+        // below: the status was written here and carries no prose, and the general wording
+        // for that says the backend answered - which is the one thing that did not happen.
+        //
+        // What it says about the attempt is what a reader has to decide with, and the honest
+        // answer is that nobody here knows: the call may have been done and its answer lost.
+        // Saying so is only useful because trying again is safe for an effect that names a
+        // state - a repeat of one that landed is a call that finds its work already done.
+        // The sentence says "names a state" rather than "every call", because ApplyToStream
+        // names a transition on purpose and a second one of those is a second restart.
+        if (e.StatusCode == StatusCode.DeadlineExceeded)
+        {
+            return new BackendUnavailableException(
+                $"The backend did not answer in time over {ControlEndpoint.Describe()}. "
+                + "Whether it acted before going quiet is not visible from here, "
+                + "so anything that names a state - starting or stopping a stream, a viewer or a decode - "
+                + "is safe to ask for again.", e);
         }
 
         if (e.Status.DebugException is not null)

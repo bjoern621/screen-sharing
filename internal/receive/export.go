@@ -73,9 +73,9 @@ type Subscription struct {
 	// lent is the serial each slot was lent for, and zero for a slot this side may
 	// write into.
 	lent [slotCount]uint64
-	// renderSize is what this consumer asked to be drawn at, width packed over
-	// height. The receiver takes the largest of its consumers' asks.
-	renderSize uint64
+	// renderSize is what this consumer asked to be drawn at. The receiver takes the
+	// largest of its consumers' asks.
+	renderSize renderSize
 	ended      bool
 	err        error
 }
@@ -143,7 +143,7 @@ func (s *Subscription) SetRenderSize(width, height int) {
 	}
 
 	s.mu.Lock()
-	s.renderSize = uint64(uint32(width))<<32 | uint64(uint32(height))
+	s.renderSize = packSize(width, height)
 	ended := s.ended
 	s.mu.Unlock()
 
@@ -162,19 +162,20 @@ func (s *Subscription) Close() {
 	s.finish(nil)
 }
 
-// finish ends the subscription once, with the reason it ended for.
+// finish ends the subscription once, with the reason it ended for. It is endLocked with
+// the lock taken around it, so the two ways a subscription ends are one sequence rather
+// than two that have to be kept in step.
 func (s *Subscription) finish(err error) {
 	s.mu.Lock()
-	if s.ended {
-		s.mu.Unlock()
+	ended := s.ended
+	if !ended {
+		s.endLocked(err)
+	}
+	s.mu.Unlock()
+
+	if ended {
 		return
 	}
-	s.ended = true
-	s.err = err
-	s.shared.close()
-	close(s.done)
-	close(s.events)
-	s.mu.Unlock()
 
 	// Outside the lock: the receiver takes its own, and the render size it recomputes
 	// reads every remaining subscription's.
@@ -196,6 +197,7 @@ func (s *Subscription) offer(sample *gst.Sample) {
 		// A pool that cannot be opened is not a frame that can be retried: the memory
 		// the chain converts into does not change mid-stream, so the next frame fails
 		// the same way. The subscription ends and the consumer is told why.
+		logger.Warnf("stream %q stopped feeding a consumer: %v", s.receiver.name, err)
 		s.endLocked(err)
 		return
 	}
@@ -277,17 +279,20 @@ func (s *Subscription) freeSlot() int {
 	return -1
 }
 
-// endLocked ends the subscription from the producer's side, with the lock already
-// held. It is the same finish the consumer's Close runs, minus the lock dance: the
-// receiver is dropped from outside, because taking its lock under this one is the
-// order the teardown path takes the other way round.
+// endLocked is the whole of what ending a subscription is - the flags, the pool and both
+// channels - with the lock already held. It is stated once here and wrapped by finish, so
+// the producer's path and the consumer's cannot end a subscription differently.
+//
+// The receiver is dropped from outside rather than here, because taking its lock under
+// this one is the order the teardown path takes the other way round.
 func (s *Subscription) endLocked(err error) {
+	assert.Assert(!s.ended, "a subscription ends once", s.receiver.name)
+
 	s.ended = true
 	s.err = err
 	s.shared.close()
 	close(s.done)
 	close(s.events)
-	logger.Warnf("stream %q stopped feeding a consumer: %v", s.receiver.name, err)
 }
 
 // frameSize is the frame's own size, off the caps the sample carries. Zero where the
@@ -385,10 +390,11 @@ func (r *Receiver) applyRenderSize() {
 		size := sub.renderSize
 		sub.mu.Unlock()
 
-		if w := int(uint32(size >> 32)); w > width {
+		w, h := size.unpack()
+		if w > width {
 			width = w
 		}
-		if h := int(uint32(size)); h > height {
+		if h > height {
 			height = h
 		}
 	}

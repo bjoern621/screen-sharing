@@ -67,7 +67,10 @@ var initOnce sync.Once
 func initGStreamer() {
 	initOnce.Do(func() {
 		// Before Init: the plugin path is read during the registry scan Init
-		// runs, and a path set afterwards is a path nothing rescans.
+		// runs, and a path set afterwards is a path nothing rescans. The thread-name
+		// handler is installed first for the same reason - the scan starts threads,
+		// and each one names itself.
+		ignoreThreadNameExceptions()
 		useBundledPlugins()
 
 		gst.Init()
