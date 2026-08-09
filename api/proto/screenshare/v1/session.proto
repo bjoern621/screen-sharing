@@ -212,6 +212,36 @@ message WatchKey {
   reserved "name";
 }
 
+// AudioLevel is how loud one decode's audio branch is right now.
+//
+// It is a measurement of the branch before the volume element, so a muted decode
+// still reports what it is carrying. That is the point of the figure: a reader who
+// muted a stream has to be able to see that it started making noise again, which a
+// meter reading what the speakers got could not say.
+//
+// Decibels relative to full scale, so the figures are at most zero and silence is
+// negative infinity. A decode carrying no audio track has no entry at all, which is
+// a different fact from a silent one and is drawn differently.
+message AudioLevel {
+  // stream is the decode this level belongs to, the same identity every other
+  // receive message carries.
+  WatchKey stream = 1;
+  // peak_db is the loudest sample of the interval and rms_db its power average.
+  // Both are the maximum over the channels: a meter is one bar per stream, and
+  // which side of a stereo pair was louder is not a thing a tile asks.
+  double peak_db = 2;
+  double rms_db = 3;
+}
+
+// AudioLevels is every decode that is carrying audio, at one instant.
+//
+// A whole state per tick and never a delta, for the reason every other state here is
+// whole: a reader that joined late, missed a tick or fell behind is correct again on
+// the next one rather than after replaying what it missed.
+message AudioLevels {
+  repeated AudioLevel levels = 1;
+}
+
 // EncodeRate is what the encode-capacity probe measured: the frame rate this
 // machine sustains at the given settings, bracketed.
 //

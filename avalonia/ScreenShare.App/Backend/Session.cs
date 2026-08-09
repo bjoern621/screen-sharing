@@ -113,6 +113,22 @@ public sealed class Session
     /// </summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Raised on the UI loop after <see cref="Levels"/> has moved, and never raised by anything
+    /// else.
+    ///
+    /// <b>A second signal rather than a second reason to raise the first, and the reason is
+    /// cadence.</b> Every screen re-renders on <see cref="Changed"/>, which is right for a state
+    /// that moves when something happened; levels move fifteen times a second, and putting them
+    /// on that signal would re-render the whole shell at metering rate to move one bar. Only the
+    /// meters subscribe here, so the cost of a tick is the meters and nothing else.
+    ///
+    /// This is the shell-side half of why <c>SubscribeAudioLevels</c> is a stream of its own
+    /// rather than an event kind (<c>docs/ipc-api.md</c>): the separation is worth nothing if
+    /// both ends of it land on one notification here.
+    /// </summary>
+    public event Action? Metered;
+
     // --- What the backend last said ------------------------------------------------
 
     /// <summary>Whether a stream is in force, and what it is carrying. Null until the first read lands.</summary>
@@ -165,6 +181,39 @@ public sealed class Session
     public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
 
     /// <summary>
+    /// How loud every decode carrying audio is, as of the last tick.
+    ///
+    /// Whole per tick like every other state here, and read through by the meters rather than
+    /// accumulated: a decode with no audio track has no entry, and a silent one has an entry
+    /// reading negative infinity. The two are different facts and stay different - one draws no
+    /// meter and the other an empty one.
+    ///
+    /// Empty while nothing is being metered, which includes the case where the level stream is
+    /// down. A meter frozen at whatever was last measured would be the one reading that is
+    /// certainly wrong.
+    /// </summary>
+    public IReadOnlyList<AudioLevel> Levels { get; private set; } = [];
+
+    /// <summary>
+    /// The level of one decode, or null where it carries no audio or is not being metered.
+    ///
+    /// The join is on the pair the whole receive contract keys a decode by, because the relay
+    /// re-serves each stream on all its listeners and a name alone is not an identity.
+    /// </summary>
+    public AudioLevel? LevelOf(string streamName, string transport)
+    {
+        foreach (var level in Levels)
+        {
+            if (level.Stream.StreamName == streamName && level.Stream.Transport == transport)
+            {
+                return level;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// The child processes that ended this session, oldest first: the publish pipeline, a
     /// viewer, a test stream. Each carries the failure as prose and the run log's path, which
     /// is what a screen offers to open rather than reading it.
@@ -197,7 +246,10 @@ public sealed class Session
         _cancel?.Dispose();
         _cancel = new CancellationTokenSource();
 
-        return RunAsync(_cancel.Token);
+        // Two loops rather than one, because they are two streams with two cadences and one
+        // ending is not a reason to reopen the other. The event stream owns the report of an
+        // absent backend; the meter loop stays quiet about it and simply empties the levels.
+        return Task.WhenAll(RunAsync(_cancel.Token), MeterAsync(_cancel.Token));
     }
 
     /// <summary>
@@ -299,6 +351,53 @@ public sealed class Session
         await foreach (var change in _backend.SubscribeAsync(cancellation).ConfigureAwait(false))
         {
             Write(() => Take(change));
+        }
+    }
+
+    /// <summary>
+    /// Follows the level stream for as long as the session runs, reopening it after it drops.
+    ///
+    /// Its own loop rather than a branch of <see cref="RunAsync"/>, because the two streams end
+    /// for their own reasons and neither ending should reopen the other. It reads nothing back
+    /// on reconnect either: a level is an instant rather than a state that accumulated, so the
+    /// next tick is the whole recovery.
+    ///
+    /// An absent backend is not reported from here. <see cref="RunAsync"/> owns that sentence,
+    /// and a second writer of it would be two ways of saying one thing.
+    /// </summary>
+    private async Task MeterAsync(CancellationToken cancellation)
+    {
+        while (!cancellation.IsCancellationRequested)
+        {
+            try
+            {
+                await foreach (var tick in _backend.SubscribeAudioLevelsAsync(cancellation).ConfigureAwait(false))
+                {
+                    Meter(() => Levels = tick.Levels);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (BackendUnavailableException)
+            {
+                // Said once, by the loop that owns saying it.
+            }
+
+            // The meters are emptied rather than left where the last tick put them. A bar frozen
+            // at the last figure a dead stream carried is the one reading that is certainly
+            // wrong, and no level is the honest state of a shell that is being told none.
+            Meter(() => Levels = []);
+
+            try
+            {
+                await Task.Delay(ReconnectDelay, cancellation).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
     }
 
@@ -440,6 +539,22 @@ public sealed class Session
         {
             write();
             Changed?.Invoke();
+        });
+    }
+
+    /// <summary>
+    /// Runs one level write on the UI loop and announces it to the meters alone.
+    ///
+    /// Deliberately not <see cref="Write"/>. It raises <see cref="Metered"/> and never
+    /// <see cref="Changed"/>, so a tick costs the bars that draw it rather than every screen in
+    /// the shell.
+    /// </summary>
+    private void Meter(Action write)
+    {
+        _dispatch(() =>
+        {
+            write();
+            Metered?.Invoke();
         });
     }
 }

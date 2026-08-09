@@ -1,4 +1,4 @@
-# Declarative domain model
+# Domain model as tables of facts
 
 The codec, pixel format and rate-control mode are not free-form strings scattered through the code.
 Each is a table of facts, and every rule the app enforces is derived from those tables rather than restated.

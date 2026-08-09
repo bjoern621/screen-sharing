@@ -358,7 +358,11 @@ public sealed class PreviewViewModel : Observable
         // has to be safe to reach twice for the same reason the call behind it does.
         if (refusal.Length == 0 && _tile is null)
         {
-            Draw(new TileViewModel(key.StreamName, key.Transport, _backend, _dispatch));
+            // Nothing to rearrange: this card draws one tile with no grid around it, so focus,
+            // pop-out and fullscreen have no meaning here and the intents go nowhere. The
+            // preview's own template offers none of them either - it is the tile that is reused,
+            // not the viewer's menu.
+            Draw(new TileViewModel(key.StreamName, key.Transport, _backend, _dispatch, _ => { }));
         }
 
         Apply();

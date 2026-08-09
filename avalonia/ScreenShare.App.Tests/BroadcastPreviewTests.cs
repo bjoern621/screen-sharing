@@ -90,6 +90,17 @@ public sealed class BroadcastPreviewTests
             return Task.CompletedTask;
         }
 
+        /// <summary>Recorded rather than acted on: what this suite is about is which decodes were opened.</summary>
+        public Task SetReceiveAudioAsync(
+            string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
+        {
+            Audio.Add((new WatchKey { StreamName = streamName, Transport = transport }, volume, muted));
+            return Task.CompletedTask;
+        }
+
+        /// <summary>The loudness this backend was asked for, in the order it was asked.</summary>
+        public List<(WatchKey Stream, double Volume, bool Muted)> Audio { get; } = [];
+
         public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
             => Task.FromResult(Publish);
 
@@ -165,6 +176,14 @@ public sealed class BroadcastPreviewTests
         /// after it. What the running state is, is written on this fixture and re-read.
         /// </summary>
         public async IAsyncEnumerable<Event> SubscribeAsync(
+            [EnumeratorCancellation] CancellationToken cancellation = default)
+        {
+            await Task.CompletedTask.ConfigureAwait(false);
+            yield break;
+        }
+
+        /// <summary>A level stream that ends at once, for the reason the event stream does.</summary>
+        public async IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(
             [EnumeratorCancellation] CancellationToken cancellation = default)
         {
             await Task.CompletedTask.ConfigureAwait(false);

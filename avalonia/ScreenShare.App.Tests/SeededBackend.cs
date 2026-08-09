@@ -310,6 +310,13 @@ internal sealed class SeededBackend : IBackend
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => Task.CompletedTask;
 
+    // Nothing is decoding behind a fixture, so there is no audio branch to be loud. The call
+    // succeeds rather than refusing: what it asks for is a state, and a fixture's state is
+    // whatever it is told, which is what keeps a caller's idempotence testable here.
+    public Task SetReceiveAudioAsync(
+        string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
+        => Task.CompletedTask;
+
     // A fixture has no GPU and no pipeline, so there is nothing to lend and nothing to draw.
     // Refusing is the honest answer: a fake stream of handles would be a fake naming GPU
     // memory that does not exist.
@@ -326,6 +333,18 @@ internal sealed class SeededBackend : IBackend
     /// it is preferable to a stream that never yields and never returns.
     /// </summary>
     public async IAsyncEnumerable<Event> SubscribeAsync(
+        [EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+        yield break;
+    }
+
+    /// <summary>
+    /// A level stream that ends at once, for the reason the event stream does: nothing here is
+    /// decoding, so there is nothing to meter, and a fixture that ticked silence forever would
+    /// be inventing a decode.
+    /// </summary>
+    public async IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(
         [EnumeratorCancellation] CancellationToken cancellation = default)
     {
         await Task.CompletedTask.ConfigureAwait(false);

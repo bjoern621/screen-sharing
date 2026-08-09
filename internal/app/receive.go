@@ -138,6 +138,69 @@ func (a *App) StopReceive(streamName, transportName string) {
 	logger.Infof("stopped receiving '%s' over %s", streamName, transportName)
 }
 
+// SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
+//
+// The volume belongs to the decode rather than to a window drawing it, because the
+// audio branch is one element inside one pipeline: two windows on one decode share it,
+// and a per-window volume would be two controls over one element each showing a value
+// the other had overwritten (docs/viewer-architecture.md).
+//
+// Safe to repeat in the sense the whole control contract is: the receiver holds what
+// it was asked for and writes it onto the branch, so the same call on a decode already
+// at that loudness leaves the same state behind, and one that arrives before the
+// decoder has exposed an audio pad is applied when it does rather than lost.
+//
+// A decode that does not exist is refused. That is not the case a repeat produces - a
+// stop takes the decode away and a volume for it afterwards is a request about
+// something absent, not a request for a state that already holds.
+func (a *App) SetReceiveAudio(streamName, transportName string, volume float64, muted bool) error {
+	assert.Assert(streamName != "", "a loudness names the stream it belongs to")
+	assert.Assert(transportName != "", "a loudness names the leg the decode receives over", streamName)
+
+	// Announced after the write, because the loudness is part of what the receive
+	// state reports and a shell that did not make the change learns it there.
+	defer a.emitReceiveState()
+
+	a.procMu.Lock()
+	receiver, present := a.receivers[WatchKey{Name: streamName, Transport: transportName}]
+	a.procMu.Unlock()
+
+	if !present {
+		return fmt.Errorf("nothing is receiving '%s' over %s", streamName, transportName)
+	}
+
+	// Bounded here rather than refused, so a slider that ran past its end is a value
+	// the backend brings back rather than an error a reader has to understand.
+	receiver.SetAudio(min(max(volume, 0), 1), muted)
+	return nil
+}
+
+// AudioLevels is how loud every decode carrying audio is, at this instant.
+//
+// Read off the pipelines rather than accumulated, for the reason ReceiveState is:
+// what a reader is told is what a read answers now. A decode with no audio branch,
+// or one whose branch has posted no measurement yet, has no entry at all - absence
+// and silence are different facts, and a floor invented here would erase the
+// difference.
+func (a *App) AudioLevels() []wire.AudioLevel {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	out := make([]wire.AudioLevel, 0, len(a.receivers))
+	for key, receiver := range a.receivers {
+		peak, rms, ok := receiver.Level()
+		if !ok {
+			continue
+		}
+		out = append(out, wire.AudioLevel{
+			Stream: wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
+			PeakDB: peak,
+			RMSDB:  rms,
+		})
+	}
+	return out
+}
+
 // receiveEnded drops a pipeline that ended on its own and says why.
 //
 // The pipeline has already stopped itself by the time this runs, so nothing is torn
@@ -175,6 +238,7 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 	out := make([]wire.ReceiveStream, 0, len(a.receivers))
 	for key, receiver := range a.receivers {
 		stats := receiver.Stats()
+		volume, muted, hasAudio := receiver.Audio()
 		out = append(out, wire.ReceiveStream{
 			Stream:       wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
 			Live:         stats.Frames > 0,
@@ -183,6 +247,9 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 			RenderMemory: stats.RenderMemory,
 			Decoder:      stats.Decoder,
 			Hardware:     stats.Hardware,
+			HasAudio:     hasAudio,
+			Volume:       volume,
+			Muted:        muted,
 		})
 	}
 	return out

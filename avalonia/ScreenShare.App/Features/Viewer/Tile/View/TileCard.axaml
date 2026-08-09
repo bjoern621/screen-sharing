@@ -1,0 +1,217 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ti="using:TablerIcons"
+             xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
+             xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
+             x:Class="ScreenShare.App.Features.Viewer.Tile.View.TileCard"
+             x:DataType="tile:TileViewModel">
+
+  <!--
+    One tile, wherever it is drawn: in the grid, on the stage of the focus arrangement, in a
+    window of its own, or filling a screen. One definition rather than one per host, so the menu,
+    the meter and the figures cannot drift apart between them.
+
+    The chrome is hidden until the pointer is over the tile. A grid of six tiles with six names
+    and six strips of figures permanently over the pictures reads as a diagnostic screen rather
+    than as something to watch.
+
+    The stats overlay is a different thing from the chrome and not a pinned version of it: it is
+    the panel a reader turns on to diagnose one stream, so it is bound to its own state and stays
+    up whether or not the pointer is anywhere near.
+  -->
+
+  <UserControl.Styles>
+    <!-- The chrome, revealed on hover, faded rather than snapped. -->
+    <Style Selector="Border.chrome">
+      <Setter Property="Opacity" Value="0" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
+      <Setter Property="Padding" Value="7,4" />
+      <Setter Property="Transitions">
+        <Transitions>
+          <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+        </Transitions>
+      </Setter>
+    </Style>
+    <Style Selector="tiles|TileCard:pointerover Border.chrome">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="IsHitTestVisible" Value="True" />
+    </Style>
+  </UserControl.Styles>
+
+  <!--
+    Right-click is the whole control surface. One menu rather than four hover buttons, and one
+    definition of it here rather than one per host: what a tile affords is the same in a grid cell
+    and in a window of its own.
+
+    Each item carries a glyph that changes with the state and a word that says what pressing it
+    will do, rather than two items one of which is hidden. The item therefore never moves under
+    the pointer, and a reader can see at a glance which of them are in force.
+  -->
+  <UserControl.ContextFlyout>
+    <MenuFlyout>
+      <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocus}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="{Binding FocusGlyph}" />
+        </MenuItem.Icon>
+      </MenuItem>
+
+      <MenuItem Header="{Binding PopOutLabel}" Command="{Binding TogglePopOut}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="{Binding PopOutGlyph}" />
+        </MenuItem.Icon>
+      </MenuItem>
+
+      <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreen}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="{Binding FullscreenGlyph}" />
+        </MenuItem.Icon>
+      </MenuItem>
+
+      <Separator />
+
+      <!--
+        Mute and the volume are one state and sit together. Both are greyed on a stream with no
+        audio track, which is a different thing from a silent one: there is nothing to be loud.
+      -->
+      <MenuItem Header="{Binding MuteLabel}" Command="{Binding ToggleMute}" IsEnabled="{Binding HasAudio}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="{Binding MuteGlyph}" />
+        </MenuItem.Icon>
+      </MenuItem>
+
+      <!--
+        The slider lives in the menu, which is what StaysOpenOnClick is for: without it the first
+        press closes the flyout and the drag never happens. The pointer events are marked handled
+        in the code-behind for the same reason - a drag that reached the menu would be read as a
+        click on the item.
+      -->
+      <MenuItem StaysOpenOnClick="True" IsEnabled="{Binding HasAudio}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="IconAdjustmentsHorizontal" />
+        </MenuItem.Icon>
+        <MenuItem.Header>
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapControl}" MinWidth="190">
+            <TextBlock Grid.Column="0" Text="Volume" VerticalAlignment="Center" />
+            <Slider Grid.Column="1"
+                    Name="VolumeSlider"
+                    Minimum="0" Maximum="1"
+                    Value="{Binding Volume, Mode=TwoWay}"
+                    PointerPressed="OnVolumePressed"
+                    VerticalAlignment="Center" />
+          </Grid>
+        </MenuItem.Header>
+      </MenuItem>
+
+      <Separator />
+
+      <MenuItem Header="{Binding StatsLabel}" Command="{Binding ToggleStats}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="{Binding StatsGlyph}" />
+        </MenuItem.Icon>
+      </MenuItem>
+    </MenuFlyout>
+  </UserControl.ContextFlyout>
+
+  <Border Background="{StaticResource PanelBrush}"
+          CornerRadius="{StaticResource RadiusTile}"
+          ClipToBounds="True">
+    <Panel>
+
+      <!--
+        The picture. Absent while this stream is drawn in a window of its own: the plate below
+        takes its place, and with no StreamTile in the tree there is no subscription and no render
+        size asked for - the popped window is the only consumer.
+      -->
+      <tiles:StreamTile Source="{Binding}" IsVisible="{Binding !IsPoppedOut}" />
+
+      <!-- Why the tile is dark: nothing decoding, connecting, or a handle this platform cannot import. -->
+      <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
+                 IsVisible="{Binding HasNotice}"
+                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                 TextAlignment="Center" Margin="{StaticResource GapSection}" />
+
+      <!-- The plate. The slot stays in the arrangement at this stream's shape, so nothing reflows. -->
+      <Border IsVisible="{Binding IsPoppedOut}" Background="{StaticResource SurfaceBrush}">
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Spacing="{StaticResource GapTight}">
+          <ti:TablerIcon Icon="IconExternalLink" Brush="{StaticResource MutedBrush}"
+                         HorizontalAlignment="Center" />
+          <TextBlock Classes="hint" Text="In a window of its own" TextAlignment="Center" />
+        </StackPanel>
+      </Border>
+
+      <!-- The name, top left, over the picture. -->
+      <Border Classes="chrome" VerticalAlignment="Top" HorizontalAlignment="Left"
+              Margin="{StaticResource GapTight}">
+        <TextBlock Classes="ident" Text="{Binding Title}" />
+      </Border>
+
+      <!--
+        The figures. What the pipeline turned out to be and what this window did with it - the
+        chain that ran is not always the one the settings asked for, and the drop count is the
+        only place a window too slow to draw becomes visible.
+      -->
+      <Border Classes="chrome" VerticalAlignment="Bottom" HorizontalAlignment="Left"
+              Margin="7,7,7,12">
+        <ItemsControl ItemsSource="{Binding Figures}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Classes="hint" Text="{Binding}" Margin="0,0,10,0" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
+      <!--
+        The stats overlay: the panel a reader turns on for the one stream being diagnosed.
+
+        Bound to its own state and not to the hover chrome, which is the whole difference between
+        the two. Turning it on and having it disappear when the pointer left would make it useless
+        for the thing it exists for.
+      -->
+      <Border IsVisible="{Binding ShowStats}"
+              VerticalAlignment="Top" HorizontalAlignment="Right"
+              Margin="{StaticResource GapTight}"
+              Padding="{StaticResource GapControl}"
+              Background="{StaticResource SurfaceBrush}"
+              BorderBrush="{StaticResource DividerBrush}"
+              BorderThickness="1"
+              CornerRadius="{StaticResource RadiusPanel}">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="ident" Text="{Binding Title}" Margin="0,0,0,3" />
+          <ItemsControl ItemsSource="{Binding Figures}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="x:String">
+                <TextBlock Classes="hint" Text="{Binding}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!--
+        The meter, along the bottom edge. Drawn whenever the decode carries audio and empty when
+        it is silent; absent entirely when there is no audio track, which is the other fact.
+
+        Not chrome, and it does not hide on hover: it is the one figure worth seeing without
+        asking, and it is measured before the volume element, so a muted stream still shows itself
+        making noise.
+      -->
+      <Border VerticalAlignment="Bottom" Height="3" IsVisible="{Binding HasAudio}"
+              Background="{StaticResource DividerBrush}">
+        <Border Name="Level" Height="3" HorizontalAlignment="Left"
+                Background="{StaticResource ForegroundBrush}"
+                IsVisible="{Binding HasLevel}" />
+      </Border>
+
+    </Panel>
+  </Border>
+
+</UserControl>

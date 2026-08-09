@@ -46,7 +46,7 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
 | `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
 | `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the program preview, the per-viewer table, the sparklines |
-| `Features/Viewer/` | the relay roster: one row per stream the relay carries, and a toggle per watch leg |
+| `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, and the arrangement of the ones being watched |
 
 ### The two rules the tree encodes
 
@@ -413,6 +413,58 @@ bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them 
 bad Avalonia code. What is dropped is the usual habit of letting handlers poke individual
 properties. Every write goes through the one render function, so the binding layer is a
 transport and never a second definition of what the window looks like.
+
+## The viewer's arrangement
+
+The grid is the one screen with a second window in it, and the rules it follows are worth
+stating because none of them crosses the control contract. The backend describes decodes; how a
+viewer arranges what it receives is this shell's whole job (`docs/ipc-api.md`).
+
+**The arrangement is a pure function, and the panel only draws it.**
+`Features/Viewer/Model/TileLayout.cs` takes aspect ratios and a box and answers rectangles. It
+holds no control and no view model, so what the grid does is asserted in tests rather than looked
+at in a screenshot. `Features/Viewer/View/TileGrid.cs` is the two Avalonia passes around it and
+contains no arithmetic of its own.
+
+**Every tile is one height, and it is a constraint rather than a result.** Each tile is as wide as
+its own aspect ratio makes it at that height, so nothing is cropped or stretched. Letting each row
+instead fill the width exactly would give each row its own height, and a row of one tile would come
+out about twice the height of a row of two - which draws as one big tile beside some small ones
+rather than as a grid. The height is therefore chosen once: the largest that lets every row fit the
+width and the whole stack fit the box. Rows are centred in whatever width their contents leave over.
+
+**Both layout passes solve the same box, and it is the viewport.** Inside a scroll viewer, measure
+is handed an unbounded height and arrange is handed back the height measure returned. Solving
+against whatever each pass was given solves two different boxes, picks two different arrangements,
+and places the tiles by one having measured them by the other.
+
+**Fullscreen and pop-out are window states, not layout modes.** `LayoutMode` has two members,
+Grid and Focus, and says how tiles sit relative to each other. Which window a tile is drawn in is
+a separate fact, which is what lets three windows be fullscreen on three monitors at once - a
+state a single app-wide fullscreen could not express. Folding either into the enum would give one
+field two meanings.
+
+**Windows are reconciled, not opened by an event.** The view model names the streams that should
+be in windows of their own; `ViewerView.axaml.cs` runs a pass that opens, closes and re-states
+windows until that is true. Running it twice with unchanged state does nothing, which is the same
+apply discipline everything else here follows - it is the code-behind exception only because
+nothing binds a window into existence.
+
+**A popped-out stream keeps its slot.** The tile stays in the arrangement at its stream's shape
+and draws a plate saying where the picture went, so nothing reflows when a stream pops out or
+comes back. That plate holds no frame subscription and asks for no render size: the popped window
+is the decode's only consumer, and a black box costing a full-size texture pool would be the one
+arrangement this shell paid for twice.
+
+**Levels have their own notification.** `Session.Changed` re-renders every screen and is right
+for a state that moved when something happened. Levels move fifteen times a second, so they land
+on `Session.Metered`, which only the meters subscribe to. The separation on the wire
+(`docs/ipc-api.md`) would be worth nothing if both ends of it arrived on one signal here.
+
+**A tile's render-size ask is quantised and debounced.** Every distinct size re-announces a pool
+in the backend, and a rearranging grid moves every tile's exact size. `StreamTile` rounds the ask
+up onto a ladder of heights and sends it once the size has settled, so most rearrangements ask
+for the size already in force.
 
 ## What is not settled yet
 

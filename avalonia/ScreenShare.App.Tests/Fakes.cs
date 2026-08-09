@@ -133,6 +133,10 @@ internal sealed class DeferredBackend : IBackend
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopReceiveAsync(streamName, transport, cancellation);
 
+    public Task SetReceiveAudioAsync(
+        string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
+        => _seed.SetReceiveAudioAsync(streamName, transport, volume, muted, cancellation);
+
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.OpenFramesAsync(streamName, transport, cancellation);
 
@@ -144,6 +148,9 @@ internal sealed class DeferredBackend : IBackend
 
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
+
+    public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
+        => _seed.SubscribeAudioLevelsAsync(cancellation);
 
     /// <summary>The draft one held resolve was asked about.</summary>
     public Settings Draft(int resolve) => _held[resolve].Draft;
@@ -305,6 +312,10 @@ internal sealed class PublishingBackend : IBackend
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopReceiveAsync(streamName, transport, cancellation);
 
+    public Task SetReceiveAudioAsync(
+        string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
+        => _seed.SetReceiveAudioAsync(streamName, transport, volume, muted, cancellation);
+
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.OpenFramesAsync(streamName, transport, cancellation);
 
@@ -316,4 +327,7 @@ internal sealed class PublishingBackend : IBackend
 
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
+
+    public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
+        => _seed.SubscribeAudioLevelsAsync(cancellation);
 }

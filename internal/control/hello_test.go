@@ -46,6 +46,7 @@ func (f *fakeBackend) PublishState() wire.PublishSnapshot             { return f
 func (f *fakeBackend) RelayStatus() relay.Status                      { return relay.Status{} }
 func (f *fakeBackend) Watching() []wire.WatchKey                      { return nil }
 func (f *fakeBackend) ReceiveState() []wire.ReceiveStream             { return nil }
+func (f *fakeBackend) AudioLevels() []wire.AudioLevel                 { return nil }
 func (f *fakeBackend) TestStreamsRunning() int                        { return 0 }
 func (f *fakeBackend) MaxTestStreams() int                            { return 9 }
 func (f *fakeBackend) MeasureUplink(context.Context) (float64, error) { return 0, f.err }
@@ -61,6 +62,8 @@ func (f *fakeBackend) StartWatch(wire.WatchKey) error        { return f.err }
 func (f *fakeBackend) StopWatch(wire.WatchKey)               {}
 func (f *fakeBackend) StartReceive(wire.WatchKey) error      { return nil }
 func (f *fakeBackend) StopReceive(wire.WatchKey)             {}
+
+func (f *fakeBackend) SetReceiveAudio(wire.WatchKey, float64, bool) error { return f.err }
 
 // SubscribeFrames refuses, which is what a backend with no pipeline behind it has to
 // answer: there is no decode here to draw from, and a fake stream of handles would be a

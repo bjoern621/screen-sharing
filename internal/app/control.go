@@ -112,7 +112,12 @@ func (b controlBackend) StopReceive(key wire.WatchKey) {
 	b.app.StopReceive(key.StreamName, key.Transport)
 }
 
+func (b controlBackend) SetReceiveAudio(key wire.WatchKey, volume float64, muted bool) error {
+	return b.app.SetReceiveAudio(key.StreamName, key.Transport, volume, muted)
+}
+
 func (b controlBackend) ReceiveState() []wire.ReceiveStream { return b.app.ReceiveState() }
+func (b controlBackend) AudioLevels() []wire.AudioLevel     { return b.app.AudioLevels() }
 
 func (b controlBackend) StopWatch(key wire.WatchKey) {
 	b.app.StopWatch(key.StreamName, key.Transport)

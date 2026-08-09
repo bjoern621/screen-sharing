@@ -9,7 +9,7 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// <b>One table, read by the view model.</b> The label and the sentence under it move together
 /// - a button that said "Go live" over a paragraph about restarting would be two answers to one
 /// question - so they are one row per <see cref="PublishCommit"/> rather than two conditionals
-/// at two binding sites (<c>docs/development-principles.md</c>, "Declarative").
+/// at two binding sites (<c>docs/development-principles.md</c>, "Stateless").
 ///
 /// <b>The apply row says what applying costs, in the copy itself.</b> The backend has no
 /// live-safe change: both engines run a child built from an argv, so putting new settings on a

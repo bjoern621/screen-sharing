@@ -26,8 +26,8 @@ The methods a shell may call divide into three kinds, and the division is the ru
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. They compute; they change nothing, and they are cheap enough to call on a keystroke or a mount. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink` |
-| Stream | Carries what changed, including what this shell did not do. | `Subscribe` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink` |
+| Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels` |
 
 A method that is neither a read nor one of the listed effects does not belong on this service, and a shell that wants one is a shell about to hold state the backend owns.
 
@@ -69,6 +69,10 @@ The rule also buys something the current design cannot have: a shell that decide
 The contract carried a grid once: `StartGrid`, `GridState`, a `grid_transports` list and a `grid_transport` setting, all describing the GTK4 window in `nativegrid/`. That window and the Wails app that launched it are gone, and the surface went with them rather than being renamed, because renaming it would have kept the mistake and spelled it better.
 
 What comes back in their place is a viewer that reads it. `StartReceive` and `StopReceive` open and close a decode for one stream on one leg, receive state travels on the event stream, and `ViewerSettings` carries the watch leg, the jitter buffer and the render chain that decode is built from. Every one of those is a fact about receiving; none of them is a tile, an arrangement or a window. The distinction is the whole reason the first surface was wrong: `StartGrid` opened a *window*, and a window is the one thing this contract may not describe.
+
+`SetReceiveAudio` and `SubscribeAudioLevels` are on the same side of that line, and it is worth saying which side, because a volume slider and a level meter are things a reader sees on a tile. What they name is the decode's audio branch: one pipeline holds one, it plays on this machine, and its loudness is therefore a property of the decode rather than of any window drawing it. Two tiles on one decode share the branch, so a per-tile volume would be several controls over one element. The tile is where the slider is *drawn*, which is the shell's business; what it sets is not.
+
+`SubscribeAudioLevels` is a second stream and not an event kind. `Subscribe` carries whole states when something changed; a level changes continuously, and folding it in would push the receive state at metering rate and make every consumer of that state re-render for a figure none of them reads. Being frequent is not, on its own, a reason to leave this service: the frame channel exists for frames and a level is not one. Each tick carries the whole set at a fixed fifteen a second, coalesced to the newest, so a reader that fell behind receives the present rather than a queue of the past.
 
 `Form` is the one to read first, because it is what makes a shell a display.
 `ResolveForm` takes the three settings drafts and returns the complete description of the screen: the groups, the fields in order, each field's control kind and unit, whether it is visible and enabled and why not as a `Text`, its current value, and for every control that offers entries — a select, a radio, and the number that carries a ladder — each option with its value, its note, its enabled flag and its reason.

@@ -237,6 +237,29 @@ public interface IBackend
     Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default);
 
     /// <summary>
+    /// Sets how loud one decode plays and whether it plays at all.
+    ///
+    /// <b>The loudness belongs to the decode, not to a window drawing it.</b> The audio branch
+    /// is one element inside one pipeline, playing on the machine the shell is on rather than
+    /// travelling over the frame channel (<c>docs/viewer-architecture.md</c>). Two windows on
+    /// one decode share that element, so a per-window volume would be several controls over
+    /// one thing, each showing a value the others had overwritten.
+    ///
+    /// Mute is sent with the volume rather than as a call of its own, because the two are one
+    /// state: sent apart, a caller that muted and then set a volume would have to know whether
+    /// the second undid the first.
+    ///
+    /// Safe to repeat and safe to send early. A decode already at that loudness is a state
+    /// that holds, and a volume set before the decoder has exposed an audio pad is applied
+    /// when it does. A decode that is not running at all is refused as a
+    /// <see cref="BackendUnavailableException"/> - that is a request about something absent.
+    ///
+    /// It answers with nothing, like every other effect: what the loudness became arrives on
+    /// the stream, inside the receive state.
+    /// </summary>
+    Task SetReceiveAudioAsync(string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default);
+
+    /// <summary>
     /// Subscribes to the frames of a decode that is already running.
     ///
     /// It opens no decode, which is why it can be refused: the caller runs
@@ -275,4 +298,22 @@ public interface IBackend
     /// closed, an encoder probe that landed.
     /// </summary>
     IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// How loud every decode carrying audio is, at a fixed cadence, for as long as the caller
+    /// holds the enumeration.
+    ///
+    /// <b>A second stream rather than an event kind, and the difference is cadence.</b>
+    /// <see cref="SubscribeAsync"/> carries whole states when something changed; a level
+    /// changes continuously, and folding it in would push the receive state at metering rate
+    /// and make every consumer of that state re-render for a figure none of them reads.
+    ///
+    /// Each tick is the whole set, like every other state here. A decode carrying no audio has
+    /// no entry, and a silent one has an entry reading negative infinity - two different facts
+    /// that a tile draws differently: no meter at all, and an empty meter.
+    ///
+    /// One enumeration covers every decode, so a tile appearing needs no second subscription
+    /// and a tile leaving needs no cancellation.
+    /// </summary>
+    IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default);
 }

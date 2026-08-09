@@ -264,6 +264,46 @@ type ReceiveStream struct {
 	// went afterwards, which DecodeMemory is what answers.
 	Decoder  string
 	Hardware bool
+	// HasAudio is whether the decoder exposed an audio pad and the branch was built.
+	// Until it did there is nothing to set a volume on, and a tile draws no meter
+	// rather than one that measures nothing.
+	HasAudio bool
+	// Volume and Muted are the loudness in force, held by the receiver whether or not
+	// the branch exists. They are reported rather than remembered by whoever set them,
+	// which is what lets two shells agree about one decode's loudness.
+	Volume float64
+	Muted  bool
+}
+
+// AudioLevel is how loud one decode is right now, measured before its volume element
+// so that a muted stream still reports what it is carrying.
+type AudioLevel struct {
+	Stream WatchKey
+	// PeakDB is the loudest sample of the interval and RMSDB its power average, in
+	// decibels relative to full scale. Silence is negative infinity rather than a
+	// floor chosen here, because a floor is a drawing decision and this is a
+	// measurement.
+	PeakDB float64
+	RMSDB  float64
+}
+
+// AudioLevels carries one instant's levels across. A decode carrying no audio has no
+// entry, which is a different fact from a silent one and is drawn differently.
+func AudioLevels(levels []AudioLevel) *screensharev1.AudioLevels {
+	out := make([]*screensharev1.AudioLevel, 0, len(levels))
+	for _, l := range levels {
+		assert.Assert(l.Stream.StreamName != "" && l.Stream.Transport != "",
+			"a level belongs to a decode identified by a stream and a transport",
+			l.Stream.StreamName, l.Stream.Transport)
+		out = append(out, &screensharev1.AudioLevel{
+			Stream: WatchKeyMessage(l.Stream),
+			PeakDb: l.PeakDB,
+			RmsDb:  l.RMSDB,
+		})
+	}
+
+	assert.Assert(len(out) == len(levels), "a message per metered decode", len(out), len(levels))
+	return &screensharev1.AudioLevels{Levels: out}
 }
 
 // ReceiveState carries the running decodes across. A nil or empty slice converts to an
@@ -282,6 +322,9 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 			RenderMemory: r.RenderMemory,
 			Decoder:      r.Decoder,
 			Hardware:     r.Hardware,
+			HasAudio:     r.HasAudio,
+			Volume:       r.Volume,
+			Muted:        r.Muted,
 		})
 	}
 

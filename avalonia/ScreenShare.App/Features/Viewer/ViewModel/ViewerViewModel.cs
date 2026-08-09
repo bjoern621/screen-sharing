@@ -6,6 +6,7 @@ using ScreenShare.App.Features.Viewer.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Viewer.ViewModel;
 
@@ -73,6 +74,29 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     private readonly Dictionary<string, TileViewModel> _tiles = [];
 
+    /// <summary>
+    /// The streams being drawn in windows of their own, by name.
+    ///
+    /// <b>A set of names and not a set of windows.</b> This is state; the windows are what a view
+    /// reconciles against it on every pass, which is what makes opening one idempotent and what
+    /// keeps a toolkit type out of a view model (<c>avalonia/README.md</c>).
+    ///
+    /// A popped stream keeps its tile in the grid. The tile becomes a plate saying where the
+    /// picture went, still counted in the arrangement at its own shape, so nothing reflows when a
+    /// stream pops out or comes back.
+    /// </summary>
+    private readonly HashSet<string> _popped = [];
+
+    /// <summary>
+    /// The popped-out streams whose own window should be fullscreen.
+    ///
+    /// A second set rather than a flag on the first, because it answers a different question:
+    /// which windows exist, and which of those fill their screen. Several can be fullscreen at
+    /// once, each on the monitor its window is already on, which is exactly the arrangement a
+    /// single app-wide fullscreen could not express.
+    /// </summary>
+    private readonly HashSet<string> _poppedFullscreen = [];
+
     /// <param name="dispatch">
     /// Hands work to the UI loop. Every answer to an effect lands on whichever thread the
     /// transport completed on, and everything this writes is read by a binding that only
@@ -90,6 +114,11 @@ public sealed class ViewerViewModel : Observable
 
         Streams = [];
         Tiles = [];
+        ToggleRail = new DelegateCommand(() =>
+        {
+            IsRailCollapsed = !IsRailCollapsed;
+            Apply();
+        });
 
         Apply();
     }
@@ -118,6 +147,94 @@ public sealed class ViewerViewModel : Observable
     /// <summary>Whether anything is in the grid, which is what separates it from its empty state.</summary>
     public bool HasTiles { get => _hasTiles; private set => Set(ref _hasTiles, value); }
 
+    private LayoutMode _mode;
+    private string _focused = "";
+    private string _fullscreen = "";
+
+    /// <summary>
+    /// How the tiles are arranged. It follows the focus rather than being chosen separately: a
+    /// mode saying Focus with nothing focused would be a state the screen has no drawing for.
+    /// </summary>
+    public LayoutMode Mode { get => _mode; private set => Set(ref _mode, value); }
+
+    /// <summary>
+    /// The stream that has focus, empty when none has.
+    ///
+    /// <b>A name and not a tile.</b> A stream that drops out keeps its focus and its slot, and
+    /// comes back into the place the reader put it - which it could not do if focus were a
+    /// reference to an object the drop had thrown away.
+    /// </summary>
+    public string Focused { get => _focused; private set => Set(ref _focused, value); }
+
+    /// <summary>
+    /// The stream the main window is drawing fullscreen, empty when it is not.
+    ///
+    /// <b>Fullscreen is a property of a window, not of the app.</b> This is the main window's;
+    /// each popped-out window carries its own, so three windows can be fullscreen on three
+    /// monitors at once. That is why it is not a member of <see cref="LayoutMode"/>: a mode says
+    /// how tiles sit relative to each other, and this says which window one of them fills.
+    /// </summary>
+    public string Fullscreen { get => _fullscreen; private set => Set(ref _fullscreen, value); }
+
+    /// <summary>
+    /// The streams that should be drawn in windows of their own, as of this pass.
+    ///
+    /// A view opens and closes windows to match it, which is an idempotent apply: a pass whose
+    /// set is unchanged opens nothing and closes nothing.
+    /// </summary>
+    public IReadOnlyCollection<string> PoppedOut => _popped;
+
+    /// <summary>Which of the popped-out windows should be filling their screen.</summary>
+    public IReadOnlyCollection<string> PoppedFullscreen => _poppedFullscreen;
+
+    private bool _hasFullscreen;
+    private TileViewModel? _fullscreenTile;
+    private bool _isRailCollapsed;
+
+    /// <summary>Whether one tile is filling this window, which is what hides the rail and the grid.</summary>
+    public bool HasFullscreen { get => _hasFullscreen; private set => Set(ref _hasFullscreen, value); }
+
+    /// <summary>The tile filling this window, null when none is.</summary>
+    public TileViewModel? FullscreenTile { get => _fullscreenTile; private set => Set(ref _fullscreenTile, value); }
+
+    /// <summary>
+    /// Whether the rail is showing names or has been collapsed to its toggle.
+    ///
+    /// A reader watching six streams wants the width; a reader looking for a seventh wants the
+    /// list. Collapsing is how one window is both, and it is this shell's own state like every
+    /// other thing about the arrangement.
+    /// </summary>
+    public bool IsRailCollapsed { get => _isRailCollapsed; private set => Set(ref _isRailCollapsed, value); }
+
+    /// <summary>
+    /// How wide the rail is drawn, which is the collapsed width or the full one.
+    ///
+    /// Collapsed is wide enough for the dot, the action and the padding around them, so an entry
+    /// keeps its shape and only loses its name.
+    /// </summary>
+    public double RailWidth => IsRailCollapsed ? 62 : 240;
+
+    /// <summary>Open or closed, as the one glyph that says which way the toggle goes.</summary>
+    public Icons RailGlyph => IsRailCollapsed ? Icons.IconChevronRight : Icons.IconChevronLeft;
+
+    /// <summary>What the rail's toggle says it will do, since the glyph alone is not a sentence.</summary>
+    public string RailToggleTip => IsRailCollapsed ? "Show the stream names" : "Collapse the rail";
+
+    /// <summary>Collapses the rail to its toggle, or opens it again.</summary>
+    public DelegateCommand ToggleRail { get; }
+
+    /// <summary>The tile for one stream, for a view that has to hand it to a window it is opening.</summary>
+    public TileViewModel? TileOf(string stream) => _tiles.GetValueOrDefault(stream);
+
+    /// <summary>
+    /// Raised after a pass in which the windows a view should be showing changed.
+    ///
+    /// Separate from the ordinary render notification because opening a window is not a binding:
+    /// nothing can bind a window into existence, so the one thing a view has to be told
+    /// imperatively is told here and everything else is read off the properties above.
+    /// </summary>
+    public event Action? WindowsChanged;
+
     /// <summary>How much of what the relay carries this machine is watching. The status band repeats it.</summary>
     public string ShownSummary { get => _shownSummary; private set => Set(ref _shownSummary, value); }
 
@@ -143,9 +260,9 @@ public sealed class ViewerViewModel : Observable
     /// The status band's affordance. It names what this screen affords rather than what a tile
     /// grid would, because this screen has no tiles.
     /// </summary>
-    public string Hint => "Opening a viewer launches an external player";
+    public string Hint => "Right-click a tile for focus, pop-out, fullscreen and volume";
 
-    /// <summary>The list's leading label.</summary>
+    /// <summary>The rail's leading label.</summary>
     public string ShowingLabel => "On the relay";
 
     // --- Lifecycle ------------------------------------------------------------------
@@ -171,6 +288,25 @@ public sealed class ViewerViewModel : Observable
 
         Reconcile.Onto(Streams, rows.Select(row => Of(row.Name)).ToList());
 
+        // Focus is dropped where the stream it named is no longer being decoded. That is the one
+        // way out of Focus that the reader did not ask for, and it is the right one: a mode whose
+        // subject has gone has nothing to show, where a stream that merely stopped publishing is
+        // still a slot with a reason written in it.
+        if (Focused.Length > 0 && !_tiles.ContainsKey(Focused))
+        {
+            Focused = "";
+        }
+
+        // A stream popped out of a grid it is no longer in is a window with nothing behind it.
+        _popped.RemoveWhere(stream => !_tiles.ContainsKey(stream));
+        _poppedFullscreen.RemoveWhere(stream => !_popped.Contains(stream));
+        if (Fullscreen.Length > 0 && !_tiles.ContainsKey(Fullscreen))
+        {
+            Fullscreen = "";
+        }
+
+        Mode = Focused.Length > 0 ? LayoutMode.Focus : LayoutMode.Grid;
+
         // The tiles are rendered from the backend's decode list, joined on the pair the whole
         // contract keys a decode by. A tile whose decode is not in it draws its own reason for
         // that rather than disappearing: the reader put it there, and a stream that dropped out
@@ -178,6 +314,8 @@ public sealed class ViewerViewModel : Observable
         foreach (var tile in _tiles.Values)
         {
             tile.Apply(DecodeOf(tile));
+            tile.IsFocused = tile.Name == Focused;
+            tile.IsPoppedOut = _popped.Contains(tile.Name);
         }
 
         HasTiles = Tiles.Count > 0;
@@ -192,7 +330,23 @@ public sealed class ViewerViewModel : Observable
 
         HasRefusal = Refusal.Length > 0;
 
+        FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
+        HasFullscreen = FullscreenTile is not null;
+
+        // The two rail figures are computed rather than stored, so they are raised by hand: a
+        // binding on a property with no field of its own has nothing to compare.
+        OnPropertyChanged(nameof(RailWidth));
+        OnPropertyChanged(nameof(RailGlyph));
+        OnPropertyChanged(nameof(RailToggleTip));
+
+        WindowsChanged?.Invoke();
+
         Assert.That(Streams.Count == rows.Count, "a row per stream on the relay", Streams.Count, rows.Count);
+        Assert.That(HasFullscreen == (FullscreenTile is not null), "a fullscreen tile and the state drawing it agree", HasFullscreen);
+        Assert.That(Mode == LayoutMode.Focus == (Focused.Length > 0), "focus and the mode that draws it agree", Mode, Focused);
+        Assert.That(Focused.Length == 0 || _tiles.ContainsKey(Focused), "a focused stream is one of the tiles", Focused);
+        Assert.That(Fullscreen.Length == 0 || _tiles.ContainsKey(Fullscreen), "a fullscreen stream is one of the tiles", Fullscreen);
+        Assert.That(_tiles.Count == Tiles.Count, "one tile per stream in the grid", _tiles.Count, Tiles.Count);
         Assert.That(HasStreams == (Notice.Length == 0), "a list and the sentence standing in for it are never both on screen", HasStreams);
         Assert.That(HasNotice == (Notice.Length > 0), "the notice and its text agree", HasNotice);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
@@ -441,6 +595,76 @@ public sealed class ViewerViewModel : Observable
         }
     }
 
+    /// <summary>
+    /// Takes one measurement of every decode's loudness and gives each tile its own.
+    ///
+    /// <b>Not part of <see cref="Apply"/>.</b> Levels arrive fifteen times a second, and running
+    /// the render pass at that rate would re-read the relay, the roster and every decode to move
+    /// a bar. This walks the tiles and writes two properties on each
+    /// (<c>Backend/Session.cs</c>, <c>Metered</c>).
+    /// </summary>
+    public void Meter()
+    {
+        foreach (var tile in _tiles.Values)
+        {
+            tile.Meter(_session.LevelOf(tile.Name, tile.Transport));
+        }
+    }
+
+    /// <summary>
+    /// Does what a tile's menu asked for.
+    ///
+    /// <b>Every one of them is a toggle and every one is decided here.</b> Focus is at most one
+    /// tile, a pop-out moves a stream between windows, and fullscreen names the stream a window
+    /// fills - three facts about the whole arrangement, which is why a tile raises the intent and
+    /// writes none of it (<c>Features/Viewer/Model/TileIntent.cs</c>).
+    /// </summary>
+    private void Arrange(string stream, TileIntent intent)
+    {
+        Assert.That(stream.Length > 0, "an arrangement is asked for by a tile that names its stream");
+
+        switch (intent)
+        {
+            case TileIntent.Focus:
+                // A second stream asking for focus takes it. There is no state in which two are
+                // focused, so there is no state in which one has to be taken away first.
+                Focused = Focused == stream ? "" : stream;
+                break;
+
+            case TileIntent.PopOut:
+                // The decode is untouched either way. Closing a pop-out returns the stream to its
+                // slot rather than stopping it, because stopping is the rail's toggle and means
+                // something a reader would have to undo differently.
+                if (!_popped.Remove(stream))
+                {
+                    _popped.Add(stream);
+                }
+
+                break;
+
+            case TileIntent.Fullscreen:
+                // Fullscreen is a property of a window, so which window this stream is drawn in
+                // decides which state moves. A popped-out stream fills the screen its own window
+                // is on, and several of them can do that at once; a stream in the grid fills the
+                // main window, of which there is one.
+                if (_popped.Contains(stream))
+                {
+                    if (!_poppedFullscreen.Remove(stream))
+                    {
+                        _poppedFullscreen.Add(stream);
+                    }
+                }
+                else
+                {
+                    Fullscreen = Fullscreen == stream ? "" : stream;
+                }
+
+                break;
+        }
+
+        Apply();
+    }
+
     /// <summary>Adds one tile, on the UI loop, and re-renders.</summary>
     private void Add(string stream)
     {
@@ -449,7 +673,7 @@ public sealed class ViewerViewModel : Observable
             return;
         }
 
-        var tile = new TileViewModel(stream, _tileLeg, _backend, _dispatch);
+        var tile = new TileViewModel(stream, _tileLeg, _backend, _dispatch, intent => Arrange(stream, intent));
         // A tile reports what it drew, which no state the backend owns can carry. The pass it
         // asks for is this screen's own, so the figures over a tile and the roster under it
         // are still written by one render function.
@@ -476,6 +700,11 @@ public sealed class ViewerViewModel : Observable
 
         tile.Changed -= Apply;
         Tiles.Remove(tile);
+
+        // The arrangement is not edited here. Apply drops a focus, a pop-out and a fullscreen
+        // whose stream has left the grid, so this method removes a tile and the render pass
+        // decides what that meant - one place where a stream leaving is worked out, rather than
+        // one here and one there.
         Apply();
     }
 

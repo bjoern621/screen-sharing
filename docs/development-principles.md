@@ -5,21 +5,22 @@ This page describes how its code is allowed to be shaped.
 
 ## The two paradigms
 
-**Idempotent** and **declarative** outrank every other rule on this page, and the rules below are how they are held to.
+**Idempotent** and **stateless** outrank every other rule on this page, and the rules below are how they are held to.
 Where a design decision is open, the one that keeps these two is the one taken, and neither is traded for brevity, for a round trip, or for a shorter diff.
 
 **Idempotent** means an operation is safe to run twice.
 Applying, syncing, reconciling and asking the backend for something are all repeatable: the second run with unchanged input changes nothing, creates nothing and restarts nothing.
+A call names the state it wants to be true, not the transition it wants performed, and that is what makes the second call mean nothing rather than mean it again.
 What this buys is a caller that never has to know what has already happened.
 A step that cannot be repeated forces every caller to track whether it ran, and a caller whose answer went missing then has nothing left to do but wait.
 
-**Declarative** means code states the state it wants and lets one converge decide what to do about it.
-A call names the world it wants to be true, not the transition it wants performed; a table states the facts and every consumer reads it; a render function states what the screen shows and is free to run at any time.
+**Stateless** means nothing keeps a copy of a fact.
+One owner holds each piece of state and everything else derives what it needs from that owner at the moment it needs it: a render function writes the whole component from the model, a consumer reads the one table rather than restating the rule at its own site, an effect answers empty and the state arrives read back off the thing that owns it.
 What this buys is one definition of each fact.
-Imperative steps spread that definition across the paths that perform them, and two paths then disagree without either being wrong.
+A second copy - cached at construction, restated per site, or remembered from what a caller believed it had just done - drifts from the first, and the two then disagree without either being wrong.
 
 The two hold each other up.
-An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it, and an operation that is idempotent can be called from a render pass, which is what lets that pass stay declarative.
+An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it, and an operation that is idempotent can be called from a render pass, which is what lets that pass keep nothing of its own between runs.
 
 The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts that are stated once, files that hold one idea, and contracts that fail loudly.
 
@@ -93,14 +94,14 @@ The bound belongs on the channel, in one place, and not at each call site: a rul
 A failure that says the backend went quiet says what is and is not known about the attempt, and says that anything naming a state is safe to ask for again.
 That sentence is only truthful because those effects are idempotent, which is the paradigm paying for itself - and it says "naming a state" rather than "every call" because of the two departures above.
 
-## Declarative
+## Stateless
 
 Three shapes carry the paradigm, and each is stated in full elsewhere on this page.
 They are collected here because they are one idea wearing three costumes.
 
-**A pass states what it wants.**
-A render function writes every property the component can show, including the off branch, and a reconcile takes desired state and converges to it.
-Neither performs a diff it was handed, unless the diff is genuinely what the process received.
+**A pass keeps nothing between runs.**
+A render function writes every property the component can show, including the off branch, so the pass by itself defines the view and is free to run at any time; a reconcile takes desired state and converges to it.
+Neither works from a diff it was handed, unless the diff is genuinely what the process received - a diff is a fact somebody had to keep between two moments, and the pass that needs one has state in it.
 
 **A fact lives in one table.**
 Static knowledge - which transports carry which formats, which chain a platform renders through, what a row shows - is a table every consumer reads, never a `switch` restated at each site.
@@ -127,7 +128,7 @@ A UI component is a directory or a small file set with the same shape each time:
 | `<name>.go` | the struct, its constructor and its lifecycle |
 | `render.go` | the single render function and what it derives |
 | `input.go` | controllers, gestures and signal wiring |
-| a data file | the declarative table the component reads |
+| a data file | the table of facts the component reads |
 
 Construction, rendering, input wiring and formatting are four responsibilities.
 A file that does all four is the shape this rule exists to break up.

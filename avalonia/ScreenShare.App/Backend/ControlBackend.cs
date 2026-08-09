@@ -246,6 +246,19 @@ public sealed class ControlBackend : IBackend
             cancellation);
 
     /// <inheritdoc />
+    public Task SetReceiveAudioAsync(
+        string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
+    {
+        Assert.That(volume >= 0, "a volume is not negative", volume);
+
+        return KeyedAsync(streamName, transport, "setting a decode's audio",
+            (c, key) => c.SetReceiveAudioAsync(
+                new SetReceiveAudioRequest { Stream = key, Volume = volume, Muted = muted },
+                cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public async Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
     {
         // The handshake first, like every other call: a frame channel opened before the
@@ -285,6 +298,38 @@ public sealed class ControlBackend : IBackend
         // way a failed read is, rather than surfacing as a status from inside an enumeration
         // the caller is already iterating.
         using var call = _client.Subscribe(new SubscribeRequest(), cancellationToken: cancellation);
+
+        while (true)
+        {
+            bool more;
+            try
+            {
+                more = await call.ResponseStream.MoveNext(cancellation).ConfigureAwait(false);
+            }
+            catch (RpcException e)
+            {
+                throw Translate(e, cancellation);
+            }
+
+            if (!more)
+            {
+                yield break;
+            }
+
+            yield return call.ResponseStream.Current;
+        }
+    }
+
+    /// <inheritdoc />
+    public async IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        await GreetAsync().ConfigureAwait(false);
+
+        // Opened outside the loop for the reason the event stream is: a call that failed to
+        // open is translated like a failed read rather than surfacing as a status from inside
+        // an enumeration the caller is already iterating.
+        using var call = _client.SubscribeAudioLevels(new SubscribeAudioLevelsRequest(), cancellationToken: cancellation);
 
         while (true)
         {

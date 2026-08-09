@@ -118,11 +118,47 @@ public sealed class StreamTile : Control
     }
 
     /// <summary>
+    /// The heights a tile ever asks for.
+    ///
+    /// <b>A ladder rather than the exact size, because a size that moved re-announces a pool.</b>
+    /// The backend allocates its slots at the size it was asked for, so every distinct ask costs
+    /// three texture allocations and a renegotiation of the branch. A grid that rearranges - a
+    /// window dragged, a tile focused, a stream joining - moves every tile's exact size; rounded
+    /// onto a ladder, most of those moves ask for the size that was already in force and cost
+    /// nothing at all.
+    ///
+    /// What is lost is a scaler fixating exactly on the tile: a tile between two rungs is handed
+    /// frames a little larger than it draws and scales them down at draw time, which is a
+    /// resample the GPU was doing anyway.
+    /// </summary>
+    private static readonly int[] Ladder = [360, 540, 720, 900, 1080, 1440, 2160];
+
+    /// <summary>
+    /// How long the size has to hold still before it is sent.
+    ///
+    /// A window being dragged produces an arrange pass per frame, and each one that crossed a
+    /// rung would re-announce a pool. Waiting for the drag to settle turns a resize into one
+    /// renegotiation rather than one per rung crossed on the way.
+    /// </summary>
+    private static readonly TimeSpan SettleDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>The timer that sends the size once it has stopped moving.</summary>
+    private DispatcherTimer? _settle;
+
+    /// <summary>The size the settle timer will send, in device pixels.</summary>
+    private PixelSize _pending;
+
+    /// <summary>
     /// Sizes the drawn visual and tells the backend how many pixels this tile needs.
     ///
     /// The size sent is in device pixels rather than in layout units, because it is a count of
-    /// pixels the scaler fixates against and a 200-unit tile on a 200% display needs 400 of
-    /// them. Only a size that moved is sent: writing the pipeline's filter renegotiates it.
+    /// pixels the scaler fixates against and a 200-unit tile on a 200% display needs 400 of them.
+    /// It is rounded up onto the ladder and sent once the size has settled, and only when it
+    /// differs from the one in force: all three exist because writing the pipeline's filter
+    /// renegotiates the branch and re-announces the pool behind it.
+    ///
+    /// The visual itself is sized immediately. That is a local draw and costs nothing, so a tile
+    /// follows the layout exactly while what it asks the backend for lags behind it.
     /// </summary>
     private void Fit(Size size)
     {
@@ -134,16 +170,64 @@ public sealed class StreamTile : Control
         _visual.Size = new Avalonia.Vector(size.Width, size.Height);
 
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
-        var pixels = new PixelSize(
+        var wanted = new PixelSize(
             Math.Max(0, (int)Math.Ceiling(size.Width * scaling)),
             Math.Max(0, (int)Math.Ceiling(size.Height * scaling)));
-        if (pixels == _asked || pixels.Width == 0 || pixels.Height == 0)
+        if (wanted.Width == 0 || wanted.Height == 0)
         {
             return;
         }
 
-        _asked = pixels;
-        _ = _channel?.RenderSizeAsync(pixels.Width, pixels.Height);
+        // The rung is chosen on the height and the width follows the tile's own shape, so two
+        // tiles of one height and different aspect ratios ask for the sizes they actually draw
+        // rather than both being padded to a square.
+        var height = Rung(wanted.Height);
+        var pixels = new PixelSize(
+            Math.Max(1, (int)Math.Round(height * ((double)wanted.Width / wanted.Height))),
+            height);
+
+        if (pixels == _asked || pixels == _pending)
+        {
+            return;
+        }
+
+        _pending = pixels;
+        _settle ??= new DispatcherTimer { Interval = SettleDelay };
+        _settle.Tick -= OnSettled;
+        _settle.Tick += OnSettled;
+        _settle.Stop();
+        _settle.Start();
+    }
+
+    /// <summary>Sends the size the tile settled at, once it has stopped moving.</summary>
+    private void OnSettled(object? sender, EventArgs e)
+    {
+        _settle?.Stop();
+
+        if (_pending == _asked || _pending.Width == 0)
+        {
+            return;
+        }
+
+        _asked = _pending;
+        _ = _channel?.RenderSizeAsync(_asked.Width, _asked.Height);
+    }
+
+    /// <summary>
+    /// The rung a height is asked for at: the first one that covers it, or the top rung for a
+    /// tile larger than the ladder goes.
+    /// </summary>
+    private static int Rung(int height)
+    {
+        foreach (var rung in Ladder)
+        {
+            if (height <= rung)
+            {
+                return rung;
+            }
+        }
+
+        return Ladder[^1];
     }
 
     /// <summary>The open subscription, held so the arrange pass can report a size on it.</summary>
@@ -191,6 +275,13 @@ public sealed class StreamTile : Control
     /// </summary>
     private void Stop()
     {
+        // The settle timer goes first. It would otherwise fire against a channel that is being
+        // closed, and a size sent onto a subscription that has ended is a call into a pool the
+        // backend has already freed.
+        _settle?.Stop();
+        _asked = default;
+        _pending = default;
+
         _cancel?.Cancel();
         _cancel?.Dispose();
         _cancel = null;

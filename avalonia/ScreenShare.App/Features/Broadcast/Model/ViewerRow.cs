@@ -72,7 +72,7 @@ public sealed record ViewerRow(
     /// reason every other static fact in this codebase is one: the escalation shows up in four
     /// places in the markup - fill, weight, the hot roles and the one red - and a rule restated at
     /// each of them is four rules that can disagree (<c>docs/development-principles.md</c>,
-    /// "Declarative"). The view asks this row whether it is struggling and nothing else.
+    /// "Stateless"). The view asks this row whether it is struggling and nothing else.
     ///
     /// A figure the leg does not report takes part in nothing. That is the point of reading
     /// presence rather than value: a viewer over RTMP is not calm, it is untimed, and a rule that
