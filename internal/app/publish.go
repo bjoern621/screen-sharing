@@ -188,6 +188,10 @@ func (a *App) restartPublish(s settings.Settings) error {
 		a.run = nil
 	}
 	a.cancelRetryLocked()
+	// The successor is another child on another port, so the preview goes with the
+	// pipeline it was previewing rather than being handed over to one that will not be
+	// sending to it.
+	a.stopPreviewLocked()
 
 	logger.Infof("restarting the publish of '%s' on the settings the form holds", s.Publish.Name)
 	return a.launchLocked(s, 0)
@@ -210,9 +214,15 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		return err
 	}
 
+	// The preview comes up before the child, because the child is told the port it
+	// binds. It is the publish that owns it, which is the whole of its lifecycle: no
+	// effect on the contract opens one, and every path that ends this child takes it
+	// down again (preview.go).
+	preview := a.startPreviewLocked(s)
+
 	run := &publishRun{settings: s, startedAt: time.Now(), attempts: attempts}
 	a.run = run
-	handle, err := pub.Start(s, "publish", publish.Callbacks{
+	handle, err := pub.Start(s, "publish", preview, publish.Callbacks{
 		OnStats: func(stats publish.Stats) {
 			if !a.isCurrentRun(run) {
 				return
@@ -225,6 +235,9 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	})
 	if err != nil {
 		a.run = nil
+		// Nothing is going to send to the port that was just bound, and a preview left
+		// running would be a pipeline waiting on a child that never started.
+		a.stopPreviewLocked()
 		return err
 	}
 	run.handle = handle
@@ -253,6 +266,10 @@ func (a *App) StopPublish() {
 		a.cancelRetryLocked()
 		logger.Infof("publishing stopped")
 	}
+	// Outside the branch above, and idempotent for the same reason the stop itself is:
+	// a preview with no publish behind it is the one state this method exists to remove,
+	// and it is removed whether or not anything was running to remove it from.
+	a.stopPreviewLocked()
 	a.procMu.Unlock()
 
 	a.emitPublishState()
@@ -279,6 +296,9 @@ func (a *App) GetPublishState() PublishState {
 
 	a.procMu.Lock()
 	live, retry := a.livePublishLocked()
+	// Read under the same lock as the publish it belongs to, so a state cannot report a
+	// preview beside a stream that had already stopped when the preview was read.
+	state.Preview = a.previewSnapshotLocked()
 	if retry != nil {
 		state.Retrying = true
 		// The budget is set with the attempt because the two are one fact: "attempt 2 of
@@ -289,6 +309,10 @@ func (a *App) GetPublishState() PublishState {
 		state.Attempt = retry.attempts
 		state.Budget = len(publishBackoff)
 	}
+	// Asserted here because this is the one place both halves are in hand. The preview
+	// is brought up by a launch and taken down by every path that ends the child, so one
+	// standing beside nothing would be a path that forgot the second half (preview.go).
+	assert.Assert(state.Preview == nil || live != nil, "a local preview belongs to a publish")
 	a.procMu.Unlock()
 
 	if live == nil {

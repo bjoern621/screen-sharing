@@ -49,7 +49,11 @@ type Callbacks struct {
 // backends. Command renders the pipeline for the UI without running it.
 type Publisher interface {
 	Command(s settings.Settings) (string, error)
-	Start(s settings.Settings, tag string, cb Callbacks) (Handle, error)
+	// Start runs the pipeline. preview is the loopback leg the child copies its
+	// already-encoded video to for the local preview, and its zero value is a run with
+	// none - which is what a rendered command always is, since the port belongs to one
+	// launch (preview.go).
+	Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error)
 	// Engine names the publish engine that runs the pipeline, "ffmpeg" or
 	// "gstreamer". The lifecycle code above the seam never reads it; the settings
 	// form does, because which rate-control knobs reach the encoder differs per

@@ -19,52 +19,41 @@ namespace ScreenShare.App.Copy;
 public static class Cards
 {
     /// <summary>
-    /// What the broadcast preview costs, and it is stated on the card rather than left to be
+    /// What the broadcast preview is and is not, stated on the card rather than left to be
     /// discovered.
     ///
-    /// <b>The preview is a viewer of this machine's own stream.</b> It is not a local mirror
-    /// of the encoder's input: the frames go out to the relay and come back over a watch leg,
-    /// which is what makes the card answer "what are my viewers actually seeing", degradation
-    /// included (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws"). The
-    /// two costs of that are real and they are the reader's to know - the round trip shows as
-    /// lag, and the leg spends downstream bandwidth on this machine for as long as it runs.
+    /// <b>It used to say the opposite, and the facts moved under it.</b> The preview was a
+    /// viewer of this machine's own stream, received back off the relay, so the sentence here
+    /// named a round trip, downstream bandwidth, and a decode that stayed open because a tile
+    /// on the viewer screen might be sharing it. None of those is true any more: the publish
+    /// child copies its already-encoded video to a loopback port, the backend decodes that, and
+    /// the relay never sees the preview at all
+    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
     ///
-    /// The third sentence is the one that would otherwise be a surprise. The preview never
-    /// closes the decode it opened, because a decode is keyed by the stream and the leg alone
-    /// and a tile on the viewer screen watching the same pair is watching the same decode:
-    /// closing it here would close it there. So the bandwidth is spent until the stream ends.
+    /// <b>What replaces them is one gain and one warning.</b> The gain is that it costs a local
+    /// decode and no bandwidth, and that the relay counts no reader for it - the viewer figures
+    /// beside this card are viewers, with nothing of this machine's own in them. The warning is
+    /// the half a reader must not discover the hard way: the picture is taken <i>before</i> the
+    /// relay, so it says what is being sent and nothing about what anybody receives. A
+    /// congested uplink, a relay dropping packets and a viewer on a bad link all leave this
+    /// card looking perfect, and what answers them is the viewer table and the round-trip plot.
     /// </summary>
-    /// <param name="leg">What the watch leg is called, empty before the settings have been
-    /// resolved once - in which case the sentence names the cost without naming the protocol.</param>
-    public static string PreviewCost(string leg) => leg.Length == 0
-        ? "This is the stream received back from the relay, exactly as a viewer receives it: "
-          + "it lags by the watch leg's own latency and it spends downstream bandwidth. The "
-          + "decode stays open until the stream ends, because closing it would close it for a "
-          + "tile watching the same stream."
-        : $"This is the stream received back from the relay over {leg}, exactly as a viewer "
-          + "receives it: it lags by that leg's own latency and it spends downstream bandwidth. "
-          + "The decode stays open until the stream ends, because closing it would close it for "
-          + "a tile watching the same stream.";
+    public const string PreviewCost =
+        "This is what is being sent, decoded on this machine from a copy the encoder makes: it "
+        + "never reaches the relay, costs one local decode and no bandwidth, and adds no viewer "
+        + "to the counts beside it. It shows nothing about what viewers receive - for that, read "
+        + "the viewer table and the round-trip plot.";
 
-    /// <summary>Nothing is on the air, so there is no stream to ask the relay for.</summary>
-    public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing to receive back.";
+    /// <summary>Nothing is on the air, so there is nothing being sent to show.</summary>
+    public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing being sent to show.";
 
     /// <summary>
-    /// The settings have not been resolved yet, so no leg has been named. The preview picks
-    /// no protocol of its own (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>), so this is what
-    /// it says instead of guessing one.
+    /// A stream is on the air and the backend is running no preview of it. The preview goes up
+    /// with the publish child, so this is the backend saying it could not: a format with no
+    /// local carriage, or a pipeline that would not start. The reason is in the backend's log
+    /// rather than on the contract, which is why this sentence names the fact and not a cause.
     /// </summary>
-    public const string PreviewNoLeg = "The settings have not said which protocol a tile receives on yet.";
-
-    /// <summary>
-    /// The relay's snapshot carries no path by this stream's name. A stream that has just
-    /// started publishes before the relay's next poll sees it, so this is the ordinary state
-    /// of the first seconds of a broadcast rather than a failure.
-    /// </summary>
-    public const string PreviewRelayHasNoPath = "The relay is not carrying this stream yet.";
-
-    /// <summary>A decode has been asked for and the backend has not answered yet.</summary>
-    public const string PreviewOpening = "Asking the relay for this stream back.";
+    public const string PreviewNotPreviewed = "This stream is on the air and is not being previewed locally.";
 
     /// <summary>
     /// The caveat beside the nudge card's title, and it is the opposite of the permission slip

@@ -33,6 +33,40 @@ message PublishState {
     int32 budget = 2;
   }
 
+  // Preview is the local decode of the stream this machine is sending.
+  //
+  // It exists because the publish child copies its already-encoded video to a loopback
+  // port and the backend decodes what arrives there, which never leaves this machine
+  // and never reaches the relay (docs/viewer-architecture.md, "What the broadcast
+  // preview draws"). It is nested under Live because that is its whole lifetime: the
+  // pipeline goes up with the child and down with it, so there is no state in which a
+  // preview outlives the publish it previews.
+  //
+  // Everything below the port is reported rather than asked for, exactly as
+  // ReceiveStream's is: a render chain falls back on a machine that cannot run its
+  // elements, and a hardware decoder may download its own frames.
+  message Preview {
+    // port is the loopback UDP port the publish child sends the copy to and the
+    // backend receives it on. The backend allocates it per run - the kernel picks it,
+    // this side reads it off the socket - so it is a fact to be read and never a
+    // constant a consumer may assume.
+    uint32 port = 1;
+    // live is whether a decoded frame has left the pipeline. Until it has, the
+    // pipeline is up and nothing has negotiated, and the fields below are empty.
+    bool live = 2;
+    // chain is the render chain the pipeline was built with, decode_memory and
+    // render_memory the memory features the decoder's output pad and the sink's input
+    // pad carried, decoder the element decodebin picked, and hardware whether it ran
+    // on silicon. They are ReceiveStream's fields under different ownership, because
+    // what a running decode turned out to be is one question wherever the stream came
+    // from.
+    string chain = 3;
+    string decode_memory = 4;
+    string render_memory = 5;
+    string decoder = 6;
+    bool hardware = 7;
+  }
+
   // Live is a stream the user asked for and has not stopped.
   message Live {
     // publish and relay are what the running pipeline was built from: the two groups
@@ -53,6 +87,11 @@ message PublishState {
     // backoff. Its presence is the retry, and the stream stays live across that wait:
     // it is still the one the user asked for, and one call stops it either way.
     Retry retry = 3;
+    // preview is the local decode of this stream, absent where the backend is running
+    // none - a format with no local carriage, or a pipeline that would not start.
+    // Its presence is what says a frame subscription naming PublishPreview will be
+    // served, so a shell reads it rather than asking and being refused.
+    Preview preview = 5;
 
     // 1 held the flat StreamSettings and is reused above for the publish half of it,
     // which is the same number carrying a narrower message rather than a field moving.

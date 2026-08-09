@@ -55,7 +55,7 @@ func TestTheEncoderColourPathDropsTheOptionsItsEncoderIgnores(t *testing.T) {
 
 	s := gpuStream("ddagrab", "h264_nvenc")
 	s.Publish.CaptureMemory = gpupath.MemoryGpuEncoderColor
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestTheEncoderColourPathDropsTheOptionsItsEncoderIgnores(t *testing.T) {
 // The device option goes with them: the map derives the encoder's device from the
 // captured frames, and naming a second one would open a GPU the frames are not on.
 func TestTheGpuPathNeitherDownloadsNorUploads(t *testing.T) {
-	args, err := BuildPublishArgs(gpuStream("kmsgrab", "h264_vaapi"))
+	args, err := BuildPublishArgs(gpuStream("kmsgrab", "h264_vaapi"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestTheGpuPathStatesEveryColourComponentOnTheConversion(t *testing.T) {
 	for _, colorRange := range []string{"pc", "tv"} {
 		s := gpuStream("kmsgrab", "h264_vaapi")
 		s.Publish.ColorRange = colorRange
-		args, err := BuildPublishArgs(s)
+		args, err := BuildPublishArgs(s, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -131,7 +131,7 @@ func TestTheGpuPathStatesEveryColourComponentOnTheConversion(t *testing.T) {
 func TestTheSystemPathStillMakesTheRoundTrip(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
 	s.Publish.CaptureMemory = gpupath.MemorySystem
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +149,7 @@ func TestTheSystemPathStillMakesTheRoundTrip(t *testing.T) {
 func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
 	s.Publish.CaptureMemory = gpupath.MemoryAuto
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,7 +160,7 @@ func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 	// And the copy where it has none: x11grab hands over system memory whatever the
 	// encoder can read, so the same codec downloads there.
 	s.Publish.Capture = "x11grab"
-	args, err = BuildPublishArgs(s)
+	args, err = BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestAutoBuildsTheGpuChainForAPairWithAPath(t *testing.T) {
 func TestTheGpuDemandIsRefusedForAPairWithoutAPath(t *testing.T) {
 	s := gpuStream("x11grab", "libx264")
 	s.Publish.Chroma = "yuv444p"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("x11grab into a software encoder has no GPU path and must be refused")
 	}
 }
@@ -187,7 +187,7 @@ func TestTheGpuDemandIsRefusedForAPairWithoutAPath(t *testing.T) {
 func TestTheGpuPathReadsNoDrmDownloadStrategy(t *testing.T) {
 	s := gpuStream("kmsgrab", "h264_vaapi")
 	s.Publish.DrmMap = "vulkan"
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

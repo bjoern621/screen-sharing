@@ -234,7 +234,7 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 			for _, mode := range capabilities.Modes {
 				s := probeSettings()
 				s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = c.Name, chroma, mode
-				if _, err := buildPipeline(s, []string{"videotestsrc"}, ""); err != nil {
+				if _, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{}); err != nil {
 					continue
 				}
 				if _, err := GstEncodeProbe(s, 320, 240, 2, true); err != nil {

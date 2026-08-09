@@ -20,11 +20,19 @@ namespace ScreenShare.App.Features.Viewer.Tile.ViewModel;
 /// stores.
 ///
 /// <b>It decides nothing about the decode.</b> Whether a stream is being received is
-/// <c>StartReceive</c>'s answer and the roster's business; this draws whatever the
-/// subscription hands it and says why when it is handed nothing.
+/// <c>StartReceive</c>'s answer and the roster's business, and whether the publish's local
+/// preview is running is the publish's; this draws whatever the subscription hands it and
+/// says why when it is handed nothing.
+///
+/// <b>It is one class for both kinds of tile, and that is deliberate.</b> The viewer's grid
+/// draws relay decodes and the broadcast screen draws the local preview, and the difference
+/// between them is entirely in what a subscription names (<see cref="TileSource"/>) and where
+/// the pipeline's own state is read from (<see cref="TilePipeline"/>). A second implementation
+/// would be a second answer to what a dropped frame is and where a lent handle goes back.
 /// </summary>
 public sealed class TileViewModel : Observable, IFrameSource
 {
+    private readonly TileSource _source;
     private readonly IBackend _backend;
     private readonly Action<Action> _dispatch;
 
@@ -37,24 +45,25 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// </summary>
     private TileReport _report = TileReport.Nothing;
 
-    public TileViewModel(string streamName, string transport, IBackend backend, Action<Action> dispatch)
+    public TileViewModel(TileSource source, IBackend backend, Action<Action> dispatch)
     {
-        Assert.That(streamName.Length > 0, "a tile names the stream it draws");
-        Assert.That(transport.Length > 0, "a tile names the leg its stream is decoded from", streamName);
+        Assert.NotNull(source, "a tile names the decode it draws from");
         Assert.NotNull(backend, "a tile subscribes to the backend's frames");
         Assert.NotNull(dispatch, "a tile needs a UI loop to marshal a report back to");
 
-        Name = streamName;
-        Transport = transport;
+        _source = source;
         _backend = backend;
         _dispatch = dispatch;
     }
 
-    /// <summary>The stream name, carried and never parsed.</summary>
-    public string Name { get; }
+    /// <summary>Which decode this tile draws from, read through rather than taken apart.</summary>
+    public TileSource Source => _source;
 
-    /// <summary>The leg the decode this tile draws was opened on.</summary>
-    public string Transport { get; }
+    /// <summary>The stream name, carried and never parsed.</summary>
+    public string Name => _source.Name;
+
+    /// <summary>The leg the decode this tile draws was opened on, empty for the local preview.</summary>
+    public string Transport => _source.Transport;
 
     // --- Outputs ---------------------------------------------------------------------
 
@@ -86,21 +95,23 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// The one render function. Reads the decode's state through on every pass and combines it
     /// with the report the control last made, so an unchanged pair fires no binding.
     /// </summary>
-    public void Apply(ReceiveStream? decode)
+    public void Apply(TilePipeline? pipeline)
     {
-        Title = $"{Name} · {Words.Transport(Transport)}";
+        // The preview's frames crossed no protocol, so there is none to name beside the
+        // stream. Everything else on the heading is the same fact either way.
+        Title = _source.IsPreview ? Name : $"{Name} · {Words.Transport(Transport)}";
         IsLive = _report.Live;
 
-        Notice = NoticeFor(decode);
+        Notice = NoticeFor(pipeline);
         HasNotice = Notice.Length > 0;
-        Figures = FiguresFor(decode);
+        Figures = FiguresFor(pipeline);
 
         Assert.That(HasNotice == (Notice.Length > 0), "a notice and its sentence agree", Name);
     }
 
     /// <inheritdoc />
     public Task<FrameChannel> OpenAsync(CancellationToken cancellation)
-        => _backend.OpenFramesAsync(Name, Transport, cancellation);
+        => _source.OpenAsync(_backend, cancellation);
 
     /// <inheritdoc />
     public void Report(TileReport report)
@@ -126,19 +137,19 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// sentence and is shown as it stands, because it names a driver or a handle type and
     /// nothing else here knows either.
     /// </summary>
-    private string NoticeFor(ReceiveStream? decode)
+    private string NoticeFor(TilePipeline? pipeline)
     {
         if (_report.Notice.Length > 0)
         {
             return _report.Notice;
         }
 
-        if (decode is null)
+        if (pipeline is null)
         {
             return "Nothing is decoding this stream.";
         }
 
-        return decode.Live ? "" : "Connecting.";
+        return pipeline.Value.Live ? "" : "Connecting.";
     }
 
     /// <summary>
@@ -149,9 +160,9 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// ends. A chain that promised to keep the frames on the device and a decoder that
     /// downloaded its own output disagree, and the pair is the only place that shows.
     /// </summary>
-    private IReadOnlyList<string> FiguresFor(ReceiveStream? decode)
+    private IReadOnlyList<string> FiguresFor(TilePipeline? state)
     {
-        if (decode is null)
+        if (state is not { } decode)
         {
             return [];
         }

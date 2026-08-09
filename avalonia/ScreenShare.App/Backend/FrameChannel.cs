@@ -21,9 +21,15 @@ namespace ScreenShare.App.Backend;
 /// second one: a release that outlived its subscription would free a slot of a pool that is
 /// gone.
 ///
-/// <b>It opens no decode.</b> <see cref="IBackend.StartReceiveAsync"/> is the effect that
-/// does, and a subscription to a stream nothing is decoding is refused. The two staying
-/// separate is what lets a decode outlive the window drawing it.
+/// <b>It opens no decode.</b> <see cref="IBackend.StartReceiveAsync"/> is the effect that opens
+/// a relay decode and the publish itself is what opens its local preview, and a subscription to
+/// a decode nothing is running is refused. The two staying separate is what lets a decode
+/// outlive the window drawing it.
+///
+/// <b>Which of the two a call draws from is its first message and nothing else.</b> A relay
+/// decode is named by a stream and a leg; the running publish's preview is named by nothing,
+/// because there is at most one publish and the preview is part of it. Everything after that
+/// first message is one protocol.
 /// </summary>
 public sealed class FrameChannel : IAsyncDisposable
 {
@@ -50,28 +56,59 @@ public sealed class FrameChannel : IAsyncDisposable
     /// already asked for something. What comes back first is the pool, and no frame precedes
     /// it: a consumer cannot be handed a slot it has not been told how to open.
     /// </summary>
-    public static async Task<FrameChannel> OpenAsync(
+    public static Task<FrameChannel> OpenAsync(
         FrameService.FrameServiceClient client,
         string streamName,
         string transport,
         CancellationToken cancellation)
     {
-        Assert.NotNull(client, "a frame channel is opened on the frame service");
         Assert.That(streamName.Length > 0, "a frame channel names the stream it draws");
         Assert.That(transport.Length > 0, "a frame channel names the leg the stream is decoded from", streamName);
+
+        return SubscribeAsync(client, new FrameSubscribe
+        {
+            Stream = new WatchKey { StreamName = streamName, Transport = transport },
+        }, cancellation);
+    }
+
+    /// <summary>
+    /// Subscribes to the frames of the running publish's local preview.
+    ///
+    /// It names no stream and no leg, and neither is an omission. The backend runs at most one
+    /// publish, so "the preview" is already a complete identity; and what it draws never
+    /// crossed the relay, so there is no protocol to name it by
+    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+    ///
+    /// It opens no pipeline, exactly as <see cref="OpenAsync"/> opens no decode. What brings
+    /// the preview up is the publish itself, so a call made while nothing is publishing is
+    /// refused rather than served - and a caller reads the publish state to know whether to
+    /// ask at all.
+    /// </summary>
+    public static Task<FrameChannel> OpenPreviewAsync(
+        FrameService.FrameServiceClient client,
+        CancellationToken cancellation)
+        => SubscribeAsync(client, new FrameSubscribe { PublishPreview = new PublishPreview() }, cancellation);
+
+    /// <summary>
+    /// Opens the call and says what it is for. One method for both kinds of subscription,
+    /// because everything after the first message is the same protocol: the two differ in
+    /// which arm of the oneof they fill and in nothing else.
+    /// </summary>
+    private static async Task<FrameChannel> SubscribeAsync(
+        FrameService.FrameServiceClient client,
+        FrameSubscribe subscribe,
+        CancellationToken cancellation)
+    {
+        Assert.NotNull(client, "a frame channel is opened on the frame service");
+        Assert.NotNull(subscribe, "a frame channel says which decode it is for");
 
         var call = client.Frames(cancellationToken: cancellation);
         var channel = new FrameChannel(call);
 
         try
         {
-            await call.RequestStream.WriteAsync(new FramesRequest
-            {
-                Subscribe = new FrameSubscribe
-                {
-                    Stream = new WatchKey { StreamName = streamName, Transport = transport },
-                },
-            }, cancellation).ConfigureAwait(false);
+            await call.RequestStream.WriteAsync(new FramesRequest { Subscribe = subscribe }, cancellation)
+                .ConfigureAwait(false);
         }
         catch
         {

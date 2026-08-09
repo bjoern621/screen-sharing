@@ -102,6 +102,10 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 		return
 	}
 	a.run = nil
+	// The child that was copying to it is gone, so the preview goes with it - including
+	// across a retry, whose relaunch binds a port of its own. What a reader sees in the
+	// meantime is a publish with no preview, which is what a publish between attempts is.
+	a.stopPreviewLocked()
 
 	spent, wait, retrying := publishRetryAfter(err, time.Since(run.startedAt), run.attempts)
 	if retrying {

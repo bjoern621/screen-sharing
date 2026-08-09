@@ -65,7 +65,7 @@ func flagValue(args []string, flag string) string {
 func TestBuildPublishArgsUnknownTransport(t *testing.T) {
 	s := baseStream()
 	s.Publish.Transport = "carrier-pigeon"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for unknown transport")
 	}
 }
@@ -73,7 +73,7 @@ func TestBuildPublishArgsUnknownTransport(t *testing.T) {
 func TestBuildPublishArgsUnknownCapture(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "telepathy"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for unknown capture backend")
 	}
 }
@@ -84,7 +84,7 @@ func TestBuildPublishArgsRefusesANonPositiveFps(t *testing.T) {
 	for _, fps := range []int{0, -1} {
 		s := baseStream()
 		s.Publish.Fps = fps
-		if _, err := BuildPublishArgs(s); err == nil {
+		if _, err := BuildPublishArgs(s, nil); err == nil {
 			t.Errorf("fps %d was accepted", fps)
 		}
 	}
@@ -96,7 +96,7 @@ func TestBuildPublishArgsRefusesANonPositiveFps(t *testing.T) {
 func TestX11grabRefusesAMonitorIndexNoOutputCarries(t *testing.T) {
 	s := baseStream()
 	s.Publish.Monitor = 9999
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("a monitor index no output carries was accepted")
 	}
 }
@@ -106,7 +106,7 @@ func TestX11grabRefusesAMonitorIndexNoOutputCarries(t *testing.T) {
 func TestX11grabRefusesAnUnsetDisplay(t *testing.T) {
 	t.Setenv("DISPLAY", "")
 	s := baseStream()
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("an unset DISPLAY was accepted")
 	}
 }
@@ -164,7 +164,7 @@ func TestBuildPublishArgsColorRange(t *testing.T) {
 	// YUV chroma carries an explicit color range.
 	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestBuildPublishArgsColorRange(t *testing.T) {
 	// hevc_nvenc encodes gbrp, so switch to it for this case.
 	s.Publish.Codec = "hevc_nvenc"
 	s.Publish.Chroma = "gbrp"
-	args, err = BuildPublishArgs(s)
+	args, err = BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestBuildPublishArgsGop(t *testing.T) {
 
 	s.Publish.Gop = 0 // auto -> 2 * fps
 	s.Publish.Fps = 60
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestBuildPublishArgsGop(t *testing.T) {
 	}
 
 	s.Publish.Gop = 45 // explicit value wins
-	args, err = BuildPublishArgs(s)
+	args, err = BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -498,7 +498,7 @@ func TestBuildPublishArgsVaapi(t *testing.T) {
 	s.Publish.Codec = "h264_vaapi"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Mode = "cbr"
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -523,7 +523,7 @@ func TestBuildPublishArgsVulkan(t *testing.T) {
 	s.Publish.Codec = "h264_vulkan"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Mode = "cbr"
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -548,7 +548,7 @@ func TestBuildPublishArgsQsv(t *testing.T) {
 	s.Publish.Codec = "hevc_qsv"
 	s.Publish.Chroma = "p010le"
 	s.Publish.Mode = "cbr"
-	args, err := BuildPublishArgs(s)
+	args, err := BuildPublishArgs(s, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -649,7 +649,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 		}
 		s := baseStream()
 		s.Publish.Audio, s.Publish.AudioCodec = "desktop", a.Name
-		args, err := BuildPublishArgs(s)
+		args, err := BuildPublishArgs(s, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", a.Name, err)
 		}
@@ -675,7 +675,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	for _, audio := range []string{"none", ""} {
 		s := baseStream()
 		s.Publish.Audio = audio
-		args, err := BuildPublishArgs(s)
+		args, err := BuildPublishArgs(s, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -692,7 +692,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 
 	s := baseStream()
 	s.Publish.Audio = "microphone"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an unknown audio source")
 	}
 
@@ -700,7 +700,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// name would otherwise be read off an absent row.
 	s = baseStream()
 	s.Publish.Audio, s.Publish.AudioCodec = "desktop", "mp3"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an audio codec the table does not carry")
 	}
 
@@ -709,7 +709,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	s = baseStream()
 	s.Publish.Transport, s.Publish.Codec, s.Publish.Chroma = "webrtc", "libx264", "yuv420p"
 	s.Publish.Audio, s.Publish.AudioCodec = "desktop", "aac"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an AAC track over webrtc")
 	}
 }
@@ -719,7 +719,7 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s := baseStream()
 	s.Publish.Codec = "libx264"
 	s.Publish.Chroma = "gbrp"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for libx264 + gbrp")
 	}
 
@@ -727,7 +727,7 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s = baseStream()
 	s.Publish.Codec = "av1_nvenc"
 	s.Publish.Chroma = "yuv420p"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for av1_nvenc over srt")
 	}
 
@@ -737,7 +737,7 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	s.Publish.Codec = "libvpx-vp9"
 	s.Publish.Chroma = "yuv444p"
 	s.Publish.Transport = "srt"
-	if _, err := BuildPublishArgs(s); err == nil {
+	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for libvpx-vp9 over srt")
 	}
 }

@@ -250,6 +250,24 @@ public interface IBackend
     Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default);
 
     /// <summary>
+    /// Subscribes to the frames of the running publish's local preview: the stream this
+    /// machine is sending, decoded from a copy the publish child writes to a loopback port
+    /// rather than read back off the relay (<c>docs/viewer-architecture.md</c>, "What the
+    /// broadcast preview draws").
+    ///
+    /// <b>It names nothing, and both halves of that are the point.</b> There is at most one
+    /// publish, so the preview needs no identity of its own; and its frames crossed no
+    /// protocol, so it has no leg to be named by - a synthetic one would put a transport in
+    /// the table every consumer reads and nothing could act on it.
+    ///
+    /// It opens no pipeline. What brings the preview up is the publish itself, so a call made
+    /// with nothing publishing is refused as a <see cref="BackendUnavailableException"/>
+    /// carrying the backend's own sentence. A caller reads <c>PublishState</c> to know whether
+    /// there is one to ask for rather than asking to find out.
+    /// </summary>
+    Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default);
+
+    /// <summary>
     /// Opens one run log in the machine's default application. The path is one the backend
     /// handed out on an <see cref="ExitInfo"/> and a shell does not construct one: the
     /// backend writes these files and rotates them, so it is the only side that knows which

@@ -73,7 +73,7 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 	s.Publish.Chroma = "yuv444p"
 
 	capture := []string{"videotestsrc"}
-	plain, err := buildPipeline(s, capture, "")
+	plain, err := buildPipeline(s, capture, "", PreviewLeg{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 		t.Errorf("pipeline built without a meter port carries instrumentation: %s", line)
 	}
 
-	metered, err := buildPipeline(s, capture, "54321")
+	metered, err := buildPipeline(s, capture, "54321", PreviewLeg{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 	parser := strings.Index(line, "h264parse")
 	report := strings.Index(line, "progressreport")
 	meterBranch := strings.Index(line, "tcpclientsink host=127.0.0.1 port=54321")
-	sinkBranch := strings.Index(line, gstMeterName+". !")
+	sinkBranch := strings.Index(line, gstTeeName+". !")
 	mux := strings.Index(line, "mpegtsmux")
 	if !(parser < report && report < meterBranch && meterBranch < sinkBranch && sinkBranch < mux) {
 		t.Errorf("instrumentation out of order between parser and muxer: %s", line)
@@ -123,7 +123,7 @@ func TestGstMeterSpeedBelowRealtime(t *testing.T) {
 }
 
 // The instrumentation is a wire format shared with GStreamer: the element
-// properties gstProgressElements sets have to produce the lines the parser
+// properties gstMeterTap sets have to produce the lines the parser
 // matches, and the tcpclientsink has to reach the meter's listener. Both hold
 // only against a real gst-launch, so this runs one.
 func TestGstMeterAgainstGstLaunch(t *testing.T) {
@@ -155,7 +155,10 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 		"!", "h264parse",
 		"!",
 	}
-	args = append(args, gstProgressElements(meter.port())...)
+	args = append(args, gstProgressElement...)
+	args = append(args, "!")
+	args = append(args, gstTapElements([][]string{gstMeterTap(meter.port())})...)
+	args = append(args, "queue", "!")
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{
@@ -282,7 +285,10 @@ func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 		"!", "h264parse",
 		"!",
 	)
-	args = append(args, gstProgressElements(meter.port())...)
+	args = append(args, gstProgressElement...)
+	args = append(args, "!")
+	args = append(args, gstTapElements([][]string{gstMeterTap(meter.port())})...)
+	args = append(args, "queue", "!")
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{

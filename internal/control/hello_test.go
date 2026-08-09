@@ -62,11 +62,16 @@ func (f *fakeBackend) StopWatch(wire.WatchKey)               {}
 func (f *fakeBackend) StartReceive(wire.WatchKey) error      { return nil }
 func (f *fakeBackend) StopReceive(wire.WatchKey)             {}
 
-// SubscribeFrames refuses, which is what a backend with no pipeline behind it has to
-// answer: there is no decode here to draw from, and a fake stream of handles would be a
-// fake naming GPU memory that does not exist.
+// SubscribeFrames and SubscribePreviewFrames refuse, which is what a backend with no
+// pipeline behind it has to answer: there is no decode here to draw from and nothing is
+// publishing, and a fake stream of handles would be a fake naming GPU memory that does
+// not exist.
 func (f *fakeBackend) SubscribeFrames(wire.WatchKey) (FrameStream, error) {
 	return nil, errors.New("nothing is decoding")
+}
+
+func (f *fakeBackend) SubscribePreviewFrames() (FrameStream, error) {
+	return nil, errors.New("nothing is publishing with a local preview")
 }
 
 func (f *fakeBackend) StartTestStreams(int) error { return f.err }

@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 112 tests, no relay and no backend needed
+task avalonia:test     # 110 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -284,22 +284,35 @@ is scaled to the run's own peak, so it marked the ceiling only by coincidence an
 against that peak or not drawn at all; and the viewer table's `every 5 s`, a period the contract
 does not carry and which the backend did not use.
 
-**The preview tile draws a frame now, and what it draws is this machine's own stream received
-back off the relay.** It opens a decode with `StartReceive` and subscribes to it exactly as the
-viewer's grid does for anyone else's stream, reusing the same `Features/Viewer/Tile` view model
-and control rather than growing a second frame consumer - two frame paths would be two answers
-to what a dropped frame is and where a lent handle goes back. The route is a loopback and not a
-tee because the encoder is an external child process, and the card states the two costs that
-buys - the round trip it lags by, and the downstream bandwidth it spends
-(`docs/viewer-architecture.md`, "What the broadcast preview draws").
+**The preview tile draws a frame now, and what it draws never leaves this machine.** The
+publish child copies its already-encoded video to a loopback port beside the sink that feeds
+the relay, the backend decodes what arrives there, and this card subscribes to it
+(`docs/viewer-architecture.md`, "What the broadcast preview draws"). It reuses the same
+`Features/Viewer/Tile` view model and control the viewer's grid uses rather than growing a
+second frame consumer - two frame paths would be two answers to what a dropped frame is and
+where a lent handle goes back. What differs between the two tiles is `Tile/Model/TileSource.cs`,
+which is the contract's own oneof: a relay decode named by stream and leg, or the running
+publish's preview named by nothing at all.
 
-Two things about it are the shell's own arrangement. Whether the card is on screen is an input
-the view writes on attach and detach, because the window renders every destination on every
-pass and a decode nobody is looking at is bandwidth nobody asked for. And the preview closes no
-decode: a decode is keyed by the stream and the leg alone and the backend counts no consumers,
-so a stop here would close a tile on the viewer screen watching the same pair. The placeholder
-stays for the states where there is no picture - nothing publishing, no leg resolved, the relay
-not carrying the path yet, the start refused - and each of them says which one it is.
+**This card calls no effect, and that is the shape rather than an omission.** The preview
+pipeline goes up with the publish child and down with it, so there is no `StartReceive` to send
+and no decode to close; `PublishState.Live.preview` is what says whether there is a picture to
+draw, read through on every pass like every other state. It went the other way once - the card
+opened a decode of this machine's own stream and read it back off the relay - and that cost the
+screen beside it its own figures: the preview occupied a reader slot, so a stream nobody was
+watching reported a viewer and the worst-viewer plot described the publisher's own loopback.
+
+Two things about it are still the shell's own arrangement. Whether the card is on screen is an
+input the view writes on attach and detach, because the window renders every destination on
+every pass and frames nobody is looking at are GPU copies nobody asked for. And the placeholder
+stays for the states where there is no picture - nothing publishing, a stream the backend is not
+previewing, and the tile's own three - each of them saying which one it is.
+
+The card's own sentence carries what the change made true and what it made invisible: the
+picture costs one local decode and no bandwidth and adds no viewer to the counts, and it is
+taken *before* the relay, so it says nothing about what viewers receive. A reader who took a
+perfect preview for a healthy stream would be reading it exactly wrong, which is why that
+sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
 The review's "Save as preset" switch is the one control on that screen that still does nothing.
 `SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this

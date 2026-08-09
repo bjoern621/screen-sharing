@@ -264,6 +264,21 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public async Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+    {
+        await GreetAsync().ConfigureAwait(false);
+
+        try
+        {
+            return await FrameChannel.OpenPreviewAsync(_frames, cancellation).ConfigureAwait(false);
+        }
+        catch (RpcException e)
+        {
+            throw Translate(e, cancellation);
+        }
+    }
+
+    /// <inheritdoc />
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
     {
         Assert.That(path.Length > 0, "opening a run log names the log the backend handed out");

@@ -17,8 +17,9 @@ import (
 // and sink. capture is the already-built source, so a run and the displayed
 // command differ only in what the backend put in it. meterPort is the loopback
 // port the progress instrumentation writes to, empty to build the pipeline
-// without it.
-func buildPipeline(s settings.Settings, capture []string, meterPort string) ([]string, error) {
+// without it, and preview the loopback port the local preview's copy goes to,
+// zero for the same reason.
+func buildPipeline(s settings.Settings, capture []string, meterPort string, preview PreviewLeg) ([]string, error) {
 	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
 		return nil, err
 	}
@@ -73,16 +74,34 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string) ([]s
 		pipeline = append(pipeline, link...)
 		pipeline = append(pipeline, "!")
 	}
+	// The counter goes ahead of the tee, so what it counts is the stream rather than
+	// one branch of it.
 	if meterPort != "" {
-		pipeline = append(pipeline, gstProgressElements(meterPort)...)
+		pipeline = append(pipeline, gstProgressElement...)
+		pipeline = append(pipeline, "!")
 	}
+	// Both taps copy the stream the encoder already produced, which is the whole point
+	// of teeing it: neither the meter nor the preview costs a second encode, and the
+	// preview leaves this machine over no network at all.
+	var taps [][]string
+	if meterPort != "" {
+		taps = append(taps, gstMeterTap(meterPort))
+	}
+	if preview.Wanted() {
+		// A format with no local carriage publishes without a preview rather than
+		// failing to publish, which is the same answer the ffmpeg engine gives.
+		if tap, err := gstPreviewTap(s.Publish.Codec, preview); err == nil {
+			taps = append(taps, tap)
+		}
+	}
+	pipeline = append(pipeline, gstTapElements(taps)...)
 	// With audio the muxer waits on two pads, and the queue keeps one pad's stall
-	// from blocking the other branch upstream of the mux. Instrumentation needs the
-	// same queue for a parsing reason: the tee it inserts and every muxer and sink
-	// here expose request pads only, and gst-launch refuses to link two unnamed
-	// request pads. The queue's static sink pad breaks that pair, so the link
-	// resolves without pinning a tee pad number.
-	if len(audio) > 0 || meterPort != "" {
+	// from blocking the other branch upstream of the mux. A tap needs the same queue
+	// for a parsing reason: the tee it inserts and every muxer and sink here expose
+	// request pads only, and gst-launch refuses to link two unnamed request pads. The
+	// queue's static sink pad breaks that pair, so the link resolves without pinning a
+	// tee pad number.
+	if len(audio) > 0 || len(taps) > 0 {
 		pipeline = append(pipeline, "queue", "!")
 	}
 	pipeline = append(pipeline, sink...)

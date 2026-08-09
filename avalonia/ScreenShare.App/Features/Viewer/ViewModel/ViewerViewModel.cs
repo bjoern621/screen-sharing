@@ -177,7 +177,7 @@ public sealed class ViewerViewModel : Observable
         // is a thing to say instead of a thing to hide.
         foreach (var tile in _tiles.Values)
         {
-            tile.Apply(DecodeOf(tile));
+            tile.Apply(TilePipeline.Of(DecodeOf(tile)));
         }
 
         HasTiles = Tiles.Count > 0;
@@ -449,7 +449,7 @@ public sealed class ViewerViewModel : Observable
             return;
         }
 
-        var tile = new TileViewModel(stream, _tileLeg, _backend, _dispatch);
+        var tile = new TileViewModel(TileSource.Relay(stream, _tileLeg), _backend, _dispatch);
         // A tile reports what it drew, which no state the backend owns can carry. The pass it
         // asks for is this screen's own, so the figures over a tile and the roster under it
         // are still written by one render function.

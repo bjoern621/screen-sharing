@@ -8,30 +8,37 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The broadcast preview receives this machine's own stream back off the relay, on the one
-/// frame path there is.
+/// The broadcast preview draws what is being sent, from a copy that never leaves this
+/// machine.
 ///
-/// What these state is the lifecycle, because the lifecycle is the part that can go wrong
-/// invisibly: a converge that opens a second decode on every render pass costs a round trip a
-/// second and nothing on screen says so, and a converge that closes a shared decode takes a
-/// tile off the viewer screen with it. Both are asserted against the calls the seam received
-/// rather than against what the card drew.
+/// <b>What these state is that the relay is not a party to it.</b> The preview used to be a
+/// loopback - a decode of this machine's own stream, opened with <c>StartReceive</c> and read
+/// back off the relay - which worked and cost the broadcast screen its own figures: the card
+/// occupied a reader slot, so a stream nobody was watching reported one viewer and the
+/// worst-viewer plot described the publisher's own round trip. The publish child now copies
+/// its encoded video to a loopback port and the backend decodes that, so there is no receive
+/// effect for this card to call and no reader for the relay to count. That is asserted here
+/// against the calls the seam received rather than against what the card drew, because a
+/// receive effect creeping back in is invisible on screen.
+///
+/// <b>The rest is the lifecycle</b>, which is the other part that can go wrong invisibly: a
+/// converge that rebuilds the tile on every render pass restarts a frame subscription a second
+/// and nothing says so.
 /// </summary>
 public sealed class BroadcastPreviewTests
 {
     private const string Stream = "desk";
-    private const string Leg = "srt";
 
     /// <summary>
-    /// A backend whose running state a test writes: what is publishing, what the relay is
-    /// carrying, what is decoding, and which leg the settings resolve to. It records every
-    /// receive effect it is asked for, which is the whole of what the converge is judged on.
+    /// A backend whose running state a test writes: what is publishing and whether the backend
+    /// is previewing it. It records every receive effect and every frame subscription it is
+    /// asked for, which is the whole of what the converge is judged on.
     ///
     /// It forwards everything else to <see cref="SeededBackend"/>, for the reason the other
     /// stand-ins here forward: a second set of answers would be a second fixture to keep in
     /// step with the first.
     /// </summary>
-    private sealed class ReceivingBackend : IBackend
+    private sealed class PreviewBackend : IBackend
     {
         private readonly SeededBackend _seed = new("windows");
 
@@ -41,47 +48,23 @@ public sealed class BroadcastPreviewTests
             remove { }
         }
 
-        /// <summary>What the settings resolve the tile watch leg to. Empty for a form that carries no such field.</summary>
-        public string TileLeg { get; set; } = Leg;
-
         /// <summary>What is publishing. Nothing by default, which the absent <c>Live</c> is what says.</summary>
         public PublishState Publish { get; set; } = new();
 
-        /// <summary>What the relay is carrying. Reachable and empty by default.</summary>
-        public RelayStatus Relay { get; set; } = new() { Reachable = true };
-
-        /// <summary>What the backend is decoding, whole like every other state it sends.</summary>
-        public IReadOnlyList<ReceiveStream> Receiving { get; set; } = [];
-
-        /// <summary>Why a start is refused, empty while one is accepted.</summary>
-        public string Refusal { get; set; } = "";
-
-        /// <summary>Every decode a start was asked for, in order.</summary>
+        /// <summary>Every relay decode a start or a stop was asked for. The preview must never add to either.</summary>
         public List<WatchKey> Started { get; } = [];
 
-        /// <summary>Every decode a stop was asked for, in order. The preview must never add to it.</summary>
         public List<WatchKey> Stopped { get; } = [];
 
-        /// <summary>A start asked for and not answered, so the card can be read mid-round-trip.</summary>
-        private TaskCompletionSource? _held;
+        /// <summary>How many frame subscriptions were opened, per kind.</summary>
+        public int PreviewSubscriptions { get; private set; }
 
-        public void HoldStarts() => _held = new TaskCompletionSource();
-
-        public void AnswerStarts()
-        {
-            var held = _held ?? throw new InvalidOperationException("no start is being held");
-
-            _held = null;
-            Answers.Now(held.SetResult);
-        }
+        public int RelaySubscriptions { get; private set; }
 
         public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         {
             Started.Add(new WatchKey { StreamName = streamName, Transport = transport });
-
-            return Refusal.Length > 0
-                ? Task.FromException(new BackendUnavailableException(Refusal))
-                : _held?.Task ?? Task.CompletedTask;
+            return Task.CompletedTask;
         }
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
@@ -90,39 +73,32 @@ public sealed class BroadcastPreviewTests
             return Task.CompletedTask;
         }
 
+        // A fixture has no GPU and no pipeline, so what is recorded is the ask. Refusing after
+        // that is the honest answer: a fake stream of handles would name GPU memory that does
+        // not exist.
+        public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+        {
+            PreviewSubscriptions++;
+            throw new BackendUnavailableException("this fixture lends no frames");
+        }
+
+        public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
+        {
+            RelaySubscriptions++;
+            throw new BackendUnavailableException("this fixture lends no frames");
+        }
+
         public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
             => Task.FromResult(Publish);
 
         public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
-            => Task.FromResult(Relay);
+            => _seed.RelayStatusAsync(cancellation);
 
         public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
-            => Task.FromResult(Receiving);
+            => _seed.ReceivingAsync(cancellation);
 
-        /// <summary>
-        /// A form carrying the one field the tile leg is read out of. The seed's own form has
-        /// no viewer group at all, and the leg is exactly what this suite is about.
-        /// </summary>
         public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
-        {
-            var form = new Form { Settings = draft.Clone() };
-            var group = new FieldGroup { Key = "viewer" };
-
-            if (TileLeg.Length > 0)
-            {
-                group.Fields.Add(new Field
-                {
-                    Key = "viewer.tile_watch_transport",
-                    Control = ControlKind.Select,
-                    Visible = true,
-                    Enabled = true,
-                    Value = new FieldValue { Text = TileLeg },
-                });
-            }
-
-            form.Groups.Add(group);
-            return Task.FromResult(form);
-        }
+            => _seed.ResolveFormAsync(draft, cancellation);
 
         public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
             => _seed.CatalogAsync(cancellation);
@@ -151,9 +127,6 @@ public sealed class BroadcastPreviewTests
         public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.StopWatchAsync(streamName, transport, cancellation);
 
-        public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
-            => _seed.OpenFramesAsync(streamName, transport, cancellation);
-
         public Task OpenLogAsync(string path, CancellationToken cancellation = default)
             => _seed.OpenLogAsync(path, cancellation);
 
@@ -172,32 +145,32 @@ public sealed class BroadcastPreviewTests
         }
     }
 
-    /// <summary>A stream in force under the name this suite uses.</summary>
-    private static PublishState Live() => new()
+    /// <summary>A stream in force under the name this suite uses, with a local preview behind it.</summary>
+    private static PublishState Live(bool previewed = true)
     {
-        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = Stream } },
-    };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = Stream } };
+        if (previewed)
+        {
+            live.Preview = new PublishState.Types.Preview { Port = 45678 };
+        }
 
-    /// <summary>A relay carrying one path by that name, which is what makes a decode worth asking for.</summary>
-    private static RelayStatus Carrying()
-    {
-        var relay = new RelayStatus { Reachable = true };
-        relay.Paths.Add(new RelayPath { Name = Stream, Ready = true });
-        return relay;
+        return new PublishState { Live = live };
     }
 
-    private static ReceiveStream Decoding(bool live) => new()
+    /// <summary>The preview as the backend reports it once a frame has left the pipeline.</summary>
+    private static PublishState Decoding(bool live)
     {
-        Stream = new WatchKey { StreamName = Stream, Transport = Leg },
-        Live = live,
-    };
+        var state = Live();
+        state.Live.Preview.Live = live;
+        return state;
+    }
 
     /// <summary>
     /// A card on screen, over a session that has read the fixture once. The session is started
     /// rather than written to, because its fields are its own: every state a screen reads is
     /// one the backend answered with.
     /// </summary>
-    private static (PreviewViewModel Preview, Session Session) Showing(ReceivingBackend backend)
+    private static (PreviewViewModel Preview, Session Session) Showing(PreviewBackend backend)
     {
         var session = Read(backend);
         var preview = new PreviewViewModel(backend, session, static action => action());
@@ -210,7 +183,7 @@ public sealed class BroadcastPreviewTests
     /// A session that has read the fixture. Every answer is already completed and the
     /// dispatcher is straight through, so the read has landed by the time this returns.
     /// </summary>
-    private static Session Read(ReceivingBackend backend)
+    private static Session Read(PreviewBackend backend)
     {
         var session = new Session(backend, static action => action());
         session.Start();
@@ -218,67 +191,79 @@ public sealed class BroadcastPreviewTests
     }
 
     [Fact]
-    public void TheConvergeOpensOneDecodeForTheStreamThatIsPublishing()
+    public void TheConvergeDrawsThePreviewTheBackendIsRunning()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
 
         var (preview, _) = Showing(backend);
 
-        Assert.Single(backend.Started);
-        Assert.Equal(Stream, backend.Started[0].StreamName);
-        Assert.Equal(Leg, backend.Started[0].Transport);
         Assert.NotNull(preview.Tile);
         Assert.True(preview.HasTile);
+        Assert.Equal(Stream, preview.Tile.Name);
+        Assert.True(preview.Tile.Source.IsPreview);
+        Assert.Equal("", preview.Tile.Transport);
+    }
+
+    /// <summary>
+    /// The point of the change, asserted where it can be asserted: the relay is asked for
+    /// nothing. No decode is opened, none is closed, and no relay frame subscription is made,
+    /// so the relay serves no reader for this picture and counts none.
+    /// </summary>
+    [Fact]
+    public async Task ThePreviewAsksTheRelayForNothing()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+
+        var (preview, _) = Showing(backend);
+        Assert.NotNull(preview.Tile);
+
+        // The subscription is the control's, so it is opened here the way the control opens
+        // it. What is being asserted is which of the two calls it lands on.
+        await Assert.ThrowsAsync<BackendUnavailableException>(
+            () => preview.Tile.OpenAsync(CancellationToken.None));
+
+        Assert.Equal(1, backend.PreviewSubscriptions);
+        Assert.Equal(0, backend.RelaySubscriptions);
+        Assert.Empty(backend.Started);
+        Assert.Empty(backend.Stopped);
     }
 
     [Fact]
-    public void ASecondPassOverUnchangedInputAsksForNothing()
+    public void ASecondPassOverUnchangedInputChangesNothing()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Showing(backend);
+
+        var tile = preview.Tile;
+        Assert.NotNull(tile);
 
         preview.Apply();
         preview.Apply();
         preview.SetShowing(true);
 
-        Assert.Single(backend.Started);
+        // The same tile and not an equal one: a tile is a running frame subscription, so a
+        // rebuilt tile is a restarted subscription however alike the two look.
+        Assert.Same(tile, preview.Tile);
+        Assert.Empty(backend.Started);
+        Assert.Empty(backend.Stopped);
     }
 
     [Fact]
-    public void APassWhileTheStartIsStillOutAsksForNothingMore()
+    public void TheCardDrawsNothingWhileItIsOffScreen()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
-        backend.HoldStarts();
-
-        var (preview, _) = Showing(backend);
-
-        preview.Apply();
-        Assert.Single(backend.Started);
-        Assert.Null(preview.Tile);
-        Assert.Equal(Cards.PreviewOpening, preview.Placeholder);
-
-        backend.AnswerStarts();
-
-        Assert.Single(backend.Started);
-        Assert.NotNull(preview.Tile);
-    }
-
-    [Fact]
-    public void TheDecodeIsNotOpenedWhileTheCardIsOffScreen()
-    {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
         var session = Read(backend);
 
         var preview = new PreviewViewModel(backend, session, static action => action());
 
-        Assert.Empty(backend.Started);
         Assert.Null(preview.Tile);
+        Assert.False(preview.HasTile);
     }
 
     [Fact]
-    public void LeavingTheScreenDropsTheSubscriptionAndLeavesTheDecodeAlone()
+    public void LeavingTheScreenEndsTheSubscription()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Showing(backend);
         Assert.NotNull(preview.Tile);
 
@@ -286,13 +271,12 @@ public sealed class BroadcastPreviewTests
 
         Assert.Null(preview.Tile);
         Assert.False(preview.HasTile);
-        Assert.Empty(backend.Stopped);
     }
 
     [Fact]
-    public void GoingOffAirDropsTheSubscriptionAndLeavesTheDecodeAlone()
+    public void GoingOffAirEndsTheSubscription()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
         var (preview, session) = Showing(backend);
         Assert.NotNull(preview.Tile);
 
@@ -303,55 +287,49 @@ public sealed class BroadcastPreviewTests
         preview.Apply();
 
         Assert.Null(preview.Tile);
-        Assert.Empty(backend.Stopped);
+        Assert.False(preview.HasTile);
         Assert.Equal(Cards.PreviewNotPublishing, preview.Placeholder);
     }
 
     [Fact]
-    public void ComingBackOnAirAsksAgain()
+    public void ComingBackOnAirDrawsAgain()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Showing(backend);
 
         preview.SetShowing(false);
         preview.SetShowing(true);
 
-        Assert.Equal(2, backend.Started.Count);
         Assert.NotNull(preview.Tile);
+        Assert.True(preview.Tile.Source.IsPreview);
     }
 
     [Fact]
     public void NothingPublishingIsItsOwnSentence()
     {
-        var backend = new ReceivingBackend { Relay = Carrying() };
+        var backend = new PreviewBackend();
 
         var (preview, _) = Showing(backend);
 
-        Assert.Empty(backend.Started);
+        Assert.Null(preview.Tile);
         Assert.True(preview.HasPlaceholder);
         Assert.Equal(Cards.PreviewNotPublishing, preview.Placeholder);
     }
 
+    /// <summary>
+    /// A stream on the air that the backend is not previewing is its own state, and it is a
+    /// real one: a format with no local carriage, or a preview pipeline that would not start.
+    /// The publish is untouched either way, which is the whole point of the leg being a copy.
+    /// </summary>
     [Fact]
-    public void AnUnresolvedLegIsItsOwnSentence()
+    public void APublishWithNoPreviewIsItsOwnSentence()
     {
-        var backend = new ReceivingBackend { TileLeg = "", Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live(previewed: false) };
 
         var (preview, _) = Showing(backend);
 
-        Assert.Empty(backend.Started);
-        Assert.Equal(Cards.PreviewNoLeg, preview.Placeholder);
-    }
-
-    [Fact]
-    public void ARelayThatHasNotPickedThePathUpIsItsOwnSentence()
-    {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = new RelayStatus { Reachable = true } };
-
-        var (preview, _) = Showing(backend);
-
-        Assert.Empty(backend.Started);
-        Assert.Equal(Cards.PreviewRelayHasNoPath, preview.Placeholder);
+        Assert.Null(preview.Tile);
+        Assert.Equal(Cards.PreviewNotPreviewed, preview.Placeholder);
     }
 
     [Fact]
@@ -360,44 +338,29 @@ public sealed class BroadcastPreviewTests
         var sentences = new[]
         {
             Cards.PreviewNotPublishing,
-            Cards.PreviewNoLeg,
-            Cards.PreviewRelayHasNoPath,
-            Cards.PreviewOpening,
+            Cards.PreviewNotPreviewed,
+            "Nothing is decoding this stream.",
+            "Connecting.",
         };
 
         Assert.Equal(sentences.Length, sentences.Distinct().Count());
         Assert.All(sentences, sentence => Assert.NotEqual("", sentence));
     }
 
-    [Fact]
-    public void ARefusedStartShowsTheBackendsOwnSentence()
-    {
-        const string refusal = "cannot receive 'desk' over srt: desk is vp9, which srt cannot carry: watch it over rtsp";
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying(), Refusal = refusal };
-
-        var (preview, _) = Showing(backend);
-
-        Assert.Null(preview.Tile);
-        Assert.Equal(refusal, preview.Placeholder);
-    }
-
+    /// <summary>
+    /// The tile's own states are reached through the preview the backend reports, not through
+    /// a decode list: the preview is part of the publish, so its pipeline's state travels with
+    /// it.
+    /// </summary>
     [Fact]
     public void ATileWithNoFrameYetSaysWhichStateItIsIn()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Decoding(live: false) };
         var (preview, session) = Showing(backend);
-
-        // The decode has been opened and the backend has not reported it yet, which is not
-        // the same state as a pipeline that is up with no frame out of it.
-        Assert.Equal("Nothing is decoding this stream.", preview.Placeholder);
-
-        backend.Receiving = [Decoding(live: false)];
-        session.Start();
-        preview.Apply();
 
         Assert.Equal("Connecting.", preview.Placeholder);
 
-        backend.Receiving = [Decoding(live: true)];
+        backend.Publish = Decoding(live: true);
         session.Start();
         preview.Apply();
 
@@ -405,15 +368,19 @@ public sealed class BroadcastPreviewTests
         Assert.False(preview.HasPlaceholder);
     }
 
+    /// <summary>
+    /// The sentence on the card carries the one thing a reader must not discover the hard way:
+    /// this is what is being sent, and it says nothing about what viewers receive.
+    /// </summary>
     [Fact]
-    public void TheCardStatesWhatTheLoopbackCosts()
+    public void TheCardStatesWhatThePictureIsAndIsNot()
     {
-        var backend = new ReceivingBackend { Publish = Live(), Relay = Carrying() };
+        var backend = new PreviewBackend { Publish = Live() };
 
         var (preview, _) = Showing(backend);
 
-        Assert.Equal(Cards.PreviewCost(Words.Transport(Leg)), preview.Cost);
-        Assert.Contains("SRT", preview.Cost);
-        Assert.Contains("bandwidth", preview.Cost);
+        Assert.Equal(Cards.PreviewCost, preview.Cost);
+        Assert.Contains("never reaches the relay", preview.Cost);
+        Assert.Contains("nothing about what viewers receive", preview.Cost);
     }
 }

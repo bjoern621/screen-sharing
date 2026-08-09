@@ -31,11 +31,12 @@
 
         <!--
           The picture, drawn from the GPU memory the backend decoded this machine's own stream
-          into. A composition surface rather than a native child window, which is what lets the
+          into - from a copy the publish child makes on loopback, so no part of it crossed the
+          relay. A composition surface rather than a native child window, which is what lets the
           badge and the figure strip stay over it: a native window would draw above every
           Avalonia control (avalonia/README.md, "What is not settled yet").
 
-          It is the viewer's tile control and not a second one. A tile is a stream, a
+          It is the viewer's tile control and not a second one. A tile is a source, a
           subscription and what the window did with it, and this card is one of those.
         -->
         <tiles:StreamTile Source="{Binding Tile}" />
@@ -94,9 +95,9 @@
     </Border>
 
     <!--
-      What the picture costs. The card is a viewer of this machine's own stream rather than a
-      local mirror, so it lags by the watch leg and it spends downstream bandwidth - and the
-      sentence saying so is written in Copy/Cards.cs, like every other word on screen.
+      What the picture is and is not: a local copy of what is being sent, costing one decode and
+      no bandwidth, and saying nothing about what viewers receive. The sentence is written in
+      Copy/Cards.cs, like every other word on screen.
     -->
     <TextBlock Classes="hint" Text="{Binding Cost}" TextWrapping="Wrap" />
 

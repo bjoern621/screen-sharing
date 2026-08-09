@@ -316,6 +316,9 @@ internal sealed class SeededBackend : IBackend
     public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
         => throw new BackendUnavailableException("nothing is decoding");
 
+    public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
+        => throw new BackendUnavailableException("nothing is publishing with a local preview");
+
     public Task OpenLogAsync(string path, CancellationToken cancellation = default) => Task.CompletedTask;
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default) => Task.CompletedTask;

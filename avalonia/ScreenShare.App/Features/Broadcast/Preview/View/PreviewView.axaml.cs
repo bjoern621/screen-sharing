@@ -15,15 +15,20 @@ namespace ScreenShare.App.Features.Broadcast.Preview.View;
 /// <b>Why the view model cannot read it for itself.</b> The shell renders all three
 /// destinations on every pass, because a destination that rendered only while it was showing
 /// would come back stale (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>). The preview's
-/// picture is not free - it is this machine's own stream received back off the relay, which
-/// costs a decode and downstream bandwidth for as long as it runs - so a card that opened one
-/// whenever anything went live would charge a reader who never opened this screen. Whether a
-/// control is in a visual tree is a fact only the control has, so the control states it.
+/// picture is not free - every frame is a GPU copy into a lent slot and a message on the frame
+/// channel - so a card that subscribed whenever anything went live would charge a reader who
+/// never opened this screen. Whether a control is in a visual tree is a fact only the control
+/// has, so the control states it.
+///
+/// What it no longer decides is whether the picture exists at all: the preview pipeline goes
+/// up with the publish child and down with it, so what this fact turns on and off is a
+/// subscription and never a decode (<c>docs/viewer-architecture.md</c>, "What the broadcast
+/// preview draws").
 ///
 /// The data context is watched as well as the tree, because the two arrive in no fixed order
 /// and a template can hand this view a different card. Whichever view model is being left is
-/// told it is no longer showing, which is what keeps a decode from being wanted by a card
-/// nothing is drawing.
+/// told it is no longer showing, which is what keeps frames from being lent to a card nothing
+/// is drawing.
 /// </summary>
 public sealed partial class PreviewView : UserControl
 {
