@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,7 +19,8 @@ import (
 
 // superviseConfig launches one child process for an engine that is not ffmpeg.
 // extraFiles are inherited by the child starting at fd 3, in order; the portal
-// PipeWire remote fd is passed this way. onCleanup runs after the child exits,
+// PipeWire remote fd is passed this way, and nothing is passed this way on
+// Windows, which inherits no descriptors. onCleanup runs after the child exits,
 // releasing engine-owned resources (the portal session).
 // parseStdout, when set, consumes the child's stdout, which is where an engine
 // prints its progress; the stream is teed into the run log on the way, so the
@@ -47,6 +49,12 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	for i, f := range cfg.extraFiles {
 		assert.IsNotNil(f, "an inherited descriptor is an open file", cfg.tag, i)
 	}
+	// Windows inherits none at all: os/exec supports ExtraFiles on Unix alone, and
+	// a child handed one there does not start, failing with "fork/exec <exe>: not
+	// supported by windows" rather than anything naming a descriptor. Asserting it
+	// here states which caller was wrong; the exec error names only the launcher.
+	assert.Assert(runtime.GOOS != "windows" || len(cfg.extraFiles) == 0,
+		"a Windows child is passed no descriptors to inherit", cfg.tag, len(cfg.extraFiles))
 
 	logDir, err := ffmpeg.LogDir()
 	if err != nil {

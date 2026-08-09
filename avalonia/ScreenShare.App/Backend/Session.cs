@@ -130,6 +130,18 @@ public sealed class Session
     public IReadOnlyList<WatchKey> Watching { get; private set; } = [];
 
     /// <summary>
+    /// Every stream the backend is decoding for a tile, and what the pipeline behind each
+    /// turned out to be: the render chain that actually ran, the memory the frames were in at
+    /// each end, the decoder, and whether it ran on silicon.
+    ///
+    /// It is reported rather than asked for, which is why it is worth reading at all. A chain
+    /// falls back on a machine that cannot run its elements and a hardware decoder may download
+    /// its own frames, so a tile that showed the chain the settings named would be showing a
+    /// request instead of a result.
+    /// </summary>
+    public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
+
+    /// <summary>
     /// The child processes that ended this session, oldest first: the publish pipeline, a
     /// viewer, a test stream. Each carries the failure as prose and the run log's path, which
     /// is what a screen offers to open rather than reading it.
@@ -237,6 +249,7 @@ public sealed class Session
         var publish = await _backend.PublishStateAsync(cancellation).ConfigureAwait(false);
         var relay = await _backend.RelayStatusAsync(cancellation).ConfigureAwait(false);
         var watching = await _backend.WatchingAsync(cancellation).ConfigureAwait(false);
+        var receiving = await _backend.ReceivingAsync(cancellation).ConfigureAwait(false);
 
         Write(() =>
         {
@@ -245,6 +258,7 @@ public sealed class Session
             Publish = publish;
             Relay = relay;
             Watching = watching;
+            Receiving = receiving;
             IsLoaded = true;
         });
     }
@@ -302,6 +316,13 @@ public sealed class Session
                 // which codecs this machine can run, and a half-applied catalog would name
                 // one set and grey another.
                 Words = new Vocabulary(change.Catalog);
+                break;
+
+            case Event.PayloadOneofCase.ReceiveState:
+                // What the running decodes turned out to be, whole like every other state. It
+                // arrives on every change, including the first frame of a stream: what a
+                // pipeline negotiated is only knowable once one has left it.
+                Receiving = change.ReceiveState.Streams;
                 break;
 
             case Event.PayloadOneofCase.ViewerState:

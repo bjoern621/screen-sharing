@@ -123,6 +123,13 @@ public interface IBackend
     /// </summary>
     Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Every stream the backend is decoding for a tile, with what the pipeline behind each
+    /// turned out to be. Read when a screen mounts; the same state arrives on the stream
+    /// thereafter, including when a stream's first frame settles what it negotiated.
+    /// </summary>
+    Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default);
+
     // --- Effects ------------------------------------------------------------------
     //
     // Every one of them answers with nothing. What the state became arrives on the
@@ -175,6 +182,40 @@ public interface IBackend
 
     /// <summary>Closes one open viewer.</summary>
     Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Opens a decode for one stream on one leg, inside the backend. It is the tile path's
+    /// counterpart of <see cref="StartWatchAsync"/>, and the difference is where the frames
+    /// end up: a watch launches a player window the backend does not draw in, and a receive
+    /// decodes into the backend, from where the frame channel hands the frames to this shell.
+    ///
+    /// <b>What it opens is a decode and not a tile.</b> Nothing about a grid, a layout or a
+    /// window crosses here, because how a viewer arranges what it receives is this shell's
+    /// whole job (<c>docs/ipc-api.md</c>).
+    ///
+    /// A leg that cannot carry the stream's format is refused with the format named, as a
+    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    /// </summary>
+    Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Closes one running decode. A stream nothing is decoding is not an error: a stop is what
+    /// the reader asked for and it is already true.
+    /// </summary>
+    Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Subscribes to the frames of a decode that is already running.
+    ///
+    /// It opens no decode, which is why it can be refused: the caller runs
+    /// <see cref="StartReceiveAsync"/> first and subscribes once that has answered. The two
+    /// staying separate is what lets a decode outlive every tile drawing it - a window that
+    /// closed does not stop a stream, and one that opened again finds it running.
+    ///
+    /// Several tiles may subscribe to one decode and each gets a pool of its own, so a tile
+    /// that is slow to draw cannot hold a buffer another one is waiting for.
+    /// </summary>
+    Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens one run log in the machine's default application. The path is one the backend

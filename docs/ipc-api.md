@@ -51,7 +51,7 @@ The rule also buys something the current design cannot have: a shell that decide
 
 ## What crosses, and in what shape
 
-`api/proto/screenshare/v1` holds six files.
+`api/proto/screenshare/v1` holds seven files.
 
 | File | Holds |
 | --- | --- |
@@ -62,6 +62,7 @@ The rule also buys something the current design cannot have: a shell that decide
 | `session.proto` | the running state: publish state, encoder samples, relay snapshot, viewers |
 | `events.proto` | `Event`, the server-push envelope |
 | `control.proto` | `ControlService`, the whole callable surface |
+| `frame.proto` | `FrameService`: the frame channel's handles, loans and release-backs. No pixels, and no tile |
 
 **What is not here is as much of the rule as what is.** The contract describes no grid, no tile, no window layout and no widget arrangement. How a viewer arranges the streams it receives is the shell's whole job, alongside layout, typography, colour, motion, input handling and accessibility - the list above is exhaustive in both directions.
 
@@ -109,7 +110,11 @@ A shell that cannot open it starts the backend and asks again, because the backe
 That is a shell's own arrangement and not a contract rule: a backend already listening is connected to rather than duplicated, and one the shell did not start is not one it stops.
 Both ends use gRPC over that stream - Go dials the pipe with a custom dialer, .NET with `SocketsHttpHandler.ConnectCallback` - so nothing about the service definition changes with the platform.
 
-**Video frames do not cross this API.** The frame channel is a second gRPC service on the same socket, carrying handle metadata, per-frame fences and release-back messages; the pixels live in shared GPU memory that the handle names and never enter a message. Riding the same socket is what avoids reinventing framing, versioning and cancellation for a metadata stream, and it changes nothing about the rule: `ControlService` carries control and description, the frame service carries handles, and neither carries pixels. Pool ownership and what each side does when the other dies are the design work `avalonia/README.md` states, and they are not settled here.
+**Video frames do not cross this API.** The frame channel is a second gRPC service on the same socket, carrying handle metadata and release-back messages; the pixels live in shared GPU memory that the handle names and never enter a message. Riding the same socket is what avoids reinventing framing, versioning and cancellation for a metadata stream, and it changes nothing about the rule: `ControlService` carries control and description, the frame service carries handles, and neither carries pixels.
+
+`FrameService` has one method, and its shape is the protocol rather than a convenience. `Frames` is bidirectional because the backend lends a slot of shared memory and may not write into it again until the consumer hands it back, so the release has to travel on the call the loan did - a release on a second call could outlive the subscription it belongs to and would free a slot of a pool that is gone. One call per decode, so a consumer that dies mid-frame is one dead stream rather than every stream stalling.
+
+It is also the one place where the "no tile on this contract" rule is easiest to break and is not: a subscription names a decode `StartReceive` already opened and never opens one, and the render size it carries is a count of pixels rather than a layout. Pool ownership, generations and what each side does when the other dies are settled in `viewer-architecture.md`, "The buffer-ownership protocol".
 
 ## Errors
 

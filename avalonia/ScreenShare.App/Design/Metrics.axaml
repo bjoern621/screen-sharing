@@ -85,6 +85,15 @@
   <sys:Double x:Key="DotSize">7</sys:Double>
 
   <!--
+    The wait. One size for every control that can be waiting, because the spinner replaces a
+    label rather than sitting beside one and a spinner scaled per button would make the same
+    state read as several. It is the control-glyph size, so a button that is working is the
+    same optical weight as one that is not.
+  -->
+  <sys:Double x:Key="SpinnerSize">14</sys:Double>
+  <sys:Double x:Key="SpinnerStroke">1.5</sys:Double>
+
+  <!--
     Icons. Two sizes off the design's 12-22px range, named by where the glyph sits rather
     than by the number, and one stroke for both of them.
 

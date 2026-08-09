@@ -115,8 +115,9 @@
             -->
             <Button Grid.Column="1"
                     Margin="8,0,0,0"
-                    Content="{Binding MeasureLabel}"
+                    Content="Measure"
                     Command="{Binding MeasureCommand}"
+                    controls:Pending.IsActive="{Binding MeasureCommand.IsRunning}"
                     ToolTip.Tip="Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live." />
           </Grid>
         </StackPanel>

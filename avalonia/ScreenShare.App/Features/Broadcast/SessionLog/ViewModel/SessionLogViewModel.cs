@@ -14,13 +14,19 @@ namespace ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
 /// </summary>
 public sealed class SessionLogViewModel : Observable
 {
-    /// <summary>Raised when the reader asks for the whole log. The card does not own that surface.</summary>
-    public event Action? OpenRequested;
-
-    public SessionLogViewModel()
+    /// <param name="open">
+    /// Opens the whole log, and answers when the backend has. The card does not own that
+    /// surface - the files are on the backend's machine - but it does own saying that the
+    /// request is out, which is why this is a call it waits on rather than news it raises.
+    /// </param>
+    /// <param name="dispatch">The UI loop the answer is marshalled back to.</param>
+    public SessionLogViewModel(Func<Task> open, Action<Action> dispatch)
     {
+        Assert.NotNull(open, "a session log needs somewhere to send a request for the whole of it");
+        Assert.NotNull(dispatch, "a session log needs a UI loop to marshal the answer back to");
+
         Lines = [];
-        OpenFullLogCommand = new DelegateCommand(() => OpenRequested?.Invoke());
+        OpenFullLogCommand = new PendingCommand(open, dispatch);
         Apply();
     }
 
@@ -54,7 +60,7 @@ public sealed class SessionLogViewModel : Observable
 
     public ObservableCollection<LogLine> Lines { get; }
 
-    public DelegateCommand OpenFullLogCommand { get; }
+    public PendingCommand OpenFullLogCommand { get; }
 
     /// <summary>What stands in for the lines while nothing has been reported.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }

@@ -1,0 +1,236 @@
+syntax = "proto3";
+
+package screenshare.v1;
+
+import "screenshare/v1/session.proto";
+
+option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
+option csharp_namespace = "ScreenShare.Api.V1";
+
+// The frame channel is the second service on the control socket, and it carries
+// handles rather than pixels.
+//
+// A decoded frame lives in GPU memory the decoder allocated. What crosses here is the
+// name of that memory - a shared texture handle on Windows, a dmabuf file descriptor on
+// Linux - together with the bookkeeping that says whose turn it is to touch it. The
+// pixels never enter a message, are never copied into system memory, and never reach
+// ControlService (docs/ipc-api.md, docs/viewer-architecture.md).
+//
+// Riding the same socket is what avoids reinventing framing, versioning and
+// cancellation for a metadata stream. It changes nothing about the boundary rule:
+// ControlService carries control and description, this carries handles, and neither
+// carries pixels.
+//
+// It describes no tile and no grid. A subscription names a decode that StartReceive
+// already opened, and the size it asks to be rendered at is a count of pixels rather
+// than a layout: how a viewer arranges what it receives stays the shell's whole job.
+service FrameService {
+  // Frames is one consumer's subscription to one decode.
+  //
+  // It is bidirectional because the protocol is a loan rather than a broadcast. The
+  // backend lends a slot of shared memory and may not write into it again until the
+  // consumer hands it back, so the release travels on the same call the frame did:
+  // a release on a second call would be a release that can outlive the subscription
+  // it belongs to, and the backend would be holding a slot for a consumer that is
+  // gone.
+  //
+  // One call per decode rather than one call for all of them. A tile that ends takes
+  // its subscription with it, which is what makes the teardown a cancellation rather
+  // than a message, and a consumer that dies mid-frame is one dead stream instead of
+  // every stream stalling on a slot nobody will return.
+  //
+  // The call fails with FAILED_PRECONDITION when nothing is decoding the named
+  // stream. This service does not open decodes: StartReceive is the effect that does,
+  // and a channel that started one would be a channel deciding that a tile exists.
+  rpc Frames(stream FramesRequest) returns (stream FrameEvent);
+}
+
+// FramesRequest is everything the consumer says. Subscribe is first and is said once;
+// the other two may be said at any time after it.
+message FramesRequest {
+  oneof request {
+    FrameSubscribe subscribe = 1;
+    FrameRelease release = 2;
+    FrameRenderSize render_size = 3;
+  }
+}
+
+// FrameSubscribe names the decode this call draws from.
+//
+// The identity is the stream name and the leg together, for the reason WatchKey exists:
+// the relay re-serves each ingested stream on all its listeners, so one stream can be
+// decoded over several protocols at once and each of those decodes is its own pipeline.
+message FrameSubscribe {
+  WatchKey stream = 1;
+}
+
+// FrameRelease hands one slot back, and is the whole of the flow control.
+//
+// Until it arrives the backend treats the slot as the consumer's and writes no frame
+// into it. A consumer that stops releasing therefore slows to the rate it releases at
+// and never sees a torn picture; it does not stall the decode, which goes on running
+// and drops the frames it has nowhere to put (FrameEvent.dropped says how many).
+//
+// The serial is echoed rather than trusted as a counter: it names the frame the slot
+// was lent for, so a release that crossed a pool change on the wire is recognised as
+// belonging to a pool that no longer exists and is discarded instead of freeing a slot
+// of the new one.
+message FrameRelease {
+  // generation is the pool the slot belongs to, echoed from FramePool. A release that
+  // crossed a pool change on the wire names one that is gone, and is discarded rather
+  // than freeing a slot of the pool that replaced it.
+  uint64 generation = 3;
+  uint32 slot = 1;
+  uint64 serial = 2;
+}
+
+// FrameRenderSize is how many pixels the consumer will draw the frames at.
+//
+// It is a bound and not a size. The receive pipeline's scaler fixates inside it and
+// corrects the pixel aspect ratio, so a consumer drawing a 199-pixel-wide strip of a
+// 1920-wide capture has the conversion done at its own size instead of the source's,
+// and a consumer larger than the stream gets the stream's own size rather than an
+// upscale nobody asked for.
+//
+// Zero in either dimension is a consumer that has not been measured yet and leaves the
+// pipeline where it is. What the size means to the pipeline depends on the render chain
+// the decode was built with, and a chain that names no filter to write it into renders
+// at the size the source sends.
+message FrameRenderSize {
+  int32 width = 1;
+  int32 height = 2;
+}
+
+// FrameEvent is everything the backend says.
+message FrameEvent {
+  oneof event {
+    FramePool pool = 1;
+    FrameReady ready = 2;
+    FrameEnd end = 3;
+  }
+}
+
+// FramePool is the shared memory the frames will arrive in, announced before any of
+// them do.
+//
+// The backend owns the pool. It allocates the slots, it keeps them alive for as long as
+// the subscription lives, and it frees them when the call ends - which is what makes a
+// consumer that died a consumer whose memory is reclaimed rather than leaked. The
+// handles do not carry a reference to the memory on either platform, so a consumer
+// holding one after the call ended holds a name for something that is gone.
+//
+// A pool arrives more than once when the stream renegotiates: a source that changed
+// size, or a render size that moved the scaler's output. Each announcement replaces the
+// one before it. The consumer drops its imports of the previous generation, and the
+// backend discards releases that name it, because the slot numbers start again.
+message FramePool {
+  // generation counts the pools of this subscription, from one. It is what a release
+  // is checked against, and what lets a consumer tell a re-announcement from a repeat.
+  uint64 generation = 1;
+
+  // handle_type says what the slots' handles are and therefore how they are opened.
+  FrameHandleType handle_type = 2;
+  // format is the pixel layout every slot carries. The render chains convert to RGBA
+  // before the sink, so this is what the chain produced and not what the stream was
+  // encoded in.
+  FrameFormat format = 3;
+
+  // width and height are the slots' pixel dimensions, which are what the pipeline
+  // negotiated rather than what the consumer asked for.
+  uint32 width = 4;
+  uint32 height = 5;
+
+  // memory_size is the allocation's size in bytes where the import needs one, and zero
+  // where the handle describes its own extent.
+  uint64 memory_size = 6;
+  // top_left_origin is whether row zero is the top row. A consumer that flips on this
+  // rather than assuming is a consumer that survives a backend whose decoder does not
+  // agree with its window.
+  bool top_left_origin = 7;
+
+  // slots are the lent buffers, in index order and never renumbered within a
+  // generation. There are at least two: one the consumer is drawing from and one the
+  // backend is writing into.
+  repeated FrameSlot slots = 8;
+
+  // The keyed-mutex protocol, for a handle type that carries one. Each side acquires
+  // with its own key and releases with the other's, so neither hardcodes a number the
+  // other chose. Both are zero on a handle type synchronized some other way.
+  uint32 producer_key = 9;
+  uint32 consumer_key = 10;
+
+  // fd_socket is the path of a Unix socket the file descriptors are passed over, for a
+  // handle type that is a descriptor. A descriptor is not a number another process can
+  // use, so it cannot cross in a message: the consumer connects to this socket once per
+  // generation and reads one descriptor per slot, in index order, over SCM_RIGHTS.
+  // Empty for every handle type that is not a descriptor.
+  string fd_socket = 11;
+
+  // modifier is the format modifier the frames are tiled with, for a descriptor handle
+  // type. It travels because an import that guesses it reads a linear image out of a
+  // tiled one and draws garbage.
+  uint64 modifier = 12;
+}
+
+// FrameSlot is one lent buffer.
+message FrameSlot {
+  uint32 index = 1;
+  // handle is the value that names the memory in the consumer's process, and zero for a
+  // handle type whose descriptors travel over fd_socket instead.
+  uint64 handle = 2;
+  // planes describe the layout inside the allocation, for a handle type that does not
+  // carry it. Empty where the handle describes itself.
+  repeated FramePlane planes = 3;
+}
+
+// FramePlane is one plane's placement inside a slot's allocation.
+message FramePlane {
+  uint64 offset = 1;
+  uint32 stride = 2;
+}
+
+// FrameReady says one slot now holds a frame and is the consumer's until it is
+// released.
+message FrameReady {
+  uint64 generation = 1;
+  uint32 slot = 2;
+  // serial counts the frames handed over on this subscription, from one. It is echoed
+  // in the release and is what a stale release is recognised by.
+  uint64 serial = 3;
+  // dropped is how many decoded frames were discarded since the last one handed over,
+  // because every slot was still out on loan. It is the consumer's evidence that it is
+  // the slow half, and it is reported rather than hidden because a tile drawing 30 of
+  // 60 frames should be able to say so.
+  uint64 dropped = 4;
+}
+
+// FrameEnd says the subscription is over and why, in the words of whatever ended it.
+// It is the same fact ReceiveExit carries on the control stream, said on the call that
+// was consuming the frames, because a consumer blocked on a read learns nothing from an
+// event it is not the one reading.
+message FrameEnd {
+  string message = 1;
+}
+
+// FrameHandleType names what a slot's handle is. It is an identifier and not a
+// platform: a consumer matches it against what its own compositor imports, which is a
+// list that differs between two backends on one operating system.
+enum FrameHandleType {
+  FRAME_HANDLE_TYPE_UNSPECIFIED = 0;
+  // A DXGI global shared handle, from IDXGIResource::GetSharedHandle on a texture
+  // created with D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX. It is valid in every process on
+  // the machine without being duplicated into one, which is why it is the Windows form
+  // rather than the NT handle: an NT handle would need this backend to open the
+  // consumer's process, and the two are halves of one application on one box.
+  FRAME_HANDLE_TYPE_D3D11_GLOBAL_SHARED = 1;
+  // A Linux dmabuf file descriptor, passed over fd_socket. The modifier and the planes
+  // travel with it because a descriptor says nothing about the tiling of what it names.
+  FRAME_HANDLE_TYPE_DMABUF_FD = 2;
+}
+
+// FrameFormat is the pixel layout of a slot.
+enum FrameFormat {
+  FRAME_FORMAT_UNSPECIFIED = 0;
+  FRAME_FORMAT_R8G8B8A8_UNORM = 1;
+  FRAME_FORMAT_B8G8R8A8_UNORM = 2;
+}

@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 59 tests, no relay and no backend needed
+task avalonia:test     # 70 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -229,15 +229,55 @@ the reply would be the window claiming a state the backend has not reported.
 ### What is seeded rather than real
 
 The setup flow is real: it is resolved by the Go backend end to end, and its commit starts a real
-stream. The broadcast screen is not - every figure on it is a static seed taken verbatim from the
-mockups, so the shape can be reviewed before that part of the contract is consumed. The seeds are
-placeholders for `Form` fields and catalog rows, not a model this module is entitled to keep.
+stream.
+
+**The broadcast screen is real too now, and what it cannot measure it says so about.** Every
+figure on it is composed in `Features/Broadcast/Model/BroadcastSnapshot.cs` out of three whole
+states the backend sent - the publish state, the newest encoder sample and the relay snapshot -
+and a figure with no source prints an ellipsis rather than a zero. That covers round trip, packet
+loss and buffer fill, which nothing in the pipeline reports, and it is why the viewer table is a
+reader count with a sentence instead of a row per viewer.
+
+What went with the seeds is worth listing, because each was a mockup number that read as a
+measurement: the on-air pill's timer, which stood at `00:42:18` in every window whatever was
+publishing and is now the encoder's own clock, read back off the broadcast screen so the pill in
+the chrome and the pill in the header cannot disagree; the sparkline's `60 s` window labels,
+which named a span the plot did not cover and are now the samples' own; the dashed red congestion
+band, drawn at a fixed quarter of the way across a plot with nothing in it, for a condition
+nothing detects; the `vbv ceiling` rule, drawn at a constant third of the height while the curve
+is scaled to the run's own peak, so it marked the ceiling only by coincidence and now is placed
+against that peak or not drawn at all; and the viewer table's `every 5 s`, a period the contract
+does not carry and which the backend did not use.
+
+The tile is still a placeholder rather than a frame, for the reason "What is not settled yet"
+gives below, and the figures over it are real.
 
 The review's "Save as preset" switch is the one control on that screen that still does nothing.
 `SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this
 module inventing what a preset is called (`docs/presets.md`).
 
-**The viewer is real, and it is a roster rather than a tile grid.** Every row comes off
+**The viewer is a grid over a roster.** The grid draws the streams the reader asked to see,
+from the GPU memory the backend decoded them into: a row's `show` toggle opens a decode
+through `StartReceive` and the tile subscribes to its frames, each frame arriving as a slot
+of a lent pool that goes back only once the compositor has taken it
+(`docs/viewer-architecture.md`, "The buffer-ownership protocol"). Nothing about the
+arrangement crosses the contract and nothing could: the backend describes decodes, and a
+decode is not a tile.
+
+The figures under each picture are two kinds and they come from opposite directions. What
+the pipeline turned out to be - the render chain that ran, the memory the frames were in
+when they reached the sink, the decoder and whether it ran on silicon - is `ReceiveState`,
+read through on every pass like every other state. What this window got and drew is the
+tile's own and can come from nowhere else: a backend cannot see that a compositor was too
+slow to take a frame, so the dropped count is the one figure the shell reports rather than
+receives.
+
+The `show` toggle is one control and not one per leg, unlike the roster's. Which protocol a
+tile receives on is `viewer.tile_watch_transport`, a setting the backend resolves and
+repairs; offering it per row would be this screen deciding something the settings screen
+already decides.
+
+**The roster underneath is unchanged.** Every row comes off
 `GetRelayStatus` and `GetViewerState`: which streams the relay carries, whether each is being
 served, what it says they carry, how many readers each has, what each is ingesting, and which
 legs this machine already has a viewer open on. The legs a row offers are the options of the
@@ -246,14 +286,13 @@ carry a given stream is the backend's answer when the viewer is opened, and its 
 shown as it stands. The relay snapshot can be older than the stream, so greying a leg here
 from a stale format would refuse a viewer that would have worked.
 
-**The tile grid, the spotlight, the per-tile menu, the chip row and the pop-out windows were
-removed.** They drew mockup figures beside real ones, and the thing they were mockups *of*
-needs frames - which deliberately do not cross the control API and have no second channel yet
-("What is not settled yet" below). Nothing in the contract replaces them either, and that is
-the point: how a viewer arranges what it receives is this module's job, so the backend
-describes no grid to open, no tiles to report and no layout to pick (`docs/ipc-api.md`). When
-frames land, the surface that shows them is designed against a real decode path rather than
-against a seed.
+**The spotlight, the per-tile menu, the chip row and the pop-out windows are still gone.**
+They drew mockup figures beside real ones, and the thing they were mockups *of* needed
+frames. The grid that came back was designed against a real decode path rather than against
+a seed, which is why it is one tile shape with measured figures and none of the four. Nothing
+in the contract describes any of it either, and that is the point: how a viewer arranges what
+it receives is this module's job, so the backend describes no grid to open, no tiles to
+report and no layout to pick (`docs/ipc-api.md`).
 
 `⇧S` is the tile's own key rather than the window's. A shortcut on the window would have to
 invent a rule for which tile it meant; hanging it off the tile makes the pointer that rule,
@@ -308,6 +347,18 @@ marshalled through an injected dispatcher rather than a toolkit reached for in p
 `Dispatcher.UIThread.Post` in the window, a straight-through call in a test. `Session` is
 handed the same one, for the same reason.
 
+**And a round trip a reader started is a state, so it has one owner too.** Every control that
+asks the backend for something - Go live, Stop, Measure, Look again, Open full log, a stream's
+grid toggle and each of its watch legs - is a `Mvvm/PendingCommand.cs`: it holds whether the
+call it started is still out, refuses a second press off that same field, and clears it in a
+`finally` so a call that failed past whatever the effect handles still gives the control back.
+The view draws the wait from the identical field through `Controls/Pending/Pending.cs`, which
+is an attached property setting one pseudo-class, and `Design/Pending.axaml` says what that
+looks like once for every control rather than per call site. So a button that looks busy is a
+call that is really in flight, and the shell cannot ask for two streams because a press landed
+during the round trip. Two of these used to carry a `bool` of their own and four carried
+nothing at all, which is exactly the drift one owner per fact exists to stop.
+
 The decision: **MVVM as Avalonia means it, not as it is usually written.** Compiled
 bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them produces
 bad Avalonia code. What is dropped is the usual habit of letting handlers poke individual
@@ -316,23 +367,29 @@ transport and never a second definition of what the window looks like.
 
 ## What is not settled yet
 
-**Video.** Nothing here renders a frame, and that is the whole question the module exists
-to answer. `NativeControlHost` plus `gst_video_overlay_set_window_handle` is the easy path
-and the wrong one: the native child window draws above all Avalonia content, so tile
-overlays would disappear behind the video. The path worth building is zero-copy import
-through `Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`,
-which has no ready-made sink - it is `appsink` plus a per-platform handle:
+**Video, on the two platforms whose handle type is not built.** Windows renders frames
+today: `Features/Viewer/Tile` imports a DXGI shared texture through
+`Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`, draws
+it on a `CompositionDrawingSurface`, and hands the slot back with
+`UpdateWithKeyedMutexAsync`. `NativeControlHost` plus
+`gst_video_overlay_set_window_handle` was the easy path and the wrong one, and the reason
+is visible on the tile: the native child window draws above all Avalonia content, so the
+figures under each picture would have disappeared behind the video.
 
-- **Windows** - D3D11 shared NT handle with a keyed mutex. Supported by the compositor
-  today, and better than the current GTK path, where `gtk4paintablesink` negotiates no
-  D3D memory and the `d3d11`/`d3d12` chains download to system memory
-  (`docs/viewer-architecture.md`).
+What is left is the other two handle types:
+
 - **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as
   planned rather than shipped, so the near-term route is `OpenGlControlBase` plus
   `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`. Format modifiers and a sync-file fence have
-  to travel with the frame.
+  to travel with the frame; the contract already carries the first two, and nothing
+  produces or reads them yet.
 - **macOS** - IOSurface from VideoToolbox, with no first-class import handle type. The
   weakest leg, and the one to schedule last.
+
+A tile on either refuses rather than falling back to a copy through system memory, and
+says which of the two it is. A fallback that worked and cost gigabytes a second is the
+outcome the frame channel exists to prevent, and one that is quietly slow is worse than
+one that names itself.
 
 **GStreamer bindings.** `gstreamer-sharp` wraps the 1.12 API and is effectively
 unmaintained, so the pipeline is not being rewritten in C#. The plan that avoids the

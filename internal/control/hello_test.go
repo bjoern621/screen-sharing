@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -60,11 +61,19 @@ func (f *fakeBackend) StartWatch(wire.WatchKey) error        { return f.err }
 func (f *fakeBackend) StopWatch(wire.WatchKey)               {}
 func (f *fakeBackend) StartReceive(wire.WatchKey) error      { return nil }
 func (f *fakeBackend) StopReceive(wire.WatchKey)             {}
-func (f *fakeBackend) StartTestStreams(int) error            { return f.err }
-func (f *fakeBackend) StopTestStreams()                      {}
-func (f *fakeBackend) ForgetPortalConsent() error            { return f.err }
-func (f *fakeBackend) OpenLog(string) error                  { return f.err }
-func (f *fakeBackend) OpenLogsFolder() error                 { return f.err }
+
+// SubscribeFrames refuses, which is what a backend with no pipeline behind it has to
+// answer: there is no decode here to draw from, and a fake stream of handles would be a
+// fake naming GPU memory that does not exist.
+func (f *fakeBackend) SubscribeFrames(wire.WatchKey) (FrameStream, error) {
+	return nil, errors.New("nothing is decoding")
+}
+
+func (f *fakeBackend) StartTestStreams(int) error { return f.err }
+func (f *fakeBackend) StopTestStreams()           {}
+func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
+func (f *fakeBackend) OpenLog(string) error       { return f.err }
+func (f *fakeBackend) OpenLogsFolder() error      { return f.err }
 
 // TestAMismatchedMajorNamesBothVersions: the handshake is the last call a backend and a
 // shell that disagree about the contract can both still understand, so the refusal has

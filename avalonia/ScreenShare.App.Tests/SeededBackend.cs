@@ -294,6 +294,21 @@ internal sealed class SeededBackend : IBackend
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => Task.CompletedTask;
 
+    public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
+        => Task.FromResult<IReadOnlyList<ReceiveStream>>([]);
+
+    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => Task.CompletedTask;
+
+    public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => Task.CompletedTask;
+
+    // A fixture has no GPU and no pipeline, so there is nothing to lend and nothing to draw.
+    // Refusing is the honest answer: a fake stream of handles would be a fake naming GPU
+    // memory that does not exist.
+    public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => throw new BackendUnavailableException("nothing is decoding");
+
     public Task OpenLogAsync(string path, CancellationToken cancellation = default) => Task.CompletedTask;
 
     public Task OpenLogsFolderAsync(CancellationToken cancellation = default) => Task.CompletedTask;

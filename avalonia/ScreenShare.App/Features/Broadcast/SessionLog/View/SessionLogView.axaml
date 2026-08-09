@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Broadcast.Model"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.SessionLog.ViewModel"
              x:Class="ScreenShare.App.Features.Broadcast.SessionLog.View.SessionLogView"
@@ -33,7 +34,8 @@
         <Button Grid.Column="1"
                 Content="Open full log"
                 VerticalAlignment="Center"
-                Command="{Binding OpenFullLogCommand}" />
+                Command="{Binding OpenFullLogCommand}"
+                controls:Pending.IsActive="{Binding OpenFullLogCommand.IsRunning}" />
       </Grid>
 
       <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">

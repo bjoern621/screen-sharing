@@ -3,7 +3,6 @@ package publish
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 
 	"bjoernblessin.de/screenshare/internal/gpupath"
@@ -34,7 +33,7 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// The empty meter fd and the empty rate probe leave the progress
+	// The empty meter port and the empty rate probe leave the progress
 	// instrumentation out, the counterpart to the ffmpeg engine appending
 	// -progress only for a run.
 	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "")
@@ -93,12 +92,18 @@ func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle,
 	// OnStats the pipeline runs as the displayed command reads. The rate probe is
 	// part of it, so the source the backend builds differs between a run that
 	// reports progress and one that does not, exactly as the encode path does.
+	// The meter's socket is open from here on, and the port it landed on is what
+	// the pipeline's meter branch is pointed at. It owes nothing to what the
+	// capture backend passes the child: a connection back to this process is the
+	// one mechanism Windows carries, where a child inherits no descriptors at all.
 	var meter *gstMeter
+	meterArg := ""
 	if cb.OnStats != nil {
 		meter, err = newGstMeter(cb.OnStats)
 		if err != nil {
 			return nil, fmt.Errorf("progress meter: %w", err)
 		}
+		meterArg = meter.port()
 		opts.RateProbe = gstCaptureProbe
 	}
 
@@ -106,13 +111,6 @@ func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle,
 	if err != nil {
 		meter.close()
 		return nil, err
-	}
-
-	// The meter's pipe follows the backend's own files, so the descriptor it lands
-	// on depends on how many of those there are.
-	meterArg := ""
-	if meter != nil {
-		meterArg = strconv.Itoa(childFdBase + len(files))
 	}
 
 	pipeline, err := buildPipeline(s, source, meterArg)
@@ -124,7 +122,6 @@ func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle,
 
 	var parseStdout func(io.Reader)
 	if meter != nil {
-		files = append(files, meter.w)
 		parseStdout = meter.parse
 	}
 
@@ -146,7 +143,5 @@ func (g gstEngine) Start(s settings.Settings, tag string, cb Callbacks) (Handle,
 		closeSource()
 		return nil, err
 	}
-	// The child has its own copy of the write end from here on.
-	meter.closeChildEnd()
 	return handle, nil
 }

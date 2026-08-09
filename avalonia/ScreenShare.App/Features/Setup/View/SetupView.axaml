@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Setup.ViewModel"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.View"
              xmlns:quality="using:ScreenShare.App.Features.Setup.QualityStep.View"
              xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
@@ -48,7 +49,8 @@
                 Margin="12,0,0,0"
                 VerticalAlignment="Center"
                 Content="Look again"
-                Command="{Binding RetryCommand}" />
+                Command="{Binding RetryCommand}"
+                controls:Pending.IsActive="{Binding RetryCommand.IsRunning}" />
       </Grid>
     </Border>
 

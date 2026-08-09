@@ -82,11 +82,19 @@ func Serve(listener net.Listener, srv *Server) *Service {
 
 	server := grpc.NewServer()
 	screensharev1.RegisterControlServiceServer(server, srv)
+	// The frame channel rides the same socket, which is what avoids reinventing
+	// framing, versioning and cancellation for a stream of handle metadata. It changes
+	// nothing about the boundary rule: one service carries control and description, the
+	// other carries handles, and neither carries pixels (docs/ipc-api.md).
+	screensharev1.RegisterFrameServiceServer(server, NewFrames(srv.backend))
 
 	service := &Service{server: server, endpoint: listener.Addr().String()}
 
 	go func() {
-		logger.Infof("control: serving %s on %s", screensharev1.ControlService_ServiceDesc.ServiceName, service.endpoint)
+		logger.Infof("control: serving %s and %s on %s",
+			screensharev1.ControlService_ServiceDesc.ServiceName,
+			screensharev1.FrameService_ServiceDesc.ServiceName,
+			service.endpoint)
 		// A stopped server ends its accept loop without an error, so anything reported here
 		// is the listener itself failing and is worth a line in the log. It is a warning
 		// and not a fatal: the backend keeps capturing and publishing with no shell

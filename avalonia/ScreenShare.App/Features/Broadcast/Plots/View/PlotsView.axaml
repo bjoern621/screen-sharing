@@ -39,33 +39,36 @@
       <StackPanel Spacing="{StaticResource GapControl}">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Classes="caption" Text="Egress bitrate" VerticalAlignment="Bottom" />
-          <TextBlock Grid.Column="1" Classes="range" Text="60 s" VerticalAlignment="Bottom" />
+          <TextBlock Grid.Column="1" Classes="range" Text="{Binding Window}" VerticalAlignment="Bottom" />
         </Grid>
 
         <Border Classes="plot">
           <Panel>
+            <!--
+              The gridline is the encoder's ceiling, and where it sits is the view model's
+              answer rather than a number here: the curve is scaled to the run's own peak, so
+              a rule at a constant height would mark a ceiling the stream may be nowhere near.
+              NaN draws none, which is what a ceiling off the top of the plot comes out as.
+            -->
             <plots:Sparkline Points="{Binding Egress}"
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
                              GridlineBrush="{StaticResource ChipBorderBrush}"
-                             GridlineFraction="0.33">
+                             GridlineFraction="{Binding CeilingFraction}">
               <plots:Sparkline.Fill>
                 <SolidColorBrush Color="{StaticResource White}" Opacity="0.09" />
               </plots:Sparkline.Fill>
             </plots:Sparkline>
 
             <!--
-              The gridline at 33% is the ceiling; the label rides on top of it, 4% above,
-              which is why it is placed by proportion rather than by a pixel margin.
+              The label states the ceiling whether or not the rule is on screen, so it sits in
+              the corner rather than riding a line that is not always drawn.
             -->
-            <Grid RowDefinitions="29*,71*">
-              <TextBlock Grid.Row="1"
-                         Classes="annotation"
-                         Text="{Binding Ceiling}"
-                         Margin="7,0,0,0"
-                         HorizontalAlignment="Left"
-                         VerticalAlignment="Top" />
-            </Grid>
+            <TextBlock Classes="annotation"
+                       Text="{Binding Ceiling}"
+                       Margin="7,6,0,0"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top" />
           </Panel>
         </Border>
       </StackPanel>
@@ -74,24 +77,29 @@
     <Border Grid.Column="1" Classes="card" Padding="13,12" Margin="10,0,0,0">
       <StackPanel Spacing="{StaticResource GapControl}">
         <Grid ColumnDefinitions="*,Auto">
+          <!--
+            No window label beside this caption. The card draws no series at all, so a span
+            here would be the width of a plot with nothing in it.
+          -->
           <TextBlock Grid.Column="0" Classes="caption" Text="Round trip &amp; buffer" VerticalAlignment="Bottom" />
-          <TextBlock Grid.Column="1" Classes="range" Text="60 s" VerticalAlignment="Bottom" />
         </Grid>
 
         <Border Classes="plot">
           <Panel>
             <!--
-              Buffer fill sits behind round trip: thinner, grey, and drawn first. The band
-              is where the two visibly diverge, which is the whole reason it is marked.
+              Buffer fill sits behind round trip: thinner, grey, and drawn first.
+
+              The band the design marks a congestion window with states no start and no width,
+              so none is drawn. Nothing in the pipeline detects congestion, and the one red in
+              the palette shaded across a plot that is empty anyway would report a fault that
+              was measured by nobody. It comes back with the detection, from the reading.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
                              Secondary="{Binding Buffer}"
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
                              SecondaryStroke="{StaticResource MutedBrush}"
-                             BandEdgeBrush="{StaticResource OnAirBrush}"
-                             BandStart="0.26"
-                             BandWidth="0.14">
+                             BandEdgeBrush="{StaticResource OnAirBrush}">
               <plots:Sparkline.BandBrush>
                 <SolidColorBrush Color="{StaticResource OnAir}" Opacity="0.1" />
               </plots:Sparkline.BandBrush>

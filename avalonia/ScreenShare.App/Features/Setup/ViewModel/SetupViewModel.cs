@@ -143,18 +143,13 @@ public sealed class SetupViewModel : Observable
     private string _unreachable = "";
 
     /// <summary>
-    /// Whether an uplink measurement is running. It uploads a real payload and takes seconds,
-    /// so the button says so rather than going quietly inert, and a second press while one is
-    /// in flight is refused rather than queued.
-    /// </summary>
-    private bool _measuring;
-
-    /// <summary>
-    /// Whether a start this flow asked for is still in flight. It locks the commit for exactly
+    /// Whether a start this flow asked for is still in flight, read from the command that
+    /// started it rather than mirrored in a field of its own. It locks the commit for exactly
     /// as long as the round trip lasts, so a second press cannot ask for a second stream while
-    /// the backend is still deciding about the first.
+    /// the backend is still deciding about the first - and it is the same field the button
+    /// draws its spinner from, so the lock and the wait cannot disagree.
     /// </summary>
-    private bool _starting;
+    private bool Starting => Review.GoLiveCommand.IsRunning;
 
     /// <summary>
     /// Why the backend refused the last start, empty otherwise. It is that side's own sentence
@@ -198,7 +193,10 @@ public sealed class SetupViewModel : Observable
         Steps = [];
         BackCommand = new DelegateCommand(Back, () => CanGoBack);
         ContinueCommand = new DelegateCommand(Continue, () => CanContinue);
-        RetryCommand = new DelegateCommand(Retry, () => IsUnavailable);
+
+        // Looking again is a read across the socket like every other, so the button waits on it
+        // rather than sitting still while a backend that is coming up is dialled.
+        RetryCommand = new PendingCommand(RetryAsync, dispatch, () => IsUnavailable);
 
         // News that the backend's answer has moved - the encoder probe landing is what raises
         // it today - and the flow's response is to read again rather than to change anything
@@ -223,8 +221,14 @@ public sealed class SetupViewModel : Observable
         // reachable exactly once (Model/QualityLayout.cs).
         Advanced = new AdvancedDrawerViewModel(Group(QualityLayout.GroupKey));
 
-        Rail = new CostRailViewModel(Measure, () => !_measuring && _draft is not null);
-        Review = new ReviewStepViewModel(SelectCommandOf, Back, GoLive);
+        Rail = new CostRailViewModel(MeasureAsync, dispatch, () => _draft is not null);
+        Review = new ReviewStepViewModel(SelectCommandOf, Back, GoLiveAsync, dispatch);
+
+        // Both edges of an effect this flow renders: a start locks the commit and a measurement
+        // greys the rail, and neither is a state anything else here would notice moving. The
+        // commands own the fact and say when it moved; what it looks like is still one pass.
+        Review.GoLiveCommand.Changed += Apply;
+        Rail.MeasureCommand.Changed += Apply;
 
         // Rendered before anything is asked for, so the window has a complete view model to
         // paint whether or not the backend is reachable, and the first form is a later pass
@@ -319,7 +323,7 @@ public sealed class SetupViewModel : Observable
     /// nothing else reports - a read the backend served a refusal to, or one that failed
     /// while the session's own reads did not.
     /// </summary>
-    public DelegateCommand RetryCommand { get; }
+    public PendingCommand RetryCommand { get; }
 
     /// <summary>
     /// The read in flight, and an already-completed task when none is. It is the seam's
@@ -423,7 +427,7 @@ public sealed class SetupViewModel : Observable
         // has to be the summary of the list the rail is about to draw rather than of the one
         // it drew last pass.
         var checks = PreflightChecks.Of(diagnostics, AnchorIn(_steps, form));
-        Rail.Apply(form?.Summary?.Estimate, Uplink(), checks, _measuring);
+        Rail.Apply(form?.Summary?.Estimate, Uplink(), checks);
 
         IsPublishable = form?.Publishable ?? false;
 
@@ -432,7 +436,7 @@ public sealed class SetupViewModel : Observable
         // force, and whether the relay is there to publish to. Read through rather than cached,
         // so a relay that came back unlocks the button on the next pass without anything having
         // to remember that it was locked.
-        var gate = PublishGate.Of(IsPublishable, _unreachable, _session.Publish, _session.Relay, _starting);
+        var gate = PublishGate.Of(IsPublishable, _unreachable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _draft?.Publish?.Name ?? "", _refusal, Summaries(form), checks);
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));
@@ -475,7 +479,7 @@ public sealed class SetupViewModel : Observable
         Assert.That(
             !Review.CanGoLive || IsPublishable,
             "the commit is offered only on settings the form said publish", IsPublishable);
-        Assert.That(!Review.CanGoLive || !_starting, "one start is asked for at a time", _starting);
+        Assert.That(!Review.CanGoLive || !Starting, "one start is asked for at a time", Starting);
     }
 
     /// <summary>
@@ -690,6 +694,19 @@ public sealed class SetupViewModel : Observable
         Reask();
     }
 
+    /// <summary>
+    /// The same retry, awaited, which is what the button waits on. The read it starts is
+    /// <see cref="Settled"/> either way - the first branch assigns it and the second reaches it
+    /// through the render pass <see cref="Reask"/> triggers - so this waits on the flow's own
+    /// notion of having caught up rather than on a task of its own.
+    /// </summary>
+    private async Task RetryAsync()
+    {
+        Retry();
+
+        await Settled.ConfigureAwait(false);
+    }
+
     // --- The uplink measurement ------------------------------------------------------
 
     /// <summary>
@@ -697,22 +714,10 @@ public sealed class SetupViewModel : Observable
     /// the form and reprices everything beside it.
     ///
     /// It is an effect rather than a read: the backend uploads a payload, it takes seconds,
-    /// and it is refused outright while a stream is publishing. So it is started by a press
-    /// and never from a render pass, and the flag it sets is what keeps a second press from
-    /// starting a second upload.
+    /// and it is refused outright while a stream is publishing. So it is started by a press and
+    /// never from a render pass, and the command that starts it is what keeps a second press
+    /// from starting a second upload while the first is still going.
     /// </summary>
-    private void Measure()
-    {
-        if (_measuring || _draft is null)
-        {
-            return;
-        }
-
-        _measuring = true;
-        Apply();
-        _ = MeasureAsync();
-    }
-
     private async Task MeasureAsync()
     {
         try
@@ -735,8 +740,6 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private void Measured(double mbps)
     {
-        _measuring = false;
-
         if (_draft is null)
         {
             Apply();
@@ -750,7 +753,6 @@ public sealed class SetupViewModel : Observable
     {
         Assert.That(reason.Length > 0, "a measurement that could not be made says why");
 
-        _measuring = false;
         _unreachable = reason;
         Apply();
     }
@@ -915,33 +917,33 @@ public sealed class SetupViewModel : Observable
     /// Starts the stream on the draft the reader configured.
     ///
     /// It is an effect and is therefore started by a press and never from a render pass, the
-    /// same arrangement <see cref="Measure"/> has. What it hands over is a copy: the controls
-    /// write the draft in place, so passing the live instance would let a keystroke change the
-    /// settings while they are being sent and leave a stream running something nobody asked for.
+    /// same arrangement <see cref="MeasureAsync"/> has. What it hands over is a copy: the
+    /// controls write the draft in place, so passing the live instance would let a keystroke
+    /// change the settings while they are being sent and leave a stream running something
+    /// nobody asked for.
+    ///
+    /// <b>The copy is taken before the first await</b>, which is on the UI loop, so the draft it
+    /// carries is the one that was on screen when the button went down rather than whatever it
+    /// had become by the time the transport got to it.
     ///
     /// Nothing about the running state is written here. The reply says nothing and the stream
     /// that resulted arrives on the event stream, which is the one path into the display - so
     /// the window that pressed the button and the window that did not show the same thing
     /// (<c>docs/ipc-api.md</c>, "Events").
     /// </summary>
-    private void GoLive()
+    private async Task GoLiveAsync()
     {
-        // The command is already gated on the same conditions; this is the guard that holds when
-        // the press and a state change race, which the round trip makes a real interval.
-        if (_starting || _draft is null)
-        {
-            return;
-        }
+        // The command offers the press only on a gate that says these settings publish, and
+        // nothing says that before a form has resolved a draft.
+        var draft = Assert.NotNull(_draft, "a commit that was offered was drawn from a draft");
+        var settings = draft.Clone();
 
-        _starting = true;
+        // The refusal the last attempt left goes now rather than when this one answers: it is
+        // about an attempt that is over, and leaving it up would put a sentence about the last
+        // start beside a spinner about this one.
         _refusal = "";
         Apply();
 
-        _ = GoLiveAsync(_draft.Clone());
-    }
-
-    private async Task GoLiveAsync(Settings settings)
-    {
         try
         {
             await _backend.StartPublishAsync(settings).ConfigureAwait(false);
@@ -967,7 +969,6 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private void Started()
     {
-        _starting = false;
         _refusal = "";
         Apply();
 
@@ -976,7 +977,6 @@ public sealed class SetupViewModel : Observable
 
     private void StartFailed(string reason)
     {
-        _starting = false;
         _refusal = reason;
         Apply();
     }

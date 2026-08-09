@@ -31,27 +31,40 @@ const (
 	ColourUnstated Colour = "unstated"
 )
 
-// DefaultChain is the chain a stream renders through when nothing chose one. It
-// is the one chain nobody picked, so it is the one that has to state the colour it
-// produces.
-//
-// It is the GL chain because that chain was measured equal to the CPU one, not
-// because keeping frames on the GPU is worth a colour. Rendered through both, flat
-// dark, flat bright and gradient content come out bit-identical, and a saturated
-// colour-bar frame differs by at most one code value per channel with an average
-// under half of one: shader float rounding against videoconvert's fixed point, and
-// no trace of the shadow-heavy error a transfer-function mismatch produces. Dark
-// content being identical is the whole of the evidence, since washed-out shadows
-// are the failure the pinned sRGB caps exist to prevent.
+// DefaultChain is the chain a stream renders through when nothing chose one.
 //
 // What it saves is the download. The CPU chain pulls every decoded frame into
 // system memory and converts and scales it there, which at 1440p144 in 4:4:4 is
-// gigabytes a second per tile against the cores; this one converts on the GPU and
-// hands the sink a texture.
+// gigabytes a second per tile against the cores; a device chain converts on the GPU
+// and hands the sink a texture the frame channel exports without ever reading it
+// (share.go).
+//
+// It is per platform, and the frame channel is why. A decoded frame reaches the
+// window as a shared handle rather than as bytes, and only a chain that leaves its
+// frames in the memory this platform's handle names can produce one. On Windows that
+// is Direct3D 11 and nothing else: the compositor imports a DXGI shared texture, and
+// GStreamer's OpenGL there is WGL, whose textures the shell's ANGLE device cannot
+// open. Everywhere else it is the GL chain, which is also the one chain that both
+// keeps frames on the GPU and states the colour it produces.
+//
+// The GL chain earns that place by measurement rather than by keeping frames on the
+// GPU: rendered through it and through the CPU chain, flat dark, flat bright and
+// gradient content come out bit-identical, and a saturated colour-bar frame differs
+// by at most one code value per channel with an average under half of one - shader
+// float rounding against videoconvert's fixed point, and no trace of the
+// shadow-heavy error a transfer-function mismatch produces. Dark content being
+// identical is the whole of the evidence, since washed-out shadows are the failure
+// the pinned sRGB caps exist to prevent.
+//
+// The Windows default states no such thing, and that is the trade the platform
+// imposes rather than one taken here: GstD3D11Converter may pass the conversion to
+// ID3D11VideoProcessor, whose configuration the caps do not describe. A reader who
+// wants the colour stated on Windows picks the CPU chain and pays the download,
+// which is a choice the form offers and a fact the receive state reports.
 //
 // A machine that cannot run it falls back (resolve), so this names the chain to
 // prefer rather than one every install has.
-const DefaultChain = "gl"
+const DefaultChain = defaultChain
 
 // unconvertedChain is the chain that converts nothing. It is named here because
 // resolve has to know which chain it must not fall back to.
@@ -180,26 +193,26 @@ var chains = []chain{
 	{
 		name:  "d3d11",
 		label: "GPU, Direct3D 11 (driver decides colour)",
-		// The download is the row as the native grid wrote it, where the sink was
+		// The download this row used to end in is gone, and the frame channel is what
+		// removed it. The row was written for the native grid, whose sink was
 		// gtk4paintablesink and negotiated GL memory or system memory and no D3D
-		// memory at all. appsink takes any memory, so the download is now this row's
-		// own choice rather than the sink's demand, and the Windows leg of the frame
-		// channel is what removes it: a D3D11 shared NT handle is exported from device
-		// memory and from nothing else (docs/viewer-architecture.md, "The frame
-		// channel").
+		// memory at all; appsink takes any memory, and a DXGI shared texture is
+		// exported from a Direct3D 11 resource and from nothing else
+		// (docs/viewer-architecture.md, "The frame channel"). Downloading here would
+		// mean pulling every frame into system memory so that the exporter could push
+		// it straight back onto the same GPU.
 		//
 		// GstD3D11Converter may pass the conversion to ID3D11VideoProcessor, which is
 		// configured through an API the caps do not describe. The colorimetry pinned
 		// behind it is therefore a label on the frames rather than a guarantee about
 		// how they were made.
-		tip:   "Uploads to the GPU, scales and converts with Direct3D 11, then downloads to system memory. The driver may convert through its video processor, so the colour it produces is labelled rather than guaranteed.",
-		needs: []string{"d3d11upload", "d3d11convert", "d3d11download"},
+		tip:   "Uploads to the GPU and scales and converts with Direct3D 11, handing the sink a texture the window imports without a copy. The driver may convert through its video processor, so the colour it produces is labelled rather than guaranteed.",
+		needs: []string{"d3d11upload", "d3d11convert"},
 		elements: []string{
 			"d3d11upload",
 			"d3d11convert",
 			"capsfilter name=" + fitName + " caps=video/x-raw(" + d3d11Memory + ")",
 			"video/x-raw(" + d3d11Memory + "),format=RGBA,colorimetry=sRGB",
-			"d3d11download",
 		},
 		fitCaps: "video/x-raw(" + d3d11Memory + "),width=[1,%d],height=[1,%d]",
 		device:  d3d11Memory,
@@ -250,12 +263,22 @@ var chains = []chain{
 
 func init() {
 	// The default is the chain of a viewer that has been told nothing about what to
-	// render with, so the colour it produces is the one nobody chose to trade away.
+	// render with, so it has to convert: a chain that states no colour at all leaves
+	// the window mapping an unknown transfer function to BT.709, which is a washed-out
+	// picture nobody asked for. Whether it also states an exact colour is the
+	// platform's answer rather than the table's, for the reason DefaultChain gives.
+	//
 	// Checked against the table rather than against a resolution: which chains this
 	// machine can run is the machine's business, and the table's own claim is
 	// checkable anywhere.
-	assert.Assert(chainNamed(DefaultChain).colour == ColourStated,
-		"the default render chain states the colour it produces", DefaultChain)
+	assert.Assert(chainNamed(DefaultChain).colour != ColourUnstated,
+		"the default render chain converts what it renders", DefaultChain)
+	// The default is also the chain the frame channel is written against, so it has to
+	// leave its frames somewhere a handle can name them. A default that converted in
+	// system memory would be a viewer whose every tile costs a download the chain
+	// table exists to avoid.
+	assert.Assert(chainNamed(DefaultChain).device != "",
+		"the default render chain keeps its frames on the device", DefaultChain)
 }
 
 // chainNamed is the table's row of that name. A name that is not in the table is

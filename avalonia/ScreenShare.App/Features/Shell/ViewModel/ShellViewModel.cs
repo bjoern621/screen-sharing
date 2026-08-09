@@ -247,7 +247,6 @@ public sealed class ShellViewModel : Observable
         // The stream's own name once there is one, because that is what the window is showing.
         // It is the backend's name for it and never one composed here.
         TitleBar.Show(_current, _session.Publish?.Live?.Publish?.Name is { Length: > 0 } name ? name : Idle);
-        Nav.Show(_current, _broadcastAvailable);
 
         // All three, not only the current one. A destination that rendered only while it was
         // on screen would come back stale, and the body swap would show the last state it
@@ -256,8 +255,14 @@ public sealed class ShellViewModel : Observable
         Broadcast.Apply();
         Viewer.Apply();
 
-        // After the bodies, so the band prints the counts the viewer has just derived rather
-        // than the ones it held before this pass.
+        // After the bodies, so the strip's pill and the band's figures are the ones the
+        // destinations have just derived rather than the ones they held before this pass.
+        //
+        // The strip's timer is the broadcast screen's own reading of the encoder clock, read
+        // back rather than composed again here: the pill in the chrome and the pill in the
+        // header say the same thing, and two derivations of one figure is how they would
+        // eventually stop doing so.
+        Nav.Show(_current, _broadcastAvailable, Broadcast.Snapshot.Elapsed);
         RenderStatusBar();
 
         Body = BodyFor(_current);

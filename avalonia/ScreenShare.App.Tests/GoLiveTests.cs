@@ -260,6 +260,37 @@ public sealed class GoLiveTests
     }
 
     /// <summary>
+    /// A start that has been asked for and not answered says so on the button, and takes no
+    /// second press while it is out.
+    ///
+    /// The two are one fact rather than two: what the control draws its wait from is the same
+    /// field the command refuses the second press off, so a button that looks busy is a call
+    /// that is really in flight and a stream cannot be asked for twice.
+    /// </summary>
+    [Fact]
+    public void AStartThatHasNotBeenAnsweredSaysSoAndTakesNoSecondPress()
+    {
+        var backend = new PublishingBackend();
+        backend.HoldStarts();
+
+        var flow = Flow(backend, out _);
+
+        flow.Review.GoLiveCommand.Execute(null);
+
+        Assert.True(flow.Review.GoLiveCommand.IsRunning);
+        Assert.False(flow.Review.GoLiveCommand.CanExecute(null));
+        Assert.False(flow.Review.CanGoLive);
+
+        flow.Review.GoLiveCommand.Execute(null);
+        Assert.Single(backend.Started);
+
+        backend.AnswerStarts();
+
+        Assert.False(flow.Review.GoLiveCommand.IsRunning);
+        Assert.True(flow.Review.CanGoLive);
+    }
+
+    /// <summary>
     /// What the commit promises is the path a viewer will really ask for: the draft's own name,
     /// which moves when the destination step's field does.
     /// </summary>

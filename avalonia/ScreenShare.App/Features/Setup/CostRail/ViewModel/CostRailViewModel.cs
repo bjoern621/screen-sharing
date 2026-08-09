@@ -39,7 +39,6 @@ public sealed class CostRailViewModel : Observable
     private string _bitrateCaption = "";
     private string _uplinkCaption = "";
     private string _checksSummary = "";
-    private string _measureLabel = "";
     private double _fillShare;
     private double _uplinkShare;
     private bool _isOverUplink;
@@ -48,19 +47,26 @@ public sealed class CostRailViewModel : Observable
     private FieldViewModel? _uplink;
 
     /// <param name="measure">
-    /// Asks the backend to measure the line and write what it finds into the uplink field.
-    /// Injected because it is an effect on the control plane, which this class has no seam to.
+    /// Asks the backend to measure the line and write what it finds into the uplink field, and
+    /// answers when it has. Injected because it is an effect on the control plane, which this
+    /// class has no seam to.
     /// </param>
-    public CostRailViewModel(Action measure, Func<bool> canMeasure)
+    /// <param name="dispatch">The UI loop the measurement's answer is marshalled back to.</param>
+    public CostRailViewModel(Func<Task> measure, Action<Action> dispatch, Func<bool> canMeasure)
     {
         Assert.NotNull(measure, "the rail needs somewhere to send a measure request");
+        Assert.NotNull(dispatch, "the rail needs a UI loop to marshal the measurement back to");
         Assert.NotNull(canMeasure, "the rail needs to know when a measurement can be asked for");
 
         Metrics = [];
         Checks = [];
-        MeasureCommand = new DelegateCommand(measure, canMeasure);
 
-        Apply(null, null, [], measuring: false);
+        // The measurement uploads a real payload and takes seconds. The command holds whether
+        // one is in flight, which is both what the button waits on and what refuses a second
+        // press - one fact rather than a flag here and a guard somewhere else.
+        MeasureCommand = new PendingCommand(measure, dispatch, canMeasure);
+
+        Apply(null, null, []);
     }
 
     /// <summary>The dimensions priced beside the headline rate, in the order the panel reads them.</summary>
@@ -70,7 +76,7 @@ public sealed class CostRailViewModel : Observable
     public ObservableCollection<PreflightCheckRow> Checks { get; }
 
     /// <summary>Measures this machine's real upload throughput and adopts the figure.</summary>
-    public DelegateCommand MeasureCommand { get; }
+    public PendingCommand MeasureCommand { get; }
 
     /// <summary>The headline figure: megabits per second, as the backend predicts them.</summary>
     public string Bitrate { get => _bitrate; private set => Set(ref _bitrate, value); }
@@ -88,9 +94,6 @@ public sealed class CostRailViewModel : Observable
     public FieldViewModel? Uplink { get => _uplink; private set => Set(ref _uplink, value); }
 
     public bool HasUplink { get => _hasUplink; private set => Set(ref _hasUplink, value); }
-
-    /// <summary>What the measure button says, which is also how it reports that it is busy.</summary>
-    public string MeasureLabel { get => _measureLabel; private set => Set(ref _measureLabel, value); }
 
     /// <summary>How much of the bar the prediction fills, 0 to 1.</summary>
     public double FillShare { get => _fillShare; private set => Set(ref _fillShare, value); }
@@ -117,9 +120,7 @@ public sealed class CostRailViewModel : Observable
     /// <param name="estimate">What the settings are predicted to cost, null before the first form.</param>
     /// <param name="uplink">The uplink control, null where the form does not carry one.</param>
     /// <param name="checks">The form's diagnostics, as the list draws them.</param>
-    /// <param name="measuring">Whether a measurement is already running, which the button says.</param>
-    public void Apply(
-        Estimate? estimate, FieldViewModel? uplink, IReadOnlyList<PreflightCheckRow> checks, bool measuring)
+    public void Apply(Estimate? estimate, FieldViewModel? uplink, IReadOnlyList<PreflightCheckRow> checks)
     {
         Assert.NotNull(checks, "the rail draws the list the form's diagnostics became");
 
@@ -144,10 +145,6 @@ public sealed class CostRailViewModel : Observable
         UplinkShare = Share(capacity, scale);
         IsOverUplink = capacity > 0 && predicted > capacity;
 
-        // The button says what it is doing rather than going inert with no explanation: the
-        // measurement uploads a payload and takes seconds, which is long enough for a dead
-        // button to read as a broken one.
-        MeasureLabel = measuring ? "Measuring…" : "Measure";
         MeasureCommand.Refresh();
 
         Reconcile.Onto(Metrics, Rows(estimate));

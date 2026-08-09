@@ -214,7 +214,11 @@ GStreamer negotiates colour in caps and ffmpeg states it in filter options, whic
 
 Both engines feed the publish insights the same `Stats` sample, and each measures it with what its pipeline offers.
 ffmpeg writes a `-progress` stream on stdout that `ffmpeg/proc.go` parses.
-GStreamer has no equivalent, so `publish/gststats.go` splices two elements between the parser and the muxer: a `progressreport` printing the encoded frame count and the pipeline running time once a second, and a `tee` handing a second copy of the encoded video to an `fdsink` on a pipe the app weighs, since no element reports byte throughput.
+GStreamer has no equivalent, so `publish/gststats.go` splices two elements between the parser and the muxer: a `progressreport` printing the encoded frame count and the pipeline running time once a second, and a `tee` handing a second copy of the encoded video to a `tcpclientsink` on a loopback socket the app weighs, since no element reports byte throughput.
+
+The byte branch reaches the app over a socket rather than an inherited descriptor because Windows inherits none: `os/exec` supports `ExtraFiles` on Unix alone, and a child handed one fails to start with `fork/exec ...: not supported by windows`, which took the whole GStreamer publish path down there for as long as the meter used a pipe.
+The meter opens its listener on an ephemeral loopback port before the pipeline is built, so the port is what the branch is pointed at and the child always finds a peer; the listener closes on the first connection, since a run makes exactly one.
+The portal descriptor is unaffected: `ExtraFiles` carries it on the one platform that has both a portal and descriptor inheritance.
 
 A figure neither pipeline exposes is marked in the sample's `Missing` set and crosses the wire as null, because a zero is the reading that marks a stalled encoder and an unmeasured figure must not borrow it.
 The zero value of the set means measured, so an engine flags only what it could not measure.

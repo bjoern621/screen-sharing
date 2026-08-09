@@ -107,10 +107,42 @@ tasks:
       # the prefix first would silently move every capture and encode onto it instead of
       # the ffmpeg the machine was set up with. gcc and pkg-config have no such rival on
       # a Windows PATH, so appending still finds them.
+      #
+      # Git for Windows' own /mingw64/bin is taken off PATH first, and that is not
+      # tidiness. The frame channel links GStreamer's Direct3D 11 library, which is C++
+      # and pulls in libstdc++-6.dll; Git ships an older one of those, and Windows
+      # resolves an imported DLL by walking PATH, so with Git's prefix ahead of MSYS2's
+      # the backend dies before main with STATUS_ENTRYPOINT_NOT_FOUND (0xc0000139).
+      # Dropping it rather than putting MSYS2 first is what keeps the ffmpeg decision
+      # above intact. A packaged build has neither problem: the loader takes the
+      # binary's own directory before any PATH entry, and bundle-windows.sh puts every
+      # DLL there.
+      #
+      # The Windows run frees the control pipe before it starts. There is no stale
+      # socket file to clear there, only a stale process: `go run`'s child keeps the
+      # pipe open when a dev run ends without Ctrl+C reaching it, and the next backend
+      # then starts with no control socket at all, so the shell connects to the older
+      # one and every change just made looks like it did nothing.
+      # scripts/dev-stop.ps1 carries the rest of that reasoning. It does nothing when
+      # the pipe is free, and fails this task rather than starting a second backend
+      # when something outside this build tree holds it.
+      - platforms: [windows]
+        cmd: powershell -NoProfile -File scripts/dev-stop.ps1
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
       - platforms: [windows]
-        cmd: PATH="$PATH;{{.MSYS2_MINGW}}/bin" go run ./cmd/backend
+        cmd: >-
+          PATH="$(echo "$PATH" | sed -E 's#[^;]*[gG]it[\\/]+mingw64[\\/]+bin;?##g');{{.MSYS2_MINGW}}/bin"
+          go run ./cmd/backend
+
+  dev:stop:
+    desc: Stop a backend a previous `task dev` left holding the control pipe
+    # `task dev` already does this on its way up, so this task is for the case where
+    # the leftover backend is in the way of something else - a packaged build, a
+    # debugger run, a shell that keeps finding a backend nobody is looking at.
+    platforms: [windows]
+    cmds:
+      - powershell -NoProfile -File scripts/dev-stop.ps1
 
   build:
     desc: Build the backend binary into build/bin

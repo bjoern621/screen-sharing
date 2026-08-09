@@ -100,6 +100,10 @@ func (b controlBackend) StartWatch(key wire.WatchKey) error {
 	return b.app.StartWatch(key.StreamName, key.Transport)
 }
 
+func (b controlBackend) SubscribeFrames(key wire.WatchKey) (control.FrameStream, error) {
+	return b.app.SubscribeFrames(key.StreamName, key.Transport)
+}
+
 func (b controlBackend) StartReceive(key wire.WatchKey) error {
 	return b.app.StartReceive(key.StreamName, key.Transport)
 }

@@ -3,11 +3,14 @@ package publish
 import (
 	"bufio"
 	"io"
-	"os"
+	"net"
 	"regexp"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
 // gstStatsName names the progressreport element counting encoded frames;
@@ -47,28 +50,39 @@ var gstProgressLine = regexp.MustCompile(`^(` + gstStatsName + `|` + gstCaptureN
 // prints the count and the pipeline running time to stdout once a second.
 //
 // The tee exists because no GStreamer element reports byte throughput: the
-// second branch hands a copy of the encoded video to an fdsink on a pipe the app
-// weighs. The branch cannot hold up the encode path, since its queue leaks and
-// its sink neither synchronizes to the clock nor prerolls. Its bytes are the
-// video elementary stream, so the figures come out below ffmpeg's, which counts
-// the muxed stream with its audio track and container overhead.
-func gstProgressElements(meterFd string) []string {
+// second branch hands a copy of the encoded video to a tcpclientsink on a
+// loopback socket the app weighs. The branch cannot hold up the encode path,
+// since its queue leaks and its sink neither synchronizes to the clock nor
+// prerolls. Its bytes are the video elementary stream, so the figures come out
+// below ffmpeg's, which counts the muxed stream with its audio track and
+// container overhead.
+//
+// A socket rather than an inherited descriptor because Windows inherits none:
+// os/exec supports ExtraFiles on Unix alone, and a child handed one there fails
+// to start at all. The one mechanism both platforms carry is the one both use,
+// so the meter has a single wire format rather than one per operating system.
+func gstProgressElements(meterPort string) []string {
 	return []string{
 		"progressreport", "name=" + gstStatsName, "update-freq=1", "format=buffers", "do-query=false",
 		"!", "tee", "name=" + gstMeterName,
 		"!", "queue", "max-size-buffers=8", "leaky=downstream",
-		"!", "fdsink", "fd=" + meterFd, "sync=false", "async=false",
+		"!", "tcpclientsink", "host=" + gstMeterHost, "port=" + meterPort, "sync=false", "async=false",
 		gstMeterName + ".", "!",
 	}
 }
 
+// gstMeterHost is the address the meter listens on and the child connects back
+// to. Loopback alone: the branch carries a copy of the user's screen, and the
+// only peer it is meant for is the child this process just spawned.
+const gstMeterHost = "127.0.0.1"
+
 // gstMeter turns what a gst-launch child can report into the same Stats samples
 // the ffmpeg engine emits. GStreamer has no counterpart to ffmpeg's -progress
 // stream, so two elements in the pipeline carry the raw counts: a progressreport
-// prints the encoded frame count and the running time once a second, and an
-// fdsink writes a second copy of the encoded video into a pipe this type counts.
-// Frames arrive as text and bytes as data, so the sample is joined here: each
-// progress line takes the byte counter as it stands.
+// prints the encoded frame count and the running time once a second, and a
+// tcpclientsink writes a second copy of the encoded video to a loopback socket
+// this type counts. Frames arrive as text and bytes as data, so the sample is
+// joined here: each progress line takes the byte counter as it stands.
 //
 // Stats.Drop stays zero because nothing on the encode path discards a frame.
 // The one intentional drop in the graph is the single-slot leaky queue ahead of
@@ -84,8 +98,14 @@ type gstMeter struct {
 	// tells a probe reporting a genuine zero rate apart from a pipeline that
 	// carries no probe to report one.
 	haveCaptured atomic.Bool
-	// r is the read end of the meter pipe, w the end the child inherits.
-	r, w *os.File
+	// ln accepts the one connection the child's tcpclientsink opens, and conn is
+	// that connection once it arrives. conn is held so close can end the read the
+	// counting goroutine is parked in, and mu guards the pair against a close that
+	// lands while the accept is still outstanding.
+	mu     sync.Mutex
+	ln     net.Listener
+	conn   net.Conn
+	closed bool
 	// now reads the wall clock the per-second figures are measured against.
 	now func() time.Time
 
@@ -100,29 +120,72 @@ type gstMeter struct {
 	havePrev     bool
 }
 
-// newGstMeter creates the pipe the child's fdsink writes to and starts counting
-// what arrives on it.
+// newGstMeter opens the loopback socket the child's tcpclientsink connects to
+// and starts counting what arrives on it.
+//
+// The listener is up before the caller has an argument to put in a pipeline, let
+// alone a child to run it, so the connection the child opens on start always
+// finds a peer.
 func newGstMeter(onStats func(Stats)) (*gstMeter, error) {
-	r, w, err := os.Pipe()
+	ln, err := net.Listen("tcp", net.JoinHostPort(gstMeterHost, "0"))
 	if err != nil {
 		return nil, err
 	}
-	m := &gstMeter{onStats: onStats, r: r, w: w, now: time.Now}
+	m := &gstMeter{onStats: onStats, ln: ln, now: time.Now}
 	go m.count()
 	return m, nil
 }
 
-// count drains the meter pipe. The payload is a copy of what the sink ships, so
-// it is weighed and discarded, never inspected.
+// port is the loopback port the pipeline's meter branch is pointed at. The
+// kernel picked it when the listener opened, so it is read off the listener
+// rather than chosen here, and no run can collide with another's.
+func (m *gstMeter) port() string {
+	assert.IsNotNil(m.ln, "a meter that is asked for its port is listening")
+	addr, ok := m.ln.Addr().(*net.TCPAddr)
+	assert.Assert(ok, "a tcp listener has a tcp address", m.ln.Addr().String())
+	return strconv.Itoa(addr.Port)
+}
+
+// count takes the child's connection and drains it. The payload is a copy of
+// what the sink ships, so it is weighed and discarded, never inspected.
+//
+// The listener closes on the first connection because a run makes exactly one:
+// leaving it open would let a later pipeline's sink land on this meter's port
+// and have its bytes counted against the run that opened it.
 func (m *gstMeter) count() {
+	conn, err := m.ln.Accept()
+	m.ln.Close()
+	if err != nil {
+		return
+	}
+	if !m.hold(conn) {
+		conn.Close()
+		return
+	}
+
 	buf := make([]byte, 64*1024)
 	for {
-		n, err := m.r.Read(buf)
+		n, err := conn.Read(buf)
 		m.bytes.Add(int64(n))
 		if err != nil {
 			return
 		}
 	}
+}
+
+// hold records the accepted connection so close can end the read, and reports
+// whether the meter is still open. A meter closed while the accept was
+// outstanding takes no connection, since nothing would ever close it again.
+func (m *gstMeter) hold(conn net.Conn) bool {
+	assert.IsNotNil(conn, "an accepted connection is not nil")
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed {
+		return false
+	}
+	m.conn = conn
+	return true
 }
 
 // parse reads the child's stdout and emits one sample per encoded progress line,
@@ -197,23 +260,28 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 	m.onStats(stats)
 }
 
-// closeChildEnd drops the parent's copy of the write end once the child holds its
-// own, so the counter sees EOF when the child exits.
-func (m *gstMeter) closeChildEnd() {
-	if m == nil {
-		return
-	}
-	m.w.Close()
-}
-
-// close releases the pipe, which ends the counting goroutine. A nil meter (a
-// start with no OnStats callback) closes nothing.
+// close releases the listener and the child's connection, which ends the
+// counting goroutine. It is safe to call more than once, since a start that
+// fails closes the meter on the way out and a start that succeeds closes it
+// again when the child exits. A nil meter (a start with no OnStats callback)
+// closes nothing, and so does one built without a listener.
 func (m *gstMeter) close() {
 	if m == nil {
 		return
 	}
-	m.w.Close()
-	m.r.Close()
+
+	m.mu.Lock()
+	m.closed = true
+	conn := m.conn
+	m.conn = nil
+	m.mu.Unlock()
+
+	if m.ln != nil {
+		m.ln.Close()
+	}
+	if conn != nil {
+		conn.Close()
+	}
 }
 
 // atoi returns the integer value of a digit group the progress-line pattern

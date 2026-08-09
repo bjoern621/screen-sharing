@@ -14,7 +14,9 @@ namespace ScreenShare.App.Features.Broadcast.Plots.View;
 /// draws a single glyph.
 ///
 /// Samples arrive in the space they were drawn in (<see cref="Extent"/>) and are stretched
-/// to the control's bounds, so the whole 60 s window stays on screen at any card width.
+/// to the control's bounds, so the whole window stays on screen at any card width. How much
+/// stream that window covers is the card's to state, since it is the samples' and not this
+/// control's.
 /// </summary>
 public sealed class Sparkline : Control
 {

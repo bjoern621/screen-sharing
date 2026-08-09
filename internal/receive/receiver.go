@@ -14,9 +14,26 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 )
 
-// stopTimeout bounds the teardown of one pipeline, so a source that will not let
-// go cannot hold up the stream that replaces it or the backend's own shutdown.
-const stopTimeout = time.Second
+// stopTimeout bounds one attempt at taking a pipeline to NULL, and stopAttempts is
+// how many of those an unwilling pipeline is given.
+//
+// The bound exists so a source that will not let go cannot hold up the stream that
+// replaces it or the backend's own shutdown. What it is not is a way out: a pipeline
+// still running when this process exits is torn down by the operating system instead
+// of by GStreamer, and on Windows that means threads killed wherever they stand,
+// including inside the display driver. A process left with a thread wedged in a
+// driver call never finishes exiting, and everything it owns - the control pipe among
+// it - stays owned by a process nothing can kill. So the bound is generous enough
+// that a decoder shutting down under load reaches NULL inside it, and a pipeline that
+// misses it twice is reported rather than silently walked past.
+//
+// Two attempts of the same length rather than one of twice the length: the ordinary
+// slow case is a decoder draining, which the first wait covers, and the second is
+// what separates "slower than expected" from "not coming back" in the log.
+const (
+	stopTimeout  = 3 * time.Second
+	stopAttempts = 2
+)
 
 // Stream is one stream a receive pipeline is opened for.
 //
@@ -87,6 +104,10 @@ type Receiver struct {
 	audioConvert gst.Element // the audio branch's audioconvert, for the raw audio caps
 	// stats are the transport elements statSources matched, in discovery order.
 	stats []elementStats
+	// subs are the consumers the frames are handed to, each with its own pool
+	// (export.go). Zero of them is the ordinary state of a decode nothing is drawing
+	// yet, and the pipeline runs the same either way.
+	subs []*Subscription
 }
 
 // New parses and starts the pipeline for one stream, on the render chain the
@@ -152,11 +173,12 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 // returns, which is the backpressure renderSink's one-buffer bound is written for:
 // pulling here and returning is what lets the next frame through.
 //
-// The sample itself goes nowhere yet. Exporting it as a GPU handle is the frame
-// channel's job and the frame channel does not exist (docs/viewer-architecture.md,
-// "The frame channel"), so the pipeline decodes, the counters and the negotiated
-// caps are real, and the frames are released here for as long as there is nowhere
-// to send them.
+// The sample is then handed to every consumer that has subscribed (export.go), each
+// of which copies it into a slot of its own pool on the GPU and names that slot to
+// the shell. None of them blocks: a consumer with no free slot drops the frame, so a
+// window that is busy costs frames and never costs the pipeline. A decode nothing is
+// drawing has no consumers and the sample is simply released here, which is the
+// ordinary state of a stream that is being received and not yet watched.
 //
 // The handler stays connected because disconnecting from inside the emission is
 // not worth the bookkeeping.
@@ -164,10 +186,12 @@ func (r *Receiver) watchSamples(onLive func()) {
 	r.sink.ConnectNewSample(func(sink gstapp.AppSink) gst.FlowReturn {
 		// A sink with nothing to hand over is one that was flushed on its way out of
 		// PLAYING. The bus watch is what reports the end; this side stops counting.
-		if sink.PullSample() == nil {
+		sample := sink.PullSample()
+		if sample == nil {
 			return gst.FlowEOS
 		}
 		r.frames.Add(1)
+		r.fanOut(sample)
 		if r.live.CompareAndSwap(false, true) {
 			logger.Debugf("stream %q decoded its first frame", r.name)
 			// A frame out of the sink is the proof that every pad from the decoder to
@@ -236,6 +260,11 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 			logger.Debugf("stream %q pipeline error: %s", r.name, debug)
 		}
 		r.pipeline.SetState(gst.StateNull)
+		// The consumers are told on the calls they are blocked reading. The same fact
+		// reaches every shell as ReceiveExit on the event stream, and neither is a
+		// substitute for the other: a consumer waiting on frames learns nothing from
+		// an event it is not the one reading.
+		r.endSubs(message)
 		if onEnd != nil {
 			onEnd(message)
 		}
@@ -308,8 +337,46 @@ func (r *Receiver) setAudioProperty(name string, value any) {
 // sink was gtk4paintablesink, whose way out of PAUSED flushes a GTK object built on
 // the UI loop and panics when another thread touches it. An appsink owns nothing
 // outside the pipeline, so the way down belongs to the thread that asks for it.
-func (r *Receiver) Stop() {
+// Whether the pipeline actually reached NULL is the return value, because the caller
+// that matters is the one shutting the process down: it is the only place that can
+// decide what to do about a decoder that is still running, and it cannot decide it
+// from a call that says nothing.
+func (r *Receiver) Stop() bool {
 	r.cancel()
-	r.pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout))
-	logger.Debugf("stream %q pipeline stopped", r.name)
+	// The consumers go before the pipeline does. Each frees its pool as it ends, and a
+	// pool freed after the device it was allocated on is torn down is a free against a
+	// device that is gone.
+	r.endSubs("the stream was closed")
+
+	started := time.Now()
+	for attempt := 1; attempt <= stopAttempts; attempt++ {
+		// The result is read rather than discarded. A state change that runs out of time
+		// comes back as ASYNC and leaves the pipeline running, which looks from here
+		// exactly like the SUCCESS it is not: the threads are still in the decoder, and
+		// the next thing this process does is exit.
+		switch ret := r.pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout)); ret {
+		case gst.StateChangeSuccess:
+			logger.Debugf("stream %q pipeline stopped after %s", r.name, since(started))
+			return true
+		case gst.StateChangeFailure:
+			// The pipeline refused the change outright rather than taking too long, so
+			// waiting again is waiting for a decision that has already been made.
+			logger.Warnf("stream %q pipeline refused to stop after %s", r.name, since(started))
+			return false
+		default:
+			logger.Warnf("stream %q pipeline has not stopped after %s, waiting again", r.name, since(started))
+		}
+	}
+
+	logger.Warnf("stream %q pipeline is still running after %s and is being left that way; "+
+		"a process that exits with a decoder still in the display driver can be impossible to kill afterwards",
+		r.name, since(started))
+	return false
+}
+
+// since is an elapsed time in the form these lines are read in. The figures they
+// carry are seconds of teardown, and a reader deciding whether a decoder is slow or
+// stuck has no use for the nanoseconds under them.
+func since(started time.Time) time.Duration {
+	return time.Since(started).Round(time.Millisecond)
 }

@@ -3,6 +3,7 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Viewer.Model;
+using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Viewer.ViewModel;
@@ -49,8 +50,29 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     private IReadOnlyList<WatchLeg> _legs = [];
 
+    /// <summary>
+    /// The leg a tile's decode is opened on, empty until the settings have been resolved once.
+    ///
+    /// It is the value of the form's tile watch-leg field rather than one of its options, and
+    /// it is a separate field from the roster's for the reason the contract states: the two
+    /// receivers reach different protocol sets, so a tile can take WebRTC that no player opens
+    /// by address and a player can open the relay's HLS that no tile reads
+    /// (<c>docs/viewer-architecture.md</c>).
+    /// </summary>
+    private string _tileLeg = "";
+
     /// <summary>Whether the legs have been asked for, so a failed read is retried and a good one is not repeated.</summary>
     private bool _askedLegs;
+
+    /// <summary>
+    /// The tiles this window has put on screen, by stream name.
+    ///
+    /// <b>The grid is this shell's alone.</b> Which streams are decoded is the backend's list
+    /// and is read through on every pass; which of them are drawn, and in what arrangement, is
+    /// not on the contract at all and could not be - a window is the one thing that contract
+    /// may not describe (<c>docs/ipc-api.md</c>).
+    /// </summary>
+    private readonly Dictionary<string, TileViewModel> _tiles = [];
 
     /// <param name="dispatch">
     /// Hands work to the UI loop. Every answer to an effect lands on whichever thread the
@@ -68,6 +90,7 @@ public sealed class ViewerViewModel : Observable
         _dispatch = dispatch;
 
         Streams = [];
+        Tiles = [];
 
         Apply();
     }
@@ -83,6 +106,18 @@ public sealed class ViewerViewModel : Observable
 
     /// <summary>The streams the relay is carrying, in the order it listed them.</summary>
     public ObservableCollection<StreamRowViewModel> Streams { get; }
+
+    /// <summary>
+    /// The tiles on screen, in the order they were added. A stream leaves the grid when its
+    /// row is toggled off and not when the relay stops carrying it: a stream that dropped out
+    /// and came back keeps the tile the reader put there.
+    /// </summary>
+    public ObservableCollection<TileViewModel> Tiles { get; }
+
+    private bool _hasTiles;
+
+    /// <summary>Whether anything is in the grid, which is what separates it from its empty state.</summary>
+    public bool HasTiles { get => _hasTiles; private set => Set(ref _hasTiles, value); }
 
     /// <summary>How much of what the relay carries this machine is watching. The status band repeats it.</summary>
     public string ShownSummary { get => _shownSummary; private set => Set(ref _shownSummary, value); }
@@ -132,10 +167,21 @@ public sealed class ViewerViewModel : Observable
 
         foreach (var row in rows)
         {
-            Of(row.Name).Apply(row, _legs);
+            Of(row.Name).Apply(row, _legs, _tiles.ContainsKey(row.Name));
         }
 
         Reconcile.Onto(Streams, rows.Select(row => Of(row.Name)).ToList());
+
+        // The tiles are rendered from the backend's decode list, joined on the pair the whole
+        // contract keys a decode by. A tile whose decode is not in it draws its own reason for
+        // that rather than disappearing: the reader put it there, and a stream that dropped out
+        // is a thing to say instead of a thing to hide.
+        foreach (var tile in _tiles.Values)
+        {
+            tile.Apply(DecodeOf(tile));
+        }
+
+        HasTiles = Tiles.Count > 0;
 
         HasStreams = Streams.Count > 0;
         Notice = HasStreams ? "" : NoticeFor(relay);
@@ -239,9 +285,27 @@ public sealed class ViewerViewModel : Observable
             return row;
         }
 
-        row = new StreamRowViewModel(name, WatchAsync);
+        row = new StreamRowViewModel(name, WatchAsync, TileAsync, _dispatch);
         _rows[name] = row;
         return row;
+    }
+
+    /// <summary>
+    /// The backend's state for one tile's decode, and null while nothing is decoding that
+    /// pair. The join is on the stream name and the leg together, because the relay re-serves
+    /// each stream on all its listeners and the name alone is not an identity.
+    /// </summary>
+    private ReceiveStream? DecodeOf(TileViewModel tile)
+    {
+        foreach (var decode in _session.Receiving)
+        {
+            if (decode.Stream.StreamName == tile.Name && decode.Stream.Transport == tile.Transport)
+            {
+                return decode;
+            }
+        }
+
+        return null;
     }
 
     // --- The effects ----------------------------------------------------------------
@@ -275,6 +339,7 @@ public sealed class ViewerViewModel : Observable
             _dispatch(() =>
             {
                 _legs = LegsOf(form);
+                _tileLeg = TileLegOf(form);
                 Apply();
             });
         }
@@ -300,7 +365,7 @@ public sealed class ViewerViewModel : Observable
         {
             foreach (var field in group.Fields)
             {
-                if (field.Key != "watch_transport")
+                if (field.Key != "viewer.player_watch_transport")
                 {
                     continue;
                 }
@@ -315,6 +380,130 @@ public sealed class ViewerViewModel : Observable
         }
 
         return [];
+    }
+
+    /// <summary>
+    /// The leg a tile's decode is opened on: the <i>value</i> of the form's tile watch-leg
+    /// field, not one of its options.
+    ///
+    /// A value rather than a choice, because a tile is not a place to pick a protocol. Which
+    /// leg tiles receive on is a setting, resolved and repaired by the backend like every
+    /// other, and offering it per row would be this screen deciding something the settings
+    /// screen already decides. An empty answer is a form that does not carry the field, which
+    /// leaves the grid refusing to add tiles rather than guessing a protocol.
+    /// </summary>
+    private static string TileLegOf(Form form)
+    {
+        foreach (var group in form.Groups)
+        {
+            foreach (var field in group.Fields)
+            {
+                if (field.Key == "viewer.tile_watch_transport")
+                {
+                    return FieldValues.AsText(field.Value);
+                }
+            }
+        }
+
+        return "";
+    }
+
+    /// <summary>
+    /// Puts one stream in the grid, or takes it out.
+    ///
+    /// <b>Two calls in each direction, and the order is the point.</b> A decode is opened
+    /// first and the tile is added once that has answered, because a tile is a subscription to
+    /// frames and there are none until something is decoding; on the way out the tile goes
+    /// first, because a subscription outliving its decode would be a window holding handles to
+    /// memory the backend has freed.
+    ///
+    /// Adding a tile is the shell's own state and is written here, which is the one place this
+    /// screen departs from reading everything through. That is the contract's doing rather
+    /// than a shortcut: the backend describes no grid, so there is nothing to read a tile
+    /// list back from.
+    /// </summary>
+    private async Task TileAsync(string stream, bool tiled)
+    {
+        if (tiled)
+        {
+            Drop(stream);
+
+            try
+            {
+                await _backend.StopReceiveAsync(stream, _tileLeg).ConfigureAwait(false);
+                Refused("");
+            }
+            catch (BackendUnavailableException e)
+            {
+                Refused(e.Message);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
+            return;
+        }
+
+        if (_tileLeg.Length == 0)
+        {
+            Refused("The settings have not said which protocol a tile receives on yet.");
+            return;
+        }
+
+        try
+        {
+            await _backend.StartReceiveAsync(stream, _tileLeg).ConfigureAwait(false);
+            Refused("");
+            _dispatch(() => Add(stream));
+        }
+        catch (BackendUnavailableException e)
+        {
+            // The backend's own sentence: a leg that cannot carry this stream's format names
+            // the format and the protocols that would have carried it, which is the whole of
+            // what makes the refusal actionable.
+            Refused(e.Message);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>Adds one tile, on the UI loop, and re-renders.</summary>
+    private void Add(string stream)
+    {
+        if (_tiles.ContainsKey(stream))
+        {
+            return;
+        }
+
+        var tile = new TileViewModel(stream, _tileLeg, _backend, _dispatch);
+        // A tile reports what it drew, which no state the backend owns can carry. The pass it
+        // asks for is this screen's own, so the figures over a tile and the roster under it
+        // are still written by one render function.
+        tile.Changed += Apply;
+
+        _tiles[stream] = tile;
+        Tiles.Add(tile);
+        Apply();
+    }
+
+    /// <summary>
+    /// Takes one tile off the grid and re-renders.
+    ///
+    /// Removing it from the collection is what ends the subscription: the control that draws
+    /// it is detached with it, and its detach cancels the call and disposes every handle it
+    /// imported (<c>Features/Viewer/Tile/View/StreamTile.cs</c>).
+    /// </summary>
+    private void Drop(string stream)
+    {
+        if (!_tiles.Remove(stream, out var tile))
+        {
+            return;
+        }
+
+        tile.Changed -= Apply;
+        Tiles.Remove(tile);
+        Apply();
     }
 
     /// <summary>

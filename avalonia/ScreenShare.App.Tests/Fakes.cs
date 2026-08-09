@@ -4,6 +4,38 @@ using ScreenShare.App.Backend;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
+/// How a held call is answered so that everything the answer sets off - the awaiting call
+/// resuming, the dispatch, the adoption and the render pass - has happened by the time the
+/// answer returns. A test then asserts against a finished state rather than against a race it
+/// hopes to win.
+/// </summary>
+internal static class Answers
+{
+    /// <summary>
+    /// Completes a held call with the test framework's synchronization context off the thread.
+    ///
+    /// The runtime declines to resume an awaiting continuation inline on a thread carrying a
+    /// context and queues the resumption to the thread pool instead - so the view model would
+    /// render on one thread while the test read its properties on another, and no amount of
+    /// awaiting afterwards would put an order on the two. With the context off, the resumption
+    /// runs here.
+    /// </summary>
+    public static void Now(Action complete)
+    {
+        var context = SynchronizationContext.Current;
+        SynchronizationContext.SetSynchronizationContext(null);
+        try
+        {
+            complete();
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(context);
+        }
+    }
+}
+
+/// <summary>
 /// A backend whose resolves are answered by hand, which is the only way to write down the
 /// timing the real one has: a socket lets two drafts be in flight at once and puts no order
 /// on their answers, and the stand-in that answers from memory can never produce that.
@@ -89,6 +121,18 @@ internal sealed class DeferredBackend : IBackend
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopWatchAsync(streamName, transport, cancellation);
 
+    public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
+        => _seed.ReceivingAsync(cancellation);
+
+    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.StartReceiveAsync(streamName, transport, cancellation);
+
+    public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.StopReceiveAsync(streamName, transport, cancellation);
+
+    public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.OpenFramesAsync(streamName, transport, cancellation);
+
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);
 
@@ -106,51 +150,24 @@ internal sealed class DeferredBackend : IBackend
 
     /// <summary>
     /// Answers one held resolve with the form its own draft resolves to. Everything the
-    /// answer sets off - the awaiting call resuming, the dispatch, the adoption and the
-    /// render pass - has happened by the time this returns, so a test asserts against a
-    /// finished state rather than against a race it hopes to win.
+    /// answer sets off has happened by the time this returns, for the reason
+    /// <see cref="Answers.Now"/> states.
     /// </summary>
     public async Task AnswerAsync(int resolve)
     {
         var held = _held[resolve];
         var form = await _seed.ResolveFormAsync(held.Draft);
 
-        // Completed with the test framework's synchronization context off the thread, which
-        // is what buys the paragraph above. The runtime declines to resume an awaiting
-        // continuation inline on a thread carrying a context and queues the resumption to
-        // the thread pool instead - so the flow would render on one thread while the test
-        // read its properties on another, and no amount of awaiting afterwards would put an
-        // order on the two. With the context off, the resumption runs here.
-        var context = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(null);
-        try
-        {
-            held.Answer.SetResult(form);
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(context);
-        }
+        Answers.Now(() => held.Answer.SetResult(form));
     }
 
     /// <summary>
     /// Refuses one held resolve the way an absent backend does, with the sentence the screen
     /// would show. Everything it sets off has happened by the time this returns, for the reason
-    /// <see cref="AnswerAsync"/> states.
+    /// <see cref="Answers.Now"/> states.
     /// </summary>
     public void Fail(int resolve, string reason)
-    {
-        var context = SynchronizationContext.Current;
-        SynchronizationContext.SetSynchronizationContext(null);
-        try
-        {
-            _held[resolve].Answer.SetException(new BackendUnavailableException(reason));
-        }
-        finally
-        {
-            SynchronizationContext.SetSynchronizationContext(context);
-        }
-    }
+        => Answers.Now(() => _held[resolve].Answer.SetException(new BackendUnavailableException(reason)));
 }
 
 /// <summary>
@@ -185,6 +202,31 @@ internal sealed class PublishingBackend : IBackend
     /// <summary>The settings every accepted start was asked for, in order.</summary>
     public List<Settings> Started { get; } = [];
 
+    /// <summary>
+    /// A start that has been asked for and not answered, held open by a test.
+    ///
+    /// It is what makes the round trip an interval a test can read the screen in the middle of.
+    /// Every other answer here is immediate, which is the honest default - it keeps the tests
+    /// about what the screen says rather than about timing - but the whole point of a control
+    /// that reports it is waiting is what it looks like while the backend has not replied.
+    /// </summary>
+    private TaskCompletionSource? _held;
+
+    /// <summary>Holds every start open from here on, so one can be read while it is in flight.</summary>
+    public void HoldStarts() => _held = new TaskCompletionSource();
+
+    /// <summary>
+    /// Answers the held start. Everything it sets off has happened by the time this returns,
+    /// for the reason <see cref="Answers.Now"/> states.
+    /// </summary>
+    public void AnswerStarts()
+    {
+        var held = _held ?? throw new InvalidOperationException("no start is being held");
+
+        _held = null;
+        Answers.Now(held.SetResult);
+    }
+
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         if (Refusal.Length > 0)
@@ -195,7 +237,7 @@ internal sealed class PublishingBackend : IBackend
         }
 
         Started.Add(settings);
-        return Task.CompletedTask;
+        return _held?.Task ?? Task.CompletedTask;
     }
 
     public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
@@ -230,6 +272,18 @@ internal sealed class PublishingBackend : IBackend
 
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopWatchAsync(streamName, transport, cancellation);
+
+    public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
+        => _seed.ReceivingAsync(cancellation);
+
+    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.StartReceiveAsync(streamName, transport, cancellation);
+
+    public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.StopReceiveAsync(streamName, transport, cancellation);
+
+    public Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.OpenFramesAsync(streamName, transport, cancellation);
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);

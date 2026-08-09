@@ -96,8 +96,15 @@ type App struct {
 	// are: a stream and the leg it is received over, because the relay re-serves each
 	// stream on all its listeners and one stream can be decoded over several at once
 	// (receive.go).
-	receivers   map[WatchKey]*receive.Receiver
-	testStreams []*ffmpeg.Proc
+	receivers map[WatchKey]*receive.Receiver
+	// testStreams is the synthetic set, one entry per slot the set holds, keyed by the
+	// slot number the stream is named after. An entry is a child that is publishing or
+	// a relaunch waiting to start one; a slot with no entry is neither (teststreams.go).
+	testStreams map[int]*testStream
+	// testStreamsWanted is how many slots the set is supposed to hold. It is the desired
+	// state the exits converge on: a child that dies below it is relaunched into its
+	// slot, and one that dies at or above it is let go.
+	testStreamsWanted int
 }
 
 // New builds the backend. version is this build's stamp, which the control
@@ -127,6 +134,7 @@ func New(version string) *App {
 		relayStop:   make(chan struct{}),
 		watchers:    map[WatchKey]*ffmpeg.Proc{},
 		receivers:   map[WatchKey]*receive.Receiver{},
+		testStreams: map[int]*testStream{},
 	}
 }
 
@@ -148,9 +156,15 @@ func (a *App) StoreNotice() *screensharev1.Text {
 // this side keeps the snapshot: a poll that only ran while somebody was watching would
 // answer GetRelayStatus with the opening value - unreachable, no reason given - for as
 // long as nothing had asked, which reads on screen as a relay that is down.
+//
+// The synthetic set comes up here for the same reason and keeps itself up: the viewer
+// roster is meant to carry streams whether or not this machine publishes, and a relay
+// that is not up yet when this process starts is the normal case rather than a failure
+// (teststreams.go).
 func (a *App) Start() {
 	a.startControl()
 	a.startRelayPoll()
+	go a.startTestStreamsAtBoot()
 }
 
 // Stop kills every child so no orphan ffmpeg keeps encoding after the process ends.
@@ -171,10 +185,35 @@ func (a *App) Stop() {
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}
+	// The receive pipelines are the one teardown this process waits on, and they are
+	// waited on together rather than one after another.
+	//
+	// Each of them blocks until its pipeline reaches NULL, bounded by receive's own
+	// timeout, so stopping five streams in a row would bound this shutdown at five
+	// times that where the pipelines have nothing to do with each other. Stopped
+	// together the wait is one pipeline's, whichever is slowest.
+	//
+	// Waiting at all is the point: what follows this function is the process exiting,
+	// and a pipeline still running then is torn down by the operating system with its
+	// threads wherever they happen to be, which on Windows is how a process ends up
+	// unkillable with the control pipe still in its hands. The count below is what
+	// says whether the exit about to happen is the clean one.
+	var stopping sync.WaitGroup
+	var running atomic.Int32
 	for _, receiver := range a.receivers {
-		receiver.Stop()
+		stopping.Add(1)
+		go func() {
+			defer stopping.Done()
+			if !receiver.Stop() {
+				running.Add(1)
+			}
+		}()
 	}
-	for _, proc := range a.testStreams {
-		proc.Stop()
+	stopping.Wait()
+	if left := running.Load(); left > 0 {
+		logger.Warnf("%d receive pipeline(s) were still running at shutdown; the streams they name are in the lines above", left)
 	}
+	// The set goes off rather than down: a relaunch pending behind a dead child would
+	// otherwise start a publisher into a process on its way out.
+	a.stopTestStreamsLocked()
 }

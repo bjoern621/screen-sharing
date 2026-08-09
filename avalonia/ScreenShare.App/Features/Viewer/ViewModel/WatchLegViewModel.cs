@@ -30,6 +30,9 @@ public sealed record WatchLegViewModel
     /// <summary>Whether this machine has a viewer open on this leg for this stream.</summary>
     public required bool IsOpen { get; init; }
 
-    /// <summary>Opens a viewer on this leg, or closes the one that is open.</summary>
-    public required DelegateCommand Toggle { get; init; }
+    /// <summary>
+    /// Opens a viewer on this leg, or closes the one that is open. It carries whether its own
+    /// call is still out, which is what the control waits on.
+    /// </summary>
+    public required PendingCommand Toggle { get; init; }
 }

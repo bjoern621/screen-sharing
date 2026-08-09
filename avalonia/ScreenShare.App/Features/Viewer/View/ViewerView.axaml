@@ -1,6 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:vm="using:ScreenShare.App.Features.Viewer.ViewModel"
+             xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
+             xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Viewer.View.ViewerView"
              x:DataType="vm:ViewerViewModel"
              Background="{StaticResource SurfaceBrush}">
@@ -29,9 +32,12 @@
   </UserControl.Styles>
 
   <!--
-    A roster and not a tile grid, and the difference is the frame channel: a grid shows decoded
-    pictures, and frames do not cross the control API (docs/ipc-api.md). Everything the contract
-    does carry about the relay is here and is real.
+    A grid over a roster. The roster is what the relay is carrying and what this machine has
+    open on it; the grid is the streams the reader asked to see, drawn from the GPU memory the
+    backend decoded them into (docs/viewer-architecture.md, "The frame channel").
+
+    The arrangement is this shell's whole business and nothing about it crosses the contract:
+    the backend describes decodes, and a decode is not a tile (docs/ipc-api.md).
 
     No title bar, no nav strip and no status bar - the shell owns all three, and a second copy
     would be a second definition of where the reader is. The counts this view derives still reach
@@ -51,6 +57,62 @@
 
     <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Hint}" Margin="0,12,0,0" />
 
+    <!--
+      The grid. Each tile is a composition surface rather than a native child window, which is
+      what lets the figures under the picture stay over it: a native window would draw above
+      every Avalonia control (avalonia/README.md, "What is not settled yet").
+
+      Wrapped rather than laid out in fixed columns, so the arrangement follows the window's
+      width instead of a count nobody chose.
+    -->
+    <Border DockPanel.Dock="Top" Classes="card" Margin="0,0,0,12" IsVisible="{Binding HasTiles}">
+      <ItemsControl ItemsSource="{Binding Tiles}" Margin="8">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <WrapPanel />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="tile:TileViewModel">
+            <StackPanel Width="360" Margin="6">
+              <TextBlock Classes="ident" Text="{Binding Title}" Margin="2,0,2,4" />
+
+              <!--
+                The picture and what stands in for it occupy the same cell, so a tile that is
+                connecting is the same size as one that is drawing and the grid does not reflow
+                when a stream comes up.
+              -->
+              <Panel Height="203" Background="{StaticResource PanelBrush}">
+                <tiles:StreamTile Source="{Binding}" />
+                <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
+                           IsVisible="{Binding HasNotice}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextAlignment="Center" Margin="16" />
+              </Panel>
+
+              <!--
+                What the pipeline turned out to be and what this window did with it. Both are
+                measurements: the chain that ran is not always the one the settings asked for,
+                and the drop count is the only place a window too slow to draw becomes visible.
+              -->
+              <ItemsControl ItemsSource="{Binding Figures}" Margin="2,4,2,0">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="x:String">
+                    <TextBlock Classes="hint" Text="{Binding}" Margin="0,0,10,0" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Border>
+
     <!-- Why the list is empty, which separates an unread relay from an idle one. -->
     <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
                IsVisible="{Binding HasNotice}" VerticalAlignment="Top" />
@@ -62,12 +124,13 @@
                 Background="{StaticResource PanelBrush}"
                 BorderBrush="{StaticResource DividerBrush}"
                 BorderThickness="0,0,0,1">
-          <Grid ColumnDefinitions="200,140,120,100,*">
+          <Grid ColumnDefinitions="200,140,120,100,90,*">
             <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="stream" />
             <TextBlock Grid.Column="1" Classes="ident cell colhead" Text="tracks" />
             <TextBlock Grid.Column="2" Classes="ident cell colhead" Text="rate" TextAlignment="Right" />
             <TextBlock Grid.Column="3" Classes="ident cell colhead" Text="readers" TextAlignment="Right" />
-            <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="watch on" />
+            <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="in grid" />
+            <TextBlock Grid.Column="5" Classes="ident cell colhead" Text="watch on" />
           </Grid>
         </Border>
 
@@ -75,7 +138,7 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:StreamRowViewModel">
               <StackPanel>
-                <Grid ColumnDefinitions="200,140,120,100,*">
+                <Grid ColumnDefinitions="200,140,120,100,90,*">
                   <TextBlock Grid.Column="0" Classes="ident cell" Text="{Binding Name}"
                              Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
                   <TextBlock Grid.Column="1" Classes="ident cell" Text="{Binding Tracks}"
@@ -86,12 +149,23 @@
                              Classes.idle="{Binding !IsReady}" />
 
                   <!--
+                    The grid toggle. It is one control and not one per leg, because which
+                    protocol a tile receives on is a setting the backend resolves and not a
+                    choice this row offers (docs/viewer-architecture.md, "Two legs, two
+                    protocols").
+                  -->
+                  <ToggleButton Grid.Column="4" Margin="9,4" Content="show"
+                                IsChecked="{Binding IsTiled, Mode=OneWay}"
+                                Command="{Binding Show}"
+                                controls:Pending.IsActive="{Binding Show.IsRunning}" />
+
+                  <!--
                     One toggle per leg the backend offered. Whether a leg can carry this stream is
                     the backend's answer when the viewer is opened, not a greying decided here: the
                     relay snapshot can be older than the stream, so refusing from a stale format
                     would block a viewer that would have worked.
                   -->
-                  <ItemsControl Grid.Column="4" ItemsSource="{Binding Legs}" Margin="9,4">
+                  <ItemsControl Grid.Column="5" ItemsSource="{Binding Legs}" Margin="9,4">
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
                         <WrapPanel />
@@ -102,7 +176,8 @@
                         <ToggleButton Margin="4,3"
                                       Content="{Binding Label}"
                                       IsChecked="{Binding IsOpen, Mode=OneWay}"
-                                      Command="{Binding Toggle}" />
+                                      Command="{Binding Toggle}"
+                                      controls:Pending.IsActive="{Binding Toggle.IsRunning}" />
                       </DataTemplate>
                     </ItemsControl.ItemTemplate>
                   </ItemsControl>

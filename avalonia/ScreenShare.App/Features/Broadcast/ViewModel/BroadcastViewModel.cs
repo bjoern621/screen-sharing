@@ -98,7 +98,7 @@ public sealed class BroadcastViewModel : Observable
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();
         Plots = new PlotsViewModel();
-        Log = new SessionLogViewModel();
+        Log = new SessionLogViewModel(OpenLogAsync, dispatch);
 
         // The three the contract has no method for. They are constructed unpressable rather
         // than disabled by a later pass, so there is no instant in which one of them works.
@@ -106,12 +106,15 @@ public sealed class BroadcastViewModel : Observable
         ForceKeyframeCommand = new DelegateCommand(() => Request(BroadcastAction.ForceKeyframe), static () => false);
         ReconnectCommand = new DelegateCommand(() => Request(BroadcastAction.Reconnect), static () => false);
 
-        StopCommand = new DelegateCommand(Stop, () => IsLive);
+        // Ending a stream crosses to the backend and the encoder it has to bring down, so the
+        // button waits on the answer rather than sitting still - and the command refuses the
+        // second press a reader gives a control that looks like it did nothing.
+        StopCommand = new PendingCommand(() => PerformAsync(_backend.StopPublishAsync), dispatch, () => IsLive);
 
-        // The two escape hatches the cards own. They are re-raised here so a shell has one
-        // place to listen, rather than one subscription per card.
+        // The one escape hatch the cards still raise as news. Opening the log is an effect the
+        // card runs itself, because a card that waits on a call has to be the thing that knows
+        // the call is running.
         Config.EditRequested += () => Request(BroadcastAction.EditInSetup);
-        Log.OpenRequested += OpenLog;
 
         Apply();
     }
@@ -155,7 +158,7 @@ public sealed class BroadcastViewModel : Observable
     public DelegateCommand ReconnectCommand { get; }
 
     /// <summary>The one red control on the screen, and the only one that ends the stream.</summary>
-    public DelegateCommand StopCommand { get; }
+    public PendingCommand StopCommand { get; }
 
     /// <summary>
     /// The reading every card on this screen describes, composed from the session's whole states
@@ -347,17 +350,15 @@ public sealed class BroadcastViewModel : Observable
     // --- The effects ----------------------------------------------------------------
 
     /// <summary>
-    /// Ends the stream. Nothing is written here on the way out: the reply carries no state and
+    /// Opens the run log of the newest thing that ended, or the folder holding them where
+    /// nothing has. Both are the backend's, because the files are on its machine - which is
+    /// also why it is a call that can take a moment and the card waits on it.
+    ///
+    /// Nothing is written here on the way out of either effect: a reply carries no state and
     /// what the stream became arrives on the event stream, which is what stops the window that
     /// pressed the button and the window that did not from showing different things.
     /// </summary>
-    private void Stop() => Perform(_backend.StopPublishAsync);
-
-    /// <summary>
-    /// Opens the run log of the newest thing that ended, or the folder holding them where
-    /// nothing has. Both are the backend's, because the files are on its machine.
-    /// </summary>
-    private void OpenLog()
+    private Task OpenLogAsync()
     {
         Request(BroadcastAction.OpenFullLog);
 
@@ -370,7 +371,7 @@ public sealed class BroadcastViewModel : Observable
             }
         }
 
-        Perform(newest.Length > 0
+        return PerformAsync(newest.Length > 0
             ? cancellation => _backend.OpenLogAsync(newest, cancellation)
             : _backend.OpenLogsFolderAsync);
     }
@@ -383,8 +384,6 @@ public sealed class BroadcastViewModel : Observable
     /// (<c>docs/ipc-api.md</c>, "Errors"). A success clears whatever the last one left, which is
     /// the render function's usual property applied to a string.
     /// </summary>
-    private void Perform(Func<CancellationToken, Task> effect) => _ = PerformAsync(effect);
-
     private async Task PerformAsync(Func<CancellationToken, Task> effect)
     {
         try

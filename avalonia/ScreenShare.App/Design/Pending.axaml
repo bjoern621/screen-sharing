@@ -1,0 +1,42 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:ScreenShare.App.Controls">
+
+  <!--
+    The wait, as one rule for every control that can be waiting. A press that crosses to the
+    backend takes a round trip, and a control that answers a press by going quietly inert is
+    read as a broken one - the uplink measurement taught that, and it used to be the only
+    control on the surface that said so.
+
+    Stated once and never at a call site. A screen sets controls:Pending.IsActive from the
+    command's own in-flight field and gets this; a screen that drew its own spinner beside its
+    own label would be a second answer to the same question, and two answers drift.
+  -->
+
+  <!--
+    The label goes and the spinner takes its place, inside the same box: the hidden content
+    is still measured, so a button does not resize under the pointer the moment it is pressed
+    and a row of them does not reflow around the one that is working.
+
+    It is the ContentTemplate that moves rather than the Content, so nothing here writes what
+    the control says. The label comes back by itself when the call answers, which is the
+    render function's usual property applied to a template.
+  -->
+  <!--
+    A control that is waiting is not a control that is off, so the pointer says the press has
+    landed and is being answered rather than being unavailable. The command refuses a second
+    press itself, which is what makes the cursor cosmetic rather than load-bearing.
+  -->
+  <Style Selector=":is(Button):pending">
+    <Setter Property="Cursor" Value="Wait" />
+    <Setter Property="ContentTemplate">
+      <DataTemplate>
+        <Panel>
+          <ContentPresenter Content="{Binding}" Opacity="0" IsHitTestVisible="False" />
+          <controls:Spinner />
+        </Panel>
+      </DataTemplate>
+    </Setter>
+  </Style>
+
+</Styles>

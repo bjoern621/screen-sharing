@@ -26,6 +26,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -116,6 +117,14 @@ type Backend interface {
 	// what they open is a decode and never a tile.
 	StartReceive(key wire.WatchKey) error
 	StopReceive(key wire.WatchKey)
+	// SubscribeFrames opens one consumer's view of a decode that is already running,
+	// and refuses where nothing is decoding the pair.
+	//
+	// It is on this interface and not on a second one because the frame service serves
+	// the same backend the control service does: the decode a subscription draws from
+	// is the one StartReceive opened, and two interfaces onto it would be two ideas of
+	// which decodes exist.
+	SubscribeFrames(key wire.WatchKey) (FrameStream, error)
 	// StartTestStreams launches synthetic publishers, replacing a running set.
 	StartTestStreams(count int) error
 	// StopTestStreams stops every synthetic publisher.
@@ -126,6 +135,24 @@ type Backend interface {
 	// OpenLogsFolder the directory holding them.
 	OpenLog(path string) error
 	OpenLogsFolder() error
+}
+
+// FrameStream is one consumer's running subscription to a decode's frames.
+//
+// It is an interface for the reason Backend is one: the frame service has to be
+// servable in front of something with no GPU and no pipeline, and a concrete
+// subscription would make every test of this service a test of the exporter behind it.
+//
+// The methods are the protocol. Events carries what the backend says and closes when
+// the subscription ends, Err then says why, Release hands one slot back, SetRenderSize
+// says how many pixels the consumer will draw at, and Close ends it from this side and
+// frees the memory.
+type FrameStream interface {
+	Events() <-chan receive.Event
+	Err() error
+	Release(generation uint64, slot int, serial uint64)
+	SetRenderSize(width, height int)
+	Close()
 }
 
 // The contract version this build implements.

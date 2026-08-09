@@ -166,7 +166,8 @@
                     Theme="{StaticResource DangerButton}"
                     Height="{StaticResource FooterButtonHeight}"
                     Margin="8,0,0,0"
-                    Command="{Binding GoLiveCommand}">
+                    Command="{Binding GoLiveCommand}"
+                    controls:Pending.IsActive="{Binding GoLiveCommand.IsRunning}">
               <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
                 <Ellipse Width="{StaticResource DotSize}"
                          Height="{StaticResource DotSize}"

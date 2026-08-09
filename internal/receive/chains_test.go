@@ -140,12 +140,28 @@ func TestRenderSinkNamesItself(t *testing.T) {
 	}
 }
 
-// TestDefaultChainStatesItsColour is the table's contract with a viewer that never
-// picked a chain, asserted at init and stated here as the reason the table is
+// TestDefaultChainConvertsOnTheDevice is the table's contract with a viewer that
+// never picked a chain, asserted at init and stated here as the reason the table is
 // ordered the way it is.
-func TestDefaultChainStatesItsColour(t *testing.T) {
-	if got := chainNamed(DefaultChain).colour; got != ColourStated {
-		t.Errorf("the default chain %q produces %s colour, want %s", DefaultChain, got, ColourStated)
+//
+// Two claims rather than one, and neither is about which chain is named. It has to
+// convert, because a chain that states no colour at all leaves the window mapping an
+// unknown transfer function to BT.709 and washing out every shadow; and it has to keep
+// its frames on the device, because the frame channel exports a handle to device
+// memory and a default that converted in system memory would make every tile cost a
+// download.
+//
+// What it does not have to do is state an exact colour, and that is the platform's
+// answer rather than the table's: on Windows the only exportable memory is Direct3D
+// 11's, whose converter may run through a video processor the caps do not describe
+// (DefaultChain).
+func TestDefaultChainConvertsOnTheDevice(t *testing.T) {
+	c := chainNamed(DefaultChain)
+	if c.colour == ColourUnstated {
+		t.Errorf("the default chain %q converts nothing", DefaultChain)
+	}
+	if c.device == "" {
+		t.Errorf("the default chain %q converts in system memory, so no frame of it can be exported", DefaultChain)
 	}
 }
 

@@ -27,20 +27,27 @@ public sealed class ReviewStepViewModel : Observable
     /// <param name="edit">Hands a command that moves the flow to one step. The review edits nothing itself.</param>
     /// <param name="back">Moves to the step before this one, which is the flow's own answer rather than a key held here.</param>
     /// <param name="goLive">
-    /// What committing means. Owned above this view model - there is no publisher here to call,
-    /// and starting one is an effect on the control plane this step has no seam to.
+    /// What committing means, and it answers when the backend has answered. Owned above this
+    /// view model - there is no publisher here to call, and starting one is an effect on the
+    /// control plane this step has no seam to.
     /// </param>
-    public ReviewStepViewModel(Func<string, DelegateCommand> edit, Action back, Action goLive)
+    /// <param name="dispatch">The UI loop the commit's answer is marshalled back to.</param>
+    public ReviewStepViewModel(
+        Func<string, DelegateCommand> edit, Action back, Func<Task> goLive, Action<Action> dispatch)
     {
         Assert.NotNull(edit, "the review hands editing back to the step that owns it");
         Assert.NotNull(back, "the review needs the flow's own way back");
         Assert.NotNull(goLive, "the review hands the commit to whoever owns publishing");
+        Assert.NotNull(dispatch, "the review needs a UI loop to marshal the commit's answer back to");
 
         _edit = edit;
         Tiles = [];
         Checks = [];
 
-        GoLiveCommand = new DelegateCommand(goLive, () => CanGoLive);
+        // A start crosses to the backend, which persists the settings and launches an encoder on
+        // them, so the button waits rather than going inert: the round trip is long enough for a
+        // reader to press again, and the command is what refuses that.
+        GoLiveCommand = new PendingCommand(goLive, dispatch, () => CanGoLive);
         BackCommand = new DelegateCommand(back);
 
         Apply(PublishGate.Unread, streamName: "", refusal: "", [], []);
@@ -78,7 +85,11 @@ public sealed class ReviewStepViewModel : Observable
     /// <summary>The same list the rail carries, which is the form's diagnostics.</summary>
     public ObservableCollection<PreflightCheckRow> Checks { get; }
 
-    public DelegateCommand GoLiveCommand { get; }
+    /// <summary>
+    /// The commit. Its own in-flight field is what the button draws its wait from, so the
+    /// spinner on screen and the press the command would refuse are one fact.
+    /// </summary>
+    public PendingCommand GoLiveCommand { get; }
 
     public DelegateCommand BackCommand { get; }
 

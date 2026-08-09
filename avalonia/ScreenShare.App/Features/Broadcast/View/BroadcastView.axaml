@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:config="using:ScreenShare.App.Features.Broadcast.ConfigCard.View"
              xmlns:header="using:ScreenShare.App.Features.Broadcast.HeaderStats.View"
              xmlns:log="using:ScreenShare.App.Features.Broadcast.SessionLog.View"
@@ -32,7 +33,10 @@
           <Button Theme="{StaticResource ActionButton}" Content="Pause" Command="{Binding PauseCommand}" />
           <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}" />
           <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}" />
-          <Button Theme="{StaticResource DangerButton}" Content="Stop" Command="{Binding StopCommand}" />
+          <Button Theme="{StaticResource DangerButton}"
+                  Content="Stop"
+                  Command="{Binding StopCommand}"
+                  controls:Pending.IsActive="{Binding StopCommand.IsRunning}" />
         </StackPanel>
       </Grid>
     </Border>

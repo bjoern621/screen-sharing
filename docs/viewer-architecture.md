@@ -8,7 +8,7 @@ Two ways to watch exist.
 - The shell's tile grid: a receiving GStreamer pipeline in the Go backend, whose decoded frames reach the Avalonia window over the frame channel.
 
 The first works today and needs nothing installed beyond ffmpeg.
-The second is being built, and the frame channel is the part that does not exist yet.
+The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports; the Linux and macOS legs of the frame channel are not built, and on those platforms a tile says so rather than falling back to a copy through system memory.
 
 The capture and publish side is the mirror of this seam; see `capture-architecture.md`.
 
@@ -224,10 +224,20 @@ Which elements sit between the source and the sink is a **render chain**, and th
 |---|---|---|
 | `gl` | `glupload ! glcolorconvert ! glcolorscale`, RGBA/sRGB in `GLMemory` | stated |
 | `cpu` | `videoscale ! capsfilter ! videoconvert`, RGBA/sRGB in system memory | stated |
-| `d3d11`, `d3d12` | `d3d11upload ! d3d11convert`, then a download | the driver's |
+| `d3d11` | `d3d11upload ! d3d11convert`, RGBA/sRGB in `D3D11Memory` | the driver's |
+| `d3d12` | `d3d12upload ! d3d12convert`, then a download | the driver's |
 | `raw` | nothing | unstated |
 
-`gl` is the default, and it is the default because it was measured equal to `cpu` rather than because it is faster: rendered through both, flat dark, flat bright and gradient content are bit-identical, and a saturated colour-bar frame differs by at most one code value per channel.
+**The default is per platform, and the frame channel is why.**
+Only a chain that leaves its frames in the memory this platform's handle names can produce one.
+On Windows that is `d3d11`: a DXGI shared texture is exported from a Direct3D 11 resource and from nothing else, and GStreamer's OpenGL there is WGL, whose textures the shell's ANGLE device cannot open.
+It is also why the `d3d11` row no longer ends in a download - pulling every frame into system memory so the exporter could push it straight back onto the same GPU is precisely the copy this table exists to avoid.
+Everywhere else the default is `gl`.
+
+That leaves the Windows default stating no exact colour, which is the platform's trade rather than one taken freely: `GstD3D11Converter` may pass the conversion to `ID3D11VideoProcessor`, configured through an API the caps do not describe.
+A reader who wants the colour stated picks `cpu` and pays the download, which is a choice the form offers and a fact the receive state reports.
+
+`gl` earns its place by measurement rather than by keeping frames on the GPU: rendered through it and through `cpu`, flat dark, flat bright and gradient content are bit-identical, and a saturated colour-bar frame differs by at most one code value per channel.
 Dark content agreeing is the evidence that matters, since washed-out shadows are the failure the pinned sRGB caps exist to prevent - without them the sink also takes YUV and an unknown transfer function is read as BT.709, lifting every shadow.
 What `gl` saves is the download: the CPU chain pulls every decoded frame into system memory and converts and scales it there, which at 1440p144 in 4:4:4 is gigabytes a second per tile.
 A machine that registers none of a chain's elements cannot run it, and `resolve` leaves it out, which is why the ladder exists at all.
@@ -241,22 +251,50 @@ What a running pipeline actually did is reported rather than assumed: the receiv
 ## The frame channel
 
 Frames do not cross the control API, and they will not.
-`ipc-api.md` carries control and description; the frame channel is a second gRPC service on the same socket, and what travels on it is handle metadata, fences and release-backs.
+`ipc-api.md` carries control and description; the frame channel is a second gRPC service on the same socket (`frame.proto`), and what travels on it is handle metadata and release-backs.
 The pixels stay in shared GPU memory that the handle names.
 
 Each platform has its own handle type, and they are not equally ready.
 
-- **Windows** - a D3D11 shared NT handle with a keyed mutex, which Avalonia's compositor imports today. This is the leg being built first.
-- **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as planned rather than shipped, so the near-term route is `OpenGlControlBase` plus `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`, and format modifiers and a sync-file fence have to travel with the frame.
+- **Windows** - a DXGI shared texture with a keyed mutex, which Avalonia's compositor imports today. **This leg is built.**
+- **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as planned rather than shipped, so the near-term route is `OpenGlControlBase` plus `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`, and format modifiers and a sync-file fence have to travel with the frame. The contract already carries all three (`FRAME_HANDLE_TYPE_DMABUF_FD`, `FramePool.modifier`, `FrameSlot.planes`); nothing produces or reads them yet.
 - **macOS** - IOSurface from VideoToolbox, with no first-class import handle type. The weakest leg and the last one scheduled; until it lands, macOS watches through the native player, which needs no frame channel at all.
 
 The sink is `appsink` rather than a paintable: the chain above ends by exporting a handle instead of drawing into a widget, which is the one part of the harvested code that had to be rewritten.
 
-The buffer-ownership protocol - pool ownership, per-frame fences, release-back messages, and what each side does when the other dies - is the actual design work, and it is not settled here.
+**The global shared handle rather than the NT one.**
+`IDXGIResource::GetSharedHandle` on a texture created with `D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX` yields a value every process on the machine can open, where an NT handle would have to be duplicated into the shell's process and so would need this backend to open it.
+The two are halves of one application on one box (`ipc-api.md`), so the less privileged of the two forms is the one that is used.
 
-What *is* settled is what the control API says about receiving.
+### The buffer-ownership protocol
+
+**The backend owns the memory and lends it.**
+Each subscription gets a pool of its own - three textures, allocated on the decoder's own Direct3D device - and the handles are announced once, in a `FramePool` the consumer imports slot by slot.
+Two tiles on one stream are two pools and two copies rather than one buffer with two owners, which is what stops a slow tile from holding a slot the other one is waiting for.
+
+**Each frame is a loan.**
+A decoded frame is copied on the GPU into a free slot, the slot's keyed mutex is released to the consumer's key, and a `FrameReady` names it.
+The slot is the consumer's until a `FrameRelease` comes back on the same call, which the shell sends only after the compositor has actually taken the texture.
+A release on a second call could outlive the subscription it belongs to, which is why the channel is bidirectional rather than a server stream with a side channel.
+
+**A consumer that is slow costs frames and never costs the pipeline.**
+With every slot out on loan there is nowhere to put the next decoded frame, so it is dropped and counted, and the count travels on the next `FrameReady`.
+Nothing blocks: the copy runs on the sink's streaming thread and every step of it either succeeds now or is a dropped frame.
+
+**A pool is re-announced when the pipeline renegotiates**, which is a source that resized or a tile whose render size moved the scaler's output; a slot is allocated at one size and a picture of another size cannot be copied into it.
+Each pool carries a generation, releases carry it back, and one naming a pool that is gone is discarded rather than freeing a slot of the pool that replaced it.
+
+**Either side dying is the same teardown.**
+The call ending frees the pool, so a shell that crashed costs this process nothing; the pipeline ending sends a `FrameEnd` on the call the consumer is blocked reading, because a window waiting for frames learns nothing from an event it is not the one reading.
+The same fact still travels as `ReceiveExit` on the control stream, for every shell that is not the one drawing.
+
+**The render size travels on this channel and not on the control one.**
+It is a count of pixels a consumer will draw at, which is a fact about frames; the pipeline takes the largest of its consumers' asks, since a size is a bound and rendering at the largest means the smallest tile scales down at draw time rather than the largest scaling up.
+
+What the control API says about receiving is unchanged.
 `StartReceive` and `StopReceive` are effects, and receive state travels on the existing event stream, whole rather than as a delta, so a shell that asked and a shell that did not learn the same thing at the same time.
 Nothing about a grid, a tile or a layout is on that contract: how a viewer arranges what it receives is the shell's job.
+A subscription therefore names a decode that already exists and never opens one - the two staying separate is what lets a decode outlive every window drawing it.
 
 ## The native player
 
@@ -272,6 +310,22 @@ A viewer is identified by stream name and transport together, not by name alone,
 Two rendering differences are worth knowing when choosing between the two engines.
 ffplay is pinned to the SDL X11/XWayland backend, whose window a compositor renders reliably where the SDL Wayland backend may not.
 mpv renders 4:4:4 and a native Wayland window, which is what `SCREENSHARE_VIEWER=mpv` selects.
+
+## The synthetic set
+
+Three synthetic publishers run for as long as the backend does, so the viewer roster carries streams whether or not this machine is capturing anything.
+Each is one `gst-launch-1.0` encoding a `videotestsrc` pattern into the relay over RTSP (`publish.BuildTestStreamArgs`), named `test-1` to `test-3` after the slot it holds, and the relay re-serves each on every listener exactly as it does a real one.
+
+They are always on because the screens that watch are being built against them.
+A relay carrying nothing puts the roster in its empty state rather than in the one under construction, and a tile grid cannot be looked at on a machine that has to publish its own screen first.
+
+The slot is the stream's identity rather than the process's.
+A publisher that dies is relaunched into the slot it held, so it returns as the row the roster already shows instead of beside it.
+The wait walks 2, 4, 8, 15 and 30 seconds and then holds at thirty, and there is no attempt budget, unlike the publish leg's: what is being waited out is usually the relay, which this process starts before and outlives, and giving up would leave the roster empty for the rest of the run over an outage that ended a minute in.
+The exit reaches the session log once per outage rather than once per attempt, for the same reason.
+
+`SCREENSHARE_TEST_STREAMS` names another count for one run and `0` turns the set off, because three x264 encoders are not free and a machine measuring its own encode has reason to want them gone.
+`StartTestStreams` and `StopTestStreams` still say what the set holds at runtime (`ipc-api.md`), and a stop leaves it off until something asks for it again.
 
 ## Adding a watch path
 

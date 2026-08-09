@@ -63,6 +63,8 @@ public sealed class PlotsViewModel : Observable
     private IReadOnlyList<Point> _rtt = [];
     private IReadOnlyList<Point> _buffer = [];
     private string _ceiling = "";
+    private double _ceilingFraction = double.NaN;
+    private string _window = "";
     private string _band = "";
     private bool _hasEgress;
     private bool _hasLatency;
@@ -80,8 +82,23 @@ public sealed class PlotsViewModel : Observable
     /// <summary>Empty always: nothing in the pipeline measures buffer fill.</summary>
     public IReadOnlyList<Point> Buffer { get => _buffer; private set => Set(ref _buffer, value); }
 
-    /// <summary>The label riding on the gridline, which <i>is</i> the ceiling it names.</summary>
+    /// <summary>The label naming the ceiling the running pipeline was built with.</summary>
     public string Ceiling { get => _ceiling; private set => Set(ref _ceiling, value); }
+
+    /// <summary>
+    /// Where the rule marking that ceiling sits, 0 at the top to 1 at the bottom, and
+    /// <see cref="double.NaN"/> where the ceiling falls outside the drawn range and no rule is
+    /// drawn. Derived from the curve's own scale rather than fixed by the design: a rule at a
+    /// constant height would say the ceiling is wherever the mockup put it.
+    /// </summary>
+    public double CeilingFraction { get => _ceilingFraction; private set => Set(ref _ceilingFraction, value); }
+
+    /// <summary>
+    /// How much stream the plot covers, e.g. <c>240 s</c>, empty where it covers none. It is
+    /// measured off the samples on screen rather than stated as a fixed window, because the run
+    /// is younger than the window it will eventually fill.
+    /// </summary>
+    public string Window { get => _window; private set => Set(ref _window, value); }
 
     /// <summary>The label over the shaded band: when the congestion the band marks happened.</summary>
     public string Band { get => _band; private set => Set(ref _band, value); }
@@ -120,10 +137,18 @@ public sealed class PlotsViewModel : Observable
         HasLatency = false;
         LatencyNotice = "round trip and buffer fill are measured by nothing in the pipeline";
 
+        // The window is the samples' own span. It is stated rather than fixed because the plot
+        // stretches whatever the session holds across the card: a run a minute old and a run an
+        // hour old fill the same width, and a constant label under one of them is wrong.
+        var span = PlotSeries.Span(Samples);
+        Window = HasEgress && span is not null ? $"{span.Value:0} s" : "";
+
         // The band names a congestion window nothing detects, so it carries the word alone
         // rather than a timestamp that would be invented. The ceiling is the setting the
-        // running pipeline was built with, so it moves with the stream.
+        // running pipeline was built with, so it moves with the stream, and the rule marking it
+        // is placed against the curve's own scale rather than drawn wherever the design put it.
         Ceiling = $"vbv ceiling {Figure.Of(reading.VbvCeilingMbps, "0")} Mb/s";
+        CeilingFraction = PlotSeries.CeilingFraction(Samples, reading.VbvCeilingMbps);
         Band = reading.CongestionAt.Length > 0 ? $"congestion {reading.CongestionAt}" : "";
 
         Assert.That(Extent.Width > 0 && Extent.Height > 0,
@@ -132,5 +157,9 @@ public sealed class PlotsViewModel : Observable
             "the two latency series cover the same window", Rtt.Count, Buffer.Count);
         Assert.That(HasEgress == (EgressNotice.Length == 0),
             "a curve and the sentence standing in for it are never both on screen", HasEgress, EgressNotice);
+        Assert.That(double.IsNaN(CeilingFraction) || CeilingFraction is >= 0 and <= 1,
+            "a ceiling rule that is drawn sits inside the plot", CeilingFraction);
+        Assert.That(HasEgress || Window.Length == 0,
+            "a plot with no curve states no window", HasEgress, Window);
     }
 }

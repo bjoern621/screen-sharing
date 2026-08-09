@@ -22,6 +22,7 @@
         <ResourceInclude Source="/Design/Inputs.axaml" />
         <ResourceInclude Source="/Design/Tooltips.axaml" />
         <ResourceInclude Source="/Controls/Chip/Chip.axaml" />
+        <ResourceInclude Source="/Controls/Spinner/Spinner.axaml" />
         <ResourceInclude Source="/Controls/StatusPill/StatusPill.axaml" />
         <ResourceInclude Source="/Controls/CheckItem/CheckItem.axaml" />
         <ResourceInclude Source="/Controls/Segmented/Segmented.axaml" />
@@ -48,6 +49,11 @@
     <StyleInclude Source="/Design/Text.axaml" />
     <StyleInclude Source="/Design/Surfaces.axaml" />
     <StyleInclude Source="/Design/Icons.axaml" />
+    <!--
+      Last of the design styles, because it is the one that overrides a control's own content
+      while a call it started is in flight (Controls/Pending/Pending.cs).
+    -->
+    <StyleInclude Source="/Design/Pending.axaml" />
   </Application.Styles>
 
 </Application>

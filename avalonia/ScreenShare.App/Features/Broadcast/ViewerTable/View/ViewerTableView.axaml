@@ -48,7 +48,12 @@
 
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="13,11">
         <TextBlock Grid.Column="0" Classes="caption" Text="Viewers on this stream" VerticalAlignment="Center" />
-        <TextBlock Grid.Column="1" Classes="hint" Text="reported by the relay every 5 s" VerticalAlignment="Center" />
+        <!--
+          No interval in the sentence. The backend polls the relay and announces each snapshot,
+          and how often it does so is not on the contract - so a period stated here would be a
+          number this side made up, and the one the design carried was already wrong.
+        -->
+        <TextBlock Grid.Column="1" Classes="hint" Text="as the backend last polled the relay" VerticalAlignment="Center" />
       </Grid>
 
       <!--

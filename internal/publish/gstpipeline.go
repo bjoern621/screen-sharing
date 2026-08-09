@@ -15,9 +15,10 @@ import (
 // buildPipeline assembles the gst-launch description: the capture backend's
 // source elements, the encoder for the selected codec, and the transport's muxer
 // and sink. capture is the already-built source, so a run and the displayed
-// command differ only in what the backend put in it. meterFd is the descriptor
-// the progress instrumentation writes to, empty to build the pipeline without it.
-func buildPipeline(s settings.Settings, capture []string, meterFd string) ([]string, error) {
+// command differ only in what the backend put in it. meterPort is the loopback
+// port the progress instrumentation writes to, empty to build the pipeline
+// without it.
+func buildPipeline(s settings.Settings, capture []string, meterPort string) ([]string, error) {
 	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
 		return nil, err
 	}
@@ -72,8 +73,8 @@ func buildPipeline(s settings.Settings, capture []string, meterFd string) ([]str
 		pipeline = append(pipeline, link...)
 		pipeline = append(pipeline, "!")
 	}
-	if meterFd != "" {
-		pipeline = append(pipeline, gstProgressElements(meterFd)...)
+	if meterPort != "" {
+		pipeline = append(pipeline, gstProgressElements(meterPort)...)
 	}
 	// With audio the muxer waits on two pads, and the queue keeps one pad's stall
 	// from blocking the other branch upstream of the mux. Instrumentation needs the
@@ -81,7 +82,7 @@ func buildPipeline(s settings.Settings, capture []string, meterFd string) ([]str
 	// here expose request pads only, and gst-launch refuses to link two unnamed
 	// request pads. The queue's static sink pad breaks that pair, so the link
 	// resolves without pinning a tee pad number.
-	if len(audio) > 0 || meterFd != "" {
+	if len(audio) > 0 || meterPort != "" {
 		pipeline = append(pipeline, "queue", "!")
 	}
 	pipeline = append(pipeline, sink...)

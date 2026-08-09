@@ -2,7 +2,6 @@ package publish
 
 import (
 	"math"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -79,18 +78,18 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	if line := strings.Join(plain, " "); strings.Contains(line, "progressreport") ||
-		strings.Contains(line, "fdsink") {
-		t.Errorf("pipeline built without a meter fd carries instrumentation: %s", line)
+		strings.Contains(line, "tcpclientsink") {
+		t.Errorf("pipeline built without a meter port carries instrumentation: %s", line)
 	}
 
-	metered, err := buildPipeline(s, capture, "4")
+	metered, err := buildPipeline(s, capture, "54321")
 	if err != nil {
 		t.Fatal(err)
 	}
 	line := strings.Join(metered, " ")
 	parser := strings.Index(line, "h264parse")
 	report := strings.Index(line, "progressreport")
-	meterBranch := strings.Index(line, "fdsink fd=4")
+	meterBranch := strings.Index(line, "tcpclientsink host=127.0.0.1 port=54321")
 	sinkBranch := strings.Index(line, gstMeterName+". !")
 	mux := strings.Index(line, "mpegtsmux")
 	if !(parser < report && report < meterBranch && meterBranch < sinkBranch && sinkBranch < mux) {
@@ -125,8 +124,8 @@ func TestGstMeterSpeedBelowRealtime(t *testing.T) {
 
 // The instrumentation is a wire format shared with GStreamer: the element
 // properties gstProgressElements sets have to produce the lines the parser
-// matches, and the fdsink has to reach the inherited descriptor. Both hold only
-// against a real gst-launch, so this runs one.
+// matches, and the tcpclientsink has to reach the meter's listener. Both hold
+// only against a real gst-launch, so this runs one.
 func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -147,8 +146,8 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	}
 	defer meter.close()
 
-	// videotestsrc stands in for the portal capture; the meter fd is 3 because
-	// this pipeline inherits no PipeWire remote ahead of it.
+	// videotestsrc stands in for the portal capture, which this pipeline needs
+	// none of: the meter reaches the app over loopback either way.
 	args := []string{
 		"videotestsrc", "is-live=true",
 		"!", "video/x-raw,format=I420,width=320,height=240,framerate=30/1",
@@ -156,21 +155,19 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 		"!", "h264parse",
 		"!",
 	}
-	args = append(args, gstProgressElements("3")...)
+	args = append(args, gstProgressElements(meter.port())...)
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{
 		exe:         GstExe,
 		args:        args,
 		tag:         "gstmeter-test",
-		extraFiles:  []*os.File{meter.w},
 		parseStdout: meter.parse,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer handle.Stop()
-	meter.closeChildEnd()
 
 	// progressreport prints once a second and needs a second of data first.
 	var latest Stats
@@ -285,21 +282,19 @@ func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 		"!", "h264parse",
 		"!",
 	)
-	args = append(args, gstProgressElements("3")...)
+	args = append(args, gstProgressElements(meter.port())...)
 	args = append(args, "fakesink")
 
 	handle, err := supervise(superviseConfig{
 		exe:         GstExe,
 		args:        args,
 		tag:         "gstcapturerate-test",
-		extraFiles:  []*os.File{meter.w},
 		parseStdout: meter.parse,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer handle.Stop()
-	meter.closeChildEnd()
 
 	var latest Stats
 	deadline := time.After(20 * time.Second)

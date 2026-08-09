@@ -180,6 +180,24 @@ The dot stays small (7px): it is state, not decoration.
 **Red never means live in the sense of merely connected.** It means on air — this machine is
 broadcasting right now — or it means broken. Those are the only two.
 
+## Waiting
+
+A control that starts a call the backend has to answer says so until it is answered.
+Go live, Stop, Measure, Look again, Open full log, a stream's grid toggle and its watch legs
+are all of them; none of them is instant, and a control that answers a press by going quietly
+inert is read as a broken one.
+
+The treatment is one thing everywhere: the label is replaced in place by a turning arc, in
+the control's own foreground, inside the box the label had.
+The box does not resize, so a row of controls does not reflow around the one that is working.
+The arc turns at a constant rate and states no progress, because nothing here knows any — a
+control call is answered or it is not.
+A waiting control is not pressable — a second press would ask the backend for the same thing
+twice — so it also takes the unavailable treatment while the arc turns.
+The arc is what tells the two apart: a control that is merely unavailable keeps its label and
+its reason stands in words nearby, and a control that is waiting shows neither, because the
+reason is that it is working.
+
 ## Selection
 
 Selection is inversion: the selected thing takes the one light surface and near-black text.

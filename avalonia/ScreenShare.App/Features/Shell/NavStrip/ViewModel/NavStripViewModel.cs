@@ -9,10 +9,12 @@ namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 /// The strip that answers three questions at once: where you are, where else you may go,
 /// and whether the world is being changed right now.
 ///
-/// It owns none of that. The shell owns the destination and its availability and pushes
-/// both in through <see cref="Show"/>; the fields behind them are the cache
-/// <see cref="Apply"/> refills on every pass, never a second copy that can drift
-/// (docs/development-principles.md, "State is written explicitly and read continuously").
+/// It owns none of that. The shell owns the destination, its availability and how long the
+/// stream has been running, and pushes all three in through <see cref="Show"/>; the fields
+/// behind them are the cache <see cref="Apply"/> refills on every pass, never a second copy
+/// that can drift (docs/development-principles.md, "State is written explicitly and read
+/// continuously"). The timer in particular is the encoder's own, which is why no clock ticks
+/// in here.
 ///
 /// The one thing the strip does own is the user's click, which is why
 /// <see cref="SelectedTab"/> is the only public setter here.
@@ -23,9 +25,6 @@ public sealed class NavStripViewModel : Observable
     private const string BroadcastHint = "Broadcast opens once you go live";
 
     private const string OnAirText = "On air";
-
-    /// <summary>Seeded verbatim from the design. There is no clock behind it yet.</summary>
-    private const string Elapsed = "00:42:18";
 
     private readonly Action<Destination> _select;
 
@@ -46,20 +45,29 @@ public sealed class NavStripViewModel : Observable
 
     private Destination _current = Destination.Setup;
     private bool _broadcastAvailable;
+    private string _elapsed = "";
 
     /// <summary>
-    /// The strip's whole input, written in one go so its two halves cannot disagree: a
-    /// segment that is dimmed and selected at once has no rendering. Idempotent.
+    /// The strip's whole input, written in one go so its three parts cannot disagree: a
+    /// segment that is dimmed and selected at once has no rendering, and neither has a pill
+    /// that is on air with nothing publishing. Idempotent.
     /// </summary>
-    public void Show(Destination current, bool broadcastAvailable)
+    /// <param name="elapsed">
+    /// How long the encoder has been running, as the shell composed it from the running state.
+    /// It is handed in rather than counted here: no clock in this strip could agree with the
+    /// encoder's own, and the pill beside the header figures reads the same field.
+    /// </param>
+    public void Show(Destination current, bool broadcastAvailable, string elapsed)
     {
         Assert.That(
             current != Destination.Broadcast || broadcastAvailable,
             "a strip shows broadcast only while broadcast can be reached",
             (int)current);
+        Assert.NotNull(elapsed, "a strip is told how long the stream it reports has been running");
 
         _current = current;
         _broadcastAvailable = broadcastAvailable;
+        _elapsed = elapsed;
         Apply();
     }
 
@@ -138,7 +146,7 @@ public sealed class NavStripViewModel : Observable
         // publishes - so the strip reads it rather than keeping a second copy that can drift.
         ShowsOnAir = _broadcastAvailable;
         OnAirLabel = ShowsOnAir ? OnAirText : "";
-        OnAirTimer = ShowsOnAir ? Elapsed : "";
+        OnAirTimer = ShowsOnAir ? _elapsed : "";
 
         // The pair the whole strip turns on: the segment standing lit is the one the shell
         // showed, and it is one the reader could have reached.

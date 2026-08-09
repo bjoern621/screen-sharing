@@ -55,6 +55,9 @@ public sealed class ControlBackend : IBackend
 
     private readonly ControlService.ControlServiceClient _client;
 
+    /// <summary>The frame channel's client, on the same connection as the control one.</summary>
+    private readonly FrameService.FrameServiceClient _frames;
+
     /// <summary>
     /// Guards the handshake, so several reads starting at once produce one <c>Hello</c> rather
     /// than one each.
@@ -96,6 +99,12 @@ public sealed class ControlBackend : IBackend
         });
 
         _client = new ControlService.ControlServiceClient(channel);
+        // The frame channel is the second service on that same connection. One channel for
+        // both is what the contract's own reasoning asks for: riding the same socket is what
+        // avoids reinventing framing, versioning and cancellation for a stream of handle
+        // metadata, and a second connection would have to be discovered and torn down
+        // separately from the one the handshake already settled.
+        _frames = new FrameService.FrameServiceClient(channel);
     }
 
     /// <inheritdoc />
@@ -151,6 +160,16 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
+    {
+        var answer = await ReadAsync(
+            c => c.GetReceiveStateAsync(new GetReceiveStateRequest(), cancellationToken: cancellation), cancellation)
+            .ConfigureAwait(false);
+
+        return answer.Streams;
+    }
+
+    /// <inheritdoc />
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         Assert.NotNull(settings, "starting a publish names the settings the encoder runs on");
@@ -194,6 +213,48 @@ public sealed class ControlBackend : IBackend
                 new StopWatchRequest { Viewer = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
             cancellation);
     }
+    /// <inheritdoc />
+    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+    {
+        Assert.That(streamName.Length > 0, "opening a decode names the stream it receives");
+        Assert.That(transport.Length > 0, "opening a decode names the leg it receives over", streamName);
+
+        return ReadAsync(
+            c => c.StartReceiveAsync(
+                new StartReceiveRequest { Stream = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
+    public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+    {
+        Assert.That(streamName.Length > 0, "closing a decode names the stream it was receiving");
+        Assert.That(transport.Length > 0, "closing a decode names the leg it received over", streamName);
+
+        return ReadAsync(
+            c => c.StopReceiveAsync(
+                new StopReceiveRequest { Stream = new WatchKey { StreamName = streamName, Transport = transport } }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
+    public async Task<FrameChannel> OpenFramesAsync(string streamName, string transport, CancellationToken cancellation = default)
+    {
+        // The handshake first, like every other call: a frame channel opened before the
+        // contract major was settled would be a stream of handles agreed on by two sides that
+        // never established they mean the same thing by one.
+        await GreetAsync().ConfigureAwait(false);
+
+        try
+        {
+            return await FrameChannel.OpenAsync(_frames, streamName, transport, cancellation).ConfigureAwait(false);
+        }
+        catch (RpcException e)
+        {
+            throw Translate(e, cancellation);
+        }
+    }
+
     /// <inheritdoc />
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
     {

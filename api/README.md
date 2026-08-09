@@ -19,6 +19,7 @@ api/
     session.proto             the running state: publish, relay, viewers
     events.proto              Event, the server-push envelope
     control.proto             ControlService, the whole callable surface
+    frame.proto               FrameService: the frame channel's handles and loans
   gen/go/screenshare/v1/    generated Go, committed
   buf.yaml                  lint and breaking-change configuration
   buf.gen.yaml              what buf generates
