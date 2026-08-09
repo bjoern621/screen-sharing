@@ -102,7 +102,8 @@ public sealed class BroadcastFiguresTests
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4.25, 12), null),
         };
 
-        // Round trip and loss, which nothing in the pipeline reports.
+        // Round trip and loss, with no relay snapshot to read a viewer's out of. They are the
+        // relay's figures, so no snapshot is no measurement - and no measurement is an ellipsis.
         Assert.Equal(Figure.NoValue, bar.Figures[2].Value);
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
     }

@@ -37,9 +37,18 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 /// dropped connection recoverable by reading again, and a shell that pressed the button and a
 /// shell that did not show the same thing.
 ///
-/// The one thing it accumulates is <see cref="Samples"/>, and that is not an exception. A
-/// sparkline is a history of readings by construction: each sample is a whole state, the
-/// window is bounded, and nothing is derived from the series that the backend also states.
+/// What it accumulates is <see cref="Samples"/> and <see cref="RelaySamples"/>, and neither is
+/// an exception. A sparkline is a history of readings by construction: each entry is a whole
+/// state the backend sent, the window is bounded, and nothing is derived from a series that the
+/// backend also states. The relay series earns its place on the same three counts - a snapshot
+/// is whole, the bound is the one below, and the latency plot draws the shape those snapshots
+/// went through rather than a figure the backend would have answered differently.
+///
+/// The relay series carries one thing the encoder series does not, and it is worth stating: a
+/// relay snapshot describes every path the relay is carrying, and the plot wants one of them.
+/// The path is picked when the series is drawn rather than when it is stored, because which path
+/// is ours is the publish state's answer and it can change under a series that has already been
+/// recorded (<c>Features/Broadcast/Model/BroadcastSnapshot.cs</c>, <c>PathOf</c>).
 ///
 /// The two writes are <see cref="Start"/> and the subscription loop, both of which land on
 /// the UI loop through the dispatcher they were handed, so a screen reading this never sees a
@@ -48,9 +57,15 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 public sealed class Session
 {
     /// <summary>
-    /// How many encoder samples the series keeps. Roughly one arrives per second per running
-    /// pipeline, so this is about four minutes of stream - enough for a sparkline to show a
-    /// dip and short enough that a session left open overnight costs nothing.
+    /// How many samples a series keeps. Roughly one encoder sample arrives per second per
+    /// running pipeline, so this is about four minutes of stream - enough for a sparkline to
+    /// show a dip and short enough that a session left open overnight costs nothing.
+    ///
+    /// The relay series is bounded by the same number rather than by a span of its own, and it
+    /// is deliberately a count of samples and not of seconds: how often the backend polls the
+    /// relay is not on the contract, so a window stated in seconds here would be a period this
+    /// side made up. What the two series therefore share is a length in readings, not a length
+    /// in time, which is why neither plot claims the other's window.
     /// </summary>
     private const int SampleWindow = 240;
 
@@ -65,6 +80,7 @@ public sealed class Session
     private readonly Action<Action> _dispatch;
     private readonly TimeProvider _clock;
     private readonly List<PublishStats> _samples = [];
+    private readonly List<RelayStatus> _relaySamples = [];
     private readonly List<SessionExit> _exits = [];
 
     private CancellationTokenSource? _cancel;
@@ -113,7 +129,14 @@ public sealed class Session
     public IReadOnlyList<PublishStats> Samples => _samples;
 
     /// <summary>The relay snapshot. Null until the first read lands; an unreachable relay is a snapshot that says so.</summary>
-    public RelayStatus? Relay { get; private set; }
+    public RelayStatus? Relay => _relaySamples.Count == 0 ? null : _relaySamples[^1];
+
+    /// <summary>
+    /// The relay snapshots of this run, oldest first, bounded to the sparkline's window. The
+    /// newest of them is <see cref="Relay"/>, read off the same list rather than held beside it,
+    /// so the figure a card reads and the last point of the curve under it cannot disagree.
+    /// </summary>
+    public IReadOnlyList<RelayStatus> RelaySamples => _relaySamples;
 
     /// <summary>
     /// How this shell names the values the backend sends, built from the catalog.
@@ -256,7 +279,7 @@ public sealed class Session
             Unavailable = "";
             Words = new Vocabulary(catalog);
             Publish = publish;
-            Relay = relay;
+            TakeRelay(relay);
             Watching = watching;
             Receiving = receiving;
             IsLoaded = true;
@@ -289,9 +312,16 @@ public sealed class Session
                 // A run that ended takes its samples with it. They belong to the pipeline that
                 // produced them, and a sparkline that carried them across a restart would draw
                 // two runs as one.
+                //
+                // The relay series goes with them, and for the same reason rather than a
+                // weaker one: the relay keeps answering after the stream stops, but the plot
+                // beside the egress curve describes this run's viewers, and readers of a path
+                // that is no longer being published to are not what its next run started with.
+                // The newest snapshot goes too, and it comes straight back on the next poll.
                 if (change.PublishState.Live is null)
                 {
                     _samples.Clear();
+                    _relaySamples.Clear();
                 }
 
                 Publish = change.PublishState;
@@ -307,7 +337,7 @@ public sealed class Session
                 break;
 
             case Event.PayloadOneofCase.RelayStatus:
-                Relay = change.RelayStatus;
+                TakeRelay(change.RelayStatus);
                 break;
 
             case Event.PayloadOneofCase.Catalog:
@@ -351,6 +381,24 @@ public sealed class Session
 
                 break;
         }
+    }
+
+    /// <summary>
+    /// Records one relay snapshot, which is both the newest state and the newest point of the
+    /// series. One method for both so that there is one place a snapshot enters this class, and
+    /// so that a read on reconnect and an event on the stream cannot take different paths in.
+    /// </summary>
+    private void TakeRelay(RelayStatus relay)
+    {
+        Assert.NotNull(relay, "a relay snapshot is the whole state the backend answered with");
+
+        _relaySamples.Add(relay);
+        if (_relaySamples.Count > SampleWindow)
+        {
+            _relaySamples.RemoveRange(0, _relaySamples.Count - SampleWindow);
+        }
+
+        Assert.That(ReferenceEquals(Relay, relay), "the newest snapshot is the one just taken");
     }
 
     private void Ended(string what, ExitInfo info)

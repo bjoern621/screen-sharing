@@ -36,9 +36,13 @@ type Path struct {
 	// table keys on, empty for a path whose tracks name none. It decides which
 	// protocols can carry the stream, so both the viewer's refusal and the watch
 	// dropdown read it rather than each parsing Tracks their own way.
-	Format  string  `json:"format"`
-	Readers int     `json:"readers"`
-	InMbps  float64 `json:"inMbps"` // live ingest bitrate from byte deltas
+	Format string `json:"format"`
+	// Readers is how many the relay is serving this path to, and Roster is who they
+	// are. Both are read off the one array the relay answered with, so the count is
+	// the roster's length by construction rather than by agreement.
+	Readers int      `json:"readers"`
+	Roster  []Reader `json:"roster"`
+	InMbps  float64  `json:"inMbps"` // live ingest bitrate from byte deltas
 }
 
 // trackFormats maps the codec names a relay reports on a path to the bitstream
@@ -80,12 +84,20 @@ type Status struct {
 // apiPathList mirrors the subset of GET /v3/paths/list we consume.
 type apiPathList struct {
 	Items []struct {
-		Name          string   `json:"name"`
-		Ready         bool     `json:"ready"`
-		Tracks        []string `json:"tracks"`
-		BytesReceived int64    `json:"bytesReceived"`
-		Readers       []any    `json:"readers"`
+		Name          string      `json:"name"`
+		Ready         bool        `json:"ready"`
+		Tracks        []string    `json:"tracks"`
+		BytesReceived int64       `json:"bytesReceived"`
+		Readers       []apiReader `json:"readers"`
 	} `json:"items"`
+}
+
+// apiReader is how the path list names one reader: a type and an id, and nothing else.
+// Everything a row shows about that reader lives in the per-protocol list the type names
+// (readers.go).
+type apiReader struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
 }
 
 func New() *Client {
@@ -113,6 +125,17 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 		return Status{Reachable: false, Error: "invalid API response: " + err.Error()}
 	}
 
+	// The per-protocol lists are read before the lock and not under it. They are HTTP
+	// calls, the lock guards nothing but the byte samples, and holding it across a
+	// network round trip would make one slow relay stall every other caller of this
+	// client. Their failures are already absences rather than errors (readers.go), so
+	// there is nothing here for the snapshot to fail on.
+	named := make([]apiReader, 0, len(list.Items))
+	for _, item := range list.Items {
+		named = append(named, item.Readers...)
+	}
+	conns := fetchConnLists(&httpClient, host, apiPort, named)
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -127,8 +150,11 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 			Name:    item.Name,
 			Ready:   item.Ready,
 			Readers: len(item.Readers),
+			Roster:  joinReaders(conns, item.Readers),
 			Format:  formatOfTracks(item.Tracks),
 		}
+		assert.Assert(len(path.Roster) == path.Readers,
+			"a path's roster names every reader it counts", len(path.Roster), path.Readers)
 		for i, track := range item.Tracks {
 			if i > 0 {
 				path.Tracks += ","

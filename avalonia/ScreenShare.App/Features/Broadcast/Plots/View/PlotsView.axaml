@@ -78,24 +78,33 @@
       <StackPanel Spacing="{StaticResource GapControl}">
         <Grid ColumnDefinitions="*,Auto">
           <!--
-            No window label beside this caption. The card draws no series at all, so a span
-            here would be the width of a plot with nothing in it.
+            No window label beside this caption, and that is not an oversight now that the card
+            draws something. Its points are relay snapshots and the card beside it counts encoder
+            samples, and the two are taken on different intervals - so the span the other card
+            states is not this one's, and stating one here would need a period the contract does
+            not carry.
+
+            The caption says whose figures these are. They are the worst viewer's at each moment
+            and not the stream's, which is a distinction the header makes in a word and this one
+            has room to make properly.
           -->
-          <TextBlock Grid.Column="0" Classes="caption" Text="Round trip &amp; buffer" VerticalAlignment="Bottom" />
+          <TextBlock Grid.Column="0" Classes="caption" Text="Worst viewer: round trip &amp; loss" VerticalAlignment="Bottom" />
         </Grid>
 
         <Border Classes="plot">
           <Panel>
             <!--
-              Buffer fill sits behind round trip: thinner, grey, and drawn first.
+              Loss sits behind round trip: thinner, grey, and drawn first. Round trip is the
+              figure a publisher reads first and loss is the one that explains it, so the reading
+              order and the drawing order are the same.
 
               The band the design marks a congestion window with states no start and no width,
-              so none is drawn. Nothing in the pipeline detects congestion, and the one red in
-              the palette shaded across a plot that is empty anyway would report a fault that
-              was measured by nobody. It comes back with the detection, from the reading.
+              so none is drawn. The relay states its figures as they stand at each poll and marks
+              no interval, so a window shaded here would be a detection this side performed and
+              called the backend's. It comes back with the detection, from the reading.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
-                             Secondary="{Binding Buffer}"
+                             Secondary="{Binding Loss}"
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
                              SecondaryStroke="{StaticResource MutedBrush}"
@@ -122,7 +131,7 @@
                         HorizontalAlignment="Left"
                         VerticalAlignment="Bottom">
               <TextBlock Classes="annotation" Foreground="{StaticResource ForegroundBrush}" Text="— rtt" />
-              <TextBlock Classes="annotation" Text="— buffer fill" />
+              <TextBlock Classes="annotation" Text="— loss" />
             </StackPanel>
           </Panel>
         </Border>

@@ -234,9 +234,24 @@ stream.
 **The broadcast screen is real too now, and what it cannot measure it says so about.** Every
 figure on it is composed in `Features/Broadcast/Model/BroadcastSnapshot.cs` out of three whole
 states the backend sent - the publish state, the newest encoder sample and the relay snapshot -
-and a figure with no source prints an ellipsis rather than a zero. That covers round trip, packet
-loss and buffer fill, which nothing in the pipeline reports, and it is why the viewer table is a
-reader count with a sentence instead of a row per viewer.
+and a figure with no source prints an ellipsis rather than a zero.
+
+**The viewer table is a row per viewer, and the relay measures them one leg at a time.** The
+backend reads the relay's reader array per path and joins each entry to the per-protocol
+connection list its type names, so a row is an address, a join time, and whatever that leg is
+instrumented for (`internal/relay/readers.go`). SRT is the one the relay times a round trip and
+states a loss rate on; the rest report what was sent to them and what the relay's own queue had
+to discard. A cell with no measurement behind it is an ellipsis, so a viewer over RTMP reads as
+untimed and never as a viewer with a perfect link - which is also why the severity rule in
+`Features/Broadcast/Model/ViewerRow.cs` reads presence rather than value, and why the header
+promotes the *worst* viewer's round trip and loss under a label that says so. Two of the design's
+columns named figures nobody reports to a publisher, buffer fill and the decoder in use, and they
+carry what the relay does measure at that width instead: what was dropped, and the leg it went
+out over.
+
+What is still absent is the congestion band. The relay states its figures as they stand at each
+poll and marks no interval, so a window shaded on the latency plot would be a detection this side
+performed and attributed to the backend.
 
 What went with the seeds is worth listing, because each was a mockup number that read as a
 measurement: the on-air pill's timer, which stood at `00:42:18` in every window whatever was

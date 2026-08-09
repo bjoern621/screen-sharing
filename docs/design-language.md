@@ -226,8 +226,11 @@ An icon button whose tooltip repeats its glyph teaches nothing, so the tooltip s
 pressing it does and what it leaves alone.
 
 A figure keeps one name across surfaces: `transport`, `resolution`, `codec`, `bitrate`,
-`decoder`, `fps`, `frames`, `latency`, `rtt`, `loss`, `buffer`, and `n watching` for the
+`decoder`, `fps`, `frames`, `latency`, `rtt`, `loss`, `dropped`, `via`, and `n watching` for the
 number of open tiles.
+`buffer` was one of them and is not any more: it named a viewer's own fill, which nothing reports
+back to a publisher, and the column that carried it now states what the relay discarded on the
+way out (`field-availability.md`, "A figure with no measurement").
 A surface with more to report adds rows instead of renaming the shared ones.
 Stat rows spell their words out, join two figures with ` · `, and print `…` where there is no
 value yet.

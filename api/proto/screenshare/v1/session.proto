@@ -108,6 +108,53 @@ message PublishStats {
   reserved "frame", "duplicated", "dropped", "missing";
 }
 
+// RelayReader is one connection the relay is serving a path to.
+//
+// Every figure carries presence, because what a relay measures about a reader depends on
+// the protocol it is watching over and not on the moment: SRT is the one leg the relay
+// times a round trip and states a loss rate on, and the rest report what was sent to them
+// and little more. An absent figure is therefore a permanent fact about that reader's leg
+// rather than a reading that has not landed yet, and a screen shows both the same way -
+// absent, never zero. Presence is spelled with proto3 optional and never with a list of
+// field names beside the figures, for the reason PublishStats gives above.
+message RelayReader {
+  // type is the relay's own token for what this reader is, e.g. srtConn, and id is the
+  // relay's handle on it. Both are passed through unchanged so a reader of this message
+  // can find the same connection in the relay's own API.
+  string type = 1;
+  string id = 2;
+  // transport is type in the vocabulary every other leg in this contract is named in -
+  // srt, rtsp, rtmp, webrtc, hls, moq. A reader on a protocol the backend has no row for
+  // keeps the relay's token here, so an unknown leg reads as what the relay called it.
+  string transport = 3;
+
+  // remote_addr is host:port as the relay saw it. Absent where the relay named a reader
+  // it then described nowhere: one that ended between the two reads, or one whose
+  // protocol this relay serves no list for.
+  optional string remote_addr = 4;
+  // joined is when the relay accepted this reader, RFC 3339, on the relay's clock. It is
+  // the relay's own spelling: the relay is the only side that can date its connections,
+  // and a backend that reformatted it would be putting a second clock on the wire.
+  optional string joined = 5;
+
+  optional uint64 bytes_sent = 6;
+  // rtt_ms is the smoothed round trip to this reader, and loss_percent SRT's own
+  // send-side loss rate, which SRT defines as resent data against sent data. Both are the
+  // relay's figures rather than ones computed from counters here, and both are absent on
+  // every leg but SRT.
+  optional double rtt_ms = 7;
+  optional double loss_percent = 8;
+
+  // The counters are cumulative over the connection. packets_lost were lost on the way,
+  // packets_dropped were given up on by the sender, and frames_discarded were dropped by
+  // the relay itself because this reader's outgoing queue was full - the last is a fact
+  // about the relay rather than about the line, which is why it is counted apart.
+  optional uint64 packets_sent = 9;
+  optional uint64 packets_lost = 10;
+  optional uint64 packets_dropped = 11;
+  optional uint64 frames_discarded = 12;
+}
+
 // RelayPath is one stream the relay is carrying.
 message RelayPath {
   string name = 1;
@@ -127,6 +174,15 @@ message RelayPath {
   // meaningful only against a steady poll interval, which is why the backend owns
   // the polling and a shell reads the result.
   double in_mbps = 6;
+  // reader_roster is who those readers are, one entry per reader counted above. The two
+  // are read off the one array the relay answered with, so the count is the roster's
+  // length by construction and cannot drift from it.
+  //
+  // It is a second field rather than a rename of readers because the count is what every
+  // reader of this contract already asks for and a stream's viewer figure must not go
+  // missing to gain a roster; a shell that only wants the number keeps reading the
+  // number.
+  repeated RelayReader reader_roster = 7;
 }
 
 // RelayStatus is one snapshot of the relay.
