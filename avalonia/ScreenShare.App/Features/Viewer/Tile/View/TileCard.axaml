@@ -130,7 +130,7 @@
       <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
                  IsVisible="{Binding HasNotice}"
                  HorizontalAlignment="Center" VerticalAlignment="Center"
-                 TextAlignment="Center" Margin="{StaticResource GapSection}" />
+                 TextAlignment="Center" Margin="{StaticResource InsetSection}" />
 
       <!-- The plate. The slot stays in the arrangement at this stream's shape, so nothing reflows. -->
       <Border IsVisible="{Binding IsPoppedOut}" Background="{StaticResource SurfaceBrush}">
@@ -144,7 +144,7 @@
 
       <!-- The name, top left, over the picture. -->
       <Border Classes="chrome" VerticalAlignment="Top" HorizontalAlignment="Left"
-              Margin="{StaticResource GapTight}">
+              Margin="{StaticResource InsetTight}">
         <TextBlock Classes="ident" Text="{Binding Title}" />
       </Border>
 
@@ -178,8 +178,8 @@
       -->
       <Border IsVisible="{Binding ShowStats}"
               VerticalAlignment="Top" HorizontalAlignment="Right"
-              Margin="{StaticResource GapTight}"
-              Padding="{StaticResource GapControl}"
+              Margin="{StaticResource InsetTight}"
+              Padding="{StaticResource InsetControl}"
               Background="{StaticResource SurfaceBrush}"
               BorderBrush="{StaticResource DividerBrush}"
               BorderThickness="1"

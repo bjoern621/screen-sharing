@@ -40,7 +40,7 @@
                 <Border Classes="panel"
                         BorderBrush="{StaticResource DividerBrush}"
                         CornerRadius="{StaticResource RadiusStrip}"
-                        Padding="12"
+                        Padding="{StaticResource InsetPanel}"
                         Margin="5">
                   <StackPanel>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
@@ -75,7 +75,7 @@
             because a dialog that interrupts a live stream to ask is worse than a switch that
             was already set.
           -->
-          <Border Classes="card" Padding="12" Margin="0,0,0,10">
+          <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
             <StackPanel>
               <TextBlock Classes="caption" Text="On going live" Margin="0,0,0,10" />
 
@@ -91,7 +91,7 @@
           </Border>
 
           <!-- The same list the rail carried, at the state that lets the button light. -->
-          <Border Classes="card" Padding="12" Margin="0,0,0,10">
+          <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
             <StackPanel>
               <TextBlock Classes="caption" Text="Preflight" Margin="0,0,0,10" />
               <ItemsControl ItemsSource="{Binding Checks}">
@@ -111,7 +111,7 @@
       </ScrollViewer>
 
       <!-- Pinned to the bottom of the column, not to a footer bar, and never scrolled away. -->
-      <Border Grid.Row="1" Classes="card" Padding="12">
+      <Border Grid.Row="1" Classes="card" Padding="{StaticResource InsetPanel}">
         <StackPanel>
           <!--
             The name is the draft's own rather than one written here, so what this promises is

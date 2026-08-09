@@ -16,7 +16,7 @@
     </Style>
   </UserControl.Styles>
 
-  <Border Classes="card" Padding="12">
+  <Border Classes="card" Padding="{StaticResource InsetPanel}">
     <DockPanel>
 
       <!--
