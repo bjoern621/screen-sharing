@@ -136,6 +136,8 @@ An **Entwicklungsfehler** - a broken internal contract - never crosses. `assert`
 
 One consequence is worth stating on its own: **an unreachable relay is not a call failure.** `GetRelayStatus` succeeds and returns a snapshot whose `reachable` is false, carrying the reason, because "the relay is down" is a thing the screen has to say rather than a thing the call failed at.
 
+The same rule holds one level down, where the snapshot is assembled from several of the relay's answers. A path's `reader_roster` is joined from the per-protocol connection lists, one call each, and a list that refuses leaves its readers named with every figure absent rather than failing the snapshot: the relay answered the question the snapshot is about, and a protocol whose listener is switched off has no list at all. So `reachable` states whether the relay answered, and presence on each figure states whether that figure was measured - two facts, never collapsed into one.
+
 ## Events
 
 Two rules keep the event stream from becoming a second definition of the state.

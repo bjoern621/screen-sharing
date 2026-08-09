@@ -91,8 +91,12 @@ public sealed class HeaderStatsViewModel : Observable
         [
             new StatFigure(Figure.Of(reading.EgressMbps, "0.00"), "Mb/s"),
             new StatFigure(Figure.Of(reading.Fps, "0.0"), "fps"),
-            new StatFigure(Figure.Of(reading.RttMs), "ms rtt"),
-            new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss"),
+            // The relay measures round trip and loss per viewer, so neither figure has a
+            // stream-wide value to promote and each of these is the worst viewer's. The label
+            // says so: a bare "ms rtt" beside a viewer count reads as the stream's round trip,
+            // which is a figure nobody took (Model/BroadcastSnapshot.cs).
+            new StatFigure(Figure.Of(reading.RttMs), "ms rtt worst"),
+            new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss worst"),
             new StatFigure(Figure.Of(reading.Viewers), "viewers"),
         ]);
 

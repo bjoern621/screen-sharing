@@ -65,13 +65,20 @@
               Background="{StaticResource PanelBrush}"
               BorderBrush="{StaticResource DividerBrush}"
               BorderThickness="0,1">
-        <Grid ColumnDefinitions="148,92,74,74,100,*">
+        <!--
+          Two of the design's headers name figures the relay does not have. Buffer fill and the
+          decoder in use are the viewer's own facts and nothing carries them back to a publisher,
+          so the columns carry what the relay does measure at that width instead: what was
+          discarded on the way out, and the leg it went out over. A column printing an ellipsis in
+          every row forever would be a hole where there is in fact a measurement.
+        -->
+        <Grid ColumnDefinitions="196,64,74,74,84,*">
           <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="viewer" />
           <TextBlock Grid.Column="1" Classes="ident cell colhead" Text="joined" />
           <TextBlock Grid.Column="2" Classes="ident cell colhead" Text="rtt" TextAlignment="Right" />
           <TextBlock Grid.Column="3" Classes="ident cell colhead" Text="loss" TextAlignment="Right" />
-          <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="buffer" TextAlignment="Right" />
-          <TextBlock Grid.Column="5" Classes="ident cell colhead" Text="decoder" MinWidth="150" />
+          <TextBlock Grid.Column="4" Classes="ident cell colhead" Text="dropped" TextAlignment="Right" />
+          <TextBlock Grid.Column="5" Classes="ident cell colhead" Text="via" MinWidth="70" />
         </Grid>
       </Border>
 
@@ -81,7 +88,7 @@
             <StackPanel>
               <!-- No striping. A row is separated from the next by a rule and nothing else. -->
               <Border Classes.struggling="{Binding IsStruggling}">
-                <Grid ColumnDefinitions="148,92,74,74,100,*">
+                <Grid ColumnDefinitions="196,64,74,74,84,*">
                   <TextBlock Grid.Column="0" Classes="ident cell name" Text="{Binding Name}"
                              Classes.hot="{Binding IsStruggling}" Classes.strong="{Binding IsStruggling}" />
                   <!-- joined is deliberately never escalated: when a viewer joined is not a fault. -->
@@ -90,9 +97,9 @@
                              Classes.hot="{Binding IsStruggling}" />
                   <TextBlock Grid.Column="3" Classes="ident cell" Text="{Binding Loss}" TextAlignment="Right"
                              Classes.alarm="{Binding IsStruggling}" />
-                  <TextBlock Grid.Column="4" Classes="ident cell" Text="{Binding Buffer}" TextAlignment="Right"
+                  <TextBlock Grid.Column="4" Classes="ident cell" Text="{Binding Dropped}" TextAlignment="Right"
                              Classes.hot="{Binding IsStruggling}" />
-                  <TextBlock Grid.Column="5" Classes="ident cell dim" Text="{Binding Decoder}" MinWidth="150"
+                  <TextBlock Grid.Column="5" Classes="ident cell dim" Text="{Binding Via}" MinWidth="70"
                              Classes.hot="{Binding IsStruggling}" />
                 </Grid>
               </Border>

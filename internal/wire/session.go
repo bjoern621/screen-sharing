@@ -164,15 +164,63 @@ func RelayStatus(s relay.Status) *screensharev1.RelayStatus {
 // RelayPath carries one live stream across.
 func RelayPath(p relay.Path) *screensharev1.RelayPath {
 	assert.Assert(p.Readers >= 0, "a path counts the readers it is serving", p.Readers)
+	assert.Assert(len(p.Roster) == p.Readers,
+		"a path's roster names every reader it counts", len(p.Roster), p.Readers)
+
+	roster := make([]*screensharev1.RelayReader, 0, len(p.Roster))
+	for _, reader := range p.Roster {
+		roster = append(roster, RelayReader(reader))
+	}
 
 	return &screensharev1.RelayPath{
-		Name:    p.Name,
-		Ready:   p.Ready,
-		Tracks:  p.Tracks,
-		Format:  p.Format,
-		Readers: int32(p.Readers),
-		InMbps:  p.InMbps,
+		Name:         p.Name,
+		Ready:        p.Ready,
+		Tracks:       p.Tracks,
+		Format:       p.Format,
+		Readers:      int32(p.Readers),
+		ReaderRoster: roster,
+		InMbps:       p.InMbps,
 	}
+}
+
+// RelayReader carries one reader across.
+//
+// Every figure is copied through its presence rather than through its value, so a leg
+// that reports no round trip crosses as a message with no rtt_ms and not as one with a
+// zero. optional pointers on both sides means the copy is the pointer itself, which is
+// the one shape that cannot lose the distinction on the way.
+//
+// Nothing here asserts on the strings. They are the relay's words rather than this code's,
+// and a relay that answered with a reader carrying no type is an Umgebungsfehler the app
+// has to survive - an empty one crosses as empty and reads as unknown, which is what an
+// empty format on the path beside it already means (docs/development-principles.md,
+// "Contracts").
+func RelayReader(r relay.Reader) *screensharev1.RelayReader {
+	return &screensharev1.RelayReader{
+		Type:            r.Type,
+		Id:              r.ID,
+		Transport:       r.Transport,
+		RemoteAddr:      optional(r.RemoteAddr),
+		Joined:          optional(r.Joined),
+		BytesSent:       r.BytesSent,
+		RttMs:           r.RttMs,
+		LossPercent:     r.LossPercent,
+		PacketsSent:     r.PacketsSent,
+		PacketsLost:     r.PacketsLost,
+		PacketsDropped:  r.PacketsDropped,
+		FramesDiscarded: r.FramesDiscarded,
+	}
+}
+
+// optional carries a string the relay may not have stated at all. An empty one is
+// absence and not a measured empty string: the fields it is used on are an address and a
+// timestamp, and neither has a meaningful empty value to tell apart from a missing one.
+func optional(value string) *string {
+	if value == "" {
+		return nil
+	}
+
+	return &value
 }
 
 // ViewerState carries the open external viewers across. A nil or empty slice converts

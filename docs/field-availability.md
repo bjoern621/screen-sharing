@@ -80,6 +80,39 @@ The test: would the tooltip teach a user on a different backend something worth 
 Yes means disable-with-reason.
 No means hide.
 
+## A figure with no measurement
+
+Everything above is about a *setting* the current combination rules out.
+A *figure* has the neighbouring problem and takes the same answer, which is why it is written down on this page: a measurement that was not taken is shown as absent, never as a zero, and never by removing the row.
+
+A zero is a measurement.
+`0.00 % loss` says the relay watched this viewer and saw nothing go missing; `…` says nobody looked.
+A screen that printed the second as the first would certify every link it had never measured, which is the failure this rule exists to prevent - so the rule is that presence decides, not value (`design-language.md`, "Wording").
+
+**The row stays.** A figure a reader is looking for reads as unmeasured; a row that is gone reads as nothing to measure, and those are different facts about the app.
+That is the same reasoning "The rule" applies to a greyed setting, and it is why the congestion band, the round trip and the loss stayed on the broadcast screen through the whole time nothing filled them.
+
+**Where the measurement is per-something, the label names the something.**
+The relay measures round trip and loss per reader, so there is no such figure for a stream.
+The header promotes the worst reader's and says `worst` in the unit, because a bare `ms rtt` beside a viewer count reads as the stream's - a number nobody took.
+An average would be worse than either: it is a figure no viewer is experiencing, and one struggling viewer among five is exactly the case the screen exists for and exactly the case an average erases.
+
+### What is measured, and by whom
+
+| Figure | Source | Absent when |
+| --- | --- | --- |
+| egress bitrate, fps, encoder clock | the running encoder's own samples | nothing publishes, or no packet is muxed yet |
+| viewers | the relay's reader count for the path | no snapshot, or no path by that name yet |
+| a viewer's address, join time, bytes | the relay's per-protocol connection list | the relay named a reader it then described nowhere |
+| a viewer's round trip and loss | the relay, **SRT legs only** | the viewer is on any other leg |
+| a viewer's dropped packets and discarded frames | the relay, per leg | the leg counts neither |
+| a viewer's buffer fill, and its decoder | — | always: they are the viewer's own facts and nothing carries them back to a publisher |
+| a congestion window | — | always: the relay states figures as they stand and marks no interval |
+
+The last two rows are the ones worth reading twice.
+A figure with no source at all does not get invented from the ones that have one: deriving a congestion window from a series of readings would be this app performing a detection and attributing it to the relay, and the honest rendering is the band that is never drawn.
+Where a column would otherwise print an ellipsis in every row forever - buffer fill, the decoder - the column carries a figure the relay does measure at that width instead, and the change is written down where it happens.
+
 ## A live stream blocks no field
 
 Every field stays editable while a stream is publishing, and what reaches the stream is asked for separately (`capture-architecture.md`, "Changing settings on a live stream").
