@@ -143,16 +143,17 @@ public sealed class SetupViewModel : Observable
     private string _unreachable = "";
 
     /// <summary>
-    /// Whether a start this flow asked for is still in flight, read from the command that
+    /// Whether a commit this flow asked for is still in flight, read from the command that
     /// started it rather than mirrored in a field of its own. It locks the commit for exactly
-    /// as long as the round trip lasts, so a second press cannot ask for a second stream while
-    /// the backend is still deciding about the first - and it is the same field the button
-    /// draws its spinner from, so the lock and the wait cannot disagree.
+    /// as long as the round trip lasts, so a second press cannot ask for a second stream - or a
+    /// second restart of one - while the backend is still deciding about the first, and it is
+    /// the same field the button draws its spinner from, so the lock and the wait cannot
+    /// disagree.
     /// </summary>
     private bool Starting => Review.GoLiveCommand.IsRunning;
 
     /// <summary>
-    /// Why the backend refused the last start, empty otherwise. It is that side's own sentence
+    /// Why the backend refused the last commit, empty otherwise. It is that side's own sentence
     /// and is shown as it stands: a refusal is prose written for a person
     /// (<c>docs/ipc-api.md</c>, "Errors").
     /// </summary>
@@ -242,9 +243,10 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
-    /// Raised once the backend has accepted a start this flow asked for. It is news that the
-    /// commit went through and carries nothing, in the way every other signal here does: what
-    /// the stream became arrives on the event stream, and the window reads it there.
+    /// Raised once the backend has accepted a commit this flow asked for - a start, or an apply
+    /// onto the stream that was already running. It is news that the commit went through and
+    /// carries nothing, in the way every other signal here does: what the stream became arrives
+    /// on the event stream, and the window reads it there.
     ///
     /// Whoever hosts this flow owns what happens next, because what happens next is a change of
     /// destination and the destination is the window's state rather than this flow's.
@@ -433,9 +435,12 @@ public sealed class SetupViewModel : Observable
 
         // Composed on every pass out of four states nothing here owns: the form's own verdict on
         // the settings, whether the backend answered at all, whether a stream is already in
-        // force, and whether the relay is there to publish to. Read through rather than cached,
-        // so a relay that came back unlocks the button on the next pass without anything having
-        // to remember that it was locked.
+        // force, and whether the relay is there to publish to. Three of them decide whether the
+        // button lights; the stream in force decides what pressing it does, which is the gate's
+        // Commit and is what the label and the sentence under it are read from. All four are
+        // read through rather than cached, so a relay that came back unlocks the button on the
+        // next pass, and a stream that ended puts the word "restart" back to "go live", without
+        // anything having had to remember either.
         var gate = PublishGate.Of(IsPublishable, _unreachable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _draft?.Publish?.Name ?? "", _refusal, Summaries(form), checks);
 
@@ -914,7 +919,15 @@ public sealed class SetupViewModel : Observable
     // --- The commit ------------------------------------------------------------------
 
     /// <summary>
-    /// Starts the stream on the draft the reader configured.
+    /// Puts the draft the reader configured on the air: it starts a stream where none is
+    /// running, and restarts the running one on these settings where there is.
+    ///
+    /// <b>Which of the two it is, is read from the running state on this pass rather than
+    /// remembered.</b> The gate the last render composed is not consulted - the stream can start
+    /// or end between the pass that drew the button and the press that took it, and the backend
+    /// refuses each of the two effects in exactly the state the other one is for. One derivation
+    /// answers both sides, so what the label promised and what the press sends cannot come apart
+    /// (<see cref="PublishGate.CommitFor"/>).
     ///
     /// It is an effect and is therefore started by a press and never from a render pass, the
     /// same arrangement <see cref="MeasureAsync"/> has. What it hands over is a copy: the
@@ -924,7 +937,8 @@ public sealed class SetupViewModel : Observable
     ///
     /// <b>The copy is taken before the first await</b>, which is on the UI loop, so the draft it
     /// carries is the one that was on screen when the button went down rather than whatever it
-    /// had become by the time the transport got to it.
+    /// had become by the time the transport got to it. The reading of what is publishing is
+    /// taken there too, and for the same reason.
     ///
     /// Nothing about the running state is written here. The reply says nothing and the stream
     /// that resulted arrives on the event stream, which is the one path into the display - so
@@ -937,37 +951,52 @@ public sealed class SetupViewModel : Observable
         // nothing says that before a form has resolved a draft.
         var draft = Assert.NotNull(_draft, "a commit that was offered was drawn from a draft");
         var settings = draft.Clone();
+        var commit = PublishGate.CommitFor(_session.Publish);
 
         // The refusal the last attempt left goes now rather than when this one answers: it is
         // about an attempt that is over, and leaving it up would put a sentence about the last
-        // start beside a spinner about this one.
+        // commit beside a spinner about this one.
         _refusal = "";
         Apply();
 
         try
         {
-            await _backend.StartPublishAsync(settings).ConfigureAwait(false);
-            _dispatch(Started);
+            await CommitAsync(commit, settings).ConfigureAwait(false);
+            _dispatch(Committed);
         }
         catch (BackendUnavailableException e)
         {
-            // A backend that refused - a stream already in force, a combination no engine can
-            // build - arrives here carrying its own sentence, which is the one worth showing.
-            _dispatch(() => StartFailed(e.Message));
+            // A backend that refused - a combination no engine can build, a stream that ended
+            // between this pass and the call reaching the other side - arrives here carrying its
+            // own sentence, which is the one worth showing.
+            _dispatch(() => CommitFailed(e.Message));
         }
         catch (OperationCanceledException)
         {
             // Nothing cancels this call, since it carries no token. A transport that reports one
             // anyway still has to leave the button pressable rather than locked forever.
-            _dispatch(() => StartFailed(""));
+            _dispatch(() => CommitFailed(""));
         }
     }
 
     /// <summary>
-    /// Takes an accepted start, on the UI loop. The flow is rendered before the news goes out,
+    /// The one effect this commit is, for the state it was pressed in.
+    ///
+    /// Exhaustive, so a commit the gate learns to name and this does not fails here rather than
+    /// quietly starting a second stream (<c>docs/development-principles.md</c>, "Contracts").
+    /// </summary>
+    private Task CommitAsync(PublishCommit commit, Settings settings) => commit switch
+    {
+        PublishCommit.Start => _backend.StartPublishAsync(settings),
+        PublishCommit.Apply => _backend.ApplyToStreamAsync(settings),
+        _ => Assert.Never<Task>("unexpected commit", (int)commit),
+    };
+
+    /// <summary>
+    /// Takes an accepted commit, on the UI loop. The flow is rendered before the news goes out,
     /// so a listener that moves the window finds a screen that has already unlocked.
     /// </summary>
-    private void Started()
+    private void Committed()
     {
         _refusal = "";
         Apply();
@@ -975,7 +1004,7 @@ public sealed class SetupViewModel : Observable
         WentLive?.Invoke();
     }
 
-    private void StartFailed(string reason)
+    private void CommitFailed(string reason)
     {
         _refusal = reason;
         Apply();

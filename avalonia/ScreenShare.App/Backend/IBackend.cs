@@ -153,6 +153,38 @@ public interface IBackend
     /// </summary>
     Task StartPublishAsync(Settings settings, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Persists the settings and restarts the running stream on them. It is how an edit reaches
+    /// a live pipeline, and it is a separate method from a start because the two are different
+    /// intentions about different worlds: put a stream on the air, and change the one that is
+    /// already there.
+    ///
+    /// The whole draft crosses, for the reason <see cref="StartPublishAsync"/> gives: this is
+    /// how the settings the reader configured reach the backend at all, and half of them
+    /// arriving would leave the other half at whatever the last commit stored.
+    ///
+    /// <b>It names a transition on purpose, and is the one effect here that a repeat does not
+    /// leave alone.</b> Both engines run a child built from an argv and neither takes a value
+    /// back once it is running, so applying tears the pipeline down and launches another - a
+    /// second call is a second restart rather than a state that already holds
+    /// (<c>docs/development-principles.md</c>, "Effects across a process boundary", which lists
+    /// this as one of its two written-down departures). Nothing on this contract is live-safe,
+    /// which is why the broadcast screen's quality track is inert and carries the reason rather
+    /// than being wired to this.
+    ///
+    /// With nothing publishing there is no pipeline to apply to, and the backend refuses rather
+    /// than quietly starting one: a reader who pressed apply asked for the stream they were
+    /// watching to change, and a stream they had stopped coming back is a different thing than
+    /// the one they asked for. That refusal arrives as a
+    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence, as does a
+    /// combination no engine can build - which is refused before anything is torn down, so the
+    /// stream goes on carrying what it has.
+    ///
+    /// It answers with nothing, like every other effect: what the stream became arrives on the
+    /// stream.
+    /// </summary>
+    Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default);
+
     /// <summary>Ends the stream, whether it is running or waiting out a retry backoff.</summary>
     Task StopPublishAsync(CancellationToken cancellation = default);
 

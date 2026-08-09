@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 70 tests, no relay and no backend needed
+task avalonia:test     # 83 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -195,18 +195,38 @@ on a sentence, which is the input that changes without anything failing to compi
 That is the transport. What the flow finally does with it is the commit, and that is worth its
 own paragraph because it is the one control on this surface that changes the world.
 
-**Go live is real, and it is gated on four states rather than on one.** It sends the
-draft to `StartPublish`, which persists it and starts the encoder on it; the reply says nothing
-and the stream that resulted arrives on the event stream, so the window that pressed the button
-and the window that did not learn it the same way. What locks the button is
+**The commit is real, and it reads four states rather than one.** It sends the draft to
+`StartPublish`, which persists it and starts the encoder on it; the reply says nothing and the
+stream that resulted arrives on the event stream, so the window that pressed the button and the
+window that did not learn it the same way. What decides it is
 `Features/Setup/Model/PublishGate.cs`, and every condition in it is a whole state some other
 side stated: `Form.publishable` for the settings, the backend's own sentence when it cannot
-describe them at all, the presence of `PublishState.live` for a stream already on the air, and
-`RelayStatus.reachable` for somewhere to send to. None of them is ranked or re-decided here, and
-only one sentence is shown - a reader fixes them in that order anyway. A settings problem gets no
-sentence of its own at all, because the preflight card beside the button already carries every
-one of them in the backend's words; paraphrasing a diagnostic would be this module writing a rule
-down twice.
+describe them at all, `RelayStatus.reachable` for somewhere to send to, and the presence of
+`PublishState.live` for a stream already on the air. None of them is ranked or re-decided here,
+and only one sentence is shown - a reader fixes them in that order anyway. A settings problem
+gets no sentence of its own at all, because the preflight card beside the button already carries
+every one of them in the backend's words; paraphrasing a diagnostic would be this module writing
+a rule down twice.
+
+**The fourth of those is not a lock, and the difference is the whole shape of that file.** A
+stream already on the air used to refuse the commit and send the reader to the broadcast screen
+to stop it, because the only effect this shell could reach was `StartPublish` and the backend
+refuses that while a pipeline is in force. `ApplyToStream` is the effect for exactly that state,
+so a live stream now decides *what the commit does* rather than whether it can be done, and the
+gate says which of the two as data (`PublishGate.Commit`) instead of leaving the label, the
+sentence and the call to look at the publish state again and each reach their own answer. The
+press reads that state once more on its own pass rather than trusting the gate the last render
+composed: a stream can start or end in between, and the backend refuses each of the two effects
+in precisely the state the other one is for.
+
+**The word on the button says which it is, and says what applying costs.** `Model/CommitCopy.cs`
+is one row per commit - the label, and the two halves of the sentence the stream name sits in -
+read by the view model and bound whole, rather than a ternary at the binding site. The apply row
+says in plain words that the stream restarts, because it does: both engines run a child built
+from an argv, so new settings tear the pipeline down and launch another, and every viewer loses
+the picture across the gap. That is the same fact the broadcast screen's quality track is greyed
+and carrying (`Features/Broadcast/Nudge`), and a button that promised a seamless change would be
+the one place in the app that lied about it.
 
 The relay half is worth stating, because it is the one state the shell reads from a poll it does
 not run: the backend polls the relay for as long as it is up, records each snapshot and answers

@@ -276,6 +276,13 @@ internal sealed class SeededBackend : IBackend
         return Task.CompletedTask;
     }
 
+    public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(settings, "applying to the running stream names the settings it restarts on");
+
+        return Task.CompletedTask;
+    }
+
     public Task StopPublishAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 
     /// <summary>

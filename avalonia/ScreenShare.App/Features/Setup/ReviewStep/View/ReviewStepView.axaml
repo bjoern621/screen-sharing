@@ -117,6 +117,11 @@
             The name is the draft's own rather than one written here, so what this promises is
             the path a viewer will actually ask for. It comes up to full strength inside the
             sentence because it is the identifier the promise is about.
+
+            The sentence around it is the commit's own (Model/CommitCopy.cs) and moves with what
+            pressing it will do, so a press that restarts a running stream says so here rather
+            than promising a start. Both halves are bound for that reason: a literal in the
+            markup would be one of the two wordings written where the other cannot reach it.
           -->
           <TextBlock Classes="hint"
                      TextWrapping="Wrap"
@@ -124,17 +129,18 @@
                      LineHeight="{StaticResource LineHeightSmall}"
                      Margin="0,0,0,11"
                      IsVisible="{Binding HasStreamName}">
-            <Run Text="Going live starts sending immediately. Viewers on " />
+            <Run Text="{Binding PromiseLead}" />
             <Run Text="{Binding StreamName}"
                  FontWeight="SemiBold"
                  Foreground="{StaticResource ForegroundBrush}" />
-            <Run Text=" will see the stream within about two seconds." />
+            <Run Text="{Binding PromiseTail}" />
           </TextBlock>
 
           <!--
             Why the button is locked. It is never a settings problem - those are in the preflight
-            card above, in the backend's own words - so this line only ever names the backend,
-            the stream already on the air or the relay.
+            card above, in the backend's own words - and it is no longer a stream already on the
+            air, which changes what the commit does rather than whether it can be done. So this
+            line only ever names the backend or the relay.
           -->
           <TextBlock Classes="hint danger"
                      TextWrapping="Wrap"
@@ -173,7 +179,7 @@
                          Height="{StaticResource DotSize}"
                          Fill="{Binding $parent[Button].Foreground}"
                          VerticalAlignment="Center" />
-                <TextBlock Text="Go live"
+                <TextBlock Text="{Binding CommitLabel}"
                            FontSize="{StaticResource FontSizeHeading}"
                            FontWeight="SemiBold" />
               </StackPanel>
