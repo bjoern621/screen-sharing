@@ -1,28 +1,7 @@
-using System.Net;
-using System.Text;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 
 namespace ScreenShare.App.Tests;
-
-/// <summary>Answers every request from a delegate, so a poll needs no socket.</summary>
-internal sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
-{
-    public Uri? LastUri { get; private set; }
-
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        LastUri = request.RequestUri;
-        return Task.FromResult(answer(request));
-    }
-
-    public static HttpResponseMessage Json(string body) => new(HttpStatusCode.OK)
-    {
-        Content = new StringContent(body, Encoding.UTF8, "application/json"),
-    };
-
-    public static HttpResponseMessage Status(HttpStatusCode code) => new(code);
-}
 
 /// <summary>
 /// A backend whose resolves are answered by hand, which is the only way to write down the
@@ -38,6 +17,9 @@ internal sealed class DeferredBackend : IBackend
 {
     private sealed record Held(Settings Draft, TaskCompletionSource<Form> Answer, CancellationToken Cancellation);
 
+    /// <summary>The sentence an absent backend's reads fail with, as the client would write it.</summary>
+    private const string Absent = "The backend is not running: nothing is listening on the control socket.";
+
     private readonly SeededBackend _seed = new("linux");
     private readonly List<Held> _held = [];
 
@@ -48,6 +30,13 @@ internal sealed class DeferredBackend : IBackend
     /// </summary>
     public event Action? Changed;
 
+    /// <summary>
+    /// Whether the backend is absent, in which case every read fails rather than being held:
+    /// there is no call to answer later, which is the state a window that opened before its
+    /// backend did finds itself in. Set back to false for a backend that has since come up.
+    /// </summary>
+    public bool IsAbsent { get; set; }
+
     /// <summary>How many resolves have been asked for, which is what an idempotent pass does not raise.</summary>
     public int Resolves => _held.Count;
 
@@ -55,13 +44,18 @@ internal sealed class DeferredBackend : IBackend
     public void Announce() => Changed?.Invoke();
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
-        => _seed.CatalogAsync(cancellation);
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.CatalogAsync(cancellation);
 
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
-        => _seed.SettingsAsync(cancellation);
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.SettingsAsync(cancellation);
 
     public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
     {
+        if (IsAbsent)
+        {
+            throw new BackendUnavailableException(Absent);
+        }
+
         var held = new Held(draft.Clone(), new TaskCompletionSource<Form>(), cancellation);
         _held.Add(held);
         return held.Answer.Task;
@@ -72,13 +66,13 @@ internal sealed class DeferredBackend : IBackend
     // second set of answers here would be a second fixture to keep in step with the first.
 
     public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
-        => _seed.PublishStateAsync(cancellation);
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PublishStateAsync(cancellation);
 
     public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
-        => _seed.RelayStatusAsync(cancellation);
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.RelayStatusAsync(cancellation);
 
     public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
-        => _seed.WatchingAsync(cancellation);
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.WatchingAsync(cancellation);
 
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
         => _seed.StartPublishAsync(settings, cancellation);
@@ -245,14 +239,4 @@ internal sealed class PublishingBackend : IBackend
 
     public IAsyncEnumerable<Event> SubscribeAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAsync(cancellation);
-}
-
-/// <summary>A clock the test advances by hand, so a byte delta divides by a known interval.</summary>
-internal sealed class StubClock : TimeProvider
-{
-    private DateTimeOffset _now = DateTimeOffset.UnixEpoch;
-
-    public override DateTimeOffset GetUtcNow() => _now;
-
-    public void Advance(TimeSpan by) => _now += by;
 }

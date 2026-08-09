@@ -36,10 +36,10 @@ The Nix dev shell in `flake.nix` lists the same set, and is the reference for a
 known-good dependency set during development.
 
 Nothing beyond those two is needed to open a viewer, on any platform. A viewer
-counts as connected once the relay reports a reader on the path, which `Live()`
-already polls, and no window-system probe takes part in that signal, so a package
-declares no dependency for it (`StartWatch` in `internal/app/watch.go` states the
-same).
+counts as connected once the relay reports a reader on the path, which the
+backend's own relay poll already reports, and no window-system probe takes part in
+that signal, so a package declares no dependency for it (`StartWatch` in
+`internal/app/watch.go` states the same).
 
 ### The AMD AMF runtime
 

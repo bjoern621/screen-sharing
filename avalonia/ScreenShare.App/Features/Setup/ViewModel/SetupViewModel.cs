@@ -169,10 +169,17 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private IReadOnlyList<SetupStepRow> _steps = [];
 
+    /// <summary>
+    /// Whether the session last reported the backend absent. It is held for one purpose: to
+    /// tell the moment the backend came back from the state of it being there, so this flow
+    /// asks again exactly once per recovery rather than on every event that follows one.
+    /// </summary>
+    private bool _backendWasAbsent;
+
     /// <param name="dispatch">
     /// Hands work to the UI loop. Injected rather than reached for, so this type stays free
     /// of a toolkit and a test can pass a synchronous dispatcher - the same arrangement
-    /// <c>RelayPoller</c> uses, and for the same reason: the answer to a resolve arrives on
+    /// <see cref="Backend.Session"/> uses, and for the same reason: the answer to a resolve arrives on
     /// whichever thread the transport completed on, and every property below is read by a
     /// binding that only tolerates being written from one.
     /// </param>
@@ -198,6 +205,13 @@ public sealed class SetupViewModel : Observable
         // it holds. Marshalled first: the signal arrives on whichever thread the transport
         // completed on, and everything past this line writes bound properties.
         _backend.Changed += () => _dispatch(Reask);
+
+        // News that the running state moved, which this flow watches for one thing only: the
+        // backend answering again after it could not be reached. The session already dials it
+        // every couple of seconds, so a reader who started the backend has been told about it
+        // by the time they could reach for the button (Backend/Session.cs). Raised on the UI
+        // loop by the session itself, so there is nothing to marshal here.
+        _session.Changed += OnSessionChanged;
 
         // The one group with a layout of its own, made eagerly because two children hold it.
         // Which controls it draws is still the form's answer - the step picks its fields out
@@ -297,8 +311,13 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// Asks again after the backend could not answer. It is a command rather than a timer
-    /// because a retry loop would hammer an absent socket for as long as the window is open,
-    /// and because the reader is the one who knows they have just started the backend.
+    /// because a retry loop would hammer an absent socket for as long as the window is open.
+    ///
+    /// It is no longer the only way back, and that is the point of keeping it narrow: a
+    /// backend that comes back is noticed by <see cref="OnSessionChanged"/>, off the
+    /// connection the window already holds. What is left for the button is the failure
+    /// nothing else reports - a read the backend served a refusal to, or one that failed
+    /// while the session's own reads did not.
     /// </summary>
     public DelegateCommand RetryCommand { get; }
 
@@ -369,9 +388,8 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     public void Apply()
     {
-        // Reconciled from the render pass rather than performed by it, which is the same
-        // arrangement MainViewModel has with its poller: the pass states what it wants and
-        // the converge decides whether anything has to be asked
+        // Reconciled from the render pass rather than performed by it: the pass states what
+        // it wants and the converge decides whether anything has to be asked
         // (docs/development-principles.md, "Idempotency").
         Resolve();
 
@@ -624,6 +642,33 @@ public sealed class SetupViewModel : Observable
     {
         _asked = null;
         Apply();
+    }
+
+    /// <summary>
+    /// Asks again when the backend comes back, on the UI loop.
+    ///
+    /// <b>It is the transition that is acted on, not the state.</b> The session reports the
+    /// backend absent for as long as it is, so reacting to "reachable" would ask again on
+    /// every event a healthy backend sends; reacting to the edge asks once, when there is
+    /// something new to expect.
+    ///
+    /// That is the same reason <see cref="Fail"/> gives for not retrying by itself, arrived at
+    /// from the other side. A timer here would hammer an absent socket, and the session's
+    /// reconnect is not a timer of this flow's - it is the one connection the window already
+    /// holds, saying it answered. So the button stays for the failure nothing else notices - a
+    /// read the backend served a refusal to - and stops being the only way back from the
+    /// failure something does.
+    /// </summary>
+    private void OnSessionChanged()
+    {
+        var absent = _session.Unavailable.Length > 0;
+        var recovered = _backendWasAbsent && !absent;
+        _backendWasAbsent = absent;
+
+        if (recovered && _unreachable.Length > 0)
+        {
+            Retry();
+        }
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
@@ -16,23 +17,64 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// Live returns the relay snapshot. The frontend polls this every 2 seconds;
-// per-path bitrates are only meaningful with such a steady poll interval.
-func (a *App) Live() relay.Status {
-	return a.fetchRelay()
+// relayPollInterval is how often the poll below asks the relay what is live. Per-path
+// bitrates are byte deltas between two answers, so they are only meaningful against a
+// steady interval - which is the other half of why the poll is this process's rather
+// than each shell's.
+const relayPollInterval = 2 * time.Second
+
+// startRelayPoll begins the poll that keeps the recorded snapshot fresh.
+//
+// Idempotent, and sync.Once is what states it, the same way startControl is: a second
+// call joins the loop already running rather than starting a second one asking the
+// relay twice as often.
+func (a *App) startRelayPoll() {
+	a.relayPollOnce.Do(func() { go a.pollRelay() })
+}
+
+// pollRelay asks the relay what is live, forever, until the process stops.
+//
+// The first fetch happens before the first tick, so a shell that connects a moment
+// after this process started reads a real answer rather than the opening value.
+//
+// A fetch that outruns the interval is not queued behind itself: the wait comes after
+// the fetch, so an unreachable relay running into the client's own timeout slows the
+// loop down instead of piling requests onto a host that is not answering.
+func (a *App) pollRelay() {
+	assert.Assert(relayPollInterval > 0, "a poll interval is positive")
+
+	ticker := time.NewTicker(relayPollInterval)
+	defer ticker.Stop()
+
+	for {
+		a.fetchRelay()
+
+		select {
+		case <-a.relayStop:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// stopRelayPoll ends the poll, and is safe to call with none running: the channel is
+// closed once, and a loop that has not started yet finds it closed at its first select.
+func (a *App) stopRelayPoll() {
+	a.relayStopOnce.Do(func() { close(a.relayStop) })
 }
 
 // fetchRelay asks the relay what is live, records the answer and announces it.
 //
-// Every fetch in this package goes through here, which is what makes the recorded
-// snapshot the last one taken rather than the last one some caller remembered to
-// record. That matters to the control service: it reads the snapshot rather than
-// fetching its own, so several shells asking what is live do not multiply the
-// requests the relay sees, and the byte-delta bitrates stay computed against the
-// poll interval this app already runs on instead of against each shell's cadence.
+// The poll loop is its only caller, which is what makes the recorded snapshot the last
+// one taken at a known cadence rather than whatever the last caller happened to ask
+// for. Everything else in this process reads lastRelayStatus instead: the control
+// service answers GetRelayStatus from it, so several shells asking what is live do not
+// multiply the requests the relay sees, and nothing can slip an extra fetch in between
+// two polls and shorten the interval the byte deltas are divided by.
 //
-// The announcement carries no runtime event, because the frontend is the surface
-// doing the polling and already has the answer in its hand (events.go).
+// The announcement is how the snapshot reaches the shells. They do not poll for it -
+// the contract has it pushed at this side's interval, for the same delta reason
+// (api/proto/screenshare/v1/events.proto).
 func (a *App) fetchRelay() relay.Status {
 	a.settingsMu.Lock()
 	s := a.settings
@@ -49,8 +91,10 @@ func (a *App) fetchRelay() relay.Status {
 //
 // That starting value is the honest one rather than a placeholder: before anything
 // has asked the relay, this app knows nothing about what is live, and "reachable" is
-// the one thing it must not claim. The first poll replaces it, which the frontend
-// runs every two seconds for as long as its window exists.
+// the one thing it must not claim. It is also short-lived by construction - the poll
+// starts with the process and its first fetch replaces this before a shell has
+// finished its handshake - which is what keeps "nothing has asked yet" from being
+// read on screen as "the relay is down".
 func (a *App) lastRelayStatus() relay.Status {
 	if last := a.relayLast.Load(); last != nil {
 		return *last
@@ -95,10 +139,13 @@ func (a *App) Watching() []WatchKey {
 //
 // A stream the relay does not report, or one whose tracks name no format this app
 // knows, is not refused: the snapshot can be older than the stream, and refusing
-// on absent information would block a viewer that would have worked.
+// on absent information would block a viewer that would have worked. Which is also
+// why this reads the recorded snapshot rather than fetching one of its own - a
+// snapshot at most one poll old is what the refusal is written against, and a fetch
+// here would land between two polls and divide a byte delta by the wrong interval.
 func (a *App) carriesStream(streamName, transportName, engine string) error {
 	format := ""
-	for _, path := range a.Live().Paths {
+	for _, path := range a.lastRelayStatus().Paths {
 		if path.Name == streamName {
 			format = path.Format
 			break

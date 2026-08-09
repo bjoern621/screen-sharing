@@ -56,6 +56,14 @@ type App struct {
 	// Every fetch writes it and the control service reads it, so several shells asking
 	// what is live do not multiply the requests the relay sees (watch.go).
 	relayLast atomic.Pointer[relay.Status]
+	// relayPollOnce starts the poll that keeps relayLast fresh and relayStopOnce ends
+	// it, both guarding relayStop, which the loop selects on. The poll belongs to this
+	// process rather than to whichever shell happens to be up: the contract states the
+	// snapshot is the backend's to keep, and the byte-delta bitrates are only meaningful
+	// against one steady interval (watch.go).
+	relayPollOnce sync.Once
+	relayStopOnce sync.Once
+	relayStop     chan struct{}
 
 	// encodersOnce runs the probe once per process, so the caller that asks for the
 	// answer waits for it and every caller after that does not.
@@ -116,6 +124,7 @@ func New(version string) *App {
 		settings:    s,
 		storeNotice: notice,
 		relay:       relay.New(),
+		relayStop:   make(chan struct{}),
 		watchers:    map[WatchKey]*ffmpeg.Proc{},
 		receivers:   map[WatchKey]*receive.Receiver{},
 	}
@@ -132,10 +141,16 @@ func (a *App) StoreNotice() *screensharev1.Text {
 // Start brings up everything that runs beside the process.
 //
 // Nothing here waits for what it starts: the control service opens its socket on a
-// goroutine of its own (control.go), so the process is up at its own speed rather than
-// at the socket's.
+// goroutine of its own (control.go) and the relay poll runs on one of its own
+// (watch.go), so the process is up at its own speed rather than at the socket's.
+//
+// The relay poll starts here rather than when a shell asks, because the contract says
+// this side keeps the snapshot: a poll that only ran while somebody was watching would
+// answer GetRelayStatus with the opening value - unreachable, no reason given - for as
+// long as nothing had asked, which reads on screen as a relay that is down.
 func (a *App) Start() {
 	a.startControl()
+	a.startRelayPoll()
 }
 
 // Stop kills every child so no orphan ffmpeg keeps encoding after the process ends.
@@ -143,6 +158,7 @@ func (a *App) Stop() {
 	// The contract closes before the children do, so an effect a shell asked for
 	// cannot start one of them behind the teardown below.
 	a.stopControl()
+	a.stopRelayPoll()
 
 	a.procMu.Lock()
 	defer a.procMu.Unlock()

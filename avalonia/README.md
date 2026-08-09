@@ -5,17 +5,20 @@ it launched were both deleted rather than kept in step (`docs/viewer-architectur
 this is the whole surface - the settings form, the encoder and transport pickers, the
 live-now list and the tile grid all live here.
 
-Today it is one vertical slice: the relay connection check. That slice is deliberate
-rather than a hello world - it is a port of `internal/relay`, so it exercises polling,
-byte-delta arithmetic, an unreachable relay as an environment condition, and the status
-vocabulary, on real infrastructure.
+It started as one vertical slice, a port of `internal/relay` that polled the relay's HTTP
+API itself. That slice is gone, and its deletion is worth stating because it is the rule
+this module runs on: **the shell reads, it does not find out.** Whether the relay is up is
+a state the backend polls and announces (`docs/ipc-api.md`), so a second poller here was a
+second answer to the same question - and for a while it was the only one running, since
+nothing on the backend polled at all and every screen read a snapshot that had never been
+taken. What is left is one relay reading in the whole app, on `Backend/Session.cs`.
 
 ## Running it
 
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 55 tests, no relay and no backend needed
+task avalonia:test     # 59 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -44,8 +47,6 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
 | `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the relay roster: one row per stream the relay carries, and a toggle per watch leg |
-| `Relay/` | one poll of `GET /v3/paths/list`, the byte deltas bitrates come from, and the poller that owns the current status |
-| `Ui/` | the original relay-check slice. Still built and still tested; it has not been folded into `Features/Setup` yet |
 
 ### The two rules the tree encodes
 
@@ -162,8 +163,18 @@ codecs those are reaches this module.
 
 **A backend that is not running is a sentence, not a gap.** The reads throw
 `BackendUnavailableException`, the flow shows its message above the steps with a "look again"
-button, and no form is invented in the meantime. Retrying is the reader's rather than a timer's,
+button, and no form is invented in the meantime. There is still no timer behind that button,
 so an absent socket is not hammered for as long as the window is open.
+
+**A backend that comes back is noticed, though, and that is not the same thing as a timer.**
+The session already dials the backend every couple of seconds - it has to, since the event
+stream ends when the backend goes away - so the news that it answered is in the window
+whether or not anything asked. The flow reads that transition and asks again once per
+recovery, which is the case nearly every start meets: the app launches the backend and
+reaches it a moment later, so the flow's opening read is the one call that fails. It used to
+leave the reader looking at a sentence about an absent backend, beside a viewer screen that
+had quietly filled in. What the button is still for is the failure nothing else reports - a
+read the backend served a refusal to.
 
 That state is narrower than it was, and deliberately not gone. `ControlEndpoint` starts a backend
 when the endpoint refuses a connection and asks again until it binds (`BackendProcess`), because
@@ -198,9 +209,17 @@ one of them in the backend's words; paraphrasing a diagnostic would be this modu
 down twice.
 
 The relay half is worth stating, because it is the one state the shell reads from a poll it does
-not run: the backend records a snapshot per poll and answers `GetRelayStatus` from it, and its
-opening value is unreachable with no reason - which is the honest reading of a relay nobody has
-asked yet, and which the gate says as much about.
+not run: the backend polls the relay for as long as it is up, records each snapshot and answers
+`GetRelayStatus` from it, and its opening value is unreachable with no reason - which is the
+honest reading of a relay nobody has asked yet, and which the gate says as much about.
+
+That opening value is also where this went wrong once, and the shape of the bug is worth keeping.
+Nothing on the backend polled: the fetch happened inside a method the deleted frontend called on
+a timer, so with that surface gone the recorded snapshot stayed at the opening value forever and
+every shell drew "the relay could not be reached" beside a relay that was up. The contract had
+said the backend polls all along. The lesson is not "poll harder" - a second poller on this side
+would have hidden it - it is that the side the contract names as the owner has to actually do the
+owning, and the honest opening value is what makes the difference visible rather than plausible.
 
 Where the window goes afterwards is the window's. The flow raises `WentLive`, the shell records
 whether the review's switch asked for the broadcast screen, and it moves on the pass where the
@@ -245,21 +264,23 @@ which is why a press on a tile takes the keyboard and nothing is drawn for it.
 `docs/development-principles.md` governs this module too. Three of its four rules
 translate directly; the fourth needed a decision.
 
-**State has one owner.** `RelayPoller` owns the status. `MainViewModel.Apply` reads
-`poller.Latest` through on every pass and keeps no copy of what it found there.
+**State has one owner.** `Backend/Session.cs` owns the running state - what is publishing,
+what the encoder is measuring, what the relay is carrying, which viewers are open - and the
+screens read it through on every pass and keep no copy of what they found. The relay is the
+clearest case of why: setup's commit gate and the viewer's roster describe the same relay,
+and they cannot disagree about it because they read one field.
 
 **One render function.** `Apply` is it. It sets every output property on every pass,
 including the branches that turn something off, which is what makes a recovered relay
-clear the error banner a failure left behind. Nothing else writes those properties - they
-have private setters and the compiler enforces it. The user's inputs (host, port, the
-auto-refresh toggle) are the other half of the split: their setters are the named writes,
-and `Apply` never touches them, because a render pass that reassigned a text box would
-fight whoever is typing in it.
+clear the notice a failure left behind. Nothing else writes those properties - they have
+private setters and the compiler enforces it. The reader's inputs are the other half of the
+split: their setters are the named writes, and `Apply` never touches them, because a render
+pass that reassigned a text box would fight whoever is typing in it.
 
 **Idempotency.** `Apply` twice over unchanged state raises no notification: the property
-setters compare first, and the path list is rebuilt only when the rendered rows differ.
-`PathRow` is a record for exactly that reason. `RelayPoller.Reconcile` takes the desired
-target and converges onto it, so `Apply` can call it unconditionally.
+setters compare first, and a bound collection is rebuilt only when the rendered rows
+differ. Every row type is a record for exactly that reason, so two passes over one state
+produce values that compare equal rather than merely look alike.
 
 **Assertions.** `Contracts/Assert.cs` throws in Release as well as Debug, which
 `System.Diagnostics.Debug.Assert` does not - a contract that only holds in Debug is not a
@@ -284,8 +305,8 @@ already hold its answer when the token is set.
 
 The answer arrives on whichever thread the transport completed on, so the write back is
 marshalled through an injected dispatcher rather than a toolkit reached for in place -
-`Dispatcher.UIThread.Post` in the window, a straight-through call in a test, the same
-arrangement `RelayPoller` has.
+`Dispatcher.UIThread.Post` in the window, a straight-through call in a test. `Session` is
+handed the same one, for the same reason.
 
 The decision: **MVVM as Avalonia means it, not as it is usually written.** Compiled
 bindings and `INotifyPropertyChanged` are the toolkit's idiom and fighting them produces

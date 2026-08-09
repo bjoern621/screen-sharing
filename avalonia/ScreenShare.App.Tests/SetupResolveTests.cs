@@ -32,6 +32,19 @@ public sealed class SetupResolveTests
         => new(backend, new Session(backend, action => action()), action => action());
 
     /// <summary>
+    /// Reads every running state once and stops before the reconnect delay, so what the session
+    /// found is on it and nothing is left dialling behind the assertions. The same helper
+    /// <see cref="GoLiveTests"/> uses, and it is not awaited for the same reason: the read it
+    /// starts is finished by the time it returns, and the task it hands back is the loop that
+    /// follows the event stream afterwards.
+    /// </summary>
+    private static void Load(Session session)
+    {
+        session.Start();
+        session.Stop();
+    }
+
+    /// <summary>
     /// The state the flow is in before anything has answered, and it is a state rather than a
     /// gap: the window is complete and every group draws its unresolved branch, because a
     /// render pass that waited for the socket would be a window that does not paint.
@@ -258,5 +271,64 @@ public sealed class SetupResolveTests
         Assert.Equal("", flow.Unavailable);
         Assert.True(flow.Quality.IsResolved);
         Assert.False(flow.RetryCommand.CanExecute(null));
+    }
+
+    /// <summary>
+    /// A backend that came back is asked again without anybody pressing anything.
+    ///
+    /// This is the case a window meets on nearly every start: the app launches the backend and
+    /// reaches it a moment later, so the flow's opening read is the one call that fails and the
+    /// button was the only way back from it. The session dials the same backend every couple of
+    /// seconds anyway, so the news is already in the window - what was missing was this flow
+    /// listening for it.
+    /// </summary>
+    [Fact]
+    public async Task ABackendThatCameBackIsAskedAgainWithoutTheButton()
+    {
+        var backend = new DeferredBackend { IsAbsent = true };
+        var session = new Session(backend, action => action());
+        var flow = new SetupViewModel(backend, session, action => action());
+
+        // The opening read never got as far as a resolve, which is what makes the button the
+        // only recovery there was: there is no draft for a keystroke to restart the read from.
+        Assert.True(flow.IsUnavailable);
+        Assert.Equal(0, backend.Resolves);
+
+        // The session finds it absent too, which is the state the recovery is measured from.
+        Load(session);
+        Assert.NotEqual("", session.Unavailable);
+
+        backend.IsAbsent = false;
+        Load(session);
+
+        Assert.Equal("", session.Unavailable);
+        Assert.Equal(1, backend.Resolves);
+
+        await backend.AnswerAsync(0);
+
+        Assert.False(flow.IsUnavailable);
+        Assert.True(flow.Quality.IsResolved);
+    }
+
+    /// <summary>
+    /// And it is asked once per recovery, not once per event. The session announces every state
+    /// the backend sends for as long as it is up, so a flow reacting to "reachable" rather than
+    /// to the moment it became reachable would resolve on each of them.
+    /// </summary>
+    [Fact]
+    public async Task ABackendThatIsSimplyUpDoesNotMakeTheFlowAskAgain()
+    {
+        var backend = new DeferredBackend();
+        var session = new Session(backend, action => action());
+        var flow = new SetupViewModel(backend, session, action => action());
+
+        await backend.AnswerAsync(0);
+        Assert.Equal(1, backend.Resolves);
+
+        Load(session);
+        Load(session);
+
+        Assert.Equal(1, backend.Resolves);
+        Assert.False(flow.IsUnavailable);
     }
 }

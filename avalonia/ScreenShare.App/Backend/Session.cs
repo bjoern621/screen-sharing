@@ -20,10 +20,16 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 /// is doing.
 ///
 /// <b>It is the one owner of that state, and it holds nothing else.</b> The screens read it
-/// through on every render pass and keep no copy of what they found - the same arrangement
-/// <c>RelayPoller</c> has with <c>MainViewModel</c>, and for the same reason: two cards each
+/// through on every render pass and keep no copy of what they found, because two cards each
 /// holding their own reading is how a window ends up describing two different streams at
 /// once (<c>avalonia/README.md</c>, "How the repository's principles land in C#").
+///
+/// <b>The relay is part of that, and it is read here rather than polled anywhere.</b> This
+/// shell talks to the relay's HTTP API nowhere at all: the backend polls it on one interval
+/// and announces each snapshot, because the per-path bitrates are byte deltas between two
+/// answers and a second poller would divide them by an interval nobody agreed on
+/// (<c>docs/ipc-api.md</c>). Setup's commit gate and the viewer's roster therefore describe
+/// the same relay by construction, having read the same field.
 ///
 /// <b>Every field here is a whole state the backend sent, never one this class assembled.</b>
 /// An event replaces a field; it is not applied to it. That is the contract's own rule
@@ -70,9 +76,9 @@ public sealed class Session
     /// tolerate being written from one.
     /// </param>
     /// <param name="clock">
-    /// Stamps an exit with when this shell heard about it. Injected for the reason
-    /// <c>RelayPoller</c>'s is: a test that advances it by hand reads a known time rather than
-    /// whatever the machine said while it ran.
+    /// Stamps an exit with when this shell heard about it. Injected so that a test which
+    /// advances it by hand reads a known time rather than whatever the machine said while it
+    /// ran.
     /// </param>
     public Session(IBackend backend, Action<Action> dispatch, TimeProvider? clock = null)
     {
