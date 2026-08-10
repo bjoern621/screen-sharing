@@ -54,7 +54,7 @@
       </Grid>
     </Border>
 
-    <Grid Margin="12" ColumnDefinitions="*,Auto">
+    <Grid Margin="{StaticResource InsetPanel}" ColumnDefinitions="*,Auto">
 
       <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
         <Panel>

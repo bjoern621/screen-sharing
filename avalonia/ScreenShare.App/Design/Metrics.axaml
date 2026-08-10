@@ -81,6 +81,24 @@
   <sys:Double x:Key="GapPanel">12</sys:Double>
   <sys:Double x:Key="GapSection">16</sys:Double>
 
+  <!--
+    The same four steps, as the inset of a box rather than the gap between two. A gap is a
+    Double and an inset is a Thickness, and a StaticResource converts between neither: a
+    Margin handed the Double compiles and then throws InvalidCastException in the first
+    layout pass, which is how this second set came to be written down.
+
+    Beside the gaps rather than as a literal at each box, so a step that moves moves in one
+    place. The two lines of a step move together, and that is the whole of the duplication.
+
+    Uniform only. A box that needs one edge different - a card with room under it for the
+    next card - writes its four numbers where it needs them, because a key per edge pairing
+    is a ladder no reader could hold.
+  -->
+  <Thickness x:Key="InsetTight">7</Thickness>
+  <Thickness x:Key="InsetControl">10</Thickness>
+  <Thickness x:Key="InsetPanel">12</Thickness>
+  <Thickness x:Key="InsetSection">16</Thickness>
+
   <!-- The state dot stays small: it is state, not decoration (docs/design-language.md). -->
   <sys:Double x:Key="DotSize">7</sys:Double>
 

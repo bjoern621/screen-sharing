@@ -83,7 +83,7 @@
                        TextAlignment="Center"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Margin="16" />
+                       Margin="{StaticResource InsetSection}" />
           </Panel>
         </Border>
       </StackPanel>
@@ -158,7 +158,7 @@
                        TextAlignment="Center"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
-                       Margin="16" />
+                       Margin="{StaticResource InsetSection}" />
           </Panel>
         </Border>
       </StackPanel>

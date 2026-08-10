@@ -46,7 +46,7 @@
       doing. The fixed width is what keeps the preview at 16:9 and the config values from
       reflowing every time the window changes size.
     -->
-    <Grid ColumnDefinitions="396,*" Margin="12">
+    <Grid ColumnDefinitions="396,*" Margin="{StaticResource InsetPanel}">
 
       <!--
         Every card here takes its natural height and the column scrolls if the window is

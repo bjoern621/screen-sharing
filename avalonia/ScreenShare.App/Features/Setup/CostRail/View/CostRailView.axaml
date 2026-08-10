@@ -26,7 +26,7 @@
 
   <StackPanel Spacing="{StaticResource GapControl}">
 
-    <Border Classes="card" Padding="12" IsVisible="{Binding IsResolved}">
+    <Border Classes="card" Padding="{StaticResource InsetPanel}" IsVisible="{Binding IsResolved}">
       <StackPanel>
         <TextBlock Classes="caption" Text="Estimated cost" Margin="0,0,0,10" />
 
@@ -116,7 +116,7 @@
       step; here it is the answer to the question the card already asks, and a line with a
       control behind it names the step that owns it - which is why nobody has to hunt for it.
     -->
-    <Border Classes="card" Padding="12">
+    <Border Classes="card" Padding="{StaticResource InsetPanel}">
       <StackPanel>
         <TextBlock Classes="caption" Text="Checks before going live" Margin="0,0,0,10" />
         <ItemsControl ItemsSource="{Binding Checks}">
