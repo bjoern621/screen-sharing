@@ -250,7 +250,7 @@
     -->
     <Border Grid.Column="2"
             Width="330"
-            Padding="12"
+            Padding="{StaticResource InsetPanel}"
             Background="{StaticResource PanelBrush}"
             BorderBrush="{StaticResource DividerBrush}"
             BorderThickness="1,0,0,0"
