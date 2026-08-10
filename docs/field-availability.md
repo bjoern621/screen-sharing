@@ -80,6 +80,21 @@ The test: would the tooltip teach a user on a different backend something worth 
 Yes means disable-with-reason.
 No means hide.
 
+## Where a greyed entry sits
+
+A greyed entry stays on the list and sinks to the bottom of it.
+
+`form.resolveOptions` partitions a control's entries into the ones this combination allows and the ones it rules out, and the partition is stable, so each half keeps the order its builder gave it.
+The chroma ladder still runs from most colour detail to least and the codec table still lists the implemented families before the roadmap ones; what moves is only that everything reachable is reachable from the top.
+A Windows machine therefore meets Desktop Duplication before it meets a capture backend only macOS runs.
+
+Sinking is not a weaker form of hiding, and the difference is what each one claims.
+An entry a neighbouring combination allows is still an entry, and its reason is what names the thing to change - a greyed WebRTC saying which engine has no sink for it is what tells the user to change the capture backend.
+Removing it would take that sentence away; ordering it last only says it is not the answer here.
+
+It is decided in Go with everything else, because the enabled flag is decided there.
+A shell that re-sorted on it would be a second place deciding what the list looks like, and one the repair walking a stranded value to the first legal entry cannot see (`ipc-api.md`, "The rule").
+
 ## A figure with no measurement
 
 Everything above is about a *setting* the current combination rules out.

@@ -768,3 +768,74 @@ func TestTheRateControlModeIsTheOnlyRadio(t *testing.T) {
 		}
 	}
 }
+
+// A resolved control offers everything the reader can pick before everything they
+// cannot, so a list is answerable from the top on whatever machine it is drawn on.
+//
+// The check runs over every case availabilityCases states, because the partition is only
+// visible where something is greyed: on a Linux session the Windows capture backends
+// sink, on a Windows one the macOS backend does, and on a machine with no NVIDIA encoder
+// the NVENC codecs do.
+func TestAResolvedControlOffersTheReachableEntriesFirst(t *testing.T) {
+	for _, tc := range availabilityCases() {
+		for _, g := range Resolve(tc.deps, tc.s).GetGroups() {
+			for _, f := range g.GetFields() {
+				ruledOut := ""
+				for _, o := range f.GetOptions() {
+					if !o.GetEnabled() {
+						ruledOut = o.GetValue()
+						continue
+					}
+					if ruledOut != "" {
+						t.Errorf("%s: %s offers %q after the ruled-out %q",
+							tc.name, f.GetKey(), o.GetValue(), ruledOut)
+					}
+				}
+			}
+		}
+	}
+}
+
+// The partition keeps every entry and reorders nothing inside either half, which is what
+// separates it from a sort: the chroma ladder, the codec table's order and the capture
+// registry's order all survive it, and an entry this combination rules out is still on
+// the list with its reason (docs/field-availability.md).
+func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
+	for _, tc := range availabilityCases() {
+		for i := range fieldTable {
+			f := &fieldTable[i]
+			if f.options == nil {
+				continue
+			}
+
+			var built []string
+			for _, o := range f.options(tc.deps, tc.s) {
+				built = append(built, o.GetValue())
+			}
+
+			var reachable, ruledOut, offered []string
+			for _, o := range resolveOptions(tc.deps, tc.s, f) {
+				offered = append(offered, o.GetValue())
+				if o.GetEnabled() {
+					reachable = append(reachable, o.GetValue())
+					continue
+				}
+				ruledOut = append(ruledOut, o.GetValue())
+			}
+
+			if len(offered) != len(built) {
+				t.Errorf("%s: %s offers %d of %d entries", tc.name, f.key, len(offered), len(built))
+				continue
+			}
+			for _, half := range [][]string{reachable, ruledOut} {
+				var order []int
+				for _, value := range half {
+					order = append(order, slices.Index(built, value))
+				}
+				if !slices.IsSorted(order) {
+					t.Errorf("%s: %s reorders its entries: %v out of %v", tc.name, f.key, half, built)
+				}
+			}
+		}
+	}
+}

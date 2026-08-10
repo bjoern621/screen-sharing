@@ -177,12 +177,7 @@ func resolveField(d Deps, s settings.Settings, f *field) *screensharev1.Field {
 	}
 
 	if f.options != nil {
-		for _, o := range f.options(d, s) {
-			enabled, reason := optionState(d, s, f.key, o.GetValue())
-			o.Enabled = enabled
-			o.Reason = reason
-			out.Options = append(out.Options, o)
-		}
+		out.Options = resolveOptions(d, s, f)
 	}
 	if f.bounds != nil {
 		out.Range = f.bounds(d, s)
@@ -190,6 +185,54 @@ func resolveField(d Deps, s settings.Settings, f *field) *screensharev1.Field {
 
 	assert.Assert(st.enabled || st.reason != nil, "a disabled control says why", f.key)
 	assert.IsNotNil(out.GetValue(), "a control shows a value", f.key)
+	return out
+}
+
+// resolveOptions is one control's entries with each one's verdict on it, the reachable
+// ones in front of the ruled-out ones.
+//
+// The partition is the only thing this adds to the builder's list, and it is stable, so
+// each half keeps the order the builder gave it: the chroma ladder still runs from most
+// colour detail to least, the capture backends still arrive in the registry's order, and
+// the roadmap codecs still follow the implemented ones. What moves is that everything
+// this combination allows is reachable from the top of the list - a Windows machine meets
+// Desktop Duplication before it meets a capture backend only macOS runs, and a reader
+// scanning a dropdown reads the answers they can pick before the ones they cannot.
+//
+// Nothing is dropped, which is the rule this sits under rather than an exception to it:
+// an option a neighbouring combination allows stays present and greyed with its reason,
+// because that reason is what names the thing to change (docs/field-availability.md).
+// Sinking it says the same thing about priority that removing it would say about
+// existence, and only one of the two is true.
+//
+// It is decided here rather than on a surface for the reason every other verdict is. The
+// enabled flag is this package's answer, and a shell re-sorting on it would be a second
+// place deciding what the list looks like - one that a second shell could disagree with,
+// and that the repair walking a stranded value to the first legal entry could not see
+// (repair.go, docs/ipc-api.md, "The rule").
+func resolveOptions(d Deps, s settings.Settings, f *field) []*screensharev1.FieldOption {
+	assert.IsNotNil(f.options, "an ordered option list belongs to a control that offers entries", f.key)
+
+	built := f.options(d, s)
+	reachable := make([]*screensharev1.FieldOption, 0, len(built))
+	var ruledOut []*screensharev1.FieldOption
+
+	for _, o := range built {
+		enabled, reason := optionState(d, s, f.key, o.GetValue())
+		o.Enabled = enabled
+		o.Reason = reason
+
+		if enabled {
+			reachable = append(reachable, o)
+			continue
+		}
+		ruledOut = append(ruledOut, o)
+	}
+
+	out := append(reachable, ruledOut...)
+	assert.Assert(len(out) == len(built), "every entry the builder made is offered", f.key, len(out), len(built))
+	assert.Assert(len(out) == 0 || out[0].GetEnabled() || len(reachable) == 0,
+		"a reachable entry leads the list", f.key, len(reachable))
 	return out
 }
 
