@@ -508,27 +508,6 @@ public sealed class Session
     }
 
     /// <summary>
-    /// Re-reads the open viewers after one ended. It is a read and not an edit for the reason
-    /// every other state here is whole: the backend owns which viewers are open, and a list
-    /// this class removed an entry from would be a second opinion about it.
-    /// </summary>
-    private async Task RefreshWatchingAsync()
-    {
-        try
-        {
-            var watching = await _backend.WatchingAsync().ConfigureAwait(false);
-            Write(() => Watching = watching);
-        }
-        catch (BackendUnavailableException)
-        {
-            // The stream will have ended too, and the reconnect above re-reads everything.
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    /// <summary>
     /// Runs one write on the UI loop and announces it. Every assignment above goes through
     /// this, so there is one place the change notification is raised and one thread the state
     /// is written from.

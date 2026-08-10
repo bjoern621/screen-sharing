@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:fields="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
              xmlns:vm="using:ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel"
              xmlns:ti="using:TablerIcons"
              x:Class="ScreenShare.App.Features.Setup.AdvancedDrawer.View.AdvancedDrawerView"

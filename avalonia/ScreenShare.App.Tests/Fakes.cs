@@ -1,5 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Features.Setup.ViewModel;
+using ScreenShare.App.Features.Viewer.ViewModel;
 
 namespace ScreenShare.App.Tests;
 
@@ -111,6 +113,9 @@ internal sealed class DeferredBackend : IBackend
 
     public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
         => _seed.ApplyToStreamAsync(settings, cancellation);
+
+    public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.SaveSettingsAsync(settings, cancellation);
 
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => _seed.StopPublishAsync(cancellation);
@@ -253,6 +258,12 @@ internal sealed class PublishingBackend : IBackend
     public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
         => Commit(Applied, settings);
 
+    public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+        => Commit(Saved, settings);
+
+    /// <summary>The settings handed to SaveSettings, oldest first.</summary>
+    public List<Settings> Saved { get; } = [];
+
     /// <summary>
     /// One commit, recorded where a test will look for it.
     ///
@@ -336,4 +347,27 @@ internal sealed class PublishingBackend : IBackend
 
     public IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default)
         => _seed.SubscribeAudioLevelsAsync(cancellation);
+}
+
+/// <summary>
+/// The two destinations that read the window's one settings draft, built the way the window
+/// builds them: one <see cref="Session"/> and one <see cref="FormSession"/> behind both.
+///
+/// It exists so a test cannot accidentally give a flow a draft of its own. The window holds one
+/// for the whole app - the setup wizard writes what this machine sends and the viewer writes how
+/// it receives, into the same message - and a fixture that handed each of them their own would
+/// be testing an arrangement the app does not have.
+/// </summary>
+internal static class Flows
+{
+    /// <summary>The dispatcher every fixture here uses: inline, so a render pass is over when the call is.</summary>
+    private static readonly Action<Action> Inline = action => action();
+
+    public static SetupViewModel Setup(IBackend backend, Session session)
+        => new(backend, new FormSession(backend, session, Inline), session, Inline);
+
+    public static SetupViewModel Setup(IBackend backend) => Setup(backend, new Session(backend, Inline));
+
+    public static ViewerViewModel Viewer(IBackend backend, Session session)
+        => new(backend, new FormSession(backend, session, Inline), session, Inline);
 }

@@ -37,8 +37,10 @@ public sealed record SetupStepRow
 /// is a step that appears and works with nothing here to edit.
 ///
 /// What the shell still owns is placement, which is what the contract leaves it: the order is
-/// the form's, one group is drawn by a layout of its own (<see cref="QualityLayout"/>), and the
-/// terminal step is appended because committing is not a group of settings.
+/// the form's, one group is drawn by a layout of its own (<see cref="QualityLayout"/>), one is
+/// drawn by another destination entirely (<see cref="Fields.Model.GroupPlacement"/>, and the
+/// caller is what applies that filter), and the terminal step is appended because committing is
+/// not a group of settings.
 /// </summary>
 public static class SetupSteps
 {

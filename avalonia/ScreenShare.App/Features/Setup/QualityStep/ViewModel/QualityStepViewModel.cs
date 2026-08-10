@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Mvvm;
 

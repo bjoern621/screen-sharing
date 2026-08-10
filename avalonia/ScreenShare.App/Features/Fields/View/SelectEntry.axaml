@@ -1,6 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                    xmlns:fields="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+                    xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
                     xmlns:ti="using:TablerIcons">
 
   <!--

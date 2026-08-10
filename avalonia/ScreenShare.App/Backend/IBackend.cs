@@ -185,6 +185,26 @@ public interface IBackend
     /// </summary>
     Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Persists the settings and touches nothing that is running.
+    ///
+    /// It is how a setting reaches the backend without putting a stream on the air, which is what
+    /// the viewer's watch settings need: how a tile receives and what converts its frames govern
+    /// the next decode this machine opens, and a reader who is watching and not sending has no
+    /// publish to persist them through. Both engines build a child from an argv and neither takes
+    /// a value back afterwards, so a decode already running keeps the pipeline it started with -
+    /// which is the same reason <see cref="ApplyToStreamAsync"/> is a separate method from
+    /// <see cref="StartPublishAsync"/>.
+    ///
+    /// <b>It names a state and is safe to repeat.</b> Saving settings that are already the held
+    /// ones is that state holding, not a second write, so a caller whose answer went missing asks
+    /// again (<c>docs/development-principles.md</c>, "Effects across a process boundary").
+    ///
+    /// It answers with nothing, like every other effect. That the held settings moved arrives on
+    /// the event stream, so a second window learns it the same way this one does.
+    /// </summary>
+    Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default);
+
     /// <summary>Ends the stream, whether it is running or waiting out a retry backoff.</summary>
     Task StopPublishAsync(CancellationToken cancellation = default);
 

@@ -1,5 +1,5 @@
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 
 namespace ScreenShare.App.Features.Setup.Model;
 

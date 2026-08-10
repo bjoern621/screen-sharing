@@ -29,7 +29,7 @@ public sealed class GoLiveTests
     private static SetupViewModel Flow(PublishingBackend backend, out Session session)
     {
         var opened = new Session(backend, action => action());
-        var flow = new SetupViewModel(backend, opened, action => action());
+        var flow = Flows.Setup(backend, opened);
 
         Load(opened);
         flow.Apply();
@@ -80,7 +80,7 @@ public sealed class GoLiveTests
     {
         var backend = new DeferredBackend();
         var session = new Session(backend, action => action());
-        var flow = new SetupViewModel(backend, session, action => action());
+        var flow = Flows.Setup(backend, session);
 
         Assert.False(flow.Review.CanGoLive);
     }
@@ -94,7 +94,7 @@ public sealed class GoLiveTests
     {
         var backend = new DeferredBackend();
         var session = new Session(backend, action => action());
-        var flow = new SetupViewModel(backend, session, action => action());
+        var flow = Flows.Setup(backend, session);
 
         backend.Fail(0, "The backend is not running: nothing is listening on the control socket.");
 

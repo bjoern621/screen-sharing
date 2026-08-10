@@ -1,5 +1,5 @@
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
 
@@ -28,8 +28,7 @@ public sealed class SetupResolveTests
     private static void Choose(SetupViewModel flow, string key, string value)
         => Select(flow, key).Options.Single(option => option.Value == value).Choose.Execute(null);
 
-    private static SetupViewModel Flow(DeferredBackend backend)
-        => new(backend, new Session(backend, action => action()), action => action());
+    private static SetupViewModel Flow(DeferredBackend backend) => Flows.Setup(backend);
 
     /// <summary>
     /// Reads every running state once and stops before the reconnect delay, so what the session
@@ -287,7 +286,7 @@ public sealed class SetupResolveTests
     {
         var backend = new DeferredBackend { IsAbsent = true };
         var session = new Session(backend, action => action());
-        var flow = new SetupViewModel(backend, session, action => action());
+        var flow = Flows.Setup(backend, session);
 
         // The opening read never got as far as a resolve, which is what makes the button the
         // only recovery there was: there is no draft for a keystroke to restart the read from.
@@ -320,7 +319,7 @@ public sealed class SetupResolveTests
     {
         var backend = new DeferredBackend();
         var session = new Session(backend, action => action());
-        var flow = new SetupViewModel(backend, session, action => action());
+        var flow = Flows.Setup(backend, session);
 
         await backend.AnswerAsync(0);
         Assert.Equal(1, backend.Resolves);

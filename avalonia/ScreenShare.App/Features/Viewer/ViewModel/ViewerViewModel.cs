@@ -5,6 +5,7 @@ using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Viewer.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
+using ScreenShare.App.Features.Viewer.WatchSettings.ViewModel;
 using ScreenShare.App.Mvvm;
 using TablerIcons;
 
@@ -38,31 +39,30 @@ namespace ScreenShare.App.Features.Viewer.ViewModel;
 /// can carry a particular stream is answered by the backend when the viewer is opened, and its
 /// refusal is shown as it stands - the relay snapshot can be older than the stream, so greying a
 /// leg here from a stale format would refuse a viewer that would have worked.
+///
+/// The settings behind those legs are edited here as well, in the panel beside the grid. They
+/// govern how this machine receives and nothing about what it sends, so this is the screen they
+/// belong to (<c>Features/Fields/Model/GroupPlacement.cs</c>).
 /// </summary>
 public sealed class ViewerViewModel : Observable
 {
     private readonly IBackend _backend;
+
+    /// <summary>
+    /// The draft and the form it resolves to, owned by the window. Two things are read off it
+    /// and neither is kept: the legs a stream can be opened on, and the leg a tile decodes over.
+    ///
+    /// It used to be a read of its own - this screen fetched the settings and resolved a form
+    /// once, on mount - and that was a second copy of the one thing the setup wizard was already
+    /// holding: a leg changed in the wizard did not reach the tiles until the window was
+    /// reopened. Reading through is what removes that (<c>docs/development-principles.md</c>,
+    /// "A reader reads through").
+    /// </summary>
+    private readonly FormSession _form;
+
     private readonly Session _session;
     private readonly Action<Action> _dispatch;
     private readonly Dictionary<string, StreamRowViewModel> _rows = [];
-
-    /// <summary>
-    /// The legs the backend offered, and empty until the settings have been resolved once. An
-    /// empty list is a roster whose rows offer nothing rather than one that invented a protocol.
-    /// </summary>
-    private IReadOnlyList<WatchLeg> _legs = [];
-
-    /// <summary>
-    /// The leg a tile's decode is opened on, empty until the settings have been resolved once.
-    ///
-    /// It is read through <see cref="TileLeg"/>, which is the one site that answers the
-    /// question for every screen that puts a tile on the air - this grid and the broadcast
-    /// screen's preview - so neither of them derives a protocol of its own.
-    /// </summary>
-    private string _tileLeg = "";
-
-    /// <summary>Whether the legs have been asked for, so a failed read is retried and a good one is not repeated.</summary>
-    private bool _askedLegs;
 
     /// <summary>
     /// The tiles this window has put on screen, by stream name.
@@ -102,13 +102,15 @@ public sealed class ViewerViewModel : Observable
     /// transport completed on, and everything this writes is read by a binding that only
     /// tolerates being written from one.
     /// </param>
-    public ViewerViewModel(IBackend backend, Session session, Action<Action> dispatch)
+    public ViewerViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a viewer asks the backend to open and close viewers");
+        Assert.NotNull(form, "a viewer draws the settings that govern how it receives");
         Assert.NotNull(session, "a viewer renders the session's running state");
         Assert.NotNull(dispatch, "a viewer needs a UI loop to marshal an answer back to");
 
         _backend = backend;
+        _form = form;
         _session = session;
         _dispatch = dispatch;
 
@@ -119,6 +121,21 @@ public sealed class ViewerViewModel : Observable
             IsRailCollapsed = !IsRailCollapsed;
             Apply();
         });
+
+        // The settings that govern how this machine receives, beside the tiles they govern.
+        // They used to be a step of the setup wizard, which is the screen for what this machine
+        // sends (Features/Fields/Model/GroupPlacement.cs).
+        Watch = new WatchSettingsViewModel(backend, form, session, dispatch);
+        ToggleWatchSettings = new DelegateCommand(() =>
+        {
+            IsWatchSettingsOpen = !IsWatchSettingsOpen;
+            Apply();
+        });
+
+        // News that the draft or the form behind it moved: the legs a row offers and the leg a
+        // tile is opened on are both read off it. Raised on the UI loop by the form session
+        // itself, so there is nothing to marshal here.
+        _form.Changed += Apply;
 
         Apply();
     }
@@ -223,6 +240,27 @@ public sealed class ViewerViewModel : Observable
     /// <summary>Collapses the rail to its toggle, or opens it again.</summary>
     public DelegateCommand ToggleRail { get; }
 
+    private bool _isWatchSettingsOpen;
+
+    /// <summary>
+    /// How this machine receives: the legs, the jitter buffers and the render chain. It is one
+    /// group of the same resolved form the setup wizard draws its steps from, placed here
+    /// because this is the screen its settings govern.
+    /// </summary>
+    public WatchSettingsViewModel Watch { get; }
+
+    /// <summary>
+    /// Whether the settings panel is open. This shell's own state, like every other thing about
+    /// the arrangement: the contract describes no panel and could not.
+    /// </summary>
+    public bool IsWatchSettingsOpen { get => _isWatchSettingsOpen; private set => Set(ref _isWatchSettingsOpen, value); }
+
+    /// <summary>Opens the settings panel, or closes it again.</summary>
+    public DelegateCommand ToggleWatchSettings { get; }
+
+    /// <summary>What the settings toggle says it will do, since the glyph alone is not a sentence.</summary>
+    public string WatchSettingsTip => IsWatchSettingsOpen ? "Close the watching settings" : "How this machine receives";
+
     /// <summary>The tile for one stream, for a view that has to hand it to a window it is opening.</summary>
     public TileViewModel? TileOf(string stream) => _tiles.GetValueOrDefault(stream);
 
@@ -265,6 +303,13 @@ public sealed class ViewerViewModel : Observable
     /// <summary>The rail's leading label.</summary>
     public string ShowingLabel => "On the relay";
 
+    /// <summary>
+    /// The field the legs a player can be opened on are read off. Named once here rather than
+    /// typed at the site that reads it, for the reason <see cref="TileLeg.Key"/> is: a rename in
+    /// the contract is one line.
+    /// </summary>
+    private const string PlayerLegKey = "viewer.player_watch_transport";
+
     // --- Lifecycle ------------------------------------------------------------------
 
     /// <summary>
@@ -275,15 +320,20 @@ public sealed class ViewerViewModel : Observable
     public void Apply()
     {
         // Reconciled from the render pass rather than performed by it: the pass states that it
-        // wants legs to offer, and the converge decides whether anything has to be asked.
-        AskLegs();
+        // wants a form to read the legs off, and the converge decides whether anything has to be
+        // asked (docs/development-principles.md, "Idempotency").
+        _form.Sync();
 
+        // Both read through on every pass rather than held, so a leg changed in the settings
+        // panel beside this grid reaches the rows and the next decode without anything here
+        // having been told.
+        var legs = LegsOf(_form.Form);
         var relay = _session.Relay;
         var rows = Rows(relay, _session.Watching);
 
         foreach (var row in rows)
         {
-            Of(row.Name).Apply(row, _legs, _tiles.ContainsKey(row.Name));
+            Of(row.Name).Apply(row, legs, _tiles.ContainsKey(row.Name));
         }
 
         Reconcile.Onto(Streams, rows.Select(row => Of(row.Name)).ToList());
@@ -333,11 +383,17 @@ public sealed class ViewerViewModel : Observable
         FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
         HasFullscreen = FullscreenTile is not null;
 
-        // The two rail figures are computed rather than stored, so they are raised by hand: a
-        // binding on a property with no field of its own has nothing to compare.
+        // The settings panel draws from the same draft on every pass, so a vocabulary that
+        // arrived with the catalog reaches its entries through this call rather than through a
+        // notification of its own.
+        Watch.Apply();
+
+        // The computed faces are raised by hand: a binding on a property with no field of its
+        // own has nothing to compare.
         OnPropertyChanged(nameof(RailWidth));
         OnPropertyChanged(nameof(RailGlyph));
         OnPropertyChanged(nameof(RailToggleTip));
+        OnPropertyChanged(nameof(WatchSettingsTip));
 
         WindowsChanged?.Invoke();
 
@@ -464,61 +520,26 @@ public sealed class ViewerViewModel : Observable
     // --- The effects ----------------------------------------------------------------
 
     /// <summary>
-    /// Asks the backend which legs a viewer can be opened on, once.
+    /// The watch legs a form offers, read off the field the contract names for them. A form that
+    /// has not arrived, or one that does not carry the field, leaves the roster offering nothing
+    /// rather than a protocol guessed here.
     ///
-    /// They are the options of the form's watch-leg field, resolved against the settings the
-    /// backend holds. That is a read of the vocabulary rather than of a per-stream verdict, which
-    /// is why one answer serves every row: what a leg is called is the same for all of them, and
-    /// whether one carries a given stream is answered when that viewer is opened.
+    /// It is a read of the vocabulary rather than of a per-stream verdict, which is why one
+    /// answer serves every row: what a leg is called is the same for all of them, and whether one
+    /// carries a given stream is answered when that viewer is opened.
     /// </summary>
-    private void AskLegs()
+    private static IReadOnlyList<WatchLeg> LegsOf(Form? form)
     {
-        if (_askedLegs)
+        if (form is null)
         {
-            return;
+            return [];
         }
 
-        _askedLegs = true;
-        _ = AskLegsAsync();
-    }
-
-    private async Task AskLegsAsync()
-    {
-        try
-        {
-            var settings = await _backend.SettingsAsync().ConfigureAwait(false);
-            var form = await _backend.ResolveFormAsync(settings).ConfigureAwait(false);
-
-            _dispatch(() =>
-            {
-                _legs = LegsOf(form);
-                _tileLeg = TileLeg.Of(form);
-                Apply();
-            });
-        }
-        catch (BackendUnavailableException)
-        {
-            // The session's own reconnect reports the absence. Forgetting that they were asked
-            // for is what lets the next pass ask again once the backend answers.
-            _dispatch(() => _askedLegs = false);
-        }
-        catch (OperationCanceledException)
-        {
-            _dispatch(() => _askedLegs = false);
-        }
-    }
-
-    /// <summary>
-    /// The watch legs a form offers, read off the field the contract names for them. A field the
-    /// form does not carry leaves the roster offering nothing rather than a protocol guessed here.
-    /// </summary>
-    private static IReadOnlyList<WatchLeg> LegsOf(Form form)
-    {
         foreach (var group in form.Groups)
         {
             foreach (var field in group.Fields)
             {
-                if (field.Key != "viewer.player_watch_transport")
+                if (field.Key != PlayerLegKey)
                 {
                     continue;
                 }
@@ -548,16 +569,29 @@ public sealed class ViewerViewModel : Observable
     /// screen departs from reading everything through. That is the contract's doing rather
     /// than a shortcut: the backend describes no grid, so there is nothing to read a tile
     /// list back from.
+    ///
+    /// <b>The two directions name their leg from two places, and that is not a slip.</b> A start
+    /// opens the leg the settings say a tile receives on; a stop closes the leg the tile was
+    /// actually opened on, which is the tile's own and can be an older setting. Stopping on the
+    /// current setting would leave a decode running whenever the leg had been changed since - a
+    /// decode is keyed by the stream and the leg together, and the pair is what identifies it.
     /// </summary>
     private async Task TileAsync(string stream, bool tiled)
     {
         if (tiled)
         {
+            // Read before the tile goes, because the tile is where the answer is.
+            var opened = _tiles.TryGetValue(stream, out var tile) ? tile.Transport : "";
             Drop(stream);
+
+            if (opened.Length == 0)
+            {
+                return;
+            }
 
             try
             {
-                await _backend.StopReceiveAsync(stream, _tileLeg).ConfigureAwait(false);
+                await _backend.StopReceiveAsync(stream, opened).ConfigureAwait(false);
                 Refused("");
             }
             catch (BackendUnavailableException e)
@@ -571,7 +605,8 @@ public sealed class ViewerViewModel : Observable
             return;
         }
 
-        if (_tileLeg.Length == 0)
+        var leg = TileLeg.Of(_form.Form);
+        if (leg.Length == 0)
         {
             Refused("The settings have not said which protocol a tile receives on yet.");
             return;
@@ -579,9 +614,9 @@ public sealed class ViewerViewModel : Observable
 
         try
         {
-            await _backend.StartReceiveAsync(stream, _tileLeg).ConfigureAwait(false);
+            await _backend.StartReceiveAsync(stream, leg).ConfigureAwait(false);
             Refused("");
-            _dispatch(() => Add(stream));
+            _dispatch(() => Add(stream, leg));
         }
         catch (BackendUnavailableException e)
         {
@@ -665,16 +700,22 @@ public sealed class ViewerViewModel : Observable
         Apply();
     }
 
-    /// <summary>Adds one tile, on the UI loop, and re-renders.</summary>
-    private void Add(string stream)
+    /// <summary>
+    /// Adds one tile, on the UI loop, and re-renders. The leg is the one the decode was opened
+    /// on and is passed in rather than read again, so the tile is keyed by the pair the backend
+    /// keyed the decode by even if the setting moved in between.
+    /// </summary>
+    private void Add(string stream, string leg)
     {
+        Assert.That(leg.Length > 0, "a tile names the leg its decode was opened on", stream);
+
         if (_tiles.ContainsKey(stream))
         {
             return;
         }
 
         var tile = new TileViewModel(
-            TileSource.Relay(stream, _tileLeg), _backend, _dispatch, intent => Arrange(stream, intent));
+            TileSource.Relay(stream, leg), _backend, _dispatch, intent => Arrange(stream, intent));
         // A tile reports what it drew, which no state the backend owns can carry. The pass it
         // asks for is this screen's own, so the figures over a tile and the roster under it
         // are still written by one render function.

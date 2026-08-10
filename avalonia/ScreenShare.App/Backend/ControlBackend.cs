@@ -211,6 +211,16 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(settings, "saving the settings names the settings to keep");
+
+        return ReadAsync(
+            c => c.SaveSettingsAsync(new SaveSettingsRequest { Settings = settings }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => ReadAsync(c => c.StopPublishAsync(new StopPublishRequest(), cancellationToken: cancellation), cancellation);
 

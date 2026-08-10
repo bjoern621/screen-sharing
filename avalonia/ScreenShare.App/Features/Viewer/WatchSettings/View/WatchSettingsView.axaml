@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.View"
+             xmlns:vm="using:ScreenShare.App.Features.Viewer.WatchSettings.ViewModel"
+             x:Class="ScreenShare.App.Features.Viewer.WatchSettings.View.WatchSettingsView"
+             x:DataType="vm:WatchSettingsViewModel">
+
+  <!--
+    How this machine receives, beside the tiles it governs. It is the same group of the same
+    resolved form the setup wizard used to draw as a step, rendered by the same generic
+    renderer - what moved is which screen places it, which is the shell's own business
+    (Features/Fields/Model/GroupPlacement.cs).
+
+    The panel scrolls on its own and the commit sits under it, so the button stays reachable
+    however many controls the group carries - the same arrangement the setup rail has, and for
+    the same reason.
+  -->
+
+  <Grid RowDefinitions="*,Auto">
+
+    <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
+      <fields:FieldGroupView DataContext="{Binding Group}" />
+    </ScrollViewer>
+
+    <StackPanel Grid.Row="1" Margin="0,10,0,0" Spacing="{StaticResource GapTight}">
+
+      <!-- What the backend said about the last save, in its own words. -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 IsVisible="{Binding HasNotice}"
+                 Text="{Binding Notice}" />
+
+      <Button Theme="{StaticResource PrimaryButton}"
+              Height="{StaticResource FooterButtonHeight}"
+              HorizontalAlignment="Stretch"
+              Content="Keep these settings"
+              Command="{Binding SaveCommand}"
+              controls:Pending.IsActive="{Binding SaveCommand.IsRunning}"
+              ToolTip.Tip="{Binding SaveTip}" />
+    </StackPanel>
+
+  </Grid>
+
+</UserControl>

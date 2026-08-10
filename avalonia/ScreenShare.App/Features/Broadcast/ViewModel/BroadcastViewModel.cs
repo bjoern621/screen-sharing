@@ -10,6 +10,7 @@ using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 using ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
 using ScreenShare.App.Features.Broadcast.ViewerTable.ViewModel;
+using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Broadcast.ViewModel;
@@ -257,9 +258,9 @@ public sealed class BroadcastViewModel : Observable
     {
         // The live state carries the two groups the running pipeline was built from, and a
         // resolve takes all three. The viewer group is left absent and the resolve fills it
-        // with the defaults, which is the honest shape: how this machine watches was never
-        // part of what it publishes, so the watch rows on this card describe the machine
-        // rather than the stream.
+        // with the defaults, which is why the card leaves that group out entirely: how this
+        // machine watches was never part of what it publishes, so a watch row here would be
+        // describing the machine under a heading that says "this stream" (Rows).
         var live = _session.Publish?.Live;
         var settings = live is null ? null : new Settings { Publish = live.Publish, Relay = live.Relay };
 
@@ -321,6 +322,11 @@ public sealed class BroadcastViewModel : Observable
     ///
     /// A group with nothing worth a line is left out rather than drawn empty - the relay
     /// ports settle on numbers that say nothing without their labels.
+    ///
+    /// So is the group about receiving. This card says what the running stream is, and how this
+    /// machine watches is not part of that: the resolve fills that group from the defaults
+    /// because the live state does not carry it, so the row would be a figure about the machine
+    /// under a heading about the stream (<c>Features/Fields/Model/GroupPlacement.cs</c>).
     /// </summary>
     private static IReadOnlyList<ConfigRow> Rows(Form? form, Vocabulary words)
     {
@@ -332,6 +338,11 @@ public sealed class BroadcastViewModel : Observable
         var rows = new List<ConfigRow>(form.Groups.Count);
         foreach (var group in form.Groups)
         {
+            if (GroupPlacement.InViewer(group.Key))
+            {
+                continue;
+            }
+
             var summary = words.Shorthand(group.Key, form.Settings);
             if (summary.Length > 0)
             {

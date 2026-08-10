@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace ScreenShare.App.Features.Setup.Fields.View;
+namespace ScreenShare.App.Features.Fields.View;
 
 /// <summary>
 /// Markup and nothing else. Every control on this screen writes the draft through its

@@ -4,9 +4,10 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
+using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Mvvm;
 
-namespace ScreenShare.App.Features.Setup.Fields.ViewModel;
+namespace ScreenShare.App.Features.Fields.ViewModel;
 
 /// <summary>
 /// One control of the resolved form, as the screen draws it.
@@ -164,9 +165,20 @@ public sealed class FieldViewModel : Observable
     private decimal _numberMinimum;
     private decimal _numberMaximum;
     private decimal _numberStep = 1;
+    private FieldAction? _action;
+    private bool _hasAction;
 
     /// <summary>The entries of a select or radio, empty on every other kind.</summary>
     public ObservableCollection<OptionViewModel> Options { get; }
+
+    /// <summary>
+    /// The effect offered beside this control, null where the screen offers none. It is the
+    /// screen's own placement rather than anything the form described, and it writes this field
+    /// through the same path a keystroke does (<see cref="FieldAction"/>).
+    /// </summary>
+    public FieldAction? Action { get => _action; private set => Set(ref _action, value); }
+
+    public bool HasAction { get => _hasAction; private set => Set(ref _hasAction, value); }
 
     public string Label { get => _label; private set => Set(ref _label, value); }
 
@@ -266,13 +278,21 @@ public sealed class FieldViewModel : Observable
     /// the options compare equal across two passes over one field, and the inputs are
     /// assigned under the echo guard so an unchanged form reports nothing back.
     /// </summary>
-    public void Apply(Field field, Vocabulary words)
+    /// <param name="action">
+    /// The effect this screen offers beside the control, null where it offers none. Passed on
+    /// every pass rather than held, so a screen that stops offering it turns the button off
+    /// through the same render function that turned it on.
+    /// </param>
+    public void Apply(Field field, Vocabulary words, FieldAction? action = null)
     {
         Assert.NotNull(field, "rendering a field needs the field the form described");
         Assert.NotNull(words, "naming a field's entries needs the vocabulary that names them");
         Assert.That(field.Key == Key, "a field renders the settings field it was made for", Key, field.Key);
 
         _words = words;
+
+        Action = action;
+        HasAction = action is not null;
 
         // The heading and the paragraph are this side's, keyed by the field the backend
         // named; the reason and the note are statements it made, turned into sentences here.
@@ -325,6 +345,7 @@ public sealed class FieldViewModel : Observable
             Options.Count == 0 || IsSelect || IsRadio || IsNumberSelect,
             "only a control that offers entries carries options", Key, field.Control, Options.Count);
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
+        Assert.That(HasAction == (Action is not null), "the action and the flag that draws it agree", Key);
     }
 
     /// <summary>

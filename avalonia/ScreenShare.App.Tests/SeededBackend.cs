@@ -273,8 +273,18 @@ internal sealed class SeededBackend : IBackend
     {
         Assert.NotNull(settings, "starting a publish names the settings the encoder runs on");
 
+        Started.Add(settings);
         return Task.CompletedTask;
     }
+
+    /// <summary>The settings handed to StartPublish, oldest first.</summary>
+    public List<Settings> Started { get; } = [];
+
+    /// <summary>
+    /// Why a save is refused, empty while it is accepted. A test sets it to see what the screen
+    /// does with the backend's own sentence, which is the one worth showing.
+    /// </summary>
+    public string SaveRefusal { get; set; } = "";
 
     public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
     {
@@ -282,6 +292,26 @@ internal sealed class SeededBackend : IBackend
 
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// A save that keeps nothing. Nothing in this fixture reads the settings back, so what a
+    /// test asserts is that the call was made rather than what it stored.
+    /// </summary>
+    public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(settings, "saving the settings names the settings to keep");
+
+        if (SaveRefusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(SaveRefusal));
+        }
+
+        Saved.Add(settings);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The settings handed to SaveSettings, oldest first.</summary>
+    public List<Settings> Saved { get; } = [];
 
     public Task StopPublishAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 
@@ -969,6 +999,56 @@ internal sealed class SeededBackend : IBackend
                     Control = ControlKind.Number,
                     Unit = Unit.MegabitsPerSecond,
                     Range = Bounded(1, 10000),
+                },
+            ],
+        },
+        // How this machine receives, which is a group of the same form and is drawn by the
+        // viewer rather than by the wizard (Features/Fields/Model/GroupPlacement.cs). It is in
+        // the fixture so the split is testable at all: a form with no watch group would let the
+        // filter pass by having nothing to filter.
+        new()
+        {
+            Key = "watch",
+            Fields =
+            [
+                new()
+                {
+                    Key = "viewer.player_watch_transport",
+                    Control = ControlKind.Select,
+                    Options =
+                    [
+                        new() { Value = "srt" },
+                        new() { Value = "rtsp" },
+                        new() { Value = "hls" },
+                    ],
+                },
+                new()
+                {
+                    Key = "viewer.tile_watch_transport",
+                    Control = ControlKind.Select,
+                    Options =
+                    [
+                        new() { Value = "srt" },
+                        new() { Value = "rtsp" },
+                        new() { Value = "whep" },
+                    ],
+                },
+                new()
+                {
+                    Key = "viewer.render_chain",
+                    Control = ControlKind.Select,
+                    Options =
+                    [
+                        new() { Value = "gl" },
+                        new() { Value = "sys" },
+                    ],
+                },
+                new()
+                {
+                    Key = "viewer.srt_watch_latency_ms",
+                    Control = ControlKind.Slider,
+                    Unit = Unit.Milliseconds,
+                    Range = Bounded(20, 8000, 10),
                 },
             ],
         },

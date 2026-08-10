@@ -2,9 +2,10 @@ using System.Collections.ObjectModel;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
+using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Mvvm;
 
-namespace ScreenShare.App.Features.Setup.Fields.ViewModel;
+namespace ScreenShare.App.Features.Fields.ViewModel;
 
 /// <summary>
 /// One group of the resolved form: a heading and the controls under it, in the order the
@@ -23,17 +24,30 @@ public sealed class FieldGroupViewModel : Observable
     private readonly Action<string, FieldValue> _write;
 
     /// <summary>
+    /// What this screen offers beside a control, asked per key on every pass. It answers null
+    /// for almost every field and for every field on a screen that offers nothing, which is why
+    /// it is a lookup rather than a table held here (<see cref="FieldAction"/>).
+    /// </summary>
+    private readonly Func<string, FieldAction?> _actionOf;
+
+    /// <summary>
     /// One view model per field key, kept across passes. Fields are widgets with focus and a
     /// caret in them, so they are updated in place; rebuilding them every pass would take
     /// the caret out of a box while it is being typed in.
     /// </summary>
     private readonly Dictionary<string, FieldViewModel> _fields = [];
 
-    public FieldGroupViewModel(Action<string, FieldValue> write)
+    /// <param name="actionOf">
+    /// The effect this screen offers beside one control, or null where it offers none. Optional
+    /// because most screens offer none, and it is asked on every pass rather than once, so a
+    /// screen that withdraws an action turns the button off through the render function.
+    /// </param>
+    public FieldGroupViewModel(Action<string, FieldValue> write, Func<string, FieldAction?>? actionOf = null)
     {
         Assert.NotNull(write, "a group needs somewhere to report what the user moved");
 
         _write = write;
+        _actionOf = actionOf ?? (_ => null);
         Fields = [];
     }
 
@@ -112,7 +126,7 @@ public sealed class FieldGroupViewModel : Observable
         foreach (var field in group.Fields)
         {
             var model = Of(field.Key);
-            model.Apply(field, words);
+            model.Apply(field, words, _actionOf(field.Key));
 
             if (model.IsVisible)
             {

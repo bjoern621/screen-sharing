@@ -1,6 +1,6 @@
 using ScreenShare.App.Mvvm;
 
-namespace ScreenShare.App.Features.Setup.Fields.ViewModel;
+namespace ScreenShare.App.Features.Fields.ViewModel;
 
 /// <summary>
 /// One entry of a select or radio field, as the form described it and the screen draws it.

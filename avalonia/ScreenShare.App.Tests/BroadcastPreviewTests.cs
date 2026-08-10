@@ -128,6 +128,9 @@ public sealed class BroadcastPreviewTests
         public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
             => _seed.StartPublishAsync(settings, cancellation);
 
+        public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+            => _seed.SaveSettingsAsync(settings, cancellation);
+
         public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
             => _seed.ApplyToStreamAsync(settings, cancellation);
 

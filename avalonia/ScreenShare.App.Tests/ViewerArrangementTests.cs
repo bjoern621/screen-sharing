@@ -106,6 +106,9 @@ public sealed class ViewerArrangementTests
         public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
             => _seed.StartPublishAsync(settings, cancellation);
 
+        public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
+            => _seed.SaveSettingsAsync(settings, cancellation);
+
         public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
             => _seed.ApplyToStreamAsync(settings, cancellation);
 
@@ -157,7 +160,7 @@ public sealed class ViewerArrangementTests
         var session = new Session(backend, static action => action());
         session.Start();
 
-        var viewer = new ViewerViewModel(backend, session, static action => action());
+        var viewer = Flows.Viewer(backend, session);
         viewer.Apply();
 
         foreach (var row in viewer.Streams.ToList())

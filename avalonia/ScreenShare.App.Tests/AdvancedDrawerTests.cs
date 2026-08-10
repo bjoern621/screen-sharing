@@ -2,7 +2,7 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
@@ -203,7 +203,7 @@ public sealed class AdvancedDrawerTests
     public async Task EveryFieldOfTheGroupIsDrawnExactlyOnce()
     {
         var backend = new SeededBackend("linux");
-        var flow = new SetupViewModel(backend, new Session(backend, action => action()), action => action());
+        var flow = Flows.Setup(backend);
         await flow.Settled;
 
         var offered = (await backend.ResolveFormAsync(await backend.SettingsAsync()))

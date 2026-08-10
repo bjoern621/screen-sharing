@@ -2,6 +2,8 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Controls;
+using ScreenShare.App.Features.Fields.Model;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
@@ -23,7 +25,7 @@ public sealed class SetupStepsTests
     private static async Task<SetupViewModel> FlowAsync()
     {
         var backend = new SeededBackend("linux");
-        var flow = new SetupViewModel(backend, new Session(backend, action => action()), action => action());
+        var flow = Flows.Setup(backend);
         await flow.Settled;
         return flow;
     }
@@ -39,16 +41,48 @@ public sealed class SetupStepsTests
         var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
         var flow = await FlowAsync();
 
-        Assert.Equal(form.Groups.Count + 1, flow.Steps.Count);
+        // Every group except the ones another destination draws. The list is the form's and the
+        // placement is this shell's, which is the whole of what this side decides.
+        var sent = form.Groups.Where(group => GroupPlacement.InSetup(group.Key)).ToList();
+
+        Assert.Equal(sent.Count + 1, flow.Steps.Count);
         Assert.Equal(
-            form.Groups.Select(group => group.Key).Append(SetupSteps.GoLiveKey),
+            sent.Select(group => group.Key).Append(SetupSteps.GoLiveKey),
             flow.Steps.Select(step => step.Key));
         // The chip's name is this side's, looked up by the key the form named the group
         // by: what fits on a chip is a decision about this strip, and the contract cannot
         // see how wide it is.
         Assert.Equal(
-            form.Groups.Select(group => Fields.Group(group.Key).Title),
-            flow.Steps.Take(form.Groups.Count).Select(step => step.Label));
+            sent.Select(group => Fields.Group(group.Key).Title),
+            flow.Steps.Take(sent.Count).Select(step => step.Label));
+    }
+
+    /// <summary>
+    /// The wizard configures what this machine sends, so the group about how it receives is not
+    /// one of its steps - not as a chip, not as a review tile, and not as a group it renders.
+    ///
+    /// The case this locks out is the one that shipped: a page of watching settings inside the
+    /// sending wizard, which a reader had to walk past to reach the commit and which only
+    /// persisted if they went live.
+    /// </summary>
+    [Fact]
+    public async Task TheWatchingGroupIsNoStepOfTheSendingWizard()
+    {
+        var backend = new SeededBackend("linux");
+        var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
+        var flow = await FlowAsync();
+
+        // The fixture carries one, so the assertions below are about a filter that ran rather
+        // than about a form that never had the group.
+        Assert.Contains(form.Groups, group => GroupPlacement.InViewer(group.Key));
+
+        Assert.DoesNotContain(flow.Steps, step => GroupPlacement.InViewer(step.Key));
+        Assert.DoesNotContain(
+            flow.Review.Tiles,
+            tile => tile.Heading == Fields.Group(GroupPlacement.WatchKey).Title);
+
+        flow.CurrentStep = GroupPlacement.WatchKey;
+        Assert.Equal(flow.Steps[0].Key, flow.Steps.Single(step => step.IsCurrent).Key);
     }
 
     /// <summary>Every step draws something: the group it names, or the review on the terminal one.</summary>
@@ -141,7 +175,7 @@ public sealed class CostRailTests
 {
     private static async Task<SetupViewModel> FlowAsync(SeededBackend backend)
     {
-        var flow = new SetupViewModel(backend, new Session(backend, action => action()), action => action());
+        var flow = Flows.Setup(backend);
         await flow.Settled;
         return flow;
     }
@@ -168,21 +202,46 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// The uplink is edited on the panel it is the limit of, and it is the same field view
-    /// model the step that owns it draws rather than a second control over one setting.
+    /// The uplink is read on the panel it is the limit of and edited on the step that owns the
+    /// control, and the panel says which step that is. One control per setting: the rail used to
+    /// carry a second spinner over the same field.
     /// </summary>
     [Fact]
-    public async Task TheUplinkIsTheSameControlTheStepDraws()
+    public async Task TheRailReadsTheUplinkAndNamesTheStepThatEditsIt()
+    {
+        var flow = await FlowAsync(new SeededBackend("linux"));
+        var owner = flow.Steps.Single(step => step.Key == "network");
+
+        Assert.True(flow.Rail.HasUplink);
+        Assert.Equal(Uplink(flow).Label, flow.Rail.UplinkLabel);
+        Assert.Contains(Uplink(flow).Readback, flow.Rail.UplinkFigure);
+        Assert.Contains(owner.Label, flow.Rail.UplinkHint);
+    }
+
+    /// <summary>
+    /// The measurement is offered beside the figure it writes, on the step that owns the field.
+    /// It is the screen's own placement and not something the form described, which is why it
+    /// rides on the field rather than on the panel.
+    /// </summary>
+    [Fact]
+    public async Task TheMeasurementIsOfferedBesideTheControlItWrites()
     {
         var flow = await FlowAsync(new SeededBackend("linux"));
 
-        Assert.True(flow.Rail.HasUplink);
-        Assert.Equal(RailLayout.UplinkKey, flow.Rail.Uplink!.Key);
+        Assert.True(Uplink(flow).HasAction);
+        Assert.Equal("Measure", Uplink(flow).Action!.Label);
 
+        foreach (var field in flow.CurrentGroup!.Fields.Where(field => field.Key != RailLayout.UplinkKey))
+        {
+            Assert.False(field.HasAction);
+        }
+    }
+
+    /// <summary>The uplink control, on the step the fixture's form puts it on.</summary>
+    private static FieldViewModel Uplink(SetupViewModel flow)
+    {
         flow.CurrentStep = "network";
-        var onStep = flow.CurrentGroup!.Fields.Single(field => field.Key == RailLayout.UplinkKey);
-
-        Assert.Same(onStep, flow.Rail.Uplink);
+        return flow.CurrentGroup!.Fields.Single(field => field.Key == RailLayout.UplinkKey);
     }
 
     /// <summary>
@@ -195,7 +254,7 @@ public sealed class CostRailTests
         var flow = await FlowAsync(new SeededBackend("linux"));
 
         // Under the predicted rate, which is what the fixture warns about.
-        flow.Rail.Uplink!.Number = 4;
+        Uplink(flow).Number = 4;
         await flow.Settled;
 
         var warned = flow.Rail.Checks.Single(check => check.State == CheckState.Warned);
@@ -226,10 +285,11 @@ public sealed class CostRailTests
     {
         var flow = await FlowAsync(new SeededBackend("linux"));
 
-        flow.Rail.MeasureCommand.Execute(null);
+        Uplink(flow).Action!.Command.Execute(null);
         await flow.Settled;
 
-        Assert.Equal((decimal)SeededBackend.MeasuredUplinkMbps, flow.Rail.Uplink!.Number);
+        Assert.Equal((decimal)SeededBackend.MeasuredUplinkMbps, Uplink(flow).Number);
         Assert.Contains(SeededBackend.MeasuredUplinkMbps.ToString("0"), flow.Rail.UplinkCaption);
+        Assert.Contains(SeededBackend.MeasuredUplinkMbps.ToString("0"), flow.Rail.UplinkFigure);
     }
 }

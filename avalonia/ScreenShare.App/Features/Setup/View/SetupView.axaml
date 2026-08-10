@@ -7,7 +7,7 @@
              xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
-             xmlns:fields="using:ScreenShare.App.Features.Setup.Fields.View"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              x:Class="ScreenShare.App.Features.Setup.View.SetupView"
              x:DataType="vm:SetupViewModel"
              Background="{StaticResource SurfaceBrush}">
@@ -82,6 +82,16 @@
             -->
             <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasCommandError}">
               <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding CommandError}" />
+            </Border>
+
+            <!--
+              What the backend said about the last effect a step asked for - the uplink
+              measurement is the only one. It sits here rather than in the banner above, which
+              says the screen could not be described at all: a measurement refused because a
+              stream is live leaves the form drawing perfectly well.
+            -->
+            <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasStepNotice}">
+              <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding StepNotice}" />
             </Border>
           </StackPanel>
         </Panel>

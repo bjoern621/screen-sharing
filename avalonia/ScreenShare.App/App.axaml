@@ -35,7 +35,7 @@
           instantiates against has to sit above every view that instantiates it, and the one
           scope above all three is this one.
         -->
-        <ResourceInclude Source="/Features/Setup/Fields/View/SelectEntry.axaml" />
+        <ResourceInclude Source="/Features/Fields/View/SelectEntry.axaml" />
       </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Application.Resources>

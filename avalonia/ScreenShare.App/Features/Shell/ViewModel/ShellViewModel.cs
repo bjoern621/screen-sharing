@@ -47,6 +47,12 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     private readonly Session _session;
 
+    /// <summary>
+    /// The settings draft and the form it resolves to, owned once for the whole window and read
+    /// through by the two destinations that edit settings.
+    /// </summary>
+    private readonly FormSession _form;
+
     private bool _broadcastAvailable;
 
     /// <summary>
@@ -89,9 +95,16 @@ public sealed class ShellViewModel : Observable
         // two windows' worth of reads and two chances to disagree about what is publishing.
         _session = new Session(backend, dispatch);
 
-        Setup = new SetupViewModel(backend, _session, dispatch);
+        // One draft for the whole window, and the one owner of the settings nobody has committed
+        // yet. Two destinations edit settings - setup configures what this machine sends and the
+        // viewer how it receives - and a draft each would be two copies of one message, with the
+        // publish commit persisting whichever of them it happened to hold
+        // (<c>Backend/FormSession.cs</c>).
+        _form = new FormSession(backend, _session, dispatch);
+
+        Setup = new SetupViewModel(backend, _form, _session, dispatch);
         Broadcast = new BroadcastViewModel(backend, _session, dispatch);
-        Viewer = new ViewerViewModel(backend, _session, dispatch);
+        Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
 
         // Every destination re-renders on any change, because the chrome reads all three: the
         // nav strip dims broadcast when nothing publishes and the status band prints the

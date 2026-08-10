@@ -16,6 +16,7 @@ Concretely, and without exception:
 - Every piece of state is read from the backend or received on its event stream. A shell caches nothing across a change notification.
 - **Every word on screen is the shell's.** Labels, help text, option names, the paragraph behind a choice, the sentence in place of a greyed entry, the shorthand a step chip repeats, how a unit is spelled and where it sits - all of it is written where the layout is, keyed by the identifiers the backend sends (`text.proto`).
 - Beyond the words, a shell contributes layout, typography, colour, motion, input handling and accessibility. That is its whole job, and it is not a small one.
+- **Placement is part of that, and it reaches as far as which screen a group is drawn on.** The form's groups follow the domain and their order is the backend's; where a shell puts them is not on the contract at all, because the contract describes no screens. The Avalonia shell draws the watch group in its viewer and every other group in its publish wizard, and neither decision is visible from Go (`avalonia/ScreenShare.App/Features/Fields/Model/GroupPlacement.cs`). What a shell may never do is decide that a group exists, what is in it, or which of its entries are reachable.
 
 **The two halves meet on identifiers and nowhere else.** `hevc_nvenc`, `gstreamer`, `yuv420p` and `srt` cross the wire because they are what the encoder, the element registry and the relay themselves call these things. `HEVC / H.265 · NVIDIA GPU` is one shell's answer to how that reads at its width, in its typography, for its reader.
 

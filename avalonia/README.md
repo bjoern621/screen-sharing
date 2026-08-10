@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 142 tests, no relay and no backend needed
+task avalonia:test     # 150 tests, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -44,9 +44,10 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Copy/` | every word on screen: what each identifier the backend sends is called, the paragraph behind each choice, each control's heading and help, and the sentence for each statement the backend makes |
 | `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
-| `Features/Setup/` | the publish wizard, one step per group of the resolved form plus a terminal one: the step strip, the generic form renderer most of the steps are, the Quality form, the raw-property drawer, the cost rail, and the review |
+| `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. It is not under a feature because two of them draw form groups |
+| `Features/Setup/` | the publish wizard, one step per group of the resolved form that is about sending, plus a terminal one: the step strip, the Quality form, the raw-property drawer, the cost rail, and the review |
 | `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the program preview, the per-viewer table, the sparklines |
-| `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, and the arrangement of the ones being watched |
+| `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding the settings that govern how this machine receives |
 
 ### The two rules the tree encodes
 
@@ -123,7 +124,7 @@ the one exception, and they are exceptions with an expiry date - the setup flow'
 expired, and its screen is drawn from `ResolveForm`.
 
 The shape that consequence takes in the wizard is worth stating, because it is the whole
-argument in one place. Every step but two is **one component**, `Features/Setup/Fields/`,
+argument in one place. Every step but two is **one component**, `Features/Fields/`,
 instanced once per group. They differ in nothing this module can see: each is a `FieldGroup`
 of the resolved form, a run of fields with different keys, and the renderer switches on
 `ControlKind` rather than on what the field means. A capture view and an encode view written
@@ -135,14 +136,28 @@ answer with, so three steps of the wizard drew an empty column and four real gro
 unreachable. Nothing said so, and the tests passed, because the fixture had been written
 against the same table. `SetupSteps.For` derives the strip from `Form.groups` instead: a group
 added to the contract is a step that appears and works with nothing here to edit, and one
-renamed cannot leave a hole. What is still this module's is placement - the terminal step, and
-the one group drawn by a layout of its own (`Model/QualityLayout.cs`).
+renamed cannot leave a hole. What is still this module's is placement - the terminal step, the
+one group drawn by a layout of its own (`Model/QualityLayout.cs`), and which destination draws
+which group at all (`Features/Fields/Model/GroupPlacement.cs`).
+
+**The watch group is drawn by the viewer, and that is the same placement rule doing real work.**
+The wizard configures what this machine *sends*; the watch group is the legs a stream comes back
+on, the jitter buffers a receiver holds and the chain a tile converts frames with. It was a step
+of the wizard, so a reader who only watched had to open the broadcast setup to change how their
+tiles decode - and the change only ever persisted if they went live, because the wizard's draft
+reaches the backend through `StartPublish`. The group is beside the tiles now and has a
+`SaveSettings` of its own.
+
+**Both screens read one draft.** `Backend/FormSession.cs` owns the settings being edited and the
+form they resolve to, for the whole window, exactly as `Backend/Session.cs` owns the running
+state. A draft per screen would be two copies of one message, and the publish commit persists
+the whole message - so whichever screen committed would overwrite the other's half.
 
 Two things keep the rest honest. A field's key is a settings group and a field in it, so a write
 goes through the message descriptor (`Backend/SettingsDraft.cs`) and a field added to the
 contract is a control that appears and works with nothing here to edit. And the form's answer
-is adopted whole: `SetupViewModel` replaces its draft with the one `ResolveForm` returned
-rather than merging, which is what keeps a greyed option and its replacement from disagreeing.
+is adopted whole: `FormSession` replaces its draft with the one `ResolveForm` returned rather
+than merging, which is what keeps a greyed option and its replacement from disagreeing.
 
 `Backend/ControlBackend.cs` is what answers `IBackend`: a gRPC client over the named pipe on
 Windows and the Unix socket elsewhere (`Backend/ControlEndpoint.cs`). It names no codec, no

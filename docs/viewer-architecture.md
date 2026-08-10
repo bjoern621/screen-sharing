@@ -59,6 +59,14 @@ The two SRT latency windows are separate fields because each leg is its own SRT 
 RTSP names the RTP lower transport once per leg (`rtsp_publish_protocol`, `rtsp_watch_protocol`), because the two legs cross different networks and it is the network that decides whether a UDP port pair survives.
 The jitter buffer is the tile receiver's alone: it sizes the reorder window of a receiving pipeline, and neither the publish leg nor an external player has one here.
 
+**Every one of those fields is edited in the viewer, and none of them in the publish wizard.**
+They are one group of the resolved form (`watch`), and which screen draws a group is placement, which is the shell's (`ipc-api.md`, "The rule").
+It sat in the wizard once, and that was two defects wearing one cause: a reader who only watched had to open the screen for configuring a broadcast in order to change how their tiles decode, and the change only persisted if they then went live - the wizard's draft reaches the backend through `StartPublish`.
+The panel beside the tile grid saves through `SaveSettings` instead, which persists and starts nothing.
+
+A running pipeline keeps what it was built with.
+Both receivers are built when they are opened and neither takes a value back afterwards, so a leg or a chain changed here reaches the next decode rather than the one on screen - the same fact that makes `ApplyToStream` a separate method on the publish side.
+
 An SRT latency window is a request, not a result.
 SRT negotiates one delay per direction in the handshake and takes the larger of the two sides' values, so a link is never faster than the peer's own setting, whatever this side asks for.
 MediaMTX exposes no SRT latency option and runs on its library's 120 ms default, which is therefore the floor of both hops against it: 400 ms is honoured, 60 ms comes back as 120.

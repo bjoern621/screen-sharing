@@ -217,7 +217,7 @@ public static class Fields
 
         ["watch"] = new(
             "Watching",
-            "How the stream comes back from the relay, and how it is decoded once it does. Separate from how you send, and separate per receiver: a player window and a tile in this window reach different protocols and are chosen apart."),
+            "How a stream comes back from the relay and how it is decoded once it does - anyone's stream, not only yours. Separate from how you send, and separate per receiver: a player window and a tile in this window reach different protocols and are chosen apart. A tile already on screen keeps the pipeline it was opened with, so a change here reaches the next one."),
 
         ["relay"] = new(
             "Relay",

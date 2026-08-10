@@ -1,8 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+             xmlns:vm="using:ScreenShare.App.Features.Fields.ViewModel"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:ti="using:TablerIcons"
-             x:Class="ScreenShare.App.Features.Setup.Fields.View.FieldGroupView"
+             x:Class="ScreenShare.App.Features.Fields.View.FieldGroupView"
              x:DataType="vm:FieldGroupViewModel">
 
   <!--
@@ -51,15 +52,34 @@
                        IsEnabled="{Binding IsEnabled}"
                        Text="{Binding Text, Mode=TwoWay}" />
 
-              <NumericUpDown IsVisible="{Binding IsNumber}"
-                             IsEnabled="{Binding IsEnabled}"
-                             Value="{Binding Number, Mode=TwoWay}"
-                             Minimum="{Binding NumberMinimum}"
-                             Maximum="{Binding NumberMaximum}"
-                             Increment="{Binding NumberStep}"
-                             FormatString="0"
-                             HorizontalAlignment="Left"
-                             MinWidth="160" />
+              <!--
+                A typed number, and beside it whatever effect this screen offers for that
+                setting. There is one today: measuring the line and writing what it finds into
+                the uplink box. It is a button rather than a figure that fills itself in
+                because it is an effect - it uploads a real payload, takes seconds, and the
+                backend refuses it outright while a stream is publishing.
+
+                The button is absent on every other number, so the row is a box alone unless a
+                screen said otherwise (Features/Fields/Model/FieldAction.cs).
+              -->
+              <StackPanel Orientation="Horizontal"
+                          IsVisible="{Binding IsNumber}"
+                          HorizontalAlignment="Left">
+                <NumericUpDown IsEnabled="{Binding IsEnabled}"
+                               Value="{Binding Number, Mode=TwoWay}"
+                               Minimum="{Binding NumberMinimum}"
+                               Maximum="{Binding NumberMaximum}"
+                               Increment="{Binding NumberStep}"
+                               FormatString="0"
+                               MinWidth="160" />
+
+                <Button Margin="8,0,0,0"
+                        IsVisible="{Binding HasAction}"
+                        Content="{Binding Action.Label}"
+                        Command="{Binding Action.Command}"
+                        controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
+                        ToolTip.Tip="{Binding Action.Tip}" />
+              </StackPanel>
 
               <!--
                 A number that also carries a ladder. The box takes any value the range

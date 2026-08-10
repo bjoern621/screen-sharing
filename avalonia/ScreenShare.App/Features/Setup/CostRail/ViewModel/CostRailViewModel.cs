@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Contracts;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Mvvm;
 
@@ -20,10 +20,11 @@ namespace ScreenShare.App.Features.Setup.CostRail.ViewModel;
 /// <c>uplink_mbps</c> field of the same form - so moving that control moves this panel,
 /// because the two are one value rather than two.
 ///
-/// <b>Outputs</b> only, written by <see cref="Apply"/> on every pass, including the branch
-/// with no form behind it. The uplink control the view binds is a field view model this class
-/// holds a reference to rather than a copy of, so the write still leaves through the field the
-/// reader moved.
+/// <b>Outputs only, and that includes the uplink.</b> The panel used to carry the uplink's own
+/// spinner and its Measure button, which made this rail a second place the setting was edited:
+/// a figure the wizard already draws a control for, drawn again beside the bar. It reads the
+/// figure now and names the step that owns it, so there is one control per setting and the
+/// panel stays what it is - a reading of what the configuration costs.
 /// </summary>
 public sealed class CostRailViewModel : Observable
 {
@@ -44,29 +45,16 @@ public sealed class CostRailViewModel : Observable
     private bool _isOverUplink;
     private bool _isResolved;
     private bool _hasUplink;
-    private FieldViewModel? _uplink;
+    private string _uplinkLabel = "";
+    private string _uplinkFigure = "";
+    private string _uplinkHint = "";
 
-    /// <param name="measure">
-    /// Asks the backend to measure the line and write what it finds into the uplink field, and
-    /// answers when it has. Injected because it is an effect on the control plane, which this
-    /// class has no seam to.
-    /// </param>
-    /// <param name="dispatch">The UI loop the measurement's answer is marshalled back to.</param>
-    public CostRailViewModel(Func<Task> measure, Action<Action> dispatch, Func<bool> canMeasure)
+    public CostRailViewModel()
     {
-        Assert.NotNull(measure, "the rail needs somewhere to send a measure request");
-        Assert.NotNull(dispatch, "the rail needs a UI loop to marshal the measurement back to");
-        Assert.NotNull(canMeasure, "the rail needs to know when a measurement can be asked for");
-
         Metrics = [];
         Checks = [];
 
-        // The measurement uploads a real payload and takes seconds. The command holds whether
-        // one is in flight, which is both what the button waits on and what refuses a second
-        // press - one fact rather than a flag here and a guard somewhere else.
-        MeasureCommand = new PendingCommand(measure, dispatch, canMeasure);
-
-        Apply(null, null, []);
+        Apply(null, null, null, []);
     }
 
     /// <summary>The dimensions priced beside the headline rate, in the order the panel reads them.</summary>
@@ -74,9 +62,6 @@ public sealed class CostRailViewModel : Observable
 
     /// <summary>Everything the form said about the settings as a whole, ranked where it ranked it.</summary>
     public ObservableCollection<PreflightCheckRow> Checks { get; }
-
-    /// <summary>Measures this machine's real upload throughput and adopts the figure.</summary>
-    public PendingCommand MeasureCommand { get; }
 
     /// <summary>The headline figure: megabits per second, as the backend predicts them.</summary>
     public string Bitrate { get => _bitrate; private set => Set(ref _bitrate, value); }
@@ -87,11 +72,25 @@ public sealed class CostRailViewModel : Observable
     public string UplinkCaption { get => _uplinkCaption; private set => Set(ref _uplinkCaption, value); }
 
     /// <summary>
-    /// The uplink control itself, so the figure the bar is measured against is edited where it
-    /// is read. Null where the form carries no such field, which is the honest branch rather
-    /// than a box that writes nowhere.
+    /// What the uplink figure is called, read off the field the form carries it as. Empty where
+    /// the form offers no such field, which is the honest branch rather than a heading over
+    /// nothing.
     /// </summary>
-    public FieldViewModel? Uplink { get => _uplink; private set => Set(ref _uplink, value); }
+    public string UplinkLabel { get => _uplinkLabel; private set => Set(ref _uplinkLabel, value); }
+
+    /// <summary>
+    /// The stated uplink as the field reads it back, with its unit. It is a reading and not a
+    /// control: the wizard already draws one for this setting, and a second box beside the bar
+    /// would be two controls over one value.
+    /// </summary>
+    public string UplinkFigure { get => _uplinkFigure; private set => Set(ref _uplinkFigure, value); }
+
+    /// <summary>
+    /// Where the figure is changed and measured, named after the step that owns the control.
+    /// Empty where nothing on this screen carries it, so the panel points at a step that exists
+    /// or points nowhere.
+    /// </summary>
+    public string UplinkHint { get => _uplinkHint; private set => Set(ref _uplinkHint, value); }
 
     public bool HasUplink { get => _hasUplink; private set => Set(ref _hasUplink, value); }
 
@@ -119,14 +118,28 @@ public sealed class CostRailViewModel : Observable
     /// </summary>
     /// <param name="estimate">What the settings are predicted to cost, null before the first form.</param>
     /// <param name="uplink">The uplink control, null where the form does not carry one.</param>
+    /// <param name="editedOn">The step that draws that control, null where no step of this flow does.</param>
     /// <param name="checks">The form's diagnostics, as the list draws them.</param>
-    public void Apply(Estimate? estimate, FieldViewModel? uplink, IReadOnlyList<PreflightCheckRow> checks)
+    public void Apply(
+        Estimate? estimate,
+        FieldViewModel? uplink,
+        SetupStepRow? editedOn,
+        IReadOnlyList<PreflightCheckRow> checks)
     {
         Assert.NotNull(checks, "the rail draws the list the form's diagnostics became");
 
         IsResolved = estimate is not null;
-        Uplink = uplink;
+
+        // Read off the field rather than held, so a label the copy changes and a figure the
+        // reader types both reach this panel through the one control that owns them.
         HasUplink = uplink is not null;
+        UplinkLabel = uplink?.Label ?? "";
+        UplinkFigure = uplink is null
+            ? ""
+            : string.Join(' ', new[] { uplink.Readback, uplink.Unit }.Where(part => part.Length > 0));
+        UplinkHint = uplink is null || editedOn is null
+            ? ""
+            : $"Change it or measure the line in step {editedOn.Number} · {editedOn.Label}.";
 
         var predicted = estimate?.BitrateMbps ?? 0;
         var raw = estimate?.RawMbps ?? 0;
@@ -145,8 +158,6 @@ public sealed class CostRailViewModel : Observable
         UplinkShare = Share(capacity, scale);
         IsOverUplink = capacity > 0 && predicted > capacity;
 
-        MeasureCommand.Refresh();
-
         Reconcile.Onto(Metrics, Rows(estimate));
         Reconcile.Onto(Checks, checks);
         ChecksSummary = PreflightChecks.SummaryOf(checks);
@@ -155,6 +166,7 @@ public sealed class CostRailViewModel : Observable
         Assert.That(UplinkShare is >= 0 and <= 1, "the uplink marker stands on the bar", UplinkShare);
         Assert.That(IsResolved || Metrics.Count == 0, "nothing is priced before a form arrives", Metrics.Count);
         Assert.That(ChecksSummary.Length > 0, "the terminal chip is told how much is owed", ChecksSummary);
+        Assert.That(HasUplink || UplinkLabel.Length == 0, "an uplink reading names a field the form carries", UplinkLabel);
     }
 
     /// <summary>

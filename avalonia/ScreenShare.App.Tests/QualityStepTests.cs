@@ -1,5 +1,5 @@
 using ScreenShare.App.Backend;
-using ScreenShare.App.Features.Setup.Fields.ViewModel;
+using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
@@ -31,7 +31,7 @@ public sealed class QualityStepTests
     private static async Task<SetupViewModel> FlowAsync()
     {
         var backend = new SeededBackend("linux");
-        var flow = new SetupViewModel(backend, new Session(backend, action => action()), action => action());
+        var flow = Flows.Setup(backend);
         await flow.Settled;
         return flow;
     }

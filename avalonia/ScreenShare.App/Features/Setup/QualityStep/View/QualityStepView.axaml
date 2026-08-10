@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:fields="using:ScreenShare.App.Features.Setup.Fields.ViewModel"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
              xmlns:vm="using:ScreenShare.App.Features.Setup.QualityStep.ViewModel"
              xmlns:ti="using:TablerIcons"
              x:Class="ScreenShare.App.Features.Setup.QualityStep.View.QualityStepView"
@@ -231,7 +231,7 @@
                 <Button.Flyout>
                   <!--
                     The entry, and why it is out where it is out. The row is shared
-                    (Fields/View/SelectEntry.axaml): the refusal is a line in it rather than
+                    (Features/Fields/View/SelectEntry.axaml): the refusal is a line in it rather than
                     a tooltip on it, because the row is a disabled MenuItem wherever there is
                     something to explain, a disabled control takes no pointer events, and a
                     tooltip that can only open on the entries with nothing to say is worse

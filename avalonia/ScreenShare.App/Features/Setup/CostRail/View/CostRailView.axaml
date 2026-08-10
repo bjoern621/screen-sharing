@@ -81,45 +81,31 @@
         </ItemsControl>
 
         <!--
-          The uplink, edited where it is read. It is the same field view model the step that
-          owns it draws, not a second control over the same setting, so a figure typed here
-          and a figure typed there are one write (Model/RailLayout.cs).
+          The uplink the bar is measured against, read rather than edited. The control for it
+          is on the step that owns the field - one control per setting - and this says which
+          step that is, so a reader who wants to change the limit knows where it lives without
+          hunting for it (Model/RailLayout.cs).
         -->
         <StackPanel IsVisible="{Binding HasUplink}">
           <Border Classes="dividerh" Margin="0,12" />
 
-          <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,7">
+          <Grid ColumnDefinitions="*,Auto">
             <TextBlock Grid.Column="0"
                        Classes="secondary"
                        VerticalAlignment="Center"
-                       Text="{Binding Uplink.Label}" />
+                       Text="{Binding UplinkLabel}" />
             <TextBlock Grid.Column="1"
-                       Classes="figure"
+                       Classes="ident"
+                       Foreground="{StaticResource SecondaryBrush}"
                        VerticalAlignment="Center"
-                       Text="{Binding Uplink.Unit}" />
+                       Text="{Binding UplinkFigure}" />
           </Grid>
 
-          <Grid ColumnDefinitions="*,Auto">
-            <NumericUpDown Grid.Column="0"
-                           IsEnabled="{Binding Uplink.IsEnabled}"
-                           Value="{Binding Uplink.Number, Mode=TwoWay}"
-                           Minimum="{Binding Uplink.NumberMinimum}"
-                           Maximum="{Binding Uplink.NumberMaximum}"
-                           Increment="{Binding Uplink.NumberStep}"
-                           FormatString="0" />
-
-            <!--
-              The measurement is an effect: it uploads a real payload, takes seconds, and the
-              backend refuses it outright while a stream is publishing. Hence a button the
-              reader presses rather than a figure that fills itself in.
-            -->
-            <Button Grid.Column="1"
-                    Margin="8,0,0,0"
-                    Content="Measure"
-                    Command="{Binding MeasureCommand}"
-                    controls:Pending.IsActive="{Binding MeasureCommand.IsRunning}"
-                    ToolTip.Tip="Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live." />
-          </Grid>
+          <TextBlock Classes="hint"
+                     Margin="0,6,0,0"
+                     TextWrapping="Wrap"
+                     TextTrimming="None"
+                     Text="{Binding UplinkHint}" />
         </StackPanel>
       </StackPanel>
     </Border>
