@@ -134,6 +134,10 @@ Every field stays editable while a stream is publishing, and what reaches the st
 The two controls a live stream does block are measurements rather than settings: the uplink speed test and the encode-capacity probe both run the real thing, so one would compete with the stream for the line and the other with the encoder for the silicon.
 Neither is a value the user chose, which is why the reason sits on the button that takes the measurement instead of greying the figure beside it.
 
+The button greys with it, in the state the backend refuses the call.
+A shell reads whether a pipeline is in force to decide what its commit does anyway, so the same reading greys the button and puts the sentence under it, and the refusal is something to read before the press rather than an answer to one.
+It is one of the few sentences a shell composes about a state rather than repeating the backend's, and it is a state and not a verdict: what the button would have asked for is refused for as long as the stream runs, so nothing is lost by saying so early.
+
 ## Why the split exists
 
 The settings form is pedagogical: dense tooltips explain the encoding model as the user configures it.

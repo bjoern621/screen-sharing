@@ -81,7 +81,7 @@ public sealed class AppliedWriteTests
     /// could not be stored are still settings a stream can be started on.
     /// </summary>
     [Fact]
-    public async Task AWriteThatCouldNotBeStoredNamesTheReasonOnTheStep()
+    public async Task AWriteThatCouldNotBeStoredNamesTheReason()
     {
         var flow = await FlowAsync();
         flow.Backend.SaveRefusal = "the settings file could not be written";
@@ -90,8 +90,8 @@ public sealed class AppliedWriteTests
         flow.Setup.Apply();
 
         Assert.Equal("the settings file could not be written", flow.Form.Unsaved);
-        Assert.True(flow.Setup.HasStepNotice);
-        Assert.Equal("the settings file could not be written", flow.Setup.StepNotice);
+        Assert.True(flow.Setup.HasUnsaved);
+        Assert.Equal("the settings file could not be written", flow.Setup.Unsaved);
         Assert.False(flow.Setup.IsUnavailable);
 
         flow.Backend.SaveRefusal = "";
@@ -99,7 +99,7 @@ public sealed class AppliedWriteTests
         flow.Setup.Apply();
 
         Assert.Equal("", flow.Form.Unsaved);
-        Assert.False(flow.Setup.HasStepNotice);
+        Assert.False(flow.Setup.HasUnsaved);
     }
 
     /// <summary>

@@ -99,11 +99,12 @@ public sealed class SetupViewModel : Observable
     private readonly Dictionary<string, FieldGroupViewModel> _groups = [];
 
     /// <summary>
-    /// The measurement, offered beside the uplink figure it writes. Made once and handed to
-    /// whichever group renders that field, so the button the reader presses and the lock that
-    /// refuses a second press are one object (<see cref="FieldAction"/>).
+    /// The measurement the uplink figure is offered beside. The command is held and the action
+    /// around it is made per pass, because what the action says moves with the running state:
+    /// holding the command is what keeps the button the reader presses and the lock that refuses
+    /// a second press one object (<see cref="FieldAction"/>).
     /// </summary>
-    private readonly FieldAction _measure;
+    private readonly PendingCommand _measure;
 
     // --- What the screen is drawn from ---------------------------------------------
 
@@ -125,12 +126,13 @@ public sealed class SetupViewModel : Observable
     private string _refusal = "";
 
     /// <summary>
-    /// Why the backend refused the last effect a step asked for, empty otherwise. There is one
-    /// such effect - the uplink measurement - and its refusal belongs under the step that offers
-    /// it rather than in the banner saying the screen could not be described at all: a
-    /// measurement declined because a stream is live leaves the form drawing perfectly well.
+    /// What the backend answered about the last measurement, empty otherwise. It is that side's
+    /// own sentence and rides on the button that asked for it, which is the control it is about -
+    /// a measurement that did not happen leaves the form drawing perfectly well, so it is neither
+    /// the banner that says the screen could not be described nor a panel at the foot of the
+    /// column (<see cref="MeasureNotice"/>).
     /// </summary>
-    private string _notice = "";
+    private string _measured = "";
 
     /// <summary>
     /// The steps the last pass rendered. Held because moving through them is an input rather
@@ -169,11 +171,10 @@ public sealed class SetupViewModel : Observable
 
         // The measurement is an effect: it uploads a real payload, takes seconds, and the backend
         // refuses it outright while a stream is publishing. Hence a button the reader presses,
-        // beside the figure it writes, rather than a number that fills itself in.
-        _measure = new FieldAction(
-            "Measure",
-            "Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live.",
-            new PendingCommand(MeasureAsync, dispatch, () => _form.Draft is not null));
+        // beside the figure it writes, rather than a number that fills itself in - and one that
+        // is greyed in the state the backend refuses, rather than pressable into a refusal.
+        _measure = new PendingCommand(
+            MeasureAsync, dispatch, () => _form.Draft is not null && MeasureRefusal().Length == 0);
 
         // News that the draft or the form behind it moved, which is the one thing this flow
         // draws from. Raised on the UI loop by the form session itself, so there is nothing to
@@ -198,7 +199,7 @@ public sealed class SetupViewModel : Observable
         // notice moving. The commands own the fact and say when it moved; what it looks like is
         // still one pass.
         Review.GoLiveCommand.Changed += Apply;
-        _measure.Command.Changed += Apply;
+        _measure.Changed += Apply;
 
         // Rendered before anything is asked for, so the window has a complete view model to
         // paint whether or not the backend is reachable, and the first form is a later pass
@@ -256,8 +257,8 @@ public sealed class SetupViewModel : Observable
     private bool _hasCommandError;
     private string _unavailable = "";
     private bool _isUnavailable;
-    private string _stepNotice = "";
-    private bool _hasStepNotice;
+    private string _unsaved = "";
+    private bool _hasUnsaved;
     private FieldGroupViewModel? _currentGroup;
 
     public QualityStepViewModel Quality { get; }
@@ -345,13 +346,18 @@ public sealed class SetupViewModel : Observable
     public bool IsUnavailable { get => _isUnavailable; private set => Set(ref _isUnavailable, value); }
 
     /// <summary>
-    /// What the backend said about the last effect a step asked for, empty otherwise. It sits
-    /// under the form rather than in the unavailable banner, because a refused measurement is not
-    /// a screen that could not be described.
+    /// Why the last write to an applied group could not be stored, empty while they are being
+    /// stored. It is the backend's own sentence, read through from the form session.
+    ///
+    /// It sits above the steps beside the unavailable banner rather than in it, because the two
+    /// are different news: a read that cannot be answered leaves the screen showing an older
+    /// answer and blocks the publish, and a write that cannot be stored leaves the screen showing
+    /// exactly what the reader typed while the backend goes on running on the value before it
+    /// (<see cref="FormSession.Unsaved"/>).
     /// </summary>
-    public string StepNotice { get => _stepNotice; private set => Set(ref _stepNotice, value); }
+    public string Unsaved { get => _unsaved; private set => Set(ref _unsaved, value); }
 
-    public bool HasStepNotice { get => _hasStepNotice; private set => Set(ref _hasStepNotice, value); }
+    public bool HasUnsaved { get => _hasUnsaved; private set => Set(ref _hasUnsaved, value); }
 
     /// <summary>Names the next step rather than saying "Next", so the button says where it goes.</summary>
     public string ContinueLabel { get => _continueLabel; private set => Set(ref _continueLabel, value); }
@@ -431,15 +437,11 @@ public sealed class SetupViewModel : Observable
         HasCommandError = CommandError.Length > 0;
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;
-        // Two things can leave a sentence on a step, and both are an effect this screen asked
-        // for that did not happen: the measurement this flow runs, and the write the draft owner
-        // makes for a field that is applied rather than staged. This flow's own comes first,
-        // because it is the one the reader just pressed a button for.
-        //
+
         // A notice and not the unavailable banner, which blocks the publish: settings that could
         // not be stored are still settings a stream can be started on.
-        StepNotice = _notice.Length > 0 ? _notice : _form.Unsaved;
-        HasStepNotice = StepNotice.Length > 0;
+        Unsaved = _form.Unsaved;
+        HasUnsaved = Unsaved.Length > 0;
 
         var next = SetupSteps.After(_steps, current);
         CanContinue = next is not null;
@@ -448,7 +450,7 @@ public sealed class SetupViewModel : Observable
         BackCommand.Refresh();
         ContinueCommand.Refresh();
         RetryCommand.Refresh();
-        _measure.Command.Refresh();
+        _measure.Refresh();
 
         var forms = (ShowsFields ? 1 : 0) + (ShowsQuality ? 1 : 0) + (ShowsReview ? 1 : 0);
 
@@ -514,6 +516,12 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private async Task MeasureAsync()
     {
+        // What the last attempt said goes now rather than when this one answers, the same way the
+        // commit's refusal does: it is about an attempt that is over, and leaving it up would put
+        // a sentence about the last measurement beside a spinner about this one.
+        _measured = "";
+        Apply();
+
         try
         {
             var mbps = await _backend.MeasureUplinkAsync().ConfigureAwait(false);
@@ -540,7 +548,7 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private void Measured(double mbps)
     {
-        _notice = "";
+        _measured = "";
 
         if (_form.Draft is null)
         {
@@ -553,9 +561,35 @@ public sealed class SetupViewModel : Observable
 
     private void MeasureFailed(string reason)
     {
-        _notice = reason;
+        _measured = reason;
         Apply();
     }
+
+    /// <summary>
+    /// Why the measurement cannot be taken now, empty while it can.
+    ///
+    /// <b>The state is the backend's and the sentence is this side's.</b> Whether a pipeline is in
+    /// force is <c>PublishState.live</c>, read through the one derivation that owns the reading
+    /// (<see cref="PublishGate.CommitFor"/>) rather than looked at again here. What the backend
+    /// would answer is a refusal to a call the button need not make: an upload beside a live
+    /// stream measures the line minus the stream, so the figure would be a property of the moment
+    /// wearing the shape of a property of the machine.
+    ///
+    /// Read on demand rather than held, so a stream that ended unlocks the button on the next
+    /// pass with nothing here having remembered that it was locked.
+    /// </summary>
+    private string MeasureRefusal()
+        => PublishGate.CommitFor(_session.Publish) == PublishCommit.Apply
+            ? "A stream is publishing, and measuring the line would compete with it. Stop the stream to measure."
+            : "";
+
+    /// <summary>
+    /// What the button carries beside it: why it is greyed where it is, and what the last
+    /// attempt answered otherwise. The refusal comes first, because a stream on the air is the
+    /// state the reader is in rather than news about an attempt that is over.
+    /// </summary>
+    private string MeasureNotice()
+        => MeasureRefusal() is { Length: > 0 } refusal ? refusal : _measured;
 
     /// <summary>
     /// One field write, arriving from whichever control the reader moved. It goes to the one
@@ -702,8 +736,18 @@ public sealed class SetupViewModel : Observable
     /// <summary>
     /// What this screen offers beside one control. One field has one: the uplink, which is a
     /// figure this machine can measure rather than only a figure to type.
+    ///
+    /// The action is composed here on every pass and the command inside it is the held one, so
+    /// two passes over one state produce actions that compare equal while what the button says
+    /// still follows the state that decides it (<see cref="FieldAction"/>).
     /// </summary>
-    private FieldAction? ActionFor(string key) => key == RailLayout.UplinkKey ? _measure : null;
+    private FieldAction? ActionFor(string key) => key == RailLayout.UplinkKey
+        ? new FieldAction(
+            "Measure",
+            "Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live.",
+            MeasureNotice(),
+            _measure)
+        : null;
 
     private DelegateCommand SelectCommandOf(string key)
     {
