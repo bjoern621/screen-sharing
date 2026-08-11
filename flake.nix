@@ -355,6 +355,47 @@
             # window: `task avalonia` dies in Avalonia's platform init, before any
             # code in the app runs.
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath avaloniaRuntimeDeps}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+          ''
+          + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+            # Hyprland tiles every toplevel it is not told to float, and no window can
+            # ask for anything else: Wayland has no client request for it. The shell is
+            # a desktop app and not a pane, so the rule is stated here, for the
+            # compositor session the dev shell is entered from.
+            #
+            # It matches an empty class because Avalonia.Wayland carries no set_app_id
+            # request, which leaves the window with no app_id for a rule to name it by.
+            # The title is what remains, and ShellWindow binds it to the destination
+            # label (Features/Shell/Model/Destinations.cs), with the session appended
+            # once there is one.
+            #
+            # A Lua config refuses `hyprctl keyword` outright ("keyword can't work with
+            # non-legacy parsers"), so the rule goes in through hl.window_rule, and the
+            # keyword is the same rule for a legacy config. A compositor that takes
+            # neither says so, rather than leaving a tiled window unexplained.
+            #
+            # The Lua global is the idempotency guard, and it is an exact one: a config
+            # reload drops the rule and the global together, so the flag is set only
+            # while the rule it stands for is installed.
+            #
+            # LD_LIBRARY_PATH is cleared for the call. hyprctl links a newer libstdc++
+            # than the one this shell puts ahead of its RUNPATH for Skia, and with the
+            # shell's copy in front it exits before it reaches the socket.
+            if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl > /dev/null; then
+              hyprFloat=$(env -u LD_LIBRARY_PATH hyprctl eval '
+                if not _G.__screenshare_float then
+                  _G.__screenshare_float = true
+                  hl.window_rule({
+                    match = { class = "^$", initial_title = "^(Setup|Broadcast|Viewer)( .*)?$" },
+                    float = true,
+                  })
+                end' 2>&1)
+              if [ "$hyprFloat" != ok ]; then
+                hyprFloat=$(env -u LD_LIBRARY_PATH hyprctl keyword windowrule \
+                  'float, class:^$, initialTitle:^(Setup|Broadcast|Viewer)( .*)?$' 2>&1)
+              fi
+              [ "$hyprFloat" = ok ] || echo "hyprland: the shell window opens tiled ($hyprFloat)"
+              unset hyprFloat
+            fi
           '';
         };
       }
