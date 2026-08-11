@@ -167,6 +167,8 @@ public sealed class FieldViewModel : Observable
     private decimal _numberStep = 1;
     private FieldAction? _action;
     private bool _hasAction;
+    private string _actionNotice = "";
+    private bool _hasActionNotice;
 
     /// <summary>The entries of a select or radio, empty on every other kind.</summary>
     public ObservableCollection<OptionViewModel> Options { get; }
@@ -179,6 +181,18 @@ public sealed class FieldViewModel : Observable
     public FieldAction? Action { get => _action; private set => Set(ref _action, value); }
 
     public bool HasAction { get => _hasAction; private set => Set(ref _hasAction, value); }
+
+    /// <summary>
+    /// Why the effect beside this control is refused, or what its last attempt answered. Empty
+    /// where there is no effect or nothing to say about it.
+    ///
+    /// It is lifted off the action rather than bound through it, because a control that offers
+    /// none has no action to bind through - and a binding down a null path draws the sentence's
+    /// absence as an empty line instead of no line.
+    /// </summary>
+    public string ActionNotice { get => _actionNotice; private set => Set(ref _actionNotice, value); }
+
+    public bool HasActionNotice { get => _hasActionNotice; private set => Set(ref _hasActionNotice, value); }
 
     public string Label { get => _label; private set => Set(ref _label, value); }
 
@@ -293,6 +307,8 @@ public sealed class FieldViewModel : Observable
 
         Action = action;
         HasAction = action is not null;
+        ActionNotice = action?.Notice ?? "";
+        HasActionNotice = ActionNotice.Length > 0;
 
         // The heading and the paragraph are this side's, keyed by the field the backend
         // named; the reason and the note are statements it made, turned into sentences here.
@@ -346,6 +362,7 @@ public sealed class FieldViewModel : Observable
             "only a control that offers entries carries options", Key, field.Control, Options.Count);
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
         Assert.That(HasAction == (Action is not null), "the action and the flag that draws it agree", Key);
+        Assert.That(!HasActionNotice || HasAction, "a sentence about an effect has an effect to be about", Key);
     }
 
     /// <summary>

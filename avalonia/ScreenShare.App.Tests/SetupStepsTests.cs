@@ -292,4 +292,50 @@ public sealed class CostRailTests
         Assert.Contains(SeededBackend.MeasuredUplinkMbps.ToString("0"), flow.Rail.UplinkCaption);
         Assert.Contains(SeededBackend.MeasuredUplinkMbps.ToString("0"), flow.Rail.UplinkFigure);
     }
+
+    /// <summary>
+    /// A stream on the air greys the button and states why beside it, rather than leaving it
+    /// pressable into a refusal the backend would send back. The figure itself stays editable: a
+    /// live stream blocks the measurement and no field (<c>docs/field-availability.md</c>).
+    ///
+    /// The lock is read through from the running state on every pass, so a stream that ended puts
+    /// the button back with nothing here having remembered that it was locked.
+    /// </summary>
+    [Fact]
+    public void AStreamOnTheAirGreysTheMeasurementAndSaysWhyBesideIt()
+    {
+        var backend = new PublishingBackend { Publish = Live("lab04") };
+        var session = new Session(backend, static action => action());
+        var flow = Flows.Setup(backend, session);
+
+        Read(session, flow);
+
+        Assert.False(Uplink(flow).Action!.Command.CanExecute(null));
+        Assert.True(Uplink(flow).HasActionNotice);
+        Assert.Contains("stream is publishing", Uplink(flow).ActionNotice);
+        Assert.True(Uplink(flow).IsEnabled);
+
+        backend.Publish = new PublishState();
+        Read(session, flow);
+
+        Assert.True(Uplink(flow).Action!.Command.CanExecute(null));
+        Assert.False(Uplink(flow).HasActionNotice);
+        Assert.Equal("", Uplink(flow).ActionNotice);
+    }
+
+    private static PublishState Live(string name) => new()
+    {
+        Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = name } },
+    };
+
+    /// <summary>
+    /// Reads the running state once and stops before the reconnect delay, then renders - so what
+    /// a test reads afterwards is what the render pass made of the state it set.
+    /// </summary>
+    private static void Read(Session session, SetupViewModel flow)
+    {
+        session.Start();
+        session.Stop();
+        flow.Apply();
+    }
 }

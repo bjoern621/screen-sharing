@@ -68,24 +68,36 @@
 
                 The button is absent on every other number, so the row is a box alone unless a
                 screen said otherwise (Features/Fields/Model/FieldAction.cs).
-              -->
-              <StackPanel Orientation="Horizontal"
-                          IsVisible="{Binding IsNumber}"
-                          HorizontalAlignment="Left">
-                <NumericUpDown IsEnabled="{Binding IsEnabled}"
-                               Value="{Binding Number, Mode=TwoWay}"
-                               Minimum="{Binding NumberMinimum}"
-                               Maximum="{Binding NumberMaximum}"
-                               Increment="{Binding NumberStep}"
-                               FormatString="0"
-                               MinWidth="160" />
 
-                <Button Margin="8,0,0,0"
-                        IsVisible="{Binding HasAction}"
-                        Content="{Binding Action.Label}"
-                        Command="{Binding Action.Command}"
-                        controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
-                        ToolTip.Tip="{Binding Action.Tip}" />
+                Why the press is refused - and what the last attempt answered - sits under the
+                row it is about, in the place a greyed control's own reason sits. It used to sit
+                at the foot of the column, which put the sentence and the button it explains on
+                opposite ends of a screen long enough to scroll. It is written out rather than
+                left to the button's tip, which a disabled control in Avalonia never opens.
+              -->
+              <StackPanel IsVisible="{Binding IsNumber}" Spacing="6">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                  <NumericUpDown IsEnabled="{Binding IsEnabled}"
+                                 Value="{Binding Number, Mode=TwoWay}"
+                                 Minimum="{Binding NumberMinimum}"
+                                 Maximum="{Binding NumberMaximum}"
+                                 Increment="{Binding NumberStep}"
+                                 FormatString="0"
+                                 MinWidth="160" />
+
+                  <Button Margin="8,0,0,0"
+                          IsVisible="{Binding HasAction}"
+                          Content="{Binding Action.Label}"
+                          Command="{Binding Action.Command}"
+                          controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
+                          ToolTip.Tip="{Binding Action.Tip}" />
+                </StackPanel>
+
+                <TextBlock Classes="hint"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           IsVisible="{Binding HasActionNotice}"
+                           Text="{Binding ActionNotice}" />
               </StackPanel>
 
               <!--

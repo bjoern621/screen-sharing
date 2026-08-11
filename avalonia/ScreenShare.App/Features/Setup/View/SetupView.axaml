@@ -54,6 +54,25 @@
       </Grid>
     </Border>
 
+    <!--
+      What the backend said when a setting could not be stored. Beside the banner above rather
+      than inside it, because the two are different news and one must not stand in for the
+      other: a read that cannot be answered leaves the screen showing an older answer, and a
+      write that cannot be stored leaves it showing exactly what was typed while the backend
+      goes on running on the value before it. There is nothing to look again at, so there is no
+      button on it (Backend/FormSession.cs).
+    -->
+    <Border DockPanel.Dock="Top"
+            Classes="panel"
+            Padding="12,10"
+            Margin="12,10,12,0"
+            IsVisible="{Binding HasUnsaved}">
+      <TextBlock Classes="hint danger"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Text="{Binding Unsaved}" />
+    </Border>
+
     <Grid Margin="{StaticResource InsetPanel}" ColumnDefinitions="*,Auto">
 
       <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
@@ -82,16 +101,6 @@
             -->
             <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasCommandError}">
               <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding CommandError}" />
-            </Border>
-
-            <!--
-              What the backend said about the last effect a step asked for - the uplink
-              measurement is the only one. It sits here rather than in the banner above, which
-              says the screen could not be described at all: a measurement refused because a
-              stream is live leaves the form drawing perfectly well.
-            -->
-            <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasStepNotice}">
-              <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding StepNotice}" />
             </Border>
           </StackPanel>
         </Panel>
