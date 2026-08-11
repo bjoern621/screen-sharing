@@ -4,6 +4,13 @@
     <OutputType>Library</OutputType>
     <IsPackable>false</IsPackable>
     <RootNamespace>ScreenShare.App.Tests</RootNamespace>
+    <!--
+      For one test alone: the descriptor reader is checked against a sender that writes the
+      kernel control message by hand, and a message whose layout is under test cannot be built
+      through a wrapper that would lay it out the same way twice
+      (FrameDescriptorsTests.cs).
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

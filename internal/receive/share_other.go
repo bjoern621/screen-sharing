@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux
 
 package receive
 
@@ -11,15 +11,13 @@ import (
 
 // The export leg of a platform whose handle type is not built yet.
 //
-// It refuses rather than falling back to a download. A tile fed from system memory
-// would be a tile that works and costs gigabytes a second, and the whole reason the
-// frame channel exists is that this is the copy nobody can afford
-// (docs/viewer-architecture.md, "The frame channel"). A refusal names the platform,
-// and the viewer it points at is the native player, which needs no frame channel at
-// all.
+// It refuses rather than falling back to a download. A tile fed from system memory would be
+// a tile that works and costs gigabytes a second, and the whole reason the frame channel
+// exists is that this is the copy nobody can afford (docs/viewer-architecture.md, "The
+// frame channel"). A refusal names the platform, and the viewer it points at is the native
+// player, which needs no frame channel at all.
 //
-// Linux is the next leg: dmabuf out of the receive pipeline, the descriptors over a
-// socket, and eglCreateImageKHR in the shell. macOS is last and is IOSurface.
+// macOS is the leg that is left, and it is IOSurface out of VideoToolbox.
 
 type unbuiltSharer struct{}
 
