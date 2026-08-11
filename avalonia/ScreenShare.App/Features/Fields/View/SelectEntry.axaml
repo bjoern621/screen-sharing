@@ -44,7 +44,7 @@
                    Text="{Binding Note}"
                    VerticalAlignment="Center" />
       </Grid>
-      <TextBlock Classes="cardbody"
+      <TextBlock Classes="cardbody refusal"
                  IsVisible="{Binding HasReason}"
                  Text="{Binding Reason}" />
       <TextBlock Classes="cardbody"

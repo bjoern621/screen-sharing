@@ -211,4 +211,20 @@
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
 
+  <!--
+    The one line on a refused entry that does not dim with it. Everything else on the row
+    says what the option is, which the reader is no longer choosing; the refusal says why
+    it is out of reach, which is what the greying sent them to read. It holds the hint
+    colour the same paragraph has on a live entry, so the refusal never outranks the copy
+    on the options that can still be picked.
+
+    Stated after the rules above because both match this line and the last setter wins.
+  -->
+  <Style Selector="MenuItem:disabled TextBlock.refusal">
+    <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
+  </Style>
+  <Style Selector="Button:disabled TextBlock.refusal">
+    <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
+  </Style>
+
 </Styles>

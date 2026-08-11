@@ -174,7 +174,7 @@
                             <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
                             <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
                           </Grid>
-                          <TextBlock Classes="cardbody"
+                          <TextBlock Classes="cardbody refusal"
                                      IsVisible="{Binding HasReason}"
                                      Text="{Binding Reason}" />
                           <TextBlock Classes="cardbody"

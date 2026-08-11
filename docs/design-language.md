@@ -31,6 +31,11 @@ Lines are three weights: a hairline where one band meets the next, a divider ins
 or a menu, and a raised control's edge.
 Text is a five-step ladder from white down through the control label, secondary copy, muted
 figures and faint hints, ending at the disabled grey.
+The unavailable treatment moves an inert control's text to that last step, with one
+exception: where an entry is greyed and carries a reason, the reason holds the hint colour
+it has on a live entry.
+It is the line the greying sent the reader to, and it is not brightened past hint either, so
+a refused entry never reads louder than the options still open.
 
 There is one hue, `#E5484D`, and it is reserved strictly for **on air** and **something is
 wrong**.
