@@ -12,6 +12,69 @@
       nixpkgs,
       flake-utils,
     }:
+    let
+      # The relay build this repository's mediamtx.yml is written against, exported
+      # rather than left inside the dev shell.
+      # A NixOS host serving as the relay needs that same build, and a second copy of
+      # the pin is a second thing to bump, so both take it from here.
+      mediamtxOverlay = _: prev: {
+        # mediamtx.yml turns on the Media over QUIC server, and MediaMTX rejects a
+        # config carrying a key it does not know rather than ignoring it, so a
+        # relay older than moqQUICAddress does not start at all: it exits with
+        # `ERR: json: unknown field "moq"`. The key arrived in v1.20.0, which is
+        # also what scripts/relay.ps1 downloads for Windows, where there is no dev
+        # shell to take a relay from. Both platforms run the version that config
+        # is written against.
+        mediamtx = prev.mediamtx.overrideAttrs (
+          finalAttrs: _: {
+            version = "1.20.0";
+            src = prev.fetchFromGitHub {
+              owner = "bluenviron";
+              repo = "mediamtx";
+              tag = "v${finalAttrs.version}";
+              hash = "sha256-bnbuIf3GdT+TCUHzAqvsS9wLPjDUGunpJoQBJFY4aTo=";
+            };
+            vendorHash = "sha256-uXwfIeE95g8isjR3ll0pcXnRtr/dbhp9B0HyH47WgWU=";
+            # The package set's own postPatch does not survive the bump: it names
+            # the hls.js of the release it was written for and the rpicamera files
+            # this one renamed, and each name it misses is a --replace-fail, so the
+            # patch phase fails rather than skipping.
+            #
+            # It stands in for two go:generate steps that download what the build
+            # then embeds, and the sandbox has no network for either. hls.js is
+            # fetched as an input instead. The Raspberry Pi camera binary has no
+            # such substitute, so the source that embeds it is switched off: those
+            # files compile on 32- and 64-bit ARM Linux alone, and with their build
+            # tags unsatisfiable every platform gets source_other.go, which reports
+            # the camera as unsupported.
+            postPatch =
+              let
+                # The hls.js version each release expects is in
+                # internal/servers/hls/hlsjsdownloader/VERSION.
+                hlsJs = prev.fetchurl {
+                  url = "https://cdn.jsdelivr.net/npm/hls.js@v1.6.16/dist/hls.min.js";
+                  hash = "sha256-RC9ZnDTxA8M1WzdaI73/VgWS1xF9CajIRyQuo94tQOA=";
+                };
+              in
+              ''
+                cp ${hlsJs} internal/servers/hls/hls.min.js
+                echo "v${finalAttrs.version}" > internal/core/VERSION
+
+                substituteInPlace internal/staticsources/rpicamera/{camera,camera_params,pipe,source,supports_hardware_h264}_arm_.go \
+                  --replace-fail '(linux && arm) || (linux && arm64)' 'linux && !linux'
+                substituteInPlace internal/staticsources/rpicamera/source_other.go \
+                  --replace-fail '!linux || (!arm && !arm64)' 'linux || !linux'
+                # These two are selected by filename rather than by a build tag, so
+                # removing them is the only way to keep them out of an ARM build.
+                # They hold nothing but the embed directive for the binary that is
+                # now unreachable.
+                rm internal/staticsources/rpicamera/camera_linux_arm.go \
+                   internal/staticsources/rpicamera/camera_linux_arm64.go
+              '';
+          }
+        );
+      };
+    in
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -25,6 +88,7 @@
               "amdenc"
             ];
           overlays = [
+            mediamtxOverlay
             (final: prev: {
               # Two plugins of gst-plugins-bad that the cached build does not carry.
               #
@@ -99,62 +163,6 @@
                     url = "https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_${finalAttrs.version}.24.04_amd64.deb";
                     hash = "sha256-pklpKaWLrcClRRaY9jJhFZLbyFXPUY9H5UpmARrgFPU=";
                   };
-                }
-              );
-
-              # mediamtx.yml turns on the Media over QUIC server, and MediaMTX rejects a
-              # config carrying a key it does not know rather than ignoring it, so a
-              # relay older than moqQUICAddress does not start at all: it exits with
-              # `ERR: json: unknown field "moq"`. The key arrived in v1.20.0, which is
-              # also what scripts/relay.ps1 downloads for Windows, where there is no dev
-              # shell to take a relay from. Both platforms run the version that config
-              # is written against.
-              mediamtx = prev.mediamtx.overrideAttrs (
-                finalAttrs: _: {
-                  version = "1.20.0";
-                  src = prev.fetchFromGitHub {
-                    owner = "bluenviron";
-                    repo = "mediamtx";
-                    tag = "v${finalAttrs.version}";
-                    hash = "sha256-bnbuIf3GdT+TCUHzAqvsS9wLPjDUGunpJoQBJFY4aTo=";
-                  };
-                  vendorHash = "sha256-uXwfIeE95g8isjR3ll0pcXnRtr/dbhp9B0HyH47WgWU=";
-                  # The package set's own postPatch does not survive the bump: it names
-                  # the hls.js of the release it was written for and the rpicamera files
-                  # this one renamed, and each name it misses is a --replace-fail, so the
-                  # patch phase fails rather than skipping.
-                  #
-                  # It stands in for two go:generate steps that download what the build
-                  # then embeds, and the sandbox has no network for either. hls.js is
-                  # fetched as an input instead. The Raspberry Pi camera binary has no
-                  # such substitute, so the source that embeds it is switched off: those
-                  # files compile on 32- and 64-bit ARM Linux alone, and with their build
-                  # tags unsatisfiable every platform gets source_other.go, which reports
-                  # the camera as unsupported.
-                  postPatch =
-                    let
-                      # The hls.js version each release expects is in
-                      # internal/servers/hls/hlsjsdownloader/VERSION.
-                      hlsJs = prev.fetchurl {
-                        url = "https://cdn.jsdelivr.net/npm/hls.js@v1.6.16/dist/hls.min.js";
-                        hash = "sha256-RC9ZnDTxA8M1WzdaI73/VgWS1xF9CajIRyQuo94tQOA=";
-                      };
-                    in
-                    ''
-                      cp ${hlsJs} internal/servers/hls/hls.min.js
-                      echo "v${finalAttrs.version}" > internal/core/VERSION
-
-                      substituteInPlace internal/staticsources/rpicamera/{camera,camera_params,pipe,source,supports_hardware_h264}_arm_.go \
-                        --replace-fail '(linux && arm) || (linux && arm64)' 'linux && !linux'
-                      substituteInPlace internal/staticsources/rpicamera/source_other.go \
-                        --replace-fail '!linux || (!arm && !arm64)' 'linux || !linux'
-                      # These two are selected by filename rather than by a build tag, so
-                      # removing them is the only way to keep them out of an ARM build.
-                      # They hold nothing but the embed directive for the binary that is
-                      # now unreachable.
-                      rm internal/staticsources/rpicamera/camera_linux_arm.go \
-                         internal/staticsources/rpicamera/camera_linux_arm64.go
-                    '';
                 }
               );
             })
@@ -406,5 +414,13 @@
       #   programs.screenShare = { enable = true; user = "bjoern"; };
       nixosModules.screenShare = import ./nix/screen-share.nix;
       nixosModules.default = self.nixosModules.screenShare;
+
+      # The MediaMTX build mediamtx.yml is written against, for a host that serves as
+      # the relay:
+      #   nixpkgs.overlays = [ screen-sharing.overlays.mediamtx ];
+      # The dev shell applies the same overlay, so `task relay` and a deployed relay
+      # are one version.
+      overlays.mediamtx = mediamtxOverlay;
+      overlays.default = self.overlays.mediamtx;
     };
 }
