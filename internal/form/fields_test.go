@@ -190,6 +190,35 @@ func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	}
 }
 
+// Which groups are applied rather than staged, stated where a reader of the contract
+// looks for it. The list is written out rather than read off the table it checks, which
+// is what makes it a check: a group that gains or loses the flag fails here, and the
+// consequence of getting it wrong is invisible until someone is stuck.
+//
+// Applied wrong in one direction persists a half-configured stream on every keystroke.
+// Applied wrong in the other direction is the deadlock form.proto describes: the relay's
+// address only reaches the backend through a publish, and the publish is refused because
+// the relay it would change cannot be reached.
+func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
+	applied := map[string]bool{
+		GroupRelay: true,
+	}
+
+	for _, g := range groups {
+		if want := applied[g.key]; g.applied != want {
+			t.Errorf("group %q is applied=%v, want %v", g.key, g.applied, want)
+		}
+	}
+
+	// The flag has to survive the render, since a shell reads it off the group and not
+	// off this table.
+	for _, g := range resolveGroups(fieldTestDeps(), settings.Defaults()) {
+		if want := applied[g.GetKey()]; g.GetApplied() != want {
+			t.Errorf("resolved group %q is applied=%v, want %v", g.GetKey(), g.GetApplied(), want)
+		}
+	}
+}
+
 // The contract fills options for a select and a radio, a range for a number and a
 // slider, both for the number that carries a ladder, and leaves each empty on the
 // controls it does not apply to. A select with no options is a dropdown a shell cannot

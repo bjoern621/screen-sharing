@@ -48,9 +48,16 @@
                          IsVisible="{Binding HasHelp}"
                          Text="{Binding Help}" />
 
+              <!--
+                Written when the reader leaves the box rather than on every keystroke. A
+                half-typed value is not a value: it resolves to a form about settings nobody
+                asked for, and where the field belongs to an applied group it would be stored
+                and acted on a character at a time - the relay's address is the case that
+                exists, and the backend would dial each prefix of a hostname in turn.
+              -->
               <TextBox IsVisible="{Binding IsText}"
                        IsEnabled="{Binding IsEnabled}"
-                       Text="{Binding Text, Mode=TwoWay}" />
+                       Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
 
               <!--
                 A typed number, and beside it whatever effect this screen offers for that

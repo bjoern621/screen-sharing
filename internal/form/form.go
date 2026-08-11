@@ -100,6 +100,11 @@ type field struct {
 // they appear in the fields table.
 type group struct {
 	key string
+	// applied marks a group whose writes are settings rather than a proposal, which the
+	// contract states in full (form.proto, FieldGroup.applied). It is a fact about what
+	// the fields mean, so it is one column of this table rather than a rule each
+	// consumer restates.
+	applied bool
 }
 
 // Resolve is the whole answer to "what may the user do with these settings, and what
@@ -151,7 +156,7 @@ func resolveGroups(d Deps, s settings.Settings) []*screensharev1.FieldGroup {
 		if len(fields) == 0 {
 			continue
 		}
-		out = append(out, &screensharev1.FieldGroup{Key: g.key, Fields: fields})
+		out = append(out, &screensharev1.FieldGroup{Key: g.key, Fields: fields, Applied: g.applied})
 	}
 	return out
 }

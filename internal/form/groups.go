@@ -47,6 +47,12 @@ package form
 // The grouping is stated here and not left to a shell for the reason form.proto gives:
 // it follows the domain, so a shell that regrouped it would be making an argument about
 // the model rather than about layout.
+// One of them is applied rather than staged, which form.proto states in full. The line
+// is which settings the backend reads without being handed them: the relay poll dials
+// the address for as long as the process runs, and every other group here is read by an
+// effect that carries its own settings - a publish is started on what StartPublish is
+// given, a viewer opens on what was saved before it. Only the group nobody hands over
+// has to be written as it is edited.
 var groups = []group{
 	{key: GroupStream},
 	{key: GroupSource},
@@ -54,5 +60,5 @@ var groups = []group{
 	{key: GroupAudio},
 	{key: GroupTransport},
 	{key: GroupWatch},
-	{key: GroupRelay},
+	{key: GroupRelay, applied: true},
 }
