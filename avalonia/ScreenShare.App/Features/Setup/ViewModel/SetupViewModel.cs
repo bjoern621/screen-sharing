@@ -431,7 +431,14 @@ public sealed class SetupViewModel : Observable
         HasCommandError = CommandError.Length > 0;
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;
-        StepNotice = _notice;
+        // Two things can leave a sentence on a step, and both are an effect this screen asked
+        // for that did not happen: the measurement this flow runs, and the write the draft owner
+        // makes for a field that is applied rather than staged. This flow's own comes first,
+        // because it is the one the reader just pressed a button for.
+        //
+        // A notice and not the unavailable banner, which blocks the publish: settings that could
+        // not be stored are still settings a stream can be started on.
+        StepNotice = _notice.Length > 0 ? _notice : _form.Unsaved;
         HasStepNotice = StepNotice.Length > 0;
 
         var next = SetupSteps.After(_steps, current);

@@ -56,6 +56,8 @@ internal sealed class DeferredBackend : IBackend
 
     private readonly SeededBackend _seed = new("linux");
     private readonly List<Held> _held = [];
+    private readonly List<TaskCompletionSource> _heldSaves = [];
+    private TaskCompletionSource _saveAsked = new();
 
     /// <summary>
     /// Stands in for the encoder probe landing, which is what the real backend raises this for.
@@ -114,8 +116,61 @@ internal sealed class DeferredBackend : IBackend
     public Task ApplyToStreamAsync(Settings settings, CancellationToken cancellation = default)
         => _seed.ApplyToStreamAsync(settings, cancellation);
 
+    /// <summary>
+    /// A write, answered at once unless <see cref="DefersSaves"/> is set, in which case it is
+    /// held like a resolve and for the same reason: a socket lets a second write be asked for
+    /// while the first is unanswered, and a stand-in that answers from memory can never produce
+    /// that. What was handed over is recorded either way.
+    /// </summary>
     public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
-        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.SaveSettingsAsync(settings, cancellation);
+    {
+        if (IsAbsent)
+        {
+            throw new BackendUnavailableException(Absent);
+        }
+
+        Saved.Add(settings.Clone());
+
+        // Whoever was waiting for a write to be asked for has had one. The next waiter gets a
+        // fresh one, so waiting is always for a write still to come rather than for one already
+        // sent.
+        var asked = _saveAsked;
+        _saveAsked = new TaskCompletionSource();
+        asked.SetResult();
+
+        if (!DefersSaves)
+        {
+            return _seed.SaveSettingsAsync(settings, cancellation);
+        }
+
+        var answer = new TaskCompletionSource();
+        _heldSaves.Add(answer);
+        return answer.Task;
+    }
+
+    /// <summary>
+    /// Completes when the next write is asked for. It is what lets a test wait for a write that
+    /// something else will send, rather than sleeping and hoping: the continuation behind a held
+    /// write runs on whichever thread completed it, so the count alone says nothing about
+    /// whether it has run yet.
+    /// </summary>
+    public Task NextSaveAsked => _saveAsked.Task;
+
+    /// <summary>Whether writes are held for the test to answer rather than answered at once.</summary>
+    public bool DefersSaves { get; set; }
+
+    /// <summary>The settings each write was given, oldest first.</summary>
+    public List<Settings> Saved { get; } = [];
+
+    /// <summary>How many writes are waiting to be answered.</summary>
+    public int HeldSaves => _heldSaves.Count(answer => !answer.Task.IsCompleted);
+
+    /// <summary>Answers the oldest unanswered write, as the backend having stored it.</summary>
+    public void AnswerSave()
+    {
+        var answer = _heldSaves.First(held => !held.Task.IsCompleted);
+        answer.SetResult();
+    }
 
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => _seed.StopPublishAsync(cancellation);

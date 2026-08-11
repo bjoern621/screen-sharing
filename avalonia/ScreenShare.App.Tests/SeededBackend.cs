@@ -80,6 +80,14 @@ internal sealed class SeededBackend : IBackend
         public required string Key { get; init; }
 
         public required IReadOnlyList<FieldSeed> Fields { get; init; }
+
+        /// <summary>
+        /// Whether a write to this group's fields is the setting itself rather than a proposal
+        /// a commit applies (form.proto, FieldGroup.applied). It is seeded per group because
+        /// the real form states it per group, and a fixture that left every group staged would
+        /// let the write path pass by never exercising it.
+        /// </summary>
+        public bool Applied { get; init; }
     }
 
     /// <summary>
@@ -424,7 +432,7 @@ internal sealed class SeededBackend : IBackend
     /// </summary>
     private FieldGroup Resolve(GroupSeed seed, Settings settings)
     {
-        var group = new FieldGroup { Key = seed.Key };
+        var group = new FieldGroup { Key = seed.Key, Applied = seed.Applied };
 
         foreach (var field in seed.Fields)
         {
@@ -1052,12 +1060,26 @@ internal sealed class SeededBackend : IBackend
                 },
             ],
         },
+        // The stream's own name is staged like everything else the wizard configures: it is
+        // part of the pipeline a commit starts.
         new()
         {
-            Key = "destination",
+            Key = "stream",
             Fields =
             [
                 new() { Key = "publish.name", Control = ControlKind.Text },
+            ],
+        },
+
+        // Where the relay is, applied rather than staged. The backend dials this address on its
+        // own poll, so a write to it that waited for a publish would be a publish gated on
+        // reaching the relay it was about to change (form.proto, FieldGroup.applied).
+        new()
+        {
+            Key = "relay",
+            Applied = true,
+            Fields =
+            [
                 new() { Key = "relay.host", Control = ControlKind.Text },
                 new() { Key = "relay.srt_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },

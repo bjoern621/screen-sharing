@@ -82,6 +82,15 @@ public sealed class FormSession
     private CancellationTokenSource? _cancel;
 
     /// <summary>
+    /// The settings waiting to be persisted, null when none are. Replaced rather than appended
+    /// to: a newer draft says everything an older one did.
+    /// </summary>
+    private Settings? _pending;
+
+    /// <summary>Whether a write is in flight, which is what keeps two from overlapping.</summary>
+    private bool _persisting;
+
+    /// <summary>
     /// Whether the session last reported the backend absent. It is held for one purpose: to tell
     /// the moment the backend came back from the state of it being there, so this asks again
     /// exactly once per recovery rather than on every event that follows one.
@@ -152,6 +161,18 @@ public sealed class FormSession
     public string Unavailable { get; private set; } = "";
 
     /// <summary>
+    /// Why the last write to an applied group could not be stored, empty while they are being
+    /// stored. It is that side's own sentence, shown as it stands.
+    ///
+    /// It is separate from <see cref="Unavailable"/> because the two are different news and one
+    /// must not stand in for the other. A read that cannot be answered leaves the screen showing
+    /// an older answer, and a publish has nothing to go on. A write that cannot be stored leaves
+    /// the screen showing exactly what the reader typed while the backend goes on running on the
+    /// value before it - so the setting is worth naming and the publish is not worth blocking.
+    /// </summary>
+    public string Unsaved { get; private set; } = "";
+
+    /// <summary>
     /// The read in flight, and an already-completed task when none is. It is the seam's timing
     /// made observable, for the one caller that legitimately needs it: something that has to know
     /// the screen has caught up with the draft rather than merely having been asked to. A test
@@ -202,6 +223,127 @@ public sealed class FormSession
 
         SettingsDraft.Write(draft, key, value);
         Sync();
+
+        // A field of an applied group is the setting itself rather than a proposal a commit
+        // turns into one, so the write is persisted as it is made (<c>form.proto</c>,
+        // FieldGroup.applied). Which groups those are is the backend's answer, read off the
+        // form; this class asks the question and does not answer it.
+        if (Applies(key))
+        {
+            Persist(draft);
+        }
+
+        Announce();
+    }
+
+    /// <summary>
+    /// Whether a write to this field is the setting itself, which the form states per group
+    /// (<c>form.proto</c>, FieldGroup.applied).
+    ///
+    /// False for a key no drawn group carries, and before the first form lands. Both are the
+    /// same answer for the same reason: what a field means arrives from the backend, and a
+    /// write it has said nothing about is one this class holds rather than one it persists on a
+    /// guess.
+    /// </summary>
+    private bool Applies(string key)
+    {
+        if (_form is null)
+        {
+            return false;
+        }
+
+        foreach (var group in _form.Groups)
+        {
+            foreach (var field in group.Fields)
+            {
+                if (field.Key == key)
+                {
+                    return group.Applied;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Queues the draft to be persisted, and starts the writer when it is not already running.
+    ///
+    /// <b>One write is in flight at a time, and the newest draft is the one that lands.</b> Two
+    /// unary calls carry no ordering between them, so a burst - a port spinner held down - could
+    /// otherwise finish out of order and leave an older value stored than the one on screen. A
+    /// write that arrives while another is in flight replaces what is waiting rather than
+    /// joining a queue: they are all the same settings, so the older ones have nothing left to
+    /// say.
+    ///
+    /// The copy is taken here for the reason every other effect takes one: the controls write
+    /// the draft in place, so handing the live instance over would let the next keystroke change
+    /// the message while it is being sent.
+    /// </summary>
+    private void Persist(Settings draft)
+    {
+        _pending = draft.Clone();
+
+        if (_persisting)
+        {
+            return;
+        }
+
+        _persisting = true;
+        _ = PersistAsync();
+    }
+
+    /// <summary>
+    /// Writes whatever is waiting, until nothing is, off the UI thread. It writes no state of
+    /// its own: the sentence goes back through the dispatcher to <see cref="Persisted"/>.
+    /// </summary>
+    private async Task PersistAsync()
+    {
+        try
+        {
+            while (_pending is not null)
+            {
+                var settings = _pending;
+                _pending = null;
+
+                try
+                {
+                    await _backend.SaveSettingsAsync(settings).ConfigureAwait(false);
+                    _dispatch(() => Persisted(""));
+                }
+                catch (BackendUnavailableException e)
+                {
+                    _dispatch(() => Persisted(e.Message));
+                }
+                catch (OperationCanceledException)
+                {
+                    // Nothing cancels this call, since it carries no token. A transport that
+                    // reports one anyway leaves the last sentence standing rather than claiming
+                    // a write landed.
+                }
+            }
+        }
+        finally
+        {
+            // Whatever ended the loop, including something nothing here expected, the next write
+            // has to be able to start another one. The alternative is a flag left set by a task
+            // nobody is awaiting, and settings that silently stop being stored for the rest of
+            // the session.
+            _persisting = false;
+        }
+    }
+
+    /// <summary>
+    /// Takes the answer to one write, on the UI loop.
+    ///
+    /// <b><see cref="Adopt"/> does not clear this and that is deliberate.</b> A resolve is a
+    /// read: it can be answered while a write to the same backend is failing, and letting a
+    /// successful read clear the sentence would drop the one piece of news the reader needs -
+    /// that what the screen shows is not what is stored.
+    /// </summary>
+    private void Persisted(string reason)
+    {
+        Unsaved = reason;
         Announce();
     }
 

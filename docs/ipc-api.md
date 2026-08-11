@@ -190,7 +190,10 @@ It owes a **code** rather than a sentence for every one of those verdicts, and t
 **A shell owes** a name for every identifier the backend can send, and a sentence for every statement it can make. A value with no name renders as the raw identifier, which is honest and still a defect; a statement with no sentence renders as its code, which is worse and is meant to be. Both are visible on screen rather than swallowed, because that is what gets them written. In the Avalonia shell this is `ScreenShare.App/Copy`.
 
 It owes the render-function discipline it already follows (`development-principles.md`): one function per component mapping received messages to widget state, every output set on every pass, nothing cached that the backend owns.
-It owes debouncing, because `ResolveForm` on every keystroke is cheap but `SaveSettings` on every keystroke is a file write.
+It owes a `SaveSettings` for every write to a group the form marks `applied`, and none for the groups it does not.
+Those are the settings the backend reads on a schedule of its own instead of being handed them by an effect, and the relay's address is the case that exists.
+A shell that held one of them for a commit would leave the backend dialling the address the reader had just replaced, and the publish that would have carried it is refused for that exact reason: the relay it would change cannot be reached.
+It owes those writes at the cadence of a settled value rather than of a keystroke, because `ResolveForm` on every keystroke is cheap and `SaveSettings` on every keystroke is a file write - so a text control writes when the reader leaves it.
 And it owes the honesty of showing a disabled field rather than inventing an enabled one.
 
 It also owes **asking for the encoder probe once.**

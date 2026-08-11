@@ -670,8 +670,30 @@ type FieldGroup struct {
 	// key is a stable identifier for the group: "stream", "source", "quality", "audio",
 	// "transport", "watch", "relay". A shell uses it to decide placement and to look
 	// up the heading it draws; it must not use it to decide contents.
-	Key           string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Fields        []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
+	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Fields []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
+	// applied is true for a group whose fields are the settings themselves rather than a
+	// proposal a later commit turns into settings: where the relay is, and how this
+	// machine watches. Both describe standing configuration that something already
+	// running reads - the backend dials the relay's address on its own poll, and the next
+	// viewer opens on the watch settings - so a write to one of them is persisted as it
+	// is made, with SaveSettings (control.proto), and takes effect without a stream
+	// being started.
+	//
+	// False for the groups describing the stream a commit starts. Those are staged: a
+	// running pipeline keeps the settings it was started on, and StartPublish is what
+	// both applies and persists them.
+	//
+	// The distinction is stated here because it follows from what a setting means rather
+	// than from which screen draws it. A shell that decided it per group would be
+	// deciding when a setting takes effect, which is the same class of argument about the
+	// domain that the grouping itself is.
+	//
+	// Without it, a setting the backend reads on its own can only reach the backend
+	// through a publish, and where that setting is the relay's address the publish is
+	// gated on reaching the relay it would change: the address cannot be corrected
+	// because the old one is unreachable.
+	Applied       bool `protobuf:"varint,6,opt,name=applied,proto3" json:"applied,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -718,6 +740,13 @@ func (x *FieldGroup) GetFields() []*Field {
 		return x.Fields
 	}
 	return nil
+}
+
+func (x *FieldGroup) GetApplied() bool {
+	if x != nil {
+		return x.Applied
+	}
+	return false
 }
 
 // Diagnostic is one thing worth saying about the settings as a whole, as against
@@ -1068,11 +1097,12 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aoptions\x18\f \x03(\v2\x1b.screenshare.v1.FieldOptionR\aoptions\x122\n" +
 	"\x05range\x18\r \x01(\v2\x1c.screenshare.v1.NumericRangeR\x05rangeJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\t\x10\n" +
 	"J\x04\b\n" +
-	"\x10\vR\x05labelR\x04helpR\adoc_url\"u\n" +
+	"\x10\vR\x05labelR\x04helpR\adoc_url\"\x8f\x01\n" +
 	"\n" +
 	"FieldGroup\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
-	"\x06fields\x18\x04 \x03(\v2\x15.screenshare.v1.FieldR\x06fieldsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x05\x10\x06R\x05titleR\x04helpR\asummary\"\x98\x01\n" +
+	"\x06fields\x18\x04 \x03(\v2\x15.screenshare.v1.FieldR\x06fields\x12\x18\n" +
+	"\aapplied\x18\x06 \x01(\bR\aappliedJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x05\x10\x06R\x05titleR\x04helpR\asummary\"\x98\x01\n" +
 	"\n" +
 	"Diagnostic\x124\n" +
 	"\bseverity\x18\x01 \x01(\x0e2\x18.screenshare.v1.SeverityR\bseverity\x12(\n" +
