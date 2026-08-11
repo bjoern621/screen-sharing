@@ -45,6 +45,7 @@ public sealed class QualityStepViewModel : Observable
     private bool _isResolved;
     private bool _hasMode;
     private bool _hasQuantizer;
+    private int _modeColumns = 1;
     private FieldViewModel? _mode;
     private FieldViewModel? _quantizer;
 
@@ -94,6 +95,13 @@ public sealed class QualityStepViewModel : Observable
     public bool HasQuantizer { get => _hasQuantizer; private set => Set(ref _hasQuantizer, value); }
 
     /// <summary>
+    /// How many rate-control cards sit across the step, for the count of modes this form
+    /// offers. A shape rather than a control: the panel divides the same options into rows
+    /// from it (<see cref="QualityLayout.CardColumns"/>).
+    /// </summary>
+    public int ModeColumns { get => _modeColumns; private set => Set(ref _modeColumns, value); }
+
+    /// <summary>
     /// The one render function. Safe to run twice: the group hands back the same field view
     /// models by key, so an unchanged pass assigns the same references and reconciles onto an
     /// equal list, and no binding fires.
@@ -109,6 +117,7 @@ public sealed class QualityStepViewModel : Observable
         Quantizer = _group.Visible(QuantizerKey);
         HasMode = Mode is not null;
         HasQuantizer = Quantizer is not null;
+        ModeColumns = QualityLayout.CardColumns(Mode?.Options.Count ?? 0);
 
         Reconcile.Onto(Selects, Placed());
 

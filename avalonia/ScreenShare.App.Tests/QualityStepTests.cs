@@ -163,6 +163,42 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
+    /// The rate control's grid holds the modes this backend offers with nothing left over.
+    /// The shape is the step's, but the count is the form's, so a backend that offers one
+    /// more mode is laid out by the same rule rather than by an edit here.
+    /// </summary>
+    [Fact]
+    public async Task TheRateControlCardsFillEveryRowTheyOpen()
+    {
+        var flow = await FlowAsync();
+        var modes = flow.Quality.Mode!.Options.Count;
+        var columns = flow.Quality.ModeColumns;
+        var rows = (modes + columns - 1) / columns;
+
+        Assert.True(modes > 0);
+        Assert.True(rows * columns >= modes, "the grid holds every mode");
+        Assert.True((rows - 1) * columns < modes, "the last row of the grid carries a card");
+    }
+
+    /// <summary>
+    /// The same rule at the counts the panel gets wrong on its own: asked for neither
+    /// dimension, a UniformGrid squares off both, so five options open a three by three and
+    /// the row under the cards is a card's worth of empty column.
+    /// </summary>
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(1, 1)]
+    [InlineData(2, 2)]
+    [InlineData(4, 2)]
+    [InlineData(5, 3)]
+    [InlineData(7, 3)]
+    [InlineData(10, 4)]
+    public void ACardGridIsAsWideAsItsCountIsSquare(int options, int columns)
+    {
+        Assert.Equal(columns, QualityLayout.CardColumns(options));
+    }
+
+    /// <summary>
     /// The step's chip repeats what the backend said the group settled on, so a chip and the
     /// form cannot name different configurations.
     /// </summary>

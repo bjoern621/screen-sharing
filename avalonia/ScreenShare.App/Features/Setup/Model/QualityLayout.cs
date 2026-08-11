@@ -59,4 +59,30 @@ public static class QualityLayout
     /// </summary>
     public static bool InReadbackRow(FieldViewModel field)
         => OnStep(field) && field.Key is not (ModeKey or QuantizerKey);
+
+    /// <summary>
+    /// How many cards the rate control sets across, for an option count only the form knows.
+    ///
+    /// The count is squared off so a paragraph gets a third of the column rather than a
+    /// fifth: five modes across a single row set each explanation thirty characters wide,
+    /// which is read as a column of fragments rather than compared.
+    ///
+    /// It is stated here rather than left to the panel because a UniformGrid asked for
+    /// neither dimension squares off <b>both</b> of them: five options become a three by
+    /// three, and the row below the cards is a card's worth of empty column. Given the
+    /// columns, the panel divides for the rows and the last one is the only one that can be
+    /// short.
+    /// </summary>
+    public static int CardColumns(int options)
+    {
+        Assert.That(options >= 0, "a card grid is laid out for a count of options", options);
+
+        var columns = Math.Max(1, (int)Math.Ceiling(Math.Sqrt(options)));
+        var rows = (options + columns - 1) / columns;
+
+        Assert.That(rows * columns >= options, "the grid holds every option", options, columns, rows);
+        Assert.That((rows - 1) * columns < options, "no row of the grid is empty", options, columns, rows);
+
+        return columns;
+    }
 }
