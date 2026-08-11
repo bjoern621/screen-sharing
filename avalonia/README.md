@@ -516,29 +516,34 @@ for the size already in force.
 
 ## What is not settled yet
 
-**Video, on the two platforms whose handle type is not built.** Windows renders frames
-today: `Features/Viewer/Tile` imports a DXGI shared texture through
-`Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`, draws
-it on a `CompositionDrawingSurface`, and hands the slot back with
-`UpdateWithKeyedMutexAsync`. `NativeControlHost` plus
-`gst_video_overlay_set_window_handle` was the easy path and the wrong one, and the reason
-is visible on the tile: the native child window draws above all Avalonia content, so the
-figures under each picture would have disappeared behind the video.
+**Video, on the platform whose handle type is not built.** `Features/Viewer/Tile` draws two
+of the three, and which one a tile uses is read off the pool rather than off the operating
+system: `StreamTile` owns the subscription and the loan, and one `ITileSurface` per handle
+type owns the import.
 
-What is left is the other two handle types:
-
-- **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as
-  planned rather than shipped, so the near-term route is `OpenGlControlBase` plus
-  `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`. Format modifiers and a sync-file fence have
-  to travel with the frame; the contract already carries the first two, and nothing
-  produces or reads them yet.
+- **Windows** - `SharedTextureSurface` imports a DXGI shared texture through
+  `Compositor.TryGetCompositionGpuInterop()` and `ICompositionGpuInterop.ImportImage`,
+  draws it on a `CompositionDrawingSurface`, and hands the slot back with
+  `UpdateWithKeyedMutexAsync`.
+- **Linux** - `DmaBufSurface` imports a dmabuf descriptor itself, with
+  `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)` and `glEGLImageTargetTexture2DOES`, and draws
+  it from an `OpenGlControlBase`. The compositor imports a shared texture and an opaque
+  descriptor and not a dmabuf, which is why this one draws where the other hands over. The
+  descriptors arrive over the socket the pool names rather than in the message
+  (`Backend/FrameDescriptors.cs`), because a descriptor is not a number another process can
+  use.
 - **macOS** - IOSurface from VideoToolbox, with no first-class import handle type. The
   weakest leg, and the one to schedule last.
 
-A tile on either refuses rather than falling back to a copy through system memory, and
-says which of the two it is. A fallback that worked and cost gigabytes a second is the
-outcome the frame channel exists to prevent, and one that is quietly slow is worse than
-one that names itself.
+`NativeControlHost` plus `gst_video_overlay_set_window_handle` was the easy path and the
+wrong one, and the reason is visible on the tile: the native child window draws above all
+Avalonia content, so the figures under each picture would have disappeared behind the
+video. Both surfaces are composition visuals for that reason, the OpenGL one included.
+
+A tile whose handle type has no surface refuses rather than falling back to a copy through
+system memory, and says so. A fallback that worked and cost gigabytes a second is the
+outcome the frame channel exists to prevent, and one that is quietly slow is worse than one
+that names itself.
 
 **GStreamer bindings.** `gstreamer-sharp` wraps the 1.12 API and is effectively
 unmaintained, so the pipeline is not being rewritten in C#. The plan that avoids the

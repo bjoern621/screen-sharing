@@ -10,7 +10,8 @@ Two ways to watch exist.
 The broadcast screen's preview is neither: it decodes a copy the publish child makes on the loopback interface, so it is the second consumer of the frame channel rather than a third way to watch, and the relay never sees it. "What the broadcast preview draws" below states how.
 
 The first works today and needs nothing installed beyond ffmpeg.
-The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports; the Linux and macOS legs of the frame channel are not built, and on those platforms a tile says so rather than falling back to a copy through system memory.
+The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports, and on Linux, where they cross as a dmabuf descriptor the shell imports through EGL.
+The macOS leg of the frame channel is not built, and there a tile says so rather than falling back to a copy through system memory.
 
 The capture and publish side is the mirror of this seam; see `capture-architecture.md`.
 
@@ -279,8 +280,8 @@ The pixels stay in shared GPU memory that the handle names.
 
 Each platform has its own handle type, and they are not equally ready.
 
-- **Windows** - a DXGI shared texture with a keyed mutex, which Avalonia's compositor imports today. **This leg is built.**
-- **Linux** - dmabuf, which `vah264dec` already produces. Avalonia lists dmabuf import as planned rather than shipped, so the near-term route is `OpenGlControlBase` plus `eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)`, and format modifiers and a sync-file fence have to travel with the frame. The contract already carries all three (`FRAME_HANDLE_TYPE_DMABUF_FD`, `FramePool.modifier`, `FrameSlot.planes`); nothing produces or reads them yet.
+- **Windows** - a DXGI shared texture with a keyed mutex, which Avalonia's compositor imports. **This leg is built.**
+- **Linux** - a dmabuf descriptor per slot, exported from the render chain's own GL textures and imported by the shell through EGL. **This leg is built**, and "The Linux leg" below states how.
 - **macOS** - IOSurface from VideoToolbox, with no first-class import handle type. The weakest leg and the last one scheduled; until it lands, macOS watches through the native player, which needs no frame channel at all.
 
 The sink is `appsink` rather than a paintable: the chain above ends by exporting a handle instead of drawing into a widget, which is the one part of the harvested code that had to be rewritten.
@@ -289,10 +290,38 @@ The sink is `appsink` rather than a paintable: the chain above ends by exporting
 `IDXGIResource::GetSharedHandle` on a texture created with `D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX` yields a value every process on the machine can open, where an NT handle would have to be duplicated into the shell's process and so would need this backend to open it.
 The two are halves of one application on one box (`ipc-api.md`), so the less privileged of the two forms is the one that is used.
 
+### The Linux leg
+
+**The pool is GL textures, and the descriptors are what leaves.**
+The `gl` render chain hands the sink an RGBA texture, so a slot is a texture of the same kind allocated on the decoder's own GL context, and a frame is a GPU copy into one (`internal/receive/share_linux.c`).
+Each slot is named once with `eglCreateImageKHR` and exported with `EGL_MESA_image_dma_buf_export`, which yields the descriptor, the stride and the offset the contract carries per slot, and the DRM format and modifier it carries per pool.
+
+**A descriptor cannot travel in a message.**
+It indexes one process's table, so `FramePool.fd_socket` names a Unix socket instead and the consumer reads one descriptor per slot over `SCM_RIGHTS`, in index order, with the slot's number as the message's payload.
+The socket answers the same set for as long as the pool lives, so reading it is repeatable rather than a handshake that happened once, and it goes when the pool does.
+
+**A modifier that names nothing is passed on as such.**
+Mesa exports these textures with `DRM_FORMAT_MOD_INVALID`, which means the driver picked the layout rather than that the layout is linear.
+The pool carries that value and the import states no modifier for it, which is how the two sides agree on a layout neither of them can spell.
+
+**Both halves have to be on EGL.**
+GLX exports nothing and imports nothing here, so the backend asks GStreamer for an EGL context (`GST_GL_PLATFORM`) and the shell asks its X11 backend for EGL before GLX (`avalonia/ScreenShare.App/Program.cs`).
+A Wayland session is already EGL on both sides.
+A window that ends up on GLX anyway draws a tile that says the frames cannot be opened, which is the refusal every unbuilt leg makes rather than a fallback through system memory.
+
+**The copy is waited for rather than fenced.**
+The contract carries no fence for a descriptor handle, so the export finishes the copy on the device before the frame is announced.
+That is what makes `FrameReady` mean the pixels are there, and it is the one place this leg pays for the fence it does not have.
+
+**The shell draws rather than hands over.**
+Avalonia's compositor imports a shared texture and an opaque descriptor and not a dmabuf, so the tile's surface for this handle type is an `OpenGlControlBase` that imports the descriptor itself and draws it (`Features/Viewer/Tile/View/DmaBufSurface.cs`).
+It is still a composition visual and not a native child window, so what is drawn over a tile stays over it.
+The slot goes back once that draw has finished on the device, which is the same loan the shared-texture surface takes with a keyed mutex.
+
 ### The buffer-ownership protocol
 
 **The backend owns the memory and lends it.**
-Each subscription gets a pool of its own - three textures, allocated on the decoder's own Direct3D device - and the handles are announced once, in a `FramePool` the consumer imports slot by slot.
+Each subscription gets a pool of its own - three buffers, allocated on the device the decoder is already using - and the handles are announced once, in a `FramePool` the consumer imports slot by slot.
 Two tiles on one stream are two pools and two copies rather than one buffer with two owners, which is what stops a slow tile from holding a slot the other one is waiting for.
 
 **Each frame is a loan.**

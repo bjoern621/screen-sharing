@@ -11,6 +11,15 @@
     <AssemblyName>screenshare-avalonia</AssemblyName>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!--
+      The frame channel's consumer side is the only pointer work in this app, and both
+      halves of it need one: a frame's descriptors arrive in a kernel control message that
+      recvmsg writes into a buffer of this process's own (Backend/FrameDescriptors.cs), and
+      the EGL and OpenGL calls that import and draw them take arrays by address
+      (Features/Viewer/Tile/View/DmaBufSurface.cs). Nothing else here is unsafe, and
+      nothing else should become so.
+    -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
