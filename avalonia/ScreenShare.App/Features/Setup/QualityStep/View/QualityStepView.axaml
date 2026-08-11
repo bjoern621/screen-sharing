@@ -79,12 +79,15 @@
       <!--
         Rate control. Cards, because each option carries a paragraph the reader compares.
 
-        The grid is left to choose its own shape rather than pinned to one row. Five modes
-        across a single row gave each paragraph about a sixth of the column, and a
+        The grid is as wide as its count is square rather than standing in one row. Five
+        modes across a single row gave each paragraph about a sixth of the column, and a
         three-sentence explanation set thirty characters wide is a paragraph nobody
-        compares - it is read as a column of fragments. Unpinned, UniformGrid squares the
-        count off, so five modes are three across and two below and each card is wide
-        enough to set prose in.
+        compares - it is read as a column of fragments. Squared off, five modes are three
+        across and two below, and each card is wide enough to set prose in.
+
+        The columns come from the step rather than from the panel, which squares off both
+        dimensions and hangs a card's worth of empty column under an uneven count
+        (Setup/Model/QualityLayout.cs).
 
         The card is wrapped, and the wrapper carries the refusal: a disabled control takes
         no pointer events, so a tooltip on the card itself would open on every entry except
@@ -96,7 +99,7 @@
                     Margin="-5,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <UniformGrid />
+            <UniformGrid Columns="{Binding ModeColumns}" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
@@ -123,7 +126,13 @@
                                TextTrimming="None"
                                VerticalAlignment="Center" />
                   </Grid>
+                  <!--
+                    Why the option is refused, then what it is. The gap between the two
+                    rides on the first, so a card carrying only the description carries no
+                    gap: set flush, a refusal and the paragraph under it read as one block.
+                  -->
                   <TextBlock Classes="cardbody"
+                             Margin="0,0,0,6"
                              IsVisible="{Binding HasReason}"
                              Text="{Binding Reason}" />
                   <TextBlock Classes="cardbody"
@@ -168,10 +177,19 @@
                   Value="{Binding Quantizer.Slide, Mode=TwoWay}" />
         </Panel>
 
-        <Grid ColumnDefinitions="29*,*,Auto" Margin="0,6,0,0">
+        <!--
+          The zones, named. The columns are the track's own, so each label stands at the
+          head of the band it names and the last one ends where the track ends.
+
+          The ratios are repeated rather than a column given to each label because a starred
+          column is a share of the whole row and not a share of what is left over: a lone `*`
+          beside the first band's 29 is a thirtieth of the width, which trimmed the one label
+          of the three that says what to do to "1...".
+        -->
+        <Grid ColumnDefinitions="29*,12*,22*,37*" Margin="0,6,0,0">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0 — visually lossless, huge" />
-          <TextBlock Grid.Column="1" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="18–24 recommended for screen content" />
-          <TextBlock Grid.Column="2" Classes="figure" Foreground="{StaticResource OnAirBrush}" Text="51 — unusable" />
+          <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="18–24 recommended for screen content" />
+          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource OnAirBrush}" Text="51 — unusable" />
         </Grid>
 
         <!-- Why the control is inert, in its place rather than in a log line. -->
