@@ -181,6 +181,25 @@ tasks:
       # build/windows/redist first (see that directory's README).
       - cmd: powershell -NoProfile -Command "Copy-Item -Force build/windows/redist/ffmpeg.exe,build/windows/redist/ffplay.exe build/bin/"
 
+  package:linux:
+    desc: Build the Linux release tarball into build/dist
+    # The tarball is for distributions this repository packages nothing for. Arch,
+    # Fedora and NixOS take the recipes under packaging/ and nix/ instead, which declare
+    # ffmpeg and GStreamer as dependencies rather than leaving them to the reader.
+    platforms: [linux]
+    cmds:
+      - bash scripts/package-linux.sh
+
+  package:windows:
+    desc: Build the Windows release zip into build/dist
+    platforms: [windows]
+    # Both the binaries and the runtime beside them: build:windows produces the backend
+    # and copies ffmpeg and ffplay in, bundle:windows adds the GStreamer closure, and the
+    # script publishes the shell into the same directory and zips it.
+    deps: [bundle:windows]
+    cmds:
+      - powershell -NoProfile -File scripts/package-windows.ps1
+
   bundle:windows:
     desc: Copy the GStreamer runtime the backend needs next to the built binaries
     platforms: [windows]

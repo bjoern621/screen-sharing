@@ -1,0 +1,317 @@
+# Builds every channel the repository packages, and publishes a release from a tag.
+#
+# The jobs are independent and each produces one artifact. A push builds them to prove
+# they still build; a tag named after VERSION builds the same artifacts and attaches
+# them to a GitHub release, so what a reader downloads is what this workflow built and
+# not a second, hand-made copy.
+#
+# Every binary is built on the system it runs on. The backend links GStreamer through
+# cgo, and no cross toolchain builds that (docs/packaging.md), so there is no
+# cross-compiling job here and no matrix over targets.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The version every artifact is named after, read once so the jobs cannot disagree.
+  #
+  # VERSION owns it. The two distro recipes carry a copy because a reader running makepkg
+  # or rpmbuild by hand has only the recipe in front of them, and a copy that is never
+  # read against its source is a copy that drifts, so this job reads all three. A tag is
+  # checked the same way: a release tagged v1.2.3 built from a tree that says 1.2.0 would
+  # produce artifacts whose names contradict their contents.
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: |
+          version=$(cat VERSION)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          grep -qx "pkgver=$version" packaging/arch/PKGBUILD ||
+            { echo "packaging/arch/PKGBUILD does not say $version" >&2; exit 1; }
+          grep -qE "^Version: +$version\$" packaging/fedora/screen-sharing.spec ||
+            { echo "packaging/fedora/screen-sharing.spec does not say $version" >&2; exit 1; }
+
+          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME}" != "v$version" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match VERSION ($version)" >&2
+            exit 1
+          fi
+
+  # The Linux tarball, and the checks. Both toolchains are installed here anyway, which
+  # is why the checks run in this job rather than one of their own.
+  linux:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The build needs the GStreamer and EGL development files cgo compiles against
+      # (internal/receive names the pkg-config modules). The runtime plugin set is not
+      # installed: nothing here starts a pipeline.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libgstreamer1.0-dev \
+            libgstreamer-plugins-base1.0-dev \
+            libegl-dev
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # The Go suite is not run here, and that is deliberate rather than an omission: its
+      # tests encode and decode through real ffmpeg and GStreamer pipelines and measure
+      # what the encoders on the machine produce, so what they answer on a runner with no
+      # GPU and no plugin set is nothing about this commit. They belong on a machine that
+      # has both. What a runner can say is that every package still compiles.
+      #
+      # The shell's suite is view models against fakes, which needs neither.
+      - name: Check
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          go build ./...
+          go vet ./...
+          dotnet test avalonia/ScreenShare.App.sln
+
+      - name: Package
+        run: bash scripts/package-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-tarball
+          path: build/dist/*.tar.gz
+          if-no-files-found: error
+
+  # The Windows zip, which carries its own ffmpeg and GStreamer because Windows has no
+  # dependency manager the app can lean on (docs/packaging.md).
+  windows:
+    needs: version
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # The toolchain and the GStreamer development files the backend links, and the
+      # gst-launch-1.0.exe it spawns. The same package list docs/packaging.md names.
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-pkgconf
+            mingw-w64-x86_64-gstreamer
+            mingw-w64-x86_64-gst-plugins-base
+            mingw-w64-x86_64-gst-plugins-good
+            mingw-w64-x86_64-gst-plugins-bad
+            mingw-w64-x86_64-gst-plugins-ugly
+            mingw-w64-x86_64-gst-plugins-rs
+            mingw-w64-x86_64-gst-rtsp-server
+            mingw-w64-x86_64-gst-libav
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: go-task/setup-task@v1
+        with:
+          version: 3.x
+
+      # ffmpeg and ffplay ship inside the zip, so they are fetched rather than installed:
+      # the build tasks copy whatever is in build/windows/redist next to the binaries.
+      # A full build rather than an essentials one, because ddagrab and ffplay are both
+      # needed and the smaller builds drop one or the other.
+      - name: Fetch ffmpeg
+        run: |
+          $url = 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip'
+          Invoke-WebRequest -Uri $url -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg-dist
+          New-Item -ItemType Directory -Force -Path build/windows/redist | Out-Null
+          foreach ($exe in 'ffmpeg.exe', 'ffplay.exe') {
+            $found = Get-ChildItem -Path ffmpeg-dist -Recurse -Filter $exe | Select-Object -First 1
+            if (-not $found) { throw "$exe is not in the downloaded build" }
+            Copy-Item $found.FullName build/windows/redist/
+          }
+
+          # A GPL build, so its license text is part of what the zip has to carry
+          # (THIRD-PARTY-NOTICES.md). The packaging script picks it up under this name.
+          $license = Get-ChildItem -Path ffmpeg-dist -Recurse -Filter LICENSE.txt | Select-Object -First 1
+          if (-not $license) { throw "the downloaded ffmpeg build carries no LICENSE.txt" }
+          Copy-Item $license.FullName build/windows/redist/ffmpeg-LICENSE.txt
+
+      # Compilation only, for the reason the Linux job's step states. The MSYS2 prefix is
+      # appended rather than prepended, which is what the dev task does and for the same
+      # reason: MSYS2 ships an ffmpeg of its own and a prefix in front would take over
+      # every capture and encode.
+      - name: Check
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
+          go build ./...
+          go vet ./...
+          dotnet test avalonia/ScreenShare.App.sln
+
+      # MSYS2_ROOT is what the build and bundle tasks resolve the toolchain, the plugin
+      # prefix and MSYS2's own sh through. The action installs somewhere other than the
+      # default C:/msys64, so it is named here rather than assumed.
+      - name: Package
+        env:
+          MSYS2_ROOT: ${{ steps.msys2.outputs.msys2-location }}
+        run: task package:windows
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: build/dist/*.zip
+          if-no-files-found: error
+
+  # The flake's package, which is what a NixOS install reads. Nothing is uploaded: a Nix
+  # user builds from the flake rather than downloading an artifact, so what this proves
+  # is that the derivation still evaluates and builds.
+  nix:
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # The flake overlays GStreamer to turn on the Vulkan and QSV plugins, which the
+      # binary cache does not carry, so a first build compiles gst-plugins-bad from
+      # source. The store is cached between runs for that reason.
+      - uses: nix-community/cache-nix-action@v7
+        with:
+          primary-key: nix-${{ runner.os }}-${{ hashFiles('flake.lock', 'nix/*.nix') }}
+          restore-prefixes-first-match: nix-${{ runner.os }}-
+          gc-max-store-size-linux: 5G
+
+      - run: nix build .#screen-sharing --print-build-logs
+
+  # The Arch package. The source is the tarball this job writes rather than a downloaded
+  # release: makepkg uses a file already sitting beside the PKGBUILD and downloads
+  # nothing, so the package is built from the commit under test.
+  arch:
+    needs: version
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      # Before the checkout, because a checkout into a container without git falls back
+      # to a source download and leaves no repository for `git archive` to read.
+      #
+      # The two toolchains, plus the libraries the cgo build compiles against. Arch ships
+      # the development files in the same packages the app depends on at run time, and
+      # makepkg runs with --nodeps below, so they are installed here rather than resolved
+      # from the PKGBUILD.
+      - name: Install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git go dotnet-sdk-10.0 gstreamer gst-plugins-base libglvnd
+
+      - uses: actions/checkout@v4
+
+      # makepkg refuses to run as root, and the container has no other user.
+      - name: Build
+        run: |
+          useradd -m builder
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="screen-sharing-$VERSION/" -o "packaging/arch/screen-sharing-$VERSION.tar.gz" HEAD
+          chown -R builder packaging/arch
+          su builder -c 'cd packaging/arch && makepkg --nodeps --noconfirm'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-package
+          path: packaging/arch/*.pkg.tar.zst
+          if-no-files-found: error
+
+  # The Fedora package, built the same way and for the same reason: rpmbuild reads
+  # SOURCES and downloads nothing.
+  fedora:
+    needs: version
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      # Before the checkout, for the reason the Arch job states.
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            git rpm-build rpmdevtools \
+            gcc golang dotnet-sdk-10.0 \
+            gstreamer1-devel gstreamer1-plugins-base-devel \
+            mesa-libEGL-devel desktop-file-utils
+
+      - uses: actions/checkout@v4
+
+      # The package is copied back into the workspace because the upload step globs
+      # relative to it and expands no home directory.
+      - name: Build
+        run: |
+          rpmdev-setuptree
+          git config --global --add safe.directory "$PWD"
+          git archive --prefix="screen-sharing-$VERSION/" \
+            -o "$HOME/rpmbuild/SOURCES/screen-sharing-$VERSION.tar.gz" HEAD
+          rpmbuild -bb packaging/fedora/screen-sharing.spec
+          cp ~/rpmbuild/RPMS/*/*.rpm .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fedora-package
+          path: "*.rpm"
+          if-no-files-found: error
+
+  # A tag publishes what the jobs above built. Nothing is rebuilt here, so the files
+  # attached to a release are the ones that passed.
+  release:
+    if: github.ref_type == 'tag'
+    needs: [version, linux, windows, nix, arch, fedora]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          body: |
+            Install instructions, per platform:
+            https://github.com/bjoern621/screen-sharing/blob/main/docs/install.md

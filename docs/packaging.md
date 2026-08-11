@@ -88,6 +88,16 @@ Debian, Fedora).
 Bundling a private ffmpeg into a distro package is the opposite of what packagers
 expect and is a common reason for rejection.
 
+The choice is a licensing one as well as a provisioning one.
+A declared dependency is installed by the package manager under its own terms and the
+package ships none of it.
+A bundled copy is redistribution: ffmpeg is GPL and the GStreamer runtime is LGPL, so an
+archive carrying them carries their notices and a source pointer too.
+`THIRD-PARTY-NOTICES.md` is that record, per artifact, and the packaging scripts copy it
+in beside the binaries.
+The app's own code stays under Apache-2.0 either way, because a spawned program and a
+loaded library are both boundaries the copyleft stops at.
+
 ## Screen-capture privileges on Linux
 
 The capture backend, not the app, decides whether elevated privileges are
@@ -166,6 +176,8 @@ driver is a real GPU rather than `simple-framebuffer`) instead of hard-coding on
 
 ### Windows (self-contained)
 
+`scripts/package-windows.ps1` assembles this channel, over what `task build:windows` and
+`task bundle:windows` produce.
 Windows has no dependency manager the installer can rely on, so the app ships
 ffmpeg with it.
 The Windows build task copies `ffmpeg.exe` and `ffplay.exe` into the output
@@ -260,6 +272,7 @@ its plugins itself.
 
 ### Arch Linux (AUR)
 
+`packaging/arch/PKGBUILD` is this channel.
 Declare ffmpeg as a runtime dependency and let pacman provide it.
 Do not bundle.
 
@@ -274,6 +287,7 @@ user.
 
 ### NixOS / nixpkgs
 
+`nix/package.nix` is this channel, exported from the flake as `packages.default`.
 The derivation wraps the app binary so ffmpeg and ffplay are on its `PATH`, using
 `makeWrapper`:
 
@@ -300,7 +314,13 @@ above, not by the package.
 Same model as Arch: declare the dependency, do not bundle.
 
 - Debian: `Depends: ffmpeg`.
-- Fedora: `Requires: ffmpeg`.
+- Fedora: `Requires: ffmpeg`. `packaging/fedora/screen-sharing.spec` is that channel,
+  and it requires the two paths rather than the name, because `ffmpeg-free` and RPM
+  Fusion's `ffmpeg` both provide them and either serves.
+
+Distributions with no package here take the tarball `scripts/package-linux.sh` builds,
+which carries both binaries and the .NET runtime and takes ffmpeg and GStreamer from the
+distribution.
 
 ### AppImage and Flatpak
 

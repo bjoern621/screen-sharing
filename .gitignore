@@ -12,6 +12,11 @@ ffmpeg-*/
 # vendored Windows ffmpeg/ffplay payload, copied into build/bin by the bundle task;
 # large and separately licensed, so not committed
 build/windows/redist/*.exe
+# and the license text that arrives with it, which the release workflow downloads
+build/windows/redist/ffmpeg-LICENSE.txt
+
+# release artifacts: the tarball and zip the packaging scripts assemble
+build/dist/
 
 # MediaMTX's MoQ listener generates a self-signed pair in whatever directory the relay
 # runs from, which for `task relay` is this one. Regenerated whenever it is absent, and

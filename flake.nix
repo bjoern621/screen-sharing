@@ -294,6 +294,19 @@
         ];
       in
       {
+        # The installable app: both binaries, wrapped so each finds the programs and
+        # libraries it resolves at run time (nix/package.nix).
+        #
+        #   nix run github:bjoern621/screen-sharing
+        #   environment.systemPackages = [ screen-sharing.packages.${system}.default ];
+        packages.screen-sharing = pkgs.callPackage ./nix/package.nix { };
+        packages.default = self.packages.${system}.screen-sharing;
+
+        apps.default = {
+          type = "app";
+          program = "${self.packages.${system}.screen-sharing}/bin/screenshare-avalonia";
+        };
+
         devShells.default = pkgs.mkShell {
           packages =
             with pkgs;

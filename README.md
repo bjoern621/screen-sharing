@@ -1,78 +1,44 @@
 # screen-sharing
 
 Self-hosted, high-quality group screen sharing for trusted friends.
-Relay = **MediaMTX**. Transports = **SRT**, **RTSP**, **RTMP**, **WebRTC** (WHIP in, WHEP out) and **HLS** (watch only). Capture/encode/decode = **ffmpeg**.
+Relay = **MediaMTX**. Transports = **SRT**, **RTSP**, **RTMP**, **WebRTC** (WHIP in, WHEP out) and **HLS** (watch only). Capture/encode/decode = **ffmpeg** and **GStreamer**.
 Every stream crosses two legs, publisher to relay and relay to viewer, and each picks its own protocol: the relay re-serves what it ingests on all its listeners, so a stream published over SRT can be watched over RTSP.
 
 No accounts. No remote control. Everyone publishes and watches at once.
 Full color (4:4:4 + full range) - no WebRTC washout.
 
-## Prereqs
+## Install
 
-- **ffmpeg** on PATH - includes `ffplay`. Recent build for `ddagrab`:
-  `winget install Gyan.FFmpeg` (reopen shell after).
-- Relay: native binary on Windows, or Docker on a Linux box (see below).
+Packages for Windows, Arch, Fedora, NixOS and other Linux distributions are on the
+[releases page](https://github.com/bjoern621/screen-sharing/releases), and
+[`docs/install.md`](docs/install.md) has the steps for each.
 
-## 1. Start the relay
+The app is one window with two programs behind it, a headless backend and the shell in
+front of it, and opening the shell starts the backend. There is nothing else to launch.
 
-**On Windows** - run native. Docker Desktop's UDP proxy breaks SRT's handshake
-(host→container SRT fails "I/O error"), so use the native binary - it binds
-`:8890` directly, no NAT:
+## The relay
 
-```bash
-pwsh scripts/relay.ps1
-```
-
-First run downloads `mediamtx.exe` into `bin/`, then launches it with `mediamtx.yml`.
-Add `-Background` to run hidden. Ctrl+C to stop foreground.
-
-**On a Linux relay box / VPS** - Docker is fine there (UDP forwards correctly):
+Streams do not travel between machines directly.
+Every publisher sends to one relay and every viewer reads from it, so one machine
+everybody can reach runs MediaMTX: a VPS, a box on the LAN, or a host on a Tailscale
+network.
 
 ```bash
 docker compose up -d
 ```
 
-Either way: SRT (8890/udp), API (9997), plus RTSP/RTMP/HLS/WebRTC and MoQ (8892 tcp+udp).
-
-## 2. Publish your screen
-
-```bash
-pwsh scripts/publish.ps1 -Name bjorn
-```
-
-High-quality example (crisp text/color, GPU capture):
-
-```bash
-pwsh scripts/publish.ps1 -Name bjorn -Fps 144 -Bitrate 120M -Codec hevc_nvenc -Chroma yuv444p -Capture ddagrab
-```
-
-Key flags: `-Fps -Bitrate -Codec -Chroma -Range -Capture -Monitor -Relay`.
-`-Chroma yuv444p -Range pc` = the no-washout combo.
-
-## 3. See who is live
-
-```bash
-pwsh scripts/whoislive.ps1
-```
-
-Lists active streams from the relay API (account-free discovery).
-
-## 4. Watch a friend
-
-```bash
-pwsh scripts/watch.ps1 -Name friendA -Relay <their-relay-ip>
-```
+That serves SRT (8890/udp), RTSP, RTMP, HLS, WebRTC, MoQ (8892 tcp+udp) and the API on
+9997, all from `mediamtx.yml`.
+Docker's UDP proxy rewrites the source port and breaks SRT's handshake on Windows, so a
+Windows host runs the relay natively instead: `pwsh scripts/relay.ps1`.
 
 ## Topology
 
 ```
-You (publish.ps1) ──SRT──┐
-Friend A          ──SRT──┼──► MediaMTX relay ──SRT──► anyone (watch.ps1)
-Friend B          ──SRT──┘        (docker)            HLS/WebRTC for browser
+You              ──SRT──┐
+Friend A         ──SRT──┼──► MediaMTX relay ──SRT──► anyone
+Friend B         ──SRT──┘                            HLS/WebRTC for browser
 ```
-
-For friends across the internet: run the relay on one box everyone can reach
-(VPS, or a Tailscale IP), pass its address via `-Relay`.
 
 ## Bandwidth reality
 
@@ -81,6 +47,19 @@ For friends across the internet: run the relay on one box everyone can reach
 - Relay egress = publishers x viewers x bitrate - scales fast. Start modest
   (40–80 Mbps HEVC 4:4:4 already beats Discord), crank when few are watching.
 
-## Next
+## Building it
 
-Tray app wrapping these commands (settings UI + live bandwidth meter).
+`Taskfile.yml` carries the development and packaging tasks; `task` lists them.
+`docs/packaging.md` states what the app needs at run time and how each channel provides
+it, and the recipes are in `packaging/` and `nix/`.
+
+`scripts/` also holds the PowerShell tools the app replaced, which publish, watch and
+list live streams from a terminal: `publish.ps1`, `watch.ps1`, `whoislive.ps1`.
+
+## License
+
+Apache-2.0 ([`LICENSE`](LICENSE)).
+The Windows archive additionally carries ffmpeg and the GStreamer runtime, which stay
+under their own GPL and LGPL terms;
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) states what every artifact ships and
+where its source is.
