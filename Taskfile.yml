@@ -75,11 +75,17 @@ tasks:
     # No toolchain variable: this project links nothing through cgo, so MSYS2 is not
     # involved, and the .NET SDK is on PATH either way - installed system-wide on
     # Windows, from the flake's dev shell on Linux and macOS, where the shell also
-    # supplies the X11 and Skia libraries Avalonia dlopens and the protoc pair
-    # Grpc.Tools cannot run its own copy of. `task relay` first, or the app renders
-    # its failure state.
+    # supplies the libraries Avalonia dlopens and the protoc pair Grpc.Tools cannot
+    # run its own copy of. `task relay` first, or the app renders its failure state.
+    #
+    # SCREENSHARE_AVALONIA_LIBS names those libraries, and this is the only command
+    # that puts them on the loader path: the dev shell keeps them off its own
+    # environment because they shadow libstdc++ for every process it starts, hyprctl
+    # among them (flake.nix, avaloniaRuntimeDeps). It is empty wherever the app is run
+    # without that shell, which leaves LD_LIBRARY_PATH as it was, and unread on
+    # Windows, where the loader has no such variable.
     cmds:
-      - dotnet run --project ScreenShare.App
+      - LD_LIBRARY_PATH="${SCREENSHARE_AVALONIA_LIBS}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" dotnet run --project ScreenShare.App
 
   avalonia:build:
     desc: Build the Avalonia app into build/bin

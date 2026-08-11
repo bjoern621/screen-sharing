@@ -36,6 +36,10 @@ Wayland where the session has a compositor, X11 where it does not, decided at st
 `UseWaylandWithFallback` (`Program.cs`). `Avalonia.Desktop` carries the X11 backend alone, so
 the Wayland one is a package reference of its own and the flake's dev shell carries the
 libraries it resolves by soname.
+`task avalonia` is what puts those on the loader path, and only for the app, because they
+shadow libstdc++ for anything else started from the same shell.
+A `dotnet run` typed outside the task fails in Avalonia's platform init unless the machine
+carries them somewhere else.
 
 Which one runs decides how the window looks on a scaled desktop. An X11 client in a Wayland
 session goes through XWayland, and a compositor that scales XWayland hands the client the

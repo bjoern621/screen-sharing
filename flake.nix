@@ -258,10 +258,11 @@
         # answer rather than the build's: the app asks for Wayland and takes X11 where
         # there is no compositor to ask (avalonia/ScreenShare.App/Program.cs).
         #
-        # Unlike the AMF directory, this list does shadow libraries the rest of
-        # the shell already uses. It resolves to the store paths they link against,
-        # because it comes from the same package set, so the shadowing is nominal for
-        # as long as that holds.
+        # Unlike the AMF directory, this list shadows libraries the rest of the system
+        # already uses, libstdc++ above all, so it is handed to the one command that
+        # needs it instead of to every process the shell starts. The shellHook exports
+        # it as SCREENSHARE_AVALONIA_LIBS and `task avalonia` puts it on the loader
+        # path for the app alone.
         avaloniaRuntimeDeps = with pkgs; [
           fontconfig
           freetype
@@ -350,11 +351,21 @@
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath amfRuntime}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           ''
           + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
-            # The X11 backend and libSkiaSharp dlopen their way to these, so a shell
-            # that only carried them as build inputs would still fail at the first
-            # window: `task avalonia` dies in Avalonia's platform init, before any
-            # code in the app runs.
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath avaloniaRuntimeDeps}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            # The windowing backends and libSkiaSharp dlopen their way to these, so a
+            # shell that only carried them as build inputs would still fail at the
+            # first window: the app dies in Avalonia's platform init, before any code
+            # in it runs.
+            #
+            # They are named here and put on the loader path by `task avalonia`, for
+            # that one command. On LD_LIBRARY_PATH they would be on the loader path of
+            # every process the shell starts, and LD_LIBRARY_PATH outranks a binary's
+            # RUNPATH: each of those programs would resolve libstdc++ from this package
+            # set rather than from its own closure, and one built against a newer
+            # libstdc++ exits at startup with a missing GLIBCXX version. hyprctl is
+            # such a program, and the backend reads the monitor list from it
+            # (internal/display/wayland.go), so a shell that exported this list left
+            # Hyprland enumeration failing into the wlr-randr fallback.
+            export SCREENSHARE_AVALONIA_LIBS="${pkgs.lib.makeLibraryPath avaloniaRuntimeDeps}"
           ''
           + pkgs.lib.optionalString pkgs.stdenv.isLinux ''
             # Hyprland tiles every toplevel it is not told to float, and no window can
@@ -376,12 +387,8 @@
             # The Lua global is the idempotency guard, and it is an exact one: a config
             # reload drops the rule and the global together, so the flag is set only
             # while the rule it stands for is installed.
-            #
-            # LD_LIBRARY_PATH is cleared for the call. hyprctl links a newer libstdc++
-            # than the one this shell puts ahead of its RUNPATH for Skia, and with the
-            # shell's copy in front it exits before it reaches the socket.
             if [ -n "''${HYPRLAND_INSTANCE_SIGNATURE:-}" ] && command -v hyprctl > /dev/null; then
-              hyprFloat=$(env -u LD_LIBRARY_PATH hyprctl eval '
+              hyprFloat=$(hyprctl eval '
                 if not _G.__screenshare_float then
                   _G.__screenshare_float = true
                   hl.window_rule({
@@ -390,7 +397,7 @@
                   })
                 end' 2>&1)
               if [ "$hyprFloat" != ok ]; then
-                hyprFloat=$(env -u LD_LIBRARY_PATH hyprctl keyword windowrule \
+                hyprFloat=$(hyprctl keyword windowrule \
                   'float, class:^$, initialTitle:^(Setup|Broadcast|Viewer)( .*)?$' 2>&1)
               fi
               [ "$hyprFloat" = ok ] || echo "hyprland: the shell window opens tiled ($hyprFloat)"
