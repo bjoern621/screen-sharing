@@ -13,11 +13,17 @@ namespace ScreenShare.App.Copy;
 /// the value is the lookup, which is also why a control added to the contract shows up
 /// here as a row rather than as a change anywhere else.
 ///
-/// Two entries need more than their own value to be named, and both read the catalog: a
-/// codec is named by the format and the family its row carries, and a monitor by the size
-/// and refresh rate of the output at that index. The catalog is optional and absent until
-/// the first read lands, and every method answers without it - a codec falls back to its
-/// encoder name and a screen to its index, which are exactly what the backend called them.
+/// Three entries need more than their own value to be named, and all three read the
+/// catalog: a codec is named by the format and the family its row carries, a capture
+/// backend by the engine that reads it, and a monitor by the size and refresh rate of the
+/// output at that index. The catalog is optional and absent until the first read lands,
+/// and every method answers without it - a codec falls back to its encoder name and a
+/// screen to its index, which are exactly what the backend called them.
+///
+/// Two of those three are named against the whole table rather than off their own row,
+/// because a name that repeats is a name that does not identify: the same screen is read
+/// by both engines and the same format is produced by several encoders in one family, so
+/// what separates the entries is what the name has to carry.
 /// </summary>
 public sealed class Vocabulary
 {
@@ -31,7 +37,7 @@ public sealed class Vocabulary
     /// <summary>What one entry of one control is called, in the width a dropdown row has.</summary>
     public string Name(string fieldKey, string value) => fieldKey switch
     {
-        "publish.capture" => Words.Capture(value),
+        "publish.capture" => Capture(value),
         "publish.monitor" => Screen(value),
         "publish.output_resolution" => Resolution(value),
         "publish.fps" => Rate(value),
@@ -168,11 +174,78 @@ public sealed class Vocabulary
     /// it answers: the format is what a viewer has to decode and the family is what this
     /// machine has to have. Without the catalog the encoder's own name stands, which is
     /// what the backend called it and what a log line will spell.
+    ///
+    /// Where a family holds more than one encoder for a format, those two facts no longer
+    /// separate the entries and the encoder's own name is appended. It is the software AV1
+    /// encoders that this happens to, and their names are what the command preview prints
+    /// and what the paragraph behind each entry is about.
     /// </summary>
     private string Codec(string name)
     {
         var row = Row(name);
-        return row is null ? name : $"{Words.Format(row.Format)} · {Words.Family(row.Family)}";
+        if (row is null)
+        {
+            return name;
+        }
+
+        var named = $"{Words.Format(row.Format)} · {Words.Family(row.Family)}";
+        return SharesFormatAndFamily(row) ? $"{named} · {name}" : named;
+    }
+
+    /// <summary>
+    /// Whether another row of the catalog produces this row's format on its family, which
+    /// is what decides that neither name identifies an encoder on its own.
+    /// </summary>
+    private bool SharesFormatAndFamily(VideoCodec row)
+    {
+        if (_catalog is null)
+        {
+            return false;
+        }
+
+        foreach (var other in _catalog.Codecs)
+        {
+            if (other.Name != row.Name && other.Format == row.Format && other.Family == row.Family)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A capture backend named by what it reads and by the engine that reads it. The engine
+    /// is half the choice rather than a footnote: it decides which encoders and which
+    /// transports the rest of the form goes on to offer, and it is what a refusal elsewhere
+    /// tells the reader to change - "pick a capture method that runs ffmpeg" names nothing
+    /// a reader can find in a list that does not say which is which.
+    ///
+    /// Without the catalog, and for an entry newer than its rows, the source's name stands
+    /// alone.
+    /// </summary>
+    private string Capture(string value)
+    {
+        var engine = Words.Engine(CaptureRow(value)?.Engine ?? Api.V1.Engine.Unspecified);
+        return engine.Length > 0 ? $"{Words.Capture(value)} · {engine}" : Words.Capture(value);
+    }
+
+    private CaptureBackend? CaptureRow(string value)
+    {
+        if (_catalog is null || value.Length == 0)
+        {
+            return null;
+        }
+
+        foreach (var capture in _catalog.Captures)
+        {
+            if (capture.Name == value)
+            {
+                return capture;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The same two facts in the shorthand a step chip has room for.</summary>

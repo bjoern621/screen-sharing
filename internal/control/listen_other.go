@@ -151,7 +151,7 @@ func clearStale(path string) error {
 	conn, err := net.DialTimeout("unix", path, staleDialTimeout)
 	if err == nil {
 		conn.Close()
-		return fmt.Errorf("another backend is already listening on %s", path)
+		return fmt.Errorf("%w: %s", ErrAddressInUse, path)
 	}
 
 	logger.Warnf("control: removing the socket a previous run left at %s", path)

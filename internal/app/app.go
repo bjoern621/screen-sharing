@@ -82,6 +82,13 @@ type App struct {
 	control        *control.Service
 	controlStopped bool
 
+	// fatal carries the one failure this process cannot go on from, and is read by
+	// whoever owns the process (Fatal). It is buffered so the reporting goroutine
+	// never blocks on a reader that has not arrived yet, and only the first report
+	// is kept: what follows a fatal is the shutdown, and a second reason for the same
+	// exit changes nothing about it.
+	fatal chan error
+
 	procMu sync.Mutex
 	// run is the publish session in force, nil while nothing publishes. It carries the
 	// settings its pipeline was built from, which is what a live stream is held against
@@ -137,9 +144,29 @@ func New(version string) *App {
 		storeNotice: notice,
 		relay:       relay.New(),
 		relayStop:   make(chan struct{}),
+		fatal:       make(chan error, 1),
 		watchers:    map[WatchKey]*ffmpeg.Proc{},
 		receivers:   map[WatchKey]*receive.Receiver{},
 		testStreams: map[int]*testStream{},
+	}
+}
+
+// Fatal reports the failure that leaves this process with nothing left to do, and stays
+// empty for as long as there is none.
+//
+// One case reaches it: the control endpoint is held by another backend, so no shell will
+// ever reach this one (control.go). The owner of the process reads this beside the
+// signals it stops on, and stops the same way for both - the children this backend
+// started are stopped by Stop whichever of the two ended it.
+func (a *App) Fatal() <-chan error { return a.fatal }
+
+// fail reports the first fatal failure and drops any that follow it.
+func (a *App) fail(err error) {
+	assert.IsNotNil(err, "a fatal failure states what it was")
+
+	select {
+	case a.fatal <- err:
+	default:
 	}
 }
 

@@ -101,6 +101,62 @@
                   };
                 }
               );
+
+              # mediamtx.yml turns on the Media over QUIC server, and MediaMTX rejects a
+              # config carrying a key it does not know rather than ignoring it, so a
+              # relay older than moqQUICAddress does not start at all: it exits with
+              # `ERR: json: unknown field "moq"`. The key arrived in v1.20.0, which is
+              # also what scripts/relay.ps1 downloads for Windows, where there is no dev
+              # shell to take a relay from. Both platforms run the version that config
+              # is written against.
+              mediamtx = prev.mediamtx.overrideAttrs (
+                finalAttrs: _: {
+                  version = "1.20.0";
+                  src = prev.fetchFromGitHub {
+                    owner = "bluenviron";
+                    repo = "mediamtx";
+                    tag = "v${finalAttrs.version}";
+                    hash = "sha256-bnbuIf3GdT+TCUHzAqvsS9wLPjDUGunpJoQBJFY4aTo=";
+                  };
+                  vendorHash = "sha256-uXwfIeE95g8isjR3ll0pcXnRtr/dbhp9B0HyH47WgWU=";
+                  # The package set's own postPatch does not survive the bump: it names
+                  # the hls.js of the release it was written for and the rpicamera files
+                  # this one renamed, and each name it misses is a --replace-fail, so the
+                  # patch phase fails rather than skipping.
+                  #
+                  # It stands in for two go:generate steps that download what the build
+                  # then embeds, and the sandbox has no network for either. hls.js is
+                  # fetched as an input instead. The Raspberry Pi camera binary has no
+                  # such substitute, so the source that embeds it is switched off: those
+                  # files compile on 32- and 64-bit ARM Linux alone, and with their build
+                  # tags unsatisfiable every platform gets source_other.go, which reports
+                  # the camera as unsupported.
+                  postPatch =
+                    let
+                      # The hls.js version each release expects is in
+                      # internal/servers/hls/hlsjsdownloader/VERSION.
+                      hlsJs = prev.fetchurl {
+                        url = "https://cdn.jsdelivr.net/npm/hls.js@v1.6.16/dist/hls.min.js";
+                        hash = "sha256-RC9ZnDTxA8M1WzdaI73/VgWS1xF9CajIRyQuo94tQOA=";
+                      };
+                    in
+                    ''
+                      cp ${hlsJs} internal/servers/hls/hls.min.js
+                      echo "v${finalAttrs.version}" > internal/core/VERSION
+
+                      substituteInPlace internal/staticsources/rpicamera/{camera,camera_params,pipe,source,supports_hardware_h264}_arm_.go \
+                        --replace-fail '(linux && arm) || (linux && arm64)' 'linux && !linux'
+                      substituteInPlace internal/staticsources/rpicamera/source_other.go \
+                        --replace-fail '!linux || (!arm && !arm64)' 'linux || !linux'
+                      # These two are selected by filename rather than by a build tag, so
+                      # removing them is the only way to keep them out of an ARM build.
+                      # They hold nothing but the embed directive for the binary that is
+                      # now unreachable.
+                      rm internal/staticsources/rpicamera/camera_linux_arm.go \
+                         internal/staticsources/rpicamera/camera_linux_arm64.go
+                    '';
+                }
+              );
             })
           ];
         };
@@ -190,11 +246,17 @@
         ];
         # Everything the Avalonia app resolves by soname at run time, and therefore
         # everything that has to be on the loader path rather than merely in the
-        # shell closure. Two sources: the X11 backend dlopens libX11 and its
-        # extensions, and Skia - the renderer behind every pixel Avalonia draws -
+        # shell closure. Three sources: the X11 backend dlopens libX11 and its
+        # extensions, the Wayland backend does the same with the compositor
+        # libraries, the keymap library and the buffer allocator behind its EGL
+        # surfaces, and Skia - the renderer behind every pixel Avalonia draws -
         # arrives as a prebuilt libSkiaSharp.so from NuGet that expects fontconfig,
-        # freetype and libstdc++ to be findable the same way. Neither is patched by
-        # nix, since neither passes through a derivation.
+        # freetype and libstdc++ to be findable the same way. None of the three is
+        # patched by nix, since none passes through a derivation.
+        #
+        # Both windowing backends are carried because which one runs is the session's
+        # answer rather than the build's: the app asks for Wayland and takes X11 where
+        # there is no compositor to ask (avalonia/ScreenShare.App/Program.cs).
         #
         # Unlike the AMF directory, this list does shadow libraries the rest of
         # the shell already uses. It resolves to the store paths they link against,
@@ -203,15 +265,24 @@
         avaloniaRuntimeDeps = with pkgs; [
           fontconfig
           freetype
-          libglvnd # libGL and libEGL: the X11 backend's GPU render path
+          libglvnd # libGL and libEGL: both backends' GPU render path
           stdenv.cc.cc.lib # libstdc++, for libSkiaSharp
-          xorg.libICE
-          xorg.libSM
-          xorg.libX11
-          xorg.libXcursor
-          xorg.libXext
-          xorg.libXi
-          xorg.libXrandr
+          # The Wayland backend's own set: the compositor libraries it draws through,
+          # the keymap library every Wayland client turns key codes with, and the
+          # buffer allocator its EGL surfaces come from. glib is there because the
+          # backend runs its event loop on it.
+          glib
+          libdrm
+          libgbm
+          libxkbcommon
+          wayland
+          libice
+          libsm
+          libx11
+          libxcursor
+          libxext
+          libxi
+          libxrandr
         ];
       in
       {
@@ -233,12 +304,7 @@
             ]
             ++ dotnetDeps
             ++ pkgs.lib.optionals pkgs.stdenv.isLinux (
-              linuxDeps
-              ++ linuxCaptureDeps
-              ++ gstDeps
-              ++ amfRuntime
-              ++ vplRuntime
-              ++ avaloniaRuntimeDeps
+              linuxDeps ++ linuxCaptureDeps ++ gstDeps ++ amfRuntime ++ vplRuntime ++ avaloniaRuntimeDeps
             );
 
           shellHook = ''
@@ -288,9 +354,7 @@
             # that only carried them as build inputs would still fail at the first
             # window: `task avalonia` dies in Avalonia's platform init, before any
             # code in the app runs.
-            export LD_LIBRARY_PATH="${
-              pkgs.lib.makeLibraryPath avaloniaRuntimeDeps
-            }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath avaloniaRuntimeDeps}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
           '';
         };
       }

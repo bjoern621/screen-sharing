@@ -123,7 +123,12 @@
                                TextTrimming="None"
                                VerticalAlignment="Center" />
                   </Grid>
-                  <TextBlock Classes="cardbody" Text="{Binding Body}" />
+                  <TextBlock Classes="cardbody"
+                             IsVisible="{Binding HasReason}"
+                             Text="{Binding Reason}" />
+                  <TextBlock Classes="cardbody"
+                             IsVisible="{Binding HasDetail}"
+                             Text="{Binding Detail}" />
                 </StackPanel>
               </Button>
             </Border>

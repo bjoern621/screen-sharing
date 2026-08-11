@@ -119,9 +119,13 @@ Only two shadows exist in the entire product: the window's own, and a context me
 Nothing else is elevated.
 A selected segment is flat; a card is separated by its border, not by a drop shadow.
 
-The window's chrome is the app's, not the platform's: a custom title bar, and beneath it a
-nav strip that holds the same two regions on every screen — the three destinations on the
-left, live state on the right.
+The window's chrome is the app's where the platform has one caption to stand in for: a custom
+title bar on Windows and macOS, and beneath it a nav strip that holds the same two regions on
+every screen — the three destinations on the left, live state on the right.
+On Linux the frame is the desktop's and the title bar is not drawn at all, because there is no
+single caption there to imitate: which buttons a window carries, which edge they sit on and
+whether it carries any are that desktop's answer, and a tiling session answers "none".
+The nav strip is the first row of the window there, and it is the same strip.
 The strip carries no breadcrumb: the lit segment already says where you are, and a second
 label saying it again is noise in the one row that must stay scannable.
 The destinations never move, so the strip becomes muscle memory.
@@ -275,6 +279,8 @@ middle button draws restore rather than maximise while the window is maximised.
 A reader compares them with every other window on the screen rather than with the app
 underneath them, so an app-set glyph at the app's stroke is wrong there even when it is
 the same three lines.
+That is also why they are absent on Linux rather than redrawn: the comparison a reader makes
+has no fixed answer there, and the desktop that does have one is drawing the frame itself.
 
 ## Motion
 

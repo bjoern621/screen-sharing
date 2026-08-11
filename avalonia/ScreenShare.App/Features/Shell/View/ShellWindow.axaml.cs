@@ -2,7 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
+using ScreenShare.App.Features.Shell.Model;
 
 namespace ScreenShare.App.Features.Shell.View;
 
@@ -22,6 +24,18 @@ public sealed partial class ShellWindow : Window
     public ShellWindow()
     {
         InitializeComponent();
+
+        // The three halves of one decision, applied together so no platform can end up with
+        // two captions or with none: the client area covers the native one, the replacement
+        // the platform then asks for is emptied, and the band that stands in for it is drawn.
+        // Where the desktop draws the frame all three stay off (WindowChrome).
+        if (WindowChrome.AppDrawsCaption)
+        {
+            ExtendClientAreaToDecorationsHint = true;
+            WindowDecorationsTheme = (ControlTheme)Resources["EmptyDecorations"]!;
+        }
+
+        Caption.IsVisible = WindowChrome.AppDrawsCaption;
 
         // Tunnelling, so the press is seen on the way down and whatever it lands on still
         // handles it - a button pressed while a box has the caret takes focus for itself

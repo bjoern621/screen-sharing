@@ -16,6 +16,17 @@ tasks:
       - task --list
     silent: true
 
+  all:
+    desc: Run the relay, the backend and the Avalonia app together
+    # The three are deps rather than cmds because deps run concurrently and cmds run
+    # in sequence, and none of these three ever returns.
+    # Nothing orders them, and nothing needs to: the backend polls the relay for as
+    # long as it runs, and the shell reaches a backend that started after the window
+    # did, so whichever comes up last is picked up where it lands.
+    # One terminal carries all three logs interleaved. `task all --output prefixed`
+    # tags every line with the task it came from.
+    deps: [relay, dev, avalonia]
+
   relay:
     desc: Run the MediaMTX relay natively (SRT 8890/udp, API 9997)
     cmds:

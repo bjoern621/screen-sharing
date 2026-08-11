@@ -53,8 +53,10 @@ webrtcAddress: :8889
 # "Reading Media over QUIC"). Point these at a real certificate to drop the pin.
 #
 # MediaMTX rejects an unknown key outright, so these have to be the keys of the
-# pinned version (scripts/relay.ps1), not of whatever main has. moqQUICAddress
-# arrived in v1.20.0; a relay older than that refuses to start on this file.
+# pinned version, not of whatever main has. moqQUICAddress arrived in v1.20.0; a
+# relay older than that refuses to start on this file, which is why both pins name
+# that release: the mediamtx override in flake.nix, and scripts/relay.ps1 for the
+# Windows download.
 moq: yes
 moqHTTP2Address: :8892 # TCP: the fingerprint endpoint and the relay's own page
 moqHTTP3Address: :8892 # UDP: the WebTransport endpoint the web grid subscribes on

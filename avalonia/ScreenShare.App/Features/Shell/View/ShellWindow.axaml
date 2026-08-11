@@ -17,33 +17,37 @@
         Width="1240" Height="760"
         MinWidth="960" MinHeight="600"
         Background="{StaticResource SurfaceBrush}"
-        Foreground="{StaticResource ControlForegroundBrush}"
-        ExtendClientAreaToDecorationsHint="True">
+        Foreground="{StaticResource ControlForegroundBrush}">
 
   <!--
-    The decorations stay Full and the client area is extended over them, rather than the
-    window asking for BorderOnly. BorderOnly drops the caption from the native frame, and on
-    Win32 the caption is what the compositor animates: without it the window has no open,
-    close, minimise or restore transition, and the top edge widens to the bare resize frame
-    because no caption is drawn over it. Extending keeps the native frame whole and merely
-    paints the app underneath it, so the platform's animations, snap and shadow survive.
+    Both halves of the app-drawn caption are switched on from the code-behind, off one fact
+    (Features/Shell/Model/WindowChrome.cs). Where the desktop is left to draw the frame - every
+    Linux desktop - the client area is not extended, this theme is not applied and the band
+    below is not drawn, so what appears above the nav strip is whatever that desktop puts
+    there, which on a tiling session is nothing.
+
+    Where the app does draw it, the decorations stay Full and the client area is extended over
+    them, rather than the window asking for BorderOnly. BorderOnly drops the caption from the
+    native frame, and on Win32 the caption is what the compositor animates: without it the
+    window has no open, close, minimise or restore transition, and the top edge widens to the
+    bare resize frame because no caption is drawn over it. Extending keeps the native frame
+    whole and merely paints the app underneath it, so the platform's animations, snap and
+    shadow survive.
 
     What that costs is hit-testing: with the caption present but invisible, every part of the
     title bar below has to tell the platform which caption element it stands in for. Those
     are the WindowDecorationProperties.ElementRole marks in TitleBarView, and they are also
     what puts the Windows 11 snap-layout flyout back under the maximise button.
-  -->
 
-  <!--
-    Extending makes the platform ask the theme for a replacement caption, and the stock one
-    would paint its own title and its own four buttons over the band below. This window
-    already has a title bar, so the theme it hands over draws nothing: an empty decorations
-    content, with the three geometry parts switched off so no frame, shadow or caption strip
-    is reserved either. The band below is then the only chrome, and it is the ElementRole
-    marks rather than a drawn overlay that make it behave like one.
+    Extending also makes the platform ask the theme for a replacement caption, and the stock
+    one would paint its own title and its own four buttons over the band below. This is the
+    theme it is handed instead, and it draws nothing: an empty decorations content, with the
+    three geometry parts switched off so no frame, shadow or caption strip is reserved either.
+    The band below is then the only chrome, and it is the ElementRole marks rather than a
+    drawn overlay that make it behave like one.
   -->
-  <Window.WindowDecorationsTheme>
-    <ControlTheme TargetType="chrome:WindowDrawnDecorations">
+  <Window.Resources>
+    <ControlTheme x:Key="EmptyDecorations" TargetType="chrome:WindowDrawnDecorations">
       <Setter Property="DefaultTitleBarHeight" Value="0" />
       <Setter Property="DefaultFrameThickness" Value="0" />
       <Setter Property="DefaultShadowThickness" Value="0" />
@@ -53,7 +57,7 @@
         </WindowDrawnDecorationsTemplate>
       </Setter>
     </ControlTheme>
-  </Window.WindowDecorationsTheme>
+  </Window.Resources>
 
   <!--
     How a destination becomes a screen. The shell picks the view model; the template picks
@@ -86,10 +90,11 @@
         Margin="{Binding $parent[Window].OffScreenMargin}">
 
     <!--
-      The drag region. The move gesture is the platform's: the band marks itself as the
-      caption's drag area, so no press handler here has to start one.
+      The drag region, drawn only where this app is the one drawing the caption. The move
+      gesture is the platform's either way: the band marks itself as the caption's drag area,
+      so no press handler here has to start one.
     -->
-    <titlebar:TitleBarView Grid.Row="0" DataContext="{Binding TitleBar}" />
+    <titlebar:TitleBarView Grid.Row="0" x:Name="Caption" DataContext="{Binding TitleBar}" />
 
     <navstrip:NavStripView Grid.Row="1" DataContext="{Binding Nav}" />
 

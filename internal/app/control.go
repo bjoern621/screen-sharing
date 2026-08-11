@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
@@ -187,15 +188,25 @@ func (a *App) startControl() {
 	a.controlOnce.Do(func() { go a.serveControl() })
 }
 
-// serveControl opens the socket and takes the service it produced.
+// serveControl opens the endpoint and takes the service it produced.
 //
-// A socket that will not open is not fatal, and the reasoning is serve.go's: this
-// backend keeps capturing and publishing with no shell attached, which is what the
-// contract says a backend without a shell does. The usual cause is another instance
-// of this app already holding the name, and quitting over that would close the window
-// the user just opened in favour of one they cannot see.
+// An endpoint another backend holds ends this process. The endpoint is the whole
+// discovery mechanism, so this backend would never be reached by anything: it would go
+// on running the boot work - the relay poll, the synthetic set - against the same relay
+// as the backend the shells are actually talking to, and it is this one's log a reader
+// opens first. The shell handles the exit already: it starts a backend only after a
+// connect failed, and the endpoint it then waits for is served by the instance that was
+// there first (Backend/BackendProcess.cs).
+//
+// Every other reason the endpoint will not open leaves this process running, and the
+// reasoning is serve.go's: a backend keeps capturing and publishing with no shell
+// attached, which is what the contract says a backend without a shell does.
 func (a *App) serveControl() {
 	service, err := control.Start(control.New(controlBackend{app: a}, a.events, a.version))
+	if errors.Is(err, control.ErrAddressInUse) {
+		a.fail(err)
+		return
+	}
 	if err != nil {
 		logger.Warnf("control: not serving on %s: %v", control.Endpoint(), err)
 		return

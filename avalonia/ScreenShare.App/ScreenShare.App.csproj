@@ -16,6 +16,15 @@
   <ItemGroup>
     <PackageReference Include="Avalonia" Version="12.1.1" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <!--
+      The Wayland backend, which Avalonia.Desktop does not carry: its Linux dependency is
+      Avalonia.X11 alone, so without this the window is an X11 client and a Wayland session
+      runs it through XWayland. A compositor that scales XWayland hands the client the
+      logical size and magnifies what it drew, which is a soft window beside sharp native
+      ones and nothing the app can correct after the fact. Program.cs states which of the
+      two backends is chosen and when.
+    -->
+    <PackageReference Include="Avalonia.Wayland" Version="12.1.1" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.1" />
     <!--

@@ -3,7 +3,9 @@
 package control
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os/user"
 
@@ -35,6 +37,14 @@ func Listen() (net.Listener, error) {
 
 	listener, err := winio.ListenPipe(pipeName, &winio.PipeConfig{SecurityDescriptor: descriptor})
 	if err != nil {
+		// A name already held answers ERROR_ACCESS_DENIED, which the syscall package maps
+		// to this: the first instance of a pipe owns the name, and a second creation of it
+		// is refused rather than queued. A name held by another user's process refuses the
+		// same way, and the conclusion is the same one - something else is serving this
+		// endpoint and this process will not be reached (ErrAddressInUse).
+		if errors.Is(err, fs.ErrPermission) {
+			return nil, fmt.Errorf("%w: %s", ErrAddressInUse, pipeName)
+		}
 		return nil, fmt.Errorf("cannot listen on %s: %w", pipeName, err)
 	}
 	return listener, nil

@@ -40,8 +40,15 @@ public sealed record OptionViewModel
 
     public required DelegateCommand Choose { get; init; }
 
-    /// <summary>What the row says under its label: the reason where there is one, the detail otherwise.</summary>
-    public string Body => Reason.Length > 0 ? Reason : Detail;
+    /// <summary>
+    /// The two lines under the label, and both are drawn where both are present. A refused
+    /// entry that lost its paragraph would answer why it cannot be picked while dropping
+    /// what it is, which leaves the reader with a limit and nothing to weigh it against;
+    /// the refusal leads, because on a greyed row it is the line that was looked for.
+    /// </summary>
+    public bool HasReason => Reason.Length > 0;
+
+    public bool HasDetail => Detail.Length > 0;
 
     /// <summary>
     /// The refusal as a tooltip carries it, and null while the entry is live.
@@ -51,8 +58,6 @@ public sealed record OptionViewModel
     /// sprout an empty box under the pointer.
     /// </summary>
     public string? Refusal => Reason.Length > 0 ? Reason : null;
-
-    public bool HasBody => Body.Length > 0;
 
     public bool HasNote => Note.Length > 0;
 }

@@ -54,10 +54,11 @@ public static class Statements
                 $"{Words.Capture(a.Capture)} needs an {Words.DisplayServer(a.Display)} session. "
                 + "On Wayland it would see only the older windows, not the desktop - use the screen picker instead.",
 
-            TextCode.CaptureNeedsGrant =>
-                "Needs elevated privileges. It reads the frames the GPU is scanning out, which the system does not "
-                + "hand to an ordinary program: the app either has that permission or the capture stops at launch, "
-                + "and nothing can tell which in advance.",
+            // A note and not a refusal, so it is a fragment: it prints on the entry's own row,
+            // beside the name, where a sentence would crowd the name out of the width a
+            // dropdown has. What the privilege is for is the entry's paragraph
+            // (Descriptions.Capture).
+            TextCode.CaptureNeedsGrant => "needs elevated privileges",
 
             TextCode.CaptureTakesNoMonitor => a.Capture switch
             {

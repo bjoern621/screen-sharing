@@ -105,8 +105,8 @@ public static class Words
 
     /// <summary>
     /// The capture backends, named by what they read rather than by the element that reads
-    /// it. Two of them are the same source on two engines, and the name says so: which
-    /// engine that is follows from the entry's own note.
+    /// it. Two of these sources are read by both engines, so this half of the name repeats;
+    /// the engine that completes it comes from the catalog row (<see cref="Vocabulary"/>).
     /// </summary>
     private static readonly Dictionary<string, string> Captures = new()
     {
@@ -227,6 +227,18 @@ public static class Words
     };
 
     public static string Engine(string id) => Look(Engines, id);
+
+    /// <summary>
+    /// The same two names for the enum a catalog row carries, where a statement carries the
+    /// identifier. An unset engine answers with nothing, which is the one case the caller
+    /// has to leave out of a name rather than print.
+    /// </summary>
+    public static string Engine(Api.V1.Engine engine) => engine switch
+    {
+        Api.V1.Engine.Ffmpeg => Look(Engines, "ffmpeg"),
+        Api.V1.Engine.Gstreamer => Look(Engines, "gstreamer"),
+        _ => "",
+    };
 
     public static string Format(string id) => Look(Formats, id);
 

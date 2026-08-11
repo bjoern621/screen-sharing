@@ -18,7 +18,7 @@ taken. What is left is one relay reading in the whole app, on `Backend/Session.c
 ```sh
 task avalonia          # run it
 task avalonia:build    # build into build/bin/avalonia
-task avalonia:test     # 150 tests, no relay and no backend needed
+task avalonia:test     # the view-model suite, no relay and no backend needed
 ```
 
 `task relay` first, or the app renders its failure state, which is also worth looking at.
@@ -29,6 +29,26 @@ whole of what a reader has to run; a backend already up - a `task dev` run, a se
 is connected to rather than duplicated, and one this app started is stopped when the window
 closes. Where there is no backend binary to start, the app says so and offers to look again,
 which is the other state worth looking at.
+
+### Which windowing backend runs
+
+Wayland where the session has a compositor, X11 where it does not, decided at startup by
+`UseWaylandWithFallback` (`Program.cs`). `Avalonia.Desktop` carries the X11 backend alone, so
+the Wayland one is a package reference of its own and the flake's dev shell carries the
+libraries it resolves by soname.
+
+Which one runs decides how the window looks on a scaled desktop. An X11 client in a Wayland
+session goes through XWayland, and a compositor that scales XWayland hands the client the
+logical size and magnifies what it drew: a soft window beside sharp native ones, and nothing
+the app can correct after the fact. The Wayland client draws at the output's own scale, and
+follows a window moved between outputs of different scales.
+
+Two things the X11 backend does that the Wayland backend does not. It sets `WM_CLASS`, where
+the Wayland one sends no `xdg_toplevel.set_app_id`, so a compositor sees an empty application
+id and window rules keyed on it do not match. And it draws the client-side decorations a
+desktop without server-side ones expects; on Wayland the same case is negotiated through
+`zxdg_toplevel_decoration_v1`, and a compositor that answers "server side" draws whatever it
+draws, which on a tiling session is nothing (`Features/Shell/Model/WindowChrome.cs`).
 
 ## Layout
 

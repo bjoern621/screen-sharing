@@ -45,8 +45,11 @@
                    VerticalAlignment="Center" />
       </Grid>
       <TextBlock Classes="cardbody"
-                 IsVisible="{Binding HasBody}"
-                 Text="{Binding Body}" />
+                 IsVisible="{Binding HasReason}"
+                 Text="{Binding Reason}" />
+      <TextBlock Classes="cardbody"
+                 IsVisible="{Binding HasDetail}"
+                 Text="{Binding Detail}" />
     </StackPanel>
   </DataTemplate>
 

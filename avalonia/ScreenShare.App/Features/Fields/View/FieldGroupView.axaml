@@ -168,8 +168,11 @@
                             <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
                           </Grid>
                           <TextBlock Classes="cardbody"
-                                     IsVisible="{Binding HasBody}"
-                                     Text="{Binding Body}" />
+                                     IsVisible="{Binding HasReason}"
+                                     Text="{Binding Reason}" />
+                          <TextBlock Classes="cardbody"
+                                     IsVisible="{Binding HasDetail}"
+                                     Text="{Binding Detail}" />
                         </StackPanel>
                       </Button>
                     </Border>

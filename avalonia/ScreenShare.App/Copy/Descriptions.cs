@@ -31,7 +31,7 @@ public static class Descriptions
         ["d3d11screencapturesrc"] = "The same Windows capture surface, read by GStreamer instead of ffmpeg. Pick it to reach GStreamer's encoders and its WebRTC output on Windows.",
         ["x11grab"] = "Reads the X11 screen through shared memory. The default on Linux, and it sees XWayland windows but not a native Wayland desktop.",
         ["ximagesrc"] = "The same X11 screen, read by GStreamer instead of ffmpeg. Pick it to reach GStreamer's encoders on an X11 session.",
-        ["kmsgrab"] = "Grabs the frames the GPU is already scanning out to the monitor, below the compositor. The cheapest capture there is, and the only one that needs elevated privileges to run.",
+        ["kmsgrab"] = "Grabs the frames the GPU is already scanning out to the monitor, below the compositor. The cheapest capture there is, and the only one that needs elevated privileges: the app either holds that permission or the capture stops at launch, and nothing can tell which in advance.",
         ["portal"] = "Asks the desktop to show its own picker, so you choose the monitor or window and the desktop consents. The one that works on Wayland, and it works on X11 too. Fewer pixel formats and rate-control knobs than the ffmpeg backends - the fields say so where it matters.",
         ["avfoundation"] = "macOS screen capture, by screen index. Desktop audio is out of reach here: macOS offers no system-audio input device.",
         ["avfvideosrc"] = "The same macOS screen, read by GStreamer instead of ffmpeg. The element picks the screen itself, so the monitor setting does not reach it.",

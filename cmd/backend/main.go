@@ -5,6 +5,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"bjoernblessin.de/go-utils/util/logger"
+
 	"bjoernblessin.de/screenshare/internal/app"
 )
 
@@ -34,7 +36,20 @@ func main() {
 	// operating system, which is why nothing is registered for that case.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-	<-stop
+
+	// The third way out is the backend itself reporting that it has nothing left to do,
+	// which is the control endpoint already being served by another instance. It takes
+	// the same shutdown as a signal and differs in the status: a run that ended because
+	// it was asked to succeeded, and one that ended because it could not serve did not,
+	// which is what a task runner and a supervisor read.
+	code := 0
+	select {
+	case <-stop:
+	case err := <-a.Fatal():
+		logger.Warnf("stopping: %v", err)
+		code = 1
+	}
 
 	a.Stop()
+	os.Exit(code)
 }
