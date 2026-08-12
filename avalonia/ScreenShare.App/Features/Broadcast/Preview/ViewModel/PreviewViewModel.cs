@@ -168,6 +168,80 @@ public sealed class PreviewViewModel : Observable
     /// </summary>
     public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
+    private bool _hasPointer;
+    private double _pointerLeft;
+    private double _pointerTop;
+    private double _pictureWidth;
+    private double _pictureHeight;
+
+    /// <summary>
+    /// Whether the publish is sending a pointer position at all.
+    ///
+    /// False for every cursor mode but the one that sends it, and false while the pointer is off
+    /// the captured screen: a pointer that has left is not at its last position, and drawing it
+    /// there would leave one stuck against an edge for as long as it is away.
+    /// </summary>
+    public bool HasPointer { get => _hasPointer; private set => Set(ref _hasPointer, value); }
+
+    /// <summary>
+    /// Where the marker sits over the picture, in the rendered card's own pixels.
+    ///
+    /// The backend sends the position in the picture's pixels, so this is the one conversion:
+    /// the fraction of the way across, times the size this card is being drawn at. It is done
+    /// here and not in the view because the view has no idea what the picture's own size is, and
+    /// it is done at all because a viewer's pixels are never the publisher's.
+    /// </summary>
+    public double PointerLeft { get => _pointerLeft; private set => Set(ref _pointerLeft, value); }
+
+    public double PointerTop { get => _pointerTop; private set => Set(ref _pointerTop, value); }
+
+    /// <summary>
+    /// The size this card is drawing the picture at, written by the view as it lays out.
+    ///
+    /// It is the one fact the view knows and the view model cannot read, which is the same
+    /// reason <see cref="SetShowing"/> exists: a marker placed without it would be placed on a
+    /// picture whose size nothing here had measured.
+    /// </summary>
+    public void SetPictureSize(double width, double height)
+    {
+        _pictureWidth = width;
+        _pictureHeight = height;
+        Point(_session.Pointer);
+    }
+
+    /// <summary>
+    /// Takes one pointer position, or none.
+    ///
+    /// <b>Its own entry point, and not part of <see cref="Apply"/>.</b> Positions arrive hundreds
+    /// of times a second on a stream of their own, and running the render pass at that rate would
+    /// re-read the whole session to move one marker (<c>Backend/Session.cs</c>, <c>Metered</c>).
+    /// </summary>
+    public void Point(PointerPosition? at)
+    {
+        var picture = Tile;
+        var drawn = _pictureWidth > 0 && _pictureHeight > 0;
+        if (at is null || !at.Visible || picture is null || !drawn)
+        {
+            HasPointer = false;
+            return;
+        }
+
+        if (picture.PictureWidth <= 0 || picture.PictureHeight <= 0)
+        {
+            HasPointer = false;
+            return;
+        }
+
+        // Centred on the position rather than hung off its top left, because what the marker
+        // stands for is a point and not a box.
+        HasPointer = true;
+        PointerLeft = (at.X * _pictureWidth / picture.PictureWidth) - (PointerSize / 2);
+        PointerTop = (at.Y * _pictureHeight / picture.PictureHeight) - (PointerSize / 2);
+    }
+
+    /// <summary>How wide the marker is drawn, which the view states and this centres by.</summary>
+    private const double PointerSize = 14;
+
     // --- Lifecycle ------------------------------------------------------------------
 
     /// <summary>

@@ -242,9 +242,13 @@ public static class Statements
                 $"{Words.Capture(a.Capture)} hands over a picture and nothing else. Only the desktop portal reports "
                 + "where the pointer is, separately from the frames.",
 
+            TextCode.CursorMetadataLocalOnly =>
+                "The position leaves the capture and reaches this machine, so the preview here draws it. "
+                + "Nothing carries it over the relay yet, so people watching from elsewhere see no pointer.",
+
             TextCode.CursorMetadataNotCarried =>
-                "Nothing carries the pointer's position to a viewer yet, and no viewer draws one, so a stream sent "
-                + "this way would arrive with no pointer at all.",
+                "Nothing here reads the pointer position this capture reports, so a stream sent this way would "
+                + "arrive with no pointer at all.",
 
             TextCode.CqAboveCodecScale =>
                 $"{a.Codec} counts quality to {a.CqMax} on {Words.Engine(a.Engine)}, so the slider stops there. "

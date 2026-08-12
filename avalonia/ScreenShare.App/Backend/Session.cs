@@ -254,6 +254,19 @@ public sealed class Session
     public IReadOnlyList<AudioLevel> Levels { get; private set; } = [];
 
     /// <summary>
+    /// Where the publishing machine's pointer is, or null where nothing is sending one.
+    ///
+    /// Null and not a position off screen, because the two are different facts: a publish whose
+    /// cursor mode draws the pointer into the frames sends none at all, and a viewer drawing one
+    /// there would be drawing a second pointer over the first.
+    ///
+    /// It is written on its own path and raises <see cref="Metered"/> rather than the ordinary
+    /// change event, for the reason the levels do: it moves faster than any other state here,
+    /// and a redraw of every screen per position is a redraw for a figure one tile reads.
+    /// </summary>
+    public PointerPosition? Pointer { get; private set; }
+
+    /// <summary>
     /// The level of one decode, or null where it carries no audio or is not being metered.
     ///
     /// The join is on the pair the whole receive contract keys a decode by, because the relay
@@ -308,7 +321,7 @@ public sealed class Session
         // Two loops rather than one, because they are two streams with two cadences and one
         // ending is not a reason to reopen the other. The event stream owns the report of an
         // absent backend; the meter loop stays quiet about it and simply empties the levels.
-        return Task.WhenAll(RunAsync(_cancel.Token), MeterAsync(_cancel.Token));
+        return Task.WhenAll(RunAsync(_cancel.Token), MeterAsync(_cancel.Token), PointerAsync(_cancel.Token));
     }
 
     /// <summary>
@@ -429,6 +442,47 @@ public sealed class Session
     /// An absent backend is not reported from here. <see cref="RunAsync"/> owns that sentence,
     /// and a second writer of it would be two ways of saying one thing.
     /// </summary>
+    /// <summary>
+    /// Follows where the publishing machine's pointer is, for as long as the session runs.
+    ///
+    /// Its own loop beside the meter's, for the same reasons: a stream of its own on the wire,
+    /// a cadence of its own, and a shell that has to keep drawing the picture while it
+    /// reconnects. The position is forgotten when the stream drops, because a pointer frozen
+    /// where a dead stream left it is the one reading that is certainly wrong.
+    /// </summary>
+    private async Task PointerAsync(CancellationToken cancellation)
+    {
+        while (!cancellation.IsCancellationRequested)
+        {
+            try
+            {
+                await foreach (var at in _backend.SubscribePointerAsync(cancellation).ConfigureAwait(false))
+                {
+                    Meter(() => Pointer = at);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (BackendUnavailableException)
+            {
+                // Said once, by the loop that owns saying it.
+            }
+
+            Meter(() => Pointer = null);
+
+            try
+            {
+                await Task.Delay(ReconnectDelay, cancellation).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
     private async Task MeterAsync(CancellationToken cancellation)
     {
         while (!cancellation.IsCancellationRequested)

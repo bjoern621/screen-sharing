@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"context"
 	"errors"
 	"fmt"
@@ -44,6 +45,7 @@ func (f *fakeBackend) Platform() platform.Info                        { return p
 func (f *fakeBackend) Encoders(context.Context) encoders.Availability { return encoders.Availability{} }
 func (f *fakeBackend) CachedEncoders() encoders.Availability          { return encoders.Availability{} }
 func (f *fakeBackend) AudioDevices() []platform.AudioDevice           { return nil }
+func (f *fakeBackend) Pointer() (pointer.Position, bool)              { return pointer.Position{}, false }
 func (f *fakeBackend) PublishState() wire.PublishSnapshot             { return f.publish }
 func (f *fakeBackend) RelayStatus() relay.Status                      { return relay.Status{} }
 func (f *fakeBackend) Watching() []wire.WatchKey                      { return nil }

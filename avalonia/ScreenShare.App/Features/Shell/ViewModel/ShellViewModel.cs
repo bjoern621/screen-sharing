@@ -117,6 +117,11 @@ public sealed class ShellViewModel : Observable
         // the same path would re-render three screens to move one bar (<c>Backend/Session.cs</c>).
         _session.Metered += Viewer.Meter;
 
+        // The pointer rides the same notification and goes to the preview alone. It is where a
+        // publisher sees what they are sending: the position leaves the capture instead of being
+        // drawn into it, so the picture on this machine is the only place it is drawn at all.
+        _session.Metered += () => Broadcast.Preview.Point(_session.Pointer);
+
         _body = BodyFor(_current);
 
         // The status band prints figures the viewer owns, and a reader toggling a chip

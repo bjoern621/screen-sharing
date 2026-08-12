@@ -110,6 +110,18 @@ public sealed class TileViewModel : Observable, IFrameSource
     public double Aspect { get => _aspect; private set => Set(ref _aspect, value); }
 
     /// <summary>
+    /// The size of the frames this tile is drawing, and zero until a pool has announced one.
+    ///
+    /// It is the frames own size rather than the decode's reported one, for the reason
+    /// <see cref="Aspect"/> is: what a tile draws is what the scaler produced for it. Anything
+    /// placing something over the picture needs it, because a position in the picture's pixels
+    /// is not a position in the card's.
+    /// </summary>
+    public int PictureWidth => _report.Width;
+
+    public int PictureHeight => _report.Height;
+
+    /// <summary>
     /// Whether this is the focused tile. Written by the screen that owns the arrangement, never
     /// here: at most one tile carries it, and a tile cannot know what the others are doing.
     /// </summary>

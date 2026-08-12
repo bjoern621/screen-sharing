@@ -139,14 +139,20 @@ Nothing wires the prefix into the transports yet, because an app that required a
 
 ## The pointer channel
 
-The `metadata` cursor mode is declared and refused, because nothing carries a pointer position to a viewer and no viewer draws one.
-Shipping it is deleting that one rule once the channel exists.
+**Built: the channel.** The position leaves the publish child on its own line, crosses the control gRPC on a stream of its own, and reaches this machine's screens, where the broadcast preview draws it.
+The `metadata` mode is offered on the X11 capture backend and carries a note saying how far the position travels.
+
 
 The position rides its own stream on the control gRPC at its own rate, carrying the frame timestamp it belongs to.
 Binding it to the frame rate would throw away the reason to draw the pointer client-side: it costs no frame, so a 240 Hz pointer over a 30 fps stream is the whole win, and the timestamp lets a viewer hold it back if leading the picture looks wrong.
 
-Where the position comes from is the first-party binary's, not a platform poll.
-A Wayland client cannot ask where the pointer is outside its own surfaces, so polling has no answer to give there; what does is the cursor metadata PipeWire carries beside each frame, which is what the `metadata` mode asks the portal for and what only a process holding the stream can read.
+Where the position comes from is the first-party binary's, and which source it has is the display server's answer.
+X11 tells any client that asks, so on that session the child polls and there is nothing to subscribe to; the reader holds one connection open and answers whenever the child wants a position.
+A Wayland client cannot ask at all, so what answers there is the cursor metadata PipeWire carries beside each frame, which only a process holding the stream can read.
+
+**What is left.** Two legs, and they are separate.
+The portal backend keeps its refusal, because reading SPA cursor metadata means taking the buffers off the stream through libpipewire rather than through `pipewiresrc`.
+And nothing carries the position over the relay, so a viewer on another machine still sees no pointer - which is the note the offered mode carries rather than a silence.
 
 ## Assumptions to verify
 

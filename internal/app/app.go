@@ -98,6 +98,10 @@ type App struct {
 	// is pending. It and run are never both set: the retry exists exactly between the
 	// exit that armed it and the launch that consumes it (publish_retry.go).
 	retry *publishRetry
+	// pointerAt is where the publishing machine's pointer was last seen, held outside
+	// procMu because it is written at the reader's own rate - faster than any frame rate -
+	// and a lock every publish path takes is not one to put on that.
+	pointerAt pointerState
 	// preview is the local decode of the stream this machine is sending, nil while
 	// nothing publishes or while a publish runs without one. It is a field of its own
 	// rather than an entry in receivers because it is not keyed by a WatchKey: the

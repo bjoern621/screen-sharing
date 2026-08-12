@@ -52,6 +52,25 @@ func Run(ctx context.Context, description string, out io.Writer) error {
 // live state this pipeline should be holding (control.go). The empty path takes no socket,
 // which is what a run nobody talks to uses.
 func RunWithControl(ctx context.Context, description, controlPath string, out io.Writer) error {
+	return RunWithOptions(ctx, description, Options{Control: controlPath}, out)
+}
+
+// Options is what a run does beyond playing its pipeline.
+//
+// A struct rather than more arguments, because every one of them is a thing the child does
+// for a caller that asked and nothing for one that did not: a measuring run takes neither, and
+// a publish takes whichever its settings earned.
+type Options struct {
+	// Control is where the parent writes the live state this pipeline should be holding,
+	// and the empty path takes no socket (control.go).
+	Control string
+	// Pointer reports where the pointer is, for a publish whose cursor mode sends the
+	// position instead of drawing it (pointer.go).
+	Pointer bool
+}
+
+// RunWithOptions is Run with whatever this run does beside playing.
+func RunWithOptions(ctx context.Context, description string, options Options, out io.Writer) error {
 	assert.Assert(strings.TrimSpace(description) != "", "a run names a pipeline to play")
 
 	gst.Init()
@@ -77,13 +96,19 @@ func RunWithControl(ctx context.Context, description, controlPath string, out io
 
 	// The socket opens before the pipeline plays, so a parent that writes the moment it
 	// sees the child start finds something listening.
-	listener, err := listenControl(controlPath)
+	listener, err := listenControl(options.Control)
 	if err != nil {
 		return fmt.Errorf("opening the control socket: %w", err)
 	}
 	if listener != nil {
 		defer listener.Close()
 		go serveControl(listener, pipeline, out)
+	}
+
+	// The pointer is read on a clock of its own and stops with the run, which is what makes
+	// the position a thing the child reports rather than a thing the pipeline carries.
+	if options.Pointer {
+		go reportPointer(ctx, out)
 	}
 
 	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {

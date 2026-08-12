@@ -54,6 +54,7 @@ const (
 	ControlService_OpenLogsFolder_FullMethodName         = "/screenshare.v1.ControlService/OpenLogsFolder"
 	ControlService_Subscribe_FullMethodName              = "/screenshare.v1.ControlService/Subscribe"
 	ControlService_SubscribeAudioLevels_FullMethodName   = "/screenshare.v1.ControlService/SubscribeAudioLevels"
+	ControlService_SubscribePointer_FullMethodName       = "/screenshare.v1.ControlService/SubscribePointer"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -291,6 +292,25 @@ type ControlServiceClient interface {
 	// negative infinity. The backend coalesces to the newest tick, so a reader that
 	// fell behind receives the present rather than a queue of the past.
 	SubscribeAudioLevels(ctx context.Context, in *SubscribeAudioLevelsRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[AudioLevels], error)
+	// SubscribePointer delivers where the publishing machine's pointer is, for as long
+	// as the shell holds the call.
+	//
+	// A stream of its own for the reason the levels are one, and one degree more so: the
+	// whole point of sending a position instead of drawing it into the picture is that it
+	// costs no frame, so it moves at its own rate rather than the stream's. A 240 Hz
+	// pointer over a 30 fps stream is the win, and folding it into Subscribe would push
+	// the publish state at that rate for a figure nothing else reads.
+	//
+	// Each message carries the moment it was read, so a viewer can hold it back to the
+	// frame it belongs to. Whether to is the viewer's: a pointer that leads the picture
+	// is what a viewer with no delay budget wants and what one watching a recording does
+	// not.
+	//
+	// It carries positions only while a publish whose cursor mode is metadata is running.
+	// Any other mode draws the pointer into the frames or leaves it out, and the stream
+	// stays open and silent rather than being refused - a shell subscribes once and the
+	// mode may change under it.
+	SubscribePointer(ctx context.Context, in *SubscribePointerRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PointerPosition], error)
 }
 
 type controlServiceClient struct {
@@ -669,6 +689,25 @@ func (c *controlServiceClient) SubscribeAudioLevels(ctx context.Context, in *Sub
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_SubscribeAudioLevelsClient = grpc.ServerStreamingClient[AudioLevels]
 
+func (c *controlServiceClient) SubscribePointer(ctx context.Context, in *SubscribePointerRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[PointerPosition], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &ControlService_ServiceDesc.Streams[2], ControlService_SubscribePointer_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribePointerRequest, PointerPosition]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_SubscribePointerClient = grpc.ServerStreamingClient[PointerPosition]
+
 // ControlServiceServer is the server API for ControlService service.
 // All implementations must embed UnimplementedControlServiceServer
 // for forward compatibility.
@@ -904,6 +943,25 @@ type ControlServiceServer interface {
 	// negative infinity. The backend coalesces to the newest tick, so a reader that
 	// fell behind receives the present rather than a queue of the past.
 	SubscribeAudioLevels(*SubscribeAudioLevelsRequest, grpc.ServerStreamingServer[AudioLevels]) error
+	// SubscribePointer delivers where the publishing machine's pointer is, for as long
+	// as the shell holds the call.
+	//
+	// A stream of its own for the reason the levels are one, and one degree more so: the
+	// whole point of sending a position instead of drawing it into the picture is that it
+	// costs no frame, so it moves at its own rate rather than the stream's. A 240 Hz
+	// pointer over a 30 fps stream is the win, and folding it into Subscribe would push
+	// the publish state at that rate for a figure nothing else reads.
+	//
+	// Each message carries the moment it was read, so a viewer can hold it back to the
+	// frame it belongs to. Whether to is the viewer's: a pointer that leads the picture
+	// is what a viewer with no delay budget wants and what one watching a recording does
+	// not.
+	//
+	// It carries positions only while a publish whose cursor mode is metadata is running.
+	// Any other mode draws the pointer into the frames or leaves it out, and the stream
+	// stays open and silent rather than being refused - a shell subscribes once and the
+	// mode may change under it.
+	SubscribePointer(*SubscribePointerRequest, grpc.ServerStreamingServer[PointerPosition]) error
 	mustEmbedUnimplementedControlServiceServer()
 }
 
@@ -1018,6 +1076,9 @@ func (UnimplementedControlServiceServer) Subscribe(*SubscribeRequest, grpc.Serve
 }
 func (UnimplementedControlServiceServer) SubscribeAudioLevels(*SubscribeAudioLevelsRequest, grpc.ServerStreamingServer[AudioLevels]) error {
 	return status.Error(codes.Unimplemented, "method SubscribeAudioLevels not implemented")
+}
+func (UnimplementedControlServiceServer) SubscribePointer(*SubscribePointerRequest, grpc.ServerStreamingServer[PointerPosition]) error {
+	return status.Error(codes.Unimplemented, "method SubscribePointer not implemented")
 }
 func (UnimplementedControlServiceServer) mustEmbedUnimplementedControlServiceServer() {}
 func (UnimplementedControlServiceServer) testEmbeddedByValue()                        {}
@@ -1656,6 +1717,17 @@ func _ControlService_SubscribeAudioLevels_Handler(srv interface{}, stream grpc.S
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type ControlService_SubscribeAudioLevelsServer = grpc.ServerStreamingServer[AudioLevels]
 
+func _ControlService_SubscribePointer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribePointerRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ControlServiceServer).SubscribePointer(m, &grpc.GenericServerStream[SubscribePointerRequest, PointerPosition]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type ControlService_SubscribePointerServer = grpc.ServerStreamingServer[PointerPosition]
+
 // ControlService_ServiceDesc is the grpc.ServiceDesc for ControlService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1805,6 +1877,11 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "SubscribeAudioLevels",
 			Handler:       _ControlService_SubscribeAudioLevels_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "SubscribePointer",
+			Handler:       _ControlService_SubscribePointer_Handler,
 			ServerStreams: true,
 		},
 	},

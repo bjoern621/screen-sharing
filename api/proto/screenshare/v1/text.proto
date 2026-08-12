@@ -470,6 +470,10 @@ enum TextCode {
   // dynamic range description. TEXT_ARG_NAME_ENGINE names the engine, and
   // TEXT_ARG_NAME_OTHER_ENGINE the one that does carry it.
   TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE = 126;
+  // The pointer position leaves the capture and reaches this machine's own screens, and
+  // no leg carries it over the relay yet, so somebody watching from another machine sees
+  // no pointer. No arguments.
+  TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY = 127;
 
   // --- Diagnostics ---------------------------------------------------------------
 

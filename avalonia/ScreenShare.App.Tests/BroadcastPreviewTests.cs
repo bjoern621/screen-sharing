@@ -118,6 +118,13 @@ public sealed class BroadcastPreviewTests
             yield break;
         }
 
+        public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+            [EnumeratorCancellation] CancellationToken cancellation = default)
+        {
+            await Task.CompletedTask.ConfigureAwait(false);
+            yield break;
+        }
+
         public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
             => Task.FromResult(Publish);
 

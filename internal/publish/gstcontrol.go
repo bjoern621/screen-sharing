@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 
+	"bjoernblessin.de/screenshare/internal/cursor"
+	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -115,4 +117,18 @@ type LiveApplier interface {
 func Live(h Handle) (LiveApplier, bool) {
 	a, ok := h.(LiveApplier)
 	return a, ok
+}
+
+// gstChildArgs are what this run asks its child to do beside playing the pipeline: the
+// control socket, and whether to report where the pointer is.
+//
+// They lead the arguments so everything after them is the pipeline itself, which is what the
+// child's own parsing relies on and what keeps a rendered command reading as a pipeline from
+// the first word after the subcommand.
+func gstChildArgs(s settings.Settings, socket string) []string {
+	args := gstLiveArgs(socket)
+	if s.Publish.Cursor == cursor.Metadata {
+		args = append(args, gstrun.PointerFlag)
+	}
+	return args
 }

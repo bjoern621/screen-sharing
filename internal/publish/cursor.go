@@ -38,9 +38,12 @@ var cursorServes = map[string][]string{
 	"d3d11screencapturesrc": {cursor.Embedded, cursor.Hidden},
 
 	// The X11 pair: draw_mouse on the ffmpeg side, show-pointer on the GStreamer one.
-	// X11 hands the pointer over as part of the image or not at all.
+	// X11 hands the pointer over as part of the image, and it also answers any client that
+	// asks where the pointer is, which is what the metadata mode reads there
+	// (internal/pointer). The GStreamer one alone serves it, because the position is
+	// reported by the publish child and the ffmpeg engine's child is ffmpeg.
 	"x11grab":   {cursor.Embedded, cursor.Hidden},
-	"ximagesrc": {cursor.Embedded, cursor.Hidden},
+	"ximagesrc": {cursor.Embedded, cursor.Hidden, cursor.Metadata},
 
 	// kmsgrab reads the scanout's primary plane, and on every driver here the pointer is
 	// a hardware plane of its own that the scanout composes at display time. There is
@@ -95,16 +98,34 @@ func cursorRules() []rules.Rule {
 		}
 	}
 
-	// The pointer's position reaches no viewer yet: nothing on the wire carries it and
-	// no viewer draws one. It binds on every backend because it is a fact about this
-	// app rather than about any capture, and it is stated separately from the backend
-	// refusals so a reader on the portal - where the capture does report a pointer -
-	// learns what is actually missing. Deleting this rule is what ships the mode.
+	// The portal reports a pointer position and nothing here reads it yet: the position
+	// rides in the cursor metadata PipeWire carries beside each frame, which the publish
+	// child would have to take off the stream itself rather than through pipewiresrc. The
+	// refusal is stated separately from the backend rows above so a reader on the portal -
+	// where the capture does report a pointer - learns what is actually missing, and it
+	// binds on that backend alone now that the X11 one reads a position of its own.
 	out = append(out, rules.Rule{
+		When:    map[string]rules.Match{rules.AxisCapture: rules.OneOf("portal")},
 		Verdict: rules.Refuse,
 		Field:   rules.AxisCursor,
 		Values:  rules.OneOf(cursor.Metadata),
 		Reason:  screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED,
+	})
+
+	// Where the mode is offered, it says how far the position travels. It leaves the capture,
+	// crosses the control contract and reaches this machine's own screens, which is what makes
+	// the choice usable and what a publisher can see for themselves on the preview; what does
+	// not exist yet is a leg carrying it over the relay, so somebody watching from another
+	// machine sees no pointer at all.
+	//
+	// A note and not a refusal, because the mode does what it says on the machine that picks
+	// it, and the thing it does not do is a fact about what viewers receive rather than about
+	// this capture. It binds wherever the mode is not already refused.
+	out = append(out, rules.Rule{
+		Verdict: rules.Note,
+		Field:   rules.AxisCursor,
+		Values:  rules.OneOf(cursor.Metadata),
+		Reason:  screensharev1.TextCode_TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY,
 	})
 	return out
 }

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"bjoernblessin.de/screenshare/internal/gstrun"
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -20,7 +21,7 @@ import (
 //
 // A nil meter is a run nobody asked for progress from, which still reports its caps: what
 // the capture turned out to be is not instrumentation.
-func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string)) {
+func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPointer func(p pointer.Position)) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
 	go func() {
@@ -37,6 +38,12 @@ func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string)) {
 		line := scanner.Text()
 		if caps, ok := strings.CutPrefix(line, gstrun.CapsPrefix); ok {
 			onCaps(caps)
+			continue
+		}
+		if p, ok := gstrun.ParsePointer(line); ok {
+			if onPointer != nil {
+				onPointer(p)
+			}
 			continue
 		}
 		if _, err := pw.Write([]byte(line + "\n")); err != nil {

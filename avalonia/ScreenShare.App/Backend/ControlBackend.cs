@@ -425,6 +425,35 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        await GreetAsync().ConfigureAwait(false);
+
+        using var call = _client.SubscribePointer(new SubscribePointerRequest(), cancellationToken: cancellation);
+
+        while (true)
+        {
+            bool more;
+            try
+            {
+                more = await call.ResponseStream.MoveNext(cancellation).ConfigureAwait(false);
+            }
+            catch (RpcException e)
+            {
+                throw Translate(e, cancellation);
+            }
+
+            if (!more)
+            {
+                yield break;
+            }
+
+            yield return call.ResponseStream.Current;
+        }
+    }
+
+    /// <inheritdoc />
     public async IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellation = default)
     {

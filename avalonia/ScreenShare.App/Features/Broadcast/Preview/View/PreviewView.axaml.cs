@@ -53,6 +53,25 @@ public sealed partial class PreviewView : UserControl
         _showing.Detached();
     }
 
+    /// <summary>
+    /// Tells the card how large it is drawing the picture, which is the other fact the markup
+    /// cannot state.
+    ///
+    /// The pointer arrives in the picture's own pixels and is drawn in this card's, so somebody
+    /// has to know both. The view model knows the picture's size off the frames; this is where
+    /// the card's comes from, and it is written the same way every other input here is - one
+    /// value in, and the render function decides what it means.
+    /// </summary>
+    protected override Size ArrangeOverride(Size size)
+    {
+        var arranged = base.ArrangeOverride(size);
+        if (DataContext is PreviewViewModel card)
+        {
+            card.SetPictureSize(arranged.Width, arranged.Height);
+        }
+        return arranged;
+    }
+
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);

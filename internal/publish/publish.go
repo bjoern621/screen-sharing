@@ -16,6 +16,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -44,6 +45,11 @@ type Handle interface {
 type Callbacks struct {
 	OnStats func(Stats)
 	OnExit  func(err error, stderrTail string, logPath string)
+	// OnPointer receives where the pointer is, for a publish whose cursor mode sends the
+	// position instead of drawing it into the frames. It fires at the reader's own rate,
+	// which is faster than the frame rate on purpose, and never at all on any other mode
+	// or any engine whose child cannot report one (internal/pointer).
+	OnPointer func(pointer.Position)
 }
 
 // Publisher builds and runs the publish pipeline for a family of capture

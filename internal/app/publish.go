@@ -7,6 +7,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -276,6 +277,14 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		OnExit: func(err error, stderrTail string, logPath string) {
 			a.publishEnded(run, err, stderrTail, logPath)
 		},
+		// The position is kept for the run that read it and dropped when that run stops
+		// being the one in force, so a pointer never outlives the capture it was over.
+		OnPointer: func(p pointer.Position) {
+			if !a.isCurrentRun(run) {
+				return
+			}
+			a.pointerAt.take(p)
+		},
 	})
 	if err != nil {
 		a.run = nil
@@ -309,6 +318,9 @@ func (a *App) StopPublish() {
 		}
 		a.cancelRetryLocked()
 		logger.Infof("publishing stopped")
+		// The position belonged to the capture that has just ended, so it goes with it: a
+		// pointer held past the stream would be drawn over a picture that has stopped.
+		a.pointerAt.clear()
 	}
 	// Outside the branch above, and idempotent for the same reason the stop itself is:
 	// a preview with no publish behind it is the one state this method exists to remove,

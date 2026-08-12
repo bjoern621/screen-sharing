@@ -85,16 +85,23 @@ func runPipeline(elements []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// The control socket, where the parent writes what a playing pipeline should be
-	// holding. It leads the arguments so everything after it is the pipeline itself.
-	control := ""
-	if len(elements) > 0 {
+	// What this run does beside playing, which leads the arguments so everything after them
+	// is the pipeline itself: the control socket the parent writes to, and whether to report
+	// where the pointer is.
+	var options gstrun.Options
+	for len(elements) > 0 {
 		if path, ok := strings.CutPrefix(elements[0], publish.ControlFlag); ok {
-			control, elements = path, elements[1:]
+			options.Control, elements = path, elements[1:]
+			continue
 		}
+		if elements[0] == gstrun.PointerFlag {
+			options.Pointer, elements = true, elements[1:]
+			continue
+		}
+		break
 	}
 
-	if err := gstrun.RunWithControl(ctx, strings.Join(elements, " "), control, os.Stdout); err != nil {
+	if err := gstrun.RunWithOptions(ctx, strings.Join(elements, " "), options, os.Stdout); err != nil {
 		// Standard error, where the supervisor's tail reads from: this is the wording a
 		// reader is shown when a publish fails (publish/supervise.go).
 		fmt.Fprintln(os.Stderr, err)

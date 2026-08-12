@@ -80,6 +80,24 @@
           <TextBlock Classes="caption" Foreground="{StaticResource ForegroundBrush}" Text="Sharing" />
         </Border>
 
+        <!--
+          Where the pointer is, drawn rather than encoded. The publish sends the position beside
+          the picture instead of into it, so this is the one place the publisher can see what a
+          viewer would draw once a leg carries it (docs/capture-architecture.md, "The pointer").
+
+          A Canvas because the position is a fraction of the picture and the picture fills this
+          panel: the two offsets are computed against the rendered size, which is what makes the
+          marker land where the mouse is at any tile size.
+        -->
+        <Canvas IsVisible="{Binding HasPointer}" ClipToBounds="True">
+          <Ellipse Width="14" Height="14"
+                   Fill="{StaticResource AttentionBrush}"
+                   Stroke="{StaticResource ForegroundBrush}"
+                   StrokeThickness="2"
+                   Canvas.Left="{Binding PointerLeft}"
+                   Canvas.Top="{Binding PointerTop}" />
+        </Canvas>
+
         <Panel Margin="8" VerticalAlignment="Bottom">
           <!-- Opacity on a bare fill, so the text over it keeps its own contrast. -->
           <Border Background="{StaticResource TileBrush}"

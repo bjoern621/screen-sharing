@@ -1,6 +1,7 @@
 package control
 
 import (
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"context"
 	"testing"
 
@@ -31,6 +32,7 @@ type probedBackend struct {
 func (p *probedBackend) Platform() platform.Info               { return platform.Info{OS: "windows"} }
 func (p *probedBackend) CachedEncoders() encoders.Availability { return p.probed }
 func (p *probedBackend) AudioDevices() []platform.AudioDevice  { return nil }
+func (p *probedBackend) Pointer() (pointer.Position, bool)     { return pointer.Position{}, false }
 
 // Encoders counts its calls, which is what lets a test say that a read did not probe.
 // The contract's whole reason for splitting the two is that reading the catalog must

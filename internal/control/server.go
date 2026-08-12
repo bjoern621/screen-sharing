@@ -26,6 +26,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -131,6 +132,14 @@ type Backend interface {
 	// rather than a stream, because the cadence belongs to the service that ticks it
 	// and not to the backend that measures.
 	AudioLevels() []wire.AudioLevel
+	// Pointer is where the publishing machine's pointer is, at this instant, and false
+	// where the publish in force is not reporting one.
+	//
+	// That is every cursor mode but the one that sends the position instead of drawing it,
+	// and every engine whose child cannot read one. A read rather than a stream, for the
+	// reason the levels are: the cadence belongs to the service that ticks it and not to
+	// the backend that reads.
+	Pointer() (pointer.Position, bool)
 	// SubscribeFrames opens one consumer's view of a decode that is already running,
 	// and refuses where nothing is decoding the pair.
 	//

@@ -463,4 +463,17 @@ public interface IBackend
     /// and a tile leaving needs no cancellation.
     /// </summary>
     IAsyncEnumerable<AudioLevels> SubscribeAudioLevelsAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Where the publishing machine's pointer is, for as long as the enumeration is held.
+    ///
+    /// A stream of its own for the reason the levels are one, and one degree more so: the
+    /// whole point of sending a position instead of drawing it into the picture is that it
+    /// costs no frame, so it moves at its own rate rather than the stream's.
+    ///
+    /// It carries positions only while a publish whose cursor mode sends them is running, and
+    /// stays open and silent otherwise: the mode can change under a subscription, and a shell
+    /// that had to resubscribe would be one holding a pointer from the mode before.
+    /// </summary>
+    IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default);
 }

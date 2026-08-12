@@ -14,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoderate"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -61,6 +62,8 @@ func (b controlBackend) Encoders(ctx context.Context) encoders.Availability {
 func (b controlBackend) CachedEncoders() encoders.Availability { return b.app.cachedEncoders() }
 
 func (b controlBackend) AudioDevices() []platform.AudioDevice { return b.app.audioDevices() }
+
+func (b controlBackend) Pointer() (pointer.Position, bool) { return b.app.Pointer() }
 
 func (b controlBackend) PublishState() wire.PublishSnapshot {
 	return publishSnapshot(b.app.GetPublishState())

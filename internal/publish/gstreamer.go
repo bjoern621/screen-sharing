@@ -159,7 +159,7 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 			if handle != nil {
 				handle.Stop()
 			}
-		})
+		}, cb.OnPointer)
 	}
 
 	// One socket per run, which the child opens before its pipeline plays and removes with
@@ -173,7 +173,7 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		// The subcommand leads, which is what makes this executable play a pipeline
 		// instead of opening a second control socket (cmd/backend), and the control flag
 		// follows it so the pipeline itself starts at the same word gst-launch would.
-		args:        append(append([]string{GstSubcommand}, gstLiveArgs(socket)...), pipeline...),
+		args:        append(append([]string{GstSubcommand}, gstChildArgs(s, socket)...), pipeline...),
 		tag:         tag,
 		extraFiles:  files,
 		parseStdout: parseStdout,

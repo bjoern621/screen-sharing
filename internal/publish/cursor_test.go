@@ -23,12 +23,13 @@ func TestCursorRulesAnswerWhatTheTableServes(t *testing.T) {
 			served := CursorServed(capture, mode)
 			refused := !v.ValueEnabled(rules.AxisCursor, mode)
 
-			// Metadata is the one mode a backend can serve and the app still refuse,
-			// because nothing carries the pointer to a viewer yet. Every other mode is
-			// the table's answer alone.
-			if mode == cursor.Metadata {
+			// Metadata is the one mode a backend can serve and the app still refuse: the
+			// portal reports a position nothing here reads yet, which is a fact about this
+			// app rather than about that capture. Every other mode, and every other
+			// backend, is the table's answer alone.
+			if mode == cursor.Metadata && capture == "portal" {
 				if !refused {
-					t.Errorf("%s: the metadata mode is offered while nothing carries a pointer", capture)
+					t.Errorf("%s: the metadata mode is offered while nothing reads the capture's own pointer", capture)
 				}
 				continue
 			}
@@ -91,10 +92,18 @@ func TestThePortalCarriesOnlyTheAppsOwnLimit(t *testing.T) {
 		t.Errorf("the portal states %v, want the fact that nothing carries a pointer", got)
 	}
 
-	// A backend that has no pointer position to send states both, since the two are
-	// different things to fix.
+	// The X11 backend serves the mode: its display server answers any client that asks
+	// where the pointer is, which is what the publish child reads there. So it states
+	// nothing at all, where the portal states the one fact above.
 	x11 := rules.EvaluateRules(cursorFacts("ximagesrc"), cursorRules())
-	if got := len(x11.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 2 {
-		t.Errorf("a backend with no pointer metadata states %d facts, want both", got)
+	if got := len(x11.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 0 {
+		t.Errorf("a backend whose display server answers states %d facts, want none", got)
+	}
+
+	// A backend with no pointer position to report states its own fact, which is a
+	// different thing to fix than the app's.
+	kms := rules.EvaluateRules(cursorFacts("kmsgrab"), cursorRules())
+	if got := len(kms.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 1 {
+		t.Errorf("a backend with no pointer metadata states %d facts, want its own", got)
 	}
 }

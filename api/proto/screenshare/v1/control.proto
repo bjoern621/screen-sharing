@@ -284,6 +284,26 @@ service ControlService {
   // negative infinity. The backend coalesces to the newest tick, so a reader that
   // fell behind receives the present rather than a queue of the past.
   rpc SubscribeAudioLevels(SubscribeAudioLevelsRequest) returns (stream AudioLevels);
+
+  // SubscribePointer delivers where the publishing machine's pointer is, for as long
+  // as the shell holds the call.
+  //
+  // A stream of its own for the reason the levels are one, and one degree more so: the
+  // whole point of sending a position instead of drawing it into the picture is that it
+  // costs no frame, so it moves at its own rate rather than the stream's. A 240 Hz
+  // pointer over a 30 fps stream is the win, and folding it into Subscribe would push
+  // the publish state at that rate for a figure nothing else reads.
+  //
+  // Each message carries the moment it was read, so a viewer can hold it back to the
+  // frame it belongs to. Whether to is the viewer's: a pointer that leads the picture
+  // is what a viewer with no delay budget wants and what one watching a recording does
+  // not.
+  //
+  // It carries positions only while a publish whose cursor mode is metadata is running.
+  // Any other mode draws the pointer into the frames or leaves it out, and the stream
+  // stays open and silent rather than being refused - a shell subscribes once and the
+  // mode may change under it.
+  rpc SubscribePointer(SubscribePointerRequest) returns (stream PointerPosition);
 }
 
 // --- Handshake ------------------------------------------------------------------
@@ -589,3 +609,32 @@ message SubscribeRequest {
 // decodes is the backend's too. A message with no fields is what lets either become
 // a request field later without a new method.
 message SubscribeAudioLevelsRequest {}
+
+// SubscribePointerRequest opens the stream. It names nothing: one publish is in force at
+// a time, so there is one pointer to report and nothing to select between.
+message SubscribePointerRequest {}
+
+// PointerPosition is where the publishing machine's pointer was, and when.
+//
+// The coordinates are the captured picture's own, in the pixels the stream carries, with
+// the origin at its top left. That is what makes them drawable without a viewer knowing
+// anything about the publisher's desktop: which screen is being read, how it is scaled and
+// where it sits among the others are all the publisher's facts, and the backend has all
+// three where a viewer has none.
+message PointerPosition {
+  // x and y are where it is, in the picture's own pixels.
+  int32 x = 1;
+  int32 y = 2;
+  // captured_at_unix_nanos is when the position was read, on the publishing machine's
+  // clock.
+  //
+  // It is there so a viewer can hold a position back to the frame it belongs to rather
+  // than letting it lead the picture. Whether to is the viewer's, which is why the moment
+  // travels instead of the backend delaying the message: a pointer that leads is what a
+  // viewer with no delay budget wants and what one watching a recording does not.
+  int64 captured_at_unix_nanos = 3;
+  // visible is false where the pointer is not over the captured surface. A pointer that
+  // has left the screen is not at its last position, and drawing it there would leave one
+  // stuck against an edge for as long as it is away.
+  bool visible = 4;
+}

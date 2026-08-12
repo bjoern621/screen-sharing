@@ -685,6 +685,17 @@ internal sealed class SeededBackend : IBackend
         yield break;
     }
 
+    /// <summary>
+    /// The pointer stream, which this fixture never sends on: the seeded settings publish with
+    /// the pointer drawn into the frames, which is the mode that sends no position.
+    /// </summary>
+    public async IAsyncEnumerable<PointerPosition> SubscribePointerAsync(
+        [EnumeratorCancellation] CancellationToken cancellation = default)
+    {
+        await Task.CompletedTask.ConfigureAwait(false);
+        yield break;
+    }
+
     /// <summary>The whole of the resolve, with no wire in front of it.</summary>
     private Form Resolve(Settings draft)
     {

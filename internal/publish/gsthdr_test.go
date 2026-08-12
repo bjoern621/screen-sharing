@@ -134,7 +134,7 @@ func TestTheChildsOutputSplitsCapsFromProgress(t *testing.T) {
 	var seen []string
 	gstReadChild(strings.NewReader(output), nil, func(caps string) {
 		seen = append(seen, caps)
-	})
+	}, nil)
 
 	if len(seen) != 1 {
 		t.Fatalf("the caps reader saw %d lines, want the one the child reported: %v", len(seen), seen)
