@@ -2,6 +2,7 @@ package transport
 
 import (
 	"fmt"
+	"net/url"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -64,7 +65,7 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 	// option names (pkt_size/sndbuf/ffs).
 	url := fmt.Sprintf(
 		"srt://%s:%d?streamid=publish:%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, s.Publish.Name, s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes)
+		s.Relay.Host, s.Relay.SrtPort, s.Relay.Path(s.Publish.Name), s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 
 	return []string{"-f", "mpegts", url}
 }
@@ -77,21 +78,21 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 // MILLISECONDS, not ffmpeg's microseconds) are separate properties. alignment=7
 // packs 7 * 188-byte TS packets per buffer to match the SRT payload size.
 func (SRT) GstSink(s settings.Settings) []string {
-	return []string{
+	return append([]string{
 		"mpegtsmux", "name=" + GstMuxName, "alignment=7",
 		"!", "srtsink",
 		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
 		"mode=caller",
-		"streamid=publish:" + s.Publish.Name,
+		"streamid=publish:" + s.Relay.Path(s.Publish.Name),
 		fmt.Sprintf("latency=%d", s.Publish.SrtPublishLatencyMs),
 		"wait-for-connection=false",
-	}
+	}, srtPassphraseProperty(s)...)
 }
 
 func (SRT) WatchURL(s settings.Settings, streamName string) string {
 	return fmt.Sprintf(
 		"srt://%s:%d?streamid=read:%s&latency=%d&rcvbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, streamName, s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes)
+		s.Relay.Host, s.Relay.SrtPort, streamName, s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 }
 
 // GstSource returns the source elements a receiving GStreamer pipeline decodes
@@ -99,13 +100,13 @@ func (SRT) WatchURL(s settings.Settings, streamName string) string {
 // as properties on a bare srt:// URI; the buffer options in WatchURL are
 // ffmpeg protocol knobs with no srtsrc equivalent.
 func (SRT) GstSource(s settings.Settings, streamName string) []string {
-	return []string{
+	return append([]string{
 		"srtsrc",
 		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
 		"mode=caller",
 		"streamid=read:" + streamName,
 		fmt.Sprintf("latency=%d", s.Viewer.SrtWatchLatencyMs),
-	}
+	}, srtPassphraseProperty(s)...)
 }
 
 // srtWatchKnobs are the watch-leg knobs a viewer can change per stream, the
@@ -123,4 +124,27 @@ func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(
 
 func (t SRT) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), srtWatchKnobs, s, key, value)
+}
+
+// srtPassphraseQuery is the passphrase as ffmpeg's SRT protocol takes it, and nothing where
+// the relay is keyed with none.
+//
+// Both legs carry it, because the relay keys both: pathDefaults sets one value for publishing
+// and one for reading, and an operator setting the pair sets them alike. A leg that carried it
+// on one side only would be a stream that connects and never plays.
+func srtPassphraseQuery(s settings.Settings) string {
+	if s.Relay.SrtPassphrase == "" {
+		return ""
+	}
+	return "&passphrase=" + url.QueryEscape(s.Relay.SrtPassphrase)
+}
+
+// srtPassphraseProperty is the same value as the GStreamer elements take it: a property on
+// srtsink and srtsrc rather than a query on the URI, which is the same difference the latency
+// and the stream id already have between the two engines.
+func srtPassphraseProperty(s settings.Settings) []string {
+	if s.Relay.SrtPassphrase == "" {
+		return nil
+	}
+	return []string{"passphrase=" + s.Relay.SrtPassphrase}
 }

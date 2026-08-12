@@ -100,11 +100,13 @@ var availabilityRules = map[string]func(availability) state{
 	// hidden while that protocol is not the leg being configured, which is the hidden
 	// treatment's own case (docs/field-availability.md, "The rule"): a user on SRT has
 	// no reason to read what the RTMP listener's port means.
-	KeyName:      func(availability) state { return availabilityLive() },
-	KeyRelayHost: func(availability) state { return availabilityLive() },
-	KeyAPIPort:   func(availability) state { return availabilityLive() },
-	KeySrtPort:   func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilitySrt) },
-	KeyRtspPort:  func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp) },
+	KeyName:          func(availability) state { return availabilityLive() },
+	KeyRelayHost:     func(availability) state { return availabilityLive() },
+	KeyGroupKey:      func(availability) state { return availabilityLive() },
+	KeySrtPassphrase: func(availability) state { return availabilityLive() },
+	KeyAPIPort:       func(availability) state { return availabilityLive() },
+	KeySrtPort:       func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilitySrt) },
+	KeyRtspPort:      func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp) },
 	KeyWebrtcPort: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityWebrtc)
 	},

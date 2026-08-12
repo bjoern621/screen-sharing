@@ -1,0 +1,65 @@
+# The relay as a deployment on the internet: the proxy that terminates TLS, the relay behind
+# it, and the service that hands out group keys and the tokens the relay checks.
+#
+# It is a second compose file rather than an edit to the one at the repository root, because
+# the two describe two deployments. That one is a relay on a trusted network with no auth at
+# all, which is what a LAN stream and every test here run against; this one is the deployment
+# groups, tokens and certificates exist for, and merging them would turn every existing setup
+# into one that refuses its own publishers on the next pull.
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: screenshare-proxy
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The certificate and the account survive a restart. Without this, every restart asks
+      # the certificate authority for a new one, which is what its rate limits are for.
+      - caddy-data:/data
+    ports:
+      - "80:80/tcp"    # ACME's own challenge, and the redirect to 443
+      - "443:443/tcp"
+      - "443:443/udp"  # HTTP/3
+
+  mediamtx:
+    # Pinned rather than latest, and to the version this repository's own dev shell runs: the
+    # config below turns on settings a relay that predates them refuses the whole file over,
+    # so a floating tag is a deployment that stops starting on somebody else's release day.
+    image: bluenviron/mediamtx:1.20.0
+    container_name: screenshare-relay
+    restart: unless-stopped
+    volumes:
+      - ./mediamtx-groups.yml:/mediamtx.yml:ro
+    ports:
+      # SRT is the one leg that reaches the internet directly: it is UDP with no TLS, so
+      # there is nothing for the proxy to terminate, and what protects it is the relay-wide
+      # passphrase in the config.
+      - "8890:8890/udp"
+      # WebRTC's media leg, which negotiates a direct path to the client and never goes
+      # through the proxy.
+      - "8189:8189/udp"
+    depends_on:
+      - groupd
+
+  groupd:
+    # Built from this repository, because the path derivation has to be identical on both
+    # sides and two copies of it is the failure this arrangement exists to prevent.
+    build:
+      context: ..
+      dockerfile: deploy/groupd.Dockerfile
+    container_name: screenshare-groups
+    restart: unless-stopped
+    command:
+      - "-listen=:9443"
+      - "-key=/state/signing-key.pem"
+      - "-relay-host=mediamtx"
+      - "-relay-api-port=9997"
+    volumes:
+      # The signing key outlives the container. A restart that drew a new one would
+      # invalidate every token in flight and the relay's cached copy of the key at once.
+      - groupd-state:/state
+
+volumes:
+  caddy-data:
+  groupd-state:

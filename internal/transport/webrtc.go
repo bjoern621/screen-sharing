@@ -75,7 +75,7 @@ func (WebRTC) Formats() Formats {
 }
 
 func (WebRTC) PublishArgs(s settings.Settings) []string {
-	return []string{"-f", "whip", whipURL(s, s.Publish.Name)}
+	return []string{"-f", "whip", whipURL(s, s.Relay.Path(s.Publish.Name))}
 }
 
 // GstSink returns the sink terminating a GStreamer pipeline for this transport.
@@ -90,7 +90,7 @@ func (WebRTC) PublishArgs(s settings.Settings) []string {
 func (WebRTC) GstSink(s settings.Settings) []string {
 	return []string{
 		"whipclientsink", "name=" + GstMuxName,
-		"signaller::whip-endpoint=" + whipURL(s, s.Publish.Name),
+		"signaller::whip-endpoint=" + whipURL(s, s.Relay.Path(s.Publish.Name)),
 	}
 }
 

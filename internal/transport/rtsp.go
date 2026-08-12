@@ -76,7 +76,7 @@ func (RTSP) PublishArgs(s settings.Settings) []string {
 	if c, ok := capabilities.Get(s.Publish.Codec); ok && draftRtpFormats[c.Format] {
 		args = append(args, "-strict", "experimental")
 	}
-	return append(args, rtspURL(s, s.Publish.Name))
+	return append(args, rtspURL(s, s.Relay.Path(s.Publish.Name)))
 }
 
 // GstSink returns the sink terminating a GStreamer pipeline for this transport.
@@ -88,7 +88,7 @@ func (RTSP) GstSink(s settings.Settings) []string {
 	return []string{
 		"rtspclientsink", "name=" + GstMuxName,
 		"protocols=" + s.Publish.RtspPublishProtocol,
-		"location=" + rtspURL(s, s.Publish.Name),
+		"location=" + rtspURL(s, s.Relay.Path(s.Publish.Name)),
 	}
 }
 

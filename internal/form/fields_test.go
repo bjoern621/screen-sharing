@@ -25,7 +25,7 @@ import (
 // second copy of that list and the only one, which is what makes the bijection below a
 // real check rather than a tautology - a key added to keys.go and to no table fails here.
 var fieldDeclaredKeys = []string{
-	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
+	KeyName, KeyRelayHost, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,

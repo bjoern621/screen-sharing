@@ -24,13 +24,15 @@ import (
 // rather than through a per-field setter table, and the same two names are what the
 // shell's own draft writer walks (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
 const (
-	KeyRelayHost  = "relay.host"
-	KeySrtPort    = "relay.srt_port"
-	KeyAPIPort    = "relay.api_port"
-	KeyRtspPort   = "relay.rtsp_port"
-	KeyWebrtcPort = "relay.webrtc_port"
-	KeyRtmpPort   = "relay.rtmp_port"
-	KeyHlsPort    = "relay.hls_port"
+	KeyRelayHost     = "relay.host"
+	KeyGroupKey      = "relay.group_key"
+	KeySrtPassphrase = "relay.srt_passphrase"
+	KeySrtPort       = "relay.srt_port"
+	KeyAPIPort       = "relay.api_port"
+	KeyRtspPort      = "relay.rtsp_port"
+	KeyWebrtcPort    = "relay.webrtc_port"
+	KeyRtmpPort      = "relay.rtmp_port"
+	KeyHlsPort       = "relay.hls_port"
 
 	KeyName = "publish.name"
 

@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/receive"
 )
@@ -56,6 +57,46 @@ type Relay struct {
 	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP+WHEP HTTP listener
 	RtmpPort   int    `json:"rtmpPort"`   // TCP port of the relay's RTMP listener
 	HlsPort    int    `json:"hlsPort"`    // TCP port of the relay's HLS HTTP listener
+	// GroupKey is the secret whose possession is membership of a group, as the key service
+	// handed it over (internal/group). Empty is a machine that has joined none.
+	//
+	// It sits with the relay rather than with the publish, because it decides where every
+	// stream lives on that relay and not how any one of them is encoded: a preset is a
+	// publish group and nothing else, so a saved preset carries no group and applying one
+	// cannot move a machine between them.
+	GroupKey string `json:"groupKey,omitempty"`
+	// SrtPassphrase keys the relay-wide SRT listener, and is empty for a relay that takes
+	// none.
+	//
+	// SRT is the one leg no reverse proxy can wrap - it is UDP with no TLS - so what
+	// protects the packets on the wire is a passphrase both ends hold. The relay takes one
+	// value for every path through pathDefaults, so this is one setting rather than one per
+	// stream, and it protects a different thing from the group key above: that one decides
+	// which streams a member reaches, and this whether the packets are readable at all.
+	SrtPassphrase string `json:"srtPassphrase,omitempty"`
+}
+
+// Path is where a stream of this name lives on the relay, which every transport builds its
+// URL from.
+//
+// A group is a path prefix, so the whole of joining one is that every path gains it: the
+// relay's own per-path permissions then do the enforcing, and "which streams may I see" is a
+// string match rather than a query its API cannot answer (docs/plan.md).
+//
+// A machine in no group publishes under the bare name, which is what every stream did before
+// groups existed and what a relay with no auth configured still serves. What makes a group
+// required is the relay refusing an unauthenticated publish, not this function inventing a
+// prefix nobody can obtain a key for.
+func (r Relay) Path(name string) string {
+	key, err := group.ParseKey(r.GroupKey)
+	if err != nil {
+		return name
+	}
+	path, err := key.Path(name)
+	if err != nil {
+		return name
+	}
+	return path
 }
 
 // Publish is what this machine sends to the relay and how it is encoded. A preset is

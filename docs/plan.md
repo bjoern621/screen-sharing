@@ -133,9 +133,13 @@ It holds a signing key and nothing else: a group is created by drawing a key, a 
 There is no membership store because there is nothing to store - possession of the key is membership, and the prefix is the key's own digest - which is also what makes rotation drawing a second key and using it.
 The token is RS256 against `crypto/rsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
 
-**What is left.** The relay's own configuration - `authJWTJWKS` pointed at this service, the per-path permissions, the SRT passphrase in `pathDefaults` - and the reverse proxy with ACME in front of all three.
-Then the group model in the app: the key as a setting, the prefix in front of every transport's path, and a shell to create, paste and rotate one.
-Nothing wires the prefix into the transports yet, because an app that required a group before there was a way to obtain one is an app that cannot publish.
+**Built: the deployment and the app's half.** `deploy/` carries the relay configured for groups - `authJWTJWKS` pointed at the service, the SRT passphrase in `pathDefaults`, every other listener on loopback - the reverse proxy that terminates TLS and renews the certificate for all of them, and the compose file that runs the three together.
+They are second files rather than edits to the ones at the root, because both deployments are real: that one is a relay on a trusted network where anybody may publish, and turning it into this one in place would refuse every existing publisher on the next pull.
+
+The app publishes under its group: the key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
+What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix, so a machine with no key still publishes under the bare name - which is what a relay with no auth serves and what every LAN stream does.
+
+**What is left.** Getting a key without leaving the app: creating one, pasting one and rotating one are three calls to a service the app does not speak to yet, so today the key arrives however its group distributes it and is pasted into the field.
 
 ## The pointer channel
 

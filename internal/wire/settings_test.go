@@ -21,13 +21,15 @@ import (
 func populatedSettings() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:       "relay.fixture",
-			SrtPort:    1001,
-			ApiPort:    1002,
-			RtspPort:   1003,
-			WebrtcPort: 1004,
-			RtmpPort:   1005,
-			HlsPort:    1006,
+			Host:          "relay.fixture",
+			SrtPort:       1001,
+			ApiPort:       1002,
+			RtspPort:      1003,
+			WebrtcPort:    1004,
+			RtmpPort:      1005,
+			HlsPort:       1006,
+			GroupKey:      "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+			SrtPassphrase: "fixture-passphrase",
 		},
 		Publish: settings.Publish{
 			Name:                "fixture-stream",

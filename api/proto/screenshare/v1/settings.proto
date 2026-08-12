@@ -57,6 +57,27 @@ message RelaySettings {
   int32 webrtc_port = 5;
   int32 rtmp_port = 6;
   int32 hls_port = 7;
+  // group_key is the secret whose possession is membership of a group, as the key
+  // service handed it over. Empty is a machine that has joined none.
+  //
+  // A group is a path prefix, so this decides where every stream of this machine lives
+  // on that relay: the relay's own per-path permissions then do the enforcing, and
+  // "which streams may I see" is a string match rather than a query its API cannot
+  // answer.
+  //
+  // It sits with the relay and not with the publish because it is a property of that
+  // deployment rather than of any one stream, which is also what keeps a saved preset
+  // from carrying one: applying a preset must not move a machine between groups.
+  string group_key = 8;
+  // srt_passphrase keys the relay-wide SRT listener, and is empty for a relay that takes
+  // none.
+  //
+  // SRT is the one leg no reverse proxy can wrap - it is UDP with no TLS - so what
+  // protects the packets on the wire is a passphrase both ends hold. The relay takes one
+  // value for every path, so this is one setting rather than one per stream, and it
+  // protects a different thing from the key above: that one decides which streams a member
+  // reaches, and this whether the packets are readable at all.
+  string srt_passphrase = 9;
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded. A

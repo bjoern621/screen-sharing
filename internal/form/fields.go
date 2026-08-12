@@ -383,6 +383,27 @@ var fieldTable = []field{
 	// against no host is a number about nothing - and which of them is read follows from a
 	// leg chosen further up rather than from anything here.
 	{
+		// The group, which is where every stream of this machine lives on the relay.
+		//
+		// Text because it is a secret somebody was handed: the key service draws it,
+		// whatever distributes it hands it over, and nothing here offers a list to pick
+		// from - there is no enumeration of groups by design, since possession of the key
+		// is the whole of membership (docs/plan.md, "Groups, auth and encryption").
+		key:     KeyGroupKey,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.GroupKey) },
+	},
+	{
+		// The passphrase the relay keys its SRT listener with, which is the one leg no proxy
+		// can wrap: it is UDP with no TLS, so what protects the packets is a value both ends
+		// hold. Empty is a relay that takes none, which is every relay on a trusted network.
+		key:     KeySrtPassphrase,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.SrtPassphrase) },
+	},
+	{
 		key:     KeyRelayHost,
 		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,

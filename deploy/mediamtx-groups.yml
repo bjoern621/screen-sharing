@@ -1,0 +1,80 @@
+# The relay as it is configured once groups are in force.
+#
+# It is a second file rather than an edit to mediamtx.yml, because the two describe two
+# deployments and both are real: the one beside it is a relay on a trusted network where
+# anybody may publish, which is what a LAN stream and every test in this repository run
+# against, and this one is a relay on the internet where a token decides. Turning the first
+# into the second in place would make every existing setup refuse every existing publisher on
+# the next pull.
+#
+# What enforces a group is here and not in the app. The app puts its streams under the prefix
+# its key derives (internal/group) and the relay refuses anything else, which is what makes
+# "publishing always requires a group" a fact rather than a convention: a client that skipped
+# the prefix is refused by the machine serving the stream.
+
+logLevel: info
+
+# per-reader outgoing queue (packets). Default 512 chokes on lossless keyframe
+# bursts (one frame can be several MB); 16384 ~= 24MB headroom per reader.
+writeQueueSize: 16384
+
+# --- Who may do what -------------------------------------------------------------
+#
+# Every connection carries a JWT and the relay checks it against the key the group service
+# publishes. The key is fetched once and every connection verified locally, which is what
+# keeps the service out of the path of a stream: a relay that called it per connection would
+# make an unreachable service an unwatchable stream.
+#
+# The permissions ride in the token rather than being listed here, because they are per group
+# and there is no list of groups: a token grants a path expression anchored at the prefix its
+# key derived, so a member reaches their own group's streams and no others
+# (internal/token, GroupPermissions).
+authMethod: jwt
+authJWTJWKS: http://groupd:9443/jwks.json
+authJWTClaimKey: mediamtx_permissions
+
+# The API, the metrics and the playback endpoints are not for members. A token this service
+# issues grants publishing and reading and nothing else, so those three are refused for
+# everyone until an operator's own token grants them.
+
+# --- SRT -------------------------------------------------------------------------
+#
+# SRT is UDP and has no TLS, so it is the one leg the reverse proxy cannot wrap. What it takes
+# instead is a passphrase, relay-wide, written into both the publish and the read keys: one
+# value an operator sets, and the app sends it on both legs.
+#
+# It is a second secret beside the group key and it protects a different thing: the group key
+# decides which streams a member reaches, and this decides whether the packets on the wire are
+# readable at all.
+srt: yes
+srtAddress: :8890
+
+pathDefaults:
+  srtPublishPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
+  srtReadPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
+
+# --- The listeners the proxy fronts ----------------------------------------------
+#
+# Every one of them binds loopback. TLS, the certificate and its renewal live in the reverse
+# proxy in front of them (deploy/Caddyfile), which is where ACME is because MediaMTX has none
+# of its own, and a second terminator behind it would be a second certificate to renew.
+#
+# The encryption asymmetry is the relay's own and is not hidden: RTSP and RTMP have TLS
+# listeners of their own on separate ports, where HLS and WebRTC flip the same one. A
+# configuration that pretended otherwise would ask an operator for a port nothing binds.
+rtsp: yes
+rtspAddress: 127.0.0.1:8554
+
+rtmp: yes
+rtmpAddress: 127.0.0.1:1935
+
+hls: yes
+hlsAddress: 127.0.0.1:8888
+
+webrtc: yes
+webrtcAddress: 127.0.0.1:8889
+# The media leg is UDP and reaches the client directly, so it is not behind the proxy either.
+webrtcLocalUDPAddress: :8189
+
+api: yes
+apiAddress: 127.0.0.1:9997

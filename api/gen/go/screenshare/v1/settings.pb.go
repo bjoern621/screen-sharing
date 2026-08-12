@@ -113,11 +113,32 @@ type RelaySettings struct {
 	// srt_port is the UDP port of the relay's SRT listener.
 	SrtPort int32 `protobuf:"varint,2,opt,name=srt_port,json=srtPort,proto3" json:"srt_port,omitempty"`
 	// api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
-	ApiPort       int32 `protobuf:"varint,3,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
-	RtspPort      int32 `protobuf:"varint,4,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
-	WebrtcPort    int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
-	RtmpPort      int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
-	HlsPort       int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
+	ApiPort    int32 `protobuf:"varint,3,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
+	RtspPort   int32 `protobuf:"varint,4,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
+	WebrtcPort int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
+	RtmpPort   int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
+	HlsPort    int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
+	// group_key is the secret whose possession is membership of a group, as the key
+	// service handed it over. Empty is a machine that has joined none.
+	//
+	// A group is a path prefix, so this decides where every stream of this machine lives
+	// on that relay: the relay's own per-path permissions then do the enforcing, and
+	// "which streams may I see" is a string match rather than a query its API cannot
+	// answer.
+	//
+	// It sits with the relay and not with the publish because it is a property of that
+	// deployment rather than of any one stream, which is also what keeps a saved preset
+	// from carrying one: applying a preset must not move a machine between groups.
+	GroupKey string `protobuf:"bytes,8,opt,name=group_key,json=groupKey,proto3" json:"group_key,omitempty"`
+	// srt_passphrase keys the relay-wide SRT listener, and is empty for a relay that takes
+	// none.
+	//
+	// SRT is the one leg no reverse proxy can wrap - it is UDP with no TLS - so what
+	// protects the packets on the wire is a passphrase both ends hold. The relay takes one
+	// value for every path, so this is one setting rather than one per stream, and it
+	// protects a different thing from the key above: that one decides which streams a member
+	// reaches, and this whether the packets are readable at all.
+	SrtPassphrase string `protobuf:"bytes,9,opt,name=srt_passphrase,json=srtPassphrase,proto3" json:"srt_passphrase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -199,6 +220,20 @@ func (x *RelaySettings) GetHlsPort() int32 {
 		return x.HlsPort
 	}
 	return 0
+}
+
+func (x *RelaySettings) GetGroupKey() string {
+	if x != nil {
+		return x.GroupKey
+	}
+	return ""
+}
+
+func (x *RelaySettings) GetSrtPassphrase() string {
+	if x != nil {
+		return x.SrtPassphrase
+	}
+	return ""
 }
 
 // PublishSettings is what this machine sends to the relay and how it is encoded. A
@@ -805,7 +840,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xcf\x01\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\x93\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -814,7 +849,9 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
 	"\trtmp_port\x18\x06 \x01(\x05R\brtmpPort\x12\x19\n" +
-	"\bhls_port\x18\a \x01(\x05R\ahlsPort\"\xb6\b\n" +
+	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x1b\n" +
+	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12%\n" +
+	"\x0esrt_passphrase\x18\t \x01(\tR\rsrtPassphrase\"\xb6\b\n" +
 	"\x0fPublishSettings\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
 	"\x11publish_transport\x18\n" +

@@ -38,13 +38,15 @@ func Settings(s settings.Settings) *screensharev1.Settings {
 // RelaySettings carries the relay's address and listeners out.
 func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	return &screensharev1.RelaySettings{
-		Host:       r.Host,
-		SrtPort:    int32(r.SrtPort),
-		ApiPort:    int32(r.ApiPort),
-		RtspPort:   int32(r.RtspPort),
-		WebrtcPort: int32(r.WebrtcPort),
-		RtmpPort:   int32(r.RtmpPort),
-		HlsPort:    int32(r.HlsPort),
+		Host:          r.Host,
+		SrtPort:       int32(r.SrtPort),
+		ApiPort:       int32(r.ApiPort),
+		RtspPort:      int32(r.RtspPort),
+		WebrtcPort:    int32(r.WebrtcPort),
+		RtmpPort:      int32(r.RtmpPort),
+		HlsPort:       int32(r.HlsPort),
+		GroupKey:      r.GroupKey,
+		SrtPassphrase: r.SrtPassphrase,
 	}
 }
 
@@ -126,13 +128,15 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 // ToRelay reads the relay group back off the contract.
 func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
-		Host:       m.GetHost(),
-		SrtPort:    int(m.GetSrtPort()),
-		ApiPort:    int(m.GetApiPort()),
-		RtspPort:   int(m.GetRtspPort()),
-		WebrtcPort: int(m.GetWebrtcPort()),
-		RtmpPort:   int(m.GetRtmpPort()),
-		HlsPort:    int(m.GetHlsPort()),
+		Host:          m.GetHost(),
+		SrtPort:       int(m.GetSrtPort()),
+		ApiPort:       int(m.GetApiPort()),
+		RtspPort:      int(m.GetRtspPort()),
+		WebrtcPort:    int(m.GetWebrtcPort()),
+		RtmpPort:      int(m.GetRtmpPort()),
+		HlsPort:       int(m.GetHlsPort()),
+		GroupKey:      m.GetGroupKey(),
+		SrtPassphrase: m.GetSrtPassphrase(),
 	}
 }
 

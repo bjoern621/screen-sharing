@@ -50,7 +50,7 @@ func (RTMP) Formats() Formats {
 // PublishArgs returns the ffmpeg output args for this transport. The flv muxer
 // is the FLV container RTMP carries, and the URL names the stream by path.
 func (RTMP) PublishArgs(s settings.Settings) []string {
-	return []string{"-f", "flv", rtmpURL(s, s.Publish.Name)}
+	return []string{"-f", "flv", rtmpURL(s, s.Relay.Path(s.Publish.Name))}
 }
 
 func (RTMP) WatchURL(s settings.Settings, streamName string) string {

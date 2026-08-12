@@ -59,6 +59,14 @@ public static class Fields
             "Stream name",
             "The name your viewers open. It becomes the last part of the address you send them, so keep it short and free of spaces."),
 
+        ["relay.group_key"] = new(
+            "Group key",
+            "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way you would send a meeting link - and change it when somebody should stop seeing them. Leave it empty on a relay you trust everyone on."),
+
+        ["relay.srt_passphrase"] = new(
+            "SRT passphrase",
+            "What scrambles the packets on the SRT leg. It is the one way out that cannot be wrapped in the usual encryption, so this is what protects it, and the relay operator sets the same value at their end. Leave it empty if the relay asks for none."),
+
         ["relay.host"] = new(
             "Relay address",
             "The machine running the relay. You push to it and everyone watching pulls from it, so it needs to be reachable from both sides - a machine on the same network for a LAN stream, a server with a public address for anyone further away."),
@@ -87,7 +95,7 @@ public static class Fields
 
         ["publish.cursor"] = new(
             "Mouse pointer",
-            "Whether the pointer appears in what viewers see. Drawn into the picture is what a screen share normally looks like, and it costs a little bandwidth because the encoder has to keep redrawing the area it moves through. Not shared leaves it out entirely. Sent beside the picture would let a viewer draw it themselves, sharp at any size and free of bandwidth, and is waiting on the channel that would carry it."),
+            "Whether the pointer appears in what viewers see. Drawn into the picture is what a screen share normally looks like, and it costs a little bandwidth because the encoder has to keep redrawing the area it moves through. Not shared leaves it out entirely. Sent beside the picture keeps it sharp at any size and costs the encoder nothing - the preview here draws it, and carrying it to other machines is still to come."),
 
         ["publish.drm_map"] = new(
             "Frame download route",

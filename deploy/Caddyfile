@@ -1,0 +1,53 @@
+# The reverse proxy in front of the relay and the group service.
+#
+# Every leg that can be encrypted is, and one certificate covers all of them: ACME lives here
+# because MediaMTX has none of its own, and putting a terminator behind this one would be a
+# second certificate to renew for the same name.
+#
+# What it does not front is SRT. That leg is UDP with no TLS at all, and what protects it is
+# the relay-wide passphrase in the relay's own configuration - stated there rather than
+# implied here, because a reader looking for "where is SRT encrypted" should find the answer
+# beside the listener and not by noticing an absence in this file.
+#
+# Replace the name. Everything else follows from it: Caddy asks Let's Encrypt for a
+# certificate on first start and renews it on its own, which is the whole of the certificate
+# story for this deployment.
+relay.example.com {
+	# The group service: keys, tokens and the index. It is the only thing here a client
+	# talks to before it publishes, and the only one holding a secret of its own.
+	handle /groups* {
+		reverse_proxy groupd:9443
+	}
+	handle /tokens* {
+		reverse_proxy groupd:9443
+	}
+	handle /streams* {
+		reverse_proxy groupd:9443
+	}
+
+	# The key every token is verified against. The relay fetches it, not a browser, and it
+	# is public by construction: it is what verifies a signature and cannot make one.
+	handle /jwks.json {
+		reverse_proxy groupd:9443
+	}
+
+	# The browser viewer and the WebRTC signalling behind it. Both are HTTP, so both are the
+	# same certificate and the same name.
+	handle /whip* {
+		reverse_proxy mediamtx:8889
+	}
+	handle /whep* {
+		reverse_proxy mediamtx:8889
+	}
+
+	# HLS, which is what a browser with no WebRTC support falls back to. It is segments over
+	# HTTP, so it needs nothing beyond the proxy either.
+	handle {
+		reverse_proxy mediamtx:8888
+	}
+}
+
+# RTSP and RTMP are not HTTP, so they are not proxied here at all: the relay has TLS
+# listeners of its own for both, on ports of their own, and pointing them at a certificate is
+# the relay's configuration rather than this one. The asymmetry is the relay's and is left
+# visible - a proxy stanza that claimed to carry them would be one nothing routes.
