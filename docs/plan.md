@@ -87,6 +87,13 @@ The relay operator and the key service can both watch a private stream, and the 
 **A group is a path prefix.** The path is `<group-id>/<name>`, where the group id derives from a random group key.
 MediaMTX's per-path permissions then do the enforcement, and "which streams may I see" is a string match rather than a query the relay API cannot answer.
 
+**Built: the derivation** (`internal/group`), which is the piece both sides run.
+The client computes the prefix it publishes under and the service computes the prefix it grants a token for, so two implementations of one hash would be a member issued a token for a path nobody is publishing to.
+The id is a keyed digest under its own label rather than a hash of the key, because the id is public - it is in every URL a member pastes - and must say nothing about the secret behind it; a key with a second use derives that one under a second label, so what one use publishes cannot be replayed as another's input.
+A stream with no key is refused rather than published under its bare name, which is the "publishing always requires a group" rule where it can actually be enforced.
+
+Nothing reads it yet, and that is deliberate: wiring the prefix into the transports before the service exists would be an app that cannot publish, since there would be no way to obtain a key.
+
 **Possession of the group key is membership.** There are no accounts.
 The API creates a group and returns the secret, the client distributes it, and a Discord bot later distributes keys to whoever is in a voice channel.
 Deriving the key from a channel identifier was rejected: a channel id is a public snowflake, so anyone could enumerate channels and compute prefixes.
