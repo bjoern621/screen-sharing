@@ -493,7 +493,14 @@ What the browser then does with a format the relay does carry is the browser's o
 ## The synthetic set
 
 Three synthetic publishers run for as long as the backend does, so the viewer roster carries streams whether or not this machine is capturing anything.
-Each is one `gst-launch-1.0` encoding a `videotestsrc` pattern into the relay over RTSP (`publish.BuildTestStreamArgs`), named `test-1` to `test-3` after the slot it holds, and the relay re-serves each on every listener exactly as it does a real one.
+Each is one `gst-launch-1.0` encoding a `videotestsrc` pattern into the relay over RTSP (`publish.BuildTestStreamArgs`), named after the slot it holds, and the relay re-serves each on every listener exactly as it does a real one.
+
+What each draws is a row of a table, and the row states the whole surface rather than the pattern alone: the pixel layout and the colour it is drawn in.
+One row is HDR, drawn in PQ at ten bits and published as H.264 High 10, and it sits inside the set this process brings up with itself, so the viewer's HDR path is reachable on a machine whose own screens are all standard range.
+Its label reaches the relay as part of the name, because "test-2" says nothing a viewer can pick by before anything has decoded.
+That row is the one the browser page cannot decode, which is why the rest of the set stays 4:2:0.
+
+Measured rather than assumed, through a running relay: a stream published from that row is received carrying `bt2100-pq` in `I420_10LE`, so a tile draws it as HDR and offers the tone-map choice rather than merely looking bright.
 
 They are always on because the screens that watch are being built against them.
 A relay carrying nothing puts the roster in its empty state rather than in the one under construction, and a tile grid cannot be looked at on a machine that has to publish its own screen first.

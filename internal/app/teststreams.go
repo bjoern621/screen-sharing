@@ -49,9 +49,19 @@ type testStream struct {
 }
 
 // testStreamName is what the relay carries slot i under.
+//
+// The slot number leads, so the roster reads in the order the set was launched and a
+// relaunch comes back under the name it left. The surface's own label follows it where it
+// has one, which is what lets a viewer pick the stream it wants to watch before anything
+// has decoded: "test-2" says nothing about what is in it.
 func testStreamName(i int) string {
 	assert.Assert(i >= 0, "a test stream holds a slot in the set", i)
-	return "test-" + strconv.Itoa(i+1)
+
+	name := "test-" + strconv.Itoa(i+1)
+	if label := publish.TestSurfaceOf(i).Label; label != "" {
+		name += "-" + label
+	}
+	return name
 }
 
 // StartTestStreams launches count synthetic test-pattern publishers named
@@ -177,7 +187,7 @@ func (a *App) launchTestStreamLocked(i int, attempts int, s settings.Settings, e
 	assert.Assert(a.testStreams[i] == nil, "a slot launches with nothing in it", i)
 
 	name := testStreamName(i)
-	args, err := publish.BuildTestStreamArgs(s, name, publish.TestPattern(i))
+	args, err := publish.BuildTestStreamArgs(s, name, publish.TestSurfaceOf(i))
 	if err != nil {
 		return err
 	}
