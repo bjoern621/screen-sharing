@@ -6,7 +6,15 @@ A third form covers the neighbouring case, a field that stays applicable but mea
 
 **Every "reason" on this page is a fact, not a sentence.**
 Which fact greys a control is decided in Go and crosses as a code with the identifiers it is about; the wording is the shell's, written where the column width and the tone are visible (`ipc-api.md`, `api/proto/screenshare/v1/text.proto`).
-So the quoted sentences below are one shell's rendering of the rule beside them, and the rule is what this page is about: a reason names the limit, names which side has it, and where two facts block one field, names the one the user can act on.
+So the quoted sentences below are one shell's rendering of the rule beside them, and the rule is what this page is about: a reason names the limit and names which side has it.
+
+**Where several facts block one field, every one of them crosses.**
+The backend states each reason that bound; it does not rank them or pick one to send.
+A control blocked by two facts is blocked by two facts, and a backend choosing which to mention would be deciding what the screen says about a limit it can only describe.
+Which of them a shell shows, and in what order, is the shell's - it holds the column width and knows whether one line or three fit.
+
+The rules themselves never cross.
+A shell that evaluated them would be a second place deciding what is legal, and the first combination the two disagreed on would grey a control the publish accepts (`ipc-api.md`, "The rule").
 
 ## The treatments
 
@@ -28,8 +36,8 @@ The field stays editable and gains a note the shell renders beside its own text.
 This is for a combination where the value still reaches the encoder but does something the field's own text does not describe, such as the bitrate becoming a burst ceiling in constant-quality mode on NVENC.
 A note is not a third treatment of inapplicability: it exists so a knob that a builder does forward is never greyed, which would leave the encoder using a number the form refused to show.
 
-The preset selector greys an entry the same way, for the same kind of reason.
-A preset is a promise no encoder or capture backend on this machine delivers, so the option carries what it needed and the search worked within (`presets.md`).
+A built-in preset is ruled out the same way, for the same kind of reason.
+The promise is one no encoder or capture backend on this machine delivers, so the entry keeps its place and carries the publish leg the search worked within, and nothing is applied (`presets.md`).
 
 The pixel-format control carries a note of the second kind: what the choice costs a viewer to decode, from the decode table (`capabilities.Decoders`).
 It is a note rather than a greying because it is not a limit on this machine at all.
@@ -43,8 +51,8 @@ A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live 
 - The **codec's encoder** takes the knob: the family table flags the families whose encoders read the B-frame count and the preset, so both fields grey for a family that carries neither flag, whatever its hardware could do with them, and the reason lists the families that do from the same table.
 - The capture backend's **publish engine** forwards the value: the engine rules record where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
 
-When two of them block the same field, the reason names the one the user can act on.
-B-frames under software x264 in VBR read "only the NVIDIA NVENC encoders take a B-frame count", not the mode sentence that would be a lie there.
+When two of them block the same field, both reasons cross and the shell decides what to show.
+B-frames under software x264 in VBR carry the family fact, "only the NVIDIA NVENC encoders take a B-frame count", beside the mode fact, and a shell with room for one line shows the family one: it is the fact that survives changing the mode.
 
 ## Three facts decide the frame memory
 
@@ -66,7 +74,14 @@ It is greyed rather than hidden because the field is already gated on the captur
 
 ## The rule
 
-Ask what kind of control the field is.
+First ask whether the field is inapplicable at all.
+Both treatments are answers about a control that does nothing in this combination, so a value that still reaches a pipeline gets neither: it is shown, editable, and no reason is written about it.
+A hidden control holding a value in force is the worst state on this page, because the setting acts and nobody can reach it.
+The watch group is where that went wrong: the SRT retransmit window and the RTP lower transport followed both watch-leg settings, but a player is opened per press on whichever leg the reader picked, so `player_watch_transport` never decided which players run.
+A player opened over RTSP read the lower-transport setting while the control holding it was on no screen.
+Applicability is therefore asked against what can be opened, not against what a setting names, wherever the two differ (`form/availability.go`, `watchesOver`).
+
+Then ask what kind of control the field is.
 
 - A **backend implementation knob** that has no meaning outside one backend is **hidden** when that backend is not selected.
   Its tooltip describes a mechanism that a user on any other backend has no reason to read.

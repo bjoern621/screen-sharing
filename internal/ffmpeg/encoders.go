@@ -89,18 +89,6 @@ var familyMappings = map[string]encoderArgsFunc{
 	capabilities.FamilyNvenc: nvencArgs,
 }
 
-// familyLimits are the settings bounds an encoder family imposes beyond what
-// capabilities.Validate checks, keyed as capabilities.Codecs names the family. It is
-// the counterpart of gstFamilyLimits on the GStreamer builder. A family absent here
-// takes whatever the capability table already approved.
-//
-// The bound lives here rather than in the capability table because it is a property
-// of the option the family's mapping reads, not of a codec: every NVENC row takes
-// the same preset ladder, and no other family reads the field at all.
-var familyLimits = map[string]func(settings.Settings) error{
-	capabilities.FamilyNvenc: nvencPresetLimit,
-}
-
 // encoderArgs returns the encoder arguments for the configured codec and rate
 // control mode. gop is the resolved keyframe interval in frames, which the command
 // also carries as -g. A codec's own row wins over its family's mapping.
@@ -115,8 +103,7 @@ func encoderArgs(s settings.Settings, gop int) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown codec %q", s.Publish.Codec)
 	}
-	// The family's bound is checked before either mapping runs, so a codec with a row
-	// of its own is held to it as well.
+
 	if limits, ok := familyLimits[c.Family]; ok {
 		if err := limits(s); err != nil {
 			return nil, err
@@ -248,9 +235,13 @@ func aomArgs(s settings.Settings, r rates) []string {
 	}, s, r)
 }
 
-// svtav1Preset is the point on SVT-AV1's 0-13 quality/speed ladder the modes
-// encode at. 9 is the fastest preset the encoder still calls a quality preset;
-// 10 and above are documented as automation targets and show visual artifacts.
+// svtav1Preset is the point on SVT-AV1's 0-13 quality/speed ladder the modes encode at.
+// 9 is the fastest preset the encoder still calls a quality preset; 10 and above are
+// documented as automation targets and show visual artifacts.
+//
+// It is the step capabilities.Codecs declares for this codec, and the ladder test holds
+// the two together. The builder still spends the constant rather than reading the
+// settings, which is the swap this feature has left to make.
 const svtav1Preset = "9"
 
 // svtav1Args maps the rate-control modes to SVT-AV1, whose rate control does not
@@ -389,7 +380,7 @@ const qsvLiveAsyncDepth = "1"
 // B-pictures are pinned off rather than taken from the settings, as on AMF: the B-frame
 // count is NVENC's alone, and a live screen stream pays their reorder delay for a gain it
 // cannot spend. The preset is the builder's choice for the same reason, the settings'
-// EncPreset being the NVENC p1-p7 ladder, which the form greys for this family.
+// Effort being the NVENC p1-p7 ladder, which the form greys for this family.
 func qsvArgs(s settings.Settings, r rates) []string {
 	preset := qsvQualityPreset
 	if s.Publish.Mode == "cbr" {
@@ -542,7 +533,7 @@ func amfNoBPictures(rates) []string {
 // generations do not implement. lossless has no AMF form at all (amfGaps).
 //
 // The speed/quality preset is the builder's choice rather than the settings'
-// EncPreset: that field is NVENC's p1-p7 ladder, which has no AMF equivalent, and the
+// Effort: that field is NVENC's p1-p7 ladder, which has no AMF equivalent, and the
 // form greys it for this family.
 func amfArgs(profiles map[string]string, options func(rates) []string) encoderArgsFunc {
 	return func(s settings.Settings, r rates) []string {
@@ -587,7 +578,7 @@ const nvencLivePreset = "p5"
 // tune, and rc mode. It serves every nvenc codec, the codec name itself being the
 // only difference between them.
 func nvencArgs(s settings.Settings, r rates) []string {
-	preset := s.Publish.EncPreset
+	preset := s.Publish.Effort
 	switch s.Publish.Mode {
 	case "lossless":
 		// True nvenc lossless: no rate control, the frame costs whatever exactness
@@ -636,21 +627,6 @@ func nvencArgs(s settings.Settings, r rates) []string {
 // way every other option list is spelled on both sides of the wire.
 var NvencPresets = []string{"p1", "p2", "p3", "p4", "p5", "p6", "p7"}
 
-// nvencPresetLimit rejects a preset outside the ladder.
-//
-// The field is a free-form string in the settings, and nothing upstream of here bounds
-// it: capabilities.Validate covers the codec, pixel format, rate-control mode and the
-// two rate figures, none of which this is. Passing an unknown value through would put
-// it behind -preset for ffmpeg to reject, in a message about an option the form never
-// showed rather than about the control that holds it.
-func nvencPresetLimit(s settings.Settings) error {
-	if slices.Contains(NvencPresets, s.Publish.EncPreset) {
-		return nil
-	}
-	return fmt.Errorf("encoder preset %q is not one of the NVENC ladder steps %s",
-		s.Publish.EncPreset, strings.Join(NvencPresets, ", "))
-}
-
 // bufsizeArg returns the ffmpeg -bufsize value in kbit for a rate (Mbit/s) held
 // over a VBV window. A zero window defaults to one second, the conventional CBR
 // buffer. rateM Mbit/s over ms milliseconds is rateM*ms kbit.
@@ -660,4 +636,26 @@ func bufsizeArg(rateM, vbvMs int) string {
 		ms = 1000
 	}
 	return strconv.Itoa(rateM*ms) + "k"
+}
+
+// nvencPresetLimit rejects a preset outside the ladder.
+//
+// The field is a free-form string in the settings, and nothing upstream of here bounds
+// it: capabilities.Validate covers the codec, pixel format, rate-control mode and the
+// two rate figures, none of which this is. Passing an unknown value through would put
+// it behind -preset for ffmpeg to reject, in a message about an option the form never
+// showed rather than about the control that holds it.
+func nvencPresetLimit(s settings.Settings) error {
+	if slices.Contains(NvencPresets, s.Publish.Effort) {
+		return nil
+	}
+	return fmt.Errorf("encoder preset %q is not one of the NVENC ladder steps %s",
+		s.Publish.Effort, strings.Join(NvencPresets, ", "))
+}
+
+// familyLimits are the settings bounds an encoder family imposes beyond what
+// capabilities.Validate checks, keyed as capabilities.Codecs names the family. A family
+// absent here takes whatever the capability table already approved.
+var familyLimits = map[string]func(settings.Settings) error{
+	capabilities.FamilyNvenc: nvencPresetLimit,
 }

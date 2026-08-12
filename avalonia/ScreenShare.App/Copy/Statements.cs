@@ -68,6 +68,17 @@ public static class Statements
                 _ => "This capture method chooses what it grabs itself.",
             },
 
+            // Why the wizard offers a list of screens and no pictures of them. Two sessions
+            // reach a screen only through something that chooses for them, and each is named
+            // for what it does rather than for what it lacks: naming the picker and naming the
+            // system is what tells a reader this is how their machine works and not a fault.
+            TextCode.NoMonitorPreview => a.Display == "wayland"
+                ? "Wayland reaches a screen only through the desktop's own picker, which asks "
+                  + "every time, so there is no picture of one screen to show here. The picker "
+                  + "shows what is being shared when the stream starts."
+                : "This system hands the app whichever screen it likes rather than the one asked "
+                  + "for, so there is no picture of a single screen to show here.",
+
             TextCode.MonitorNotEnumerated =>
                 "Not currently connected. It is still selected, so you can see what the stream would capture - "
                 + "pick a screen that is plugged in.",
@@ -220,6 +231,28 @@ public static class Statements
 
             TextCode.BitrateNotInMode =>
                 $"{Words.Mode(a.Mode)} aims at no bandwidth figure - it spends whatever the picture costs.",
+
+            // --- The pointer -------------------------------------------------------
+
+            TextCode.KmsgrabHasNoCursorPlane =>
+                $"{Words.Capture(a.Capture)} reads the screen as it is scanned out, and the pointer is composed "
+                + "over that at the last moment by the display hardware. There is nothing on that path to draw it in.",
+
+            TextCode.CaptureHasNoCursorMetadata =>
+                $"{Words.Capture(a.Capture)} hands over a picture and nothing else. Only the desktop portal reports "
+                + "where the pointer is, separately from the frames.",
+
+            TextCode.CursorMetadataNotCarried =>
+                "Nothing carries the pointer's position to a viewer yet, and no viewer draws one, so a stream sent "
+                + "this way would arrive with no pointer at all.",
+
+            TextCode.CqAboveCodecScale =>
+                $"{a.Codec} counts quality to {a.CqMax} on {Words.Engine(a.Engine)}, so the slider stops there. "
+                + "Each encoder has its own scale, and the same number is a different quality on each.",
+
+            TextCode.BitrateAboveCodecLimit =>
+                $"{a.Codec} refuses a target above {a.BitrateLimitMbps} Mbit/s on {Words.Engine(a.Engine)}. "
+                + "It is the encoder's own limit, and an encode asking for more does not start.",
 
             TextCode.MaxrateOnlyInConstrainedVbr =>
                 "Only capped variable bitrate has a ceiling to raise. The other modes either hold the target or ignore it.",
@@ -412,6 +445,17 @@ public static class Statements
                   + $"{Decimal(a.BitrateMbps)} Mbit/s of it - about {Number((long)Math.Round(a.RawMbps / a.BitrateMbps))}:1."
                 : $"Your screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed.",
 
+            // --- Presets ---------------------------------------------------------------
+
+            // The sentence names the preset even though it prints under the row that already
+            // does, so that it still says what it is about wherever it is shown. The publish
+            // leg is the way out the backend hands over: it is the one dimension the search
+            // does not move, so it is what is left to change.
+            TextCode.PresetUnreachable =>
+                $"Nothing this machine can run delivers {Words.Preset(a.Preset)} over "
+                + $"{Words.Transport(a.Transport)}. Nothing was changed - a near miss under this "
+                + "name would be settings you did not ask for.",
+
             // --- Notices ---------------------------------------------------------------
 
             TextCode.SettingsStoreUnreadable => a.Path.Length > 0
@@ -509,6 +553,10 @@ public static class Statements
 
         public string Transport => Id(TextArgName.Transport);
 
+        /// <summary>The built-in preset a statement is about, which is not the NVENC ladder step
+        /// <see cref="EncPreset"/> carries.</summary>
+        public string Preset => Id(TextArgName.Preset);
+
         public string Codec => Id(TextArgName.Codec);
 
         public string Format => Id(TextArgName.Format);
@@ -556,6 +604,12 @@ public static class Statements
         public long RefreshHz => Num(TextArgName.RefreshHz);
 
         public long MaxrateMbps => Num(TextArgName.MaxrateMbps);
+
+        /// <summary>The top of the selected codec's quantizer scale on the engine behind the capture.</summary>
+        public long CqMax => Num(TextArgName.CqMax);
+
+        /// <summary>The highest bitrate target the selected codec's encoder accepts.</summary>
+        public long BitrateLimitMbps => Num(TextArgName.BitrateLimitMbps);
 
         public long UplinkMbps => Num(TextArgName.UplinkMbps);
 

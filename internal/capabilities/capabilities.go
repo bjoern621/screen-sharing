@@ -11,6 +11,15 @@
 // a gap may name is the Options list, so an axis is added by naming it there rather
 // than by growing the Gap type.
 //
+// A Gap and a numeric ceiling are how those facts are *written*, on the codec row they
+// belong to, and rules.go is where they become what everything *reads*: rules in the one
+// evaluator (internal/rules). The distinction matters because a fact about a codec and a
+// capture backend together, or a codec and a platform, has no row to sit on, and every
+// such fact used to grow a table of its own with a consumer written per table. Nothing
+// below is read by a consumer any more - the greying, the offered range and the refusal
+// in Validate all come off one evaluation - so a limit stated here binds everywhere it is
+// true and in the same words.
+//
 // Which protocol carries a codec is not a fact about the encoder and is not
 // modeled here. A protocol carries a bitstream format, so the transport package
 // declares its own format set per leg and answers both directions from it.
@@ -31,12 +40,14 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
+	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// The publish engines a capability can differ between. This package depends on
-// nothing, which is what lets both engines and the frontend binding read it, so the
-// names are declared here and the publish package's own constants take them from
-// here rather than the other way round.
+// The publish engines a capability can differ between. This package depends on the rule
+// vocabulary and on nothing else in the domain, which is what lets both engines and the
+// frontend binding read it, so the names are declared here and the publish package's own
+// constants take them from here rather than the other way round.
 const (
 	EngineFfmpeg = "ffmpeg"
 	EngineGst    = "gstreamer"
@@ -184,6 +195,63 @@ func (g Gap) covers(engine string) bool {
 	return g.Engine == "" || g.Engine == engine
 }
 
+// Ladder is one encoder knob's steps, and where each rate-control mode starts on it.
+//
+// The steps are the encoder's own identifiers rather than a normalized scale, because a
+// normalized one would lie: x264's "slow" and SVT-AV1's preset 8 are not the same trade,
+// and a number carried across a codec change would land the user on a different real
+// setting than the one they had. The shell names each step and a step it has no name for
+// renders as the identifier, which is what lets a codec gain a ladder with nothing edited
+// there (docs/domain-model.md).
+//
+// The order runs from the step that spends the most effort to the one that spends the
+// least, whatever direction the encoder's own numbering runs, so a control can be drawn
+// without knowing which way each ladder counts.
+type Ladder struct {
+	// Steps are the values the encoder takes, most effort first. Empty is a codec whose
+	// encoder has no such knob, which greys the control with the reason.
+	Steps []string `json:"steps"`
+	// Defaults is the step each rate-control mode starts on, keyed as Modes names them.
+	// A mode with no entry leaves the knob unset, which is the encoder's own default and
+	// not a step of the ladder.
+	Defaults map[string]string `json:"defaults"`
+	// Pins are the modes that fix the step rather than starting on it, so the control is
+	// greyed there and the statement names the step in force.
+	//
+	// It is a fact about the encoder and not about the mode: NVENC pins its preset in CBR
+	// because a low-latency preset is what lets it hold a constant rate, and x264 in the
+	// same mode takes whatever step it is given. A flag on the mode would grey every
+	// codec's control wherever one of them pins.
+	Pins []string `json:"pins"`
+}
+
+// PinsIn reports whether this mode fixes the step rather than starting on it.
+func (l Ladder) PinsIn(mode string) bool {
+	return contains(l.Pins, mode)
+}
+
+// StepFor is where a mode starts on this ladder, and false where the ladder leaves the
+// knob to the encoder in that mode.
+func (l Ladder) StepFor(mode string) (string, bool) {
+	step, ok := l.Defaults[mode]
+	return step, ok
+}
+
+// Has reports whether the ladder declares a step.
+func (l Ladder) Has(step string) bool {
+	return contains(l.Steps, step)
+}
+
+// everyMode spreads one step across every rate-control mode, for a ladder whose step does
+// not follow what the encoder is aiming at.
+func everyMode(step string) map[string]string {
+	out := make(map[string]string, len(Modes))
+	for _, mode := range Modes {
+		out[mode] = step
+	}
+	return out
+}
+
 // Codec describes one video codec's fixed capabilities.
 type Codec struct {
 	// Name is the ffmpeg encoder name, e.g. "hevc_nvenc".
@@ -225,6 +293,14 @@ type Codec struct {
 	// takes any rate the machine can produce, which is the usual case. This is a
 	// ceiling on the target, not the VBR burst ceiling the user sets above it.
 	BitrateLimitM map[string]int `json:"bitrateLimitM"`
+	// Effort is the speed-against-quality ladder this encoder takes, and where each mode
+	// starts on it. An empty ladder is an encoder with no such knob.
+	Effort Ladder `json:"effort"`
+	// Tune is the ladder that says what the encoder optimizes for, which is a different
+	// question from how hard it works: a live encode drops the lookahead and the frame
+	// reordering that a quality one keeps, whatever effort it is spending. Encoders that
+	// have one take it beside the effort step rather than instead of it.
+	Tune Ladder `json:"tune"`
 	// Gaps lists what this codec cannot do, per axis and per publish engine. Empty
 	// means every chroma above and all five rate-control modes reach the encoder on
 	// both engines.
@@ -337,22 +413,31 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 	if !contains(Modes, mode) {
 		return fmt.Errorf("unknown rate-control mode %q", mode)
 	}
-	// The refusals below name identifiers and nothing else. They are operational
-	// errors - the same text crosses as a gRPC status when the publish is attempted -
-	// and the reason a gap exists is a statement a surface makes from the gap itself
-	// rather than a sentence quoted into an error string (docs/ipc-api.md).
-	if _, ok := c.EngineGap(engine); ok {
+	// Every refusal below is the rules' answer rather than a second reading of the
+	// columns they were built from. That is what keeps a control the form greys and a
+	// publish this refuses in step: the offered range, the greyed entry and the error
+	// here are three readings of one evaluation, where they used to be three consumers
+	// of one column each free to gate on something different.
+	//
+	// The refusals name identifiers and nothing else. They are operational errors - the
+	// same text crosses as a gRPC status when the publish is attempted - and the reason a
+	// limit exists is a statement a surface makes from the rule itself rather than a
+	// sentence quoted into an error string (docs/ipc-api.md).
+	v := rules.EvaluateRules(validationFacts(c, engine, options, cq, bitrateM), codecRules())
+
+	if !v.ValueEnabled(rules.AxisCodec, c.Name) {
 		return fmt.Errorf("codec %s has no %s encoder", c.Name, engine)
 	}
 	if !contains(c.Chromas, chroma) {
 		return fmt.Errorf("codec %s cannot encode pixel format %s", c.Name, chroma)
 	}
-	// Every option is read the same way and in table order, so a codec gapped on two
+	// Every option is read the same way and in table order, so a codec refused on two
 	// of them names the first rather than the one an axis-by-axis validator happened
 	// to check first.
 	for _, option := range Options {
-		_, ok := c.OptionGap(engine, option, options[option])
-		if !ok {
+		axis, ok := optionAxes[option]
+		assert.Assert(ok, "a gappable option names the axis a rule matches it on", option)
+		if v.ValueEnabled(axis, options[option]) {
 			continue
 		}
 		refusal, ok := optionRefusals[option]
@@ -360,20 +445,48 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 		return fmt.Errorf("codec %s %s on the %s engine",
 			c.Name, fmt.Sprintf(refusal, options[option]), engine)
 	}
-	// The quantizer target reaches the encoder in crf mode only, and each
-	// encoder's knob has its own scale: 60 is a valid libvpx CQ and an error on
-	// x264. The scale is the running engine's, since the two set different
-	// properties and one may pass a wider index through than the other clamps to.
-	if cqMax := c.CqMaxOn(engine); mode == ModeCrf && cqMax > 0 && (cq < 0 || cq > cqMax) {
-		return fmt.Errorf("quantizer target %d is outside codec %s's 0-%d range on the %s engine", cq, c.Name, cqMax, engine)
+	// The quantizer target reaches the encoder in crf mode only, and each encoder's knob
+	// has its own scale: 60 is a valid libvpx CQ and an error on x264. Which modes read
+	// the knob is the rule's own gate now, so this asks about the value and nothing else.
+	// A negative target is refused separately: no rule states a floor, and a scale that
+	// starts at zero is one no band below it can express.
+	if cq < 0 || !v.NumberAllowed(rules.AxisCq, cq) {
+		return fmt.Errorf("quantizer target %d is outside codec %s's 0-%d range on the %s engine",
+			cq, c.Name, c.CqMaxOn(engine), engine)
 	}
-	// The bitrate target reaches the encoder in the three bitrate modes only, so a
-	// value left over from a lossless preset must not block a constant-quality
-	// encode that never sends it.
-	if limit := c.BitrateLimitOn(engine); targetsBitrate(mode) && limit > 0 && bitrateM > limit {
-		return fmt.Errorf("bitrate target %d Mbit/s is above codec %s's %d Mbit/s ceiling on the %s engine", bitrateM, c.Name, limit, engine)
+	if !v.NumberAllowed(rules.AxisBitrateM, bitrateM) {
+		return fmt.Errorf("bitrate target %d Mbit/s is above codec %s's %d Mbit/s ceiling on the %s engine",
+			bitrateM, c.Name, c.BitrateLimitOn(engine), engine)
 	}
 	return nil
+}
+
+// validationFacts is the configuration a validation is about, as the axes read it.
+//
+// It answers the axes this call was given and leaves the rest empty, which is honest
+// rather than lossy: the rules evaluated here are the codec table's own, and those name
+// the codec, the engine and the mode. A fact nobody stated matches no rule that names a
+// value, so an axis left empty withholds nothing. What it must never do is guess, which
+// would refuse a publish over a combination the caller never described.
+func validationFacts(c Codec, engine string, options map[string]string, cq, bitrateM int) rules.Facts {
+	return rules.Facts{
+		rules.AxisCodec:      rules.TextValue(c.Name),
+		rules.AxisFamily:     rules.TextValue(c.Family),
+		rules.AxisFormat:     rules.TextValue(c.Format),
+		rules.AxisEngine:     rules.TextValue(engine),
+		rules.AxisChroma:     rules.TextValue(options[OptionChroma]),
+		rules.AxisMode:       rules.TextValue(options[OptionMode]),
+		rules.AxisColorRange: rules.TextValue(options[OptionColorRange]),
+		rules.AxisCq:         rules.NumberValue(cq),
+		rules.AxisBitrateM:   rules.NumberValue(bitrateM),
+		rules.AxisCapture:    rules.TextValue(""),
+		rules.AxisMemory:     rules.TextValue(""),
+		rules.AxisTransport:  rules.TextValue(""),
+		rules.AxisAudio:      rules.TextValue(""),
+		rules.AxisAudioCodec: rules.TextValue(""),
+		rules.AxisOS:         rules.TextValue(""),
+		rules.AxisDisplay:    rules.TextValue(""),
+	}
 }
 
 // targetsBitrate reports whether a rate-control mode aims at a bitrate the user
@@ -381,6 +494,26 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 // bitrate field means nothing to them.
 func targetsBitrate(mode string) bool {
 	return mode == ModeCbr || mode == ModeVbr || mode == ModeAbr
+}
+
+// WidestCqScale is the top of the widest quantizer scale any row declares, on any engine.
+//
+// It is what a quantizer control is offered within before the rules narrow it to the
+// selected codec's own scale. Derived rather than written down: a control that started at
+// a constant would either clamp a codec counting past it or offer numbers no encoder here
+// reaches, and the second a row declared a wider scale the constant would be the one place
+// that did not know.
+func WidestCqScale() int {
+	widest := 0
+	for _, c := range Codecs {
+		for _, engine := range Engines {
+			if scale := c.CqMaxOn(engine); scale > widest {
+				widest = scale
+			}
+		}
+	}
+	assert.Assert(widest > 0, "the codec table declares a quantizer scale somewhere")
+	return widest
 }
 
 // Get returns the capabilities for name, or false if the codec is unknown.

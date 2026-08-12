@@ -57,15 +57,22 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 	// kind for the next call, and a form that repaired something new every time it was
 	// asked about the draft it had just returned would never settle.
 	//
-	// The bound is the number of fields. Each round either moves at least one field or is
-	// the last, and no field can move without a round having moved another, so a walk that
-	// took more rounds than there are fields would be one cycling between two answers -
-	// which is an availability rule contradicting itself, not a draft to keep chewing on.
+	// The bound is the number of settings a round can move. Each round either moves at
+	// least one of them or is the last, and none can move without a round having moved
+	// another, so a walk that took more rounds than that would be one cycling between two
+	// answers - which is an availability rule contradicting itself, not a draft to keep
+	// chewing on.
+	//
+	// It is the form's fields plus what the ladder repair moves without a control of its
+	// own. The tune step is one: it is a setting the repair puts back on the selected
+	// codec's ladder, and the form has no row for it yet, so counting fields alone would
+	// bound the walk one round short of what it can legitimately do.
+	movable := len(fieldTable) + len(repairKeysWithoutFields)
 	rounds := 0
 	for changed := true; changed; rounds++ {
 		changed = false
-		assert.Assert(rounds <= len(fieldTable),
-			"a repair settles in fewer rounds than the form has fields", rounds, len(fieldTable))
+		assert.Assert(rounds <= movable,
+			"a repair settles in fewer rounds than the settings it can move", rounds, movable)
 
 		// The table's order is the screen's order, which makes each round left to right and
 		// top to bottom: a field is repaired against the values the fields before it were
@@ -106,9 +113,17 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 			}
 		}
 
-		// The ceilings last in the round, because which ceilings apply is the codec's and
-		// the codec may have moved above. Clamping first would hold the numbers against the
-		// codec the draft arrived on and leave them against the one it left on.
+		// The ladder steps and the ceilings last in the round, for the same reason: both
+		// are the codec's own facts and the codec may have moved above. Holding either
+		// first would measure the draft against the codec it arrived on and leave it
+		// against the one it left on.
+		for _, key := range repairLadders(m) {
+			changed = true
+			if !moved[key] {
+				moved[key] = true
+				repaired = append(repaired, key)
+			}
+		}
 		for _, key := range repairCeilings(d, m) {
 			changed = true
 			if !moved[key] {
@@ -140,6 +155,66 @@ func repairSkips(key string, s settings.Settings) bool {
 	return key == KeyAudioCodec && s.Publish.AudioTrack() == capabilities.AudioNone
 }
 
+// repairKeysWithoutFields are the settings the repair moves that the form declares no
+// control for.
+//
+// It exists so the walk's bound counts what can move rather than what is drawn, and it is
+// meant to shrink: a setting the user cannot see and the repair rewrites is a setting
+// whose change nobody can read, so each entry here is a control the form still owes.
+var repairKeysWithoutFields = []string{KeyTune}
+
+// repairLadders puts the two ladder steps back on the selected codec's own ladders, and
+// returns the keys it moved.
+//
+// The ladders do not correspond, which is the whole reason this exists. A step is the
+// encoder's own identifier - x264 counts in names, SVT-AV1 in numbers to 13, NVENC from p1
+// to p7 - so a draft that changes codec is holding a step the new encoder never heard of,
+// and there is no position to carry across: "slow" is not preset 8, and a number that
+// looked equivalent would land the user on a different real setting than the one they had.
+//
+// So a step off the ladder is reset to the one that codec's row declares for the mode
+// rather than mapped. That is a value the user did not choose, which is why the field is
+// named in the repaired list: a shell says so, where a silent rewrite would leave them
+// reading a step they never picked.
+//
+// A codec declaring no ladder leaves the field standing. There is no step to be off, the
+// control is greyed with that reason, and clearing it would throw away what the draft
+// carries for whichever codec it came from.
+func repairLadders(m *screensharev1.Settings) []string {
+	s := wire.ToSettings(m)
+	c, known := capabilities.Get(s.Publish.Codec)
+	if !known {
+		// A codec no table carries is one the codec field's own repair moves on a later
+		// round. Nothing here knows which ladder to hold the steps against until it has.
+		return nil
+	}
+
+	// A move that would write what is already there is not a move. The declared step for a
+	// mode can be the empty one - a tune ladder leaves most modes untuned, and a mode the
+	// codec gaps declares nothing at all - and the empty value is not a step of any ladder,
+	// so resetting to it and then judging it off the ladder again is a round that never
+	// settles. The repair is a fixed point or it is a loop.
+	var moved []string
+	if len(c.Effort.Steps) > 0 && !c.Effort.Has(s.Publish.Effort) {
+		if step, _ := c.Effort.StepFor(s.Publish.Mode); step != s.Publish.Effort {
+			s.Publish.Effort = step
+			moved = append(moved, KeyEffort)
+		}
+	}
+	if len(c.Tune.Steps) > 0 && !c.Tune.Has(s.Publish.Tune) {
+		if step, _ := c.Tune.StepFor(s.Publish.Mode); step != s.Publish.Tune {
+			s.Publish.Tune = step
+			moved = append(moved, KeyTune)
+		}
+	}
+	if len(moved) == 0 {
+		return nil
+	}
+	proto.Reset(m)
+	proto.Merge(m, wire.Settings(s))
+	return moved
+}
+
 // repairCeilings holds the numeric settings to the limits the capability table states for
 // the codec and engine the draft names, and returns the keys it moved.
 //
@@ -156,24 +231,26 @@ func repairCeilings(d Deps, m *screensharev1.Settings) []string {
 	// figure against - the codec, the bitrate, the ceiling - is on the contract, so there
 	// is no off-contract field for a base draft to restore.
 	s := wire.ToSettings(m)
-	codec, ok := capabilities.Get(s.Publish.Codec)
-	if !ok {
-		// A draft naming a codec no table carries is one the codec field's own repair moves
-		// on a later round. Nothing here knows what to hold it to until it has.
-		return nil
-	}
-	engine := optionEngineOf(s)
+	// The ends come off the same evaluation the form offers the control within, so a
+	// figure this holds down and a figure the slider stops at cannot disagree. A draft
+	// naming a codec no table carries narrows nothing and is left alone, which is what the
+	// codec field's own repair moves on a later round.
+	v := verdictsOf(d, s)
 
 	var moved []string
-	if ceiling := codec.CqMaxOn(engine); ceiling > 0 && s.Publish.Cq > ceiling {
+	if _, ceiling := v.Bounds(KeyCq, 0, capabilities.WidestCqScale()); s.Publish.Cq > ceiling {
 		s.Publish.Cq = ceiling
 		moved = append(moved, KeyCq)
 	}
-	if ceiling := codec.BitrateLimitOn(engine); ceiling > 0 {
+	if _, ceiling := v.Bounds(KeyBitrateM, 0, fieldRateCeiling); ceiling < fieldRateCeiling {
 		if s.Publish.BitrateM > ceiling {
 			s.Publish.BitrateM = ceiling
 			moved = append(moved, KeyBitrateM)
 		}
+		// The burst ceiling is held to the same limit, which the control's own range
+		// deliberately is not: a ceiling is not a target, so the form offers it past the
+		// encoder's limit on purpose. What a repair may not leave standing is a draft the
+		// publish refuses, and a maxrate above the limit is one.
 		if s.Publish.MaxrateM > ceiling {
 			s.Publish.MaxrateM = ceiling
 			moved = append(moved, KeyMaxrateM)

@@ -130,6 +130,14 @@ public static class Words
         ["system"] = "Copy through RAM",
     };
 
+    /// <summary>What the pointer does in the captured frames.</summary>
+    private static readonly Dictionary<string, string> Cursors = new()
+    {
+        ["embedded"] = "Drawn into the picture",
+        ["hidden"] = "Not shared",
+        ["metadata"] = "Sent beside the picture",
+    };
+
     /// <summary>The kmsgrab download strategies, named by the device that does the mapping.</summary>
     private static readonly Dictionary<string, string> DrmMaps = new()
     {
@@ -175,6 +183,19 @@ public static class Words
         ["p5"] = "p5",
         ["p6"] = "p6",
         ["p7"] = "p7 · smallest",
+    };
+
+    /// <summary>
+    /// The built-in presets, named for what each one puts first. A preset is a promise about
+    /// the picture rather than a set of values, so the name says what is being asked for and
+    /// never which encoder answers - that part is this machine's and differs on the next one
+    /// (<c>docs/presets.md</c>).
+    /// </summary>
+    private static readonly Dictionary<string, string> Presets = new()
+    {
+        ["lossless"] = "Lossless",
+        ["gaming"] = "Gaming",
+        ["readability"] = "Text and detail",
     };
 
     /// <summary>The RTP lower transports an RTSP session runs over.</summary>
@@ -254,6 +275,8 @@ public static class Words
 
     public static string Memory(string id) => Look(Memories, id);
 
+    public static string Cursor(string id) => Look(Cursors, id);
+
     public static string DrmMap(string id) => Look(DrmMaps, id);
 
     public static string AudioSource(string id) => Look(AudioSources, id);
@@ -263,6 +286,13 @@ public static class Words
     public static string ColorRange(string id) => Look(ColorRanges, id);
 
     public static string EncPreset(string id) => Look(EncPresets, id);
+
+    /// <summary>
+    /// The name of a built-in preset. It is not <see cref="EncPreset"/>: that one is a step of
+    /// the NVENC ladder and a settings value, this one is a way of publishing that is applied
+    /// and never stored.
+    /// </summary>
+    public static string Preset(string id) => Look(Presets, id);
 
     public static string RtspProtocol(string id) => Look(RtspProtocols, id);
 

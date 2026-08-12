@@ -24,6 +24,10 @@ func probeStream() settings.Settings {
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
+	// The defaults carry the step the default codec counts on, and this names another
+	// one, whose ladder has no such step. Clearing it is what the repair does in the app,
+	// and it leaves the builder on the row's own declared step.
+	s.Publish.Effort, s.Publish.Tune = "", ""
 	return s
 }
 

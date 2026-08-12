@@ -38,11 +38,10 @@ func baseStream() settings.Settings {
 			BitrateM:   150,
 			MaxrateM:   200,
 			Capture:    "x11grab",
-			// The NVENC mapping is held to the preset ladder, the frame memory against the
-			// pair table, and a settings file reaches a builder through
-			// settings.migrateStream, which fills the keys a file written before either
+			// The NVENC mapping is held to the preset ladder, and a settings file reaches a
+			// builder through the migration, which fills the keys a file written before the
 			// option lacks. These settings stand in for one that has.
-			EncPreset:     "p7",
+			Effort:        "p7",
 			DrmMap:        "auto",
 			CaptureMemory: gpupath.MemoryAuto,
 			// The audio source is off here, so the codec matters only to the cases that turn it on.
@@ -129,16 +128,20 @@ func TestDrmMapForRefusesANameNoRowCarries(t *testing.T) {
 // capabilities.Validate covers the codec, pixel format, mode and the two rate
 // figures, none of which this is.
 func TestNvencPresetLimitRefusesAStepOutsideTheLadder(t *testing.T) {
-	for _, preset := range []string{"", "p8", "slow"} {
+	// The empty string is deliberately absent: it means the codec's own declared step
+	// now, which is what a draft holding none is entitled to, and what the builder
+	// resolves it to. A step off the ladder is still refused, including one that belongs
+	// to another encoder's ladder.
+	for _, preset := range []string{"p8", "slow"} {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma, s.Publish.EncPreset = "hevc_nvenc", "yuv420p", preset
+		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = "hevc_nvenc", "yuv420p", preset
 		if _, err := encoderArgs(s, gopFor(s)); err == nil {
 			t.Errorf("preset %q was accepted", preset)
 		}
 	}
 	for _, preset := range NvencPresets {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma, s.Publish.EncPreset = "hevc_nvenc", "yuv420p", preset
+		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = "hevc_nvenc", "yuv420p", preset
 		if _, err := encoderArgs(s, gopFor(s)); err != nil {
 			t.Errorf("preset %q: %v", preset, err)
 		}
@@ -150,7 +153,7 @@ func TestNvencPresetLimitRefusesAStepOutsideTheLadder(t *testing.T) {
 // or the sentence names a preset the encode does not run.
 func TestNvencCbrPinsTheDeclaredPreset(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode, s.Publish.EncPreset = "hevc_nvenc", "yuv420p", "cbr", "p7"
+	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode, s.Publish.Effort = "hevc_nvenc", "yuv420p", "cbr", "p7"
 	args, err := encoderArgs(s, gopFor(s))
 	if err != nil {
 		t.Fatal(err)

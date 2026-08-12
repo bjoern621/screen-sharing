@@ -9,9 +9,10 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
-	"bjoernblessin.de/screenshare/internal/display"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/portal"
+	"bjoernblessin.de/screenshare/internal/screensrc"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -124,6 +125,7 @@ func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 		// answer rather than a setting here: the compositor owns the choice, and it is
 		// the only side that knows which windows exist.
 		Types:        portal.SourceMonitor | portal.SourceWindow,
+		Cursor:       portalCursor(s.Publish.Cursor),
 		RestoreToken: settings.PortalToken(),
 	})
 	if err != nil {
@@ -256,27 +258,17 @@ func (ximageCapture) HoldsOneDevice() error {
 	return nil
 }
 
-// elements crops to the selected monitor when its geometry is known, the same
-// rule x11grab follows: enumeration failing leaves no offset, so the whole X
-// screen is captured instead of a guessed rectangle.
-//
-// ximagesrc's end coordinates are inclusive, so the last captured column is
-// offset plus width minus one.
+// elements reads the head from screensrc, which is where the crop to the selected
+// monitor is written. The wizard's monitor preview builds from the same table, so
+// the picture it offers a screen by is taken from the rectangle this stream carries
+// (internal/screensrc).
 //
 // The rate probe sits at the end of the chain, where it does for every backend.
 // Nothing here repeats a frame, so what it counts is what ximagesrc read off the
 // screen: the figure matches the configured framerate while the source keeps up,
 // and falls below it when it does not.
-func (ximageCapture) elements(s settings.Settings, opts gstCaptureOptions) []string {
-	src := []string{"ximagesrc", "use-damage=false", "show-pointer=true"}
-	if m, ok := monitorByIndex(s.Publish.Monitor); ok && m.Width > 0 && m.Height > 0 {
-		src = append(src,
-			"startx="+strconv.Itoa(m.OffsetX),
-			"starty="+strconv.Itoa(m.OffsetY),
-			"endx="+strconv.Itoa(m.OffsetX+m.Width-1),
-			"endy="+strconv.Itoa(m.OffsetY+m.Height-1),
-		)
-	}
+func (x ximageCapture) elements(s settings.Settings, opts gstCaptureOptions) []string {
+	src := screensrc.Head(x.Name(), s.Publish.Monitor, s.Publish.Cursor == cursor.Embedded)
 	src = append(src, "!", opts.rateCaps(s.Publish.Fps))
 	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
@@ -324,7 +316,8 @@ func (avfCapture) HoldsOneDevice() error {
 // elements places the rate probe at the end of the chain, where nothing has
 // repeated a frame yet, so what it counts is what AVFoundation delivered.
 func (avfCapture) elements(s settings.Settings, opts gstCaptureOptions) []string {
-	src := []string{"avfvideosrc", "capture-screen=true", "capture-screen-cursor=true",
+	src := []string{"avfvideosrc", "capture-screen=true",
+		"capture-screen-cursor=" + gstBool(s.Publish.Cursor == cursor.Embedded),
 		"!", opts.rateCaps(s.Publish.Fps),
 	}
 	src = append(src, opts.convertInto()...)
@@ -338,10 +331,8 @@ func (avfCapture) elements(s settings.Settings, opts gstCaptureOptions) []string
 // d3d11Capture is the Windows backend: d3d11screencapturesrc reads a monitor
 // through Desktop Duplication, the GStreamer counterpart of the ddagrab grabber.
 //
-// monitor-index selects the output and show-cursor draws the pointer into the
-// frames. The settings index reaches the element without a lookup, the way
-// ddagrab's output_idx does: both name a monitor in the Windows enumeration the
-// index already stands for.
+// The element and its monitor selection come from screensrc, so the wizard's
+// preview of a screen and the stream of that screen are the same output.
 //
 // The chain is ximageCapture's: the framerate capsfilter on the source is what
 // paces the encoder and nothing downstream repeats a frame, so no imagefreeze is
@@ -378,25 +369,13 @@ func (d3d11Capture) HoldsOneDevice() error {
 // the memory the nvcodec device path converts and encodes in (gstGpuMemories). Pinning it
 // is what keeps the frames on the device, plain video/x-raw between the two being system
 // memory and nothing else.
-func (d3d11Capture) elements(s settings.Settings, opts gstCaptureOptions) []string {
-	src := []string{"d3d11screencapturesrc", "show-cursor=true", "monitor-index=" + strconv.Itoa(s.Publish.Monitor),
-		"!", opts.rateCaps(s.Publish.Fps),
-	}
+func (d d3d11Capture) elements(s settings.Settings, opts gstCaptureOptions) []string {
+	src := screensrc.Head(d.Name(), s.Publish.Monitor, s.Publish.Cursor == cursor.Embedded)
+	src = append(src, "!", opts.rateCaps(s.Publish.Fps))
 	src = append(src, opts.convertInto()...)
 	if len(opts.RateProbe) > 0 {
 		src = append(src, "!")
 		src = append(src, opts.RateProbe...)
 	}
 	return src
-}
-
-// monitorByIndex returns the enumerated monitor with the settings index, and
-// false when enumeration has no entry for it.
-func monitorByIndex(idx int) (display.Monitor, bool) {
-	for _, m := range display.List() {
-		if m.Index == idx {
-			return m, true
-		}
-	}
-	return display.Monitor{}, false
 }

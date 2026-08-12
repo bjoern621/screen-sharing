@@ -15,6 +15,7 @@ import (
 	"runtime"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/receive"
@@ -68,14 +69,20 @@ type Publish struct {
 	// ColorRange is pc or tv, and is ignored for gbrp, which is inherently full range.
 	ColorRange string `json:"colorRange"`
 	Fps        int    `json:"fps"`
-	Cq         int    `json:"cq"`        // crf mode: constant-quality value, lower = better
-	BitrateM   int    `json:"bitrateM"`  // Mbps: target for cbr/vbr/abr
-	MaxrateM   int    `json:"maxrateM"`  // Mbps: vbr burst ceiling above the target
-	VbvMs      int    `json:"vbvMs"`     // VBV/rate buffer in ms for cbr/vbr, 0 = encoder default
-	Gop        int    `json:"gop"`       // keyframe interval in frames, 0 = auto (2*fps)
-	Bframes    int    `json:"bframes"`   // lossy modes only; adds reorder latency
-	EncPreset  string `json:"encPreset"` // nvenc p1..p7
-	Capture    string `json:"capture"`   // a row of publish.Captures, applicable per OS and session
+	Cq         int    `json:"cq"`       // crf mode: constant-quality value, lower = better
+	BitrateM   int    `json:"bitrateM"` // Mbps: target for cbr/vbr/abr
+	MaxrateM   int    `json:"maxrateM"` // Mbps: vbr burst ceiling above the target
+	VbvMs      int    `json:"vbvMs"`    // VBV/rate buffer in ms for cbr/vbr, 0 = encoder default
+	Gop        int    `json:"gop"`      // keyframe interval in frames, 0 = auto (2*fps)
+	Bframes    int    `json:"bframes"`  // lossy modes only; adds reorder latency
+	// Effort is the step the encoder works at on its own ladder, and Tune what it
+	// optimizes for. Both hold the encoder's own identifier - "slow", "9", "p7" - taken
+	// from the ladder its capability row declares, so a value here is one that encoder
+	// takes rather than a number normalized across codecs that would mean something else
+	// on each.
+	Effort  string `json:"effort"`
+	Tune    string `json:"tune"`
+	Capture string `json:"capture"` // a row of publish.Captures, applicable per OS and session
 	// Audio is where the second track comes from: a row of the platform's own source
 	// table (platform.AudioSources), which is what declares the values and which
 	// platform serves each.
@@ -93,6 +100,10 @@ type Publish struct {
 	// every frame and converts it on the CPU, or hands the encoder the device memory
 	// the capture already produced.
 	CaptureMemory string `json:"captureMemory"`
+	// Cursor is what the pointer does in the captured frames, one of cursor.Modes.
+	// Which of them a capture backend serves is that backend's own fact, so a stored
+	// value the selected backend does not serve is repaired rather than passed on.
+	Cursor string `json:"cursor"`
 	// SrtPublishLatencyMs is this hop's SRT retransmit window. Glass-to-glass delay is
 	// the sum of it and the watch hop's (Viewer.SrtWatchLatencyMs) plus encode and
 	// decode: the two are independent SRT links, each holding packets for its own
@@ -183,18 +194,22 @@ func Defaults() Settings {
 		capture = "x11grab"
 	}
 
-	return Settings{
+	d := Settings{
 		Relay: Relay{
-			Host: "127.0.0.1", SrtPort: 8890, ApiPort: 9997,
+			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890, ApiPort: 9997,
 			RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888,
 		},
 		Publish: Publish{
 			Name: host, Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
 			ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 			Gop: 0, Bframes: 0,
-			EncPreset: "p7", Capture: capture, DrmMap: "auto", Monitor: 0,
+			Capture: capture, DrmMap: "auto", Monitor: 0,
 			Audio: audioSourceNone, AudioCodec: defaultAudioCodec,
-			CaptureMemory:       gpupath.MemoryAuto,
+			CaptureMemory: gpupath.MemoryAuto,
+			// Embedded is what every backend but kmsgrab did before the setting existed,
+			// and it is what a viewer expects: a screen share whose pointer is missing
+			// reads as a broken capture rather than as a choice somebody made.
+			Cursor:              cursor.Embedded,
 			SrtPublishLatencyMs: 300, // with the watch hop below, ≈ the glass-to-glass budget
 			// Both legs start on TCP because it asks nothing of the path beyond the
 			// connection the session already made, where the UDP alternative depends on
@@ -214,4 +229,27 @@ func Defaults() Settings {
 			RenderChain:        receive.DefaultChain,
 		},
 	}
+
+	// The two ladder steps are read off the codec's own row rather than written here.
+	// Where each mode starts is a fact about the encoder, and a constant beside the codec
+	// name would be a second answer to it: the day the row moved a mode to another step,
+	// a fresh installation would keep starting on the old one with nothing saying so.
+	d.Publish.Effort, d.Publish.Tune = LadderSteps(d.Publish.Codec, d.Publish.Mode)
+	return d
+}
+
+// LadderSteps is where a codec's mode starts on its effort and tune ladders, and the empty
+// string for a ladder the codec does not declare.
+//
+// It is the one place a step is chosen for the user: a fresh installation takes them, and
+// so does a draft whose codec changed, since the ladders do not correspond and a step
+// carried across would name a value the new encoder never heard of.
+func LadderSteps(codec, mode string) (effort, tune string) {
+	c, ok := capabilities.Get(codec)
+	if !ok {
+		return "", ""
+	}
+	effort, _ = c.Effort.StepFor(mode)
+	tune, _ = c.Tune.StepFor(mode)
+	return effort, tune
 }

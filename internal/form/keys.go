@@ -45,7 +45,8 @@ const (
 	KeyVbvMs      = "publish.vbv_ms"
 	KeyGop        = "publish.gop"
 	KeyBframes    = "publish.bframes"
-	KeyEncPreset  = "publish.enc_preset"
+	KeyEffort     = "publish.effort"
+	KeyTune       = "publish.tune"
 
 	KeyCapture       = "publish.capture"
 	KeyAudio         = "publish.audio"
@@ -53,6 +54,7 @@ const (
 	KeyDrmMap        = "publish.drm_map"
 	KeyMonitor       = "publish.monitor"
 	KeyCaptureMemory = "publish.capture_memory"
+	KeyCursor        = "publish.cursor"
 
 	KeySrtPublishLatencyMs = "publish.srt_publish_latency_ms"
 	KeyRtspPublishProtocol = "publish.rtsp_publish_protocol"

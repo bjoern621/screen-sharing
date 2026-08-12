@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
@@ -444,15 +445,34 @@ func frameMemory(s settings.Settings) (string, error) {
 // business: a map onto the encoder's device where the family converts there, and nothing
 // at all where the encoder reads the texture itself.
 func ddagrabArgs(s settings.Settings, fps, memory string) (captureSource, error) {
-	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s", s.Publish.Monitor, fps)}
+	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s:draw_mouse=%s",
+		s.Publish.Monitor, fps, drawMouse(s))}
 	if !gpupath.OnDevice(memory) {
 		filters = append(filters, "hwdownload", "format=bgra")
 	}
 	return captureSource{filterFlag: "-filter_complex", filters: filters}, nil
 }
 
-func gdigrabArgs(_ settings.Settings, fps, _ string) (captureSource, error) {
-	return captureSource{args: []string{"-f", "gdigrab", "-framerate", fps, "-i", "desktop"}}, nil
+func gdigrabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
+	return captureSource{args: []string{
+		"-f", "gdigrab", "-framerate", fps, "-draw_mouse", drawMouse(s), "-i", "desktop",
+	}}, nil
+}
+
+// drawMouse is what the pointer setting means to an ffmpeg capture device, as the "1" or
+// "0" every one of them spells it with.
+//
+// The three modes collapse to two here because this engine has no third: an ffmpeg
+// capture either draws the pointer into the frames or leaves it out, and nothing on this
+// path reports a position to send beside the picture. Which backends serve which mode is
+// the capture table's answer, and a mode a backend does not serve is refused before a
+// command is built (internal/publish/cursor.go), so this only ever sees a mode the device
+// can run.
+func drawMouse(s settings.Settings) string {
+	if s.Publish.Cursor == cursor.Embedded {
+		return "1"
+	}
+	return "0"
 }
 
 // x11grabArgs crops the X screen to the selected monitor's geometry.
@@ -470,8 +490,8 @@ func x11grabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	if disp == "" {
 		return captureSource{}, fmt.Errorf("x11grab captures an X screen and DISPLAY names none")
 	}
-	args := []string{"-f", "x11grab", "-framerate", fps}
-	m, ok := monitorByIndex(s.Publish.Monitor)
+	args := []string{"-f", "x11grab", "-framerate", fps, "-draw_mouse", drawMouse(s)}
+	m, ok := display.At(s.Publish.Monitor)
 	if !ok {
 		return captureSource{}, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
 	}
@@ -508,7 +528,7 @@ const avfNoAudioDevice = ":none"
 func avfoundationArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	return captureSource{args: []string{
 		"-f", "avfoundation",
-		"-capture_cursor", "1",
+		"-capture_cursor", drawMouse(s),
 		"-framerate", fps,
 		"-i", avfoundationScreenDevice + strconv.Itoa(s.Publish.Monitor) + avfNoAudioDevice,
 	}}, nil
@@ -558,16 +578,4 @@ func audioEncodeArgs(s settings.Settings) ([]string, error) {
 		"-ar", strconv.Itoa(a.Rate),
 		"-ac", "2",
 	}, nil
-}
-
-// monitorByIndex looks up an enumerated monitor by its capture index. The second
-// return is false when no monitor carries that index, which happens when
-// enumeration is unavailable on this platform or the saved index is stale.
-func monitorByIndex(idx int) (display.Monitor, bool) {
-	for _, m := range display.List() {
-		if m.Index == idx {
-			return m, true
-		}
-	}
-	return display.Monitor{}, false
 }

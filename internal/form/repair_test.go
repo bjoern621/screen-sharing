@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
@@ -96,6 +97,27 @@ func TestARepairedDraftRepairsToItself(t *testing.T) {
 		if len(again) != 0 {
 			t.Errorf("%s: repairing a repaired draft named %v as repaired", tc.name, again)
 		}
+	}
+}
+
+// The pointer walks the same way, and it is the first field whose whole availability is a
+// rule rather than a converted gap. A scanout capture cannot draw the pointer at all, so a
+// draft carrying the default arrives on a backend that has no form of it.
+func TestThePointerWalksOffABackendThatCannotDrawIt(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	draft := availabilityDraft("kmsgrab", "hevc_nvenc", "yuv420p", "rtsp")
+	draft.Publish.Cursor = cursor.Embedded
+
+	s, repaired := Repair(deps, draft)
+
+	if s.Publish.Cursor == cursor.Embedded {
+		t.Error("a pointer the capture cannot draw survived the repair")
+	}
+	if enabled, reason := optionState(deps, s, KeyCursor, s.Publish.Cursor); !enabled {
+		t.Errorf("the repair landed on pointer mode %q, which the same evaluation greys: %s", s.Publish.Cursor, reason)
+	}
+	if !slices.Contains(repaired, KeyCursor) {
+		t.Errorf("the repaired list is %v, which does not name the field that moved", repaired)
 	}
 }
 

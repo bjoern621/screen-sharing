@@ -28,8 +28,9 @@ var fieldDeclaredKeys = []string{
 	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
-	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEncPreset,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort,
 	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
+	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps,
@@ -126,6 +127,44 @@ func TestEveryRowShowsAValue(t *testing.T) {
 	}
 }
 
+// Every control states what a fresh installation holds there, and states it from the
+// defaults rather than from the draft in front of it. A shell puts a group of settings
+// back with it, and a default that followed the draft would put a changed value back to
+// what it was just changed to.
+func TestEveryFieldStatesWhatAFreshInstallationHolds(t *testing.T) {
+	fresh := settings.Defaults()
+
+	draft := settings.Defaults()
+	draft.Relay.Host = "elsewhere.example"
+	draft.Relay.SrtPort = 9001
+
+	for _, g := range resolveGroups(fieldTestDeps(), draft, fresh) {
+		for _, f := range g.GetFields() {
+			if f.GetDefaultValue().GetKind() == nil {
+				t.Errorf("%s states no default", f.GetKey())
+				continue
+			}
+
+			switch f.GetKey() {
+			case KeyRelayHost:
+				if got := f.GetValue().GetText(); got != draft.Relay.Host {
+					t.Errorf("%s holds %q, want the draft's %q", f.GetKey(), got, draft.Relay.Host)
+				}
+				if got := f.GetDefaultValue().GetText(); got != fresh.Relay.Host {
+					t.Errorf("%s defaults to %q, want %q", f.GetKey(), got, fresh.Relay.Host)
+				}
+			case KeySrtPort:
+				if got := f.GetValue().GetNumber(); got != int64(draft.Relay.SrtPort) {
+					t.Errorf("%s holds %d, want the draft's %d", f.GetKey(), got, draft.Relay.SrtPort)
+				}
+				if got := f.GetDefaultValue().GetNumber(); got != int64(fresh.Relay.SrtPort) {
+					t.Errorf("%s defaults to %d, want %d", f.GetKey(), got, fresh.Relay.SrtPort)
+				}
+			}
+		}
+	}
+}
+
 // A row assigned to a group no groups entry carries renders nowhere: resolveGroups walks
 // the groups and picks the rows naming each, so the field would be silently absent from
 // every screen.
@@ -212,7 +251,7 @@ func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 
 	// The flag has to survive the render, since a shell reads it off the group and not
 	// off this table.
-	for _, g := range resolveGroups(fieldTestDeps(), settings.Defaults()) {
+	for _, g := range resolveGroups(fieldTestDeps(), settings.Defaults(), settings.Defaults()) {
 		if want := applied[g.GetKey()]; g.GetApplied() != want {
 			t.Errorf("resolved group %q is applied=%v, want %v", g.GetKey(), g.GetApplied(), want)
 		}
@@ -644,18 +683,27 @@ func TestEveryRtspProtocolTheTransportDeclaresIsOffered(t *testing.T) {
 	}
 }
 
-// The NVENC ladder is the last of the four. Nothing exports it, so what is checked is its
-// shape - seven contiguous steps from p1 - and that the value a fresh installation starts
-// on is one of them.
-func TestTheEncoderPresetLadderIsContiguousFromTheFirstStep(t *testing.T) {
-	offered := fieldOptionValues(t, KeyEncPreset)
-	for i, value := range offered {
-		if want := "p" + strconv.Itoa(i+1); value != want {
-			t.Errorf("ladder step %d is %q, want %q", i, value, want)
-		}
+// The effort control offers the selected codec's own ladder, in the order the table
+// declares it: most effort first, whatever direction that encoder's own numbering runs.
+// NVENC counts p1 fastest to p7 slowest, so its ladder is offered counting down, the same
+// way the chroma ladder runs from most colour detail to least.
+//
+// The default codec's ladder is what a fresh installation meets, and the step it starts on
+// has to be one of its rungs, or the control opens on a value it does not offer.
+func TestTheEffortLadderIsTheCodecsOwnMostEffortFirst(t *testing.T) {
+	fresh := settings.Defaults()
+	c, ok := capabilities.Get(fresh.Publish.Codec)
+	if !ok {
+		t.Fatalf("the default codec %q is not in the table", fresh.Publish.Codec)
 	}
-	if !slices.Contains(offered, settings.Defaults().Publish.EncPreset) {
-		t.Errorf("the ladder %v does not carry the default preset %q", offered, settings.Defaults().Publish.EncPreset)
+
+	offered := fieldOptionValues(t, KeyEffort)
+	if !slices.Equal(offered, c.Effort.Steps) {
+		t.Errorf("the control offers %v against the row's own %v", offered, c.Effort.Steps)
+	}
+	if !slices.Contains(offered, fresh.Publish.Effort) {
+		t.Errorf("the ladder %v does not carry the step %q a fresh installation starts on",
+			offered, fresh.Publish.Effort)
 	}
 }
 
@@ -673,7 +721,7 @@ func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 		KeyChroma:               s.Publish.Chroma,
 		KeyColorRange:           s.Publish.ColorRange,
 		KeyMode:                 s.Publish.Mode,
-		KeyEncPreset:            s.Publish.EncPreset,
+		KeyEffort:               s.Publish.Effort,
 		KeyAudio:                s.Publish.Audio,
 		KeyAudioCodec:           s.Publish.AudioCodec,
 		KeyTransport:            s.Publish.Transport,
@@ -723,15 +771,37 @@ func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 // clamp a wide scale to a fraction of itself and offer a narrow one values it refuses.
 func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeCrf
 	for _, c := range capabilities.Codecs {
 		s.Publish.Codec = c.Name
 		want := c.CqMaxOn(optionEngineOf(s))
 		if want == 0 {
-			want = fieldAnchorCq
+			// A row declaring no scale narrows nothing, which is what declaring none
+			// means: the unwired families count on whatever their builder sets, and no
+			// number here is one the table would honour.
+			want = capabilities.WidestCqScale()
 		}
 		if got := fieldCqBounds(d, s).GetMax(); got != int64(want) {
 			t.Errorf("%s is offered a 0-%d quantizer, want 0-%d", c.Name, got, want)
 		}
+	}
+}
+
+// A scale binds in the mode that reads the knob and nowhere else, which is the half the
+// column could not carry: it narrowed the control on every resolve, including the modes
+// that send the encoder no quantizer at all. The control is greyed in those modes anyway,
+// so what this pins is that the range offered and the range accepted are one answer.
+func TestTheQuantizerRangeIsWholeWhereTheKnobIsUnread(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Codec = "libx264"
+
+	s.Publish.Mode = capabilities.ModeCrf
+	if got := fieldCqBounds(d, s).GetMax(); got != 51 {
+		t.Errorf("the quantizer is offered to %d in constant quality, want x264's own 51", got)
+	}
+	s.Publish.Mode = capabilities.ModeLossless
+	if got := fieldCqBounds(d, s).GetMax(); got != int64(capabilities.WidestCqScale()) {
+		t.Errorf("the quantizer narrowed to %d in a mode that sends none", got)
 	}
 }
 
@@ -740,6 +810,7 @@ func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 // publish that dies at launch.
 func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeAbr
 	for _, c := range capabilities.Codecs {
 		s.Publish.Codec = c.Name
 		want := c.BitrateLimitOn(optionEngineOf(s))
@@ -749,6 +820,23 @@ func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 		if got := fieldBitrateBounds(d, s).GetMax(); got != int64(want) {
 			t.Errorf("%s is offered up to %d Mbit/s, want %d", c.Name, got, want)
 		}
+	}
+}
+
+// The ceiling is on the target the encoder is given, so it binds in the three modes that
+// aim at one. A constant-quality encode sends none, and narrowing there would be the form
+// stating a limit on a number nothing reads.
+func TestTheBitrateRangeIsWholeWhereNoTargetIsSent(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Codec = "libsvtav1"
+
+	s.Publish.Mode = capabilities.ModeAbr
+	if got := fieldBitrateBounds(d, s).GetMax(); got != 100 {
+		t.Errorf("the bitrate is offered to %d in a mode that aims at one, want 100", got)
+	}
+	s.Publish.Mode = capabilities.ModeCrf
+	if got := fieldBitrateBounds(d, s).GetMax(); got != fieldRateCeiling {
+		t.Errorf("the bitrate narrowed to %d in a mode that sends no target", got)
 	}
 }
 

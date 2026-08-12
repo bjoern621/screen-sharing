@@ -32,6 +32,23 @@ The lookup, the validator and the frontend read that list rather than a field pe
 A gap naming no option takes the codec off that engine altogether, since no value of any option reaches an encoder that is not there.
 Gap values are the settings' own: the option is a settings field name and the value is one that field takes, so a gap and the form control it greys are the same identifier on both sides of the wire.
 
+### One evaluator, and what a gap is now
+
+A `Gap` and a numeric ceiling are how a codec's limits are *written*, on the row they belong to.
+They are not what anything *reads*.
+`capabilities/rules.go` turns each of them into a rule in `internal/rules`, and every consumer asks that evaluator: the form's greying, the ends a numeric control is offered between, the repair, and the refusal `capabilities.Validate` returns.
+
+The move exists because a gap can only name a codec, an engine, an option and a value.
+A fact about a capture backend and a codec together, or a codec and the platform, has no row to sit on, so each one grew a table of its own with a consumer written against it, and every one of those consumers restated part of an answer the gap mechanism already knew how to give.
+The ceilings show what that costs: `CqMax` and `BitrateLimitM` were columns the form narrowed a control by and the validator refused a value by, which made the range a slider offered and the range a publish accepted two answers derived from one fact, free to gate on different things. They did: the validator applied the bitrate ceiling only in the modes that send a target, and the form applied it in all five.
+
+A rule is a row: the facts it binds under, keyed by axis; the verdict, which is stated and not derived; the control it lands on; which of that control's values it takes, as a value set or a numeric band; and the fact behind it as a code.
+Naming one axis makes it broad and naming five makes it surgical, so "no VP8 encoder has a colour range field" and "this codec on this capture backend on this engine alone" are the same shape.
+An axis is declared once, with what it reads as and the argument a statement carries it under, and a rule's reason is assembled from the axes it matched on, so a row states which fact it is and never which words carry it.
+
+Rules are declared where the fact lives and registered into the one evaluator, which is what keeps `transport` declaring its carriage beside the code that serializes it.
+Only verdicts cross the wire; the rules and the axis vocabulary stay in Go, for the reason `ipc-api.md` gives.
+
 Audio is two settings against two tables, because the source and the codec answer different questions.
 Which sources exist is the platform's answer and is the `Audio` field, a row of `platform.AudioSources`.
 Which codec the track is coded in is the engine's and the publish leg's, and is `AudioCodec`, a row of `capabilities.AudioCodecs`.
@@ -107,7 +124,8 @@ Constrained VBR is the case: without a ceiling it is ABR, so the encoders that t
 
 Each consumer reads the tables instead of restating a rule:
 
-- `form/availability.go`: greys out an option when the tables make it illegal for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
+- `form/availability.go`: greys out an option when the rules refuse it for the current settings, and greys a rate-control field unless the mode uses it, the codec's encoder has it and the capture's engine forwards it.
+  The facts one resolve is evaluated against are assembled in `form/facts.go`, which is the layer holding both the draft and the machine's answers; the rules package holds neither, because it is what every domain package registers into.
 - `form/repair.go`: repairs an illegal combination by walking the same tables to the first legal value, and leaves the value standing where the walk finds none.
 - `form/estimate.go`: the pre-publish bitrate prediction, from coding efficiency and chroma weight.
 - `form/options.go`: the option lists, built from the same tables so a control cannot offer a value the tables do not define.

@@ -90,6 +90,14 @@ enum TextArgName {
   // TEXT_ARG_NAME_DECODER it is not a settings value: nobody picks one, and a statement
   // about what this machine cannot run names the one that is missing.
   TEXT_ARG_NAME_ELEMENT = 23;
+  // TEXT_ARG_NAME_PRESET is a built-in preset, e.g. "gaming" (form.proto,
+  // BuiltinPreset). It is not a settings value either: a preset is applied and never
+  // stored, so no field holds one. TEXT_ARG_NAME_ENC_PRESET is the unrelated NVENC
+  // ladder step, which is a settings value.
+  TEXT_ARG_NAME_PRESET = 24;
+  // TEXT_ARG_NAME_CURSOR is what the pointer does in the captured frames, as the settings
+  // name it: "embedded", "hidden" or "metadata".
+  TEXT_ARG_NAME_CURSOR = 25;
 
   // Lists of identifiers, each of the axis its name says. A shell joins them in its
   // own language; the backend states which ones, never how they read together.
@@ -193,6 +201,10 @@ enum TextCode {
   // A scaled output resolution, and the source it was derived from. TEXT_ARG_NAME_WIDTH and
   // TEXT_ARG_NAME_HEIGHT are the source's.
   TEXT_CODE_SCALED_FROM_SOURCE = 6;
+  // This session has no capture element that reads one output apart from another, so
+  // there is no picture of a single monitor to show. TEXT_ARG_NAME_OS and, on Linux,
+  // TEXT_ARG_NAME_DISPLAY: what is missing is the session's, not any one monitor's.
+  TEXT_CODE_NO_MONITOR_PREVIEW = 7;
 
   // --- Publish engines and the encoder probe ------------------------------------
 
@@ -337,6 +349,34 @@ enum TextCode {
   // TEXT_ARG_NAME_BITRATE_KBPS.
   TEXT_CODE_AUDIO_TRACK_CODED_AT = 71;
 
+  // The two limits a codec's own encoder places on a figure the user sets. Each states
+  // the top of the range that reaches the encoder, which is what the control is offered
+  // within and what a value above it is refused by: one fact, one statement, rather than
+  // a ceiling the form narrowed by and a refusal worded separately.
+  //
+  // The quantizer scale is the codec's and the engine's together, since the two set
+  // different properties and one may pass an index through that the other clamps.
+  // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_CQ_MAX.
+  TEXT_CODE_CQ_ABOVE_CODEC_SCALE = 72;
+  // The encoder refuses a target above this rather than coding at what it was given.
+  // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE,
+  // TEXT_ARG_NAME_BITRATE_LIMIT_MBPS.
+  TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT = 73;
+
+  // --- What the pointer can do, per capture backend ------------------------------
+
+  // kmsgrab reads the scanout's primary plane and the pointer is a plane of its own, so
+  // there is nothing on that path to draw it into the frames. TEXT_ARG_NAME_CAPTURE.
+  TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE = 74;
+  // The capture backend reports no pointer position of its own, so there is nothing to
+  // send beside the picture. TEXT_ARG_NAME_CAPTURE.
+  TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA = 75;
+  // The pointer's position reaches no viewer yet: nothing on the wire carries it and no
+  // viewer draws one, so a stream sending it would arrive with no pointer at all. It is
+  // a limit of this app rather than of the capture, which is why it is stated apart from
+  // the two above. No arguments.
+  TEXT_CODE_CURSOR_METADATA_NOT_CARRIED = 76;
+
   // --- Where a publish engine departs from the mode table ------------------------
   //
   // One code per row of that table. They are separate codes rather than one with the
@@ -417,6 +457,14 @@ enum TextCode {
   // What the capture produces and what the encode is predicted to leave of it.
   // TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
   TEXT_CODE_COMPRESSION_RATIO = 137;
+
+  // --- Presets -------------------------------------------------------------------
+
+  // No configuration this machine runs delivers what the preset promises, so nothing
+  // is applied and nothing is approximated. TEXT_ARG_NAME_PRESET names the preset and
+  // TEXT_ARG_NAME_TRANSPORT the publish leg the search worked within, that being the
+  // one dimension a preset never moves.
+  TEXT_CODE_PRESET_UNREACHABLE = 140;
 
   // --- Notices -------------------------------------------------------------------
 

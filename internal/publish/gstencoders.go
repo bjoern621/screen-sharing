@@ -163,12 +163,8 @@ func GstEncoderElementOn(codec, memory string) (string, bool) {
 // hardware families have no form of, and asking for it would reach the exhaustive
 // dispatch every mapping ends in.
 func firstGstMode(codec string) (string, bool) {
-	c, ok := capabilities.Get(codec)
-	if !ok {
-		return "", false
-	}
 	for _, mode := range capabilities.Modes {
-		if _, gap := c.OptionGap(capabilities.EngineGst, capabilities.OptionMode, mode); !gap {
+		if capabilities.Reaches(codec, capabilities.EngineGst, capabilities.OptionMode, mode) {
 			return mode, true
 		}
 	}
@@ -626,7 +622,7 @@ func qsvEncoder(elem string) func(settings.Settings, gstRates) []string {
 //   - lossless: the element's lossless preset, rate control dropped.
 //
 // B-frames apply only to the lossy bursting modes. The p1-p7 preset ladder in
-// s.EncPreset has no equivalent on these elements and is not forwarded, so the
+// s.Effort has no equivalent on these elements and is not forwarded, so the
 // settings form greys the preset field on this engine.
 //
 // The element name is bound per codec in gstCodecs, so H.264, HEVC and AV1 share one

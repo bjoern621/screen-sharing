@@ -10,6 +10,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/gpupath"
@@ -133,6 +134,21 @@ func optionCaptureMemories(_ Deps, _ settings.Settings) []*screensharev1.FieldOp
 	out := make([]*screensharev1.FieldOption, 0, len(gpupath.Memories))
 	for _, memory := range gpupath.Memories {
 		out = append(out, optionEntry(memory, nil, memory == gpupath.MemoryAuto))
+	}
+	return out
+}
+
+// optionCursors offers all three pointer modes, whatever the selected capture backend
+// serves. Which of them this backend cannot do is a greying with the backend's own
+// reason, since an entry that vanished would take away the sentence naming what to
+// change (docs/field-availability.md, "Where a greyed entry sits").
+//
+// Embedded is marked: it is what a screen share is expected to look like, and it is what
+// every backend but the scanout one does.
+func optionCursors(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
+	out := make([]*screensharev1.FieldOption, 0, len(cursor.Modes))
+	for _, mode := range cursor.Modes {
+		out = append(out, optionEntry(mode, nil, mode == cursor.Embedded))
 	}
 	return out
 }
@@ -348,10 +364,43 @@ func optionModes(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
 	return optionPlainList(capabilities.Modes, KeyMode)
 }
 
-// optionEncPresets offers the ladder steps the ffmpeg engine accepts, read off the
-// ladder it validates against rather than restated here.
-func optionEncPresets(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
-	return optionPlainList(ffmpeg.NvencPresets, KeyEncPreset)
+// optionEfforts offers the selected codec's own ladder, most effort first.
+//
+// It is the codec's and not one family's, because the step is the encoder's own
+// identifier: x264 counts in names, SVT-AV1 in numbers to 13, NVENC from p1 to p7. A list
+// fixed to one of them would offer every other encoder values it never heard of, which is
+// what the repair would then have to walk the draft off on every codec change.
+//
+// The step this mode starts on is marked, since it is the one the row declares rather than
+// a preference. A codec whose row declares no ladder offers what the draft holds, so a
+// greyed control still shows its value rather than an empty list.
+func optionEfforts(_ Deps, s settings.Settings) []*screensharev1.FieldOption {
+	return optionLadder(codecLadders(s).Effort, s.Publish.Effort, s.Publish.Mode)
+}
+
+// codecLadders is the selected codec's row, or an empty one for a codec no table carries.
+func codecLadders(s settings.Settings) capabilities.Codec {
+	c, _ := capabilities.Get(s.Publish.Codec)
+	return c
+}
+
+// optionLadder builds one ladder's entries: its steps, with the step this mode starts on
+// marked, and the held value kept where the ladder does not carry it.
+//
+// A held value the ladder has no step for stays on the list for the reason a monitor index
+// no enumeration reported does (optionMonitors): it is what the control is showing, and a
+// list that dropped it would leave the dropdown claiming a step the draft is not on.
+func optionLadder(l capabilities.Ladder, held, mode string) []*screensharev1.FieldOption {
+	start, _ := l.StepFor(mode)
+
+	out := make([]*screensharev1.FieldOption, 0, len(l.Steps)+1)
+	for _, step := range l.Steps {
+		out = append(out, optionEntry(step, nil, step == start))
+	}
+	if held != "" && !l.Has(held) {
+		out = append(out, optionEntry(held, nil, false))
+	}
+	return out
 }
 
 // optionAudioSources offers where the second track comes from: every source the platform

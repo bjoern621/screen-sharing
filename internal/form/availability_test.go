@@ -26,8 +26,9 @@ var availabilityAllKeys = []string{
 	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
-	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEncPreset,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort,
 	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
+	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps, KeyPlayerWatchTransport, KeyOutputResolution,
@@ -59,6 +60,11 @@ func availabilityDraft(capture, codec, chroma, transportName string) settings.Se
 	s.Publish.ColorRange = "tv"
 	s.Viewer.PlayerWatchTransport = "srt"
 	s.Publish.CaptureMemory = gpupath.MemoryAuto
+	// The two ladder steps follow the codec this draft names, exactly as the defaults, the
+	// migration and the repair all set them. Carrying the default codec's step onto
+	// another encoder would make every draft here one the repair has to move, which is a
+	// different thing from the combination each case is about.
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(codec, s.Publish.Mode)
 	return s
 }
 
@@ -286,7 +292,7 @@ func TestTheEncoderPresetIsDisabledWithTheFamilyThatOwnsIt(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
-	st := fieldState(deps, s, KeyEncPreset)
+	st := fieldState(deps, s, KeyEffort)
 	if st.enabled {
 		t.Fatal("the encoder preset is live under a software encoder that takes no preset ladder")
 	}
@@ -657,6 +663,43 @@ func TestEveryPublishEngineIsDeclared(t *testing.T) {
 		if !slices.Contains(capabilities.Engines, engine) {
 			t.Errorf("publish engine %q is not one the capability table declares", engine)
 		}
+	}
+}
+
+// A knob a receiver reads is on the screen, whatever the legs are set to.
+//
+// The defect this locks out was a hidden control that was still in force. The two link
+// knobs followed both leg settings, but PlayerWatchTransport does not decide which
+// players run: a surface opens one per press, on whichever leg the reader picked from the
+// ones this machine can open. So a player opened over RTSP while both settings said SRT
+// read RtspWatchProtocol, and the control holding that value was on no screen - a setting
+// in force that nobody could reach.
+//
+// Hidden and greyed are both answers about a knob that does nothing here
+// (docs/field-availability.md). One that does something is shown.
+func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
+	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	s.Viewer.PlayerWatchTransport = availabilitySrt
+	s.Viewer.TileWatchTransport = availabilitySrt
+
+	// Both link knobs, against legs neither setting names. A player can be opened on
+	// either protocol from this machine, and each reads its own.
+	for _, key := range []string{KeySrtWatchLatencyMs, KeyRtspWatchProtocol} {
+		if st := fieldState(fieldTestDeps(), s, key); !st.visible {
+			t.Errorf("%s is hidden while a player can be opened on the leg that reads it", key)
+		}
+	}
+
+	// The tile's own knob is the other half of the rule and must not move with it. A tile
+	// receives over the leg its setting names and over no other, so a reorder window for a
+	// protocol no tile is on is a control that genuinely does nothing here.
+	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs); st.visible {
+		t.Error("the tile's RTSP reorder window is shown while the tile receives over SRT")
+	}
+
+	s.Viewer.TileWatchTransport = availabilityRtsp
+	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs); !st.visible {
+		t.Error("the tile's RTSP reorder window is hidden while the tile receives over RTSP")
 	}
 }
 

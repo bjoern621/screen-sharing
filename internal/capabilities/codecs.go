@@ -49,6 +49,8 @@ var Codecs = []Codec{
 		// a GBR sink format and code it in the Range Extensions profile, the same
 		// profile family that puts gbrp in this list, so both publish engines reach it.
 		Name:        "hevc_nvenc",
+		Effort:      Ladder{Steps: nvencPresets, Defaults: nvencPresetDefaults, Pins: []string{ModeCbr}},
+		Tune:        Ladder{Steps: nvencTunes, Defaults: nvencTuneDefaults},
 		Family:      FamilyNvenc,
 		Format:      "hevc",
 		Implemented: true,
@@ -60,6 +62,8 @@ var Codecs = []Codec{
 		// the High 10 profile, which NVENC's H.264 encoder does not implement. Its
 		// 4:4:4 support is the High 4:4:4 Predictive profile, which NVENC does.
 		Name:        "h264_nvenc",
+		Effort:      Ladder{Steps: nvencPresets, Defaults: nvencPresetDefaults, Pins: []string{ModeCbr}},
+		Tune:        Ladder{Steps: nvencTunes, Defaults: nvencTuneDefaults},
 		Family:      FamilyNvenc,
 		Format:      "h264",
 		Implemented: true,
@@ -70,6 +74,8 @@ var Codecs = []Codec{
 		// NVENC's lossless tune is an H.264 and HEVC one. The AV1 encoder reports no
 		// lossless capability, so this row carries the gap every other AV1 row does.
 		Name:        "av1_nvenc",
+		Effort:      Ladder{Steps: nvencPresets, Defaults: nvencPresetDefaults, Pins: []string{ModeCbr}},
+		Tune:        Ladder{Steps: nvencTunes, Defaults: nvencTuneDefaults},
 		Family:      FamilyNvenc,
 		Format:      "av1",
 		Implemented: true,
@@ -86,6 +92,8 @@ var Codecs = []Codec{
 		// encoder here does, so this row and libx265 are where the middle
 		// subsampling lives.
 		Name:        "libx264",
+		Effort:      Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
+		Tune:        Ladder{Steps: x264Tunes, Defaults: h26xTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "h264",
 		Implemented: true,
@@ -98,6 +106,8 @@ var Codecs = []Codec{
 		// Extensions profile, which is what puts gbrp in the list. 4:2:2 is in the
 		// same profile family (Main 4:2:2 10), which x265 codes.
 		Name:        "libx265",
+		Effort:      Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
+		Tune:        Ladder{Steps: x265Tunes, Defaults: h26xTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "hevc",
 		Implemented: true,
@@ -116,6 +126,7 @@ var Codecs = []Codec{
 		// libvpx counts its quantizer to 63, not 51 like the H.26x encoders, so
 		// the same CQ number means a different quality here.
 		Name:        "libvpx-vp9",
+		Effort:      Ladder{Steps: vp9Speeds, Defaults: vp9Default},
 		Family:      FamilySoftware,
 		Format:      "vp9",
 		Implemented: true,
@@ -134,6 +145,7 @@ var Codecs = []Codec{
 		// no GPU encoder and cores to spare. 8-bit 4:2:0 is the whole format: VP8
 		// has one profile and no 4:4:4 or high bit depth.
 		Name:        "libvpx",
+		Effort:      Ladder{Steps: vp8Speeds, Defaults: vp8Default},
 		Family:      FamilySoftware,
 		Format:      "vp8",
 		Implemented: true,
@@ -154,6 +166,7 @@ var Codecs = []Codec{
 		// lists 8-bit formats only. The other two software AV1 encoders carry 10-bit
 		// on both engines.
 		Name:        "libaom-av1",
+		Effort:      Ladder{Steps: aomSpeeds, Defaults: aomDefault},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
@@ -183,6 +196,7 @@ var Codecs = []Codec{
 		// 10-bit 4:2:0 only. Its preset ladder runs to 13, far past what libaom or
 		// rav1e reach, which is what makes AV1 practical at desktop resolutions.
 		Name:        "libsvtav1",
+		Effort:      Ladder{Steps: svtav1Steps, Defaults: svtav1Preset},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
@@ -231,6 +245,7 @@ var Codecs = []Codec{
 		// widest here, so a CQ carried over from another codec means a very
 		// different quality.
 		Name:        "librav1e",
+		Effort:      Ladder{Steps: rav1eSpeeds, Defaults: rav1eDefault},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
@@ -459,6 +474,7 @@ var Codecs = []Codec{
 		// profile, which no Vulkan encode profile covers. The quantizer counts on the
 		// H.26x 0-51 scale.
 		Name:        "h264_vulkan",
+		Tune:        Ladder{Steps: vulkanTunes, Defaults: vulkanTuneDefaults},
 		Family:      FamilyVulkan,
 		Format:      "h264",
 		Implemented: true,
@@ -471,6 +487,7 @@ var Codecs = []Codec{
 		// writes the indication from the bit depth of the surfaces it is handed, so a
 		// p010le encode announces Main 10 on its own.
 		Name:        "hevc_vulkan",
+		Tune:        Ladder{Steps: vulkanTunes, Defaults: vulkanTuneDefaults},
 		Family:      FamilyVulkan,
 		Format:      "hevc",
 		Implemented: true,
@@ -487,6 +504,7 @@ var Codecs = []Codec{
 		// at full range signals limited in the sequence header, where the H.264 and
 		// HEVC rows on the same driver signal the range they are given.
 		Name:        "av1_vulkan",
+		Tune:        Ladder{Steps: vulkanTunes, Defaults: vulkanTuneDefaults},
 		Family:      FamilyVulkan,
 		Format:      "av1",
 		Implemented: true,

@@ -75,6 +75,10 @@ public static class Fields
             "Whether the frames stay on the graphics card on their way to the encoder or take a trip through main memory. Staying on the card is free but only possible when the capture and the encoder can share it, so this follows both choices above. Automatic is right unless you are chasing the last of the CPU.",
             DocDrmPrime),
 
+        ["publish.cursor"] = new(
+            "Mouse pointer",
+            "Whether the pointer appears in what viewers see. Drawn into the picture is what a screen share normally looks like, and it costs a little bandwidth because the encoder has to keep redrawing the area it moves through. Not shared leaves it out entirely. Sent beside the picture would let a viewer draw it themselves, sharp at any size and free of bandwidth, and is waiting on the channel that would carry it."),
+
         ["publish.drm_map"] = new(
             "Frame download route",
             "How scanout frames are brought into main memory. They are usually stored in a GPU-specific layout, so they have to be read back through a device that understands it. Leave it automatic unless the capture fails to start.",
@@ -94,9 +98,9 @@ public static class Fields
             "Which code values carry picture. Your desktop is full range; broadcast video is not. Getting this wrong is what makes a stream look washed out or crushed at the other end.",
             DocYCbCr),
 
-        ["publish.enc_preset"] = new(
+        ["publish.effort"] = new(
             "Encoder effort",
-            "How hard NVIDIA's encoder looks for savings, from p1 to p7. More effort means a smaller stream at the same quality and no extra delay worth measuring - the chip is separate from the graphics cores. Only the NVIDIA encoders have this ladder.",
+            "How hard the encoder looks for savings. More effort means a smaller stream at the same quality, paid for in encoding time - on a graphics card that time is nearly free, because the chip doing it is separate from the graphics cores, and on the CPU it is the cores your machine also needs for everything else. The steps are the encoder's own, so they read differently on each one.",
             DocNvenc),
 
         ["publish.mode"] = new(

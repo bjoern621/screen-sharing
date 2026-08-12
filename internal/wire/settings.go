@@ -63,7 +63,8 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		VbvMs:            int32(p.VbvMs),
 		Gop:              int32(p.Gop),
 		Bframes:          int32(p.Bframes),
-		EncPreset:        p.EncPreset,
+		Effort:           p.Effort,
+		Tune:             p.Tune,
 
 		Capture:       p.Capture,
 		Audio:         p.Audio,
@@ -71,6 +72,7 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		DrmMap:        p.DrmMap,
 		Monitor:       int32(p.Monitor),
 		CaptureMemory: p.CaptureMemory,
+		Cursor:        p.Cursor,
 
 		SrtPublishLatencyMs: int32(p.SrtPublishLatencyMs),
 		RtspPublishProtocol: p.RtspPublishProtocol,
@@ -150,7 +152,8 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		VbvMs:      int(m.GetVbvMs()),
 		Gop:        int(m.GetGop()),
 		Bframes:    int(m.GetBframes()),
-		EncPreset:  m.GetEncPreset(),
+		Effort:     m.GetEffort(),
+		Tune:       m.GetTune(),
 
 		Capture:       m.GetCapture(),
 		Audio:         m.GetAudio(),
@@ -158,6 +161,7 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		DrmMap:        m.GetDrmMap(),
 		Monitor:       int(m.GetMonitor()),
 		CaptureMemory: m.GetCaptureMemory(),
+		Cursor:        m.GetCursor(),
 
 		SrtPublishLatencyMs: int(m.GetSrtPublishLatencyMs()),
 		RtspPublishProtocol: m.GetRtspPublishProtocol(),

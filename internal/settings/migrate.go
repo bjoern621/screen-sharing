@@ -32,7 +32,7 @@ type flat struct {
 	VbvMs               *int    `json:"vbvMs"`
 	Gop                 *int    `json:"gop"`
 	Bframes             *int    `json:"bframes"`
-	EncPreset           *string `json:"encPreset"`
+	Effort              *string `json:"effort"`
 	Capture             *string `json:"capture"`
 	Audio               *string `json:"audio"`
 	AudioCodec          *string `json:"audioCodec"`
@@ -96,7 +96,7 @@ func decodeFlat(data []byte) (Settings, bool) {
 	set(&s.Publish.VbvMs, f.VbvMs)
 	set(&s.Publish.Gop, f.Gop)
 	set(&s.Publish.Bframes, f.Bframes)
-	set(&s.Publish.EncPreset, f.EncPreset)
+	set(&s.Publish.Effort, f.Effort)
 	set(&s.Publish.Capture, f.Capture)
 	set(&s.Publish.Audio, f.Audio)
 	set(&s.Publish.AudioCodec, f.AudioCodec)
@@ -178,13 +178,25 @@ func migratePublish(p, d Publish) Publish {
 	// not name. Filling the key a file written before the option lacks is what keeps
 	// that rejection about a value the user chose.
 	fillText(&p.DrmMap, d.DrmMap)
-	fillText(&p.EncPreset, d.EncPreset)
+	// A file written before the ladders became settings names no step, and every builder
+	// refuses a value its ladder does not carry. The codec's own default for the mode is
+	// what those builds spent, so filling it keeps a stored stream encoding as it did.
+	if p.Effort == "" || p.Tune == "" {
+		effort, tune := LadderSteps(p.Codec, p.Mode)
+		fillText(&p.Effort, effort)
+		fillText(&p.Tune, tune)
+	}
 	// A file written before the frame memory option names none, and every engine
 	// refuses a value its table does not carry. The table's own default is the value
 	// every pair satisfies, so filling it keeps a stored stream publishing exactly as
 	// it did: a pair with no GPU path resolves to the same system memory it always
 	// used, and one that has a path takes it.
 	fillText(&p.CaptureMemory, d.CaptureMemory)
+	// A file written before the pointer became a setting names no mode, and the builders
+	// reject a value no table carries. The default is what those builds did: every
+	// backend but kmsgrab drew the pointer into the frames, so filling it keeps a stored
+	// stream looking exactly as it did rather than starting it without one.
+	fillText(&p.Cursor, d.Cursor)
 	return p
 }
 

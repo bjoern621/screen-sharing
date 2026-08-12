@@ -52,6 +52,12 @@ A `gstCapture` produces raw frames up to and including the capsfilter that pins 
 `portalCapture` performs the ScreenCast handshake and hands the child a descriptor; `ximageCapture` reads the X screen and acquires nothing.
 The engine validates the settings before it calls `Open`, so a combination the tables forbid never pops the compositor's picker.
 
+The **screensrc** package holds the GStreamer element that reads one of this machine's outputs, and the properties that single it out: `ximagesrc` cropped to the monitor's rectangle on X11, `d3d11screencapturesrc` on its `monitor-index` under Windows.
+It sits below the engines because two consumers need the same rectangle.
+The GStreamer capture heads above build from it, and so does the setup wizard's monitor preview, which reads a screen into the frame channel before anything is published (`viewer-architecture.md`, "What the screen picker draws").
+A preview cropped differently from the stream would be a picture that lies about what is shared.
+The same package also answers which sessions can read one output apart from another at all, which is where the wizard learns to offer a list instead of pictures: a Wayland session reaches a screen through the portal alone, and AVFoundation's screen source chooses its own display.
+
 The **gpupath** package declares which capture backend and encoder family pairs hand frames to the encoder without a trip through system memory.
 It sits below both engines because the fact is shared and the vocabulary is not: a row states that a path exists, and each engine builds it with its own elements or filters.
 
@@ -182,6 +188,24 @@ Which legs carry which codec is the `Carriage.Audio` half of the transport table
 Desktop audio is Linux's alone, and each of the other platforms refuses it for its own reason.
 ffmpeg has no WASAPI loopback, so the Windows grabbers reach no monitor source, and AVFoundation enumerates input devices only, so what a Mac plays is not a source the macOS grabber can open.
 
+## The pointer
+
+`Cursor` says what the mouse pointer does in the captured frames, and it takes three values because there are three answers rather than two: `embedded` draws it into the picture, `hidden` leaves it out, `metadata` sends its position beside the stream for a viewer to draw itself.
+The third is not more or less of the first two.
+An embedded pointer costs bitrate, since the encoder redraws the area it moves through, and it blurs with everything else the picture spends bits on; a metadata pointer stays sharp at any scale and reaches only a viewer that draws one.
+
+What each backend can do is a table of its own (`publish/cursor.go`), keyed by capture backend, and its rows are written as rules rather than converted into them: the fact is about the backend and has nothing to do with the encoder, which is the shape the codec-scoped `Gap` could never carry.
+Every backend serves `embedded` and `hidden` through a property of its own - `draw_mouse` on the ffmpeg grabbers, `show-pointer` on ximagesrc, `show-cursor` on d3d11screencapturesrc, `capture-screen-cursor` on avfvideosrc, `cursor_mode` on the portal.
+Two rows are the reason the table exists.
+kmsgrab reads the scanout's primary plane and the pointer is a hardware plane the display composes over it, so that path cannot draw one at all and `hidden` is the only mode describing what it does.
+The portal is the only backend that reports a position instead of drawing it, so `metadata` is its alone.
+
+`metadata` is refused everywhere for a second reason, which is this app's rather than any backend's: nothing on the wire carries a pointer position and no viewer draws one, so a stream sent that way would arrive with none.
+Both facts cross where both hold, since they are different things to fix, and deleting that one rule is what ships the mode once the channel exists.
+
+A monitor preview draws the pointer whatever the setting holds.
+A preview answers what a screen looks like so a reader can tell one from another, and two desktops often differ by nothing else.
+
 ## Colour
 
 A desktop is full-range RGB.
@@ -300,5 +324,7 @@ Under the ffmpeg engine that is an entry in `ffmpeg.captureBackends` building th
 A backend that produces GPU frames adds a row per encoder family it can hand them to in `gpupath.Paths`, plus the engine's own half of that row: a caps feature and post-processor in `gstGpuMemories`, or a device and scaler in `gpuConverts`.
 A row without its engine half is asserted rather than approximated, since the alternative is picking a memory the elements do not negotiate, so a backend whose engine states no half for any family it could pair with carries no row and captures into system memory.
 An ffmpeg backend refuses settings naming something it cannot capture, a monitor this machine has no output for or a DRM download strategy no table row carries, rather than capturing whatever it can: a command that captures a different source than the form shows selected is the one failure no field can state.
+A GStreamer backend that takes a monitor index builds its head from `screensrc` rather than spelling the element itself, which is what keeps the wizard's picture of a screen and the stream of that screen the same rectangle.
 An engine is one type satisfying `publish.Publisher`, and a new one is needed only for a framework neither covers.
 The backend's platform applicability (which OS and session it runs on) is its column in `publish.captureNeeds`, with the other capture-gating facts beside it in `form/availability.go`; its label and tooltip are the shell's, keyed by the identifier the row already carries (`ipc-api.md`).
+It also states what it does with the pointer, in `publish.cursorServes`, which the package asserts against the registry: a backend that forgot the row would offer every mode and pass a flag nothing reads.

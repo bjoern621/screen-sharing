@@ -97,10 +97,19 @@ message PublishSettings {
   // bframes is the reorder depth, lossy modes only. It buys compression with
   // latency, which is why it is a field and not a preset property.
   int32 bframes = 21;
-  // enc_preset is the NVENC preset ladder, p1 through p7. The engines that take no
-  // ladder grey it rather than ignore it, so a value here always reached an encoder
-  // that read it.
-  string enc_preset = 22;
+  // effort is the step this encoder works at on its own speed-against-quality ladder,
+  // and tune is what it optimizes for. Both are the encoder's own identifiers - x264's
+  // "slow", SVT-AV1's "9", NVENC's "p7" - rather than a scale normalized across codecs,
+  // because a normalized number would mean a different real setting on every encoder and
+  // would move the user's choice when they change codec.
+  //
+  // They are two fields because they answer two questions. Effort is how hard the
+  // encoder works; tune is what it works towards, and a live encode drops the lookahead
+  // and the reordering a quality one keeps whatever effort it spends. An encoder with no
+  // such ladder greys the control rather than ignoring a value, so a step here always
+  // reached an encoder that read it.
+  string effort = 22;
+  string tune = 39;
 
   // capture is the capture backend, a row of the capture list in catalog.proto. It
   // decides the publish engine, which is why so many other fields' availability
@@ -155,15 +164,27 @@ message PublishSettings {
   // arrive are ones it wrote.
   string output_resolution = 37;
 
+  // cursor is what the pointer does in the captured frames: "embedded" draws it into
+  // the picture, "hidden" leaves it out, "metadata" sends its position beside the
+  // stream for a viewer to draw itself.
+  //
+  // It is one field rather than a boolean because the third value is not more or less
+  // of the first two: an embedded pointer costs bitrate and blurs with the picture,
+  // and a metadata pointer stays sharp at any scale and reaches only a viewer that
+  // draws one. Which values a capture backend serves is the backend's own fact, so the
+  // form greys the rest with what each one is missing.
+  string cursor = 38;
+
   // The numbers this message does not use are the ones the flat StreamSettings spent
   // on the other two groups, kept out of reach so a field of this group never lands on
   // a number an older build read as a relay port or a watch leg. 2 to 9 were the relay
   // host and its listeners, 30, 32, 33, 35 and 36 the watch leg's own knobs, and 33
   // and 36 were already reserved before the split.
   //
-  // "transport" is reserved for the rename above rather than for a removal: the field
-  // is publish_transport now, on the same number, and a build that still spells it the
-  // old way should fail to compile rather than to parse.
+  // "transport" and "enc_preset" are reserved for the renames above rather than for
+  // removals: the fields are publish_transport and effort now, on the same numbers, and
+  // a build that still spells either the old way should fail to compile rather than to
+  // parse. enc_preset named one family's ladder, and the field carries every encoder's.
   reserved 2 to 9, 30, 32, 33, 35, 36;
   reserved
     "relay_host",
@@ -175,6 +196,7 @@ message PublishSettings {
     "hls_port",
     "moq_port",
     "transport",
+    "enc_preset",
     "srt_watch_latency_ms",
     "rtsp_watch_protocol",
     "rtsp_watch_latency_ms",

@@ -44,7 +44,7 @@ const (
 	fieldFpsCeiling = 1000
 
 	// fieldRateCeiling is the end of both megabit fields. A codec that takes less says so
-	// through capabilities.BitrateLimitOn, which fieldBitrateBounds reads.
+	// as a rule, which narrows this end for the modes that send the encoder a target.
 	fieldRateCeiling = 10000
 	// fieldUplinkCeiling covers a 100 Gbit/s line, which is past any uplink this is
 	// weighed against.
@@ -129,6 +129,16 @@ var fieldTable = []field{
 		options: optionCaptureMemories,
 	},
 	{
+		// The pointer. It sits with the capture rather than with the encode because what
+		// it can do follows from the backend and from nothing else: the same three values
+		// are offered everywhere and greyed per backend with what that backend is missing.
+		key:     KeyCursor,
+		group:   GroupSource,
+		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Cursor) },
+		options: optionCursors,
+	},
+	{
 		// The hidden case of docs/field-availability.md: a backend implementation knob whose
 		// help describes a mechanism a user on any other capture backend has no reason to
 		// read. It is a row here all the same, because hiding is availability's verdict and
@@ -163,11 +173,11 @@ var fieldTable = []field{
 		options: optionColorRanges,
 	},
 	{
-		key:     KeyEncPreset,
+		key:     KeyEffort,
 		group:   GroupQuality,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.EncPreset) },
-		options: optionEncPresets,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Effort) },
+		options: optionEfforts,
 	},
 	{
 		// The one radio: five choices carrying a paragraph each, which is what
@@ -398,30 +408,29 @@ func fieldFpsBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 //
 // It moves with the selection because the scales differ: the H.26x encoders reach 51,
 // libvpx and the software AV1 ones 63, and an encoder taking a raw quantizer index counts
-// to 127 or 255. A codec the table declares no scale for on this engine is offered the
-// 51-point anchor, which is the scale every codec-independent figure in this app is
-// stated on.
-func fieldCqBounds(_ Deps, s settings.Settings) *screensharev1.NumericRange {
-	scale := fieldAnchorCq
-	if c, ok := capabilities.Get(s.Publish.Codec); ok {
-		if declared := c.CqMaxOn(optionEngineOf(s)); declared > 0 {
-			scale = declared
-		}
-	}
-	return bounded(0, scale, 1)
+// to 127 or 255. The control is offered within the widest scale the table declares and
+// narrowed from there by the rules, so the number a slider stops at and the number a
+// publish refuses above are one answer rather than two derived from one column.
+//
+// A codec the table declares no scale for narrows nothing and keeps the widest, which is
+// what the table means by declaring none: the unwired families count on whatever their
+// builder will set, and pricing them on some other encoder's scale would clamp a target
+// to a fifth of its range.
+func fieldCqBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
+	low, high := verdictsOf(d, s).Bounds(KeyCq, 0, capabilities.WidestCqScale())
+	return bounded(low, high, 1)
 }
 
-// fieldBitrateBounds narrows to the codec's own ceiling where it declares one. An encoder
-// with a ceiling refuses the encode rather than clamping, so a target above it is a
-// publish that dies at launch and the range is where that is cheapest to say.
-func fieldBitrateBounds(_ Deps, s settings.Settings) *screensharev1.NumericRange {
-	ceiling := fieldRateCeiling
-	if c, ok := capabilities.Get(s.Publish.Codec); ok {
-		if limit := c.BitrateLimitOn(optionEngineOf(s)); limit > 0 {
-			ceiling = limit
-		}
-	}
-	return bounded(0, ceiling, 1)
+// fieldBitrateBounds narrows to the codec's own ceiling where the rules state one. An
+// encoder with a ceiling refuses the encode rather than clamping, so a target above it is
+// a publish that dies at launch and the range is where that is cheapest to say.
+//
+// The ceiling binds in the modes that aim at a bitrate and nowhere else, which is a fact
+// the column could not carry: it was read on every resolve, so the control narrowed even
+// in the two modes that send no target at all.
+func fieldBitrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
+	low, high := verdictsOf(d, s).Bounds(KeyBitrateM, 0, fieldRateCeiling)
+	return bounded(low, high, 1)
 }
 
 // fieldMaxrateBounds takes no codec ceiling. The capability table's limit is a ceiling on

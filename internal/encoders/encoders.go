@@ -92,8 +92,8 @@ var ffmpegAssumed = []string{"libx264", "libx265"}
 func ffmpegProbed() []string {
 	var out []string
 	for _, c := range capabilities.Codecs {
-		_, gap := c.EngineGap(publish.EngineFfmpeg)
-		if c.Implemented && !gap && !slices.Contains(ffmpegAssumed, c.Name) {
+		if c.Implemented && capabilities.HasEncoderOn(c.Name, publish.EngineFfmpeg) &&
+			!slices.Contains(ffmpegAssumed, c.Name) {
 			out = append(out, c.Name)
 		}
 	}
@@ -112,7 +112,7 @@ func ffmpegProbed() []string {
 func gstProbed() []string {
 	var out []string
 	for _, c := range capabilities.Codecs {
-		if _, gap := c.EngineGap(publish.EngineGst); c.Implemented && !gap {
+		if c.Implemented && capabilities.HasEncoderOn(c.Name, publish.EngineGst) {
 			out = append(out, c.Name)
 		}
 	}

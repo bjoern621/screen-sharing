@@ -42,6 +42,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/receive"
+	"bjoernblessin.de/screenshare/internal/rules"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -120,6 +121,9 @@ var availabilityRules = map[string]func(availability) state{
 	KeyCapture:   func(availability) state { return availabilityLive() },
 	KeyAudio:     func(availability) state { return availabilityLive() },
 	KeyFps:       func(availability) state { return availabilityLive() },
+	// The pointer is greyed per entry and never as a control: every backend serves at
+	// least one mode, so there is no combination where the question does not apply.
+	KeyCursor: func(availability) state { return availabilityLive() },
 
 	// The pixel format is the one control that carries a note about somebody else's
 	// machine: what the choice costs a viewer to decode. It is a note and never a
@@ -187,16 +191,23 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return av.knob(KeyBframes, usesBframes && av.family().takesBframes, reason)
 	},
-	KeyEncPreset: func(av availability) state {
+	// The control still follows the encoder family rather than the codec's own ladder,
+	// which is the last step of the effort feature and the one that waits on both
+	// builders reading the field. Every codec declares a ladder now
+	// (capabilities.Ladder), and the options this control offers already come off it, so
+	// what is left is to stop gating on the family here. Opening it before the builders
+	// read the field would offer a knob nothing forwards, which is the one thing
+	// docs/field-availability.md rules out.
+	KeyEffort: func(av availability) state {
 		takesPreset, mode := av.family().takesPreset, av.mode()
 		reason := say(presetOnlyOnFamilies,
 			argFamilies(availabilityFamiliesWith(func(f availabilityFamily) bool { return f.takesPreset })))
 		// A mode that pins the preset carries the step it pins to, so the statement
 		// names the declared value instead of restating one.
 		if takesPreset && mode.pinsPreset {
-			reason = say(presetPinnedByMode, argMode(av.s.Publish.Mode), argEncPreset(mode.pinnedPreset))
+			reason = say(presetPinnedByMode, argMode(av.s.Publish.Mode), argEffort(mode.pinnedPreset))
 		}
-		return av.knob(KeyEncPreset, takesPreset && !mode.pinsPreset, reason)
+		return av.knob(KeyEffort, takesPreset && !mode.pinsPreset, reason)
 	},
 
 	// The audio codec is read only where the stream has a track to code, so with no
@@ -247,10 +258,10 @@ var availabilityRules = map[string]func(availability) state{
 	KeyRtspPublishProtocol: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp)
 	},
-	// The watch-leg knobs follow the legs that read them, and a knob two receivers read
-	// follows either of them: the SRT window and the RTP lower transport are the link's
-	// rather than one reader's, so a viewer configuring the tile leg is configuring the
-	// same link a player would open.
+	// The watch-leg knobs follow the receivers that read them, and a knob two receivers
+	// read follows either of them: the SRT window and the RTP lower transport are the
+	// link's rather than one reader's, so a viewer configuring the tile leg is configuring
+	// the same link a player would open.
 	KeySrtWatchLatencyMs: func(av availability) state {
 		return availabilityShownFor(av.watchesOver(availabilitySrt))
 	},
@@ -293,6 +304,7 @@ var availabilityOptionRules = map[string]func(availability, string) *screenshare
 	KeyAudio:            availability.audioReason,
 	KeyAudioCodec:       availability.audioCodecReason,
 	KeyCaptureMemory:    availability.frameMemoryReason,
+	KeyCursor:           availability.cursorReason,
 	KeyOutputResolution: availability.outputResolutionReason,
 	// The two watch legs read the same carriage table under different receivers: an
 	// external player opens a URL through libavformat, and a tile decodes through a
@@ -356,6 +368,12 @@ type availability struct {
 	deps Deps
 	s    settings.Settings
 
+	// verdicts is what the rule system said about this draft, evaluated once per resolve
+	// and read through by whichever control asks. Every fact the domain tables state
+	// arrives here rather than being looked up per site, so a control's greying and the
+	// publish's own refusal are two readings of one evaluation (internal/rules).
+	verdicts rules.Verdicts
+
 	// engine is the publish engine the selected capture backend runs. It is empty
 	// exactly when the settings name a backend this app has no publisher for, which a
 	// hand-edited settings file can do; every rule keyed by engine then withholds
@@ -378,7 +396,7 @@ type availability struct {
 
 // availabilityOf resolves the three derived facts for one draft.
 func availabilityOf(d Deps, s settings.Settings) availability {
-	av := availability{deps: d, s: s}
+	av := availability{deps: d, s: s, verdicts: verdictsOf(d, s)}
 	if engine, err := publish.EngineFor(s.Publish.Capture); err == nil {
 		av.engine = engine
 	}
@@ -472,8 +490,11 @@ func (av availability) codecReason(codec string) *screensharev1.Text {
 	if reason := av.probeReason(c); reason != nil {
 		return reason
 	}
-	if gap, gapped := c.EngineGap(av.engine); gapped {
-		return say(gap.Reason)
+	// The entry is refused where no encoder for it exists on this engine. The rule binds
+	// on the engine alone and names the codec it takes, which is what lets one evaluation
+	// answer for every entry of the dropdown rather than only for the selected one.
+	if reasons := av.verdicts.ValueReasons(KeyCodec, codec); len(reasons) > 0 {
+		return reasons[0]
 	}
 	if !c.Implemented {
 		return say(codecNotImplemented)
@@ -567,8 +588,8 @@ func (av availability) chromaReason(chroma string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
 	}
-	if gap, ok := av.codec.OptionGap(av.engine, capabilities.OptionChroma, chroma); ok {
-		return say(gap.Reason)
+	if reasons := av.verdicts.ValueReasons(KeyChroma, chroma); len(reasons) > 0 {
+		return reasons[0]
 	}
 	return nil
 }
@@ -581,8 +602,8 @@ func (av availability) modeReason(mode string) *screensharev1.Text {
 	if !av.knownCodec || av.engine == "" {
 		return nil
 	}
-	if gap, ok := av.codec.OptionGap(av.engine, capabilities.OptionMode, mode); ok {
-		return say(gap.Reason)
+	if reasons := av.verdicts.ValueReasons(KeyMode, mode); len(reasons) > 0 {
+		return reasons[0]
 	}
 	return nil
 }
@@ -595,8 +616,22 @@ func (av availability) colorRangeReason(value string) *screensharev1.Text {
 	if !av.knownCodec || av.engine == "" {
 		return nil
 	}
-	if gap, ok := av.codec.OptionGap(av.engine, capabilities.OptionColorRange, value); ok {
-		return say(gap.Reason)
+	if reasons := av.verdicts.ValueReasons(KeyColorRange, value); len(reasons) > 0 {
+		return reasons[0]
+	}
+	return nil
+}
+
+// cursorReason states why the selected capture backend does not serve a pointer mode.
+//
+// It reads the rules and nothing else, because the whole fact is theirs: what a backend
+// does with the pointer is a per-backend table (internal/publish/cursor.go) written as
+// rules rather than converted into them, and the one limit that is this app's rather
+// than any backend's - that nothing carries a pointer position to a viewer yet - is a
+// rule beside them. Both bind on the metadata mode, and both cross.
+func (av availability) cursorReason(value string) *screensharev1.Text {
+	if reasons := av.verdicts.ValueReasons(KeyCursor, value); len(reasons) > 0 {
+		return reasons[0]
 	}
 	return nil
 }
@@ -629,10 +664,10 @@ func (av availability) audioCodecReason(name string) *screensharev1.Text {
 		return nil
 	}
 	if _, codes := a.EncoderOn(av.engine); !codes {
-		// A codec an engine cannot code normally states why in the table. Where it does
-		// not, the fact is still shown, without a cause invented for it.
-		if gap, stated := a.EngineGap(av.engine); stated {
-			return say(gap.Reason)
+		// A codec an engine cannot code normally states why as a rule. Where it does not,
+		// the fact is still shown, without a cause invented for it.
+		if reasons := av.verdicts.ValueReasons(KeyAudioCodec, a.Name); len(reasons) > 0 {
+			return reasons[0]
 		}
 		return say(engineHasNoAudioEncoder, argEngine(av.engine), argAudioCodec(a.Name))
 	}
@@ -773,16 +808,31 @@ func (av availability) renderChainReason(name string) *screensharev1.Text {
 
 // The derived facts the field rules read.
 
-// watchesOver reports whether either receiver is set to receive over the named
-// transport.
+// watchesOver reports whether anything on this machine receives over the named
+// transport: the tile, which is set to one leg, or a player, which can be opened on any
+// leg this machine has one for.
 //
 // It exists because two of the watch knobs belong to the link rather than to a reader:
 // the SRT retransmit window and the RTP lower transport are what the connection is
 // negotiated with, and a viewer that decodes in a tile negotiates the same connection a
 // player would open. Hiding them behind one of the two legs would leave a viewer that
 // only uses the other unable to reach a knob its own leg reads.
+//
+// The two receivers are asked different questions, and that is the difference between
+// what each of their settings decides. A tile receives over the leg TileWatchTransport
+// names and over no other, so that setting is the whole answer for it. A player is opened
+// per press, on whichever leg the reader picked from the ones this machine can open, so
+// PlayerWatchTransport decides nothing about which players run - it is the leg a surface
+// offers first. Asking it here therefore hid knobs that were in force: a player opened
+// over RTSP reads RtspWatchProtocol whatever that setting says, and with both legs on SRT
+// the control it reads was not on the screen at all.
+//
+// A hidden control is the wrong treatment for a value that still reaches a pipeline. The
+// choice this page states is between hiding a knob and greying it with a reason, and both
+// are answers about a knob that does nothing here; one that does something is shown
+// (docs/field-availability.md).
 func (av availability) watchesOver(name string) bool {
-	return av.s.Viewer.PlayerWatchTransport == name || av.s.Viewer.TileWatchTransport == name
+	return av.s.Viewer.TileWatchTransport == name || transport.CanWatch(name, capabilities.EngineFfmpeg)
 }
 
 // knob weighs the three facts that decide a rate-control control: the mode's concept
@@ -1086,7 +1136,7 @@ type availabilityEngineRule struct {
 var availabilityEngineRules = []availabilityEngineRule{
 	{
 		engine: capabilities.EngineGst,
-		knob:   KeyEncPreset,
+		knob:   KeyEffort,
 		reason: screensharev1.TextCode_TEXT_CODE_GST_NO_PRESET_LADDER,
 	},
 	// An encoder that cannot bound the burst at all has no VBR mode, which the

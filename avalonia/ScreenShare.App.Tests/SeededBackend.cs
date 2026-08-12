@@ -74,6 +74,85 @@ internal sealed class SeededBackend : IBackend
         public NumericRange? Range { get; init; }
     }
 
+    /// <summary>
+    /// One seeded built-in preset: what it writes, the pixel format it asks for, and how to tell
+    /// whether settings already deliver it. Seeded from <c>internal/form/presets.go</c>.
+    /// </summary>
+    private sealed record PresetSeed
+    {
+        public required string Key { get; init; }
+
+        /// <summary>The pixel format the promise rests on, which is what can make it unreachable.</summary>
+        public required string Chroma { get; init; }
+
+        /// <summary>The fields every candidate carries, written onto a copy of the draft.</summary>
+        public required Action<PublishSettings> Base { get; init; }
+
+        /// <summary>
+        /// Whether settings deliver the promise, which is the claim the real backend derives the
+        /// selection from. It is a predicate rather than an equality check because that is the
+        /// difference between the two kinds of preset: a field the promise says nothing about may
+        /// move without leaving it.
+        /// </summary>
+        public required Func<PublishSettings, bool> Delivers { get; init; }
+    }
+
+    /// <summary>The three built-in presets, in the order the backend offers them.</summary>
+    private static readonly IReadOnlyList<PresetSeed> PresetSeeds =
+    [
+        new()
+        {
+            Key = "lossless",
+            Chroma = "gbrp",
+            Base = publish =>
+            {
+                publish.Mode = "lossless";
+                publish.ColorRange = "pc";
+                publish.Fps = 60;
+                publish.Bframes = 0;
+                publish.Effort = "p7";
+                publish.SrtPublishLatencyMs = 60;
+            },
+            Delivers = publish => publish.Mode == "lossless"
+                && publish.Chroma is "gbrp" or "yuv444p"
+                && publish.ColorRange == "pc",
+        },
+        new()
+        {
+            Key = "gaming",
+            Chroma = "yuv420p",
+            Base = publish =>
+            {
+                publish.Mode = "cbr";
+                publish.Fps = 60;
+                publish.Bframes = 0;
+                publish.Effort = "p5";
+                publish.BitrateMbps = 40;
+                publish.VbvMs = 100;
+                publish.SrtPublishLatencyMs = 100;
+            },
+            Delivers = publish => publish.Mode is "cbr" or "vbr" or "abr" or "crf"
+                && publish.Fps >= 60
+                && publish.Bframes <= 0
+                && publish.SrtPublishLatencyMs <= 250,
+        },
+        new()
+        {
+            Key = "readability",
+            Chroma = "yuv444p",
+            Base = publish =>
+            {
+                publish.Mode = "crf";
+                publish.Fps = 30;
+                publish.Bframes = 2;
+                publish.Effort = "p7";
+                publish.Cq = 18;
+                publish.SrtPublishLatencyMs = 300;
+            },
+            Delivers = publish => publish.Mode == "crf" && publish.Fps <= 30,
+        },
+    ];
+
     /// <summary>One seeded group: a run of fields under a heading, in render order.</summary>
     private sealed record GroupSeed
     {
@@ -144,6 +223,16 @@ internal sealed class SeededBackend : IBackend
     public SeededBackend(string operatingSystem) => _os = operatingSystem;
 
     /// <summary>
+    /// Why this fixture's machine cannot show what a monitor holds, and null where it can.
+    ///
+    /// Settable, because it is the one catalog fact that decides whether a whole surface is
+    /// drawn: the wizard's screen pictures are offered where a session can read one output
+    /// apart from another and nowhere else, and a fixture that could only answer one way could
+    /// only test one of the two screens.
+    /// </summary>
+    public Text? NoMonitorPreview { get; init; }
+
+    /// <summary>
     /// The settings a first start opens on, answered from memory. Seeded from the Go
     /// <c>settings.Defaults</c>, including its per-platform capture backend.
     /// </summary>
@@ -168,9 +257,24 @@ internal sealed class SeededBackend : IBackend
             Format = "h264",
             Implemented = true,
         });
+        // Two outputs, because one is the shape that hides every bug a screen picker can have:
+        // a grid with one tile in it looks the same whether the picker keyed its rows by index
+        // or by position, and a machine with one screen has nothing to pick between.
         catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 0, Width = 2560, Height = 1440, RefreshHz = 144, Primary = true });
+        catalog.Monitors.Add(new global::ScreenShare.Api.V1.Monitor { Index = 1, Width = 1920, Height = 1080, RefreshHz = 60 });
+
+        // The legs the relay serves a player page for, as the backend's own tables answer them:
+        // the two the browser reaches, and neither of them a leg a player opens by address.
+        catalog.BrowserWatchTransports.Add(BrowserLegs);
+        catalog.NoMonitorPreview = NoMonitorPreview;
         return Task.FromResult(catalog);
     }
+
+    /// <summary>
+    /// The browser legs the catalog above names, in the backend's own order, so a test asserts
+    /// against the list rather than restating it.
+    /// </summary>
+    public static readonly string[] BrowserLegs = ["hls", "webrtc"];
 
     public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
     {
@@ -209,7 +313,7 @@ internal sealed class SeededBackend : IBackend
             VbvMs = 0,
             Gop = 0,
             Bframes = 0,
-            EncPreset = "p7",
+            Effort = "p7",
             Capture = _os == "windows" ? "ddagrab" : _os == "darwin" ? "avfoundation" : "x11grab",
             Audio = "none",
             AudioCodec = "opus",
@@ -263,19 +367,28 @@ internal sealed class SeededBackend : IBackend
         => Task.FromResult(new PublishState());
 
     /// <summary>
-    /// No relay answered, carrying the reason. An unreachable relay is a snapshot and never a
-    /// failure, so a screen driven by this fixture renders the sentence rather than an error.
+    /// What the relay snapshot says. No relay answered by default, carrying the reason: an
+    /// unreachable relay is a snapshot and never a failure, so a screen driven by this fixture
+    /// renders the sentence rather than an error. A test that needs paths to watch states them.
     /// </summary>
-    public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
-        => Task.FromResult(new RelayStatus
-        {
-            Reachable = false,
-            Error = "no relay behind this shell yet",
-        });
+    public RelayStatus Relay { get; set; } = new()
+    {
+        Reachable = false,
+        Error = "no relay behind this shell yet",
+    };
 
-    /// <summary>No viewer is open, which is an empty list rather than an absent one.</summary>
+    public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
+        => Task.FromResult(Relay);
+
+    /// <summary>
+    /// The players this fixture has open, by the pair the contract keys one by. Empty by
+    /// default, because nothing has been asked for; a test that needs a viewer already running
+    /// states it.
+    /// </summary>
+    public List<WatchKey> Watching { get; } = [];
+
     public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
-        => Task.FromResult<IReadOnlyList<WatchKey>>([]);
+        => Task.FromResult<IReadOnlyList<WatchKey>>(Watching.ToList());
 
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
@@ -323,6 +436,80 @@ internal sealed class SeededBackend : IBackend
 
     public Task StopPublishAsync(CancellationToken cancellation = default) => Task.CompletedTask;
 
+    // --- The preset store ---------------------------------------------------------
+    //
+    // Kept in memory rather than answered from a fixed list, and it is the one state this
+    // fixture really holds. Presets are the state on this seam that no event announces, so a
+    // card that saved one has to read the store again to see it - and a store that never moved
+    // could not exercise that at all. What is seeded is done through the same call the screen
+    // makes, so a test states the store by writing to it.
+
+    private readonly List<Preset> _presets = [];
+
+    /// <summary>
+    /// The notice every read carries, absent while the store reads cleanly. A test sets it to
+    /// see what a screen says about a list that is empty because nothing readable remained,
+    /// rather than because nothing was saved.
+    /// </summary>
+    public Text? PresetNotice { get; set; }
+
+    /// <summary>
+    /// Why every preset call is refused, empty while they are accepted. One switch for all
+    /// three, because what a screen does with the backend's sentence is the same whichever call
+    /// produced it.
+    /// </summary>
+    public string PresetRefusal { get; set; } = "";
+
+    public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+        => PresetRefusal.Length > 0
+            ? Task.FromException<PresetStore>(new BackendUnavailableException(PresetRefusal))
+            : Task.FromResult(new PresetStore([.. _presets], PresetNotice));
+
+    public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+    {
+        Assert.That(name.Length > 0, "a preset is saved under a name");
+        Assert.NotNull(settings, "a preset is the way of publishing it was saved from");
+
+        if (PresetRefusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(PresetRefusal));
+        }
+
+        // The name is the identity, so a second save under one replaces rather than appends -
+        // which is what makes saving over a preset the way one is edited.
+        var kept = new Preset { Name = name, Settings = settings.Clone() };
+        var at = _presets.FindIndex(preset => preset.Name == name);
+        if (at >= 0)
+        {
+            _presets[at] = kept;
+        }
+        else
+        {
+            _presets.Add(kept);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+    {
+        Assert.That(name.Length > 0, "a preset is deleted by the name it was saved under");
+
+        if (PresetRefusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(PresetRefusal));
+        }
+
+        // A name the store does not hold is refused, as the backend refuses it: that is the
+        // answer a window gets when another one deleted the preset first.
+        if (_presets.RemoveAll(preset => preset.Name == name) == 0)
+        {
+            return Task.FromException(new BackendUnavailableException($"no preset named '{name}'"));
+        }
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// A measurement nothing measured. There is no socket behind this fixture, so it answers
     /// a fixed figure a test can assert against rather than a plausible-looking random one.
@@ -339,14 +526,51 @@ internal sealed class SeededBackend : IBackend
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => Task.CompletedTask;
 
-    public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
-        => Task.FromResult<IReadOnlyList<ReceiveStream>>([]);
+    /// <summary>
+    /// The pages this fixture was asked to open, in the order they were asked for. It is a list
+    /// and not a set, because a page cannot be read back: what a test can assert about it is the
+    /// call, so a second press has to be visible as a second entry.
+    /// </summary>
+    public List<WatchKey> Browsed { get; } = [];
 
+    public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+    {
+        Browsed.Add(new WatchKey { StreamName = streamName, Transport = transport });
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// The decodes this fixture is running, by the pair the contract keys one by. It is written
+    /// by the two calls below and read back by <see cref="ReceivingAsync"/>, so a test asserts
+    /// what the backend was asked to open rather than what the shell believed it had opened.
+    /// </summary>
+    public List<WatchKey> Decoded { get; } = [];
+
+    public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
+        => Task.FromResult<IReadOnlyList<ReceiveStream>>(
+            Decoded.Select(key => new ReceiveStream { Stream = key, Live = true }).ToList());
+
+    /// <summary>
+    /// Opens one decode, and answers a pair that is already open without opening a second - the
+    /// idempotence the contract states, so a caller that repeats a start is testable against this
+    /// fixture (<c>docs/ipc-api.md</c>).
+    /// </summary>
     public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-        => Task.CompletedTask;
+    {
+        var key = new WatchKey { StreamName = streamName, Transport = transport };
+        if (!Decoded.Contains(key))
+        {
+            Decoded.Add(key);
+        }
+
+        return Task.CompletedTask;
+    }
 
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-        => Task.CompletedTask;
+    {
+        Decoded.Remove(new WatchKey { StreamName = streamName, Transport = transport });
+        return Task.CompletedTask;
+    }
 
     // Nothing is decoding behind a fixture, so there is no audio branch to be loud. The call
     // succeeds rather than refusing: what it asks for is a state, and a fixture's state is
@@ -363,6 +587,54 @@ internal sealed class SeededBackend : IBackend
 
     public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
         => throw new BackendUnavailableException("nothing is publishing with a local preview");
+
+    /// <summary>
+    /// The screens this fixture is reading, in the order they were first asked for. It is written
+    /// by the two calls below, so a test asserts which screens the backend was asked to read
+    /// rather than which ones the picker believed it had opened.
+    /// </summary>
+    public List<int> Previewed { get; } = [];
+
+    /// <summary>
+    /// Every start this fixture was asked for, repeats included. <see cref="Previewed"/> answers
+    /// what is running and this answers how often it was asked - which is the difference between
+    /// a converge that settles and one that calls on every pass.
+    /// </summary>
+    public List<int> PreviewStarts { get; } = [];
+
+    /// <summary>
+    /// Opens one screen's preview, and answers a screen already being read without opening a
+    /// second - the idempotence the contract states, so a caller that repeats a start is testable
+    /// against this fixture (<c>docs/ipc-api.md</c>).
+    /// </summary>
+    public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+    {
+        PreviewStarts.Add(monitor);
+        if (!Previewed.Contains(monitor))
+        {
+            Previewed.Add(monitor);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+    {
+        Previewed.Remove(monitor);
+        return Task.CompletedTask;
+    }
+
+    public Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+        => throw new BackendUnavailableException($"nothing is previewing monitor {monitor}");
+
+    /// <summary>
+    /// Read back off <see cref="Previewed"/> rather than seeded, so a test asserts what the
+    /// fixture was asked to read. Live is false throughout: nothing behind this fixture produces
+    /// a frame, which is the state a picture that has been asked for and not arrived is in.
+    /// </summary>
+    public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+        => Task.FromResult<IReadOnlyList<PreviewedMonitor>>(
+            Previewed.Select(monitor => new PreviewedMonitor { Monitor = monitor }).ToList());
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default) => Task.CompletedTask;
 
@@ -403,6 +675,11 @@ internal sealed class SeededBackend : IBackend
             form.Groups.Add(Resolve(group, settings));
         }
 
+        foreach (var preset in PresetSeeds)
+        {
+            form.Presets.Add(Resolve(preset, settings));
+        }
+
         form.Summary = new Summary
         {
             Command = "",
@@ -424,6 +701,41 @@ internal sealed class SeededBackend : IBackend
 
         Assert.That(form.Groups.Count == Groups().Count, "a resolved group per seeded group", form.Groups.Count);
         return form;
+    }
+
+    /// <summary>
+    /// One built-in preset against the draft: what applying it would write here, or why nothing
+    /// here reaches it, and whether the draft already delivers it.
+    ///
+    /// The real backend searches for the encoder, pixel format and capture backend that keep the
+    /// promise (<c>internal/form/presets.go</c>). This states the answer instead: the preset writes
+    /// its own fields, asks for its pixel format, and is unreachable where this fixture's own
+    /// chroma rule refuses that format for the codec the draft names. A stand-in that searched
+    /// would be the preset table written twice, which is the thing the fixture is careful not to
+    /// be.
+    /// </summary>
+    private BuiltinPreset Resolve(PresetSeed seed, Settings settings)
+    {
+        var reached = settings.Publish.Clone();
+        seed.Base(reached);
+        reached.Chroma = seed.Chroma;
+
+        var refusal = OptionRefusal("publish.chroma", seed.Chroma, new Settings { Publish = reached });
+        var preset = new BuiltinPreset { Key = seed.Key, Selected = seed.Delivers(settings.Publish) };
+
+        if (refusal is null)
+        {
+            preset.Settings = reached;
+        }
+        else
+        {
+            preset.Reason = Say(
+                TextCode.PresetUnreachable,
+                Id(TextArgName.Preset, seed.Key),
+                Id(TextArgName.Transport, settings.Publish.PublishTransport));
+        }
+
+        return preset;
     }
 
     /// <summary>
@@ -456,6 +768,10 @@ internal sealed class SeededBackend : IBackend
             Reason = reason,
             Note = note,
             Value = ValueOf(seed.Key, settings),
+            // What a fresh installation would hold here, read out of this fixture's own
+            // defaults through the same reader the value goes through. The real form fills it
+            // the same way, off the row that reads the draft (internal/form/form.go).
+            DefaultValue = ValueOf(seed.Key, Defaults()),
             Range = seed.Range,
         };
 
@@ -511,7 +827,7 @@ internal sealed class SeededBackend : IBackend
             // Disabled with a reason: a general encoding concept this combination blocks.
             // Where two facts block it, the reason names the one the reader can act on -
             // the family before the engine, since another codec is nearer to hand.
-            case "publish.enc_preset":
+            case "publish.effort":
                 if (FamilyOf.GetValueOrDefault(settings.Publish.Codec, "") != "nvenc")
                 {
                     return (true, false, Say(TextCode.PresetOnlyOnFamilies, Ids(TextArgName.Families, "nvenc")), null);
@@ -823,11 +1139,15 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "none" },
                     ],
                 },
+                // A select and not a number, which is what the backend answers with: the
+                // entries are the enumerated outputs, one per catalog row, so a screen this
+                // machine does not have is an entry that is not there rather than a number
+                // typed past the end of the list (internal/form/options.go, optionMonitors).
                 new()
                 {
                     Key = "publish.monitor",
-                    Control = ControlKind.Number,
-                    Range = Bounded(0, 7),
+                    Control = ControlKind.Select,
+                    Options = [new() { Value = "0" }, new() { Value = "1" }],
                 },
                 new()
                 {
@@ -891,7 +1211,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 new()
                 {
-                    Key = "publish.enc_preset",
+                    Key = "publish.effort",
                     Control = ControlKind.Select,
                     Options =
                     [
@@ -1027,7 +1347,20 @@ internal sealed class SeededBackend : IBackend
                     [
                         new() { Value = "srt" },
                         new() { Value = "rtsp" },
-                        new() { Value = "hls" },
+
+                        // One greyed watch leg, so the treatment every option gets is on a leg
+                        // as well: the player this fixture's engine runs opens no HLS address,
+                        // and the entry keeps its place carrying the two that would have worked
+                        // (docs/field-availability.md, "One option disabled with a reason").
+                        new()
+                        {
+                            Value = "hls",
+                            Reason = Say(
+                                TextCode.NoViewerReceivesOver,
+                                Id(TextArgName.Engine, "ffmpeg"),
+                                Id(TextArgName.Transport, "hls"),
+                                Ids(TextArgName.Transports, "srt", "rtsp")),
+                        },
                     ],
                 },
                 new()
