@@ -224,7 +224,14 @@ Each engine states it its own way.
 `ffmpeg/args.go` passes `-color_range`, which swscale converts by, and tags the frames with the colour description through a `setparams` filter (`colourFilter`), which is what puts that description in the bitstream: the output options reach only part of it, and the range stays off the tag because tagging it ahead of the conversion makes swscale write limited range whatever `-color_range` says.
 `publish/gstpipeline.go` pins a colorimetry on the encoder input, and pins all four of its components.
 A colorimetry with the range set and matrix, transfer and primaries left unknown is not partially applied: `videoconvert` drops the range along with them and converts to limited range whatever the range said, so the setting would reach the caps and change nothing about the frames.
-The three named components are BT.709, the colour space of every HD and larger picture, which is every screen this captures.
+The three named components are BT.709 for a standard-range surface, which is every screen this captures until one of them is not.
+
+Which is why the encoder input states more than one colour where the pixel format can hold more than one.
+`gstColorimetries` lists a structure per colour the publish accepts at the configured range: BT.709, and the two BT.2100 curves where the format carries ten bits.
+The child narrows them to the one whose transfer the capture is producing, on a probe taken before the pipeline plays, so the surface's own colour is what negotiates and nothing converts it (`gstrun/surface.go`).
+A value list would not do: `videoconvert` fixates one to its first entry whatever the frames carry, which is a conversion wearing negotiation's clothes.
+The order is the answer for anything that does not narrow - a rendered command pasted into `gst-launch`, and the encode probe - and it leads with the standard-range row, which is what a capture stating no transfer at all is.
+Mastering display metadata and the content light level ride through untouched, because the encoder input names neither and every field it does not name survives the intersection.
 
 What the pipeline pins is only half of it: the bitstream is the only place a viewer reads the colour from, since RTP and MPEG-TS carry no colour description of their own.
 A stream that signals none is watched in the viewer's own default, limited-range BT.709 off the picture size, whatever it holds.

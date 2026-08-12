@@ -75,34 +75,15 @@ const tenBitChroma = "p010le"
 // captureTransfer is the transfer characteristic in a caps string, and the empty string
 // where the caps name none.
 //
-// The colorimetry field carries four components separated by colons - range, matrix,
-// transfer, primaries - or one of GStreamer's names for a common combination. Both forms
-// are read: the named one is what a capture usually negotiates, and the numeric one is
-// what a capsfilter pins (gstColorimetry).
+// Reading which part of the colorimetry is the transfer is the child's, because the child
+// narrows the encoder input by the same answer: two spellings of it would let the parent
+// call a surface HDR while the pipeline coded it as something else.
 func captureTransfer(caps string) string {
 	value, ok := capsField(caps, "colorimetry")
 	if !ok {
 		return ""
 	}
-	if named, ok := namedColorimetryTransfers[value]; ok {
-		return named
-	}
-	// range:matrix:transfer:primaries, where the transfer is the third.
-	if parts := strings.Split(value, ":"); len(parts) == 4 {
-		return parts[2]
-	}
-	return value
-}
-
-// namedColorimetryTransfers is the transfer characteristic behind each colorimetry name a
-// capture may negotiate.
-//
-// Only the HDR ones are named. Every other name is SDR, and the empty answer this leaves
-// them with is the same verdict spelled shorter: what the check below asks is whether the
-// surface is HDR, not which of the standard-range curves it carries.
-var namedColorimetryTransfers = map[string]string{
-	"bt2100-pq":  "smpte2084",
-	"bt2100-hlg": "arib-std-b67",
+	return gstrun.TransferOfColorimetry(value)
 }
 
 // capsField is one field's value out of a caps string, and false where the caps carry no

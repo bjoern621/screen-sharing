@@ -3,6 +3,7 @@ package publish
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -191,25 +192,39 @@ func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	colorimetry, err := gstColorimetry(s)
+	colorimetries, err := gstColorimetries(s)
 	if err != nil {
 		return "", err
 	}
 
-	caps := "video/x-raw" + mem.feature + ",format=" + format + ",colorimetry=" + colorimetry
 	// The size is pinned on the encoder input rather than asked of a scaler, which is
 	// what GStreamer negotiation is: the capsfilter states what the encoder is given and
 	// the resampler upstream of it - videoscale on the CPU, the family's post-processor
 	// on the device - produces it. That is the same statement on both paths, so the
 	// device path needs no element of its own (gstgpu.go, gstSystemScale).
-	size, scaled, err := s.Publish.OutputSize()
+	size := ""
+	out, scaled, err := s.Publish.OutputSize()
 	if err != nil {
 		return "", err
 	}
 	if scaled {
-		caps += ",width=" + strconv.Itoa(size.Width) + ",height=" + strconv.Itoa(size.Height)
+		size = ",width=" + strconv.Itoa(out.Width) + ",height=" + strconv.Itoa(out.Height)
 	}
-	return caps, nil
+
+	// One structure per colour the encoder input accepts, which is how a capsfilter states
+	// alternatives that a value list cannot: videoconvert fixates a list to its first entry
+	// whatever the frames carry, so a list would convert an HDR surface into the first row
+	// and call it negotiation. Structures fixate the same way and are what the child can
+	// narrow before the negotiation happens (gstrun, "Narrowing the encoder input").
+	//
+	// The order is the answer for a run nobody narrows - a rendered command pasted into
+	// gst-launch, and the encode probe - and it leads with the standard-range row, which is
+	// what every capture that states no transfer at all is.
+	caps := make([]string, 0, len(colorimetries))
+	for _, colorimetry := range colorimetries {
+		caps = append(caps, "video/x-raw"+mem.feature+",format="+format+",colorimetry="+colorimetry+size)
+	}
+	return strings.Join(caps, ";"), nil
 }
 
 // gstAudioBranch returns the elements that capture desktop audio and attach it
@@ -356,31 +371,59 @@ const (
 	gstRangeLimited = "2"
 )
 
-// gstBt709 is the matrix, transfer function and primaries the publish pipeline
-// encodes against, as the GstVideoColorMatrix, GstVideoTransferFunction and
-// GstVideoColorPrimaries enum values the colorimetry field spells after the
-// range. BT.709 is the colour space of every HD and larger picture, which is
-// every screen this app captures, and the encoders write it into the bitstream,
-// so a viewer converts back with the matrix the frames were made with instead of
-// picking one from the picture size.
-const gstBt709 = "3:5:1"
+// The colour spaces the encoder input takes, as the GstVideoColorMatrix,
+// GstVideoTransferFunction and GstVideoColorPrimaries enum values the colorimetry
+// field spells after the range.
+const (
+	// gstBt709 is the colour space of every standard-range HD and larger picture,
+	// which is every SDR screen this app captures. The encoders write it into the
+	// bitstream, so a viewer converts back with the matrix the frames were made with
+	// instead of picking one from the picture size.
+	gstBt709 = "3:5:1"
+	// The two BT.2100 colour spaces an HDR surface carries: the absolute curve
+	// mastered content is graded on, and the broadcast one. Both ride the BT.2020
+	// matrix and primaries, which is what makes them one pair of rows rather than four.
+	gstBt2100Pq  = "6:14:7"
+	gstBt2100Hlg = "6:15:7"
+)
 
-// gstColorimetry returns the complete colorimetry the encoder input is pinned to,
-// and rejects a colour range this engine has no mapping for.
-//
-// All four components are named because a partial one is not partially applied.
-// Left as "<range>:0:0:0", videoconvert drops the range along with the three
-// unknown components and converts to limited range whatever the range says, so
-// the colour-range setting reaches the caps and changes nothing about the frames:
-// full-range white leaves the capture chain as Y=235 exactly like limited-range
-// white. Spelled out, the range takes effect (Y=254) and the stream signals what
-// it holds.
+// gstColorimetry is the colour the encoder input takes from a capture that states no
+// transfer of its own, which is every standard-range surface.
 func gstColorimetry(s settings.Settings) (string, error) {
-	r, err := gstColorRange(s)
+	colorimetries, err := gstColorimetries(s)
 	if err != nil {
 		return "", err
 	}
-	return r + ":" + gstBt709, nil
+	return colorimetries[0], nil
+}
+
+// gstColorimetries is every colour the encoder input accepts, standard range first, and
+// rejects a colour range this engine has no mapping for.
+//
+// All four components of each are named because a partial colorimetry is not partially
+// applied. Left as "<range>:0:0:0", videoconvert drops the range along with the three
+// unknown components and converts to limited range whatever the range says, so the
+// colour-range setting reaches the caps and changes nothing about the frames: full-range
+// white leaves the capture chain as Y=235 exactly like limited-range white. Spelled out,
+// the range takes effect (Y=254) and the stream signals what it holds.
+//
+// The two HDR colours are offered where the pixel format can hold them and nowhere else.
+// An HDR surface cannot ride in eight bits, so offering the rows on an 8-bit format would
+// be offering a negotiation that produces a stream tagged PQ over eight-bit samples; that
+// combination is refused on the capture's own report instead (gsthdr.go).
+//
+// Which of the rows a run ends on is the capture's answer and never a setting: the child
+// narrows them to the one whose transfer the surface carries, before anything negotiates.
+func gstColorimetries(s settings.Settings) ([]string, error) {
+	r, err := gstColorRange(s)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{r + ":" + gstBt709}
+	if s.Publish.Chroma == tenBitChroma {
+		out = append(out, r+":"+gstBt2100Pq, r+":"+gstBt2100Hlg)
+	}
+	return out, nil
 }
 
 // gstColorRanges maps a settings colour range to its GstVideoColorRange value.

@@ -43,14 +43,22 @@ func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 			name:  "a wide-gamut SDR surface",
 			caps:  "video/x-raw, format=(string)BGRx, colorimetry=(string)bt2020",
 			hdr:   false,
-			trans: "bt2020",
+			trans: "bt2020-10",
 		},
 		{
-			// The form a capsfilter pins: range:matrix:transfer:primaries.
+			// The form a capsfilter pins: range:matrix:transfer:primaries. It answers in
+			// the same nicks the named form does, which is what lets the child hold one
+			// against the other when it narrows the encoder input to the surface's colour.
 			name:  "the four-component form",
-			caps:  "video/x-raw, format=(string)I420, colorimetry=(string)1:14:9:1",
+			caps:  "video/x-raw, format=(string)P010_10LE, colorimetry=(string)1:6:14:7",
+			hdr:   true,
+			trans: "smpte2084",
+		},
+		{
+			name:  "the four-component form at standard range",
+			caps:  "video/x-raw, format=(string)I420, colorimetry=(string)2:3:5:1",
 			hdr:   false,
-			trans: "9",
+			trans: "bt709",
 		},
 		{
 			// Caps carrying none are SDR. Guessing upward is what publishes a PQ tag over

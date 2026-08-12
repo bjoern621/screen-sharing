@@ -62,10 +62,16 @@ Viewers tone-map by choice, per tile, in memory.
 A tile that is watching an HDR stream without tone mapping says so, which is the part that tells the reader the toggle exists.
 Persisting the choice per stream path was rejected: a stream that stops being HDR would carry a stale preference nobody can find.
 
-**Built: the refusal.** The publish child reports what the capture negotiated, and a run whose surface turns out to be HDR while the settings ask for an 8-bit format is stopped with both ends named (`publish/gsthdr.go`).
+**Built: the publish half.** The child reports what the capture negotiated, and a run whose surface turns out to be HDR while the settings ask for an 8-bit format is stopped with both ends named (`publish/gsthdr.go`).
 A wide-gamut SDR desktop is not HDR, so the verdict reads the transfer characteristic and never the primaries, and caps carrying no colorimetry at all are SDR.
 
-**What is left.** The encoder input is still pinned to BT.709 on every capture (`gstBt709`), so an HDR surface is refused rather than published: carrying the transfer through to the encoder and into the stream is the second half, and mastering display metadata passes with it.
+The surface's own colour reaches the encoder with it.
+The encoder input states one structure per colour the publish accepts - standard range, and the two BT.2100 curves where the pixel format carries ten bits - and the child narrows them to the one whose transfer the capture is producing, before anything negotiates (`gstrun/surface.go`).
+A value list was measured and rejected: videoconvert fixates one to its first entry whatever the frames carry, so a list would have converted every HDR surface into the standard-range row and called it negotiation.
+Mastering display metadata rides through because nothing names it: the encoder input pins the memory, the format, the colorimetry and the size, and every other field the capture stated survives the intersection.
+
+**What is left.** The ffmpeg engine tags every encode BT.709 (`ffmpeg.colourFilter`) and reports no caps, so a Windows capture through it publishes an HDR desktop as if it were standard range with nothing saying so.
+Either it gains the same report, or HDR is declared the GStreamer engine's as a rule on the engine axis and an HDR capture is refused there.
 
 The viewer half waits on an element that tone-maps.
 `videoconvertscale` converts primaries and nothing else, and the elements that roll PQ down to SDR are the device ones - `vapostproc` on VA, `d3d11convert` on Windows - so the render chain gains a rung per platform rather than one route, and a machine with neither keeps the choice greyed with what is missing.

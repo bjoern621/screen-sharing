@@ -10,10 +10,13 @@
 // capture that segfaults inside a driver takes the child with it and leaves the backend,
 // the control socket and every viewer running (docs/capture-architecture.md).
 //
-// What it adds over the launcher is one report today. The negotiated caps of the capture
-// go to the caller as a line on standard output, because the transfer characteristic in
-// them is the only honest answer to whether a surface is HDR: caps carrying none are SDR,
-// and guessing upward publishes a PQ tag over an SDR desktop (docs/plan.md, "HDR").
+// What it adds over the launcher is what the launcher cannot know: what the capture turned
+// out to be. The negotiated caps go to the caller as a line on standard output, because the
+// transfer characteristic in them is the only honest answer to whether a surface is HDR -
+// caps carrying none are SDR, and guessing upward publishes a PQ tag over an SDR desktop.
+// The same answer narrows the encoder input to the colour the surface actually carries
+// before anything converts it (surface.go), which is the half a fixed pipeline string has no
+// way to state.
 package gstrun
 
 import (
@@ -66,6 +69,11 @@ func RunWithControl(ctx context.Context, description, controlPath string, out io
 	// for NULL, which is what releases the capture's own handles - a portal session, a
 	// DRM lease, an X connection - rather than leaving them to the process exiting.
 	defer pipeline.SetState(gst.StateNull)
+
+	// Both hooks are taken before the pipeline plays, and the narrowing has to be: it acts
+	// on the caps event the capture sends downstream, which is on its way the moment the
+	// state change starts (surface.go).
+	narrowToSurface(pipeline)
 
 	// The socket opens before the pipeline plays, so a parent that writes the moment it
 	// sees the child start finds something listening.
