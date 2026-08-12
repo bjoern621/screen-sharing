@@ -121,6 +121,38 @@ message ReceiveStream {
   // chose rather than to silence.
   double volume = 9;
   bool muted = 10;
+
+  // transfer is the transfer characteristic the decoded frames carry, as GStreamer names
+  // it - "bt709", "smpte2084", "arib-std-b67" - and empty until the decoder's pad
+  // negotiates. hdr is the verdict on it: two of those curves carry more range than a
+  // standard display shows and every other one describes a standard-range picture
+  // whatever its primaries are.
+  //
+  // Both, because they answer different questions. The verdict decides whether a viewer
+  // is offered anything at all and belongs to the backend, like every verdict; the
+  // characteristic is an identifier a reader is shown, and which of the two curves a
+  // stream carries is a word the shell owns.
+  string transfer = 11;
+  bool hdr = 12;
+
+  // tone_map is whether this decode was built with the rung that rolls an HDR stream down
+  // into the range a standard display shows, which is the choice StartReceive carries. It
+  // is what was built and not what was asked for: a machine with no rung builds without
+  // one, so a tile reports the picture it is drawing.
+  bool tone_map = 13;
+  // can_tone_map is whether this machine has an element that rolls the range down at all,
+  // and tone_map_missing names the first one it needs and does not register.
+  //
+  // A machine fact on a per-decode message, because this is where a tile reads what to
+  // offer: the choice is per tile and in memory, so there is no settings field for it to
+  // ride on, and the alternative is a second call answering one question.
+  //
+  // tone_map_missing is empty on a machine that can and on a platform that declares no
+  // rung at all, which can_tone_map is what tells apart: there is nothing to install where
+  // nothing was declared, and the two read differently to somebody deciding what to do
+  // about it.
+  bool can_tone_map = 14;
+  string tone_map_missing = 15;
 }
 
 // ReceiveState is every stream the backend is decoding.

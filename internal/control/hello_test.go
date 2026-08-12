@@ -58,14 +58,14 @@ func (f *fakeBackend) MeasureEncodeRate(context.Context, settings.Settings) (enc
 	return encoderate.Rate{}, f.err
 }
 
-func (f *fakeBackend) SaveSettings(settings.Settings) error  { return f.err }
-func (f *fakeBackend) StartPublish(settings.Settings) error  { return f.err }
-func (f *fakeBackend) ApplyToStream(settings.Settings) error { return f.err }
-func (f *fakeBackend) StopPublish()                          {}
-func (f *fakeBackend) StartWatch(wire.WatchKey) error        { return f.err }
-func (f *fakeBackend) StopWatch(wire.WatchKey)               {}
-func (f *fakeBackend) StartReceive(wire.WatchKey) error      { return nil }
-func (f *fakeBackend) StopReceive(wire.WatchKey)             {}
+func (f *fakeBackend) SaveSettings(settings.Settings) error   { return f.err }
+func (f *fakeBackend) StartPublish(settings.Settings) error   { return f.err }
+func (f *fakeBackend) ApplyToStream(settings.Settings) error  { return f.err }
+func (f *fakeBackend) StopPublish()                           {}
+func (f *fakeBackend) StartWatch(wire.WatchKey) error         { return f.err }
+func (f *fakeBackend) StopWatch(wire.WatchKey)                {}
+func (f *fakeBackend) StartReceive(wire.WatchKey, bool) error { return nil }
+func (f *fakeBackend) StopReceive(wire.WatchKey)              {}
 
 func (f *fakeBackend) SetReceiveAudio(wire.WatchKey, float64, bool) error { return f.err }
 

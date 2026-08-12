@@ -294,9 +294,12 @@ public sealed class ControlBackend : IBackend
             cancellation);
 
     /// <inheritdoc />
-    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+    public Task StartReceiveAsync(
+        string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "opening a decode",
-            (c, key) => c.StartReceiveAsync(new StartReceiveRequest { Stream = key }, cancellationToken: cancellation),
+            (c, key) => c.StartReceiveAsync(
+                new StartReceiveRequest { Stream = key, ToneMap = toneMap },
+                cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />

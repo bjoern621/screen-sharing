@@ -61,7 +61,8 @@ public sealed class BroadcastPreviewTests
 
         public int RelaySubscriptions { get; private set; }
 
-        public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        public Task StartReceiveAsync(
+            string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         {
             Started.Add(new WatchKey { StreamName = streamName, Transport = transport });
             return Task.CompletedTask;

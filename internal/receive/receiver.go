@@ -84,6 +84,15 @@ type Open struct {
 	// one of the names Chains reports. Empty asks for the default, and so does a
 	// name this machine cannot run.
 	Chain string
+	// ToneMap asks for an HDR stream to be rolled down into the range a standard
+	// display shows (tonemap.go). A machine with no rung to do it with builds the
+	// decode without one and reports that it did, the same fallback Chain makes.
+	//
+	// It is asked here rather than turned on by what the stream turns out to carry,
+	// because a pipeline is built before anything has negotiated: what a decode is
+	// asked for is knowable at that moment and what it will receive is not. An SDR
+	// stream through the rung is a filter with nothing to convert.
+	ToneMap bool
 }
 
 // Events are one receiver's lifecycle callbacks. They fire on pipeline threads
@@ -108,7 +117,12 @@ type Receiver struct {
 	// chain is the row the pipeline was built from, kept because what a stream
 	// renders through is part of what the receive state reports and because the
 	// size bound and the memory check are written from it.
-	chain    chain
+	chain chain
+	// toneMap is whether the pipeline was built with the rung that rolls an HDR stream
+	// down, which is not always what was asked for: a machine with no rung builds
+	// without one. It is what the receive state reports and what a caller compares a
+	// new request against.
+	toneMap  bool
 	pipeline gst.Pipeline
 	sink     gstapp.AppSink
 	fit      gst.Element // the capsfilter that bounds what the chain's scaler produces
@@ -156,7 +170,8 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	initGStreamer()
 
 	c := resolve(open.Chain)
-	desc := c.launch(st.Source, st.Raw)
+	open.ToneMap = toneMapFor(st.Name, open.ToneMap)
+	desc := c.launch(st, open)
 	logger.Debugf("stream %q pipeline: %s", st.Name, desc)
 
 	el, err := gst.ParseLaunch(desc)
@@ -178,6 +193,7 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	r := &Receiver{
 		name:     st.Name,
 		chain:    c,
+		toneMap:  open.ToneMap,
 		pipeline: pipeline,
 		sink:     sink,
 		fit:      pipeline.GetByName(fitName),
@@ -329,6 +345,13 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		return
 	}
 }
+
+// ToneMap is whether this pipeline was built with the rung that rolls an HDR stream down.
+//
+// It answers what was built rather than what was asked for, which is what makes it the
+// value a caller compares a new request against: a machine with no rung builds without one,
+// and a caller holding it against its own request would rebuild the same pipeline forever.
+func (r *Receiver) ToneMap() bool { return r.toneMap }
 
 // SetRenderSize bounds the branch to the pixels the tile drawing the stream shows.
 //

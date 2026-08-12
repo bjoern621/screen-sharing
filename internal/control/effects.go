@@ -315,6 +315,11 @@ func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBro
 // the stream's format is a request the world is not ready for rather than one that is
 // malformed. What differs is the engine the carriage is asked about - a receive pipeline
 // reaches WHEP and no player does - and the backend is what asks.
+//
+// Tone mapping is not checked here at all. Whether the stream carries more range than a
+// display shows is known once the decoder negotiates and not before, and whether this
+// machine can roll it down is the backend's registry: a refusal written here would be a
+// guess about both.
 func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartReceiveRequest) (*screensharev1.StartReceiveResponse, error) {
 	key := wire.WatchKeyOf(req.GetStream())
 	name, leg := key.StreamName, key.Transport
@@ -325,7 +330,7 @@ func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartRecei
 		return nil, invalidArgument("no transport named to receive '%s' over", name)
 	}
 
-	if err := s.backend.StartReceive(key); err != nil {
+	if err := s.backend.StartReceive(key, req.GetToneMap()); err != nil {
 		return nil, failedPrecondition("cannot receive '%s' over %s: %v", name, leg, err)
 	}
 	return &screensharev1.StartReceiveResponse{}, nil

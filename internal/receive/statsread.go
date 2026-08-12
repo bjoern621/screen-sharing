@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-gst/go-gst/pkg/gst"
+
+	"bjoernblessin.de/screenshare/internal/colour"
 )
 
 // Stats reads the running pipeline: the caps on three pads (the decoder's input,
@@ -27,6 +29,7 @@ func (r *Receiver) Stats() Stats {
 		Chain:      r.chain.name,
 		ChainGPU:   r.chain.device != "",
 		ChainExact: r.chain.colour == ColourStated,
+		ToneMap:    r.toneMap,
 	}
 	if ns := r.video.lastKey.Load(); ns > 0 {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
@@ -96,6 +99,7 @@ func readDecoded(s *Stats, dec gst.Element) {
 	s.Format = st.GetString("format")
 	s.Depth, s.Subsampling = pixelShape(s.Format)
 	s.Colorimetry = st.GetString("colorimetry")
+	s.Transfer = colour.TransferOfColorimetry(s.Colorimetry)
 	s.ChromaSite = st.GetString("chroma-site")
 	if n, d, ok := st.GetFraction("pixel-aspect-ratio"); ok {
 		s.PixelAspect = fmt.Sprintf("%d:%d", n, d)

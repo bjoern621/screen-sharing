@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	"bjoernblessin.de/screenshare/internal/colour"
 	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -61,18 +62,8 @@ func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPoin
 // asked on Linux today - not through xrandr, not through the wlr protocols, not through
 // the portal - and a field would be a claim the app has no way to check.
 //
-// Caps carrying no transfer at all are SDR. Guessing upward would publish a PQ tag over an
-// SDR desktop, which is a worse failure than the one this file exists to catch: the tag
-// travels, every viewer trusts it, and the picture is wrong on all of them.
-
-// The transfer characteristics that make a surface HDR, spelled as GStreamer's
-// GstVideoTransferFunction names them in a caps string.
-//
-// Two rather than a family: PQ is the absolute curve mastered content carries and HLG the
-// broadcast one, and everything else in that enum - the BT.709 curve, sRGB, the gamma
-// ladders - describes a standard-range picture whatever its primaries are. A wide-gamut
-// SDR desktop is not HDR, so the primaries are deliberately not read here.
-var hdrTransfers = []string{"smpte2084", "arib-std-b67"}
+// Which transfer characteristics are HDR is internal/colour's, because a viewer reads the
+// same verdict off the stream this publish sends.
 
 // tenBitChroma is the one pixel format this app encodes that carries more than eight bits
 // per component. Every other format the codec table declares is 8-bit, so an HDR surface
@@ -90,7 +81,7 @@ func captureTransfer(caps string) string {
 	if !ok {
 		return ""
 	}
-	return gstrun.TransferOfColorimetry(value)
+	return colour.TransferOfColorimetry(value)
 }
 
 // capsField is one field's value out of a caps string, and false where the caps carry no
@@ -113,13 +104,7 @@ func capsField(caps, name string) (string, bool) {
 
 // hdrCapture reports whether caps describe an HDR surface.
 func hdrCapture(caps string) bool {
-	transfer := captureTransfer(caps)
-	for _, hdr := range hdrTransfers {
-		if transfer == hdr {
-			return true
-		}
-	}
-	return false
+	return colour.IsHDR(captureTransfer(caps))
 }
 
 // hdrRefusal is why this publish must not continue, and nil where the capture and the

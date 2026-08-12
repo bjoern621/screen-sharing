@@ -1,9 +1,9 @@
 package gstrun
 
 import (
-	"strings"
-
 	"github.com/go-gst/go-gst/pkg/gst"
+
+	"bjoernblessin.de/screenshare/internal/colour"
 )
 
 // Narrowing the encoder input.
@@ -97,7 +97,7 @@ func matching(caps *gst.Caps, transfer string) *gst.Caps {
 	var out *gst.Caps
 	for i := uint(0); i < caps.GetSize(); i++ {
 		s := caps.GetStructure(i)
-		if s == nil || TransferOfColorimetry(s.GetString(colorimetryField)) != transfer {
+		if s == nil || colour.TransferOfColorimetry(s.GetString(colorimetryField)) != transfer {
 			continue
 		}
 		if out == nil {
@@ -120,67 +120,5 @@ func transferOf(caps *gst.Caps) string {
 	if s == nil {
 		return ""
 	}
-	return TransferOfColorimetry(s.GetString(colorimetryField))
-}
-
-// TransferOfColorimetry is the transfer characteristic in one colorimetry value, as
-// GstVideoTransferFunction nicks it, and the empty string where the value carries none.
-//
-// The field takes two forms and both have to answer alike, because the narrowing holds one
-// against the other: a capture negotiates one of GStreamer's names for a common
-// combination, and a capsfilter pins four numbers separated by colons - range, matrix,
-// transfer, primaries. Answering with the number for one and the nick for the other would
-// make every comparison between them false, and the surface's own colour would never be the
-// row that won.
-//
-// It is exported because the parent reads the same field off the caps this child reports,
-// and a second spelling of "which part of that string is the transfer" is one that can
-// disagree with this one about what a surface is.
-func TransferOfColorimetry(value string) string {
-	if value == "" {
-		return ""
-	}
-	if named, ok := namedTransfers[value]; ok {
-		return named
-	}
-	if parts := strings.Split(value, ":"); len(parts) == 4 {
-		if nick, ok := transferNicks[parts[2]]; ok {
-			return nick
-		}
-		return parts[2]
-	}
-	return value
-}
-
-// namedTransfers is the transfer characteristic behind each colorimetry name GStreamer
-// prints in place of the four components.
-var namedTransfers = map[string]string{
-	"bt601":      "bt601",
-	"bt709":      "bt709",
-	"bt2020":     "bt2020-10",
-	"smpte240m":  "smpte240m",
-	"sRGB":       "srgb",
-	"bt2100-pq":  "smpte2084",
-	"bt2100-hlg": "arib-std-b67",
-}
-
-// transferNicks is the GstVideoTransferFunction enum as the colorimetry field spells it in
-// each of its two forms: the value a capsfilter pins, and the nick everything else prints.
-var transferNicks = map[string]string{
-	"1":  "gamma10",
-	"2":  "gamma18",
-	"3":  "gamma20",
-	"4":  "gamma22",
-	"5":  "bt709",
-	"6":  "smpte240m",
-	"7":  "srgb",
-	"8":  "gamma28",
-	"9":  "log100",
-	"10": "log316",
-	"11": "bt2020-12",
-	"12": "adobergb",
-	"13": "bt2020-10",
-	"14": "smpte2084",
-	"15": "arib-std-b67",
-	"16": "bt601",
+	return colour.TransferOfColorimetry(s.GetString(colorimetryField))
 }

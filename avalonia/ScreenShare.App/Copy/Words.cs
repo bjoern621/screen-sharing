@@ -289,6 +289,28 @@ public static class Words
         ["dxva"] = "any GPU on Windows",
     };
 
+    /// <summary>
+    /// The transfer characteristics a decode reports, in the names a reader meets them under
+    /// rather than in the standards' own.
+    ///
+    /// Two of them carry more range than a standard display shows, and those two are the
+    /// reason this table exists: a tile says which curve it is drawing, because what to do
+    /// about it differs - PQ is absolute and mastered for a bright display, HLG is relative
+    /// and degrades into a standard one on its own.
+    /// </summary>
+    private static readonly Dictionary<string, string> Transfers = new()
+    {
+        ["smpte2084"] = "HDR (PQ)",
+        ["arib-std-b67"] = "HDR (HLG)",
+        ["bt709"] = "BT.709",
+        ["bt601"] = "BT.601",
+        ["bt2020-10"] = "BT.2020",
+        ["bt2020-12"] = "BT.2020",
+        ["srgb"] = "sRGB",
+        ["smpte240m"] = "SMPTE 240M",
+        ["adobergb"] = "Adobe RGB",
+    };
+
     private static readonly Dictionary<string, string> OperatingSystems = new()
     {
         ["windows"] = "Windows",
@@ -329,6 +351,8 @@ public static class Words
     public static string Capture(string id) => Look(Captures, id);
 
     public static string Memory(string id) => Look(Memories, id);
+
+    public static string Transfer(string id) => Look(Transfers, id);
 
     public static string Cursor(string id) => Look(Cursors, id);
 

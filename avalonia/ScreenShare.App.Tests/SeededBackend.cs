@@ -567,22 +567,64 @@ internal sealed class SeededBackend : IBackend
     /// </summary>
     public List<WatchKey> Decoded { get; } = [];
 
+    /// <summary>
+    /// What every decode this fixture runs reports about its colour: the transfer
+    /// characteristic the stream carries and the verdict on it.
+    ///
+    /// Both are seeded rather than one read off the other, because that is how they arrive:
+    /// which curves are HDR is the backend's table, and a fixture deriving the verdict here
+    /// would be a second copy of it that could disagree.
+    /// </summary>
+    public string Transfer { get; set; } = "";
+
+    public bool Hdr { get; set; }
+
+    /// <summary>
+    /// Whether this fixture has anything to roll an HDR stream down with, and what is absent
+    /// where it has not. They are a machine's facts, so a test that is about the greyed row
+    /// states them rather than the fixture inventing either.
+    /// </summary>
+    public bool CanToneMap { get; set; }
+
+    public string ToneMapMissing { get; set; } = "";
+
+    /// <summary>Which open decodes were built with the rung, by the pair they are keyed by.</summary>
+    private readonly Dictionary<WatchKey, bool> _toneMapped = [];
+
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => Task.FromResult<IReadOnlyList<ReceiveStream>>(
-            Decoded.Select(key => new ReceiveStream { Stream = key, Live = true }).ToList());
+            Decoded.Select(key => new ReceiveStream
+            {
+                Stream = key,
+                Live = true,
+                Transfer = Transfer,
+                Hdr = Hdr,
+                // What was built and not what was asked for, which is the backend's own
+                // fallback: a machine with nothing to convert with builds the decode without
+                // the rung whatever the call said.
+                ToneMap = CanToneMap && _toneMapped.GetValueOrDefault(key),
+                CanToneMap = CanToneMap,
+                ToneMapMissing = CanToneMap ? "" : ToneMapMissing,
+            }).ToList());
 
     /// <summary>
     /// Opens one decode, and answers a pair that is already open without opening a second - the
     /// idempotence the contract states, so a caller that repeats a start is testable against this
     /// fixture (<c>docs/ipc-api.md</c>).
+    ///
+    /// Tone mapping is part of what the decode is built from, so it is recorded against the
+    /// pair and a second call naming the other answer replaces it. That is the contract's own
+    /// shape: the call names the state the decode should be in.
     /// </summary>
-    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+    public Task StartReceiveAsync(
+        string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
     {
         var key = new WatchKey { StreamName = streamName, Transport = transport };
         if (!Decoded.Contains(key))
         {
             Decoded.Add(key);
         }
+        _toneMapped[key] = toneMap;
 
         return Task.CompletedTask;
     }

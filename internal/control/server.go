@@ -121,7 +121,11 @@ type Backend interface {
 	// StartReceive opens a decode for one stream on one leg, inside the backend, and
 	// StopReceive closes one. They are the tile path's counterpart of the two above:
 	// what they open is a decode and never a tile.
-	StartReceive(key wire.WatchKey) error
+	//
+	// toneMap asks for an HDR stream to be rolled down into the range a standard display
+	// shows. It is part of what the decode is built from, so a decode already open with
+	// the other answer is rebuilt to reach the state the call names.
+	StartReceive(key wire.WatchKey, toneMap bool) error
 	StopReceive(key wire.WatchKey)
 	// SetReceiveAudio sets how loud one decode plays and whether it plays at all, and
 	// refuses where nothing is decoding the pair. The loudness belongs to the decode

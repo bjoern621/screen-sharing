@@ -1452,9 +1452,29 @@ func (*OpenInBrowserResponse) Descriptor() ([]byte, []int) {
 // The render chain is not on this message. It is one value for every decode
 // (ViewerSettings), because a chain falls back where a driver cannot run it and that
 // is a property of the machine rather than of a stream.
+//
+// Tone mapping is, for the opposite reason: whether a stream carries more range than a
+// display shows is a property of that stream, and two tiles watching one stream may want
+// different answers - one reader comparing what it carries against what a display shows,
+// another watching it.
 type StartReceiveRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Stream        *WatchKey              `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Stream *WatchKey              `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	// tone_map asks for an HDR stream to be rolled down into the range a standard display
+	// shows. It is a build choice and not a live one - the rung is an element in the
+	// pipeline - so a decode already running with the other answer is rebuilt to reach the
+	// one this call names, which is the same rule every other effect on this contract
+	// follows: a call names the state it wants true, and one that already holds costs
+	// nothing.
+	//
+	// It is not stored anywhere. A preference kept per stream path would outlive the stream
+	// it was made about, so a path that stops carrying HDR would carry a choice nobody can
+	// find; this lives exactly as long as the decode does.
+	//
+	// A machine with no element to roll the range down builds the decode without one and
+	// reports that it did (ReceiveStream), rather than refusing: a stream drawn in the range
+	// it was coded in is a picture, and a refusal is none.
+	ToneMap       bool `protobuf:"varint,2,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1494,6 +1514,13 @@ func (x *StartReceiveRequest) GetStream() *WatchKey {
 		return x.Stream
 	}
 	return nil
+}
+
+func (x *StartReceiveRequest) GetToneMap() bool {
+	if x != nil {
+		return x.ToneMap
+	}
+	return false
 }
 
 type StartReceiveResponse struct {
@@ -2788,9 +2815,10 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x11StopWatchResponse\"H\n" +
 	"\x14OpenInBrowserRequest\x120\n" +
 	"\x06viewer\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06viewer\"\x17\n" +
-	"\x15OpenInBrowserResponse\"G\n" +
+	"\x15OpenInBrowserResponse\"b\n" +
 	"\x13StartReceiveRequest\x120\n" +
-	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\"\x16\n" +
+	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x19\n" +
+	"\btone_map\x18\x02 \x01(\bR\atoneMap\"\x16\n" +
 	"\x14StartReceiveResponse\"F\n" +
 	"\x12StopReceiveRequest\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\"\x15\n" +

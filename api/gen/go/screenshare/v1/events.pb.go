@@ -453,10 +453,40 @@ type ReceiveStream struct {
 	// volume is a linear gain from zero, where one is unchanged. muted is separate
 	// from a volume of zero because unmuting has to return to the level the reader
 	// chose rather than to silence.
-	Volume        float64 `protobuf:"fixed64,9,opt,name=volume,proto3" json:"volume,omitempty"`
-	Muted         bool    `protobuf:"varint,10,opt,name=muted,proto3" json:"muted,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Volume float64 `protobuf:"fixed64,9,opt,name=volume,proto3" json:"volume,omitempty"`
+	Muted  bool    `protobuf:"varint,10,opt,name=muted,proto3" json:"muted,omitempty"`
+	// transfer is the transfer characteristic the decoded frames carry, as GStreamer names
+	// it - "bt709", "smpte2084", "arib-std-b67" - and empty until the decoder's pad
+	// negotiates. hdr is the verdict on it: two of those curves carry more range than a
+	// standard display shows and every other one describes a standard-range picture
+	// whatever its primaries are.
+	//
+	// Both, because they answer different questions. The verdict decides whether a viewer
+	// is offered anything at all and belongs to the backend, like every verdict; the
+	// characteristic is an identifier a reader is shown, and which of the two curves a
+	// stream carries is a word the shell owns.
+	Transfer string `protobuf:"bytes,11,opt,name=transfer,proto3" json:"transfer,omitempty"`
+	Hdr      bool   `protobuf:"varint,12,opt,name=hdr,proto3" json:"hdr,omitempty"`
+	// tone_map is whether this decode was built with the rung that rolls an HDR stream down
+	// into the range a standard display shows, which is the choice StartReceive carries. It
+	// is what was built and not what was asked for: a machine with no rung builds without
+	// one, so a tile reports the picture it is drawing.
+	ToneMap bool `protobuf:"varint,13,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
+	// can_tone_map is whether this machine has an element that rolls the range down at all,
+	// and tone_map_missing names the first one it needs and does not register.
+	//
+	// A machine fact on a per-decode message, because this is where a tile reads what to
+	// offer: the choice is per tile and in memory, so there is no settings field for it to
+	// ride on, and the alternative is a second call answering one question.
+	//
+	// tone_map_missing is empty on a machine that can and on a platform that declares no
+	// rung at all, which can_tone_map is what tells apart: there is nothing to install where
+	// nothing was declared, and the two read differently to somebody deciding what to do
+	// about it.
+	CanToneMap     bool   `protobuf:"varint,14,opt,name=can_tone_map,json=canToneMap,proto3" json:"can_tone_map,omitempty"`
+	ToneMapMissing string `protobuf:"bytes,15,opt,name=tone_map_missing,json=toneMapMissing,proto3" json:"tone_map_missing,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *ReceiveStream) Reset() {
@@ -557,6 +587,41 @@ func (x *ReceiveStream) GetMuted() bool {
 		return x.Muted
 	}
 	return false
+}
+
+func (x *ReceiveStream) GetTransfer() string {
+	if x != nil {
+		return x.Transfer
+	}
+	return ""
+}
+
+func (x *ReceiveStream) GetHdr() bool {
+	if x != nil {
+		return x.Hdr
+	}
+	return false
+}
+
+func (x *ReceiveStream) GetToneMap() bool {
+	if x != nil {
+		return x.ToneMap
+	}
+	return false
+}
+
+func (x *ReceiveStream) GetCanToneMap() bool {
+	if x != nil {
+		return x.CanToneMap
+	}
+	return false
+}
+
+func (x *ReceiveStream) GetToneMapMissing() string {
+	if x != nil {
+		return x.ToneMapMissing
+	}
+	return ""
 }
 
 // ReceiveState is every stream the backend is decoding.
@@ -1039,7 +1104,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x0fSettingsChanged\"Y\n" +
 	"\vReceiveExit\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xb6\x02\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xcb\x03\n" +
 	"\rReceiveStream\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x12\n" +
 	"\x04live\x18\x02 \x01(\bR\x04live\x12\x14\n" +
@@ -1051,7 +1116,13 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\thas_audio\x18\b \x01(\bR\bhasAudio\x12\x16\n" +
 	"\x06volume\x18\t \x01(\x01R\x06volume\x12\x14\n" +
 	"\x05muted\x18\n" +
-	" \x01(\bR\x05muted\"G\n" +
+	" \x01(\bR\x05muted\x12\x1a\n" +
+	"\btransfer\x18\v \x01(\tR\btransfer\x12\x10\n" +
+	"\x03hdr\x18\f \x01(\bR\x03hdr\x12\x19\n" +
+	"\btone_map\x18\r \x01(\bR\atoneMap\x12 \n" +
+	"\fcan_tone_map\x18\x0e \x01(\bR\n" +
+	"canToneMap\x12(\n" +
+	"\x10tone_map_missing\x18\x0f \x01(\tR\x0etoneMapMissing\"G\n" +
 	"\fReceiveState\x127\n" +
 	"\astreams\x18\x01 \x03(\v2\x1d.screenshare.v1.ReceiveStreamR\astreams\"@\n" +
 	"\x10PreviewedMonitor\x12\x18\n" +

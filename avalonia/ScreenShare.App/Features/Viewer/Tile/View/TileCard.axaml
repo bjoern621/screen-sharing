@@ -180,6 +180,29 @@
 
       <Separator />
 
+      <!--
+        Tone mapping, which is the one thing a viewer decides about an HDR stream. It is a
+        rebuild of the decode rather than a value written to a running one, so the tick comes
+        back through the decode's own state like the mute does, and the row greys itself with
+        what is absent where this machine has nothing to convert with.
+      -->
+      <MenuItem Command="{Binding ToggleToneMap}"
+                IsEnabled="{Binding CanToneMap}"
+                IsChecked="{Binding ToneMapped, Mode=OneWay}">
+        <MenuItem.Icon>
+          <ti:TablerIcon Icon="IconSunLow" />
+        </MenuItem.Icon>
+        <MenuItem.Header>
+          <StackPanel MaxWidth="260">
+            <TextBlock Text="Roll HDR down to this display" />
+            <TextBlock Classes="hint" Text="{Binding ToneMapNote}" TextWrapping="Wrap"
+                       IsVisible="{Binding ToneMapNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </MenuItem.Header>
+      </MenuItem>
+
+      <Separator />
+
       <MenuItem Header="Stats overlay" Command="{Binding ToggleStats}"
                 IsChecked="{Binding ShowStats, Mode=OneWay}">
         <MenuItem.Icon>
@@ -219,6 +242,23 @@
       <Border Classes="chrome" VerticalAlignment="Top" HorizontalAlignment="Left"
               Margin="{StaticResource InsetTight}">
         <TextBlock Classes="ident" Text="{Binding Title}" />
+      </Border>
+
+      <!--
+        What this tile is doing about a range wider than the display's.
+
+        Drawn without asking and not as hover chrome, which is what makes the choice
+        discoverable at all: an HDR stream drawn as it arrives is not obviously wrong, it is a
+        picture with the wrong brightness, and a reader with nothing to read blames the stream.
+
+        Opposite the figures rather than above them, so the strip that grows with the pipeline
+        and the badge that grows with the stream cannot push each other along; and low rather
+        than high, because the stats overlay is what occupies the top right.
+      -->
+      <Border Classes="chrome" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+              Margin="7,7,7,12"
+              IsVisible="{Binding HasColourNote}">
+        <TextBlock Classes="hint" Text="{Binding ColourNote}" />
       </Border>
 
       <!--

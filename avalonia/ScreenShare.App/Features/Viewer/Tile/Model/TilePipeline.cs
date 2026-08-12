@@ -26,6 +26,15 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// whether it ran on silicon.</param>
 /// <param name="HasAudio">Whether the pipeline is carrying a sound track, with
 /// <paramref name="Volume"/> and <paramref name="Muted"/> what it is playing it at.</param>
+/// <param name="Transfer">The transfer characteristic the decoded frames carry, as GStreamer
+/// names it, and <paramref name="Hdr"/> the backend's verdict on it: two of those curves carry
+/// more range than a standard display shows.</param>
+/// <param name="ToneMap">Whether the pipeline was built with the rung that rolls that range
+/// down, which is what ran rather than what was asked for.</param>
+/// <param name="CanToneMap">Whether this machine has an element that rolls the range down, with
+/// <paramref name="ToneMapMissing"/> the first one it needs and does not register. The name is
+/// empty where the machine can and where the platform has no such route at all, which
+/// <paramref name="CanToneMap"/> is what tells apart.</param>
 public readonly record struct TilePipeline(
     bool Live,
     string Chain,
@@ -34,14 +43,20 @@ public readonly record struct TilePipeline(
     bool Hardware,
     bool HasAudio,
     double Volume,
-    bool Muted)
+    bool Muted,
+    string Transfer = "",
+    bool Hdr = false,
+    bool ToneMap = false,
+    bool CanToneMap = false,
+    string ToneMapMissing = "")
 {
     /// <summary>The state of one relay decode, and null where nothing is decoding that pair.</summary>
     public static TilePipeline? Of(ReceiveStream? decode) => decode is null
         ? null
         : new TilePipeline(
             decode.Live, decode.Chain, decode.RenderMemory, decode.Decoder, decode.Hardware,
-            decode.HasAudio, decode.Volume, decode.Muted);
+            decode.HasAudio, decode.Volume, decode.Muted,
+            decode.Transfer, decode.Hdr, decode.ToneMap, decode.CanToneMap, decode.ToneMapMissing);
 
     /// <summary>
     /// The state of the publish's local preview, and null where the backend is running none.

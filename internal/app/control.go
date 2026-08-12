@@ -141,8 +141,8 @@ func (b controlBackend) MonitorPreviewState() []wire.PreviewedMonitor {
 	return b.app.MonitorPreviewState()
 }
 
-func (b controlBackend) StartReceive(key wire.WatchKey) error {
-	return b.app.StartReceive(key.StreamName, key.Transport)
+func (b controlBackend) StartReceive(key wire.WatchKey, toneMap bool) error {
+	return b.app.StartReceive(key.StreamName, key.Transport, toneMap)
 }
 
 func (b controlBackend) StopReceive(key wire.WatchKey) {

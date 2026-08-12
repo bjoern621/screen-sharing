@@ -79,7 +79,8 @@ public sealed class ViewerArrangementTests
             return Task.FromResult(form);
         }
 
-        public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
+        public Task StartReceiveAsync(
+            string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         {
             var key = new WatchKey { StreamName = streamName, Transport = transport };
             if (!_decoding.Contains(key))

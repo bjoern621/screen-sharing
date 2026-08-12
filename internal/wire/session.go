@@ -306,6 +306,20 @@ type ReceiveStream struct {
 	// which is what lets two shells agree about one decode's loudness.
 	Volume float64
 	Muted  bool
+	// Transfer is the transfer characteristic the decoded frames carry, as GStreamer
+	// names it, and HDR the verdict on it. The verdict decides whether a viewer is
+	// offered anything at all; the characteristic is what a reader is shown.
+	Transfer string
+	HDR      bool
+	// ToneMap is whether the pipeline was built with the rung that rolls an HDR stream
+	// down, which is what ran rather than what was asked for.
+	ToneMap bool
+	// CanToneMap is whether this machine has an element that rolls the range down, and
+	// ToneMapMissing the first one it needs and does not register. The string is empty
+	// both where the machine can and where the platform declares no rung at all, which
+	// the boolean is what tells apart.
+	CanToneMap     bool
+	ToneMapMissing string
 }
 
 // AudioLevel is how loud one decode is right now, measured before its volume element
@@ -348,16 +362,21 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 			"a decode is identified by a stream and the transport it is received over",
 			r.Stream.StreamName, r.Stream.Transport)
 		out = append(out, &screensharev1.ReceiveStream{
-			Stream:       WatchKeyMessage(r.Stream),
-			Live:         r.Live,
-			Chain:        r.Chain,
-			DecodeMemory: r.DecodeMemory,
-			RenderMemory: r.RenderMemory,
-			Decoder:      r.Decoder,
-			Hardware:     r.Hardware,
-			HasAudio:     r.HasAudio,
-			Volume:       r.Volume,
-			Muted:        r.Muted,
+			Stream:         WatchKeyMessage(r.Stream),
+			Live:           r.Live,
+			Chain:          r.Chain,
+			DecodeMemory:   r.DecodeMemory,
+			RenderMemory:   r.RenderMemory,
+			Decoder:        r.Decoder,
+			Hardware:       r.Hardware,
+			HasAudio:       r.HasAudio,
+			Volume:         r.Volume,
+			Muted:          r.Muted,
+			Transfer:       r.Transfer,
+			Hdr:            r.HDR,
+			ToneMap:        r.ToneMap,
+			CanToneMap:     r.CanToneMap,
+			ToneMapMissing: r.ToneMapMissing,
 		})
 	}
 

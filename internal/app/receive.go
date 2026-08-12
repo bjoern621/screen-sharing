@@ -8,6 +8,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/colour"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -28,7 +29,13 @@ import (
 // passes one in: the setting is what a shell offers by default, and the call is what
 // was chosen. The render chain is not, because it is one value for every decode - a
 // chain falls back where a driver cannot run it, which is a property of the machine.
-func (a *App) StartReceive(streamName, transportName string) error {
+//
+// Tone mapping is passed in for the opposite reason: whether a stream carries more range
+// than a display shows is a property of that stream, and two tiles on one stream may want
+// different answers. It is a build choice - the rung is an element of the pipeline - so a
+// decode already running with the other answer is rebuilt, which is what makes this call
+// name the state it wants rather than a transition.
+func (a *App) StartReceive(streamName, transportName string, toneMap bool) error {
 	assert.Assert(streamName != "", "a decode names the stream it receives")
 	assert.Assert(transportName != "", "a decode names the leg it receives over", streamName)
 
@@ -40,6 +47,13 @@ func (a *App) StartReceive(streamName, transportName string) error {
 	defer a.emitReceiveState()
 
 	key := WatchKey{Name: streamName, Transport: transportName}
+
+	// What a decode asking for tone mapping is built with, which on a machine with no rung
+	// is not what was asked. The running decode is compared against this rather than against
+	// the request, because a request this machine cannot reach is a state no rebuild brings
+	// any closer: held the other way round, the same pipeline would be torn down on every
+	// call.
+	wanted := receive.WillToneMap(toneMap)
 
 	// Read before anything is validated, and that order is the whole of what makes this
 	// method safe to repeat. Asking for a decode that is already open is not an error,
@@ -53,9 +67,19 @@ func (a *App) StartReceive(streamName, transportName string) error {
 	// snapshot moves under a running decode - the publisher republishes in a format this
 	// leg does not carry - and the resend would then fail a precondition on behalf of a
 	// state that already holds.
-	if a.receiving(key) {
+	if a.receiving(key, wanted) {
 		logger.Debugf("'%s' over %s is already being received", streamName, transportName)
 		return nil
+	}
+
+	// A decode running with the other answer about tone mapping is not the state this call
+	// names, so it is taken down and built again. Again rather than adjusted, because the
+	// rung is an element of the pipeline and there is no property to write: the tile goes
+	// dark for as long as one decode takes to open.
+	if replaced := a.replacedReceiver(key, wanted); replaced != nil {
+		logger.Infof("rebuilding the decode of '%s' over %s %s tone mapping",
+			streamName, transportName, withOrWithout(wanted))
+		replaced.Stop()
 	}
 
 	a.settingsMu.Lock()
@@ -86,7 +110,8 @@ func (a *App) StartReceive(streamName, transportName string) error {
 		Transport: transportName,
 		Source:    joinSource(source),
 	}
-	receiver, err := receive.New(stream, receive.Open{Chain: s.Viewer.RenderChain}, receive.Events{
+	open := receive.Open{Chain: s.Viewer.RenderChain, ToneMap: toneMap}
+	receiver, err := receive.New(stream, open, receive.Events{
 		// A first frame changes what the state reports - the chain that ran, the memory
 		// the pads negotiated - so it is announced like every other change.
 		OnLive: a.emitReceiveState,
@@ -103,17 +128,47 @@ func (a *App) StartReceive(streamName, transportName string) error {
 	return nil
 }
 
-// receiving reports whether a decode is open for the pair.
+// receiving reports whether a decode is open for the pair and was built with the tone
+// mapping this call would build with.
 //
 // It reads the map rather than anything a caller believed it had started, which is what
 // lets it stand in front of the validation StartReceive would otherwise run over a state
 // that already holds.
-func (a *App) receiving(key WatchKey) bool {
+//
+// Both halves are the state the call names, so a decode running with the other answer
+// reads as absent here: it is not the decode that was asked for.
+func (a *App) receiving(key WatchKey, toneMap bool) bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	_, present := a.receivers[key]
-	return present
+	receiver, present := a.receivers[key]
+	return present && receiver.ToneMap() == toneMap
+}
+
+// replacedReceiver takes the decode open for this pair out of the set where it was built
+// with another answer about tone mapping, and hands it back for the caller to stop.
+//
+// Taken out under the lock and stopped outside it, which is StopReceive's own order: a
+// teardown blocks on the pipeline reaching NULL and every other method that touches the
+// receivers would wait behind it.
+func (a *App) replacedReceiver(key WatchKey, toneMap bool) *receive.Receiver {
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+
+	receiver, present := a.receivers[key]
+	if !present || receiver.ToneMap() == toneMap {
+		return nil
+	}
+	delete(a.receivers, key)
+	return receiver
+}
+
+// withOrWithout reads a build choice into the line that reports it.
+func withOrWithout(on bool) string {
+	if on {
+		return "with"
+	}
+	return "without"
 }
 
 // StopReceive closes one running decode. A stream nothing is decoding is not an error,
@@ -235,21 +290,31 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
+	// One read for every decode: what this machine can roll an HDR stream down with is the
+	// machine's answer and the same for all of them, and a tile reads it beside the stream
+	// it is deciding about.
+	offer := receive.ToneMapping()
+
 	out := make([]wire.ReceiveStream, 0, len(a.receivers))
 	for key, receiver := range a.receivers {
 		stats := receiver.Stats()
 		volume, muted, hasAudio := receiver.Audio()
 		out = append(out, wire.ReceiveStream{
-			Stream:       wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
-			Live:         stats.Frames > 0,
-			Chain:        stats.Chain,
-			DecodeMemory: stats.DecodeMemory,
-			RenderMemory: stats.RenderMemory,
-			Decoder:      stats.Decoder,
-			Hardware:     stats.Hardware,
-			HasAudio:     hasAudio,
-			Volume:       volume,
-			Muted:        muted,
+			Stream:         wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
+			Live:           stats.Frames > 0,
+			Chain:          stats.Chain,
+			DecodeMemory:   stats.DecodeMemory,
+			RenderMemory:   stats.RenderMemory,
+			Decoder:        stats.Decoder,
+			Hardware:       stats.Hardware,
+			HasAudio:       hasAudio,
+			Volume:         volume,
+			Muted:          muted,
+			Transfer:       stats.Transfer,
+			HDR:            colour.IsHDR(stats.Transfer),
+			ToneMap:        stats.ToneMap,
+			CanToneMap:     offer.Available,
+			ToneMapMissing: offer.MissingElement,
 		})
 	}
 	return out

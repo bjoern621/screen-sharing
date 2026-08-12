@@ -286,6 +286,23 @@ The chain is a settings field like any other, offered by the form and greyed per
 It is one value for every tile rather than one per stream: a chain falls back because a driver cannot run it, and that is a property of the machine.
 `StartReceive` may carry an override later without a field to migrate.
 
+### Tone mapping
+
+A stream carrying one of the BT.2100 curves carries more range than a standard display shows, and no chain above converts it: every one of them applies matrix and range and no transfer function at all, so the frames reach the window labelled sRGB and carrying PQ samples.
+Rolling that range down is a rung of its own, built between the decoder and the chain, where the frames still carry the range they were coded in.
+
+The rung is `vapostproc hdr-tone-mapping=true`, which asks the VA driver for its tone-mapping filter, and it is declared on Linux alone.
+The software converter is not a substitute and was measured rather than assumed: `videoconvert gamma-mode=remap` converts the curve while normalizing PQ against the format's ten thousand nits rather than the display's hundred, and a mid-grey PQ frame through it comes out at a fifth of the code value it went in at.
+A darker picture is not a tone map.
+`d3d11convert` states the same two conversion modes as the software converter, gamma and primaries, and neither is a luminance rolloff, so Windows declares no rung and says so rather than offering a conversion the element does not promise.
+
+It is a choice per tile, and it is asked for on `StartReceive` because it is part of what the decode is built from: a second call naming the other answer rebuilds that decode.
+The choice is stored nowhere.
+A preference kept per stream path would outlive the stream it was made about, so a path that stops carrying HDR would carry a choice nobody can find; this one lives exactly as long as the decode.
+
+A machine with no rung builds the decode without one and reports that it did, which is the same fallback a chain makes, and the receive state carries the transfer the stream turned out to carry beside it.
+Both together are what a tile draws: which curve it is showing, whether anything is converting it, and what is absent where nothing can.
+
 What a running pipeline actually did is reported rather than assumed: the receive state names the chain, the memory the decoder handed its frames over in, and the memory the sink read them from, because a hardware decoder that downloaded its own frames costs the download the row promised to avoid.
 
 ## The frame channel

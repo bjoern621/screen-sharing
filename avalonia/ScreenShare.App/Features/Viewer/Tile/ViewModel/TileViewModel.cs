@@ -71,6 +71,7 @@ public sealed class TileViewModel : Observable, IFrameSource
         LeavePopOut = new DelegateCommand(() => arrange(TileIntent.LeavePopOut));
         ToggleStats = new DelegateCommand(() => ShowStats = !ShowStats);
         ToggleMute = new PendingCommand(() => SendAudioAsync(Volume, !Muted), dispatch, () => HasAudio);
+        ToggleToneMap = new PendingCommand(() => SendToneMapAsync(!ToneMapped), dispatch, () => CanToneMap);
     }
 
     /// <summary>Which decode this tile draws from, read through rather than taken apart.</summary>
@@ -97,6 +98,12 @@ public sealed class TileViewModel : Observable, IFrameSource
     private double _volume = 1;
     private double _level;
     private bool _hasLevel;
+    private bool _isHdr;
+    private bool _toneMapped;
+    private bool _canToneMap;
+    private string _colourNote = "";
+    private bool _hasColourNote;
+    private string _toneMapNote = "";
     private double _aspect = TileLayout.UnknownAspect;
 
     /// <summary>
@@ -235,6 +242,65 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>Whether a measurement has arrived, which is what separates an empty meter from no meter.</summary>
     public bool HasLevel { get => _hasLevel; private set => Set(ref _hasLevel, value); }
 
+    // --- Colour ----------------------------------------------------------------------
+    //
+    // All four are read through the decode's state for the reason the loudness is: what a
+    // stream carries is settled when the decoder negotiates, what the pipeline does about it
+    // is what the pipeline was built with, and a tile that remembered what it asked for would
+    // be the second author of both.
+
+    /// <summary>
+    /// Whether this stream carries more range than a standard display shows.
+    ///
+    /// The backend's verdict on the transfer characteristic and not a reading of it here: two
+    /// curves are HDR and every other one describes a standard-range picture whatever its
+    /// primaries are, and that table belongs to the side that also refuses to publish one in
+    /// eight bits.
+    /// </summary>
+    public bool IsHdr { get => _isHdr; private set => Set(ref _isHdr, value); }
+
+    /// <summary>
+    /// Whether the decode is rolling that range down into the one this display shows.
+    ///
+    /// What ran, not what was asked for: a machine with no element for it builds the decode
+    /// without one, and a tick that showed the request would claim a conversion nobody made.
+    /// </summary>
+    public bool ToneMapped { get => _toneMapped; private set => Set(ref _toneMapped, value); }
+
+    /// <summary>
+    /// Whether this machine can roll the range down at all, which is what the control is
+    /// enabled by. A machine that cannot keeps the row greyed with <see cref="ColourNote"/>
+    /// saying what is absent, rather than offering a conversion nothing performs.
+    /// </summary>
+    public bool CanToneMap { get => _canToneMap; private set => Set(ref _canToneMap, value); }
+
+    /// <summary>
+    /// What this tile is drawing in colour terms, and empty for a stream whose range this
+    /// display shows.
+    ///
+    /// It is the badge over the picture, and the whole of what tells a reader the choice
+    /// exists: an HDR stream drawn as it arrives is not obviously wrong, it is a picture with
+    /// the wrong brightness, which reads as a bad stream rather than as a setting.
+    /// </summary>
+    public string ColourNote { get => _colourNote; private set => Set(ref _colourNote, value); }
+
+    /// <summary>
+    /// Whether the badge has anything to say, which is what draws it. Written beside the
+    /// sentence rather than derived from it, which is how <see cref="HasNotice"/> is written
+    /// too: a binding on a computed property is one nothing raises a change for.
+    /// </summary>
+    public bool HasColourNote { get => _hasColourNote; private set => Set(ref _hasColourNote, value); }
+
+    /// <summary>
+    /// What the tone-map row says: what it does on a machine that can, and what is absent on
+    /// one that cannot.
+    ///
+    /// A greyed control that says nothing teaches nothing, which is the same contract every
+    /// refused option in this app keeps - the row names what would have to be installed
+    /// (<c>docs/field-availability.md</c>).
+    /// </summary>
+    public string ToneMapNote { get => _toneMapNote; private set => Set(ref _toneMapNote, value); }
+
     // --- What the menu offers --------------------------------------------------------
 
     /// <summary>Focuses this tile, or gives up focus when it already has it.</summary>
@@ -270,6 +336,13 @@ public sealed class TileViewModel : Observable, IFrameSource
 
     /// <summary>Silences this decode, or unsilences it at the volume that was chosen.</summary>
     public PendingCommand ToggleMute { get; }
+
+    /// <summary>
+    /// Rolls this stream's range down into the one this display shows, or draws it as it
+    /// arrives. Enabled on a tile drawing an HDR stream on a machine that has an element for
+    /// it, and greyed with a reason everywhere else.
+    /// </summary>
+    public PendingCommand ToggleToneMap { get; }
 
     // Every row in the menu names one arrangement and holds still. The glyph and the wording are
     // the markup's, because neither of them moves; what moves is the state each row reports, and
@@ -316,7 +389,21 @@ public sealed class TileViewModel : Observable, IFrameSource
             Level = 0;
         }
 
+        // The colour is the pipeline's too, and a pipeline that is gone leaves nothing to say
+        // about it: what a stream carried is a fact about a decode that is no longer running.
+        // Only a relay decode is offered the choice, because only a relay decode is opened by
+        // the call that carries it.
+        IsHdr = pipeline?.Hdr ?? false;
+        ToneMapped = pipeline?.ToneMap ?? false;
+        CanToneMap = _source.IsRelay && IsHdr && (pipeline?.CanToneMap ?? false);
+        ColourNote = ColourNoteFor(pipeline);
+        HasColourNote = ColourNote.Length > 0;
+        ToneMapNote = ToneMapNoteFor(pipeline, _source.IsRelay);
+        ToggleToneMap.Refresh();
+
         Assert.That(HasNotice == (Notice.Length > 0), "a notice and its sentence agree", Name);
+        Assert.That(HasColourNote == (ColourNote.Length > 0), "a colour badge and its sentence agree", Name);
+        Assert.That(!CanToneMap || IsHdr, "only a stream that carries the range is offered a way out of it", Name);
         Assert.That(Aspect > 0, "a tile has a positive shape to be arranged at", Name, Aspect);
     }
 
@@ -381,6 +468,42 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// is swallowed here on purpose: the one refusal this call has is a decode that is no longer
     /// running, and the tile is already drawing that.
     /// </summary>
+    /// <summary>
+    /// Asks for this stream to be drawn rolled down into the range this display shows, or as
+    /// it arrives.
+    ///
+    /// <b>It is the same call that opened the decode.</b> Tone mapping is an element of the
+    /// pipeline rather than a value written to a running one, so the answer is changed by
+    /// naming the state the decode should be in and letting the backend rebuild it - which
+    /// makes a repeat of this cost nothing, and makes the tick come back through the decode's
+    /// own state rather than from what was sent.
+    ///
+    /// The tile goes dark for as long as one decode takes to open, which is the price of the
+    /// element being in the line, and it is why this is a choice and not something done to
+    /// every HDR stream.
+    /// </summary>
+    private async Task SendToneMapAsync(bool toneMap)
+    {
+        // Only a relay decode is opened by this call, and neither preview has the pair it is
+        // keyed by. Nothing on screen offers the choice on one; this is the guard for a caller
+        // that got there anyway.
+        if (!_source.IsRelay)
+        {
+            return;
+        }
+
+        try
+        {
+            await _backend.StartReceiveAsync(Name, Transport, toneMap).ConfigureAwait(false);
+        }
+        catch (BackendUnavailableException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private async Task SendAudioAsync(double volume, bool muted)
     {
         // The effect is keyed by the pair a relay decode is identified by, and neither preview
@@ -432,6 +555,55 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// sentence and is shown as it stands, because it names a driver or a handle type and
     /// nothing else here knows either.
     /// </summary>
+    /// <summary>
+    /// The badge over an HDR picture, and nothing for a stream whose range this display shows.
+    ///
+    /// It names the curve and what is being done about it, in that order, because those are
+    /// the two things a reader comparing two tiles of one stream is comparing. It is drawn in
+    /// both states rather than only the untouched one: a tile that says nothing once the
+    /// conversion is on would leave the reader unable to tell which of the two they are
+    /// looking at.
+    /// </summary>
+    private static string ColourNoteFor(TilePipeline? pipeline)
+    {
+        if (pipeline is not { Hdr: true } p)
+        {
+            return "";
+        }
+
+        return p.ToneMap
+            ? $"{Words.Transfer(p.Transfer)}, rolled down for this display"
+            : $"{Words.Transfer(p.Transfer)}, drawn as it arrives";
+    }
+
+    /// <summary>
+    /// What the tone-map row says beside itself, and nothing where the control is live and
+    /// needs no explaining.
+    ///
+    /// A row this tile cannot take names what is absent, which is the contract every refused
+    /// option in this app keeps: an element this build does not register is something to
+    /// install, and a platform with no route at all is not, so the two do not read alike.
+    /// </summary>
+    private static string ToneMapNoteFor(TilePipeline? pipeline, bool isRelay)
+    {
+        if (pipeline is not { } p || !isRelay)
+        {
+            return "";
+        }
+        if (!p.Hdr)
+        {
+            return "This stream carries the range this display shows.";
+        }
+        if (p.CanToneMap)
+        {
+            return "";
+        }
+
+        return p.ToneMapMissing.Length > 0
+            ? $"This GStreamer registers no {p.ToneMapMissing}, which is what rolls the range down."
+            : "Nothing on this platform rolls an HDR stream down.";
+    }
+
     private string NoticeFor(TilePipeline? pipeline)
     {
         if (_report.Notice.Length > 0)

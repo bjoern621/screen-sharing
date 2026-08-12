@@ -351,7 +351,14 @@ func available(name string) (chain, bool) {
 // missing names the first element factory the chain needs and this GStreamer does
 // not register, and "" for a chain that can run.
 func (c chain) missing() string {
-	for _, need := range c.needs {
+	return missingFactory(c.needs)
+}
+
+// missingFactory is the first of these factories this GStreamer does not register, and
+// "" where it registers all of them. It is one reading because a chain and a tone-map
+// rung are offered on the same terms: what can be built is what the registry holds.
+func missingFactory(needs []string) string {
+	for _, need := range needs {
 		if gst.ElementFactoryFind(need) == nil {
 			return need
 		}
@@ -359,17 +366,27 @@ func (c chain) missing() string {
 	return ""
 }
 
-// launch is the whole launch line: the stream's own source fragment, the chain's
-// elements, and the queue and sink every chain ends in.
-// raw is a source that hands over pictures rather than a bitstream, which is what
-// takes the decoder out of the line. A screen read off this machine is the case that
-// exists: nothing encoded those frames, so there is nothing to autoplug a decoder for
-// and the chain converts what the capture element already produced.
-func (c chain) launch(source string, raw bool) string {
-	parts := make([]string, 0, len(c.elements)+4)
-	parts = append(parts, source)
-	if !raw {
+// launch is the whole launch line: the stream's own source fragment, the tone-map rung
+// where the viewer asked for one, the chain's elements, and the queue and sink every
+// chain ends in.
+//
+// A raw stream hands over pictures rather than a bitstream, which is what takes the
+// decoder out of the line. A screen read off this machine is the case that exists:
+// nothing encoded those frames, so there is nothing to autoplug a decoder for and the
+// chain converts what the capture element already produced.
+//
+// The rung goes between the decoder and the chain because that is where the frames still
+// carry the range they were coded in. Behind the chain's converter they are already
+// labelled sRGB, and a rolloff applied there would be reading its input off a label that
+// no longer describes the samples.
+func (c chain) launch(st Stream, open Open) string {
+	parts := make([]string, 0, len(c.elements)+len(toneMapping.elements)+4)
+	parts = append(parts, st.Source)
+	if !st.Raw {
 		parts = append(parts, "decodebin name="+decodeName)
+	}
+	if open.ToneMap {
+		parts = append(parts, toneMapping.elements...)
 	}
 	parts = append(parts, c.elements...)
 	parts = append(parts, renderQueue, renderSink)

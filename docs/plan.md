@@ -79,9 +79,20 @@ Nothing there can detect it, which is why it is a note and not a refusal: a refu
 The note is a rule on the engine axis and it lands on the 10-bit format alone, which is the only one an HDR surface rides in, so it appears where somebody is reaching for HDR and nowhere else, naming the engine that does carry it.
 
 
-The viewer half waits on an element that tone-maps.
-`videoconvertscale` converts primaries and nothing else, and the elements that roll PQ down to SDR are the device ones - `vapostproc` on VA, `d3d11convert` on Windows - so the render chain gains a rung per platform rather than one route, and a machine with neither keeps the choice greyed with what is missing.
-That is the same shape the chain ladder already has for every other conversion (`viewer-architecture.md`).
+**Built: the viewer half.** The render chain gains a rung between the decoder and the chain, where the frames still carry the range they were coded in, and the choice rides on `StartReceive` because it is part of what the decode is built from (`receive/tonemap.go`).
+It is per tile and stored nowhere, so two tiles can watch one stream through two answers and neither outlives the decode it was made about.
+
+One rung is declared and it is `vapostproc hdr-tone-mapping=true`, which is the only element in reach that states a luminance rolloff.
+The rest of the paragraph this replaces was a guess, and measuring it corrected two things.
+`videoconvert gamma-mode=remap` does convert the transfer function, on every platform and with no rung at all - but it normalizes PQ against the format's ten thousand nits rather than the display's hundred, and a mid-grey PQ frame through it comes out at a fifth of the code value it went in at.
+A darker picture is not a tone map, so it is not offered as one.
+`d3d11convert` states gamma and primaries conversion, the same two the software converter states, and neither is a rolloff either, so Windows declares no rung and the tile says so rather than offering a conversion the element does not promise.
+
+A machine with no rung builds the decode without one and reports that it did, which is the chain's own fallback, and the comparison a repeated call makes is against what a request builds rather than against the request: held the other way round, a viewer on a machine that cannot convert would tear the same decode down on every pass.
+The tile draws the transfer the decode negotiated beside what is being done about it, in both states, because an HDR stream drawn as it arrives is not obviously wrong - it is a picture with the wrong brightness, which reads as a bad stream rather than as a setting.
+
+**What is left.** The publish's own preview is not offered the choice: its decode is opened by the publish rather than by `StartReceive`, so there is no call to carry an answer and no field on the preview to report one.
+A capture that is HDR previews as it arrives.
 
 ## Groups, auth and encryption
 

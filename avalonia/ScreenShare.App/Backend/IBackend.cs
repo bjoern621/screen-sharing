@@ -312,8 +312,19 @@ public interface IBackend
     ///
     /// A leg that cannot carry the stream's format is refused with the format named, as a
     /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    ///
+    /// <b><paramref name="toneMap"/> is part of what the decode is built from.</b> It asks for
+    /// an HDR stream to be rolled down into the range a standard display shows, which is an
+    /// element in the pipeline rather than a value written to a running one - so this call is
+    /// also how the answer is changed, and a decode running with the other one is rebuilt. It
+    /// is stored nowhere: a preference kept per stream would outlive the stream it was made
+    /// about, so it lives exactly as long as the decode.
+    ///
+    /// A machine with no element that rolls the range down builds the decode without one and
+    /// reports that it did, rather than refusing.
     /// </summary>
-    Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default);
+    Task StartReceiveAsync(
+        string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default);
 
     /// <summary>
     /// Closes one running decode. A stream nothing is decoding is not an error: a stop is what

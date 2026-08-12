@@ -43,11 +43,17 @@ type Stats struct {
 	SinceKeyframe time.Duration
 
 	// Decoded video, off the caps the decoder hands the converter.
-	Width, Height  int
-	Format         string // raw pixel format, e.g. "Y444_10LE"
-	Depth          int    // bits per component
-	Subsampling    string // chroma subsampling in J:a:b notation
-	Colorimetry    string
+	Width, Height int
+	Format        string // raw pixel format, e.g. "Y444_10LE"
+	Depth         int    // bits per component
+	Subsampling   string // chroma subsampling in J:a:b notation
+	Colorimetry   string
+	// Transfer is the transfer characteristic inside Colorimetry, which is the one part
+	// of it a viewer acts on: two of those curves carry more range than a standard
+	// display shows and every other one describes a standard-range picture. It is read
+	// here rather than by whoever holds the string, so one reading answers for the
+	// publish child, the encoder refusal and this side alike (internal/colour).
+	Transfer       string
 	ChromaSite     string
 	PixelAspect    string
 	Interlace      string
@@ -77,6 +83,10 @@ type Stats struct {
 	ChainExact   bool
 	DecodeMemory string
 	RenderMemory string
+	// ToneMap is whether the pipeline was built with the rung that rolls an HDR stream
+	// down into the range a standard display shows. It is what was built and not what was
+	// asked for: a machine with no rung builds without one (tonemap.go).
+	ToneMap bool
 
 	// Pipeline timing.
 	Live       bool

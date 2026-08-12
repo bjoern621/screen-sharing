@@ -199,8 +199,9 @@ internal sealed class DeferredBackend : IBackend
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => _seed.ReceivingAsync(cancellation);
 
-    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-        => _seed.StartReceiveAsync(streamName, transport, cancellation);
+    public Task StartReceiveAsync(
+        string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
+        => _seed.StartReceiveAsync(streamName, transport, toneMap, cancellation);
 
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopReceiveAsync(streamName, transport, cancellation);
@@ -414,8 +415,9 @@ internal sealed class PublishingBackend : IBackend
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => _seed.ReceivingAsync(cancellation);
 
-    public Task StartReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
-        => _seed.StartReceiveAsync(streamName, transport, cancellation);
+    public Task StartReceiveAsync(
+        string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
+        => _seed.StartReceiveAsync(streamName, transport, toneMap, cancellation);
 
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopReceiveAsync(streamName, transport, cancellation);
