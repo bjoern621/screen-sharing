@@ -131,6 +131,20 @@ func TestWebRTCCapabilities(t *testing.T) {
 			t.Errorf("CanPublish must report true for webrtc on the %s engine", engine)
 		}
 	}
+
+	// The leg no player opens is the one a browser does, from the page the relay
+	// serves: the exchange runs in the page's own RTCPeerConnection, so the address
+	// is the path and never the whep endpoint the receiving pipeline posts to.
+	page, ok := BrowserURL("webrtc", s, "bob")
+	if !ok {
+		t.Fatal("BrowserURL must report true for webrtc")
+	}
+	if want := "http://relay.example:8889/bob/"; page != want {
+		t.Errorf("BrowserURL = %q, want %q", page, want)
+	}
+	if !CanWatch("webrtc", EngineBrowser) {
+		t.Error("CanWatch must report true for webrtc on the browser engine")
+	}
 }
 
 // The two engines negotiate different video sets over the same WHIP endpoint: ffmpeg's whip

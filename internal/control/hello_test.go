@@ -3,6 +3,7 @@ package control
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -77,11 +78,22 @@ func (f *fakeBackend) SubscribePreviewFrames() (FrameStream, error) {
 	return nil, errors.New("nothing is publishing with a local preview")
 }
 
-func (f *fakeBackend) StartTestStreams(int) error { return f.err }
-func (f *fakeBackend) StopTestStreams()           {}
-func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
-func (f *fakeBackend) OpenLog(string) error       { return f.err }
-func (f *fakeBackend) OpenLogsFolder() error      { return f.err }
+func (f *fakeBackend) SubscribeMonitorFrames(monitor int) (FrameStream, error) {
+	return nil, fmt.Errorf("nothing is previewing monitor %d", monitor)
+}
+
+func (f *fakeBackend) StartMonitorPreview(int) error { return f.err }
+
+func (f *fakeBackend) StopMonitorPreview(int) {}
+
+func (f *fakeBackend) MonitorPreviewState() []wire.PreviewedMonitor { return nil }
+
+func (f *fakeBackend) StartTestStreams(int) error        { return f.err }
+func (f *fakeBackend) StopTestStreams()                  {}
+func (f *fakeBackend) ForgetPortalConsent() error        { return f.err }
+func (f *fakeBackend) OpenLog(string) error              { return f.err }
+func (f *fakeBackend) OpenLogsFolder() error             { return f.err }
+func (f *fakeBackend) OpenInBrowser(wire.WatchKey) error { return f.err }
 
 // TestAMismatchedMajorNamesBothVersions: the handshake is the last call a backend and a
 // shell that disagree about the contract can both still understand, so the refusal has

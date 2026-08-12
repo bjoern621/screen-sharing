@@ -153,19 +153,32 @@ public sealed class TileGrid : Panel
     private List<(Control Child, Rect Rect)> Places(Size box)
         => Mode == LayoutMode.Focus ? Focused(box) : Grid(box);
 
-    /// <summary>Every tile equal, from the arrangement.</summary>
+    /// <summary>
+    /// Every tile equal, from the arrangement.
+    ///
+    /// A box with no room in it arranges nothing at all, tiles or not
+    /// (<see cref="TileLayout.Solve"/>), and that box is the first measure pass inside a scroll
+    /// viewer: the viewport it is fitted into has not been measured yet, so there is no height to
+    /// solve against until the pass after. Every child is placed at nothing there rather than left
+    /// out, because a child this list skips is a child the measure pass never measures.
+    /// </summary>
     private List<(Control Child, Rect Rect)> Grid(Size box)
     {
         var children = Children.OfType<Control>().ToList();
         var arrangement = TileLayout.Solve(children.Select(GetAspect).ToList(), box.Width, box.Height, Gap);
 
-        var places = new List<(Control, Rect)>(children.Count);
+        Assert.That(
+            arrangement.Tiles.Count == children.Count || arrangement.Tiles.Count == 0,
+            "the arrangement places every tile or none of them",
+            arrangement.Tiles.Count,
+            children.Count);
+
+        var places = children.Select(child => (Child: child, Rect: default(Rect))).ToList();
         foreach (var tile in arrangement.Tiles)
         {
-            places.Add((children[tile.Index], new Rect(tile.X, tile.Y, tile.Width, tile.Height)));
+            places[tile.Index] = (children[tile.Index], new Rect(tile.X, tile.Y, tile.Width, tile.Height));
         }
 
-        Assert.That(places.Count == children.Count, "a place for every tile", places.Count, children.Count);
         return places;
     }
 

@@ -39,7 +39,7 @@ func previewStream(t *testing.T, capture, codec string) settings.Settings {
 		t.Fatal(err)
 	}
 
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture, s.Publish.Transport = capture, "rtsp"
 	s.Publish.Codec, s.Publish.Chroma = codec, "yuv420p"
 	s.Publish.BitrateM, s.Publish.ColorRange = 20, "tv"

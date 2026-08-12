@@ -66,7 +66,10 @@ enum TextArgName {
   TEXT_ARG_NAME_MEMORY = 11;
   TEXT_ARG_NAME_AUDIO = 12;
   TEXT_ARG_NAME_AUDIO_CODEC = 13;
-  TEXT_ARG_NAME_ENC_PRESET = 14;
+  // TEXT_ARG_NAME_EFFORT is a step of an encoder's effort ladder, spelled as that encoder
+  // does: "veryfast" on x264, "9" on SVT-AV1, "p5" on NVENC. The old name said one
+  // family's ladder, and every implemented encoder that has such a knob declares one now.
+  TEXT_ARG_NAME_EFFORT = 14;
   TEXT_ARG_NAME_RTSP_PROTOCOL = 15;
   TEXT_ARG_NAME_DECODE_FAMILY = 16;
   // TEXT_ARG_NAME_DECODER is a decoder element as the receiving pipeline names it, e.g.
@@ -92,12 +95,17 @@ enum TextArgName {
   TEXT_ARG_NAME_ELEMENT = 23;
   // TEXT_ARG_NAME_PRESET is a built-in preset, e.g. "gaming" (form.proto,
   // BuiltinPreset). It is not a settings value either: a preset is applied and never
-  // stored, so no field holds one. TEXT_ARG_NAME_ENC_PRESET is the unrelated NVENC
-  // ladder step, which is a settings value.
+  // stored, so no field holds one. TEXT_ARG_NAME_EFFORT is the unrelated ladder step,
+  // which is a settings value.
   TEXT_ARG_NAME_PRESET = 24;
   // TEXT_ARG_NAME_CURSOR is what the pointer does in the captured frames, as the settings
   // name it: "embedded", "hidden" or "metadata".
   TEXT_ARG_NAME_CURSOR = 25;
+  // TEXT_ARG_NAME_TUNE is a step of an encoder's tune ladder, spelled as that encoder
+  // does: "zerolatency" on x264, "ll" on NVENC. It is the other half of the pair
+  // TEXT_ARG_NAME_EFFORT names, and a separate argument because a statement about one
+  // says nothing about the other.
+  TEXT_ARG_NAME_TUNE = 26;
 
   // Lists of identifiers, each of the axis its name says. A shell joins them in its
   // own language; the backend states which ones, never how they read together.
@@ -141,6 +149,11 @@ enum TextArgName {
   TEXT_ARG_NAME_IMPORT = 61;
   TEXT_ARG_NAME_COST = 62;
   TEXT_ARG_NAME_REACH = 63;
+
+  // Reserved for the rename above rather than for a removal: the name is
+  // TEXT_ARG_NAME_EFFORT now, on the same number, and a build that still spells the old
+  // one should fail to compile rather than to parse.
+  reserved "TEXT_ARG_NAME_ENC_PRESET";
 }
 
 // IdList is several identifiers of one axis. Repeated fields cannot sit in a oneof,
@@ -334,10 +347,17 @@ enum TextCode {
   TEXT_CODE_BFRAMES_OFF_IN_MODE = 64;
   // Only some encoder families take a B-frame count. TEXT_ARG_NAME_FAMILIES.
   TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES = 65;
-  // Only some encoder families take a preset ladder. TEXT_ARG_NAME_FAMILIES.
-  TEXT_CODE_PRESET_ONLY_ON_FAMILIES = 66;
-  // The mode pins the preset to one step. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_ENC_PRESET.
-  TEXT_CODE_PRESET_PINNED_BY_MODE = 67;
+  // This codec's encoder has no effort ladder, so there is no step to spend.
+  // TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER = 77;
+  // The mode pins the effort step. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_EFFORT.
+  TEXT_CODE_EFFORT_PINNED_BY_MODE = 67;
+  // This codec's encoder tunes for nothing the user picks, so there is no ladder to
+  // offer. A codec can declare either ladder without the other, which is why this is not
+  // the code above. TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER = 78;
+  // The mode pins the tune. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_TUNE.
+  TEXT_CODE_TUNE_PINNED_BY_MODE = 79;
   // No audio source is selected, so the stream carries no track to code. No arguments.
   TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE = 68;
   // No session of this operating system serves the capture source. TEXT_ARG_NAME_AUDIO,
@@ -384,7 +404,6 @@ enum TextCode {
   // of software, and a generic "this element has no such property" teaches nothing
   // about which of them to change.
 
-  TEXT_CODE_GST_NO_PRESET_LADDER = 80;
   TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER = 81;
   TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL = 82;
   TEXT_CODE_GST_NVENC_NO_RATE_BUFFER = 83;
@@ -474,4 +493,19 @@ enum TextCode {
   // The preset store could not be read, so the list is empty because nothing readable
   // remained rather than because nothing was saved. TEXT_ARG_NAME_PATH.
   TEXT_CODE_PRESET_STORE_UNREADABLE = 151;
+
+  // 66 said that only some encoder families take a preset ladder, which stopped being
+  // true when every implemented encoder's row began declaring its own. The number stays
+  // out of reach so a build holding the old value cannot land on whatever takes its
+  // place, and the name stays reserved because the statement is gone rather than renamed:
+  // TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER names one codec where this named a set of
+  // families. TEXT_CODE_PRESET_PINNED_BY_MODE is the rename, on 67.
+  // 80 said the GStreamer encoders take no preset ladder. Their own preset enum carries
+  // the same p1-p7 steps ffmpeg's does, beside the presets it deprecates, so the
+  // statement described a limit that was not there and both engines forward the step now.
+  reserved 66, 80;
+  reserved
+    "TEXT_CODE_PRESET_ONLY_ON_FAMILIES",
+    "TEXT_CODE_PRESET_PINNED_BY_MODE",
+    "TEXT_CODE_GST_NO_PRESET_LADDER";
 }

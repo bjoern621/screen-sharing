@@ -285,6 +285,29 @@ func (s *Server) StopWatch(ctx context.Context, req *screensharev1.StopWatchRequ
 	return &screensharev1.StopWatchResponse{}, nil
 }
 
+// OpenInBrowser opens the relay's player page for one stream in the machine's default
+// browser.
+//
+// The pair and its two refusals are StartWatch's, for the same reasons: the leg is per
+// reader, and one whose format the stream does not cross would open a page that
+// connects and shows nothing. What it does not have is a counterpart: the tab belongs
+// to the browser, so there is no stop to write and no viewer state for this to move.
+func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBrowserRequest) (*screensharev1.OpenInBrowserResponse, error) {
+	key := wire.WatchKeyOf(req.GetViewer())
+	name, leg := key.StreamName, key.Transport
+	if name == "" {
+		return nil, invalidArgument("no stream named to open in the browser")
+	}
+	if leg == "" {
+		return nil, invalidArgument("no transport named to open '%s' over", name)
+	}
+
+	if err := s.backend.OpenInBrowser(key); err != nil {
+		return nil, failedPrecondition("cannot open '%s' over %s in the browser: %v", name, leg, err)
+	}
+	return &screensharev1.OpenInBrowserResponse{}, nil
+}
+
 // StartReceive opens a decode for one stream on one leg, inside the backend.
 //
 // The two empty-argument refusals and the carriage one are StartWatch's, for the same
@@ -322,6 +345,31 @@ func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceive
 	s.backend.StopReceive(key)
 
 	return &screensharev1.StopReceiveResponse{}, nil
+}
+
+// StartMonitorPreview reads one of this machine's screens so the wizard can offer it by
+// its picture rather than by its number.
+//
+// The index is not checked here, unlike the pair the receive methods take. An empty
+// stream name is a request with a hole in it and can be recognised as one from the
+// message alone; every integer is a monitor index somewhere, and whether it is one of
+// this machine's is a fact about the machine. So the backend answers that, and the
+// refusal is the one it gives.
+func (s *Server) StartMonitorPreview(ctx context.Context, req *screensharev1.StartMonitorPreviewRequest) (*screensharev1.StartMonitorPreviewResponse, error) {
+	monitor := int(req.GetMonitor())
+
+	if err := s.backend.StartMonitorPreview(monitor); err != nil {
+		return nil, failedPrecondition("cannot preview monitor %d: %v", monitor, err)
+	}
+	return &screensharev1.StartMonitorPreviewResponse{}, nil
+}
+
+// StopMonitorPreview closes one monitor's preview. A monitor nothing is previewing is
+// not refused, for the reason StopReceive takes a decode that is already closed.
+func (s *Server) StopMonitorPreview(ctx context.Context, req *screensharev1.StopMonitorPreviewRequest) (*screensharev1.StopMonitorPreviewResponse, error) {
+	s.backend.StopMonitorPreview(int(req.GetMonitor()))
+
+	return &screensharev1.StopMonitorPreviewResponse{}, nil
 }
 
 // SetReceiveAudio sets how loud one decode plays and whether it plays at all.

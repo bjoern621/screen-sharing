@@ -178,10 +178,9 @@ var availabilityRules = map[string]func(availability) state{
 	// The keyframe interval is not a rate-control concept, so no mode withholds it;
 	// only an encoder element with no property for it does.
 	KeyGop: func(av availability) state { return av.knob(KeyGop, true, nil) },
-	// B-frames and the preset ladder are each blocked by two independent facts, so the
-	// reason names the one that applies instead of always blaming the mode. Which
-	// families own the two fields is the family table's, so the statement lists them
-	// from it rather than naming one by hand.
+	// B-frames are blocked by two independent facts, so the reason names the one that
+	// applies instead of always blaming the mode. Which families take a count is the
+	// family table's, so the statement lists them from it rather than naming one by hand.
 	KeyBframes: func(av availability) state {
 		usesBframes := av.mode().usesBframes
 		reason := say(bframesOffInMode, argMode(av.s.Publish.Mode))
@@ -191,23 +190,37 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return av.knob(KeyBframes, usesBframes && av.family().takesBframes, reason)
 	},
-	// The control still follows the encoder family rather than the codec's own ladder,
-	// which is the last step of the effort feature and the one that waits on both
-	// builders reading the field. Every codec declares a ladder now
-	// (capabilities.Ladder), and the options this control offers already come off it, so
-	// what is left is to stop gating on the family here. Opening it before the builders
-	// read the field would offer a knob nothing forwards, which is the one thing
-	// docs/field-availability.md rules out.
+	// The effort step follows the codec's own row rather than its family's, because the
+	// ladder does: the steps are the encoder's identifiers, so two codecs of one family
+	// can offer different ones and a family that declares none offers nothing to spend.
+	// Both the entries this control lists and the step a build spends come off that same
+	// row, which is what keeps the greying and the encode in step.
 	KeyEffort: func(av availability) state {
-		takesPreset, mode := av.family().takesPreset, av.mode()
-		reason := say(presetOnlyOnFamilies,
-			argFamilies(availabilityFamiliesWith(func(f availabilityFamily) bool { return f.takesPreset })))
-		// A mode that pins the preset carries the step it pins to, so the statement
-		// names the declared value instead of restating one.
-		if takesPreset && mode.pinsPreset {
-			reason = say(presetPinnedByMode, argMode(av.s.Publish.Mode), argEffort(mode.pinnedPreset))
+		ladder := av.codec.Effort
+		pinned := ladder.PinsIn(av.s.Publish.Mode)
+		reason := say(codecTakesNoEffortLadder, argCodec(av.s.Publish.Codec))
+		// A mode that pins the step carries the one it pins to, so the statement names
+		// the declared value instead of restating one.
+		if pinned {
+			step, _ := ladder.StepFor(av.s.Publish.Mode)
+			reason = say(effortPinnedByMode, argMode(av.s.Publish.Mode), argEffort(step))
 		}
-		return av.knob(KeyEffort, takesPreset && !mode.pinsPreset, reason)
+		return av.knob(KeyEffort, len(ladder.Steps) > 0 && !pinned, reason)
+	},
+	// The tune is read the same way and from the same row, since it is the other half of
+	// one decision: how hard the encoder works, and what it works towards. A codec can
+	// declare either ladder without the other - the Vulkan rows tune and take no effort
+	// step, the libvpx ones take a step and tune for nothing - so each control asks about
+	// its own ladder rather than about the pair.
+	KeyTune: func(av availability) state {
+		ladder := av.codec.Tune
+		pinned := ladder.PinsIn(av.s.Publish.Mode)
+		reason := say(codecTakesNoTuneLadder, argCodec(av.s.Publish.Codec))
+		if pinned {
+			step, _ := ladder.StepFor(av.s.Publish.Mode)
+			reason = say(tunePinnedByMode, argMode(av.s.Publish.Mode), argTune(step))
+		}
+		return av.knob(KeyTune, len(ladder.Steps) > 0 && !pinned, reason)
 	},
 
 	// The audio codec is read only where the stream has a track to code, so with no
@@ -1030,18 +1043,13 @@ type availabilityMode struct {
 	// usesBframes: B-frames help the lossy bitrate and quality modes, and only where
 	// the family takes a count.
 	usesBframes bool
-	// pinsPreset and pinnedPreset: a mode that fixes the preset carries the step it
-	// fixes it to, so the statement naming it cannot be written without one.
-	pinsPreset   bool
-	pinnedPreset string
 }
 
 // availabilityModes is what each rate-control mode needs, keyed as capabilities names
 // the modes. A mode outside the table needs nothing, which is the answer for a
 // hand-edited settings file naming one no builder implements.
 var availabilityModes = map[string]availabilityMode{
-	// The pinned step is ffmpeg's nvencLivePreset, which is the other copy of this fact.
-	capabilities.ModeCbr:      {usesBitrate: true, usesVbv: true, pinsPreset: true, pinnedPreset: "p5"},
+	capabilities.ModeCbr:      {usesBitrate: true, usesVbv: true},
 	capabilities.ModeVbr:      {usesBitrate: true, usesMaxrate: true, usesVbv: true, usesBframes: true},
 	capabilities.ModeAbr:      {usesBitrate: true, usesBframes: true},
 	capabilities.ModeCrf:      {usesCq: true, usesBframes: true},
@@ -1051,11 +1059,11 @@ var availabilityModes = map[string]availabilityMode{
 // availabilityFamily is what an encoder family's encoders take and where they come
 // from. It is the second of the three facts a rate-control field is decided by.
 type availabilityFamily struct {
-	// takesBframes and takesPreset: a field the family has no property for greys
-	// whatever the rate-control mode, and the builders pin it off rather than
-	// forwarding a value the encoder would ignore.
+	// takesBframes: a field the family has no property for greys whatever the
+	// rate-control mode, and the builders pin it off rather than forwarding a value the
+	// encoder would ignore. The effort step is not such a field: it follows the codec's
+	// own ladder, since one family's codecs can declare different ones.
 	takesBframes bool
-	takesPreset  bool
 	// needsDevice: whether the encoders come with a device rather than with a build. An
 	// absent encoder is then the machine's answer (no such GPU, or no driver exposing
 	// that encode entrypoint) where a software one's is the build's.
@@ -1068,7 +1076,7 @@ type availabilityFamily struct {
 // instead.
 var availabilityFamilies = map[string]availabilityFamily{
 	capabilities.FamilySoftware: {},
-	capabilities.FamilyNvenc:    {takesBframes: true, takesPreset: true, needsDevice: true},
+	capabilities.FamilyNvenc:    {takesBframes: true, needsDevice: true},
 	capabilities.FamilyVaapi:    {needsDevice: true},
 	capabilities.FamilyQsv:      {needsDevice: true},
 	capabilities.FamilyAmf:      {needsDevice: true},
@@ -1102,8 +1110,8 @@ func availabilityFamiliesWith(flag func(availabilityFamily) bool) []string {
 //
 // The mode table says which knobs a rate-control concept needs. Whether the value
 // reaches the encoder also depends on which engine builds the command, because the two
-// express the same modes through different properties: the GStreamer elements have no
-// NVENC preset ladder, x264enc cannot raise a ceiling above its bitrate, and vpxenc has
+// express the same modes through different properties: the GStreamer nvcodec elements
+// take no effort step, x264enc cannot raise a ceiling above its bitrate, and vpxenc has
 // no unbounded constant-quality mode.
 //
 // A knob an encoder library has no form of at all is a rule with no engine, since both
@@ -1134,11 +1142,11 @@ type availabilityEngineRule struct {
 
 // availabilityEngineRules is the departure table, earlier rows winning.
 var availabilityEngineRules = []availabilityEngineRule{
-	{
-		engine: capabilities.EngineGst,
-		knob:   KeyEffort,
-		reason: screensharev1.TextCode_TEXT_CODE_GST_NO_PRESET_LADDER,
-	},
+	// No rule withholds the effort step on either engine. Every element that codes a
+	// laddered codec takes its steps through a property of its own - speed-preset,
+	// cpu-used, preset - and the nvcodec elements take the same p1-p7 steps ffmpeg does,
+	// their own enum carrying them beside the presets it deprecates.
+	//
 	// An encoder that cannot bound the burst at all has no VBR mode, which the
 	// capability table declares as a mode gap. No rule here withholds the ceiling field
 	// for that case: the mode carrying it is gone, so a rule would grey a field under a

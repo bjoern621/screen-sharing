@@ -57,7 +57,7 @@
 
   <!-- Controls. The 20px line box a 14px label draws, plus 4px either side and two borders. -->
   <sys:Double x:Key="ControlHeight">30</sys:Double>
-  <!-- The on-air pill carries no border, so it is the same box two pixels shorter. -->
+  <!-- The sharing pill carries no border, so it is the same box two pixels shorter. -->
   <sys:Double x:Key="PillHeight">28</sys:Double>
   <sys:Double x:Key="ChipHeight">30</sys:Double>
   <!--
@@ -71,9 +71,21 @@
   <sys:Double x:Key="MenuItemHeight">32</sys:Double>
   <!-- A live-safe action in the broadcast header. -->
   <sys:Double x:Key="ActionHeight">32</sys:Double>
-  <!-- A wizard footer button, and the go-live button that matches it. -->
+  <!-- A wizard footer button, and the start-sharing button that matches it. -->
   <sys:Double x:Key="FooterButtonHeight">38</sys:Double>
   <sys:Double x:Key="RoundButtonSize">40</sys:Double>
+  <!--
+    A button whose whole content is one glyph.
+    It is the control height less the two borders it does not carry, so it sits on the same
+    rhythm as the labelled buttons beside it.
+  -->
+  <sys:Double x:Key="IconButtonSize">28</sys:Double>
+  <!--
+    One row of a list that acts when it is pressed.
+    Taller than a control, because the row is the target rather than a control at the end of it,
+    and a list is read down its left edge rather than scanned for the box to aim at.
+  -->
+  <sys:Double x:Key="RowButtonHeight">36</sys:Double>
 
   <!-- Spacing rhythm. The design uses a small set repeatedly rather than a scale. -->
   <sys:Double x:Key="GapTight">7</sys:Double>
@@ -99,6 +111,14 @@
   <Thickness x:Key="InsetPanel">12</Thickness>
   <Thickness x:Key="InsetSection">16</Thickness>
 
+  <!--
+    A menu's own inset, and the one step below the ladder above. A menu row is a filled rounded
+    box that has to clear the surface's 1px border on every side, and it is the surface's
+    padding rather than the row's margin that clears it - a margin would leave the row's hit
+    area outside its fill.
+  -->
+  <Thickness x:Key="InsetMenu">5</Thickness>
+
   <!-- The state dot stays small: it is state, not decoration (docs/design-language.md). -->
   <sys:Double x:Key="DotSize">7</sys:Double>
 
@@ -112,8 +132,8 @@
   <sys:Double x:Key="SpinnerStroke">1.5</sys:Double>
 
   <!--
-    Icons. Two sizes off the design's 12-22px range, named by where the glyph sits rather
-    than by the number, and one stroke for both of them.
+    Icons. Three sizes off the design's 12-22px range, named by where the glyph sits rather
+    than by the number, and one stroke for all of them.
 
     The stroke is a width rather than a weight baked into the artwork, which is the whole
     reason the icons are drawn as paths: a 12px badge glyph and a 14px control glyph are the
@@ -127,6 +147,13 @@
   <sys:Double x:Key="IconSizeBadge">12</sys:Double>
   <!-- On a line of text: a select's caret, a menu row's tick. -->
   <sys:Double x:Key="IconSizeControl">14</sys:Double>
+  <!--
+    Alone in a button, where the glyph is the whole of what the control says.
+    A glyph on a line of text is read beside the words it belongs to; one that stands for the
+    button carries the meaning by itself, and 14px inside a 28px box reads as a box with
+    something small in the middle of it.
+  -->
+  <sys:Double x:Key="IconSizeButton">16</sys:Double>
 
   <!--
     A thumbnail in the film strip under a spotlit stream. The height the two existing viewers

@@ -59,7 +59,7 @@
         <Border Width="12"
                 Height="12"
                 CornerRadius="{StaticResource RadiusSegment}"
-                Background="{StaticResource OnAirBrush}"
+                Background="{StaticResource AttentionBrush}"
                 VerticalAlignment="Center" />
 
         <TextBlock Classes="title"

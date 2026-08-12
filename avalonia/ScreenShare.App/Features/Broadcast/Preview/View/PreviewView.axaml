@@ -56,20 +56,28 @@
                    VerticalAlignment="Center"
                    Margin="24" />
 
-        <!-- The inset red edge says this tile is on air. It is the same red as the pill. -->
-        <Border BorderBrush="{StaticResource OnAirBrush}"
+        <!--
+          The inset red edge and the badge both say the same thing: this picture is going out
+          right now. They carry the same red and the same word as the pill in the header, which
+          is the whole of the vocabulary this product has for the state
+          (docs/design-language.md, "Status language").
+
+          The badge said "Program" before, and then "On air". Both are what a control room calls
+          the feed going out, and a reader of a screen-sharing app has no reason to know either.
+        -->
+        <Border BorderBrush="{StaticResource AttentionBrush}"
                 BorderThickness="2"
                 CornerRadius="{StaticResource RadiusTile}"
-                IsVisible="{Binding IsOnAir}" />
+                IsVisible="{Binding IsSharing}" />
 
-        <Border Background="{StaticResource OnAirBrush}"
+        <Border Background="{StaticResource AttentionBrush}"
                 CornerRadius="{StaticResource RadiusControl}"
                 Padding="9,3"
                 Margin="8"
                 HorizontalAlignment="Left"
                 VerticalAlignment="Top"
-                IsVisible="{Binding IsOnAir}">
-          <TextBlock Classes="caption" Foreground="{StaticResource ForegroundBrush}" Text="Program" />
+                IsVisible="{Binding IsSharing}">
+          <TextBlock Classes="caption" Foreground="{StaticResource ForegroundBrush}" Text="Sharing" />
         </Border>
 
         <Panel Margin="8" VerticalAlignment="Bottom">

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.HeaderStats.Model;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Mvvm;
@@ -7,7 +8,7 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 
 /// <summary>
-/// The header stat bar: the on-air pill, and the five numbers a publisher actually
+/// The header stat bar: the sharing pill, and the five numbers a publisher actually
 /// watches. Five and no more - the promotion only means something while the list is short
 /// enough to read at a glance.
 ///
@@ -47,7 +48,7 @@ public sealed class HeaderStatsViewModel : Observable
     // --- Outputs ------------------------------------------------------------------
 
     private string _elapsed = "";
-    private bool _isOnAir;
+    private bool _isSharing;
     private string _retry = "";
     private bool _isRetrying;
 
@@ -61,7 +62,7 @@ public sealed class HeaderStatsViewModel : Observable
     /// rendering of a stream that is not live is the pill's absence rather than a second
     /// label spending the one red on something that is merely idle.
     /// </summary>
-    public bool IsOnAir { get => _isOnAir; private set => Set(ref _isOnAir, value); }
+    public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
     /// <summary>
     /// Which relaunch the backend is waiting out, empty while none is. A stream between
@@ -82,7 +83,7 @@ public sealed class HeaderStatsViewModel : Observable
     {
         var reading = Snapshot;
 
-        IsOnAir = reading.IsLive;
+        IsSharing = reading.IsLive;
         Elapsed = reading.Elapsed;
         IsRetrying = reading.IsRetrying;
         Retry = IsRetrying ? $"reconnecting — attempt {reading.Attempt} of {reading.Budget}" : "";
@@ -95,12 +96,28 @@ public sealed class HeaderStatsViewModel : Observable
             // stream-wide value to promote and each of these is the worst viewer's. The label
             // says so: a bare "ms rtt" beside a viewer count reads as the stream's round trip,
             // which is a figure nobody took (Model/BroadcastSnapshot.cs).
-            new StatFigure(Figure.Of(reading.RttMs), "ms rtt worst"),
-            new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss worst"),
+            new StatFigure(Figure.Of(reading.RttMs), "ms rtt worst", Untimed(reading, reading.RttMs)),
+            new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss worst", Untimed(reading, reading.LossPercent)),
             new StatFigure(Figure.Of(reading.Viewers), "viewers"),
         ]);
 
         Assert.That(Figures.Count == PromotedCount, "five figures are promoted into the header", Figures.Count);
         Assert.That(IsRetrying == (Retry.Length > 0), "a retry note appears with the retry it describes", IsRetrying, Retry);
     }
+
+    /// <summary>
+    /// Why one of the two latency figures reads as unmeasured, and null where it needs no saying.
+    ///
+    /// It is said only while the relay names a reader on the path, because that is the one state
+    /// in which the ellipsis is worth explaining. A stream with viewers and no round trip looks
+    /// like a broken measurement and is a leg nobody times, which is a thing the publisher can
+    /// act on. A stream nobody is watching is already explained by the viewer count beside it,
+    /// and a stream that is not live is explained by the pill that is not there.
+    ///
+    /// The sentence itself is the plot's (<see cref="Cards.Untimed"/>), not a second wording of
+    /// it: both surfaces describe the same roster and a reader moving between them is entitled to
+    /// one answer.
+    /// </summary>
+    private static string? Untimed(BroadcastSnapshot reading, double? figure)
+        => figure is null && reading.Viewers > 0 ? Cards.Untimed(reading.Legs) : null;
 }

@@ -37,6 +37,12 @@ const (
 	// ENGINE_UNSPECIFIED carried the first meaning, which made a dropped field the
 	// strongest claim the message can make.
 	Engine_ENGINE_ANY Engine = 3
+	// The machine's default browser, on the player page the relay serves. It reads and
+	// never publishes, so it appears on a watch carriage row and on nothing else: no
+	// gap names it, no encoder probe runs against it, and no capture backend is driven
+	// by it. ENGINE_ANY predates it and keeps meaning the publish engines, which are
+	// the only ones a gap can bind on.
+	Engine_ENGINE_BROWSER Engine = 4
 )
 
 // Enum value maps for Engine.
@@ -46,12 +52,14 @@ var (
 		1: "ENGINE_FFMPEG",
 		2: "ENGINE_GSTREAMER",
 		3: "ENGINE_ANY",
+		4: "ENGINE_BROWSER",
 	}
 	Engine_value = map[string]int32{
 		"ENGINE_UNSPECIFIED": 0,
 		"ENGINE_FFMPEG":      1,
 		"ENGINE_GSTREAMER":   2,
 		"ENGINE_ANY":         3,
+		"ENGINE_BROWSER":     4,
 	}
 )
 
@@ -1402,11 +1410,27 @@ type Catalog struct {
 	// protocol cannot carry, and the failure would read as a broken stream rather
 	// than an impossible combination.
 	WatchTransportsByFormat map[string]*TransportList `protobuf:"bytes,17,rep,name=watch_transports_by_format,json=watchTransportsByFormat,proto3" json:"watch_transports_by_format,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// browser_watch_transports are the legs the relay serves a player page for, which
+	// a browser opens as an address like any other. They are a third list rather than
+	// part of watch_transports because the reader is a third one: WHEP is an exchange
+	// no player opens and a browser runs it, and nothing here reads the relay's HLS
+	// segments except a browser and a player. Which formats each of them carries is a
+	// carriage row under the browser engine, as it is for the other two readers.
+	BrowserWatchTransports []string `protobuf:"bytes,20,rep,name=browser_watch_transports,json=browserWatchTransports,proto3" json:"browser_watch_transports,omitempty"`
 	// audio_sources are the second-track capture sources this platform offers,
 	// "none" among them.
-	AudioSources  []string `protobuf:"bytes,18,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	AudioSources []string `protobuf:"bytes,18,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
+	// no_monitor_preview says why this machine cannot show what a monitor holds, and is
+	// absent where it can. StartMonitorPreview then refuses for the same reason, so a
+	// shell reads this and offers the plain list instead of asking and being told no.
+	//
+	// It is one statement for the machine rather than a flag per enumerated output. What
+	// decides it is the session: reading one screen apart from another needs a capture
+	// element that takes an output, and which one exists is the display server's answer
+	// and the same for every monitor plugged into it.
+	NoMonitorPreview *Text `protobuf:"bytes,21,opt,name=no_monitor_preview,json=noMonitorPreview,proto3" json:"no_monitor_preview,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Catalog) Reset() {
@@ -1544,9 +1568,23 @@ func (x *Catalog) GetWatchTransportsByFormat() map[string]*TransportList {
 	return nil
 }
 
+func (x *Catalog) GetBrowserWatchTransports() []string {
+	if x != nil {
+		return x.BrowserWatchTransports
+	}
+	return nil
+}
+
 func (x *Catalog) GetAudioSources() []string {
 	if x != nil {
 		return x.AudioSources
+	}
+	return nil
+}
+
+func (x *Catalog) GetNoMonitorPreview() *Text {
+	if x != nil {
+		return x.NoMonitorPreview
 	}
 	return nil
 }
@@ -1643,7 +1681,7 @@ const file_screenshare_v1_catalog_proto_rawDesc = "" +
 	"\rTransportList\x12\x1e\n" +
 	"\n" +
 	"transports\x18\x01 \x03(\tR\n" +
-	"transports\"\xfe\a\n" +
+	"transports\"\xfc\b\n" +
 	"\aCatalog\x124\n" +
 	"\bplatform\x18\x01 \x01(\v2\x18.screenshare.v1.PlatformR\bplatform\x123\n" +
 	"\bmonitors\x18\x02 \x03(\v2\x17.screenshare.v1.MonitorR\bmonitors\x122\n" +
@@ -1659,18 +1697,21 @@ const file_screenshare_v1_catalog_proto_rawDesc = "" +
 	"\x0eframe_memories\x18\r \x03(\tR\rframeMemories\x12-\n" +
 	"\x12capability_options\x18\x0e \x03(\tR\x11capabilityOptions\x12)\n" +
 	"\x10watch_transports\x18\x0f \x03(\tR\x0fwatchTransports\x12q\n" +
-	"\x1awatch_transports_by_format\x18\x11 \x03(\v24.screenshare.v1.Catalog.WatchTransportsByFormatEntryR\x17watchTransportsByFormat\x12#\n" +
-	"\raudio_sources\x18\x12 \x03(\tR\faudioSources\x1ai\n" +
+	"\x1awatch_transports_by_format\x18\x11 \x03(\v24.screenshare.v1.Catalog.WatchTransportsByFormatEntryR\x17watchTransportsByFormat\x128\n" +
+	"\x18browser_watch_transports\x18\x14 \x03(\tR\x16browserWatchTransports\x12#\n" +
+	"\raudio_sources\x18\x12 \x03(\tR\faudioSources\x12B\n" +
+	"\x12no_monitor_preview\x18\x15 \x01(\v2\x14.screenshare.v1.TextR\x10noMonitorPreview\x1ai\n" +
 	"\x1cWatchTransportsByFormatEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x123\n" +
 	"\x05value\x18\x02 \x01(\v2\x1d.screenshare.v1.TransportListR\x05value:\x028\x01J\x04\b\n" +
-	"\x10\vJ\x04\b\x10\x10\x11J\x04\b\x13\x10\x14R\aenginesR\x0fgrid_transportsR\fstore_notice*Y\n" +
+	"\x10\vJ\x04\b\x10\x10\x11J\x04\b\x13\x10\x14R\aenginesR\x0fgrid_transportsR\fstore_notice*m\n" +
 	"\x06Engine\x12\x16\n" +
 	"\x12ENGINE_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rENGINE_FFMPEG\x10\x01\x12\x14\n" +
 	"\x10ENGINE_GSTREAMER\x10\x02\x12\x0e\n" +
 	"\n" +
-	"ENGINE_ANY\x10\x03*:\n" +
+	"ENGINE_ANY\x10\x03\x12\x12\n" +
+	"\x0eENGINE_BROWSER\x10\x04*:\n" +
 	"\x03Leg\x12\x13\n" +
 	"\x0fLEG_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vLEG_PUBLISH\x10\x01\x12\r\n" +
@@ -1752,12 +1793,13 @@ var file_screenshare_v1_catalog_proto_depIdxs = []int32{
 	14, // 29: screenshare.v1.Catalog.captures:type_name -> screenshare.v1.CaptureBackend
 	13, // 30: screenshare.v1.Catalog.carriage:type_name -> screenshare.v1.TransportCarriage
 	20, // 31: screenshare.v1.Catalog.watch_transports_by_format:type_name -> screenshare.v1.Catalog.WatchTransportsByFormatEntry
-	17, // 32: screenshare.v1.Catalog.WatchTransportsByFormatEntry.value:type_name -> screenshare.v1.TransportList
-	33, // [33:33] is the sub-list for method output_type
-	33, // [33:33] is the sub-list for method input_type
-	33, // [33:33] is the sub-list for extension type_name
-	33, // [33:33] is the sub-list for extension extendee
-	0,  // [0:33] is the sub-list for field type_name
+	21, // 32: screenshare.v1.Catalog.no_monitor_preview:type_name -> screenshare.v1.Text
+	17, // 33: screenshare.v1.Catalog.WatchTransportsByFormatEntry.value:type_name -> screenshare.v1.TransportList
+	34, // [34:34] is the sub-list for method output_type
+	34, // [34:34] is the sub-list for method input_type
+	34, // [34:34] is the sub-list for extension type_name
+	34, // [34:34] is the sub-list for extension extendee
+	0,  // [0:34] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_catalog_proto_init() }

@@ -218,6 +218,26 @@ internal sealed class SeededBackend : IBackend
         ["h264_amf"] = "amf",
     };
 
+    /// <summary>
+    /// The codecs whose encoder has an effort ladder, and the steps each one takes.
+    ///
+    /// It is keyed by codec rather than by family because the ladder is the encoder's own:
+    /// the steps are its identifiers, so two codecs of one family can offer different ones
+    /// and a codec that offers none says nothing about the rest of its family. The hardware
+    /// rows the backend has not read a ladder off yet are absent, which is what greys the
+    /// control for them.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> LadderOf =
+        new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["hevc_nvenc"] = ["p7", "p6", "p5", "p4", "p3", "p2", "p1"],
+            ["h264_nvenc"] = ["p7", "p6", "p5", "p4", "p3", "p2", "p1"],
+            ["av1_nvenc"] = ["p7", "p6", "p5", "p4", "p3", "p2", "p1"],
+            ["libx264"] = ["placebo", "veryslow", "slower", "slow", "medium", "fast", "faster", "veryfast", "superfast", "ultrafast"],
+            ["libx265"] = ["placebo", "veryslow", "slower", "slow", "medium", "fast", "faster", "veryfast", "superfast", "ultrafast"],
+            ["libsvtav1"] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"],
+        };
+
     private readonly string _os;
 
     public SeededBackend(string operatingSystem) => _os = operatingSystem;
@@ -825,16 +845,14 @@ internal sealed class SeededBackend : IBackend
                 return (settings.Publish.Capture == "kmsgrab", true, null, null);
 
             // Disabled with a reason: a general encoding concept this combination blocks.
-            // Where two facts block it, the reason names the one the reader can act on -
-            // the family before the engine, since another codec is nearer to hand.
+            // The ladder is the codec's own, so a codec whose encoder has no such knob greys
+            // naming itself; where the engine is the second fact blocking it, the reason
+            // names the codec first, since another codec is nearer to hand.
             case "publish.effort":
-                if (FamilyOf.GetValueOrDefault(settings.Publish.Codec, "") != "nvenc")
+                if (!LadderOf.ContainsKey(settings.Publish.Codec))
                 {
-                    return (true, false, Say(TextCode.PresetOnlyOnFamilies, Ids(TextArgName.Families, "nvenc")), null);
-                }
-                if (EngineOf.GetValueOrDefault(settings.Publish.Capture, "") == "gstreamer")
-                {
-                    return (true, false, Say(TextCode.GstNoPresetLadder), null);
+                    return (true, false, Say(TextCode.CodecTakesNoEffortLadder,
+                        Id(TextArgName.Codec, settings.Publish.Codec)), null);
                 }
                 return (true, true, null, null);
 
@@ -1209,6 +1227,10 @@ internal sealed class SeededBackend : IBackend
                         new() { Value = "tv" },
                     ],
                 },
+                // The NVENC ladder, because every draft this fixture seeds is on an NVENC
+                // codec. The backend offers whichever ladder the selected codec declares
+                // (LadderOf), and the seeds here are static, as every other option list in
+                // this fixture is.
                 new()
                 {
                     Key = "publish.effort",

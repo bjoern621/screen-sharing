@@ -56,7 +56,7 @@ public enum PublishCommit
 public sealed record PublishGate
 {
     /// <summary>Whether the one red button is pressable.</summary>
-    public required bool CanGoLive { get; init; }
+    public required bool CanStartSharing { get; init; }
 
     /// <summary>
     /// Which effect pressing it is, for the running state this gate was read from.
@@ -86,7 +86,7 @@ public sealed record PublishGate
     /// every other reading goes through rather than written down a second time here.
     /// </summary>
     public static readonly PublishGate Unread =
-        new() { CanGoLive = false, Commit = CommitFor(null), Blocked = "" };
+        new() { CanStartSharing = false, Commit = CommitFor(null), Blocked = "" };
 
     /// <summary>
     /// The gate for one reading of everything the commit depends on.
@@ -105,7 +105,7 @@ public sealed record PublishGate
 
         var gate = new PublishGate
         {
-            CanGoLive = publishable && !starting && blocked.Length == 0,
+            CanStartSharing = publishable && !starting && blocked.Length == 0,
             Commit = CommitFor(publish),
             Blocked = blocked,
         };

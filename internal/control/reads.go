@@ -154,6 +154,13 @@ func (s *Server) GetReceiveState(ctx context.Context, req *screensharev1.GetRece
 	return wire.ReceiveState(s.backend.ReceiveState()), nil
 }
 
+// GetMonitorPreviewState returns the monitors being read, which is what a shell that has
+// just connected converges against: a preview outlives the window that asked for it, so a
+// shell that crashed leaves screens being captured for nobody.
+func (s *Server) GetMonitorPreviewState(ctx context.Context, req *screensharev1.GetMonitorPreviewStateRequest) (*screensharev1.MonitorPreviewState, error) {
+	return wire.MonitorPreviewState(s.backend.MonitorPreviewState()), nil
+}
+
 // GetTestStreamState reports how many synthetic publishers are alive, which is not the
 // count that was asked for: one that died on its own drops out of it.
 func (s *Server) GetTestStreamState(ctx context.Context, req *screensharev1.GetTestStreamStateRequest) (*screensharev1.TestStreamState, error) {

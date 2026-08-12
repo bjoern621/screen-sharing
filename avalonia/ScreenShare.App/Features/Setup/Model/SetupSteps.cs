@@ -10,7 +10,7 @@ namespace ScreenShare.App.Features.Setup.Model;
 public sealed record SetupStepRow
 {
     /// <summary>
-    /// The resolved form's group this step draws, or <see cref="SetupSteps.GoLiveKey"/> on the
+    /// The resolved form's group this step draws, or <see cref="SetupSteps.ShareKey"/> on the
     /// terminal step, which draws none.
     /// </summary>
     public required string Key { get; init; }
@@ -21,7 +21,7 @@ public sealed record SetupStepRow
     public required string Label { get; init; }
 
     /// <summary>The terminal step. It owns no setting; it only asks whether anything blocks the publish.</summary>
-    public bool IsTerminal => Key == SetupSteps.GoLiveKey;
+    public bool IsTerminal => Key == SetupSteps.ShareKey;
 }
 
 /// <summary>
@@ -49,9 +49,9 @@ public static class SetupSteps
     /// <see cref="For"/> asserts rather than assumes - a backend that grew a group called this
     /// would otherwise produce two steps that claim the same identity.
     /// </summary>
-    public const string GoLiveKey = "go-live";
+    public const string ShareKey = "share";
 
-    public const string GoLiveLabel = "Go live";
+    public const string ShareLabel = "Share";
 
     /// <summary>
     /// The steps for one resolved form: a step per group in the form's own order, then the
@@ -73,7 +73,7 @@ public static class SetupSteps
         var rows = new List<SetupStepRow>(groups.Count + 1);
         foreach (var group in groups)
         {
-            Assert.That(group.Key != GoLiveKey, "no form group claims the terminal step's key", GoLiveKey);
+            Assert.That(group.Key != ShareKey, "no form group claims the terminal step's key", ShareKey);
             rows.Add(new SetupStepRow
             {
                 Key = group.Key,
@@ -84,7 +84,7 @@ public static class SetupSteps
             });
         }
 
-        rows.Add(new SetupStepRow { Key = GoLiveKey, Number = rows.Count + 1, Label = GoLiveLabel });
+        rows.Add(new SetupStepRow { Key = ShareKey, Number = rows.Count + 1, Label = ShareLabel });
 
         Assert.That(rows.Count == groups.Count + 1, "a step per group, and one to commit", rows.Count, groups.Count);
         return rows;

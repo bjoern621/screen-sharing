@@ -1,0 +1,112 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ScreenPicker.ViewModel"
+             xmlns:model="using:ScreenShare.App.Features.Setup.ScreenPicker.Model"
+             xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
+             x:Class="ScreenShare.App.Features.Setup.ScreenPicker.View.ScreenPickerView"
+             x:DataType="vm:ScreenPickerViewModel">
+
+  <!--
+    The screens this machine has, each showing what is on it. Picking one writes the same
+    setting the dropdown below writes, so this is a second way to reach one value rather than
+    a second value.
+
+    The grid is 16:9 at a fixed width, which is the shape a desktop is and the shape the
+    backend scales its previews to. Avalonia has no aspect ratio, so both are stated.
+  -->
+
+  <StackPanel Spacing="{StaticResource GapTight}">
+
+    <ItemsControl ItemsSource="{Binding Screens}" IsVisible="{Binding IsVisible}">
+      <ItemsControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+      </ItemsControl.ItemsPanel>
+
+      <ItemsControl.ItemTemplate>
+        <DataTemplate x:DataType="model:ScreenChoice">
+          <!--
+            A button and not a card with a click handler: picking a screen is the same act as
+            picking an entry from the list under it, so it carries the same keyboard reach and
+            the same disabled behaviour without either being written here.
+          -->
+          <Button Classes="bare"
+                  Command="{Binding Select}"
+                  IsEnabled="{Binding IsEnabled}"
+                  Margin="0,0,10,10"
+                  Padding="0"
+                  ToolTip.Tip="{Binding Reason}">
+            <StackPanel Width="216" Spacing="5">
+
+              <Panel>
+                <Border Classes="tile" Height="121">
+                  <Panel>
+                    <!--
+                      The tile arrives once the backend reports that it is reading this screen,
+                      and not before: it subscribes to frames when it is drawn, and a
+                      subscription naming a screen nothing is reading is refused once and never
+                      retried (Setup/ScreenPicker/Model/ScreenChoice.cs).
+                    -->
+                    <tiles:StreamTile Source="{Binding Tile}" IsVisible="{Binding HasTile}" />
+
+                    <!--
+                      Why this screen is dark, when it is. Before there is a tile the row says
+                      so - the screen is opening, or the backend refused to read it and said
+                      why - and once there is one, the tile's own three reasons take over: it is
+                      being read and no picture has arrived, the reading ended, or this window
+                      could not draw what it was handed.
+                    -->
+                    <TextBlock Classes="disabled"
+                               Text="{Binding Placeholder}"
+                               IsVisible="{Binding HasPlaceholder}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="12" />
+
+                    <TextBlock Classes="disabled"
+                               Text="{Binding Tile.Notice}"
+                               IsVisible="{Binding Tile.HasNotice, FallbackValue=False}"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="12" />
+                  </Panel>
+                </Border>
+
+                <!--
+                  The chosen screen, marked the way the rest of the app marks a selection. It is
+                  an outline over the picture rather than a colour under it: the picture fills
+                  the tile, and a background nothing can see is not a selection.
+                -->
+                <Border BorderBrush="{StaticResource SelectedBrush}"
+                        BorderThickness="2"
+                        CornerRadius="{StaticResource RadiusTile}"
+                        IsVisible="{Binding IsSelected}" />
+              </Panel>
+
+              <TextBlock Classes="caption"
+                         Text="{Binding Label}"
+                         TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Button>
+        </DataTemplate>
+      </ItemsControl.ItemTemplate>
+    </ItemsControl>
+
+    <!--
+      What the pictures are, or why there are none. One line either way, written in Copy: a grid
+      that is drawing says above all that nothing is being shared yet, and a machine that cannot
+      show a single screen says how its session reaches one instead.
+    -->
+    <TextBlock Classes="hint"
+               Text="{Binding Notice}"
+               IsVisible="{Binding HasNotice}"
+               TextWrapping="Wrap"
+               TextTrimming="None" />
+
+  </StackPanel>
+</UserControl>

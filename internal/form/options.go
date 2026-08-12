@@ -378,6 +378,16 @@ func optionEfforts(_ Deps, s settings.Settings) []*screensharev1.FieldOption {
 	return optionLadder(codecLadders(s).Effort, s.Publish.Effort, s.Publish.Mode)
 }
 
+// optionTunes offers the selected codec's tune ladder, read the same way the effort one
+// is: the steps are the encoder's own, and the step this mode starts on is marked.
+//
+// A ladder that leads with the untuned step says so as a value rather than by leaving the
+// list short, which is what lets the control hold "tune for nothing" as a choice. The
+// encoders that have no such step are the ones always tuning for something.
+func optionTunes(_ Deps, s settings.Settings) []*screensharev1.FieldOption {
+	return optionLadder(codecLadders(s).Tune, s.Publish.Tune, s.Publish.Mode)
+}
+
 // codecLadders is the selected codec's row, or an empty one for a codec no table carries.
 func codecLadders(s settings.Settings) capabilities.Codec {
 	c, _ := capabilities.Get(s.Publish.Codec)

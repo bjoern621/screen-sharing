@@ -23,7 +23,7 @@ The field is not in the form at all: `Form` marks it not visible for this combin
 
 **Disabled with a reason.**
 The field arrives disabled, carrying the code that says why it is inert.
-The code comes from the availability pass (`form/availability.go`), for example the encoder preset ladder greyed under software x264 with "only the NVIDIA NVENC encoders take an encoder preset".
+The code comes from the availability pass (`form/availability.go`), for example the effort ladder greyed under a VAAPI encoder with "h264_vaapi has no such setting: how hard it works is that encoder's own to decide".
 
 **One option disabled with a reason.**
 The control keeps the option and greys that entry, and the entry carries its own reason.
@@ -45,11 +45,13 @@ Every format has a software decoder, so a pixel format no GPU takes is a viewer 
 
 ## Three facts decide a rate-control field
 
-A quantizer target, bitrate bound, rate buffer, B-frame count or preset is live only when all three agree.
+A quantizer target, bitrate bound, rate buffer, B-frame count or effort step is live only when all three agree.
 
 - The **mode's concept** uses the knob: the mode table says which controls each rate-control mode needs.
-- The **codec's encoder** takes the knob: the family table flags the families whose encoders read the B-frame count and the preset, so both fields grey for a family that carries neither flag, whatever its hardware could do with them, and the reason lists the families that do from the same table.
-- The capture backend's **publish engine** forwards the value: the engine rules record where a builder drops a knob the mode uses, so the preset ladder greys on the GStreamer engine, whose elements have no equivalent.
+- The **codec's encoder** takes the knob: the family table flags the families whose encoders read the B-frame count, so that field greys for a family that carries no flag, whatever its hardware could do with it, and the reason lists the families that do from the same table.
+  The effort step is asked of the codec's own row instead, since the steps are the encoder's identifiers rather than a family's: a row that declares no ladder greys the control naming itself, and a row that pins the step in a mode greys it there and names the step in force.
+- The capture backend's **publish engine** forwards the value: the engine rules record where a builder drops a knob the mode uses, so the rate buffer greys for the NVENC and QSV codecs on the GStreamer engine, whose elements expose no such property.
+  Both ladders are absent from those rules, because every element that codes a laddered codec takes its steps.
 
 When two of them block the same field, both reasons cross and the shell decides what to show.
 B-frames under software x264 in VBR carry the family fact, "only the NVIDIA NVENC encoders take a B-frame count", beside the mode fact, and a shell with room for one line shows the family one: it is the fact that survives changing the mode.
@@ -89,7 +91,7 @@ Then ask what kind of control the field is.
 
 - A **general encoding or quality concept** that the current combination happens to block stays **disabled with a reason**.
   The concept is part of the model every user is expected to understand, so the greyed field plus its reason teaches why the concept does not apply here.
-  Encoder preset, quantizer target, bitrate bound, B-frames, color range and chroma are all general concepts, disabled when the codec, the mode or the capture backend's engine rules them out.
+  Effort step, quantizer target, bitrate bound, B-frames, color range and chroma are all general concepts, disabled when the codec, the mode or the capture backend's engine rules them out.
 
 The test: would the tooltip teach a user on a different backend something worth knowing?
 Yes means disable-with-reason.
@@ -156,7 +158,7 @@ It is one of the few sentences a shell composes about a state rather than repeat
 ## Why the split exists
 
 The settings form is pedagogical: dense tooltips explain the encoding model as the user configures it.
-A greyed field with a reason participates in that teaching, so a user hunting for the NVENC preset under x264 reads why it is absent instead of finding a blank.
+A greyed field with a reason participates in that teaching, so a user hunting for the effort ladder under a VAAPI encoder reads why it is absent instead of finding a blank.
 A hidden field removes noise that would teach nothing, so a backend implementation knob does not follow every user across backends it does not concern.
 
 ## Where the rules live

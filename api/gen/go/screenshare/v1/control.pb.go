@@ -674,6 +674,42 @@ func (*GetReceiveStateRequest) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{14}
 }
 
+type GetMonitorPreviewStateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetMonitorPreviewStateRequest) Reset() {
+	*x = GetMonitorPreviewStateRequest{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetMonitorPreviewStateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetMonitorPreviewStateRequest) ProtoMessage() {}
+
+func (x *GetMonitorPreviewStateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetMonitorPreviewStateRequest.ProtoReflect.Descriptor instead.
+func (*GetMonitorPreviewStateRequest) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{15}
+}
+
 type SaveSettingsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Settings      *Settings              `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
@@ -683,7 +719,7 @@ type SaveSettingsRequest struct {
 
 func (x *SaveSettingsRequest) Reset() {
 	*x = SaveSettingsRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[15]
+	mi := &file_screenshare_v1_control_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -695,7 +731,7 @@ func (x *SaveSettingsRequest) String() string {
 func (*SaveSettingsRequest) ProtoMessage() {}
 
 func (x *SaveSettingsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[15]
+	mi := &file_screenshare_v1_control_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -708,7 +744,7 @@ func (x *SaveSettingsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveSettingsRequest.ProtoReflect.Descriptor instead.
 func (*SaveSettingsRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{15}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SaveSettingsRequest) GetSettings() *Settings {
@@ -726,7 +762,7 @@ type SaveSettingsResponse struct {
 
 func (x *SaveSettingsResponse) Reset() {
 	*x = SaveSettingsResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[16]
+	mi := &file_screenshare_v1_control_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -738,7 +774,7 @@ func (x *SaveSettingsResponse) String() string {
 func (*SaveSettingsResponse) ProtoMessage() {}
 
 func (x *SaveSettingsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[16]
+	mi := &file_screenshare_v1_control_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -751,7 +787,7 @@ func (x *SaveSettingsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveSettingsResponse.ProtoReflect.Descriptor instead.
 func (*SaveSettingsResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{16}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{17}
 }
 
 // SavePresetRequest stores one way of publishing. A preset is a PublishSettings and
@@ -768,7 +804,7 @@ type SavePresetRequest struct {
 
 func (x *SavePresetRequest) Reset() {
 	*x = SavePresetRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[17]
+	mi := &file_screenshare_v1_control_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +816,7 @@ func (x *SavePresetRequest) String() string {
 func (*SavePresetRequest) ProtoMessage() {}
 
 func (x *SavePresetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[17]
+	mi := &file_screenshare_v1_control_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +829,7 @@ func (x *SavePresetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePresetRequest.ProtoReflect.Descriptor instead.
 func (*SavePresetRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{17}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SavePresetRequest) GetName() string {
@@ -818,7 +854,7 @@ type SavePresetResponse struct {
 
 func (x *SavePresetResponse) Reset() {
 	*x = SavePresetResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[18]
+	mi := &file_screenshare_v1_control_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -830,7 +866,7 @@ func (x *SavePresetResponse) String() string {
 func (*SavePresetResponse) ProtoMessage() {}
 
 func (x *SavePresetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[18]
+	mi := &file_screenshare_v1_control_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -843,7 +879,7 @@ func (x *SavePresetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SavePresetResponse.ProtoReflect.Descriptor instead.
 func (*SavePresetResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{18}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{19}
 }
 
 type DeletePresetRequest struct {
@@ -855,7 +891,7 @@ type DeletePresetRequest struct {
 
 func (x *DeletePresetRequest) Reset() {
 	*x = DeletePresetRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[19]
+	mi := &file_screenshare_v1_control_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -867,7 +903,7 @@ func (x *DeletePresetRequest) String() string {
 func (*DeletePresetRequest) ProtoMessage() {}
 
 func (x *DeletePresetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[19]
+	mi := &file_screenshare_v1_control_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -880,7 +916,7 @@ func (x *DeletePresetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePresetRequest.ProtoReflect.Descriptor instead.
 func (*DeletePresetRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{19}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DeletePresetRequest) GetName() string {
@@ -898,7 +934,7 @@ type DeletePresetResponse struct {
 
 func (x *DeletePresetResponse) Reset() {
 	*x = DeletePresetResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[20]
+	mi := &file_screenshare_v1_control_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -910,7 +946,7 @@ func (x *DeletePresetResponse) String() string {
 func (*DeletePresetResponse) ProtoMessage() {}
 
 func (x *DeletePresetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[20]
+	mi := &file_screenshare_v1_control_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -923,7 +959,7 @@ func (x *DeletePresetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeletePresetResponse.ProtoReflect.Descriptor instead.
 func (*DeletePresetResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{20}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{21}
 }
 
 // StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than
@@ -939,7 +975,7 @@ type StartPublishRequest struct {
 
 func (x *StartPublishRequest) Reset() {
 	*x = StartPublishRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[21]
+	mi := &file_screenshare_v1_control_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -951,7 +987,7 @@ func (x *StartPublishRequest) String() string {
 func (*StartPublishRequest) ProtoMessage() {}
 
 func (x *StartPublishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[21]
+	mi := &file_screenshare_v1_control_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -964,7 +1000,7 @@ func (x *StartPublishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartPublishRequest.ProtoReflect.Descriptor instead.
 func (*StartPublishRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{21}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *StartPublishRequest) GetSettings() *Settings {
@@ -982,7 +1018,7 @@ type StartPublishResponse struct {
 
 func (x *StartPublishResponse) Reset() {
 	*x = StartPublishResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[22]
+	mi := &file_screenshare_v1_control_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1030,7 @@ func (x *StartPublishResponse) String() string {
 func (*StartPublishResponse) ProtoMessage() {}
 
 func (x *StartPublishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[22]
+	mi := &file_screenshare_v1_control_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1043,7 @@ func (x *StartPublishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartPublishResponse.ProtoReflect.Descriptor instead.
 func (*StartPublishResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{22}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{23}
 }
 
 type ApplyToStreamRequest struct {
@@ -1019,7 +1055,7 @@ type ApplyToStreamRequest struct {
 
 func (x *ApplyToStreamRequest) Reset() {
 	*x = ApplyToStreamRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[23]
+	mi := &file_screenshare_v1_control_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1031,7 +1067,7 @@ func (x *ApplyToStreamRequest) String() string {
 func (*ApplyToStreamRequest) ProtoMessage() {}
 
 func (x *ApplyToStreamRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[23]
+	mi := &file_screenshare_v1_control_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1044,7 +1080,7 @@ func (x *ApplyToStreamRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyToStreamRequest.ProtoReflect.Descriptor instead.
 func (*ApplyToStreamRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{23}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ApplyToStreamRequest) GetSettings() *Settings {
@@ -1062,7 +1098,7 @@ type ApplyToStreamResponse struct {
 
 func (x *ApplyToStreamResponse) Reset() {
 	*x = ApplyToStreamResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[24]
+	mi := &file_screenshare_v1_control_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1074,7 +1110,7 @@ func (x *ApplyToStreamResponse) String() string {
 func (*ApplyToStreamResponse) ProtoMessage() {}
 
 func (x *ApplyToStreamResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[24]
+	mi := &file_screenshare_v1_control_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1087,7 +1123,7 @@ func (x *ApplyToStreamResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyToStreamResponse.ProtoReflect.Descriptor instead.
 func (*ApplyToStreamResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{24}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{25}
 }
 
 type StopPublishRequest struct {
@@ -1098,7 +1134,7 @@ type StopPublishRequest struct {
 
 func (x *StopPublishRequest) Reset() {
 	*x = StopPublishRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[25]
+	mi := &file_screenshare_v1_control_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1146,7 @@ func (x *StopPublishRequest) String() string {
 func (*StopPublishRequest) ProtoMessage() {}
 
 func (x *StopPublishRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[25]
+	mi := &file_screenshare_v1_control_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1159,7 @@ func (x *StopPublishRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopPublishRequest.ProtoReflect.Descriptor instead.
 func (*StopPublishRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{25}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{26}
 }
 
 type StopPublishResponse struct {
@@ -1134,7 +1170,7 @@ type StopPublishResponse struct {
 
 func (x *StopPublishResponse) Reset() {
 	*x = StopPublishResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[26]
+	mi := &file_screenshare_v1_control_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1146,7 +1182,7 @@ func (x *StopPublishResponse) String() string {
 func (*StopPublishResponse) ProtoMessage() {}
 
 func (x *StopPublishResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[26]
+	mi := &file_screenshare_v1_control_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1159,7 +1195,7 @@ func (x *StopPublishResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopPublishResponse.ProtoReflect.Descriptor instead.
 func (*StopPublishResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{26}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{27}
 }
 
 type StartWatchRequest struct {
@@ -1171,7 +1207,7 @@ type StartWatchRequest struct {
 
 func (x *StartWatchRequest) Reset() {
 	*x = StartWatchRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[27]
+	mi := &file_screenshare_v1_control_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1183,7 +1219,7 @@ func (x *StartWatchRequest) String() string {
 func (*StartWatchRequest) ProtoMessage() {}
 
 func (x *StartWatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[27]
+	mi := &file_screenshare_v1_control_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1196,7 +1232,7 @@ func (x *StartWatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartWatchRequest.ProtoReflect.Descriptor instead.
 func (*StartWatchRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{27}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StartWatchRequest) GetViewer() *WatchKey {
@@ -1214,7 +1250,7 @@ type StartWatchResponse struct {
 
 func (x *StartWatchResponse) Reset() {
 	*x = StartWatchResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[28]
+	mi := &file_screenshare_v1_control_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1226,7 +1262,7 @@ func (x *StartWatchResponse) String() string {
 func (*StartWatchResponse) ProtoMessage() {}
 
 func (x *StartWatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[28]
+	mi := &file_screenshare_v1_control_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1239,7 +1275,7 @@ func (x *StartWatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartWatchResponse.ProtoReflect.Descriptor instead.
 func (*StartWatchResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{28}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{29}
 }
 
 type StopWatchRequest struct {
@@ -1251,7 +1287,7 @@ type StopWatchRequest struct {
 
 func (x *StopWatchRequest) Reset() {
 	*x = StopWatchRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[29]
+	mi := &file_screenshare_v1_control_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1263,7 +1299,7 @@ func (x *StopWatchRequest) String() string {
 func (*StopWatchRequest) ProtoMessage() {}
 
 func (x *StopWatchRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[29]
+	mi := &file_screenshare_v1_control_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1276,7 +1312,7 @@ func (x *StopWatchRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopWatchRequest.ProtoReflect.Descriptor instead.
 func (*StopWatchRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{29}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *StopWatchRequest) GetViewer() *WatchKey {
@@ -1294,7 +1330,7 @@ type StopWatchResponse struct {
 
 func (x *StopWatchResponse) Reset() {
 	*x = StopWatchResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[30]
+	mi := &file_screenshare_v1_control_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1306,7 +1342,7 @@ func (x *StopWatchResponse) String() string {
 func (*StopWatchResponse) ProtoMessage() {}
 
 func (x *StopWatchResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[30]
+	mi := &file_screenshare_v1_control_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1319,7 +1355,90 @@ func (x *StopWatchResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopWatchResponse.ProtoReflect.Descriptor instead.
 func (*StopWatchResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{30}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{31}
+}
+
+// OpenInBrowserRequest names the stream and the leg the page is served on, the same
+// identity every other viewer method takes. The pair is an identity here rather than a
+// handle: nothing is opened that could later be named by it.
+type OpenInBrowserRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Viewer        *WatchKey              `protobuf:"bytes,1,opt,name=viewer,proto3" json:"viewer,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenInBrowserRequest) Reset() {
+	*x = OpenInBrowserRequest{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenInBrowserRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenInBrowserRequest) ProtoMessage() {}
+
+func (x *OpenInBrowserRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenInBrowserRequest.ProtoReflect.Descriptor instead.
+func (*OpenInBrowserRequest) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *OpenInBrowserRequest) GetViewer() *WatchKey {
+	if x != nil {
+		return x.Viewer
+	}
+	return nil
+}
+
+type OpenInBrowserResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OpenInBrowserResponse) Reset() {
+	*x = OpenInBrowserResponse{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OpenInBrowserResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OpenInBrowserResponse) ProtoMessage() {}
+
+func (x *OpenInBrowserResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OpenInBrowserResponse.ProtoReflect.Descriptor instead.
+func (*OpenInBrowserResponse) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{33}
 }
 
 // StartReceiveRequest names the stream and the leg, which together are the identity a
@@ -1342,7 +1461,7 @@ type StartReceiveRequest struct {
 
 func (x *StartReceiveRequest) Reset() {
 	*x = StartReceiveRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[31]
+	mi := &file_screenshare_v1_control_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1354,7 +1473,7 @@ func (x *StartReceiveRequest) String() string {
 func (*StartReceiveRequest) ProtoMessage() {}
 
 func (x *StartReceiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[31]
+	mi := &file_screenshare_v1_control_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1367,7 +1486,7 @@ func (x *StartReceiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartReceiveRequest.ProtoReflect.Descriptor instead.
 func (*StartReceiveRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{31}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *StartReceiveRequest) GetStream() *WatchKey {
@@ -1385,7 +1504,7 @@ type StartReceiveResponse struct {
 
 func (x *StartReceiveResponse) Reset() {
 	*x = StartReceiveResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[32]
+	mi := &file_screenshare_v1_control_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1516,7 @@ func (x *StartReceiveResponse) String() string {
 func (*StartReceiveResponse) ProtoMessage() {}
 
 func (x *StartReceiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[32]
+	mi := &file_screenshare_v1_control_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1529,7 @@ func (x *StartReceiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartReceiveResponse.ProtoReflect.Descriptor instead.
 func (*StartReceiveResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{32}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{35}
 }
 
 type StopReceiveRequest struct {
@@ -1422,7 +1541,7 @@ type StopReceiveRequest struct {
 
 func (x *StopReceiveRequest) Reset() {
 	*x = StopReceiveRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[33]
+	mi := &file_screenshare_v1_control_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1434,7 +1553,7 @@ func (x *StopReceiveRequest) String() string {
 func (*StopReceiveRequest) ProtoMessage() {}
 
 func (x *StopReceiveRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[33]
+	mi := &file_screenshare_v1_control_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1447,7 +1566,7 @@ func (x *StopReceiveRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopReceiveRequest.ProtoReflect.Descriptor instead.
 func (*StopReceiveRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{33}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *StopReceiveRequest) GetStream() *WatchKey {
@@ -1465,7 +1584,7 @@ type StopReceiveResponse struct {
 
 func (x *StopReceiveResponse) Reset() {
 	*x = StopReceiveResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[34]
+	mi := &file_screenshare_v1_control_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1477,7 +1596,7 @@ func (x *StopReceiveResponse) String() string {
 func (*StopReceiveResponse) ProtoMessage() {}
 
 func (x *StopReceiveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[34]
+	mi := &file_screenshare_v1_control_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1490,7 +1609,171 @@ func (x *StopReceiveResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopReceiveResponse.ProtoReflect.Descriptor instead.
 func (*StopReceiveResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{34}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{37}
+}
+
+// The monitor is the index Catalog.Monitor is enumerated under, which is the same value
+// PublishSettings.monitor holds. One field, because a preview of a screen is a preview
+// of the whole screen: there is no rectangle to crop and no rate to ask for, and a size
+// belongs to the consumer that draws it and travels on the frame channel.
+type StartMonitorPreviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Monitor       int32                  `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartMonitorPreviewRequest) Reset() {
+	*x = StartMonitorPreviewRequest{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartMonitorPreviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartMonitorPreviewRequest) ProtoMessage() {}
+
+func (x *StartMonitorPreviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartMonitorPreviewRequest.ProtoReflect.Descriptor instead.
+func (*StartMonitorPreviewRequest) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *StartMonitorPreviewRequest) GetMonitor() int32 {
+	if x != nil {
+		return x.Monitor
+	}
+	return 0
+}
+
+type StartMonitorPreviewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartMonitorPreviewResponse) Reset() {
+	*x = StartMonitorPreviewResponse{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartMonitorPreviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartMonitorPreviewResponse) ProtoMessage() {}
+
+func (x *StartMonitorPreviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartMonitorPreviewResponse.ProtoReflect.Descriptor instead.
+func (*StartMonitorPreviewResponse) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{39}
+}
+
+type StopMonitorPreviewRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Monitor       int32                  `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopMonitorPreviewRequest) Reset() {
+	*x = StopMonitorPreviewRequest{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopMonitorPreviewRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopMonitorPreviewRequest) ProtoMessage() {}
+
+func (x *StopMonitorPreviewRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopMonitorPreviewRequest.ProtoReflect.Descriptor instead.
+func (*StopMonitorPreviewRequest) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *StopMonitorPreviewRequest) GetMonitor() int32 {
+	if x != nil {
+		return x.Monitor
+	}
+	return 0
+}
+
+type StopMonitorPreviewResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StopMonitorPreviewResponse) Reset() {
+	*x = StopMonitorPreviewResponse{}
+	mi := &file_screenshare_v1_control_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StopMonitorPreviewResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StopMonitorPreviewResponse) ProtoMessage() {}
+
+func (x *StopMonitorPreviewResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_control_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StopMonitorPreviewResponse.ProtoReflect.Descriptor instead.
+func (*StopMonitorPreviewResponse) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{41}
 }
 
 // SetReceiveAudioRequest names both halves of the loudness at once, rather than a
@@ -1515,7 +1798,7 @@ type SetReceiveAudioRequest struct {
 
 func (x *SetReceiveAudioRequest) Reset() {
 	*x = SetReceiveAudioRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[35]
+	mi := &file_screenshare_v1_control_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1527,7 +1810,7 @@ func (x *SetReceiveAudioRequest) String() string {
 func (*SetReceiveAudioRequest) ProtoMessage() {}
 
 func (x *SetReceiveAudioRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[35]
+	mi := &file_screenshare_v1_control_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1540,7 +1823,7 @@ func (x *SetReceiveAudioRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReceiveAudioRequest.ProtoReflect.Descriptor instead.
 func (*SetReceiveAudioRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{35}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *SetReceiveAudioRequest) GetStream() *WatchKey {
@@ -1572,7 +1855,7 @@ type SetReceiveAudioResponse struct {
 
 func (x *SetReceiveAudioResponse) Reset() {
 	*x = SetReceiveAudioResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[36]
+	mi := &file_screenshare_v1_control_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +1867,7 @@ func (x *SetReceiveAudioResponse) String() string {
 func (*SetReceiveAudioResponse) ProtoMessage() {}
 
 func (x *SetReceiveAudioResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[36]
+	mi := &file_screenshare_v1_control_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +1880,7 @@ func (x *SetReceiveAudioResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReceiveAudioResponse.ProtoReflect.Descriptor instead.
 func (*SetReceiveAudioResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{36}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{43}
 }
 
 type StartTestStreamsRequest struct {
@@ -1612,7 +1895,7 @@ type StartTestStreamsRequest struct {
 
 func (x *StartTestStreamsRequest) Reset() {
 	*x = StartTestStreamsRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[37]
+	mi := &file_screenshare_v1_control_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1624,7 +1907,7 @@ func (x *StartTestStreamsRequest) String() string {
 func (*StartTestStreamsRequest) ProtoMessage() {}
 
 func (x *StartTestStreamsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[37]
+	mi := &file_screenshare_v1_control_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1637,7 +1920,7 @@ func (x *StartTestStreamsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTestStreamsRequest.ProtoReflect.Descriptor instead.
 func (*StartTestStreamsRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{37}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *StartTestStreamsRequest) GetCount() int32 {
@@ -1655,7 +1938,7 @@ type StartTestStreamsResponse struct {
 
 func (x *StartTestStreamsResponse) Reset() {
 	*x = StartTestStreamsResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[38]
+	mi := &file_screenshare_v1_control_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1667,7 +1950,7 @@ func (x *StartTestStreamsResponse) String() string {
 func (*StartTestStreamsResponse) ProtoMessage() {}
 
 func (x *StartTestStreamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[38]
+	mi := &file_screenshare_v1_control_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1680,7 +1963,7 @@ func (x *StartTestStreamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartTestStreamsResponse.ProtoReflect.Descriptor instead.
 func (*StartTestStreamsResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{38}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{45}
 }
 
 type StopTestStreamsRequest struct {
@@ -1691,7 +1974,7 @@ type StopTestStreamsRequest struct {
 
 func (x *StopTestStreamsRequest) Reset() {
 	*x = StopTestStreamsRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[39]
+	mi := &file_screenshare_v1_control_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1703,7 +1986,7 @@ func (x *StopTestStreamsRequest) String() string {
 func (*StopTestStreamsRequest) ProtoMessage() {}
 
 func (x *StopTestStreamsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[39]
+	mi := &file_screenshare_v1_control_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1716,7 +1999,7 @@ func (x *StopTestStreamsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopTestStreamsRequest.ProtoReflect.Descriptor instead.
 func (*StopTestStreamsRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{39}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{46}
 }
 
 type StopTestStreamsResponse struct {
@@ -1727,7 +2010,7 @@ type StopTestStreamsResponse struct {
 
 func (x *StopTestStreamsResponse) Reset() {
 	*x = StopTestStreamsResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[40]
+	mi := &file_screenshare_v1_control_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1739,7 +2022,7 @@ func (x *StopTestStreamsResponse) String() string {
 func (*StopTestStreamsResponse) ProtoMessage() {}
 
 func (x *StopTestStreamsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[40]
+	mi := &file_screenshare_v1_control_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1752,7 +2035,7 @@ func (x *StopTestStreamsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopTestStreamsResponse.ProtoReflect.Descriptor instead.
 func (*StopTestStreamsResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{40}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{47}
 }
 
 type ProbeEncodersRequest struct {
@@ -1763,7 +2046,7 @@ type ProbeEncodersRequest struct {
 
 func (x *ProbeEncodersRequest) Reset() {
 	*x = ProbeEncodersRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[41]
+	mi := &file_screenshare_v1_control_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1775,7 +2058,7 @@ func (x *ProbeEncodersRequest) String() string {
 func (*ProbeEncodersRequest) ProtoMessage() {}
 
 func (x *ProbeEncodersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[41]
+	mi := &file_screenshare_v1_control_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1788,7 +2071,7 @@ func (x *ProbeEncodersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeEncodersRequest.ProtoReflect.Descriptor instead.
 func (*ProbeEncodersRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{41}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{48}
 }
 
 type ProbeEncodersResponse struct {
@@ -1799,7 +2082,7 @@ type ProbeEncodersResponse struct {
 
 func (x *ProbeEncodersResponse) Reset() {
 	*x = ProbeEncodersResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[42]
+	mi := &file_screenshare_v1_control_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1811,7 +2094,7 @@ func (x *ProbeEncodersResponse) String() string {
 func (*ProbeEncodersResponse) ProtoMessage() {}
 
 func (x *ProbeEncodersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[42]
+	mi := &file_screenshare_v1_control_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1824,7 +2107,7 @@ func (x *ProbeEncodersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProbeEncodersResponse.ProtoReflect.Descriptor instead.
 func (*ProbeEncodersResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{42}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{49}
 }
 
 type MeasureUplinkRequest struct {
@@ -1835,7 +2118,7 @@ type MeasureUplinkRequest struct {
 
 func (x *MeasureUplinkRequest) Reset() {
 	*x = MeasureUplinkRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[43]
+	mi := &file_screenshare_v1_control_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1847,7 +2130,7 @@ func (x *MeasureUplinkRequest) String() string {
 func (*MeasureUplinkRequest) ProtoMessage() {}
 
 func (x *MeasureUplinkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[43]
+	mi := &file_screenshare_v1_control_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1860,7 +2143,7 @@ func (x *MeasureUplinkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureUplinkRequest.ProtoReflect.Descriptor instead.
 func (*MeasureUplinkRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{43}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{50}
 }
 
 type MeasureUplinkResponse struct {
@@ -1872,7 +2155,7 @@ type MeasureUplinkResponse struct {
 
 func (x *MeasureUplinkResponse) Reset() {
 	*x = MeasureUplinkResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[44]
+	mi := &file_screenshare_v1_control_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1884,7 +2167,7 @@ func (x *MeasureUplinkResponse) String() string {
 func (*MeasureUplinkResponse) ProtoMessage() {}
 
 func (x *MeasureUplinkResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[44]
+	mi := &file_screenshare_v1_control_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1897,7 +2180,7 @@ func (x *MeasureUplinkResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureUplinkResponse.ProtoReflect.Descriptor instead.
 func (*MeasureUplinkResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{44}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *MeasureUplinkResponse) GetMbps() float64 {
@@ -1923,7 +2206,7 @@ type MeasureEncodeRateRequest struct {
 
 func (x *MeasureEncodeRateRequest) Reset() {
 	*x = MeasureEncodeRateRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[45]
+	mi := &file_screenshare_v1_control_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1935,7 +2218,7 @@ func (x *MeasureEncodeRateRequest) String() string {
 func (*MeasureEncodeRateRequest) ProtoMessage() {}
 
 func (x *MeasureEncodeRateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[45]
+	mi := &file_screenshare_v1_control_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1948,7 +2231,7 @@ func (x *MeasureEncodeRateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureEncodeRateRequest.ProtoReflect.Descriptor instead.
 func (*MeasureEncodeRateRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{45}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *MeasureEncodeRateRequest) GetSettings() *Settings {
@@ -1967,7 +2250,7 @@ type MeasureEncodeRateResponse struct {
 
 func (x *MeasureEncodeRateResponse) Reset() {
 	*x = MeasureEncodeRateResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[46]
+	mi := &file_screenshare_v1_control_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1979,7 +2262,7 @@ func (x *MeasureEncodeRateResponse) String() string {
 func (*MeasureEncodeRateResponse) ProtoMessage() {}
 
 func (x *MeasureEncodeRateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[46]
+	mi := &file_screenshare_v1_control_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1992,7 +2275,7 @@ func (x *MeasureEncodeRateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureEncodeRateResponse.ProtoReflect.Descriptor instead.
 func (*MeasureEncodeRateResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{46}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *MeasureEncodeRateResponse) GetRate() *EncodeRate {
@@ -2010,7 +2293,7 @@ type ForgetPortalConsentRequest struct {
 
 func (x *ForgetPortalConsentRequest) Reset() {
 	*x = ForgetPortalConsentRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[47]
+	mi := &file_screenshare_v1_control_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2022,7 +2305,7 @@ func (x *ForgetPortalConsentRequest) String() string {
 func (*ForgetPortalConsentRequest) ProtoMessage() {}
 
 func (x *ForgetPortalConsentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[47]
+	mi := &file_screenshare_v1_control_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2035,7 +2318,7 @@ func (x *ForgetPortalConsentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgetPortalConsentRequest.ProtoReflect.Descriptor instead.
 func (*ForgetPortalConsentRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{47}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{54}
 }
 
 type ForgetPortalConsentResponse struct {
@@ -2046,7 +2329,7 @@ type ForgetPortalConsentResponse struct {
 
 func (x *ForgetPortalConsentResponse) Reset() {
 	*x = ForgetPortalConsentResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[48]
+	mi := &file_screenshare_v1_control_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2058,7 +2341,7 @@ func (x *ForgetPortalConsentResponse) String() string {
 func (*ForgetPortalConsentResponse) ProtoMessage() {}
 
 func (x *ForgetPortalConsentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[48]
+	mi := &file_screenshare_v1_control_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2071,7 +2354,7 @@ func (x *ForgetPortalConsentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ForgetPortalConsentResponse.ProtoReflect.Descriptor instead.
 func (*ForgetPortalConsentResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{48}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{55}
 }
 
 type OpenLogRequest struct {
@@ -2085,7 +2368,7 @@ type OpenLogRequest struct {
 
 func (x *OpenLogRequest) Reset() {
 	*x = OpenLogRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[49]
+	mi := &file_screenshare_v1_control_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2097,7 +2380,7 @@ func (x *OpenLogRequest) String() string {
 func (*OpenLogRequest) ProtoMessage() {}
 
 func (x *OpenLogRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[49]
+	mi := &file_screenshare_v1_control_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2110,7 +2393,7 @@ func (x *OpenLogRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenLogRequest.ProtoReflect.Descriptor instead.
 func (*OpenLogRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{49}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *OpenLogRequest) GetPath() string {
@@ -2128,7 +2411,7 @@ type OpenLogResponse struct {
 
 func (x *OpenLogResponse) Reset() {
 	*x = OpenLogResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[50]
+	mi := &file_screenshare_v1_control_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2140,7 +2423,7 @@ func (x *OpenLogResponse) String() string {
 func (*OpenLogResponse) ProtoMessage() {}
 
 func (x *OpenLogResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[50]
+	mi := &file_screenshare_v1_control_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2153,7 +2436,7 @@ func (x *OpenLogResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenLogResponse.ProtoReflect.Descriptor instead.
 func (*OpenLogResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{50}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{57}
 }
 
 type OpenLogsFolderRequest struct {
@@ -2164,7 +2447,7 @@ type OpenLogsFolderRequest struct {
 
 func (x *OpenLogsFolderRequest) Reset() {
 	*x = OpenLogsFolderRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[51]
+	mi := &file_screenshare_v1_control_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2176,7 +2459,7 @@ func (x *OpenLogsFolderRequest) String() string {
 func (*OpenLogsFolderRequest) ProtoMessage() {}
 
 func (x *OpenLogsFolderRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[51]
+	mi := &file_screenshare_v1_control_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2189,7 +2472,7 @@ func (x *OpenLogsFolderRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenLogsFolderRequest.ProtoReflect.Descriptor instead.
 func (*OpenLogsFolderRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{51}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{58}
 }
 
 type OpenLogsFolderResponse struct {
@@ -2200,7 +2483,7 @@ type OpenLogsFolderResponse struct {
 
 func (x *OpenLogsFolderResponse) Reset() {
 	*x = OpenLogsFolderResponse{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[52]
+	mi := &file_screenshare_v1_control_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2212,7 +2495,7 @@ func (x *OpenLogsFolderResponse) String() string {
 func (*OpenLogsFolderResponse) ProtoMessage() {}
 
 func (x *OpenLogsFolderResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[52]
+	mi := &file_screenshare_v1_control_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2225,7 +2508,7 @@ func (x *OpenLogsFolderResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OpenLogsFolderResponse.ProtoReflect.Descriptor instead.
 func (*OpenLogsFolderResponse) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{52}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{59}
 }
 
 // SubscribeRequest opens the stream.
@@ -2245,7 +2528,7 @@ type SubscribeRequest struct {
 
 func (x *SubscribeRequest) Reset() {
 	*x = SubscribeRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[53]
+	mi := &file_screenshare_v1_control_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2257,7 +2540,7 @@ func (x *SubscribeRequest) String() string {
 func (*SubscribeRequest) ProtoMessage() {}
 
 func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[53]
+	mi := &file_screenshare_v1_control_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2270,7 +2553,7 @@ func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{53}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *SubscribeRequest) GetKinds() []EventKind {
@@ -2294,7 +2577,7 @@ type SubscribeAudioLevelsRequest struct {
 
 func (x *SubscribeAudioLevelsRequest) Reset() {
 	*x = SubscribeAudioLevelsRequest{}
-	mi := &file_screenshare_v1_control_proto_msgTypes[54]
+	mi := &file_screenshare_v1_control_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2306,7 +2589,7 @@ func (x *SubscribeAudioLevelsRequest) String() string {
 func (*SubscribeAudioLevelsRequest) ProtoMessage() {}
 
 func (x *SubscribeAudioLevelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_control_proto_msgTypes[54]
+	mi := &file_screenshare_v1_control_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2319,7 +2602,7 @@ func (x *SubscribeAudioLevelsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubscribeAudioLevelsRequest.ProtoReflect.Descriptor instead.
 func (*SubscribeAudioLevelsRequest) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{54}
+	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{61}
 }
 
 var File_screenshare_v1_control_proto protoreflect.FileDescriptor
@@ -2353,7 +2636,8 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x15GetRelayStatusRequest\"\x17\n" +
 	"\x15GetViewerStateRequest\"\x1b\n" +
 	"\x19GetTestStreamStateRequest\"\x18\n" +
-	"\x16GetReceiveStateRequest\"K\n" +
+	"\x16GetReceiveStateRequest\"\x1f\n" +
+	"\x1dGetMonitorPreviewStateRequest\"K\n" +
 	"\x13SaveSettingsRequest\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\"\x16\n" +
 	"\x14SaveSettingsResponse\"d\n" +
@@ -2377,13 +2661,22 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x12StartWatchResponse\"h\n" +
 	"\x10StopWatchRequest\x120\n" +
 	"\x06viewer\x18\x03 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06viewerJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\vstream_nameR\ttransport\"\x13\n" +
-	"\x11StopWatchResponse\"G\n" +
+	"\x11StopWatchResponse\"H\n" +
+	"\x14OpenInBrowserRequest\x120\n" +
+	"\x06viewer\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06viewer\"\x17\n" +
+	"\x15OpenInBrowserResponse\"G\n" +
 	"\x13StartReceiveRequest\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\"\x16\n" +
 	"\x14StartReceiveResponse\"F\n" +
 	"\x12StopReceiveRequest\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\"\x15\n" +
-	"\x13StopReceiveResponse\"x\n" +
+	"\x13StopReceiveResponse\"6\n" +
+	"\x1aStartMonitorPreviewRequest\x12\x18\n" +
+	"\amonitor\x18\x01 \x01(\x05R\amonitor\"\x1d\n" +
+	"\x1bStartMonitorPreviewResponse\"5\n" +
+	"\x19StopMonitorPreviewRequest\x12\x18\n" +
+	"\amonitor\x18\x01 \x01(\x05R\amonitor\"\x1c\n" +
+	"\x1aStopMonitorPreviewResponse\"x\n" +
 	"\x16SetReceiveAudioRequest\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x16\n" +
 	"\x06volume\x18\x02 \x01(\x01R\x06volume\x12\x14\n" +
@@ -2412,7 +2705,7 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x16OpenLogsFolderResponse\"I\n" +
 	"\x10SubscribeRequest\x12/\n" +
 	"\x05kinds\x18\x02 \x03(\x0e2\x19.screenshare.v1.EventKindR\x05kindsJ\x04\b\x01\x10\x02\"\x1d\n" +
-	"\x1bSubscribeAudioLevelsRequest2\x87\x16\n" +
+	"\x1bSubscribeAudioLevelsRequest2\xb0\x19\n" +
 	"\x0eControlService\x12D\n" +
 	"\x05Hello\x12\x1c.screenshare.v1.HelloRequest\x1a\x1d.screenshare.v1.HelloResponse\x12S\n" +
 	"\n" +
@@ -2424,7 +2717,8 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\x0eGetRelayStatus\x12%.screenshare.v1.GetRelayStatusRequest\x1a\x1b.screenshare.v1.RelayStatus\x12T\n" +
 	"\x0eGetViewerState\x12%.screenshare.v1.GetViewerStateRequest\x1a\x1b.screenshare.v1.ViewerState\x12`\n" +
 	"\x12GetTestStreamState\x12).screenshare.v1.GetTestStreamStateRequest\x1a\x1f.screenshare.v1.TestStreamState\x12W\n" +
-	"\x0fGetReceiveState\x12&.screenshare.v1.GetReceiveStateRequest\x1a\x1c.screenshare.v1.ReceiveState\x12Y\n" +
+	"\x0fGetReceiveState\x12&.screenshare.v1.GetReceiveStateRequest\x1a\x1c.screenshare.v1.ReceiveState\x12l\n" +
+	"\x16GetMonitorPreviewState\x12-.screenshare.v1.GetMonitorPreviewStateRequest\x1a#.screenshare.v1.MonitorPreviewState\x12Y\n" +
 	"\fSaveSettings\x12#.screenshare.v1.SaveSettingsRequest\x1a$.screenshare.v1.SaveSettingsResponse\x12S\n" +
 	"\n" +
 	"SavePreset\x12!.screenshare.v1.SavePresetRequest\x1a\".screenshare.v1.SavePresetResponse\x12Y\n" +
@@ -2434,9 +2728,12 @@ const file_screenshare_v1_control_proto_rawDesc = "" +
 	"\vStopPublish\x12\".screenshare.v1.StopPublishRequest\x1a#.screenshare.v1.StopPublishResponse\x12S\n" +
 	"\n" +
 	"StartWatch\x12!.screenshare.v1.StartWatchRequest\x1a\".screenshare.v1.StartWatchResponse\x12P\n" +
-	"\tStopWatch\x12 .screenshare.v1.StopWatchRequest\x1a!.screenshare.v1.StopWatchResponse\x12Y\n" +
+	"\tStopWatch\x12 .screenshare.v1.StopWatchRequest\x1a!.screenshare.v1.StopWatchResponse\x12\\\n" +
+	"\rOpenInBrowser\x12$.screenshare.v1.OpenInBrowserRequest\x1a%.screenshare.v1.OpenInBrowserResponse\x12Y\n" +
 	"\fStartReceive\x12#.screenshare.v1.StartReceiveRequest\x1a$.screenshare.v1.StartReceiveResponse\x12V\n" +
-	"\vStopReceive\x12\".screenshare.v1.StopReceiveRequest\x1a#.screenshare.v1.StopReceiveResponse\x12b\n" +
+	"\vStopReceive\x12\".screenshare.v1.StopReceiveRequest\x1a#.screenshare.v1.StopReceiveResponse\x12n\n" +
+	"\x13StartMonitorPreview\x12*.screenshare.v1.StartMonitorPreviewRequest\x1a+.screenshare.v1.StartMonitorPreviewResponse\x12k\n" +
+	"\x12StopMonitorPreview\x12).screenshare.v1.StopMonitorPreviewRequest\x1a*.screenshare.v1.StopMonitorPreviewResponse\x12b\n" +
 	"\x0fSetReceiveAudio\x12&.screenshare.v1.SetReceiveAudioRequest\x1a'.screenshare.v1.SetReceiveAudioResponse\x12e\n" +
 	"\x10StartTestStreams\x12'.screenshare.v1.StartTestStreamsRequest\x1a(.screenshare.v1.StartTestStreamsResponse\x12b\n" +
 	"\x0fStopTestStreams\x12&.screenshare.v1.StopTestStreamsRequest\x1a'.screenshare.v1.StopTestStreamsResponse\x12\\\n" +
@@ -2461,167 +2758,184 @@ func file_screenshare_v1_control_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_control_proto_rawDescData
 }
 
-var file_screenshare_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_screenshare_v1_control_proto_msgTypes = make([]protoimpl.MessageInfo, 62)
 var file_screenshare_v1_control_proto_goTypes = []any{
-	(*HelloRequest)(nil),                // 0: screenshare.v1.HelloRequest
-	(*HelloResponse)(nil),               // 1: screenshare.v1.HelloResponse
-	(*GetCatalogRequest)(nil),           // 2: screenshare.v1.GetCatalogRequest
-	(*GetCatalogResponse)(nil),          // 3: screenshare.v1.GetCatalogResponse
-	(*GetSettingsRequest)(nil),          // 4: screenshare.v1.GetSettingsRequest
-	(*GetSettingsResponse)(nil),         // 5: screenshare.v1.GetSettingsResponse
-	(*ResolveFormRequest)(nil),          // 6: screenshare.v1.ResolveFormRequest
-	(*ResolveFormResponse)(nil),         // 7: screenshare.v1.ResolveFormResponse
-	(*ListPresetsRequest)(nil),          // 8: screenshare.v1.ListPresetsRequest
-	(*ListPresetsResponse)(nil),         // 9: screenshare.v1.ListPresetsResponse
-	(*GetPublishStateRequest)(nil),      // 10: screenshare.v1.GetPublishStateRequest
-	(*GetRelayStatusRequest)(nil),       // 11: screenshare.v1.GetRelayStatusRequest
-	(*GetViewerStateRequest)(nil),       // 12: screenshare.v1.GetViewerStateRequest
-	(*GetTestStreamStateRequest)(nil),   // 13: screenshare.v1.GetTestStreamStateRequest
-	(*GetReceiveStateRequest)(nil),      // 14: screenshare.v1.GetReceiveStateRequest
-	(*SaveSettingsRequest)(nil),         // 15: screenshare.v1.SaveSettingsRequest
-	(*SaveSettingsResponse)(nil),        // 16: screenshare.v1.SaveSettingsResponse
-	(*SavePresetRequest)(nil),           // 17: screenshare.v1.SavePresetRequest
-	(*SavePresetResponse)(nil),          // 18: screenshare.v1.SavePresetResponse
-	(*DeletePresetRequest)(nil),         // 19: screenshare.v1.DeletePresetRequest
-	(*DeletePresetResponse)(nil),        // 20: screenshare.v1.DeletePresetResponse
-	(*StartPublishRequest)(nil),         // 21: screenshare.v1.StartPublishRequest
-	(*StartPublishResponse)(nil),        // 22: screenshare.v1.StartPublishResponse
-	(*ApplyToStreamRequest)(nil),        // 23: screenshare.v1.ApplyToStreamRequest
-	(*ApplyToStreamResponse)(nil),       // 24: screenshare.v1.ApplyToStreamResponse
-	(*StopPublishRequest)(nil),          // 25: screenshare.v1.StopPublishRequest
-	(*StopPublishResponse)(nil),         // 26: screenshare.v1.StopPublishResponse
-	(*StartWatchRequest)(nil),           // 27: screenshare.v1.StartWatchRequest
-	(*StartWatchResponse)(nil),          // 28: screenshare.v1.StartWatchResponse
-	(*StopWatchRequest)(nil),            // 29: screenshare.v1.StopWatchRequest
-	(*StopWatchResponse)(nil),           // 30: screenshare.v1.StopWatchResponse
-	(*StartReceiveRequest)(nil),         // 31: screenshare.v1.StartReceiveRequest
-	(*StartReceiveResponse)(nil),        // 32: screenshare.v1.StartReceiveResponse
-	(*StopReceiveRequest)(nil),          // 33: screenshare.v1.StopReceiveRequest
-	(*StopReceiveResponse)(nil),         // 34: screenshare.v1.StopReceiveResponse
-	(*SetReceiveAudioRequest)(nil),      // 35: screenshare.v1.SetReceiveAudioRequest
-	(*SetReceiveAudioResponse)(nil),     // 36: screenshare.v1.SetReceiveAudioResponse
-	(*StartTestStreamsRequest)(nil),     // 37: screenshare.v1.StartTestStreamsRequest
-	(*StartTestStreamsResponse)(nil),    // 38: screenshare.v1.StartTestStreamsResponse
-	(*StopTestStreamsRequest)(nil),      // 39: screenshare.v1.StopTestStreamsRequest
-	(*StopTestStreamsResponse)(nil),     // 40: screenshare.v1.StopTestStreamsResponse
-	(*ProbeEncodersRequest)(nil),        // 41: screenshare.v1.ProbeEncodersRequest
-	(*ProbeEncodersResponse)(nil),       // 42: screenshare.v1.ProbeEncodersResponse
-	(*MeasureUplinkRequest)(nil),        // 43: screenshare.v1.MeasureUplinkRequest
-	(*MeasureUplinkResponse)(nil),       // 44: screenshare.v1.MeasureUplinkResponse
-	(*MeasureEncodeRateRequest)(nil),    // 45: screenshare.v1.MeasureEncodeRateRequest
-	(*MeasureEncodeRateResponse)(nil),   // 46: screenshare.v1.MeasureEncodeRateResponse
-	(*ForgetPortalConsentRequest)(nil),  // 47: screenshare.v1.ForgetPortalConsentRequest
-	(*ForgetPortalConsentResponse)(nil), // 48: screenshare.v1.ForgetPortalConsentResponse
-	(*OpenLogRequest)(nil),              // 49: screenshare.v1.OpenLogRequest
-	(*OpenLogResponse)(nil),             // 50: screenshare.v1.OpenLogResponse
-	(*OpenLogsFolderRequest)(nil),       // 51: screenshare.v1.OpenLogsFolderRequest
-	(*OpenLogsFolderResponse)(nil),      // 52: screenshare.v1.OpenLogsFolderResponse
-	(*SubscribeRequest)(nil),            // 53: screenshare.v1.SubscribeRequest
-	(*SubscribeAudioLevelsRequest)(nil), // 54: screenshare.v1.SubscribeAudioLevelsRequest
-	(*Catalog)(nil),                     // 55: screenshare.v1.Catalog
-	(*Settings)(nil),                    // 56: screenshare.v1.Settings
-	(*Text)(nil),                        // 57: screenshare.v1.Text
-	(*Form)(nil),                        // 58: screenshare.v1.Form
-	(*Preset)(nil),                      // 59: screenshare.v1.Preset
-	(*PublishSettings)(nil),             // 60: screenshare.v1.PublishSettings
-	(*WatchKey)(nil),                    // 61: screenshare.v1.WatchKey
-	(*EncodeRate)(nil),                  // 62: screenshare.v1.EncodeRate
-	(EventKind)(0),                      // 63: screenshare.v1.EventKind
-	(*PublishState)(nil),                // 64: screenshare.v1.PublishState
-	(*RelayStatus)(nil),                 // 65: screenshare.v1.RelayStatus
-	(*ViewerState)(nil),                 // 66: screenshare.v1.ViewerState
-	(*TestStreamState)(nil),             // 67: screenshare.v1.TestStreamState
-	(*ReceiveState)(nil),                // 68: screenshare.v1.ReceiveState
-	(*Event)(nil),                       // 69: screenshare.v1.Event
-	(*AudioLevels)(nil),                 // 70: screenshare.v1.AudioLevels
+	(*HelloRequest)(nil),                  // 0: screenshare.v1.HelloRequest
+	(*HelloResponse)(nil),                 // 1: screenshare.v1.HelloResponse
+	(*GetCatalogRequest)(nil),             // 2: screenshare.v1.GetCatalogRequest
+	(*GetCatalogResponse)(nil),            // 3: screenshare.v1.GetCatalogResponse
+	(*GetSettingsRequest)(nil),            // 4: screenshare.v1.GetSettingsRequest
+	(*GetSettingsResponse)(nil),           // 5: screenshare.v1.GetSettingsResponse
+	(*ResolveFormRequest)(nil),            // 6: screenshare.v1.ResolveFormRequest
+	(*ResolveFormResponse)(nil),           // 7: screenshare.v1.ResolveFormResponse
+	(*ListPresetsRequest)(nil),            // 8: screenshare.v1.ListPresetsRequest
+	(*ListPresetsResponse)(nil),           // 9: screenshare.v1.ListPresetsResponse
+	(*GetPublishStateRequest)(nil),        // 10: screenshare.v1.GetPublishStateRequest
+	(*GetRelayStatusRequest)(nil),         // 11: screenshare.v1.GetRelayStatusRequest
+	(*GetViewerStateRequest)(nil),         // 12: screenshare.v1.GetViewerStateRequest
+	(*GetTestStreamStateRequest)(nil),     // 13: screenshare.v1.GetTestStreamStateRequest
+	(*GetReceiveStateRequest)(nil),        // 14: screenshare.v1.GetReceiveStateRequest
+	(*GetMonitorPreviewStateRequest)(nil), // 15: screenshare.v1.GetMonitorPreviewStateRequest
+	(*SaveSettingsRequest)(nil),           // 16: screenshare.v1.SaveSettingsRequest
+	(*SaveSettingsResponse)(nil),          // 17: screenshare.v1.SaveSettingsResponse
+	(*SavePresetRequest)(nil),             // 18: screenshare.v1.SavePresetRequest
+	(*SavePresetResponse)(nil),            // 19: screenshare.v1.SavePresetResponse
+	(*DeletePresetRequest)(nil),           // 20: screenshare.v1.DeletePresetRequest
+	(*DeletePresetResponse)(nil),          // 21: screenshare.v1.DeletePresetResponse
+	(*StartPublishRequest)(nil),           // 22: screenshare.v1.StartPublishRequest
+	(*StartPublishResponse)(nil),          // 23: screenshare.v1.StartPublishResponse
+	(*ApplyToStreamRequest)(nil),          // 24: screenshare.v1.ApplyToStreamRequest
+	(*ApplyToStreamResponse)(nil),         // 25: screenshare.v1.ApplyToStreamResponse
+	(*StopPublishRequest)(nil),            // 26: screenshare.v1.StopPublishRequest
+	(*StopPublishResponse)(nil),           // 27: screenshare.v1.StopPublishResponse
+	(*StartWatchRequest)(nil),             // 28: screenshare.v1.StartWatchRequest
+	(*StartWatchResponse)(nil),            // 29: screenshare.v1.StartWatchResponse
+	(*StopWatchRequest)(nil),              // 30: screenshare.v1.StopWatchRequest
+	(*StopWatchResponse)(nil),             // 31: screenshare.v1.StopWatchResponse
+	(*OpenInBrowserRequest)(nil),          // 32: screenshare.v1.OpenInBrowserRequest
+	(*OpenInBrowserResponse)(nil),         // 33: screenshare.v1.OpenInBrowserResponse
+	(*StartReceiveRequest)(nil),           // 34: screenshare.v1.StartReceiveRequest
+	(*StartReceiveResponse)(nil),          // 35: screenshare.v1.StartReceiveResponse
+	(*StopReceiveRequest)(nil),            // 36: screenshare.v1.StopReceiveRequest
+	(*StopReceiveResponse)(nil),           // 37: screenshare.v1.StopReceiveResponse
+	(*StartMonitorPreviewRequest)(nil),    // 38: screenshare.v1.StartMonitorPreviewRequest
+	(*StartMonitorPreviewResponse)(nil),   // 39: screenshare.v1.StartMonitorPreviewResponse
+	(*StopMonitorPreviewRequest)(nil),     // 40: screenshare.v1.StopMonitorPreviewRequest
+	(*StopMonitorPreviewResponse)(nil),    // 41: screenshare.v1.StopMonitorPreviewResponse
+	(*SetReceiveAudioRequest)(nil),        // 42: screenshare.v1.SetReceiveAudioRequest
+	(*SetReceiveAudioResponse)(nil),       // 43: screenshare.v1.SetReceiveAudioResponse
+	(*StartTestStreamsRequest)(nil),       // 44: screenshare.v1.StartTestStreamsRequest
+	(*StartTestStreamsResponse)(nil),      // 45: screenshare.v1.StartTestStreamsResponse
+	(*StopTestStreamsRequest)(nil),        // 46: screenshare.v1.StopTestStreamsRequest
+	(*StopTestStreamsResponse)(nil),       // 47: screenshare.v1.StopTestStreamsResponse
+	(*ProbeEncodersRequest)(nil),          // 48: screenshare.v1.ProbeEncodersRequest
+	(*ProbeEncodersResponse)(nil),         // 49: screenshare.v1.ProbeEncodersResponse
+	(*MeasureUplinkRequest)(nil),          // 50: screenshare.v1.MeasureUplinkRequest
+	(*MeasureUplinkResponse)(nil),         // 51: screenshare.v1.MeasureUplinkResponse
+	(*MeasureEncodeRateRequest)(nil),      // 52: screenshare.v1.MeasureEncodeRateRequest
+	(*MeasureEncodeRateResponse)(nil),     // 53: screenshare.v1.MeasureEncodeRateResponse
+	(*ForgetPortalConsentRequest)(nil),    // 54: screenshare.v1.ForgetPortalConsentRequest
+	(*ForgetPortalConsentResponse)(nil),   // 55: screenshare.v1.ForgetPortalConsentResponse
+	(*OpenLogRequest)(nil),                // 56: screenshare.v1.OpenLogRequest
+	(*OpenLogResponse)(nil),               // 57: screenshare.v1.OpenLogResponse
+	(*OpenLogsFolderRequest)(nil),         // 58: screenshare.v1.OpenLogsFolderRequest
+	(*OpenLogsFolderResponse)(nil),        // 59: screenshare.v1.OpenLogsFolderResponse
+	(*SubscribeRequest)(nil),              // 60: screenshare.v1.SubscribeRequest
+	(*SubscribeAudioLevelsRequest)(nil),   // 61: screenshare.v1.SubscribeAudioLevelsRequest
+	(*Catalog)(nil),                       // 62: screenshare.v1.Catalog
+	(*Settings)(nil),                      // 63: screenshare.v1.Settings
+	(*Text)(nil),                          // 64: screenshare.v1.Text
+	(*Form)(nil),                          // 65: screenshare.v1.Form
+	(*Preset)(nil),                        // 66: screenshare.v1.Preset
+	(*PublishSettings)(nil),               // 67: screenshare.v1.PublishSettings
+	(*WatchKey)(nil),                      // 68: screenshare.v1.WatchKey
+	(*EncodeRate)(nil),                    // 69: screenshare.v1.EncodeRate
+	(EventKind)(0),                        // 70: screenshare.v1.EventKind
+	(*PublishState)(nil),                  // 71: screenshare.v1.PublishState
+	(*RelayStatus)(nil),                   // 72: screenshare.v1.RelayStatus
+	(*ViewerState)(nil),                   // 73: screenshare.v1.ViewerState
+	(*TestStreamState)(nil),               // 74: screenshare.v1.TestStreamState
+	(*ReceiveState)(nil),                  // 75: screenshare.v1.ReceiveState
+	(*MonitorPreviewState)(nil),           // 76: screenshare.v1.MonitorPreviewState
+	(*Event)(nil),                         // 77: screenshare.v1.Event
+	(*AudioLevels)(nil),                   // 78: screenshare.v1.AudioLevels
 }
 var file_screenshare_v1_control_proto_depIdxs = []int32{
-	55, // 0: screenshare.v1.GetCatalogResponse.catalog:type_name -> screenshare.v1.Catalog
-	56, // 1: screenshare.v1.GetSettingsResponse.settings:type_name -> screenshare.v1.Settings
-	57, // 2: screenshare.v1.GetSettingsResponse.store_notice:type_name -> screenshare.v1.Text
-	56, // 3: screenshare.v1.ResolveFormRequest.settings:type_name -> screenshare.v1.Settings
-	58, // 4: screenshare.v1.ResolveFormResponse.form:type_name -> screenshare.v1.Form
-	59, // 5: screenshare.v1.ListPresetsResponse.presets:type_name -> screenshare.v1.Preset
-	57, // 6: screenshare.v1.ListPresetsResponse.notice:type_name -> screenshare.v1.Text
-	56, // 7: screenshare.v1.SaveSettingsRequest.settings:type_name -> screenshare.v1.Settings
-	60, // 8: screenshare.v1.SavePresetRequest.settings:type_name -> screenshare.v1.PublishSettings
-	56, // 9: screenshare.v1.StartPublishRequest.settings:type_name -> screenshare.v1.Settings
-	56, // 10: screenshare.v1.ApplyToStreamRequest.settings:type_name -> screenshare.v1.Settings
-	61, // 11: screenshare.v1.StartWatchRequest.viewer:type_name -> screenshare.v1.WatchKey
-	61, // 12: screenshare.v1.StopWatchRequest.viewer:type_name -> screenshare.v1.WatchKey
-	61, // 13: screenshare.v1.StartReceiveRequest.stream:type_name -> screenshare.v1.WatchKey
-	61, // 14: screenshare.v1.StopReceiveRequest.stream:type_name -> screenshare.v1.WatchKey
-	61, // 15: screenshare.v1.SetReceiveAudioRequest.stream:type_name -> screenshare.v1.WatchKey
-	56, // 16: screenshare.v1.MeasureEncodeRateRequest.settings:type_name -> screenshare.v1.Settings
-	62, // 17: screenshare.v1.MeasureEncodeRateResponse.rate:type_name -> screenshare.v1.EncodeRate
-	63, // 18: screenshare.v1.SubscribeRequest.kinds:type_name -> screenshare.v1.EventKind
-	0,  // 19: screenshare.v1.ControlService.Hello:input_type -> screenshare.v1.HelloRequest
-	2,  // 20: screenshare.v1.ControlService.GetCatalog:input_type -> screenshare.v1.GetCatalogRequest
-	4,  // 21: screenshare.v1.ControlService.GetSettings:input_type -> screenshare.v1.GetSettingsRequest
-	6,  // 22: screenshare.v1.ControlService.ResolveForm:input_type -> screenshare.v1.ResolveFormRequest
-	8,  // 23: screenshare.v1.ControlService.ListPresets:input_type -> screenshare.v1.ListPresetsRequest
-	10, // 24: screenshare.v1.ControlService.GetPublishState:input_type -> screenshare.v1.GetPublishStateRequest
-	11, // 25: screenshare.v1.ControlService.GetRelayStatus:input_type -> screenshare.v1.GetRelayStatusRequest
-	12, // 26: screenshare.v1.ControlService.GetViewerState:input_type -> screenshare.v1.GetViewerStateRequest
-	13, // 27: screenshare.v1.ControlService.GetTestStreamState:input_type -> screenshare.v1.GetTestStreamStateRequest
-	14, // 28: screenshare.v1.ControlService.GetReceiveState:input_type -> screenshare.v1.GetReceiveStateRequest
-	15, // 29: screenshare.v1.ControlService.SaveSettings:input_type -> screenshare.v1.SaveSettingsRequest
-	17, // 30: screenshare.v1.ControlService.SavePreset:input_type -> screenshare.v1.SavePresetRequest
-	19, // 31: screenshare.v1.ControlService.DeletePreset:input_type -> screenshare.v1.DeletePresetRequest
-	21, // 32: screenshare.v1.ControlService.StartPublish:input_type -> screenshare.v1.StartPublishRequest
-	23, // 33: screenshare.v1.ControlService.ApplyToStream:input_type -> screenshare.v1.ApplyToStreamRequest
-	25, // 34: screenshare.v1.ControlService.StopPublish:input_type -> screenshare.v1.StopPublishRequest
-	27, // 35: screenshare.v1.ControlService.StartWatch:input_type -> screenshare.v1.StartWatchRequest
-	29, // 36: screenshare.v1.ControlService.StopWatch:input_type -> screenshare.v1.StopWatchRequest
-	31, // 37: screenshare.v1.ControlService.StartReceive:input_type -> screenshare.v1.StartReceiveRequest
-	33, // 38: screenshare.v1.ControlService.StopReceive:input_type -> screenshare.v1.StopReceiveRequest
-	35, // 39: screenshare.v1.ControlService.SetReceiveAudio:input_type -> screenshare.v1.SetReceiveAudioRequest
-	37, // 40: screenshare.v1.ControlService.StartTestStreams:input_type -> screenshare.v1.StartTestStreamsRequest
-	39, // 41: screenshare.v1.ControlService.StopTestStreams:input_type -> screenshare.v1.StopTestStreamsRequest
-	41, // 42: screenshare.v1.ControlService.ProbeEncoders:input_type -> screenshare.v1.ProbeEncodersRequest
-	43, // 43: screenshare.v1.ControlService.MeasureUplink:input_type -> screenshare.v1.MeasureUplinkRequest
-	45, // 44: screenshare.v1.ControlService.MeasureEncodeRate:input_type -> screenshare.v1.MeasureEncodeRateRequest
-	47, // 45: screenshare.v1.ControlService.ForgetPortalConsent:input_type -> screenshare.v1.ForgetPortalConsentRequest
-	49, // 46: screenshare.v1.ControlService.OpenLog:input_type -> screenshare.v1.OpenLogRequest
-	51, // 47: screenshare.v1.ControlService.OpenLogsFolder:input_type -> screenshare.v1.OpenLogsFolderRequest
-	53, // 48: screenshare.v1.ControlService.Subscribe:input_type -> screenshare.v1.SubscribeRequest
-	54, // 49: screenshare.v1.ControlService.SubscribeAudioLevels:input_type -> screenshare.v1.SubscribeAudioLevelsRequest
-	1,  // 50: screenshare.v1.ControlService.Hello:output_type -> screenshare.v1.HelloResponse
-	3,  // 51: screenshare.v1.ControlService.GetCatalog:output_type -> screenshare.v1.GetCatalogResponse
-	5,  // 52: screenshare.v1.ControlService.GetSettings:output_type -> screenshare.v1.GetSettingsResponse
-	7,  // 53: screenshare.v1.ControlService.ResolveForm:output_type -> screenshare.v1.ResolveFormResponse
-	9,  // 54: screenshare.v1.ControlService.ListPresets:output_type -> screenshare.v1.ListPresetsResponse
-	64, // 55: screenshare.v1.ControlService.GetPublishState:output_type -> screenshare.v1.PublishState
-	65, // 56: screenshare.v1.ControlService.GetRelayStatus:output_type -> screenshare.v1.RelayStatus
-	66, // 57: screenshare.v1.ControlService.GetViewerState:output_type -> screenshare.v1.ViewerState
-	67, // 58: screenshare.v1.ControlService.GetTestStreamState:output_type -> screenshare.v1.TestStreamState
-	68, // 59: screenshare.v1.ControlService.GetReceiveState:output_type -> screenshare.v1.ReceiveState
-	16, // 60: screenshare.v1.ControlService.SaveSettings:output_type -> screenshare.v1.SaveSettingsResponse
-	18, // 61: screenshare.v1.ControlService.SavePreset:output_type -> screenshare.v1.SavePresetResponse
-	20, // 62: screenshare.v1.ControlService.DeletePreset:output_type -> screenshare.v1.DeletePresetResponse
-	22, // 63: screenshare.v1.ControlService.StartPublish:output_type -> screenshare.v1.StartPublishResponse
-	24, // 64: screenshare.v1.ControlService.ApplyToStream:output_type -> screenshare.v1.ApplyToStreamResponse
-	26, // 65: screenshare.v1.ControlService.StopPublish:output_type -> screenshare.v1.StopPublishResponse
-	28, // 66: screenshare.v1.ControlService.StartWatch:output_type -> screenshare.v1.StartWatchResponse
-	30, // 67: screenshare.v1.ControlService.StopWatch:output_type -> screenshare.v1.StopWatchResponse
-	32, // 68: screenshare.v1.ControlService.StartReceive:output_type -> screenshare.v1.StartReceiveResponse
-	34, // 69: screenshare.v1.ControlService.StopReceive:output_type -> screenshare.v1.StopReceiveResponse
-	36, // 70: screenshare.v1.ControlService.SetReceiveAudio:output_type -> screenshare.v1.SetReceiveAudioResponse
-	38, // 71: screenshare.v1.ControlService.StartTestStreams:output_type -> screenshare.v1.StartTestStreamsResponse
-	40, // 72: screenshare.v1.ControlService.StopTestStreams:output_type -> screenshare.v1.StopTestStreamsResponse
-	42, // 73: screenshare.v1.ControlService.ProbeEncoders:output_type -> screenshare.v1.ProbeEncodersResponse
-	44, // 74: screenshare.v1.ControlService.MeasureUplink:output_type -> screenshare.v1.MeasureUplinkResponse
-	46, // 75: screenshare.v1.ControlService.MeasureEncodeRate:output_type -> screenshare.v1.MeasureEncodeRateResponse
-	48, // 76: screenshare.v1.ControlService.ForgetPortalConsent:output_type -> screenshare.v1.ForgetPortalConsentResponse
-	50, // 77: screenshare.v1.ControlService.OpenLog:output_type -> screenshare.v1.OpenLogResponse
-	52, // 78: screenshare.v1.ControlService.OpenLogsFolder:output_type -> screenshare.v1.OpenLogsFolderResponse
-	69, // 79: screenshare.v1.ControlService.Subscribe:output_type -> screenshare.v1.Event
-	70, // 80: screenshare.v1.ControlService.SubscribeAudioLevels:output_type -> screenshare.v1.AudioLevels
-	50, // [50:81] is the sub-list for method output_type
-	19, // [19:50] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	62, // 0: screenshare.v1.GetCatalogResponse.catalog:type_name -> screenshare.v1.Catalog
+	63, // 1: screenshare.v1.GetSettingsResponse.settings:type_name -> screenshare.v1.Settings
+	64, // 2: screenshare.v1.GetSettingsResponse.store_notice:type_name -> screenshare.v1.Text
+	63, // 3: screenshare.v1.ResolveFormRequest.settings:type_name -> screenshare.v1.Settings
+	65, // 4: screenshare.v1.ResolveFormResponse.form:type_name -> screenshare.v1.Form
+	66, // 5: screenshare.v1.ListPresetsResponse.presets:type_name -> screenshare.v1.Preset
+	64, // 6: screenshare.v1.ListPresetsResponse.notice:type_name -> screenshare.v1.Text
+	63, // 7: screenshare.v1.SaveSettingsRequest.settings:type_name -> screenshare.v1.Settings
+	67, // 8: screenshare.v1.SavePresetRequest.settings:type_name -> screenshare.v1.PublishSettings
+	63, // 9: screenshare.v1.StartPublishRequest.settings:type_name -> screenshare.v1.Settings
+	63, // 10: screenshare.v1.ApplyToStreamRequest.settings:type_name -> screenshare.v1.Settings
+	68, // 11: screenshare.v1.StartWatchRequest.viewer:type_name -> screenshare.v1.WatchKey
+	68, // 12: screenshare.v1.StopWatchRequest.viewer:type_name -> screenshare.v1.WatchKey
+	68, // 13: screenshare.v1.OpenInBrowserRequest.viewer:type_name -> screenshare.v1.WatchKey
+	68, // 14: screenshare.v1.StartReceiveRequest.stream:type_name -> screenshare.v1.WatchKey
+	68, // 15: screenshare.v1.StopReceiveRequest.stream:type_name -> screenshare.v1.WatchKey
+	68, // 16: screenshare.v1.SetReceiveAudioRequest.stream:type_name -> screenshare.v1.WatchKey
+	63, // 17: screenshare.v1.MeasureEncodeRateRequest.settings:type_name -> screenshare.v1.Settings
+	69, // 18: screenshare.v1.MeasureEncodeRateResponse.rate:type_name -> screenshare.v1.EncodeRate
+	70, // 19: screenshare.v1.SubscribeRequest.kinds:type_name -> screenshare.v1.EventKind
+	0,  // 20: screenshare.v1.ControlService.Hello:input_type -> screenshare.v1.HelloRequest
+	2,  // 21: screenshare.v1.ControlService.GetCatalog:input_type -> screenshare.v1.GetCatalogRequest
+	4,  // 22: screenshare.v1.ControlService.GetSettings:input_type -> screenshare.v1.GetSettingsRequest
+	6,  // 23: screenshare.v1.ControlService.ResolveForm:input_type -> screenshare.v1.ResolveFormRequest
+	8,  // 24: screenshare.v1.ControlService.ListPresets:input_type -> screenshare.v1.ListPresetsRequest
+	10, // 25: screenshare.v1.ControlService.GetPublishState:input_type -> screenshare.v1.GetPublishStateRequest
+	11, // 26: screenshare.v1.ControlService.GetRelayStatus:input_type -> screenshare.v1.GetRelayStatusRequest
+	12, // 27: screenshare.v1.ControlService.GetViewerState:input_type -> screenshare.v1.GetViewerStateRequest
+	13, // 28: screenshare.v1.ControlService.GetTestStreamState:input_type -> screenshare.v1.GetTestStreamStateRequest
+	14, // 29: screenshare.v1.ControlService.GetReceiveState:input_type -> screenshare.v1.GetReceiveStateRequest
+	15, // 30: screenshare.v1.ControlService.GetMonitorPreviewState:input_type -> screenshare.v1.GetMonitorPreviewStateRequest
+	16, // 31: screenshare.v1.ControlService.SaveSettings:input_type -> screenshare.v1.SaveSettingsRequest
+	18, // 32: screenshare.v1.ControlService.SavePreset:input_type -> screenshare.v1.SavePresetRequest
+	20, // 33: screenshare.v1.ControlService.DeletePreset:input_type -> screenshare.v1.DeletePresetRequest
+	22, // 34: screenshare.v1.ControlService.StartPublish:input_type -> screenshare.v1.StartPublishRequest
+	24, // 35: screenshare.v1.ControlService.ApplyToStream:input_type -> screenshare.v1.ApplyToStreamRequest
+	26, // 36: screenshare.v1.ControlService.StopPublish:input_type -> screenshare.v1.StopPublishRequest
+	28, // 37: screenshare.v1.ControlService.StartWatch:input_type -> screenshare.v1.StartWatchRequest
+	30, // 38: screenshare.v1.ControlService.StopWatch:input_type -> screenshare.v1.StopWatchRequest
+	32, // 39: screenshare.v1.ControlService.OpenInBrowser:input_type -> screenshare.v1.OpenInBrowserRequest
+	34, // 40: screenshare.v1.ControlService.StartReceive:input_type -> screenshare.v1.StartReceiveRequest
+	36, // 41: screenshare.v1.ControlService.StopReceive:input_type -> screenshare.v1.StopReceiveRequest
+	38, // 42: screenshare.v1.ControlService.StartMonitorPreview:input_type -> screenshare.v1.StartMonitorPreviewRequest
+	40, // 43: screenshare.v1.ControlService.StopMonitorPreview:input_type -> screenshare.v1.StopMonitorPreviewRequest
+	42, // 44: screenshare.v1.ControlService.SetReceiveAudio:input_type -> screenshare.v1.SetReceiveAudioRequest
+	44, // 45: screenshare.v1.ControlService.StartTestStreams:input_type -> screenshare.v1.StartTestStreamsRequest
+	46, // 46: screenshare.v1.ControlService.StopTestStreams:input_type -> screenshare.v1.StopTestStreamsRequest
+	48, // 47: screenshare.v1.ControlService.ProbeEncoders:input_type -> screenshare.v1.ProbeEncodersRequest
+	50, // 48: screenshare.v1.ControlService.MeasureUplink:input_type -> screenshare.v1.MeasureUplinkRequest
+	52, // 49: screenshare.v1.ControlService.MeasureEncodeRate:input_type -> screenshare.v1.MeasureEncodeRateRequest
+	54, // 50: screenshare.v1.ControlService.ForgetPortalConsent:input_type -> screenshare.v1.ForgetPortalConsentRequest
+	56, // 51: screenshare.v1.ControlService.OpenLog:input_type -> screenshare.v1.OpenLogRequest
+	58, // 52: screenshare.v1.ControlService.OpenLogsFolder:input_type -> screenshare.v1.OpenLogsFolderRequest
+	60, // 53: screenshare.v1.ControlService.Subscribe:input_type -> screenshare.v1.SubscribeRequest
+	61, // 54: screenshare.v1.ControlService.SubscribeAudioLevels:input_type -> screenshare.v1.SubscribeAudioLevelsRequest
+	1,  // 55: screenshare.v1.ControlService.Hello:output_type -> screenshare.v1.HelloResponse
+	3,  // 56: screenshare.v1.ControlService.GetCatalog:output_type -> screenshare.v1.GetCatalogResponse
+	5,  // 57: screenshare.v1.ControlService.GetSettings:output_type -> screenshare.v1.GetSettingsResponse
+	7,  // 58: screenshare.v1.ControlService.ResolveForm:output_type -> screenshare.v1.ResolveFormResponse
+	9,  // 59: screenshare.v1.ControlService.ListPresets:output_type -> screenshare.v1.ListPresetsResponse
+	71, // 60: screenshare.v1.ControlService.GetPublishState:output_type -> screenshare.v1.PublishState
+	72, // 61: screenshare.v1.ControlService.GetRelayStatus:output_type -> screenshare.v1.RelayStatus
+	73, // 62: screenshare.v1.ControlService.GetViewerState:output_type -> screenshare.v1.ViewerState
+	74, // 63: screenshare.v1.ControlService.GetTestStreamState:output_type -> screenshare.v1.TestStreamState
+	75, // 64: screenshare.v1.ControlService.GetReceiveState:output_type -> screenshare.v1.ReceiveState
+	76, // 65: screenshare.v1.ControlService.GetMonitorPreviewState:output_type -> screenshare.v1.MonitorPreviewState
+	17, // 66: screenshare.v1.ControlService.SaveSettings:output_type -> screenshare.v1.SaveSettingsResponse
+	19, // 67: screenshare.v1.ControlService.SavePreset:output_type -> screenshare.v1.SavePresetResponse
+	21, // 68: screenshare.v1.ControlService.DeletePreset:output_type -> screenshare.v1.DeletePresetResponse
+	23, // 69: screenshare.v1.ControlService.StartPublish:output_type -> screenshare.v1.StartPublishResponse
+	25, // 70: screenshare.v1.ControlService.ApplyToStream:output_type -> screenshare.v1.ApplyToStreamResponse
+	27, // 71: screenshare.v1.ControlService.StopPublish:output_type -> screenshare.v1.StopPublishResponse
+	29, // 72: screenshare.v1.ControlService.StartWatch:output_type -> screenshare.v1.StartWatchResponse
+	31, // 73: screenshare.v1.ControlService.StopWatch:output_type -> screenshare.v1.StopWatchResponse
+	33, // 74: screenshare.v1.ControlService.OpenInBrowser:output_type -> screenshare.v1.OpenInBrowserResponse
+	35, // 75: screenshare.v1.ControlService.StartReceive:output_type -> screenshare.v1.StartReceiveResponse
+	37, // 76: screenshare.v1.ControlService.StopReceive:output_type -> screenshare.v1.StopReceiveResponse
+	39, // 77: screenshare.v1.ControlService.StartMonitorPreview:output_type -> screenshare.v1.StartMonitorPreviewResponse
+	41, // 78: screenshare.v1.ControlService.StopMonitorPreview:output_type -> screenshare.v1.StopMonitorPreviewResponse
+	43, // 79: screenshare.v1.ControlService.SetReceiveAudio:output_type -> screenshare.v1.SetReceiveAudioResponse
+	45, // 80: screenshare.v1.ControlService.StartTestStreams:output_type -> screenshare.v1.StartTestStreamsResponse
+	47, // 81: screenshare.v1.ControlService.StopTestStreams:output_type -> screenshare.v1.StopTestStreamsResponse
+	49, // 82: screenshare.v1.ControlService.ProbeEncoders:output_type -> screenshare.v1.ProbeEncodersResponse
+	51, // 83: screenshare.v1.ControlService.MeasureUplink:output_type -> screenshare.v1.MeasureUplinkResponse
+	53, // 84: screenshare.v1.ControlService.MeasureEncodeRate:output_type -> screenshare.v1.MeasureEncodeRateResponse
+	55, // 85: screenshare.v1.ControlService.ForgetPortalConsent:output_type -> screenshare.v1.ForgetPortalConsentResponse
+	57, // 86: screenshare.v1.ControlService.OpenLog:output_type -> screenshare.v1.OpenLogResponse
+	59, // 87: screenshare.v1.ControlService.OpenLogsFolder:output_type -> screenshare.v1.OpenLogsFolderResponse
+	77, // 88: screenshare.v1.ControlService.Subscribe:output_type -> screenshare.v1.Event
+	78, // 89: screenshare.v1.ControlService.SubscribeAudioLevels:output_type -> screenshare.v1.AudioLevels
+	55, // [55:90] is the sub-list for method output_type
+	20, // [20:55] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_control_proto_init() }
@@ -2641,7 +2955,7 @@ func file_screenshare_v1_control_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_control_proto_rawDesc), len(file_screenshare_v1_control_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   55,
+			NumMessages:   62,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

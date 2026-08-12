@@ -365,6 +365,36 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 	return &screensharev1.ReceiveState{Streams: out}
 }
 
+// PreviewedMonitor is one monitor the backend is reading into a picture the frame
+// channel can hand over.
+//
+// It is a much shorter row than ReceiveStream, and what is missing is what a decode has
+// and a screen capture does not: nothing encoded these frames, so there is no decoder to
+// name, and nothing carried them, so there is no leg.
+type PreviewedMonitor struct {
+	// Monitor is the index the output is enumerated under, which is the whole identity.
+	Monitor int
+	// Live is whether a frame has left the pipeline. Until it has, the capture element
+	// is still opening the screen.
+	Live bool
+}
+
+// MonitorPreviewState carries the running monitor previews across. A nil or empty slice
+// converts to an empty list, which is what "no screen is being previewed" looks like on
+// the wire.
+func MonitorPreviewState(monitors []PreviewedMonitor) *screensharev1.MonitorPreviewState {
+	out := make([]*screensharev1.PreviewedMonitor, 0, len(monitors))
+	for _, m := range monitors {
+		out = append(out, &screensharev1.PreviewedMonitor{
+			Monitor: int32(m.Monitor),
+			Live:    m.Live,
+		})
+	}
+
+	assert.Assert(len(out) == len(monitors), "a message per running preview", len(out), len(monitors))
+	return &screensharev1.MonitorPreviewState{Monitors: out}
+}
+
 // WatchKeyMessage carries one viewer's identity across. It is one function because the
 // identity travels on four surfaces - the state, the exit event, and the two calls that
 // open and close a viewer - and a pair spelled out at each of them is how a name and a

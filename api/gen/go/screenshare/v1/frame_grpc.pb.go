@@ -40,9 +40,9 @@ const (
 // ControlService carries control and description, this carries handles, and neither
 // carries pixels.
 //
-// It describes no tile and no grid. A subscription names a decode that StartReceive
-// already opened, and the size it asks to be rendered at is a count of pixels rather
-// than a layout: how a viewer arranges what it receives stays the shell's whole job.
+// It describes no tile and no grid. A subscription names a picture some effect already
+// opened, and the size it asks to be rendered at is a count of pixels rather than a
+// layout: how a viewer arranges what it receives stays the shell's whole job.
 type FrameServiceClient interface {
 	// Frames is one consumer's subscription to one decode.
 	//
@@ -58,11 +58,12 @@ type FrameServiceClient interface {
 	// than a message, and a consumer that dies mid-frame is one dead stream instead of
 	// every stream stalling on a slot nobody will return.
 	//
-	// The call fails with FAILED_PRECONDITION when nothing is decoding what the
-	// subscription named - an unopened relay decode, or a preview with no publish behind
-	// it. This service does not open decodes: StartReceive opens a relay one and the
-	// publish itself opens its preview, and a channel that started either would be a
-	// channel deciding that a tile exists.
+	// The call fails with FAILED_PRECONDITION when nothing is producing what the
+	// subscription named - an unopened relay decode, a preview with no publish behind it,
+	// or a monitor nothing is previewing. This service opens none of the three:
+	// StartReceive opens a relay decode, the publish itself opens its preview,
+	// StartMonitorPreview opens a monitor's, and a channel that started any of them would
+	// be a channel deciding that a tile exists.
 	Frames(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[FramesRequest, FrameEvent], error)
 }
 
@@ -105,9 +106,9 @@ type FrameService_FramesClient = grpc.BidiStreamingClient[FramesRequest, FrameEv
 // ControlService carries control and description, this carries handles, and neither
 // carries pixels.
 //
-// It describes no tile and no grid. A subscription names a decode that StartReceive
-// already opened, and the size it asks to be rendered at is a count of pixels rather
-// than a layout: how a viewer arranges what it receives stays the shell's whole job.
+// It describes no tile and no grid. A subscription names a picture some effect already
+// opened, and the size it asks to be rendered at is a count of pixels rather than a
+// layout: how a viewer arranges what it receives stays the shell's whole job.
 type FrameServiceServer interface {
 	// Frames is one consumer's subscription to one decode.
 	//
@@ -123,11 +124,12 @@ type FrameServiceServer interface {
 	// than a message, and a consumer that dies mid-frame is one dead stream instead of
 	// every stream stalling on a slot nobody will return.
 	//
-	// The call fails with FAILED_PRECONDITION when nothing is decoding what the
-	// subscription named - an unopened relay decode, or a preview with no publish behind
-	// it. This service does not open decodes: StartReceive opens a relay one and the
-	// publish itself opens its preview, and a channel that started either would be a
-	// channel deciding that a tile exists.
+	// The call fails with FAILED_PRECONDITION when nothing is producing what the
+	// subscription named - an unopened relay decode, a preview with no publish behind it,
+	// or a monitor nothing is previewing. This service opens none of the three:
+	// StartReceive opens a relay decode, the publish itself opens its preview,
+	// StartMonitorPreview opens a monitor's, and a channel that started any of them would
+	// be a channel deciding that a tile exists.
 	Frames(grpc.BidiStreamingServer[FramesRequest, FrameEvent]) error
 	mustEmbedUnimplementedFrameServiceServer()
 }

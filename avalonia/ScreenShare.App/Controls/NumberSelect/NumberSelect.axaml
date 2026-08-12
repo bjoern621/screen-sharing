@@ -17,9 +17,9 @@
     one property that differs, so a change to the number box or the button reaches this pair
     (Design/Inputs.axaml, Design/Buttons.axaml).
 
-    The menu is the select's own - SelectMenu and SelectMenuItem (Controls/Select) - because
-    a list of values to pick from is one thing in this product however the closed control
-    beside it is drawn.
+    The menu is the product's own (Design/Menus.axaml), carrying the option row's two extra
+    setters (Controls/Select), because a list of values to pick from is one thing in this
+    product however the closed control beside it is drawn.
   -->
 
   <!-- The typed half: the design's number box with its trailing corners taken off. -->

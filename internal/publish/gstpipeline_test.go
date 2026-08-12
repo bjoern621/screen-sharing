@@ -54,7 +54,7 @@ func TestCaptureCapsNameEveryColorimetryComponent(t *testing.T) {
 		{colorRange: "pc", want: "colorimetry=1:" + gstBt709},
 		{colorRange: "tv", want: "colorimetry=2:" + gstBt709},
 	} {
-		s := settings.Defaults()
+		s := baseStream()
 		s.Publish.Chroma = "yuv444p"
 		s.Publish.ColorRange = tc.colorRange
 		caps, err := gstTestCaps(s)
@@ -71,7 +71,7 @@ func TestCaptureCapsNameEveryColorimetryComponent(t *testing.T) {
 // by, whatever it does ahead of it, or the encoder negotiates its own format and
 // the chroma and colour-range settings stop reaching the frames.
 func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
 	opts, err := gstSourceOptions(s)
 	if err != nil {
@@ -99,7 +99,7 @@ func TestEveryGstCaptureBackendEndsInTheEncoderInputCaps(t *testing.T) {
 // that backend and the insights card reports the pacing target as if it were a
 // measurement.
 func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
 	opts, err := gstSourceOptions(s)
 	if err != nil {
@@ -129,7 +129,7 @@ func TestEveryGstCaptureBackendPlacesTheRateProbeOnlyForARun(t *testing.T) {
 // may sit in front of it. On the portal backend that is imagefreeze, whose whole
 // job is to repeat the newest damage frame at the configured rate.
 func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
 	opts, err := gstSourceOptions(s)
 	if err != nil {
@@ -156,7 +156,7 @@ func TestPortalRateProbePrecedesTheFramePacer(t *testing.T) {
 // engine runs before it acquires a source: refused later, a gapped chroma would
 // already have popped the compositor's screen picker.
 func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture = "portal"
 	s.Publish.Transport = "srt"
 	s.Publish.Codec = "libx265"
@@ -192,7 +192,7 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		if !transport.CanPublish(name, EngineGst) {
 			continue
 		}
-		s := settings.Defaults()
+		s := baseStream()
 		s.Publish.Capture, s.Publish.Transport, s.Publish.Audio = "portal", name, "desktop"
 		// libx264 over every transport: the transport's own format set decides
 		// whether it may carry the codec, and this asserts the pipeline's shape.
@@ -226,7 +226,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 		if !ok {
 			continue
 		}
-		s := settings.Defaults()
+		s := baseStream()
 		// RTSP carries every audio codec the table holds, so the transport never decides
 		// which of them this covers. The backend is one this engine runs on a platform that
 		// serves the monitor source, since the branch is refused for the backend's platform
@@ -258,7 +258,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 	// A source that is off yields no branch at all, whatever codec the settings carry,
 	// and one no backend records is refused rather than left silent.
 	for _, source := range []string{"none", ""} {
-		s := settings.Defaults()
+		s := baseStream()
 		s.Publish.Audio = source
 		branch, err := gstAudioBranch(s)
 		if err != nil {
@@ -268,7 +268,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 			t.Errorf("audio source %q yields %v, want no branch", source, branch)
 		}
 	}
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Audio = "microphone"
 	if _, err := gstAudioBranch(s); err == nil {
 		t.Error("an audio source no backend records must be refused")
@@ -282,7 +282,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 // value it does not know, so refusing here is what keeps the two engines
 // answering the same way.
 func TestGstInputCapsRefusesAnUnmappedColorRange(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Chroma = "yuv444p"
 	for _, bad := range []string{"", "full", "limited", "PC"} {
 		s.Publish.ColorRange = bad
@@ -301,7 +301,7 @@ func TestGstInputCapsRefusesAnUnmappedColorRange(t *testing.T) {
 // gstGpuStream returns settings publishing the portal capture into a va encoder over
 // the direct path, the one pair this engine declares.
 func gstGpuStream() settings.Settings {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture, s.Publish.Codec = "portal", "h264_vaapi"
 	// Limited range because the va elements signal no colour description, which the
 	// capability table declares as a gap on full range for this engine. It is a fact
@@ -316,7 +316,7 @@ func gstGpuStream() settings.Settings {
 // gstD3d11Stream returns settings publishing the Windows Direct3D capture into an nvenc
 // encoder over the direct path, the pair whose conversion keeps the colour on the device.
 func gstD3d11Stream() settings.Settings {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture, s.Publish.Codec = "d3d11screencapturesrc", "h264_nvenc"
 	s.Publish.Chroma, s.Publish.Mode, s.Publish.ColorRange = "yuv420p", "cbr", "pc"
 	s.Publish.Transport = "rtsp"

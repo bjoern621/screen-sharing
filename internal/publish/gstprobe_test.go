@@ -14,7 +14,7 @@ import (
 // encoder every install carries, at a size small enough that a real run of it costs
 // nothing.
 func probeSettings() settings.Settings {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture = "portal"
 	s.Publish.Codec = "libx264"
 	s.Publish.Mode = "crf"

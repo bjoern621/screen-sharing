@@ -21,8 +21,8 @@ flowchart TD
     FE -->|"BuildPublishArgs + FindCaptureExe"| FF["ffmpeg process:<br/>capture -> encode -> mux -> SRT"]
     GP -->|portal.Open| PortalSvc["xdg-desktop-portal ScreenCast<br/>(D-Bus)"]
     PortalSvc -->|PipeWire fd + node id| GP
-    GP -->|gst-launch-1.0| GST["GStreamer pipeline:<br/>source -> encode -> mpegtsmux -> srtsink"]
-    GX -->|gst-launch-1.0| GST
+    GP -->|gst-publish subcommand| GST["GStreamer pipeline:<br/>source -> encode -> mpegtsmux -> srtsink"]
+    GX -->|gst-publish subcommand| GST
     FF --> Relay[("MediaMTX relay")]
     GST --> Relay
 ```
@@ -84,7 +84,8 @@ Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg e
 
 ## Changing settings on a live stream
 
-A publish engine runs a child process built from a command line, and neither `gst-launch-1.0` nor `ffmpeg` takes a value back once it is running.
+A publish engine runs a child process built from a command line, and neither the GStreamer runner nor `ffmpeg` takes a value back once it is running.
+The runner is this application spawned with a subcommand (`internal/gstrun`), so the pipeline is one this app can be given a socket to talk to; until it has one, a value reaches a running pipeline the same way it reaches ffmpeg's, which is not at all.
 A live stream carrying other settings is therefore another pipeline, and reaching it means relaunching the child.
 `App.Republish` is that operation: it tears the running pipeline down and starts one built from the settings it is handed.
 Viewers reconnect across the gap, which is why the relaunch is asked for rather than made on every edit.

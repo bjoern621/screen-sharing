@@ -56,8 +56,17 @@ var x265Tunes = []string{TuneNone, "psnr", "ssim", "grain", "fastdecode", "anima
 
 // h26xTuneDefaults is the tune each mode starts on for the two software H.26x encoders.
 // The two modes that hold a live delay ask for zerolatency, which drops the B-frames and
-// the lookahead; the rest leave the knob alone.
+// the lookahead; the rest tune for nothing.
+//
+// The three that tune for nothing say so with the ladder's own untuned step rather than by
+// leaving the mode out. A mode left out means the encoder's default stands, and the two
+// engines have different ones here: x265's own default is no tune where the x265enc
+// element's property starts at ssim, so an unstated mode would make a stream's look follow
+// the capture backend that produced it.
 var h26xTuneDefaults = map[string]string{
+	ModeCrf:      TuneNone,
+	ModeAbr:      TuneNone,
+	ModeVbr:      TuneNone,
 	ModeCbr:      "zerolatency",
 	ModeLossless: "zerolatency",
 }

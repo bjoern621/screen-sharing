@@ -550,6 +550,15 @@ type Field struct {
 	// one it has and stays disabled with its reason, rather than showing a value the
 	// same evaluation would grey.
 	Value *FieldValue `protobuf:"bytes,11,opt,name=value,proto3" json:"value,omitempty"`
+	// default_value is what this field holds on a fresh installation. It does not move
+	// with the draft, and it is stated per field so a shell can offer putting settings
+	// back without holding defaults of its own: what a setting starts as is the same
+	// fact as what it may become, and both are the backend's.
+	//
+	// It is what a value is rather than what a value should be. Which entry suits this
+	// combination is FieldOption.recommended, and the two disagree freely: a default is
+	// the value a machine nobody has configured carries.
+	DefaultValue *FieldValue `protobuf:"bytes,17,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
 	// options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
 	// CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for
 	// CONTROL_KIND_NUMBER_SELECT, which is the one control that carries a ladder and
@@ -647,6 +656,13 @@ func (x *Field) GetValue() *FieldValue {
 	return nil
 }
 
+func (x *Field) GetDefaultValue() *FieldValue {
+	if x != nil {
+		return x.DefaultValue
+	}
+	return nil
+}
+
 func (x *Field) GetOptions() []*FieldOption {
 	if x != nil {
 		return x.Options
@@ -672,17 +688,17 @@ type FieldGroup struct {
 	// up the heading it draws; it must not use it to decide contents.
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Fields []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
-	// applied is true for a group whose fields are the settings themselves rather than a
-	// proposal a later commit turns into settings: where the relay is, and how this
-	// machine watches. Both describe standing configuration that something already
-	// running reads - the backend dials the relay's address on its own poll, and the next
-	// viewer opens on the watch settings - so a write to one of them is persisted as it
-	// is made, with SaveSettings (control.proto), and takes effect without a stream
-	// being started.
+	// applied is true for a group the backend reads on a schedule of its own rather than
+	// when something is started. Where the relay is, is the case that exists: the poll
+	// behind GetRelayStatus dials that address for as long as the process runs, with
+	// nobody having asked. A write to such a group is persisted as it is made, with
+	// SaveSettings (control.proto).
 	//
-	// False for the groups describing the stream a commit starts. Those are staged: a
-	// running pipeline keeps the settings it was started on, and StartPublish is what
-	// both applies and persists them.
+	// False everywhere else, which is every group whose settings are read by an effect
+	// that carries them: a publish is started on the settings StartPublish is given, and
+	// a viewer opens on the ones the shell saved before opening it. Those are staged, so
+	// a reader may configure a stream without the half-configured version of it becoming
+	// what this machine is.
 	//
 	// The distinction is stated here because it follows from what a setting means rather
 	// than from which screen draws it. A shell that decided it per group would be
@@ -983,6 +999,13 @@ type Form struct {
 	Groups            []*FieldGroup `protobuf:"bytes,3,rep,name=groups,proto3" json:"groups,omitempty"`
 	Diagnostics       []*Diagnostic `protobuf:"bytes,8,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	Summary           *Summary      `protobuf:"bytes,5,opt,name=summary,proto3" json:"summary,omitempty"`
+	// presets are the built-in ways of publishing, resolved against this machine and
+	// these settings: what applying each one would produce here, or why nothing here
+	// reaches it, and which one the draft already delivers (docs/presets.md). They
+	// ride on the form because all three answers change with the draft, the way a
+	// greying does, and a shell that asked for them separately would be a shell
+	// holding a preset verdict older than the settings beside it.
+	Presets []*BuiltinPreset `protobuf:"bytes,9,rep,name=presets,proto3" json:"presets,omitempty"`
 	// publishable is false when at least one SEVERITY_ERROR diagnostic is present. It
 	// is stated rather than derived so a shell disables its start button without
 	// ranking diagnostics itself.
@@ -1056,9 +1079,116 @@ func (x *Form) GetSummary() *Summary {
 	return nil
 }
 
+func (x *Form) GetPresets() []*BuiltinPreset {
+	if x != nil {
+		return x.Presets
+	}
+	return nil
+}
+
 func (x *Form) GetPublishable() bool {
 	if x != nil {
 		return x.Publishable
+	}
+	return false
+}
+
+// BuiltinPreset is one of the ways of publishing this app names as a promise about
+// the picture rather than as a stored set of values.
+//
+// Which encoder, pixel format and capture backend deliver that promise is the
+// machine's answer and differs per machine, so the backend searches for a
+// configuration that reaches it and this carries what the search found
+// (docs/presets.md). That is the whole difference from Preset in settings.proto,
+// which is a snapshot the user saved and is applied exactly as it was stored.
+//
+// The key is the only word on it. What the preset is called, the line saying what it
+// delivers and the sentence for a machine that cannot reach it are the shell's, keyed
+// by this identifier as every other value on this contract is.
+type BuiltinPreset struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key names which preset this is: "lossless", "gaming" or "readability".
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// settings is the configuration applying this preset produces here, and is absent
+	// exactly when nothing this machine runs delivers the promise. There is no second
+	// flag saying whether it is reachable, because a reachable preset is one there are
+	// settings for and two fields could disagree about that.
+	//
+	// A preset is a PublishSettings and nothing else: applying one replaces that group
+	// of the draft and leaves the relay coordinates and this machine's own watching
+	// where they are.
+	Settings *PublishSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
+	// reason states why nothing here reaches the promise, and is absent exactly when
+	// settings is present. TEXT_CODE_PRESET_UNREACHABLE names the preset and the
+	// publish transport the search worked within, that being the one dimension it does
+	// not move.
+	Reason *Text `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
+	// selected is whether the settings the form resolved already deliver this preset's
+	// promise. It is derived from them on every resolve rather than remembered from the
+	// call that applied one, so an edit that stays inside the promise keeps the preset
+	// marked and one that leaves it does not, with no stored selection to reconcile.
+	//
+	// At most one preset is ever selected: the promises are written to be pairwise
+	// disjoint, which the backend holds its own table to.
+	Selected      bool `protobuf:"varint,4,opt,name=selected,proto3" json:"selected,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BuiltinPreset) Reset() {
+	*x = BuiltinPreset{}
+	mi := &file_screenshare_v1_form_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BuiltinPreset) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BuiltinPreset) ProtoMessage() {}
+
+func (x *BuiltinPreset) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_form_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BuiltinPreset.ProtoReflect.Descriptor instead.
+func (*BuiltinPreset) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_form_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *BuiltinPreset) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *BuiltinPreset) GetSettings() *PublishSettings {
+	if x != nil {
+		return x.Settings
+	}
+	return nil
+}
+
+func (x *BuiltinPreset) GetReason() *Text {
+	if x != nil {
+		return x.Reason
+	}
+	return nil
+}
+
+func (x *BuiltinPreset) GetSelected() bool {
+	if x != nil {
+		return x.Selected
 	}
 	return false
 }
@@ -1084,7 +1214,7 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\x04note\x18\b \x01(\v2\x14.screenshare.v1.TextR\x04note\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12,\n" +
 	"\x06reason\x18\t \x01(\v2\x14.screenshare.v1.TextR\x06reason\x12 \n" +
-	"\vrecommended\x18\a \x01(\bR\vrecommendedJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aR\x05labelR\x06detail\"\xdd\x03\n" +
+	"\vrecommended\x18\a \x01(\bR\vrecommendedJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aR\x05labelR\x06detail\"\x9e\x04\n" +
 	"\x05Field\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x125\n" +
 	"\acontrol\x18\x02 \x01(\x0e2\x1b.screenshare.v1.ControlKindR\acontrol\x12(\n" +
@@ -1093,7 +1223,8 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aenabled\x18\b \x01(\bR\aenabled\x12,\n" +
 	"\x06reason\x18\x0f \x01(\v2\x14.screenshare.v1.TextR\x06reason\x12(\n" +
 	"\x04note\x18\x10 \x01(\v2\x14.screenshare.v1.TextR\x04note\x120\n" +
-	"\x05value\x18\v \x01(\v2\x1a.screenshare.v1.FieldValueR\x05value\x125\n" +
+	"\x05value\x18\v \x01(\v2\x1a.screenshare.v1.FieldValueR\x05value\x12?\n" +
+	"\rdefault_value\x18\x11 \x01(\v2\x1a.screenshare.v1.FieldValueR\fdefaultValue\x125\n" +
 	"\aoptions\x18\f \x03(\v2\x1b.screenshare.v1.FieldOptionR\aoptions\x122\n" +
 	"\x05range\x18\r \x01(\v2\x1c.screenshare.v1.NumericRangeR\x05rangeJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aJ\x04\b\t\x10\n" +
 	"J\x04\b\n" +
@@ -1115,14 +1246,20 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\aSummary\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12#\n" +
 	"\rcommand_error\x18\x03 \x01(\tR\fcommandError\x124\n" +
-	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\xd3\x02\n" +
+	"\bestimate\x18\x04 \x01(\v2\x18.screenshare.v1.EstimateR\bestimateJ\x04\b\x01\x10\x02R\bheadline\"\x8c\x03\n" +
 	"\x04Form\x124\n" +
 	"\bsettings\x18\x01 \x01(\v2\x18.screenshare.v1.SettingsR\bsettings\x12.\n" +
 	"\x13repaired_field_keys\x18\a \x03(\tR\x11repairedFieldKeys\x122\n" +
 	"\x06groups\x18\x03 \x03(\v2\x1a.screenshare.v1.FieldGroupR\x06groups\x12<\n" +
 	"\vdiagnostics\x18\b \x03(\v2\x1a.screenshare.v1.DiagnosticR\vdiagnostics\x121\n" +
-	"\asummary\x18\x05 \x01(\v2\x17.screenshare.v1.SummaryR\asummary\x12 \n" +
-	"\vpublishable\x18\x06 \x01(\bR\vpublishableJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings*\xf9\x01\n" +
+	"\asummary\x18\x05 \x01(\v2\x17.screenshare.v1.SummaryR\asummary\x127\n" +
+	"\apresets\x18\t \x03(\v2\x1d.screenshare.v1.BuiltinPresetR\apresets\x12 \n" +
+	"\vpublishable\x18\x06 \x01(\bR\vpublishableJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05R\brepairedR\bwarnings\"\xa8\x01\n" +
+	"\rBuiltinPreset\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12;\n" +
+	"\bsettings\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\bsettings\x12,\n" +
+	"\x06reason\x18\x03 \x01(\v2\x14.screenshare.v1.TextR\x06reason\x12\x1a\n" +
+	"\bselected\x18\x04 \x01(\bR\bselected*\xf9\x01\n" +
 	"\vControlKind\x12\x1c\n" +
 	"\x18CONTROL_KIND_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11CONTROL_KIND_TEXT\x10\x01\x12\x17\n" +
@@ -1158,46 +1295,52 @@ func file_screenshare_v1_form_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_form_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_screenshare_v1_form_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_screenshare_v1_form_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_screenshare_v1_form_proto_goTypes = []any{
-	(ControlKind)(0),     // 0: screenshare.v1.ControlKind
-	(Unit)(0),            // 1: screenshare.v1.Unit
-	(Severity)(0),        // 2: screenshare.v1.Severity
-	(*FieldValue)(nil),   // 3: screenshare.v1.FieldValue
-	(*NumericRange)(nil), // 4: screenshare.v1.NumericRange
-	(*FieldOption)(nil),  // 5: screenshare.v1.FieldOption
-	(*Field)(nil),        // 6: screenshare.v1.Field
-	(*FieldGroup)(nil),   // 7: screenshare.v1.FieldGroup
-	(*Diagnostic)(nil),   // 8: screenshare.v1.Diagnostic
-	(*Estimate)(nil),     // 9: screenshare.v1.Estimate
-	(*Summary)(nil),      // 10: screenshare.v1.Summary
-	(*Form)(nil),         // 11: screenshare.v1.Form
-	(*Text)(nil),         // 12: screenshare.v1.Text
-	(*Settings)(nil),     // 13: screenshare.v1.Settings
+	(ControlKind)(0),        // 0: screenshare.v1.ControlKind
+	(Unit)(0),               // 1: screenshare.v1.Unit
+	(Severity)(0),           // 2: screenshare.v1.Severity
+	(*FieldValue)(nil),      // 3: screenshare.v1.FieldValue
+	(*NumericRange)(nil),    // 4: screenshare.v1.NumericRange
+	(*FieldOption)(nil),     // 5: screenshare.v1.FieldOption
+	(*Field)(nil),           // 6: screenshare.v1.Field
+	(*FieldGroup)(nil),      // 7: screenshare.v1.FieldGroup
+	(*Diagnostic)(nil),      // 8: screenshare.v1.Diagnostic
+	(*Estimate)(nil),        // 9: screenshare.v1.Estimate
+	(*Summary)(nil),         // 10: screenshare.v1.Summary
+	(*Form)(nil),            // 11: screenshare.v1.Form
+	(*BuiltinPreset)(nil),   // 12: screenshare.v1.BuiltinPreset
+	(*Text)(nil),            // 13: screenshare.v1.Text
+	(*Settings)(nil),        // 14: screenshare.v1.Settings
+	(*PublishSettings)(nil), // 15: screenshare.v1.PublishSettings
 }
 var file_screenshare_v1_form_proto_depIdxs = []int32{
-	12, // 0: screenshare.v1.FieldOption.note:type_name -> screenshare.v1.Text
-	12, // 1: screenshare.v1.FieldOption.reason:type_name -> screenshare.v1.Text
+	13, // 0: screenshare.v1.FieldOption.note:type_name -> screenshare.v1.Text
+	13, // 1: screenshare.v1.FieldOption.reason:type_name -> screenshare.v1.Text
 	0,  // 2: screenshare.v1.Field.control:type_name -> screenshare.v1.ControlKind
 	1,  // 3: screenshare.v1.Field.unit:type_name -> screenshare.v1.Unit
-	12, // 4: screenshare.v1.Field.reason:type_name -> screenshare.v1.Text
-	12, // 5: screenshare.v1.Field.note:type_name -> screenshare.v1.Text
+	13, // 4: screenshare.v1.Field.reason:type_name -> screenshare.v1.Text
+	13, // 5: screenshare.v1.Field.note:type_name -> screenshare.v1.Text
 	3,  // 6: screenshare.v1.Field.value:type_name -> screenshare.v1.FieldValue
-	5,  // 7: screenshare.v1.Field.options:type_name -> screenshare.v1.FieldOption
-	4,  // 8: screenshare.v1.Field.range:type_name -> screenshare.v1.NumericRange
-	6,  // 9: screenshare.v1.FieldGroup.fields:type_name -> screenshare.v1.Field
-	2,  // 10: screenshare.v1.Diagnostic.severity:type_name -> screenshare.v1.Severity
-	12, // 11: screenshare.v1.Diagnostic.text:type_name -> screenshare.v1.Text
-	9,  // 12: screenshare.v1.Summary.estimate:type_name -> screenshare.v1.Estimate
-	13, // 13: screenshare.v1.Form.settings:type_name -> screenshare.v1.Settings
-	7,  // 14: screenshare.v1.Form.groups:type_name -> screenshare.v1.FieldGroup
-	8,  // 15: screenshare.v1.Form.diagnostics:type_name -> screenshare.v1.Diagnostic
-	10, // 16: screenshare.v1.Form.summary:type_name -> screenshare.v1.Summary
-	17, // [17:17] is the sub-list for method output_type
-	17, // [17:17] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	3,  // 7: screenshare.v1.Field.default_value:type_name -> screenshare.v1.FieldValue
+	5,  // 8: screenshare.v1.Field.options:type_name -> screenshare.v1.FieldOption
+	4,  // 9: screenshare.v1.Field.range:type_name -> screenshare.v1.NumericRange
+	6,  // 10: screenshare.v1.FieldGroup.fields:type_name -> screenshare.v1.Field
+	2,  // 11: screenshare.v1.Diagnostic.severity:type_name -> screenshare.v1.Severity
+	13, // 12: screenshare.v1.Diagnostic.text:type_name -> screenshare.v1.Text
+	9,  // 13: screenshare.v1.Summary.estimate:type_name -> screenshare.v1.Estimate
+	14, // 14: screenshare.v1.Form.settings:type_name -> screenshare.v1.Settings
+	7,  // 15: screenshare.v1.Form.groups:type_name -> screenshare.v1.FieldGroup
+	8,  // 16: screenshare.v1.Form.diagnostics:type_name -> screenshare.v1.Diagnostic
+	10, // 17: screenshare.v1.Form.summary:type_name -> screenshare.v1.Summary
+	12, // 18: screenshare.v1.Form.presets:type_name -> screenshare.v1.BuiltinPreset
+	15, // 19: screenshare.v1.BuiltinPreset.settings:type_name -> screenshare.v1.PublishSettings
+	13, // 20: screenshare.v1.BuiltinPreset.reason:type_name -> screenshare.v1.Text
+	21, // [21:21] is the sub-list for method output_type
+	21, // [21:21] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_form_proto_init() }
@@ -1219,7 +1362,7 @@ func file_screenshare_v1_form_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_form_proto_rawDesc), len(file_screenshare_v1_form_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

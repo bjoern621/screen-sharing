@@ -36,6 +36,7 @@ package capabilities
 
 import (
 	"fmt"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -242,6 +243,64 @@ func (l Ladder) Has(step string) bool {
 	return contains(l.Steps, step)
 }
 
+// Resolve is what one encode spends on this ladder, and false for a step the encoder does
+// not take.
+//
+// An empty answer means spend nothing and leave the knob at the encoder's own default.
+// Two cases produce it: a ladder with no steps is an encoder without the knob, and a mode
+// the Defaults leave out is one that default is right for.
+//
+// A held step wins wherever the ladder carries it, which is what makes the control a
+// choice rather than a display of the row. It loses in a mode that pins the knob, and a
+// pinned mode refuses nothing either: the form greys the control there, so the value
+// behind the greying is one nothing spends, and refusing a publish over it would name a
+// field the user cannot reach.
+func (l Ladder) Resolve(mode, held string) (string, bool) {
+	if len(l.Steps) == 0 {
+		return "", true
+	}
+	if l.PinsIn(mode) || held == "" {
+		step, _ := l.StepFor(mode)
+		return step, true
+	}
+	if l.Has(held) {
+		return held, true
+	}
+	return "", false
+}
+
+// Steps are the two ladder steps one encode spends, in the encoder's own identifiers.
+// Either is empty where that ladder leaves the knob alone.
+type Steps struct {
+	Effort, Tune string
+}
+
+// ResolveSteps is what an encode of this codec in this mode spends on both ladders, and a
+// refusal for a step the encoder does not take.
+//
+// Both builders read it, which is the point: the step is a fact about the encoder, and an
+// encode whose look depended on which engine built its command would make a stream's
+// picture follow the capture backend that produced it. What each engine still owns is the
+// spelling - ffmpeg says -preset where the x264 element says speed-preset - and the empty
+// step, which every builder answers by passing no such option at all.
+//
+// A refusal is what keeps a hand-edited settings file off an encoder's error path: the
+// field is free-form text, the repair moves a step off the codec's ladder back onto it,
+// and nothing between the two bounds a value that reached the settings by another route.
+func (c Codec) ResolveSteps(mode, effort, tune string) (Steps, error) {
+	e, ok := c.Effort.Resolve(mode, effort)
+	if !ok {
+		return Steps{}, fmt.Errorf("codec %s takes no effort step %q, only %s",
+			c.Name, effort, strings.Join(c.Effort.Steps, ", "))
+	}
+	t, ok := c.Tune.Resolve(mode, tune)
+	if !ok {
+		return Steps{}, fmt.Errorf("codec %s takes no tune step %q, only %s",
+			c.Name, tune, strings.Join(c.Tune.Steps, ", "))
+	}
+	return Steps{Effort: e, Tune: t}, nil
+}
+
 // everyMode spreads one step across every rate-control mode, for a ladder whose step does
 // not follow what the encoder is aiming at.
 func everyMode(step string) map[string]string {
@@ -442,8 +501,9 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 		}
 		refusal, ok := optionRefusals[option]
 		assert.Assert(ok, "a gappable option states how its refusal reads", option)
-		return fmt.Errorf("codec %s %s on the %s engine",
-			c.Name, fmt.Sprintf(refusal, options[option]), engine)
+		return fmt.Errorf("codec %s %s on the %s engine%s",
+			c.Name, fmt.Sprintf(refusal, options[option]), engine,
+			reachedElsewhere(c.Name, engine, option, options[option]))
 	}
 	// The quantizer target reaches the encoder in crf mode only, and each encoder's knob
 	// has its own scale: 60 is a valid libvpx CQ and an error on x264. Which modes read
@@ -459,6 +519,28 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 			bitrateM, c.Name, c.BitrateLimitOn(engine), engine)
 	}
 	return nil
+}
+
+// reachedElsewhere names the engines that do reach one value of one option, as a clause to
+// hang off the refusal that names the engine which does not. It is empty where no engine
+// reaches it, which is a fact about the format rather than about one wrapper.
+//
+// The clause is there because the engine is a setting. A refusal naming only the engine the
+// publish was attempted on states half the fact, and the half it withholds is the one the
+// user can act on: a chroma one builder cannot reach is often one the other does, and a
+// settings file that skipped the form's repair is exactly the case where nothing greyed the
+// option to say so.
+func reachedElsewhere(codec, engine, option, value string) string {
+	var others []string
+	for _, e := range Engines {
+		if e != engine && Reaches(codec, e, option, value) {
+			others = append(others, e)
+		}
+	}
+	if len(others) == 0 {
+		return ""
+	}
+	return ", only on " + strings.Join(others, " and ")
 }
 
 // validationFacts is the configuration a validation is about, as the axes read it.
@@ -492,6 +574,12 @@ func validationFacts(c Codec, engine string, options map[string]string, cq, bitr
 // targetsBitrate reports whether a rate-control mode aims at a bitrate the user
 // sets. Constant quality and lossless spend whatever the picture costs, so the
 // bitrate field means nothing to them.
+// TargetsBitrate is targetsBitrate for the publish engines, which ask the same question of
+// a running pipeline: a mode that sends the encoder no rate has none to send it again.
+func TargetsBitrate(mode string) bool {
+	return targetsBitrate(mode)
+}
+
 func targetsBitrate(mode string) bool {
 	return mode == ModeCbr || mode == ModeVbr || mode == ModeAbr
 }

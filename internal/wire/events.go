@@ -128,6 +128,19 @@ func ReceiveStateEvent(streams []ReceiveStream) *screensharev1.Event {
 	}
 }
 
+// MonitorPreviewStateEvent announces the monitors the backend is previewing, whole.
+//
+// There is no exit event beside it, unlike the receive pair: a preview that ended leaves
+// the set, and there is nothing more to say about it - no log to open, no viewer to
+// account for and no retry to explain.
+func MonitorPreviewStateEvent(monitors []PreviewedMonitor) *screensharev1.Event {
+	return &screensharev1.Event{
+		Payload: &screensharev1.Event_MonitorPreviewState{
+			MonitorPreviewState: MonitorPreviewState(monitors),
+		},
+	}
+}
+
 // ReceiveExitEvent announces that one receive pipeline ended, and why.
 //
 // It carries no log path, unlike the publish and viewer exits: a receive pipeline runs

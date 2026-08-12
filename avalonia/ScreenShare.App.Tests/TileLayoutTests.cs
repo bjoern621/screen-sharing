@@ -49,6 +49,37 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
+    /// The stack of rows is centred in the height. Three tiles in a wide box come out as a row of
+    /// two over a row of one, and the rows are then bounded by the width rather than the height:
+    /// the leftover is a margin split above and below, not an empty half-window under the tiles.
+    /// </summary>
+    [Fact]
+    public void TheStackIsCentredInTheHeight()
+    {
+        var arrangement = TileLayout.Solve([16.0 / 9, 16.0 / 9, 16.0 / 9], 1200, 1000, Gap);
+
+        var above = Rows(arrangement)[0];
+        var below = 1000 - arrangement.Tiles.Max(t => t.Y + t.Height);
+
+        Assert.False(arrangement.Scrolls);
+        Assert.True(above > 1, $"the rows are short of the box, not {above} from its top");
+        Assert.Equal(above, below, 3);
+    }
+
+    /// <summary>
+    /// An arrangement bounded by the height starts at the top of the box, because there is
+    /// nothing left over to split. The centring is a margin and never a gap the tiles are pushed
+    /// down by.
+    /// </summary>
+    [Fact]
+    public void AnArrangementThatFillsTheHeightStartsAtTheTop()
+    {
+        var arrangement = TileLayout.Solve([16.0 / 9, 16.0 / 9, 16.0 / 9, 16.0 / 9], 1600, 900, Gap);
+
+        Assert.Equal(0, Rows(arrangement)[0], 3);
+    }
+
+    /// <summary>
     /// Every tile is the same height, whichever row it is in.
     ///
     /// This is the rule the arrangement is built around. Letting each row fill the width would

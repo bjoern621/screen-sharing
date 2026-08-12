@@ -109,6 +109,12 @@ type App struct {
 	// stream on all its listeners and one stream can be decoded over several at once
 	// (receive.go).
 	receivers map[WatchKey]*receive.Receiver
+	// monitorPreviews are the screens being read for the setup wizard, keyed by the
+	// index the output is enumerated under. They are a map of their own rather than
+	// entries beside the decodes because they are keyed by an output and not by a
+	// WatchKey: nothing encoded these frames and no transport carried them
+	// (monitorpreview.go).
+	monitorPreviews map[int]*receive.Receiver
 	// testStreams is the synthetic set, one entry per slot the set holds, keyed by the
 	// slot number the stream is named after. An entry is a child that is publishing or
 	// a relaunch waiting to start one; a slot with no entry is neither (teststreams.go).
@@ -138,16 +144,17 @@ func New(version string) *App {
 	}
 
 	return &App{
-		events:      events.New(),
-		version:     version,
-		settings:    s,
-		storeNotice: notice,
-		relay:       relay.New(),
-		relayStop:   make(chan struct{}),
-		fatal:       make(chan error, 1),
-		watchers:    map[WatchKey]*ffmpeg.Proc{},
-		receivers:   map[WatchKey]*receive.Receiver{},
-		testStreams: map[int]*testStream{},
+		events:          events.New(),
+		version:         version,
+		settings:        s,
+		storeNotice:     notice,
+		relay:           relay.New(),
+		relayStop:       make(chan struct{}),
+		fatal:           make(chan error, 1),
+		watchers:        map[WatchKey]*ffmpeg.Proc{},
+		receivers:       map[WatchKey]*receive.Receiver{},
+		monitorPreviews: map[int]*receive.Receiver{},
+		testStreams:     map[int]*testStream{},
 	}
 }
 
@@ -234,9 +241,20 @@ func (a *App) Stop() {
 	// threads wherever they happen to be, which on Windows is how a process ends up
 	// unkillable with the control pipe still in its hands. The count below is what
 	// says whether the exit about to happen is the clean one.
+	// The monitor previews go into the same group. They are receive pipelines keyed by
+	// an output rather than by a stream, and nothing about stopping one differs
+	// (monitorpreview.go).
+	pipelines := make([]*receive.Receiver, 0, len(a.receivers)+len(a.monitorPreviews))
+	for _, receiver := range a.receivers {
+		pipelines = append(pipelines, receiver)
+	}
+	for _, receiver := range a.monitorPreviews {
+		pipelines = append(pipelines, receiver)
+	}
+
 	var stopping sync.WaitGroup
 	var running atomic.Int32
-	for _, receiver := range a.receivers {
+	for _, receiver := range pipelines {
 		stopping.Add(1)
 		go func() {
 			defer stopping.Done()

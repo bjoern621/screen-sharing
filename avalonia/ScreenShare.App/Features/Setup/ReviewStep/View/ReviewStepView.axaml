@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Setup.Model"
+             xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:vm="using:ScreenShare.App.Features.Setup.ReviewStep.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.ReviewStep.View.ReviewStepView"
              x:DataType="vm:ReviewStepViewModel">
@@ -71,24 +72,15 @@
         <StackPanel VerticalAlignment="Top">
 
           <!--
-            The two decisions that take effect the moment publishing starts. Asked here
-            because a dialog that interrupts a live stream to ask is worse than a switch that
-            was already set.
-          -->
-          <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
-            <StackPanel>
-              <TextBlock Classes="caption" Text="On going live" Margin="0,0,0,10" />
+            The saved ways of publishing, above the preflight list because it is about the
+            configuration rather than about the press: applying one changes what the tiles on the
+            left say, and saving one keeps what they say now.
 
-              <Grid ColumnDefinitions="*,Auto" Height="{StaticResource ControlHeight}">
-                <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" Text="Open Broadcast window" />
-                <ToggleButton Grid.Column="1" Theme="{StaticResource SwitchTheme}" IsChecked="{Binding OpenBroadcastWindow, Mode=TwoWay}" />
-              </Grid>
-              <Grid ColumnDefinitions="*,Auto" Height="{StaticResource ControlHeight}">
-                <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center" Text="Save as preset" />
-                <ToggleButton Grid.Column="1" Theme="{StaticResource SwitchTheme}" IsChecked="{Binding SaveAsPreset, Mode=TwoWay}" />
-              </Grid>
-            </StackPanel>
-          </Border>
+            It replaced a switch reading "Save as preset", which was inert and could not have
+            been otherwise - a preset is kept, replaced and deleted by a name, and a toggle has
+            none to give.
+          -->
+          <presets:PresetsView DataContext="{Binding Presets}" Margin="0,0,0,10" />
 
           <!-- The same list the rail carried, at the state that lets the button light. -->
           <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
@@ -172,8 +164,8 @@
                     Theme="{StaticResource DangerButton}"
                     Height="{StaticResource FooterButtonHeight}"
                     Margin="8,0,0,0"
-                    Command="{Binding GoLiveCommand}"
-                    controls:Pending.IsActive="{Binding GoLiveCommand.IsRunning}">
+                    Command="{Binding StartSharingCommand}"
+                    controls:Pending.IsActive="{Binding StartSharingCommand.IsRunning}">
               <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
                 <Ellipse Width="{StaticResource DotSize}"
                          Height="{StaticResource DotSize}"

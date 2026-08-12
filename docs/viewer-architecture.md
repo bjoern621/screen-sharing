@@ -2,16 +2,21 @@
 
 Watching a stream means pulling it from the relay and decoding it for display.
 
-Two ways to watch exist.
+Three ways to watch exist.
 
 - A single-stream native player (ffplay or mpv): one window per stream, opened from the shell's viewer roster, decoding through libavcodec.
 - The shell's tile grid: a receiving GStreamer pipeline in the Go backend, whose decoded frames reach the Avalonia window over the frame channel.
+- The relay's own player page in the machine's default browser, opened from the same roster. Nothing here decodes it and nothing here serves it: the backend hands an address to the desktop, and the page fetches the stream itself.
 
-The broadcast screen's preview is neither: it decodes a copy the publish child makes on the loopback interface, so it is the second consumer of the frame channel rather than a third way to watch, and the relay never sees it. "What the broadcast preview draws" below states how.
+Two more surfaces consume the frame channel and neither is a way to watch, because neither picture reaches the relay at all.
+The broadcast screen's preview decodes a copy the publish child makes on the loopback interface.
+The setup wizard's screen picker reads this machine's own monitors, with nothing encoded and nothing carried.
+"What the broadcast preview draws" and "What the screen picker draws" below state how.
 
 The first works today and needs nothing installed beyond ffmpeg.
 The second works on Windows, where the frames cross as a DXGI shared texture the compositor imports, and on Linux, where they cross as a dmabuf descriptor the shell imports through EGL.
 The macOS leg of the frame channel is not built, and there a tile says so rather than falling back to a copy through system memory.
+The third needs a browser and nothing else, so it is the one that works on a machine with no ffmpeg and on the platform whose frame import is unbuilt.
 
 The capture and publish side is the mirror of this seam; see `capture-architecture.md`.
 
@@ -42,7 +47,7 @@ A stream published over SRT is watched over RTSP by one viewer and over WHEP by 
 The two legs are not the same list of protocols, and a leg is not one list either.
 HLS is served and never ingested, so it is a watch leg alone; RTMP takes four formats in and hands one back; WebRTC ingest is narrower than WHEP playback, and narrower on one publish engine than on the other.
 Each transport declares a carriage per leg and per engine beside the code that serializes it (`transport.Formats`), and every rule that offers or refuses a protocol reads the entry for the leg and the engine it means.
-The two watch engines are the two receivers here: ffplay and mpv open a URL through libavformat, and a receiving GStreamer pipeline is the tile grid's.
+The watch leg has three engines, one per receiver: ffplay and mpv open a URL through libavformat, a receiving GStreamer pipeline is the tile grid's, and the browser reads the page the relay serves.
 
 Three settings fields name a protocol, and each says which leg it is and, on the watch leg, which receiver:
 
@@ -54,6 +59,10 @@ Three settings fields name a protocol, and each says which leg it is and, on the
 
 Two watch fields rather than one, because the two receivers reach different protocol sets and one field would let each store a leg the other cannot run.
 A roster row and a tile can be watching the same stream over different protocols at the same time, which is the same fact from the user's side.
+
+The browser has no field among them, and that is a property of what it opens rather than an omission.
+A page is opened per press and nothing persists after it, so a stored leg would be a value nothing reads: the menu offers every leg the relay serves a page for and the press names one.
+That list crosses as `Catalog.browser_watch_transports`.
 
 Each protocol's own knobs are per leg for the same reason.
 The two SRT latency windows are separate fields because each leg is its own SRT link with its own retransmit window, and glass-to-glass delay is their sum.
@@ -91,12 +100,19 @@ shell tile
 
   MediaMTX ══ SRT, RTSP or WHEP ═════════▶ receive pipeline ──GPU handle──▶ Avalonia window
   └─────────────── network ──────────────┘ └────────── receiver machine ──────────────────┘
+
+browser page
+
+  MediaMTX ══ WHEP :8889 or HLS :8888 ═══▶ browser tab
+  └─────────────── network ──────────────┘ └ receiver machine ┘
 ```
 
 The native player needs no app process at all, which is what makes it the viewer that survives a shell crash and the one that works on a platform whose frame import is unsolved.
 
 The tile path puts the decode in the backend and the window in the shell, and the handle between them never leaves the machine.
 Nothing is re-encoded on either path, and no frame crosses the control API.
+
+The browser path is the same one hop, and the page driving it is the relay's: the address is the path on the WebRTC or HLS listener, and the segments or the WHEP exchange go from the relay to the tab without passing through anything here.
 
 ## What each path decodes
 
@@ -356,8 +372,9 @@ The publish's local preview is the second kind of decode a subscription may name
 
 ### What the broadcast preview draws
 
-Two surfaces consume frames, and the second one consumes its own stream.
+Three surfaces consume frames, and the second one consumes its own stream.
 The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **decoded from a copy that never leaves the machine**.
+The third is the setup wizard's screen picker, below.
 
 **The constraint that shapes it is where the encoder runs.**
 Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it, and what makes the ffmpeg engine reachable at all.
@@ -380,7 +397,7 @@ The backend binds a loopback UDP socket, reads the port the kernel picked off it
 It travels on `PublishState.Live.preview`, so a reader can see it; nothing assumes it.
 
 **It is not a relay stream, and it is modelled as its own thing.**
-A subscription names either a `WatchKey` or the running publish's preview (`FrameSubscribe`, `frame.proto`), and the preview carries no fields at all: `PublishState.live` is singular, so "the preview" is already a complete identity.
+A subscription names a `WatchKey`, the running publish's preview, or a monitor (`FrameSubscribe`, `frame.proto`), and the publish preview carries no fields at all: `PublishState.live` is singular, so "the preview" is already a complete identity.
 Giving it a synthetic `transport` entry instead would state that some protocol carries this stream, and every consumer of that table - the settings form, the viewability verdict, `WatchNamesFor` - would read a protocol nothing can be done with.
 
 **The publish opens it and the publish closes it**, which is the answer to the question `docs/ipc-api.md` asks of every effect.
@@ -397,6 +414,32 @@ The route used to be a loopback: `StartReceive` on `WatchKey{this machine's stre
 It worked, it needed no new concept, and its fault was exactly the one above - the preview was a relay client, so it occupied a reader slot and the screen reported a viewer nobody had.
 The rendered command still carries none of the preview leg, for the reason it carries none of the meter's: the port belongs to one launch, and whether two settings build the same pipeline is decided by comparing that rendered string (`publish.SamePipeline`).
 
+### What the screen picker draws
+
+The wizard's source step offers a picture of every monitor, so a screen is chosen by looking at it rather than by its number.
+It is the third consumer of the frame channel and the only one that decodes nothing: the capture element hands raw pictures to the render chain, and what leaves is the same handle every other subscription gets.
+
+**It is the same rectangle the stream would carry, because both are built from one head.**
+`internal/screensrc` holds the GStreamer element that reads one output and the properties that single it out, and the publish pipeline's capture head reads it as well (`capture-architecture.md`).
+A preview cropped differently from the stream would be a picture that lies about what is shared, which is the one thing a preview may not do.
+
+**A preview is asked for, unlike the publish's.**
+The publish preview exists because a publish does, so there is nothing for a shell to decide and no method to call; a screen is read because somebody wants to look at it, which no other state implies.
+`StartMonitorPreview` and `StopMonitorPreview` are that ask, keyed by the monitor index and idempotent in both directions, and `MonitorPreviewState` carries what is running to every shell (`ipc-api.md`).
+The frame channel still opens nothing: a subscription finds a picture or is refused.
+
+**Previews outlive the window that asked for one, exactly as decodes do.**
+That is what makes the set worth announcing: a shell that restarted reads it and closes what nothing is drawing, rather than leaving screen captures running for the life of the backend.
+The shell's own converge is narrower than the backend's rule - it opens them while the reader stands on the source step with the window in front, and closes them when either stops being true.
+
+**The pacing and the size are the preview's own, and both are why it costs a wizard tile rather than a stream.**
+Five frames a second is what tells one screen from another; the size is a bound the scaler fixates inside, so a source smaller than it is left alone and a larger one is reduced with its aspect ratio kept.
+The reduction happens in the source fragment rather than in the render chain, because the default chain on Linux writes no size bound at all - a preview that did not reduce its own frames would upload whole desktops for a picture drawn at a fraction of one.
+
+**Where a session cannot read one output apart from another there is no picture and the catalog says so.**
+Wayland reaches a screen through the portal alone, which answers with whatever its picker was told rather than with the output that was asked for, and AVFoundation's screen source chooses its own display.
+`Catalog.no_monitor_preview` carries that statement, so the wizard offers the plain list instead of opening captures that would all be refused.
+
 ## The native player
 
 `internal/watch` is the single-stream viewer, and it stays.
@@ -411,6 +454,24 @@ A viewer is identified by stream name and transport together, not by name alone,
 Two rendering differences are worth knowing when choosing between the two engines.
 ffplay is pinned to the SDL X11/XWayland backend, whose window a compositor renders reliably where the SDL Wayland backend may not.
 mpv renders 4:4:4 and a native Wayland window, which is what `SCREENSHARE_VIEWER=mpv` selects.
+
+## The relay's page in a browser
+
+`OpenInBrowser` hands the address of the relay's own player page to the desktop, and the desktop opens it the way it opens a log file (`internal/app/watch.go`).
+There is no viewer program to find, no pipeline to build and nothing to supervise: MediaMTX serves a page on the WebRTC listener and another on the HLS one, and the page runs the WHEP exchange or fetches the playlist itself.
+The two legs are `transport.BrowserWatcher`'s implementers, which is what the browser carriage on those two rows says, and the roster crosses as `Catalog.browser_watch_transports`.
+
+**It is the viewer with no dependency of its own**, which is the reason it exists beside two that work.
+A player needs ffmpeg or mpv on the machine and a tile needs the frame channel, which is unbuilt on macOS; a page needs a browser.
+The same address opened by hand is what a watcher without this app uses, which is the other thing the page is good for.
+
+**Nothing about it is a state, and the interface says so.**
+A tab belongs to the browser, so this process can neither read whether it is still open nor close it: there is no `StopInBrowser`, no member on `ViewerState`, and the menu rows for it carry no tick where every other row on that surface does.
+A second press opens a second tab, which is the departure from idempotency the effect is written down as (`development-principles.md`).
+
+What it shares with a player is the refusal.
+A leg the stream's format does not cross is refused with the format named, because a page that connects and shows nothing is the failure the carriage table exists to turn into a sentence.
+What the browser then does with a format the relay does carry is the browser's own affair: every one of them decodes H.264, and whether a given build decodes H.265, AV1 or VP9 depends on the machine it runs on, so the carriage states the relay's set and no narrower one.
 
 ## The synthetic set
 

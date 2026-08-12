@@ -26,7 +26,7 @@ var availabilityAllKeys = []string{
 	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
-	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
@@ -284,26 +284,116 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 }
 
 // The second treatment. A general encoding concept the combination blocks stays
-// rendered and greys, so a user hunting for the NVENC preset under x264 reads why it is
-// absent instead of finding a blank. Where two facts block one field the reason names
-// the one the user can act on, which here is the family and never the mode.
-func TestTheEncoderPresetIsDisabledWithTheFamilyThatOwnsIt(t *testing.T) {
+// rendered and greys, so a user hunting for the effort ladder under a VAAPI encoder reads
+// why it is absent instead of finding a blank.
+//
+// The reason names the codec rather than a set of families, because the ladder is the
+// codec's own: two codecs of one family can declare different ones, and one of them
+// declaring none says nothing about the other.
+func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
-	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	s := availabilityDraft("x11grab", "h264_vaapi", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
 	st := fieldState(deps, s, KeyEffort)
 	if st.enabled {
-		t.Fatal("the encoder preset is live under a software encoder that takes no preset ladder")
+		t.Fatal("the effort step is live under an encoder whose row declares no ladder")
 	}
 	if !st.visible {
-		t.Error("the encoder preset is hidden, where a general encoding concept greys")
+		t.Error("the effort step is hidden, where a general encoding concept greys")
 	}
-	if codeOf(st.reason) != presetOnlyOnFamilies {
-		t.Errorf("the encoder preset greys with %v, want the statement naming who takes one", codeOf(st.reason))
+	if codeOf(st.reason) != codecTakesNoEffortLadder {
+		t.Errorf("the effort step greys with %v, want the statement naming the codec", codeOf(st.reason))
 	}
-	if families := idsOf(st.reason, screensharev1.TextArgName_TEXT_ARG_NAME_FAMILIES); !slices.Contains(families, capabilities.FamilyNvenc) {
-		t.Errorf("the encoder preset greys naming %v, which leaves out the family that takes one", families)
+	if codec := idOf(st.reason, screensharev1.TextArgName_TEXT_ARG_NAME_CODEC); codec != "h264_vaapi" {
+		t.Errorf("the effort step greys naming %q, where the draft is on h264_vaapi", codec)
+	}
+}
+
+// The other half of the same rule, and the one the swap is for: a codec that declares a
+// ladder offers it, on the engine whose builder spends it. A control greyed for a codec
+// whose encoder takes the step would be the form withholding a knob that reaches the
+// encoder, which is what docs/field-availability.md rules out.
+func TestTheEffortStepIsLiveWhereTheCodecDeclaresALadder(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	s.Publish.Mode = capabilities.ModeVbr
+
+	if st := fieldState(deps, s, KeyEffort); !st.enabled {
+		t.Errorf("x264 declares an effort ladder and its builder spends it, yet the control greys: %v",
+			codeOf(st.reason))
+	}
+}
+
+// The two ladders are asked about separately, because a codec can declare either without
+// the other: libvpx takes an effort step and tunes for nothing, so its effort control is
+// live while its tune control greys naming the codec.
+func TestTheTwoLaddersAreAskedAboutSeparately(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	s := availabilityDraft("x11grab", "libvpx-vp9", "yuv420p", "srt")
+
+	c, ok := capabilities.Get(s.Publish.Codec)
+	if !ok {
+		t.Fatalf("no capability row for %s", s.Publish.Codec)
+	}
+	if len(c.Effort.Steps) == 0 || len(c.Tune.Steps) > 0 {
+		t.Skipf("%s no longer declares one ladder and not the other", s.Publish.Codec)
+	}
+
+	if st := fieldState(deps, s, KeyEffort); !st.enabled {
+		t.Errorf("the effort step greys on a codec that declares a ladder: %v", codeOf(st.reason))
+	}
+	st := fieldState(deps, s, KeyTune)
+	if st.enabled {
+		t.Fatal("the tune is live on a codec whose encoder tunes for nothing")
+	}
+	if codeOf(st.reason) != codecTakesNoTuneLadder {
+		t.Errorf("the tune greys with %v, want the statement naming the codec", codeOf(st.reason))
+	}
+}
+
+// Both engines forward both steps, so neither control is greyed for the engine alone.
+// A knob one builder drops is what the engine rules are for, and the effort step stopped
+// being one of them when the nvcodec elements turned out to take the same p1-p7 ladder.
+func TestBothLaddersReachBothEngines(t *testing.T) {
+	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
+
+	for _, tc := range []availabilityCase{
+		{"the ffmpeg engine", linuxX11, availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")},
+		{"the GStreamer engine", linuxWayland, availabilityDraft("portal", "hevc_nvenc", "yuv420p", "rtsp")},
+	} {
+		for _, key := range []string{KeyEffort, KeyTune} {
+			if st := fieldState(tc.deps, tc.s, key); !st.enabled {
+				t.Errorf("%s: %s greys, where the encoder takes the step: %v", tc.name, key, codeOf(st.reason))
+			}
+		}
+	}
+}
+
+// A mode that pins the step greys the control and names the step in force. Both the
+// greying and the encode read the codec's row, so the sentence cannot name a step the
+// encoder is not running (ffmpeg.TestNvencCbrPinsTheDeclaredStep).
+func TestTheEffortStepGreysWhereTheModePinsIt(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	s := availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")
+	s.Publish.Mode = capabilities.ModeCbr
+
+	c, ok := capabilities.Get(s.Publish.Codec)
+	if !ok {
+		t.Fatalf("no capability row for %s", s.Publish.Codec)
+	}
+	want, _ := c.Effort.StepFor(capabilities.ModeCbr)
+
+	st := fieldState(deps, s, KeyEffort)
+	if st.enabled {
+		t.Fatal("the effort step is live in a mode that pins it")
+	}
+	if codeOf(st.reason) != effortPinnedByMode {
+		t.Errorf("the pinned step greys with %v, want the statement naming the pin", codeOf(st.reason))
+	}
+	if step := idOf(st.reason, screensharev1.TextArgName_TEXT_ARG_NAME_EFFORT); step != want {
+		t.Errorf("the pinned step greys naming %q, where the row declares %q", step, want)
 	}
 }
 

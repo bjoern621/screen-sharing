@@ -54,7 +54,7 @@ func TestTransportsForUnknownCapture(t *testing.T) {
 // publishable is a stream both engines render a pipeline for, on the software encoder
 // every machine has and the rate-control mode that reads the most knobs.
 func publishable() settings.Settings {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture = "x11grab"
 	s.Publish.Codec = "libx264"
 	s.Publish.Mode = "cbr"
@@ -168,7 +168,7 @@ func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testin
 	for capture := range captureBackends {
 		available, _ := AudioAvailable(capture, platform.AudioSourceDesktop)
 
-		s := settings.Defaults()
+		s := baseStream()
 		s.Publish.Capture, s.Publish.Transport, s.Publish.Audio = capture, "rtsp", platform.AudioSourceDesktop
 		_, err := Command(s)
 

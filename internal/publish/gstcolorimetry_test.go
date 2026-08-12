@@ -49,16 +49,23 @@ const gstUnsignalledColorimetry = "bt709"
 //
 // Framing is the whole of what the write side pins, never a colour description. Annex B
 // start codes frame an H.26x stream and typefind reads them, so those two need nothing
-// to be read back again. An AV1 OBU states its own size and a VP9 frame header is found
-// by scanning, so both come out of a plain file once their parser is named. VP8 has no
-// parser element to scan with, so its stream travels in IVF: 32 bytes of fourcc, picture
+// to be read back again. An AV1 OBU states its own size, so it comes out of a plain file
+// once av1parse is named. The two VP formats travel in IVF: 32 bytes of fourcc, picture
 // size, frame rate and frame count, with no colour field of any kind and byte-identical
 // between a full-range and a limited-range encode.
+//
+// IVF rather than a parser for both, and for VP8 there is no choice at all: the format has
+// no parser element to scan with. VP9 has vp9parse, and a stream it framed decodes only
+// while the frames stay small - past roughly half a megabit at this picture size, vp9dec
+// takes every buffer it hands over and reports no valid frame at end of stream, where the
+// same encode read back through IVF decodes whole. Every rate a screen share publishes at
+// is on the far side of that line, so the parser would measure the colour of exactly the
+// streams nobody sends.
 var gstFraming = map[string]struct{ write, read []string }{
 	"h264": {write: []string{"video/x-h264,stream-format=byte-stream,alignment=au"}},
 	"hevc": {write: []string{"video/x-h265,stream-format=byte-stream,alignment=au"}},
 	"av1":  {write: []string{"video/x-av1,stream-format=obu-stream,alignment=obu"}, read: []string{"av1parse"}},
-	"vp9":  {read: []string{"vp9parse"}},
+	"vp9":  {write: []string{"avmux_ivf"}},
 	"vp8":  {write: []string{"avmux_ivf"}},
 }
 
@@ -425,7 +432,7 @@ func roundTripSettings(t *testing.T, codec, colorRange string, chain roundTripCh
 		t.Fatalf("codec %s has a GStreamer mapping and no chroma on this engine", codec)
 	}
 
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Transport = "rtsp"
 	s.Publish.Codec, s.Publish.Mode, s.Publish.ColorRange = codec, mode, colorRange
 	s.Publish.Chroma = chromas[len(chromas)-1]

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
@@ -9,10 +10,11 @@ namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 /// The last step: everything resolved, read back in one place, and the one control that
 /// changes the world.
 ///
-/// <b>Inputs</b> are the two things that happen the moment publishing starts. They are
-/// asked here rather than after going live because each of them is a decision about the
-/// stream that is about to exist, and a dialog that interrupts a live stream to ask is
-/// worse than a switch that was already set.
+/// <b>It composes the preset card</b> (<see cref="Presets"/>), which is the one thing on this
+/// screen that is neither a reading of the settings nor the commit. It sits here because a
+/// preset is the whole way of publishing, and this is the screen where the whole way of
+/// publishing is read back: naming one and picking one belong beside that summary rather than
+/// on a step that owns a fraction of it.
 ///
 /// <b>Outputs</b> are written by <see cref="Apply"/> alone, and every one of them comes off
 /// a state some other side stated. The tiles are the groups' own shorthands, the list is the
@@ -37,48 +39,38 @@ public sealed class ReviewStepViewModel : Observable
     /// view model - there is no publisher here to call, and starting one is an effect on the
     /// control plane this step has no seam to.
     /// </param>
+    /// <param name="presets">The saved ways of publishing, drawn in this step's own column.</param>
     /// <param name="dispatch">The UI loop the commit's answer is marshalled back to.</param>
     public ReviewStepViewModel(
-        Func<string, DelegateCommand> edit, Action back, Func<Task> goLive, Action<Action> dispatch)
+        Func<string, DelegateCommand> edit,
+        Action back,
+        Func<Task> goLive,
+        PresetsViewModel presets,
+        Action<Action> dispatch)
     {
         Assert.NotNull(edit, "the review hands editing back to the step that owns it");
         Assert.NotNull(back, "the review needs the flow's own way back");
         Assert.NotNull(goLive, "the review hands the commit to whoever owns publishing");
+        Assert.NotNull(presets, "the review draws the saved ways of publishing beside the one being reviewed");
         Assert.NotNull(dispatch, "the review needs a UI loop to marshal the commit's answer back to");
 
         _edit = edit;
+        Presets = presets;
         Tiles = [];
         Checks = [];
 
         // A start crosses to the backend, which persists the settings and launches an encoder on
         // them, so the button waits rather than going inert: the round trip is long enough for a
         // reader to press again, and the command is what refuses that.
-        GoLiveCommand = new PendingCommand(goLive, dispatch, () => CanGoLive);
+        StartSharingCommand = new PendingCommand(goLive, dispatch, () => CanStartSharing);
         BackCommand = new DelegateCommand(back);
 
         Apply(PublishGate.Unread, streamName: "", refusal: "", [], []);
     }
 
-    // --- Inputs -------------------------------------------------------------------
-
-    private bool _openBroadcastWindow = true;
-    private bool _saveAsPreset;
-
-    public bool OpenBroadcastWindow
-    {
-        get => _openBroadcastWindow;
-        set => Set(ref _openBroadcastWindow, value);
-    }
-
-    public bool SaveAsPreset
-    {
-        get => _saveAsPreset;
-        set => Set(ref _saveAsPreset, value);
-    }
-
     // --- Outputs ------------------------------------------------------------------
 
-    private bool _canGoLive;
+    private bool _canStartSharing;
     private string _commitLabel = "";
     private string _promiseLead = "";
     private string _promiseTail = "";
@@ -95,10 +87,17 @@ public sealed class ReviewStepViewModel : Observable
     public ObservableCollection<PreflightCheckRow> Checks { get; }
 
     /// <summary>
+    /// The saved ways of publishing. Composed rather than owned: it reads the store and writes
+    /// the draft through seams of its own, and this step only decides where on the screen it
+    /// sits and renders it on every pass.
+    /// </summary>
+    public PresetsViewModel Presets { get; }
+
+    /// <summary>
     /// The commit. Its own in-flight field is what the button draws its wait from, so the
     /// spinner on screen and the press the command would refuse are one fact.
     /// </summary>
-    public PendingCommand GoLiveCommand { get; }
+    public PendingCommand StartSharingCommand { get; }
 
     public DelegateCommand BackCommand { get; }
 
@@ -107,7 +106,7 @@ public sealed class ReviewStepViewModel : Observable
     /// depends on holds. The gate's own answer, so the one red button and the refusal that
     /// would follow it are one decision.
     /// </summary>
-    public bool CanGoLive { get => _canGoLive; private set => Set(ref _canGoLive, value); }
+    public bool CanStartSharing { get => _canStartSharing; private set => Set(ref _canStartSharing, value); }
 
     /// <summary>
     /// What the button says it will do: start a stream, or restart the one already on the air on
@@ -183,7 +182,7 @@ public sealed class ReviewStepViewModel : Observable
         PromiseLead = words.Lead;
         PromiseTail = words.Tail;
 
-        CanGoLive = gate.CanGoLive;
+        CanStartSharing = gate.CanStartSharing;
         Blocked = gate.Blocked;
         IsBlocked = Blocked.Length > 0;
 
@@ -193,14 +192,18 @@ public sealed class ReviewStepViewModel : Observable
         StreamName = streamName;
         HasStreamName = StreamName.Length > 0;
 
-        GoLiveCommand.Refresh();
+        StartSharingCommand.Refresh();
+
+        // The card draws from the draft and from the store, neither of which this step holds, so
+        // it is rendered rather than fed: what it reads has moved by the time this pass runs.
+        Presets.Apply();
 
         Assert.That(Tiles.Count == groups.Count, "a tile per group of the form", Tiles.Count, groups.Count);
         Assert.That(CommitLabel.Length > 0, "the commit says what pressing it will do", gate.Commit);
         Assert.That(
             PromiseLead.Length > 0 && PromiseTail.Length > 0,
             "the promise carries both halves of the sentence the name sits in", gate.Commit);
-        Assert.That(!CanGoLive || !IsBlocked, "a commit that is offered has nothing standing in its way", Blocked);
+        Assert.That(!CanStartSharing || !IsBlocked, "a commit that is offered has nothing standing in its way", Blocked);
         Assert.That(IsBlocked == (Blocked.Length > 0), "the locked notice and its sentence agree", IsBlocked);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
     }

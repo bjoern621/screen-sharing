@@ -115,18 +115,29 @@ type group struct {
 // what was sent and returning what was repaired would produce a form whose greyed
 // option and whose replacement disagree, which is exactly the fork the contract
 // exists to remove.
+//
+// The built-in presets are resolved against the repaired draft for a sharper form of the
+// same reason: each candidate is kept only if the repair leaves it untouched, so a draft
+// with a stranded value still in it would leave every preset unreachable (presets.go).
 func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	s, repaired := Repair(d, draft)
 
 	est := estimate(d, s)
 	diags := diagnostics(d, s, est)
 
+	// What a fresh installation starts with, which every field states beside its own
+	// value. It is read once and handed down rather than per field: the same row
+	// functions read it as read the draft, and Defaults asks the machine for its
+	// hostname.
+	fresh := settings.Defaults()
+
 	form := &screensharev1.Form{
 		Settings:          wire.Settings(s),
 		RepairedFieldKeys: repaired,
-		Groups:            resolveGroups(d, s),
+		Groups:            resolveGroups(d, s, fresh),
 		Diagnostics:       diags,
 		Summary:           summarize(d, s, est),
+		Presets:           resolvePresets(d, s),
 		Publishable:       publishable(diags),
 	}
 
@@ -142,7 +153,7 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 // can be told about a control it should not draw, and a control no shell should ever
 // draw for these settings is one the form has no reason to name. Both are the same
 // decision - availability's - and this is where the second half of it is spent.
-func resolveGroups(d Deps, s settings.Settings) []*screensharev1.FieldGroup {
+func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGroup {
 	out := make([]*screensharev1.FieldGroup, 0, len(groups))
 	for _, g := range groups {
 		fields := make([]*screensharev1.Field, 0, len(fieldTable))
@@ -151,7 +162,7 @@ func resolveGroups(d Deps, s settings.Settings) []*screensharev1.FieldGroup {
 			if f.group != g.key {
 				continue
 			}
-			fields = append(fields, resolveField(d, s, f))
+			fields = append(fields, resolveField(d, s, fresh, f))
 		}
 		if len(fields) == 0 {
 			continue
@@ -162,23 +173,29 @@ func resolveGroups(d Deps, s settings.Settings) []*screensharev1.FieldGroup {
 }
 
 // resolveField fills one control: its fixed description, what availability decided
-// about it, its current value, and its options or range with each option's own
-// verdict on it.
-func resolveField(d Deps, s settings.Settings, f *field) *screensharev1.Field {
+// about it, its current value, what a fresh installation would hold there, and its
+// options or range with each option's own verdict on it.
+//
+// The default is the row's own value function read against the defaults rather than a
+// second column of the table. One reader for both is what keeps the value a shell
+// writes back and the value it puts back the same shape, and it is why a field added to
+// the table carries a default with nothing else to fill in.
+func resolveField(d Deps, s, fresh settings.Settings, f *field) *screensharev1.Field {
 	assert.IsNotNil(f, "a resolved field belongs to a row of the field table")
 	assert.IsNotNil(f.value, "a control has a value to show", f.key)
 
 	st := fieldState(d, s, f.key)
 
 	out := &screensharev1.Field{
-		Key:     f.key,
-		Control: f.control,
-		Unit:    f.unit,
-		Visible: st.visible,
-		Enabled: st.enabled,
-		Reason:  st.reason,
-		Note:    st.note,
-		Value:   f.value(s),
+		Key:          f.key,
+		Control:      f.control,
+		Unit:         f.unit,
+		Visible:      st.visible,
+		Enabled:      st.enabled,
+		Reason:       st.reason,
+		Note:         st.note,
+		Value:        f.value(s),
+		DefaultValue: f.value(fresh),
 	}
 
 	if f.options != nil {
@@ -190,6 +207,7 @@ func resolveField(d Deps, s settings.Settings, f *field) *screensharev1.Field {
 
 	assert.Assert(st.enabled || st.reason != nil, "a disabled control says why", f.key)
 	assert.IsNotNil(out.GetValue(), "a control shows a value", f.key)
+	assert.IsNotNil(out.GetDefaultValue(), "a control states what it starts as", f.key)
 	return out
 }
 

@@ -66,6 +66,12 @@ type Stream struct {
 	// so a log line can name it; nothing here branches on the protocol.
 	Transport string
 	Source    string
+	// Raw is whether Source hands over pictures rather than a bitstream, which takes
+	// the decoder out of the line and the audio branch with it. A monitor read off
+	// this machine's screen is the case that exists: nothing encoded those frames and
+	// nothing carried them, so there is no format to autoplug a decoder for and no
+	// second track to expose.
+	Raw bool
 }
 
 // Open is what a receiver is opened with besides the stream itself: the render
@@ -150,7 +156,7 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	initGStreamer()
 
 	c := resolve(open.Chain)
-	desc := c.launch(st.Source)
+	desc := c.launch(st.Source, st.Raw)
 	logger.Debugf("stream %q pipeline: %s", st.Name, desc)
 
 	el, err := gst.ParseLaunch(desc)
@@ -189,7 +195,9 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 		"a chain names the filter it bounds its size with", c.name, st.Name)
 
 	r.watchSamples(ev.OnLive)
-	r.watchDecodePads(ev.OnAudio)
+	if !st.Raw {
+		r.watchDecodePads(ev.OnAudio)
+	}
 	r.watchElements()
 
 	go r.watchBus(ctx, ev.OnEnd)

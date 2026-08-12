@@ -15,6 +15,16 @@ namespace ScreenShare.App.Backend;
 public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 
 /// <summary>
+/// One relay snapshot, with when this shell received it.
+///
+/// The arrival time is the shell's own, for the reason <see cref="SessionExit"/> carries one: the
+/// contract puts no clock on a snapshot. A viewer that left is dated by the poll that stopped
+/// naming it and by nothing else, because the relay reports who is connected and never reports
+/// that somebody disconnected.
+/// </summary>
+public sealed record RelayReading(RelayStatus Status, DateTimeOffset At);
+
+/// <summary>
 /// The running state, as the backend last reported it: what is publishing, what the encoder
 /// is measuring, what the relay is carrying, which viewers are open, and what the tile grid
 /// is doing.
@@ -57,15 +67,16 @@ public sealed record SessionExit(string What, ExitInfo Info, DateTimeOffset At);
 public sealed class Session
 {
     /// <summary>
-    /// How many samples a series keeps. Roughly one encoder sample arrives per second per
-    /// running pipeline, so this is about four minutes of stream - enough for a sparkline to
-    /// show a dip and short enough that a session left open overnight costs nothing.
+    /// How many readings a series keeps. Roughly one encoder sample arrives per second per
+    /// running pipeline, so this is about four minutes of stream, and short enough that a session
+    /// left open overnight costs nothing.
     ///
-    /// The relay series is bounded by the same number rather than by a span of its own, and it
-    /// is deliberately a count of samples and not of seconds: how often the backend polls the
-    /// relay is not on the contract, so a window stated in seconds here would be a period this
-    /// side made up. What the two series therefore share is a length in readings, not a length
-    /// in time, which is why neither plot claims the other's window.
+    /// It is a count of readings and not a span of seconds because it is a bound on what this
+    /// class holds rather than a window anything draws: how often the backend polls the relay is
+    /// not on the contract, so a period stated here would be one this side made up. What a plot
+    /// covers is its own decision and a shorter one, taken against the clock each reading carries
+    /// (<c>Features/Broadcast/Plots/Model/PlotSeries.cs</c>). The history is longer than the plot
+    /// so that a card is never the reason a reading was thrown away.
     /// </summary>
     private const int SampleWindow = 240;
 
@@ -80,7 +91,7 @@ public sealed class Session
     private readonly Action<Action> _dispatch;
     private readonly TimeProvider _clock;
     private readonly List<PublishStats> _samples = [];
-    private readonly List<RelayStatus> _relaySamples = [];
+    private readonly List<RelayReading> _relaySamples = [];
     private readonly List<SessionExit> _exits = [];
 
     private CancellationTokenSource? _cancel;
@@ -141,18 +152,24 @@ public sealed class Session
     /// </summary>
     public PublishStats? Stats => _samples.Count == 0 ? null : _samples[^1];
 
-    /// <summary>The encoder samples of this run, oldest first, bounded to the sparkline's window.</summary>
+    /// <summary>The encoder samples of this run, oldest first, bounded to the history above.</summary>
     public IReadOnlyList<PublishStats> Samples => _samples;
 
     /// <summary>The relay snapshot. Null until the first read lands; an unreachable relay is a snapshot that says so.</summary>
-    public RelayStatus? Relay => _relaySamples.Count == 0 ? null : _relaySamples[^1];
+    public RelayStatus? Relay => _relaySamples.Count == 0 ? null : _relaySamples[^1].Status;
 
     /// <summary>
-    /// The relay snapshots of this run, oldest first, bounded to the sparkline's window. The
+    /// The relay snapshots of this run, oldest first, bounded to the same history. The
     /// newest of them is <see cref="Relay"/>, read off the same list rather than held beside it,
     /// so the figure a card reads and the last point of the curve under it cannot disagree.
+    ///
+    /// Two cards read the series rather than the newest snapshot alone, and they ask it different
+    /// questions: the latency plot draws the shape the figures went through, and the session log
+    /// derives who arrived and who left from where consecutive rosters differ
+    /// (<c>Features/Broadcast/Model/Audience.cs</c>). Neither is accumulated here - the series is
+    /// whole states in order, and both answers are functions of it.
     /// </summary>
-    public IReadOnlyList<RelayStatus> RelaySamples => _relaySamples;
+    public IReadOnlyList<RelayReading> RelaySamples => _relaySamples;
 
     /// <summary>
     /// How this shell names the values the backend sends, built from the catalog.
@@ -164,6 +181,34 @@ public sealed class Session
     /// the two facts that are this machine's: what a codec produces, and what a screen shows.
     /// </summary>
     public Vocabulary Words { get; private set; } = Vocabulary.Empty;
+
+    /// <summary>
+    /// The legs the relay serves a player page for, which are the ones a stream can be opened
+    /// over in a browser.
+    ///
+    /// It is a list off the catalog rather than a form field, because there is no setting
+    /// behind it: a menu offers every one of them at once, and a stored preference would be a
+    /// value nothing reads. Empty until the first catalog read lands, which is a menu with
+    /// nothing under it rather than one guessing at protocols.
+    /// </summary>
+    public IReadOnlyList<string> BrowserLegs { get; private set; } = [];
+
+    /// <summary>
+    /// This machine's display outputs, in the enumeration's order. Empty until the catalog has
+    /// arrived, and empty on a machine whose outputs could not be enumerated at all - which is
+    /// a screen that says so rather than a monitor invented at index zero.
+    /// </summary>
+    public IReadOnlyList<Api.V1.Monitor> Monitors { get; private set; } = [];
+
+    /// <summary>
+    /// Why this machine cannot show what a monitor holds, and null where it can.
+    ///
+    /// It is read rather than discovered by asking, which is the discipline every refusal on
+    /// this contract follows: the session decides whether one screen can be read apart from
+    /// another, so the wizard offers the plain list instead of opening previews that would all
+    /// be refused.
+    /// </summary>
+    public Text? NoMonitorPreview { get; private set; }
 
     /// <summary>The external viewers currently open.</summary>
     public IReadOnlyList<WatchKey> Watching { get; private set; } = [];
@@ -179,6 +224,20 @@ public sealed class Session
     /// request instead of a result.
     /// </summary>
     public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
+
+    /// <summary>
+    /// Every monitor the backend is reading into a picture, and whether a frame has come off
+    /// each one yet.
+    ///
+    /// A much shorter row than <see cref="Receiving"/>, and what is missing is what a decode
+    /// has and a screen capture does not: nothing encoded these frames, so there is no decoder
+    /// to name, and nothing carried them, so there is no leg.
+    ///
+    /// Previews outlive the window that asked for one, exactly as decodes do, so this is also
+    /// what the wizard converges against: a shell that restarted finds the previews the last
+    /// one opened and closes the ones nothing is drawing.
+    /// </summary>
+    public IReadOnlyList<PreviewedMonitor> PreviewedMonitors { get; private set; } = [];
 
     /// <summary>
     /// How loud every decode carrying audio is, as of the last tick.
@@ -325,15 +384,20 @@ public sealed class Session
         var relay = await _backend.RelayStatusAsync(cancellation).ConfigureAwait(false);
         var watching = await _backend.WatchingAsync(cancellation).ConfigureAwait(false);
         var receiving = await _backend.ReceivingAsync(cancellation).ConfigureAwait(false);
+        var previewed = await _backend.PreviewedMonitorsAsync(cancellation).ConfigureAwait(false);
 
         Write(() =>
         {
             Unavailable = "";
             Words = new Vocabulary(catalog);
+            BrowserLegs = catalog.BrowserWatchTransports;
+            Monitors = catalog.Monitors;
+            NoMonitorPreview = catalog.NoMonitorPreview;
             Publish = publish;
             TakeRelay(relay);
             Watching = watching;
             Receiving = receiving;
+            PreviewedMonitors = previewed;
             IsLoaded = true;
         });
     }
@@ -445,6 +509,9 @@ public sealed class Session
                 // which codecs this machine can run, and a half-applied catalog would name
                 // one set and grey another.
                 Words = new Vocabulary(change.Catalog);
+                BrowserLegs = change.Catalog.BrowserWatchTransports;
+                Monitors = change.Catalog.Monitors;
+                NoMonitorPreview = change.Catalog.NoMonitorPreview;
                 break;
 
             case Event.PayloadOneofCase.ReceiveState:
@@ -452,6 +519,13 @@ public sealed class Session
                 // arrives on every change, including the first frame of a stream: what a
                 // pipeline negotiated is only knowable once one has left it.
                 Receiving = change.ReceiveState.Streams;
+                break;
+
+            case Event.PayloadOneofCase.MonitorPreviewState:
+                // The monitors being previewed, whole. It arrives when one opens or closes and
+                // again on the first frame off each, which is what turns a preview from
+                // opening into live.
+                PreviewedMonitors = change.MonitorPreviewState.Monitors;
                 break;
 
             case Event.PayloadOneofCase.ViewerState:
@@ -491,7 +565,7 @@ public sealed class Session
     {
         Assert.NotNull(relay, "a relay snapshot is the whole state the backend answered with");
 
-        _relaySamples.Add(relay);
+        _relaySamples.Add(new RelayReading(relay, _clock.GetUtcNow()));
         if (_relaySamples.Count > SampleWindow)
         {
             _relaySamples.RemoveRange(0, _relaySamples.Count - SampleWindow);

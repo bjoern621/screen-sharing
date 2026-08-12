@@ -67,9 +67,9 @@
                   Spacing="{StaticResource GapControl}"
                   VerticalAlignment="Center">
 
-        <controls:StatusPill Label="{Binding OnAirLabel}"
-                             Detail="{Binding OnAirTimer}"
-                             IsVisible="{Binding ShowsOnAir}" />
+        <controls:StatusPill Label="{Binding SharingLabel}"
+                             Detail="{Binding SharingTimer}"
+                             IsVisible="{Binding ShowsSharing}" />
       </StackPanel>
     </Grid>
   </Border>

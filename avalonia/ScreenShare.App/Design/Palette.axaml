@@ -3,7 +3,7 @@
 
   <!--
     The one palette. Greyscale everywhere except a single red, which is reserved strictly
-    for "on air" and "something is wrong" - it is the only hue on screen, and the only one
+    for "sharing" and "something is wrong" - it is the only hue on screen, and the only one
     a colour-blind reader still separates from grey reliably.
 
     Names are roles, not values. A component asks for CardBackgroundBrush; it never names
@@ -31,7 +31,7 @@
   <Color x:Key="White">#FFFFFF</Color>
 
   <!-- The one hue. Never used for state that is merely on. -->
-  <Color x:Key="OnAir">#E5484D</Color>
+  <Color x:Key="Attention">#E5484D</Color>
 
   <!--
     Fluent's accent, overridden to the design's one light surface. Every control this design
@@ -85,7 +85,7 @@
 
   <!-- Text  -->
 
-  <!-- A window title, a promoted figure, text on the on-air pill. -->
+  <!-- A window title, a promoted figure, text on the sharing pill. -->
   <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource White}" />
   <!-- A control's label: a button, a field, a chip. -->
   <SolidColorBrush x:Key="ControlForegroundBrush" Color="{StaticResource Grey100}" />
@@ -104,13 +104,21 @@
 
   <!-- The one hue  -->
 
-  <!-- On air, and a fault. Nothing else is allowed to reach for it. -->
-  <SolidColorBrush x:Key="OnAirBrush" Color="{StaticResource OnAir}" />
+  <!-- Sharing, and a fault. Nothing else is allowed to reach for it. -->
+  <SolidColorBrush x:Key="AttentionBrush" Color="{StaticResource Attention}" />
 
   <!-- Elevation  -->
 
-  <!-- Only two shadows exist in the whole design: a window, and a context menu. -->
-  <SolidColorBrush x:Key="WindowShadowBrush" Color="#38000000" />
-  <SolidColorBrush x:Key="MenuShadowBrush" Color="#8C000000" />
+  <!--
+    Only two shadows exist in the whole design, and only one of them is drawn here: a window's
+    is the platform's, cast by the compositor around the frame, so the app states nothing for
+    it. What is left is the surface that floats over the window - a menu, and the tooltip
+    skinned like one.
+
+    A BoxShadows rather than a brush, because that is the type the setter takes. It is stated
+    once here for the same reason a colour is: a surface asks for the role and does not spell
+    out an offset, a blur and an alpha of its own.
+  -->
+  <BoxShadows x:Key="MenuShadow">0 10 28 0 #8C000000</BoxShadows>
 
 </ResourceDictionary>

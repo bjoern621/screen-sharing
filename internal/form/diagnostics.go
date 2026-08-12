@@ -22,7 +22,7 @@ var warningAnchors = []string{
 	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
-	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEncPreset,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,

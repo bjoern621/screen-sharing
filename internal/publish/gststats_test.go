@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"bjoernblessin.de/screenshare/internal/settings"
 )
 
 // The parser takes the cumulative counts off a progress line and ignores every
@@ -65,7 +63,7 @@ func TestGstMeterSamples(t *testing.T) {
 // The instrumentation splits the encoded stream between the parser and the
 // muxer, and the displayed command carries none of it.
 func TestGstProgressElementsPlacement(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Capture = "portal"
 	s.Publish.Transport = "srt"
 	// The default planar RGB has no encoder element on this engine, which the form

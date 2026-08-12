@@ -20,11 +20,12 @@
         Foreground="{StaticResource ControlForegroundBrush}">
 
   <!--
-    Both halves of the app-drawn caption are switched on from the code-behind, off one fact
-    (Features/Shell/Model/WindowChrome.cs). Where the desktop is left to draw the frame - every
-    Linux desktop - the client area is not extended, this theme is not applied and the band
-    below is not drawn, so what appears above the nav strip is whatever that desktop puts
-    there, which on a tiling session is nothing.
+    Both window hints for the app-drawn caption are switched on from the code-behind, off one
+    fact (Features/Shell/Model/WindowChrome.cs); the band that stands in for the caption reads
+    the same fact through the shell. Where the desktop is left to draw the frame - every Linux
+    desktop - the client area is not extended, this theme is not applied and the band is not
+    drawn, so what appears above the nav strip is whatever that desktop puts there, which on a
+    tiling session is nothing.
 
     Where the app does draw it, the decorations stay Full and the client area is extended over
     them, rather than the window asking for BorderOnly. BorderOnly drops the caption from the
@@ -59,6 +60,16 @@
     </ControlTheme>
   </Window.Resources>
 
+  <Window.KeyBindings>
+    <!--
+      Escape gives the window back to its grid. A stream filling the window draws no rail, no band
+      and no menu, so the keyboard is what a reader still has; and it names that state rather than
+      toggling one, so the same key on any other screen changes nothing
+      (Features/Viewer/Model/TileIntent.cs).
+    -->
+    <KeyBinding Gesture="Escape" Command="{Binding Viewer.LeaveFullscreen}" />
+  </Window.KeyBindings>
+
   <!--
     How a destination becomes a screen. The shell picks the view model; the template picks
     the view. Nothing in the shell names a view type, which is what lets the three slices be
@@ -80,6 +91,11 @@
     Four rows: two fixed chrome bands, the strip, and everything else. The three fixed
     heights come from the bands themselves, so the window states none of them twice.
 
+    All three bands come off the window while one stream is filling it, and each is bound to the
+    same fact rather than hidden by whoever moved it: a fullscreen picture under a nav strip is the
+    app filling the screen instead of the stream (Features/Shell/ViewModel/ShellViewModel.cs). A
+    row whose band is not drawn takes no height, so the body has the window.
+
     Maximised, Windows hangs the frame's resize border off every edge of the work area, and
     the client area goes with it: unpadded, the title bar's inset and the status bar's last
     line sit under the screen edge. OffScreenMargin is exactly that overhang, and it is read
@@ -94,9 +110,18 @@
       gesture is the platform's either way: the band marks itself as the caption's drag area,
       so no press handler here has to start one.
     -->
-    <titlebar:TitleBarView Grid.Row="0" x:Name="Caption" DataContext="{Binding TitleBar}" />
+    <!--
+      Each band's own data context is its view model, so whether it is drawn is read off the
+      window's rather than off the band's: the fact belongs to the shell and none of the three
+      carries a copy of it.
+    -->
+    <titlebar:TitleBarView Grid.Row="0"
+                           IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasCaption}"
+                           DataContext="{Binding TitleBar}" />
 
-    <navstrip:NavStripView Grid.Row="1" DataContext="{Binding Nav}" />
+    <navstrip:NavStripView Grid.Row="1"
+                           IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasChrome}"
+                           DataContext="{Binding Nav}" />
 
     <!-- Stretched on both axes: a destination owns the whole body, not a centred island. -->
     <ContentControl Grid.Row="2"
@@ -104,6 +129,8 @@
                     HorizontalContentAlignment="Stretch"
                     VerticalContentAlignment="Stretch" />
 
-    <statusbar:StatusBarView Grid.Row="3" DataContext="{Binding StatusBar}" />
+    <statusbar:StatusBarView Grid.Row="3"
+                             IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasChrome}"
+                             DataContext="{Binding StatusBar}" />
   </Grid>
 </Window>

@@ -11,8 +11,9 @@
     prose: a width to wrap against, and the wrap itself, which Fluent's does not do.
 
     It is skinned like the context menu rather than like a control, because that is what it
-    is: a surface that floats above the window. The menu's shadow is the second of the two
-    the design allows, and a tooltip is the same kind of thing.
+    is: a surface that floats above the window. It takes the same shadow for the same reason,
+    and it is the same one the menu draws (Design/Palette.axaml) rather than a second value -
+    a tooltip opening over a video tile has nothing else to separate it from the picture.
   -->
 
   <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
@@ -33,7 +34,8 @@
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="{TemplateBinding BorderThickness}"
                 CornerRadius="{TemplateBinding CornerRadius}"
-                Padding="{TemplateBinding Padding}">
+                Padding="{TemplateBinding Padding}"
+                BoxShadow="{StaticResource MenuShadow}">
           <ContentPresenter Content="{TemplateBinding Content}"
                             ContentTemplate="{TemplateBinding ContentTemplate}"
                             HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"

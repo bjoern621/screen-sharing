@@ -20,6 +20,7 @@
         <ResourceInclude Source="/Design/Metrics.axaml" />
         <ResourceInclude Source="/Design/Buttons.axaml" />
         <ResourceInclude Source="/Design/Inputs.axaml" />
+        <ResourceInclude Source="/Design/Menus.axaml" />
         <ResourceInclude Source="/Design/Tooltips.axaml" />
         <ResourceInclude Source="/Controls/Chip/Chip.axaml" />
         <ResourceInclude Source="/Controls/Spinner/Spinner.axaml" />

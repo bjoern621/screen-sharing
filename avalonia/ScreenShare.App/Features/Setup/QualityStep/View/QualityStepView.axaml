@@ -167,7 +167,7 @@
             <Grid ColumnDefinitions="29*,12*,22*,37*">
               <Border Grid.Column="0" Background="{StaticResource ChipBorderBrush}" />
               <Border Grid.Column="1" Background="{StaticResource ForegroundBrush}" />
-              <Border Grid.Column="3" Background="{StaticResource OnAirBrush}" Opacity="0.25" />
+              <Border Grid.Column="3" Background="{StaticResource AttentionBrush}" Opacity="0.25" />
             </Grid>
           </Border>
 
@@ -189,7 +189,7 @@
         <Grid ColumnDefinitions="29*,12*,22*,37*" Margin="0,6,0,0">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0 — visually lossless, huge" />
           <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="18–24 recommended for screen content" />
-          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource OnAirBrush}" Text="51 — unusable" />
+          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="51 — unusable" />
         </Grid>
 
         <!-- Why the control is inert, in its place rather than in a log line. -->
@@ -263,7 +263,6 @@
                   <MenuFlyout ItemsSource="{Binding Options}"
                               ItemTemplate="{StaticResource SelectEntry}"
                               ItemContainerTheme="{StaticResource SelectMenuItem}"
-                              FlyoutPresenterTheme="{StaticResource SelectMenu}"
                               Placement="BottomEdgeAlignedLeft" />
                 </Button.Flyout>
               </Button>

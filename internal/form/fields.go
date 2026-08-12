@@ -180,6 +180,16 @@ var fieldTable = []field{
 		options: optionEfforts,
 	},
 	{
+		// Beside the effort step, because the two are one decision read twice: how hard
+		// the encoder works, and what it works towards. A ladder the codec does not
+		// declare greys the control naming that codec, the same answer the step gets.
+		key:     KeyTune,
+		group:   GroupQuality,
+		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Tune) },
+		options: optionTunes,
+	},
+	{
 		// The one radio: five choices carrying a paragraph each, which is what
 		// CONTROL_KIND_RADIO is reserved for. Every other closed set here is a select.
 		key:     KeyMode,

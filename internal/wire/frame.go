@@ -14,27 +14,44 @@ import (
 // has no contract value is a kind this build declared and did not carry, which is a
 // broken internal contract rather than a condition to survive, so it asserts.
 
+// FrameSourceKind names which of the three pictures a subscription draws from.
+//
+// It is an explicit discriminator rather than a nil pointer, which is what the two-armed
+// version of this type used. Two arms can be told apart by whether the one that carries a
+// key has it; three cannot, because the arm that carries nothing and the zero value would
+// be the same value, and "the caller named nothing" and "the caller named the publish
+// preview" are the difference between a refusal and a subscription.
+type FrameSourceKind int
+
+const (
+	// FrameSourceRelay is a decode of one stream on one leg, which StartReceive opened.
+	FrameSourceRelay FrameSourceKind = iota + 1
+	// FrameSourcePublishPreview is the running publish's local decode of itself.
+	FrameSourcePublishPreview
+	// FrameSourceMonitorPreview is one of this machine's screens, read live.
+	FrameSourceMonitorPreview
+)
+
 // FrameSource is what one frame subscription draws from.
 //
-// It is the domain side of screenshare.v1.FrameSubscribe and discriminates the same way
-// PublishSnapshot does: the inner pointer is the whole of the distinction. A relay
-// decode carries the pair that identifies it, because the relay re-serves each stream on
-// all its listeners and one stream can be decoded over several protocols at once. The
-// running publish's local preview carries nothing, because at most one publish runs and
-// the preview is part of it - a name or a port here would be the caller restating
-// something it read off the publish state.
+// It is the domain side of screenshare.v1.FrameSubscribe, and each arm carries exactly
+// what tells one of its own kind apart. A relay decode carries the pair that identifies
+// it, because the relay re-serves each stream on all its listeners and one stream can be
+// decoded over several protocols at once. The publish preview carries nothing, because at
+// most one publish runs and the preview is part of it. A monitor preview carries the
+// output's index, because a machine has as many screens as it has outputs.
 type FrameSource struct {
-	// Stream is the relay decode this subscription names, nil for the publish preview.
-	Stream *WatchKey
+	Kind FrameSourceKind
+	// Stream identifies the relay decode, and is meaningful on FrameSourceRelay alone.
+	Stream WatchKey
+	// Monitor is the previewed output's index, meaningful on FrameSourceMonitorPreview
+	// alone.
+	Monitor int
 }
 
-// Preview reports whether this subscription draws from the publish's local preview
-// rather than from a relay decode.
-func (f FrameSource) Preview() bool { return f.Stream == nil }
-
-// FrameSourceOf reads what a subscription named back off the contract, and false where
-// it named neither - a request the control service refuses with INVALID_ARGUMENT rather
-// than guessing at.
+// FrameSourceOf reads what a subscription named back off the contract, and false where it
+// named none of the three - a request the control service refuses with INVALID_ARGUMENT
+// rather than guessing at.
 //
 // A relay decode with half a key is left as it arrived rather than rejected here: which
 // half is missing is a sentence the service writes, and this is the shape it reads to
@@ -42,10 +59,14 @@ func (f FrameSource) Preview() bool { return f.Stream == nil }
 func FrameSourceOf(m *screensharev1.FrameSubscribe) (FrameSource, bool) {
 	switch {
 	case m.GetStream() != nil:
-		key := WatchKeyOf(m.GetStream())
-		return FrameSource{Stream: &key}, true
+		return FrameSource{Kind: FrameSourceRelay, Stream: WatchKeyOf(m.GetStream())}, true
 	case m.GetPublishPreview() != nil:
-		return FrameSource{}, true
+		return FrameSource{Kind: FrameSourcePublishPreview}, true
+	case m.GetMonitorPreview() != nil:
+		return FrameSource{
+			Kind:    FrameSourceMonitorPreview,
+			Monitor: int(m.GetMonitorPreview().GetMonitor()),
+		}, true
 	default:
 		return FrameSource{}, false
 	}

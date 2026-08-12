@@ -33,7 +33,7 @@ public sealed class SetupResolveTests
     /// <summary>
     /// Reads every running state once and stops before the reconnect delay, so what the session
     /// found is on it and nothing is left dialling behind the assertions. The same helper
-    /// <see cref="GoLiveTests"/> uses, and it is not awaited for the same reason: the read it
+    /// <see cref="StartSharingTests"/> uses, and it is not awaited for the same reason: the read it
     /// starts is finished by the time it returns, and the task it hands back is the loop that
     /// follows the event stream afterwards.
     /// </summary>

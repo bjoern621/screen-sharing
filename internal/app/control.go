@@ -116,6 +116,26 @@ func (b controlBackend) SubscribePreviewFrames() (control.FrameStream, error) {
 	return frames, nil
 }
 
+// SubscribeMonitorFrames returns the interface value rather than the concrete
+// subscription, for the reason SubscribePreviewFrames does.
+func (b controlBackend) SubscribeMonitorFrames(monitor int) (control.FrameStream, error) {
+	frames, err := b.app.SubscribeMonitorFrames(monitor)
+	if err != nil {
+		return nil, err
+	}
+	return frames, nil
+}
+
+func (b controlBackend) StartMonitorPreview(monitor int) error {
+	return b.app.StartMonitorPreview(monitor)
+}
+
+func (b controlBackend) StopMonitorPreview(monitor int) { b.app.StopMonitorPreview(monitor) }
+
+func (b controlBackend) MonitorPreviewState() []wire.PreviewedMonitor {
+	return b.app.MonitorPreviewState()
+}
+
 func (b controlBackend) StartReceive(key wire.WatchKey) error {
 	return b.app.StartReceive(key.StreamName, key.Transport)
 }
@@ -133,6 +153,10 @@ func (b controlBackend) AudioLevels() []wire.AudioLevel     { return b.app.Audio
 
 func (b controlBackend) StopWatch(key wire.WatchKey) {
 	b.app.StopWatch(key.StreamName, key.Transport)
+}
+
+func (b controlBackend) OpenInBrowser(key wire.WatchKey) error {
+	return b.app.OpenInBrowser(key.StreamName, key.Transport)
 }
 
 func (b controlBackend) StartTestStreams(count int) error { return b.app.StartTestStreams(count) }

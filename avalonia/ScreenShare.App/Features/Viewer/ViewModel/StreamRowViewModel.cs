@@ -21,8 +21,10 @@ namespace ScreenShare.App.Features.Viewer.ViewModel;
 public sealed class StreamRowViewModel : Observable
 {
     private readonly Func<string, string, bool, Task> _watch;
+    private readonly Func<string, string, Task> _browse;
     private readonly Action<Action> _dispatch;
     private readonly Dictionary<string, PendingCommand> _toggles = [];
+    private readonly Dictionary<string, PendingCommand> _pages = [];
 
     /// <summary>
     /// Whether this stream is in the grid, read when the command runs rather than captured, so
@@ -37,17 +39,21 @@ public sealed class StreamRowViewModel : Observable
         string name,
         Func<string, string, bool, Task> watch,
         Func<string, bool, Task> tile,
+        Func<string, string, Task> browse,
         Action<Action> dispatch)
     {
         Assert.That(name.Length > 0, "a stream row names the stream it stands for");
         Assert.NotNull(watch, "a stream row needs somewhere to ask for a viewer");
         Assert.NotNull(tile, "a stream row needs somewhere to ask for a tile");
+        Assert.NotNull(browse, "a stream row needs somewhere to ask for a page in the browser");
         Assert.NotNull(dispatch, "a stream row needs a UI loop to marshal an answer back to");
 
         Name = name;
         _watch = watch;
+        _browse = browse;
         _dispatch = dispatch;
         Legs = [];
+        BrowserLegs = [];
 
         // Made once, like the leg commands and for the same reason: a row is kept across
         // passes, and a command rebuilt per pass would be a button that loses its press.
@@ -72,6 +78,15 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>The legs a viewer can be opened on, in the order the backend offered them.</summary>
     public ObservableCollection<WatchLegViewModel> Legs { get; }
+
+    /// <summary>
+    /// The legs the relay serves a player page for, in the order the backend offered them.
+    ///
+    /// A second list rather than a flag on the first, because the two rosters are different
+    /// sets and neither contains the other: no player opens WHEP, and a browser reaches
+    /// neither SRT nor RTSP.
+    /// </summary>
+    public ObservableCollection<BrowserLegViewModel> BrowserLegs { get; }
 
     /// <summary>The rate while the stream runs, and what it is doing otherwise.</summary>
     public string Detail { get => _detail; private set => Set(ref _detail, value); }
@@ -125,11 +140,12 @@ public sealed class StreamRowViewModel : Observable
     /// The one render function. Safe to run twice: every output is written on every pass, the
     /// legs compare equal across two passes over one row, and the commands are reused by value.
     /// </summary>
-    public void Apply(StreamRow row, IReadOnlyList<WatchLeg> legs, bool tiled)
+    public void Apply(StreamRow row, IReadOnlyList<WatchLeg> legs, IReadOnlyList<WatchLeg> browserLegs, bool tiled)
     {
         Assert.NotNull(row, "a row renders the stream the relay reported");
         Assert.That(row.Name == Name, "a row renders the stream it was made for", Name, row.Name);
         Assert.NotNull(legs, "a row offers the legs the backend named");
+        Assert.NotNull(browserLegs, "a row offers the browser legs the backend named");
 
         _watchedOn = row.WatchedOn;
         _tiled = tiled;
@@ -148,10 +164,26 @@ public sealed class StreamRowViewModel : Observable
             Value = leg.Value,
             Label = leg.Label,
             IsOpen = row.WatchedOn.Contains(leg.Value),
+
+            // A leg already open stays pressable whatever the availability pass says about it,
+            // because the press closes it. Greying it would leave a player running with the one
+            // control that ends it inert, which is a worse state than the one the greying is
+            // about (docs/field-availability.md).
+            IsEnabled = leg.IsEnabled || row.WatchedOn.Contains(leg.Value),
+            Reason = leg.Reason,
             Toggle = ToggleOf(leg.Value),
         }).ToList());
 
+        Reconcile.Onto(BrowserLegs, browserLegs.Select(leg => new BrowserLegViewModel
+        {
+            Value = leg.Value,
+            Label = leg.Label,
+            Open = PageOf(leg.Value),
+        }).ToList());
+
         Assert.That(Legs.Count == legs.Count, "a control per offered leg", Legs.Count, legs.Count);
+        Assert.That(BrowserLegs.Count == browserLegs.Count,
+            "a control per offered browser leg", BrowserLegs.Count, browserLegs.Count);
         Assert.That(IsWatched == Legs.Any(leg => leg.IsOpen) || row.WatchedOn.Count > 0,
             "a watched stream has a leg to close", Name, row.WatchedOn.Count);
     }
@@ -177,10 +209,37 @@ public sealed class StreamRowViewModel : Observable
         _toggles[transport] = command;
         return command;
     }
+
+    /// <summary>
+    /// The command for one browser leg, made once and reused for the reason the leg toggles
+    /// are: a row outlives a pass, and a command rebuilt per pass is a row that loses a press.
+    ///
+    /// It reads nothing when it runs, which is what separates it from a toggle: there is one
+    /// direction, because a page this app opened is one it cannot find again.
+    /// </summary>
+    private PendingCommand PageOf(string transport)
+    {
+        if (_pages.TryGetValue(transport, out var command))
+        {
+            return command;
+        }
+
+        command = new PendingCommand(() => _browse(Name, transport), _dispatch);
+
+        _pages[transport] = command;
+        return command;
+    }
 }
 
 /// <summary>
-/// One transport the backend offered as a watch leg: the value <c>StartWatch</c> takes and the
-/// label a control shows. Both come off an option of the form's watch-leg field.
+/// One transport the backend offered as a watch leg: the value <c>StartWatch</c> takes, the label
+/// a control shows, and whether this machine can be opened on it at all. All of it comes off an
+/// option of the form's watch-leg field.
+///
+/// The verdict travels with the entry rather than beside it, because a list of legs and a
+/// separate list of the ones that are reachable are two facts free to disagree - and the one
+/// that would be wrong is the one a menu draws.
 /// </summary>
-public sealed record WatchLeg(string Value, string Label);
+/// <param name="IsEnabled">Whether the option is reachable, as the availability pass answered.</param>
+/// <param name="Reason">Why it is not, and empty where it is (<c>docs/field-availability.md</c>).</param>
+public sealed record WatchLeg(string Value, string Label, bool IsEnabled, string Reason);

@@ -1,6 +1,8 @@
 using Avalonia;
 using ScreenShare.Api.V1;
+using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Features.Broadcast.Plots.Model;
 using ScreenShare.App.Mvvm;
@@ -23,7 +25,7 @@ public sealed class PlotsViewModel : Observable
 
     private BroadcastSnapshot _snapshot = BroadcastSnapshot.Unread;
     private IReadOnlyList<PublishStats> _samples = [];
-    private IReadOnlyList<RelayStatus> _relaySamples = [];
+    private IReadOnlyList<RelayReading> _relaySamples = [];
 
     public BroadcastSnapshot Snapshot
     {
@@ -62,7 +64,7 @@ public sealed class PlotsViewModel : Observable
     /// stream's is the reading's answer, so the two are read together on every pass rather than
     /// this holding a name of its own.
     /// </summary>
-    public IReadOnlyList<RelayStatus> RelaySamples
+    public IReadOnlyList<RelayReading> RelaySamples
     {
         get => _relaySamples;
         set
@@ -122,9 +124,9 @@ public sealed class PlotsViewModel : Observable
     public double CeilingFraction { get => _ceilingFraction; private set => Set(ref _ceilingFraction, value); }
 
     /// <summary>
-    /// How much stream the plot covers, e.g. <c>240 s</c>, empty where it covers none. It is
-    /// measured off the samples on screen rather than stated as a fixed window, because the run
-    /// is younger than the window it will eventually fill.
+    /// How much stream the plot covers, e.g. <c>60 s</c>, empty where it draws no curve. It is
+    /// the axis rather than a measurement of the run: the width is that span whether or not the
+    /// stream has been up that long, and the curve fills as much of it as has happened.
     /// </summary>
     public string Window { get => _window; private set => Set(ref _window, value); }
 
@@ -176,13 +178,13 @@ public sealed class PlotsViewModel : Observable
             : !reading.IsLive ? "nothing is publishing"
             : reading.Viewers is null or 0 ? "nobody is watching yet"
             : reading.RttMs is not null ? "waiting for the relay's next snapshot"
-            : "no viewer is on a leg the relay times";
+            : Cards.Untimed(reading.Legs);
 
-        // The window is the samples' own span. It is stated rather than fixed because the plot
-        // stretches whatever the session holds across the card: a run a minute old and a run an
-        // hour old fill the same width, and a constant label under one of them is wrong.
-        var span = PlotSeries.Span(Samples);
-        Window = HasEgress && span is not null ? $"{span.Value:0} s" : "";
+        // The label names the axis, and the axis is fixed: the card is a minute of stream wide
+        // whether or not a minute of it has happened yet, so a young run is a curve against the
+        // right edge rather than one stretched over a span it does not cover. It is read off the
+        // constant the points are placed by, so the two cannot come to say different things.
+        Window = HasEgress ? $"{PlotSeries.WindowSeconds:0} s" : "";
 
         // The band names a congestion window nothing detects, so it carries the word alone
         // rather than a timestamp that would be invented. The ceiling is the setting the

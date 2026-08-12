@@ -21,6 +21,20 @@ import (
 // structure, and a stall is a failure like any other, not a reason to wait.
 const encodeTimeout = 20 * time.Second
 
+// baseStream is the default draft with the two ladder steps left unnamed.
+//
+// The tests in this package reach every codec off one draft, and a step is one encoder's
+// own identifier, so a draft carrying the default codec's step would hand most of them a
+// step from an encoder that never heard of it - which the builder refuses, the way it
+// refuses the default quantizer on a codec whose scale stops below it. An unnamed step is
+// the codec's declared one (capabilities.Ladder.Resolve), so each codec here encodes at
+// the step its own row names for the mode under test.
+func baseStream() settings.Settings {
+	s := settings.Defaults()
+	s.Publish.Effort, s.Publish.Tune = "", ""
+	return s
+}
+
 // The encoder mappings are a wire format shared with GStreamer: every element name
 // has to exist, every property has to be spelled the way that element spells it, and
 // every value has to sit in its range. None of that holds against a compiler, and a
@@ -59,7 +73,7 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 				continue
 			}
 			t.Run(name+"/"+mode, func(t *testing.T) {
-				s := settings.Defaults()
+				s := baseStream()
 				s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = name, mode, engineChromas[len(engineChromas)-1]
 				// The quantizer target rides each encoder's own scale, and the default
 				// settings carry one from another codec's.
@@ -143,7 +157,7 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 	for _, name := range []string{"libx264", "libvpx-vp9", "librav1e", "vp9_qsv"} {
 		cap, _ := capabilities.Get(name)
 		cqMax := cap.CqMaxOn(EngineGst)
-		s := settings.Defaults()
+		s := baseStream()
 		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma, s.Publish.Cq = name, "crf", cap.EngineChromas(EngineGst)[0], cqMax
 		encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 		if err != nil {
@@ -161,7 +175,7 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 // at the floor would run 100 Mbit/s where 20 was asked for, and the ffmpeg engine hands
 // the same settings to the same hardware as -b:v 20M -maxrate 200M.
 func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", "vbr"
 	s.Publish.BitrateM, s.Publish.MaxrateM = 20, 200
 	_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
@@ -201,7 +215,7 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 		{"abr", aboveBoundM/vaAbrPeak + 1, 0},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
-			s := settings.Defaults()
+			s := baseStream()
 			s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", tc.mode
 			s.Publish.BitrateM, s.Publish.MaxrateM = tc.bitrateM, tc.maxrateM
 			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
@@ -215,7 +229,7 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	}
 
 	// The bound itself is a rate the property takes.
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", "cbr"
 	s.Publish.BitrateM = vaMaxBitrateKbps / 1000
 	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
@@ -238,7 +252,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 		{"abr", aboveBoundM/qsvAbrPeak + 1, 0},
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
-			s := settings.Defaults()
+			s := baseStream()
 			s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "av1_qsv", "yuv420p", tc.mode
 			s.Publish.BitrateM, s.Publish.MaxrateM = tc.bitrateM, tc.maxrateM
 			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
@@ -259,7 +273,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 	}
 
 	// The bound itself is a rate the property takes, and crf drives no rate at all.
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "av1_qsv", "yuv420p", "cbr"
 	s.Publish.BitrateM = qsvShortBitrateKbps / 1000
 	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
@@ -273,19 +287,23 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 
 // The two engines drive one SVT-AV1 library through different bindings, so a
 // stream's look must not depend on which capture backend produced it. The preset
-// is the knob that decides that look, and each engine states it in its own file,
-// which a comment asks to keep equal and nothing enforced.
+// is the knob that decides that look, and both builders now take it off the codec's
+// row, so what this holds is that neither of them spells a value of its own into the
+// command.
 //
-// The ffmpeg side is read out of the built command rather than from its constant,
-// since the constant is unexported to this package and what matters is the value
-// that reaches the encoder either way.
+// Both sides are read out of what was built rather than from a table, since a test that
+// asked the row would agree with itself whatever the builders spend.
 func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
-	s := settings.Defaults()
+	s := baseStream()
 	s.Publish.Codec = "libsvtav1"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Transport = "rtsp"
 	s.Publish.Mode = "crf"
 	s.Publish.Capture = "x11grab"
+	// The steps this codec declares, which is what a draft naming it holds after the
+	// migration or the repair. The defaults carry another encoder's, and both builders
+	// refuse a step off the ladder rather than encoding at one the row never named.
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 
 	args, err := ffmpeg.BuildPublishArgs(s, nil)
 	if err != nil {
@@ -300,9 +318,23 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	if ffmpegPreset == "" {
 		t.Fatalf("the ffmpeg libsvtav1 command carries no preset: %v", args)
 	}
-	if ffmpegPreset != svtav1Preset {
+
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gstPreset := ""
+	for _, p := range encoder {
+		if value, ok := strings.CutPrefix(p, "preset="); ok {
+			gstPreset = value
+		}
+	}
+	if gstPreset == "" {
+		t.Fatalf("the svtav1enc element carries no preset: %v", encoder)
+	}
+	if ffmpegPreset != gstPreset {
 		t.Errorf("ffmpeg encodes SVT-AV1 at preset %s, this engine at %s: one library, two looks",
-			ffmpegPreset, svtav1Preset)
+			ffmpegPreset, gstPreset)
 	}
 }
 
@@ -325,7 +357,7 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		}
 		built := map[string]string{}
 		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
-			s := settings.Defaults()
+			s := baseStream()
 			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[0]
 			// A rate every element's property takes, so what this compares is the two
 			// modes and not one codec's rate bound. The defaults sit above SVT-AV1's

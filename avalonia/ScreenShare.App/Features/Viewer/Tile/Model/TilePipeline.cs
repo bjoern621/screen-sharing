@@ -59,4 +59,20 @@ public readonly record struct TilePipeline(
         : new TilePipeline(
             preview.Live, preview.Chain, preview.RenderMemory, preview.Decoder, preview.Hardware,
             HasAudio: false, Volume: 1, Muted: false);
+
+    /// <summary>
+    /// The state of one monitor's preview, and null where the backend is reading no such screen.
+    ///
+    /// <b>It is the shortest of the three, and the empty fields are facts rather than gaps.</b>
+    /// Nothing encoded these frames, so there is no decoder to name and no hardware verdict to
+    /// give; nothing carried them, so there is no leg; and a screen has no sound track. What is
+    /// left is whether a picture has come off the screen yet, which is what separates a preview
+    /// that is opening from one that is drawing. The figures strip prints what it is given, so
+    /// the empty ones simply do not appear.
+    /// </summary>
+    public static TilePipeline? Of(PreviewedMonitor? screen) => screen is null
+        ? null
+        : new TilePipeline(
+            screen.Live, Chain: "", RenderMemory: "", Decoder: "", Hardware: false,
+            HasAudio: false, Volume: 1, Muted: false);
 }

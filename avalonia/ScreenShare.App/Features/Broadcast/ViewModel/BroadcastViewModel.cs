@@ -215,7 +215,7 @@ public sealed class BroadcastViewModel : Observable
         Config.Reported = Rows(_form, _session.Words);
         Viewers.Reported = Watching(_session.Relay, reading.Stream);
         Viewers.Readers = reading.Viewers;
-        Log.Recorded = Recorded(_session.Exits);
+        Log.Recorded = Recorded(_session.Exits, Audience.Of(_session.RelaySamples, reading.Stream));
 
         Config.Apply();
         Viewers.Apply();
@@ -380,19 +380,29 @@ public sealed class BroadcastViewModel : Observable
     }
 
     /// <summary>
-    /// The log lines: what the event stream reported ended, newest first. The order is reversed
-    /// here rather than in the session, because the session holds them as they happened and the
-    /// card reads them as news.
+    /// The log lines, newest first: what the event stream reported ended, and who started or
+    /// stopped watching. The two are interleaved by time rather than shown in two lists, because
+    /// they answer one question - what has happened to this stream - and the useful reading of a
+    /// pipeline that died is the viewers that left in the same second.
+    ///
+    /// The order is composed here rather than in the session, because the session holds both as
+    /// they happened and the card reads them as news.
     /// </summary>
-    private static IReadOnlyList<LogLine> Recorded(IReadOnlyList<SessionExit> exits)
+    private static IReadOnlyList<LogLine> Recorded(
+        IReadOnlyList<SessionExit> exits, IReadOnlyList<AudienceChange> audience)
     {
-        var lines = new List<LogLine>(exits.Count);
-        for (var i = exits.Count - 1; i >= 0; i--)
+        var entries = new List<(DateTimeOffset At, LogLine Line)>(exits.Count + audience.Count);
+        foreach (var exit in exits)
         {
-            lines.Add(LogLine.Of(exits[i]));
+            entries.Add((exit.At, LogLine.Of(exit)));
         }
 
-        return lines;
+        foreach (var change in audience)
+        {
+            entries.Add((change.At, LogLine.Of(change)));
+        }
+
+        return entries.OrderByDescending(entry => entry.At).Select(entry => entry.Line).ToList();
     }
 
     // --- The effects ----------------------------------------------------------------

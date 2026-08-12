@@ -45,6 +45,7 @@ var Kinds = []screensharev1.EventKind{
 	screensharev1.EventKind_EVENT_KIND_SETTINGS_CHANGED,
 	screensharev1.EventKind_EVENT_KIND_RECEIVE_STATE,
 	screensharev1.EventKind_EVENT_KIND_RECEIVE_EXIT,
+	screensharev1.EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE,
 }
 
 // queueDepth is how many events one subscriber may fall behind by before the
@@ -221,6 +222,8 @@ func KindOf(e *screensharev1.Event) screensharev1.EventKind {
 		return screensharev1.EventKind_EVENT_KIND_RECEIVE_STATE
 	case *screensharev1.Event_ReceiveExit:
 		return screensharev1.EventKind_EVENT_KIND_RECEIVE_EXIT
+	case *screensharev1.Event_MonitorPreviewState:
+		return screensharev1.EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE
 	default:
 		assert.Never("unexpected event payload", e.GetPayload())
 		return screensharev1.EventKind_EVENT_KIND_UNSPECIFIED

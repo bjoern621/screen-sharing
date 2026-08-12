@@ -191,6 +191,28 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+    {
+        var answer = await ReadAsync(
+            c => c.GetMonitorPreviewStateAsync(new GetMonitorPreviewStateRequest(), cancellationToken: cancellation), cancellation)
+            .ConfigureAwait(false);
+
+        return answer.Monitors;
+    }
+
+    /// <inheritdoc />
+    public async Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+    {
+        var answer = await ReadAsync(
+            c => c.ListPresetsAsync(new ListPresetsRequest(), cancellationToken: cancellation), cancellation)
+            .ConfigureAwait(false);
+
+        // Both halves of the answer, because an empty list without the notice is the wrong
+        // sentence on a machine whose store could not be read (PresetStore).
+        return new PresetStore(answer.Presets, answer.Notice);
+    }
+
+    /// <inheritdoc />
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
         Assert.NotNull(settings, "starting a publish names the settings the encoder runs on");
@@ -221,6 +243,28 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+    {
+        Assert.That(name.Length > 0, "a preset is saved under a name");
+        Assert.NotNull(settings, "a preset is the way of publishing it was saved from");
+
+        return ReadAsync(
+            c => c.SavePresetAsync(
+                new SavePresetRequest { Name = name, Settings = settings }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
+    public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+    {
+        Assert.That(name.Length > 0, "a preset is deleted by the name it was saved under");
+
+        return ReadAsync(
+            c => c.DeletePresetAsync(new DeletePresetRequest { Name = name }, cancellationToken: cancellation),
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task StopPublishAsync(CancellationToken cancellation = default)
         => ReadAsync(c => c.StopPublishAsync(new StopPublishRequest(), cancellationToken: cancellation), cancellation);
 
@@ -241,6 +285,12 @@ public sealed class ControlBackend : IBackend
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "closing a viewer",
             (c, key) => c.StopWatchAsync(new StopWatchRequest { Viewer = key }, cancellationToken: cancellation),
+            cancellation);
+
+    /// <inheritdoc />
+    public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => KeyedAsync(streamName, transport, "opening a page in the browser",
+            (c, key) => c.OpenInBrowserAsync(new OpenInBrowserRequest { Viewer = key }, cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
@@ -294,6 +344,35 @@ public sealed class ControlBackend : IBackend
         try
         {
             return await FrameChannel.OpenPreviewAsync(_frames, cancellation).ConfigureAwait(false);
+        }
+        catch (RpcException e)
+        {
+            throw Translate(e, cancellation);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => ReadAsync(
+            c => c.StartMonitorPreviewAsync(
+                new StartMonitorPreviewRequest { Monitor = monitor }, cancellationToken: cancellation),
+            cancellation);
+
+    /// <inheritdoc />
+    public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => ReadAsync(
+            c => c.StopMonitorPreviewAsync(
+                new StopMonitorPreviewRequest { Monitor = monitor }, cancellationToken: cancellation),
+            cancellation);
+
+    /// <inheritdoc />
+    public async Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+    {
+        await GreetAsync().ConfigureAwait(false);
+
+        try
+        {
+            return await FrameChannel.OpenMonitorAsync(_frames, monitor, cancellation).ConfigureAwait(false);
         }
         catch (RpcException e)
         {
@@ -551,7 +630,7 @@ public sealed class ControlBackend : IBackend
     /// show verbatim: a relay that could not be reached and a child process that would not
     /// start are both <c>UNAVAILABLE</c> in the contract's table
     /// (<c>docs/ipc-api.md</c>, "Errors"), and reading that code as "nothing is listening"
-    /// would answer a press of Go live with a sentence about the connection it just used.
+    /// would answer a press of Start sharing with a sentence about the connection it just used.
     /// The one thing this side may add is the address, and only where the connection is what
     /// failed.
     ///

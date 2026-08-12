@@ -75,7 +75,7 @@
     <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
   </ControlTheme>
 
-  <!-- A wizard footer's Back, and anything sized to sit beside Go live. -->
+  <!-- A wizard footer's Back, and anything sized to sit beside Start sharing. -->
   <ControlTheme x:Key="FooterButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Height" Value="{StaticResource FooterButtonHeight}" />
     <Setter Property="Padding" Value="14,0" />
@@ -85,11 +85,11 @@
 
   <!--
     The one red button. Red appears exactly once per screen, on the control that changes
-    the world: Go live, and Stop. Hover keeps the hue and moves opacity instead, so the
-    palette still holds a single red value.
+    the world: Start sharing, and Stop sharing. Hover keeps the hue and moves opacity instead,
+    so the palette still holds a single red value.
   -->
   <ControlTheme x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-    <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+    <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="CornerRadius" Value="{StaticResource RadiusButton}" />
     <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
@@ -98,11 +98,11 @@
     <Setter Property="Padding" Value="15,0" />
 
     <Style Selector="^:pointerover /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+      <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
       <Setter Property="Opacity" Value="0.92" />
     </Style>
     <Style Selector="^:pressed /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+      <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
       <Setter Property="Opacity" Value="0.82" />
     </Style>
   </ControlTheme>
@@ -125,24 +125,104 @@
   </ControlTheme>
 
   <!--
-    Edit in setup, Open full log. Drawn as plain text rather than as a link: there is no
-    underline and no blue anywhere in the design, so the affordance is position and hover.
+    Edit in setup, Open full log, a preset's Apply, the advanced drawer's own header. Drawn as
+    plain text rather than as a link: there is no underline and no blue anywhere in the design.
+
+    Flat at rest and filled under the pointer, which is the rule every button here obeys
+    (docs/design-language.md, "Pressing"). It used to answer a pointer by brightening its label
+    and nothing else, and a label that brightens is a label: the reader has to already know it is
+    a control to find out that it is one. The fills are the base's, so the flat variant and the
+    filled ones answer a pointer with the same two steps.
+
+    The padding is what that fill needs to be a shape rather than a highlight tight around the
+    glyphs, and it is the press target as well: at zero it was the height of the text.
   -->
   <ControlTheme x:Key="LinkButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Height" Value="NaN" />
-    <Setter Property="Padding" Value="0" />
+    <Setter Property="Padding" Value="7,4" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
     <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
 
-    <Style Selector="^:pointerover /template/ Border#Root">
-      <Setter Property="Background" Value="Transparent" />
-    </Style>
     <Style Selector="^:pointerover">
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     </Style>
-    <Style Selector="^:pressed /template/ Border#Root">
+
+    <!-- Nothing to drop back to: a control with no fill of its own shows the unavailable state in its label. -->
+    <Style Selector="^:disabled /template/ Border#Root">
       <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+  </ControlTheme>
+
+  <!--
+    A secondary action inside a card: the reset on a settings group's heading.
+
+    Outlined rather than filled, because the card already carries the controls the reader came
+    for. A filled button beside the heading would read as the thing to press, and this is the
+    thing to press only when what is under it is wrong.
+
+    It is not the red one. Red appears once per screen, on the control that changes the world,
+    and putting settings back starts no stream and stops none (docs/design-language.md,
+    "Palette").
+  -->
+  <ControlTheme x:Key="OutlineButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="10,0" />
+    <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
+  </ControlTheme>
+
+  <!--
+    A button whose whole content is one glyph: the viewer rail's settings and collapse controls,
+    and the action on one of its entries.
+
+    The box is what makes it a button. A bare glyph is a 16px target with nowhere to draw a
+    hover, a press or an unavailable state, which is what the rail's controls were before this
+    variant existed: they wore the link theme, so the only thing that answered a pointer was the
+    cursor. Everything below states the box, and the fills stay the base's.
+  -->
+  <ControlTheme x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Width" Value="{StaticResource IconButtonSize}" />
+    <Setter Property="Height" Value="{StaticResource IconButtonSize}" />
+    <Setter Property="Padding" Value="0" />
+
+    <!-- Nothing to drop back to: a control with no fill of its own shows the unavailable state in its glyph. -->
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+  </ControlTheme>
+
+  <!--
+    One row of a list that acts when it is pressed: a stream on the viewer's rail.
+
+    The row is the control rather than a name with a small button at the end of it, so the target
+    is the width of the list and every state fills the whole row. A control drawn inside the row
+    still takes its own press, because a button marks a pointer press handled and the row never
+    sees it.
+
+    Hover takes the raised-control fill rather than the base's hover step, which is the one thing
+    this variant states about colour: a button drawn inside the row needs a step left above it,
+    and both steps are already in the palette.
+  -->
+  <ControlTheme x:Key="RowButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Height" Value="NaN" />
+    <Setter Property="MinHeight" Value="{StaticResource RowButtonHeight}" />
+    <Setter Property="Padding" Value="7,0,3,0" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+
+    <Style Selector="^:pointerover /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    </Style>
+    <Style Selector="^:disabled /template/ Border#Root">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderBrush" Value="Transparent" />
     </Style>
   </ControlTheme>
 
@@ -157,7 +237,8 @@
 
   <!--
     Minimise, maximise, close. Full title-bar height so the pointer can throw itself at the
-    corner, and no hover fill is specified in the design, so only the glyph brightens.
+    corner, square so the fills of neighbouring controls meet, and filled under the pointer like
+    every other button (docs/design-language.md, "Pressing").
   -->
   <ControlTheme x:Key="WindowControlButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="Transparent" />

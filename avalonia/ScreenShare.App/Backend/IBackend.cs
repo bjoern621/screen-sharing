@@ -130,12 +130,30 @@ public interface IBackend
     /// </summary>
     Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default);
 
+    /// <summary>
+    /// The configurations the user saved, as <c>ListPresets</c> answers, and the notice saying
+    /// why the store holds fewer than it did.
+    ///
+    /// <b>Nothing announces that this moved.</b> Presets are a file rather than state the
+    /// backend runs on: no event carries them, so a caller that saved or deleted one reads
+    /// again to see what the store holds now, and so does one that wants to see what another
+    /// window did. It is the one read here whose answer never arrives on the stream, and the
+    /// read being idempotent and cheap is what makes asking again the whole of the remedy.
+    ///
+    /// A store that could not be read is not a failed call. The list comes back empty carrying
+    /// the notice, because empty-because-nothing-was-saved and empty-because-nothing-readable-
+    /// remained are different facts and the difference is the reader's to see.
+    /// </summary>
+    Task<PresetStore> PresetsAsync(CancellationToken cancellation = default);
+
     // --- Effects ------------------------------------------------------------------
     //
     // Every one of them answers with nothing. What the state became arrives on the
     // stream, which is the one path into the display: a shell that read the answer here
     // and a shell that only listened would otherwise be two ways of learning one fact
-    // (docs/ipc-api.md, "Events").
+    // (docs/ipc-api.md, "Events"). The two preset effects are the written-down exception,
+    // for the reason PresetsAsync gives: the store they change is a file no event
+    // describes, so the caller re-reads it instead.
 
     /// <summary>
     /// Persists the settings and starts the encoder on them.
@@ -205,6 +223,41 @@ public interface IBackend
     /// </summary>
     Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default);
 
+    /// <summary>
+    /// Stores one way of publishing under a name, replacing whatever was saved under it.
+    ///
+    /// <b>A preset is a <see cref="PublishSettings"/> and nothing else</b>
+    /// (<c>docs/presets.md</c>). Where the relay is belongs to a deployment and how this machine
+    /// watches belongs to a viewer, so neither travels in one: a preset carrying either would be
+    /// the thing that breaks on the machine it was copied to.
+    ///
+    /// <b>It names a state and is safe to repeat.</b> The name is the identity, so a second save
+    /// of the same settings under the same name leaves the store holding what it already held. A
+    /// name nothing was saved under yet is a new preset, and every other name is the one it
+    /// replaces - which is what makes saving over a preset the same call as making one.
+    ///
+    /// An empty name is refused as a <see cref="BackendUnavailableException"/> carrying the
+    /// backend's own sentence, as is a store that could not be written.
+    ///
+    /// It answers with nothing, and no event follows it: the caller reads
+    /// <see cref="PresetsAsync"/> again.
+    /// </summary>
+    Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Removes the preset saved under a name.
+    ///
+    /// <b>A name the store does not hold is refused rather than shrugged at</b>, which is the
+    /// backend's decision and is the one place presets depart from naming a state
+    /// (<c>internal/control/effects.go</c>). So a delete of a preset another window has already
+    /// removed answers with a sentence rather than silently; reading the store again is what
+    /// puts the screen back in step.
+    ///
+    /// It answers with nothing, and no event follows it: the caller reads
+    /// <see cref="PresetsAsync"/> again.
+    /// </summary>
+    Task DeletePresetAsync(string name, CancellationToken cancellation = default);
+
     /// <summary>Ends the stream, whether it is running or waiting out a retry backoff.</summary>
     Task StopPublishAsync(CancellationToken cancellation = default);
 
@@ -234,6 +287,18 @@ public interface IBackend
 
     /// <summary>Closes one open viewer.</summary>
     Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Opens the relay's own player page for one stream in the machine's default browser,
+    /// over one of the legs the relay serves a page for
+    /// (<see cref="ScreenShare.Api.V1.Catalog.BrowserWatchTransports"/>). A leg the stream's
+    /// format does not cross is refused the way <see cref="StartWatchAsync"/> refuses one.
+    ///
+    /// <b>Nothing is opened that can be closed again.</b> The tab belongs to the browser, so
+    /// no viewer state grows a member and there is no counterpart to this call: a control for
+    /// it names an action rather than a state, and shows no tick.
+    /// </summary>
+    Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens a decode for one stream on one leg, inside the backend. It is the tile path's
@@ -309,6 +374,50 @@ public interface IBackend
     /// there is one to ask for rather than asking to find out.
     /// </summary>
     Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Reads one of this machine's monitors into a picture the frame channel can hand over, so
+    /// the setup wizard offers a screen by what is on it rather than by its number.
+    ///
+    /// <b>Nothing is encoded and nothing is sent anywhere.</b> The capture element feeds the
+    /// render chain inside the backend and the handles come here, so this costs one screen
+    /// read and no bandwidth at all.
+    ///
+    /// It is an effect and the frame channel opens none of it, which is the same division
+    /// <see cref="StartReceiveAsync"/> draws: a subscription finds a picture or is refused,
+    /// and a caller asks for the preview first.
+    ///
+    /// Idempotent. A monitor already being previewed is the state this asks for, so a second
+    /// call changes nothing. A machine whose session cannot read one screen apart from another
+    /// refuses every call, which a caller reads off <c>Catalog.NoMonitorPreview</c> instead of
+    /// discovering by asking.
+    /// </summary>
+    Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// The monitors the backend is reading, and whether a frame has come off each one.
+    ///
+    /// Read once when a shell connects, for the reason the running decodes are: a preview
+    /// outlives the window that asked for it, so a shell that crashed with screens being read
+    /// leaves them running, and this is how the next one finds them. Afterwards the same shape
+    /// arrives on the event stream whenever it moves.
+    /// </summary>
+    Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Closes one monitor's preview. A monitor nothing is previewing is not an error: a stop
+    /// is what the reader asked for and it is already true.
+    /// </summary>
+    Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Subscribes to the frames of a monitor preview that is already running.
+    ///
+    /// It opens no capture, for the reason <see cref="OpenFramesAsync"/> opens no decode. A
+    /// monitor nothing is previewing is refused as a <see cref="BackendUnavailableException"/>,
+    /// and a caller reads the preview state to know whether to ask at all.
+    /// </summary>
+    Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens one run log in the machine's default application. The path is one the backend

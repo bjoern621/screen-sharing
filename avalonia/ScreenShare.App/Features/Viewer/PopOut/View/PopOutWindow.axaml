@@ -2,12 +2,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
         xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
+        xmlns:view="using:ScreenShare.App.Features.Viewer.View"
         x:Class="ScreenShare.App.Features.Viewer.PopOut.View.PopOutWindow"
         x:DataType="tile:TileViewModel"
         Title="{Binding Title}"
         Width="640" Height="360"
         MinWidth="240" MinHeight="160"
-        Background="{StaticResource SurfaceBrush}">
+        Background="{StaticResource TileBrush}">
 
   <!--
     One stream in a window of its own.
@@ -20,7 +21,22 @@
 
     The grid keeps the slot this stream came from and draws a plate in it. That tile holds no
     subscription while this window is open, so the decode has exactly one consumer either way.
+
+    The picture keeps its stream's shape whatever shape this window is dragged to, and whatever is
+    left over is black. The panel is the grid's own arrangement holding one tile, which is what
+    that solver answers for a single tile in a box (Features/Viewer/Model/TileLayout.cs).
   -->
-  <tiles:TileCard />
+  <Window.KeyBindings>
+    <!--
+      Escape gives this window back to a windowed one. It names that state rather than toggling it,
+      so a press on a window that is not filling a screen changes nothing
+      (Features/Viewer/Model/TileIntent.cs).
+    -->
+    <KeyBinding Gesture="Escape" Command="{Binding LeaveFullscreen}" />
+  </Window.KeyBindings>
+
+  <view:TileGrid>
+    <tiles:TileCard view:TileGrid.Aspect="{Binding Aspect}" />
+  </view:TileGrid>
 
 </Window>

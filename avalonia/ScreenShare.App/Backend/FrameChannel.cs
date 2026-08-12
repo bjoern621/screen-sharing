@@ -90,9 +90,30 @@ public sealed class FrameChannel : IAsyncDisposable
         => SubscribeAsync(client, new FrameSubscribe { PublishPreview = new PublishPreview() }, cancellation);
 
     /// <summary>
-    /// Opens the call and says what it is for. One method for both kinds of subscription,
-    /// because everything after the first message is the same protocol: the two differ in
-    /// which arm of the oneof they fill and in nothing else.
+    /// Subscribes to the frames of one of this machine's monitors, read live so a screen can
+    /// be chosen by looking at it.
+    ///
+    /// The index is the whole identity: it is the value <c>publish.monitor</c> holds and the
+    /// one the catalog enumerates outputs under, so a size or a name here would be this side
+    /// sending back what it read out of the catalog.
+    ///
+    /// It opens no capture, exactly as <see cref="OpenAsync"/> opens no decode. What reads the
+    /// screen is <see cref="IBackend.StartMonitorPreviewAsync"/>, so a call made for a monitor
+    /// nothing is previewing is refused rather than served.
+    /// </summary>
+    public static Task<FrameChannel> OpenMonitorAsync(
+        FrameService.FrameServiceClient client,
+        int monitor,
+        CancellationToken cancellation)
+        => SubscribeAsync(client, new FrameSubscribe
+        {
+            MonitorPreview = new MonitorPreview { Monitor = monitor },
+        }, cancellation);
+
+    /// <summary>
+    /// Opens the call and says what it is for. One method for all three kinds of subscription,
+    /// because everything after the first message is the same protocol: they differ in which
+    /// arm of the oneof they fill and in nothing else.
     /// </summary>
     private static async Task<FrameChannel> SubscribeAsync(
         FrameService.FrameServiceClient client,

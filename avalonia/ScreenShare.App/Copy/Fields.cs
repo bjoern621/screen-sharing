@@ -38,6 +38,7 @@ public static class Fields
     private const string DocVbv = "https://en.wikipedia.org/wiki/Video_buffering_verifier";
     private const string DocGop = "https://en.wikipedia.org/wiki/Group_of_pictures";
     private const string DocNvenc = "https://en.wikipedia.org/wiki/Nvidia_NVENC";
+    private const string DocEncoderTuning = "https://en.wikipedia.org/wiki/X264";
     private const string DocDrm = "https://en.wikipedia.org/wiki/Direct_Rendering_Manager";
     private const string DocDrmPrime = "https://en.wikipedia.org/wiki/Direct_Rendering_Manager#DRM_PRIME";
     private const string DocSrt = "https://en.wikipedia.org/wiki/Secure_Reliable_Transport";
@@ -102,6 +103,11 @@ public static class Fields
             "Encoder effort",
             "How hard the encoder looks for savings. More effort means a smaller stream at the same quality, paid for in encoding time - on a graphics card that time is nearly free, because the chip doing it is separate from the graphics cores, and on the CPU it is the cores your machine also needs for everything else. The steps are the encoder's own, so they read differently on each one.",
             DocNvenc),
+
+        ["publish.tune"] = new(
+            "What to tune for",
+            "What the encoder aims at while it spends that effort. Low-latency tuning drops the tricks that need future frames, which is what keeps a live picture close to the moment it happened; the quality tunings keep them and code a smaller, better stream a fraction of a second behind. The rest describe the picture itself, so the encoder stops treating film grain or flat animation as detail worth keeping.",
+            DocEncoderTuning),
 
         ["publish.mode"] = new(
             "What to hold steady",

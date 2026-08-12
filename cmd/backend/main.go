@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/app"
+	"bjoernblessin.de/screenshare/internal/gstrun"
+	"bjoernblessin.de/screenshare/internal/publish"
 )
 
 // version is this build's stamp, which the control handshake answers with so a shell
@@ -27,6 +32,19 @@ var version = "dev"
 // without a backend says so rather than inventing a form, which is the same rule from
 // the two ends: neither owes the other a compatibility shim for its absence.
 func main() {
+	// The one argument this process answers to, and it is not a command line so much as a
+	// re-entry: a publish on the GStreamer engine spawns this same executable to play the
+	// pipeline (publish.GstExe), because a pipeline in a process of its own keeps the
+	// crash isolation gst-launch-1.0 gave and a pipeline this app owns can be asked what
+	// gst-launch could not (internal/gstrun).
+	//
+	// Spawning the binary that is already running costs no second artifact to build, ship
+	// or find on a user's machine, which is what a separate launcher would have added to
+	// every packaging recipe.
+	if len(os.Args) > 1 && os.Args[1] == publish.GstSubcommand {
+		os.Exit(runPipeline(os.Args[2:]))
+	}
+
 	a := app.New(version)
 	a.Start()
 
@@ -52,4 +70,35 @@ func main() {
 
 	a.Stop()
 	os.Exit(code)
+}
+
+// runPipeline plays one publish pipeline and reports how it ended, as an exit status.
+//
+// The arguments are the pipeline's own elements, exactly as gst-launch-1.0 took them, so
+// what the form renders as the command is what runs and a reader can still paste the tail
+// of it into gst-launch to see the same pipeline.
+//
+// Interrupt and terminate stop the pipeline rather than the process: the capture holds a
+// portal session, a DRM lease or an X connection, and letting the runner set the pipeline
+// to NULL is what hands those back instead of leaving them to process teardown.
+func runPipeline(elements []string) int {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// The control socket, where the parent writes what a playing pipeline should be
+	// holding. It leads the arguments so everything after it is the pipeline itself.
+	control := ""
+	if len(elements) > 0 {
+		if path, ok := strings.CutPrefix(elements[0], publish.ControlFlag); ok {
+			control, elements = path, elements[1:]
+		}
+	}
+
+	if err := gstrun.RunWithControl(ctx, strings.Join(elements, " "), control, os.Stdout); err != nil {
+		// Standard error, where the supervisor's tail reads from: this is the wording a
+		// reader is shown when a publish fails (publish/supervise.go).
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	return 0
 }

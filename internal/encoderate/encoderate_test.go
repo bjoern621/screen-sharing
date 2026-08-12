@@ -18,6 +18,11 @@ func probeStream() settings.Settings {
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
+	// The two ladder steps this codec declares for this mode, which is what a draft
+	// naming it holds after the migration or the repair. The defaults carry the default
+	// codec's, and a step is one encoder's own identifier, so the builder refuses it here
+	// rather than encoding at a step libx264 never heard of.
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 	return s
 }
 

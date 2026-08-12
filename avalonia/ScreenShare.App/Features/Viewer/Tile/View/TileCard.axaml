@@ -4,7 +4,9 @@
              xmlns:tile="using:ScreenShare.App.Features.Viewer.Tile.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Viewer.Tile.View.TileCard"
-             x:DataType="tile:TileViewModel">
+             x:DataType="tile:TileViewModel"
+             Classes.filling="{Binding IsFullscreen}"
+             DoubleTapped="OnDoubleTapped">
 
   <!--
     One tile, wherever it is drawn: in the grid, on the stage of the focus arrangement, in a
@@ -38,6 +40,47 @@
       <Setter Property="Opacity" Value="1" />
       <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
+
+    <!-- The frame: the tile's own shape and the fill behind a picture that has not arrived. -->
+    <Style Selector="tiles|TileCard Border.frame">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}" />
+      <Setter Property="CornerRadius" Value="{StaticResource RadiusTile}" />
+    </Style>
+
+    <!--
+      Filling a screen, the card is the picture and nothing else. Its host letterboxes it to the
+      stream's shape, so a rounded corner would cut into the frame instead of shaping a tile in a
+      grid, and what is behind the picture is the black a stream sits on.
+    -->
+    <Style Selector="tiles|TileCard.filling Border.frame">
+      <Setter Property="Background" Value="{StaticResource TileBrush}" />
+      <Setter Property="CornerRadius" Value="0" />
+    </Style>
+
+    <!--
+      Which of the two this card draws: the picture, or the plate saying the picture is in another
+      window. It is stated here rather than bound on the elements because the answer is the host's
+      and not the tile's - the grid's slot draws the plate while its stream is popped out, and the
+      window that stream popped out into draws the picture, off the one tile both of them read.
+
+      Clearing the source is what makes the plate free rather than merely dark. A source that is
+      gone ends the subscription and hands the pool back, so a popped-out stream costs one channel
+      and one set of GPU slots (Features/Viewer/Tile/View/StreamTile.cs).
+    -->
+    <Style Selector="tiles|TileCard tiles|StreamTile" x:DataType="tile:TileViewModel">
+      <Setter Property="Source" Value="{Binding}" />
+    </Style>
+    <Style Selector="tiles|TileCard[PictureElsewhere=True] tiles|StreamTile">
+      <Setter Property="Source" Value="{x:Null}" />
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+
+    <Style Selector="tiles|TileCard Border.plate">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="tiles|TileCard[PictureElsewhere=True] Border.plate">
+      <Setter Property="IsVisible" Value="True" />
+    </Style>
   </UserControl.Styles>
 
   <!--
@@ -45,27 +88,54 @@
     definition of it here rather than one per host: what a tile affords is the same in a grid cell
     and in a window of its own.
 
-    Each item carries a glyph that changes with the state and a word that says what pressing it
-    will do, rather than two items one of which is hidden. The item therefore never moves under
-    the pointer, and a reader can see at a glance which of them are in force.
+    Three groups, in the order a reader reaches for them: where this stream is drawn, how loud it
+    is, and what is printed over it. The dividers are the grouping - a menu of seven equal rows
+    makes the reader do the sorting every time it opens.
+
+    The three arrangements carry a key each, printed at the quiet end of the row. A menu is where
+    a reader finds out what a tile affords, so it is where they find out what to press instead.
+    The key acts on the tile under the pointer, which is the tile they had to be pointing at to
+    open this menu (Features/Viewer/Tile/View/TileKeys.cs).
+
+    Every row here names a state rather than a transition, and shows whether that state is in
+    force as a tick at the end of the row. The words and the glyph never change, so a reader
+    scanning the menu is reading which of these are on rather than parsing seven verbs
+    (docs/design-language.md, "Menus"). It is also what makes each row idempotent to describe:
+    "Focus" is a place the tile can be in, and pressing it twice is a round trip.
+
+    No row states a ToggleType, and that is deliberate rather than an omission. A toggling
+    MenuItem writes its own IsChecked when it is clicked, which would put a second writer on
+    every one of these facts and let the tick flip before the thing it describes has happened -
+    Mute is a call the backend can refuse, so the row would report what the click asked for and
+    then take it back. IsChecked bound one way makes the tick a read of the state and nothing
+    else. The cost is that the rows do not announce themselves as checkable to a screen reader.
+
+    The design's own themes are keyed on MenuItem and MenuFlyoutPresenter, so nothing here asks
+    for a look (Design/Menus.axaml).
   -->
   <UserControl.ContextFlyout>
     <MenuFlyout>
-      <MenuItem Header="{Binding FocusLabel}" Command="{Binding ToggleFocus}">
+      <MenuItem Header="Focus" Command="{Binding ToggleFocus}"
+                InputGesture="{x:Static tiles:TileKeys.Focus}"
+                IsChecked="{Binding IsFocused, Mode=OneWay}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="{Binding FocusGlyph}" />
+          <ti:TablerIcon Icon="IconLayoutDistributeHorizontal" />
         </MenuItem.Icon>
       </MenuItem>
 
-      <MenuItem Header="{Binding PopOutLabel}" Command="{Binding TogglePopOut}">
+      <MenuItem Header="Own window" Command="{Binding TogglePopOut}"
+                InputGesture="{x:Static tiles:TileKeys.PopOut}"
+                IsChecked="{Binding IsPoppedOut, Mode=OneWay}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="{Binding PopOutGlyph}" />
+          <ti:TablerIcon Icon="IconExternalLink" />
         </MenuItem.Icon>
       </MenuItem>
 
-      <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreen}">
+      <MenuItem Header="Fullscreen" Command="{Binding ToggleFullscreen}"
+                InputGesture="{x:Static tiles:TileKeys.Fullscreen}"
+                IsChecked="{Binding IsFullscreen, Mode=OneWay}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="{Binding FullscreenGlyph}" />
+          <ti:TablerIcon Icon="IconMaximize" />
         </MenuItem.Icon>
       </MenuItem>
 
@@ -75,9 +145,10 @@
         Mute and the volume are one state and sit together. Both are greyed on a stream with no
         audio track, which is a different thing from a silent one: there is nothing to be loud.
       -->
-      <MenuItem Header="{Binding MuteLabel}" Command="{Binding ToggleMute}" IsEnabled="{Binding HasAudio}">
+      <MenuItem Header="Mute" Command="{Binding ToggleMute}" IsEnabled="{Binding HasAudio}"
+                IsChecked="{Binding Muted, Mode=OneWay}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="{Binding MuteGlyph}" />
+          <ti:TablerIcon Icon="IconVolumeOff" />
         </MenuItem.Icon>
       </MenuItem>
 
@@ -86,10 +157,13 @@
         press closes the flyout and the drag never happens. The pointer events are marked handled
         in the code-behind for the same reason - a drag that reached the menu would be read as a
         click on the item.
+
+        It is the one row that carries a control rather than a state, so it is the one row with
+        no tick: the slider's own position is the reading.
       -->
       <MenuItem StaysOpenOnClick="True" IsEnabled="{Binding HasAudio}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="IconAdjustmentsHorizontal" />
+          <ti:TablerIcon Icon="IconVolume" />
         </MenuItem.Icon>
         <MenuItem.Header>
           <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapControl}" MinWidth="190">
@@ -106,25 +180,24 @@
 
       <Separator />
 
-      <MenuItem Header="{Binding StatsLabel}" Command="{Binding ToggleStats}">
+      <MenuItem Header="Stats overlay" Command="{Binding ToggleStats}"
+                IsChecked="{Binding ShowStats, Mode=OneWay}">
         <MenuItem.Icon>
-          <ti:TablerIcon Icon="{Binding StatsGlyph}" />
+          <ti:TablerIcon Icon="IconChartBar" />
         </MenuItem.Icon>
       </MenuItem>
     </MenuFlyout>
   </UserControl.ContextFlyout>
 
-  <Border Background="{StaticResource PanelBrush}"
-          CornerRadius="{StaticResource RadiusTile}"
-          ClipToBounds="True">
+  <!-- The frame's fill and shape are styled rather than set here, so the filling case can restate them. -->
+  <Border Classes="frame" ClipToBounds="True">
     <Panel>
 
       <!--
-        The picture. Absent while this stream is drawn in a window of its own: the plate below
-        takes its place, and with no StreamTile in the tree there is no subscription and no render
-        size asked for - the popped window is the only consumer.
+        The picture, and where it comes from. Both are set by the styles above, because a card
+        drawing the plate carries no source at all rather than a hidden one.
       -->
-      <tiles:StreamTile Source="{Binding}" IsVisible="{Binding !IsPoppedOut}" />
+      <tiles:StreamTile />
 
       <!-- Why the tile is dark: nothing decoding, connecting, or a handle this platform cannot import. -->
       <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
@@ -133,7 +206,7 @@
                  TextAlignment="Center" Margin="{StaticResource InsetSection}" />
 
       <!-- The plate. The slot stays in the arrangement at this stream's shape, so nothing reflows. -->
-      <Border IsVisible="{Binding IsPoppedOut}" Background="{StaticResource SurfaceBrush}">
+      <Border Classes="plate" Background="{StaticResource SurfaceBrush}">
         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                     Spacing="{StaticResource GapTight}">
           <ti:TablerIcon Icon="IconExternalLink" Brush="{StaticResource MutedBrush}"

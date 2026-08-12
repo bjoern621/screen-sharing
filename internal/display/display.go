@@ -20,3 +20,19 @@ type Monitor struct {
 	// that cannot report it, or an enumeration that failed for this output.
 	RefreshHz int `json:"refreshHz"`
 }
+
+// At is the enumerated output carrying this capture index, and false where the
+// enumeration has none: a screen unplugged since the setting was stored, or a
+// session whose outputs could not be read at all.
+//
+// What a caller does about that differs and is the caller's - x11grab refuses the
+// capture and ximagesrc falls back to the whole X screen - so this reports the
+// absence rather than deciding on one.
+func At(index int) (Monitor, bool) {
+	for _, m := range List() {
+		if m.Index == index {
+			return m, true
+		}
+	}
+	return Monitor{}, false
+}

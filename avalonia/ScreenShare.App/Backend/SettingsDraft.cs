@@ -21,7 +21,19 @@ public static class SettingsDraft
     /// The character between a key's group and its field, as settings.proto spells the
     /// two: "relay.host", "publish.codec", "viewer.render_chain".
     /// </summary>
-    private const char KeySeparator = '.';
+    public const char KeySeparator = '.';
+
+    /// <summary>
+    /// The settings group a preset is (<c>docs/presets.md</c>), which is the one group this
+    /// shell has a reason to name.
+    ///
+    /// Read off the descriptor rather than typed out, so it is the same fact as the property a
+    /// whole-group write assigns (<see cref="FormSession.WritePublish"/>). A spelling written
+    /// here by hand would be a second name for one field, free to disagree with the keys the
+    /// form sends the moment either moved.
+    /// </summary>
+    public static readonly string PublishGroup =
+        Settings.Descriptor.FindFieldByNumber(Settings.PublishFieldNumber).Name;
 
     public static void Write(Settings draft, string key, FieldValue value)
     {

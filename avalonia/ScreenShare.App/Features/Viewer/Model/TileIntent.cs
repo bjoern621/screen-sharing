@@ -9,8 +9,10 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// arrangement decides what it means for every other tile
 /// (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
 ///
-/// Every one of them is a toggle, so the same intent twice returns to where it started rather
-/// than doing something else the second time.
+/// The first three are toggles, so the same intent twice returns to where it started rather than
+/// doing something else the second time. The last two name a state instead, because each arrives
+/// from something that means one direction: a key that means "leave", and a window that has
+/// closed. A toggle raised from either would ask for the state it was reporting the end of.
 /// </summary>
 public enum TileIntent
 {
@@ -22,4 +24,10 @@ public enum TileIntent
 
     /// <summary>Take the window drawing this stream fullscreen, or bring it back.</summary>
     Fullscreen,
+
+    /// <summary>Give the window drawing this stream back to its grid, filling a screen or not.</summary>
+    LeaveFullscreen,
+
+    /// <summary>Draw this stream in the grid, whether or not it was in a window of its own.</summary>
+    LeavePopOut,
 }

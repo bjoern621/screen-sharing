@@ -7,6 +7,7 @@
              xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
+             xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
              xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              x:Class="ScreenShare.App.Features.Setup.View.SetupView"
              x:DataType="vm:SetupViewModel"
@@ -89,10 +90,23 @@
             What the form said about the settings as a whole used to be a stack of panels
             under this one, which put it below the fold on every step long enough to scroll
             and repeated it identically on all of them. It is in the rail now, in the card
-            that already asks what stands between these settings and going live - which is
+            that already asks what stands between these settings and sharing - which is
             the same question (CostRail/View/CostRailView.axaml).
           -->
           <StackPanel Spacing="{StaticResource GapControl}" IsVisible="{Binding ShowsFields}">
+
+            <!--
+              The screens this machine has, above the controls that configure what is captured
+              off one. It draws itself only on the step that holds the screen setting and only
+              where this machine can show what a single screen holds, so it is placed here
+              unconditionally and decides for itself (Setup/ScreenPicker/ViewModel).
+
+              Above the group rather than inside it: the generic renderer draws whatever the
+              backend put in a group, in the backend's order, and a picture for one field in the
+              middle of that list would be this shell reaching into a rendering it does not own.
+            -->
+            <screens:ScreenPickerView DataContext="{Binding Screens}" />
+
             <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
 
             <!--

@@ -193,6 +193,15 @@ message Field {
   // one it has and stays disabled with its reason, rather than showing a value the
   // same evaluation would grey.
   FieldValue value = 11;
+  // default_value is what this field holds on a fresh installation. It does not move
+  // with the draft, and it is stated per field so a shell can offer putting settings
+  // back without holding defaults of its own: what a setting starts as is the same
+  // fact as what it may become, and both are the backend's.
+  //
+  // It is what a value is rather than what a value should be. Which entry suits this
+  // combination is FieldOption.recommended, and the two disagree freely: a default is
+  // the value a machine nobody has configured carries.
+  FieldValue default_value = 17;
   // options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
   // CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for
   // CONTROL_KIND_NUMBER_SELECT, which is the one control that carries a ladder and
@@ -336,6 +345,14 @@ message Form {
   repeated Diagnostic diagnostics = 8;
   Summary summary = 5;
 
+  // presets are the built-in ways of publishing, resolved against this machine and
+  // these settings: what applying each one would produce here, or why nothing here
+  // reaches it, and which one the draft already delivers (docs/presets.md). They
+  // ride on the form because all three answers change with the draft, the way a
+  // greying does, and a shell that asked for them separately would be a shell
+  // holding a preset verdict older than the settings beside it.
+  repeated BuiltinPreset presets = 9;
+
   // publishable is false when at least one SEVERITY_ERROR diagnostic is present. It
   // is stated rather than derived so a shell disables its start button without
   // ranking diagnostics itself.
@@ -344,4 +361,43 @@ message Form {
   // 2 was repaired and 4 was warnings, both renamed above to say what they hold.
   reserved 2, 4;
   reserved "repaired", "warnings";
+}
+
+// BuiltinPreset is one of the ways of publishing this app names as a promise about
+// the picture rather than as a stored set of values.
+//
+// Which encoder, pixel format and capture backend deliver that promise is the
+// machine's answer and differs per machine, so the backend searches for a
+// configuration that reaches it and this carries what the search found
+// (docs/presets.md). That is the whole difference from Preset in settings.proto,
+// which is a snapshot the user saved and is applied exactly as it was stored.
+//
+// The key is the only word on it. What the preset is called, the line saying what it
+// delivers and the sentence for a machine that cannot reach it are the shell's, keyed
+// by this identifier as every other value on this contract is.
+message BuiltinPreset {
+  // key names which preset this is: "lossless", "gaming" or "readability".
+  string key = 1;
+  // settings is the configuration applying this preset produces here, and is absent
+  // exactly when nothing this machine runs delivers the promise. There is no second
+  // flag saying whether it is reachable, because a reachable preset is one there are
+  // settings for and two fields could disagree about that.
+  //
+  // A preset is a PublishSettings and nothing else: applying one replaces that group
+  // of the draft and leaves the relay coordinates and this machine's own watching
+  // where they are.
+  PublishSettings settings = 2;
+  // reason states why nothing here reaches the promise, and is absent exactly when
+  // settings is present. TEXT_CODE_PRESET_UNREACHABLE names the preset and the
+  // publish transport the search worked within, that being the one dimension it does
+  // not move.
+  Text reason = 3;
+  // selected is whether the settings the form resolved already deliver this preset's
+  // promise. It is derived from them on every resolve rather than remembered from the
+  // call that applied one, so an edit that stays inside the promise keeps the preset
+  // marked and one that leaves it does not, with no stored selection to reconcile.
+  //
+  // At most one preset is ever selected: the promises are written to be pairwise
+  // disjoint, which the backend holds its own table to.
+  bool selected = 4;
 }

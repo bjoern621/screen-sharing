@@ -28,7 +28,6 @@ import (
 	"unsafe"
 
 	"github.com/go-gst/go-gst/pkg/gst"
-	"github.com/go-gst/go-gst/pkg/gstpbutils"
 )
 
 // padCaps returns the caps negotiated on one of an element's static pads, and nil
@@ -49,7 +48,7 @@ func padCaps(e gst.Element, name string) *gst.Caps {
 // 4:4:4 profile)". It falls back to the media type, so a codec pbutils has no
 // description for still names itself.
 func codecDescription(caps *gst.Caps) string {
-	if d := gstpbutils.PbUtilsGetCodecDescription(caps); d != "" {
+	if d := pbUtilsCodecDescription(caps); d != "" {
 		return d
 	}
 	return caps.GetStructure(0).GetName()

@@ -63,12 +63,14 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 	}
 	source, named := wire.FrameSourceOf(subscribe)
 	if !named {
-		return invalidArgument("a frame stream draws from a relay decode or from the publish preview, and this one names neither")
+		return invalidArgument("a frame stream draws from a relay decode, the publish preview or a monitor preview, and this one names none of them")
 	}
 	// A relay decode is named by a pair, and half of one names nothing that could exist.
-	// The preview is named by the choice itself and has nothing left to check, which is
-	// the point of it having no key.
-	if !source.Preview() {
+	// The other two need no such check: the publish preview is named by the choice itself,
+	// which is the point of it having no key, and a monitor index that names no output is
+	// refused where the preview is looked for rather than here, because whether an index
+	// is one of this machine's is a fact about the machine and not about the request.
+	if source.Kind == wire.FrameSourceRelay {
 		if source.Stream.StreamName == "" {
 			return invalidArgument("no stream named to receive frames of")
 		}
@@ -122,25 +124,33 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 
 // subscribe opens what the request named.
 //
-// The two kinds are dispatched here rather than by the backend, because they are two
-// different questions with two different answers: which decode of several, and the one
-// preview there can be. A single method taking a key would need a key the preview does
-// not have.
+// The three kinds are dispatched here rather than by the backend, because they are three
+// different questions with three different answers: which decode of several, the one
+// preview of the publish there can be, and which screen. A single method taking a key
+// would need a key two of the three do not have.
 func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
-	if source.Preview() {
+	switch source.Kind {
+	case wire.FrameSourcePublishPreview:
 		return s.backend.SubscribePreviewFrames()
+	case wire.FrameSourceMonitorPreview:
+		return s.backend.SubscribeMonitorFrames(source.Monitor)
+	default:
+		return s.backend.SubscribeFrames(source.Stream)
 	}
-	return s.backend.SubscribeFrames(*source.Stream)
 }
 
 // describe names what a subscription draws from, for a log line and for the refusal a
-// consumer is shown. It is written once because both of those read it, and because the
-// preview has no pair to print.
+// consumer is shown. It is written once because both of those read it, and because two of
+// the three kinds have no pair to print.
 func describe(source wire.FrameSource) string {
-	if source.Preview() {
+	switch source.Kind {
+	case wire.FrameSourcePublishPreview:
 		return "the local preview of the running stream"
+	case wire.FrameSourceMonitorPreview:
+		return fmt.Sprintf("monitor %d", source.Monitor)
+	default:
+		return fmt.Sprintf("'%s' over %s", source.Stream.StreamName, source.Stream.Transport)
 	}
-	return fmt.Sprintf("'%s' over %s", source.Stream.StreamName, source.Stream.Transport)
 }
 
 // readRequests drives the consumer's half of the call until it ends.

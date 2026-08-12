@@ -270,6 +270,37 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	return nil
 }
 
+// OpenInBrowser opens the relay's player page for streamName, served on
+// transportName, in the machine's default browser.
+//
+// It is the third way to watch and the only one this process does not own. A tab
+// is the browser's, so nothing is supervised, nothing is added to the viewer set
+// and there is no stop: the state a viewer event would carry is one this backend
+// cannot read back, and reporting it would be reporting a guess.
+//
+// What it does share with StartWatch is the refusal. A leg the stream's format
+// does not cross carries nothing to a browser either, and a page that connects
+// and shows nothing is the failure the carriage check exists to turn into a
+// sentence.
+func (a *App) OpenInBrowser(streamName, transportName string) error {
+	a.settingsMu.Lock()
+	s := a.settings
+	a.settingsMu.Unlock()
+
+	if err := a.carriesStream(streamName, transportName, transport.EngineBrowser); err != nil {
+		return err
+	}
+
+	url, ok := transport.BrowserURL(transportName, s, streamName)
+	if !ok {
+		return fmt.Errorf("the relay serves no player page over %s: open %s over %s",
+			transportName, streamName, strings.Join(transport.WatchNames(transport.EngineBrowser), " or "))
+	}
+
+	logger.Infof("opening '%s' over %s in the browser: %s", streamName, transportName, url)
+	return openInShell(url)
+}
+
 func (a *App) StopWatch(streamName, transportName string) {
 	defer a.emitViewerState()
 

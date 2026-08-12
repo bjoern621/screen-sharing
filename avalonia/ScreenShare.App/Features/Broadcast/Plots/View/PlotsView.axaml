@@ -123,16 +123,16 @@
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
                              SecondaryStroke="{StaticResource MutedBrush}"
-                             BandEdgeBrush="{StaticResource OnAirBrush}">
+                             BandEdgeBrush="{StaticResource AttentionBrush}">
               <plots:Sparkline.BandBrush>
-                <SolidColorBrush Color="{StaticResource OnAir}" Opacity="0.1" />
+                <SolidColorBrush Color="{StaticResource Attention}" Opacity="0.1" />
               </plots:Sparkline.BandBrush>
             </plots:Sparkline>
 
             <Grid ColumnDefinitions="27*,73*">
               <TextBlock Grid.Column="1"
                          Classes="annotation"
-                         Foreground="{StaticResource OnAirBrush}"
+                         Foreground="{StaticResource AttentionBrush}"
                          Text="{Binding Band}"
                          Margin="0,6,0,0"
                          HorizontalAlignment="Left"

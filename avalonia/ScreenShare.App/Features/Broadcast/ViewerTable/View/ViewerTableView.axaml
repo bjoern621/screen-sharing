@@ -34,7 +34,7 @@
     </Style>
     <!-- Alarm: only the metric that is actually out of bounds spends the one red. -->
     <Style Selector="TextBlock.alarm">
-      <Setter Property="Foreground" Value="{StaticResource OnAirBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <!-- The single filled row in the table. Fill is what makes it findable without a glyph. -->

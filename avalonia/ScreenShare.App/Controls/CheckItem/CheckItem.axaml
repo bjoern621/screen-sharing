@@ -90,10 +90,10 @@
     </Style>
 
     <Style Selector="^[State=Blocking] /template/ Border#Badge">
-      <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+      <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
     </Style>
     <Style Selector="^[State=Blocking] /template/ TextBlock#Body">
-      <Setter Property="Foreground" Value="{StaticResource OnAirBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
     </Style>
   </ControlTheme>
 

@@ -178,11 +178,23 @@ internal sealed class DeferredBackend : IBackend
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => _seed.MeasureUplinkAsync(cancellation);
 
+    public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PresetsAsync(cancellation);
+
+    public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+        => _seed.SavePresetAsync(name, settings, cancellation);
+
+    public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+        => _seed.DeletePresetAsync(name, cancellation);
+
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StartWatchAsync(streamName, transport, cancellation);
 
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopWatchAsync(streamName, transport, cancellation);
+
+    public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.OpenInBrowserAsync(streamName, transport, cancellation);
 
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => _seed.ReceivingAsync(cancellation);
@@ -202,6 +214,18 @@ internal sealed class DeferredBackend : IBackend
 
     public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
         => _seed.OpenPreviewFramesAsync(cancellation);
+
+    public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.StartMonitorPreviewAsync(monitor, cancellation);
+
+    public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.StopMonitorPreviewAsync(monitor, cancellation);
+
+    public Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.OpenMonitorFramesAsync(monitor, cancellation);
+
+    public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+        => _seed.PreviewedMonitorsAsync(cancellation);
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);
@@ -366,11 +390,23 @@ internal sealed class PublishingBackend : IBackend
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => _seed.MeasureUplinkAsync(cancellation);
 
+    public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+        => _seed.PresetsAsync(cancellation);
+
+    public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+        => _seed.SavePresetAsync(name, settings, cancellation);
+
+    public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+        => _seed.DeletePresetAsync(name, cancellation);
+
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StartWatchAsync(streamName, transport, cancellation);
 
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => _seed.StopWatchAsync(streamName, transport, cancellation);
+
+    public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+        => _seed.OpenInBrowserAsync(streamName, transport, cancellation);
 
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => _seed.ReceivingAsync(cancellation);
@@ -390,6 +426,18 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
         => _seed.OpenPreviewFramesAsync(cancellation);
+
+    public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.StartMonitorPreviewAsync(monitor, cancellation);
+
+    public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.StopMonitorPreviewAsync(monitor, cancellation);
+
+    public Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+        => _seed.OpenMonitorFramesAsync(monitor, cancellation);
+
+    public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+        => _seed.PreviewedMonitorsAsync(cancellation);
 
     public Task OpenLogAsync(string path, CancellationToken cancellation = default)
         => _seed.OpenLogAsync(path, cancellation);

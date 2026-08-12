@@ -56,8 +56,9 @@ public sealed class ShellViewModel : Observable
     private bool _broadcastAvailable;
 
     /// <summary>
-    /// Whether the reader is owed the broadcast screen: they asked for it on the review and the
-    /// stream they started has not landed yet.
+    /// Whether the reader is owed the broadcast screen: a start this window made has been
+    /// accepted and the stream has not landed yet. Every start earns it - the destination a
+    /// start leads to is not a setting.
     ///
     /// It is a flag rather than a straight navigation because a start that was accepted is not
     /// yet a stream in force - the reply carries nothing and the live state arrives on the event
@@ -121,8 +122,13 @@ public sealed class ShellViewModel : Observable
         // The status band prints figures the viewer owns, and a reader toggling a chip
         // changes them without going through any write of the shell's, so the band is
         // re-rendered from the viewer's own notification rather than left stale until the
-        // next destination change.
-        Viewer.PropertyChanged += (_, _) => RenderStatusBar();
+        // next destination change. The bands themselves come off the window on the same
+        // notification, which is what a stream taken fullscreen from a tile's menu moves.
+        Viewer.PropertyChanged += (_, _) =>
+        {
+            RenderStatusBar();
+            RenderChrome();
+        };
 
         // "Edit in setup" is the entire fix for setup and broadcast both owning
         // configuration: the live screen names the request and the shell performs it, so the
@@ -180,6 +186,28 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     public object Body { get => _body; private set => Set(ref _body, value); }
 
+    private bool _hasChrome = true;
+    private bool _hasCaption;
+
+    /// <summary>
+    /// Whether the window draws its own bands.
+    ///
+    /// One stream filling the window takes all three off it. A picture on a fullscreen window
+    /// under a title band, a nav strip and a status bar is the app filling the screen, where what
+    /// a reader asked for is the stream filling it - which is the whole difference between this
+    /// state and a maximised window (<c>Features/Viewer/View/ViewerView.axaml</c>).
+    /// </summary>
+    public bool HasChrome { get => _hasChrome; private set => Set(ref _hasChrome, value); }
+
+    /// <summary>
+    /// Whether the app's own title band is drawn.
+    ///
+    /// Two facts, and they are read in one place so the band has one writer: whether this app
+    /// draws the caption at all (<c>Features/Shell/Model/WindowChrome.cs</c>), and whether the
+    /// window is drawing chrome in the first place.
+    /// </summary>
+    public bool HasCaption { get => _hasCaption; private set => Set(ref _hasCaption, value); }
+
     // --- Writes --------------------------------------------------------------------
 
     /// <summary>
@@ -227,13 +255,13 @@ public sealed class ShellViewModel : Observable
     }
 
     /// <summary>
-    /// Takes the news that a start setup asked for was accepted, and records whether the reader
-    /// wants to be moved. The move itself is attempted at once, because the live state can
+    /// Takes the news that a start setup asked for was accepted, and records that the window is
+    /// owed the live screen. The move itself is attempted at once, because the live state can
     /// already have arrived on the event stream by the time the reply did.
     /// </summary>
     private void OnWentLive()
     {
-        _opensBroadcast = Setup.OpensBroadcastWindow;
+        _opensBroadcast = true;
         OpenBroadcastIfAsked();
     }
 
@@ -282,11 +310,13 @@ public sealed class ShellViewModel : Observable
         // eventually stop doing so.
         Nav.Show(_current, _broadcastAvailable, Broadcast.Snapshot.Elapsed);
         RenderStatusBar();
+        RenderChrome();
 
         Body = BodyFor(_current);
 
         Assert.That(_current != Destination.Broadcast || _broadcastAvailable, "a window shows broadcast only while broadcast can be reached", _broadcastAvailable);
         Assert.That(Nav.SelectedTab?.Value == _current, "the strip and the body stand in one destination", (int)_current);
+        Assert.That(!HasCaption || HasChrome, "the title band is one of the bands the window either draws or does not", HasCaption, HasChrome);
     }
 
     /// <summary>
@@ -309,6 +339,17 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     private void RenderStatusBar()
         => StatusBar.Show(_current, Viewer.ShownSummary, Viewer.Figures, Viewer.Hint);
+
+    /// <summary>
+    /// Whether the window's bands are drawn, read off the destination and what that destination is
+    /// showing. Read through rather than written by whoever moved it, so a stream taken fullscreen
+    /// from a tile's menu takes the bands with it without the shell being told. Idempotent.
+    /// </summary>
+    private void RenderChrome()
+    {
+        HasChrome = !(_current == Destination.Viewer && Viewer.HasFullscreen);
+        HasCaption = WindowChrome.AppDrawsCaption && HasChrome;
+    }
 
     /// <summary>
     /// Which view model the body shows. Exhaustive, so a destination added without a body

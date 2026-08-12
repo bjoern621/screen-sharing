@@ -19,7 +19,6 @@ import (
 	"sync"
 
 	"github.com/go-gst/go-gst/pkg/gst"
-	"github.com/go-gst/go-gst/pkg/gstpbutils"
 )
 
 // Element names the launch line gives the elements the receiver reads back.
@@ -74,6 +73,6 @@ func initGStreamer() {
 		useBundledPlugins()
 
 		gst.Init()
-		gstpbutils.PbUtilsInit()
+		initPbUtils()
 	})
 }

@@ -47,32 +47,12 @@
     -->
   </ControlTheme>
 
-  <!-- The surface the entries sit on, matching the expert menu's. -->
-  <ControlTheme x:Key="SelectMenu" TargetType="MenuFlyoutPresenter">
-    <Setter Property="Background" Value="{StaticResource ChromeBrush}" />
-    <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="{StaticResource RadiusPanel}" />
-    <Setter Property="Padding" Value="6" />
-    <Setter Property="MaxHeight" Value="360" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <Border Background="{TemplateBinding Background}"
-                BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="{TemplateBinding BorderThickness}"
-                CornerRadius="{TemplateBinding CornerRadius}"
-                Padding="{TemplateBinding Padding}">
-          <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-            <ItemsPresenter />
-          </ScrollViewer>
-        </Border>
-      </ControlTemplate>
-    </Setter>
-  </ControlTheme>
-
   <!--
-    One entry. The three bindings are the whole of what an entry is: what picking it does,
-    whether it can be picked, and why not where it cannot.
+    One entry, which is a menu row plus the two facts that make it an option: what picking it
+    does, and whether it can be picked. Everything else about it - the surface it sits on, the
+    fill under the pointer, the greying, the shape - is the menu's, stated once in
+    Design/Menus.axaml. A dropdown and a right-click menu are the same object, and the copy of
+    the surface that used to live here is how they came to disagree about the shadow.
 
     A refused entry stays in the list and greys, because a neighbouring configuration allows
     it and the greyed row plus its reason says what to change. Dropping it instead would say
@@ -81,48 +61,12 @@
     The reason is rendered by the caller's item template rather than shown as a tooltip on
     this row. A disabled control in Avalonia is not hit-testable, so it receives no pointer
     entry and its tooltip can never open - the setter that used to be here was dead on
-    exactly the entries it was written for. Height is left unset for the same feature: an
-    entry carrying a reason is two lines tall.
+    exactly the entries it was written for. The menu's height is a minimum for the same
+    feature: an entry carrying a reason is two lines tall and grows past it.
   -->
-  <ControlTheme x:Key="SelectMenuItem" TargetType="MenuItem">
+  <ControlTheme x:Key="SelectMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
     <Setter Property="Command" Value="{Binding Choose}" />
     <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
-    <Setter Property="MinHeight" Value="{StaticResource MenuItemHeight}" />
-    <Setter Property="Padding" Value="9,5" />
-    <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <Border Name="Root"
-                Background="{TemplateBinding Background}"
-                CornerRadius="{TemplateBinding CornerRadius}"
-                Padding="{TemplateBinding Padding}">
-          <!--
-            ContentTemplate is the whole of what the flyout's ItemTemplate travels through.
-            Without it the presenter has a view model and no template to draw it with, falls
-            back to ToString, and the menu prints the record's own field dump - which is
-            exactly what it did.
-          -->
-          <ContentPresenter Content="{TemplateBinding Header}"
-                            ContentTemplate="{TemplateBinding HeaderTemplate}"
-                            VerticalAlignment="Center" />
-        </Border>
-      </ControlTemplate>
-    </Setter>
-
-    <Style Selector="^:pointerover /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
-    </Style>
-    <Style Selector="^:selected /template/ Border#Root">
-      <Setter Property="Background" Value="{StaticResource ControlBrush}" />
-    </Style>
-
-    <Style Selector="^:disabled">
-      <Setter Property="Cursor" Value="Arrow" />
-      <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
-    </Style>
   </ControlTheme>
 
 </ResourceDictionary>

@@ -85,6 +85,11 @@ A method that refuses a repeat takes that move away and leaves the caller waitin
 
 What a repeat is not is a second, different request.
 `StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path; `ApplyToStream` names a transition on purpose and a second one is a second restart.
+
+The third departure is the handful of effects that end in a program this process does not own: `OpenLog`, `OpenLogsFolder` and `OpenInBrowser` hand a path or an address to the desktop.
+A second call opens a second window, because there is no state to read back that would let it decide the first one is still there - the browser owns the tab and the file manager owns its window, and neither reports.
+An effect of this kind states no state and is offered as an action rather than as something with a tick beside it, which is what keeps the departure visible in the interface instead of only in the code.
+
 Those are the departures, they are written down where they happen, and the sentence a timed-out call shows is worded against them.
 
 Every call over the socket is bounded.
@@ -92,7 +97,7 @@ An unbounded call turns a lost answer into a permanent wait, and on a local sock
 The bound belongs on the channel, in one place, and not at each call site: a rule applied per call site holds only where somebody remembered it.
 
 A failure that says the backend went quiet says what is and is not known about the attempt, and says that anything naming a state is safe to ask for again.
-That sentence is only truthful because those effects are idempotent, which is the paradigm paying for itself - and it says "naming a state" rather than "every call" because of the two departures above.
+That sentence is only truthful because those effects are idempotent, which is the paradigm paying for itself - and it says "naming a state" rather than "every call" because of the departures above.
 
 ## Stateless
 

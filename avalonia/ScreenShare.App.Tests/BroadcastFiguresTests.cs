@@ -3,6 +3,7 @@ using ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 using ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
+using ScreenShare.App.Features.Broadcast.Plots.Model;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Shell.Model;
 using ScreenShare.App.Features.Shell.NavStrip.ViewModel;
@@ -40,7 +41,7 @@ public sealed class BroadcastFiguresTests
     }
 
     [Fact]
-    public void TheOnAirTimerIsTheEncodersOwnClock()
+    public void TheSharingTimerIsTheEncodersOwnClock()
     {
         var reading = BroadcastSnapshot.Of(Live(), Sample(4, 3_671), null);
 
@@ -48,7 +49,7 @@ public sealed class BroadcastFiguresTests
     }
 
     [Fact]
-    public void TheOnAirTimerIsUnmeasuredBeforeTheFirstSample()
+    public void TheSharingTimerIsUnmeasuredBeforeTheFirstSample()
     {
         var reading = BroadcastSnapshot.Of(Live(), null, null);
 
@@ -63,8 +64,8 @@ public sealed class BroadcastFiguresTests
 
         strip.Show(Destination.Setup, broadcastAvailable: true, "00:00:07");
 
-        Assert.True(strip.ShowsOnAir);
-        Assert.Equal("00:00:07", strip.OnAirTimer);
+        Assert.True(strip.ShowsSharing);
+        Assert.Equal("00:00:07", strip.SharingTimer);
     }
 
     [Fact]
@@ -75,8 +76,8 @@ public sealed class BroadcastFiguresTests
         strip.Show(Destination.Setup, broadcastAvailable: true, "00:00:07");
         strip.Show(Destination.Setup, broadcastAvailable: false, Figure.NoValue);
 
-        Assert.False(strip.ShowsOnAir);
-        Assert.Equal("", strip.OnAirTimer);
+        Assert.False(strip.ShowsSharing);
+        Assert.Equal("", strip.SharingTimer);
     }
 
     [Fact]
@@ -90,7 +91,7 @@ public sealed class BroadcastFiguresTests
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4.25, 12), relay),
         };
 
-        Assert.True(bar.IsOnAir);
+        Assert.True(bar.IsSharing);
         Assert.Equal("00:00:12", bar.Elapsed);
         Assert.Equal("4.25", bar.Figures[0].Value);
         Assert.Equal("3", bar.Figures[4].Value);
@@ -110,17 +111,82 @@ public sealed class BroadcastFiguresTests
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
     }
 
+    /// <summary>
+    /// The axis is a fixed span, so the label names it and does not grow with the run. It used to
+    /// be the span the samples happened to cover, which meant a plot that read <c>3 s</c> a
+    /// moment after sharing started and crept upwards from there.
+    /// </summary>
     [Fact]
-    public void ThePlotStatesTheWindowItsSamplesCover()
+    public void ThePlotStatesTheWindowItCoversWhateverTheRunHasReached()
     {
-        var plots = new PlotsViewModel
+        var young = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 30), null),
             Samples = [Sample(3, 10), Sample(5, 20), Sample(4, 30)],
         };
 
-        Assert.True(plots.HasEgress);
-        Assert.Equal("20 s", plots.Window);
+        Assert.True(young.HasEgress);
+        Assert.Equal("60 s", young.Window);
+
+        var old = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 400), null),
+            Samples = Enumerable.Range(0, 400).Select(second => Sample(4, second)).ToList(),
+        };
+
+        Assert.Equal("60 s", old.Window);
+    }
+
+    /// <summary>
+    /// A moment sits at one place on the card whatever the run has reached: the newest sample is
+    /// the right edge, and how far left a point sits is how long ago it was taken. A run younger
+    /// than the window therefore fills the right of the plot and leaves the rest of it empty
+    /// rather than being stretched across it.
+    /// </summary>
+    [Fact]
+    public void APointIsPlacedByWhenItWasTakenAndNotByHowManyThereAre()
+    {
+        var young = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 15), null),
+            Samples = [Sample(3, 0), Sample(5, 5), Sample(4, 15)],
+        };
+
+        // Fifteen seconds of a sixty-second window: a quarter of the width, hard against the
+        // right edge.
+        Assert.Equal(3, young.Egress.Count);
+        Assert.Equal(PlotSeries.Extent.Width, young.Egress[^1].X, 6);
+        Assert.Equal(PlotSeries.Extent.Width * 0.75, young.Egress[0].X, 6);
+
+        // A run past the window keeps the same scale and drops what fell off the back of it.
+        var running = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 400), null),
+            Samples = Enumerable.Range(0, 401).Select(second => Sample(4, second)).ToList(),
+        };
+
+        Assert.Equal(61, running.Egress.Count);
+        Assert.Equal(0, running.Egress[0].X, 6);
+        Assert.Equal(PlotSeries.Extent.Width, running.Egress[^1].X, 6);
+    }
+
+    /// <summary>
+    /// A pipeline that dies and comes back leaves the stream live, so its samples are appended to
+    /// the ones before it and its running clock starts again at zero. The plot draws the run the
+    /// newest sample belongs to; laying both over one axis would put the old one off the right
+    /// edge of the card.
+    /// </summary>
+    [Fact]
+    public void ARelaunchedPipelineIsNotDrawnOverTheOneBeforeIt()
+    {
+        var plots = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 2), null),
+            Samples = [Sample(3, 100), Sample(5, 101), Sample(3, 0), Sample(5, 1), Sample(4, 2)],
+        };
+
+        Assert.Equal(3, plots.Egress.Count);
+        Assert.Equal(PlotSeries.Extent.Width, plots.Egress[^1].X, 6);
     }
 
     [Fact]

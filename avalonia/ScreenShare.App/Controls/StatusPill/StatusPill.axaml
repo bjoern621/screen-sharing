@@ -5,7 +5,7 @@
   <ControlTheme x:Key="{x:Type controls:StatusPill}" TargetType="controls:StatusPill">
     <Setter Property="Height" Value="{StaticResource PillHeight}" />
     <Setter Property="Padding" Value="10,0" />
-    <Setter Property="Background" Value="{StaticResource OnAirBrush}" />
+    <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
     <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
     <Setter Property="VerticalAlignment" Value="Center" />

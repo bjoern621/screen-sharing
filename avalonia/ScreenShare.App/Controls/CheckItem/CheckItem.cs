@@ -25,7 +25,7 @@ public enum CheckState
     /// <summary>The stream runs and something about it is likely to disappoint. <c>SEVERITY_WARNING</c>.</summary>
     Warned,
 
-    /// <summary>Failing, and going live waits on it. <see cref="CheckItem.FixedInStep"/> says where.</summary>
+    /// <summary>Failing, and sharing waits on it. <see cref="CheckItem.FixedInStep"/> says where.</summary>
     Blocking,
 }
 

@@ -24,7 +24,23 @@
 
   <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
     <StackPanel>
-      <TextBlock Classes="heading" Text="{Binding Title}" />
+      <!--
+        The heading, and beside it whatever effect this screen offers for the whole group.
+        There is one: putting these settings back to what a fresh installation holds. It sits
+        on the heading rather than on a control because it is about every control under it,
+        and it is absent on the groups that offer nothing (Features/Fields/Model/GroupAction.cs).
+      -->
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Classes="heading" VerticalAlignment="Center" Text="{Binding Title}" />
+        <Button Grid.Column="1"
+                Theme="{StaticResource OutlineButton}"
+                VerticalAlignment="Center"
+                IsVisible="{Binding HasAction}"
+                Content="{Binding Action.Label}"
+                Command="{Binding Action.Command}"
+                ToolTip.Tip="{Binding Action.Tip}" />
+      </Grid>
+
       <TextBlock Classes="secondary"
                  TextWrapping="Wrap"
                  TextTrimming="None"
@@ -127,7 +143,6 @@
                     <MenuFlyout ItemsSource="{Binding Options}"
                                 ItemTemplate="{StaticResource SelectEntry}"
                                 ItemContainerTheme="{StaticResource SelectMenuItem}"
-                                FlyoutPresenterTheme="{StaticResource SelectMenu}"
                                 Placement="BottomEdgeAlignedRight" />
                   </Button.Flyout>
                 </Button>

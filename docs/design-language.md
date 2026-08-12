@@ -32,13 +32,15 @@ or a menu, and a raised control's edge.
 Text is a five-step ladder from white down through the control label, secondary copy, muted
 figures and faint hints, ending at the disabled grey.
 
-There is one hue, `#E5484D`, and it is reserved strictly for **on air** and **something is
+There is one hue, `#E5484D`, and it is reserved strictly for **sharing** and **something is
 wrong**.
-It is the only colour on any screen, which is what makes a fault unmistakable across a room,
+Those are the two facts a reader must never miss: that this machine's screen is going out to
+other people right now, and that something has broken.
+It is the only colour on any screen, which is what makes either unmistakable across a room,
 and it is the only one a colour-blind reader still separates from grey reliably.
 Spending it on state that is merely on would cost the app its single unambiguous signal.
 Red therefore appears at most a few times per screen, and exactly once on the control that
-changes the world: `Go live`, and `Stop`.
+changes the world: `Start sharing`, and `Stop sharing`.
 
 Everything else that is merely notable is carried by weight, by fill, or by inversion.
 A satisfied check is a filled grey badge with a white tick, not a green one.
@@ -115,8 +117,10 @@ Labels render in the case they are written in.
 Radius is chosen by what a thing is, not by how big it is: a segment, a control, a button, a
 strip, a panel, a video tile, and the one capsule — a stream chip.
 
-Only two shadows exist in the entire product: the window's own, and a context menu's.
-Nothing else is elevated.
+Two things cast a shadow and nothing else is elevated.
+The window's is the platform's, so the app states nothing for it.
+The other belongs to a surface that floats over the window: a menu, and the tooltip skinned
+like one.
 A selected segment is flat; a card is separated by its border, not by a drop shadow.
 
 The window's chrome is the app's where the platform has one caption to stand in for: a custom
@@ -140,6 +144,11 @@ A tile keeps its own aspect inside its cell — a 4:3 camera pillarboxes, a 21:9
 letterboxes — and is never cropped or stretched.
 Tile chrome is a 9px radius, a name plate in the lower left, and figures in the lower right.
 
+A stream filling a screen is the stream and nothing else: no app chrome, no rail, no radius.
+The aspect rule is the cell's, so the picture keeps its shape and the surround is black.
+A double click is the way in and out and Escape is always a way out, because a screen that
+draws no controls still has to be one a reader can leave.
+
 A grid of tiles is equal cells, and the arrangement is derived rather than configured: the
 one with the largest fitted picture wins, and a short last row centres itself.
 No column count is written down anywhere.
@@ -148,7 +157,7 @@ single long row every time.
 
 A tile draws no ring, no outline and no dashed edge, in any state.
 The edge belongs to the grid rather than to the stream inside it, so a stream that starts
-speaking, goes on air or begins dropping frames never repaints the boundary the reader
+speaking, starts being shared or begins dropping frames never repaints the boundary the reader
 navigates by, and one struggling stream never becomes the loudest thing on a screen someone
 is scanning for something else.
 
@@ -156,7 +165,7 @@ What a stream is doing is said on its face instead, over the picture and at no c
 layout: a name plate with a small presence dot in the lower left, a status badge in the
 upper right, and the figure in the lower right.
 The badge is neutral except on this machine's own outgoing stream, which is the one filled
-red badge, because that is on air.
+red badge, because that is the stream this machine is sharing.
 A struggling stream wears the same neutral badge as any other, names itself in words, and
 prints its drop count in the figure at a heavier weight.
 Weight, never a second colour: a fault on a video surface is read, not spotted.
@@ -173,23 +182,43 @@ button:
 - Connecting: a spinning indicator.
   Where the transport reports connect phases, tiles add them as a step bar with a
   plain-words label; otherwise the tile names the one thing it waits for.
-- Live: the same small dot, and on the publishing surface the on-air pill — a solid white
-  dot, the words `On air`, and an elapsed timer in tabular figures.
+- Live: the same small dot, and on the publishing surface the sharing pill: a solid white
+  dot, the word `Sharing`, and an elapsed timer in tabular figures.
 - Failed or degraded: the one red, the reason in words, and a retry the surface already
   offers.
   Video tiles and the chips that drop them are the exception: they carry the reason in words
   alone and spend no colour on it, for the reason "Video surfaces" gives.
 
 The dot stays small (7px): it is state, not decoration.
-**Red never means live in the sense of merely connected.** It means on air — this machine is
-broadcasting right now — or it means broken. Those are the only two.
+
+Two states are close enough in English to be worth separating by name.
+A stream is **live** when it is connected and frames are moving, which is true of every tile
+in the viewer and says nothing about this machine.
+This machine is **sharing** when it is the one sending, which is true at most once and is what
+the red is for.
+`Live` and `IsLive` in the code mean the first; the pill, the badge and the buttons mean the
+second.
+Red is never spent on the first, however connected it is.
+
+## Pressing
+
+Every button answers a pointer with a surface: a fill on hover, a darker one under the press.
+That holds for the flat variants too, which carry no fill of their own and take one on hover
+rather than brightening their label and leaving the box empty.
+A control whose only answer is a change of text colour is a label that happens to be clickable,
+and it is the one button treatment this design does not allow: the reader has to already know
+it is a control to discover that it is one.
+The cursor does not stand in for the fill, because it says a thing is pressable only once the
+pointer is on it.
+A flat button therefore carries padding, which is both the room the fill needs to read as a
+shape and the press target the label alone would not give.
 
 ## Waiting
 
 A control that starts a call the backend has to answer says so until it is answered.
-Go live, Stop, Measure, Look again, Open full log, a stream's grid toggle and its watch legs
-are all of them; none of them is instant, and a control that answers a press by going quietly
-inert is read as a broken one.
+Start sharing, Stop sharing, Measure, Look again, Open full log, a stream's grid toggle and
+its watch legs are all of them; none of them is instant, and a control that answers a press
+by going quietly inert is read as a broken one.
 
 The treatment is one thing everywhere: the label is replaced in place by a turning arc, in
 the control's own foreground, inside the box the label had.
@@ -208,21 +237,75 @@ Selection is inversion: the selected thing takes the one light surface and near-
 That rule is identical everywhere — a destination in the nav strip, a row in a list, the
 current step — so selection reads the same on every screen without a legend.
 Toggling never rewrites a label; the state shows beside it or in the fill.
-A menu row that toggles something shows it the same way: the words stay put and a tick, a
-switch or a value sits at the end of the row.
-Every row that acts on state shows that state, so nothing in a menu asks the reader to
-remember what the last click did.
+Every control that acts on state shows that state, so nothing asks the reader to remember what
+the last click did.
+"Menus" states the form that takes inside a menu.
+
+## Menus
+
+A right-click menu, a submenu and a dropdown's option list are one object with one definition.
+Whatever opened it, what opens is the same floating panel: the panel radius, a hairline edge,
+the one shadow a floating surface casts, and an inset that keeps a row's fill clear of that
+edge.
+
+A row is five columns and draws the ones it has: a glyph, the words, the key that does the same
+thing, the state, and a submenu's chevron.
+The glyph names the row and holds still while the row's state moves, so the shape a reader
+navigates the menu by does not change under the pointer.
+Dividers group the rows.
+A menu whose rows are all peers makes the reader sort them on every open.
+
+**A key is printed as a reading, not as part of the label.**
+It sits at the quiet end of the row in hint weight, because it answers a question the reader did
+not open the menu with.
+The menu is where the shortcuts are documented, so a row that has one prints it and a reader
+learns it once.
+
+**A row names a state, not a transition.**
+"Mute", not "Unmute"; "Fullscreen", not "Leave fullscreen".
+Whether that state is in force is the tick at the end of the row, which is the rule "Selection"
+states for everything else.
+A menu is read far more often than it is pressed, and a label saying what pressing it would do
+never answers the question the reader opened the menu with.
+It is also what makes a row idempotent to describe: the row names somewhere the thing can be,
+and pressing it twice is a round trip.
+
+The tick is a read of that state and never a box the row keeps for itself.
+A row that ticked itself on click would report the request instead of the answer, and would
+have to take the tick back wherever the backend refused.
+
+A figure printed in a menu is not a row that refused to do anything.
+Greying means an action some configuration took away, so spending it on a reading sends a
+reader looking for what would bring it back.
+A figure is inert instead: quieter than a row, no fill under the pointer, and out of the
+keyboard's path.
 
 ## Wording
 
 Anything written as words for a reader is sentence case: headings, buttons, field labels,
 empty states, status lines and failure messages.
-"Go live", "Force keyframe", "Edit in setup", "Read-only while live."
+"Start sharing", "Force keyframe", "Edit in setup", "Read-only while live."
 A standalone sentence takes a full stop.
 A fragment that labels a state does not: "No frames arriving", "Waiting for the first frame".
 
 Lowercase is reserved for the figures, which are identifiers rather than prose: stat keys,
 chip values, table column headers and transport names.
+
+**This is a screen-sharing app and it uses the words one has.**
+A stream, a viewer, a window, watching, and sharing.
+Broadcast television has a term of art for most of these, and every one of them loses to the
+plain word.
+The test is whether a reader would have to be taught it: `program`, `on air`, `bug`, `lower
+third` and `take` all fail it, and not one of them names something this product cannot already
+say.
+The badge over this machine's own outgoing picture has been through both: it read `Program`,
+then `On air`, and now reads `Sharing`, which is what a reader would have called it unprompted.
+
+`Sharing` is the state's name on every surface that has one: the pill in the nav strip, the
+pill on the broadcast header, the badge over the preview.
+The controls that enter and leave it are `Start sharing` and `Stop sharing`, so the button and
+the state say the same word rather than one saying `Go live` and the other answering `On air`.
+The setup wizard's terminal step is `Share`.
 
 A tooltip is prose: it opens with a capital, closes with a full stop, and explains the
 control or the figure instead of naming it a second time.

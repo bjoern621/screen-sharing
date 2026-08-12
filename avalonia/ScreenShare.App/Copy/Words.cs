@@ -171,18 +171,65 @@ public static class Words
     };
 
     /// <summary>
-    /// The NVENC preset ladder. Only the ends and the default carry a word: the steps
-    /// between them are a ladder, and naming each one would imply a difference in kind.
+    /// The effort ladders, every encoder's steps in one table.
+    ///
+    /// A step is the encoder's own identifier and the backend offers whichever ladder the
+    /// selected codec declares, so the two named ladders sit here together: no codec offers
+    /// both, and a step of one is never a step of the other.
+    ///
+    /// Only the ends and the defaults carry a word. The steps between them are a ladder, and
+    /// naming each would imply a difference in kind.
+    ///
+    /// The numeric ladders are deliberately absent. Their steps are numbers on the encoder's
+    /// own scale - 0 to 13 on SVT-AV1, 0 to 8 on libaom - and the number is the name, so the
+    /// lookup falls through to the identifier and the dropdown reads as the ladder it is.
     /// </summary>
-    private static readonly Dictionary<string, string> EncPresets = new()
+    private static readonly Dictionary<string, string> Efforts = new()
     {
-        ["p1"] = "p1 · fastest",
-        ["p2"] = "p2",
-        ["p3"] = "p3",
-        ["p4"] = "p4 · default",
-        ["p5"] = "p5",
-        ["p6"] = "p6",
+        // NVIDIA's ladder, slowest step first as the backend orders every ladder.
         ["p7"] = "p7 · smallest",
+        ["p6"] = "p6",
+        ["p5"] = "p5",
+        ["p4"] = "p4 · default",
+        ["p3"] = "p3",
+        ["p2"] = "p2",
+        ["p1"] = "p1 · fastest",
+
+        // x264's ladder, which libx265 takes as well.
+        ["placebo"] = "Placebo · slowest",
+        ["veryslow"] = "Very slow",
+        ["slower"] = "Slower",
+        ["slow"] = "Slow",
+        ["medium"] = "Medium · default",
+        ["fast"] = "Fast",
+        ["faster"] = "Faster",
+        ["veryfast"] = "Very fast",
+        ["superfast"] = "Superfast",
+        ["ultrafast"] = "Ultrafast · fastest",
+    };
+
+    /// <summary>
+    /// The tune ladders: what an encoder aims at while it spends its effort.
+    ///
+    /// Two vocabularies meet here, as they do above. x264 and x265 name what the picture is
+    /// or what the decoder needs; the NVIDIA encoders name the delay they hold, in the SDK's
+    /// abbreviations, which is what the backend carries and what a log will show.
+    /// </summary>
+    private static readonly Dictionary<string, string> Tunes = new()
+    {
+        ["none"] = "No tuning",
+        ["film"] = "Film",
+        ["animation"] = "Animation",
+        ["grain"] = "Film grain",
+        ["stillimage"] = "Still image",
+        ["psnr"] = "PSNR",
+        ["ssim"] = "SSIM",
+        ["fastdecode"] = "Easy to decode",
+        ["zerolatency"] = "Zero latency",
+        ["hq"] = "Quality",
+        ["ll"] = "Low latency",
+        ["ull"] = "Ultra low latency",
+        ["lossless"] = "Lossless",
     };
 
     /// <summary>
@@ -285,10 +332,12 @@ public static class Words
 
     public static string ColorRange(string id) => Look(ColorRanges, id);
 
-    public static string EncPreset(string id) => Look(EncPresets, id);
+    public static string Effort(string id) => Look(Efforts, id);
+
+    public static string Tune(string id) => Look(Tunes, id);
 
     /// <summary>
-    /// The name of a built-in preset. It is not <see cref="EncPreset"/>: that one is a step of
+    /// The name of a built-in preset. It is not <see cref="Effort"/>: that one is a step of
     /// the NVENC ladder and a settings value, this one is a way of publishing that is applied
     /// and never stored.
     /// </summary>

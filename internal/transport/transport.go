@@ -70,10 +70,10 @@ type Carriage struct {
 // coincidence.
 //
 // On the publish leg the engines are the two publish engines. On the watch leg
-// capabilities.EngineFfmpeg is the URL-opening players (ffplay and mpv, both on
-// libavformat) and capabilities.EngineGst is a receiving GStreamer pipeline, the
-// native grid's. The browser is neither: it reaches the relay through its own
-// RTCPeerConnection and carries its own table (webgrid.ts).
+// they are the three readers: capabilities.EngineFfmpeg is the URL-opening
+// players (ffplay and mpv, both on libavformat), capabilities.EngineGst is a
+// receiving GStreamer pipeline, the tile grid's, and EngineBrowser is the
+// machine's default browser on the player page the relay serves.
 type Formats struct {
 	Publish map[string]Carriage `json:"publish"`
 	Watch   map[string]Carriage `json:"watch"`
@@ -119,6 +119,37 @@ type Watcher interface {
 	WatchURL(s settings.Settings, streamName string) string
 }
 
+// EngineBrowser is the third watch engine: the machine's default browser, on the
+// player page the relay serves for a stream.
+//
+// It is named here rather than in capabilities.Engines because that list is the
+// publish engines - what a Gap may name, what an encoder probe runs against, what
+// the catalog's engine rows describe - and a reader that encodes nothing has no
+// place in any of them. Both halves of this package's engine axis are watch-side
+// only for the same reason the browser has no publish carriage: nothing here
+// publishes through a browser.
+const EngineBrowser = "browser"
+
+// WatchEngines lists the readers a watch carriage can be stated for, in the order
+// a table walks them. It is the watch leg's counterpart of capabilities.Engines,
+// and the two are different lists rather than one: the browser reads and never
+// publishes, so a walk over the publish engines would leave the rows it states
+// out of every table built from one.
+var WatchEngines = []string{capabilities.EngineFfmpeg, capabilities.EngineGst, EngineBrowser}
+
+// BrowserWatcher is a transport the relay serves a player page for, yielding the
+// address that page is at. It is the browser's counterpart of Watcher: both hand
+// back a URL, and they are separate interfaces because the two readers open
+// different things - a player takes the media address, and a browser takes an
+// HTML page that then fetches the media itself.
+//
+// The page is the relay's own rather than anything this app serves. What it can
+// play is therefore a property of the relay's listener and of the browser
+// running it, which is what the browser carriage states.
+type BrowserWatcher interface {
+	BrowserURL(s settings.Settings, streamName string) string
+}
+
 // GstWatcher is a transport that serializes to the source elements a receiving
 // GStreamer pipeline decodes from. The fragment ends at the encoded stream;
 // the receiver appends its own decode and sink elements. It is the watch-side
@@ -156,10 +187,12 @@ func Register(t Transport) {
 	_, gstPublish := t.(GstPublisher)
 	_, watch := t.(Watcher)
 	_, gstWatch := t.(GstWatcher)
+	_, browserWatch := t.(BrowserWatcher)
 	assertStated(t, "publish", capabilities.EngineFfmpeg, ffmpegPublish, f.Publish)
 	assertStated(t, "publish", capabilities.EngineGst, gstPublish, f.Publish)
 	assertStated(t, "watch", capabilities.EngineFfmpeg, watch, f.Watch)
 	assertStated(t, "watch", capabilities.EngineGst, gstWatch, f.Watch)
+	assertStated(t, "watch", EngineBrowser, browserWatch, f.Watch)
 
 	_, exists := registry[t.Name()]
 	assert.Assert(!exists, "transport registered twice", t.Name())
@@ -180,8 +213,13 @@ func assertStated(t Transport, leg, engine string, serializes bool, carriages ma
 // engine reaching this package is named by the caller rather than read off the
 // settings, so one outside the set is a caller that made it up and the lookups
 // assert it.
+//
+// The browser is in the set on both legs, and a browser publish carriage is
+// refused by the Register assert above rather than by this predicate: an engine
+// no transport can name on a leg states nothing there, and Register is where a
+// stated carriage and a serialization capability are held to each other.
 func knownEngine(engine string) bool {
-	return slices.Contains(capabilities.Engines, engine)
+	return slices.Contains(capabilities.Engines, engine) || slices.Contains(WatchEngines, engine)
 }
 
 // Get returns the transport registered under name.
@@ -289,6 +327,24 @@ func WatchURL(name string, s settings.Settings, streamName string) (string, bool
 	return url, true
 }
 
+// BrowserURL returns the address of the relay's player page for the named
+// transport, and false when the relay serves no page on that leg. The transport
+// is named explicitly for the reason WatchURL's is: which leg a viewer receives
+// over is chosen per viewer.
+func BrowserURL(name string, s settings.Settings, streamName string) (string, bool) {
+	t, ok := Get(name)
+	if !ok {
+		return "", false
+	}
+	w, ok := t.(BrowserWatcher)
+	if !ok {
+		return "", false
+	}
+	url := w.BrowserURL(s, streamName)
+	assert.Assert(url != "", "a transport with a player page yields its address", name, streamName)
+	return url, true
+}
+
 // Names lists all registered transports, sorted. The registry is a map, so the
 // list is sorted for a stable order. It spans both legs and both engines: a
 // caller that means one of them asks PublishNames or WatchNames instead.
@@ -313,9 +369,10 @@ func PublishNames(engine string) []string {
 // independent of the publish transport, so a stream published over one protocol
 // is offered for watching over every protocol the relay re-serves it on.
 //
-// The two engines' lists each hold a transport the other lacks: a player needs a
-// URL and WHEP is an exchange rather than an address, while nothing on the
-// GStreamer side reads the relay's HLS segments.
+// No two of the three lists are the same, and each difference is a property of
+// the reader: a player needs a URL and WHEP is an exchange rather than an
+// address, nothing on the GStreamer side reads the relay's HLS segments, and the
+// browser reaches only the two legs the relay serves a page for.
 func WatchNames(engine string) []string {
 	assert.Assert(knownEngine(engine), "a watch roster names an engine", engine)
 

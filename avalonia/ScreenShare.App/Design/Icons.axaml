@@ -39,6 +39,12 @@
     <Setter Property="Height" Value="{DynamicResource IconSizeBadge}" />
   </Style>
 
+  <!-- Alone in a button, where the glyph stands for the control rather than labelling a line. -->
+  <Style Selector="ti|TablerIcon.button">
+    <Setter Property="Width" Value="{DynamicResource IconSizeButton}" />
+    <Setter Property="Height" Value="{DynamicResource IconSizeButton}" />
+  </Style>
+
   <!--
     The window controls' glyphs. Paths and not text: the codepoints Windows draws these with
     live in Segoe Fluent Icons' private use area, so a face that is missing (an older

@@ -7,7 +7,7 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// can do.
 ///
 /// <b>One table, read by the view model.</b> The label and the sentence under it move together
-/// - a button that said "Go live" over a paragraph about restarting would be two answers to one
+/// - a button that said "Start sharing" over a paragraph about restarting would be two answers to one
 /// question - so they are one row per <see cref="PublishCommit"/> rather than two conditionals
 /// at two binding sites (<c>docs/development-principles.md</c>, "Stateless").
 ///
@@ -24,7 +24,7 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// field key, a value, a statement code - and every feature reads it. This is keyed on a state
 /// this module derived, so putting the table there would make <c>Copy/</c> depend on a feature
 /// and close a cycle. The same reasoning already keeps <see cref="PreflightChecks.Clear"/> and
-/// <see cref="SetupSteps.GoLiveLabel"/> here.
+/// <see cref="SetupSteps.ShareLabel"/> here.
 /// </summary>
 public static class CommitCopy
 {
@@ -51,8 +51,8 @@ public static class CommitCopy
     {
         [PublishCommit.Start] = new Entry
         {
-            Label = "Go live",
-            Lead = "Going live starts sending immediately. Viewers on ",
+            Label = "Start sharing",
+            Lead = "Sharing starts sending immediately. Viewers on ",
             Tail = " will see the stream within about two seconds.",
         },
 

@@ -93,19 +93,16 @@ public sealed record ViewerRow(
     /// says the leg states none.
     /// </summary>
     /// <remarks>
-    /// The two identifying cells fall back and then give up rather than asserting. They are the
-    /// relay's own words, and a relay that named a reader nothing is an environment condition
-    /// this screen has to survive - so an unnameable viewer renders as one, which is still a row
-    /// saying somebody is connected (<c>docs/development-principles.md</c>, "Contracts").
+    /// The two identifying cells fall back and then give up rather than asserting, and they do it
+    /// in <see cref="Readers"/> rather than here, because the session log names the same readers
+    /// (<c>docs/development-principles.md</c>, "Contracts").
     /// </remarks>
     public static ViewerRow Of(RelayReader reader)
     {
         Assert.NotNull(reader, "a viewer row describes a reader the relay reported");
 
-        var name = reader.HasRemoteAddr && reader.RemoteAddr.Length > 0 ? reader.RemoteAddr : reader.Id;
-
         return new ViewerRow(
-            Name: name.Length > 0 ? name : Figure.NoValue,
+            Name: Readers.NameOf(reader),
             Joined: JoinedAt(reader),
             Rtt: Figure.Of(reader.HasRttMs ? reader.RttMs : null, "0"),
             Loss: Figure.Of(reader.HasLossPercent ? reader.LossPercent : null, "0.00"),
@@ -141,13 +138,7 @@ public sealed record ViewerRow(
     /// clock's, so this only converts it to the reader's zone and drops the date.
     /// </summary>
     private static string JoinedAt(RelayReader reader)
-    {
-        if (!reader.HasJoined || !DateTimeOffset.TryParse(
-                reader.Joined, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var joined))
-        {
-            return Figure.NoValue;
-        }
-
-        return joined.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
-    }
+        => Readers.JoinedAt(reader) is { } joined
+            ? joined.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture)
+            : Figure.NoValue;
 }

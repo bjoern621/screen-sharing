@@ -73,6 +73,18 @@ public sealed class FormSession
     private Settings? _asked;
 
     /// <summary>
+    /// The settings the backend is holding, and null until the opening read answers.
+    ///
+    /// It is a different fact from the draft, and the difference is what a staged group means.
+    /// Several effects are served off the backend's own settings rather than off anything a
+    /// call hands over - a decode reads the render chain and both jitter buffers out of them
+    /// (<c>docs/ipc-api.md</c>) - so this is what those effects will run on, where the draft is
+    /// what the reader is looking at. They are equal until something is edited and equal again
+    /// once it is kept.
+    /// </summary>
+    private Settings? _stored;
+
+    /// <summary>
     /// Which resolve is being waited for, counting up. An answer arriving with an older number
     /// belongs to a draft the reader has already moved off, and is dropped.
     /// </summary>
@@ -89,6 +101,13 @@ public sealed class FormSession
 
     /// <summary>Whether a write is in flight, which is what keeps two from overlapping.</summary>
     private bool _persisting;
+
+    /// <summary>
+    /// Answers the caller that asked for a write, once the queue it joined has drained. One
+    /// source serves every caller waiting on the same run, because they are all waiting for the
+    /// same thing: the newest draft stored. Null while nothing is queued.
+    /// </summary>
+    private TaskCompletionSource? _written;
 
     /// <summary>
     /// Whether the session last reported the backend absent. It is held for one purpose: to tell
@@ -153,6 +172,16 @@ public sealed class FormSession
     public Settings? Draft => _draft;
 
     /// <summary>
+    /// The settings the backend is holding, null until the opening read answers.
+    ///
+    /// Read by whatever has to name a value the backend will act on rather than one the reader
+    /// is looking at. The leg a decode is opened on is the case that exists: the backend reads
+    /// every other knob of that decode out of these same settings, so opening on the draft would
+    /// run half a panel's worth of choices and hold the other half back.
+    /// </summary>
+    public Settings? Stored => _stored;
+
+    /// <summary>
     /// Why the last read could not be answered, empty while the backend is answering. It is that
     /// side's own sentence, shown as it stands, and it is cleared by the next answer - which is
     /// what makes a recovered backend clear the notice a failed read left behind rather than
@@ -161,8 +190,8 @@ public sealed class FormSession
     public string Unavailable { get; private set; } = "";
 
     /// <summary>
-    /// Why the last write to an applied group could not be stored, empty while they are being
-    /// stored. It is that side's own sentence, shown as it stands.
+    /// Why the last write could not be stored, empty while they are being stored. It is that
+    /// side's own sentence, shown as it stands.
     ///
     /// It is separate from <see cref="Unavailable"/> because the two are different news and one
     /// must not stand in for the other. A read that cannot be answered leaves the screen showing
@@ -230,10 +259,136 @@ public sealed class FormSession
         // form; this class asks the question and does not answer it.
         if (Applies(key))
         {
-            Persist(draft);
+            _ = Persist(draft);
         }
 
         Announce();
+    }
+
+    /// <summary>
+    /// Keeps the draft as it stands, and answers once the write has landed.
+    ///
+    /// It is what a staged group's commit runs: nothing about those fields reaches the backend
+    /// as they are edited, so a screen drawing one needs a way to say "these, now". The write is
+    /// the whole settings message either way, so this is the same effect an applied field's
+    /// keystroke starts and it goes down the same queue - a commit racing an applied write would
+    /// be two unary calls with no ordering between them, and the older snapshot landing last is
+    /// exactly what <see cref="Persist"/> exists to prevent.
+    ///
+    /// <b>Safe to run twice.</b> It names a state - these are the stored settings - so a second
+    /// run with nothing changed asks for a state that already holds
+    /// (<c>docs/development-principles.md</c>, "Effects across a process boundary"). Whether it
+    /// landed is <see cref="Unsaved"/>; this answers when the attempt is over, either way.
+    /// </summary>
+    public Task SaveAsync()
+    {
+        // A commit was offered beside a form, and a form was resolved from a draft.
+        var draft = Assert.NotNull(_draft, "a save that was offered was drawn from a draft");
+
+        return Persist(draft);
+    }
+
+    /// <summary>
+    /// Replaces the way of publishing whole, which is what applying a preset is. The draft's
+    /// other two groups are untouched: a preset is a <c>PublishSettings</c> and nothing else, so
+    /// where the relay is and how this machine watches are not its to say
+    /// (<c>docs/presets.md</c>).
+    ///
+    /// <b>An assignment and not a merge.</b> The settings travel whole for that reason
+    /// (<c>settings.proto</c>, <c>Preset</c>): merged, what a preset produced would depend on
+    /// what the form happened to hold first, and the same preset would mean different pictures
+    /// on two machines. What comes back from the resolve is the repaired version of exactly
+    /// what was assigned, which is the same adoption every other write ends in.
+    ///
+    /// This is the one write that names a settings group. Every other one addresses a field by
+    /// the key the form gave it (<see cref="Write"/>), and there is no key for a whole group -
+    /// nor should there be, since no control writes one. What makes naming it honest here is
+    /// that the contract names it too: a preset is defined as that group.
+    /// </summary>
+    public void WritePublish(PublishSettings publish)
+    {
+        Assert.NotNull(publish, "applying a preset needs the way of publishing it saved");
+
+        // A preset can only be applied to a form the reader is looking at, and a form was
+        // resolved from a draft.
+        var draft = Assert.NotNull(_draft, "a preset the reader applied was offered beside a draft");
+
+        // A copy, because the store's message is held for as long as the list on screen is: an
+        // assignment of the instance itself would let the next keystroke edit the preset.
+        draft.Publish = publish.Clone();
+        Sync();
+
+        // The same question a field write asks, asked about every field this one moved: are
+        // these settings themselves, or a proposal a commit turns into settings? Publish
+        // settings are staged, so this stores nothing and a preset the reader is trying out is
+        // not what the next stream starts on. It is read off the form rather than stated here,
+        // so a group that becomes applied is persisted by this write too.
+        if (AppliesToGroup(SettingsDraft.PublishGroup))
+        {
+            _ = Persist(draft);
+        }
+
+        Announce();
+    }
+
+    /// <summary>
+    /// Puts one group of settings back to what a fresh installation holds.
+    ///
+    /// <b>The values are the form's, stated per field</b> (<c>form.proto</c>,
+    /// <c>Field.default_value</c>). This side holds no defaults of its own and could not: what a
+    /// setting starts as is the same fact as which values it may take, and both are the
+    /// backend's (<c>docs/ipc-api.md</c>, "The rule"). So a group that gains a field is a field
+    /// this puts back with nothing here to edit.
+    ///
+    /// <b>One write, not one per field.</b> Every field of the group goes into the draft before
+    /// anything is asked or stored, so the resolve sees the whole reset and an applied group is
+    /// persisted once rather than once per port. Both follow from what the reset is: a single
+    /// change of mind about a group, rather than a burst of the writes a reader could have made
+    /// by hand.
+    /// </summary>
+    public void Reset(string groupKey)
+    {
+        Assert.That(groupKey.Length > 0, "a reset names the group it puts back");
+
+        // Both are what the offer was drawn from: a heading the reader pressed came from a form,
+        // and a form was resolved from a draft.
+        var draft = Assert.NotNull(_draft, "a reset the reader asked for was offered beside a draft");
+        var group = Assert.NotNull(GroupOf(groupKey), "a reset names a group the form carries");
+
+        foreach (var field in group.Fields)
+        {
+            var value = Assert.NotNull(field.DefaultValue, "a field the form carries states what it starts as");
+
+            SettingsDraft.Write(draft, field.Key, value);
+        }
+
+        Sync();
+
+        if (group.Applied)
+        {
+            _ = Persist(draft);
+        }
+
+        Announce();
+    }
+
+    /// <summary>The group under this key in the last form, or null where there is none.</summary>
+    private FieldGroup? GroupOf(string groupKey)
+    {
+        if (_form is null)
+        {
+            return null;
+        }
+
+        foreach (var group in _form.Groups)
+        {
+            if (group.Key == groupKey)
+            {
+                return group;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -267,6 +422,45 @@ public sealed class FormSession
     }
 
     /// <summary>
+    /// Whether a write to any field of one settings group is the setting itself.
+    ///
+    /// It is <see cref="Applies"/> asked about a group, which is what a whole-group write needs.
+    /// The two questions are not the same one: the form groups the screen by what the reader is
+    /// deciding and a key by which message holds the value, so one settings group's fields reach
+    /// the screen spread across several form groups (<c>internal/form/keys.go</c>). Any of them
+    /// being applied makes the write a setting, because that is the field the backend would
+    /// otherwise never be handed.
+    /// </summary>
+    private bool AppliesToGroup(string group)
+    {
+        Assert.That(group.Length > 0, "asking whether a group is applied names the group");
+
+        if (_form is null)
+        {
+            return false;
+        }
+
+        var prefix = group + SettingsDraft.KeySeparator;
+        foreach (var drawn in _form.Groups)
+        {
+            if (!drawn.Applied)
+            {
+                continue;
+            }
+
+            foreach (var field in drawn.Fields)
+            {
+                if (field.Key.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Queues the draft to be persisted, and starts the writer when it is not already running.
     ///
     /// <b>One write is in flight at a time, and the newest draft is the one that lands.</b> Two
@@ -280,17 +474,26 @@ public sealed class FormSession
     /// the draft in place, so handing the live instance over would let the next keystroke change
     /// the message while it is being sent.
     /// </summary>
-    private void Persist(Settings draft)
+    /// <returns>
+    /// Answers when the run this write joined has drained, for a caller that has something to do
+    /// once it has - a commit button waits on it. A write superseded by a newer one answers with
+    /// that newer one, because they are the same settings and the newest is the one that says
+    /// anything.
+    /// </returns>
+    private Task Persist(Settings draft)
     {
         _pending = draft.Clone();
+        _written ??= new TaskCompletionSource();
+        var written = _written.Task;
 
         if (_persisting)
         {
-            return;
+            return written;
         }
 
         _persisting = true;
         _ = PersistAsync();
+        return written;
     }
 
     /// <summary>
@@ -309,11 +512,11 @@ public sealed class FormSession
                 try
                 {
                     await _backend.SaveSettingsAsync(settings).ConfigureAwait(false);
-                    _dispatch(() => Persisted(""));
+                    _dispatch(() => Persisted("", settings));
                 }
                 catch (BackendUnavailableException e)
                 {
-                    _dispatch(() => Persisted(e.Message));
+                    _dispatch(() => Persisted(e.Message, stored: null));
                 }
                 catch (OperationCanceledException)
                 {
@@ -329,7 +532,15 @@ public sealed class FormSession
             // has to be able to start another one. The alternative is a flag left set by a task
             // nobody is awaiting, and settings that silently stop being stored for the rest of
             // the session.
+            //
+            // Cleared before the waiters are answered, because one of them may write again from
+            // the continuation: a run that answered while it still claimed to be running would
+            // take that write onto a queue nothing is left to drain.
             _persisting = false;
+
+            var written = _written;
+            _written = null;
+            written?.TrySetResult();
         }
     }
 
@@ -341,9 +552,20 @@ public sealed class FormSession
     /// successful read clear the sentence would drop the one piece of news the reader needs -
     /// that what the screen shows is not what is stored.
     /// </summary>
-    private void Persisted(string reason)
+    /// <param name="stored">
+    /// What the backend now holds, and null where the write did not land. It is the message that
+    /// went over rather than the draft as it stands, so a keystroke made during the round trip
+    /// leaves the settings correctly reported as not yet stored.
+    /// </param>
+    private void Persisted(string reason, Settings? stored)
     {
         Unsaved = reason;
+
+        if (stored is not null)
+        {
+            _stored = stored;
+        }
+
         Announce();
     }
 
@@ -406,10 +628,19 @@ public sealed class FormSession
     {
         try
         {
-            draft ??= await _backend.SettingsAsync(cancellation).ConfigureAwait(false);
+            // The opening read is the one that sees what the backend is holding, and the only
+            // one: every read after it is asked about a draft, and what the answer describes is
+            // that draft rather than the other side's settings.
+            Settings? stored = null;
+            if (draft is null)
+            {
+                stored = await _backend.SettingsAsync(cancellation).ConfigureAwait(false);
+                draft = stored;
+            }
+
             var form = await _backend.ResolveFormAsync(draft, cancellation).ConfigureAwait(false);
 
-            _dispatch(() => Adopt(form, request));
+            _dispatch(() => Adopt(form, stored, request));
         }
         catch (OperationCanceledException)
         {
@@ -432,13 +663,21 @@ public sealed class FormSession
     /// that harmless rather than rare - an answer that is not the one being waited for is
     /// dropped, and the newer form stands.
     /// </summary>
-    private void Adopt(Form form, int request)
+    private void Adopt(Form form, Settings? stored, int request)
     {
         Assert.NotNull(form, "a resolve answers with the form it resolved");
 
         if (request != _request)
         {
             return;
+        }
+
+        // Only the opening read carries them, and they are taken as they came rather than as the
+        // resolve repaired them: a repair the reader has not kept is not a value the backend is
+        // running on, and recording it as one would hide the very difference this holds.
+        if (stored is not null)
+        {
+            _stored = stored;
         }
 
         _form = form;

@@ -36,23 +36,19 @@
     </Style>
 
     <!--
-      One rail entry. The action inside it appears on hover or while the stream is in the grid, so
-      a rail of eight streams is eight names rather than eight buttons.
+      One rail entry. The action inside it appears on hover, while the stream is in the grid, and
+      while a press of it is being answered, so a rail of eight streams is eight names rather than
+      eight buttons and the one that is working still says so.
+
+      The wait is the reason the third case is here rather than only the first two: a press makes
+      the row's command unavailable until the backend answers, an unavailable control takes no
+      pointer, and the entry would otherwise hide the spinner the moment it started turning.
     -->
-    <Style Selector="Border.entry">
-      <Setter Property="Background" Value="Transparent" />
-      <Setter Property="CornerRadius" Value="{StaticResource RadiusControl}" />
-      <Setter Property="Padding" Value="7,3,3,3" />
-      <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
-    </Style>
-    <Style Selector="Border.entry:pointerover">
-      <Setter Property="Background" Value="{StaticResource SurfaceBrush}" />
-    </Style>
-    <Style Selector="Border.entry Button.action">
+    <Style Selector="Button.entry Button.action">
       <Setter Property="Opacity" Value="0" />
       <Setter Property="IsHitTestVisible" Value="False" />
     </Style>
-    <Style Selector="Border.entry:pointerover Button.action, Border.entry Button.action.on">
+    <Style Selector="Button.entry:pointerover Button.action, Button.entry Button.action.on, Button.entry Button.action:pending">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
@@ -94,16 +90,16 @@
             govern rather than buried in the wizard for what it sends
             (Features/Fields/Model/GroupPlacement.cs).
           -->
-          <Button Grid.Column="1" Theme="{StaticResource LinkButton}"
+          <Button Grid.Column="1" Theme="{StaticResource IconButton}"
                   Command="{Binding ToggleWatchSettings}"
                   ToolTip.Tip="{Binding WatchSettingsTip}">
-            <ti:TablerIcon Icon="IconSettings" />
+            <ti:TablerIcon Classes="button" Icon="IconSettings" />
           </Button>
 
-          <Button Grid.Column="2" Theme="{StaticResource LinkButton}"
+          <Button Grid.Column="2" Theme="{StaticResource IconButton}"
                   Command="{Binding ToggleRail}"
                   ToolTip.Tip="{Binding RailToggleTip}">
-            <ti:TablerIcon Icon="{Binding RailGlyph}" />
+            <ti:TablerIcon Classes="button" Icon="{Binding RailGlyph}" />
           </Button>
         </Grid>
 
@@ -125,10 +121,27 @@
                   the action that puts it in the grid. Everything else the relay says about it -
                   tracks, rate, readers - is in the entry's own menu, because those are
                   diagnostics and this list is navigation.
-                -->
-                <Border Classes="entry" Margin="0,1" ToolTip.Tip="{Binding Detail}">
 
-                  <Border.ContextFlyout>
+                  The entry is the button. A press anywhere along it puts the stream in the grid
+                  or takes it out again, so what a reader aims at is a name in a list rather than
+                  a glyph at the end of one, and the row answers a pointer the way every other
+                  control on the surface does.
+                -->
+                <Button Classes="entry" Theme="{StaticResource RowButton}" Margin="0,1"
+                        Command="{Binding Show}" ToolTip.Tip="{Binding Detail}">
+
+                  <!--
+                    The entry's own menu: what can be done with this stream, then what the relay
+                    says about it. The same two groups the tile's menu carries, divided the same
+                    way and drawn by the same rows (Design/Menus.axaml).
+
+                    The first group is the two viewers this window does not draw - a player the
+                    backend launches, and the relay's page in a browser - each with the legs its
+                    own reader reaches. Putting the stream in the grid is not among them: that is
+                    what pressing the entry does, and a menu row for it would be a second control
+                    for one action.
+                  -->
+                  <Button.ContextFlyout>
                     <MenuFlyout>
                       <!--
                         One item per leg the backend offered. Whether a leg can carry this stream
@@ -137,22 +150,84 @@
                         stale format would block a viewer that would have worked.
                       -->
                       <MenuItem Header="Open in player" ItemsSource="{Binding Legs}">
+                        <MenuItem.Icon>
+                          <ti:TablerIcon Icon="IconPlayerPlay" />
+                        </MenuItem.Icon>
+                        <!--
+                          The tick is a read of whether the leg is open, not a box the row keeps
+                          for itself: opening a player is a call the backend answers, and a
+                          ToggleType here would let the row report it before it had happened and
+                          then take it back on a refusal.
+                        -->
                         <MenuItem.ItemContainerTheme>
                           <ControlTheme TargetType="MenuItem" x:DataType="vm:WatchLegViewModel"
                                         BasedOn="{StaticResource {x:Type MenuItem}}">
-                            <Setter Property="Header" Value="{Binding Label}" />
+                            <!--
+                              The row is handed the whole leg and drawn by the template below,
+                              because a leg this machine has no player for keeps its place,
+                              greys, and carries the sentence that says why
+                              (docs/field-availability.md, "One option disabled with a reason").
+                              A tip would not do: a disabled row takes no pointer, so the
+                              sentence has to be in the row.
+                            -->
+                            <Setter Property="Header" Value="{Binding}" />
+                            <Setter Property="HeaderTemplate">
+                              <DataTemplate x:DataType="vm:WatchLegViewModel">
+                                <StackPanel Spacing="2">
+                                  <TextBlock Text="{Binding Label}" />
+                                  <TextBlock Classes="hint"
+                                             MaxWidth="260"
+                                             TextWrapping="Wrap"
+                                             TextTrimming="None"
+                                             IsVisible="{Binding HasReason}"
+                                             Text="{Binding Reason}" />
+                                </StackPanel>
+                              </DataTemplate>
+                            </Setter>
+                            <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
                             <Setter Property="Command" Value="{Binding Toggle}" />
-                            <Setter Property="ToggleType" Value="CheckBox" />
                             <Setter Property="IsChecked" Value="{Binding IsOpen, Mode=OneWay}" />
                           </ControlTheme>
                         </MenuItem.ItemContainerTheme>
                       </MenuItem>
+
+                      <!--
+                        The same stream in the machine's browser, on the page the relay serves
+                        for it. One item per leg the backend named, which is a different roster
+                        from the players' above: no player opens WHEP, and a browser reaches
+                        neither SRT nor RTSP.
+
+                        The rows carry no tick, and that is the fact rather than an omission. A
+                        tab belongs to the browser, so this side can neither read whether it is
+                        still open nor close it - the row names an action, where every other row
+                        on this surface names a state (docs/design-language.md, "Menus").
+                      -->
+                      <MenuItem Header="Open in browser" ItemsSource="{Binding BrowserLegs}">
+                        <MenuItem.Icon>
+                          <ti:TablerIcon Icon="IconBrowser" />
+                        </MenuItem.Icon>
+                        <MenuItem.ItemContainerTheme>
+                          <ControlTheme TargetType="MenuItem" x:DataType="vm:BrowserLegViewModel"
+                                        BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Label}" />
+                            <Setter Property="Command" Value="{Binding Open}" />
+                          </ControlTheme>
+                        </MenuItem.ItemContainerTheme>
+                      </MenuItem>
+
                       <Separator />
-                      <MenuItem Header="{Binding Tracks}" IsEnabled="False" />
-                      <MenuItem Header="{Binding Detail}" IsEnabled="False" />
-                      <MenuItem Header="{Binding Readers}" IsEnabled="False" />
+
+                      <!--
+                        What the relay is carrying, printed rather than offered. These were rows
+                        disabled to stop them being pressed, which said the wrong thing: a greyed
+                        row in this product is an action some configuration took away, and it
+                        sends a reader looking for what would bring it back.
+                      -->
+                      <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Tracks}" />
+                      <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Detail}" />
+                      <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Readers}" />
                     </MenuFlyout>
-                  </Border.ContextFlyout>
+                  </Button.ContextFlyout>
 
                   <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource GapTight}">
                     <Ellipse Grid.Column="0" Classes="live" Classes.on="{Binding IsReady}" />
@@ -167,6 +242,11 @@
                       tile receives on is a setting the backend resolves and not a choice this
                       entry offers (docs/viewer-architecture.md, "Two legs, two protocols").
 
+                      It runs the row's command rather than one of its own: the glyph is what says
+                      which way a press goes, and a reader who aims at it should not have to have
+                      hit it. What it owns alone is the wait, so the arc turns inside this box and
+                      the name beside it stays readable while the decode opens.
+
                       A button rather than a toggle: there is no themed toggle here, and a bare one
                       arrives wearing Fluent beside controls that wear the design
                       (avalonia/README.md, "one button and one of every input"). What it is doing
@@ -175,14 +255,14 @@
                     -->
                     <Button Grid.Column="2" Classes="action"
                             Classes.on="{Binding IsTiled}"
-                            Theme="{StaticResource LinkButton}"
+                            Theme="{StaticResource IconButton}"
                             Command="{Binding Show}"
                             ToolTip.Tip="{Binding WatchLabel}"
                             controls:Pending.IsActive="{Binding Show.IsRunning}">
-                      <ti:TablerIcon Icon="{Binding WatchGlyph}" />
+                      <ti:TablerIcon Classes="button" Icon="{Binding WatchGlyph}" />
                     </Button>
                   </Grid>
-                </Border>
+                </Button>
 
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -230,7 +310,13 @@
           </ItemsControl.ItemContainerTheme>
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="tile:TileViewModel">
-              <tiles:TileCard />
+              <!--
+                The grid is the one host that draws a plate. A popped-out stream keeps its slot
+                here, at its own shape, and the picture is in the window it went to - which is why
+                which of the two a card draws is the host's to state and not the tile's
+                (Features/Viewer/Tile/View/TileCard.axaml.cs).
+              -->
+              <tiles:TileCard PictureElsewhere="{Binding IsPoppedOut}" />
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
@@ -259,17 +345,26 @@
     </Border>
 
     <!--
-      The fullscreen tile. It is drawn over every column rather than inside the grid, because
-      fullscreen is a property of this window and not an arrangement of tiles: the chrome goes,
-      the rail goes, and one stream has the window.
+      The stream filling this window. It is drawn over every column rather than inside the grid,
+      because fullscreen is a property of this window and not an arrangement of tiles: the rail
+      goes, the grid goes, and the shell takes its three bands off the window as well
+      (Features/Shell/ViewModel/ShellViewModel.cs). What is left is the stream on the monitor.
+
+      The picture keeps its stream's shape and whatever is left over is black. That is what the
+      arrangement already answers for a single tile in a box, so the panel here is the same solver
+      rather than a second definition of a letterbox (Features/Viewer/Model/TileLayout.cs).
     -->
     <Panel Grid.Column="0" Grid.ColumnSpan="3"
-           Background="{StaticResource SurfaceBrush}"
+           Background="{StaticResource TileBrush}"
            IsVisible="{Binding HasFullscreen}">
-      <ContentControl Content="{Binding FullscreenTile}">
+      <ContentControl Content="{Binding FullscreenTile}"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Stretch">
         <ContentControl.ContentTemplate>
           <DataTemplate x:DataType="tile:TileViewModel">
-            <tiles:TileCard />
+            <view:TileGrid>
+              <tiles:TileCard view:TileGrid.Aspect="{Binding Aspect}" />
+            </view:TileGrid>
           </DataTemplate>
         </ContentControl.ContentTemplate>
       </ContentControl>

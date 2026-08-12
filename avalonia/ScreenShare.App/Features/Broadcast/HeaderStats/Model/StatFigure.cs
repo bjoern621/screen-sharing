@@ -8,4 +8,11 @@ namespace ScreenShare.App.Features.Broadcast.HeaderStats.Model;
 /// A record, so a pass that measured the same throughput twice compares equal and the
 /// header does not repaint.
 /// </summary>
-public sealed record StatFigure(string Value, string Unit);
+/// <param name="Note">
+/// Why this figure reads as unmeasured, and null where it is measured or where its absence
+/// explains itself. A promoted number has no room for a clause beside it, so the note is a
+/// tooltip, which is where this design puts the sentence a greyed or absent thing needs
+/// (<c>docs/field-availability.md</c>, "The rule"). Null rather than empty: an empty tip is a
+/// tooltip that opens on nothing.
+/// </param>
+public sealed record StatFigure(string Value, string Unit, string? Note = null);

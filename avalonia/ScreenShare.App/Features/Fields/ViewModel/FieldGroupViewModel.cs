@@ -37,17 +37,32 @@ public sealed class FieldGroupViewModel : Observable
     /// </summary>
     private readonly Dictionary<string, FieldViewModel> _fields = [];
 
+    /// <summary>
+    /// What this screen offers beside the heading, asked on every pass. It is handed the group
+    /// being rendered rather than its key, because what an effect on a whole group is offered for
+    /// is what the contract says the group is (<see cref="GroupAction"/>).
+    /// </summary>
+    private readonly Func<FieldGroup, GroupAction?> _groupActionOf;
+
     /// <param name="actionOf">
     /// The effect this screen offers beside one control, or null where it offers none. Optional
     /// because most screens offer none, and it is asked on every pass rather than once, so a
     /// screen that withdraws an action turns the button off through the render function.
     /// </param>
-    public FieldGroupViewModel(Action<string, FieldValue> write, Func<string, FieldAction?>? actionOf = null)
+    /// <param name="groupActionOf">
+    /// The effect this screen offers beside the heading, or null where it offers none. Optional
+    /// and asked per pass for the reasons the field lookup is.
+    /// </param>
+    public FieldGroupViewModel(
+        Action<string, FieldValue> write,
+        Func<string, FieldAction?>? actionOf = null,
+        Func<FieldGroup, GroupAction?>? groupActionOf = null)
     {
         Assert.NotNull(write, "a group needs somewhere to report what the user moved");
 
         _write = write;
         _actionOf = actionOf ?? (_ => null);
+        _groupActionOf = groupActionOf ?? (_ => null);
         Fields = [];
     }
 
@@ -58,6 +73,8 @@ public sealed class FieldGroupViewModel : Observable
     private string _summary = "";
     private bool _hasHelp;
     private bool _isResolved;
+    private GroupAction? _action;
+    private bool _hasAction;
 
     /// <summary>The visible controls, in render order. A hidden field is absent rather than collapsed.</summary>
     public ObservableCollection<FieldViewModel> Fields { get; }
@@ -82,6 +99,15 @@ public sealed class FieldGroupViewModel : Observable
     public bool IsResolved { get => _isResolved; private set => Set(ref _isResolved, value); }
 
     /// <summary>
+    /// What this screen offers beside the heading, null where it offers nothing. Null on an
+    /// unresolved group too: an effect on a group of settings the form has not described is one
+    /// with nothing to act on.
+    /// </summary>
+    public GroupAction? Action { get => _action; private set => Set(ref _action, value); }
+
+    public bool HasAction { get => _hasAction; private set => Set(ref _hasAction, value); }
+
+    /// <summary>
     /// The one render function. Safe to run twice: field view models are reused by key and
     /// each runs its own idempotent pass, so an unchanged group produces no notification.
     ///
@@ -102,11 +128,15 @@ public sealed class FieldGroupViewModel : Observable
         Summary = group is null ? "" : words.Shorthand(group.Key, settings);
         HasHelp = Help.Length > 0;
 
+        Action = group is null ? null : _groupActionOf(group);
+        HasAction = Action is not null;
+
         Reconcile.Onto(Fields, Rendered(group, words));
 
         Assert.That(
             IsResolved || Fields.Count == 0,
             "a group the form did not carry draws no fields", Title, Fields.Count);
+        Assert.That(IsResolved || !HasAction, "a group the form did not carry offers nothing", Title);
     }
 
     /// <summary>

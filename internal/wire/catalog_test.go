@@ -44,7 +44,7 @@ func engineSpelling(t *testing.T, e screensharev1.Engine) string {
 			return name
 		}
 	}
-	t.Fatalf("engine %v names no publish engine the capability table declares", e)
+	t.Fatalf("engine %v names no engine the tables declare", e)
 	return ""
 }
 
@@ -322,6 +322,30 @@ func TestAnUnprobedEngineIsNotAnEmptyOne(t *testing.T) {
 	}
 	if reason := probed.GetUnprobed(); reason != nil {
 		t.Errorf("a probed engine carries the reason %v, which is what the other arm is for", reason)
+	}
+}
+
+// The browser legs are their own roster and cross as their own field. They are not the
+// players': no player opens WHEP, and one list serving both would have to be the
+// narrower of the two, which takes a leg away from the reader that can run it.
+// Every one of them states a browser carriage, which is what holds the list and the
+// rows the shell would explain it with to each other.
+func TestTheBrowserLegsAreTheOnesWithAPage(t *testing.T) {
+	catalog := Catalog(catalogInput())
+
+	legs := catalog.GetBrowserWatchTransports()
+	if !slices.Equal(legs, transport.WatchNames(transport.EngineBrowser)) {
+		t.Fatalf("the catalog offers browser legs %v, the registry serves pages for %v",
+			legs, transport.WatchNames(transport.EngineBrowser))
+	}
+	if slices.Equal(legs, catalog.GetWatchTransports()) {
+		t.Errorf("the browser roster and the players' are the same list %v, and the two readers differ", legs)
+	}
+
+	for _, name := range legs {
+		if !transport.CanWatch(name, transport.EngineBrowser) {
+			t.Errorf("%s is offered to a browser and states no browser carriage", name)
+		}
 	}
 }
 

@@ -86,6 +86,16 @@ service ControlService {
   // GetReceiveState returns the streams the backend is decoding.
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
+  // GetMonitorPreviewState returns the monitors the backend is reading.
+  //
+  // It is what a shell that has just connected converges against. A preview outlives
+  // the window that asked for it, exactly as a decode does, so a shell that crashed
+  // with screens being read leaves them running - and the next one closes what nothing
+  // is drawing. Without this read it would have to wait for something else to change
+  // before the event stream told it, and a screen nobody is looking at would go on
+  // being captured.
+  rpc GetMonitorPreviewState(GetMonitorPreviewStateRequest) returns (MonitorPreviewState);
+
   // --- Effects -----------------------------------------------------------------
 
   // SaveSettings persists the settings the shell holds. It does not touch a running
@@ -130,6 +140,24 @@ service ControlService {
   // StopWatch closes one open viewer.
   rpc StopWatch(StopWatchRequest) returns (StopWatchResponse);
 
+  // OpenInBrowser opens the relay's own player page for one stream in the machine's
+  // default browser, over one of the legs the relay serves a page for
+  // (Catalog.browser_watch_transports). A leg that cannot carry the stream's format
+  // is refused the same way StartWatch refuses one.
+  //
+  // It opens a page and does not start a viewer this process owns, which is the whole
+  // difference from StartWatch: no viewer state grows a member, nothing appears in
+  // ViewerState, and there is no stop. A tab belongs to the browser that owns it, and
+  // this backend can neither read whether it is still open nor close it - so it says
+  // nothing about either, rather than reporting a state it would have to guess.
+  //
+  // Repeating the call opens the page again, and that is a departure from the
+  // idempotency the rest of this contract holds to (docs/development-principles.md).
+  // OpenLog and OpenLogsFolder depart the same way for the same reason: the effect
+  // lands in a program this one does not own, and there is no state to read back that
+  // would let a second call decide it had already happened.
+  rpc OpenInBrowser(OpenInBrowserRequest) returns (OpenInBrowserResponse);
+
   // StartReceive opens a decode for one stream on one leg, inside the backend. It is
   // the tile path's counterpart of StartWatch, and the difference between the two is
   // where the frames end up: a watch opens a player window the backend does not draw
@@ -146,6 +174,27 @@ service ControlService {
 
   // StopReceive closes one running decode.
   rpc StopReceive(StopReceiveRequest) returns (StopReceiveResponse);
+
+  // StartMonitorPreview reads one of this machine's monitors into a picture the frame
+  // channel can hand over, so a screen is chosen by looking at it instead of by its
+  // number. Nothing is encoded and nothing is sent anywhere: the capture element feeds
+  // the render chain inside the backend and the handles go to the shell.
+  //
+  // It is an effect and not a flag on a read, by the test every method here is put to:
+  // it opens a screen capture that goes on running until something closes it, and what
+  // is running reaches every shell as MonitorPreviewState. The frame channel opens none
+  // of it, for the reason it opens no relay decode.
+  //
+  // Idempotent. A monitor already being previewed is the state this asks for, so a
+  // second call changes nothing and succeeds. A monitor no output is enumerated under is
+  // INVALID_ARGUMENT, and a machine whose session has no way to read one screen apart
+  // from another is FAILED_PRECONDITION - which a shell reads off
+  // Catalog.no_monitor_preview instead of discovering by asking.
+  rpc StartMonitorPreview(StartMonitorPreviewRequest) returns (StartMonitorPreviewResponse);
+
+  // StopMonitorPreview closes one monitor's preview. A monitor nothing is previewing
+  // succeeds and does nothing: the state it names already holds.
+  rpc StopMonitorPreview(StopMonitorPreviewRequest) returns (StopMonitorPreviewResponse);
 
   // SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
   //
@@ -323,6 +372,8 @@ message GetTestStreamStateRequest {}
 
 message GetReceiveStateRequest {}
 
+message GetMonitorPreviewStateRequest {}
+
 // --- Effect requests and responses ------------------------------------------------
 //
 // Every effect answers with an empty message rather than with the new state, except
@@ -393,6 +444,15 @@ message StopWatchRequest {
 
 message StopWatchResponse {}
 
+// OpenInBrowserRequest names the stream and the leg the page is served on, the same
+// identity every other viewer method takes. The pair is an identity here rather than a
+// handle: nothing is opened that could later be named by it.
+message OpenInBrowserRequest {
+  WatchKey viewer = 1;
+}
+
+message OpenInBrowserResponse {}
+
 // StartReceiveRequest names the stream and the leg, which together are the identity a
 // receive is keyed by, for the reason WatchKey exists: the relay re-serves each stream
 // on all its listeners, so one stream can be decoded over several legs at once.
@@ -415,6 +475,22 @@ message StopReceiveRequest {
 }
 
 message StopReceiveResponse {}
+
+// The monitor is the index Catalog.Monitor is enumerated under, which is the same value
+// PublishSettings.monitor holds. One field, because a preview of a screen is a preview
+// of the whole screen: there is no rectangle to crop and no rate to ask for, and a size
+// belongs to the consumer that draws it and travels on the frame channel.
+message StartMonitorPreviewRequest {
+  int32 monitor = 1;
+}
+
+message StartMonitorPreviewResponse {}
+
+message StopMonitorPreviewRequest {
+  int32 monitor = 1;
+}
+
+message StopMonitorPreviewResponse {}
 
 // SetReceiveAudioRequest names both halves of the loudness at once, rather than a
 // volume method and a mute method.

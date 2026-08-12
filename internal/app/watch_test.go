@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -144,5 +145,29 @@ func TestAnUnreachableRelayIsRecordedAsASnapshot(t *testing.T) {
 	}
 	if status.Error == "" {
 		t.Error("an unreachable relay was recorded with no reason, want the one the fetch gave")
+	}
+}
+
+// A leg the stream's format does not cross is refused before an address reaches the
+// desktop, and the sentence names the legs that would have carried it.
+//
+// It is the browser's half of the check StartWatch runs, asked about a third reader:
+// the relay serves H.265 over HLS and refuses it over WebRTC, so a page opened on the
+// WHEP leg would load, connect and show nothing. Only the refusal is asserted here -
+// the accepting path ends in whatever the machine opens an address with, which is not
+// a thing a test may start.
+func TestABrowserPageIsRefusedOnALegTheFormatDoesNotCross(t *testing.T) {
+	a := &App{events: events.New()}
+	a.relayLast.Store(&relay.Status{
+		Reachable: true,
+		Paths:     []relay.Path{{Name: "bob", Ready: true, Format: "hevc"}},
+	})
+
+	err := a.OpenInBrowser("bob", "webrtc")
+	if err == nil {
+		t.Fatal("a WHEP page was opened for an H.265 stream, want it refused")
+	}
+	if !strings.Contains(err.Error(), "hls") {
+		t.Errorf("refusal %q names no leg that would have carried the stream", err)
 	}
 }

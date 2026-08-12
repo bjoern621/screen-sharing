@@ -19,7 +19,7 @@ namespace ScreenShare.App.Tests;
 /// other side stated, so these tests state the reading and assert what the button did with it -
 /// never how a rule was evaluated here.
 /// </summary>
-public sealed class GoLiveTests
+public sealed class StartSharingTests
 {
     /// <summary>
     /// A flow whose first form has landed and whose session has read the running state once.
@@ -66,7 +66,7 @@ public sealed class GoLiveTests
         var flow = Flow(new PublishingBackend(), out _);
 
         Assert.True(flow.IsPublishable);
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
         Assert.False(flow.Review.IsBlocked);
         Assert.Equal("", flow.Review.Blocked);
     }
@@ -82,7 +82,7 @@ public sealed class GoLiveTests
         var session = new Session(backend, action => action());
         var flow = Flows.Setup(backend, session);
 
-        Assert.False(flow.Review.CanGoLive);
+        Assert.False(flow.Review.CanStartSharing);
     }
 
     /// <summary>
@@ -98,7 +98,7 @@ public sealed class GoLiveTests
 
         backend.Fail(0, "The backend is not running: nothing is listening on the control socket.");
 
-        Assert.False(flow.Review.CanGoLive);
+        Assert.False(flow.Review.CanStartSharing);
         Assert.Equal(
             "The backend is not running: nothing is listening on the control socket.",
             flow.Review.Blocked);
@@ -118,7 +118,7 @@ public sealed class GoLiveTests
 
         var flow = Flow(backend, out _);
 
-        Assert.False(flow.Review.CanGoLive);
+        Assert.False(flow.Review.CanStartSharing);
         Assert.Equal("dial tcp 127.0.0.1:9997: connection refused", flow.Review.Blocked);
     }
 
@@ -135,7 +135,7 @@ public sealed class GoLiveTests
 
         var flow = Flow(backend, out _);
 
-        Assert.False(flow.Review.CanGoLive);
+        Assert.False(flow.Review.CanStartSharing);
         Assert.NotEqual("", flow.Review.Blocked);
     }
 
@@ -151,12 +151,12 @@ public sealed class GoLiveTests
         var backend = new PublishingBackend();
         var flow = Flow(backend, out var session);
 
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
 
         backend.Publish = Live("lab04");
         Reload(session, flow);
 
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
         Assert.False(flow.Review.IsBlocked);
         Assert.Equal("", flow.Review.Blocked);
     }
@@ -216,7 +216,7 @@ public sealed class GoLiveTests
         backend.Publish = Live("lab04");
         Reload(session, flow);
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
         var applied = Assert.Single(backend.Applied);
         Assert.Equal(flow.Review.StreamName, applied.Publish.Name);
@@ -242,7 +242,7 @@ public sealed class GoLiveTests
 
         Assert.Equal(CommitCopy.Of(PublishCommit.Start).Label, flow.Review.CommitLabel);
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
         Assert.Single(backend.Started);
         Assert.Empty(backend.Applied);
@@ -295,12 +295,12 @@ public sealed class GoLiveTests
         var backend = new PublishingBackend { Relay = new RelayStatus { Reachable = false, Error = "no relay" } };
         var flow = Flow(backend, out var session);
 
-        Assert.False(flow.Review.CanGoLive);
+        Assert.False(flow.Review.CanStartSharing);
 
         backend.Relay = new RelayStatus { Reachable = true };
         Reload(session, flow);
 
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
         Assert.Equal("", flow.Review.Blocked);
     }
 
@@ -311,7 +311,7 @@ public sealed class GoLiveTests
     /// change the settings the stream is being built from.
     /// </summary>
     [Fact]
-    public void PressingGoLiveStartsThePublishOnTheDraftOnScreenAndAnnouncesIt()
+    public void PressingStartSharingStartsThePublishOnTheDraftOnScreenAndAnnouncesIt()
     {
         var backend = new PublishingBackend();
         var flow = Flow(backend, out _);
@@ -319,14 +319,14 @@ public sealed class GoLiveTests
         var announced = 0;
         flow.WentLive += () => announced++;
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
         var started = Assert.Single(backend.Started);
         Assert.Equal(flow.Review.StreamName, started.Publish.Name);
         Assert.Empty(backend.Applied);
         Assert.Equal(1, announced);
         Assert.Equal("", flow.Review.Refusal);
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
     }
 
     /// <summary>
@@ -340,7 +340,7 @@ public sealed class GoLiveTests
         var backend = new PublishingBackend { Relay = new RelayStatus { Reachable = false, Error = "no relay" } };
         var flow = Flow(backend, out _);
 
-        Assert.False(flow.Review.GoLiveCommand.CanExecute(null));
+        Assert.False(flow.Review.StartSharingCommand.CanExecute(null));
         Assert.Empty(backend.Started);
         Assert.Empty(backend.Applied);
     }
@@ -359,12 +359,12 @@ public sealed class GoLiveTests
         var announced = 0;
         flow.WentLive += () => announced++;
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
         Assert.Equal("cannot start publishing: ffmpeg is not on PATH", flow.Review.Refusal);
         Assert.True(flow.Review.HasRefusal);
         Assert.Equal(0, announced);
-        Assert.True(flow.Review.CanGoLive);
+        Assert.True(flow.Review.CanStartSharing);
         Assert.Empty(backend.Started);
     }
 
@@ -379,11 +379,11 @@ public sealed class GoLiveTests
         var backend = new PublishingBackend { Refusal = "cannot start publishing: ffmpeg is not on PATH" };
         var flow = Flow(backend, out _);
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
         Assert.True(flow.Review.HasRefusal);
 
         backend.Refusal = "";
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
         Assert.Equal("", flow.Review.Refusal);
         Assert.False(flow.Review.HasRefusal);
@@ -406,19 +406,19 @@ public sealed class GoLiveTests
 
         var flow = Flow(backend, out _);
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
 
-        Assert.True(flow.Review.GoLiveCommand.IsRunning);
-        Assert.False(flow.Review.GoLiveCommand.CanExecute(null));
-        Assert.False(flow.Review.CanGoLive);
+        Assert.True(flow.Review.StartSharingCommand.IsRunning);
+        Assert.False(flow.Review.StartSharingCommand.CanExecute(null));
+        Assert.False(flow.Review.CanStartSharing);
 
-        flow.Review.GoLiveCommand.Execute(null);
+        flow.Review.StartSharingCommand.Execute(null);
         Assert.Single(backend.Started);
 
         backend.AnswerStarts();
 
-        Assert.False(flow.Review.GoLiveCommand.IsRunning);
-        Assert.True(flow.Review.CanGoLive);
+        Assert.False(flow.Review.StartSharingCommand.IsRunning);
+        Assert.True(flow.Review.CanStartSharing);
     }
 
     /// <summary>

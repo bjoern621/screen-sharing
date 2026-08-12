@@ -266,11 +266,17 @@ public static class Statements
             TextCode.BframesOnlyOnFamilies =>
                 $"Only the {Words.List(a.Families.Select(Words.Family), "and")} encoders take these.",
 
-            TextCode.PresetOnlyOnFamilies =>
-                $"Only the {Words.List(a.Families.Select(Words.Family), "and")} encoders have this ladder.",
+            TextCode.CodecTakesNoEffortLadder =>
+                $"{a.Codec} has no such setting: how hard it works is that encoder's own to decide.",
 
-            TextCode.PresetPinnedByMode =>
-                $"{Words.Mode(a.Mode)} pins this to {a.EncPreset} for its low-delay tuning.",
+            TextCode.EffortPinnedByMode =>
+                $"{Words.Mode(a.Mode)} pins this to {Words.Effort(a.Effort)} for its low-delay tuning.",
+
+            TextCode.CodecTakesNoTuneLadder =>
+                $"{a.Codec} tunes for nothing you pick: it encodes the picture the same way whatever it contains.",
+
+            TextCode.TunePinnedByMode =>
+                $"{Words.Mode(a.Mode)} pins this to {Words.Tune(a.Tune)}, which is what the mode is for.",
 
             TextCode.AudioCodecNeedsSource =>
                 "No audio is being sent, so there is nothing to compress.",
@@ -294,9 +300,6 @@ public static class Statements
                 $"{Decimal(a.RateHz / 1000.0)} kHz · {Number(a.BitrateKbps)} kbit/s",
 
             // --- Where an engine departs from the mode --------------------------------
-
-            TextCode.GstNoPresetLadder =>
-                "The GStreamer encoders have no effort ladder. Pick a capture method that runs ffmpeg to use it.",
 
             TextCode.Rav1ESizesNoRateBuffer =>
                 "rav1e has no rate buffer, in any mode.",
@@ -554,7 +557,7 @@ public static class Statements
         public string Transport => Id(TextArgName.Transport);
 
         /// <summary>The built-in preset a statement is about, which is not the NVENC ladder step
-        /// <see cref="EncPreset"/> carries.</summary>
+        /// <see cref="Effort"/> carries.</summary>
         public string Preset => Id(TextArgName.Preset);
 
         public string Codec => Id(TextArgName.Codec);
@@ -573,7 +576,9 @@ public static class Statements
 
         public string AudioCodec => Id(TextArgName.AudioCodec);
 
-        public string EncPreset => Id(TextArgName.EncPreset);
+        public string Effort => Id(TextArgName.Effort);
+
+        public string Tune => Id(TextArgName.Tune);
 
         public string Decoder => Id(TextArgName.Decoder);
 

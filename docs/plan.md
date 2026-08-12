@@ -13,27 +13,22 @@ They meet only where group fields enter the settings model, so they can run in e
 
 **Contract track.** Effort and tune, then the audio list, then HDR.
 Each is a settings field or a set of them, and each is expressed as rules rather than as a table with a consumer of its own.
+Effort and tune is built, so the audio list is the head of this track, and it is the one to take first for the reason its own section gives: it changes the shape of a settings field, and every preset saved before it lands is one to migrate afterwards.
 
 **Infrastructure track.** The reverse proxy and certificates, then the key, token and index service, then the group model in the app.
 None of it exists today.
 
 ## Effort and tune
 
-Each encoder declares its own ladder, in its own identifiers: x264 counts in names, SVT-AV1 in numbers to 13, NVENC from p1 to p7.
-A scale normalized across codecs was rejected because a number carried across a codec change would land on a different real setting than the one that was held.
+Built: both ladders, both controls, both builders, on both engines.
+The reasoning moved to `domain-model.md`, "The two ladders".
 
-Two fields rather than one.
-Effort is how hard the encoder works; tune is what it works towards, and a live encode drops the lookahead and the reordering a quality encode keeps whatever effort it spends.
+**What is left.** The QSV and AMF ladders, which have to be read off those encoders rather than declared from memory.
+Both builders still spend a constant on oneVPL's target-usage scale and AMF's quality preset, and both controls grey for those families meanwhile.
+VAAPI needs no ladder: neither engine's VAAPI path has such a knob at all.
 
-A step off the ladder is reset to the one the codec's row declares for the mode, never mapped by position, and the field is named in the repaired list so the change is readable.
-A ladder that pins a mode greys the control there and names the step in force: NVENC pins its preset in CBR, because a low-latency preset is what lets it hold a constant rate, and that is the encoder's fact rather than the mode's.
-
-The shell names every rung.
-A codec whose rung it has no name for renders the identifier, which is honest, visible, and still a defect.
-
-**What is left.** One atomic change: both builders read the two fields, the NVENC-only preset limit goes (it checks the raw field, so it refuses the empty value that means "the codec's declared step"), the availability gate moves from the encoder family to the ladder, and the fixtures that build a draft from `settings.Defaults()` and change the codec stop carrying another encoder's step.
-Splitting it fails: an ffmpeg-only swap breaks the cross-engine SVT-AV1 comparison, and flipping availability first offers a knob nothing forwards.
-Then the tune control, the rung copy, and the QSV and AMF ladders, which have to be read off those encoders rather than declared from memory.
+The NVENC steps on the GStreamer engine are forwarded but not yet run.
+The nicks come off `GstNvEncoderPreset` and `GstNvEncoderTune` in the shipped plugin, which is where a launch would read them too, and no machine here has the hardware to launch one.
 
 ## Audio
 
@@ -65,6 +60,20 @@ A wrapper per engine was considered and dropped as a second child implementation
 Every socket message carries the whole desired live state and the child converges to it.
 A crash-restart is then indistinguishable from an apply, and a dropped message cannot leave the pipeline on a value nobody chose.
 
+**The binary is built** (`internal/gstrun`, `cmd/backend`), and it is this application spawned with a subcommand rather than a second artifact: a publish plays its pipeline in a process of this app's own, which keeps the crash isolation gst-launch gave and costs no packaging recipe a second file to find.
+The measuring runs - the encode probe and the test streams - stay on `gst-launch-1.0`, because what they need is a pipeline played and a count read off it, which is what that launcher does and all it does.
+
+What the swap was for is what a launcher cannot be asked.
+The child reports the capture's negotiated caps, which HDR reads, and it takes property writes on a control socket while the pipeline plays (`gstrun/control.go`): a state carries whole, the child converges to it and answers with what it applied, so a crash-restart and an apply are one operation and a dropped message cannot leave the pipeline on a value nobody chose.
+
+The parent's half is built with it.
+The engine opens a socket per run and passes its path on the subcommand; every encoder element carries one name so a write can address it whatever the codec; a table states which property the bitrate travels in and whether that element counts kbit or bits per second, held to what each mapping writes by a test; and `publish.LiveOnly` answers whether a change is an apply or a relaunch by putting the running settings' live subset onto the proposed ones and asking `SamePipeline`.
+
+Its first customer is the bitrate rather than the audio gain the design named: an encoder takes a new one while it runs, the socket is proved against `x264enc` doing exactly that, and it needs no settings field that does not exist yet.
+
+**What is left.** `App.Republish` still relaunches whatever changed: it is one call site, and what it asks is whether the running handle applies live (`publish.Live`) and whether this change is one of those (`publish.LiveOnly`).
+The `live` flag on the contract follows, so a shell can say which fields cost a reconnect before the user changes them.
+
 ## HDR
 
 HDR is a property of the captured surface, not a value the user picks.
@@ -79,6 +88,15 @@ Mastering display metadata passes through where the capture reports it and is ab
 Viewers tone-map by choice, per tile, in memory.
 A tile that is watching an HDR stream without tone mapping says so, which is the part that tells the reader the toggle exists.
 Persisting the choice per stream path was rejected: a stream that stops being HDR would carry a stale preference nobody can find.
+
+**Built: the refusal.** The publish child reports what the capture negotiated, and a run whose surface turns out to be HDR while the settings ask for an 8-bit format is stopped with both ends named (`publish/gsthdr.go`).
+A wide-gamut SDR desktop is not HDR, so the verdict reads the transfer characteristic and never the primaries, and caps carrying no colorimetry at all are SDR.
+
+**What is left.** The encoder input is still pinned to BT.709 on every capture (`gstBt709`), so an HDR surface is refused rather than published: carrying the transfer through to the encoder and into the stream is the second half, and mastering display metadata passes with it.
+
+The viewer half waits on an element that tone-maps.
+`videoconvertscale` converts primaries and nothing else, and the elements that roll PQ down to SDR are the device ones - `vapostproc` on VA, `d3d11convert` on Windows - so the render chain gains a rung per platform rather than one route, and a machine with neither keeps the choice greyed with what is missing.
+That is the same shape the chain ladder already has for every other conversion (`viewer-architecture.md`).
 
 ## Groups, auth and encryption
 
@@ -127,16 +145,28 @@ Shipping it is deleting that one rule once the channel exists.
 The position rides its own stream on the control gRPC at its own rate, carrying the frame timestamp it belongs to.
 Binding it to the frame rate would throw away the reason to draw the pointer client-side: it costs no frame, so a 240 Hz pointer over a 30 fps stream is the whole win, and the timestamp lets a viewer hold it back if leading the picture looks wrong.
 
+Where the position comes from is the first-party binary's, not a platform poll.
+A Wayland client cannot ask where the pointer is outside its own surfaces, so polling has no answer to give there; what does is the cursor metadata PipeWire carries beside each frame, which is what the `metadata` mode asks the portal for and what only a process holding the stream can read.
+
 ## Assumptions to verify
 
 These are assumptions the design rests on, not established facts.
 
 - MediaMTX validates a JWT at connection time only, and does not drop a live session when the token expires.
   The token-lifetime decision rests on it.
-- `ddagrab` exposes `draw_mouse`, and kmsgrab genuinely cannot include the cursor plane.
+  Verifying it takes a running relay and a token that expires during a publish.
+- `ddagrab` exposes `draw_mouse`.
+  It is a D3D11 filter, so a Linux ffmpeg does not carry it and the reading takes a Windows build.
 - Wayland compositors report a usable transfer characteristic through the portal's PipeWire caps.
   Without it, HDR is Windows-only in practice.
-- `flake.nix` pins MediaMTX and `docker-compose.yml` runs `latest`.
-  Auth and encryption keys are exactly where that skew would bite.
+  Reading it means completing a portal capture, which asks the desktop for consent, so it is a check somebody runs rather than a test.
+
+Settled, and kept here until the work they belong to lands:
+
+- kmsgrab cannot include the cursor plane.
+  Its demuxer takes a device, a CRTC, one plane, a format and a rate, and no cursor option of any kind; the pointer is a plane of its own and the capture takes one.
+- The MediaMTX skew is real.
+  `flake.nix` pins v1.20.0, because `mediamtx.yml` turns on the MoQ server and a relay that predates `moqQUICAddress` refuses the whole config; `docker-compose.yml` runs `bluenviron/mediamtx:latest`.
+  Auth and encryption keys are exactly where that skew bites, so the compose relay is the one to pin when they land.
 - `buf` is in neither the dev shell nor on PATH, so `task api` does not run.
-  Regeneration currently goes through `protoc` with a `protoc-gen-go` built from the module cache.
+  Regeneration goes through `protoc` with a `protoc-gen-go` built from the module cache, which is what this repository's generated Go was last written by.

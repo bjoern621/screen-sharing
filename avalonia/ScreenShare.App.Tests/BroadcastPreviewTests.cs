@@ -88,6 +88,20 @@ public sealed class BroadcastPreviewTests
             throw new BackendUnavailableException("this fixture lends no frames");
         }
 
+        // The wizard's screen pictures are a different screen's business. This fixture is the
+        // broadcast card's, so the three calls are here to satisfy the seam and do nothing.
+        public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+            => Task.CompletedTask;
+
+        public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+            => Task.CompletedTask;
+
+        public Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+            => throw new BackendUnavailableException("this fixture lends no frames");
+
+        public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+            => Task.FromResult<IReadOnlyList<PreviewedMonitor>>([]);
+
         /// <summary>
         /// The preview carries no sound, so neither effect has anything to do here. They are
         /// answered rather than refused: a refusal is a state a test could mistake for the
@@ -140,11 +154,23 @@ public sealed class BroadcastPreviewTests
         public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
             => _seed.MeasureUplinkAsync(cancellation);
 
+        public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+            => _seed.PresetsAsync(cancellation);
+
+        public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+            => _seed.SavePresetAsync(name, settings, cancellation);
+
+        public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+            => _seed.DeletePresetAsync(name, cancellation);
+
         public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.StartWatchAsync(streamName, transport, cancellation);
 
         public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.StopWatchAsync(streamName, transport, cancellation);
+
+        public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+            => _seed.OpenInBrowserAsync(streamName, transport, cancellation);
 
         public Task OpenLogAsync(string path, CancellationToken cancellation = default)
             => _seed.OpenLogAsync(path, cancellation);
@@ -311,7 +337,7 @@ public sealed class BroadcastPreviewTests
     }
 
     [Fact]
-    public void ComingBackOnAirDrawsAgain()
+    public void ComingBackToSharingDrawsAgain()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Showing(backend);

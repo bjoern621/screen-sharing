@@ -7,8 +7,10 @@ using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel;
 using ScreenShare.App.Features.Setup.CostRail.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
+using ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
 using ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 using ScreenShare.App.Mvvm;
 
@@ -99,6 +101,13 @@ public sealed class SetupViewModel : Observable
     private readonly Dictionary<string, FieldGroupViewModel> _groups = [];
 
     /// <summary>
+    /// One reset command per group key, made once and reused, for the reason the select
+    /// commands are: reusing the instance is what lets the action beside a heading be a record
+    /// that compares equal across passes.
+    /// </summary>
+    private readonly Dictionary<string, DelegateCommand> _reset = [];
+
+    /// <summary>
     /// The measurement the uplink figure is offered beside. The command is held and the action
     /// around it is made per pass, because what the action says moves with the running state:
     /// holding the command is what keeps the button the reader presses and the lock that refuses
@@ -116,7 +125,7 @@ public sealed class SetupViewModel : Observable
     /// the same field the button draws its spinner from, so the lock and the wait cannot
     /// disagree.
     /// </summary>
-    private bool Starting => Review.GoLiveCommand.IsRunning;
+    private bool Starting => Review.StartSharingCommand.IsRunning;
 
     /// <summary>
     /// Why the backend refused the last commit, empty otherwise. It is that side's own sentence
@@ -191,14 +200,27 @@ public sealed class SetupViewModel : Observable
         // reachable exactly once (Model/QualityLayout.cs).
         Advanced = new AdvancedDrawerViewModel(Group(QualityLayout.GroupKey));
 
+        // The pictures above the source step's controls. It writes the screen it is told to pick
+        // through the same seam every control writes through, so the grid and the list beneath it
+        // are two ways to one value rather than two values.
+        Screens = new ScreenPickerViewModel(
+            backend, session, dispatch,
+            monitor => Write(SourceLayout.MonitorKey, new FieldValue { Number = monitor }));
+
         Rail = new CostRailViewModel();
-        Review = new ReviewStepViewModel(SelectCommandOf, Back, GoLiveAsync, dispatch);
+
+        // The saved ways of publishing. It is handed the same two seams this flow holds and
+        // nothing of this flow's own: the store is the backend's and the draft is the window's,
+        // so a card that went through here would be one more hop between a press and the state
+        // it changes. Which screen draws it is the review's answer (ReviewStepViewModel).
+        Review = new ReviewStepViewModel(
+            SelectCommandOf, Back, StartSharingAsync, new PresetsViewModel(backend, form, dispatch), dispatch);
 
         // Both edges of an effect this flow renders: a start locks the commit and a measurement
         // greys the button that asked for it, and neither is a state anything else here would
         // notice moving. The commands own the fact and say when it moved; what it looks like is
         // still one pass.
-        Review.GoLiveCommand.Changed += Apply;
+        Review.StartSharingCommand.Changed += Apply;
         _measure.Changed += Apply;
 
         // Rendered before anything is asked for, so the window has a complete view model to
@@ -224,7 +246,7 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// The step showing, named by the form group it draws. The strip is non-linear on
-    /// purpose: a returning reader clicks straight to the encode step and goes live, and
+    /// purpose: a returning reader clicks straight to the encode step and starts sharing, and
     /// nothing requires walking the steps in order.
     ///
     /// Empty until the first form lands, and a key the newest form no longer carries is not
@@ -265,16 +287,16 @@ public sealed class SetupViewModel : Observable
 
     public AdvancedDrawerViewModel Advanced { get; }
 
+    /// <summary>
+    /// The screens on offer, drawn from what is on them. It appears above the source step's
+    /// controls and nowhere else, and draws nothing where this machine cannot show what one
+    /// screen holds.
+    /// </summary>
+    public ScreenPickerViewModel Screens { get; }
+
     public CostRailViewModel Rail { get; }
 
     public ReviewStepViewModel Review { get; }
-
-    /// <summary>
-    /// Whether the reader asked to be taken to the broadcast screen when the stream starts. It
-    /// is the review's own switch, read by the window after <see cref="WentLive"/>: which
-    /// destination is showing is the window's state, and this flow neither holds nor writes it.
-    /// </summary>
-    public bool OpensBroadcastWindow => Review.OpenBroadcastWindow;
 
     public ObservableCollection<StepChipViewModel> Steps { get; }
 
@@ -415,7 +437,7 @@ public sealed class SetupViewModel : Observable
         // button lights; the stream in force decides what pressing it does, which is the gate's
         // Commit and is what the label and the sentence under it are read from. All four are
         // read through rather than cached, so a relay that came back unlocks the button on the
-        // next pass, and a stream that ended puts the word "restart" back to "go live", without
+        // next pass, and a stream that ended puts the word "restart" back to "start sharing", without
         // anything having had to remember either.
         var gate = PublishGate.Of(IsPublishable, _form.Unavailable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _form.Draft?.Publish?.Name ?? "", _refusal, Summaries(drawn, form), checks);
@@ -428,6 +450,14 @@ public sealed class SetupViewModel : Observable
         ShowsReview = content == StepContent.Review;
         IsRailVisible = content != StepContent.Review;
         CurrentGroup = ShowsFields && current.Length > 0 ? Group(current) : null;
+
+        // The pictures above the source step. Which screen setting they are about is read out of
+        // the form like every other control, and whether they are drawn at all is the picker's
+        // own converge: it opens a screen capture per monitor, so it is told which step the
+        // reader is standing on rather than left to draw whenever the flow renders.
+        Screens.Apply(
+            FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
+            current == SourceLayout.GroupKey);
 
         // The one-line shorthand for the whole configuration. Composed here out of the draft
         // the form carried, for the reason each group's is: it picks a separator, an
@@ -467,9 +497,9 @@ public sealed class SetupViewModel : Observable
             _steps.All(step => step.IsTerminal || GroupPlacement.InSetup(step.Key)),
             "every step draws a group this screen places", _steps.Count);
         Assert.That(
-            !Review.CanGoLive || IsPublishable,
+            !Review.CanStartSharing || IsPublishable,
             "the commit is offered only on settings the form said publish", IsPublishable);
-        Assert.That(!Review.CanGoLive || !Starting, "one start is asked for at a time", Starting);
+        Assert.That(!Review.CanStartSharing || !Starting, "one start is asked for at a time", Starting);
     }
 
     /// <summary>
@@ -599,6 +629,29 @@ public sealed class SetupViewModel : Observable
     private void Write(string key, FieldValue value) => _form.Write(key, value);
 
     /// <summary>The group under this key among the ones this screen draws, or null where there is none.</summary>
+    /// <summary>
+    /// One control of one group, and null where the form carries neither. Null is a real answer
+    /// and not a gap: a form that has not arrived and a backend that drew this group without
+    /// this control are both states a layout above it has to render.
+    /// </summary>
+    private static Field? FieldOf(FieldGroup? group, string key)
+    {
+        if (group is null)
+        {
+            return null;
+        }
+
+        foreach (var field in group.Fields)
+        {
+            if (field.Key == key)
+            {
+                return field;
+            }
+        }
+
+        return null;
+    }
+
     private static FieldGroup? GroupOf(IReadOnlyList<FieldGroup> groups, string key)
     {
         foreach (var group in groups)
@@ -710,7 +763,7 @@ public sealed class SetupViewModel : Observable
     private static StepContent ContentOf(string key) => key switch
     {
         QualityLayout.GroupKey => StepContent.Quality,
-        SetupSteps.GoLiveKey => StepContent.Review,
+        SetupSteps.ShareKey => StepContent.Review,
         _ => StepContent.Fields,
     };
 
@@ -728,9 +781,45 @@ public sealed class SetupViewModel : Observable
             return group;
         }
 
-        group = new FieldGroupViewModel(Write, ActionFor);
+        group = new FieldGroupViewModel(Write, ActionFor, GroupActionFor);
         _groups[key] = group;
         return group;
+    }
+
+    /// <summary>
+    /// What this screen offers beside a heading: on an applied group, putting it back to what a
+    /// fresh installation holds.
+    ///
+    /// <b>Which groups those are is the form's answer rather than a name written here.</b> An
+    /// applied group is one whose fields are the settings themselves, stored as they are typed
+    /// and read by the backend on a schedule of its own (<c>form.proto</c>, FieldGroup.applied).
+    /// A staged group is a proposal, so a reader who does not like what they typed walks away
+    /// from it and what this machine is has not moved; an applied one has already become what
+    /// this machine is, and nothing else puts it back. Where the relay is, is the group that
+    /// exists - a reader who changed a port has no other way to the number the relay serves on.
+    ///
+    /// The action is composed per pass and the command inside it is the held one, so two passes
+    /// over one form produce actions that compare equal (<see cref="GroupAction"/>).
+    /// </summary>
+    private GroupAction? GroupActionFor(FieldGroup group) => group.Applied
+        ? new GroupAction(
+            "Reset to defaults",
+            "Puts every setting under this heading back to the value a fresh installation starts with.",
+            ResetCommandOf(group.Key))
+        : null;
+
+    private DelegateCommand ResetCommandOf(string key)
+    {
+        Assert.That(key.Length > 0, "a reset command is identified by the group it puts back");
+
+        if (_reset.TryGetValue(key, out var command))
+        {
+            return command;
+        }
+
+        command = new DelegateCommand(() => _form.Reset(key));
+        _reset[key] = command;
+        return command;
     }
 
     /// <summary>
@@ -813,7 +902,7 @@ public sealed class SetupViewModel : Observable
     /// the window that pressed the button and the window that did not show the same thing
     /// (<c>docs/ipc-api.md</c>, "Events").
     /// </summary>
-    private async Task GoLiveAsync()
+    private async Task StartSharingAsync()
     {
         // The command offers the press only on a gate that says these settings publish, and
         // nothing says that before a form has resolved a draft.

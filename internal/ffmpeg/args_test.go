@@ -38,10 +38,11 @@ func baseStream() settings.Settings {
 			BitrateM:   150,
 			MaxrateM:   200,
 			Capture:    "x11grab",
-			// The NVENC mapping is held to the preset ladder, and a settings file reaches a
-			// builder through the migration, which fills the keys a file written before the
-			// option lacks. These settings stand in for one that has.
-			Effort:        "p7",
+			// No ladder step. The tests below reach every codec off this one draft, and a
+			// step is one encoder's own identifier, so a fixture naming one would hand most
+			// of them a step from an encoder they never heard of. What an unnamed step means
+			// is the codec's declared one, which is what the builder resolves it to and what
+			// a test asking about anything else wants.
 			DrmMap:        "auto",
 			CaptureMemory: gpupath.MemoryAuto,
 			// The audio source is off here, so the codec matters only to the cases that turn it on.
@@ -124,42 +125,64 @@ func TestDrmMapForRefusesANameNoRowCarries(t *testing.T) {
 	}
 }
 
-// The preset is a free-form string in the settings and nothing upstream bounds it:
+// The effort step is a free-form string in the settings and nothing upstream bounds it:
 // capabilities.Validate covers the codec, pixel format, mode and the two rate
 // figures, none of which this is.
-func TestNvencPresetLimitRefusesAStepOutsideTheLadder(t *testing.T) {
-	// The empty string is deliberately absent: it means the codec's own declared step
-	// now, which is what a draft holding none is entitled to, and what the builder
-	// resolves it to. A step off the ladder is still refused, including one that belongs
-	// to another encoder's ladder.
-	for _, preset := range []string{"p8", "slow"} {
+func TestAStepOutsideTheLadderIsRefused(t *testing.T) {
+	// The empty string is deliberately absent: it means the codec's own declared step,
+	// which is what a draft holding none is entitled to and what the builder resolves it
+	// to. A step off the ladder is refused, including one that belongs to another
+	// encoder's ladder, which is what a draft that changed codec is holding.
+	for _, tc := range []struct{ codec, step string }{
+		{"hevc_nvenc", "p8"},
+		{"hevc_nvenc", "slow"},
+		{"libx264", "p7"},
+		{"libsvtav1", "14"},
+	} {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = "hevc_nvenc", "yuv420p", preset
+		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = tc.codec, "yuv420p", tc.step
 		if _, err := encoderArgs(s, gopFor(s)); err == nil {
-			t.Errorf("preset %q was accepted", preset)
+			t.Errorf("%s took the step %q", tc.codec, tc.step)
 		}
 	}
-	for _, preset := range NvencPresets {
-		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = "hevc_nvenc", "yuv420p", preset
-		if _, err := encoderArgs(s, gopFor(s)); err != nil {
-			t.Errorf("preset %q: %v", preset, err)
+	// Every step a codec's own row declares builds a command.
+	for _, codec := range []string{"hevc_nvenc", "libx264", "libsvtav1"} {
+		c, ok := capabilities.Get(codec)
+		if !ok {
+			t.Fatalf("no capability row for %s", codec)
+		}
+		for _, step := range c.Effort.Steps {
+			s := baseStream()
+			s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = codec, "yuv420p", step
+			s.Publish.Tune, _ = c.Tune.StepFor(s.Publish.Mode)
+			if _, err := encoderArgs(s, gopFor(s)); err != nil {
+				t.Errorf("%s step %q: %v", codec, step, err)
+			}
 		}
 	}
 }
 
-// CBR pins the preset, and the form greys the control saying which step is in force.
-// The frontend's MODE_META declares the same step, so the two spellings have to match
-// or the sentence names a preset the encode does not run.
-func TestNvencCbrPinsTheDeclaredPreset(t *testing.T) {
+// A mode that pins the step runs the pinned one whatever the draft holds, and the form
+// greys the control there and names it. Both read the codec's row, so the step the
+// encode spends and the step the sentence names cannot come apart.
+func TestNvencCbrPinsTheDeclaredStep(t *testing.T) {
+	c, ok := capabilities.Get("hevc_nvenc")
+	if !ok {
+		t.Fatal("no capability row for hevc_nvenc")
+	}
+	want, declared := c.Effort.StepFor("cbr")
+	if !declared || !c.Effort.PinsIn("cbr") {
+		t.Fatalf("hevc_nvenc no longer pins a declared step in cbr")
+	}
+
 	s := baseStream()
 	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode, s.Publish.Effort = "hevc_nvenc", "yuv420p", "cbr", "p7"
 	args, err := encoderArgs(s, gopFor(s))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := flagValue(args, "-preset"); got != nvencLivePreset {
-		t.Errorf("-preset = %q, want the pinned %q", got, nvencLivePreset)
+	if got := flagValue(args, "-preset"); got != want {
+		t.Errorf("-preset = %q, want the pinned %q", got, want)
 	}
 }
 

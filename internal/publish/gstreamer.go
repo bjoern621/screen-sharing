@@ -5,6 +5,8 @@ import (
 	"io"
 	"strings"
 
+	"bjoernblessin.de/go-utils/util/logger"
+
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -43,7 +45,15 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return GstExe + " " + strings.Join(pipeline, " "), nil
+	// The runner and its subcommand lead the line because they are what runs. The rest of
+	// it is the pipeline gst-launch-1.0 would take unchanged, so a reader who wants to see
+	// the same graph outside the app pastes everything after the subcommand into that
+	// launcher.
+	exe, err := FindGstRunner()
+	if err != nil {
+		return "", err
+	}
+	return exe + " " + GstSubcommand + " " + strings.Join(pipeline, " "), nil
 }
 
 // captureOptions builds the source chain's run-independent parts and holds them
@@ -83,10 +93,11 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		return nil, err
 	}
 
-	// A missing launcher belongs to the same set: it is known before anything is
-	// opened, so it is answered before the picker rather than after the user has
-	// chosen a surface for a pipeline nothing can run.
-	exe, err := FindGstExe()
+	// The runner is this executable, so there is nothing to find on the machine and
+	// nothing to answer for before the picker: a build that starts at all carries the
+	// GStreamer it links, and which elements that installation registers is the encoder
+	// probe's question rather than the launcher's.
+	exe, err := FindGstRunner()
 	if err != nil {
 		return nil, err
 	}
@@ -123,15 +134,46 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		return nil, err
 	}
 
-	var parseStdout func(io.Reader)
-	if meter != nil {
-		parseStdout = meter.parse
+	// The child's standard output carries two kinds of line now: the meter's progress and
+	// the caps the capture negotiated. Both are read here, and the caps are what decides
+	// whether this publish may continue at all.
+	//
+	// A handle the refusal can stop does not exist until supervise returns, so it is held
+	// for the reader that starts the moment the process does. A capture whose caps arrive
+	// before that reads a nil handle and stops nothing, which cannot happen in practice
+	// (the caps follow the pipeline reaching PLAYING) and is a stopped publish rather than
+	// a wrong one if it ever did.
+	var handle Handle
+	stopped := false
+	parseStdout := func(r io.Reader) {
+		gstReadChild(r, meter, func(caps string) {
+			if stopped {
+				return
+			}
+			refusal := hdrRefusal(s, caps)
+			if refusal == nil {
+				return
+			}
+			stopped = true
+			logger.Warnf("stopping the publish: %v", refusal)
+			if handle != nil {
+				handle.Stop()
+			}
+		})
 	}
 
-	handle, err := supervise(superviseConfig{
-		exe:         exe,
-		env:         GstChildEnv(),
-		args:        pipeline,
+	// One socket per run, which the child opens before its pipeline plays and removes with
+	// itself. A run nobody can talk to is a stream that has to be relaunched to change,
+	// which is what every publish was until the pipeline moved into this app's own process.
+	socket := gstControlSocket(tag)
+
+	handle, err = supervise(superviseConfig{
+		exe: exe,
+		env: GstChildEnv(),
+		// The subcommand leads, which is what makes this executable play a pipeline
+		// instead of opening a second control socket (cmd/backend), and the control flag
+		// follows it so the pipeline itself starts at the same word gst-launch would.
+		args:        append(append([]string{GstSubcommand}, gstLiveArgs(socket)...), pipeline...),
 		tag:         tag,
 		extraFiles:  files,
 		parseStdout: parseStdout,
@@ -146,5 +188,5 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		closeSource()
 		return nil, err
 	}
-	return handle, nil
+	return &gstHandle{Handle: handle, socket: socket}, nil
 }

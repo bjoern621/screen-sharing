@@ -1,0 +1,200 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:ti="using:TablerIcons"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.Presets.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.Presets.View.PresetsView"
+             x:DataType="vm:PresetsViewModel">
+
+  <!--
+    The saved ways of publishing. It stands on the review because that is where the whole
+    configuration is read back: a preset is the thing on the left of this screen, so naming one
+    and picking one belong beside the summary rather than on one of the steps that owns a
+    fraction of it.
+
+    It replaced a switch called "Save as preset", which could not work and did nothing. A preset
+    is selected, replaced and deleted by a name, and a toggle has none to give.
+  -->
+
+  <Border Classes="card" Padding="{StaticResource InsetPanel}">
+    <StackPanel>
+
+      <!--
+        The re-read sits in the heading because it is about the list rather than about any row.
+        Nothing announces a preset another window saved - they are a file the backend does not
+        run on - so asking again is the whole of how this card catches up, and the tooltip says
+        so (Copy/Cards.cs).
+      -->
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,10">
+        <TextBlock Grid.Column="0" Classes="caption" Text="Presets" VerticalAlignment="Center" />
+        <Button Grid.Column="1"
+                Theme="{StaticResource IconButton}"
+                Command="{Binding RereadCommand}"
+                ToolTip.Tip="{Binding RereadTip}"
+                controls:Pending.IsActive="{Binding RereadCommand.IsRunning}">
+          <ti:TablerIcon Classes="button" Icon="IconRefresh" />
+        </Button>
+      </Grid>
+
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 Margin="0,0,0,10"
+                 Text="{Binding Covers}" />
+
+      <!--
+        The built-in presets, each a promise and the line stating it. They come first because
+        they are where a reader who has saved nothing starts, and because they are the ones that
+        say what a configuration is for rather than what it was called.
+
+        A preset nothing on this machine reaches keeps its row, greyed, with the reason under it -
+        the same treatment a ruled-out option gets anywhere else (docs/field-availability.md).
+      -->
+      <ItemsControl ItemsSource="{Binding Builtin}" Margin="0,0,0,10">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:BuiltinPresetRow">
+            <StackPanel Margin="0,0,0,6">
+              <Grid ColumnDefinitions="Auto,*,Auto"
+                    ColumnSpacing="{StaticResource GapTight}"
+                    Height="{StaticResource ControlHeight}">
+                <Ellipse Grid.Column="0"
+                         Width="{StaticResource DotSize}"
+                         Height="{StaticResource DotSize}"
+                         VerticalAlignment="Center"
+                         Fill="{StaticResource ForegroundBrush}"
+                         IsVisible="{Binding IsCurrent}" />
+
+                <TextBlock Grid.Column="1"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           IsEnabled="{Binding IsReachable}"
+                           Text="{Binding Name}" />
+
+                <Button Grid.Column="2"
+                        Theme="{StaticResource LinkButton}"
+                        Content="Apply"
+                        IsEnabled="{Binding IsReachable}"
+                        Command="{Binding Apply}" />
+              </Grid>
+
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         LineHeight="{StaticResource LineHeightSmall}"
+                         Text="{Binding Promise}" />
+
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         LineHeight="{StaticResource LineHeightSmall}"
+                         Margin="0,4,0,0"
+                         IsVisible="{Binding !IsReachable}"
+                         Text="{Binding Reason}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!--
+        The two lists are labelled because they are two different things under one heading: above,
+        promises this machine was searched for a way to keep; below, snapshots of every field under
+        a name someone typed.
+      -->
+      <TextBlock Classes="caption" Text="Saved" Margin="0,0,0,6" />
+
+      <!--
+        One row per saved preset. The name carries the dot that says the draft is this preset,
+        derived on every pass from the settings themselves rather than from the press that
+        applied it, so an edit that moves off the preset puts the dot out.
+      -->
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:PresetRow">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto"
+                  ColumnSpacing="{StaticResource GapTight}"
+                  Height="{StaticResource ControlHeight}">
+              <Ellipse Grid.Column="0"
+                       Width="{StaticResource DotSize}"
+                       Height="{StaticResource DotSize}"
+                       VerticalAlignment="Center"
+                       Fill="{StaticResource ForegroundBrush}"
+                       IsVisible="{Binding IsCurrent}" />
+
+              <TextBlock Grid.Column="1"
+                         Classes="ident"
+                         VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         Text="{Binding Name}" />
+
+              <!--
+                Applying writes the draft and touches nothing that is running, which is why it is
+                a plain link and not the screen's one red control.
+              -->
+              <Button Grid.Column="2"
+                      Theme="{StaticResource LinkButton}"
+                      Content="Apply"
+                      Command="{Binding Apply}" />
+
+              <Button Grid.Column="3"
+                      Theme="{StaticResource IconButton}"
+                      Command="{Binding Delete}"
+                      ToolTip.Tip="Delete this preset"
+                      controls:Pending.IsActive="{Binding Delete.IsRunning}">
+                <ti:TablerIcon Classes="button" Icon="IconTrash" />
+              </Button>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!--
+        Three sentences that never overlap. Nothing saved yet is a state of the store; the notice
+        is the store failing to be read, which is a different reason for an empty list; and the
+        refusal is about one call that was made.
+      -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 IsVisible="{Binding IsEmpty}"
+                 Text="{Binding Empty}" />
+
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 Margin="0,6,0,0"
+                 IsVisible="{Binding HasNotice}"
+                 Text="{Binding Notice}" />
+
+      <TextBlock Classes="hint danger"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 Margin="0,6,0,0"
+                 IsVisible="{Binding HasRefusal}"
+                 Text="{Binding Refusal}" />
+
+      <!--
+        The name, and the button whose word follows it: a name already in the list says Replace,
+        because saving over a preset is how one is edited and the name is the identity the store
+        keys on.
+      -->
+      <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+        <TextBox Grid.Column="0"
+                 PlaceholderText="Name this configuration"
+                 Text="{Binding Name, Mode=TwoWay}" />
+
+        <Button Grid.Column="1"
+                Margin="8,0,0,0"
+                Theme="{StaticResource ActionButton}"
+                Content="{Binding SaveLabel}"
+                Command="{Binding SaveCommand}"
+                controls:Pending.IsActive="{Binding SaveCommand.IsRunning}" />
+      </Grid>
+
+    </StackPanel>
+  </Border>
+
+</UserControl>

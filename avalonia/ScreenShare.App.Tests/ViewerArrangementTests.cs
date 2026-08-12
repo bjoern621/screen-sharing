@@ -22,7 +22,12 @@ public sealed class ViewerArrangementTests
     private const string Leg = "rtsp";
 
     /// <summary>
-    /// A backend carrying the named paths, whose form states the leg a tile is decoded on.
+    /// A backend carrying the named paths, holding the leg a tile is decoded on.
+    ///
+    /// The leg is in the stored settings and in the form both, because that is what the two mean
+    /// together: the settings are what a decode opens on and the form is what the panel draws.
+    /// A fixture that stated it in one of them would be a screen showing a leg no decode uses, or
+    /// the other way round (Features/Viewer/Tile/Model/TileLeg.cs).
     ///
     /// Everything that is not about the relay or the viewer group is the seed's, and every effect
     /// answers at once, so a screen driven through a straight-through dispatcher has finished by
@@ -91,8 +96,13 @@ public sealed class ViewerArrangementTests
             return Task.CompletedTask;
         }
 
-        public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
-            => _seed.SettingsAsync(cancellation);
+        /// <summary>The seed's settings, holding the leg this fixture's tiles are decoded on.</summary>
+        public async Task<Settings> SettingsAsync(CancellationToken cancellation = default)
+        {
+            var settings = await _seed.SettingsAsync(cancellation);
+            settings.Viewer.TileWatchTransport = Leg;
+            return settings;
+        }
 
         public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
             => _seed.CatalogAsync(cancellation);
@@ -118,11 +128,23 @@ public sealed class ViewerArrangementTests
         public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
             => _seed.MeasureUplinkAsync(cancellation);
 
+        public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
+            => _seed.PresetsAsync(cancellation);
+
+        public Task SavePresetAsync(string name, PublishSettings settings, CancellationToken cancellation = default)
+            => _seed.SavePresetAsync(name, settings, cancellation);
+
+        public Task DeletePresetAsync(string name, CancellationToken cancellation = default)
+            => _seed.DeletePresetAsync(name, cancellation);
+
         public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.StartWatchAsync(streamName, transport, cancellation);
 
         public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
             => _seed.StopWatchAsync(streamName, transport, cancellation);
+
+        public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
+            => _seed.OpenInBrowserAsync(streamName, transport, cancellation);
 
         public Task SetReceiveAudioAsync(
             string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
@@ -134,6 +156,19 @@ public sealed class ViewerArrangementTests
         /// <summary>The arrangement this suite is about is the viewer's grid, which the publish's own preview is not in.</summary>
         public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
             => _seed.OpenPreviewFramesAsync(cancellation);
+
+        /// <summary>The arrangement this suite is about is the viewer's grid, which the wizard's screen pictures are not in.</summary>
+        public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+            => _seed.StartMonitorPreviewAsync(monitor, cancellation);
+
+        public Task StopMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
+            => _seed.StopMonitorPreviewAsync(monitor, cancellation);
+
+        public Task<FrameChannel> OpenMonitorFramesAsync(int monitor, CancellationToken cancellation = default)
+            => _seed.OpenMonitorFramesAsync(monitor, cancellation);
+
+        public Task<IReadOnlyList<PreviewedMonitor>> PreviewedMonitorsAsync(CancellationToken cancellation = default)
+            => _seed.PreviewedMonitorsAsync(cancellation);
 
         public Task OpenLogAsync(string path, CancellationToken cancellation = default)
             => _seed.OpenLogAsync(path, cancellation);
@@ -268,6 +303,63 @@ public sealed class ViewerArrangementTests
         Assert.Contains("two", viewer.PoppedFullscreen);
     }
 
+    /// <summary>
+    /// A closed pop-out window gives its stream back to the grid, and says nothing about a stream
+    /// that is already there.
+    ///
+    /// It is what the window reports when it closes, and every close runs it - including the ones
+    /// the reconcile pass performs for a stream the reader has already given back. Reported as a
+    /// toggle, those closes asked for the window again, so leaving a pop-out from inside it put
+    /// the stream into a second window instead of back in the grid.
+    /// </summary>
+    [Fact]
+    public void LeavingAPopOutIsOneDirectionAndIdempotent()
+    {
+        var viewer = Grid("one", "two");
+        var tile = Tile(viewer, "one");
+
+        tile.TogglePopOut.Execute(null);
+        tile.ToggleFullscreen.Execute(null);
+
+        tile.LeavePopOut.Execute(null);
+        Assert.Empty(viewer.PoppedOut);
+        Assert.False(tile.IsPoppedOut);
+
+        // The window it filled is gone with it, so the stream is back in the grid windowed.
+        Assert.Empty(viewer.PoppedFullscreen);
+        Assert.False(tile.IsFullscreen);
+
+        // The close this pass performs for a stream that has already come back.
+        tile.LeavePopOut.Execute(null);
+        Assert.Empty(viewer.PoppedOut);
+        Assert.False(tile.IsPoppedOut);
+    }
+
+    /// <summary>
+    /// A stream that fills this window and is then popped out gives this window back to its grid.
+    ///
+    /// The main window's fullscreen names a stream drawn in the main window, so a stream that left
+    /// for a window of its own cannot still be filling this one. Left standing, it was a window
+    /// filled by a plate saying the picture was somewhere else.
+    /// </summary>
+    [Fact]
+    public void PoppingOutAFullscreenStreamGivesTheMainWindowBack()
+    {
+        var viewer = Grid("one", "two");
+        var tile = Tile(viewer, "one");
+
+        tile.ToggleFullscreen.Execute(null);
+        tile.TogglePopOut.Execute(null);
+
+        Assert.Equal("", viewer.Fullscreen);
+        Assert.False(viewer.HasFullscreen);
+        Assert.Null(viewer.FullscreenTile);
+
+        // The window it went to arrives windowed: fullscreen does not travel with the stream.
+        Assert.Empty(viewer.PoppedFullscreen);
+        Assert.False(tile.IsFullscreen);
+    }
+
     /// <summary>Two popped-out streams can be fullscreen at once, each on its own window.</summary>
     [Fact]
     public void TwoPoppedOutStreamsCanBothBeFullscreen()
@@ -328,32 +420,40 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// The menu's words and glyphs follow the state they describe.
+    /// The menu reports which arrangements this tile is in.
     ///
-    /// Each item is one entry whose icon and wording change, rather than two entries one of which
-    /// is hidden, so nothing in the menu moves under the pointer. The bindings read these, so a
-    /// state that stopped updating them would be a menu quietly lying about what it will do.
+    /// Every row's words are fixed and its state is the tick beside them, so what the bindings
+    /// have to carry is the flag rather than a rewritten label. A flag that stopped following its
+    /// arrangement would be a menu that quietly disagrees with the screen behind it.
     /// </summary>
     [Fact]
-    public void TheMenuSaysWhatPressingItWillDo()
+    public void TheMenuReportsWhatIsInForce()
     {
         var viewer = Grid("one", "two");
         var tile = Tile(viewer, "one");
 
-        var focus = tile.FocusGlyph;
-        Assert.Equal("Focus", tile.FocusLabel);
-        Assert.Equal("Pop out", tile.PopOutLabel);
-        Assert.Equal("Stats overlay", tile.StatsLabel);
+        Assert.False(tile.IsFocused);
+        Assert.False(tile.IsPoppedOut);
+        Assert.False(tile.IsFullscreen);
+        Assert.False(tile.ShowStats);
 
         tile.ToggleFocus.Execute(null);
-        Assert.Equal("Leave focus", tile.FocusLabel);
-        Assert.NotEqual(focus, tile.FocusGlyph);
-
-        tile.TogglePopOut.Execute(null);
-        Assert.Equal("Return to grid", tile.PopOutLabel);
+        Assert.True(tile.IsFocused);
 
         tile.ToggleStats.Execute(null);
-        Assert.Equal("Hide stats", tile.StatsLabel);
+        Assert.True(tile.ShowStats);
+
+        // Fullscreen belongs to the window a stream is drawn in, so the flag has to follow the
+        // stream across the two of them rather than answer for the main window alone.
+        tile.ToggleFullscreen.Execute(null);
+        Assert.True(tile.IsFullscreen);
+
+        tile.TogglePopOut.Execute(null);
+        Assert.True(tile.IsPoppedOut);
+        Assert.False(tile.IsFullscreen);
+
+        tile.ToggleFullscreen.Execute(null);
+        Assert.True(tile.IsFullscreen);
     }
 
     /// <summary>
@@ -371,5 +471,75 @@ public sealed class ViewerArrangementTests
 
         Assert.Empty(viewer.PoppedOut);
         Assert.False(tile.IsPoppedOut);
+    }
+
+    /// <summary>
+    /// The window's own key gives the main window back to the grid, and says nothing about the
+    /// popped-out windows: each of those fills its own screen and answers for it.
+    /// </summary>
+    [Fact]
+    public void LeavingFullscreenFreesTheMainWindowAlone()
+    {
+        var viewer = Grid("one", "two");
+
+        Tile(viewer, "one").ToggleFullscreen.Execute(null);
+        Tile(viewer, "two").TogglePopOut.Execute(null);
+        Tile(viewer, "two").ToggleFullscreen.Execute(null);
+
+        viewer.LeaveFullscreen.Execute(null);
+
+        Assert.Equal("", viewer.Fullscreen);
+        Assert.False(Tile(viewer, "one").IsFullscreen);
+        Assert.Contains("two", viewer.PoppedFullscreen);
+        Assert.True(Tile(viewer, "two").IsFullscreen);
+    }
+
+    /// <summary>
+    /// Leaving fullscreen names a state rather than toggling one: pressed with nothing filling a
+    /// screen it changes nothing, which is what makes it safe on a key that fires on every screen.
+    /// </summary>
+    [Fact]
+    public void LeavingFullscreenNeverEntersIt()
+    {
+        var viewer = Grid("one");
+        var tile = Tile(viewer, "one");
+
+        viewer.LeaveFullscreen.Execute(null);
+        tile.LeaveFullscreen.Execute(null);
+
+        Assert.Equal("", viewer.Fullscreen);
+        Assert.Empty(viewer.PoppedFullscreen);
+        Assert.False(tile.IsFullscreen);
+
+        viewer.LeaveFullscreen.Execute(null);
+
+        Assert.Equal("", viewer.Fullscreen);
+    }
+
+    /// <summary>
+    /// A tile's own leave follows the window the stream is drawn in, like the toggle beside it: a
+    /// popped-out stream stops filling its screen and stays in its window.
+    /// </summary>
+    [Fact]
+    public void LeavingFullscreenFollowsTheWindowTheStreamIsIn()
+    {
+        var viewer = Grid("one");
+        var tile = Tile(viewer, "one");
+
+        tile.TogglePopOut.Execute(null);
+        tile.ToggleFullscreen.Execute(null);
+        tile.LeaveFullscreen.Execute(null);
+
+        Assert.Empty(viewer.PoppedFullscreen);
+        Assert.Contains("one", viewer.PoppedOut);
+        Assert.False(tile.IsFullscreen);
+
+        // And the main window's, for a stream that is in the grid.
+        tile.TogglePopOut.Execute(null);
+        tile.ToggleFullscreen.Execute(null);
+        tile.LeaveFullscreen.Execute(null);
+
+        Assert.Equal("", viewer.Fullscreen);
+        Assert.False(tile.IsFullscreen);
     }
 }

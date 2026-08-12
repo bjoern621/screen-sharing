@@ -13,6 +13,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/screensrc"
 	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -63,8 +64,11 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 
 		WatchTransports:         transport.WatchNames(capabilities.EngineFfmpeg),
 		WatchTransportsByFormat: catalogWatchByFormat(),
+		BrowserWatchTransports:  transport.WatchNames(transport.EngineBrowser),
 
 		AudioSources: catalogAudioSources(in.Platform),
+
+		NoMonitorPreview: catalogNoMonitorPreview(in.Platform),
 	}
 
 	// A machine may legitimately have no monitors this enumeration reached and no
@@ -80,7 +84,9 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 	return out
 }
 
-// engines is the one table converting a publish engine's Go spelling to its wire enum.
+// engines is the one table converting an engine's Go spelling to its wire enum. It
+// holds the two publish engines and the browser, which is the watch leg's third
+// reader and states a carriage like the other two.
 //
 // The Go tables carry the engine as a string because the capabilities package depends
 // on nothing, which is what lets both engines and every consumer read it. The contract
@@ -89,6 +95,7 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 var engines = map[string]screensharev1.Engine{
 	capabilities.EngineFfmpeg: screensharev1.Engine_ENGINE_FFMPEG,
 	capabilities.EngineGst:    screensharev1.Engine_ENGINE_GSTREAMER,
+	transport.EngineBrowser:   screensharev1.Engine_ENGINE_BROWSER,
 }
 
 // The legs, as transport.Register keys its two carriage maps. The transport package
@@ -114,13 +121,13 @@ var colours = map[gpupath.Colour]screensharev1.PathColour{
 	gpupath.ColourEncoder: screensharev1.PathColour_PATH_COLOUR_ENCODER,
 }
 
-// engineEnum converts a named publish engine. An engine outside the table is a table
-// that gained a value without this site gaining a case, which fails here rather than
-// arriving as ENGINE_UNSPECIFIED and drawing as an engine nobody named.
+// engineEnum converts a named engine, publish or watch. An engine outside the table is
+// a table that gained a value without this site gaining a case, which fails here rather
+// than arriving as ENGINE_UNSPECIFIED and drawing as an engine nobody named.
 func engineEnum(engine string) screensharev1.Engine {
 	e, ok := engines[engine]
 	if !ok {
-		assert.Never("a publish engine is one the capability table declares", engine)
+		assert.Never("an engine is one the tables above declare", engine)
 	}
 	return e
 }
@@ -154,6 +161,17 @@ func colourEnum(colour gpupath.Colour) screensharev1.PathColour {
 		assert.Never("a GPU path states one of the two colour verdicts", string(colour))
 	}
 	return c
+}
+
+// catalogNoMonitorPreview states why this session cannot show what a monitor holds, and
+// is nil where it can.
+//
+// It is derived here rather than carried in, like the capture backends' availability
+// beside it: the answer follows from the session and from a table this binary holds, so
+// asking the machine for it would be reading the same fact twice.
+func catalogNoMonitorPreview(p platform.Info) *screensharev1.Text {
+	_, gap := screensrc.Session(p)
+	return gap
 }
 
 // catalogMonitors converts the display enumeration. A machine whose outputs could not
@@ -367,10 +385,15 @@ func catalogCarriage() []*screensharev1.TransportCarriage {
 	for _, name := range transport.Names() {
 		f, ok := transport.FormatsOf(name)
 		assert.Assert(ok, "a listed transport is a registered one", name)
+		// The two legs are walked over their own engine lists, because the readers
+		// are not the publishers: the browser reads a page the relay serves and
+		// publishes nothing, so one walk over either list would drop rows.
 		for _, engine := range capabilities.Engines {
 			if c, ok := f.Publish[engine]; ok {
 				out = append(out, carriageRow(name, legPublish, engine, c))
 			}
+		}
+		for _, engine := range transport.WatchEngines {
 			if c, ok := f.Watch[engine]; ok {
 				out = append(out, carriageRow(name, legWatch, engine, c))
 			}

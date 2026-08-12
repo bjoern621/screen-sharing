@@ -25,22 +25,41 @@ public sealed partial class ShellWindow : Window
     {
         InitializeComponent();
 
-        // The three halves of one decision, applied together so no platform can end up with
-        // two captions or with none: the client area covers the native one, the replacement
-        // the platform then asks for is emptied, and the band that stands in for it is drawn.
-        // Where the desktop draws the frame all three stay off (WindowChrome).
+        // Two halves of one decision, applied together so no platform can end up with two
+        // captions: the client area covers the native one, and the replacement the platform
+        // then asks for is emptied. Where the desktop draws the frame both stay off
+        // (WindowChrome).
+        //
+        // The third half - the band that stands in for the caption - is bound off the shell
+        // instead of written here. Whether it is drawn is now two facts rather than one, since
+        // it comes off the window while a stream is filling it, and a property written from
+        // here as well would be a second author of one of them (ShellViewModel.HasCaption).
         if (WindowChrome.AppDrawsCaption)
         {
             ExtendClientAreaToDecorationsHint = true;
             WindowDecorationsTheme = (ControlTheme)Resources["EmptyDecorations"]!;
         }
 
-        Caption.IsVisible = WindowChrome.AppDrawsCaption;
-
         // Tunnelling, so the press is seen on the way down and whatever it lands on still
         // handles it - a button pressed while a box has the caret takes focus for itself
         // immediately afterwards, which is the outcome either way.
         AddHandler(PointerPressedEvent, DropFocus, RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>
+    /// Takes this window out of the captures this machine produces, once the platform has given
+    /// it a handle to say it about (<c>Features/Shell/Model/CaptureExclusion.cs</c>).
+    ///
+    /// The whole window rather than the tiles inside it, because the picture a tile draws is a
+    /// capture of the screen this window is on: what leaves the window in the capture is what
+    /// nests a copy of the screen inside the stream on every round trip. A system with no way
+    /// to state it is left as it is.
+    /// </summary>
+    protected override void OnOpened(EventArgs e)
+    {
+        base.OnOpened(e);
+
+        CaptureExclusions.ForThisSystem().Exclude(this);
     }
 
     /// <summary>

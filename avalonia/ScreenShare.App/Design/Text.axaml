@@ -103,7 +103,7 @@
 
   <!-- A fault, and only a fault. -->
   <Style Selector="TextBlock.danger">
-    <Setter Property="Foreground" Value="{DynamicResource OnAirBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AttentionBrush}" />
   </Style>
 
   <!--

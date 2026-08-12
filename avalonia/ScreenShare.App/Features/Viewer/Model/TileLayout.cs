@@ -20,6 +20,10 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// some small ones rather than as a grid. So the height is chosen once: the largest that lets
 /// every row fit the width and the whole stack fit the box. Rows are narrower than the box by
 /// however much their contents leave over, and are centred in it.
+///
+/// <b>The stack is centred in the height for the same reason rows are centred in the width.</b>
+/// A row count that fits the width leaves the rows shorter than the box, and that leftover is a
+/// margin rather than an empty half-window under the tiles.
 /// </summary>
 public static class TileLayout
 {
@@ -53,7 +57,9 @@ public static class TileLayout
     public readonly record struct Placement(int Index, double X, double Y, double Width, double Height);
 
     /// <summary>The whole arrangement: where every tile goes, how tall it is, and whether it outgrew the box.</summary>
-    /// <param name="Height">The height the arrangement actually needs.</param>
+    /// <param name="Height">How far down the box the arrangement reaches: the margin above the
+    /// rows plus the rows themselves. A caller that sizes itself by this leaves the same margin
+    /// under the tiles as the arrangement put over them.</param>
     /// <param name="Scrolls">Whether the tiles could not be fitted at a legible size, so the
     /// container has to scroll. A caller that cannot scroll gets a taller arrangement than it
     /// asked for rather than a silently squashed one.</param>
@@ -104,7 +110,7 @@ public static class TileLayout
         var sorted = order.Select(i => Sane(aspects[i])).ToArray();
 
         var best = Best(sorted, width, height, gap);
-        var tiles = Place(sorted, order, best, width, gap, out var total);
+        var tiles = Place(sorted, order, best, width, height, gap, out var total);
 
         Assert.That(tiles.Count == aspects.Count, "a place for every tile", tiles.Count, aspects.Count);
         return new Arrangement(tiles, total, best.Scrolls);
@@ -252,13 +258,20 @@ public static class TileLayout
     /// their contents come out. A row narrower than the box is centred rather than left-aligned:
     /// a grid with all its slack on one side reads as broken alignment, where the same slack
     /// split in two reads as a margin.
+    ///
+    /// The stack of rows is centred in the box the same way. It is short of the box's height
+    /// whenever the width is what bounded the row height, and an arrangement that scrolls has no
+    /// slack to split, so the margin above is zero there.
     /// </summary>
     private static IReadOnlyList<Placement> Place(
-        double[] aspects, int[] order, Candidate candidate, double width, double gap, out double total)
+        double[] aspects, int[] order, Candidate candidate, double width, double height, double gap,
+        out double total)
     {
         var placed = new Placement[aspects.Length];
         var rowHeight = candidate.Height;
-        var y = 0.0;
+
+        var stack = (rowHeight * candidate.Rows) + (gap * (candidate.Rows - 1));
+        var y = Math.Max(0, (height - stack) / 2);
 
         for (var r = 0; r < candidate.Rows; r++)
         {
@@ -283,6 +296,12 @@ public static class TileLayout
 
         // The last row adds no gap under itself.
         total = Math.Max(0, y - gap);
+
+        Assert.That(
+            candidate.Scrolls || total <= height + 0.001,
+            "an arrangement that fits reaches no further than the box",
+            total,
+            height);
         return placed;
     }
 

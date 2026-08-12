@@ -12,11 +12,11 @@ import (
 // exchange the other way round to receive it.
 //
 // Both publish engines carry the ingest, each limited by what its own side
-// negotiates. The watch leg is a receiving GStreamer pipeline's alone: WHEP is a
-// signaling exchange rather than a URL, so no viewer program opens it and this
-// transport implements GstWatcher without Watcher. The web viewer reaches the
-// same endpoint through the browser's own RTCPeerConnection (WhepSink), which is
-// not this registry's business.
+// negotiates. On the watch leg WHEP is a signaling exchange rather than a URL, so
+// no viewer program opens it and this transport implements GstWatcher and
+// BrowserWatcher without Watcher: a receiving pipeline runs the exchange itself,
+// and a browser runs it from the page the relay serves, through its own
+// RTCPeerConnection.
 type WebRTC struct{}
 
 func init() {
@@ -41,21 +41,36 @@ func (WebRTC) Name() string { return "webrtc" }
 // WebRTC negotiates. AAC has no SDP form there at all, which is a fact of the
 // protocol rather than of either engine.
 //
-// The watch entry is the receiving GStreamer pipeline's, and there is no player
-// entry: WHEP is a signaling exchange rather than an address, so no viewer
-// program opens it. H.265 is absent because the relay refuses to serve it over
-// WebRTC whenever the stream carries B-frames, which is a property of the encode
-// rather than of the leg and unknowable for a stream this app did not produce.
+// The two watch entries are the receiving GStreamer pipeline's and the browser's,
+// and there is no player entry: WHEP is a signaling exchange rather than an
+// address, so no viewer program opens it. H.265 is absent from both because the
+// relay refuses to serve it over WebRTC whenever the stream carries B-frames,
+// which is a property of the encode rather than of the leg and unknowable for a
+// stream this app did not produce.
+//
+// The browser set is the same three formats and states the same thing about the
+// relay's listener, arrived at from the reader's side: every browser that
+// negotiates WebRTC decodes H.264 and VP8, and the ones this page is opened in
+// decode VP9. AV1 is off both watch entries for the reason it is off the publish
+// ones - the leg yielded no picture here - and neither reader is offered a leg
+// this app has not seen carry a stream.
+// webrtcPlayback is what the relay serves over WHEP, named once because both
+// readers take it off the same listener rather than agreeing by coincidence.
+var webrtcPlayback = Carriage{
+	Video: []string{"h264", "vp9", "vp8"},
+	Audio: []string{"opus"},
+}
+
 func (WebRTC) Formats() Formats {
 	return Formats{
 		Publish: map[string]Carriage{
 			capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"opus"}},
 			capabilities.EngineGst:    {Video: []string{"h264", "vp9", "vp8"}, Audio: []string{"opus"}},
 		},
-		Watch: map[string]Carriage{capabilities.EngineGst: {
-			Video: []string{"h264", "vp9", "vp8"},
-			Audio: []string{"opus"},
-		}},
+		Watch: map[string]Carriage{
+			capabilities.EngineGst: webrtcPlayback,
+			EngineBrowser:          webrtcPlayback,
+		},
 	}
 }
 
@@ -95,6 +110,15 @@ func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 		"whep-endpoint=" + whepURL(s, streamName),
 		"audio-caps=EMPTY",
 	}
+}
+
+// BrowserURL returns the relay's WHEP player page for the stream. The page runs
+// the same exchange whepsrc does, from a browser's own RTCPeerConnection, and it
+// is served on the WebRTC listener rather than anywhere this app serves: the
+// address is the path's, with the trailing slash the relay would otherwise
+// redirect to.
+func (WebRTC) BrowserURL(s settings.Settings, streamName string) string {
+	return fmt.Sprintf("http://%s:%d/%s/", s.Relay.Host, s.Relay.WebrtcPort, streamName)
 }
 
 func whipURL(s settings.Settings, name string) string {

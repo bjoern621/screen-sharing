@@ -70,6 +70,20 @@ public sealed record BroadcastSnapshot
     public int? Viewers { get; init; }
 
     /// <summary>
+    /// The legs this stream's viewers are watching over, in the transport vocabulary, empty
+    /// while the relay names no reader on the path.
+    ///
+    /// It is the fact behind every sentence about a latency figure nobody stated. SRT is the one
+    /// leg the relay times, so a stream watched over anything else has viewers and no round trip,
+    /// and naming the legs it is watched over is what leaves a publisher something to change.
+    ///
+    /// One comma-separated string rather than a list, because this record's equality is what
+    /// keeps a render pass over an unchanged reading from repainting, and a fresh list would
+    /// compare unequal on every pass.
+    /// </summary>
+    public string Legs { get; init; } = "";
+
+    /// <summary>
     /// The path this stream publishes to, empty while nothing is publishing. It is here because
     /// it is the key every relay figure on this screen is looked up by, and a card that had to
     /// find it again would be a second definition of which path is ours.
@@ -126,6 +140,7 @@ public sealed record BroadcastSnapshot
             RttMs = WorstRttMs(path) is { } rtt ? (int)Math.Round(rtt) : null,
             LossPercent = WorstLossPercent(path),
             Viewers = path?.Readers,
+            Legs = LegsOf(path),
             Stream = stream,
             Cq = settings?.Cq,
             Resolution = settings?.OutputResolution ?? "",
@@ -170,6 +185,30 @@ public sealed record BroadcastSnapshot
     /// <summary>The highest send-side loss on the path's roster, and null where no reader states one.</summary>
     public static double? WorstLossPercent(RelayPath? path)
         => Worst(path, reader => reader.HasLossPercent ? reader.LossPercent : null);
+
+    /// <summary>
+    /// The distinct legs the path's readers are on, in the order the roster names them. A reader
+    /// the relay named no protocol for takes no part: an unnamed leg is not a leg, and listing it
+    /// as an empty one would put a gap in the sentence that names them.
+    /// </summary>
+    private static string LegsOf(RelayPath? path)
+    {
+        if (path is null)
+        {
+            return "";
+        }
+
+        var legs = new List<string>();
+        foreach (var reader in path.ReaderRoster)
+        {
+            if (reader.Transport.Length > 0 && !legs.Contains(reader.Transport))
+            {
+                legs.Add(reader.Transport);
+            }
+        }
+
+        return string.Join(", ", legs);
+    }
 
     /// <summary>
     /// The largest of one figure across the readers that report it. A reader that does not

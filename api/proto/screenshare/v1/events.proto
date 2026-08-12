@@ -128,6 +128,33 @@ message ReceiveState {
   repeated ReceiveStream streams = 1;
 }
 
+// PreviewedMonitor is one monitor the backend is reading into a picture the frame
+// channel can hand over.
+//
+// It is a much shorter row than ReceiveStream, and the missing fields are the ones a
+// decode has and a screen capture does not. Nothing encoded these frames, so there is no
+// decoder to name and no hardware verdict to report; nothing carried them, so there is no
+// leg. What is left is which screen and whether a picture has come off it.
+message PreviewedMonitor {
+  // monitor is the index the output is enumerated under, which is the whole identity.
+  int32 monitor = 1;
+  // live is whether a frame has left the pipeline. Until it has, the capture element is
+  // still opening the screen, and a consumer subscribing meanwhile waits rather than
+  // being refused.
+  bool live = 2;
+}
+
+// MonitorPreviewState is every monitor the backend is previewing.
+//
+// The whole set, like every state on this stream, so a shell that asked for one preview
+// and a shell that did not are told the same thing by the same mechanism. It is also
+// what a shell converges against after a restart: previews outlive the window that asked
+// for them, exactly as decodes do, and reading the set is how the next shell finds the
+// ones nobody is drawing any more.
+message MonitorPreviewState {
+  repeated PreviewedMonitor monitors = 1;
+}
+
 // EventKind names one payload of Event, for a shell that wants some of them.
 //
 // It is an enum rather than the oneof's field names as strings, because a name typed
@@ -149,6 +176,7 @@ enum EventKind {
   EVENT_KIND_SETTINGS_CHANGED = 10;
   EVENT_KIND_RECEIVE_STATE = 12;
   EVENT_KIND_RECEIVE_EXIT = 13;
+  EVENT_KIND_MONITOR_PREVIEW_STATE = 14;
 
   // 11 was EVENT_KIND_SHOW_SETTINGS. See Event for why the payload went.
   reserved 11;
@@ -195,6 +223,13 @@ message Event {
     ReceiveState receive_state = 15;
     // One receive pipeline ended. The state event says which are left.
     ReceiveExit receive_exit = 16;
+
+    // The monitors the backend is previewing, whenever one opens, closes or produces
+    // its first frame. There is no exit event beside it, unlike the two above: a
+    // preview that ended leaves the set, and there is nothing to say about why beyond
+    // that the screen stopped being read - no log to open, no viewer to account for and
+    // no retry to explain.
+    MonitorPreviewState monitor_preview_state = 17;
 
     // How many synthetic test publishers are alive, whenever that changes.
     TestStreamState test_stream_state = 13;

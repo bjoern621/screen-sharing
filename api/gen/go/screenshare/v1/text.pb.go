@@ -43,18 +43,21 @@ const (
 	// TEXT_ARG_NAME_OTHER_ENGINE is the engine a statement points at as the way out, where
 	// TEXT_ARG_NAME_ENGINE is the one that refused. Two names rather than two positions,
 	// because a sentence naming both has to know which is which.
-	TextArgName_TEXT_ARG_NAME_OTHER_ENGINE  TextArgName = 3
-	TextArgName_TEXT_ARG_NAME_TRANSPORT     TextArgName = 4
-	TextArgName_TEXT_ARG_NAME_CODEC         TextArgName = 5
-	TextArgName_TEXT_ARG_NAME_FORMAT        TextArgName = 6
-	TextArgName_TEXT_ARG_NAME_FAMILY        TextArgName = 7
-	TextArgName_TEXT_ARG_NAME_CHROMA        TextArgName = 8
-	TextArgName_TEXT_ARG_NAME_COLOR_RANGE   TextArgName = 9
-	TextArgName_TEXT_ARG_NAME_MODE          TextArgName = 10
-	TextArgName_TEXT_ARG_NAME_MEMORY        TextArgName = 11
-	TextArgName_TEXT_ARG_NAME_AUDIO         TextArgName = 12
-	TextArgName_TEXT_ARG_NAME_AUDIO_CODEC   TextArgName = 13
-	TextArgName_TEXT_ARG_NAME_ENC_PRESET    TextArgName = 14
+	TextArgName_TEXT_ARG_NAME_OTHER_ENGINE TextArgName = 3
+	TextArgName_TEXT_ARG_NAME_TRANSPORT    TextArgName = 4
+	TextArgName_TEXT_ARG_NAME_CODEC        TextArgName = 5
+	TextArgName_TEXT_ARG_NAME_FORMAT       TextArgName = 6
+	TextArgName_TEXT_ARG_NAME_FAMILY       TextArgName = 7
+	TextArgName_TEXT_ARG_NAME_CHROMA       TextArgName = 8
+	TextArgName_TEXT_ARG_NAME_COLOR_RANGE  TextArgName = 9
+	TextArgName_TEXT_ARG_NAME_MODE         TextArgName = 10
+	TextArgName_TEXT_ARG_NAME_MEMORY       TextArgName = 11
+	TextArgName_TEXT_ARG_NAME_AUDIO        TextArgName = 12
+	TextArgName_TEXT_ARG_NAME_AUDIO_CODEC  TextArgName = 13
+	// TEXT_ARG_NAME_EFFORT is a step of an encoder's effort ladder, spelled as that encoder
+	// does: "veryfast" on x264, "9" on SVT-AV1, "p5" on NVENC. The old name said one
+	// family's ladder, and every implemented encoder that has such a knob declares one now.
+	TextArgName_TEXT_ARG_NAME_EFFORT        TextArgName = 14
 	TextArgName_TEXT_ARG_NAME_RTSP_PROTOCOL TextArgName = 15
 	TextArgName_TEXT_ARG_NAME_DECODE_FAMILY TextArgName = 16
 	// TEXT_ARG_NAME_DECODER is a decoder element as the receiving pipeline names it, e.g.
@@ -80,12 +83,17 @@ const (
 	TextArgName_TEXT_ARG_NAME_ELEMENT TextArgName = 23
 	// TEXT_ARG_NAME_PRESET is a built-in preset, e.g. "gaming" (form.proto,
 	// BuiltinPreset). It is not a settings value either: a preset is applied and never
-	// stored, so no field holds one. TEXT_ARG_NAME_ENC_PRESET is the unrelated NVENC
-	// ladder step, which is a settings value.
+	// stored, so no field holds one. TEXT_ARG_NAME_EFFORT is the unrelated ladder step,
+	// which is a settings value.
 	TextArgName_TEXT_ARG_NAME_PRESET TextArgName = 24
 	// TEXT_ARG_NAME_CURSOR is what the pointer does in the captured frames, as the settings
 	// name it: "embedded", "hidden" or "metadata".
 	TextArgName_TEXT_ARG_NAME_CURSOR TextArgName = 25
+	// TEXT_ARG_NAME_TUNE is a step of an encoder's tune ladder, spelled as that encoder
+	// does: "zerolatency" on x264, "ll" on NVENC. It is the other half of the pair
+	// TEXT_ARG_NAME_EFFORT names, and a separate argument because a statement about one
+	// says nothing about the other.
+	TextArgName_TEXT_ARG_NAME_TUNE TextArgName = 26
 	// Lists of identifiers, each of the axis its name says. A shell joins them in its
 	// own language; the backend states which ones, never how they read together.
 	TextArgName_TEXT_ARG_NAME_FAMILIES        TextArgName = 30
@@ -145,7 +153,7 @@ var (
 		11: "TEXT_ARG_NAME_MEMORY",
 		12: "TEXT_ARG_NAME_AUDIO",
 		13: "TEXT_ARG_NAME_AUDIO_CODEC",
-		14: "TEXT_ARG_NAME_ENC_PRESET",
+		14: "TEXT_ARG_NAME_EFFORT",
 		15: "TEXT_ARG_NAME_RTSP_PROTOCOL",
 		16: "TEXT_ARG_NAME_DECODE_FAMILY",
 		17: "TEXT_ARG_NAME_DECODER",
@@ -157,6 +165,7 @@ var (
 		23: "TEXT_ARG_NAME_ELEMENT",
 		24: "TEXT_ARG_NAME_PRESET",
 		25: "TEXT_ARG_NAME_CURSOR",
+		26: "TEXT_ARG_NAME_TUNE",
 		30: "TEXT_ARG_NAME_FAMILIES",
 		31: "TEXT_ARG_NAME_TRANSPORTS",
 		32: "TEXT_ARG_NAME_AUDIO_CODECS",
@@ -200,7 +209,7 @@ var (
 		"TEXT_ARG_NAME_MEMORY":             11,
 		"TEXT_ARG_NAME_AUDIO":              12,
 		"TEXT_ARG_NAME_AUDIO_CODEC":        13,
-		"TEXT_ARG_NAME_ENC_PRESET":         14,
+		"TEXT_ARG_NAME_EFFORT":             14,
 		"TEXT_ARG_NAME_RTSP_PROTOCOL":      15,
 		"TEXT_ARG_NAME_DECODE_FAMILY":      16,
 		"TEXT_ARG_NAME_DECODER":            17,
@@ -212,6 +221,7 @@ var (
 		"TEXT_ARG_NAME_ELEMENT":            23,
 		"TEXT_ARG_NAME_PRESET":             24,
 		"TEXT_ARG_NAME_CURSOR":             25,
+		"TEXT_ARG_NAME_TUNE":               26,
 		"TEXT_ARG_NAME_FAMILIES":           30,
 		"TEXT_ARG_NAME_TRANSPORTS":         31,
 		"TEXT_ARG_NAME_AUDIO_CODECS":       32,
@@ -413,10 +423,17 @@ const (
 	TextCode_TEXT_CODE_BFRAMES_OFF_IN_MODE TextCode = 64
 	// Only some encoder families take a B-frame count. TEXT_ARG_NAME_FAMILIES.
 	TextCode_TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES TextCode = 65
-	// Only some encoder families take a preset ladder. TEXT_ARG_NAME_FAMILIES.
-	TextCode_TEXT_CODE_PRESET_ONLY_ON_FAMILIES TextCode = 66
-	// The mode pins the preset to one step. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_ENC_PRESET.
-	TextCode_TEXT_CODE_PRESET_PINNED_BY_MODE TextCode = 67
+	// This codec's encoder has no effort ladder, so there is no step to spend.
+	// TEXT_ARG_NAME_CODEC.
+	TextCode_TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER TextCode = 77
+	// The mode pins the effort step. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_EFFORT.
+	TextCode_TEXT_CODE_EFFORT_PINNED_BY_MODE TextCode = 67
+	// This codec's encoder tunes for nothing the user picks, so there is no ladder to
+	// offer. A codec can declare either ladder without the other, which is why this is not
+	// the code above. TEXT_ARG_NAME_CODEC.
+	TextCode_TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER TextCode = 78
+	// The mode pins the tune. TEXT_ARG_NAME_MODE, TEXT_ARG_NAME_TUNE.
+	TextCode_TEXT_CODE_TUNE_PINNED_BY_MODE TextCode = 79
 	// No audio source is selected, so the stream carries no track to code. No arguments.
 	TextCode_TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE TextCode = 68
 	// No session of this operating system serves the capture source. TEXT_ARG_NAME_AUDIO,
@@ -451,7 +468,6 @@ const (
 	// a limit of this app rather than of the capture, which is why it is stated apart from
 	// the two above. No arguments.
 	TextCode_TEXT_CODE_CURSOR_METADATA_NOT_CARRIED        TextCode = 76
-	TextCode_TEXT_CODE_GST_NO_PRESET_LADDER               TextCode = 80
 	TextCode_TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER         TextCode = 81
 	TextCode_TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL   TextCode = 82
 	TextCode_TEXT_CODE_GST_NVENC_NO_RATE_BUFFER           TextCode = 83
@@ -574,8 +590,10 @@ var (
 		63:  "TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES",
 		64:  "TEXT_CODE_BFRAMES_OFF_IN_MODE",
 		65:  "TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES",
-		66:  "TEXT_CODE_PRESET_ONLY_ON_FAMILIES",
-		67:  "TEXT_CODE_PRESET_PINNED_BY_MODE",
+		77:  "TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER",
+		67:  "TEXT_CODE_EFFORT_PINNED_BY_MODE",
+		78:  "TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER",
+		79:  "TEXT_CODE_TUNE_PINNED_BY_MODE",
 		68:  "TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE",
 		69:  "TEXT_CODE_AUDIO_SOURCE_UNSERVED",
 		70:  "TEXT_CODE_AUDIO_SOURCE_SERVER",
@@ -585,7 +603,6 @@ var (
 		74:  "TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE",
 		75:  "TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA",
 		76:  "TEXT_CODE_CURSOR_METADATA_NOT_CARRIED",
-		80:  "TEXT_CODE_GST_NO_PRESET_LADDER",
 		81:  "TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER",
 		82:  "TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL",
 		83:  "TEXT_CODE_GST_NVENC_NO_RATE_BUFFER",
@@ -676,8 +693,10 @@ var (
 		"TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES":            63,
 		"TEXT_CODE_BFRAMES_OFF_IN_MODE":                  64,
 		"TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES":             65,
-		"TEXT_CODE_PRESET_ONLY_ON_FAMILIES":              66,
-		"TEXT_CODE_PRESET_PINNED_BY_MODE":                67,
+		"TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER":         77,
+		"TEXT_CODE_EFFORT_PINNED_BY_MODE":                67,
+		"TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER":           78,
+		"TEXT_CODE_TUNE_PINNED_BY_MODE":                  79,
 		"TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE":             68,
 		"TEXT_CODE_AUDIO_SOURCE_UNSERVED":                69,
 		"TEXT_CODE_AUDIO_SOURCE_SERVER":                  70,
@@ -687,7 +706,6 @@ var (
 		"TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE":          74,
 		"TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA":       75,
 		"TEXT_CODE_CURSOR_METADATA_NOT_CARRIED":          76,
-		"TEXT_CODE_GST_NO_PRESET_LADDER":                 80,
 		"TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER":           81,
 		"TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL":     82,
 		"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER":             83,
@@ -1022,7 +1040,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xda\v\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x88\f\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1038,8 +1056,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_MEMORY\x10\v\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_AUDIO\x10\f\x12\x1d\n" +
-	"\x19TEXT_ARG_NAME_AUDIO_CODEC\x10\r\x12\x1c\n" +
-	"\x18TEXT_ARG_NAME_ENC_PRESET\x10\x0e\x12\x1f\n" +
+	"\x19TEXT_ARG_NAME_AUDIO_CODEC\x10\r\x12\x18\n" +
+	"\x14TEXT_ARG_NAME_EFFORT\x10\x0e\x12\x1f\n" +
 	"\x1bTEXT_ARG_NAME_RTSP_PROTOCOL\x10\x0f\x12\x1f\n" +
 	"\x1bTEXT_ARG_NAME_DECODE_FAMILY\x10\x10\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_DECODER\x10\x11\x12\x14\n" +
@@ -1050,7 +1068,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x12TEXT_ARG_NAME_PATH\x10\x16\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_ELEMENT\x10\x17\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_PRESET\x10\x18\x12\x18\n" +
-	"\x14TEXT_ARG_NAME_CURSOR\x10\x19\x12\x1a\n" +
+	"\x14TEXT_ARG_NAME_CURSOR\x10\x19\x12\x16\n" +
+	"\x12TEXT_ARG_NAME_TUNE\x10\x1a\x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_TRANSPORTS\x10\x1f\x12\x1e\n" +
 	"\x1aTEXT_ARG_NAME_AUDIO_CODECS\x10 \x12\x1a\n" +
@@ -1077,7 +1096,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\xf4\x1e\n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\x92 \n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1124,9 +1143,11 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	")TEXT_CODE_MAXRATE_ONLY_IN_CONSTRAINED_VBR\x10>\x12'\n" +
 	"#TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES\x10?\x12!\n" +
 	"\x1dTEXT_CODE_BFRAMES_OFF_IN_MODE\x10@\x12&\n" +
-	"\"TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES\x10A\x12%\n" +
-	"!TEXT_CODE_PRESET_ONLY_ON_FAMILIES\x10B\x12#\n" +
-	"\x1fTEXT_CODE_PRESET_PINNED_BY_MODE\x10C\x12&\n" +
+	"\"TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES\x10A\x12*\n" +
+	"&TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER\x10M\x12#\n" +
+	"\x1fTEXT_CODE_EFFORT_PINNED_BY_MODE\x10C\x12(\n" +
+	"$TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER\x10N\x12!\n" +
+	"\x1dTEXT_CODE_TUNE_PINNED_BY_MODE\x10O\x12&\n" +
 	"\"TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE\x10D\x12#\n" +
 	"\x1fTEXT_CODE_AUDIO_SOURCE_UNSERVED\x10E\x12!\n" +
 	"\x1dTEXT_CODE_AUDIO_SOURCE_SERVER\x10F\x12\"\n" +
@@ -1135,8 +1156,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"#TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT\x10I\x12)\n" +
 	"%TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE\x10J\x12,\n" +
 	"(TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA\x10K\x12)\n" +
-	"%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED\x10L\x12\"\n" +
-	"\x1eTEXT_CODE_GST_NO_PRESET_LADDER\x10P\x12(\n" +
+	"%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED\x10L\x12(\n" +
 	"$TEXT_CODE_RAV1E_SIZES_NO_RATE_BUFFER\x10Q\x12.\n" +
 	"*TEXT_CODE_GST_RAV1ENC_NO_KEYFRAME_INTERVAL\x10R\x12&\n" +
 	"\"TEXT_CODE_GST_NVENC_NO_RATE_BUFFER\x10S\x12$\n" +
@@ -1179,7 +1199,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12!\n" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
-	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01B[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\"\x04\bB\x10B\"\x04\bP\x10P*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_text_proto_rawDescOnce sync.Once

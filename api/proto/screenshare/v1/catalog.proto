@@ -36,6 +36,12 @@ enum Engine {
   // ENGINE_UNSPECIFIED carried the first meaning, which made a dropped field the
   // strongest claim the message can make.
   ENGINE_ANY = 3;
+  // The machine's default browser, on the player page the relay serves. It reads and
+  // never publishes, so it appears on a watch carriage row and on nothing else: no
+  // gap names it, no encoder probe runs against it, and no capture backend is driven
+  // by it. ENGINE_ANY predates it and keeps meaning the publish engines, which are
+  // the only ones a gap can bind on.
+  ENGINE_BROWSER = 4;
 }
 
 // Leg is which half of the path a fact is about: the publisher-to-relay hop, or the
@@ -368,9 +374,27 @@ message Catalog {
   // than an impossible combination.
   map<string, TransportList> watch_transports_by_format = 17;
 
+  // browser_watch_transports are the legs the relay serves a player page for, which
+  // a browser opens as an address like any other. They are a third list rather than
+  // part of watch_transports because the reader is a third one: WHEP is an exchange
+  // no player opens and a browser runs it, and nothing here reads the relay's HLS
+  // segments except a browser and a player. Which formats each of them carries is a
+  // carriage row under the browser engine, as it is for the other two readers.
+  repeated string browser_watch_transports = 20;
+
   // audio_sources are the second-track capture sources this platform offers,
   // "none" among them.
   repeated string audio_sources = 18;
+
+  // no_monitor_preview says why this machine cannot show what a monitor holds, and is
+  // absent where it can. StartMonitorPreview then refuses for the same reason, so a
+  // shell reads this and offers the plain list instead of asking and being told no.
+  //
+  // It is one statement for the machine rather than a flag per enumerated output. What
+  // decides it is the session: reading one screen apart from another needs a capture
+  // element that takes an output, and which one exists is the display server's answer
+  // and the same for every monitor plugged into it.
+  Text no_monitor_preview = 21;
 
   // 10 was engines, the Engine enum's values restated as strings. 16 was
   // grid_transports, the legs the GTK4 grid window could receive over; that window is

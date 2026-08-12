@@ -48,6 +48,30 @@ public static class Cards
     public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing being sent to show.";
 
     /// <summary>
+    /// What the screen picker's pictures are, said once above the grid.
+    ///
+    /// <b>The half worth stating is that nothing is being shared yet.</b> A live picture of a
+    /// screen in an app whose whole purpose is sending one is exactly the thing a reader could
+    /// misread, and the cost of that misreading is a person believing they are on the air when
+    /// they are not, or the reverse. So the sentence leads with it.
+    ///
+    /// The second half is what the picture is for: it is the same rectangle the stream would
+    /// carry, read by the same element, so what is in frame here is what viewers would get
+    /// (<c>internal/screensrc</c>).
+    /// </summary>
+    /// <summary>
+    /// A screen the backend has been asked to read and has not produced a picture from yet. It
+    /// is a moment on a working machine and it is a state all the same: opening a screen means
+    /// a capture element starting, and a tile with nothing in it and nothing to say reads as
+    /// broken.
+    /// </summary>
+    public const string ScreenOpening = "Opening.";
+
+    public const string ScreenPickerCost =
+        "Nothing is being shared yet. Each picture is what that screen is showing now, read the "
+        + "same way the stream would read it, so the one you pick is what viewers would see.";
+
+    /// <summary>
     /// A stream is on the air and the backend is running no preview of it. The preview goes up
     /// with the publish child, so this is the backend saying it could not: a format with no
     /// local carriage, or a pipeline that would not start. The reason is in the backend's log
@@ -101,4 +125,61 @@ public static class Cards
     /// difference between a card that looks broken and one that looks busy.
     /// </summary>
     public const string ConfigUndescribed = "Reading what the running stream was built from.";
+
+    /// <summary>
+    /// What a preset covers, said where the reader is about to make one.
+    ///
+    /// It is the card's one paragraph because the review beside it shows more than a preset
+    /// holds: the relay tile is on that screen too, and a reader who saved "work" and found
+    /// their relay host changed on another machine would have learnt the boundary the hard way.
+    /// The reason is the boundary itself - the relay belongs to a deployment and the watch
+    /// settings to this machine's drivers, so a preset carrying either would break exactly where
+    /// it was meant to help (<c>docs/presets.md</c>).
+    /// </summary>
+    public const string PresetsCovers =
+        "A preset is one way of publishing: the source, the quality, the audio and the transport. "
+        + "The relay and the watch settings stay as they are, because they belong to where you "
+        + "are rather than to what you send.";
+
+    /// <summary>
+    /// The store holds nothing. Said as a state rather than as a hint, and separate from
+    /// <see cref="Statements"/>' unreadable-store notice: that one is the store failing, and this
+    /// one is a reader who has not saved anything yet.
+    /// </summary>
+    public const string PresetsEmpty = "Nothing saved yet. Name the configuration below to keep it.";
+
+    /// <summary>
+    /// Why the list can be behind, on the button that answers it.
+    ///
+    /// Presets are a file the backend does not run on, so no event says one appeared - a second
+    /// window's save is invisible here until this asks again (<c>Backend/IBackend.cs</c>,
+    /// <c>PresetsAsync</c>). The re-read is what the contract's own gap leaves the reader, and a
+    /// tooltip is where that belongs rather than a paragraph on the card.
+    /// </summary>
+    public const string PresetsReread = "Read the saved presets again. Nothing announces a preset another window saved.";
+
+    /// <summary>
+    /// Why a stream that is being watched has no round trip and no loss to state: the legs its
+    /// viewers are actually on, beside the one leg the relay times.
+    ///
+    /// The legs are named from the roster rather than left out, so the sentence describes this
+    /// stream and leaves the reader something to change. "No viewer is on a leg the relay times"
+    /// is true and says neither which leg they are on nor which one would answer, so it is what a
+    /// roster this shell can read no leg off falls back to.
+    ///
+    /// That SRT is the leg that answers is the contract's own statement about what a relay
+    /// measures, not a rule invented at a screen
+    /// (<c>api/proto/screenshare/v1/session.proto</c>, <c>RelayReader</c>). Two surfaces show this
+    /// one sentence - the latency plot in place of its curves, and the header stat bar on the two
+    /// figures it is the reason for - and it is written here once so they cannot come to say
+    /// different things about the same roster.
+    /// </summary>
+    /// <param name="legs">
+    /// <see cref="Features.Broadcast.Model.BroadcastSnapshot.Legs"/>: the legs the stream is
+    /// watched over, empty where none is named.
+    /// </param>
+    public static string Untimed(string legs)
+        => legs.Length == 0
+            ? "no viewer is on a leg the relay times"
+            : $"the relay times srt legs only, and this stream is watched over {legs}";
 }

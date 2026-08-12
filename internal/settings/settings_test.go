@@ -207,7 +207,7 @@ func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 
 	s := Defaults()
 	s.Publish.DrmMap = ""
-	s.Publish.EncPreset = ""
+	s.Publish.Effort = ""
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -216,8 +216,8 @@ func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 	if got.Publish.DrmMap != Defaults().Publish.DrmMap {
 		t.Errorf("drm map = %q, want migrated to %q", got.Publish.DrmMap, Defaults().Publish.DrmMap)
 	}
-	if got.Publish.EncPreset != Defaults().Publish.EncPreset {
-		t.Errorf("encoder preset = %q, want migrated to %q", got.Publish.EncPreset, Defaults().Publish.EncPreset)
+	if got.Publish.Effort != Defaults().Publish.Effort {
+		t.Errorf("encoder preset = %q, want migrated to %q", got.Publish.Effort, Defaults().Publish.Effort)
 	}
 }
 

@@ -361,9 +361,16 @@ func (c chain) missing() string {
 
 // launch is the whole launch line: the stream's own source fragment, the chain's
 // elements, and the queue and sink every chain ends in.
-func (c chain) launch(source string) string {
+// raw is a source that hands over pictures rather than a bitstream, which is what
+// takes the decoder out of the line. A screen read off this machine is the case that
+// exists: nothing encoded those frames, so there is nothing to autoplug a decoder for
+// and the chain converts what the capture element already produced.
+func (c chain) launch(source string, raw bool) string {
 	parts := make([]string, 0, len(c.elements)+4)
-	parts = append(parts, source, "decodebin name="+decodeName)
+	parts = append(parts, source)
+	if !raw {
+		parts = append(parts, "decodebin name="+decodeName)
+	}
 	parts = append(parts, c.elements...)
 	parts = append(parts, renderQueue, renderSink)
 	return strings.Join(parts, " ! ")

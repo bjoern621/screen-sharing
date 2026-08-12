@@ -35,9 +35,9 @@ public sealed class SessionLogViewModel : Observable
     private IReadOnlyList<LogLine> _recorded = [];
 
     /// <summary>
-    /// What the backend's event stream has reported this session, newest first. Each line is
-    /// one child process that ended, which is what the stream carries about a run: the state
-    /// events say what is publishing and these say what happened to what was.
+    /// What has happened to this stream, newest first: a child process that ended, or a viewer
+    /// that started or stopped watching. Both are composed above this card, which renders the
+    /// lines and does not decide what belongs on one.
     /// </summary>
     public IReadOnlyList<LogLine> Recorded
     {
@@ -74,7 +74,7 @@ public sealed class SessionLogViewModel : Observable
         OpenFullLogCommand.Refresh();
 
         HasLines = Lines.Count > 0;
-        Notice = HasLines ? "" : "Nothing has ended this session. Open the full log for everything before it.";
+        Notice = HasLines ? "" : "Nothing has happened this session. Open the full log for everything before it.";
 
         Assert.That(Lines.Count == Recorded.Count, "a line per recorded entry", Lines.Count, Recorded.Count);
         Assert.That(HasLines == (Notice.Length == 0), "lines and the sentence standing in for them are never both on screen", HasLines);

@@ -22,9 +22,9 @@ namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 public sealed class NavStripViewModel : Observable
 {
     /// <summary>The only reason copy the design states for an unreachable destination.</summary>
-    private const string BroadcastHint = "Broadcast opens once you go live";
+    private const string BroadcastHint = "Broadcast opens once you start sharing";
 
-    private const string OnAirText = "On air";
+    private const string SharingText = "Sharing";
 
     private readonly Action<Destination> _select;
 
@@ -50,7 +50,7 @@ public sealed class NavStripViewModel : Observable
     /// <summary>
     /// The strip's whole input, written in one go so its three parts cannot disagree: a
     /// segment that is dimmed and selected at once has no rendering, and neither has a pill
-    /// that is on air with nothing publishing. Idempotent.
+    /// that says sharing with nothing publishing. Idempotent.
     /// </summary>
     /// <param name="elapsed">
     /// How long the encoder has been running, as the shell composed it from the running state.
@@ -108,17 +108,17 @@ public sealed class NavStripViewModel : Observable
     private bool _showsHint;
     private string _onAirLabel = "";
     private string _onAirTimer = "";
-    private bool _showsOnAir;
+    private bool _showsSharing;
 
     public string Hint { get => _hint; private set => Set(ref _hint, value); }
 
     public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
 
-    public string OnAirLabel { get => _onAirLabel; private set => Set(ref _onAirLabel, value); }
+    public string SharingLabel { get => _onAirLabel; private set => Set(ref _onAirLabel, value); }
 
-    public string OnAirTimer { get => _onAirTimer; private set => Set(ref _onAirTimer, value); }
+    public string SharingTimer { get => _onAirTimer; private set => Set(ref _onAirTimer, value); }
 
-    public bool ShowsOnAir { get => _showsOnAir; private set => Set(ref _showsOnAir, value); }
+    public bool ShowsSharing { get => _showsSharing; private set => Set(ref _showsSharing, value); }
 
     /// <summary>
     /// The one render function. Every output is written on every pass, the off branches
@@ -140,19 +140,19 @@ public sealed class NavStripViewModel : Observable
         Hint = ShowsHint ? BroadcastHint : "";
 
         // The pill answers "is this machine broadcasting", not "which destination is showing"
-        // (docs/design-language.md, "Status language"): the one red is spent on being on air,
+        // (docs/design-language.md, "Status language"): the one red is spent on sharing,
         // so standing on the viewer while publishing nothing must not light it. The shell's
         // availability flag is that same fact - broadcast is reachable exactly while something
         // publishes - so the strip reads it rather than keeping a second copy that can drift.
-        ShowsOnAir = _broadcastAvailable;
-        OnAirLabel = ShowsOnAir ? OnAirText : "";
-        OnAirTimer = ShowsOnAir ? _elapsed : "";
+        ShowsSharing = _broadcastAvailable;
+        SharingLabel = ShowsSharing ? SharingText : "";
+        SharingTimer = ShowsSharing ? _elapsed : "";
 
         // The pair the whole strip turns on: the segment standing lit is the one the shell
         // showed, and it is one the reader could have reached.
         Assert.That(selected.IsAvailable, "the destination a strip stands in is one it can reach", (int)selected.Value);
         Assert.That(ShowsHint == (Hint.Length > 0), "the setup hint and its text agree", ShowsHint, Hint);
-        Assert.That(ShowsOnAir == (OnAirLabel.Length > 0), "the on-air pill and its text agree", ShowsOnAir, OnAirLabel);
+        Assert.That(ShowsSharing == (SharingLabel.Length > 0), "the sharing pill and its text agree", ShowsSharing, SharingLabel);
     }
 
     private DestinationTab TabFor(Destination destination)

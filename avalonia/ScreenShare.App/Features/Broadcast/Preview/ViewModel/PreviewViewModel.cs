@@ -10,7 +10,7 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 
 /// <summary>
-/// The program preview: what is being sent, and what it costs to show it.
+/// The outgoing preview: what is being sent, and what it costs to show it.
 ///
 /// <b>What it draws never leaves this machine.</b> The publish child copies its
 /// already-encoded video to a loopback port beside the sink that feeds the relay, and the
@@ -45,11 +45,12 @@ public sealed class PreviewViewModel : Observable
     private readonly Action<Action> _dispatch;
 
     /// <summary>
-    /// Whether this card is in a visual tree. It is the one fact the view knows and the view
-    /// model cannot read: the shell renders every destination on every pass, so without it a
-    /// reader who never opened this screen would still be paying for the frame traffic and the
-    /// GPU copies of a picture nobody is looking at. Written by <see cref="SetShowing"/> and by
-    /// nothing else.
+    /// Whether this card is being looked at: it stands in a visual tree, in a window that is in
+    /// front of the reader. Both halves are facts the view knows and the view model cannot
+    /// read: the shell renders every destination on every pass, so without them a reader who
+    /// never opened this screen, or whose window has been behind another for an hour, would
+    /// still be paying for the frame traffic and the GPU copies of a picture nobody is looking
+    /// at. Written by <see cref="SetShowing"/> and by nothing else.
     /// </summary>
     private bool _showing;
 
@@ -100,12 +101,12 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// Says whether the card is on screen. The named write of that state, and idempotent:
+    /// Says whether the card is being looked at. The named write of that state, and idempotent:
     /// telling it what it already holds re-renders and converges to the same world.
     ///
-    /// The view calls it, because whether a control is in a visual tree is a fact only the
-    /// control can see. Nothing else writes it, and no render pass reads a toolkit to find it
-    /// out for itself.
+    /// The view calls it, because whether a control is in a visual tree and whether the window
+    /// around it is in front are facts only the control and the platform can see. Nothing else
+    /// writes it, and no render pass reads a toolkit to find it out for itself.
     /// </summary>
     public void SetShowing(bool showing)
     {
@@ -120,7 +121,7 @@ public sealed class PreviewViewModel : Observable
     private string _cost = "";
     private string _encoded = "";
     private string _quality = "";
-    private bool _isOnAir;
+    private bool _isSharing;
     private bool _hasTile;
 
     /// <summary>
@@ -162,10 +163,10 @@ public sealed class PreviewViewModel : Observable
     public string Quality { get => _quality; private set => Set(ref _quality, value); }
 
     /// <summary>
-    /// Whether the inset red outline and the Program badge show. Both mean one thing -
+    /// Whether the inset red outline and the sharing badge show. Both mean one thing -
     /// this tile is what the world is currently receiving - so both follow the same fact.
     /// </summary>
-    public bool IsOnAir { get => _isOnAir; private set => Set(ref _isOnAir, value); }
+    public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
     // --- Lifecycle ------------------------------------------------------------------
 
@@ -188,7 +189,7 @@ public sealed class PreviewViewModel : Observable
         // own reason for that rather than disappearing.
         _tile?.Apply(TilePipeline.Of(preview));
 
-        IsOnAir = reading.IsLive;
+        IsSharing = reading.IsLive;
         Encoded = $"encoded {Figure.Of(reading.Fps, "0.0")} fps";
         Quality = $"cq {Figure.Of(reading.Cq)}";
         Cost = Cards.PreviewCost;
@@ -208,10 +209,10 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// The preview the backend is running, and null for "nothing to draw".
     ///
-    /// Two facts have to hold and each is read through rather than remembered: the card is on
-    /// screen, and a publish is in force with a preview behind it. The second is one field -
-    /// the backend brings the preview up with the publish child, so its presence is the whole
-    /// answer and there is nothing here to ask for or wait on.
+    /// Two facts have to hold and each is read through rather than remembered: the card is
+    /// being looked at, and a publish is in force with a preview behind it. The second is one
+    /// field - the backend brings the preview up with the publish child, so its presence is the
+    /// whole answer and there is nothing here to ask for or wait on.
     /// </summary>
     private PublishState.Types.Preview? Running()
         => _showing ? _session.Publish?.Live?.Preview : null;

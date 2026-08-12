@@ -21,9 +21,9 @@ option csharp_namespace = "ScreenShare.Api.V1";
 // ControlService carries control and description, this carries handles, and neither
 // carries pixels.
 //
-// It describes no tile and no grid. A subscription names a decode that StartReceive
-// already opened, and the size it asks to be rendered at is a count of pixels rather
-// than a layout: how a viewer arranges what it receives stays the shell's whole job.
+// It describes no tile and no grid. A subscription names a picture some effect already
+// opened, and the size it asks to be rendered at is a count of pixels rather than a
+// layout: how a viewer arranges what it receives stays the shell's whole job.
 service FrameService {
   // Frames is one consumer's subscription to one decode.
   //
@@ -39,11 +39,12 @@ service FrameService {
   // than a message, and a consumer that dies mid-frame is one dead stream instead of
   // every stream stalling on a slot nobody will return.
   //
-  // The call fails with FAILED_PRECONDITION when nothing is decoding what the
-  // subscription named - an unopened relay decode, or a preview with no publish behind
-  // it. This service does not open decodes: StartReceive opens a relay one and the
-  // publish itself opens its preview, and a channel that started either would be a
-  // channel deciding that a tile exists.
+  // The call fails with FAILED_PRECONDITION when nothing is producing what the
+  // subscription named - an unopened relay decode, a preview with no publish behind it,
+  // or a monitor nothing is previewing. This service opens none of the three:
+  // StartReceive opens a relay decode, the publish itself opens its preview,
+  // StartMonitorPreview opens a monitor's, and a channel that started any of them would
+  // be a channel deciding that a tile exists.
   rpc Frames(stream FramesRequest) returns (stream FrameEvent);
 }
 
@@ -57,25 +58,29 @@ message FramesRequest {
   }
 }
 
-// FrameSubscribe names the decode this call draws from.
+// FrameSubscribe names the picture this call draws from.
 //
-// There are two kinds of decode and they are named separately on purpose. A relay
-// decode is identified by the stream name and the leg together, for the reason
+// There are three kinds and each is identified by what actually tells one of its own
+// apart. A relay decode takes the stream name and the leg together, for the reason
 // WatchKey exists: the relay re-serves each ingested stream on all its listeners, so
 // one stream can be decoded over several protocols at once and each of those decodes
-// is its own pipeline. The running publish's local preview is identified by nothing at
-// all, because there is at most one publish and the preview is part of it.
+// is its own pipeline. The running publish's local preview takes nothing at all,
+// because there is at most one publish and the preview is part of it. A monitor preview
+// takes the monitor index, because a machine has as many as it has outputs and the
+// index is what the catalog enumerates them under.
 //
-// It is a oneof rather than a leg added to the transport table. The preview never
-// reaches the relay: the publish child copies its already-encoded video to a loopback
-// port and the backend decodes it there (docs/viewer-architecture.md, "What the
-// broadcast preview draws"). A synthetic entry in the transport table would state that
-// some protocol carries this stream, which every consumer of that table reads and none
-// of them could act on.
+// It is a oneof rather than three legs added to the transport table. Two of the three
+// crossed no protocol at all: the publish child copies its already-encoded video to a
+// loopback port and the backend decodes it there (docs/viewer-architecture.md, "What the
+// broadcast preview draws"), and a monitor preview is read straight off this machine's
+// screen and never encoded. A synthetic entry in the transport table would state that
+// some protocol carries them, which every consumer of that table reads and none of them
+// could act on.
 message FrameSubscribe {
   oneof source {
     WatchKey stream = 1;
     PublishPreview publish_preview = 2;
+    MonitorPreview monitor_preview = 3;
   }
 }
 
@@ -92,6 +97,25 @@ message FrameSubscribe {
 // preview pipeline goes up with the publish child and down with it, which is the same
 // division StartReceive draws for a relay decode (docs/ipc-api.md).
 message PublishPreview {}
+
+// MonitorPreview names the live picture of one of this machine's monitors, which the
+// setup wizard draws so a screen is chosen by looking at it rather than by its number.
+//
+// The index is the whole identity. It is the value PublishSettings.monitor holds and the
+// one Catalog.Monitor is enumerated under, so a size, a position or a name on this
+// message would be the consumer sending back what it read out of the catalog.
+//
+// The frames are raw. Nothing encodes a monitor preview and nothing transports one: the
+// capture element hands its pictures to the render chain inside the backend, and what
+// leaves is the same handle every other subscription gets.
+//
+// The call fails FAILED_PRECONDITION where nothing is previewing that monitor.
+// StartMonitorPreview is what opens one, for the reason StartReceive opens a relay
+// decode: this service finds a picture or is refused, and starts no screen capture of
+// its own.
+message MonitorPreview {
+  int32 monitor = 1;
+}
 
 // FrameRelease hands one slot back, and is the whole of the flow control.
 //

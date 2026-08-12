@@ -28,8 +28,16 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// WebRTC that no player opens by address, and a player opens the relay's HLS that no tile
 /// reads.
 ///
-/// An empty answer is a form that does not carry the field, which leaves a screen saying so
-/// rather than guessing a protocol.
+/// <b>The answer is read out of the settings the backend holds and not out of the draft.</b>
+/// The leg is one of six knobs the watch group carries and it is the only one the shell names in
+/// a call: the render chain and both jitter buffers are read by the backend out of its own
+/// settings when the decode is built (<c>docs/ipc-api.md</c>). Reading this one off the draft
+/// therefore made half a staged panel take effect as it was edited while the other half waited
+/// for the commit, and a decode could open on a leg whose latency was the value before it. One
+/// source for all six is what removes that.
+///
+/// An empty answer is settings that have not arrived yet, which leaves a screen saying so rather
+/// than guessing a protocol.
 /// </summary>
 public static class TileLeg
 {
@@ -40,27 +48,15 @@ public static class TileLeg
     public const string Key = "viewer.tile_watch_transport";
 
     /// <summary>
-    /// The leg the form resolved to, and the empty string for a form that does not carry the
-    /// field or for no form at all.
+    /// The leg the settings name, and the empty string before any have been read.
     /// </summary>
-    public static string Of(Form? form)
+    public static string Of(Settings? settings)
     {
-        if (form is null)
+        if (settings is null)
         {
             return "";
         }
 
-        foreach (var group in form.Groups)
-        {
-            foreach (var field in group.Fields)
-            {
-                if (field.Key == Key)
-                {
-                    return FieldValues.AsText(field.Value);
-                }
-            }
-        }
-
-        return "";
+        return FieldValues.AsText(SettingsDraft.Read(settings, Key));
     }
 }

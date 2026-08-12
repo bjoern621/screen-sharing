@@ -49,6 +49,29 @@ An axis is declared once, with what it reads as and the argument a statement car
 Rules are declared where the fact lives and registered into the one evaluator, which is what keeps `transport` declaring its carriage beside the code that serializes it.
 Only verdicts cross the wire; the rules and the axis vocabulary stay in Go, for the reason `ipc-api.md` gives.
 
+### The two ladders
+
+How hard an encoder works and what it works towards are two settings, `publish.effort` and `publish.tune`, and each codec's row declares its own ladder for both (`capabilities/ladders.go`).
+
+The steps are the encoder's own identifiers: x264 counts in names, SVT-AV1 in numbers to 13, NVENC from p1 to p7.
+A scale normalized across codecs was rejected because a number carried across a codec change would land on a different real setting than the one that was held, so a step off the selected codec's ladder is reset to the one that codec's row declares for the mode, never mapped by position, and the field is named in the repaired list so the change is readable.
+
+Two fields rather than one, because a live encode drops the lookahead and the frame reordering that a quality encode keeps, whatever effort it is spending.
+
+A row states where each rate-control mode starts on its ladder, and which modes pin the step instead of starting on it.
+A pin is a fact about the encoder rather than about the mode: NVENC fixes its preset in CBR because a low-latency preset is what lets it hold a constant rate, and x264 in the same mode takes whatever step it is given.
+The form greys a pinned control and names the step in force, and both builders spend the same declared step, so the sentence cannot name one the encode is not running.
+
+Both builders read the row through `Codec.ResolveSteps`, which is what keeps a stream's look off the capture backend that produced it: one library reached through two bindings encodes alike.
+What each engine still owns is the spelling, and the spellings differ more than the option name does.
+ffmpeg says `-preset` where the x264 element says `speed-preset`; that element splits x264's tune list across `tune` and `psy-tune`; the x265 element's tune enum starts at `ssim` rather than at no tuning, so the untuned step has to be stated there by number; and the nvcodec elements spell the NVENC tunes in full words where the row uses the SDK's abbreviations.
+The empty step is the one answer every builder shares: it passes no such option at all.
+A step the row does not declare is refused rather than forwarded, so a settings file that never went through the form fails naming the control rather than inside an encoder's own error path.
+
+A row that declares no ladder is an encoder with no such knob, which greys the control naming that codec.
+Either ladder can be absent on its own: the Vulkan rows tune and take no effort step, the libvpx ones take a step and tune for nothing, so each control asks about its own ladder.
+The QSV and AMF rows declare neither: both builders still spend a constant on those families' scales, because a ladder has to be read off the encoder rather than declared from memory.
+
 Audio is two settings against two tables, because the source and the codec answer different questions.
 Which sources exist is the platform's answer and is the `Audio` field, a row of `platform.AudioSources`.
 Which codec the track is coded in is the engine's and the publish leg's, and is `AudioCodec`, a row of `capabilities.AudioCodecs`.

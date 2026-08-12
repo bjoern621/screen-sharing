@@ -36,6 +36,11 @@ func diagnosticTestStream() settings.Settings {
 	s.Publish.Fps = 60
 	s.Publish.Monitor = 0
 	s.Publish.UplinkMbps = 100
+	// The two ladder steps this codec declares for this mode, which is what a draft naming
+	// it holds after the migration or the repair. The defaults carry the default codec's,
+	// and the builder refuses a step off the ladder, which would make this stream one the
+	// publish path cannot build for a reason no case here is about.
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 	return s
 }
 

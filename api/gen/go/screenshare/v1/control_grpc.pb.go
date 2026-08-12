@@ -19,37 +19,41 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ControlService_Hello_FullMethodName                = "/screenshare.v1.ControlService/Hello"
-	ControlService_GetCatalog_FullMethodName           = "/screenshare.v1.ControlService/GetCatalog"
-	ControlService_GetSettings_FullMethodName          = "/screenshare.v1.ControlService/GetSettings"
-	ControlService_ResolveForm_FullMethodName          = "/screenshare.v1.ControlService/ResolveForm"
-	ControlService_ListPresets_FullMethodName          = "/screenshare.v1.ControlService/ListPresets"
-	ControlService_GetPublishState_FullMethodName      = "/screenshare.v1.ControlService/GetPublishState"
-	ControlService_GetRelayStatus_FullMethodName       = "/screenshare.v1.ControlService/GetRelayStatus"
-	ControlService_GetViewerState_FullMethodName       = "/screenshare.v1.ControlService/GetViewerState"
-	ControlService_GetTestStreamState_FullMethodName   = "/screenshare.v1.ControlService/GetTestStreamState"
-	ControlService_GetReceiveState_FullMethodName      = "/screenshare.v1.ControlService/GetReceiveState"
-	ControlService_SaveSettings_FullMethodName         = "/screenshare.v1.ControlService/SaveSettings"
-	ControlService_SavePreset_FullMethodName           = "/screenshare.v1.ControlService/SavePreset"
-	ControlService_DeletePreset_FullMethodName         = "/screenshare.v1.ControlService/DeletePreset"
-	ControlService_StartPublish_FullMethodName         = "/screenshare.v1.ControlService/StartPublish"
-	ControlService_ApplyToStream_FullMethodName        = "/screenshare.v1.ControlService/ApplyToStream"
-	ControlService_StopPublish_FullMethodName          = "/screenshare.v1.ControlService/StopPublish"
-	ControlService_StartWatch_FullMethodName           = "/screenshare.v1.ControlService/StartWatch"
-	ControlService_StopWatch_FullMethodName            = "/screenshare.v1.ControlService/StopWatch"
-	ControlService_StartReceive_FullMethodName         = "/screenshare.v1.ControlService/StartReceive"
-	ControlService_StopReceive_FullMethodName          = "/screenshare.v1.ControlService/StopReceive"
-	ControlService_SetReceiveAudio_FullMethodName      = "/screenshare.v1.ControlService/SetReceiveAudio"
-	ControlService_StartTestStreams_FullMethodName     = "/screenshare.v1.ControlService/StartTestStreams"
-	ControlService_StopTestStreams_FullMethodName      = "/screenshare.v1.ControlService/StopTestStreams"
-	ControlService_ProbeEncoders_FullMethodName        = "/screenshare.v1.ControlService/ProbeEncoders"
-	ControlService_MeasureUplink_FullMethodName        = "/screenshare.v1.ControlService/MeasureUplink"
-	ControlService_MeasureEncodeRate_FullMethodName    = "/screenshare.v1.ControlService/MeasureEncodeRate"
-	ControlService_ForgetPortalConsent_FullMethodName  = "/screenshare.v1.ControlService/ForgetPortalConsent"
-	ControlService_OpenLog_FullMethodName              = "/screenshare.v1.ControlService/OpenLog"
-	ControlService_OpenLogsFolder_FullMethodName       = "/screenshare.v1.ControlService/OpenLogsFolder"
-	ControlService_Subscribe_FullMethodName            = "/screenshare.v1.ControlService/Subscribe"
-	ControlService_SubscribeAudioLevels_FullMethodName = "/screenshare.v1.ControlService/SubscribeAudioLevels"
+	ControlService_Hello_FullMethodName                  = "/screenshare.v1.ControlService/Hello"
+	ControlService_GetCatalog_FullMethodName             = "/screenshare.v1.ControlService/GetCatalog"
+	ControlService_GetSettings_FullMethodName            = "/screenshare.v1.ControlService/GetSettings"
+	ControlService_ResolveForm_FullMethodName            = "/screenshare.v1.ControlService/ResolveForm"
+	ControlService_ListPresets_FullMethodName            = "/screenshare.v1.ControlService/ListPresets"
+	ControlService_GetPublishState_FullMethodName        = "/screenshare.v1.ControlService/GetPublishState"
+	ControlService_GetRelayStatus_FullMethodName         = "/screenshare.v1.ControlService/GetRelayStatus"
+	ControlService_GetViewerState_FullMethodName         = "/screenshare.v1.ControlService/GetViewerState"
+	ControlService_GetTestStreamState_FullMethodName     = "/screenshare.v1.ControlService/GetTestStreamState"
+	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
+	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
+	ControlService_SaveSettings_FullMethodName           = "/screenshare.v1.ControlService/SaveSettings"
+	ControlService_SavePreset_FullMethodName             = "/screenshare.v1.ControlService/SavePreset"
+	ControlService_DeletePreset_FullMethodName           = "/screenshare.v1.ControlService/DeletePreset"
+	ControlService_StartPublish_FullMethodName           = "/screenshare.v1.ControlService/StartPublish"
+	ControlService_ApplyToStream_FullMethodName          = "/screenshare.v1.ControlService/ApplyToStream"
+	ControlService_StopPublish_FullMethodName            = "/screenshare.v1.ControlService/StopPublish"
+	ControlService_StartWatch_FullMethodName             = "/screenshare.v1.ControlService/StartWatch"
+	ControlService_StopWatch_FullMethodName              = "/screenshare.v1.ControlService/StopWatch"
+	ControlService_OpenInBrowser_FullMethodName          = "/screenshare.v1.ControlService/OpenInBrowser"
+	ControlService_StartReceive_FullMethodName           = "/screenshare.v1.ControlService/StartReceive"
+	ControlService_StopReceive_FullMethodName            = "/screenshare.v1.ControlService/StopReceive"
+	ControlService_StartMonitorPreview_FullMethodName    = "/screenshare.v1.ControlService/StartMonitorPreview"
+	ControlService_StopMonitorPreview_FullMethodName     = "/screenshare.v1.ControlService/StopMonitorPreview"
+	ControlService_SetReceiveAudio_FullMethodName        = "/screenshare.v1.ControlService/SetReceiveAudio"
+	ControlService_StartTestStreams_FullMethodName       = "/screenshare.v1.ControlService/StartTestStreams"
+	ControlService_StopTestStreams_FullMethodName        = "/screenshare.v1.ControlService/StopTestStreams"
+	ControlService_ProbeEncoders_FullMethodName          = "/screenshare.v1.ControlService/ProbeEncoders"
+	ControlService_MeasureUplink_FullMethodName          = "/screenshare.v1.ControlService/MeasureUplink"
+	ControlService_MeasureEncodeRate_FullMethodName      = "/screenshare.v1.ControlService/MeasureEncodeRate"
+	ControlService_ForgetPortalConsent_FullMethodName    = "/screenshare.v1.ControlService/ForgetPortalConsent"
+	ControlService_OpenLog_FullMethodName                = "/screenshare.v1.ControlService/OpenLog"
+	ControlService_OpenLogsFolder_FullMethodName         = "/screenshare.v1.ControlService/OpenLogsFolder"
+	ControlService_Subscribe_FullMethodName              = "/screenshare.v1.ControlService/Subscribe"
+	ControlService_SubscribeAudioLevels_FullMethodName   = "/screenshare.v1.ControlService/SubscribeAudioLevels"
 )
 
 // ControlServiceClient is the client API for ControlService service.
@@ -116,6 +120,15 @@ type ControlServiceClient interface {
 	GetTestStreamState(ctx context.Context, in *GetTestStreamStateRequest, opts ...grpc.CallOption) (*TestStreamState, error)
 	// GetReceiveState returns the streams the backend is decoding.
 	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
+	// GetMonitorPreviewState returns the monitors the backend is reading.
+	//
+	// It is what a shell that has just connected converges against. A preview outlives
+	// the window that asked for it, exactly as a decode does, so a shell that crashed
+	// with screens being read leaves them running - and the next one closes what nothing
+	// is drawing. Without this read it would have to wait for something else to change
+	// before the event stream told it, and a screen nobody is looking at would go on
+	// being captured.
+	GetMonitorPreviewState(ctx context.Context, in *GetMonitorPreviewStateRequest, opts ...grpc.CallOption) (*MonitorPreviewState, error)
 	// SaveSettings persists the settings the shell holds. It does not touch a running
 	// stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
 	// because both engines run a child built from an argv and neither takes a value
@@ -150,6 +163,23 @@ type ControlServiceClient interface {
 	StartWatch(ctx context.Context, in *StartWatchRequest, opts ...grpc.CallOption) (*StartWatchResponse, error)
 	// StopWatch closes one open viewer.
 	StopWatch(ctx context.Context, in *StopWatchRequest, opts ...grpc.CallOption) (*StopWatchResponse, error)
+	// OpenInBrowser opens the relay's own player page for one stream in the machine's
+	// default browser, over one of the legs the relay serves a page for
+	// (Catalog.browser_watch_transports). A leg that cannot carry the stream's format
+	// is refused the same way StartWatch refuses one.
+	//
+	// It opens a page and does not start a viewer this process owns, which is the whole
+	// difference from StartWatch: no viewer state grows a member, nothing appears in
+	// ViewerState, and there is no stop. A tab belongs to the browser that owns it, and
+	// this backend can neither read whether it is still open nor close it - so it says
+	// nothing about either, rather than reporting a state it would have to guess.
+	//
+	// Repeating the call opens the page again, and that is a departure from the
+	// idempotency the rest of this contract holds to (docs/development-principles.md).
+	// OpenLog and OpenLogsFolder depart the same way for the same reason: the effect
+	// lands in a program this one does not own, and there is no state to read back that
+	// would let a second call decide it had already happened.
+	OpenInBrowser(ctx context.Context, in *OpenInBrowserRequest, opts ...grpc.CallOption) (*OpenInBrowserResponse, error)
 	// StartReceive opens a decode for one stream on one leg, inside the backend. It is
 	// the tile path's counterpart of StartWatch, and the difference between the two is
 	// where the frames end up: a watch opens a player window the backend does not draw
@@ -165,6 +195,25 @@ type ControlServiceClient interface {
 	StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error)
 	// StopReceive closes one running decode.
 	StopReceive(ctx context.Context, in *StopReceiveRequest, opts ...grpc.CallOption) (*StopReceiveResponse, error)
+	// StartMonitorPreview reads one of this machine's monitors into a picture the frame
+	// channel can hand over, so a screen is chosen by looking at it instead of by its
+	// number. Nothing is encoded and nothing is sent anywhere: the capture element feeds
+	// the render chain inside the backend and the handles go to the shell.
+	//
+	// It is an effect and not a flag on a read, by the test every method here is put to:
+	// it opens a screen capture that goes on running until something closes it, and what
+	// is running reaches every shell as MonitorPreviewState. The frame channel opens none
+	// of it, for the reason it opens no relay decode.
+	//
+	// Idempotent. A monitor already being previewed is the state this asks for, so a
+	// second call changes nothing and succeeds. A monitor no output is enumerated under is
+	// INVALID_ARGUMENT, and a machine whose session has no way to read one screen apart
+	// from another is FAILED_PRECONDITION - which a shell reads off
+	// Catalog.no_monitor_preview instead of discovering by asking.
+	StartMonitorPreview(ctx context.Context, in *StartMonitorPreviewRequest, opts ...grpc.CallOption) (*StartMonitorPreviewResponse, error)
+	// StopMonitorPreview closes one monitor's preview. A monitor nothing is previewing
+	// succeeds and does nothing: the state it names already holds.
+	StopMonitorPreview(ctx context.Context, in *StopMonitorPreviewRequest, opts ...grpc.CallOption) (*StopMonitorPreviewResponse, error)
 	// SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
 	//
 	// It is an effect on the receiver rather than anything the frame channel carries.
@@ -352,6 +401,16 @@ func (c *controlServiceClient) GetReceiveState(ctx context.Context, in *GetRecei
 	return out, nil
 }
 
+func (c *controlServiceClient) GetMonitorPreviewState(ctx context.Context, in *GetMonitorPreviewStateRequest, opts ...grpc.CallOption) (*MonitorPreviewState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MonitorPreviewState)
+	err := c.cc.Invoke(ctx, ControlService_GetMonitorPreviewState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) SaveSettings(ctx context.Context, in *SaveSettingsRequest, opts ...grpc.CallOption) (*SaveSettingsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(SaveSettingsResponse)
@@ -432,6 +491,16 @@ func (c *controlServiceClient) StopWatch(ctx context.Context, in *StopWatchReque
 	return out, nil
 }
 
+func (c *controlServiceClient) OpenInBrowser(ctx context.Context, in *OpenInBrowserRequest, opts ...grpc.CallOption) (*OpenInBrowserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(OpenInBrowserResponse)
+	err := c.cc.Invoke(ctx, ControlService_OpenInBrowser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) StartReceive(ctx context.Context, in *StartReceiveRequest, opts ...grpc.CallOption) (*StartReceiveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StartReceiveResponse)
@@ -446,6 +515,26 @@ func (c *controlServiceClient) StopReceive(ctx context.Context, in *StopReceiveR
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StopReceiveResponse)
 	err := c.cc.Invoke(ctx, ControlService_StopReceive_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) StartMonitorPreview(ctx context.Context, in *StartMonitorPreviewRequest, opts ...grpc.CallOption) (*StartMonitorPreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartMonitorPreviewResponse)
+	err := c.cc.Invoke(ctx, ControlService_StartMonitorPreview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) StopMonitorPreview(ctx context.Context, in *StopMonitorPreviewRequest, opts ...grpc.CallOption) (*StopMonitorPreviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StopMonitorPreviewResponse)
+	err := c.cc.Invoke(ctx, ControlService_StopMonitorPreview_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -644,6 +733,15 @@ type ControlServiceServer interface {
 	GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error)
 	// GetReceiveState returns the streams the backend is decoding.
 	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
+	// GetMonitorPreviewState returns the monitors the backend is reading.
+	//
+	// It is what a shell that has just connected converges against. A preview outlives
+	// the window that asked for it, exactly as a decode does, so a shell that crashed
+	// with screens being read leaves them running - and the next one closes what nothing
+	// is drawing. Without this read it would have to wait for something else to change
+	// before the event stream told it, and a screen nobody is looking at would go on
+	// being captured.
+	GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error)
 	// SaveSettings persists the settings the shell holds. It does not touch a running
 	// stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
 	// because both engines run a child built from an argv and neither takes a value
@@ -678,6 +776,23 @@ type ControlServiceServer interface {
 	StartWatch(context.Context, *StartWatchRequest) (*StartWatchResponse, error)
 	// StopWatch closes one open viewer.
 	StopWatch(context.Context, *StopWatchRequest) (*StopWatchResponse, error)
+	// OpenInBrowser opens the relay's own player page for one stream in the machine's
+	// default browser, over one of the legs the relay serves a page for
+	// (Catalog.browser_watch_transports). A leg that cannot carry the stream's format
+	// is refused the same way StartWatch refuses one.
+	//
+	// It opens a page and does not start a viewer this process owns, which is the whole
+	// difference from StartWatch: no viewer state grows a member, nothing appears in
+	// ViewerState, and there is no stop. A tab belongs to the browser that owns it, and
+	// this backend can neither read whether it is still open nor close it - so it says
+	// nothing about either, rather than reporting a state it would have to guess.
+	//
+	// Repeating the call opens the page again, and that is a departure from the
+	// idempotency the rest of this contract holds to (docs/development-principles.md).
+	// OpenLog and OpenLogsFolder depart the same way for the same reason: the effect
+	// lands in a program this one does not own, and there is no state to read back that
+	// would let a second call decide it had already happened.
+	OpenInBrowser(context.Context, *OpenInBrowserRequest) (*OpenInBrowserResponse, error)
 	// StartReceive opens a decode for one stream on one leg, inside the backend. It is
 	// the tile path's counterpart of StartWatch, and the difference between the two is
 	// where the frames end up: a watch opens a player window the backend does not draw
@@ -693,6 +808,25 @@ type ControlServiceServer interface {
 	StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error)
 	// StopReceive closes one running decode.
 	StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error)
+	// StartMonitorPreview reads one of this machine's monitors into a picture the frame
+	// channel can hand over, so a screen is chosen by looking at it instead of by its
+	// number. Nothing is encoded and nothing is sent anywhere: the capture element feeds
+	// the render chain inside the backend and the handles go to the shell.
+	//
+	// It is an effect and not a flag on a read, by the test every method here is put to:
+	// it opens a screen capture that goes on running until something closes it, and what
+	// is running reaches every shell as MonitorPreviewState. The frame channel opens none
+	// of it, for the reason it opens no relay decode.
+	//
+	// Idempotent. A monitor already being previewed is the state this asks for, so a
+	// second call changes nothing and succeeds. A monitor no output is enumerated under is
+	// INVALID_ARGUMENT, and a machine whose session has no way to read one screen apart
+	// from another is FAILED_PRECONDITION - which a shell reads off
+	// Catalog.no_monitor_preview instead of discovering by asking.
+	StartMonitorPreview(context.Context, *StartMonitorPreviewRequest) (*StartMonitorPreviewResponse, error)
+	// StopMonitorPreview closes one monitor's preview. A monitor nothing is previewing
+	// succeeds and does nothing: the state it names already holds.
+	StopMonitorPreview(context.Context, *StopMonitorPreviewRequest) (*StopMonitorPreviewResponse, error)
 	// SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
 	//
 	// It is an effect on the receiver rather than anything the frame channel carries.
@@ -810,6 +944,9 @@ func (UnimplementedControlServiceServer) GetTestStreamState(context.Context, *Ge
 func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReceiveState not implemented")
 }
+func (UnimplementedControlServiceServer) GetMonitorPreviewState(context.Context, *GetMonitorPreviewStateRequest) (*MonitorPreviewState, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMonitorPreviewState not implemented")
+}
 func (UnimplementedControlServiceServer) SaveSettings(context.Context, *SaveSettingsRequest) (*SaveSettingsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SaveSettings not implemented")
 }
@@ -834,11 +971,20 @@ func (UnimplementedControlServiceServer) StartWatch(context.Context, *StartWatch
 func (UnimplementedControlServiceServer) StopWatch(context.Context, *StopWatchRequest) (*StopWatchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopWatch not implemented")
 }
+func (UnimplementedControlServiceServer) OpenInBrowser(context.Context, *OpenInBrowserRequest) (*OpenInBrowserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method OpenInBrowser not implemented")
+}
 func (UnimplementedControlServiceServer) StartReceive(context.Context, *StartReceiveRequest) (*StartReceiveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartReceive not implemented")
 }
 func (UnimplementedControlServiceServer) StopReceive(context.Context, *StopReceiveRequest) (*StopReceiveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopReceive not implemented")
+}
+func (UnimplementedControlServiceServer) StartMonitorPreview(context.Context, *StartMonitorPreviewRequest) (*StartMonitorPreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartMonitorPreview not implemented")
+}
+func (UnimplementedControlServiceServer) StopMonitorPreview(context.Context, *StopMonitorPreviewRequest) (*StopMonitorPreviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StopMonitorPreview not implemented")
 }
 func (UnimplementedControlServiceServer) SetReceiveAudio(context.Context, *SetReceiveAudioRequest) (*SetReceiveAudioResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method SetReceiveAudio not implemented")
@@ -1074,6 +1220,24 @@ func _ControlService_GetReceiveState_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_GetMonitorPreviewState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMonitorPreviewStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).GetMonitorPreviewState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_GetMonitorPreviewState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).GetMonitorPreviewState(ctx, req.(*GetMonitorPreviewStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_SaveSettings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SaveSettingsRequest)
 	if err := dec(in); err != nil {
@@ -1218,6 +1382,24 @@ func _ControlService_StopWatch_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_OpenInBrowser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OpenInBrowserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).OpenInBrowser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_OpenInBrowser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).OpenInBrowser(ctx, req.(*OpenInBrowserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_StartReceive_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartReceiveRequest)
 	if err := dec(in); err != nil {
@@ -1250,6 +1432,42 @@ func _ControlService_StopReceive_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).StopReceive(ctx, req.(*StopReceiveRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_StartMonitorPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartMonitorPreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).StartMonitorPreview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_StartMonitorPreview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).StartMonitorPreview(ctx, req.(*StartMonitorPreviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_StopMonitorPreview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StopMonitorPreviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).StopMonitorPreview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_StopMonitorPreview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).StopMonitorPreview(ctx, req.(*StopMonitorPreviewRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1486,6 +1704,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_GetReceiveState_Handler,
 		},
 		{
+			MethodName: "GetMonitorPreviewState",
+			Handler:    _ControlService_GetMonitorPreviewState_Handler,
+		},
+		{
 			MethodName: "SaveSettings",
 			Handler:    _ControlService_SaveSettings_Handler,
 		},
@@ -1518,12 +1740,24 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_StopWatch_Handler,
 		},
 		{
+			MethodName: "OpenInBrowser",
+			Handler:    _ControlService_OpenInBrowser_Handler,
+		},
+		{
 			MethodName: "StartReceive",
 			Handler:    _ControlService_StartReceive_Handler,
 		},
 		{
 			MethodName: "StopReceive",
 			Handler:    _ControlService_StopReceive_Handler,
+		},
+		{
+			MethodName: "StartMonitorPreview",
+			Handler:    _ControlService_StartMonitorPreview_Handler,
+		},
+		{
+			MethodName: "StopMonitorPreview",
+			Handler:    _ControlService_StopMonitorPreview_Handler,
 		},
 		{
 			MethodName: "SetReceiveAudio",

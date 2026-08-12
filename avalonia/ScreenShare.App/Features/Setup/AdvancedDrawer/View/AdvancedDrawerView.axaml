@@ -131,7 +131,6 @@
                           <MenuFlyout ItemsSource="{Binding Options}"
                                       ItemTemplate="{StaticResource SelectEntry}"
                                       ItemContainerTheme="{StaticResource SelectMenuItem}"
-                                      FlyoutPresenterTheme="{StaticResource SelectMenu}"
                                       Placement="BottomEdgeAlignedRight" />
                         </Button.Flyout>
                       </Button>

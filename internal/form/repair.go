@@ -158,10 +158,10 @@ func repairSkips(key string, s settings.Settings) bool {
 // repairKeysWithoutFields are the settings the repair moves that the form declares no
 // control for.
 //
-// It exists so the walk's bound counts what can move rather than what is drawn, and it is
-// meant to shrink: a setting the user cannot see and the repair rewrites is a setting
-// whose change nobody can read, so each entry here is a control the form still owes.
-var repairKeysWithoutFields = []string{KeyTune}
+// It exists so the walk's bound counts what can move rather than what is drawn: a setting
+// the user cannot see and the repair rewrites is a setting whose change nobody can read.
+// It is empty, and every entry it gains is a control the form owes.
+var repairKeysWithoutFields []string
 
 // repairLadders puts the two ladder steps back on the selected codec's own ladders, and
 // returns the keys it moved.

@@ -38,6 +38,17 @@
                 controls:Pending.IsActive="{Binding OpenFullLogCommand.IsRunning}" />
       </Grid>
 
+      <!--
+        What stands in for the lines while there are none. It was composed all along and
+        nothing drew it, so a session that had reported nothing yet was a card with a heading
+        and an empty body, saying neither that the log was empty nor where the rest of it is.
+      -->
+      <TextBlock DockPanel.Dock="Top"
+                 Classes="hint"
+                 Text="{Binding Notice}"
+                 IsVisible="{Binding !HasLines}"
+                 TextWrapping="Wrap" />
+
       <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="model:LogLine">

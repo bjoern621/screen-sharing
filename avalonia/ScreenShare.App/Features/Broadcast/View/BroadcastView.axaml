@@ -17,7 +17,7 @@
     <!--
       The header band. The five figures on the left, the live-safe actions on the right,
       and nothing between them that could be mistaken for configuration. Stop is the only
-      red button on the screen; the on-air pill is the only other red at all.
+      red button on the screen; the sharing pill is the only other red at all.
     -->
     <Border DockPanel.Dock="Top"
             Background="{StaticResource PanelBrush}"
@@ -34,7 +34,7 @@
           <Button Theme="{StaticResource ActionButton}" Content="Force keyframe" Command="{Binding ForceKeyframeCommand}" />
           <Button Theme="{StaticResource ActionButton}" Content="Reconnect" Command="{Binding ReconnectCommand}" />
           <Button Theme="{StaticResource DangerButton}"
-                  Content="Stop"
+                  Content="Stop sharing"
                   Command="{Binding StopCommand}"
                   controls:Pending.IsActive="{Binding StopCommand.IsRunning}" />
         </StackPanel>

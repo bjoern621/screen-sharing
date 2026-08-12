@@ -63,8 +63,10 @@ const (
 	vbvOnlyInBoundedModes     = screensharev1.TextCode_TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES
 	bframesOffInMode          = screensharev1.TextCode_TEXT_CODE_BFRAMES_OFF_IN_MODE
 	bframesOnlyOnFamilies     = screensharev1.TextCode_TEXT_CODE_BFRAMES_ONLY_ON_FAMILIES
-	presetOnlyOnFamilies      = screensharev1.TextCode_TEXT_CODE_PRESET_ONLY_ON_FAMILIES
-	presetPinnedByMode        = screensharev1.TextCode_TEXT_CODE_PRESET_PINNED_BY_MODE
+	codecTakesNoEffortLadder  = screensharev1.TextCode_TEXT_CODE_CODEC_TAKES_NO_EFFORT_LADDER
+	effortPinnedByMode        = screensharev1.TextCode_TEXT_CODE_EFFORT_PINNED_BY_MODE
+	codecTakesNoTuneLadder    = screensharev1.TextCode_TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER
+	tunePinnedByMode          = screensharev1.TextCode_TEXT_CODE_TUNE_PINNED_BY_MODE
 	audioCodecNeedsSource     = screensharev1.TextCode_TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE
 	audioTrackCodedAt         = screensharev1.TextCode_TEXT_CODE_AUDIO_TRACK_CODED_AT
 	vaapiCeilingBound         = screensharev1.TextCode_TEXT_CODE_VAAPI_CEILING_BOUND
@@ -141,8 +143,12 @@ func argAudioCodec(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO_CODEC, v)
 }
 
-func argEncPreset(v string) *screensharev1.TextArg {
-	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENC_PRESET, v)
+func argEffort(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_EFFORT, v)
+}
+
+func argTune(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TUNE, v)
 }
 
 func argDecodeFamily(v string) *screensharev1.TextArg {

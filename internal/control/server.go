@@ -142,10 +142,33 @@ type Backend interface {
 	// transport to name it by and a synthetic one would put a protocol in the table
 	// every consumer reads (preview.go).
 	SubscribePreviewFrames() (FrameStream, error)
+	// StartMonitorPreview reads one of this machine's screens into a picture the frame
+	// channel can hand over, and StopMonitorPreview closes one. They are the wizard's
+	// counterpart of the receive pair, and what they open is a screen capture and never
+	// a tile.
+	StartMonitorPreview(monitor int) error
+	StopMonitorPreview(monitor int)
+	// MonitorPreviewState is every monitor being previewed, read off the running
+	// pipelines rather than remembered: a preview that has produced no frame yet is
+	// still opening the screen.
+	MonitorPreviewState() []wire.PreviewedMonitor
+	// SubscribeMonitorFrames opens one consumer's view of a monitor preview that is
+	// already running, and refuses where nothing is previewing that screen.
+	//
+	// A third method rather than a key the first two could take, for the reason the
+	// preview has one of its own: the three name three different kinds of thing, and a
+	// single key would have to be a stream name for one, nothing for another and an
+	// output index for the third.
+	SubscribeMonitorFrames(monitor int) (FrameStream, error)
 	// StartTestStreams launches synthetic publishers, replacing a running set.
 	StartTestStreams(count int) error
 	// StopTestStreams stops every synthetic publisher.
 	StopTestStreams()
+	// OpenInBrowser opens the relay's player page for one stream in the machine's
+	// default browser, and refuses a leg the relay serves no page on or the stream's
+	// format does not cross. It opens no viewer this backend owns, so nothing it does
+	// reaches the viewer state.
+	OpenInBrowser(key wire.WatchKey) error
 	// ForgetPortalConsent drops the stored screen-capture consent.
 	ForgetPortalConsent() error
 	// OpenLog opens one run log in the machine's default application, and

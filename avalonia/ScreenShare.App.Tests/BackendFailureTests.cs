@@ -10,7 +10,7 @@ namespace ScreenShare.App.Tests;
 /// <b>The division is who wrote the status, not which code it carries.</b> The contract's
 /// table gives the backend <c>UNAVAILABLE</c> for a relay it could not reach and a child
 /// process that would not start (<c>docs/ipc-api.md</c>, "Errors"), so a shell that read that
-/// code as "nothing is listening" answered a press of Go live - against a backend it had just
+/// code as "nothing is listening" answered a press of Start sharing - against a backend it had just
 /// resolved a form through - with a sentence about the connection. These tests hold the two
 /// apart: prose the backend wrote reaches the reader intact, and only a failure the client
 /// made itself names the endpoint.

@@ -28,7 +28,7 @@ var fieldDeclaredKeys = []string{
 	KeyName, KeyRelayHost, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
-	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort,
+	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,

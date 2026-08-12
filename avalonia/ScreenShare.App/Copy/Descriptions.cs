@@ -121,7 +121,7 @@ public static class Descriptions
         ["tv"] = "Squeezes the picture into the 16-235 broadcast range on the way in and expands it again on the way out. Pick it only when something downstream demands it: it loses code values, and players disagree slightly about how to expand them.",
     };
 
-    private static readonly Dictionary<string, string> EncPresets = new()
+    private static readonly Dictionary<string, string> Efforts = new()
     {
         ["p1"] = "Least analysis, largest files for a given quality.",
         ["p2"] = "",
@@ -130,6 +130,50 @@ public static class Descriptions
         ["p5"] = "Used by constant bitrate, which pins the preset here for its low-delay tuning.",
         ["p6"] = "",
         ["p7"] = "Most analysis, smallest files. On the dedicated encoder chip even this barely touches the graphics cores.",
+
+        // The software ladder. Only the steps that carry a fact beyond their position say
+        // anything: the rest are rungs, and a line each would be noise on nine dropdowns.
+        ["placebo"] = "Hours of analysis for a fraction of a percent smaller. Named as a joke by x264's own authors, and offered because the encoder offers it.",
+        ["medium"] = "x264's own balance of speed and file size.",
+        ["veryfast"] = "Where the live modes start: fast enough to keep up with a screen without taking every core.",
+        ["ultrafast"] = "Almost no analysis. The step that keeps up with a large screen on a slow machine, at a much larger stream.",
+    };
+
+    /// <summary>
+    /// What each tune aims at. Every line says what the encoder does differently, not
+    /// whether it is good: which one is right follows from the content and the delay
+    /// budget, and both are the reader's to know.
+    /// </summary>
+    private static readonly Dictionary<string, string> Tunes = new()
+    {
+        ["none"] = "Encode the picture as it comes, with no assumption about what it contains.",
+        ["film"] = "Assumes camera footage: keeps the fine texture that would otherwise be smoothed away as noise.",
+        ["animation"] = "Assumes flat colour and hard edges, where detail is scarce and blocking shows immediately.",
+        ["grain"] = "Preserves film grain instead of spending the bitrate erasing it. Expensive, and unmistakable when it is missing.",
+        ["stillimage"] = "For a picture that barely moves, such as a slide left on screen.",
+        ["psnr"] = "Optimises the arithmetic error rather than what the eye sees. For measurement, not for watching.",
+        ["ssim"] = "Optimises a structural similarity score. Like PSNR, a metric target rather than a viewing one.",
+        ["fastdecode"] = "Drops the coding tools that cost the most to decode, so a weak viewer can keep up.",
+        ["zerolatency"] = "Drops the lookahead and the reordering, so a frame leaves the encoder as soon as it arrives. This is what keeps a live picture close to the moment it happened.",
+        ["hq"] = "Spends the encoder's effort on the picture, at the delay its analysis needs.",
+        ["ll"] = "Holds the delay down, which is what lets the encoder keep a constant bitrate.",
+        ["ull"] = "Holds it down further still, giving up more quality for it.",
+        ["lossless"] = "Codes the frame exactly, with nothing thrown away and no rate control at all.",
+    };
+
+    /// <summary>
+    /// What each built-in preset delivers, in one line.
+    ///
+    /// The line is true of every configuration the preset accepts and of no other, which is
+    /// what lets it stand while the settings underneath it change: the encoder, the pixel
+    /// format and the capture backend are this machine's answer to the promise, and a
+    /// sentence naming any of them would be wrong on the next machine (<c>docs/presets.md</c>).
+    /// </summary>
+    private static readonly Dictionary<string, string> Presets = new()
+    {
+        ["lossless"] = "Bit-exact pixels: the encoder quantizes nothing, no colour detail is thrown away, and the desktop's own code values reach the viewer untouched. Bursts to hundreds of Mbit/s on motion, so LAN and localhost only.",
+        ["gaming"] = "Motion first: 60 frames a second, no reorder delay, a short retransmit window, and a bitrate held constant so a busy scene costs no extra delay.",
+        ["readability"] = "Text first: constant quality at a screen-share frame rate, so a still page of text gets the bits that motion would otherwise take.",
     };
 
     private static readonly Dictionary<string, string> Transports = new()
@@ -183,7 +227,12 @@ public static class Descriptions
 
     public static string ColorRange(string id) => Look(ColorRanges, id);
 
-    public static string EncPreset(string id) => Look(EncPresets, id);
+    public static string Effort(string id) => Look(Efforts, id);
+
+    public static string Tune(string id) => Look(Tunes, id);
+
+    /// <summary>What a built-in preset delivers, which is the whole of what picking one says.</summary>
+    public static string Preset(string id) => Look(Presets, id);
 
     public static string Transport(string id) => Look(Transports, id);
 

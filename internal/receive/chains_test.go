@@ -112,7 +112,7 @@ func TestChainFitTakesWidthThenHeight(t *testing.T) {
 // threads, and the sink the receiver reads back by name.
 func TestChainLaunchIsComplete(t *testing.T) {
 	for _, c := range chains {
-		line := c.launch("videotestsrc")
+		line := c.launch("videotestsrc", false)
 		for _, want := range []string{
 			"videotestsrc",
 			"decodebin name=" + decodeName,
@@ -121,6 +121,18 @@ func TestChainLaunchIsComplete(t *testing.T) {
 		} {
 			if !strings.Contains(line, want) {
 				t.Errorf("the %q launch line holds no %q: %s", c.name, want, line)
+			}
+		}
+
+		// A raw source is the same line without the decoder: everything the chain
+		// carries is still there, and the one element that has nothing to do is gone.
+		raw := c.launch("videotestsrc", true)
+		if strings.Contains(raw, "decodebin") {
+			t.Errorf("the %q raw launch line autoplugs a decoder for frames nothing encoded: %s", c.name, raw)
+		}
+		for _, want := range []string{"videotestsrc", renderQueue, renderSink} {
+			if !strings.Contains(raw, want) {
+				t.Errorf("the %q raw launch line holds no %q: %s", c.name, want, raw)
 			}
 		}
 		for _, e := range c.elements {

@@ -67,6 +67,8 @@ public sealed class TileViewModel : Observable, IFrameSource
         ToggleFocus = new DelegateCommand(() => arrange(TileIntent.Focus));
         TogglePopOut = new DelegateCommand(() => arrange(TileIntent.PopOut));
         ToggleFullscreen = new DelegateCommand(() => arrange(TileIntent.Fullscreen));
+        LeaveFullscreen = new DelegateCommand(() => arrange(TileIntent.LeaveFullscreen));
+        LeavePopOut = new DelegateCommand(() => arrange(TileIntent.LeavePopOut));
         ToggleStats = new DelegateCommand(() => ShowStats = !ShowStats);
         ToggleMute = new PendingCommand(() => SendAudioAsync(Volume, !Muted), dispatch, () => HasAudio);
     }
@@ -88,6 +90,7 @@ public sealed class TileViewModel : Observable, IFrameSource
     private bool _isLive;
     private bool _isFocused;
     private bool _isPoppedOut;
+    private bool _isFullscreen;
     private bool _showStats;
     private bool _hasAudio;
     private bool _muted;
@@ -110,17 +113,7 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// Whether this is the focused tile. Written by the screen that owns the arrangement, never
     /// here: at most one tile carries it, and a tile cannot know what the others are doing.
     /// </summary>
-    public bool IsFocused
-    {
-        get => _isFocused;
-        set
-        {
-            if (Set(ref _isFocused, value))
-            {
-                Chrome();
-            }
-        }
-    }
+    public bool IsFocused { get => _isFocused; set => Set(ref _isFocused, value); }
 
     /// <summary>
     /// Whether this stream is being drawn in a window of its own.
@@ -132,18 +125,23 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// The plate holds no subscription and asks for no render size. The popped window is the only
     /// consumer, and a black box costing a full-size texture pool would be the one arrangement
     /// this shell pays for twice.
+    ///
+    /// <b>It says where the picture is, not what a card draws.</b> Both cards read this one tile
+    /// while a stream is popped out, so which of them draws the plate is stated by the host that
+    /// templates it (<c>Features/Viewer/Tile/View/TileCard.axaml.cs</c>). A card that decided it
+    /// from here would draw the plate in the window that was opened to hold the picture.
     /// </summary>
-    public bool IsPoppedOut
-    {
-        get => _isPoppedOut;
-        set
-        {
-            if (Set(ref _isPoppedOut, value))
-            {
-                Chrome();
-            }
-        }
-    }
+    public bool IsPoppedOut { get => _isPoppedOut; set => Set(ref _isPoppedOut, value); }
+
+    /// <summary>
+    /// Whether the window drawing this stream is filling a screen with it.
+    ///
+    /// Written by the screen that owns the arrangement, like the two above and for the same
+    /// reason: which window a stream is in decides which fullscreen state answers for it, and a
+    /// tile knows neither. It is here so the menu's fullscreen row can show whether it is in
+    /// force, which is the one thing a reader cannot see from inside a filled screen.
+    /// </summary>
+    public bool IsFullscreen { get => _isFullscreen; set => Set(ref _isFullscreen, value); }
 
     /// <summary>
     /// Whether the figures are drawn over this tile permanently.
@@ -153,17 +151,7 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// and it dies with the tile - a diagnostic that outlived the question is a diagnostic
     /// nobody turned off.
     /// </summary>
-    public bool ShowStats
-    {
-        get => _showStats;
-        private set
-        {
-            if (Set(ref _showStats, value))
-            {
-                Chrome();
-            }
-        }
-    }
+    public bool ShowStats { get => _showStats; private set => Set(ref _showStats, value); }
 
     /// <summary>The stream and the leg, as the tile's heading prints them.</summary>
     public string Title { get => _title; private set => Set(ref _title, value); }
@@ -246,48 +234,39 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>Takes the window holding this tile fullscreen, or brings it back.</summary>
     public DelegateCommand ToggleFullscreen { get; }
 
+    /// <summary>
+    /// Gives the window holding this tile back to its grid, and does nothing when it is not
+    /// filling a screen.
+    ///
+    /// One direction rather than a toggle, because it is what Escape means: a key that toggled
+    /// would take a windowed stream fullscreen from inside a menu the reader was trying to close.
+    /// </summary>
+    public DelegateCommand LeaveFullscreen { get; }
+
+    /// <summary>
+    /// Draws this stream in the grid, and does nothing when it is already there.
+    ///
+    /// What a closed pop-out window reports. One direction rather than a toggle, because a window
+    /// that has closed is news about a state rather than a request to change one: the pass that
+    /// closes a window is itself acting on a stream that was already given back, and a toggle
+    /// raised from there would pop the stream straight out again into a second window.
+    /// </summary>
+    public DelegateCommand LeavePopOut { get; }
+
     /// <summary>Draws the figures over this tile permanently, or stops.</summary>
     public DelegateCommand ToggleStats { get; }
 
     /// <summary>Silences this decode, or unsilences it at the volume that was chosen.</summary>
     public PendingCommand ToggleMute { get; }
 
-    private Icons _focusGlyph = Icons.IconLayoutDistributeHorizontal;
-    private Icons _popOutGlyph = Icons.IconExternalLink;
-    private Icons _fullscreenGlyph = Icons.IconMaximize;
-    private Icons _muteGlyph = Icons.IconVolume;
-    private Icons _statsGlyph = Icons.IconChartBar;
-
-    // The menu's glyphs. Each is one property that changes with the state rather than two items
-    // one of which is hidden, so an item's icon says what pressing it will do and its position
-    // in the menu never moves under the pointer.
-
-    /// <summary>Focused or not, as the one glyph that says which.</summary>
-    public Icons FocusGlyph { get => _focusGlyph; private set => Set(ref _focusGlyph, value); }
-
-    /// <summary>In a window of its own or in the grid.</summary>
-    public Icons PopOutGlyph { get => _popOutGlyph; private set => Set(ref _popOutGlyph, value); }
-
-    /// <summary>Filling a screen or not.</summary>
-    public Icons FullscreenGlyph { get => _fullscreenGlyph; private set => Set(ref _fullscreenGlyph, value); }
-
-    /// <summary>Silenced or audible, and the crossed-out speaker only where there is audio to silence.</summary>
-    public Icons MuteGlyph { get => _muteGlyph; private set => Set(ref _muteGlyph, value); }
-
-    /// <summary>Whether the figures are pinned over the picture.</summary>
-    public Icons StatsGlyph { get => _statsGlyph; private set => Set(ref _statsGlyph, value); }
-
-    /// <summary>What the mute item says it will do, which is the opposite of what is true now.</summary>
-    public string MuteLabel => Muted ? "Unmute" : "Mute";
-
-    /// <summary>What the focus item says it will do.</summary>
-    public string FocusLabel => IsFocused ? "Leave focus" : "Focus";
-
-    /// <summary>What the pop-out item says it will do.</summary>
-    public string PopOutLabel => IsPoppedOut ? "Return to grid" : "Pop out";
-
-    /// <summary>What the stats item says it will do.</summary>
-    public string StatsLabel => ShowStats ? "Hide stats" : "Stats overlay";
+    // Every row in the menu names one arrangement and holds still. The glyph and the wording are
+    // the markup's, because neither of them moves; what moves is the state each row reports, and
+    // that is the five flags above and beside this block, which the row draws as a tick
+    // (docs/design-language.md, "Menus").
+    //
+    // The pair of properties per row that used to be here - a label reading "Unmute" on a muted
+    // stream and a glyph swapping under it - said what pressing the row would do and therefore
+    // never said what was true. A menu is read at rest far more often than it is pressed.
 
     // --- Lifecycle -------------------------------------------------------------------
 
@@ -297,9 +276,9 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// </summary>
     public void Apply(TilePipeline? pipeline)
     {
-        // The preview's frames crossed no protocol, so there is none to name beside the
-        // stream. Everything else on the heading is the same fact either way.
-        Title = _source.IsPreview ? Name : $"{Name} · {Words.Transport(Transport)}";
+        // Only a relay decode crossed a protocol, so only a relay decode has one to name
+        // beside the stream. Everything else on the heading is the same fact either way.
+        Title = _source.IsRelay ? $"{Name} · {Words.Transport(Transport)}" : Name;
         IsLive = _report.Live;
 
         Notice = NoticeFor(pipeline);
@@ -325,31 +304,8 @@ public sealed class TileViewModel : Observable, IFrameSource
             Level = 0;
         }
 
-        Chrome();
-
         Assert.That(HasNotice == (Notice.Length > 0), "a notice and its sentence agree", Name);
         Assert.That(Aspect > 0, "a tile has a positive shape to be arranged at", Name, Aspect);
-    }
-
-    /// <summary>
-    /// The menu's glyphs and words, written from the state they describe.
-    ///
-    /// One place rather than a ternary per binding, and called from the render pass and from the
-    /// three properties the grid writes after it: focus and pop-out are set by the screen that
-    /// owns the arrangement, which runs after this tile has rendered.
-    /// </summary>
-    private void Chrome()
-    {
-        FocusGlyph = IsFocused ? Icons.IconLayoutDistributeHorizontal : Icons.IconLayoutRows;
-        PopOutGlyph = IsPoppedOut ? Icons.IconArrowsMinimize : Icons.IconExternalLink;
-        FullscreenGlyph = Icons.IconMaximize;
-        MuteGlyph = Muted ? Icons.IconVolumeOff : Icons.IconVolume;
-        StatsGlyph = ShowStats ? Icons.IconChartBarOff : Icons.IconChartBar;
-
-        OnPropertyChanged(nameof(MuteLabel));
-        OnPropertyChanged(nameof(FocusLabel));
-        OnPropertyChanged(nameof(PopOutLabel));
-        OnPropertyChanged(nameof(StatsLabel));
     }
 
     /// <summary>
@@ -415,11 +371,11 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// </summary>
     private async Task SendAudioAsync(double volume, bool muted)
     {
-        // The effect is keyed by the pair a relay decode is identified by, and the preview has
-        // neither half of it. Refusing here rather than at the control is the honest shape: a
-        // preview reports no track, so nothing on screen offers a volume in the first place,
+        // The effect is keyed by the pair a relay decode is identified by, and neither preview
+        // has either half of it. Refusing here rather than at the control is the honest shape:
+        // a preview reports no track, so nothing on screen offers a volume in the first place,
         // and this is the guard for a caller that got one anyway.
-        if (_source.IsPreview)
+        if (!_source.IsRelay)
         {
             return;
         }
@@ -473,7 +429,9 @@ public sealed class TileViewModel : Observable, IFrameSource
 
         if (pipeline is null)
         {
-            return "Nothing is decoding this stream.";
+            // In the source's own terms: a stream nobody opened a decode for and a screen
+            // nobody is reading are different things to do something about.
+            return _source.Missing;
         }
 
         return pipeline.Value.Live ? "" : "Connecting.";

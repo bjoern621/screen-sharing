@@ -50,6 +50,41 @@ desktop without server-side ones expects; on Wayland the same case is negotiated
 `zxdg_toplevel_decoration_v1`, and a compositor that answers "server side" draws whatever it
 draws, which on a tiling session is nothing (`Features/Shell/Model/WindowChrome.cs`).
 
+### What a capture of this machine sees
+
+Every window this shell opens asks to be kept out of the captures this machine takes, and the
+window states it for itself when it opens (`Features/Shell/Model/CaptureExclusion.cs`).
+The main window and each popped-out stream are the two.
+
+The reason is a feedback loop, and it closes in the captured pixels rather than anywhere this
+code can reach.
+A tile draws a decode of the screen it is itself drawn on, so the next capture carries the tile,
+which carries the capture taken before it.
+Every round trip through the encoder and the decoder nests one more copy of the screen inside
+the picture, and the depth grows with how long the stream has been running.
+Nothing downstream can undo it, because the nesting is already in the frames the capture handed
+over.
+
+Windows stores a display affinity against the window in kernel mode, and `WDA_EXCLUDEFROMCAPTURE`
+leaves the window on the monitor and takes it out of what the desktop window manager composes for
+anything else.
+That covers every Windows capture backend here: the desktop duplication and graphics capture
+behind `ddagrab` and `d3d11screencapturesrc`, and the screen bit blit behind `gdigrab`.
+Windows before 10 version 2004 applies `WDA_MONITOR` in its place, which leaves an empty
+rectangle where the window is.
+The two pictures differ, and both break the loop: an empty rectangle carries no copy of the
+screen either.
+
+Linux is left as it is, so a tile there goes on nesting for as long as the stream runs.
+X11 serves the root window to any client that asks, so a capture is a read of the whole screen
+and there is no per-window fact to set.
+No Wayland protocol carries the request.
+The compositors that can black a window out of a screencopy, Hyprland and niri among them, do it
+from a window rule in their own configuration, which is the user's to write rather than this
+app's to ask for.
+Such a rule is keyed on the application id, and the Wayland backend sends none, so it matches
+this window in an X11 session alone.
+
 ## Layout
 
 Four layers, and the direction of dependency runs one way through them: a feature reads the
@@ -59,14 +94,14 @@ design system and the controls, and neither of those has ever heard of a feature
 | --- | --- |
 | `Contracts/Assert.cs` | always-on assertions, the C# counterpart of the Go `assert` package |
 | `Mvvm/` | `Observable` and `DelegateCommand`: the change notification a compiled binding reads, and nothing else |
-| `Design/` | the whole design system as tokens and styles - `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Tooltips`, `Icons` |
+| `Design/` | the whole design system as tokens and styles - `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Menus`, `Tooltips`, `Icons` |
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch |
 | `Copy/` | every word on screen: what each identifier the backend sends is called, the paragraph behind each choice, each control's heading and help, and the sentence for each statement the backend makes |
 | `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. It is not under a feature because two of them draw form groups |
-| `Features/Setup/` | the publish wizard, one step per group of the resolved form that is about sending, plus a terminal one: the step strip, the Quality form, the raw-property drawer, the cost rail, and the review |
-| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the program preview, the per-viewer table, the sparklines |
+| `Features/Setup/` | the publish wizard, one step per group of the resolved form that is about sending, plus a terminal one: the step strip, the screen picker, the Quality form, the raw-property drawer, the cost rail, the review, and the saved presets beside it |
+| `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding the settings that govern how this machine receives |
 
 ### The two rules the tree encodes
@@ -84,7 +119,7 @@ named again.
 
 ### The design language
 
-Greyscale everywhere except a single red, `#E5484D`, reserved strictly for "on air" and
+Greyscale everywhere except a single red, `#E5484D`, reserved strictly for "sharing" and
 "something is wrong". It is the only hue on any screen and the only one a colour-blind
 reader still separates from grey reliably, so spending it on state that is merely on would
 cost the app its one unmistakable signal.
@@ -108,6 +143,15 @@ have one variant on the same terms - `Controls/NumberSelect`, the number box and
 glued into the one control that is both, each inheriting its type's theme and setting only
 the corner that differs. A flag is the switch in `Controls/Toggle`, never a `CheckBox`, for
 the same reason.
+
+There is **one menu**, on the same terms. `Design/Menus.axaml` skins `MenuFlyoutPresenter`,
+`MenuItem` and `Separator` themselves, so a right-click menu, a submenu and a dropdown's option
+list are one surface and one row wherever they open. `SelectMenuItem` in `Controls/Select` is
+the only variant, and it adds the two setters that make a row an option - what picking it does,
+and whether it can be picked - over the base. The type-keyed form is what fixes the failure
+that produced this file: nothing had restyled `MenuItem`, so a view had to opt into a menu's
+look by name, the two right-click menus never did, and both wore Fluent inside a product whose
+design states that it has no Fluent in it.
 
 Every icon is a Tabler outline icon from the `TablerIcons.Avalonia` package, and `Design/Icons.axaml`
 is the single rule that sizes and strokes them: three sizes off the design's 12-22px range,
@@ -165,8 +209,26 @@ The wizard configures what this machine *sends*; the watch group is the legs a s
 on, the jitter buffers a receiver holds and the chain a tile converts frames with. It was a step
 of the wizard, so a reader who only watched had to open the broadcast setup to change how their
 tiles decode - and the change only ever persisted if they went live, because the wizard's draft
-reaches the backend through `StartPublish`. The group is beside the tiles now and has a
-`SaveSettings` of its own.
+reaches the backend through `StartPublish`. The group is beside the tiles now, in a column with a
+commit of its own and a button to dismiss it.
+
+**The group is staged, so nothing in it reaches a decode until the commit does.** Every knob a
+receive pipeline reads is read by the backend out of its own settings as the pipeline is built,
+and the one value the shell names in the call is the tile's leg, which is read out of those same
+stored settings (`Features/Viewer/Tile/Model/TileLeg.cs`). Taking the leg off the draft instead
+made half the panel take effect as it was edited and held the other half back, so a decode could
+open on an unkept protocol with kept buffers. `FormSession.Stored` is what both now read.
+
+That is also why the panel says when what it shows is not what is stored. A staged group draws
+the same controls whether or not it has been kept, so without the sentence the button has nothing
+to mean and a repaired value nobody wrote back is invisible. A commit that lands closes the
+column, because what the reader asked for has happened; one the backend refuses leaves it open,
+because the sentence explaining the refusal is on it.
+
+**The commit goes down the same queue an applied field's keystroke does** (`FormSession.SaveAsync`).
+The settings travel whole, so the two are writes of one message, and sent from two places they
+are two unary calls with no ordering between them - the older snapshot landing last is a stored
+setting the reader had already changed.
 
 **Both screens read one draft.** `Backend/FormSession.cs` owns the settings being edited and the
 form they resolve to, for the whole window, exactly as `Backend/Session.cs` owns the running
@@ -221,11 +283,12 @@ listening on this endpoint - because that is what is true whether a start was at
 **Which sentence it is depends on who wrote the status, not on which code it carries.** A
 status the backend served carries prose written for a person and is shown as it arrived: the
 contract's table gives `UNAVAILABLE` to a relay that could not be reached and to a child
-process that would not start, so reading that code as absence answered a press of Go live with
-a sentence about the endpoint the shell had just resolved a form through. What says the backend
-is absent is `Status.DebugException`, which the client library sets on a status it made from a
-local failure and leaves null on one that arrived - told apart by code rather than by matching
-on a sentence, which is the input that changes without anything failing to compile.
+process that would not start, so reading that code as absence answered a press of Start
+sharing with a sentence about the endpoint the shell had just resolved a form through. What
+says the backend is absent is `Status.DebugException`, which the client library sets on a
+status it made from a local failure and leaves null on one that arrived - told apart by code
+rather than by matching on a sentence, which is the input that changes without anything
+failing to compile.
 
 That is the transport. What the flow finally does with it is the commit, and that is worth its
 own paragraph because it is the one control on this surface that changes the world.
@@ -277,9 +340,11 @@ would have hidden it - it is that the side the contract names as the owner has t
 owning, and the honest opening value is what makes the difference visible rather than plausible.
 
 Where the window goes afterwards is the window's. The flow raises `WentLive`, the shell records
-whether the review's switch asked for the broadcast screen, and it moves on the pass where the
-stream is actually in force - a start that was accepted is not yet a stream, and navigating on
-the reply would be the window claiming a state the backend has not reported.
+that it owes the reader the broadcast screen, and it moves on the pass where the stream is
+actually in force - a start that was accepted is not yet a stream, and navigating on the reply
+would be the window claiming a state the backend has not reported.
+Every start earns the move: a stream this window started is what the window then shows, so the
+destination a commit leads to is not a setting the review asks about.
 
 ### What is seeded rather than real
 
@@ -304,15 +369,29 @@ columns named figures nobody reports to a publisher, buffer fill and the decoder
 carry what the relay does measure at that width instead: what was dropped, and the leg it went
 out over.
 
+**The session log names who arrived and who left, and nothing announced either.**
+There is no arrival event and no departure event on the contract: the relay reports who is
+connected at each poll and says nothing about who stopped being.
+So the audience lines are the difference between two consecutive rosters in the snapshot series
+the session holds (`Features/Broadcast/Model/Audience.cs`), derived on every render pass rather
+than accumulated as viewers come and go.
+An arrival carries the relay's own join time, a departure the arrival time of the poll that first
+did not name the reader, and a poll that named no path for this stream contributes nothing at
+all - reading an unreachable relay as an empty roster would log every viewer leaving each time it
+hiccupped.
+
 What is still absent is the congestion band. The relay states its figures as they stand at each
 poll and marks no interval, so a window shaded on the latency plot would be a detection this side
 performed and attributed to the backend.
 
 What went with the seeds is worth listing, because each was a mockup number that read as a
-measurement: the on-air pill's timer, which stood at `00:42:18` in every window whatever was
+measurement: the sharing pill's timer, which stood at `00:42:18` in every window whatever was
 publishing and is now the encoder's own clock, read back off the broadcast screen so the pill in
 the chrome and the pill in the header cannot disagree; the sparkline's `60 s` window labels,
-which named a span the plot did not cover and are now the samples' own; the dashed red congestion
+which named a span the plot did not cover and now name the axis the plot is drawn on - both
+series are stamped, so a point is placed by when it was taken against a fixed span ending at the
+newest reading, and a run younger than that span fills the right of the card instead of being
+stretched over it; the dashed red congestion
 band, drawn at a fixed quarter of the way across a plot with nothing in it, for a condition
 nothing detects; the `vbv ceiling` rule, drawn at a constant third of the height while the curve
 is scaled to the run's own peak, so it marked the ceiling only by coincidence and now is placed
@@ -337,11 +416,18 @@ opened a decode of this machine's own stream and read it back off the relay - an
 screen beside it its own figures: the preview occupied a reader slot, so a stream nobody was
 watching reported a viewer and the worst-viewer plot described the publisher's own loopback.
 
-Two things about it are still the shell's own arrangement. Whether the card is on screen is an
-input the view writes on attach and detach, because the window renders every destination on
-every pass and frames nobody is looking at are GPU copies nobody asked for. And the placeholder
-stays for the states where there is no picture - nothing publishing, a stream the backend is not
-previewing, and the tile's own three - each of them saying which one it is.
+Two things about it are still the shell's own arrangement. Whether the card is being looked at
+is an input the view writes, because the window renders every destination on every pass and
+frames nobody is looking at are GPU copies nobody asked for. It is two facts: the control is in
+a visual tree, which it writes on attach and detach, and the window is in front of the reader,
+which it reads off `Features/Shell/Model/WindowPresence.cs`. That one is an interface because
+"in front" is each windowing system's own answer - macOS reports occlusion, Windows reports a
+cloaked window, X11 has `_NET_WM_STATE_HIDDEN` - and the reading every platform gets until one
+of them is given its own is Avalonia's: visible, not minimised, active. Losing the front is
+acted on a second late, so a click into another window and back costs no pool; getting it back
+is acted on at once. And the placeholder stays for the states where there is no picture -
+nothing publishing, a stream the backend is not previewing, and the tile's own three - each of
+them saying which one it is.
 
 The card's own sentence carries what the change made true and what it made invisible: the
 picture costs one local decode and no bandwidth and adds no viewer to the counts, and it is
@@ -349,9 +435,40 @@ taken *before* the relay, so it says nothing about what viewers receive. A reade
 perfect preview for a healthy stream would be reading it exactly wrong, which is why that
 sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
-The review's "Save as preset" switch is the one control on that screen that still does nothing.
-`SavePreset` takes a name and there is no field for one here yet, so wiring it would mean this
-module inventing what a preset is called (`docs/presets.md`).
+**The review carries the preset card, and it draws two different things under one heading.**
+Above are the built-in presets, which are promises about the picture: what "gaming" is on this
+machine is a search the backend ran over its own capability tables, so a row can be unreachable
+and what applying it writes differs from machine to machine (`docs/presets.md`).
+Below are the saved ones, and a saved preset is a name.
+That is what the switch this card replaced could not be: "Save as preset" was a flag, and a
+preset is kept, replaced and deleted by the name it is under, so the control was inert and would
+have stayed inert whatever it was wired to.
+The card is therefore a row per promise, a row per saved preset, and a name box
+(`Features/Setup/Presets/`).
+It sits on the review because a preset is the whole way of publishing and the review is where the
+whole way of publishing is read back - the steps each own a fraction of it.
+
+Two things about it follow from the contract rather than from the layout.
+
+A preset is a `PublishSettings` and nothing else, so applying one replaces that group of the draft
+and leaves the relay and the watch settings where they are (`docs/presets.md`).
+Nothing is committed by it: publish settings are staged until a commit carries them, so trying a
+preset out costs nothing and puts nothing on the air.
+
+The store is the one state on this seam that no event announces.
+Presets are a file the backend does not run on, so a save or a delete is followed by a read rather
+than by patching the list with what was just sent, and the re-read is offered as a button - a
+preset another window saved is invisible here until someone asks again.
+The built-in half needs none of that: it arrives on the form, so it is as current as everything
+else the resolve answered with, and applying one reads the settings off the form the window holds
+now rather than off the row that was rendered - a promise resolves against the draft, so what is
+behind a key moves as the draft does.
+
+Which row is marked as the one in force is derived on every pass, and the two halves derive it
+differently. A saved preset is marked while the draft equals it field for field, because a
+snapshot says every field. A built-in one is marked while the draft delivers its promise, which
+the backend states on the form, so a field the promise says nothing about can move without taking
+the mark off. Neither is a stored selection, so there is nothing to reconcile after a restart.
 
 **The viewer is a grid over a roster.** The grid draws the streams the reader asked to see,
 from the GPU memory the backend decoded them into: a row's `show` toggle opens a decode
@@ -378,10 +495,19 @@ already decides.
 `GetRelayStatus` and `GetViewerState`: which streams the relay carries, whether each is being
 served, what it says they carry, how many readers each has, what each is ingesting, and which
 legs this machine already has a viewer open on. The legs a row offers are the options of the
-form's watch-leg field, so this module holds no list of protocols; whether a given leg can
-carry a given stream is the backend's answer when the viewer is opened, and its refusal is
-shown as it stands. The relay snapshot can be older than the stream, so greying a leg here
-from a stale format would refuse a viewer that would have worked.
+form's watch-leg field, so this module holds no list of protocols, and each arrives carrying
+whether it is reachable and the sentence that says why not. A leg the availability pass ruled
+out keeps its place, greys and draws its reason under its name, the treatment every other
+option in the product gets (`docs/field-availability.md`). The reason is in the row rather than
+in a tip, because a disabled control in Avalonia takes no pointer and a tip on it never opens.
+
+**Two different facts, and only one of them is greyed.** Whether this machine has a player for
+a protocol at all is the availability pass's answer and it does not go stale, so the row obeys
+it. Whether a *given stream* can travel on a leg is answered against the stream when the viewer
+is opened, and the relay's snapshot can be older than the stream - greying from that would
+refuse a viewer that would have worked, so the backend refuses with the format named and the row
+shows that sentence instead. A leg already open stays pressable either way, because the press is
+what closes it.
 
 **The spotlight, the per-tile menu, the chip row and the pop-out windows are still gone.**
 They drew mockup figures beside real ones, and the thing they were mockups *of* needed
@@ -391,9 +517,17 @@ in the contract describes any of it either, and that is the point: how a viewer 
 it receives is this module's job, so the backend describes no grid to open, no tiles to
 report and no layout to pick (`docs/ipc-api.md`).
 
-`⇧S` is the tile's own key rather than the window's. A shortcut on the window would have to
-invent a rule for which tile it meant; hanging it off the tile makes the pointer that rule,
-which is why a press on a tile takes the keyboard and nothing is drawn for it.
+`F`, `O` and `P` are the tile's own keys rather than the window's, and they name the three
+states the menu's first group does: filling a screen, focused, and in a window of its own.
+A shortcut on the window would have to invent a rule for which tile it meant, and each candidate
+for that rule (the focused tile, the last one touched) is a second arrangement state to keep.
+Hanging them off the tile makes the pointer the rule instead, so each card listens for keys on
+the window it is drawn in and answers only while the pointer is over it
+(`Features/Viewer/Tile/View/TileKeys.cs`).
+The card never takes the keyboard, because taking it on hover would take it out of whatever the
+reader was typing in.
+The keys are one table, read by the press and by the gesture the menu row prints, since a menu
+that named a key nothing acted on would be wrong the moment either half moved.
 
 ## How the repository's principles land in C#
 
@@ -445,10 +579,11 @@ marshalled through an injected dispatcher rather than a toolkit reached for in p
 handed the same one, for the same reason.
 
 **And a round trip a reader started is a state, so it has one owner too.** Every control that
-asks the backend for something - Go live, Stop, Measure, Look again, Open full log, a stream's
-grid toggle and each of its watch legs - is a `Mvvm/PendingCommand.cs`: it holds whether the
-call it started is still out, refuses a second press off that same field, and clears it in a
-`finally` so a call that failed past whatever the effect handles still gives the control back.
+asks the backend for something - Start sharing, Stop sharing, Measure, Look again, Open full
+log, a stream's grid toggle and each of its watch legs - is a `Mvvm/PendingCommand.cs`: it
+holds whether the call it started is still out, refuses a second press off that same field,
+and clears it in a `finally` so a call that failed past whatever the effect handles still
+gives the control back.
 The view draws the wait from the identical field through `Controls/Pending/Pending.cs`, which
 is an attached property setting one pseudo-class, and `Design/Pending.axaml` says what that
 looks like once for every control rather than per call site. So a button that looks busy is a
@@ -479,7 +614,8 @@ its own aspect ratio makes it at that height, so nothing is cropped or stretched
 instead fill the width exactly would give each row its own height, and a row of one tile would come
 out about twice the height of a row of two - which draws as one big tile beside some small ones
 rather than as a grid. The height is therefore chosen once: the largest that lets every row fit the
-width and the whole stack fit the box. Rows are centred in whatever width their contents leave over.
+width and the whole stack fit the box. Rows are centred in whatever width their contents leave over,
+and the stack is centred in whatever height it leaves over.
 
 **Both layout passes solve the same box, and it is the viewport.** Inside a scroll viewer, measure
 is handed an unbounded height and arrange is handed back the height measure returned. Solving
@@ -492,17 +628,42 @@ a separate fact, which is what lets three windows be fullscreen on three monitor
 state a single app-wide fullscreen could not express. Folding either into the enum would give one
 field two meanings.
 
+**Fullscreen gives the screen to the stream, not to the app.** The window fills the monitor and
+everything else comes off it: the rail, the grid, the settings panel, and the shell's three bands,
+which are bound to the same fact the viewer holds (`ShellViewModel.HasChrome`). What is left is one
+picture at its stream's own shape on black, letterboxed by the same solver that arranges a single
+tile in a cell, so nothing is stretched to the shape of a monitor. Escape and a double click both
+end it, since a filled window draws no menu to reach for, and the window returns to the state it
+was in rather than to a normal one - a maximised window that came back restored would have lost a
+state the reader chose. A fullscreen the desktop put the window in is left alone: the pass only
+gives back what it took.
+
 **Windows are reconciled, not opened by an event.** The view model names the streams that should
 be in windows of their own; `ViewerView.axaml.cs` runs a pass that opens, closes and re-states
 windows until that is true. Running it twice with unchanged state does nothing, which is the same
 apply discipline everything else here follows - it is the code-behind exception only because
 nothing binds a window into existence.
 
+**A closed window reports a state, never a toggle.** Every close runs the same handler, and the
+pass closes windows itself for streams the reader has already given back, so a close that toggled
+would ask for the window it was reporting the end of (`TileIntent.LeavePopOut`). That is the
+general shape of news arriving from outside: what a window says when it closes is what is now
+true, and only the menu row and the key that mean "either way" are toggles.
+
 **A popped-out stream keeps its slot.** The tile stays in the arrangement at its stream's shape
 and draws a plate saying where the picture went, so nothing reflows when a stream pops out or
 comes back. That plate holds no frame subscription and asks for no render size: the popped window
 is the decode's only consumer, and a black box costing a full-size texture pool would be the one
 arrangement this shell paid for twice.
+
+**Whether a card draws the picture or the plate is the host's fact.** A popped-out stream is drawn
+by two cards off one tile, the slot it keeps in the grid and the window it went to, so a card that
+read the pop-out state off the tile would put the plate in both of them and the picture in neither.
+The grid states it on the card it templates (`TileCard.PictureElsewhere`), every other host draws
+the picture, and clearing the source is what makes the plate free rather than merely dark. The same
+split is why the main window's fullscreen names a stream in its own grid: a stream that pops out
+gives that window back, since a filled window drawing a plate is a screen given to a sentence about
+another window.
 
 **Levels have their own notification.** `Session.Changed` re-renders every screen and is right
 for a state that moved when something happened. Levels move fifteen times a second, so they land
