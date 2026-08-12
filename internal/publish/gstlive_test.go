@@ -72,6 +72,9 @@ func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 // can take: a mode that sends the encoder no rate has none to send it again.
 func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 	s := baseStream()
+	// A capture backend this engine runs, because the live table is gated on the engine
+	// and the default settings name one the other engine drives.
+	s.Publish.Capture = "ximagesrc"
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
 	s.Publish.BitrateM = 12
 	state := gstLiveState(s)
@@ -94,6 +97,7 @@ func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 // of 12000 where the element counts bits is twelve kilobits a second, not twelve megabits.
 func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	s := baseStream()
+	s.Publish.Capture = "ximagesrc"
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libvpx-vp9", capabilities.ModeCbr, "yuv420p"
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 	s.Publish.BitrateM = 12
@@ -104,6 +108,43 @@ func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	}
 	if !strings.HasPrefix(state.Properties[0].Name, "target-bitrate") {
 		t.Errorf("vp9's rate travels in %q", state.Properties[0].Name)
+	}
+}
+
+// The ffmpeg engine takes nothing back once it is running: neither the process nor the
+// command line it was given accepts a value, so a change there is a relaunch whatever it
+// touched. The engine is the only difference between the two configurations here, which is
+// what says the table is gated on it and not on the codec that happens to be selected.
+func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.BitrateM = 20
+
+	s.Publish.Capture = "x11grab"
+	if fields := LiveFields(s); len(fields) != 0 {
+		t.Errorf("the ffmpeg engine takes %v while it runs, and it takes nothing", fields)
+	}
+	next := s
+	next.Publish.BitrateM = 30
+	if live, err := LiveOnly(s, next); err != nil || live {
+		t.Errorf("a change on the ffmpeg engine is a relaunch, and this asked for an apply (%v, %v)", live, err)
+	}
+
+	s.Publish.Capture = "ximagesrc"
+	if fields := LiveFields(s); len(fields) != 1 {
+		t.Errorf("the same settings on the GStreamer engine take %v, want the bitrate alone", fields)
+	}
+}
+
+// A configuration no publisher runs is answered as not live rather than guessed at: a
+// capture backend with no engine behind it names one, and an apply decided on a guess would
+// leave a stream on values the child never took.
+func TestAnUnknownCaptureBackendIsNotLive(t *testing.T) {
+	s := baseStream()
+	s.Publish.Capture = "no-such-backend"
+	if fields := LiveFields(s); len(fields) != 0 {
+		t.Errorf("a capture backend with no engine reports %v as live", fields)
 	}
 }
 

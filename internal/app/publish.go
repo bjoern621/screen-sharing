@@ -131,10 +131,9 @@ func (a *App) livePublishLocked() (*settings.Settings, *publishRetry) {
 	return nil, nil
 }
 
-// Republish validates s, persists it and restarts the running publish on it. It is how
-// a settings change reaches a live stream: both engines run a child process built from
-// an argv, so a stream carrying other values is another pipeline, and another pipeline
-// is a new child.
+// Republish validates s, persists it and puts the running publish on it. Where the
+// running pipeline takes the change, it is written to the child and every viewer keeps
+// watching; where it does not, the child is replaced.
 //
 // The settings come from the caller for the reason StartPublish's do: the form writes
 // them on a debounce, and a restart on the settings the app happens to hold by then
@@ -156,7 +155,49 @@ func (a *App) Republish(s settings.Settings) error {
 	return err
 }
 
-// restartPublish replaces the running pipeline with one built from s.
+// applyLiveLocked writes s to the running child where the change is one it takes, and
+// reports whether it did. procMu is held by the caller.
+//
+// Two questions decide it, and neither is a list of field names: whether this engine's
+// child accepts values while it plays (publish.Live), and whether this change touches
+// nothing outside what such a child takes (publish.LiveOnly). Both answers come off the
+// one live table, so a form marking a control live and an apply that avoids the relaunch
+// cannot disagree.
+//
+// The run keeps its handle, its start time and its attempts, because the child never
+// restarted: what moved is the values it is holding. Mutating the run in place is what
+// says so, and it is what keeps the outgoing child's callbacks pointing at the run they
+// belong to.
+//
+// A write that fails leaves the caller to relaunch. The socket is the only way to reach a
+// child that is already playing, so a failed write is a child that cannot be told
+// anything, and reporting the apply as done would leave the stream on values nobody chose.
+func (a *App) applyLiveLocked(s settings.Settings) bool {
+	applier, live := publish.Live(a.run.handle)
+	if !live {
+		return false
+	}
+	only, err := publish.LiveOnly(a.run.settings, s)
+	if err != nil || !only {
+		return false
+	}
+	if err := applier.ApplyLive(s); err != nil {
+		logger.Warnf("the running pipeline did not take the change, so it is relaunched onto it: %v", err)
+		return false
+	}
+
+	a.run.settings = s
+	logger.Infof("applied the change to the running publish of '%s' without relaunching it", s.Publish.Name)
+	return true
+}
+
+// restartPublish puts the running pipeline on s, by writing to it where it takes the
+// change and by replacing it where it does not.
+//
+// The write is tried first and the teardown is what it avoids: a stream a viewer is
+// watching survives a bitrate edit, where the same edit used to cost every one of them a
+// reconnect. Everything below this line describes the replacement, which is what happens
+// for every change the child cannot be told about.
 //
 // The command is rendered before anything is torn down, so a combination no engine can
 // build refuses the restart and leaves the stream running what it has.
@@ -182,6 +223,9 @@ func (a *App) restartPublish(s settings.Settings) error {
 	running := a.run != nil && a.run.handle.Running()
 	if !running && a.retry == nil {
 		return fmt.Errorf("nothing is publishing, so there is no pipeline to apply the settings to")
+	}
+	if running && a.applyLiveLocked(s) {
+		return nil
 	}
 	if running {
 		a.run.handle.Stop()

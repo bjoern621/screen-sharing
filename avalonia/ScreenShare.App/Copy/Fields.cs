@@ -20,6 +20,15 @@ namespace ScreenShare.App.Copy;
 public static class Fields
 {
     /// <summary>
+    /// What a control the backend marked live costs to change while a stream is running.
+    ///
+    /// It sits beside the label, in a chip's width, so the answer is there before the edit
+    /// rather than after the picture has already blinked. Which controls carry it is the
+    /// backend's answer and moves with the settings; the sentence is this side's.
+    /// </summary>
+    public const string LiveNotice = "applies without reconnecting";
+
+    /// <summary>
     /// One control's copy: the heading over it, the paragraph behind it, and the article
     /// for the concept where one exists.
     /// </summary>

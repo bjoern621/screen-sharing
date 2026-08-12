@@ -145,6 +145,7 @@ public sealed class FieldViewModel : Observable
     private bool _hasPickedNote;
     private bool _isVisible;
     private bool _isEnabled;
+    private bool _appliesLive;
     private bool _hasHelp;
     private bool _hasDoc;
     private bool _hasReason;
@@ -227,6 +228,23 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>False for a knob with no meaning outside one selection. The control is not drawn at all.</summary>
     public bool IsVisible { get => _isVisible; private set => Set(ref _isVisible, value); }
+
+    /// <summary>
+    /// True where changing this control reaches the pipeline that is already carrying the
+    /// stream, so applying it costs nobody watching a reconnect. False on every control whose
+    /// value is part of that pipeline's shape, where the backend replaces the encoder child
+    /// and every viewer reconnects across the gap.
+    ///
+    /// It is the backend's answer per combination rather than a list held here: which engine
+    /// runs the capture backend decides whether anything applies live at all, and the codec
+    /// and rate-control mode decide whether the encoder is being sent that value. A list on
+    /// this side would keep promising a reconnect-free edit after the backend stopped being
+    /// able to deliver one.
+    /// </summary>
+    public bool AppliesLive { get => _appliesLive; private set => Set(ref _appliesLive, value); }
+
+    /// <summary>What a control marked <see cref="AppliesLive"/> costs to change, in the width the chip beside a label has.</summary>
+    public string LiveNotice => Copy.Fields.LiveNotice;
 
     public bool IsEnabled { get => _isEnabled; private set => Set(ref _isEnabled, value); }
 
@@ -326,6 +344,7 @@ public sealed class FieldViewModel : Observable
         HasUnit = Unit.Length > 0;
         IsVisible = field.Visible;
         IsEnabled = field.Enabled;
+        AppliesLive = field.Live;
 
         IsText = field.Control == ControlKind.Text;
         IsNumber = field.Control == ControlKind.Number;

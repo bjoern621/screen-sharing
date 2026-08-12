@@ -187,6 +187,22 @@ message Field {
   // constant-quality mode. It is not a third form of unavailability: it exists so a
   // knob the builder does forward is never greyed.
   Text note = 16;
+  // live is true where changing this field reaches the pipeline that is already
+  // carrying the stream, so applying it costs no viewer a reconnect. False everywhere
+  // else, which is every field whose value is part of the pipeline's shape: the
+  // backend replaces the child for those, and every viewer reconnects across the gap.
+  //
+  // It is stated per field and per combination rather than as a list a shell holds,
+  // because it is neither fixed nor the shell's: which engine runs the capture backend
+  // decides whether anything is live at all, and which codec and rate-control mode are
+  // selected decide whether the encoder is being sent that value in the first place. A
+  // shell with its own list would keep promising a reconnect-free edit after the
+  // backend stopped being able to deliver one.
+  //
+  // What a shell does with it is the shell's. Saying it up front is the point: a
+  // reader deciding whether to touch a control while people are watching wants to know
+  // the cost before the edit, not after the stream has already blinked.
+  bool live = 18;
 
   // value is what the field holds now, which is always a value present in the
   // settings. Where a dimension has no legal value left, the field keeps the

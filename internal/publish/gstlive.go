@@ -1,19 +1,16 @@
 package publish
 
 import (
+	"slices"
 	"strconv"
 
-	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// What a running pipeline will take, and what it will not.
-//
-// A publish that changes one of these does not have to become another pipeline: the value
-// reaches the encoder over the child's control socket and every viewer keeps watching,
-// where a relaunch costs each of them a reconnect. Everything else is a different pipeline
-// and says so by changing the rendered command (SamePipeline).
+// The GStreamer half of the live table: which element a write addresses, which property
+// each codec's bitrate travels in, and what a whole live state looks like on the wire.
+// Which fields are live at all is live.go.
 
 // gstEncoderName is what the encoder element is called in every pipeline this engine
 // builds, so a property write can name it.
@@ -30,6 +27,9 @@ const gstEncoderName = "enc"
 // rav1e ones. TestTheLivePropertiesAreWhatTheBuildersSpend holds every row to what the
 // mapping for that codec actually writes, so a row that drifts fails there rather than
 // setting a rate an element reads as something else entirely.
+//
+// A codec absent here is one whose encoder takes no rate while it runs, which is what
+// makes the bitrate not live for it: the row is the whole of the claim.
 var gstLiveBitrate = map[string]gstBitrateProperty{
 	"libx264":    {name: "bitrate", perSecond: false},
 	"libx265":    {name: "bitrate", perSecond: false},
@@ -67,20 +67,47 @@ func (p gstBitrateProperty) value(mbps int) string {
 	return strconv.Itoa(mbps * 1000)
 }
 
-// gstLiveState is what a running pipeline should be holding for these settings.
-//
-// A mode that sends the encoder no rate at all sends no write either: constant quality
-// aims at a quantizer and lossless at exactness, so a bitrate written there would be a
-// figure the element carries and never spends. The state is whole every time, which is
-// what lets the child converge to it rather than track what it was told before.
-func gstLiveState(s settings.Settings) gstrun.LiveState {
-	property, live := gstLiveBitrate[s.Publish.Codec]
-	if !live || !capabilities.TargetsBitrate(s.Publish.Mode) {
-		return gstrun.LiveState{}
+// gstLiveBitrateCodecs is every codec whose element takes a rate while it runs, sorted so
+// the rule this fills reads the same on every build.
+func gstLiveBitrateCodecs() []string {
+	out := make([]string, 0, len(gstLiveBitrate))
+	for codec := range gstLiveBitrate {
+		out = append(out, codec)
 	}
-	return gstrun.LiveState{Properties: []gstrun.Property{{
+	slices.Sort(out)
+	return out
+}
+
+// gstLiveBitrateWrite is what a running pipeline is told to hold these settings' bitrate.
+//
+// It is the row's own write and asks nothing about whether the field is live: that is the
+// row's when, and a write reached with the mode or the codec it is gated on would be
+// answering a question twice.
+func gstLiveBitrateWrite(s settings.Settings) []gstrun.Property {
+	property, mapped := gstLiveBitrate[s.Publish.Codec]
+	if !mapped {
+		return nil
+	}
+	return []gstrun.Property{{
 		Element: gstEncoderName,
 		Name:    property.name,
 		Value:   property.value(s.Publish.BitrateM),
-	}}}
+	}}
+}
+
+// gstLiveState is what a running pipeline should be holding for these settings.
+//
+// The state is whole every time, which is what lets the child converge to it rather than
+// track what it was told before: sending it twice changes nothing the second time, and one
+// that never arrived cannot leave the pipeline on a value nobody chose.
+func gstLiveState(s settings.Settings) gstrun.LiveState {
+	var state gstrun.LiveState
+	for _, key := range LiveFields(s) {
+		f, ok := liveFieldFor(key)
+		if !ok {
+			continue
+		}
+		state.Properties = append(state.Properties, f.write(s)...)
+	}
+	return state
 }

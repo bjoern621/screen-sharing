@@ -211,7 +211,7 @@ func (c Codec) ceilingRules() []rules.Rule {
 			out = append(out, rules.Rule{
 				When: c.when(engine, map[string]rules.Match{
 					rules.AxisCodec: rules.OneOf(c.Name),
-					rules.AxisMode:  rules.OneOf(bitrateModes()...),
+					rules.AxisMode:  rules.OneOf(BitrateModes()...),
 				}),
 				Verdict: rules.Refuse,
 				Field:   rules.AxisBitrateM,
@@ -226,11 +226,11 @@ func (c Codec) ceilingRules() []rules.Rule {
 	return out
 }
 
-// bitrateModes is the rate-control modes that aim at a bitrate the user sets, in the shape
-// a Match takes. It reads targetsBitrate rather than listing the three again, so the modes
-// a rule narrows the control in and the modes the validator checks the ceiling in cannot
-// come apart.
-func bitrateModes() []string {
+// BitrateModes is the rate-control modes that aim at a bitrate the user sets, in the
+// order the mode table declares them. It reads targetsBitrate rather than listing the
+// three again, so the modes a rule narrows the control in, the modes the validator checks
+// the ceiling in and the modes a running encoder takes a new rate in cannot come apart.
+func BitrateModes() []string {
 	out := make([]string, 0, len(Modes))
 	for _, mode := range Modes {
 		if targetsBitrate(mode) {

@@ -194,6 +194,7 @@ func resolveField(d Deps, s, fresh settings.Settings, f *field) *screensharev1.F
 		Enabled:      st.enabled,
 		Reason:       st.reason,
 		Note:         st.note,
+		Live:         verdictsOf(d, s).Live(f.key),
 		Value:        f.value(s),
 		DefaultValue: f.value(fresh),
 	}

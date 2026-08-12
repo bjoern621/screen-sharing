@@ -545,6 +545,22 @@ type Field struct {
 	// constant-quality mode. It is not a third form of unavailability: it exists so a
 	// knob the builder does forward is never greyed.
 	Note *Text `protobuf:"bytes,16,opt,name=note,proto3" json:"note,omitempty"`
+	// live is true where changing this field reaches the pipeline that is already
+	// carrying the stream, so applying it costs no viewer a reconnect. False everywhere
+	// else, which is every field whose value is part of the pipeline's shape: the
+	// backend replaces the child for those, and every viewer reconnects across the gap.
+	//
+	// It is stated per field and per combination rather than as a list a shell holds,
+	// because it is neither fixed nor the shell's: which engine runs the capture backend
+	// decides whether anything is live at all, and which codec and rate-control mode are
+	// selected decide whether the encoder is being sent that value in the first place. A
+	// shell with its own list would keep promising a reconnect-free edit after the
+	// backend stopped being able to deliver one.
+	//
+	// What a shell does with it is the shell's. Saying it up front is the point: a
+	// reader deciding whether to touch a control while people are watching wants to know
+	// the cost before the edit, not after the stream has already blinked.
+	Live bool `protobuf:"varint,18,opt,name=live,proto3" json:"live,omitempty"`
 	// value is what the field holds now, which is always a value present in the
 	// settings. Where a dimension has no legal value left, the field keeps the
 	// one it has and stays disabled with its reason, rather than showing a value the
@@ -647,6 +663,13 @@ func (x *Field) GetNote() *Text {
 		return x.Note
 	}
 	return nil
+}
+
+func (x *Field) GetLive() bool {
+	if x != nil {
+		return x.Live
+	}
+	return false
 }
 
 func (x *Field) GetValue() *FieldValue {
@@ -1214,7 +1237,7 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\x04note\x18\b \x01(\v2\x14.screenshare.v1.TextR\x04note\x12\x18\n" +
 	"\aenabled\x18\x05 \x01(\bR\aenabled\x12,\n" +
 	"\x06reason\x18\t \x01(\v2\x14.screenshare.v1.TextR\x06reason\x12 \n" +
-	"\vrecommended\x18\a \x01(\bR\vrecommendedJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aR\x05labelR\x06detail\"\x9e\x04\n" +
+	"\vrecommended\x18\a \x01(\bR\vrecommendedJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x06\x10\aR\x05labelR\x06detail\"\xb2\x04\n" +
 	"\x05Field\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x125\n" +
 	"\acontrol\x18\x02 \x01(\x0e2\x1b.screenshare.v1.ControlKindR\acontrol\x12(\n" +
@@ -1222,7 +1245,8 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\avisible\x18\a \x01(\bR\avisible\x12\x18\n" +
 	"\aenabled\x18\b \x01(\bR\aenabled\x12,\n" +
 	"\x06reason\x18\x0f \x01(\v2\x14.screenshare.v1.TextR\x06reason\x12(\n" +
-	"\x04note\x18\x10 \x01(\v2\x14.screenshare.v1.TextR\x04note\x120\n" +
+	"\x04note\x18\x10 \x01(\v2\x14.screenshare.v1.TextR\x04note\x12\x12\n" +
+	"\x04live\x18\x12 \x01(\bR\x04live\x120\n" +
 	"\x05value\x18\v \x01(\v2\x1a.screenshare.v1.FieldValueR\x05value\x12?\n" +
 	"\rdefault_value\x18\x11 \x01(\v2\x1a.screenshare.v1.FieldValueR\fdefaultValue\x125\n" +
 	"\aoptions\x18\f \x03(\v2\x1b.screenshare.v1.FieldOptionR\aoptions\x122\n" +

@@ -53,9 +53,21 @@
           <DataTemplate x:DataType="vm:FieldViewModel">
             <StackPanel Spacing="6" Margin="0,0,0,18">
 
-              <Grid ColumnDefinitions="*,Auto">
+              <!--
+                The label, what a change to it costs a viewer, and the unit its number is in.
+                The middle one is only on the controls the backend marked live: a reader
+                deciding whether to touch a knob while people are watching wants that before
+                the edit, not after the picture has blinked.
+              -->
+              <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBlock Grid.Column="0" Classes="secondary" Text="{Binding Label}" />
-                <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasUnit}" Text="{Binding Unit}" />
+                <TextBlock Grid.Column="1"
+                           Classes="hint"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding AppliesLive}"
+                           Text="{Binding LiveNotice}" />
+                <TextBlock Grid.Column="2" Classes="figure" IsVisible="{Binding HasUnit}" Text="{Binding Unit}" />
               </Grid>
 
               <TextBlock Classes="hint"

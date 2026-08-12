@@ -45,34 +45,7 @@ It is the largest contract change in the plan, larger than auth, and doing it la
 An application is identified by its binary and then its name, and a selection the enumeration no longer reports stays on the list with a note, the way a monitor index no enumeration reported does.
 The enumeration follows PipeWire node add and remove events: the application just launched is the one worth selecting, and that is the case a cache gets wrong every time.
 
-Gain is live.
-That is what the control socket below exists for.
-
-## Liveness
-
-Each field carries a `live` flag from the backend, and `ApplyToStream` applies the live subset and restarts only where a non-live field changed.
-A fixed list in the shell was rejected for the usual reason: a field that becomes live later would need a shell edit.
-
-The GStreamer engine gets a first-party binary that builds the pipeline and reads a control socket, replacing `gst-launch-1.0` while keeping the crash isolation the supervisor exists for.
-The ffmpeg engine is declared non-live, expressed as a rule on the engine axis, which makes engine liveness the first real customer of the axis registry.
-A wrapper per engine was considered and dropped as a second child implementation for one knob.
-
-Every socket message carries the whole desired live state and the child converges to it.
-A crash-restart is then indistinguishable from an apply, and a dropped message cannot leave the pipeline on a value nobody chose.
-
-**The binary is built** (`internal/gstrun`, `cmd/backend`), and it is this application spawned with a subcommand rather than a second artifact: a publish plays its pipeline in a process of this app's own, which keeps the crash isolation gst-launch gave and costs no packaging recipe a second file to find.
-The measuring runs - the encode probe and the test streams - stay on `gst-launch-1.0`, because what they need is a pipeline played and a count read off it, which is what that launcher does and all it does.
-
-What the swap was for is what a launcher cannot be asked.
-The child reports the capture's negotiated caps, which HDR reads, and it takes property writes on a control socket while the pipeline plays (`gstrun/control.go`): a state carries whole, the child converges to it and answers with what it applied, so a crash-restart and an apply are one operation and a dropped message cannot leave the pipeline on a value nobody chose.
-
-The parent's half is built with it.
-The engine opens a socket per run and passes its path on the subcommand; every encoder element carries one name so a write can address it whatever the codec; a table states which property the bitrate travels in and whether that element counts kbit or bits per second, held to what each mapping writes by a test; and `publish.LiveOnly` answers whether a change is an apply or a relaunch by putting the running settings' live subset onto the proposed ones and asking `SamePipeline`.
-
-Its first customer is the bitrate rather than the audio gain the design named: an encoder takes a new one while it runs, the socket is proved against `x264enc` doing exactly that, and it needs no settings field that does not exist yet.
-
-**What is left.** `App.Republish` still relaunches whatever changed: it is one call site, and what it asks is whether the running handle applies live (`publish.Live`) and whether this change is one of those (`publish.LiveOnly`).
-The `live` flag on the contract follows, so a shell can say which fields cost a reconnect before the user changes them.
+Gain is live: it is a row of the live table beside the bitrate, and the machinery it needs is built (`capture-architecture.md`, "Changing settings on a live stream").
 
 ## HDR
 

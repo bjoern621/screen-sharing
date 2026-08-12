@@ -49,10 +49,18 @@ const (
 	// Hide takes the control off the screen, for a backend implementation knob whose
 	// help describes a mechanism a reader on any other backend has no reason to meet.
 	Hide
+	// Live says a change to this control reaches the pipeline that is already carrying
+	// the stream, so applying it costs no viewer a reconnect.
+	//
+	// It is the one verdict that adds rather than takes away, and its default is
+	// therefore the opposite of the other three: a control nobody declares live is one a
+	// change rebuilds the pipeline for, which is what every control was before any of
+	// them could be written to a running child.
+	Live
 )
 
 // verdicts lists every verdict a rule may state, for the registration check.
-var verdicts = []Verdict{Refuse, Note, Hide}
+var verdicts = []Verdict{Refuse, Note, Hide, Live}
 
 // Rule is one constraint: the facts it binds under, and what it then says.
 type Rule struct {
@@ -104,8 +112,11 @@ func Register(rs ...Rule) {
 	for _, r := range rs {
 		assert.Assert(contains(verdicts, r.Verdict), "a rule states what binding does", int(r.Verdict), r.Field)
 		assert.Assert(r.Field != "", "a rule names the control it lands on", int(r.Verdict))
-		assert.Assert(r.Reason != screensharev1.TextCode_TEXT_CODE_UNSPECIFIED,
-			"a rule states the fact behind it", r.Field)
+		// Every verdict that replaces something on screen says what it is replacing it
+		// with. Live replaces nothing: it grants the control a property it did not have,
+		// and there is no sentence to write in place of a control nothing was taken from.
+		assert.Assert((r.Reason != screensharev1.TextCode_TEXT_CODE_UNSPECIFIED) == (r.Verdict != Live),
+			"a rule states the fact behind it, unless it takes nothing away", r.Field, int(r.Verdict))
 		for i, a := range r.Args {
 			// A nil argument would be dropped on the way to the statement, leaving a
 			// sentence with a hole where a figure the row promised should be.
@@ -123,9 +134,13 @@ func Register(rs ...Rule) {
 		// carries one per entry saying what that entry costs a viewer to decode.
 		//
 		// Hiding is about the control and never about one of its values, so a value set
-		// here would be a rule asking for a treatment that does not exist.
+		// here would be a rule asking for a treatment that does not exist. Liveness is
+		// about the control for the same reason: what reaches a running pipeline is a
+		// field's value, whichever value it is.
 		assert.Assert(r.Verdict != Hide || r.Values.everything(),
 			"hiding names no value", r.Field)
+		assert.Assert(r.Verdict != Live || r.Values.everything(),
+			"liveness names no value", r.Field)
 	}
 	registered = append(registered, rs...)
 }

@@ -84,12 +84,19 @@ Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg e
 
 ## Changing settings on a live stream
 
-A publish engine runs a child process built from a command line, and neither the GStreamer runner nor `ffmpeg` takes a value back once it is running.
-The runner is this application spawned with a subcommand (`internal/gstrun`), so the pipeline is one this app can be given a socket to talk to; until it has one, a value reaches a running pipeline the same way it reaches ffmpeg's, which is not at all.
-A live stream carrying other settings is therefore another pipeline, and reaching it means relaunching the child.
-`App.Republish` is that operation: it tears the running pipeline down and starts one built from the settings it is handed.
-Viewers reconnect across the gap, which is why the relaunch is asked for rather than made on every edit.
+A publish engine runs a child process built from a command line, and `ffmpeg` takes no value back once it is running.
+The GStreamer runner does: it is this application spawned with a subcommand (`internal/gstrun`), and the engine gives each run a control socket to converge on whole states.
+A stream carrying other settings is therefore another pipeline wherever the change is not one of those values, and reaching it means relaunching the child.
+`App.Republish` is that operation, and it takes the cheaper half first: where the running child accepts the change it is written to the socket and every viewer keeps watching, and where it does not the pipeline is torn down and rebuilt.
+Viewers reconnect across a rebuild, which is why the form asks for it rather than making it on every edit.
 The settings form stays editable while a stream is live, and a bar appears once what it shows is no longer what is publishing.
+
+**Which changes the child takes is one table.**
+`publish/live.go` names each settings field a running pipeline accepts a new value for, what has to hold for it - the engine, and whatever decides that the encoder is being sent the value at all - and how the child is told.
+`publish.LiveFields` answers it for a configuration and `publish.LiveOnly` asks whether a change stays inside it, by putting the running settings' live values back onto the proposal and comparing the rendered commands.
+The same rows register into the rule evaluator, so a form marking a control live (`field-availability.md`) and an apply that skips the relaunch are one statement.
+The bitrate is the field that carries it: every encoder element here has a rate property, and the socket's state is proved against `x264enc` taking a new one while it plays.
+A write the child refuses falls back to the relaunch, because a socket that cannot be reached is a child that cannot be told anything, and reporting the apply as done would leave the stream on values nobody chose.
 
 **The rendered command decides whether a relaunch is needed.**
 `publish.SamePipeline` renders both settings objects and compares the strings.
@@ -97,10 +104,11 @@ The command is the whole of what an engine hands its child, so a field no builde
 A table of which fields matter would be a second statement of the same fact, and would fall behind the builders the first time one of them read a field the table did not name.
 It is also what leaves the watch leg, the uplink figure and the relay's API port free to move under a running stream: no pipeline is built from them.
 
-**A run is replaced whole.**
+**A run is replaced whole, except where the child never restarted.**
 `App.run` is the publish in force, and it carries the settings its pipeline was built from.
 Those settings are what the pending state is measured against and what the form reverts to, so the value the user is shown as live is the one the child was started on rather than a copy kept beside it.
 A relaunch kills a child whose last progress sample and whose exit arrive after the replacement is already running, so both callbacks check the run they were created for.
+A write to the running child moves those settings in place instead: the handle, the start time and the attempts all belong to a process that is still playing, and replacing the run would leave that process's callbacks pointing at nothing.
 The `publish:exit` event reports the run the app still holds, which is the run nobody asked to end: a stop was asked for, and a relaunch has a pipeline running in its place already.
 
 **The order is refuse, tear down, launch.**

@@ -148,6 +148,13 @@ Where a column would otherwise print an ellipsis in every row forever - buffer f
 ## A live stream blocks no field
 
 Every field stays editable while a stream is publishing, and what reaches the stream is asked for separately (`capture-architecture.md`, "Changing settings on a live stream").
+What a change costs the people watching is a separate answer again, and the form states it per field: `Field.live` is true where the value is written to the pipeline that is already running, and false where applying it replaces the encoder child and every viewer reconnects across the gap.
+It is not one of the treatments above, because it takes nothing away.
+A live field is drawn, editable and offered exactly as it would be otherwise; the flag is what lets a shell say the cost before the edit rather than after the picture has blinked.
+
+Which fields carry it moves with the settings, which is why the backend answers it rather than a shell holding a list.
+The engine behind the capture backend decides whether anything is live at all, and the codec and the rate-control mode decide whether the encoder is being sent that value in the first place.
+The list lives in `publish/live.go`, registered into the rule evaluator as a `Live` verdict, so the flag a form carries and the decision `App.Republish` makes are one statement rather than two.
 The two controls a live stream does block are measurements rather than settings: the uplink speed test and the encode-capacity probe both run the real thing, so one would compete with the stream for the line and the other with the encoder for the silicon.
 Neither is a value the user chose, which is why the reason sits on the button that takes the measurement instead of greying the figure beside it.
 

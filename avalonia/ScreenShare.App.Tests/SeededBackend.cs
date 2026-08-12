@@ -787,6 +787,7 @@ internal sealed class SeededBackend : IBackend
             Enabled = enabled,
             Reason = reason,
             Note = note,
+            Live = LiveHere(seed.Key, settings),
             Value = ValueOf(seed.Key, settings),
             // What a fresh installation would hold here, read out of this fixture's own
             // defaults through the same reader the value goes through. The real form fills it
@@ -883,6 +884,24 @@ internal sealed class SeededBackend : IBackend
             default:
                 return (true, true, null, null);
         }
+    }
+
+    /// <summary>
+    /// Whether a change to one control reaches the pipeline that is already publishing,
+    /// seeded from <c>internal/publish/live.go</c>.
+    ///
+    /// One control carries it: the encoder takes a new bitrate while it runs, on the engine
+    /// whose child holds a control socket, in the modes that send the encoder a rate at all.
+    /// Everything else is part of the pipeline's shape and costs a relaunch.
+    /// </summary>
+    private bool LiveHere(string key, Settings settings)
+    {
+        if (key != "publish.bitrate_mbps")
+        {
+            return false;
+        }
+        return EngineOf.GetValueOrDefault(settings.Publish.Capture, "") == "gstreamer"
+            && settings.Publish.Mode is "cbr" or "vbr" or "abr";
     }
 
     /// <summary>

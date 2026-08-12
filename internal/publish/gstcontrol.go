@@ -116,17 +116,3 @@ func Live(h Handle) (LiveApplier, bool) {
 	a, ok := h.(LiveApplier)
 	return a, ok
 }
-
-// LiveOnly reports whether next differs from running in nothing but what a running
-// pipeline will take.
-//
-// It is asked rather than derived from a list of field names: the live subset is copied
-// off the running settings onto the proposed ones, and if the two then render the same
-// pipeline, everything that differs is something the socket can carry. A field no builder
-// reads changes neither rendering and is not a reason to relaunch either, which is the
-// same answer SamePipeline already gives.
-func LiveOnly(running, next settings.Settings) (bool, error) {
-	probe := next
-	probe.Publish.BitrateM = running.Publish.BitrateM
-	return SamePipeline(running, probe)
-}

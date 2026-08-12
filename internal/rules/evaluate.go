@@ -17,6 +17,7 @@ import (
 // about a screen (docs/field-availability.md).
 type Verdicts struct {
 	hidden     map[string]bool
+	live       map[string]bool
 	fieldStops map[string][]*screensharev1.Text
 	valueStops map[string]map[string][]*screensharev1.Text
 	fieldNotes map[string][]*screensharev1.Text
@@ -47,6 +48,7 @@ func EvaluateRules(f Facts, rs []Rule) Verdicts {
 
 	v := Verdicts{
 		hidden:     map[string]bool{},
+		live:       map[string]bool{},
 		fieldStops: map[string][]*screensharev1.Text{},
 		valueStops: map[string]map[string][]*screensharev1.Text{},
 		fieldNotes: map[string][]*screensharev1.Text{},
@@ -56,6 +58,13 @@ func EvaluateRules(f Facts, rs []Rule) Verdicts {
 
 	for _, r := range rs {
 		if !r.binds(f) {
+			continue
+		}
+		// A live rule states no fact to attach identifiers to, so the statement is not
+		// built for one: it grants the control a property rather than replacing it with a
+		// sentence.
+		if r.Verdict == Live {
+			v.live[r.Field] = true
 			continue
 		}
 		reason := r.state(f)
@@ -141,6 +150,13 @@ func (r Rule) state(f Facts) *screensharev1.Text {
 // Visible reports whether the control is drawn at all.
 func (v Verdicts) Visible(field string) bool {
 	return !v.hidden[field]
+}
+
+// Live reports whether a change to this control reaches a pipeline that is already
+// running. False is the answer for every control nothing declared live, which is the
+// answer that costs a reconnect and is therefore the safe one to be wrong about.
+func (v Verdicts) Live(field string) bool {
+	return v.live[field]
 }
 
 // Enabled reports whether the control takes edits. A control with values taken from it
