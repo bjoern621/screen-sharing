@@ -313,7 +313,9 @@ above, not by the package.
 
 Same model as Arch: declare the dependency, do not bundle.
 
-- Debian: `Depends: ffmpeg`.
+- Debian: `Depends: ffmpeg`, in a `.deb` no recipe here builds. A Debian install takes
+  the tarball below instead, which is why `docs/install.md` names the apt packages it
+  has to be given.
 - Fedora: `Requires: ffmpeg`. `packaging/fedora/screen-sharing.spec` is that channel,
   and it requires the two paths rather than the name, because `ffmpeg-free` and RPM
   Fusion's `ffmpeg` both provide them and either serves.
@@ -324,8 +326,11 @@ distribution.
 
 ### AppImage and Flatpak
 
-These formats are self-contained, so ffmpeg goes inside the image next to the
-binary.
+Neither format has a recipe here, so what follows is the model one would take rather
+than something to run.
+Both are self-contained, so ffmpeg goes inside the image next to the binary, which puts
+them on the bundling side of the rule above and hands them the obligations the Windows
+archive carries (`THIRD-PARTY-NOTICES.md`).
 A Flatpak additionally captures through the portal, so it needs no capability and
 runs in the sandbox unmodified; the manifest requests the `ScreenCast` portal
 rather than raw DRM access.
