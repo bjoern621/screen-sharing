@@ -25,6 +25,16 @@ var (
 		"hevc_nvenc": "-preset",
 		"h264_nvenc": "-preset",
 		"av1_nvenc":  "-preset",
+		// oneVPL names the seven points of its target-usage scale, so the ladder's numbers
+		// reach this engine through the map that spells them (qsvPresets).
+		"h264_qsv": "-preset",
+		"hevc_qsv": "-preset",
+		"av1_qsv":  "-preset",
+		"vp9_qsv":  "-preset",
+		// All three AMF encoders spell the scale alike, so the step reaches them verbatim.
+		"h264_amf": "-quality",
+		"hevc_amf": "-quality",
+		"av1_amf":  "-quality",
 	}
 	tuneFlags = map[string]string{
 		"libx264":     "-tune",
@@ -62,7 +72,7 @@ func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 					if !declared {
 						t.Fatalf("%s declares no effort step for %s, and the builder spends one", c.Name, mode)
 					}
-					assertFlagValue(t, args, flag, step)
+					assertFlagValue(t, args, flag, effortSpelling(c, step))
 				}
 				if flag, ok := tuneFlags[c.Name]; ok {
 					step, declared := c.Tune.StepFor(mode)
@@ -162,4 +172,18 @@ func assertFlagValue(t *testing.T, args []string, flag, want string) {
 	if args[i+1] != want {
 		t.Errorf("the builder passes %s %q, where the table declares %q", flag, args[i+1], want)
 	}
+}
+
+// effortSpelling is how this engine writes one step of a codec's ladder.
+//
+// Almost every ladder reaches ffmpeg as the step itself: the two engines differ in what the
+// option is called and not in what it carries. oneVPL's is the exception, because the scale
+// it defines is a number and ffmpeg names its seven points instead, so the builder's own map
+// is what this reads - a second table here would be a second spelling free to disagree with
+// the one the encoder is actually given.
+func effortSpelling(c capabilities.Codec, step string) string {
+	if c.Family != capabilities.FamilyQsv {
+		return step
+	}
+	return qsvPresets[step]
 }

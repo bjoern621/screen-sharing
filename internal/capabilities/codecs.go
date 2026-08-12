@@ -351,6 +351,7 @@ var Codecs = []Codec{
 		// profile and full chroma the High 4:4:4 Predictive one, and Intel's H.264
 		// encoder implements neither.
 		Name:        "h264_qsv",
+		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "h264",
 		Implemented: true,
@@ -362,6 +363,7 @@ var Codecs = []Codec{
 		// Main and Main 10. The profile needs no selecting: oneVPL writes the
 		// indication from the bit depth of the surfaces the encoder is handed.
 		Name:        "hevc_qsv",
+		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "hevc",
 		Implemented: true,
@@ -374,6 +376,7 @@ var Codecs = []Codec{
 		// the quantizer is AV1's base_q_idx on its 0-255 scale rather than the H.26x
 		// 0-51 one.
 		Name:        "av1_qsv",
+		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "av1",
 		Implemented: true,
@@ -393,6 +396,7 @@ var Codecs = []Codec{
 		// either number for both would take a quality step away from one engine or
 		// promise one the other silently clamps.
 		Name:        "vp9_qsv",
+		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "vp9",
 		Implemented: true,
@@ -416,6 +420,7 @@ var Codecs = []Codec{
 	// AMD card.
 	{
 		Name:        "h264_amf",
+		Effort:      Ladder{Steps: amfPresets, Defaults: amfPresetDefaults},
 		Family:      FamilyAmf,
 		Format:      "h264",
 		Implemented: true,
@@ -430,6 +435,7 @@ var Codecs = []Codec{
 		// (amfHevcProfiles), since AMF writes a Main profile indication over a 10-bit
 		// bitstream when left to its default.
 		Name:        "hevc_amf",
+		Effort:      Ladder{Steps: amfPresets, Defaults: amfPresetDefaults},
 		Family:      FamilyAmf,
 		Format:      "hevc",
 		Implemented: true,
@@ -446,6 +452,7 @@ var Codecs = []Codec{
 		// range signals limited in the sequence header, where the H.264 and HEVC rows
 		// on the same runtime signal the range they are given.
 		Name:        "av1_amf",
+		Effort:      Ladder{Steps: amfPresets, Defaults: amfPresetDefaults},
 		Family:      FamilyAmf,
 		Format:      "av1",
 		Implemented: true,

@@ -578,15 +578,6 @@ func vaTargetPercentage(s settings.Settings) string {
 	return strconv.Itoa(min(pct, 100))
 }
 
-// The two points on the qsv elements' target-usage scale the modes encode at. The scale
-// runs from 1 for best quality to 7 for best speed, and cbr trades quality for the
-// encoder keeping up with a live capture, as the NVENC preset ladder does at the same
-// point. The other three sit at the balanced point, which is also the elements' default.
-const (
-	qsvLiveTargetUsage    = "7"
-	qsvQualityTargetUsage = "4"
-)
-
 // qsvAbrPeak is the factor the abr mapping places its ceiling at above the target, the
 // same derivation the ffmpeg builder's QSV mapping uses, so an unbounded average means
 // the same thing on both publish engines.
@@ -643,24 +634,27 @@ func qsvShortRateLimits(s settings.Settings) error {
 //
 // bitrate and max-bitrate are in kbit/s. The VBV window does not reach these elements:
 // they expose no rate-buffer property, so the settings' figure binds on the ffmpeg engine
-// alone. No effort step and no B-frame count: target-usage is this family's own
-// speed/quality axis and its row declares no ladder for it yet, and the elements code no
+// alone. The effort step is the settings' own and reaches the element as its target-usage,
+// which is the property oneVPL's scale is spelled on here. No B-frame count: the elements code no
 // B-pictures unless asked, which matches the ffmpeg mapping pinning them off.
 func qsvEncoder(elem string) func(settings.Settings, gstRates, capabilities.Steps) []string {
-	return func(s settings.Settings, r gstRates, _ capabilities.Steps) []string {
+	return func(s settings.Settings, r gstRates, l capabilities.Steps) []string {
 		base := []string{elem, "gop-size=" + r.gop}
+		if l.Effort != "" {
+			base = append(base, "target-usage="+l.Effort)
+		}
 		switch s.Publish.Mode {
 		case "crf":
-			return append(base, "rate-control=cqp", "target-usage="+qsvQualityTargetUsage,
+			return append(base, "rate-control=cqp",
 				"qp-i="+r.cq, "qp-p="+r.cq)
 		case "abr":
-			return append(base, "rate-control=vbr", "target-usage="+qsvQualityTargetUsage,
+			return append(base, "rate-control=vbr",
 				"bitrate="+r.kbps, "max-bitrate="+strconv.Itoa(s.Publish.BitrateM*1000*qsvAbrPeak))
 		case "vbr":
-			return append(base, "rate-control=vbr", "target-usage="+qsvQualityTargetUsage,
+			return append(base, "rate-control=vbr",
 				"bitrate="+r.kbps, "max-bitrate="+r.maxkbps)
 		case "cbr":
-			return append(base, "rate-control=cbr", "target-usage="+qsvLiveTargetUsage,
+			return append(base, "rate-control=cbr",
 				"bitrate="+r.kbps, "low-latency=true")
 		default:
 			assert.Never("unexpected rate-control mode", s.Publish.Mode)

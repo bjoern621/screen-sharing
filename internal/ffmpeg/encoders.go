@@ -337,14 +337,31 @@ func vaapiArgs(quantizer string) encoderArgsFunc {
 	}
 }
 
-// The two points on oneVPL's target-usage scale the modes encode at, spelled as ffmpeg
-// names them: cbr trades quality for the encoder keeping up with a live capture, as the
-// NVENC preset ladder and the AMF quality scale do at the same point, and the other three
-// sit at the balanced point in the middle of the scale.
+// The two ends of oneVPL's target-usage scale the ladder's defaults sit at, spelled as
+// ffmpeg names them. They are named here because the two are the ones the map below is read
+// for most: the balanced point in the middle of the scale, and the speed end a live rate is
+// held at.
 const (
 	qsvLivePreset    = "veryfast"
 	qsvQualityPreset = "medium"
 )
+
+// qsvPresets is this engine's spelling of oneVPL's target-usage scale.
+//
+// The ladder is the scale's own numbers, because that is what oneVPL defines and what the
+// GStreamer elements take on their target-usage property; ffmpeg names the same seven points
+// instead, and this is where the one becomes the other. A step with no name here is one this
+// engine cannot ask for, and it passes no preset at all rather than a nearby one - the
+// encoder's own default is an honest answer where a substituted step is a silent one.
+var qsvPresets = map[string]string{
+	"1": "veryslow",
+	"2": "slower",
+	"3": "slow",
+	"4": qsvQualityPreset,
+	"5": "fast",
+	"6": "faster",
+	"7": qsvLivePreset,
+}
 
 // qsvAbrPeak is the factor the abr mapping places its ceiling at above the bitrate
 // target, the same derivation the VAAPI, AMF and Vulkan mappings use.
@@ -384,12 +401,11 @@ const qsvLiveAsyncDepth = "1"
 // cannot spend. The target usage is the builder's choice for a different reason: oneVPL's
 // scale is a ladder this row does not declare yet, so there is no step for the settings to
 // carry and the form greys the control (capabilities/ladders.go).
-func qsvArgs(s settings.Settings, r rates, _ capabilities.Steps) []string {
-	preset := qsvQualityPreset
-	if s.Publish.Mode == "cbr" {
-		preset = qsvLivePreset
+func qsvArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
+	base := []string{"-c:v", s.Publish.Codec, "-bf", "0"}
+	if preset, named := qsvPresets[l.Effort]; named {
+		base = append(base, "-preset", preset)
 	}
-	base := []string{"-c:v", s.Publish.Codec, "-preset", preset, "-bf", "0"}
 	switch s.Publish.Mode {
 	case "crf":
 		return append(base, "-q:v", r.cq)
@@ -529,7 +545,7 @@ func amfNoBPictures(rates) []string {
 // AMF's scale is a ladder this row does not declare yet, so there is no step for the
 // settings to carry and the form greys the control (capabilities/ladders.go).
 func amfArgs(profiles map[string]string, options func(rates) []string) encoderArgsFunc {
-	return func(s settings.Settings, r rates, _ capabilities.Steps) []string {
+	return func(s settings.Settings, r rates, l capabilities.Steps) []string {
 		base := []string{"-c:v", s.Publish.Codec}
 		if profile, ok := profiles[s.Publish.Chroma]; ok {
 			base = append(base, "-profile", profile)
@@ -537,11 +553,13 @@ func amfArgs(profiles map[string]string, options func(rates) []string) encoderAr
 		if options != nil {
 			base = append(base, options(r)...)
 		}
-		preset := amfQualityPreset
-		if s.Publish.Mode == "cbr" {
-			preset = amfLivePreset
+		base = append(base, "-usage", amfUsage)
+		// The step is the settings' own and reaches the encoder verbatim: all three AMF
+		// encoders spell the scale the same way, so there is nothing to map here the way
+		// oneVPL's numbers need mapping.
+		if l.Effort != "" {
+			base = append(base, "-quality", l.Effort)
 		}
-		base = append(base, "-usage", amfUsage, "-quality", preset)
 		switch s.Publish.Mode {
 		case "crf":
 			return append(base, "-rc", "cqp", "-qp_i", r.cq, "-qp_p", r.cq)

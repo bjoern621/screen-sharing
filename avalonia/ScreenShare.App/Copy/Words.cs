@@ -208,6 +208,12 @@ public static class Words
         ["veryfast"] = "Very fast",
         ["superfast"] = "Superfast",
         ["ultrafast"] = "Ultrafast · fastest",
+
+        // AMD's quality scale, which all three of its encoders spell alike. Three steps and
+        // no ladder between them, so each carries a word.
+        ["quality"] = "Quality",
+        ["balanced"] = "Balanced",
+        ["speed"] = "Speed",
     };
 
     /// <summary>

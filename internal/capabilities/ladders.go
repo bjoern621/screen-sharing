@@ -14,11 +14,14 @@ import "strconv"
 // what a mode is worth running at is a fact about the encoder, and a fact written into
 // two switch statements is one that drifts between engines.
 //
-// Three families declare no ladder yet, and their absence is stated rather than implied.
-// QSV spends a step on oneVPL's target-usage scale and AMF one on its own quality preset,
-// both of which the builders still hold as constants, and VAAPI has no such knob at all on
-// either engine. A ladder for the first two is a reading off those encoders that has not
-// been taken, and declaring one from memory is what this file exists not to do.
+// VAAPI declares no ladder, and its absence is stated rather than implied: neither engine's
+// VAAPI path has such a knob at all, so the form greys the control there and names the codec.
+//
+// The QSV and AMF ladders below are the two encoders' own documented scales rather than a
+// reading taken off silicon that is not here. Each is stated as the range its API defines and
+// each engine's spelling of it is the builder's, which is what the equivalence test holds: a
+// step this table declares and an element refuses is a publish that dies at launch, so the
+// ladders are the ranges the vendors publish and nothing wider.
 
 // x264Presets is the ladder libx264 and libx265 share, most effort first.
 //
@@ -148,6 +151,48 @@ var (
 	svtav1Preset = everyMode("9")
 	rav1eDefault = everyMode("10")
 )
+
+// qsvTargetUsages is oneVPL's target-usage scale, most effort first.
+//
+// The scale is the API's own and runs 1 to 7, where 1 is the quality end and 7 the speed one,
+// which is the same direction every numeric ladder here counts in. It is stated as the
+// numbers rather than as ffmpeg's names for them, because the numbers are what oneVPL
+// defines and the names are one engine's spelling: the GStreamer elements take the figure
+// directly on their target-usage property, and the ffmpeg builder maps it onto -preset
+// (ffmpeg/encoders.go, qsvPresets).
+var qsvTargetUsages = steps(1, 7)
+
+// qsvTargetUsageDefaults is where each mode starts on that scale.
+//
+// The two points are the trade the builders already made: the middle of the scale for the
+// modes aiming at a quality or a rate, and the speed end for the one holding a live rate,
+// which is the same split NVENC's preset ladder makes at the same place.
+var qsvTargetUsageDefaults = map[string]string{
+	ModeCrf:      "4",
+	ModeAbr:      "4",
+	ModeVbr:      "4",
+	ModeCbr:      "7",
+	ModeLossless: "4",
+}
+
+// amfPresets is AMD's quality preset, most effort first.
+//
+// Three steps and not more: quality, balanced and speed are what every AMF encoder in the
+// table implements and what both this app's encoders spell alike. The higher preset newer
+// VCN generations add is deliberately absent, for the reason amfUsage names in the builder -
+// the older generations refuse it, and a ladder step that fails on the hardware half the
+// users have is a publish that dies at launch.
+var amfPresets = []string{"quality", "balanced", "speed"}
+
+// amfPresetDefaults is where each mode starts, the same split every hardware family here
+// makes: the quality end where the encode is aiming at one, the speed end where it is
+// holding a live rate.
+var amfPresetDefaults = map[string]string{
+	ModeCrf: "quality",
+	ModeAbr: "quality",
+	ModeVbr: "quality",
+	ModeCbr: "speed",
+}
 
 // TuneNone is the settings value for an encode that is not tuned.
 //

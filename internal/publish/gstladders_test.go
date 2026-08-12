@@ -30,6 +30,12 @@ var gstEffortProperties = map[string]string{
 	"h264_nvenc": "preset",
 	"hevc_nvenc": "preset",
 	"av1_nvenc":  "preset",
+	// The qsv elements take oneVPL's target usage as the number the scale itself defines,
+	// where the ffmpeg engine names the same seven points.
+	"h264_qsv": "target-usage",
+	"hevc_qsv": "target-usage",
+	"av1_qsv":  "target-usage",
+	"vp9_qsv":  "target-usage",
 }
 
 // The ladders state what the elements spend, which is the same claim
@@ -149,6 +155,15 @@ func mustGstEncoder(t *testing.T, c capabilities.Codec, mode string) []string {
 	if limit := c.BitrateLimitOn(capabilities.EngineGst); limit > 0 && s.Publish.BitrateM > limit {
 		s.Publish.BitrateM = limit
 	}
+	// Under the bound the element's own properties impose as well, which the capability
+	// table does not carry: two of the qsv elements state their rate in an unsigned 16-bit
+	// field, and a draft above it is refused before any ladder step is spent
+	// (qsvShortRateLimits). What this asks about is the step, so the rate is put where the
+	// question can be reached.
+	if elementRateCeilingM > 0 && s.Publish.BitrateM > elementRateCeilingM {
+		s.Publish.BitrateM = elementRateCeilingM
+		s.Publish.MaxrateM = elementRateCeilingM
+	}
 
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
@@ -183,3 +198,12 @@ func tuneProperties(encoder []string) string {
 	}
 	return ""
 }
+
+// elementRateCeilingM is a rate every element in the table accepts, in megabits.
+//
+// It is the lowest bound any of them imposes, divided by the largest factor a mode places a
+// ceiling at above the target: the abr mappings ask for headroom above the rate, so a draft
+// exactly at the bound is one the ceiling then exceeds. One figure for every codec rather
+// than a lookup per row, because what it is for is reaching the question - this asks about
+// ladder steps, and a rate refused before the step is spent answers a different one.
+var elementRateCeilingM = qsvShortBitrateKbps / 1000 / qsvAbrPeak

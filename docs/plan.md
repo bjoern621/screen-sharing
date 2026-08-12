@@ -20,11 +20,13 @@ None of it exists today.
 
 ## Effort and tune
 
-Built: both ladders, both controls, both builders, on both engines.
+Built: every ladder, both controls, both builders, on both engines.
 The reasoning moved to `domain-model.md`, "The two ladders".
 
-**What is left.** The QSV and AMF ladders, which have to be read off those encoders rather than declared from memory.
-Both builders still spend a constant on oneVPL's target-usage scale and AMF's quality preset, and both controls grey for those families meanwhile.
+The last two are the QSV and AMF ones, declared from the scales the two vendors define rather than from a reading taken off silicon: oneVPL's target usage runs 1 for quality to 7 for speed, and AMD's quality preset has the three steps every VCN generation implements.
+Each engine spells them its own way and the ladder is the scale itself, which is what keeps a stream's look off the capture backend that produced it: the GStreamer qsv elements take the number on `target-usage`, ffmpeg names the same seven points on `-preset`, and all three AMF encoders take the step verbatim.
+The higher AMF preset newer generations add is deliberately absent, because a step the older hardware refuses is a publish that dies at launch.
+
 VAAPI needs no ladder: neither engine's VAAPI path has such a knob at all.
 
 The NVENC steps on the GStreamer engine are forwarded but not yet run.

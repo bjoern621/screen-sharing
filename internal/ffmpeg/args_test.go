@@ -727,7 +727,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// name would otherwise be read off an absent row.
 	s = baseStream()
 	s.Publish.AudioCodec = "mp3"
-		s.Publish.AudioSources = settings.Recording("desktop")
+	s.Publish.AudioSources = settings.Recording("desktop")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an audio codec the table does not carry")
 	}
@@ -737,7 +737,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	s = baseStream()
 	s.Publish.Transport, s.Publish.Codec, s.Publish.Chroma = "webrtc", "libx264", "yuv420p"
 	s.Publish.AudioCodec = "aac"
-		s.Publish.AudioSources = settings.Recording("desktop")
+	s.Publish.AudioSources = settings.Recording("desktop")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an AAC track over webrtc")
 	}
