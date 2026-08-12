@@ -321,13 +321,20 @@ func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]strin
 	if device == "" {
 		return nil, fmt.Errorf("audio source %q names no device to open", a.Source)
 	}
-	return []string{
-		"pulsesrc", "device=" + device,
+	// An application is a PipeWire node and not a sound device, so it is opened by the
+	// element that speaks to nodes: PulseAudio has no way to record one program's stream at
+	// all, which is why the kind is this engine's and why the source element differs per kind
+	// rather than the device string alone.
+	source := []string{"pulsesrc", "device=" + device}
+	if a.Source == platform.AudioSourceApplication {
+		source = []string{"pipewiresrc", "target-object=" + device}
+	}
+	return append(source, []string{
 		"!", "queue",
 		"!", "audioconvert",
 		"!", "volume", "name=" + gstAudioVolumeName(i), fmt.Sprintf("volume=%.3f", a.Volume()),
 		"!", gstAudioMixElement + ".",
-	}, nil
+	}...), nil
 }
 
 // gstChromaFormats maps a settings chroma (the ffmpeg pixel-format name) to the

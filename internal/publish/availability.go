@@ -142,7 +142,22 @@ func AudioAvailable(capture, audio string) (bool, *screensharev1.Text) {
 	need, ok := needsOf(capture)
 	assert.Assert(ok, "an asked-about capture backend is a registered one", capture)
 
-	return platform.AudioSourceAvailable(audio, platform.Info{OS: need.os})
+	if available, reason := platform.AudioSourceAvailable(audio, platform.Info{OS: need.os}); !available {
+		return false, reason
+	}
+
+	// One kind is an engine's as well as a platform's. An application playing sound is a
+	// PipeWire node, and only the GStreamer engine has an element that opens one - ffmpeg's
+	// pulse input takes a device, and PulseAudio has no way to record one program's stream
+	// at all. The engine is what a capture backend fixes, which is why this is the one place
+	// that can say it.
+	if audio == platform.AudioSourceApplication && engineOf(capture) != EngineGst {
+		return false, text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE,
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO, audio),
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE, engineOf(capture)),
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_OTHER_ENGINE, EngineGst))
+	}
+	return true, nil
 }
 
 // Grant is the privilege the capture backend needs and no probe can establish,
@@ -187,4 +202,15 @@ func needsOf(capture string) (needs, bool) {
 		}
 	}
 	return needs{}, false
+}
+
+// engineOf is the publish engine a capture backend runs, and the empty string for one no
+// publisher carries. It is the same lookup EngineFor makes and answers without an error,
+// because every caller here holds a backend the registry already named.
+func engineOf(capture string) string {
+	engine, err := EngineFor(capture)
+	if err != nil {
+		return ""
+	}
+	return engine
 }

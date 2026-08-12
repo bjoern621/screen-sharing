@@ -298,6 +298,10 @@ public static class Statements
             TextCode.AudioDeviceNotEnumerated =>
                 "not here right now",
 
+            TextCode.AudioSourceUnservedByEngine =>
+                $"{Words.Engine(a.Engine)} has nothing that opens {Words.AudioSource(a.Audio)} audio. "
+                + $"Pick a capture method that runs {Words.Engine(a.OtherEngine)}.",
+
             TextCode.AudioSourceUnserved => a.Os switch
             {
                 "windows" => "Windows offers no way to record what it is playing that either encoder can open. "

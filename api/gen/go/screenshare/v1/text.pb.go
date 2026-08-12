@@ -531,6 +531,11 @@ const (
 	// no leg carries it over the relay yet, so somebody watching from another machine sees
 	// no pointer. No arguments.
 	TextCode_TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY TextCode = 127
+	// The platform serves this capture source and the engine behind this capture backend
+	// has nothing that opens it. TEXT_ARG_NAME_AUDIO names the source,
+	// TEXT_ARG_NAME_ENGINE the engine that cannot, and TEXT_ARG_NAME_OTHER_ENGINE the one
+	// that can.
+	TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE TextCode = 128
 	// No engine can build these settings, and Summary.command_error carries the
 	// builder's own refusal. It is the one statement that quotes a raw string, because
 	// what refused is an operational failure rather than a fact about the domain: the
@@ -668,6 +673,7 @@ var (
 		125: "TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED",
 		126: "TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE",
 		127: "TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY",
+		128: "TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE",
 		130: "TEXT_CODE_PUBLISH_REFUSED",
 		131: "TEXT_CODE_NO_UPLINK_STATED",
 		132: "TEXT_CODE_UPLINK_BELOW_PREDICTION",
@@ -776,6 +782,7 @@ var (
 		"TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED":          125,
 		"TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE":           126,
 		"TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY":           127,
+		"TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE":      128,
 		"TEXT_CODE_PUBLISH_REFUSED":                      130,
 		"TEXT_CODE_NO_UPLINK_STATED":                     131,
 		"TEXT_CODE_UPLINK_BELOW_PREDICTION":              132,
@@ -1135,7 +1142,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\xe4!\n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\x94\"\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1232,7 +1239,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"%TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE\x10|\x12)\n" +
 	"%TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED\x10}\x12(\n" +
 	"$TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE\x10~\x12(\n" +
-	"$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY\x10\x7f\x12\x1e\n" +
+	"$TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY\x10\x7f\x12.\n" +
+	")TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE\x10\x80\x01\x12\x1e\n" +
 	"\x19TEXT_CODE_PUBLISH_REFUSED\x10\x82\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_NO_UPLINK_STATED\x10\x83\x01\x12&\n" +
 	"!TEXT_CODE_UPLINK_BELOW_PREDICTION\x10\x84\x01\x12!\n" +

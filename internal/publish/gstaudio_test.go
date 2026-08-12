@@ -175,3 +175,46 @@ func TestTheLevelsAreLiveAndTheListIsNot(t *testing.T) {
 		t.Error("asking whether a change is live changed the settings it was asked about")
 	}
 }
+
+// An application is a PipeWire node and not a sound device, so it is opened by the element
+// that speaks to nodes. PulseAudio cannot record one program's stream at all, which is why the
+// kind is this engine's and why the source element differs per kind rather than the device
+// string alone.
+func TestAnApplicationIsOpenedThroughPipeWire(t *testing.T) {
+	s := audioStream(settings.AudioSource{
+		Source: platform.AudioSourceApplication,
+		Device: "spotify",
+		Gain:   settings.GainUnity,
+	})
+
+	branch, err := gstAudioBranch(s)
+	if err != nil {
+		t.Fatalf("building the audio branch: %v", err)
+	}
+	line := strings.Join(branch, " ")
+	if !slices.Contains(branch, "pipewiresrc") {
+		t.Errorf("an application is opened by %s, want the element that takes a node", line)
+	}
+	if !slices.Contains(branch, "target-object=spotify") {
+		t.Errorf("the branch targets nothing named: %s", line)
+	}
+	if slices.Contains(branch, "pulsesrc") {
+		t.Errorf("an application is opened through PulseAudio, which cannot record one: %s", line)
+	}
+}
+
+// The kind is refused on the engine that has nothing to open it with, which is a second
+// question from whether the platform serves it: the platform's answer is about the machine and
+// this one is about the pipeline that would run there.
+func TestTheApplicationKindIsRefusedOnTheEngineThatCannotOpenIt(t *testing.T) {
+	if available, _ := AudioAvailable("ximagesrc", platform.AudioSourceApplication); !available {
+		t.Error("the GStreamer engine cannot open an application, and it has the element for it")
+	}
+	available, reason := AudioAvailable("x11grab", platform.AudioSourceApplication)
+	if available {
+		t.Error("the ffmpeg engine offers per-application audio, and nothing there records one")
+	}
+	if reason == nil {
+		t.Error("the refusal says nothing, so a greyed entry teaches nothing")
+	}
+}

@@ -44,11 +44,12 @@ Two tracks were rejected on carriage, and the sources mix into one.
 Kinds stay a declared table (`desktop`, `mic`, `application`), and what is inside a kind is enumerated (`internal/audiodev`), cached for the process lifetime and read back separately from the probe.
 Gain and mute are one live field beside the bitrate: they reach the mixer that is already running, where an entry added or taken off is a different graph and a relaunch.
 
-**What is left.** Per-application capture, which is the third kind: it is declared and greyed everywhere, because it is PipeWire-native on Linux and needs platform code on Windows (WASAPI process loopback) and macOS (ScreenCaptureKit or CoreAudio taps).
-An application is identified by its binary and then its name, and a selection the enumeration no longer reports stays on the list with a note, the way a monitor index no enumeration reported does - that half is built, and what is missing is anything to enumerate.
+**Built: per-application capture.** An application playing sound is a PipeWire node, so recording one is taking that node's output: the enumeration reports the output streams beside the sinks and the sources, and the GStreamer branch opens one with `pipewiresrc target-object=` where the other kinds take a `pulsesrc device=`.
+It is Linux's alone and the GStreamer engine's alone, and the two refusals are separate because they send a reader to different places: Windows needs WASAPI process loopback and macOS a ScreenCaptureKit or CoreAudio tap, and ffmpeg's pulse input takes a device where PulseAudio cannot record one program's stream at all.
+An application is named by its own name and identified by its node, and a selection the enumeration no longer reports stays on the list with a note.
 
-The enumeration should follow PipeWire node add and remove events rather than being taken once: the application just launched is the one worth selecting, and that is the case a cache gets wrong every time.
-What is built reads `pactl` on the first resolve and answers from memory afterwards, which is right for the devices a machine has and wrong for the applications it is running.
+**What is left.** The enumeration is taken once and cached for the process lifetime, which is right for the devices a machine has and wrong for the applications it is running: the one just launched is the one worth selecting, and that is the case a cache gets wrong every time.
+Following PipeWire's own add and remove events is what replaces it.
 
 ## HDR
 

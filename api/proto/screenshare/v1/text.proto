@@ -474,6 +474,11 @@ enum TextCode {
   // no leg carries it over the relay yet, so somebody watching from another machine sees
   // no pointer. No arguments.
   TEXT_CODE_CURSOR_METADATA_LOCAL_ONLY = 127;
+  // The platform serves this capture source and the engine behind this capture backend
+  // has nothing that opens it. TEXT_ARG_NAME_AUDIO names the source,
+  // TEXT_ARG_NAME_ENGINE the engine that cannot, and TEXT_ARG_NAME_OTHER_ENGINE the one
+  // that can.
+  TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE = 128;
 
   // --- Diagnostics ---------------------------------------------------------------
 

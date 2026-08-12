@@ -146,18 +146,12 @@ func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 // opposite direction, and the reason both tables state their platforms rather than
 // inferring them.
 //
-// A kind no platform serves is the one exception, and it is not an inference about the
-// machine: nothing opens it anywhere, so an unknown operating system is not one it might
-// work on.
+// A kind no platform served would be the one exception, and it would not be an inference about
+// the machine: nothing would open it anywhere, so an unknown operating system is not one it
+// might work on. Every declared kind is served somewhere today, so nothing takes it.
 func TestAnUnknownPlatformKeepsEverySourceSomethingOpens(t *testing.T) {
 	for _, info := range []Info{{OS: "plan9"}, {}} {
 		for _, s := range AudioSources(info) {
-			if s.ID == AudioSourceApplication {
-				if s.Available {
-					t.Errorf("%q offers %q, which no platform here has the code to open", info.OS, s.ID)
-				}
-				continue
-			}
 			if !s.Available {
 				t.Errorf("%q takes %q away from a platform it has nothing to say about: %s",
 					info.OS, s.ID, s.Reason)

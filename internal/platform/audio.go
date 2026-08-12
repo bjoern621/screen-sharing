@@ -53,12 +53,11 @@ const (
 	// AudioSourceApplication is one running program's own output, which is what a stream
 	// carrying a game and not the call about it needs.
 	//
-	// No platform here serves it. It is PipeWire-native on Linux and needs platform code
-	// on the other two - WASAPI process loopback on Windows, ScreenCaptureKit or a
-	// CoreAudio tap on macOS - and none of it is written, so the kind is declared and
-	// greyed rather than left off the list: a reader looking for it reads why it is not
-	// there, which is the treatment a general concept the machine blocks gets
-	// (docs/field-availability.md).
+	// It is PipeWire-native: an application playing sound is a node, and recording it is
+	// taking that node's output. Linux serves it for that reason, and the other two do not
+	// - Windows needs WASAPI process loopback and macOS a ScreenCaptureKit or CoreAudio
+	// tap, and neither is written - so the kind is declared and greyed there rather than
+	// left off the list (docs/field-availability.md).
 	AudioSourceApplication = "application"
 	// AudioMonitorDevice is the handle a publish engine opens AudioSourceDesktop by: the
 	// libpulse magic name for the monitor of the default sink. PipeWire's Pulse server
@@ -175,7 +174,12 @@ var audioSourceNeeds = []audioSourceNeed{
 	{id: AudioSourceNone, platforms: audioPlatforms},
 	{id: AudioSourceDesktop, platforms: []string{"linux"}},
 	{id: AudioSourceMic, platforms: []string{"linux"}},
-	{id: AudioSourceApplication},
+	// One application's own output is a PipeWire node, which is why Linux serves it and the
+	// other two do not: PulseAudio has no way to record one program's stream, Windows needs
+	// WASAPI process loopback and macOS a ScreenCaptureKit or CoreAudio tap, and neither is
+	// written. Which engine can open it is a second question, answered where the backends are
+	// (publish.AudioAvailable).
+	{id: AudioSourceApplication, platforms: []string{"linux"}},
 }
 
 // The table describes one closed set of sources, and every row of it has to be
@@ -316,4 +320,18 @@ func audioServer(n audioSourceNeed, info Info) *screensharev1.Text {
 	return text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_SERVER,
 		text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO, n.id),
 		text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_OS, info.OS))
+}
+
+// KnownAudioSource reports whether a value names one of the declared kinds.
+//
+// It is the same question Known asks of a pointer mode and exists for the same reason: an
+// enumeration sorts what it read into kinds, and a kind nothing declares is one no control
+// offers and no publish can open.
+func KnownAudioSource(id string) bool {
+	for _, n := range audioSourceNeeds {
+		if n.id == id {
+			return true
+		}
+	}
+	return false
 }
