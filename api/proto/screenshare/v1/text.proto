@@ -465,6 +465,11 @@ enum TextCode {
   // stream starts. TEXT_ARG_NAME_AUDIO names the kind, TEXT_ARG_NAME_DEVICE the
   // selection.
   TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED = 125;
+  // This engine tags every encode standard range and cannot read what the capture
+  // negotiated, so a 10-bit format carries the extra precision and never a high
+  // dynamic range description. TEXT_ARG_NAME_ENGINE names the engine, and
+  // TEXT_ARG_NAME_OTHER_ENGINE the one that does carry it.
+  TEXT_CODE_ENGINE_TAGS_STANDARD_RANGE = 126;
 
   // --- Diagnostics ---------------------------------------------------------------
 

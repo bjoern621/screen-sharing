@@ -281,6 +281,10 @@ public static class Statements
             TextCode.AudioCodecNeedsSource =>
                 "No audio is being sent, so there is nothing to compress.",
 
+            TextCode.EngineTagsStandardRange =>
+                $"{Words.Engine(a.Engine)} tags every stream standard range and cannot read what your screen is producing, "
+                + $"so ten bits buys precision here and not high dynamic range. {Words.Engine(a.OtherEngine)} carries it.",
+
             TextCode.AudioEntryNeedsSource =>
                 "Pick where this row records from first.",
 

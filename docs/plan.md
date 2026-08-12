@@ -73,8 +73,10 @@ The encoder input states one structure per colour the publish accepts - standard
 A value list was measured and rejected: videoconvert fixates one to its first entry whatever the frames carry, so a list would have converted every HDR surface into the standard-range row and called it negotiation.
 Mastering display metadata rides through because nothing names it: the encoder input pins the memory, the format, the colorimetry and the size, and every other field the capture stated survives the intersection.
 
-**What is left.** The ffmpeg engine tags every encode BT.709 (`ffmpeg.colourFilter`) and reports no caps, so a Windows capture through it publishes an HDR desktop as if it were standard range with nothing saying so.
-Either it gains the same report, or HDR is declared the GStreamer engine's as a rule on the engine axis and an HDR capture is refused there.
+**The other engine says what it cannot do.** ffmpeg tags every encode BT.709 and reports no caps - a running ffmpeg tells its caller what it is encoding and never what it read - so an HDR desktop captured through one of its backends would go out as a standard-range stream carrying HDR samples.
+Nothing there can detect it, which is why it is a note and not a refusal: a refusal needs a fact, and the fact is what that engine cannot establish.
+The note is a rule on the engine axis and it lands on the 10-bit format alone, which is the only one an HDR surface rides in, so it appears where somebody is reaching for HDR and nowhere else, naming the engine that does carry it.
+
 
 The viewer half waits on an element that tone-maps.
 `videoconvertscale` converts primaries and nothing else, and the elements that roll PQ down to SDR are the device ones - `vapostproc` on VA, `d3d11convert` on Windows - so the render chain gains a rung per platform rather than one route, and a machine with neither keeps the choice greyed with what is missing.
