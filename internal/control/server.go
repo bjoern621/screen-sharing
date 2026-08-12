@@ -65,6 +65,11 @@ type Backend interface {
 	// takes seconds: a resolve reads what is known now, and an unprobed engine is an
 	// engine nothing is greyed on rather than an engine with nothing usable.
 	CachedEncoders() encoders.Availability
+	// AudioDevices is what this machine offers inside each audio kind, enumerated once and
+	// answered from memory afterwards. It is read on a resolve for the reason
+	// CachedEncoders is: a form resolves on every keystroke, and the enumeration is a
+	// subprocess.
+	AudioDevices() []platform.AudioDevice
 	// PublishState is the running publish state.
 	PublishState() wire.PublishSnapshot
 	// RelayStatus is the latest relay snapshot. The backend owns the polling, so this

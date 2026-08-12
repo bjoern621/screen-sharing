@@ -88,6 +88,11 @@ enum Unit {
   UNIT_MILLISECONDS = 2;
   UNIT_FRAMES_PER_SECOND = 3;
   UNIT_FRAMES = 4;
+  // A proportion of what something would be at its own level, where 100 is that
+  // level. It is the unit a gain is set in, and it is percent rather than decibels
+  // because the mixer takes a linear multiplier: a decibel figure would be converted
+  // at every consumer, with each conversion free to round differently.
+  UNIT_PERCENT = 5;
 }
 
 // Severity ranks a diagnostic by what it costs the user to ignore.

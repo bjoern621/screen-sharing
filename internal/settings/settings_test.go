@@ -8,6 +8,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/platform"
 )
 
 // isolateConfig points os.UserConfigDir at a fresh temp directory so tests never
@@ -102,17 +103,46 @@ func TestLoadMigratesZeroLatency(t *testing.T) {
 	}
 }
 
-func TestLoadMigratesMissingAudio(t *testing.T) {
+// A file written while the second track was one source carries that source's name under the
+// old key, and the list is what a current build reads. The one source becomes the one entry,
+// so a stored stream keeps recording what it recorded.
+func TestLoadMigratesTheOneAudioSourceOntoTheList(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Publish.Audio = "" // a pre-audio settings file lacks the key
+	s.Publish.AudioSources = nil
+	s.Publish.LegacyAudio = platform.AudioSourceDesktop
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	if got := mustLoad(t); got.Publish.Audio != "none" {
-		t.Errorf("audio = %q, want migrated to \"none\"", got.Publish.Audio)
+	got := mustLoad(t)
+	if len(got.Publish.AudioSources) != 1 || got.Publish.AudioSources[0].Source != platform.AudioSourceDesktop {
+		t.Fatalf("audio sources = %+v, want the one stored source", got.Publish.AudioSources)
+	}
+	if gain := got.Publish.AudioSources[0].Gain; gain != GainUnity {
+		t.Errorf("the migrated source records at %d percent, want unity", gain)
+	}
+	// The old key is what the migration read, so a file that has been through one no longer
+	// carries it and cannot be migrated a second time onto a list that already has entries.
+	if got.Publish.LegacyAudio != "" {
+		t.Errorf("the migrated settings still carry the old key: %q", got.Publish.LegacyAudio)
+	}
+}
+
+// A file written before the second track existed at all names no source, and gets the empty
+// list a fresh installation has rather than an entry recording nothing.
+func TestLoadMigratesAFileWithNoAudioAtAll(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Publish.AudioSources = nil
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := mustLoad(t); len(got.Publish.AudioSources) != 0 {
+		t.Errorf("audio sources = %+v, want none", got.Publish.AudioSources)
 	}
 }
 
@@ -132,7 +162,11 @@ func TestAudioTrackFollowsTheSource(t *testing.T) {
 	}
 	for _, tc := range cases {
 		s := Defaults()
-		s.Publish.Audio, s.Publish.AudioCodec = tc.source, tc.audioCodec
+		s.Publish.AudioCodec = tc.audioCodec
+		s.Publish.AudioSources = nil
+		if tc.source != "" {
+			s.Publish.AudioSources = Recording(tc.source)
+		}
 		if got := s.Publish.AudioTrack(); got != tc.want {
 			t.Errorf("audio source %q with codec %q yields track %q, want %q",
 				tc.source, tc.audioCodec, got, tc.want)
@@ -148,7 +182,7 @@ func TestLoadMigratesMissingAudioCodec(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Publish.Audio, s.Publish.AudioCodec = "desktop", ""
+	s.Publish.AudioSources, s.Publish.AudioCodec = Recording("desktop"), ""
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}

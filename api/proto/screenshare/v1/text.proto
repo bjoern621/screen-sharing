@@ -115,6 +115,12 @@ enum TextArgName {
   TEXT_ARG_NAME_DECODERS = 33;
   TEXT_ARG_NAME_DECODE_FAMILIES = 34;
   TEXT_ARG_NAME_RTSP_PROTOCOLS = 35;
+  // TEXT_ARG_NAME_DEVICE is what is inside one audio kind: a sound device, or an
+  // application whose own output is being recorded. It is the handle the enumeration
+  // reported, which is what a publish engine opens it by, so a shell that has met the
+  // enumeration can name it and one that has not still shows something the machine
+  // answers to.
+  TEXT_ARG_NAME_DEVICE = 36;
 
   // Figures. Each carries the unit its name says, so a shell formats without a second
   // field telling it what it is holding.
@@ -447,6 +453,18 @@ enum TextCode {
   TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD = 120;
   TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING = 121;
   TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB = 122;
+
+  // The entry names no capture source, so what is inside a kind, how loud it is and
+  // whether it is silenced are all questions about nothing. No arguments.
+  TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE = 123;
+  // This kind has one device here, so there is nothing to choose between.
+  // TEXT_ARG_NAME_AUDIO names the kind.
+  TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE = 124;
+  // The selection is not among what this kind enumerates now. It is kept rather than
+  // dropped: an application that is not running is one that may be running when the
+  // stream starts. TEXT_ARG_NAME_AUDIO names the kind, TEXT_ARG_NAME_DEVICE the
+  // selection.
+  TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED = 125;
 
   // --- Diagnostics ---------------------------------------------------------------
 

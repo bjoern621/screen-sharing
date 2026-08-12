@@ -32,20 +32,21 @@ The nicks come off `GstNvEncoderPreset` and `GstNvEncoderTune` in the shipped pl
 
 ## Audio
 
-Sources mix into one track.
-Two tracks were rejected on carriage: RTMP carries one audio track, the relay re-serves every ingest on all its listeners, and a two-track stream is unplayable on the narrowest leg while the form says it published.
+**Built.** The setting is a repeated list of `{source, device, gain, mute}`, addressed by indexed keys (`publish.audio_sources[2].gain`), so every existing control kind edits an entry and a statement lands on one entry rather than on the whole control.
+The reasoning moved to `domain-model.md`, "The second-track capture sources".
 
-Sources are enumerated rather than listed.
-Kinds stay a declared table (`desktop`, `mic`, `application`), and the device or application inside a kind is enumerated, cached for the process lifetime and read back separately from the probe.
-Per-application capture is PipeWire-native on Linux, and needs platform code on Windows (WASAPI process loopback) and macOS (ScreenCaptureKit or CoreAudio taps).
+The list grows through the settings and not through an effect: the form draws one row past the end, picking a kind on it is the write that adds the entry, and setting a kind back to none is what takes one off.
+Both are ordinary writes through ordinary controls, so a shell decides nothing about the list's shape.
 
-The setting is a repeated list of `{source, device, gain, mute}`, addressed by indexed keys (`publish.audio_sources[2].gain`), so every existing control kind keeps working and a rule can grey one item's field.
-It is the largest contract change in the plan, larger than auth, and doing it later would mean migrating saved presets as well as redoing the form contract.
+Two tracks were rejected on carriage, and the sources mix into one.
+Kinds stay a declared table (`desktop`, `mic`, `application`), and what is inside a kind is enumerated (`internal/audiodev`), cached for the process lifetime and read back separately from the probe.
+Gain and mute are one live field beside the bitrate: they reach the mixer that is already running, where an entry added or taken off is a different graph and a relaunch.
 
-An application is identified by its binary and then its name, and a selection the enumeration no longer reports stays on the list with a note, the way a monitor index no enumeration reported does.
-The enumeration follows PipeWire node add and remove events: the application just launched is the one worth selecting, and that is the case a cache gets wrong every time.
+**What is left.** Per-application capture, which is the third kind: it is declared and greyed everywhere, because it is PipeWire-native on Linux and needs platform code on Windows (WASAPI process loopback) and macOS (ScreenCaptureKit or CoreAudio taps).
+An application is identified by its binary and then its name, and a selection the enumeration no longer reports stays on the list with a note, the way a monitor index no enumeration reported does - that half is built, and what is missing is anything to enumerate.
 
-Gain is live: it is a row of the live table beside the bitrate, and the machinery it needs is built (`capture-architecture.md`, "Changing settings on a live stream").
+The enumeration should follow PipeWire node add and remove events rather than being taken once: the application just launched is the one worth selecting, and that is the case a cache gets wrong every time.
+What is built reads `pactl` on the first resolve and answers from memory afterwards, which is right for the devices a machine has and wrong for the applications it is running.
 
 ## HDR
 

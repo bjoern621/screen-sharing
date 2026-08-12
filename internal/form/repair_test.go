@@ -1,6 +1,7 @@
 package form
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 
@@ -91,7 +92,7 @@ func TestARepairedDraftRepairsToItself(t *testing.T) {
 		once, _ := Repair(tc.deps, tc.s)
 		twice, again := Repair(tc.deps, once)
 
-		if twice != once {
+		if !reflect.DeepEqual(twice, once) {
 			t.Errorf("%s: repairing a repaired draft moved %v", tc.name, repairChanged(once, twice))
 		}
 		if len(again) != 0 {
@@ -113,7 +114,7 @@ func TestThePointerWalksOffABackendThatCannotDrawIt(t *testing.T) {
 	if s.Publish.Cursor == cursor.Embedded {
 		t.Error("a pointer the capture cannot draw survived the repair")
 	}
-	if enabled, reason := optionState(deps, s, KeyCursor, s.Publish.Cursor); !enabled {
+	if enabled, reason := optionState(deps, s, KeyCursor, s.Publish.Cursor, noEntry); !enabled {
 		t.Errorf("the repair landed on pointer mode %q, which the same evaluation greys: %s", s.Publish.Cursor, reason)
 	}
 	if !slices.Contains(repaired, KeyCursor) {
@@ -139,7 +140,7 @@ func TestAStrandedValueWalksToALegalOne(t *testing.T) {
 	if s.Publish.Mode == capabilities.ModeLossless {
 		t.Error("a rate-control mode the encoder has no form of survived the repair")
 	}
-	if enabled, reason := optionState(deps, s, KeyMode, s.Publish.Mode); !enabled {
+	if enabled, reason := optionState(deps, s, KeyMode, s.Publish.Mode, noEntry); !enabled {
 		t.Errorf("the repair landed on rate control %q, which the same evaluation greys: %s", s.Publish.Mode, reason)
 	}
 	if !slices.Contains(repaired, KeyMode) {
@@ -201,7 +202,7 @@ func TestACaptureChangeCascadesThroughTransportCodecAndChroma(t *testing.T) {
 		if key == KeyChroma {
 			value = s.Publish.Chroma
 		}
-		if enabled, reason := optionState(deps, s, key, value); !enabled {
+		if enabled, reason := optionState(deps, s, key, value, noEntry); !enabled {
 			t.Errorf("the repair landed on %s %q, which the same evaluation greys: %s", key, value, reason)
 		}
 	}
@@ -216,7 +217,7 @@ func TestADraftTheTablesAcceptIsNotRepaired(t *testing.T) {
 
 	s, repaired := Repair(deps, draft)
 
-	if s != draft {
+	if !reflect.DeepEqual(s, draft) {
 		t.Errorf("a legal draft was repaired on %v", repairChanged(draft, s))
 	}
 	if len(repaired) != 0 {
@@ -260,10 +261,17 @@ func mustCodec(t *testing.T, name string) capabilities.Codec {
 
 // A settings field the walk can reach has to resolve to a group and a field in it, or
 // the lookup that writes the repair back would find nothing.
+//
+// A repeated control resolves through an entry rather than through its template: the
+// template names the control and an index names the value, which is what a shell binds and
+// what the walk writes through.
 func TestEveryRepairableFieldNamesASettingsField(t *testing.T) {
 	m := wire.Settings(settings.Defaults())
 
 	for _, key := range availabilityAllKeys {
+		if keyRepeats(key) {
+			key = indexedKey(key, 0)
+		}
 		if _, _, ok := settingsField(m, key); !ok {
 			t.Errorf("field key %q names no group and field of the settings message", key)
 		}
@@ -363,7 +371,7 @@ func TestASilentStreamKeepsItsStoredAudioCodec(t *testing.T) {
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
 	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "rtmp")
-	draft.Publish.Audio = "none"
+	draft.Publish.AudioSources = nil
 	draft.Publish.AudioCodec = "opus"
 
 	out, repaired := Repair(d, draft)
@@ -385,18 +393,23 @@ func TestASilentStreamKeepsItsStoredAudioCodec(t *testing.T) {
 // be repair.go holding an opinion about which source is safe, which is the rule the table
 // exists to carry (docs/domain-model.md, "The second-track capture sources").
 func TestASourceThisMachineDoesNotServeWalksToOneItDoes(t *testing.T) {
+	entry := indexedKey(KeyAudioSource, 0)
 	for _, info := range []platform.Info{{OS: "windows"}, {OS: "darwin"}} {
 		d := Deps{Platform: info}
 		draft := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
-		draft.Publish.Audio = platform.AudioSourceDesktop
+		draft.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
 
 		out, repaired := Repair(d, draft)
 
-		if available, reason := platform.AudioSourceAvailable(out.Publish.Audio, info); !available {
-			t.Errorf("%s: audio = %q, which the platform refuses: %s", info.OS, out.Publish.Audio, reason)
+		// The kind walks to the absent one, which takes the entry off the list: an entry
+		// naming no kind records nothing, and a machine that serves none of them is a
+		// machine with nothing to record.
+		if len(out.Publish.AudioSources) != 0 {
+			t.Errorf("%s: audio sources = %+v, want the unserved entry taken off",
+				info.OS, out.Publish.AudioSources)
 		}
-		if !slices.Contains(repaired, KeyAudio) {
-			t.Errorf("%s: repaired = %v, want it to name %s", info.OS, repaired, KeyAudio)
+		if !slices.Contains(repaired, entry) {
+			t.Errorf("%s: repaired = %v, want it to name %s", info.OS, repaired, entry)
 		}
 	}
 
@@ -404,14 +417,15 @@ func TestASourceThisMachineDoesNotServeWalksToOneItDoes(t *testing.T) {
 	// repair rather than a control that never keeps what it is given.
 	d := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	draft := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
-	draft.Publish.Audio = platform.AudioSourceDesktop
+	draft.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
 
 	out, repaired := Repair(d, draft)
-	if out.Publish.Audio != platform.AudioSourceDesktop {
-		t.Errorf("audio = %q on a session that serves desktop audio, want it kept", out.Publish.Audio)
+	if len(out.Publish.AudioSources) != 1 || out.Publish.AudioSources[0].Source != platform.AudioSourceDesktop {
+		t.Errorf("audio sources = %+v on a session that serves desktop audio, want the entry kept",
+			out.Publish.AudioSources)
 	}
-	if slices.Contains(repaired, KeyAudio) {
-		t.Errorf("repaired = %v, want it not to name %s where the platform serves it", repaired, KeyAudio)
+	if slices.Contains(repaired, entry) {
+		t.Errorf("repaired = %v, want it not to name %s where the platform serves it", repaired, entry)
 	}
 }
 

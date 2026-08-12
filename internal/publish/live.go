@@ -1,6 +1,8 @@
 package publish
 
 import (
+	"slices"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -62,7 +64,37 @@ var liveFields = []liveField{{
 		onto.Publish.BitrateM = from.Publish.BitrateM
 	},
 	write: gstLiveBitrateWrite,
+}, {
+	// The level of every source in the mix, and the silence with it. Both are one value to
+	// an element that multiplies, so a muted source is one at zero and unmuting is a write
+	// to a pipeline that is already running rather than a rebuild of the audio graph.
+	//
+	// The whole list is one field, because the mixer is one graph: an entry added or taken
+	// off is a different graph and a relaunch, and what is live is the level each branch
+	// that already exists is running at.
+	key:   rules.FieldAudioGain,
+	when:  map[string]rules.Match{rules.AxisEngine: rules.OneOf(EngineGst)},
+	hold:  holdAudioLevels,
+	write: gstLiveGainWrite,
 }}
+
+// holdAudioLevels puts the running levels back onto a proposal, so what is left differing is
+// everything the mixer's shape depends on.
+//
+// The list is cloned before anything is written to it. A settings value is copied by
+// assignment everywhere else in this package, and a slice copied that way shares its
+// entries: writing through the copy would move the caller's own settings, which for
+// LiveOnly's probe would mean answering a question by changing it.
+func holdAudioLevels(from settings.Settings, onto *settings.Settings) {
+	onto.Publish.AudioSources = slices.Clone(onto.Publish.AudioSources)
+	for i := range onto.Publish.AudioSources {
+		if i >= len(from.Publish.AudioSources) {
+			break
+		}
+		onto.Publish.AudioSources[i].Gain = from.Publish.AudioSources[i].Gain
+		onto.Publish.AudioSources[i].Mute = from.Publish.AudioSources[i].Mute
+	}
+}
 
 func init() {
 	rules.Register(liveRules()...)

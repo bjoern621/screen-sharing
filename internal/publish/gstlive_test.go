@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"bjoernblessin.de/screenshare/internal/rules"
 	"slices"
 	"strings"
 	"testing"
@@ -132,8 +133,8 @@ func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
 	}
 
 	s.Publish.Capture = "ximagesrc"
-	if fields := LiveFields(s); len(fields) != 1 {
-		t.Errorf("the same settings on the GStreamer engine take %v, want the bitrate alone", fields)
+	if fields := LiveFields(s); !slices.Contains(fields, rules.AxisBitrateM) {
+		t.Errorf("the same settings on the GStreamer engine take %v, want the bitrate among them", fields)
 	}
 }
 

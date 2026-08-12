@@ -98,7 +98,7 @@ func decodeFlat(data []byte) (Settings, bool) {
 	set(&s.Publish.Bframes, f.Bframes)
 	set(&s.Publish.Effort, f.Effort)
 	set(&s.Publish.Capture, f.Capture)
-	set(&s.Publish.Audio, f.Audio)
+	s.Publish.AudioSources = audioSourcesOf(f.Audio, s.Publish.AudioSources)
 	set(&s.Publish.AudioCodec, f.AudioCodec)
 	set(&s.Publish.DrmMap, f.DrmMap)
 	set(&s.Publish.Monitor, f.Monitor)
@@ -166,8 +166,14 @@ func migratePublish(p, d Publish) Publish {
 	// The publish leg's protocol was fixed before it was a field, so a file from then
 	// names none and the transport refuses the publish over the empty value.
 	fillText(&p.RtspPublishProtocol, d.RtspPublishProtocol)
-	// Settings files from before the audio option lack the key.
-	fillText(&p.Audio, d.Audio)
+	// A file written while the second track was one source carries that source's name
+	// under the old key, which the ordinary decode never looked at: the field is a list
+	// now and the two shapes have no reading in common. The one source becomes the one
+	// entry, at unity gain and unmuted, so a stored stream keeps recording what it did.
+	// A file written before the option at all carries neither, and gets the empty list a
+	// fresh installation has.
+	p.AudioSources = audioSourcesOf(&p.LegacyAudio, p.AudioSources)
+	p.LegacyAudio = ""
 	// A file written before the audio codec became a setting names none, and both
 	// engines refuse an audio track whose codec no table row carries. Opus is what
 	// those builds encoded, so filling it keeps a stored stream publishing the track it
@@ -229,4 +235,18 @@ func fillNum(into *int, def int) {
 	if *into <= 0 {
 		*into = def
 	}
+}
+
+// audioSourcesOf turns the one source name an older file carried into the list a current
+// one holds, and leaves a list that is already there alone.
+//
+// The stored list wins wherever it has entries, because a file carrying both was written by
+// a build that had the list: the old key is what that build left behind rather than a
+// second opinion about what to record. A name of the absent source becomes the empty list,
+// which is the same stream - no second track - written the way the field spells it now.
+func audioSourcesOf(legacy *string, stored []AudioSource) []AudioSource {
+	if len(stored) > 0 || legacy == nil || *legacy == "" || *legacy == audioSourceNone {
+		return stored
+	}
+	return Recording(*legacy)
 }

@@ -35,7 +35,7 @@ public sealed class Vocabulary
     public Vocabulary(Catalog? catalog) => _catalog = catalog;
 
     /// <summary>What one entry of one control is called, in the width a dropdown row has.</summary>
-    public string Name(string fieldKey, string value) => fieldKey switch
+    public string Name(string fieldKey, string value) => Fields.Template(fieldKey) switch
     {
         "publish.capture" => Capture(value),
         "publish.monitor" => Screen(value),
@@ -49,7 +49,8 @@ public sealed class Vocabulary
         "publish.effort" => Words.Effort(value),
         "publish.tune" => Words.Tune(value),
         "publish.mode" => Words.Mode(value),
-        "publish.audio" => Words.AudioSource(value),
+        "publish.audio_sources[].source" => Words.AudioSource(value),
+        "publish.audio_sources[].device" => Device(value),
         "publish.audio_codec" => Words.AudioCodec(value),
         "publish.publish_transport" or "viewer.player_watch_transport" or "viewer.tile_watch_transport"
             => Words.Transport(value),
@@ -62,7 +63,7 @@ public sealed class Vocabulary
     /// The paragraph behind one entry, and nothing where the name says it all. It is what
     /// a radio card shows under its title and what a dropdown shows where there is room.
     /// </summary>
-    public string Describe(string fieldKey, string value) => fieldKey switch
+    public string Describe(string fieldKey, string value) => Fields.Template(fieldKey) switch
     {
         "publish.capture" => Descriptions.Capture(value),
         "publish.output_resolution" => Scaling(value),
@@ -74,7 +75,7 @@ public sealed class Vocabulary
         "publish.effort" => Descriptions.Effort(value),
         "publish.tune" => Descriptions.Tune(value),
         "publish.mode" => Descriptions.Mode(value),
-        "publish.audio" => Descriptions.AudioSource(value),
+        "publish.audio_sources[].source" => Descriptions.AudioSource(value),
         "publish.audio_codec" => Descriptions.AudioCodec(value),
         "publish.publish_transport" or "viewer.player_watch_transport" or "viewer.tile_watch_transport"
             => Descriptions.Transport(value),
@@ -108,9 +109,7 @@ public sealed class Vocabulary
             "stream" => publish.Name,
             "source" => Join(Words.Capture(publish.Capture), Picture(publish)),
             "quality" => Join(CodecShorthand(publish.Codec), Quality(publish)),
-            "audio" => publish.Audio is "" or "none"
-                ? "No audio"
-                : Join(Words.AudioSource(publish.Audio), Words.AudioCodec(publish.AudioCodec)),
+            "audio" => AudioShorthand(publish),
             "transport" => Words.Transport(publish.PublishTransport),
             // The watch group holds two legs now, and the shorthand names the player's:
             // it is the one a reader acts on from the roster, where the tile's leg is what
@@ -154,6 +153,25 @@ public sealed class Vocabulary
     {
         var height = Height(s);
         return height > 0 ? $"{height}p{s.Fps}" : $"{s.Fps} fps";
+    }
+
+    /// <summary>
+    /// What the second track is mixed from, at the width a step chip has.
+    ///
+    /// One source is named; several are counted, because a chip that listed three kinds
+    /// would be a chip nobody can read at a glance. Entries that record nothing are not
+    /// sources: the list carries a row for a reader to grow it by, and one turned off keeps
+    /// its place until the next resolve takes it away.
+    /// </summary>
+    private string AudioShorthand(PublishSettings s)
+    {
+        var recording = s.AudioSources.Where(a => a.Source is not ("" or "none")).ToList();
+        return recording.Count switch
+        {
+            0 => "No audio",
+            1 => Join(Words.AudioSource(recording[0].Source), Words.AudioCodec(s.AudioCodec)),
+            _ => Join($"{recording.Count} sources", Words.AudioCodec(s.AudioCodec)),
+        };
     }
 
     /// <summary>The height being sent: the scaled one, or the captured screen's own.</summary>
@@ -310,6 +328,26 @@ public sealed class Vocabulary
         }
 
         return monitor.Primary ? name + " · main" : name;
+    }
+
+    /// <summary>
+    /// One device inside an audio kind. The empty value is the kind's own default, which is
+    /// what an entry naming no device takes and what follows whatever the system is set to.
+    ///
+    /// Everything else is named by what the machine calls it, off the catalog's enumeration,
+    /// and falls back to the handle itself: a device the enumeration no longer reports is one
+    /// the settings still carry, and showing what a publish would open is a screen a reader
+    /// can act on where a blank is one they cannot.
+    /// </summary>
+    private string Device(string value)
+    {
+        if (value.Length == 0)
+        {
+            return "System default";
+        }
+
+        var device = _catalog?.AudioDevices.FirstOrDefault(d => d.Id == value);
+        return device is null || device.Name.Length == 0 ? value : device.Name;
     }
 
     /// <summary>

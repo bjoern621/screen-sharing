@@ -111,3 +111,22 @@ func gstLiveState(s settings.Settings) gstrun.LiveState {
 	}
 	return state
 }
+
+// gstLiveGainWrite is what a running pipeline is told to hold every source at.
+//
+// One write per branch the mixer already has, addressed by the volume element's own name,
+// which is what makes a level reach exactly the source it belongs to. A muted source is one
+// at zero, so nothing else is written for it: mute and gain are one value to an element that
+// multiplies (settings.AudioSource.Volume).
+func gstLiveGainWrite(s settings.Settings) []gstrun.Property {
+	recorded := s.Publish.Recorded()
+	out := make([]gstrun.Property, 0, len(recorded))
+	for i, a := range recorded {
+		out = append(out, gstrun.Property{
+			Element: gstAudioVolumeName(i),
+			Name:    "volume",
+			Value:   strconv.FormatFloat(a.Volume(), 'f', 3, 64),
+		})
+	}
+	return out
+}

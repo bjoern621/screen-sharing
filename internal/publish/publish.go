@@ -11,6 +11,7 @@ package publish
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -143,7 +144,7 @@ func Command(s settings.Settings) (string, error) {
 // question with one. Identical settings are answered without a render, since they
 // build one pipeline whether or not that pipeline is buildable.
 func SamePipeline(before, after settings.Settings) (bool, error) {
-	if before == after {
+	if reflect.DeepEqual(before, after) {
 		return true, nil
 	}
 	beforeCmd, err := Command(before)

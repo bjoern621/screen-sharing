@@ -49,6 +49,11 @@ type Deps struct {
 	// one with no encoders, and availability treats it as such: an engine with no
 	// verdicts and no reason greys nothing.
 	Encoders encoders.Availability
+	// AudioDevices is what this machine offers inside each audio kind, enumerated once and
+	// read back (internal/audiodev). An empty list is a machine whose sound server answered
+	// nothing, and every kind then keeps its own default, which is the entry that needs no
+	// enumeration.
+	AudioDevices []platform.AudioDevice
 }
 
 // state is what availability decided about one field.
@@ -84,14 +89,29 @@ type field struct {
 	// quantity.
 	unit screensharev1.Unit
 
-	// value reads what the field holds now out of the draft. Every field has one: a
-	// control with no value is a control a shell cannot render.
+	// repeat marks a row drawn once per entry of the audio source list, plus once for the
+	// row a reader grows that list by. Such a row carries a key template rather than a key
+	// and reads its value off one entry (itemValue), because the control is about an entry
+	// and not about the draft.
+	//
+	// One list and no column naming which, because there is one: a second repeated field
+	// is what turns this into that column, made where the rest of the row already is.
+	repeat bool
+
+	// value reads what the field holds now out of the draft. Every row that is not
+	// repeated has one: a control with no value is a control a shell cannot render.
 	value func(settings.Settings) *screensharev1.FieldValue
+	// itemValue is value for a repeated row, read off the entry the row is being drawn
+	// for. Exactly one of the two is set, which the table asserts.
+	itemValue func(settings.AudioSource) *screensharev1.FieldValue
 	// options lists the entries a select or radio offers, with value, note and
 	// recommended filled. The enabled flag and its reason are left to availability,
 	// which is what keeps one place deciding what is greyed. nil on the controls that
 	// take no options.
 	options func(Deps, settings.Settings) []*screensharev1.FieldOption
+	// itemOptions is options for a repeated row, which is given the entry as well: what
+	// is inside an audio kind depends on which kind that entry named.
+	itemOptions func(Deps, settings.Settings, settings.AudioSource) []*screensharev1.FieldOption
 	// bounds sizes a number or a slider, nil on the controls that take no range.
 	bounds func(Deps, settings.Settings) *screensharev1.NumericRange
 }
@@ -157,12 +177,25 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 	out := make([]*screensharev1.FieldGroup, 0, len(groups))
 	for _, g := range groups {
 		fields := make([]*screensharev1.Field, 0, len(fieldTable))
+		drawn := false
 		for i := range fieldTable {
 			f := &fieldTable[i]
 			if f.group != g.key {
 				continue
 			}
-			fields = append(fields, resolveField(d, s, fresh, f))
+			if !f.repeat {
+				fields = append(fields, resolveField(d, s, fresh, f, noEntry))
+				continue
+			}
+			// The repeated rows are drawn as a block, entry by entry, so a shell meets one
+			// entry's controls together rather than every entry's kind followed by every
+			// entry's gain. They are contiguous in the table for the same reason, which is
+			// what lets the first of them draw all of them and the rest be skipped.
+			if drawn {
+				continue
+			}
+			drawn = true
+			fields = append(fields, resolveEntries(d, s, fresh, g.key)...)
 		}
 		if len(fields) == 0 {
 			continue
@@ -172,6 +205,30 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 	return out
 }
 
+// resolveEntries draws one group's repeated rows once per entry of the audio source list,
+// plus once for the row a reader grows the list by.
+//
+// The extra row holds the default entry rather than anything the settings carry, which is
+// what makes picking a kind on it the write that adds a source: the key names one index past
+// the end, and a write through it appends (keys.go, listField). Setting a kind back to none
+// is what takes an entry off again, on the repair's next pass.
+func resolveEntries(d Deps, s, fresh settings.Settings, group string) []*screensharev1.Field {
+	var out []*screensharev1.Field
+	for entry := range len(s.Publish.AudioSources) + 1 {
+		for i := range fieldTable {
+			f := &fieldTable[i]
+			if f.group != group || !f.repeat {
+				continue
+			}
+			out = append(out, resolveField(d, s, fresh, f, entry))
+		}
+	}
+	return out
+}
+
+// noEntry is the entry a row that is not repeated is drawn for, which is none.
+const noEntry = -1
+
 // resolveField fills one control: its fixed description, what availability decided
 // about it, its current value, what a fresh installation would hold there, and its
 // options or range with each option's own verdict on it.
@@ -180,27 +237,34 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 // second column of the table. One reader for both is what keeps the value a shell
 // writes back and the value it puts back the same shape, and it is why a field added to
 // the table carries a default with nothing else to fill in.
-func resolveField(d Deps, s, fresh settings.Settings, f *field) *screensharev1.Field {
+func resolveField(d Deps, s, fresh settings.Settings, f *field, entry int) *screensharev1.Field {
 	assert.IsNotNil(f, "a resolved field belongs to a row of the field table")
-	assert.IsNotNil(f.value, "a control has a value to show", f.key)
+	assert.Assert(f.repeat == (entry != noEntry), "a repeated control is drawn for an entry", f.key, entry)
 
-	st := fieldState(d, s, f.key)
+	key := f.key
+	if f.repeat {
+		key = indexedKey(f.key, entry)
+	}
+	st := fieldState(d, s, f.key, entry)
 
 	out := &screensharev1.Field{
-		Key:          f.key,
-		Control:      f.control,
-		Unit:         f.unit,
-		Visible:      st.visible,
-		Enabled:      st.enabled,
-		Reason:       st.reason,
-		Note:         st.note,
-		Live:         verdictsOf(d, s).Live(f.key),
-		Value:        f.value(s),
-		DefaultValue: f.value(fresh),
+		Key:     key,
+		Control: f.control,
+		Unit:    f.unit,
+		Visible: st.visible,
+		Enabled: st.enabled,
+		Reason:  st.reason,
+		Note:    st.note,
+		// A control nobody can move costs nothing to move. Liveness is what a change to it
+		// would cost, so a greyed or hidden control reports none rather than a promise
+		// about an edit that cannot be made.
+		Live:         st.enabled && st.visible && verdictsOf(d, s).Live(f.key),
+		Value:        fieldValue(f, s, entry),
+		DefaultValue: fieldValue(f, fresh, entry),
 	}
 
-	if f.options != nil {
-		out.Options = resolveOptions(d, s, f)
+	if f.options != nil || f.itemOptions != nil {
+		out.Options = resolveOptions(d, s, f, entry)
 	}
 	if f.bounds != nil {
 		out.Range = f.bounds(d, s)
@@ -210,6 +274,31 @@ func resolveField(d Deps, s, fresh settings.Settings, f *field) *screensharev1.F
 	assert.IsNotNil(out.GetValue(), "a control shows a value", f.key)
 	assert.IsNotNil(out.GetDefaultValue(), "a control states what it starts as", f.key)
 	return out
+}
+
+// fieldValue is what one control holds in these settings: the draft's own value for a row
+// that is not repeated, and the entry's for one that is.
+//
+// An entry past the end of the list is the row the list grows by, and it holds the default
+// entry: no kind, unity gain, unmuted. Reading it out of a settings object that does not
+// have it is the honest answer rather than a hole, because that is what the entry would be
+// the moment a kind is picked on it.
+func fieldValue(f *field, s settings.Settings, entry int) *screensharev1.FieldValue {
+	if !f.repeat {
+		assert.IsNotNil(f.value, "a control has a value to show", f.key)
+		return f.value(s)
+	}
+	assert.IsNotNil(f.itemValue, "a repeated control has a value to show", f.key)
+	return f.itemValue(audioEntry(s, entry))
+}
+
+// audioEntry is one entry of the audio source list, and the default entry for the row past
+// its end.
+func audioEntry(s settings.Settings, entry int) settings.AudioSource {
+	if entry >= 0 && entry < len(s.Publish.AudioSources) {
+		return s.Publish.AudioSources[entry]
+	}
+	return settings.DefaultAudioSource()
 }
 
 // resolveOptions is one control's entries with each one's verdict on it, the reachable
@@ -234,15 +323,20 @@ func resolveField(d Deps, s, fresh settings.Settings, f *field) *screensharev1.F
 // place deciding what the list looks like - one that a second shell could disagree with,
 // and that the repair walking a stranded value to the first legal entry could not see
 // (repair.go, docs/ipc-api.md, "The rule").
-func resolveOptions(d Deps, s settings.Settings, f *field) []*screensharev1.FieldOption {
-	assert.IsNotNil(f.options, "an ordered option list belongs to a control that offers entries", f.key)
-
-	built := f.options(d, s)
+func resolveOptions(d Deps, s settings.Settings, f *field, entry int) []*screensharev1.FieldOption {
+	var built []*screensharev1.FieldOption
+	if f.repeat {
+		assert.IsNotNil(f.itemOptions, "an ordered option list belongs to a control that offers entries", f.key)
+		built = f.itemOptions(d, s, audioEntry(s, entry))
+	} else {
+		assert.IsNotNil(f.options, "an ordered option list belongs to a control that offers entries", f.key)
+		built = f.options(d, s)
+	}
 	reachable := make([]*screensharev1.FieldOption, 0, len(built))
 	var ruledOut []*screensharev1.FieldOption
 
 	for _, o := range built {
-		enabled, reason := optionState(d, s, f.key, o.GetValue())
+		enabled, reason := optionState(d, s, f.key, o.GetValue(), entry)
 		o.Enabled = enabled
 		o.Reason = reason
 

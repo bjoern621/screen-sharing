@@ -151,9 +151,21 @@ public static class Fields
             "Frames that also reference the future, which saves bandwidth and adds delay in exact proportion. Useful when you are sending to a viewer rather than playing with one; zero is right for anything interactive.",
             DocGop),
 
-        ["publish.audio"] = new(
+        ["publish.audio_sources[].source"] = new(
             "Audio",
-            "Whether to send sound with the picture, and where it comes from. Viewers hear it automatically."),
+            "Where one part of the sound comes from. Everything listed here is mixed into the one track viewers hear, so a stream can carry what your machine is playing and what you are saying at the same time. The last row is empty until you pick something on it; setting a row back to none takes it off."),
+
+        ["publish.audio_sources[].device"] = new(
+            "Which device",
+            "Which input or output this row records, where your machine has more than one. The default follows whatever your system is set to, so it keeps working when you plug in a headset."),
+
+        ["publish.audio_sources[].gain"] = new(
+            "Level",
+            "How loud this source is in the mix, relative to what it produces on its own. Above 100 amplifies, which is what a quiet microphone needs and what makes everything else quieter by comparison. It reaches a running stream, so you can balance while people are watching."),
+
+        ["publish.audio_sources[].mute"] = new(
+            "Muted",
+            "Silences this source without taking it off the list, so its device and its level are still there when you turn it back on. It reaches a running stream."),
 
         ["publish.audio_codec"] = new(
             "Audio format",
@@ -248,7 +260,23 @@ public static class Fields
     /// draws a control the reader can at least identify and report.
     /// </summary>
     public static Entry Of(string key) =>
-        key.Length > 0 && Entries.TryGetValue(key, out var entry) ? entry : new Entry(key, "");
+        key.Length > 0 && Entries.TryGetValue(Template(key), out var entry) ? entry : new Entry(key, "");
+
+    /// <summary>
+    /// The control a key names, with the entry of a list taken out of it:
+    /// <c>publish.audio_sources[2].gain</c> is a value of <c>publish.audio_sources[].gain</c>.
+    ///
+    /// Copy is written for the control and never for one entry of a list, because the third
+    /// microphone's level means what the first one's does. It is the same normalisation the
+    /// backend does when it looks a control up in its own tables (internal/form/keys.go), and
+    /// it is here so every lookup on this side agrees about what a key names.
+    /// </summary>
+    public static string Template(string key)
+    {
+        var open = key.IndexOf('[');
+        var close = key.IndexOf(']');
+        return open < 0 || close < open ? key : key[..(open + 1)] + key[close..];
+    }
 
     /// <summary>The copy for one group key, falling back to the key for the same reason.</summary>
     public static GroupEntry Group(string key) =>
@@ -264,6 +292,7 @@ public static class Fields
         Api.V1.Unit.Milliseconds => "ms",
         Api.V1.Unit.FramesPerSecond => "fps",
         Api.V1.Unit.Frames => "frames",
+        Api.V1.Unit.Percent => "%",
         _ => "",
     };
 }

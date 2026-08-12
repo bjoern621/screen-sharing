@@ -54,11 +54,15 @@ import (
 // invented a control: returning a plain enabled state for it would put a widget on
 // screen that no rule here governs and no repair below moves, which is exactly the
 // silent fork the contract exists to remove.
-func fieldState(d Deps, s settings.Settings, key string) state {
+// The key is the row's own, which for a repeated control is the template rather than one
+// entry's key: the statement is about the control, and writing it per index would be writing
+// it once per entry a reader happens to have made. Which entry it is being asked about
+// travels beside it, for the rows that answer differently per entry.
+func fieldState(d Deps, s settings.Settings, key string, entry int) state {
 	rule, ok := availabilityRules[key]
 	assert.Assert(ok, "an availability question names a field the form declares", key)
 
-	st := rule(availabilityOf(d, s))
+	st := rule(availabilityOf(d, s).forEntry(entry))
 
 	assert.Assert(st.enabled || st.reason != nil, "a disabled control says why", key)
 	assert.Assert(st.enabled || st.note == nil, "a note rides on a control that is still editable", key)
@@ -70,7 +74,7 @@ func fieldState(d Deps, s settings.Settings, key string) state {
 // A field with no option-level rule leaves every entry enabled: the greying that
 // applies to the whole control is fieldState's, and repeating it per entry would grey
 // a dropdown twice over.
-func optionState(d Deps, s settings.Settings, key, value string) (enabled bool, reason *screensharev1.Text) {
+func optionState(d Deps, s settings.Settings, key, value string, entry int) (enabled bool, reason *screensharev1.Text) {
 	_, declared := availabilityRules[key]
 	assert.Assert(declared, "an option question names a field the form declares", key)
 
@@ -78,7 +82,7 @@ func optionState(d Deps, s settings.Settings, key, value string) (enabled bool, 
 	if !ok {
 		return true, nil
 	}
-	reason = rule(availabilityOf(d, s), value)
+	reason = rule(availabilityOf(d, s).forEntry(entry), value)
 	return reason == nil, reason
 }
 
@@ -119,8 +123,8 @@ var availabilityRules = map[string]func(availability) state{
 	KeyCodec:     func(availability) state { return availabilityLive() },
 	KeyMode:      func(availability) state { return availabilityLive() },
 	KeyCapture:   func(availability) state { return availabilityLive() },
-	KeyAudio:     func(availability) state { return availabilityLive() },
-	KeyFps:       func(availability) state { return availabilityLive() },
+
+	KeyFps: func(availability) state { return availabilityLive() },
 	// The pointer is greyed per entry and never as a control: every backend serves at
 	// least one mode, so there is no combination where the question does not apply.
 	KeyCursor: func(availability) state { return availabilityLive() },
@@ -228,8 +232,41 @@ var availabilityRules = map[string]func(availability) state{
 	// rather than hidden: the codec is a general concept, and the greyed field plus
 	// its statement say why it does not apply here.
 	KeyAudioCodec: func(av availability) state {
-		if av.s.Publish.Audio == "" || av.s.Publish.Audio == platform.AudioSourceNone {
+		if len(av.s.Publish.Recorded()) == 0 {
 			return availabilityDisabled(say(audioCodecNeedsSource))
+		}
+		return availabilityLive()
+	},
+
+	// One entry of the source list. The kind is always editable, because it is what an
+	// entry is: setting it to none is how an entry is taken off, and greying it would leave
+	// a reader with a source they cannot remove.
+	KeyAudioSource: func(availability) state { return availabilityLive() },
+
+	// What is inside the kind, which only some kinds have more than one of. A kind with
+	// one device is a control with nothing to choose, so it greys and names the kind rather
+	// than offering a list of one.
+	KeyAudioSourceDevice: func(av availability) state {
+		if !av.source.Records() {
+			return availabilityDisabled(say(audioDeviceNeedsSource))
+		}
+		if len(audioDevicesOf(av.deps, av.source.Source)) < 2 {
+			return availabilityDisabled(say(audioSourceHasOneDevice, argAudio(av.source.Source)))
+		}
+		return availabilityLive()
+	},
+
+	// The level and the silence, which mean nothing until the entry names a source. Both
+	// reach a pipeline that is already running, so neither is greyed for anything else.
+	KeyAudioSourceGain: func(av availability) state {
+		if !av.source.Records() {
+			return availabilityDisabled(say(audioDeviceNeedsSource))
+		}
+		return availabilityLive()
+	},
+	KeyAudioSourceMute: func(av availability) state {
+		if !av.source.Records() {
+			return availabilityDisabled(say(audioDeviceNeedsSource))
 		}
 		return availabilityLive()
 	},
@@ -308,17 +345,18 @@ var availabilityRules = map[string]func(availability) state{
 // whose entries are greyed individually, each answering why this combination rules a
 // value out. A field with no row here greys no entry.
 var availabilityOptionRules = map[string]func(availability, string) *screensharev1.Text{
-	KeyCapture:          availability.captureReason,
-	KeyTransport:        availability.transportReason,
-	KeyCodec:            availability.codecReason,
-	KeyChroma:           availability.chromaReason,
-	KeyMode:             availability.modeReason,
-	KeyColorRange:       availability.colorRangeReason,
-	KeyAudio:            availability.audioReason,
-	KeyAudioCodec:       availability.audioCodecReason,
-	KeyCaptureMemory:    availability.frameMemoryReason,
-	KeyCursor:           availability.cursorReason,
-	KeyOutputResolution: availability.outputResolutionReason,
+	KeyCapture:           availability.captureReason,
+	KeyTransport:         availability.transportReason,
+	KeyCodec:             availability.codecReason,
+	KeyChroma:            availability.chromaReason,
+	KeyMode:              availability.modeReason,
+	KeyColorRange:        availability.colorRangeReason,
+	KeyAudioSource:       availability.audioReason,
+	KeyAudioSourceDevice: availability.audioDeviceReason,
+	KeyAudioCodec:        availability.audioCodecReason,
+	KeyCaptureMemory:     availability.frameMemoryReason,
+	KeyCursor:            availability.cursorReason,
+	KeyOutputResolution:  availability.outputResolutionReason,
 	// The two watch legs read the same carriage table under different receivers: an
 	// external player opens a URL through libavformat, and a tile decodes through a
 	// GStreamer pipeline, so the two reach different protocol sets.
@@ -405,6 +443,23 @@ type availability struct {
 	// VAAPI encoder and not with an x264 one.
 	path         gpupath.Path
 	onDevicePath bool
+
+	// entry is which entry of the audio source list the question is about, and noEntry for
+	// a control that belongs to no list. It rides here rather than as a second argument to
+	// every rule, because a rule that does not repeat has no use for it and a table with
+	// two signatures would be two tables.
+	entry int
+	// source is that entry, which for the row past the end of the list is the default
+	// entry: no kind, unity gain, unmuted. It is what the row a reader grows the list by
+	// holds, so a rule reading it needs no branch for the row that is not stored yet.
+	source settings.AudioSource
+}
+
+// forEntry is this availability asked about one entry of the audio source list.
+func (av availability) forEntry(entry int) availability {
+	av.entry = entry
+	av.source = audioEntry(av.s, entry)
+	return av
 }
 
 // availabilityOf resolves the three derived facts for one draft.
@@ -1230,5 +1285,16 @@ func availabilityExactColourReach(family string) *screensharev1.Text {
 		}
 		return say(exactColourReach, argCapture(p.Capture), argEngine(p.Engine), argImport(say(p.Import)))
 	}
+	return nil
+}
+
+// audioDeviceReason states why one entry cannot record from a device it is offered.
+//
+// Nothing is refused today: what is inside a kind is what the machine answered, and a
+// selection it no longer answers for is kept with a note rather than greyed - an application
+// that is not running now is one that may be running when the stream starts (audio.go). The
+// row exists because the control offers entries and every such control is answered for here,
+// which is what makes a later refusal a line in this file rather than a new mechanism.
+func (av availability) audioDeviceReason(string) *screensharev1.Text {
 	return nil
 }

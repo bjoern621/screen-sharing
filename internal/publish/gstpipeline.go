@@ -244,35 +244,90 @@ func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 // encoder codes at one rate whatever rate the monitor runs at, and the parser is
 // what puts the framed caps a muxer pad negotiates on the coded stream.
 func gstAudioBranch(s settings.Settings) ([]string, error) {
-	switch s.Publish.Audio {
-	case "", platform.AudioSourceNone:
+	recorded := s.Publish.Recorded()
+	if len(recorded) == 0 {
 		return nil, nil
-	case platform.AudioSourceDesktop:
-		if available, _ := AudioAvailable(s.Publish.Capture, s.Publish.Audio); !available {
-			return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, s.Publish.Audio)
-		}
-		a, ok := capabilities.GetAudio(s.Publish.AudioTrack())
-		if !ok {
-			return nil, fmt.Errorf("unknown audio codec %q", s.Publish.AudioTrack())
-		}
-		enc, ok := a.EncoderOn(EngineGst)
-		if !ok {
-			return nil, fmt.Errorf("audio codec %s has no GStreamer encoder", a.Name)
-		}
-		assert.Assert(enc.Parser != "", "a GStreamer audio encoder states its parser", a.Name)
-		return []string{
-			"pulsesrc", "device=" + platform.AudioMonitorDevice,
-			"!", "queue",
-			"!", "audioconvert",
-			"!", "audioresample",
-			"!", fmt.Sprintf("audio/x-raw,rate=%d,channels=2", a.Rate),
-			"!", enc.Element, fmt.Sprintf("bitrate=%d", a.BitrateK*1000),
-			"!", enc.Parser,
-			"!", transport.GstMuxName + ".",
-		}, nil
-	default:
-		return nil, fmt.Errorf("unknown audio source %q", s.Publish.Audio)
 	}
+	a, ok := capabilities.GetAudio(s.Publish.AudioTrack())
+	if !ok {
+		return nil, fmt.Errorf("unknown audio codec %q", s.Publish.AudioTrack())
+	}
+	enc, ok := a.EncoderOn(EngineGst)
+	if !ok {
+		return nil, fmt.Errorf("audio codec %s has no GStreamer encoder", a.Name)
+	}
+	assert.Assert(enc.Parser != "", "a GStreamer audio encoder states its parser", a.Name)
+
+	// Every source is its own chain into one mixer, and the mixer is what the encoder
+	// reads. One track and not several is carriage rather than preference: RTMP carries one
+	// audio track and the relay re-serves every ingest on all of its listeners, so a
+	// two-track stream would be unplayable on the narrowest leg while the form said it
+	// published.
+	//
+	// audiomixer rather than adder because the sources are live and unsynchronised: adder
+	// mixes sample for sample and drifts apart the moment one of them is late, where the
+	// mixer aligns on running time. It is the same reason the receive side takes one.
+	branch := []string{}
+	for i, source := range recorded {
+		chain, err := gstAudioSource(s, source, i)
+		if err != nil {
+			return nil, err
+		}
+		branch = append(branch, chain...)
+	}
+	return append(branch,
+		gstAudioMixName, "!", "audioconvert",
+		"!", "audioresample",
+		"!", fmt.Sprintf("audio/x-raw,rate=%d,channels=2", a.Rate),
+		"!", enc.Element, fmt.Sprintf("bitrate=%d", a.BitrateK*1000),
+		"!", enc.Parser,
+		"!", transport.GstMuxName+".",
+	), nil
+}
+
+// gstAudioMixName is what the mixer every source feeds is called, so a source chain can
+// name it and the encoder chain can read from it.
+const gstAudioMixName = "audiomixer name=" + gstAudioMixElement
+
+// gstAudioMixElement is the mixer's element name on its own, which is what a source chain
+// links into and what a property write addresses.
+const gstAudioMixElement = "amix"
+
+// gstAudioVolumeName is what the volume element of one source is called, indexed by that
+// source's place in the list, so a live gain write can address exactly one of them.
+func gstAudioVolumeName(i int) string {
+	return fmt.Sprintf("%s%d", gstAudioVolumeElement, i)
+}
+
+// gstAudioVolumeElement leads every volume element's name.
+const gstAudioVolumeElement = "gain"
+
+// gstAudioSource is one recorded source's own chain, from its device into the mixer.
+//
+// The volume element carries the gain and the mute both, because they are one value to an
+// element that multiplies: a muted source is one at zero, which is what keeps unmuting a
+// write to a running pipeline rather than a rebuild of the graph.
+//
+// The queue after the source is what lets the sources run on threads of their own. Without
+// it the mixer pulls them in turn and the slowest device paces every other one.
+func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]string, error) {
+	if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
+		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, a.Source)
+	}
+	device := a.Device
+	if device == "" {
+		device = platform.AudioSourceDevice(a.Source)
+	}
+	if device == "" {
+		return nil, fmt.Errorf("audio source %q names no device to open", a.Source)
+	}
+	return []string{
+		"pulsesrc", "device=" + device,
+		"!", "queue",
+		"!", "audioconvert",
+		"!", "volume", "name=" + gstAudioVolumeName(i), fmt.Sprintf("volume=%.3f", a.Volume()),
+		"!", gstAudioMixElement + ".",
+	}, nil
 }
 
 // gstChromaFormats maps a settings chroma (the ffmpeg pixel-format name) to the

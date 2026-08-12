@@ -162,14 +162,21 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	// what the map names. Without a tee neither exists and the command is what it has
 	// always been, ffmpeg's automatic stream selection picking the one video and the one
 	// audio stream there are.
+	// The audio inputs follow the capture's, so which index each takes is a count of what
+	// came before them rather than a constant: a filter source contributes no -i at all,
+	// and the one grabber that is one would otherwise have its audio mapped off an input
+	// that is not there.
+	inputs := inputCount(src.args)
+	audioFilters, audioOut := audioMixFilters(s, inputs)
+
+	// The filter chain and the maps are one decision wherever either exists, because a
+	// filter source has no input to map and a mixed track has no input either: each chain's
+	// output is labelled, and the label is what the map names. With neither, the command is
+	// what it has always been, ffmpeg's automatic stream selection picking the one video and
+	// the one audio stream there are.
 	filters := src.filters
 	var maps []string
-	if tap != nil {
-		// The audio input follows the capture's, so which index it takes is a count of
-		// what came before it rather than a constant: a filter source contributes no -i
-		// at all, and the one grabber that is one would otherwise have its audio mapped
-		// off an input that is not there.
-		inputs := inputCount(src.args)
+	if tap != nil || len(audioFilters) > 0 {
 		video := strconv.Itoa(inputs-1) + ":v"
 		if src.filterFlag == "-filter_complex" {
 			assert.Assert(len(filters) > 0, "a filter source yields a chain", s.Publish.Capture)
@@ -180,8 +187,8 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 			video = filterOutLabel
 		}
 		maps = append(maps, "-map", video)
-		if len(audioIn) > 0 {
-			maps = append(maps, "-map", strconv.Itoa(inputs)+":a")
+		if len(audioFilters) > 0 {
+			maps = append(maps, "-map", audioOut)
 		}
 	}
 
@@ -189,8 +196,23 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	args = append(args, device...)
 	args = append(args, src.args...)
 	args = append(args, audioIn...)
-	if len(filters) > 0 {
-		args = append(args, src.filterFlag, strings.Join(filters, ","))
+
+	// The audio graph is always a complex one: it reads inputs by index and labels what it
+	// produces, which is what -af cannot do. Where the capture's chain is a simple one the
+	// two ride as separate options, each naming its own streams; where the capture is
+	// itself a filter source, they are one graph of two chains, because a command states
+	// -filter_complex once and a second one would replace the first.
+	complexAudio := len(audioFilters) > 0
+	if complexAudio && src.filterFlag == "-filter_complex" {
+		filters = append(append([]string{}, strings.Join(filters, ",")), audioFilters...)
+		args = append(args, "-filter_complex", strings.Join(filters, ";"))
+	} else {
+		if len(filters) > 0 {
+			args = append(args, src.filterFlag, strings.Join(filters, ","))
+		}
+		if complexAudio {
+			args = append(args, "-filter_complex", strings.Join(audioFilters, ";"))
+		}
 	}
 	args = append(args, maps...)
 	args = append(args, enc...)
@@ -534,27 +556,89 @@ func avfoundationArgs(s settings.Settings, fps, _ string) (captureSource, error)
 	}}, nil
 }
 
-// audioInputArgs returns the audio capture input for the selected audio source.
-// Desktop audio is opened as the monitor of the default sink, by the name the
-// platform's sound server answers to (platform.AudioMonitorDevice); "-f pulse"
-// against GStreamer's "pulsesrc device=" is the whole of what the two engines
-// differ by, and the name itself is stated once for both.
+// audioInputArgs returns one capture input per recorded source, in list order.
 //
-// Whether the backend's platform serves that source at all is settled above this
-// builder, in publish.AudioAvailable, for the reason the package comment gives:
-// the arguments are built from the settings alone and the capture backend's
-// operating system is publish's column to read. What reaches here is a stream a
-// caller already had refused, the way an unknown codec is (audioEncodeArgs).
+// Each is opened by the handle its kind or its own device names: desktop audio as the
+// monitor of the default sink, a microphone as the default input, an entry naming a device
+// as that device (platform.AudioSourceDevice). "-f pulse" against GStreamer's
+// "pulsesrc device=" is the whole of what the two engines differ by, and the names
+// themselves are stated once for both.
+//
+// Whether the backend's platform serves a kind at all is settled above this builder, in
+// publish.AudioAvailable, for the reason the package comment gives: the arguments are built
+// from the settings alone and the capture backend's operating system is publish's column to
+// read. What reaches here is a stream a caller already had refused, the way an unknown codec
+// is (audioEncodeArgs).
 func audioInputArgs(s settings.Settings) ([]string, error) {
-	switch s.Publish.Audio {
-	case "", platform.AudioSourceNone:
-		return nil, nil
-	case platform.AudioSourceDesktop:
-		return []string{"-f", "pulse", "-i", platform.AudioMonitorDevice}, nil
-	default:
-		return nil, fmt.Errorf("unknown audio source %q", s.Publish.Audio)
+	var out []string
+	for _, a := range s.Publish.Recorded() {
+		device, err := audioDevice(a)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, "-f", "pulse", "-i", device)
 	}
+	return out, nil
 }
+
+// audioDevice is the handle one entry is opened by: its own device where it names one, and
+// the kind's default where it does not.
+//
+// A kind with no default and no device of its own is refused rather than opened as
+// something else: an entry that reached here naming an application is one the enumeration
+// never answered for, and opening the desktop instead would publish the wrong room.
+func audioDevice(a settings.AudioSource) (string, error) {
+	if a.Device != "" {
+		return a.Device, nil
+	}
+	if device := platform.AudioSourceDevice(a.Source); device != "" {
+		return device, nil
+	}
+	return "", fmt.Errorf("audio source %q names no device to open", a.Source)
+}
+
+// audioMixFilters is the filter graph mixing every recorded source into one track, and the
+// label its output carries. It is empty for a stream with no second track.
+//
+// One track and not several is carriage rather than preference: RTMP carries one audio
+// track and the relay re-serves every ingest on all of its listeners, so a two-track stream
+// would be unplayable on the narrowest leg while the form said it published.
+//
+// amix normalizes by default, dividing every input by the number of them, which would make
+// adding a second source halve the first. The gains are the user's, so it is turned off and
+// each input carries its own volume stage instead. A single source keeps the stage as well,
+// because the gain applies to one source exactly as it does to three.
+//
+// first is the input index the audio inputs start at, which is a count of what the capture
+// contributed rather than a constant: a filter source contributes no -i at all.
+func audioMixFilters(s settings.Settings, first int) ([]string, string) {
+	recorded := s.Publish.Recorded()
+	if len(recorded) == 0 {
+		return nil, ""
+	}
+
+	filters := make([]string, 0, len(recorded)+1)
+	mixed := ""
+	for i, a := range recorded {
+		label := fmt.Sprintf("[%s%d]", audioStageLabel, i)
+		filters = append(filters, fmt.Sprintf("[%d:a]volume=%.3f%s", first+i, a.Volume(), label))
+		mixed += label
+	}
+	if len(recorded) == 1 {
+		// One source needs no mixer, so its own stage carries the output label and the
+		// graph is the one filter the gain is.
+		return []string{strings.TrimSuffix(filters[0], mixed) + audioOutLabel}, audioOutLabel
+	}
+	return append(filters, fmt.Sprintf("%samix=inputs=%d:normalize=0%s",
+		mixed, len(recorded), audioOutLabel)), audioOutLabel
+}
+
+// The labels the audio graph names its stages and its output by. The output label is what
+// the map names, the way the video filter source's is (filterOutLabel).
+const (
+	audioStageLabel = "a"
+	audioOutLabel   = "[aout]"
+)
 
 // audioEncodeArgs encodes the captured audio as a stereo track in the configured
 // codec. The encoder name, the sample rate and the bitrate all come from the

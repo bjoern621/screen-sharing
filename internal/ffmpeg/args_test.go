@@ -674,7 +674,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 			continue
 		}
 		s := baseStream()
-		s.Publish.Audio, s.Publish.AudioCodec = "desktop", a.Name
+		s.Publish.AudioCodec = a.Name
+		s.Publish.AudioSources = settings.Recording("desktop")
 		args, err := BuildPublishArgs(s, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", a.Name, err)
@@ -700,7 +701,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// codec the settings carry.
 	for _, audio := range []string{"none", ""} {
 		s := baseStream()
-		s.Publish.Audio = audio
+		s.Publish.AudioSources = settings.Recording(audio)
 		args, err := BuildPublishArgs(s, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -717,7 +718,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// the engine entry points a run and the displayed command both go through.
 
 	s := baseStream()
-	s.Publish.Audio = "microphone"
+	s.Publish.AudioSources = settings.Recording("microphone")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an unknown audio source")
 	}
@@ -725,7 +726,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// An audio codec no row carries is refused before a command is built, since the encoder
 	// name would otherwise be read off an absent row.
 	s = baseStream()
-	s.Publish.Audio, s.Publish.AudioCodec = "desktop", "mp3"
+	s.Publish.AudioCodec = "mp3"
+		s.Publish.AudioSources = settings.Recording("desktop")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an audio codec the table does not carry")
 	}
@@ -734,7 +736,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// make it: WebRTC negotiates Opus and no AAC at all.
 	s = baseStream()
 	s.Publish.Transport, s.Publish.Codec, s.Publish.Chroma = "webrtc", "libx264", "yuv420p"
-	s.Publish.Audio, s.Publish.AudioCodec = "desktop", "aac"
+	s.Publish.AudioCodec = "aac"
+		s.Publish.AudioSources = settings.Recording("desktop")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for an AAC track over webrtc")
 	}

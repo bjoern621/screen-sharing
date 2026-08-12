@@ -48,6 +48,18 @@ const (
 	// AudioSourceDesktop is everything the machine plays: the monitor of the default
 	// output, served by PulseAudio or by PipeWire's Pulse server.
 	AudioSourceDesktop = "desktop"
+	// AudioSourceMic is whoever is talking: the default input, served by the same two.
+	AudioSourceMic = "mic"
+	// AudioSourceApplication is one running program's own output, which is what a stream
+	// carrying a game and not the call about it needs.
+	//
+	// No platform here serves it. It is PipeWire-native on Linux and needs platform code
+	// on the other two - WASAPI process loopback on Windows, ScreenCaptureKit or a
+	// CoreAudio tap on macOS - and none of it is written, so the kind is declared and
+	// greyed rather than left off the list: a reader looking for it reads why it is not
+	// there, which is the treatment a general concept the machine blocks gets
+	// (docs/field-availability.md).
+	AudioSourceApplication = "application"
 	// AudioMonitorDevice is the handle a publish engine opens AudioSourceDesktop by: the
 	// libpulse magic name for the monitor of the default sink. PipeWire's Pulse server
 	// implements the same name, so one string reaches both servers.
@@ -66,7 +78,49 @@ const (
 	// sentence, and that is the change that turns this into a column, made where the rest
 	// of the row already is.
 	AudioMonitorDevice = "@DEFAULT_MONITOR@"
+	// AudioInputDevice is the handle AudioSourceMic opens by: the libpulse magic name for
+	// the default input. The counterpart of the monitor name above, and it reaches both
+	// servers for the same reason.
+	AudioInputDevice = "@DEFAULT_SOURCE@"
 )
+
+// AudioSourceDevice is the handle a publish engine opens one kind's own default by, and the
+// empty string for a kind with no default to open.
+//
+// It is the machine-facing half of the table: an entry naming no device of its own takes
+// the kind's default, which is what this answers, and an entry naming one takes that
+// instead. Both engines read it, so the two differ in how they pass a device - "-f pulse -i"
+// against "pulsesrc device=" - and never in which device that is.
+func AudioSourceDevice(id string) string {
+	switch id {
+	case AudioSourceDesktop:
+		return AudioMonitorDevice
+	case AudioSourceMic:
+		return AudioInputDevice
+	default:
+		return ""
+	}
+}
+
+// AudioDevice is one thing inside a kind: a sound device, or an application whose own
+// output is being recorded.
+//
+// It is enumerated rather than declared, which is the whole difference from AudioSource
+// above. Which kinds exist is a fact about this app and its platforms, the same on every
+// machine of one operating system; which devices are inside a kind is a fact about this
+// machine at this moment, and no table can hold it.
+type AudioDevice struct {
+	// Kind is the source kind this device is inside, as AudioSources names them.
+	Kind string `json:"kind"`
+	// ID is the handle a publish engine opens it by, which is what the settings hold and
+	// what crosses the wire. Empty is the kind's own default, which every served kind has
+	// and no enumeration has to report.
+	ID string `json:"id"`
+	// Name is what the machine calls it, for a surface that would otherwise show a handle.
+	// It is a description and never an identity: two devices may answer to one name, and
+	// the handle is what separates them.
+	Name string `json:"name"`
+}
 
 // AudioSource is one second-track capture source as one platform answers for it: what
 // the setting holds, whether a session of that platform serves it, and what serves it.
@@ -103,8 +157,12 @@ type audioSourceNeed struct {
 	// id is the source's settings value.
 	id string
 	// platforms are the operating systems whose sessions serve this source, as Info
-	// spells them. Empty is every platform, which is what the absent source is: a
-	// stream with no second track needs nothing of the machine.
+	// spells them.
+	//
+	// A row naming none is served nowhere, which is a kind this app declares and has no
+	// code to open on any machine. The absent source names every platform rather than
+	// none, which is what keeps the two statements apart: "asks nothing of the machine"
+	// and "nothing here serves it" would otherwise be written the same way.
 	platforms []string
 }
 
@@ -114,8 +172,10 @@ type audioSourceNeed struct {
 //
 // A slice and not a map because that order is part of the answer, and a map has none.
 var audioSourceNeeds = []audioSourceNeed{
-	{id: AudioSourceNone},
+	{id: AudioSourceNone, platforms: audioPlatforms},
 	{id: AudioSourceDesktop, platforms: []string{"linux"}},
+	{id: AudioSourceMic, platforms: []string{"linux"}},
+	{id: AudioSourceApplication},
 }
 
 // The table describes one closed set of sources, and every row of it has to be
@@ -224,18 +284,17 @@ func AudioSourceAvailable(id string, info Info) (bool, *screensharev1.Text) {
 }
 
 // audioAvailable is the verdict for one declared row on one platform.
-//
-// A row naming no platform is served everywhere, which is the absent source: a stream
-// with no second track asks nothing of the machine and so cannot be refused by one.
 func audioAvailable(n audioSourceNeed, info Info) (bool, *screensharev1.Text) {
-	if len(n.platforms) == 0 || slices.Contains(n.platforms, info.OS) {
+	if slices.Contains(n.platforms, info.OS) {
 		return true, nil
 	}
-	if !slices.Contains(audioPlatforms, info.OS) {
+	if len(n.platforms) > 0 && !slices.Contains(audioPlatforms, info.OS) {
 		// An operating system the table never named. The declared platforms cover every
 		// machine this app knows, so reaching here means one outside that set, and a
-		// source is left offered on it rather than taken away under a statement written
-		// about somebody else's machine.
+		// source this app does open somewhere is left offered on it rather than taken away
+		// under a statement written about somebody else's machine. A row naming no
+		// platform at all is not covered by that: nothing opens it anywhere, so an unknown
+		// machine is not a machine it might work on.
 		return true, nil
 	}
 	return false, text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED,

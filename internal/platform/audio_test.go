@@ -137,16 +137,27 @@ func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 	}
 }
 
-// A machine the table never named keeps every source rather than losing all of them.
+// A machine the table never named keeps every source this app opens somewhere, rather than
+// losing all of them.
 //
 // The reasons are written per operating system, so an unnamed one has no sentence to be
 // refused under, and refusing it anyway would grey a control with somebody else's
 // machine's explanation. It is the same conclusion publish.Available reaches from the
 // opposite direction, and the reason both tables state their platforms rather than
 // inferring them.
-func TestAnUnknownPlatformKeepsEverySource(t *testing.T) {
+//
+// A kind no platform serves is the one exception, and it is not an inference about the
+// machine: nothing opens it anywhere, so an unknown operating system is not one it might
+// work on.
+func TestAnUnknownPlatformKeepsEverySourceSomethingOpens(t *testing.T) {
 	for _, info := range []Info{{OS: "plan9"}, {}} {
 		for _, s := range AudioSources(info) {
+			if s.ID == AudioSourceApplication {
+				if s.Available {
+					t.Errorf("%q offers %q, which no platform here has the code to open", info.OS, s.ID)
+				}
+				continue
+			}
 			if !s.Available {
 				t.Errorf("%q takes %q away from a platform it has nothing to say about: %s",
 					info.OS, s.ID, s.Reason)

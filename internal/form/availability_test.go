@@ -27,7 +27,8 @@ var availabilityAllKeys = []string{
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
-	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
+	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
+	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
@@ -135,7 +136,7 @@ func availabilityCases() []availabilityCase {
 func TestAGreyedFieldAlwaysCarriesAReason(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, key := range availabilityAllKeys {
-			st := fieldState(tc.deps, tc.s, key)
+			st := fieldState(tc.deps, tc.s, key, noEntry)
 			if !st.enabled && st.reason == nil {
 				t.Errorf("%s: %s is disabled with no reason", tc.name, key)
 			}
@@ -162,7 +163,7 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 		// Every declared source, which is the list on every platform: the table answers
 		// for all of them everywhere and marks the ones a session here does not serve,
 		// so which Info this is asked with changes the verdicts below and not the roster.
-		KeyAudio:         platform.AudioSourceIDs(platform.Info{}),
+		KeyAudioSource:   platform.AudioSourceIDs(platform.Info{}),
 		KeyAudioCodec:    capabilities.AudioNames(),
 		KeyCaptureMemory: gpupath.Memories,
 		// Both watch legs are offered from the roster the receiver can reach, which is
@@ -172,7 +173,7 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for key, list := range values {
 			for _, value := range list {
-				enabled, reason := optionState(tc.deps, tc.s, key, value)
+				enabled, reason := optionState(tc.deps, tc.s, key, value, noEntry)
 				if !enabled && reason == nil {
 					t.Errorf("%s: %s option %q is greyed with no reason", tc.name, key, value)
 				}
@@ -212,12 +213,12 @@ func TestEveryFieldTheFormDeclaresHasAnAvailabilityRule(t *testing.T) {
 func TestABackendKnobIsHiddenAwayFromItsCaptureBackend(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
-	away := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyDrmMap)
+	away := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyDrmMap, noEntry)
 	if away.visible {
 		t.Error("the DRM download strategy is rendered on a capture backend that downloads no scanout buffer")
 	}
 
-	home := fieldState(deps, availabilityDraft("kmsgrab", "libx264", "yuv420p", "rtsp"), KeyDrmMap)
+	home := fieldState(deps, availabilityDraft("kmsgrab", "libx264", "yuv420p", "rtsp"), KeyDrmMap, noEntry)
 	if !home.visible || !home.enabled {
 		t.Errorf("under kmsgrab through system memory the DRM download strategy is %+v, want live", home)
 	}
@@ -231,7 +232,7 @@ func TestTheDrmDownloadStrategyIsGreyedWhereNothingIsDownloaded(t *testing.T) {
 	s := availabilityDraft("kmsgrab", "hevc_vaapi", "yuv420p", "rtsp")
 	s.Publish.CaptureMemory = gpupath.MemoryGpu
 
-	st := fieldState(deps, s, KeyDrmMap)
+	st := fieldState(deps, s, KeyDrmMap, noEntry)
 	if !st.visible {
 		t.Fatal("the DRM download strategy is hidden under kmsgrab, where it belongs")
 	}
@@ -264,7 +265,7 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 			t.Errorf("%s is offered no desktop audio entry at all, so nothing on screen says why", info.OS)
 		}
 
-		enabled, reason := optionState(deps, s, KeyAudio, platform.AudioSourceDesktop)
+		enabled, reason := optionState(deps, s, KeyAudioSource, platform.AudioSourceDesktop, 0)
 		_, want := platform.AudioSourceAvailable(platform.AudioSourceDesktop, info)
 		if enabled {
 			t.Errorf("%s offers desktop audio live, which neither publish engine can open there", info.OS)
@@ -278,7 +279,7 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 	// machine and not a control that is always dead.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
-	if enabled, reason := optionState(deps, s, KeyAudio, platform.AudioSourceDesktop); !enabled {
+	if enabled, reason := optionState(deps, s, KeyAudioSource, platform.AudioSourceDesktop, 0); !enabled {
 		t.Errorf("a Linux session is refused desktop audio: %v", reason)
 	}
 }
@@ -295,7 +296,7 @@ func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	s := availabilityDraft("x11grab", "h264_vaapi", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
-	st := fieldState(deps, s, KeyEffort)
+	st := fieldState(deps, s, KeyEffort, noEntry)
 	if st.enabled {
 		t.Fatal("the effort step is live under an encoder whose row declares no ladder")
 	}
@@ -319,7 +320,7 @@ func TestTheEffortStepIsLiveWhereTheCodecDeclaresALadder(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
-	if st := fieldState(deps, s, KeyEffort); !st.enabled {
+	if st := fieldState(deps, s, KeyEffort, noEntry); !st.enabled {
 		t.Errorf("x264 declares an effort ladder and its builder spends it, yet the control greys: %v",
 			codeOf(st.reason))
 	}
@@ -340,10 +341,10 @@ func TestTheTwoLaddersAreAskedAboutSeparately(t *testing.T) {
 		t.Skipf("%s no longer declares one ladder and not the other", s.Publish.Codec)
 	}
 
-	if st := fieldState(deps, s, KeyEffort); !st.enabled {
+	if st := fieldState(deps, s, KeyEffort, noEntry); !st.enabled {
 		t.Errorf("the effort step greys on a codec that declares a ladder: %v", codeOf(st.reason))
 	}
-	st := fieldState(deps, s, KeyTune)
+	st := fieldState(deps, s, KeyTune, noEntry)
 	if st.enabled {
 		t.Fatal("the tune is live on a codec whose encoder tunes for nothing")
 	}
@@ -364,7 +365,7 @@ func TestBothLaddersReachBothEngines(t *testing.T) {
 		{"the GStreamer engine", linuxWayland, availabilityDraft("portal", "hevc_nvenc", "yuv420p", "rtsp")},
 	} {
 		for _, key := range []string{KeyEffort, KeyTune} {
-			if st := fieldState(tc.deps, tc.s, key); !st.enabled {
+			if st := fieldState(tc.deps, tc.s, key, noEntry); !st.enabled {
 				t.Errorf("%s: %s greys, where the encoder takes the step: %v", tc.name, key, codeOf(st.reason))
 			}
 		}
@@ -385,7 +386,7 @@ func TestTheEffortStepGreysWhereTheModePinsIt(t *testing.T) {
 	}
 	want, _ := c.Effort.StepFor(capabilities.ModeCbr)
 
-	st := fieldState(deps, s, KeyEffort)
+	st := fieldState(deps, s, KeyEffort, noEntry)
 	if st.enabled {
 		t.Fatal("the effort step is live in a mode that pins it")
 	}
@@ -406,7 +407,7 @@ func TestTheBframeCountNamesTheFamilyRatherThanTheMode(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
-	st := fieldState(deps, s, KeyBframes)
+	st := fieldState(deps, s, KeyBframes, noEntry)
 	if st.enabled {
 		t.Fatal("the B-frame count is live under an encoder family that takes none")
 	}
@@ -429,7 +430,7 @@ func TestTheBframeCountNamesTheFamilyRatherThanTheMode(t *testing.T) {
 func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
-	hardware := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyChroma)
+	hardware := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyChroma, noEntry)
 	if !hardware.enabled || hardware.reason != nil {
 		t.Fatalf("4:2:0 H.264 greys the pixel format: %+v", hardware)
 	}
@@ -440,7 +441,7 @@ func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 	// 4:4:4 H.264 is the case the decode table exists to state: no vendor ever put High
 	// 4:4:4 Predictive in silicon, so every viewer decodes it on the CPU - and the
 	// control still does not grey for it.
-	software := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv444p", "srt"), KeyChroma)
+	software := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv444p", "srt"), KeyChroma, noEntry)
 	if !software.enabled {
 		t.Fatalf("4:4:4 H.264 greys the pixel format: %+v", software)
 	}
@@ -457,7 +458,7 @@ func TestAForwardedKnobCarriesANoteRatherThanAGreying(t *testing.T) {
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeCrf
 
-	st := fieldState(deps, s, KeyBitrateM)
+	st := fieldState(deps, s, KeyBitrateM, noEntry)
 	if !st.enabled {
 		t.Fatalf("the bitrate greys in constant quality on NVENC, where the builder forwards it: %+v", st)
 	}
@@ -474,7 +475,7 @@ func TestPlanarRGBIsOneOptionGreyedOnTheEngineThatCannotCodeIt(t *testing.T) {
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 
 	enabled, reason := optionState(linuxWayland,
-		availabilityDraft("portal", "libx265", "yuv420p", "rtsp"), KeyChroma, "gbrp")
+		availabilityDraft("portal", "libx265", "yuv420p", "rtsp"), KeyChroma, "gbrp", noEntry)
 	if enabled {
 		t.Error("planar RGB is offered on the GStreamer engine, whose x265 element takes no GBR sink format")
 	}
@@ -483,7 +484,7 @@ func TestPlanarRGBIsOneOptionGreyedOnTheEngineThatCannotCodeIt(t *testing.T) {
 	}
 
 	enabled, _ = optionState(linuxX11,
-		availabilityDraft("x11grab", "libx265", "yuv420p", "rtsp"), KeyChroma, "gbrp")
+		availabilityDraft("x11grab", "libx265", "yuv420p", "rtsp"), KeyChroma, "gbrp", noEntry)
 	if !enabled {
 		t.Error("planar RGB is greyed on the ffmpeg engine, which codes it")
 	}
@@ -507,7 +508,7 @@ func TestAnUnprobedMachineGreysNoCodec(t *testing.T) {
 		if !transport.CanPublishFormat(s.Publish.Transport, capabilities.EngineFfmpeg, c.Format) {
 			continue
 		}
-		if enabled, reason := optionState(deps, s, KeyCodec, c.Name); !enabled {
+		if enabled, reason := optionState(deps, s, KeyCodec, c.Name, noEntry); !enabled {
 			t.Errorf("%s is greyed on an unprobed machine: %v", c.Name, reason)
 		}
 	}
@@ -528,7 +529,7 @@ func TestAnEngineWithNoToolingGreysEveryCodecWithItsOwnReason(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
 
 	for _, c := range capabilities.Codecs {
-		enabled, reason := optionState(deps, s, KeyCodec, c.Name)
+		enabled, reason := optionState(deps, s, KeyCodec, c.Name, noEntry)
 		if enabled {
 			t.Errorf("%s is offered on an engine whose tooling is missing", c.Name)
 			continue
@@ -555,7 +556,7 @@ func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 	}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
 
-	_, device := optionState(deps, s, KeyCodec, "hevc_nvenc")
+	_, device := optionState(deps, s, KeyCodec, "hevc_nvenc", noEntry)
 	if codeOf(device) != probeNoDevice {
 		t.Errorf("a missing NVENC encoder greys with %v, want the no-device verdict", codeOf(device))
 	}
@@ -563,7 +564,7 @@ func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 		t.Errorf("a missing NVENC encoder greys naming family %q, which is not the hardware", got)
 	}
 
-	_, build := optionState(deps, s, KeyCodec, "libaom-av1")
+	_, build := optionState(deps, s, KeyCodec, "libaom-av1", noEntry)
 	if codeOf(build) != probeNoBuild {
 		t.Errorf("a missing software encoder greys with %v, want the no-build verdict", codeOf(build))
 	}
@@ -582,7 +583,7 @@ func TestACaptureBackendBehindAPrivilegeStaysSelectable(t *testing.T) {
 	if publish.Grant("kmsgrab") == nil {
 		t.Fatal("kmsgrab declares no privilege, so this test no longer covers the case it names")
 	}
-	if enabled, reason := optionState(deps, s, KeyCapture, "kmsgrab"); !enabled {
+	if enabled, reason := optionState(deps, s, KeyCapture, "kmsgrab", noEntry); !enabled {
 		t.Errorf("kmsgrab is greyed for a privilege nothing can establish: %v", reason)
 	}
 }
@@ -596,7 +597,7 @@ func TestAnUnavailableCaptureBackendCarriesPublishsOwnSentence(t *testing.T) {
 
 	for _, capture := range publish.Captures() {
 		available, want := publish.Available(capture, deps.Platform)
-		enabled, got := optionState(deps, s, KeyCapture, capture)
+		enabled, got := optionState(deps, s, KeyCapture, capture, noEntry)
 		if enabled != available {
 			t.Errorf("%s is offered = %v, where publish says available = %v", capture, enabled, available)
 		}
@@ -612,7 +613,7 @@ func TestAnUnavailableCaptureBackendCarriesPublishsOwnSentence(t *testing.T) {
 func TestAutoAndTheSystemCopyAreNeverGreyed(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, memory := range []string{gpupath.MemoryAuto, gpupath.MemorySystem} {
-			if enabled, reason := optionState(tc.deps, tc.s, KeyCaptureMemory, memory); !enabled {
+			if enabled, reason := optionState(tc.deps, tc.s, KeyCaptureMemory, memory, noEntry); !enabled {
 				t.Errorf("%s: frame memory %q is greyed: %v", tc.name, memory, reason)
 			}
 		}
@@ -627,7 +628,7 @@ func TestTheDirectPathThatTradesColourNamesTheWayToTheExactOne(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
 
-	enabled, reason := optionState(deps, s, KeyCaptureMemory, gpupath.MemoryGpu)
+	enabled, reason := optionState(deps, s, KeyCaptureMemory, gpupath.MemoryGpu, noEntry)
 	if enabled {
 		t.Fatal("the exact-colour device value is offered on a pair whose path converts nothing")
 	}
@@ -635,7 +636,7 @@ func TestTheDirectPathThatTradesColourNamesTheWayToTheExactOne(t *testing.T) {
 	if got := idOf(reach, screensharev1.TextArgName_TEXT_ARG_NAME_CAPTURE); got != "d3d11screencapturesrc" {
 		t.Errorf("the greying points at capture %q, not at the pair that reaches the same screen at the colour selected", got)
 	}
-	if trade, _ := optionState(deps, s, KeyCaptureMemory, gpupath.MemoryGpuEncoderColor); !trade {
+	if trade, _ := optionState(deps, s, KeyCaptureMemory, gpupath.MemoryGpuEncoderColor, noEntry); !trade {
 		t.Error("the value that pays the colour for the path is greyed on the one pair that offers that trade")
 	}
 }
@@ -648,7 +649,7 @@ func TestTheColourFieldsGreyWhereTheEncoderConvertsOnItsOwnTerms(t *testing.T) {
 	s.Publish.CaptureMemory = gpupath.MemoryGpuEncoderColor
 
 	for _, key := range []string{KeyChroma, KeyColorRange} {
-		st := fieldState(deps, s, key)
+		st := fieldState(deps, s, key, noEntry)
 		if st.enabled {
 			t.Errorf("%s is live on a path whose encoder converts the frames itself", key)
 			continue
@@ -665,7 +666,7 @@ func TestTheColourFieldsGreyWhereTheEncoderConvertsOnItsOwnTerms(t *testing.T) {
 // (docs/ipc-api.md, "Fields the contract leads").
 func TestTheOutputResolutionIsLiveOnAPathThatCanScale(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
-	st := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyOutputResolution)
+	st := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyOutputResolution, noEntry)
 
 	if !st.visible {
 		t.Error("the output resolution is hidden, where a general concept greys")
@@ -684,11 +685,11 @@ func TestAScaledResolutionGreysWhereTheDevicePathHasNoFilter(t *testing.T) {
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
 	s.Publish.CaptureMemory = gpupath.MemoryGpuEncoderColor
 
-	if enabled, _ := optionState(deps, s, KeyOutputResolution, ""); !enabled {
+	if enabled, _ := optionState(deps, s, KeyOutputResolution, "", noEntry); !enabled {
 		t.Error("the source size is greyed, where it is what every pair does")
 	}
 
-	enabled, reason := optionState(deps, s, KeyOutputResolution, "1280x720")
+	enabled, reason := optionState(deps, s, KeyOutputResolution, "1280x720", noEntry)
 	if enabled {
 		t.Error("a scaled picture is offered on a device path with nothing on it that resizes")
 	}
@@ -709,7 +710,7 @@ func TestAScaledResolutionIsOfferedOnceTheRunLeavesTheDevicePath(t *testing.T) {
 		s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
 		s.Publish.CaptureMemory = memory
 
-		if enabled, reason := optionState(deps, s, KeyOutputResolution, "1280x720"); !enabled {
+		if enabled, reason := optionState(deps, s, KeyOutputResolution, "1280x720", noEntry); !enabled {
 			t.Errorf("frame memory %q downloads every frame and the scaled picture is still greyed: %s",
 				memory, reason)
 		}
@@ -775,7 +776,7 @@ func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	// Both link knobs, against legs neither setting names. A player can be opened on
 	// either protocol from this machine, and each reads its own.
 	for _, key := range []string{KeySrtWatchLatencyMs, KeyRtspWatchProtocol} {
-		if st := fieldState(fieldTestDeps(), s, key); !st.visible {
+		if st := fieldState(fieldTestDeps(), s, key, noEntry); !st.visible {
 			t.Errorf("%s is hidden while a player can be opened on the leg that reads it", key)
 		}
 	}
@@ -783,12 +784,12 @@ func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	// The tile's own knob is the other half of the rule and must not move with it. A tile
 	// receives over the leg its setting names and over no other, so a reorder window for a
 	// protocol no tile is on is a control that genuinely does nothing here.
-	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs); st.visible {
+	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs, noEntry); st.visible {
 		t.Error("the tile's RTSP reorder window is shown while the tile receives over SRT")
 	}
 
 	s.Viewer.TileWatchTransport = availabilityRtsp
-	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs); !st.visible {
+	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs, noEntry); !st.visible {
 		t.Error("the tile's RTSP reorder window is hidden while the tile receives over RTSP")
 	}
 }

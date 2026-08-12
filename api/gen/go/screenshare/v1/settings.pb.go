@@ -256,11 +256,20 @@ type PublishSettings struct {
 	// decides the publish engine, which is why so many other fields' availability
 	// hangs off it.
 	Capture string `protobuf:"bytes,23,opt,name=capture,proto3" json:"capture,omitempty"`
-	// audio names the capture source of the second track, or "none". Which sources
-	// exist is the platform's question; which codec the track is coded in is the
-	// engine's and the publish leg's, and is the field below.
-	Audio      string `protobuf:"bytes,24,opt,name=audio,proto3" json:"audio,omitempty"`
-	AudioCodec string `protobuf:"bytes,25,opt,name=audio_codec,json=audioCodec,proto3" json:"audio_codec,omitempty"`
+	// audio_sources are what the second track is mixed from, in the order a form draws
+	// them. An empty list is a stream with no second track.
+	//
+	// A list rather than one source because a screen share is normally several: what the
+	// machine is playing, and whoever is talking over it. They mix into one track, which
+	// is carriage rather than preference - RTMP carries one audio track, and the relay
+	// re-serves every ingest on all of its listeners, so a two-track stream would be
+	// unplayable on the narrowest leg while the form said it published.
+	//
+	// Which kinds exist is the platform's question (catalog.proto, audio_sources); which
+	// codec the mixed track is coded in is the engine's and the publish leg's, and is the
+	// field below.
+	AudioSources []*AudioSource `protobuf:"bytes,40,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
+	AudioCodec   string         `protobuf:"bytes,25,opt,name=audio_codec,json=audioCodec,proto3" json:"audio_codec,omitempty"`
 	// drm_map is the kmsgrab DRM download strategy: auto, vaapi, vulkan or none. It
 	// is a knob of the kmsgrab scanout path and of nothing else, so the form hides it
 	// rather than greying it under every other backend.
@@ -456,11 +465,11 @@ func (x *PublishSettings) GetCapture() string {
 	return ""
 }
 
-func (x *PublishSettings) GetAudio() string {
+func (x *PublishSettings) GetAudioSources() []*AudioSource {
 	if x != nil {
-		return x.Audio
+		return x.AudioSources
 	}
-	return ""
+	return nil
 }
 
 func (x *PublishSettings) GetAudioCodec() string {
@@ -634,6 +643,105 @@ func (x *ViewerSettings) GetRenderChain() string {
 	return ""
 }
 
+// AudioSource is one thing the second track is mixed from.
+//
+// The kind and what is picked inside it are two fields because they are answered by two
+// different things. A kind is declared - the machine either serves desktop audio or it
+// does not - and what is inside a kind is enumerated, since a microphone and a running
+// application are things a machine has now rather than things a table can list.
+//
+// It is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
+// entry's gain, which is what lets every control kind the form already has edit a list
+// item and lets a statement land on one entry rather than on the whole control
+// (form.proto).
+type AudioSource struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// source is the kind, a row of the platform's own source table
+	// (catalog.proto, audio_sources).
+	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// device is which device or application inside that kind, as the enumeration of the
+	// kind names it, and empty for the kind's own default - the default output's monitor,
+	// the default input.
+	//
+	// A selection the enumeration stops reporting stays on the list and is drawn with a
+	// note, the way a monitor index no enumeration reported is: an application that is not
+	// running now is one that may be running when the stream starts, and dropping the entry
+	// would lose a choice the user made.
+	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	// gain is what this source contributes, in percent, where 100 is unity. It is applied
+	// to the pipeline that is already running, so moving it costs nobody watching a
+	// reconnect (form.proto, Field.live).
+	//
+	// It carries presence because zero is a level and not an absence: a source turned all
+	// the way down is silent, and an entry nobody has set a level on is at unity. Without
+	// presence the two are one value, and the entry a reader creates by picking a kind on
+	// the growing row would arrive silent.
+	Gain *int32 `protobuf:"varint,3,opt,name=gain,proto3,oneof" json:"gain,omitempty"`
+	// mute silences this source without taking it off the list, so a source is turned off
+	// and back on without the entry, its device and its gain being lost.
+	Mute          bool `protobuf:"varint,4,opt,name=mute,proto3" json:"mute,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AudioSource) Reset() {
+	*x = AudioSource{}
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AudioSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AudioSource) ProtoMessage() {}
+
+func (x *AudioSource) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AudioSource.ProtoReflect.Descriptor instead.
+func (*AudioSource) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *AudioSource) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *AudioSource) GetDevice() string {
+	if x != nil {
+		return x.Device
+	}
+	return ""
+}
+
+func (x *AudioSource) GetGain() int32 {
+	if x != nil && x.Gain != nil {
+		return *x.Gain
+	}
+	return 0
+}
+
+func (x *AudioSource) GetMute() bool {
+	if x != nil {
+		return x.Mute
+	}
+	return false
+}
+
 // Preset is a named PublishSettings the user saved. The settings travel whole rather
 // than as a diff against the defaults, so applying one is an assignment and not a
 // merge whose result depends on what the form held first.
@@ -647,7 +755,7 @@ type Preset struct {
 
 func (x *Preset) Reset() {
 	*x = Preset{}
-	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +767,7 @@ func (x *Preset) String() string {
 func (*Preset) ProtoMessage() {}
 
 func (x *Preset) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_settings_proto_msgTypes[4]
+	mi := &file_screenshare_v1_settings_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -672,7 +780,7 @@ func (x *Preset) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Preset.ProtoReflect.Descriptor instead.
 func (*Preset) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{4}
+	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Preset) GetName() string {
@@ -706,7 +814,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
 	"\trtmp_port\x18\x06 \x01(\x05R\brtmpPort\x12\x19\n" +
-	"\bhls_port\x18\a \x01(\x05R\ahlsPort\"\xfd\a\n" +
+	"\bhls_port\x18\a \x01(\x05R\ahlsPort\"\xb6\b\n" +
 	"\x0fPublishSettings\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +
 	"\x11publish_transport\x18\n" +
@@ -725,8 +833,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\abframes\x18\x15 \x01(\x05R\abframes\x12\x16\n" +
 	"\x06effort\x18\x16 \x01(\tR\x06effort\x12\x12\n" +
 	"\x04tune\x18' \x01(\tR\x04tune\x12\x18\n" +
-	"\acapture\x18\x17 \x01(\tR\acapture\x12\x14\n" +
-	"\x05audio\x18\x18 \x01(\tR\x05audio\x12\x1f\n" +
+	"\acapture\x18\x17 \x01(\tR\acapture\x12@\n" +
+	"\raudio_sources\x18( \x03(\v2\x1b.screenshare.v1.AudioSourceR\faudioSources\x12\x1f\n" +
 	"\vaudio_codec\x18\x19 \x01(\tR\n" +
 	"audioCodec\x12\x17\n" +
 	"\adrm_map\x18\x1a \x01(\tR\x06drmMap\x12\x18\n" +
@@ -738,7 +846,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"uplinkMbps\x12+\n" +
 	"\x11output_resolution\x18% \x01(\tR\x10outputResolution\x12\x16\n" +
 	"\x06cursor\x18& \x01(\tR\x06cursorJ\x04\b\x02\x10\n" +
-	"J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\n" +
+	"J\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x05audioR\n" +
 	"relay_hostR\n" +
 	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\n" +
 	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\xaf\x02\n" +
@@ -748,7 +856,13 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\x13rtsp_watch_protocol\x18\x03 \x01(\tR\x11rtspWatchProtocol\x12/\n" +
 	"\x14srt_watch_latency_ms\x18\x04 \x01(\x05R\x11srtWatchLatencyMs\x121\n" +
 	"\x15rtsp_watch_latency_ms\x18\x05 \x01(\x05R\x12rtspWatchLatencyMs\x12!\n" +
-	"\frender_chain\x18\x06 \x01(\tR\vrenderChain\"Y\n" +
+	"\frender_chain\x18\x06 \x01(\tR\vrenderChain\"s\n" +
+	"\vAudioSource\x12\x16\n" +
+	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\x12\x17\n" +
+	"\x04gain\x18\x03 \x01(\x05H\x00R\x04gain\x88\x01\x01\x12\x12\n" +
+	"\x04mute\x18\x04 \x01(\bR\x04muteB\a\n" +
+	"\x05_gain\"Y\n" +
 	"\x06Preset\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12;\n" +
 	"\bsettings\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\bsettingsB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
@@ -765,24 +879,26 @@ func file_screenshare_v1_settings_proto_rawDescGZIP() []byte {
 	return file_screenshare_v1_settings_proto_rawDescData
 }
 
-var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_screenshare_v1_settings_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_screenshare_v1_settings_proto_goTypes = []any{
 	(*Settings)(nil),        // 0: screenshare.v1.Settings
 	(*RelaySettings)(nil),   // 1: screenshare.v1.RelaySettings
 	(*PublishSettings)(nil), // 2: screenshare.v1.PublishSettings
 	(*ViewerSettings)(nil),  // 3: screenshare.v1.ViewerSettings
-	(*Preset)(nil),          // 4: screenshare.v1.Preset
+	(*AudioSource)(nil),     // 4: screenshare.v1.AudioSource
+	(*Preset)(nil),          // 5: screenshare.v1.Preset
 }
 var file_screenshare_v1_settings_proto_depIdxs = []int32{
 	1, // 0: screenshare.v1.Settings.relay:type_name -> screenshare.v1.RelaySettings
 	2, // 1: screenshare.v1.Settings.publish:type_name -> screenshare.v1.PublishSettings
 	3, // 2: screenshare.v1.Settings.viewer:type_name -> screenshare.v1.ViewerSettings
-	2, // 3: screenshare.v1.Preset.settings:type_name -> screenshare.v1.PublishSettings
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 3: screenshare.v1.PublishSettings.audio_sources:type_name -> screenshare.v1.AudioSource
+	2, // 4: screenshare.v1.Preset.settings:type_name -> screenshare.v1.PublishSettings
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_settings_proto_init() }
@@ -790,13 +906,14 @@ func file_screenshare_v1_settings_proto_init() {
 	if File_screenshare_v1_settings_proto != nil {
 		return
 	}
+	file_screenshare_v1_settings_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_settings_proto_rawDesc), len(file_screenshare_v1_settings_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

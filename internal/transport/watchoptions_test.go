@@ -1,6 +1,7 @@
 package transport
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -83,7 +84,7 @@ func TestSetWatchOptionRefuses(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s=%s was accepted on %s", c.key, c.value, c.transport)
 			}
-			if s != watchSettings() {
+			if !reflect.DeepEqual(s, watchSettings()) {
 				t.Errorf("a refused option changed the settings: %+v", s)
 			}
 			if !strings.Contains(err.Error(), c.transport) && !strings.Contains(err.Error(), c.key) {
@@ -103,7 +104,7 @@ func TestEveryDeclaredOptionRoundTrips(t *testing.T) {
 				t.Errorf("%s: reading %s back: %v", name, o.Key, err)
 			}
 		}
-		if s != watchSettings() {
+		if !reflect.DeepEqual(s, watchSettings()) {
 			t.Errorf("%s: writing its own values back changed the settings: %+v", name, s)
 		}
 	}

@@ -90,12 +90,29 @@ So Linux serves that source and the other two are refused it, each with what it 
 A Windows WASAPI loopback or a macOS aggregate device would be another platform on the row and another sentence naming what serves it there; neither engine has one, and a row that claimed otherwise would grey nothing and fail at launch.
 
 The lookup is a table read and nothing else: the same `platform.Info` yields the same ordered list on every call, so a form may resolve on every keystroke without paying for it.
-Nothing enumerates the machine's audio devices, and if anything ever does, it is cached for the process lifetime and read back separately from the probing call, the way the encoder probe already divides them.
+
+**A kind is declared and what is inside it is enumerated**, which is why they are two controls and two answers.
+Whether a machine serves desktop audio at all is this table's; which microphone is plugged in is not something any table can hold, so `internal/audiodev` reads it off the sound server, once, cached for the process lifetime and read back separately from the call that takes it - the same division the encoder probe makes and for the same reason.
+A kind with nothing enumerated still has one thing in it: its own default, which is what an entry naming no device takes.
+A selection the enumeration stops reporting stays on the list with a note rather than being dropped, the way a monitor index no enumeration reported does, because an application that is not running now is one that may be running when the stream starts.
+
+**The second track is a list.**
+A screen share is normally several sources at once - what the machine is playing, and whoever is talking over it - so `settings.Publish.AudioSources` is a repeated `{source, device, gain, mute}` and the entries mix into one track.
+One track and not several is carriage rather than preference: RTMP carries one audio track and the relay re-serves every ingest on all of its listeners, so a two-track stream would be unplayable on the narrowest leg while the form said it published.
+
+Each entry is addressed by an indexed key - `publish.audio_sources[2].gain` - so every control kind the form already has edits a list item and a statement lands on one entry rather than on the control.
+The list grows through the settings and not through an effect on the contract: the form draws one row past the end of it, picking a kind on that row is the write that adds the entry, and setting a kind back to the absent one is what takes an entry off on the next repair.
+Both are ordinary writes through ordinary controls, which is what keeps a shell from deciding anything about the list's shape.
+
+The gain carries presence on the contract, because zero is a level and not an absence: a source turned all the way down is silent, and an entry nobody has set a level on is at unity.
+Without presence the two would be one value and the entry a reader creates by picking a kind would arrive silent.
+Mute is a level too - the mixer multiplies by zero - which is what keeps unmuting a write to a running pipeline rather than a rebuild of the audio graph, and what makes a list of nothing but muted sources still carry a track.
 
 Every consumer reads those rows.
 The catalog carries what this machine serves.
 The form offers every declared source, greys the ones the machine does not serve with the row's own sentence (`field-availability.md`), and notes beside each of the others what serves it here.
-The repair walks a stranded draft onto the first source the same rows leave standing, and `settings.Publish.Audio` spells the absent source by reading the table's constant rather than typing `"none"` a second time.
+The repair walks a stranded entry onto the first source the same rows leave standing, which for a machine that serves none of them is the absent one, and an entry left on that is an entry the repair then takes off the list.
+`settings.AudioSource` spells the absent source by reading the table's constant rather than typing `"none"` a second time.
 The list a form offers and the list a machine serves are therefore two projections of one table rather than two lists that agree until one is edited.
 
 The publish engines read them too, and through one derivation rather than each with a table of its own.

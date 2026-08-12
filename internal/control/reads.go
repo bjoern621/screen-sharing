@@ -43,9 +43,10 @@ func (s *Server) GetCatalog(ctx context.Context, req *screensharev1.GetCatalogRe
 // probe and the shell that was told about it would draw different tables.
 func (s *Server) catalog() *screensharev1.Catalog {
 	return wire.Catalog(wire.CatalogInput{
-		Platform: s.backend.Platform(),
-		Monitors: s.backend.Monitors(),
-		Encoders: s.backend.CachedEncoders(),
+		Platform:     s.backend.Platform(),
+		Monitors:     s.backend.Monitors(),
+		Encoders:     s.backend.CachedEncoders(),
+		AudioDevices: s.backend.AudioDevices(),
 	})
 }
 
@@ -84,9 +85,10 @@ func (s *Server) GetSettings(ctx context.Context, req *screensharev1.GetSettings
 // nothing in it is the far end of that same walk rather than a different question.
 func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveFormRequest) (*screensharev1.ResolveFormResponse, error) {
 	deps := form.Deps{
-		Monitors: s.backend.Monitors(),
-		Platform: s.backend.Platform(),
-		Encoders: s.backend.CachedEncoders(),
+		Monitors:     s.backend.Monitors(),
+		Platform:     s.backend.Platform(),
+		Encoders:     s.backend.CachedEncoders(),
+		AudioDevices: s.backend.AudioDevices(),
 	}
 	draft := wire.ToSettings(req.GetSettings())
 	return &screensharev1.ResolveFormResponse{Form: form.Resolve(deps, draft)}, nil

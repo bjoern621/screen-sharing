@@ -80,36 +80,58 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 		// held to.
 		for i := range fieldTable {
 			f := &fieldTable[i]
-			if f.options == nil {
+			if f.options == nil && f.itemOptions == nil {
 				continue
 			}
 
-			// The draft as it stands after every earlier repair. Read back each time rather
-			// than carried, because an option list is a function of the whole draft and the
-			// list this field is held against has to be the one it would be offered.
-			s := wire.ToSettings(m)
-			if repairSkips(f.key, s) {
-				continue
+			// A repeated row is walked once per entry the draft holds, and never for the row
+			// past the end: that row is not in the settings, so there is nothing stranded on
+			// it to move. The entries are read back each round with everything else.
+			for _, entry := range repairEntries(f, wire.ToSettings(m)) {
+				// The draft as it stands after every earlier repair. Read back each time
+				// rather than carried, because an option list is a function of the whole
+				// draft and the list this field is held against has to be the one it would
+				// be offered.
+				s := wire.ToSettings(m)
+				if repairSkips(f.key, s) {
+					continue
+				}
+				key := f.key
+				if f.repeat {
+					key = indexedKey(f.key, entry)
+				}
+				held := optionValue(fieldValue(f, s, entry))
+
+				next, walked := legalOption(d, s, f, held, entry)
+				if !walked {
+					continue
+				}
+
+				group, descriptor, found := settingsField(m, key)
+				assert.Assert(found, "a form field names a group and a settings field in it", key)
+
+				value, ok := repairValue(descriptor, next)
+				assert.Assert(ok, "a repaired option carries the type its settings field holds",
+					key, descriptor.Kind().String(), next)
+
+				group.Set(descriptor, value)
+				changed = true
+				if !moved[key] {
+					moved[key] = true
+					repaired = append(repaired, key)
+				}
 			}
-			held := optionValue(f.value(s))
+		}
 
-			next, walked := legalOption(d, s, f, held)
-			if !walked {
-				continue
-			}
-
-			group, descriptor, found := settingsField(m, f.key)
-			assert.Assert(found, "a form field names a group and a settings field in it", f.key)
-
-			value, ok := repairValue(descriptor, next)
-			assert.Assert(ok, "a repaired option carries the type its settings field holds",
-				f.key, descriptor.Kind().String(), next)
-
-			group.Set(descriptor, value)
+		// The audio list last, because what it drops is decided by the kinds the walk above
+		// may have just moved: an entry whose kind was repaired to none is an entry the
+		// reader turned off, and it comes off the list here rather than staying as a row
+		// that records nothing.
+		for _, key := range repairAudioSources(m) {
 			changed = true
-			if !moved[f.key] {
-				moved[f.key] = true
-				repaired = append(repaired, f.key)
+			if !moved[key] {
+				moved[key] = true
+				repaired = append(repaired, key)
 			}
 		}
 
@@ -330,8 +352,13 @@ var repairOrders = map[string][]string{
 // nearest, because the option lists are written in the order a reader should reach for
 // them - the recommended entry leads - so first is nearest by the only measure this
 // package has.
-func legalOption(d Deps, s settings.Settings, f *field, held string) (string, bool) {
-	options := f.options(d, s)
+func legalOption(d Deps, s settings.Settings, f *field, held string, entry int) (string, bool) {
+	var options []*screensharev1.FieldOption
+	if f.repeat {
+		options = f.itemOptions(d, s, audioEntry(s, entry))
+	} else {
+		options = f.options(d, s)
+	}
 	if len(options) == 0 {
 		// A field whose list came out empty describes a machine that offers nothing here.
 		// The held value stays: there is nothing to walk to, and a cleared setting would
@@ -341,7 +368,7 @@ func legalOption(d Deps, s settings.Settings, f *field, held string) (string, bo
 
 	first := ""
 	for _, value := range repairWalk(f.key, options) {
-		enabled, _ := optionState(d, s, f.key, value)
+		enabled, _ := optionState(d, s, f.key, value, entry)
 		if value == held && enabled {
 			return held, false
 		}
@@ -452,4 +479,52 @@ func repairValue(descriptor protoreflect.FieldDescriptor, value string) (protore
 	default:
 		return protoreflect.Value{}, false
 	}
+}
+
+// repairEntries is the entries one row is walked for: the entries the draft holds for a
+// repeated row, and the one non-entry for every other row.
+//
+// The row past the end of the list is deliberately not walked. It is not in the settings, so
+// there is nothing stranded on it to move, and repairing it would write an entry the reader
+// never made.
+func repairEntries(f *field, s settings.Settings) []int {
+	if !f.repeat {
+		return []int{noEntry}
+	}
+	out := make([]int, 0, len(s.Publish.AudioSources))
+	for i := range s.Publish.AudioSources {
+		out = append(out, i)
+	}
+	return out
+}
+
+// repairAudioSources takes off the list every entry that records nothing, and returns the
+// keys it moved.
+//
+// An entry naming no kind is what a reader turns a source off by, and it is what the row at
+// the end of the list holds until a kind is picked on it. Neither is a source, so neither
+// belongs in a stored draft: leaving them would grow the list by one every time the form was
+// asked about the draft it had just returned.
+//
+// The key it names is the entry's own, because that is what a shell binds and what it can
+// say moved. The entries after a dropped one shift up, which is what a list is; a shell
+// adopts the repaired draft wholesale and redraws from it, so nothing is holding an index
+// that moved.
+func repairAudioSources(m *screensharev1.Settings) []string {
+	s := wire.ToSettings(m)
+	kept := s.Publish.Recorded()
+	if len(kept) == len(s.Publish.AudioSources) {
+		return nil
+	}
+
+	var moved []string
+	for i, a := range s.Publish.AudioSources {
+		if !a.Records() {
+			moved = append(moved, indexedKey(KeyAudioSource, i))
+		}
+	}
+	s.Publish.AudioSources = kept
+	proto.Reset(m)
+	proto.Merge(m, wire.Settings(s))
+	return moved
 }

@@ -420,7 +420,7 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 func presetStrands(d Deps, candidate settings.Settings) bool {
 	for _, key := range presetSearchedKeys {
 		f := presetField(key)
-		if _, walked := legalOption(d, candidate, f, optionValue(f.value(candidate))); walked {
+		if _, walked := legalOption(d, candidate, f, optionValue(f.value(candidate)), noEntry); walked {
 			return true
 		}
 	}

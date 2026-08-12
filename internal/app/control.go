@@ -60,6 +60,8 @@ func (b controlBackend) Encoders(ctx context.Context) encoders.Availability {
 
 func (b controlBackend) CachedEncoders() encoders.Availability { return b.app.cachedEncoders() }
 
+func (b controlBackend) AudioDevices() []platform.AudioDevice { return b.app.audioDevices() }
+
 func (b controlBackend) PublishState() wire.PublishSnapshot {
 	return publishSnapshot(b.app.GetPublishState())
 }

@@ -27,12 +27,18 @@ const (
 	AxisColorRange = "publish.color_range"
 	AxisCapture    = "publish.capture"
 	AxisTransport  = "publish.publish_transport"
-	AxisAudio      = "publish.audio"
 	AxisAudioCodec = "publish.audio_codec"
 	AxisMemory     = "publish.capture_memory"
 	AxisCursor     = "publish.cursor"
 	AxisBitrateM   = "publish.bitrate_mbps"
 	AxisCq         = "publish.cq"
+
+	// FieldAudioGain is a control a rule lands on and no rule matches on. Not every
+	// control is a fact a configuration reads: the level one entry of the audio list runs
+	// at is something a rule states liveness about, and nothing binds under it. It is
+	// spelled here for the reason the axes are, since the form and the publish engine both
+	// name it and a second spelling is one that can disagree.
+	FieldAudioGain = "publish.audio_sources[].gain"
 
 	AxisEngine  = "engine"
 	AxisFamily  = "codec.family"
@@ -83,7 +89,6 @@ var axes = []Axis{
 	{Name: AxisMemory, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_MEMORY},
 	{Name: AxisCursor, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CURSOR},
 	{Name: AxisTransport, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT},
-	{Name: AxisAudio, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO},
 	{Name: AxisAudioCodec, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO_CODEC},
 	{Name: AxisOS, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_OS},
 	{Name: AxisDisplay, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_DISPLAY},

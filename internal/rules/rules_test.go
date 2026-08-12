@@ -29,7 +29,6 @@ func facts(over map[string]Value) Facts {
 		AxisMode:       TextValue("cbr"),
 		AxisMemory:     TextValue("auto"),
 		AxisTransport:  TextValue("srt"),
-		AxisAudio:      TextValue("none"),
 		AxisAudioCodec: TextValue("opus"),
 		AxisOS:         TextValue("linux"),
 		AxisDisplay:    TextValue("wayland"),

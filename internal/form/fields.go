@@ -61,6 +61,9 @@ const (
 	fieldLatencyCeiling = 8000
 	fieldLatencyStep    = 10
 
+	// fieldGainStep is what a swept gain moves by, in the percent the setting counts in.
+	fieldGainStep = 5
+
 	// fieldAnchorCq is the 51-point scale every quantizer figure stated
 	// codec-independently counts on: the H.26x encoders' own. It is the range a codec
 	// declaring no scale on this engine is offered within, since pricing an unknown scale
@@ -246,13 +249,44 @@ var fieldTable = []field{
 		bounds:  fieldBframeBounds,
 	},
 
-	// The second track: where it comes from, and what codes it.
+	// The second track: what it is mixed from, and what codes it.
+	//
+	// The four controls of one entry are drawn once per entry, plus once more for the row
+	// a reader grows the list by. That trailing row is what makes adding a source an
+	// ordinary settings write through an ordinary control: picking a kind on it writes an
+	// entry the list did not have, and setting a kind back to none is what takes one off.
+	// Neither needs an effect on the contract, and neither lets a shell decide anything.
 	{
-		key:     KeyAudio,
-		group:   GroupAudio,
-		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Audio) },
-		options: optionAudioSources,
+		key:         KeyAudioSource,
+		group:       GroupAudio,
+		control:     screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		repeat:      true,
+		itemValue:   func(a settings.AudioSource) *screensharev1.FieldValue { return stringValue(a.Source) },
+		itemOptions: optionAudioKinds,
+	},
+	{
+		key:         KeyAudioSourceDevice,
+		group:       GroupAudio,
+		control:     screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		repeat:      true,
+		itemValue:   func(a settings.AudioSource) *screensharev1.FieldValue { return stringValue(a.Device) },
+		itemOptions: optionAudioDevices,
+	},
+	{
+		key:       KeyAudioSourceGain,
+		group:     GroupAudio,
+		control:   screensharev1.ControlKind_CONTROL_KIND_SLIDER,
+		unit:      screensharev1.Unit_UNIT_PERCENT,
+		repeat:    true,
+		itemValue: func(a settings.AudioSource) *screensharev1.FieldValue { return number(a.Gain) },
+		bounds:    fieldGainBounds,
+	},
+	{
+		key:       KeyAudioSourceMute,
+		group:     GroupAudio,
+		control:   screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		repeat:    true,
+		itemValue: func(a settings.AudioSource) *screensharev1.FieldValue { return flag(a.Mute) },
 	},
 	{
 		key:     KeyAudioCodec,
@@ -479,4 +513,13 @@ func fieldLatencyBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 // fieldUplinkBounds is one megabit up to past any line this is weighed against.
 func fieldUplinkBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(1, fieldUplinkCeiling, 1)
+}
+
+// fieldGainBounds is silence up to the amplification a quiet microphone needs.
+//
+// The ceiling is above unity because a source that needs turning up is the case a gain
+// exists for, and it is a ceiling because an unbounded multiplier clips every other source
+// out of the mix. The step is coarse enough that a swept control lands on round figures.
+func fieldGainBounds(Deps, settings.Settings) *screensharev1.NumericRange {
+	return bounded(0, settings.GainMax, fieldGainStep)
 }

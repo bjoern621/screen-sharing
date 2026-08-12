@@ -382,9 +382,18 @@ message Catalog {
   // carriage row under the browser engine, as it is for the other two readers.
   repeated string browser_watch_transports = 20;
 
-  // audio_sources are the second-track capture sources this platform offers,
+  // audio_sources are the second-track capture kinds this platform offers,
   // "none" among them.
   repeated string audio_sources = 18;
+
+  // audio_devices are what this machine has inside those kinds, enumerated rather than
+  // declared: which kinds exist is the same on every machine of one operating system,
+  // and which microphone is plugged in is not.
+  //
+  // Each kind's own default is absent from this list, because it needs no enumeration:
+  // an entry naming no device takes it, and every served kind has one. A kind with
+  // nothing here is therefore a kind with one thing in it rather than none.
+  repeated AudioDevice audio_devices = 22;
 
   // no_monitor_preview says why this machine cannot show what a monitor holds, and is
   // absent where it can. StartMonitorPreview then refuses for the same reason, so a
@@ -404,4 +413,22 @@ message Catalog {
   // arrives on GetSettingsResponse beside the settings it is about.
   reserved 10, 16, 19;
   reserved "engines", "grid_transports", "store_notice";
+}
+
+// AudioDevice is one thing inside an audio capture kind: a sound device, or an
+// application whose own output is being recorded.
+//
+// It is enumerated rather than declared, which is the whole difference from the kinds
+// beside it. Which kinds exist is a fact about this app and its platforms; which
+// devices are inside a kind is a fact about this machine at this moment.
+message AudioDevice {
+  // kind is the source kind this device is inside, one of Catalog.audio_sources.
+  string kind = 1;
+  // id is the handle a publish engine opens it by, which is what the settings hold
+  // (settings.proto, AudioSource.device).
+  string id = 2;
+  // name is what the machine calls it, for a surface that would otherwise show a
+  // handle. It is a description and never an identity: two devices may answer to one
+  // name, and the handle is what separates them.
+  string name = 3;
 }

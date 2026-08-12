@@ -29,7 +29,8 @@ var fieldDeclaredKeys = []string{
 	KeyRtmpPort, KeyHlsPort,
 	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
-	KeyCapture, KeyAudio, KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
+	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
+	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
@@ -73,11 +74,22 @@ func fieldRowFor(t *testing.T, key string) *field {
 func fieldOptionValues(t *testing.T, key string) []string {
 	t.Helper()
 	f := fieldRowFor(t, key)
-	if f.options == nil {
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	built := []*screensharev1.FieldOption(nil)
+	switch {
+	case f.options != nil:
+		built = f.options(d, s)
+	case f.itemOptions != nil:
+		// The entry a fresh installation draws, which is the row past the end of an empty
+		// list: the one a reader grows it by.
+		built = f.itemOptions(d, s, settings.DefaultAudioSource())
+	default:
 		t.Fatalf("%s offers no options", key)
 	}
+
 	var out []string
-	for _, o := range f.options(fieldTestDeps(), settings.Defaults()) {
+	for _, o := range built {
 		out = append(out, o.GetValue())
 	}
 	return out
@@ -116,12 +128,19 @@ func TestEveryRowNamesADeclaredKey(t *testing.T) {
 // a panic on the first resolve rather than a control that renders empty.
 func TestEveryRowShowsAValue(t *testing.T) {
 	s := settings.Defaults()
-	for _, f := range fieldTable {
-		if f.value == nil {
-			t.Errorf("%s has no value function", f.key)
+	for i := range fieldTable {
+		f := &fieldTable[i]
+		if (f.value == nil) == (f.itemValue == nil) {
+			t.Errorf("%s reads its value either off the draft or off one entry, and states neither or both", f.key)
 			continue
 		}
-		if v := f.value(s); v == nil || v.GetKind() == nil {
+		// A repeated row is read for the entry a fresh installation would draw, which is
+		// the row past the end of an empty list: the one a reader grows it by.
+		entry := noEntry
+		if f.repeat {
+			entry = 0
+		}
+		if v := fieldValue(f, s, entry); v == nil || v.GetKind() == nil {
 			t.Errorf("%s reads no value out of the defaults", f.key)
 		}
 	}
@@ -269,7 +288,7 @@ func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 		switch f.control {
 		case screensharev1.ControlKind_CONTROL_KIND_SELECT,
 			screensharev1.ControlKind_CONTROL_KIND_RADIO:
-			if f.options == nil {
+			if f.options == nil && f.itemOptions == nil {
 				t.Errorf("%s is a select or radio with no options", f.key)
 			}
 			if f.bounds != nil {
@@ -284,7 +303,7 @@ func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 				t.Errorf("%s is a number or slider carrying options", f.key)
 			}
 		case screensharev1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
-			if f.options == nil {
+			if f.options == nil && f.itemOptions == nil {
 				t.Errorf("%s is a number-select with no ladder", f.key)
 			}
 			if f.bounds == nil {
@@ -346,6 +365,7 @@ func TestEveryQuantityStatesItsUnit(t *testing.T) {
 		KeyRtspWatchLatencyMs:  screensharev1.Unit_UNIT_MILLISECONDS,
 		KeyGop:                 screensharev1.Unit_UNIT_FRAMES,
 		KeyBframes:             screensharev1.Unit_UNIT_FRAMES,
+		KeyAudioSourceGain:     screensharev1.Unit_UNIT_PERCENT,
 	}
 	for key, want := range units {
 		if got := fieldRowFor(t, key).unit; got != want {
@@ -436,7 +456,7 @@ func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
 		// fieldTestDeps names no platform, which is what the table answers with every
 		// source offered; the platforms that serve fewer are the greying test's, since a
 		// source a machine cannot serve is greyed here rather than left out.
-		{KeyAudio, platform.AudioSourceIDs(platform.Info{})},
+		{KeyAudioSource, platform.AudioSourceIDs(platform.Info{})},
 		{KeyPlayerWatchTransport, transport.WatchNames(capabilities.EngineFfmpeg)},
 	}
 	for _, c := range cases {
@@ -722,7 +742,7 @@ func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 		KeyColorRange:           s.Publish.ColorRange,
 		KeyMode:                 s.Publish.Mode,
 		KeyEffort:               s.Publish.Effort,
-		KeyAudio:                s.Publish.Audio,
+		KeyAudioSource:          platform.AudioSourceNone,
 		KeyAudioCodec:           s.Publish.AudioCodec,
 		KeyTransport:            s.Publish.Transport,
 		KeyPlayerWatchTransport: s.Viewer.PlayerWatchTransport,
@@ -741,7 +761,8 @@ func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 // the user's untouched setting as out of range.
 func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
-	for _, f := range fieldTable {
+	for i := range fieldTable {
+		f := &fieldTable[i]
 		if f.bounds == nil {
 			continue
 		}
@@ -754,7 +775,11 @@ func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 			t.Errorf("%s ranges %d..%d", f.key, r.GetMin(), r.GetMax())
 			continue
 		}
-		v := f.value(s)
+		entry := noEntry
+		if f.repeat {
+			entry = 0
+		}
+		v := fieldValue(f, s, entry)
 		n, ok := v.GetKind().(*screensharev1.FieldValue_Number)
 		if !ok {
 			t.Errorf("%s carries a range and reads a value that is not a number", f.key)
@@ -921,17 +946,24 @@ func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for i := range fieldTable {
 			f := &fieldTable[i]
-			if f.options == nil {
+			if f.options == nil && f.itemOptions == nil {
 				continue
 			}
 
+			// A repeated row is asked about the row a reader grows the list by, which is
+			// the entry every draft here has: none of them holds an audio source.
+			entry := noEntry
+			if f.repeat {
+				entry = 0
+			}
+
 			var built []string
-			for _, o := range f.options(tc.deps, tc.s) {
+			for _, o := range fieldOptions(f, tc.deps, tc.s, entry) {
 				built = append(built, o.GetValue())
 			}
 
 			var reachable, ruledOut, offered []string
-			for _, o := range resolveOptions(tc.deps, tc.s, f) {
+			for _, o := range resolveOptions(tc.deps, tc.s, f, entry) {
 				offered = append(offered, o.GetValue())
 				if o.GetEnabled() {
 					reachable = append(reachable, o.GetValue())
@@ -955,4 +987,13 @@ func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 			}
 		}
 	}
+}
+
+// fieldOptions is what one row's builder offers for one entry, whichever of the two builders
+// the row carries.
+func fieldOptions(f *field, d Deps, s settings.Settings, entry int) []*screensharev1.FieldOption {
+	if f.repeat {
+		return f.itemOptions(d, s, audioEntry(s, entry))
+	}
+	return f.options(d, s)
 }

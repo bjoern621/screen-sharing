@@ -3,6 +3,8 @@ package wire
 import (
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"google.golang.org/protobuf/proto"
+
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -67,7 +69,7 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		Tune:             p.Tune,
 
 		Capture:       p.Capture,
-		Audio:         p.Audio,
+		AudioSources:  audioSources(p.AudioSources),
 		AudioCodec:    p.AudioCodec,
 		DrmMap:        p.DrmMap,
 		Monitor:       int32(p.Monitor),
@@ -156,7 +158,7 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		Tune:       m.GetTune(),
 
 		Capture:       m.GetCapture(),
-		Audio:         m.GetAudio(),
+		AudioSources:  toAudioSources(m.GetAudioSources()),
 		AudioCodec:    m.GetAudioCodec(),
 		DrmMap:        m.GetDrmMap(),
 		Monitor:       int(m.GetMonitor()),
@@ -218,4 +220,60 @@ func Presets(ps []settings.Preset) []*screensharev1.Preset {
 
 	assert.Assert(len(out) == len(ps), "a message per saved preset", len(out), len(ps))
 	return out
+}
+
+// audioSources carries the list the second track is mixed from onto the contract, and
+// toAudioSources reads it back. Both keep the order, because it is the order a form draws
+// the entries in and the order the indexed keys address them by.
+//
+// An empty list crosses as an empty list rather than as an absent field, which is the same
+// statement either way: a stream with no second track.
+func audioSources(sources []settings.AudioSource) []*screensharev1.AudioSource {
+	if len(sources) == 0 {
+		return nil
+	}
+	out := make([]*screensharev1.AudioSource, 0, len(sources))
+	for _, a := range sources {
+		out = append(out, &screensharev1.AudioSource{
+			Source: a.Source,
+			Device: a.Device,
+			Gain:   proto.Int32(int32(a.Gain)),
+			Mute:   a.Mute,
+		})
+	}
+	return out
+}
+
+func toAudioSources(sources []*screensharev1.AudioSource) []settings.AudioSource {
+	if len(sources) == 0 {
+		// An empty list reads back as no list rather than as an empty one, because that is
+		// what a settings object with no second track holds and what a repair has to leave
+		// untouched: a draft that came back with an empty slice where it sent none would be
+		// a draft the repair changed without naming a field.
+		return nil
+	}
+	out := make([]settings.AudioSource, 0, len(sources))
+	for _, a := range sources {
+		out = append(out, settings.AudioSource{
+			Source: a.GetSource(),
+			Device: a.GetDevice(),
+			Gain:   audioGain(a),
+			Mute:   a.GetMute(),
+		})
+	}
+	return out
+}
+
+// audioGain is the level one entry contributes, and unity for an entry nobody has set one
+// on.
+//
+// Zero is a level rather than an absence - a source turned all the way down is silent - so
+// the field carries presence and this is what reads it. An entry a reader creates by picking
+// a kind on the growing row arrives with no gain at all, and arriving silent is the one
+// answer it must not have.
+func audioGain(a *screensharev1.AudioSource) int {
+	if a.Gain == nil {
+		return settings.GainUnity
+	}
+	return int(a.GetGain())
 }

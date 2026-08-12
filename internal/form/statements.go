@@ -68,6 +68,9 @@ const (
 	codecTakesNoTuneLadder    = screensharev1.TextCode_TEXT_CODE_CODEC_TAKES_NO_TUNE_LADDER
 	tunePinnedByMode          = screensharev1.TextCode_TEXT_CODE_TUNE_PINNED_BY_MODE
 	audioCodecNeedsSource     = screensharev1.TextCode_TEXT_CODE_AUDIO_CODEC_NEEDS_SOURCE
+	audioDeviceNeedsSource    = screensharev1.TextCode_TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE
+	audioSourceHasOneDevice   = screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE
+	audioDeviceNotEnumerated  = screensharev1.TextCode_TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED
 	audioTrackCodedAt         = screensharev1.TextCode_TEXT_CODE_AUDIO_TRACK_CODED_AT
 	vaapiCeilingBound         = screensharev1.TextCode_TEXT_CODE_VAAPI_CEILING_BOUND
 
@@ -249,4 +252,12 @@ func argCost(v *screensharev1.Text) *screensharev1.TextArg {
 
 func argReach(v *screensharev1.Text) *screensharev1.TextArg {
 	return text.Nested(screensharev1.TextArgName_TEXT_ARG_NAME_REACH, v)
+}
+
+func argAudio(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO, v)
+}
+
+func argDevice(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_DEVICE, v)
 }

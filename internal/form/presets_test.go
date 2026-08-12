@@ -1,6 +1,7 @@
 package form
 
 import (
+	"reflect"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -95,7 +96,7 @@ func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 				t.Errorf("%s: %s stopped being reachable from the settings it had just produced", tc.name, p.key)
 				continue
 			}
-			if twice != once {
+			if !reflect.DeepEqual(twice, once) {
 				t.Errorf("%s: %s applied twice moved %v", tc.name, p.key, repairChanged(once, twice))
 			}
 		}

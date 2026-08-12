@@ -152,6 +152,8 @@ public static class Words
     {
         ["none"] = "No audio",
         ["desktop"] = "What this machine plays",
+        ["mic"] = "A microphone",
+        ["application"] = "One application",
     };
 
     private static readonly Dictionary<string, string> AudioCodecs = new()

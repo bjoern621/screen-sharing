@@ -102,6 +102,12 @@ const (
 	TextArgName_TEXT_ARG_NAME_DECODERS        TextArgName = 33
 	TextArgName_TEXT_ARG_NAME_DECODE_FAMILIES TextArgName = 34
 	TextArgName_TEXT_ARG_NAME_RTSP_PROTOCOLS  TextArgName = 35
+	// TEXT_ARG_NAME_DEVICE is what is inside one audio kind: a sound device, or an
+	// application whose own output is being recorded. It is the handle the enumeration
+	// reported, which is what a publish engine opens it by, so a shell that has met the
+	// enumeration can name it and one that has not still shows something the machine
+	// answers to.
+	TextArgName_TEXT_ARG_NAME_DEVICE TextArgName = 36
 	// Figures. Each carries the unit its name says, so a shell formats without a second
 	// field telling it what it is holding.
 	TextArgName_TEXT_ARG_NAME_MONITOR            TextArgName = 40
@@ -172,6 +178,7 @@ var (
 		33: "TEXT_ARG_NAME_DECODERS",
 		34: "TEXT_ARG_NAME_DECODE_FAMILIES",
 		35: "TEXT_ARG_NAME_RTSP_PROTOCOLS",
+		36: "TEXT_ARG_NAME_DEVICE",
 		40: "TEXT_ARG_NAME_MONITOR",
 		41: "TEXT_ARG_NAME_WIDTH",
 		42: "TEXT_ARG_NAME_HEIGHT",
@@ -228,6 +235,7 @@ var (
 		"TEXT_ARG_NAME_DECODERS":           33,
 		"TEXT_ARG_NAME_DECODE_FAMILIES":    34,
 		"TEXT_ARG_NAME_RTSP_PROTOCOLS":     35,
+		"TEXT_ARG_NAME_DEVICE":             36,
 		"TEXT_ARG_NAME_MONITOR":            40,
 		"TEXT_ARG_NAME_WIDTH":              41,
 		"TEXT_ARG_NAME_HEIGHT":             42,
@@ -503,6 +511,17 @@ const (
 	TextCode_TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD    TextCode = 120
 	TextCode_TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING     TextCode = 121
 	TextCode_TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB       TextCode = 122
+	// The entry names no capture source, so what is inside a kind, how loud it is and
+	// whether it is silenced are all questions about nothing. No arguments.
+	TextCode_TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE TextCode = 123
+	// This kind has one device here, so there is nothing to choose between.
+	// TEXT_ARG_NAME_AUDIO names the kind.
+	TextCode_TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE TextCode = 124
+	// The selection is not among what this kind enumerates now. It is kept rather than
+	// dropped: an application that is not running is one that may be running when the
+	// stream starts. TEXT_ARG_NAME_AUDIO names the kind, TEXT_ARG_NAME_DEVICE the
+	// selection.
+	TextCode_TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED TextCode = 125
 	// No engine can build these settings, and Summary.command_error carries the
 	// builder's own refusal. It is the one statement that quotes a raw string, because
 	// what refused is an operational failure rather than a fact about the domain: the
@@ -635,6 +654,9 @@ var (
 		120: "TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD",
 		121: "TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING",
 		122: "TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB",
+		123: "TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE",
+		124: "TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE",
+		125: "TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED",
 		130: "TEXT_CODE_PUBLISH_REFUSED",
 		131: "TEXT_CODE_NO_UPLINK_STATED",
 		132: "TEXT_CODE_UPLINK_BELOW_PREDICTION",
@@ -738,6 +760,9 @@ var (
 		"TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD":    120,
 		"TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING":     121,
 		"TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB":       122,
+		"TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE":             123,
+		"TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE":          124,
+		"TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED":          125,
 		"TEXT_CODE_PUBLISH_REFUSED":                      130,
 		"TEXT_CODE_NO_UPLINK_STATED":                     131,
 		"TEXT_CODE_UPLINK_BELOW_PREDICTION":              132,
@@ -1040,7 +1065,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\x88\f\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xa2\f\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1075,7 +1100,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1aTEXT_ARG_NAME_AUDIO_CODECS\x10 \x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_DECODERS\x10!\x12!\n" +
 	"\x1dTEXT_ARG_NAME_DECODE_FAMILIES\x10\"\x12 \n" +
-	"\x1cTEXT_ARG_NAME_RTSP_PROTOCOLS\x10#\x12\x19\n" +
+	"\x1cTEXT_ARG_NAME_RTSP_PROTOCOLS\x10#\x12\x18\n" +
+	"\x14TEXT_ARG_NAME_DEVICE\x10$\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_MONITOR\x10(\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_WIDTH\x10)\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_HEIGHT\x10*\x12\x15\n" +
@@ -1096,7 +1122,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\x92 \n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\x90!\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1188,7 +1214,10 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	" TEXT_CODE_GAP_VULKAN_NO_LOSSLESS\x10w\x12/\n" +
 	"+TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD\x10x\x12.\n" +
 	"*TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING\x10y\x12,\n" +
-	"(TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB\x10z\x12\x1e\n" +
+	"(TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB\x10z\x12&\n" +
+	"\"TEXT_CODE_AUDIO_ENTRY_NEEDS_SOURCE\x10{\x12)\n" +
+	"%TEXT_CODE_AUDIO_SOURCE_HAS_ONE_DEVICE\x10|\x12)\n" +
+	"%TEXT_CODE_AUDIO_DEVICE_NOT_ENUMERATED\x10}\x12\x1e\n" +
 	"\x19TEXT_CODE_PUBLISH_REFUSED\x10\x82\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_NO_UPLINK_STATED\x10\x83\x01\x12&\n" +
 	"!TEXT_CODE_UPLINK_BELOW_PREDICTION\x10\x84\x01\x12!\n" +

@@ -115,10 +115,19 @@ message PublishSettings {
   // decides the publish engine, which is why so many other fields' availability
   // hangs off it.
   string capture = 23;
-  // audio names the capture source of the second track, or "none". Which sources
-  // exist is the platform's question; which codec the track is coded in is the
-  // engine's and the publish leg's, and is the field below.
-  string audio = 24;
+  // audio_sources are what the second track is mixed from, in the order a form draws
+  // them. An empty list is a stream with no second track.
+  //
+  // A list rather than one source because a screen share is normally several: what the
+  // machine is playing, and whoever is talking over it. They mix into one track, which
+  // is carriage rather than preference - RTMP carries one audio track, and the relay
+  // re-serves every ingest on all of its listeners, so a two-track stream would be
+  // unplayable on the narrowest leg while the form said it published.
+  //
+  // Which kinds exist is the platform's question (catalog.proto, audio_sources); which
+  // codec the mixed track is coded in is the engine's and the publish leg's, and is the
+  // field below.
+  repeated AudioSource audio_sources = 40;
   string audio_codec = 25;
   // drm_map is the kmsgrab DRM download strategy: auto, vaapi, vulkan or none. It
   // is a knob of the kmsgrab scanout path and of nothing else, so the form hides it
@@ -185,8 +194,13 @@ message PublishSettings {
   // removals: the fields are publish_transport and effort now, on the same numbers, and
   // a build that still spells either the old way should fail to compile rather than to
   // parse. enc_preset named one family's ladder, and the field carries every encoder's.
-  reserved 2 to 9, 30, 32, 33, 35, 36;
+  //
+  // 24 was "audio", one source name where the field is a list now. The number stays out
+  // of reach because the two shapes are not readable as each other: a build holding the
+  // old field would read the first byte of a repeated message as a string.
+  reserved 2 to 9, 24, 30, 32, 33, 35, 36;
   reserved
+    "audio",
     "relay_host",
     "relay_port",
     "api_port",
@@ -238,6 +252,44 @@ message ViewerSettings {
   // per stream: a chain falls back because a driver cannot run it, and that is a
   // property of the machine (docs/viewer-architecture.md, "The receive package").
   string render_chain = 6;
+}
+
+// AudioSource is one thing the second track is mixed from.
+//
+// The kind and what is picked inside it are two fields because they are answered by two
+// different things. A kind is declared - the machine either serves desktop audio or it
+// does not - and what is inside a kind is enumerated, since a microphone and a running
+// application are things a machine has now rather than things a table can list.
+//
+// It is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
+// entry's gain, which is what lets every control kind the form already has edit a list
+// item and lets a statement land on one entry rather than on the whole control
+// (form.proto).
+message AudioSource {
+  // source is the kind, a row of the platform's own source table
+  // (catalog.proto, audio_sources).
+  string source = 1;
+  // device is which device or application inside that kind, as the enumeration of the
+  // kind names it, and empty for the kind's own default - the default output's monitor,
+  // the default input.
+  //
+  // A selection the enumeration stops reporting stays on the list and is drawn with a
+  // note, the way a monitor index no enumeration reported is: an application that is not
+  // running now is one that may be running when the stream starts, and dropping the entry
+  // would lose a choice the user made.
+  string device = 2;
+  // gain is what this source contributes, in percent, where 100 is unity. It is applied
+  // to the pipeline that is already running, so moving it costs nobody watching a
+  // reconnect (form.proto, Field.live).
+  //
+  // It carries presence because zero is a level and not an absence: a source turned all
+  // the way down is silent, and an entry nobody has set a level on is at unity. Without
+  // presence the two are one value, and the entry a reader creates by picking a kind on
+  // the growing row would arrive silent.
+  optional int32 gain = 3;
+  // mute silences this source without taking it off the list, so a source is turned off
+  // and back on without the entry, its device and its gain being lost.
+  bool mute = 4;
 }
 
 // Preset is a named PublishSettings the user saved. The settings travel whole rather

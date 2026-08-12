@@ -193,7 +193,8 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 			continue
 		}
 		s := baseStream()
-		s.Publish.Capture, s.Publish.Transport, s.Publish.Audio = "portal", name, "desktop"
+		s.Publish.Capture, s.Publish.Transport = "portal", name
+		s.Publish.AudioSources = settings.Recording("desktop")
 		// libx264 over every transport: the transport's own format set decides
 		// whether it may carry the codec, and this asserts the pipeline's shape.
 		s.Publish.Codec, s.Publish.Chroma = "libx264", "yuv420p"
@@ -232,7 +233,8 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 		// serves the monitor source, since the branch is refused for the backend's platform
 		// before any element is named and the defaults carry an ffmpeg Windows grabber.
 		s.Publish.Capture = "portal"
-		s.Publish.Transport, s.Publish.Audio, s.Publish.AudioCodec = "rtsp", "desktop", a.Name
+		s.Publish.Transport, s.Publish.AudioCodec = "rtsp", a.Name
+		s.Publish.AudioSources = settings.Recording("desktop")
 		branch, err := gstAudioBranch(s)
 		if err != nil {
 			t.Fatalf("%s: %v", a.Name, err)
@@ -259,7 +261,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 	// and one no backend records is refused rather than left silent.
 	for _, source := range []string{"none", ""} {
 		s := baseStream()
-		s.Publish.Audio = source
+		s.Publish.AudioSources = settings.Recording(source)
 		branch, err := gstAudioBranch(s)
 		if err != nil {
 			t.Fatalf("audio source %q: %v", source, err)
@@ -269,7 +271,7 @@ func TestGstAudioBranchNamesTheTableElements(t *testing.T) {
 		}
 	}
 	s := baseStream()
-	s.Publish.Audio = "microphone"
+	s.Publish.AudioSources = settings.Recording("microphone")
 	if _, err := gstAudioBranch(s); err == nil {
 		t.Error("an audio source no backend records must be refused")
 	}

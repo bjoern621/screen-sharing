@@ -30,6 +30,10 @@ type CatalogInput struct {
 	Platform platform.Info
 	Monitors []display.Monitor
 	Encoders encoders.Availability
+	// AudioDevices is what this machine offers inside each audio kind, enumerated once
+	// (internal/audiodev). It is the machine half of the audio answer, where the kinds
+	// beside it are the declared one.
+	AudioDevices []platform.AudioDevice
 }
 
 // Catalog shapes every fixed fact onto the contract in one message.
@@ -67,6 +71,7 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 		BrowserWatchTransports:  transport.WatchNames(transport.EngineBrowser),
 
 		AudioSources: catalogAudioSources(in.Platform),
+		AudioDevices: catalogAudioDevices(in.AudioDevices),
 
 		NoMonitorPreview: catalogNoMonitorPreview(in.Platform),
 	}
@@ -434,6 +439,18 @@ func catalogWatchByFormat() map[string]*screensharev1.TransportList {
 		out[format] = &screensharev1.TransportList{
 			Transports: transport.WatchNamesFor(capabilities.EngineFfmpeg, format),
 		}
+	}
+	return out
+}
+
+// catalogAudioDevices carries the enumeration onto the contract in the order it was taken,
+// which is the order the sound server reported and the order a control offers.
+func catalogAudioDevices(devices []platform.AudioDevice) []*screensharev1.AudioDevice {
+	out := make([]*screensharev1.AudioDevice, 0, len(devices))
+	for _, d := range devices {
+		assert.Assert(d.Kind != "", "an enumerated audio device names the kind it is inside", d.ID)
+		assert.Assert(d.ID != "", "an enumerated audio device carries the handle it is opened by", d.Kind)
+		out = append(out, &screensharev1.AudioDevice{Kind: d.Kind, Id: d.ID, Name: d.Name})
 	}
 	return out
 }

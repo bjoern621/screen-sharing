@@ -92,9 +92,62 @@ public static class SettingsDraft
             groupField.Accessor.SetValue(draft, group);
         }
 
+        if (fieldName.IndexOf(IndexOpen) >= 0)
+        {
+            return Entry(group, fieldName, key);
+        }
+
         var descriptor = groupField.MessageType.FindFieldByName(fieldName);
         Assert.That(descriptor is not null, "a form field names a field of the group it belongs to", key);
         return (group, descriptor);
+    }
+
+    /// <summary>
+    /// The brackets around the index of a repeated field: <c>publish.audio_sources[2].gain</c>
+    /// names the third entry's gain.
+    /// </summary>
+    private const char IndexOpen = '[';
+
+    private const char IndexClose = ']';
+
+    /// <summary>
+    /// The entry of a repeated field a key addresses, and the field inside that entry.
+    ///
+    /// An entry the list does not have yet is appended on the way, up to the one past its end
+    /// and no further: that entry is the row the form draws for a reader to grow the list by,
+    /// so a write through its key is what adds it, and a write past it would leave a hole
+    /// nothing chose. The shell decides none of that - it walks the address the form gave it,
+    /// exactly as it does for a plain field.
+    /// </summary>
+    private static (IMessage Group, FieldDescriptor Field) Entry(IMessage group, string path, string key)
+    {
+        var open = path.IndexOf(IndexOpen);
+        var close = path.IndexOf(IndexClose);
+        Assert.That(close > open + 1 && close + 1 < path.Length && path[close + 1] == KeySeparator,
+            "an indexed form field names a list, an entry of it and a field in that entry", key);
+
+        var listName = path[..open];
+        var fieldName = path[(close + 2)..];
+        Assert.That(int.TryParse(path[(open + 1)..close], out var index) && index >= 0,
+            "an indexed form field names which entry of the list it edits", key);
+
+        var listField = group.Descriptor.FindFieldByName(listName);
+        Assert.That(listField is not null && listField.IsRepeated && listField.MessageType is not null,
+            "a form field names a repeated message field of the group it belongs to", key);
+
+        var list = (System.Collections.IList)listField.Accessor.GetValue(group);
+        Assert.That(index <= list.Count, "a write reaches an entry the list has, or the one past its end", key, list.Count);
+        if (index == list.Count)
+        {
+            list.Add(listField.MessageType.Parser.ParseFrom(System.Array.Empty<byte>()));
+        }
+
+        var entry = list[index] as IMessage;
+        Assert.That(entry is not null, "an entry of a repeated message field is a message", key);
+
+        var descriptor = listField.MessageType.FindFieldByName(fieldName);
+        Assert.That(descriptor is not null, "a form field names a field of the entry it edits", key);
+        return (entry, descriptor);
     }
 
     /// <summary>

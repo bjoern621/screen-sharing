@@ -1,6 +1,7 @@
 package form
 
 import (
+	"strconv"
 	"strings"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -48,13 +49,20 @@ const (
 	KeyEffort     = "publish.effort"
 	KeyTune       = "publish.tune"
 
-	KeyCapture       = "publish.capture"
-	KeyAudio         = "publish.audio"
-	KeyAudioCodec    = "publish.audio_codec"
-	KeyDrmMap        = "publish.drm_map"
-	KeyMonitor       = "publish.monitor"
-	KeyCaptureMemory = "publish.capture_memory"
-	KeyCursor        = "publish.cursor"
+	KeyCapture = "publish.capture"
+	// The four controls of one entry of the audio source list. Each is a template rather
+	// than a key: the list has as many entries as the user made, so a resolve draws these
+	// once per entry with the index filled in, and what a shell binds is
+	// "publish.audio_sources[2].gain" (indexedKey).
+	KeyAudioSource       = "publish.audio_sources[].source"
+	KeyAudioSourceDevice = "publish.audio_sources[].device"
+	KeyAudioSourceGain   = "publish.audio_sources[].gain"
+	KeyAudioSourceMute   = "publish.audio_sources[].mute"
+	KeyAudioCodec        = "publish.audio_codec"
+	KeyDrmMap            = "publish.drm_map"
+	KeyMonitor           = "publish.monitor"
+	KeyCaptureMemory     = "publish.capture_memory"
+	KeyCursor            = "publish.cursor"
 
 	KeySrtPublishLatencyMs = "publish.srt_publish_latency_ms"
 	KeyRtspPublishProtocol = "publish.rtsp_publish_protocol"
@@ -98,6 +106,52 @@ const (
 // keySeparator divides a key's group from its field.
 const keySeparator = "."
 
+// The brackets around the index of a repeated field, and the template both of them with
+// nothing between: "publish.audio_sources[].gain" is what a row of the field table carries
+// and "publish.audio_sources[2].gain" is what a shell binds.
+//
+// A template is what makes the two one identifier. The row states the control once, the
+// resolve draws it per entry, and every table keyed by the control - its availability, its
+// options, its copy on a surface - is keyed by the template rather than gaining an entry
+// per index nobody can enumerate in advance.
+const (
+	keyIndexOpen  = "["
+	keyIndexClose = "]"
+	keyIndexEmpty = keyIndexOpen + keyIndexClose
+)
+
+// indexedKey is one entry's key, from the template the row carries and the entry's place in
+// the list.
+func indexedKey(template string, i int) string {
+	return strings.Replace(template, keyIndexEmpty, keyIndexOpen+strconv.Itoa(i)+keyIndexClose, 1)
+}
+
+// keyTemplate is the template one key was drawn from, and the key itself where it names no
+// entry of a list. It is what every table keyed by a control is looked up with, so a
+// statement about one entry's control is written once for the control.
+func keyTemplate(key string) string {
+	open := strings.Index(key, keyIndexOpen)
+	close := strings.Index(key, keyIndexClose)
+	if open < 0 || close < open {
+		return key
+	}
+	return key[:open+1] + key[close:]
+}
+
+// keyIndex is which entry of a list a key names, and false for a key that names no entry.
+func keyIndex(key string) (int, bool) {
+	open := strings.Index(key, keyIndexOpen)
+	close := strings.Index(key, keyIndexClose)
+	if open < 0 || close <= open+1 {
+		return 0, false
+	}
+	i, err := strconv.Atoi(key[open+1 : close])
+	if err != nil || i < 0 {
+		return 0, false
+	}
+	return i, true
+}
+
 // settingsField resolves a qualified key against a settings message: the group named
 // before the dot, then the field named after it.
 //
@@ -122,9 +176,60 @@ func settingsField(m *screensharev1.Settings, key string) (protoreflect.Message,
 	}
 
 	inner := root.Mutable(groupField).Message()
+	if list, rest, ok := strings.Cut(field, keyIndexOpen); ok {
+		return listField(inner, list, rest)
+	}
 	descriptor := inner.Descriptor().Fields().ByName(protoreflect.Name(field))
 	if descriptor == nil {
 		return nil, nil, false
 	}
 	return inner, descriptor, true
+}
+
+// listField resolves the second half of an indexed key: the entry of a repeated field, and
+// the field inside that entry.
+//
+// rest is what followed the opening bracket, which is the index, the closing bracket, a dot
+// and the field name. An entry the list does not have yet is appended on the way, up to the
+// one past its end and no further: that entry is the row a form draws for a reader to grow
+// the list by, so a write through its key is what adds it, and a write past it would leave a
+// hole nothing chose.
+func listField(group protoreflect.Message, name, rest string) (protoreflect.Message, protoreflect.FieldDescriptor, bool) {
+	index, after, ok := strings.Cut(rest, keyIndexClose)
+	if !ok {
+		return nil, nil, false
+	}
+	field, ok := strings.CutPrefix(after, keySeparator)
+	if !ok {
+		return nil, nil, false
+	}
+	i, err := strconv.Atoi(index)
+	if err != nil || i < 0 {
+		return nil, nil, false
+	}
+
+	listField := group.Descriptor().Fields().ByName(protoreflect.Name(name))
+	if listField == nil || !listField.IsList() || listField.Message() == nil {
+		return nil, nil, false
+	}
+	list := group.Mutable(listField).List()
+	if i > list.Len() {
+		return nil, nil, false
+	}
+	if i == list.Len() {
+		list.Append(list.NewElement())
+	}
+
+	entry := list.Get(i).Message()
+	descriptor := entry.Descriptor().Fields().ByName(protoreflect.Name(field))
+	if descriptor == nil {
+		return nil, nil, false
+	}
+	return entry, descriptor, true
+}
+
+// keyRepeats reports whether a key is a template, which is to say the control it names is
+// drawn once per entry of a list rather than once.
+func keyRepeats(key string) bool {
+	return strings.Contains(key, keyIndexEmpty)
 }

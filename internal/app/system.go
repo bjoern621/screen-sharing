@@ -8,6 +8,7 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare/internal/audiodev"
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoderate"
@@ -148,4 +149,14 @@ func openInShell(path string) error {
 	default:
 		return exec.Command("xdg-open", path).Run()
 	}
+}
+
+// audioDevices is what this machine offers inside each audio kind.
+//
+// It is the enumeration's cached answer, taken on the first call and read from memory after
+// that (internal/audiodev). Unlike the encoder probe there is no waiting form of it: the
+// enumeration is one short subprocess rather than a run of every encoder, so the first
+// resolve pays for it and every one after it does not.
+func (a *App) audioDevices() []platform.AudioDevice {
+	return audiodev.Cached(context.Background())
 }

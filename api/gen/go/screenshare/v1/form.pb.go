@@ -136,6 +136,11 @@ const (
 	Unit_UNIT_MILLISECONDS        Unit = 2
 	Unit_UNIT_FRAMES_PER_SECOND   Unit = 3
 	Unit_UNIT_FRAMES              Unit = 4
+	// A proportion of what something would be at its own level, where 100 is that
+	// level. It is the unit a gain is set in, and it is percent rather than decibels
+	// because the mixer takes a linear multiplier: a decibel figure would be converted
+	// at every consumer, with each conversion free to round differently.
+	Unit_UNIT_PERCENT Unit = 5
 )
 
 // Enum value maps for Unit.
@@ -146,6 +151,7 @@ var (
 		2: "UNIT_MILLISECONDS",
 		3: "UNIT_FRAMES_PER_SECOND",
 		4: "UNIT_FRAMES",
+		5: "UNIT_PERCENT",
 	}
 	Unit_value = map[string]int32{
 		"UNIT_UNSPECIFIED":         0,
@@ -153,6 +159,7 @@ var (
 		"UNIT_MILLISECONDS":        2,
 		"UNIT_FRAMES_PER_SECOND":   3,
 		"UNIT_FRAMES":              4,
+		"UNIT_PERCENT":             5,
 	}
 )
 
@@ -1293,13 +1300,14 @@ const file_screenshare_v1_form_proto_rawDesc = "" +
 	"\x13CONTROL_KIND_SELECT\x10\x05\x12\x16\n" +
 	"\x12CONTROL_KIND_RADIO\x10\x06\x12\x19\n" +
 	"\x15CONTROL_KIND_READONLY\x10\a\x12\x1e\n" +
-	"\x1aCONTROL_KIND_NUMBER_SELECT\x10\b*~\n" +
+	"\x1aCONTROL_KIND_NUMBER_SELECT\x10\b*\x90\x01\n" +
 	"\x04Unit\x12\x14\n" +
 	"\x10UNIT_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18UNIT_MEGABITS_PER_SECOND\x10\x01\x12\x15\n" +
 	"\x11UNIT_MILLISECONDS\x10\x02\x12\x1a\n" +
 	"\x16UNIT_FRAMES_PER_SECOND\x10\x03\x12\x0f\n" +
-	"\vUNIT_FRAMES\x10\x04*a\n" +
+	"\vUNIT_FRAMES\x10\x04\x12\x10\n" +
+	"\fUNIT_PERCENT\x10\x05*a\n" +
 	"\bSeverity\x12\x18\n" +
 	"\x14SEVERITY_UNSPECIFIED\x10\x00\x12\x11\n" +
 	"\rSEVERITY_INFO\x10\x01\x12\x14\n" +

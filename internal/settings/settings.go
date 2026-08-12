@@ -83,15 +83,22 @@ type Publish struct {
 	Effort  string `json:"effort"`
 	Tune    string `json:"tune"`
 	Capture string `json:"capture"` // a row of publish.Captures, applicable per OS and session
-	// Audio is where the second track comes from: a row of the platform's own source
-	// table (platform.AudioSources), which is what declares the values and which
-	// platform serves each.
-	Audio string `json:"audio"`
-	// AudioCodec is the codec the second track is encoded in, a row of
+	// AudioSources are what the second track is mixed from, in the order a form draws
+	// them. An empty list is a stream with no second track.
+	AudioSources []AudioSource `json:"audioSources"`
+	// LegacyAudio is the one source name a file written before the list carried, read so
+	// the migration can turn it into the one entry (migrate.go).
+	//
+	// A field rather than a second pass over the bytes, because a stored preset is a
+	// publish group with no bytes of its own to re-read. It is cleared by the migration
+	// and omitted when empty, so a file that has been through one loses the key and a
+	// file that has not keeps its value until it does.
+	LegacyAudio string `json:"audio,omitempty"`
+	// AudioCodec is the codec the mixed track is encoded in, a row of
 	// capabilities.AudioCodecs. It is a field of its own rather than a property of
-	// the source because the two answer to different tables: which sources exist is
+	// a source because the two answer to different tables: which sources exist is
 	// the platform's, which codecs reach the relay is the engine's and the publish
-	// leg's. It is read only where Audio names a source.
+	// leg's. It is read only where the list names at least one source.
 	AudioCodec string `json:"audioCodec"`
 	DrmMap     string `json:"drmMap"`  // kmsgrab DRM download strategy: auto vaapi vulkan none
 	Monitor    int    `json:"monitor"` // ddagrab output_idx
@@ -158,15 +165,35 @@ type Viewer struct {
 	RenderChain string `json:"renderChain"`
 }
 
-// AudioTrack is the audio codec the publish leg has to carry: the configured one
-// where a source is selected, and capabilities.AudioNone where none is. Both
-// publish engines validate with it, so "no track" is one value both tables read
+// AudioTrack is the audio codec the publish leg has to carry: the configured one where
+// the list names at least one source, and capabilities.AudioNone where it names none.
+// Both publish engines validate with it, so "no track" is one value both tables read
 // rather than a branch each engine takes on its own.
+//
+// A list of nothing but muted sources still carries a track. Mute is a level and not a
+// removal: the mixer keeps the branch, the stream keeps its track, and unmuting is a
+// value written to a pipeline that is already running rather than a relaunch.
 func (p Publish) AudioTrack() string {
-	if p.Audio == "" || p.Audio == audioSourceNone {
+	if len(p.Recorded()) == 0 {
 		return capabilities.AudioNone
 	}
 	return p.AudioCodec
+}
+
+// Recorded is the sources that produce a branch, which is every entry naming a kind.
+//
+// An entry naming none is the row a form draws at the end of the list for a reader to
+// grow it by, and it is what an entry set back to no source becomes. Neither is a source,
+// so neither reaches a pipeline; the repair is what takes them off a stored draft
+// (form/repair.go).
+func (p Publish) Recorded() []AudioSource {
+	out := make([]AudioSource, 0, len(p.AudioSources))
+	for _, a := range p.AudioSources {
+		if a.Records() {
+			out = append(out, a)
+		}
+	}
+	return out
 }
 
 // CapabilityOptions are the option values a codec's gaps are read against, keyed as
@@ -204,7 +231,9 @@ func Defaults() Settings {
 			ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 			Gop: 0, Bframes: 0,
 			Capture: capture, DrmMap: "auto", Monitor: 0,
-			Audio: audioSourceNone, AudioCodec: defaultAudioCodec,
+			// No source: a fresh installation publishes the picture and nothing else, so a
+			// first stream cannot put a room on the internet nobody meant to.
+			AudioSources: nil, AudioCodec: defaultAudioCodec,
 			CaptureMemory: gpupath.MemoryAuto,
 			// Embedded is what every backend but kmsgrab did before the setting existed,
 			// and it is what a viewer expects: a screen share whose pointer is missing

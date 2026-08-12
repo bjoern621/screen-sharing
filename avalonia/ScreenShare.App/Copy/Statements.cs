@@ -281,6 +281,15 @@ public static class Statements
             TextCode.AudioCodecNeedsSource =>
                 "No audio is being sent, so there is nothing to compress.",
 
+            TextCode.AudioEntryNeedsSource =>
+                "Pick where this row records from first.",
+
+            TextCode.AudioSourceHasOneDevice =>
+                $"{Words.AudioSource(a.Audio)} has one device on this machine, so there is nothing to choose between.",
+
+            TextCode.AudioDeviceNotEnumerated =>
+                "not here right now",
+
             TextCode.AudioSourceUnserved => a.Os switch
             {
                 "windows" => "Windows offers no way to record what it is playing that either encoder can open. "
@@ -573,6 +582,10 @@ public static class Statements
         public string Mode => Id(TextArgName.Mode);
 
         public string Memory => Id(TextArgName.Memory);
+
+        public string Audio => Id(TextArgName.Audio);
+
+        public string Device => Id(TextArgName.Device);
 
         public string AudioCodec => Id(TextArgName.AudioCodec);
 

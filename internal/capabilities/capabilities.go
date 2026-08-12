@@ -564,7 +564,6 @@ func validationFacts(c Codec, engine string, options map[string]string, cq, bitr
 		rules.AxisCapture:    rules.TextValue(""),
 		rules.AxisMemory:     rules.TextValue(""),
 		rules.AxisTransport:  rules.TextValue(""),
-		rules.AxisAudio:      rules.TextValue(""),
 		rules.AxisAudioCodec: rules.TextValue(""),
 		rules.AxisOS:         rules.TextValue(""),
 		rules.AxisDisplay:    rules.TextValue(""),

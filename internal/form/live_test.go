@@ -1,6 +1,7 @@
 package form
 
 import (
+	"bjoernblessin.de/screenshare/internal/platform"
 	"slices"
 	"testing"
 
@@ -15,14 +16,17 @@ import (
 // answer. A form marking a control live is telling the reader nobody watching will be
 // dropped; the apply path is what has to deliver that, and the two read the same table.
 
-// liveFlags is every control the resolved form marks live, in the order it draws them.
+// liveFlags is every control the resolved form marks live, as the controls rather than as
+// the entries: a repeated control drawn per entry is one control, and the apply path names
+// it once.
 func liveFlags(t *testing.T, s settings.Settings) []string {
 	t.Helper()
 	var out []string
 	for _, g := range Resolve(fieldTestDeps(), s).GetGroups() {
 		for _, f := range g.GetFields() {
-			if f.GetLive() {
-				out = append(out, f.GetKey())
+			key := keyTemplate(f.GetKey())
+			if f.GetLive() && !slices.Contains(out, key) {
+				out = append(out, key)
 			}
 		}
 	}
@@ -30,12 +34,14 @@ func liveFlags(t *testing.T, s settings.Settings) []string {
 }
 
 // liveSettings are settings whose pipeline takes a value while it runs: the GStreamer
-// engine, a codec whose element has a bitrate property and a mode that sends it one.
+// engine, a codec whose element has a bitrate property and a mode that sends it one, and a
+// source in the mix whose level the mixer takes.
 func liveSettings() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
 	return s
 }
 
@@ -51,16 +57,21 @@ func TestTheFormMarksWhatTheRunningPipelineTakes(t *testing.T) {
 	}
 }
 
-// A mode that sends the encoder no rate has none to send it again, so nothing is marked.
-// The engine and the codec are unchanged, which is what makes this a statement about the
-// mode rather than about either of them.
-func TestAModeThatSendsNoRateMarksNothing(t *testing.T) {
+// A mode that sends the encoder no rate has none to send it again, so the bitrate is not
+// marked in it. The engine and the codec are unchanged, which is what makes this a statement
+// about the mode rather than about either of them. The mix's own levels stay marked: what
+// they reach is the mixer, which does not care how the picture is being coded.
+func TestAModeThatSendsNoRateMarksNoBitrate(t *testing.T) {
 	s := liveSettings()
 	s.Publish.Mode = capabilities.ModeCrf
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 
-	if marked := liveFlags(t, s); len(marked) != 0 {
+	marked := liveFlags(t, s)
+	if slices.Contains(marked, KeyBitrateM) {
 		t.Errorf("constant quality marks %v live, and it sends the encoder no rate at all", marked)
+	}
+	if !slices.Contains(marked, KeyAudioSourceGain) {
+		t.Errorf("constant quality marks %v live, and the mixer takes a level whatever codes the picture", marked)
 	}
 }
 

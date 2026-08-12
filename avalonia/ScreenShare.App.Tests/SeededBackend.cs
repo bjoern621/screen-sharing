@@ -335,7 +335,8 @@ internal sealed class SeededBackend : IBackend
             Bframes = 0,
             Effort = "p7",
             Capture = _os == "windows" ? "ddagrab" : _os == "darwin" ? "avfoundation" : "x11grab",
-            Audio = "none",
+            // No source: the list a fresh installation carries is empty, which is a stream
+            // with no second track.
             AudioCodec = "opus",
             DrmMap = "auto",
             Monitor = 0,
@@ -829,7 +830,19 @@ internal sealed class SeededBackend : IBackend
     /// possible and what the contract relies on everywhere else. It goes through the shell's
     /// own reader, so the fixture and the screen resolve a key the same way.
     /// </summary>
-    private static FieldValue ValueOf(string key, Settings settings) => SettingsDraft.Read(settings, key);
+    private static FieldValue ValueOf(string key, Settings settings)
+    {
+        // The row a reader grows the audio list by is not in the settings, so it holds the
+        // default entry: no kind, at unity. The real form answers it the same way
+        // (internal/form/form.go, audioEntry), and reading it off the draft instead would
+        // hand the fixture an entry with an empty kind, which is not a value the control
+        // offers.
+        if (key == "publish.audio_sources[0].source" && settings.Publish.AudioSources.Count == 0)
+        {
+            return new FieldValue { Text = "none" };
+        }
+        return SettingsDraft.Read(settings, key);
+    }
 
     /// <summary>
     /// The four treatments, seeded. Each entry here mirrors a rule that lives in the Go
@@ -858,7 +871,7 @@ internal sealed class SeededBackend : IBackend
                 return (true, true, null, null);
 
             case "publish.audio_codec":
-                return settings.Publish.Audio == "none"
+                return settings.Publish.AudioSources.All(a => a.Source is "" or "none")
                     ? (true, false, Say(TextCode.AudioCodecNeedsSource), null)
                     : (true, true, null, null);
 
@@ -923,7 +936,7 @@ internal sealed class SeededBackend : IBackend
                 }
                 return Say(TextCode.CaptureWrongOs, Id(TextArgName.Capture, value), Id(TextArgName.Os, platform.Os));
 
-            case "publish.audio":
+            case "publish.audio_sources[0].source":
                 return value == "desktop" && _os != "linux"
                     ? Say(TextCode.AudioSourceUnserved, Id(TextArgName.Audio, value), Id(TextArgName.Os, _os))
                     : null;
@@ -1186,9 +1199,13 @@ internal sealed class SeededBackend : IBackend
                     Control = ControlKind.Select,
                     Options = [new() { Value = "0" }, new() { Value = "1" }],
                 },
+                // One entry of the audio source list, which the real form draws once per entry
+                // plus once for the row a reader grows the list by. The fixture seeds the
+                // growing row alone, because that is the one every draft here has: none of
+                // them records anything (internal/form/fields.go).
                 new()
                 {
-                    Key = "publish.audio",
+                    Key = "publish.audio_sources[0].source",
                     Control = ControlKind.Select,
                     Options =
                     [

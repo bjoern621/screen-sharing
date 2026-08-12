@@ -26,7 +26,6 @@ func TestAxesSpellTheFieldKeysTheyName(t *testing.T) {
 		{rules.AxisColorRange, KeyColorRange},
 		{rules.AxisCapture, KeyCapture},
 		{rules.AxisTransport, KeyTransport},
-		{rules.AxisAudio, KeyAudio},
 		{rules.AxisAudioCodec, KeyAudioCodec},
 		{rules.AxisMemory, KeyCaptureMemory},
 		{rules.AxisBitrateM, KeyBitrateM},

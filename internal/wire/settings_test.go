@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -45,7 +46,7 @@ func populatedSettings() settings.Settings {
 			Effort:              "p5",
 			Tune:                "ll",
 			Capture:             "ddagrab",
-			Audio:               "desktop",
+			AudioSources:        settings.Recording("desktop"),
 			AudioCodec:          "aac",
 			DrmMap:              "vaapi",
 			Monitor:             2,
@@ -79,10 +80,23 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 		group := v.Type().Field(i).Name
 		g := v.Field(i)
 		for j := range g.NumField() {
-			visit(group+"."+g.Type().Field(j).Name, g.Field(j))
+			name := group + "." + g.Type().Field(j).Name
+			if offContract[name] {
+				continue
+			}
+			visit(name, g.Field(j))
 		}
 	}
 }
+
+// offContract are the settings fields this conversion deliberately does not carry.
+//
+// One is, and it is a migration's own working room rather than a setting: the old key a
+// file written before the audio list carried is read once, turned into the list and
+// cleared, so a draft crossing to a shell and back has nothing to say about it and a
+// fixture that gave it a value would be asserting that the contract carries a field it has
+// no reason to (settings/migrate.go).
+var offContract = map[string]bool{"Publish.LegacyAudio": true}
 
 // A settings draft crosses to a shell and comes back edited on every keystroke, so a
 // field that loses its value on the way is a setting the user cannot change and a
@@ -135,9 +149,12 @@ func TestEveryFieldIsGivenAValueInTheFixture(t *testing.T) {
 // The fixture only catches a swapped twin while no two fields share a value, and it is
 // a hand-written table that a later edit can quietly collide.
 func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
-	seen := map[any]string{}
+	// Keyed by the value's rendering rather than by the value, because a settings field may
+	// be a list and a list is not a map key. What the check is about is whether two fields
+	// are indistinguishable to a reader of the round trip, and two that print alike are.
+	seen := map[string]string{}
 	eachField(populatedSettings(), func(name string, v reflect.Value) {
-		value := v.Interface()
+		value := fmt.Sprintf("%v", v.Interface())
 		if first, ok := seen[value]; ok {
 			t.Errorf("%s and %s both hold %v, so a conversion mapping one to the other's wire field would round trip unnoticed", first, name, value)
 			return

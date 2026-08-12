@@ -31,8 +31,10 @@ type ffmpegEngine struct{}
 // be a different string every time it was rendered - and whether two settings build one
 // pipeline is decided by comparing exactly that string (SamePipeline).
 func buildArgs(s settings.Settings, preview PreviewLeg) ([]string, error) {
-	if available, _ := AudioAvailable(s.Publish.Capture, s.Publish.Audio); !available {
-		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, s.Publish.Audio)
+	for _, a := range s.Publish.Recorded() {
+		if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
+			return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, a.Source)
+		}
 	}
 	if !preview.Wanted() {
 		return ffmpeg.BuildPublishArgs(s, nil)

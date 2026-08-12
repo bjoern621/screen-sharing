@@ -1,6 +1,7 @@
 package publish
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -94,7 +95,7 @@ func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 			before := publishable()
 			after := before
 			move(&after)
-			if after == before {
+			if reflect.DeepEqual(after, before) {
 				t.Fatal("the case moves the field it names")
 			}
 			same, err := SamePipeline(before, after)
@@ -169,7 +170,8 @@ func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testin
 		available, _ := AudioAvailable(capture, platform.AudioSourceDesktop)
 
 		s := baseStream()
-		s.Publish.Capture, s.Publish.Transport, s.Publish.Audio = capture, "rtsp", platform.AudioSourceDesktop
+		s.Publish.Capture, s.Publish.Transport = capture, "rtsp"
+		s.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
 		_, err := Command(s)
 
 		if available {

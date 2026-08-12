@@ -107,6 +107,8 @@ public static class Descriptions
     {
         ["none"] = "",
         ["desktop"] = "Everything the machine plays, mixed into the stream as a second track. Viewers hear it without doing anything.",
+        ["mic"] = "What a microphone hears, so you can talk over what you are showing. Pick the device on the row beside it where your machine has more than one.",
+        ["application"] = "One running program's own sound and nothing else, which is what a stream carrying a game and not the call about it needs. No platform here can open it yet.",
     };
 
     private static readonly Dictionary<string, string> AudioCodecs = new()
