@@ -226,6 +226,42 @@ public sealed class Session
     public IReadOnlyList<ReceiveStream> Receiving { get; private set; } = [];
 
     /// <summary>
+    /// What every running decode is doing, as of the last sample: what arrives, what came out
+    /// of the decoder, what the sink did with it, how the pipeline is timed, and the counters
+    /// the transport's own elements keep.
+    ///
+    /// <b>A sample and not a state, which is why it is separate from <see cref="Receiving"/>.</b>
+    /// What a decode is settles when the pipeline negotiates and is announced when it moves;
+    /// what it is doing has to be read off the pipeline on a clock, and the backend keeps that
+    /// clock so two windows on one decode read the same rate rather than each dividing by the
+    /// interval it chose.
+    ///
+    /// Empty while nothing is decoding, and empty until the first tick after a decode opens.
+    /// A panel with nothing to print says so rather than printing the run before it.
+    /// </summary>
+    public IReadOnlyList<ReceiveStreamStats> ReceiveStats { get; private set; } = [];
+
+    /// <summary>
+    /// The last sample of one decode, or null where none has arrived for it.
+    ///
+    /// The join is on the pair the whole receive contract keys a decode by, for the reason
+    /// <see cref="LevelOf"/> joins on it: the relay re-serves each stream on all its listeners,
+    /// so a name alone is not an identity.
+    /// </summary>
+    public ReceiveStreamStats? StatsOf(string streamName, string transport)
+    {
+        foreach (var stats in ReceiveStats)
+        {
+            if (stats.Stream.StreamName == streamName && stats.Stream.Transport == transport)
+            {
+                return stats;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Every monitor the backend is reading into a picture, and whether a frame has come off
     /// each one yet.
     ///
@@ -573,6 +609,14 @@ public sealed class Session
                 // arrives on every change, including the first frame of a stream: what a
                 // pipeline negotiated is only knowable once one has left it.
                 Receiving = change.ReceiveState.Streams;
+                break;
+
+            case Event.PayloadOneofCase.ReceiveStats:
+                // One sample of every running decode, whole per tick. It is taken rather than
+                // accumulated: the counters on it are the pipeline's own running totals, so
+                // there is nothing here to add up, and a decode that ended drops out of the
+                // next tick rather than being removed from something held.
+                ReceiveStats = change.ReceiveStats.Streams;
                 break;
 
             case Event.PayloadOneofCase.MonitorPreviewState:

@@ -3,7 +3,6 @@ package receive
 import (
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/go-gst/go-gst/pkg/gst"
@@ -26,10 +25,8 @@ func (r *Receiver) Stats() Stats {
 		Keyframes:   r.video.keyframes.Load(),
 		AudioBytes:  r.audio.bytes.Load(),
 
-		Chain:      r.chain.name,
-		ChainGPU:   r.chain.device != "",
-		ChainExact: r.chain.colour == ColourStated,
-		ToneMap:    r.toneMap,
+		Chain:   r.chain.name,
+		ToneMap: r.toneMap,
 	}
 	if ns := r.video.lastKey.Load(); ns > 0 {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
@@ -119,18 +116,21 @@ func readDecoded(s *Stats, dec gst.Element) {
 // in when they reach it, the format and size it takes, and its own count of what
 // it took and what it threw away for arriving past its deadline, which the pull
 // count cannot tell apart.
+//
+// The size is read whether or not it differs from the decoded one. Whether a scaler
+// took the picture down for a window is a comparison, and a comparison is a reader's
+// to make from two figures rather than this side's to make by leaving one out.
 func (r *Receiver) readRender(s *Stats) {
 	if caps := padCaps(r.sink, "sink"); caps != nil {
 		s.RenderMemory = memoryOf(caps)
 		st := caps.GetStructure(0)
-		s.Render = strings.TrimSpace(st.GetString("format") + " " + st.GetString("colorimetry"))
-		// The size shows only where the scaler took the frames down to a tile.
-		// That is the case where the format alone would read as the decoded picture in
-		// another layout.
-		w, wok := st.GetInt("width")
-		h, hok := st.GetInt("height")
-		if wok && hok && (int(w) != s.Width || int(h) != s.Height) {
-			s.Render = strings.TrimSpace(fmt.Sprintf("%s %dx%d", s.Render, w, h))
+		s.RenderFormat = st.GetString("format")
+		s.RenderColorimetry = st.GetString("colorimetry")
+		if w, ok := st.GetInt("width"); ok {
+			s.RenderWidth = int(w)
+		}
+		if h, ok := st.GetInt("height"); ok {
+			s.RenderHeight = int(h)
 		}
 	}
 	// The counters are the base sink's rather than a property this element invented,

@@ -12,12 +12,16 @@
 
     The 12px inset matches the two bands above it. Same story as there - GapPanel states the
     12, but a Thickness has no token to name.
+
+    The height is a minimum rather than a fixed value, because the sentence on the right wraps.
+    The band is one line at every width the window can be dragged to, and grows by a line where
+    a desktop hands the window less than its minimum.
   -->
   <Border Classes="chromeband"
-          Height="{StaticResource StatusBarHeight}"
+          MinHeight="{StaticResource StatusBarHeight}"
           Padding="12,0">
 
-    <Grid ColumnDefinitions="Auto,*,Auto">
+    <Grid ColumnDefinitions="Auto,*">
 
       <!--
         Prose and figures share one baseline and one face, and differ in colour: the
@@ -56,11 +60,20 @@
         </ItemsControl>
       </StackPanel>
 
-      <!-- The contextual hint, pushed to the far edge by the spacer between. -->
-      <TextBlock Grid.Column="2"
+      <!--
+        The contextual hint, held against the far edge by the column it sits in rather than by
+        a spacer beside it. The column is what is left after the figures, so a window too narrow
+        for both wraps the sentence instead of drawing it past the edge, and the 16px keeps a
+        wrapped line clear of the figures it now sits beside.
+      -->
+      <TextBlock Grid.Column="1"
                  Classes="muted"
                  Text="{Binding Hint}"
                  IsVisible="{Binding ShowsHint}"
+                 TextWrapping="Wrap"
+                 TextAlignment="Right"
+                 HorizontalAlignment="Right"
+                 Margin="16,0,0,0"
                  VerticalAlignment="Center" />
     </Grid>
   </Border>

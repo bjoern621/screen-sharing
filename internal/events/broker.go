@@ -45,6 +45,7 @@ var Kinds = []screensharev1.EventKind{
 	screensharev1.EventKind_EVENT_KIND_SETTINGS_CHANGED,
 	screensharev1.EventKind_EVENT_KIND_RECEIVE_STATE,
 	screensharev1.EventKind_EVENT_KIND_RECEIVE_EXIT,
+	screensharev1.EventKind_EVENT_KIND_RECEIVE_STATS,
 	screensharev1.EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE,
 }
 
@@ -222,6 +223,8 @@ func KindOf(e *screensharev1.Event) screensharev1.EventKind {
 		return screensharev1.EventKind_EVENT_KIND_RECEIVE_STATE
 	case *screensharev1.Event_ReceiveExit:
 		return screensharev1.EventKind_EVENT_KIND_RECEIVE_EXIT
+	case *screensharev1.Event_ReceiveStats:
+		return screensharev1.EventKind_EVENT_KIND_RECEIVE_STATS
 	case *screensharev1.Event_MonitorPreviewState:
 		return screensharev1.EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE
 	default:

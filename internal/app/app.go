@@ -65,6 +65,16 @@ type App struct {
 	relayStopOnce sync.Once
 	relayStop     chan struct{}
 
+	// receiveStatsOnce starts the sampling of the running decodes and
+	// receiveStatsStopOnce ends it, both guarding receiveStatsStop, which the loop
+	// selects on. It is a second loop rather than work folded into the relay poll
+	// because the two measure different things at different rates: the relay is asked
+	// over the network every two seconds, and the decodes are read out of this process
+	// every one (receivestats.go).
+	receiveStatsOnce     sync.Once
+	receiveStatsStopOnce sync.Once
+	receiveStatsStop     chan struct{}
+
 	// encodersOnce runs the probe once per process, so the caller that asks for the
 	// answer waits for it and every caller after that does not.
 	encodersOnce sync.Once
@@ -148,17 +158,18 @@ func New(version string) *App {
 	}
 
 	return &App{
-		events:          events.New(),
-		version:         version,
-		settings:        s,
-		storeNotice:     notice,
-		relay:           relay.New(),
-		relayStop:       make(chan struct{}),
-		fatal:           make(chan error, 1),
-		watchers:        map[WatchKey]*ffmpeg.Proc{},
-		receivers:       map[WatchKey]*receive.Receiver{},
-		monitorPreviews: map[int]*receive.Receiver{},
-		testStreams:     map[int]*testStream{},
+		events:           events.New(),
+		version:          version,
+		settings:         s,
+		storeNotice:      notice,
+		relay:            relay.New(),
+		relayStop:        make(chan struct{}),
+		receiveStatsStop: make(chan struct{}),
+		fatal:            make(chan error, 1),
+		watchers:         map[WatchKey]*ffmpeg.Proc{},
+		receivers:        map[WatchKey]*receive.Receiver{},
+		monitorPreviews:  map[int]*receive.Receiver{},
+		testStreams:      map[int]*testStream{},
 	}
 }
 
@@ -207,6 +218,7 @@ func (a *App) StoreNotice() *screensharev1.Text {
 func (a *App) Start() {
 	a.startControl()
 	a.startRelayPoll()
+	a.startReceiveStatsPoll()
 	go a.startTestStreamsAtBoot()
 }
 
@@ -216,6 +228,7 @@ func (a *App) Stop() {
 	// cannot start one of them behind the teardown below.
 	a.stopControl()
 	a.stopRelayPoll()
+	a.stopReceiveStatsPoll()
 
 	a.procMu.Lock()
 	defer a.procMu.Unlock()

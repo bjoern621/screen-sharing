@@ -19,7 +19,8 @@ public sealed class PointerTests
     {
         var backend = new SeededBackend("linux");
         var session = new Session(backend, static action => action());
-        var card = new PreviewViewModel(backend, session, static action => action());
+        var form = new FormSession(backend, session, static action => action());
+        var card = new PreviewViewModel(backend, form, session, static action => action());
         card.SetPictureSize(width, height);
         return card;
     }

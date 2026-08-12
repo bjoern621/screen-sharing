@@ -2,25 +2,28 @@ package receive
 
 import "time"
 
-// StatGroup is one element's counters, labelled and formatted here: a reader
-// prints the rows it is handed, so a transport reports whatever its elements know
-// without the shell learning about them.
+// StatGroup is one element's counters, as the element names them.
+//
+// Nothing here is labelled, formatted or explained, and that is the boundary rather
+// than an omission: a counter's key is the element's and a counter's wording is the
+// reader's (api/proto/screenshare/v1/text.proto). This package reports which elements
+// keep counters worth reading and what those counters say.
 type StatGroup struct {
-	// Name is the element's pipeline name, e.g. "rtpjitterbuffer0", which also
-	// tells the jitterbuffers of a muxed stream apart.
-	Name string
-	// Tip says what the element does, for a reader to show on the group's
-	// heading: a pipeline element's name is not a description of it.
-	Tip  string
-	Rows []StatRow
+	// Factory is the element's factory, e.g. "rtpjitterbuffer", which says what kind
+	// of thing is counting.
+	Factory string
+	// Element is the element's pipeline name, e.g. "rtpjitterbuffer0", which tells the
+	// jitterbuffers of a muxed stream apart.
+	Element string
+	Values  []StatValue
 }
 
-// StatRow is one labelled counter of a StatGroup. Tip explains what the counter
-// measures, which the label alone does not carry.
-type StatRow struct {
-	Label string
-	Tip   string
-	Value string
+// StatValue is one counter of a StatGroup: the element's own field name and what it
+// reads. Counts, rates and millisecond figures all arrive as a float64, since none of
+// these elements keeps a counter that reaches where that costs a digit.
+type StatValue struct {
+	Key   string
+	Value float64
 }
 
 // Stats is what a receiver can read off its running pipeline: the encoded stream
@@ -65,22 +68,25 @@ type Stats struct {
 	// went afterwards: a hardware decoder that downloads its own output into
 	// system memory reports true. DecodeMemory is what answers that.
 	Hardware bool
-	Render   string // pixel format and colorimetry the sink takes
-	Frames   uint64 // frames pulled out of the sink and handed on
-	Rendered uint64 // frames the sink took, off its own counters
-	Dropped  uint64 // frames the sink dropped for arriving late
+	// What the sink takes, off its own input caps. The size is worth having beside
+	// the decoded one: the two differ by exactly the scaling the chain did for the
+	// window drawing the frames.
+	RenderFormat      string
+	RenderColorimetry string
+	RenderWidth       int
+	RenderHeight      int
+	Frames            uint64 // frames pulled out of the sink and handed on
+	Rendered          uint64 // frames the sink took, off its own counters
+	Dropped           uint64 // frames the sink dropped for arriving late
 
 	// The render chain the receiver built and what its two ends negotiated.
 	//
-	// Chain is the chain's name, ChainGPU whether it asks for GPU memory and
-	// ChainExact whether it states the colour it produces. The two memory fields
-	// are the memory features the caps carry, verbatim, on the decoder's output
-	// and on the sink's input: they are the evidence a download or an upload
-	// between decode and display is read from, and both are "" until the pads
-	// negotiate.
+	// Chain is the chain's name, and what that chain promises about memory and
+	// colour follows from which one it is rather than being reported beside it. The
+	// two memory fields are the memory features the caps carry, verbatim, on the
+	// decoder's output and on the sink's input: they are the measurement those
+	// promises are judged against, and both are "" until the pads negotiate.
 	Chain        string
-	ChainGPU     bool
-	ChainExact   bool
 	DecodeMemory string
 	RenderMemory string
 	// ToneMap is whether the pipeline was built with the rung that rolls an HDR stream

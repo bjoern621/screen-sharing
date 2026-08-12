@@ -52,6 +52,7 @@ public sealed class BroadcastViewModel : Observable
         + "a screen draws from and the few effects a user asks for by name.";
 
     private readonly IBackend _backend;
+
     private readonly Session _session;
     private readonly Action<Action> _dispatch;
 
@@ -78,14 +79,22 @@ public sealed class BroadcastViewModel : Observable
     /// <summary>What a control on this screen asked for. Raised once per press, never during a render.</summary>
     public event Action<BroadcastAction>? ActionRequested;
 
+    /// <param name="form">
+    /// The settings the backend is holding, handed straight to the preview and read nowhere else
+    /// on this screen. The card's end-to-end route needs the leg a viewer receives on, and that
+    /// is the whole of what they are here for. They are a different thing from <see cref="_form"/>
+    /// below, which is what the backend resolved the running pipeline's settings to: one is the
+    /// machine's configuration and the other is a description of one stream.
+    /// </param>
     /// <param name="dispatch">
     /// Hands work to the UI loop. The answer to an effect and to a resolve both land on whichever
     /// thread the transport completed on, and everything this writes is read by a binding that
     /// only tolerates being written from one.
     /// </param>
-    public BroadcastViewModel(IBackend backend, Session session, Action<Action> dispatch)
+    public BroadcastViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a broadcast screen asks the backend to act");
+        Assert.NotNull(form, "a broadcast screen describes the settings a stream is running on");
         Assert.NotNull(session, "a broadcast screen renders the session's running state");
         Assert.NotNull(dispatch, "a broadcast screen needs a UI loop to marshal an answer back to");
 
@@ -95,10 +104,11 @@ public sealed class BroadcastViewModel : Observable
 
         Stats = new HeaderStatsViewModel();
 
-        // The one card here that asks the backend for something. It receives this machine's
-        // own stream back off the relay, so it needs the seam and the running state rather
-        // than the composed reading alone (Preview/ViewModel/PreviewViewModel.cs).
-        Preview = new PreviewViewModel(backend, session, dispatch);
+        // The one card here that asks the backend for something. Its end-to-end route receives
+        // this machine's own stream back off the relay, so it needs the seam, the running state
+        // and the leg a viewer receives on, rather than the composed reading alone
+        // (Preview/ViewModel/PreviewViewModel.cs).
+        Preview = new PreviewViewModel(backend, form, session, dispatch);
         Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();

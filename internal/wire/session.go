@@ -384,6 +384,195 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 	return &screensharev1.ReceiveState{Streams: out}
 }
 
+// ReceiveStatValue is one counter an element keeps, under the element's own name for
+// it. Nothing here is labelled: a key is the element's word and a label is a reader's
+// (api/proto/screenshare/v1/text.proto).
+type ReceiveStatValue struct {
+	Key   string
+	Value float64
+}
+
+// ReceiveStatGroup is one element's counters, with the factory saying what kind of
+// element is counting and the name telling two of a kind apart.
+type ReceiveStatGroup struct {
+	Factory string
+	Element string
+	Values  []ReceiveStatValue
+}
+
+// ReceiveStreamStats is one sample of one running decode.
+//
+// It is a sample and ReceiveStream is a state, which is why they are two shapes for
+// one decode. What a decode is settles when the pipeline negotiates and is announced
+// when it moves; what it is doing has to be read off the running pipeline on a clock.
+//
+// The three rates are pointers because "not measured yet" is a state a sample has to
+// be able to report: they are deltas between two samples, and the first sample of a run
+// has no previous one to subtract. Absent is not zero, and a zero here would say a
+// decode is receiving nothing.
+type ReceiveStreamStats struct {
+	Stream WatchKey
+
+	// What arrives, off the video decoder's input pad.
+	Codec         string
+	Profile       string
+	Level         string
+	VideoBytes    uint64
+	VideoFrames   uint64
+	Keyframes     uint64
+	SinceKeyframe *float64
+	VideoMbps     *float64
+	VideoFPS      *float64
+
+	// The decoded picture, off the video decoder's output pad.
+	Width          int
+	Height         int
+	PixelFormat    string
+	Depth          int
+	Subsampling    string
+	Colorimetry    string
+	Transfer       string
+	ChromaSite     string
+	PixelAspect    string
+	Interlace      string
+	FPSNum, FPSDen int
+
+	// Decode and render.
+	Decoder           string
+	Hardware          bool
+	DecodeMemory      string
+	RenderMemory      string
+	Chain             string
+	ToneMap           bool
+	RenderFormat      string
+	RenderColorimetry string
+	RenderWidth       int
+	RenderHeight      int
+	Frames            uint64
+	Rendered          uint64
+	Dropped           uint64
+	RenderFPS         *float64
+
+	// Timing.
+	Live       bool
+	LatencyMin *float64
+	LatencyMax *float64
+	Position   *float64
+	Uptime     float64
+
+	// Audio, empty until the branch is built.
+	AudioCodec    string
+	AudioDecoder  string
+	AudioFormat   string
+	AudioRate     int
+	AudioChannels int
+	AudioBytes    uint64
+	AudioKbps     *float64
+
+	Groups []ReceiveStatGroup
+}
+
+// ReceiveStats carries one sample of every running decode across. A nil or empty slice
+// converts to an empty list, which is what a tick with nothing decoding looks like.
+func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
+	out := make([]*screensharev1.ReceiveStreamStats, 0, len(streams))
+	for _, s := range streams {
+		assert.Assert(s.Stream.StreamName != "" && s.Stream.Transport != "",
+			"a sample belongs to a decode identified by a stream and the transport it is received over",
+			s.Stream.StreamName, s.Stream.Transport)
+
+		msg := &screensharev1.ReceiveStreamStats{
+			Stream: WatchKeyMessage(s.Stream),
+
+			CodecDescription: s.Codec,
+			Profile:          s.Profile,
+			Level:            s.Level,
+			VideoBytes:       s.VideoBytes,
+			VideoFrames:      s.VideoFrames,
+			Keyframes:        s.Keyframes,
+
+			Width:       int32(s.Width),
+			Height:      int32(s.Height),
+			PixelFormat: s.PixelFormat,
+			Depth:       int32(s.Depth),
+			Subsampling: s.Subsampling,
+			Colorimetry: s.Colorimetry,
+			Transfer:    s.Transfer,
+			ChromaSite:  s.ChromaSite,
+			PixelAspect: s.PixelAspect,
+			Interlace:   s.Interlace,
+			FpsNum:      int32(s.FPSNum),
+			FpsDen:      int32(s.FPSDen),
+
+			Decoder:           s.Decoder,
+			Hardware:          s.Hardware,
+			DecodeMemory:      s.DecodeMemory,
+			RenderMemory:      s.RenderMemory,
+			Chain:             s.Chain,
+			ToneMap:           s.ToneMap,
+			RenderFormat:      s.RenderFormat,
+			RenderColorimetry: s.RenderColorimetry,
+			RenderWidth:       int32(s.RenderWidth),
+			RenderHeight:      int32(s.RenderHeight),
+			Frames:            s.Frames,
+			Rendered:          s.Rendered,
+			Dropped:           s.Dropped,
+
+			Live:      s.Live,
+			UptimeSec: s.Uptime,
+
+			AudioCodecDescription: s.AudioCodec,
+			AudioDecoder:          s.AudioDecoder,
+			AudioFormat:           s.AudioFormat,
+			AudioRate:             int32(s.AudioRate),
+			AudioChannels:         int32(s.AudioChannels),
+			AudioBytes:            s.AudioBytes,
+
+			Groups: receiveStatGroups(s.Groups),
+		}
+
+		msg.SinceKeyframeSec = s.SinceKeyframe
+		msg.VideoMbps = s.VideoMbps
+		msg.VideoFps = s.VideoFPS
+		msg.RenderFps = s.RenderFPS
+		msg.LatencyMinMs = s.LatencyMin
+		msg.LatencyMaxMs = s.LatencyMax
+		msg.PositionSec = s.Position
+		msg.AudioKbps = s.AudioKbps
+
+		out = append(out, msg)
+	}
+
+	assert.Assert(len(out) == len(streams), "a message per sampled decode", len(out), len(streams))
+	return &screensharev1.ReceiveStats{Streams: out}
+}
+
+// receiveStatGroups carries the transport's own counters across, in the order the
+// pipeline holds the elements. A group with no values never reaches here: the receiver
+// leaves out an element that answers none of the keys it is read for.
+func receiveStatGroups(groups []ReceiveStatGroup) []*screensharev1.ReceiveStatGroup {
+	out := make([]*screensharev1.ReceiveStatGroup, 0, len(groups))
+	for _, g := range groups {
+		assert.Assert(g.Factory != "" && len(g.Values) > 0,
+			"a reported group names its factory and carries at least one counter", g.Factory, len(g.Values))
+
+		values := make([]*screensharev1.ReceiveStatValue, 0, len(g.Values))
+		for _, v := range g.Values {
+			assert.Assert(v.Key != "", "a counter carries the element's own name for it", g.Element)
+			values = append(values, &screensharev1.ReceiveStatValue{Key: v.Key, Value: v.Value})
+		}
+
+		out = append(out, &screensharev1.ReceiveStatGroup{
+			Factory: g.Factory,
+			Element: g.Element,
+			Values:  values,
+		})
+	}
+
+	assert.Assert(len(out) == len(groups), "a message per counting element", len(out), len(groups))
+	return out
+}
+
 // PreviewedMonitor is one monitor the backend is reading into a picture the frame
 // channel can hand over.
 //

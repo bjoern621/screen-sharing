@@ -12,12 +12,14 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <see cref="IBackend.StartReceiveAsync"/>, and a leg derived per caller would be this module
 /// deciding something it may not decide.
 ///
-/// <b>The broadcast screen's preview is not one of its callers, and that is the point.</b> It
-/// used to be: the preview opened a decode of this machine's own stream and read it back off
-/// the relay, so it needed a leg exactly as a viewer tile does. It now draws a copy the publish
-/// child writes to a loopback port, which crossed no protocol at all, so there is no leg for it
-/// to name (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws"). This field
-/// is the viewer's alone again.
+/// <b>The broadcast screen's preview is its second caller, on one of its two routes.</b> The
+/// local route draws a copy the publish child writes to a loopback port, which crossed no
+/// protocol at all and has no leg to name; the end-to-end route opens a decode of this machine's
+/// own stream off the relay and needs a leg exactly as a viewer tile does
+/// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws"). It reads this field
+/// rather than one of its own, because how this machine receives is one setting and a second
+/// answer to it on the broadcast screen would be a preview drawn over a protocol the viewer
+/// never uses.
 ///
 /// <b>What it reads is a value and not a choice.</b> <c>viewer.tile_watch_transport</c> is a
 /// setting, resolved and repaired by the backend against the transport table and the format

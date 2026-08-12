@@ -176,7 +176,9 @@ public sealed class ScreenPickerViewModel : Observable
             // the start was still in flight would sit dark for the life of the step.
             var previewed = Previewed(monitor.Index);
             var tile = previewed is null ? Drop(monitor.Index) : Tile(monitor);
-            tile?.Apply(TilePipeline.Of(previewed));
+            // No sample: a screen is read rather than received, so there is no decode for the
+            // backend to have counters about (Features/Viewer/Tile/Model/TileStats.cs).
+            tile?.Apply(TilePipeline.Of(previewed), sample: null);
 
             var option = OptionOf(monitor.Index);
             rows.Add(new ScreenChoice(

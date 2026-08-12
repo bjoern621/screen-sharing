@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
@@ -26,10 +27,11 @@ namespace ScreenShare.App.Features.Viewer.Tile.ViewModel;
 /// preview is running is the publish's; this draws whatever the subscription hands it and
 /// says why when it is handed nothing.
 ///
-/// <b>It is one class for both kinds of tile, and that is deliberate.</b> The viewer's grid
-/// draws relay decodes and the broadcast screen draws the local preview, and the difference
-/// between them is entirely in what a subscription names (<see cref="TileSource"/>) and where
-/// the pipeline's own state is read from (<see cref="TilePipeline"/>). A second implementation
+/// <b>It is one class for every kind of tile, and that is deliberate.</b> The viewer's grid
+/// draws relay decodes, the broadcast screen's preview draws either the local one or a relay
+/// decode of this machine's own stream, and the wizard draws a screen; the difference between
+/// them is entirely in what a subscription names (<see cref="TileSource"/>) and where the
+/// pipeline's own state is read from (<see cref="TilePipeline"/>). A second implementation
 /// would be a second answer to what a dropped frame is and where a lent handle goes back.
 /// </summary>
 public sealed class TileViewModel : Observable, IFrameSource
@@ -69,7 +71,15 @@ public sealed class TileViewModel : Observable, IFrameSource
         ToggleFullscreen = new DelegateCommand(() => arrange(TileIntent.Fullscreen));
         LeaveFullscreen = new DelegateCommand(() => arrange(TileIntent.LeaveFullscreen));
         LeavePopOut = new DelegateCommand(() => arrange(TileIntent.LeavePopOut));
-        ToggleStats = new DelegateCommand(() => ShowStats = !ShowStats);
+        // The panel is derived on the render pass and only while it is up, so turning it on has
+        // to reach one. Raising Changed is how: the screen holding this tile renders it against
+        // the state as it stands now, rather than the panel opening empty and filling in
+        // whenever the next sample happens to land.
+        ToggleStats = new DelegateCommand(() =>
+        {
+            ShowStats = !ShowStats;
+            Changed?.Invoke();
+        });
         ToggleMute = new PendingCommand(() => SendAudioAsync(Volume, !Muted), dispatch, () => HasAudio);
         ToggleToneMap = new PendingCommand(() => SendToneMapAsync(!ToneMapped), dispatch, () => CanToneMap);
     }
@@ -163,7 +173,7 @@ public sealed class TileViewModel : Observable, IFrameSource
     public bool IsFullscreen { get => _isFullscreen; set => Set(ref _isFullscreen, value); }
 
     /// <summary>
-    /// Whether the figures are drawn over this tile permanently.
+    /// Whether the stats panel is up over this tile.
     ///
     /// Per tile rather than per window: it is turned on for the one stream being diagnosed, and
     /// an app-wide switch would paint six tiles to answer a question about one. Off by default,
@@ -176,10 +186,18 @@ public sealed class TileViewModel : Observable, IFrameSource
     public string Title { get => _title; private set => Set(ref _title, value); }
 
     /// <summary>
-    /// What the pipeline and this window turned out to be, as the strip under the picture
-    /// prints it. A list rather than named slots, so what a tile reports stays the tile's.
+    /// The stats panel: every stage of the pipeline and the figures read off it, in the order
+    /// the frames pass through.
+    ///
+    /// Empty while the panel is down, which is what keeps it free: nothing composes forty rows
+    /// per tile per sample to draw a panel nobody opened.
+    ///
+    /// It is converged rather than replaced on each pass, which is what lets a tooltip survive
+    /// the sample that lands under it: a row keeps its identity for as long as the pipeline
+    /// reports the same figures, and only the reading is written
+    /// (<see cref="Features.Viewer.Tile.Model.TileStats.Merge"/>).
     /// </summary>
-    public IReadOnlyList<string> Figures { get; private set; } = [];
+    public ObservableCollection<StatSection> Stats { get; } = [];
 
     /// <summary>Why the tile is dark, empty while it is drawing.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
@@ -359,7 +377,13 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// The one render function. Reads the decode's state through on every pass and combines it
     /// with the report the control last made, so an unchanged pair fires no binding.
     /// </summary>
-    public void Apply(TilePipeline? pipeline)
+    /// <param name="sample">
+    /// The last sample of this decode, and null where none has arrived or where this tile draws
+    /// something that is not a relay decode. It is separate from <paramref name="pipeline"/>
+    /// because the two are a state and a measurement: what a decode is is announced when it
+    /// changes, and what it is doing is read off the pipeline on a clock.
+    /// </param>
+    public void Apply(TilePipeline? pipeline, ReceiveStreamStats? sample)
     {
         // Only a relay decode crossed a protocol, so only a relay decode has one to name
         // beside the stream. Everything else on the heading is the same fact either way.
@@ -368,8 +392,11 @@ public sealed class TileViewModel : Observable, IFrameSource
 
         Notice = NoticeFor(pipeline);
         HasNotice = Notice.Length > 0;
-        Figures = FiguresFor(pipeline);
         Aspect = AspectOf();
+
+        // Composed only while the panel is up. It is forty rows off a sample that lands once a
+        // second, and every tile in the grid would be building them to draw none of them.
+        TileStats.Merge(Stats, ShowStats ? TileStats.Of(sample, _report) : []);
 
         // The loudness is the pipeline's and is read through it. A pipeline that is gone leaves
         // the controls at their defaults rather than at whatever the last one was set to: the
@@ -621,62 +648,4 @@ public sealed class TileViewModel : Observable, IFrameSource
         return pipeline.Value.Live ? "" : "Connecting.";
     }
 
-    /// <summary>
-    /// What the strip prints: what the pipeline turned out to be, then what this window did
-    /// with it.
-    ///
-    /// The memory pair is the figure worth having and the reason the backend reports both
-    /// ends. A chain that promised to keep the frames on the device and a decoder that
-    /// downloaded its own output disagree, and the pair is the only place that shows.
-    /// </summary>
-    private IReadOnlyList<string> FiguresFor(TilePipeline? state)
-    {
-        if (state is not { } decode)
-        {
-            return [];
-        }
-
-        var figures = new List<string>(5);
-
-        if (_report.Width > 0)
-        {
-            figures.Add($"{_report.Width}×{_report.Height}");
-        }
-
-        if (decode.Decoder.Length > 0)
-        {
-            figures.Add(decode.Hardware ? $"{decode.Decoder} on the GPU" : decode.Decoder);
-        }
-
-        if (decode.Chain.Length > 0)
-        {
-            figures.Add($"{decode.Chain} chain");
-        }
-
-        if (decode.RenderMemory.Length > 0)
-        {
-            figures.Add(MemoryLabel(decode.RenderMemory));
-        }
-
-        if (_report.Dropped > 0)
-        {
-            figures.Add($"{_report.Dropped} dropped");
-        }
-
-        return figures;
-    }
-
-    /// <summary>
-    /// How a memory feature reads on screen. The identifiers are GStreamer's own and cross the
-    /// contract unchanged; what they are called here is this shell's, like every other word.
-    /// </summary>
-    private static string MemoryLabel(string memory) => memory switch
-    {
-        "memory:SystemMemory" => "frames in system memory",
-        "memory:D3D11Memory" => "frames on the GPU, Direct3D 11",
-        "memory:D3D12Memory" => "frames on the GPU, Direct3D 12",
-        "memory:GLMemory" => "frames on the GPU, OpenGL",
-        "memory:DMABuf" => "frames on the GPU, dmabuf",
-        _ => memory,
-    };
 }

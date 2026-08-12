@@ -9,7 +9,7 @@ So this page is about what a tooltip must say, not about the component that rend
 
 ## Where the text lives
 
-The shell keeps one name and one sentence per identifier the backend can send, in `avalonia/ScreenShare.App/Copy`: `Fields.cs` for a control's heading and help, `Vocabulary.cs` for what each identifier is called, `Descriptions.cs` for the paragraph behind a choice, and `Statements.cs` for the sentence each code the backend can send is rendered as.
+The shell keeps one name and one sentence per identifier the backend can send, in `avalonia/ScreenShare.App/Copy`: `Fields.cs` for a control's heading and help, `Vocabulary.cs` for what each identifier is called, `Descriptions.cs` for the paragraph behind a choice, `Statements.cs` for the sentence each code the backend can send is rendered as, and `Counters.cs` for what each figure on a tile's stats panel is called and what a reading of it is evidence of.
 
 An identifier with no name renders as the raw identifier, and a statement with no sentence renders as its code.
 Both are visible rather than swallowed, because that is what gets them written.

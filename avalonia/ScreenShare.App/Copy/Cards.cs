@@ -19,15 +19,35 @@ namespace ScreenShare.App.Copy;
 public static class Cards
 {
     /// <summary>
-    /// What the broadcast preview is and is not, stated on the card rather than left to be
+    /// What the preview's route toggle chooses, said above the control rather than left to be
+    /// worked out from the two labels.
+    ///
+    /// It names where the picture is taken, because that is the whole of the difference: both
+    /// routes carry the same encode, and everything one shows and the other cannot is
+    /// downstream of it (<see cref="Features.Broadcast.Preview.Model.PreviewRoute"/>).
+    /// </summary>
+    public const string PreviewRouteChoice = "Where this picture is taken:";
+
+    /// <summary>What the local route's segment says.</summary>
+    public const string PreviewLocalLabel = "Local";
+
+    /// <summary>
+    /// What the end-to-end route's segment says. Spelled out rather than abbreviated: "E2E" is
+    /// a word for the people who built the pipeline, and the card is read by the person sharing
+    /// their screen.
+    /// </summary>
+    public const string PreviewEndToEndLabel = "End to end";
+
+    /// <summary>
+    /// What the local picture is and is not, stated on the card rather than left to be
     /// discovered.
     ///
     /// <b>It used to say the opposite, and the facts moved under it.</b> The preview was a
     /// viewer of this machine's own stream, received back off the relay, so the sentence here
     /// named a round trip, downstream bandwidth, and a decode that stayed open because a tile
-    /// on the viewer screen might be sharing it. None of those is true any more: the publish
-    /// child copies its already-encoded video to a loopback port, the backend decodes that, and
-    /// the relay never sees the preview at all
+    /// on the viewer screen might be sharing it. None of those is true of this route: the
+    /// publish child copies its already-encoded video to a loopback port, the backend decodes
+    /// that, and the relay never sees the picture at all
     /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
     ///
     /// <b>What replaces them is one gain and one warning.</b> The gain is that it costs a local
@@ -36,13 +56,35 @@ public static class Cards
     /// the half a reader must not discover the hard way: the picture is taken <i>before</i> the
     /// relay, so it says what is being sent and nothing about what anybody receives. A
     /// congested uplink, a relay dropping packets and a viewer on a bad link all leave this
-    /// card looking perfect, and what answers them is the viewer table and the round-trip plot.
+    /// card looking perfect.
+    ///
+    /// It ends by naming the other route rather than the viewer table alone, because the other
+    /// route is now the direct answer to what it cannot show.
     /// </summary>
-    public const string PreviewCost =
+    public const string PreviewLocalCost =
         "This is what is being sent, decoded on this machine from a copy the encoder makes: it "
         + "never reaches the relay, costs one local decode and no bandwidth, and adds no viewer "
-        + "to the counts beside it. It shows nothing about what viewers receive - for that, read "
-        + "the viewer table and the round-trip plot.";
+        + "to the counts beside it. It shows nothing about what viewers receive - switch to end "
+        + "to end for that, or read the viewer table and the round-trip plot.";
+
+    /// <summary>
+    /// What the end-to-end picture is and what it costs.
+    ///
+    /// <b>It is a viewer of this machine's own stream, and the card says so plainly.</b> The
+    /// decode is opened with <c>StartReceive</c> like any tile in the grid, so the relay serves
+    /// it a reader slot, counts it among the viewers reported beside this card, and sends it
+    /// the stream at the same downstream cost any other viewer pays. That is the price of the
+    /// picture being honest, and a reader who does not want to pay it has the other route.
+    ///
+    /// The figures beside the card are what the warning is about. A reader comparing the two
+    /// routes and then reading a viewer count has to know that one of those viewers is this
+    /// window.
+    /// </summary>
+    public const string PreviewEndToEndCost =
+        "This is what a viewer receives: this machine's own stream, pulled back off the relay "
+        + "over the leg the viewer screen receives on. It crosses the uplink, the relay and the "
+        + "way back, so what it shows is the whole path - and it pays for that as a viewer does, "
+        + "spending downstream bandwidth and counting as one of the viewers beside it.";
 
     /// <summary>Nothing is on the air, so there is nothing being sent to show.</summary>
     public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing being sent to show.";
@@ -78,6 +120,28 @@ public static class Cards
     /// rather than on the contract, which is why this sentence names the fact and not a cause.
     /// </summary>
     public const string PreviewNotPreviewed = "This stream is on the air and is not being previewed locally.";
+
+    /// <summary>
+    /// The end-to-end route has no leg to receive on, because no settings have arrived yet.
+    ///
+    /// It is the viewer's leg this route names and the same absence the viewer's grid reports,
+    /// worded for this card: a decode is keyed by the stream and the protocol together, so
+    /// there is nothing to ask for until the settings say which protocol
+    /// (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
+    /// </summary>
+    public const string PreviewNoWatchLeg =
+        "The settings have not said which protocol a viewer receives on yet.";
+
+    /// <summary>
+    /// The end-to-end route has asked the backend for a decode of this stream and it is not
+    /// running yet.
+    ///
+    /// It is its own state and not the tile's "Connecting.": that one is a pipeline that is up
+    /// with no frame out of it, and this is the moment before there is a pipeline at all. A
+    /// route that spends a round trip to the relay before it can draw anything is worth saying
+    /// out loud, because the local route draws immediately and the difference reads as a stall.
+    /// </summary>
+    public const string PreviewOpening = "Opening a decode of this stream off the relay.";
 
     /// <summary>
     /// The caveat beside the nudge card's title, and it is the opposite of the permission slip

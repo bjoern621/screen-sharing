@@ -160,6 +160,198 @@ message ReceiveState {
   repeated ReceiveStream streams = 1;
 }
 
+// ReceiveStatValue is one counter an element keeps, as the element itself names it.
+//
+// The key is a GStreamer stats field - "packets-received-lost", "rtx-success-count" -
+// and crosses unchanged, for the reason every other identifier on this contract does:
+// what the counter is called belongs to the element, and what it is called on screen
+// belongs to a shell (text.proto). A shell with no word for a key shows the key, which
+// is a row a reader can search for rather than a row that vanishes.
+//
+// The value is a double whatever the element's own type was. Every counter these
+// elements keep is a count, a rate or a millisecond figure, and none of them reaches
+// the range where that costs a digit.
+message ReceiveStatValue {
+  string key = 1;
+  double value = 2;
+}
+
+// ReceiveStatGroup is one element's counters.
+//
+// Which elements a pipeline holds is the transport's business: srtsrc counts an SRT
+// link, and the jitterbuffers inside rtspsrc count RTP. The factory says what kind of
+// element it is and the element name tells two of a kind apart, which is what a muxed
+// RTSP stream needs - one jitterbuffer per track, each with its own losses.
+message ReceiveStatGroup {
+  string factory = 1;
+  string element = 2;
+  repeated ReceiveStatValue values = 3;
+}
+
+// ReceiveStreamStats is one sample of one running decode: what arrives, what came out
+// of the decoder, what the sink did with it, how the pipeline is timed, and the
+// counters the transport's own elements keep.
+//
+// It is a sample and not a state, which is the whole of why it is separate from
+// ReceiveStream. What a decode *is* - the chain, the decoder, the memory at each end -
+// settles once and changes only when something about the pipeline does, so it is
+// announced when it moves. What a decode is *doing* moves continuously and is read off
+// the running pipeline on the backend's own interval, exactly as PublishStats is read
+// off the encoder.
+//
+// A figure the pipeline has not negotiated yet is zero or empty, and a shell prints it
+// as unknown rather than as a measurement. The three rates carry presence instead,
+// because they are byte and frame deltas between two samples and the first sample of a
+// run has no previous one to subtract: absent there means not yet measured, where zero
+// would mean a decode receiving nothing.
+//
+// The rates are computed here rather than by each shell, for the reason RelayStatus's
+// are: they are deltas divided by an interval, and an interval each reader chose for
+// itself would make the same decode read differently in two windows.
+message ReceiveStreamStats {
+  // stream is the stream name and the leg it is received over, which together are the
+  // identity, for the reason WatchKey exists.
+  WatchKey stream = 1;
+
+  // --- What arrives, off the video decoder's input pad ------------------------------
+
+  // codec_description is GStreamer's own name for the encoded stream, e.g. "H.265 (Main
+  // 4:4:4 profile)", falling back to the caps name for a codec it has no name for.
+  //
+  // It is one of the strings text.proto excepts from the no-sentences rule, and for the
+  // reason that list gives: it is produced outside this app's vocabulary, shown as it
+  // stands, and never matched against. The alternative is a table of every media type
+  // GStreamer can decode, kept in every shell, which would be a second and worse copy of
+  // a name the decoder already knows.
+  string codec_description = 2;
+  // profile and level are the codec's own spelling of what the stream was encoded at.
+  string profile = 3;
+  string level = 4;
+  // video_bytes and video_frames count the encoded stream since the pipeline started,
+  // and keyframes how many of those frames could be decoded from cold. A stream with a
+  // long keyframe interval is a stream a late viewer waits on.
+  uint64 video_bytes = 5;
+  uint64 video_frames = 6;
+  uint64 keyframes = 7;
+  // since_keyframe_sec is how long ago the last keyframe arrived. Absent until one has,
+  // which is a pipeline that has not yet been able to draw anything.
+  optional double since_keyframe_sec = 8;
+  // video_mbps and video_fps are what arrived over the last interval.
+  optional double video_mbps = 9;
+  optional double video_fps = 10;
+
+  // --- The decoded picture, off the video decoder's output pad ----------------------
+
+  // width and height are the size the decoder produced, which is the size the stream
+  // was encoded at rather than the size a tile scaled it to.
+  int32 width = 11;
+  int32 height = 12;
+  // pixel_format is GStreamer's own name for the raw format, e.g. "Y444_10LE", with
+  // depth the bits per component and subsampling the chroma sampling in J:a:b notation.
+  // The two are read off the format rather than sent beside it, so they cannot disagree
+  // with it.
+  string pixel_format = 13;
+  int32 depth = 14;
+  string subsampling = 15;
+  // colorimetry is the whole colour description the caps carry, and transfer the one
+  // part of it a viewer acts on, split out here for the reason ReceiveStream splits it.
+  string colorimetry = 16;
+  string transfer = 17;
+  string chroma_site = 18;
+  string pixel_aspect = 19;
+  string interlace = 20;
+  // fps_num and fps_den are the frame rate the caps declare, which is what the stream
+  // says it is rather than what arrived: video_fps is the measurement.
+  int32 fps_num = 21;
+  int32 fps_den = 22;
+
+  // --- Decode and render ------------------------------------------------------------
+
+  // decoder is the element decodebin picked and hardware whether it ran on silicon.
+  // They are ReceiveStream's fields under a second owner, because a sample that named
+  // its counters and not the element keeping them would be half a diagnosis.
+  string decoder = 23;
+  bool hardware = 24;
+  // decode_memory is the memory feature the decoder's output pad carried and
+  // render_memory the one the sink's input pad did. The pair is the evidence of a
+  // download or an upload between decode and display.
+  string decode_memory = 25;
+  string render_memory = 26;
+  // chain is the render chain that was built, which is not always the one the viewer
+  // settings asked for. What it promises about colour and about the memory it works in
+  // follows from which chain it is, so it crosses as the chain alone: the two flags that
+  // used to ride beside it were the chain table read twice, and the memory pair above is
+  // the measurement those promises are judged against.
+  string chain = 27;
+  // tone_map is whether the rung that rolls an HDR stream down was built into this
+  // pipeline, which is what ran rather than what was asked for.
+  bool tone_map = 28;
+  // render_format and render_colorimetry are what the sink takes, and render_width and
+  // render_height the size it takes it at. The size differs from the decoded one wherever
+  // the chain scaled the picture down to the tile drawing it.
+  string render_format = 29;
+  string render_colorimetry = 30;
+  int32 render_width = 31;
+  int32 render_height = 32;
+  // frames counts what was pulled out of the sink and handed to a shell, rendered what
+  // the sink took, and dropped what it threw away for arriving past its deadline. The
+  // pull count cannot tell the last two apart, which is why the sink's own counters are
+  // here beside it.
+  uint64 frames = 33;
+  uint64 rendered = 34;
+  uint64 dropped = 35;
+  // render_fps is what left the sink over the last interval.
+  optional double render_fps = 36;
+
+  // --- Timing -----------------------------------------------------------------------
+
+  // live is whether the pipeline reports itself live, which every relay leg is: a live
+  // pipeline cannot be paused into catching up, so what it cannot decode in time it
+  // drops.
+  bool live = 37;
+  // latency_min_ms and latency_max_ms are the window the latency query answered with.
+  // Absent where the pipeline answered no query, which is a pipeline that has not
+  // reached a state where the question means anything.
+  optional double latency_min_ms = 38;
+  optional double latency_max_ms = 39;
+  // position_sec is the running time the pipeline has reached, which a stall freezes and
+  // an uptime that keeps climbing beside it is what makes that visible.
+  optional double position_sec = 40;
+  // uptime_sec is wall time since the pipeline started.
+  double uptime_sec = 41;
+
+  // --- Audio ------------------------------------------------------------------------
+  //
+  // All of it is zero and empty until the audio branch is built, which is a different
+  // fact from a silent stream and reads differently: ReceiveStream's has_audio is what
+  // says whether there is a track at all.
+
+  string audio_codec_description = 42;
+  string audio_decoder = 43;
+  string audio_format = 44;
+  int32 audio_rate = 45;
+  int32 audio_channels = 46;
+  uint64 audio_bytes = 47;
+  optional double audio_kbps = 48;
+
+  // --- The transport's own counters -------------------------------------------------
+
+  // groups is one entry per element of this pipeline that keeps counters worth reading.
+  // Which elements those are follows from the leg: a stream received over SRT reports a
+  // link, one received over RTSP reports a jitterbuffer per track, and a leg whose
+  // elements count nothing reports no group rather than an empty one.
+  repeated ReceiveStatGroup groups = 49;
+}
+
+// ReceiveStats is one sample of every stream the backend is decoding.
+//
+// Whole per tick like every state on this stream, so a decode that ended simply stops
+// appearing. Which decodes exist is ReceiveState's answer and stays there: this message
+// says what they are doing, and a consumer joins the two on the key.
+message ReceiveStats {
+  repeated ReceiveStreamStats streams = 1;
+}
+
 // PreviewedMonitor is one monitor the backend is reading into a picture the frame
 // channel can hand over.
 //
@@ -209,6 +401,7 @@ enum EventKind {
   EVENT_KIND_RECEIVE_STATE = 12;
   EVENT_KIND_RECEIVE_EXIT = 13;
   EVENT_KIND_MONITOR_PREVIEW_STATE = 14;
+  EVENT_KIND_RECEIVE_STATS = 15;
 
   // 11 was EVENT_KIND_SHOW_SETTINGS. See Event for why the payload went.
   reserved 11;
@@ -255,6 +448,15 @@ message Event {
     ReceiveState receive_state = 15;
     // One receive pipeline ended. The state event says which are left.
     ReceiveExit receive_exit = 16;
+    // One sample of every running decode, at the backend's own interval, and nothing
+    // while nothing is decoding. High rate: roughly one per second.
+    //
+    // Separate from receive_state for the reason publish_stats is separate from
+    // publish_state: what a decode is settles and is announced when it moves, and what
+    // it is doing has to be read off the pipeline on a clock. Folding the two together
+    // would push the whole receive state at sampling rate and make every consumer of it
+    // re-render for counters most of them never draw.
+    ReceiveStats receive_stats = 18;
 
     // The monitors the backend is previewing, whenever one opens, closes or produces
     // its first frame. There is no exit event beside it, unlike the two above: a

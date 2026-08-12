@@ -419,7 +419,7 @@ public sealed class ViewerViewModel : Observable
         // is a thing to say instead of a thing to hide.
         foreach (var tile in _tiles.Values)
         {
-            tile.Apply(TilePipeline.Of(DecodeOf(tile)));
+            tile.Apply(TilePipeline.Of(DecodeOf(tile)), _session.StatsOf(tile.Name, tile.Transport));
             tile.IsFocused = tile.Name == Focused;
             tile.IsPoppedOut = _popped.Contains(tile.Name);
 

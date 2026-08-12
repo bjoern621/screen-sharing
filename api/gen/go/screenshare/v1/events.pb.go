@@ -45,6 +45,7 @@ const (
 	EventKind_EVENT_KIND_RECEIVE_STATE         EventKind = 12
 	EventKind_EVENT_KIND_RECEIVE_EXIT          EventKind = 13
 	EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE EventKind = 14
+	EventKind_EVENT_KIND_RECEIVE_STATS         EventKind = 15
 )
 
 // Enum value maps for EventKind.
@@ -64,6 +65,7 @@ var (
 		12: "EVENT_KIND_RECEIVE_STATE",
 		13: "EVENT_KIND_RECEIVE_EXIT",
 		14: "EVENT_KIND_MONITOR_PREVIEW_STATE",
+		15: "EVENT_KIND_RECEIVE_STATS",
 	}
 	EventKind_value = map[string]int32{
 		"EVENT_KIND_UNSPECIFIED":           0,
@@ -80,6 +82,7 @@ var (
 		"EVENT_KIND_RECEIVE_STATE":         12,
 		"EVENT_KIND_RECEIVE_EXIT":          13,
 		"EVENT_KIND_MONITOR_PREVIEW_STATE": 14,
+		"EVENT_KIND_RECEIVE_STATS":         15,
 	}
 )
 
@@ -669,6 +672,693 @@ func (x *ReceiveState) GetStreams() []*ReceiveStream {
 	return nil
 }
 
+// ReceiveStatValue is one counter an element keeps, as the element itself names it.
+//
+// The key is a GStreamer stats field - "packets-received-lost", "rtx-success-count" -
+// and crosses unchanged, for the reason every other identifier on this contract does:
+// what the counter is called belongs to the element, and what it is called on screen
+// belongs to a shell (text.proto). A shell with no word for a key shows the key, which
+// is a row a reader can search for rather than a row that vanishes.
+//
+// The value is a double whatever the element's own type was. Every counter these
+// elements keep is a count, a rate or a millisecond figure, and none of them reaches
+// the range where that costs a digit.
+type ReceiveStatValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         float64                `protobuf:"fixed64,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReceiveStatValue) Reset() {
+	*x = ReceiveStatValue{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiveStatValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiveStatValue) ProtoMessage() {}
+
+func (x *ReceiveStatValue) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiveStatValue.ProtoReflect.Descriptor instead.
+func (*ReceiveStatValue) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReceiveStatValue) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *ReceiveStatValue) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+// ReceiveStatGroup is one element's counters.
+//
+// Which elements a pipeline holds is the transport's business: srtsrc counts an SRT
+// link, and the jitterbuffers inside rtspsrc count RTP. The factory says what kind of
+// element it is and the element name tells two of a kind apart, which is what a muxed
+// RTSP stream needs - one jitterbuffer per track, each with its own losses.
+type ReceiveStatGroup struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Factory       string                 `protobuf:"bytes,1,opt,name=factory,proto3" json:"factory,omitempty"`
+	Element       string                 `protobuf:"bytes,2,opt,name=element,proto3" json:"element,omitempty"`
+	Values        []*ReceiveStatValue    `protobuf:"bytes,3,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReceiveStatGroup) Reset() {
+	*x = ReceiveStatGroup{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiveStatGroup) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiveStatGroup) ProtoMessage() {}
+
+func (x *ReceiveStatGroup) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiveStatGroup.ProtoReflect.Descriptor instead.
+func (*ReceiveStatGroup) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReceiveStatGroup) GetFactory() string {
+	if x != nil {
+		return x.Factory
+	}
+	return ""
+}
+
+func (x *ReceiveStatGroup) GetElement() string {
+	if x != nil {
+		return x.Element
+	}
+	return ""
+}
+
+func (x *ReceiveStatGroup) GetValues() []*ReceiveStatValue {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// ReceiveStreamStats is one sample of one running decode: what arrives, what came out
+// of the decoder, what the sink did with it, how the pipeline is timed, and the
+// counters the transport's own elements keep.
+//
+// It is a sample and not a state, which is the whole of why it is separate from
+// ReceiveStream. What a decode *is* - the chain, the decoder, the memory at each end -
+// settles once and changes only when something about the pipeline does, so it is
+// announced when it moves. What a decode is *doing* moves continuously and is read off
+// the running pipeline on the backend's own interval, exactly as PublishStats is read
+// off the encoder.
+//
+// A figure the pipeline has not negotiated yet is zero or empty, and a shell prints it
+// as unknown rather than as a measurement. The three rates carry presence instead,
+// because they are byte and frame deltas between two samples and the first sample of a
+// run has no previous one to subtract: absent there means not yet measured, where zero
+// would mean a decode receiving nothing.
+//
+// The rates are computed here rather than by each shell, for the reason RelayStatus's
+// are: they are deltas divided by an interval, and an interval each reader chose for
+// itself would make the same decode read differently in two windows.
+type ReceiveStreamStats struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// stream is the stream name and the leg it is received over, which together are the
+	// identity, for the reason WatchKey exists.
+	Stream *WatchKey `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	// codec_description is GStreamer's own name for the encoded stream, e.g. "H.265 (Main
+	// 4:4:4 profile)", falling back to the caps name for a codec it has no name for.
+	//
+	// It is one of the strings text.proto excepts from the no-sentences rule, and for the
+	// reason that list gives: it is produced outside this app's vocabulary, shown as it
+	// stands, and never matched against. The alternative is a table of every media type
+	// GStreamer can decode, kept in every shell, which would be a second and worse copy of
+	// a name the decoder already knows.
+	CodecDescription string `protobuf:"bytes,2,opt,name=codec_description,json=codecDescription,proto3" json:"codec_description,omitempty"`
+	// profile and level are the codec's own spelling of what the stream was encoded at.
+	Profile string `protobuf:"bytes,3,opt,name=profile,proto3" json:"profile,omitempty"`
+	Level   string `protobuf:"bytes,4,opt,name=level,proto3" json:"level,omitempty"`
+	// video_bytes and video_frames count the encoded stream since the pipeline started,
+	// and keyframes how many of those frames could be decoded from cold. A stream with a
+	// long keyframe interval is a stream a late viewer waits on.
+	VideoBytes  uint64 `protobuf:"varint,5,opt,name=video_bytes,json=videoBytes,proto3" json:"video_bytes,omitempty"`
+	VideoFrames uint64 `protobuf:"varint,6,opt,name=video_frames,json=videoFrames,proto3" json:"video_frames,omitempty"`
+	Keyframes   uint64 `protobuf:"varint,7,opt,name=keyframes,proto3" json:"keyframes,omitempty"`
+	// since_keyframe_sec is how long ago the last keyframe arrived. Absent until one has,
+	// which is a pipeline that has not yet been able to draw anything.
+	SinceKeyframeSec *float64 `protobuf:"fixed64,8,opt,name=since_keyframe_sec,json=sinceKeyframeSec,proto3,oneof" json:"since_keyframe_sec,omitempty"`
+	// video_mbps and video_fps are what arrived over the last interval.
+	VideoMbps *float64 `protobuf:"fixed64,9,opt,name=video_mbps,json=videoMbps,proto3,oneof" json:"video_mbps,omitempty"`
+	VideoFps  *float64 `protobuf:"fixed64,10,opt,name=video_fps,json=videoFps,proto3,oneof" json:"video_fps,omitempty"`
+	// width and height are the size the decoder produced, which is the size the stream
+	// was encoded at rather than the size a tile scaled it to.
+	Width  int32 `protobuf:"varint,11,opt,name=width,proto3" json:"width,omitempty"`
+	Height int32 `protobuf:"varint,12,opt,name=height,proto3" json:"height,omitempty"`
+	// pixel_format is GStreamer's own name for the raw format, e.g. "Y444_10LE", with
+	// depth the bits per component and subsampling the chroma sampling in J:a:b notation.
+	// The two are read off the format rather than sent beside it, so they cannot disagree
+	// with it.
+	PixelFormat string `protobuf:"bytes,13,opt,name=pixel_format,json=pixelFormat,proto3" json:"pixel_format,omitempty"`
+	Depth       int32  `protobuf:"varint,14,opt,name=depth,proto3" json:"depth,omitempty"`
+	Subsampling string `protobuf:"bytes,15,opt,name=subsampling,proto3" json:"subsampling,omitempty"`
+	// colorimetry is the whole colour description the caps carry, and transfer the one
+	// part of it a viewer acts on, split out here for the reason ReceiveStream splits it.
+	Colorimetry string `protobuf:"bytes,16,opt,name=colorimetry,proto3" json:"colorimetry,omitempty"`
+	Transfer    string `protobuf:"bytes,17,opt,name=transfer,proto3" json:"transfer,omitempty"`
+	ChromaSite  string `protobuf:"bytes,18,opt,name=chroma_site,json=chromaSite,proto3" json:"chroma_site,omitempty"`
+	PixelAspect string `protobuf:"bytes,19,opt,name=pixel_aspect,json=pixelAspect,proto3" json:"pixel_aspect,omitempty"`
+	Interlace   string `protobuf:"bytes,20,opt,name=interlace,proto3" json:"interlace,omitempty"`
+	// fps_num and fps_den are the frame rate the caps declare, which is what the stream
+	// says it is rather than what arrived: video_fps is the measurement.
+	FpsNum int32 `protobuf:"varint,21,opt,name=fps_num,json=fpsNum,proto3" json:"fps_num,omitempty"`
+	FpsDen int32 `protobuf:"varint,22,opt,name=fps_den,json=fpsDen,proto3" json:"fps_den,omitempty"`
+	// decoder is the element decodebin picked and hardware whether it ran on silicon.
+	// They are ReceiveStream's fields under a second owner, because a sample that named
+	// its counters and not the element keeping them would be half a diagnosis.
+	Decoder  string `protobuf:"bytes,23,opt,name=decoder,proto3" json:"decoder,omitempty"`
+	Hardware bool   `protobuf:"varint,24,opt,name=hardware,proto3" json:"hardware,omitempty"`
+	// decode_memory is the memory feature the decoder's output pad carried and
+	// render_memory the one the sink's input pad did. The pair is the evidence of a
+	// download or an upload between decode and display.
+	DecodeMemory string `protobuf:"bytes,25,opt,name=decode_memory,json=decodeMemory,proto3" json:"decode_memory,omitempty"`
+	RenderMemory string `protobuf:"bytes,26,opt,name=render_memory,json=renderMemory,proto3" json:"render_memory,omitempty"`
+	// chain is the render chain that was built, which is not always the one the viewer
+	// settings asked for. What it promises about colour and about the memory it works in
+	// follows from which chain it is, so it crosses as the chain alone: the two flags that
+	// used to ride beside it were the chain table read twice, and the memory pair above is
+	// the measurement those promises are judged against.
+	Chain string `protobuf:"bytes,27,opt,name=chain,proto3" json:"chain,omitempty"`
+	// tone_map is whether the rung that rolls an HDR stream down was built into this
+	// pipeline, which is what ran rather than what was asked for.
+	ToneMap bool `protobuf:"varint,28,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
+	// render_format and render_colorimetry are what the sink takes, and render_width and
+	// render_height the size it takes it at. The size differs from the decoded one wherever
+	// the chain scaled the picture down to the tile drawing it.
+	RenderFormat      string `protobuf:"bytes,29,opt,name=render_format,json=renderFormat,proto3" json:"render_format,omitempty"`
+	RenderColorimetry string `protobuf:"bytes,30,opt,name=render_colorimetry,json=renderColorimetry,proto3" json:"render_colorimetry,omitempty"`
+	RenderWidth       int32  `protobuf:"varint,31,opt,name=render_width,json=renderWidth,proto3" json:"render_width,omitempty"`
+	RenderHeight      int32  `protobuf:"varint,32,opt,name=render_height,json=renderHeight,proto3" json:"render_height,omitempty"`
+	// frames counts what was pulled out of the sink and handed to a shell, rendered what
+	// the sink took, and dropped what it threw away for arriving past its deadline. The
+	// pull count cannot tell the last two apart, which is why the sink's own counters are
+	// here beside it.
+	Frames   uint64 `protobuf:"varint,33,opt,name=frames,proto3" json:"frames,omitempty"`
+	Rendered uint64 `protobuf:"varint,34,opt,name=rendered,proto3" json:"rendered,omitempty"`
+	Dropped  uint64 `protobuf:"varint,35,opt,name=dropped,proto3" json:"dropped,omitempty"`
+	// render_fps is what left the sink over the last interval.
+	RenderFps *float64 `protobuf:"fixed64,36,opt,name=render_fps,json=renderFps,proto3,oneof" json:"render_fps,omitempty"`
+	// live is whether the pipeline reports itself live, which every relay leg is: a live
+	// pipeline cannot be paused into catching up, so what it cannot decode in time it
+	// drops.
+	Live bool `protobuf:"varint,37,opt,name=live,proto3" json:"live,omitempty"`
+	// latency_min_ms and latency_max_ms are the window the latency query answered with.
+	// Absent where the pipeline answered no query, which is a pipeline that has not
+	// reached a state where the question means anything.
+	LatencyMinMs *float64 `protobuf:"fixed64,38,opt,name=latency_min_ms,json=latencyMinMs,proto3,oneof" json:"latency_min_ms,omitempty"`
+	LatencyMaxMs *float64 `protobuf:"fixed64,39,opt,name=latency_max_ms,json=latencyMaxMs,proto3,oneof" json:"latency_max_ms,omitempty"`
+	// position_sec is the running time the pipeline has reached, which a stall freezes and
+	// an uptime that keeps climbing beside it is what makes that visible.
+	PositionSec *float64 `protobuf:"fixed64,40,opt,name=position_sec,json=positionSec,proto3,oneof" json:"position_sec,omitempty"`
+	// uptime_sec is wall time since the pipeline started.
+	UptimeSec             float64  `protobuf:"fixed64,41,opt,name=uptime_sec,json=uptimeSec,proto3" json:"uptime_sec,omitempty"`
+	AudioCodecDescription string   `protobuf:"bytes,42,opt,name=audio_codec_description,json=audioCodecDescription,proto3" json:"audio_codec_description,omitempty"`
+	AudioDecoder          string   `protobuf:"bytes,43,opt,name=audio_decoder,json=audioDecoder,proto3" json:"audio_decoder,omitempty"`
+	AudioFormat           string   `protobuf:"bytes,44,opt,name=audio_format,json=audioFormat,proto3" json:"audio_format,omitempty"`
+	AudioRate             int32    `protobuf:"varint,45,opt,name=audio_rate,json=audioRate,proto3" json:"audio_rate,omitempty"`
+	AudioChannels         int32    `protobuf:"varint,46,opt,name=audio_channels,json=audioChannels,proto3" json:"audio_channels,omitempty"`
+	AudioBytes            uint64   `protobuf:"varint,47,opt,name=audio_bytes,json=audioBytes,proto3" json:"audio_bytes,omitempty"`
+	AudioKbps             *float64 `protobuf:"fixed64,48,opt,name=audio_kbps,json=audioKbps,proto3,oneof" json:"audio_kbps,omitempty"`
+	// groups is one entry per element of this pipeline that keeps counters worth reading.
+	// Which elements those are follows from the leg: a stream received over SRT reports a
+	// link, one received over RTSP reports a jitterbuffer per track, and a leg whose
+	// elements count nothing reports no group rather than an empty one.
+	Groups        []*ReceiveStatGroup `protobuf:"bytes,49,rep,name=groups,proto3" json:"groups,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReceiveStreamStats) Reset() {
+	*x = ReceiveStreamStats{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiveStreamStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiveStreamStats) ProtoMessage() {}
+
+func (x *ReceiveStreamStats) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiveStreamStats.ProtoReflect.Descriptor instead.
+func (*ReceiveStreamStats) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReceiveStreamStats) GetStream() *WatchKey {
+	if x != nil {
+		return x.Stream
+	}
+	return nil
+}
+
+func (x *ReceiveStreamStats) GetCodecDescription() string {
+	if x != nil {
+		return x.CodecDescription
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetProfile() string {
+	if x != nil {
+		return x.Profile
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetLevel() string {
+	if x != nil {
+		return x.Level
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetVideoBytes() uint64 {
+	if x != nil {
+		return x.VideoBytes
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetVideoFrames() uint64 {
+	if x != nil {
+		return x.VideoFrames
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetKeyframes() uint64 {
+	if x != nil {
+		return x.Keyframes
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetSinceKeyframeSec() float64 {
+	if x != nil && x.SinceKeyframeSec != nil {
+		return *x.SinceKeyframeSec
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetVideoMbps() float64 {
+	if x != nil && x.VideoMbps != nil {
+		return *x.VideoMbps
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetVideoFps() float64 {
+	if x != nil && x.VideoFps != nil {
+		return *x.VideoFps
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetWidth() int32 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetHeight() int32 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetPixelFormat() string {
+	if x != nil {
+		return x.PixelFormat
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetDepth() int32 {
+	if x != nil {
+		return x.Depth
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetSubsampling() string {
+	if x != nil {
+		return x.Subsampling
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetColorimetry() string {
+	if x != nil {
+		return x.Colorimetry
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetTransfer() string {
+	if x != nil {
+		return x.Transfer
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetChromaSite() string {
+	if x != nil {
+		return x.ChromaSite
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetPixelAspect() string {
+	if x != nil {
+		return x.PixelAspect
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetInterlace() string {
+	if x != nil {
+		return x.Interlace
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetFpsNum() int32 {
+	if x != nil {
+		return x.FpsNum
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetFpsDen() int32 {
+	if x != nil {
+		return x.FpsDen
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetDecoder() string {
+	if x != nil {
+		return x.Decoder
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetHardware() bool {
+	if x != nil {
+		return x.Hardware
+	}
+	return false
+}
+
+func (x *ReceiveStreamStats) GetDecodeMemory() string {
+	if x != nil {
+		return x.DecodeMemory
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetRenderMemory() string {
+	if x != nil {
+		return x.RenderMemory
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetChain() string {
+	if x != nil {
+		return x.Chain
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetToneMap() bool {
+	if x != nil {
+		return x.ToneMap
+	}
+	return false
+}
+
+func (x *ReceiveStreamStats) GetRenderFormat() string {
+	if x != nil {
+		return x.RenderFormat
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetRenderColorimetry() string {
+	if x != nil {
+		return x.RenderColorimetry
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetRenderWidth() int32 {
+	if x != nil {
+		return x.RenderWidth
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetRenderHeight() int32 {
+	if x != nil {
+		return x.RenderHeight
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetFrames() uint64 {
+	if x != nil {
+		return x.Frames
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetRendered() uint64 {
+	if x != nil {
+		return x.Rendered
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetDropped() uint64 {
+	if x != nil {
+		return x.Dropped
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetRenderFps() float64 {
+	if x != nil && x.RenderFps != nil {
+		return *x.RenderFps
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetLive() bool {
+	if x != nil {
+		return x.Live
+	}
+	return false
+}
+
+func (x *ReceiveStreamStats) GetLatencyMinMs() float64 {
+	if x != nil && x.LatencyMinMs != nil {
+		return *x.LatencyMinMs
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetLatencyMaxMs() float64 {
+	if x != nil && x.LatencyMaxMs != nil {
+		return *x.LatencyMaxMs
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetPositionSec() float64 {
+	if x != nil && x.PositionSec != nil {
+		return *x.PositionSec
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetUptimeSec() float64 {
+	if x != nil {
+		return x.UptimeSec
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetAudioCodecDescription() string {
+	if x != nil {
+		return x.AudioCodecDescription
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetAudioDecoder() string {
+	if x != nil {
+		return x.AudioDecoder
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetAudioFormat() string {
+	if x != nil {
+		return x.AudioFormat
+	}
+	return ""
+}
+
+func (x *ReceiveStreamStats) GetAudioRate() int32 {
+	if x != nil {
+		return x.AudioRate
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetAudioChannels() int32 {
+	if x != nil {
+		return x.AudioChannels
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetAudioBytes() uint64 {
+	if x != nil {
+		return x.AudioBytes
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetAudioKbps() float64 {
+	if x != nil && x.AudioKbps != nil {
+		return *x.AudioKbps
+	}
+	return 0
+}
+
+func (x *ReceiveStreamStats) GetGroups() []*ReceiveStatGroup {
+	if x != nil {
+		return x.Groups
+	}
+	return nil
+}
+
+// ReceiveStats is one sample of every stream the backend is decoding.
+//
+// Whole per tick like every state on this stream, so a decode that ended simply stops
+// appearing. Which decodes exist is ReceiveState's answer and stays there: this message
+// says what they are doing, and a consumer joins the two on the key.
+type ReceiveStats struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Streams       []*ReceiveStreamStats  `protobuf:"bytes,1,rep,name=streams,proto3" json:"streams,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReceiveStats) Reset() {
+	*x = ReceiveStats{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReceiveStats) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReceiveStats) ProtoMessage() {}
+
+func (x *ReceiveStats) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReceiveStats.ProtoReflect.Descriptor instead.
+func (*ReceiveStats) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ReceiveStats) GetStreams() []*ReceiveStreamStats {
+	if x != nil {
+		return x.Streams
+	}
+	return nil
+}
+
 // PreviewedMonitor is one monitor the backend is reading into a picture the frame
 // channel can hand over.
 //
@@ -690,7 +1380,7 @@ type PreviewedMonitor struct {
 
 func (x *PreviewedMonitor) Reset() {
 	*x = PreviewedMonitor{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[8]
+	mi := &file_screenshare_v1_events_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -702,7 +1392,7 @@ func (x *PreviewedMonitor) String() string {
 func (*PreviewedMonitor) ProtoMessage() {}
 
 func (x *PreviewedMonitor) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[8]
+	mi := &file_screenshare_v1_events_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -715,7 +1405,7 @@ func (x *PreviewedMonitor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewedMonitor.ProtoReflect.Descriptor instead.
 func (*PreviewedMonitor) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{8}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *PreviewedMonitor) GetMonitor() int32 {
@@ -748,7 +1438,7 @@ type MonitorPreviewState struct {
 
 func (x *MonitorPreviewState) Reset() {
 	*x = MonitorPreviewState{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[9]
+	mi := &file_screenshare_v1_events_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -760,7 +1450,7 @@ func (x *MonitorPreviewState) String() string {
 func (*MonitorPreviewState) ProtoMessage() {}
 
 func (x *MonitorPreviewState) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[9]
+	mi := &file_screenshare_v1_events_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -773,7 +1463,7 @@ func (x *MonitorPreviewState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitorPreviewState.ProtoReflect.Descriptor instead.
 func (*MonitorPreviewState) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{9}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *MonitorPreviewState) GetMonitors() []*PreviewedMonitor {
@@ -803,6 +1493,7 @@ type Event struct {
 	//	*Event_ViewerExit
 	//	*Event_ReceiveState
 	//	*Event_ReceiveExit
+	//	*Event_ReceiveStats
 	//	*Event_MonitorPreviewState
 	//	*Event_TestStreamState
 	//	*Event_TestStreamExit
@@ -815,7 +1506,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[10]
+	mi := &file_screenshare_v1_events_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -827,7 +1518,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[10]
+	mi := &file_screenshare_v1_events_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -840,7 +1531,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{10}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Event) GetSequence() uint64 {
@@ -924,6 +1615,15 @@ func (x *Event) GetReceiveExit() *ReceiveExit {
 	if x != nil {
 		if x, ok := x.Payload.(*Event_ReceiveExit); ok {
 			return x.ReceiveExit
+		}
+	}
+	return nil
+}
+
+func (x *Event) GetReceiveStats() *ReceiveStats {
+	if x != nil {
+		if x, ok := x.Payload.(*Event_ReceiveStats); ok {
+			return x.ReceiveStats
 		}
 	}
 	return nil
@@ -1028,6 +1728,18 @@ type Event_ReceiveExit struct {
 	ReceiveExit *ReceiveExit `protobuf:"bytes,16,opt,name=receive_exit,json=receiveExit,proto3,oneof"`
 }
 
+type Event_ReceiveStats struct {
+	// One sample of every running decode, at the backend's own interval, and nothing
+	// while nothing is decoding. High rate: roughly one per second.
+	//
+	// Separate from receive_state for the reason publish_stats is separate from
+	// publish_state: what a decode is settles and is announced when it moves, and what
+	// it is doing has to be read off the pipeline on a clock. Folding the two together
+	// would push the whole receive state at sampling rate and make every consumer of it
+	// re-render for counters most of them never draw.
+	ReceiveStats *ReceiveStats `protobuf:"bytes,18,opt,name=receive_stats,json=receiveStats,proto3,oneof"`
+}
+
 type Event_MonitorPreviewState struct {
 	// The monitors the backend is previewing, whenever one opens, closes or produces
 	// its first frame. There is no exit event beside it, unlike the two above: a
@@ -1074,6 +1786,8 @@ func (*Event_ViewerExit) isEvent_Payload() {}
 func (*Event_ReceiveState) isEvent_Payload() {}
 
 func (*Event_ReceiveExit) isEvent_Payload() {}
+
+func (*Event_ReceiveStats) isEvent_Payload() {}
 
 func (*Event_MonitorPreviewState) isEvent_Payload() {}
 
@@ -1124,12 +1838,89 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"canToneMap\x12(\n" +
 	"\x10tone_map_missing\x18\x0f \x01(\tR\x0etoneMapMissing\"G\n" +
 	"\fReceiveState\x127\n" +
-	"\astreams\x18\x01 \x03(\v2\x1d.screenshare.v1.ReceiveStreamR\astreams\"@\n" +
+	"\astreams\x18\x01 \x03(\v2\x1d.screenshare.v1.ReceiveStreamR\astreams\":\n" +
+	"\x10ReceiveStatValue\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value\"\x80\x01\n" +
+	"\x10ReceiveStatGroup\x12\x18\n" +
+	"\afactory\x18\x01 \x01(\tR\afactory\x12\x18\n" +
+	"\aelement\x18\x02 \x01(\tR\aelement\x128\n" +
+	"\x06values\x18\x03 \x03(\v2 .screenshare.v1.ReceiveStatValueR\x06values\"\x97\x0e\n" +
+	"\x12ReceiveStreamStats\x120\n" +
+	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12+\n" +
+	"\x11codec_description\x18\x02 \x01(\tR\x10codecDescription\x12\x18\n" +
+	"\aprofile\x18\x03 \x01(\tR\aprofile\x12\x14\n" +
+	"\x05level\x18\x04 \x01(\tR\x05level\x12\x1f\n" +
+	"\vvideo_bytes\x18\x05 \x01(\x04R\n" +
+	"videoBytes\x12!\n" +
+	"\fvideo_frames\x18\x06 \x01(\x04R\vvideoFrames\x12\x1c\n" +
+	"\tkeyframes\x18\a \x01(\x04R\tkeyframes\x121\n" +
+	"\x12since_keyframe_sec\x18\b \x01(\x01H\x00R\x10sinceKeyframeSec\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"video_mbps\x18\t \x01(\x01H\x01R\tvideoMbps\x88\x01\x01\x12 \n" +
+	"\tvideo_fps\x18\n" +
+	" \x01(\x01H\x02R\bvideoFps\x88\x01\x01\x12\x14\n" +
+	"\x05width\x18\v \x01(\x05R\x05width\x12\x16\n" +
+	"\x06height\x18\f \x01(\x05R\x06height\x12!\n" +
+	"\fpixel_format\x18\r \x01(\tR\vpixelFormat\x12\x14\n" +
+	"\x05depth\x18\x0e \x01(\x05R\x05depth\x12 \n" +
+	"\vsubsampling\x18\x0f \x01(\tR\vsubsampling\x12 \n" +
+	"\vcolorimetry\x18\x10 \x01(\tR\vcolorimetry\x12\x1a\n" +
+	"\btransfer\x18\x11 \x01(\tR\btransfer\x12\x1f\n" +
+	"\vchroma_site\x18\x12 \x01(\tR\n" +
+	"chromaSite\x12!\n" +
+	"\fpixel_aspect\x18\x13 \x01(\tR\vpixelAspect\x12\x1c\n" +
+	"\tinterlace\x18\x14 \x01(\tR\tinterlace\x12\x17\n" +
+	"\afps_num\x18\x15 \x01(\x05R\x06fpsNum\x12\x17\n" +
+	"\afps_den\x18\x16 \x01(\x05R\x06fpsDen\x12\x18\n" +
+	"\adecoder\x18\x17 \x01(\tR\adecoder\x12\x1a\n" +
+	"\bhardware\x18\x18 \x01(\bR\bhardware\x12#\n" +
+	"\rdecode_memory\x18\x19 \x01(\tR\fdecodeMemory\x12#\n" +
+	"\rrender_memory\x18\x1a \x01(\tR\frenderMemory\x12\x14\n" +
+	"\x05chain\x18\x1b \x01(\tR\x05chain\x12\x19\n" +
+	"\btone_map\x18\x1c \x01(\bR\atoneMap\x12#\n" +
+	"\rrender_format\x18\x1d \x01(\tR\frenderFormat\x12-\n" +
+	"\x12render_colorimetry\x18\x1e \x01(\tR\x11renderColorimetry\x12!\n" +
+	"\frender_width\x18\x1f \x01(\x05R\vrenderWidth\x12#\n" +
+	"\rrender_height\x18  \x01(\x05R\frenderHeight\x12\x16\n" +
+	"\x06frames\x18! \x01(\x04R\x06frames\x12\x1a\n" +
+	"\brendered\x18\" \x01(\x04R\brendered\x12\x18\n" +
+	"\adropped\x18# \x01(\x04R\adropped\x12\"\n" +
+	"\n" +
+	"render_fps\x18$ \x01(\x01H\x03R\trenderFps\x88\x01\x01\x12\x12\n" +
+	"\x04live\x18% \x01(\bR\x04live\x12)\n" +
+	"\x0elatency_min_ms\x18& \x01(\x01H\x04R\flatencyMinMs\x88\x01\x01\x12)\n" +
+	"\x0elatency_max_ms\x18' \x01(\x01H\x05R\flatencyMaxMs\x88\x01\x01\x12&\n" +
+	"\fposition_sec\x18( \x01(\x01H\x06R\vpositionSec\x88\x01\x01\x12\x1d\n" +
+	"\n" +
+	"uptime_sec\x18) \x01(\x01R\tuptimeSec\x126\n" +
+	"\x17audio_codec_description\x18* \x01(\tR\x15audioCodecDescription\x12#\n" +
+	"\raudio_decoder\x18+ \x01(\tR\faudioDecoder\x12!\n" +
+	"\faudio_format\x18, \x01(\tR\vaudioFormat\x12\x1d\n" +
+	"\n" +
+	"audio_rate\x18- \x01(\x05R\taudioRate\x12%\n" +
+	"\x0eaudio_channels\x18. \x01(\x05R\raudioChannels\x12\x1f\n" +
+	"\vaudio_bytes\x18/ \x01(\x04R\n" +
+	"audioBytes\x12\"\n" +
+	"\n" +
+	"audio_kbps\x180 \x01(\x01H\aR\taudioKbps\x88\x01\x01\x128\n" +
+	"\x06groups\x181 \x03(\v2 .screenshare.v1.ReceiveStatGroupR\x06groupsB\x15\n" +
+	"\x13_since_keyframe_secB\r\n" +
+	"\v_video_mbpsB\f\n" +
+	"\n" +
+	"_video_fpsB\r\n" +
+	"\v_render_fpsB\x11\n" +
+	"\x0f_latency_min_msB\x11\n" +
+	"\x0f_latency_max_msB\x0f\n" +
+	"\r_position_secB\r\n" +
+	"\v_audio_kbps\"L\n" +
+	"\fReceiveStats\x12<\n" +
+	"\astreams\x18\x01 \x03(\v2\".screenshare.v1.ReceiveStreamStatsR\astreams\"@\n" +
 	"\x10PreviewedMonitor\x12\x18\n" +
 	"\amonitor\x18\x01 \x01(\x05R\amonitor\x12\x12\n" +
 	"\x04live\x18\x02 \x01(\bR\x04live\"S\n" +
 	"\x13MonitorPreviewState\x12<\n" +
-	"\bmonitors\x18\x01 \x03(\v2 .screenshare.v1.PreviewedMonitorR\bmonitors\"\xec\a\n" +
+	"\bmonitors\x18\x01 \x03(\v2 .screenshare.v1.PreviewedMonitorR\bmonitors\"\xb1\b\n" +
 	"\x05Event\x12\x1a\n" +
 	"\bsequence\x18\x01 \x01(\x04R\bsequence\x12C\n" +
 	"\rpublish_state\x18\x02 \x01(\v2\x1c.screenshare.v1.PublishStateH\x00R\fpublishState\x12C\n" +
@@ -1140,7 +1931,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\vviewer_exit\x18\x06 \x01(\v2\x1a.screenshare.v1.ViewerExitH\x00R\n" +
 	"viewerExit\x12C\n" +
 	"\rreceive_state\x18\x0f \x01(\v2\x1c.screenshare.v1.ReceiveStateH\x00R\freceiveState\x12@\n" +
-	"\freceive_exit\x18\x10 \x01(\v2\x1b.screenshare.v1.ReceiveExitH\x00R\vreceiveExit\x12Y\n" +
+	"\freceive_exit\x18\x10 \x01(\v2\x1b.screenshare.v1.ReceiveExitH\x00R\vreceiveExit\x12C\n" +
+	"\rreceive_stats\x18\x12 \x01(\v2\x1c.screenshare.v1.ReceiveStatsH\x00R\freceiveStats\x12Y\n" +
 	"\x15monitor_preview_state\x18\x11 \x01(\v2#.screenshare.v1.MonitorPreviewStateH\x00R\x13monitorPreviewState\x12M\n" +
 	"\x11test_stream_state\x18\r \x01(\v2\x1f.screenshare.v1.TestStreamStateH\x00R\x0ftestStreamState\x12D\n" +
 	"\x10test_stream_exit\x18\t \x01(\v2\x18.screenshare.v1.ExitInfoH\x00R\x0etestStreamExit\x123\n" +
@@ -1148,7 +1940,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x10settings_changed\x18\n" +
 	" \x01(\v2\x1f.screenshare.v1.SettingsChangedH\x00R\x0fsettingsChangedB\t\n" +
 	"\apayloadJ\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\n" +
-	"grid_stateR\tgrid_exitR\rshow_settings*\xd3\x03\n" +
+	"grid_stateR\tgrid_exitR\rshow_settings*\xf1\x03\n" +
 	"\tEventKind\x12\x1a\n" +
 	"\x16EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18EVENT_KIND_PUBLISH_STATE\x10\x01\x12\x1c\n" +
@@ -1164,7 +1956,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x12\x1c\n" +
 	"\x18EVENT_KIND_RECEIVE_STATE\x10\f\x12\x1b\n" +
 	"\x17EVENT_KIND_RECEIVE_EXIT\x10\r\x12$\n" +
-	" EVENT_KIND_MONITOR_PREVIEW_STATE\x10\x0e\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
+	" EVENT_KIND_MONITOR_PREVIEW_STATE\x10\x0e\x12\x1c\n" +
+	"\x18EVENT_KIND_RECEIVE_STATS\x10\x0f\"\x04\b\v\x10\v*\x18EVENT_KIND_SHOW_SETTINGSB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"
 
 var (
 	file_screenshare_v1_events_proto_rawDescOnce sync.Once
@@ -1179,7 +1972,7 @@ func file_screenshare_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_screenshare_v1_events_proto_goTypes = []any{
 	(EventKind)(0),              // 0: screenshare.v1.EventKind
 	(*ExitInfo)(nil),            // 1: screenshare.v1.ExitInfo
@@ -1190,41 +1983,50 @@ var file_screenshare_v1_events_proto_goTypes = []any{
 	(*ReceiveExit)(nil),         // 6: screenshare.v1.ReceiveExit
 	(*ReceiveStream)(nil),       // 7: screenshare.v1.ReceiveStream
 	(*ReceiveState)(nil),        // 8: screenshare.v1.ReceiveState
-	(*PreviewedMonitor)(nil),    // 9: screenshare.v1.PreviewedMonitor
-	(*MonitorPreviewState)(nil), // 10: screenshare.v1.MonitorPreviewState
-	(*Event)(nil),               // 11: screenshare.v1.Event
-	(*WatchKey)(nil),            // 12: screenshare.v1.WatchKey
-	(*PublishState)(nil),        // 13: screenshare.v1.PublishState
-	(*PublishStats)(nil),        // 14: screenshare.v1.PublishStats
-	(*RelayStatus)(nil),         // 15: screenshare.v1.RelayStatus
-	(*Catalog)(nil),             // 16: screenshare.v1.Catalog
+	(*ReceiveStatValue)(nil),    // 9: screenshare.v1.ReceiveStatValue
+	(*ReceiveStatGroup)(nil),    // 10: screenshare.v1.ReceiveStatGroup
+	(*ReceiveStreamStats)(nil),  // 11: screenshare.v1.ReceiveStreamStats
+	(*ReceiveStats)(nil),        // 12: screenshare.v1.ReceiveStats
+	(*PreviewedMonitor)(nil),    // 13: screenshare.v1.PreviewedMonitor
+	(*MonitorPreviewState)(nil), // 14: screenshare.v1.MonitorPreviewState
+	(*Event)(nil),               // 15: screenshare.v1.Event
+	(*WatchKey)(nil),            // 16: screenshare.v1.WatchKey
+	(*PublishState)(nil),        // 17: screenshare.v1.PublishState
+	(*PublishStats)(nil),        // 18: screenshare.v1.PublishStats
+	(*RelayStatus)(nil),         // 19: screenshare.v1.RelayStatus
+	(*Catalog)(nil),             // 20: screenshare.v1.Catalog
 }
 var file_screenshare_v1_events_proto_depIdxs = []int32{
-	12, // 0: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.WatchKey
+	16, // 0: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.WatchKey
 	1,  // 1: screenshare.v1.ViewerExit.exit:type_name -> screenshare.v1.ExitInfo
-	12, // 2: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.WatchKey
-	12, // 3: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.WatchKey
-	12, // 4: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.WatchKey
+	16, // 2: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.WatchKey
+	16, // 3: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.WatchKey
+	16, // 4: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.WatchKey
 	7,  // 5: screenshare.v1.ReceiveState.streams:type_name -> screenshare.v1.ReceiveStream
-	9,  // 6: screenshare.v1.MonitorPreviewState.monitors:type_name -> screenshare.v1.PreviewedMonitor
-	13, // 7: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
-	14, // 8: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
-	1,  // 9: screenshare.v1.Event.publish_exit:type_name -> screenshare.v1.ExitInfo
-	15, // 10: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
-	3,  // 11: screenshare.v1.Event.viewer_state:type_name -> screenshare.v1.ViewerState
-	2,  // 12: screenshare.v1.Event.viewer_exit:type_name -> screenshare.v1.ViewerExit
-	8,  // 13: screenshare.v1.Event.receive_state:type_name -> screenshare.v1.ReceiveState
-	6,  // 14: screenshare.v1.Event.receive_exit:type_name -> screenshare.v1.ReceiveExit
-	10, // 15: screenshare.v1.Event.monitor_preview_state:type_name -> screenshare.v1.MonitorPreviewState
-	4,  // 16: screenshare.v1.Event.test_stream_state:type_name -> screenshare.v1.TestStreamState
-	1,  // 17: screenshare.v1.Event.test_stream_exit:type_name -> screenshare.v1.ExitInfo
-	16, // 18: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
-	5,  // 19: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	9,  // 6: screenshare.v1.ReceiveStatGroup.values:type_name -> screenshare.v1.ReceiveStatValue
+	16, // 7: screenshare.v1.ReceiveStreamStats.stream:type_name -> screenshare.v1.WatchKey
+	10, // 8: screenshare.v1.ReceiveStreamStats.groups:type_name -> screenshare.v1.ReceiveStatGroup
+	11, // 9: screenshare.v1.ReceiveStats.streams:type_name -> screenshare.v1.ReceiveStreamStats
+	13, // 10: screenshare.v1.MonitorPreviewState.monitors:type_name -> screenshare.v1.PreviewedMonitor
+	17, // 11: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
+	18, // 12: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
+	1,  // 13: screenshare.v1.Event.publish_exit:type_name -> screenshare.v1.ExitInfo
+	19, // 14: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
+	3,  // 15: screenshare.v1.Event.viewer_state:type_name -> screenshare.v1.ViewerState
+	2,  // 16: screenshare.v1.Event.viewer_exit:type_name -> screenshare.v1.ViewerExit
+	8,  // 17: screenshare.v1.Event.receive_state:type_name -> screenshare.v1.ReceiveState
+	6,  // 18: screenshare.v1.Event.receive_exit:type_name -> screenshare.v1.ReceiveExit
+	12, // 19: screenshare.v1.Event.receive_stats:type_name -> screenshare.v1.ReceiveStats
+	14, // 20: screenshare.v1.Event.monitor_preview_state:type_name -> screenshare.v1.MonitorPreviewState
+	4,  // 21: screenshare.v1.Event.test_stream_state:type_name -> screenshare.v1.TestStreamState
+	1,  // 22: screenshare.v1.Event.test_stream_exit:type_name -> screenshare.v1.ExitInfo
+	20, // 23: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
+	5,  // 24: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_events_proto_init() }
@@ -1234,7 +2036,8 @@ func file_screenshare_v1_events_proto_init() {
 	}
 	file_screenshare_v1_catalog_proto_init()
 	file_screenshare_v1_session_proto_init()
-	file_screenshare_v1_events_proto_msgTypes[10].OneofWrappers = []any{
+	file_screenshare_v1_events_proto_msgTypes[10].OneofWrappers = []any{}
+	file_screenshare_v1_events_proto_msgTypes[14].OneofWrappers = []any{
 		(*Event_PublishState)(nil),
 		(*Event_PublishStats)(nil),
 		(*Event_PublishExit)(nil),
@@ -1243,6 +2046,7 @@ func file_screenshare_v1_events_proto_init() {
 		(*Event_ViewerExit)(nil),
 		(*Event_ReceiveState)(nil),
 		(*Event_ReceiveExit)(nil),
+		(*Event_ReceiveStats)(nil),
 		(*Event_MonitorPreviewState)(nil),
 		(*Event_TestStreamState)(nil),
 		(*Event_TestStreamExit)(nil),
@@ -1255,7 +2059,7 @@ func file_screenshare_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_events_proto_rawDesc), len(file_screenshare_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

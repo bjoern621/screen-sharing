@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:model="using:ScreenShare.App.Features.Broadcast.Preview.Model"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.Preview.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Broadcast.Preview.View.PreviewView"
@@ -103,11 +104,22 @@
           <Border Background="{StaticResource TileBrush}"
                   Opacity="0.62"
                   CornerRadius="{StaticResource RadiusControl}" />
-          <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="9,5">
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="9,5">
             <TextBlock Grid.Column="0" Classes="overlay" Text="{Binding Encoded}" />
             <TextBlock Grid.Column="1" Classes="overlay" Text="{Binding Quality}" Margin="9,0,0,0" />
+            <!--
+              The protocol the picture crossed, on the route that crossed one. It belongs over
+              the picture rather than in the sentence below because it is a machine's answer
+              about this frame - the leg the decode was actually opened on - and the sentence
+              states what the route is.
+            -->
+            <TextBlock Grid.Column="2"
+                       Classes="overlay"
+                       Text="{Binding Leg}"
+                       IsVisible="{Binding HasLeg}"
+                       Margin="9,0,0,0" />
             <!-- A level meter, not a chart: five bars that say the encoder is moving. -->
-            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
+            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
               <Rectangle Classes="meter" Height="3.85" Fill="{StaticResource MutedBrush}" />
               <Rectangle Classes="meter" Height="6.6" Fill="{StaticResource SecondaryBrush}" />
               <Rectangle Classes="meter" Height="9.35" Fill="{StaticResource ForegroundBrush}" />
@@ -121,9 +133,49 @@
     </Border>
 
     <!--
-      What the picture is and is not: a local copy of what is being sent, costing one decode and
-      no bandwidth, and saying nothing about what viewers receive. The sentence is written in
-      Copy/Cards.cs, like every other word on screen.
+      Which of the two pictures of this stream to draw. The line beside the track says what the
+      choice is, because two labels on their own teach nothing, and the sentence under it says
+      what the selected one costs.
+
+      The segmented control is the app's, unchanged: a short closed set where both options stay
+      on screen (Controls/Segmented/Segmented.axaml). Both segments are always live - a route
+      with nothing behind it draws its own reason rather than being taken away, which is the
+      treatment every refused option in this app gets.
+    -->
+    <Grid ColumnDefinitions="*,Auto">
+      <TextBlock Grid.Column="0"
+                 Classes="hint"
+                 Text="{Binding RouteChoice}"
+                 TextWrapping="Wrap"
+                 VerticalAlignment="Center"
+                 Margin="0,0,9,0" />
+
+      <ListBox Grid.Column="1"
+               Theme="{StaticResource SegmentedControlTheme}"
+               ItemContainerTheme="{StaticResource SegmentItemTheme}"
+               Height="{StaticResource ControlHeight}"
+               ItemsSource="{Binding Routes}"
+               SelectedItem="{Binding SelectedRoute, Mode=TwoWay}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="model:PreviewRouteTab">
+            <!--
+              Foreground and weight are read back off the container, for the reason the nav
+              strip's template reads them: the app states a Foreground on every TextBlock, so
+              plain inheritance would lose to it and both segments would come out one colour.
+            -->
+            <TextBlock Text="{Binding Label}"
+                       Foreground="{Binding $parent[ListBoxItem].Foreground}"
+                       FontWeight="{Binding $parent[ListBoxItem].FontWeight}" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+
+    <!--
+      What the selected picture is and is not: where it was taken, what it costs, and the
+      question it cannot answer. It moves with the toggle, because the two routes make opposite
+      claims about the relay. The sentences are written in Copy/Cards.cs, like every other word
+      on screen.
     -->
     <TextBlock Classes="hint" Text="{Binding Cost}" TextWrapping="Wrap" />
 

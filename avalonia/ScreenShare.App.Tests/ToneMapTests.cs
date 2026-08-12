@@ -37,7 +37,7 @@ public sealed class ToneMapTests
     {
         var tile = Tile(new SeededBackend("linux"));
 
-        tile.Apply(Decode(hdr: true));
+        tile.Apply(Decode(hdr: true), sample: null);
 
         Assert.True(tile.IsHdr);
         Assert.False(tile.ToneMapped);
@@ -56,7 +56,7 @@ public sealed class ToneMapTests
     {
         var tile = Tile(new SeededBackend("linux"));
 
-        tile.Apply(Decode(hdr: true, toneMap: true));
+        tile.Apply(Decode(hdr: true, toneMap: true), sample: null);
 
         Assert.True(tile.ToneMapped);
         Assert.True(tile.HasColourNote);
@@ -73,7 +73,7 @@ public sealed class ToneMapTests
     {
         var tile = Tile(new SeededBackend("linux"));
 
-        tile.Apply(Decode(hdr: false));
+        tile.Apply(Decode(hdr: false), sample: null);
 
         Assert.False(tile.IsHdr);
         Assert.False(tile.HasColourNote);
@@ -92,7 +92,7 @@ public sealed class ToneMapTests
     {
         var tile = Tile(new SeededBackend("linux"));
 
-        tile.Apply(Decode(hdr: true, canToneMap: false, missing: "vapostproc"));
+        tile.Apply(Decode(hdr: true, canToneMap: false, missing: "vapostproc"), sample: null);
 
         Assert.False(tile.CanToneMap);
         Assert.False(tile.ToggleToneMap.CanExecute(null));
@@ -109,7 +109,7 @@ public sealed class ToneMapTests
     {
         var tile = Tile(new SeededBackend("linux"));
 
-        tile.Apply(Decode(hdr: true, canToneMap: false));
+        tile.Apply(Decode(hdr: true, canToneMap: false), sample: null);
 
         Assert.False(tile.CanToneMap);
         Assert.Contains("platform", tile.ToneMapNote);
@@ -126,7 +126,7 @@ public sealed class ToneMapTests
         await backend.StartReceiveAsync("desk", "rtsp");
 
         var tile = Tile(backend);
-        tile.Apply(Decode(hdr: true));
+        tile.Apply(Decode(hdr: true), sample: null);
         tile.ToggleToneMap.Execute(null);
 
         Assert.Single(backend.Decoded);
@@ -150,10 +150,10 @@ public sealed class ToneMapTests
         await backend.StartReceiveAsync("desk", "rtsp");
 
         var tile = Tile(backend);
-        tile.Apply(Decode(hdr: true, canToneMap: false, missing: "vapostproc"));
+        tile.Apply(Decode(hdr: true, canToneMap: false, missing: "vapostproc"), sample: null);
 
         var decode = Assert.Single(await backend.ReceivingAsync());
-        tile.Apply(TilePipeline.Of(decode));
+        tile.Apply(TilePipeline.Of(decode), sample: null);
 
         Assert.False(tile.ToneMapped);
         Assert.Contains("as it arrives", tile.ColourNote);
@@ -170,7 +170,7 @@ public sealed class ToneMapTests
         var tile = new TileViewModel(
             TileSource.Preview("desk"), new SeededBackend("linux"), static action => action(), static _ => { });
 
-        tile.Apply(Decode(hdr: true));
+        tile.Apply(Decode(hdr: true), sample: null);
 
         Assert.False(tile.CanToneMap);
         Assert.False(tile.ToggleToneMap.CanExecute(null));

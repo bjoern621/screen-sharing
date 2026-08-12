@@ -88,8 +88,10 @@
   </Window.DataTemplates>
 
   <!--
-    Four rows: two fixed chrome bands, the strip, and everything else. The three fixed
-    heights come from the bands themselves, so the window states none of them twice.
+    Four rows: two chrome bands, the strip, and everything else. Each band states its own
+    height, so the window states none of them twice. Two of the three state a minimum rather
+    than a fixed height, because their prose wraps where the window is narrower than the
+    sentence, and the row takes whatever the band comes to.
 
     All three bands come off the window while one stream is filling it, and each is bound to the
     same fact rather than hidden by whoever moved it: a fullscreen picture under a nav strip is the

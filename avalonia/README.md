@@ -398,23 +398,32 @@ is scaled to the run's own peak, so it marked the ceiling only by coincidence an
 against that peak or not drawn at all; and the viewer table's `every 5 s`, a period the contract
 does not carry and which the backend did not use.
 
-**The preview tile draws a frame now, and what it draws never leaves this machine.** The
-publish child copies its already-encoded video to a loopback port beside the sink that feeds
-the relay, the backend decodes what arrives there, and this card subscribes to it
-(`docs/viewer-architecture.md`, "What the broadcast preview draws"). It reuses the same
+**The preview tile draws a frame, by one of two routes the reader picks between.** On the
+local route the publish child copies its already-encoded video to a loopback port beside the
+sink that feeds the relay, the backend decodes what arrives there, and this card subscribes to
+it. On the end-to-end route the card opens a decode of this machine's own stream off the relay,
+over the leg the viewer receives on, so the picture crosses the uplink, the relay and the way
+back (`docs/viewer-architecture.md`, "What the broadcast preview draws"). Both reuse the same
 `Features/Viewer/Tile` view model and control the viewer's grid uses rather than growing a
 second frame consumer - two frame paths would be two answers to what a dropped frame is and
-where a lent handle goes back. What differs between the two tiles is `Tile/Model/TileSource.cs`,
+where a lent handle goes back. What differs between the two is `Tile/Model/TileSource.cs`,
 which is the contract's own oneof: a relay decode named by stream and leg, or the running
 publish's preview named by nothing at all.
 
-**This card calls no effect, and that is the shape rather than an omission.** The preview
-pipeline goes up with the publish child and down with it, so there is no `StartReceive` to send
-and no decode to close; `PublishState.Live.preview` is what says whether there is a picture to
-draw, read through on every pass like every other state. It went the other way once - the card
-opened a decode of this machine's own stream and read it back off the relay - and that cost the
-screen beside it its own figures: the preview occupied a reader slot, so a stream nobody was
-watching reported a viewer and the worst-viewer plot described the publisher's own loopback.
+**The two routes cost opposite things, which is why the card offers a choice rather than
+picking.** The local pipeline goes up with the publish child and down with it, so that route
+sends no `StartReceive` and closes no decode; `PublishState.Live.preview` is what says whether
+there is a picture to draw, read through on every pass like every other state. The end-to-end
+route is a relay client like any tile in the grid: it takes a reader slot, it is counted among
+the viewer figures beside the card, and it pays a viewer's downstream bandwidth. That is the
+whole reason the card opens on the local route - the preview used to be a relay client and
+nothing else, so a stream nobody was watching reported a viewer and the worst-viewer plot
+described the publisher's own round trip.
+
+A decode is one pipeline whoever asked for it, so the end-to-end route can be sharing one with
+a tile in the viewer's grid. It reads the grid's answer through before closing anything and
+leaves the pipeline to the window that still wants it, and it asks again for one it saw running
+and no longer sees.
 
 Two things about it are still the shell's own arrangement. Whether the card is being looked at
 is an input the view writes, because the window renders every destination on every pass and
@@ -425,15 +434,16 @@ which it reads off `Features/Shell/Model/WindowPresence.cs`. That one is an inte
 cloaked window, X11 has `_NET_WM_STATE_HIDDEN` - and the reading every platform gets until one
 of them is given its own is Avalonia's: visible, not minimised, active. Losing the front is
 acted on a second late, so a click into another window and back costs no pool; getting it back
-is acted on at once. And the placeholder stays for the states where there is no picture -
-nothing publishing, a stream the backend is not previewing, and the tile's own three - each of
-them saying which one it is.
+is acted on at once. And the placeholder stays for the states where there is no picture - a leg
+that refused the decode, nothing publishing, a route with nothing running behind it, and the
+tile's own three - each of them saying which one it is.
 
-The card's own sentence carries what the change made true and what it made invisible: the
-picture costs one local decode and no bandwidth and adds no viewer to the counts, and it is
-taken *before* the relay, so it says nothing about what viewers receive. A reader who took a
-perfect preview for a healthy stream would be reading it exactly wrong, which is why that
-sentence is on the card and not in a comment (`Copy/Cards.cs`).
+The card's own sentence is the selected route's, because the two make opposite claims and one
+sentence for both would be false under one of them. The local route says it costs one decode
+and no bandwidth, adds no viewer to the counts, and is taken *before* the relay; the end-to-end
+route says it is what a viewer receives and that it is paying for it as a viewer does. A reader
+who took a perfect local preview for a healthy stream would be reading it exactly wrong, which
+is why the sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
 **The review carries the preset card, and it draws two different things under one heading.**
 Above are the built-in presets, which are promises about the picture: what "gaming" is on this
@@ -478,13 +488,26 @@ of a lent pool that goes back only once the compositor has taken it
 arrangement crosses the contract and nothing could: the backend describes decodes, and a
 decode is not a tile.
 
-The figures under each picture are two kinds and they come from opposite directions. What
-the pipeline turned out to be - the render chain that ran, the memory the frames were in
-when they reached the sink, the decoder and whether it ran on silicon - is `ReceiveState`,
-read through on every pass like every other state. What this window got and drew is the
-tile's own and can come from nowhere else: a backend cannot see that a compositor was too
-slow to take a frame, so the dropped count is the one figure the shell reports rather than
-receives.
+**Nothing is measured over the picture.** A tile draws its name on hover and a colour badge
+where the range needs one, and every figure about the decode is in the stats panel the tile's
+menu opens. The strip of figures that used to sit in the bottom corner said a handful of the
+same things, in a space too small to say what any of them meant, over the part of the picture
+a reader is watching.
+
+The panel is composed from two readings that come from opposite directions. What the decode is
+doing - what is arriving, what came out of the decoder, what the sink took and threw away, the
+counters the transport's own elements keep - is `ReceiveStats`, a sample the backend reads off
+the running pipeline once a second and pushes, exactly as it pushes the encoder's progress
+(`docs/viewer-architecture.md`, "What a tile reports"). What this window got and drew is the
+tile's own and can come from nowhere else: a backend cannot see that a compositor was too slow
+to take a frame, so the dropped count is the one figure the shell reports rather than receives.
+
+Every row of it carries a tooltip saying what a reading of it is evidence of, which is what
+separates a diagnostic from a wall of numbers. The rows are keyed on the identifiers the two
+sides share - the contract's own field names, and the elements' own names for their counters -
+and every word is in `Copy/Counters.cs`, where a key with no entry renders as the key
+(`docs/tooltips.md`). The panel is composed only while it is up, so a grid of tiles nobody has
+opened one on builds nothing.
 
 The `show` toggle is one control and not one per leg, unlike the roster's. Which protocol a
 tile receives on is `viewer.tile_watch_transport`, a setting the backend resolves and
@@ -698,8 +721,9 @@ type owns the import.
 
 `NativeControlHost` plus `gst_video_overlay_set_window_handle` was the easy path and the
 wrong one, and the reason is visible on the tile: the native child window draws above all
-Avalonia content, so the figures under each picture would have disappeared behind the
-video. Both surfaces are composition visuals for that reason, the OpenGL one included.
+Avalonia content, so the name, the colour badge and the stats panel would all have
+disappeared behind the video. Both surfaces are composition visuals for that reason, the
+OpenGL one included.
 
 A tile whose handle type has no surface refuses rather than falling back to a copy through
 system memory, and says so. A fallback that worked and cost gigabytes a second is the

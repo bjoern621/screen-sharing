@@ -128,6 +128,18 @@ func ReceiveStateEvent(streams []ReceiveStream) *screensharev1.Event {
 	}
 }
 
+// ReceiveStatsEvent announces one sample of every running decode.
+//
+// It is the receive-side counterpart of the publish's progress samples, and it is a
+// second event rather than a fuller ReceiveState for the reason the publish has two:
+// what a decode is is announced when it changes, and what a decode is doing is read on
+// a clock. One message for both would push everything a tile knows at sampling rate.
+func ReceiveStatsEvent(streams []ReceiveStreamStats) *screensharev1.Event {
+	return &screensharev1.Event{
+		Payload: &screensharev1.Event_ReceiveStats{ReceiveStats: ReceiveStats(streams)},
+	}
+}
+
 // MonitorPreviewStateEvent announces the monitors the backend is previewing, whole.
 //
 // There is no exit event beside it, unlike the receive pair: a preview that ended leaves

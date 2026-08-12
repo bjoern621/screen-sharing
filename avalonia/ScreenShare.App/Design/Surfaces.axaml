@@ -32,7 +32,11 @@
     <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
-    <Setter Property="Height" Value="{DynamicResource NavStripHeight}" />
+    <!--
+      A minimum rather than a fixed height: the strip's hint wraps where the window is too
+      narrow to hold it on one line, and a fixed height would cut the second line off.
+    -->
+    <Setter Property="MinHeight" Value="{DynamicResource NavStripHeight}" />
   </Style>
 
   <!-- Video, and the black it sits on in either theme. -->

@@ -24,9 +24,15 @@
             BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="0,0,0,1"
             Padding="12,11">
-      <Grid ColumnDefinitions="Auto,*,Auto">
+      <!--
+        The figures take what the actions leave, rather than both taking what they measure and
+        the row running off the edge. Stop sharing is the one control on this screen that ends
+        the stream, so the actions are the side that never yields; the figures are read rather
+        than pressed, and they wrap into as many lines as the leftover needs.
+      -->
+      <Grid ColumnDefinitions="*,Auto">
         <header:HeaderStatsView Grid.Column="0" DataContext="{Binding Stats}" />
-        <StackPanel Grid.Column="2"
+        <StackPanel Grid.Column="1"
                     Orientation="Horizontal"
                     Spacing="{StaticResource GapControl}"
                     VerticalAlignment="Center">

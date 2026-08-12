@@ -130,6 +130,24 @@ public static class Words
         ["system"] = "Copy through RAM",
     };
 
+    /// <summary>
+    /// Where a pipeline's frames are held, as the memory feature on its caps names it.
+    ///
+    /// A different table from <see cref="Memories"/> above, which names the setting that asks
+    /// for one. These are what a running pipeline reported, in GStreamer's own spelling, and
+    /// the two sets do not correspond: a chain asked to stay on the GPU reports the API it
+    /// ended up using, and one that was asked for nothing in particular reports whatever it
+    /// negotiated.
+    /// </summary>
+    private static readonly Dictionary<string, string> FrameMemories = new()
+    {
+        ["memory:SystemMemory"] = "system memory",
+        ["memory:D3D11Memory"] = "the GPU, Direct3D 11",
+        ["memory:D3D12Memory"] = "the GPU, Direct3D 12",
+        ["memory:GLMemory"] = "the GPU, OpenGL",
+        ["memory:DMABuf"] = "the GPU, dmabuf",
+    };
+
     /// <summary>What the pointer does in the captured frames.</summary>
     private static readonly Dictionary<string, string> Cursors = new()
     {
@@ -351,6 +369,8 @@ public static class Words
     public static string Capture(string id) => Look(Captures, id);
 
     public static string Memory(string id) => Look(Memories, id);
+
+    public static string FrameMemory(string id) => Look(FrameMemories, id);
 
     public static string Transfer(string id) => Look(Transfers, id);
 

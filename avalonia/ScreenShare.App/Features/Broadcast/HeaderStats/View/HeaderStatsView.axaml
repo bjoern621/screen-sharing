@@ -10,20 +10,29 @@
     The pill and the five figures, separated by spacing alone. No rules, no dots, no pipes:
     the design carries the grouping in the gap, and a separator here would make five
     numbers read as five columns.
-  -->
-  <StackPanel Orientation="Horizontal"
-              Spacing="{StaticResource GapControl}"
-              VerticalAlignment="Center">
 
-    <controls:StatusPill Label="Sharing"
+    The figures wrap rather than stack. The band hands this control whatever the live actions
+    beside it leave over, and the full row is wider than that leftover once the window is near
+    its smallest size. Stacked, the last figures were laid out past the window's edge with
+    nothing on screen to say they were there.
+
+    The pill is docked rather than wrapped with them: it is one item against the row, and a
+    line of its own for a badge reading "Sharing" costs more of the body than it makes room for.
+  -->
+  <DockPanel VerticalAlignment="Center">
+
+    <controls:StatusPill DockPanel.Dock="Left"
+                         Label="Sharing"
                          Detail="{Binding Elapsed}"
-                         IsVisible="{Binding IsSharing}" />
+                         IsVisible="{Binding IsSharing}"
+                         VerticalAlignment="Center" />
 
     <!-- The extra 6px after the pill: the one place the rhythm widens, so the red stops. -->
     <ItemsControl ItemsSource="{Binding Figures}" Margin="6,0,0,0" VerticalAlignment="Center">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
-          <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapControl}" />
+          <WrapPanel ItemSpacing="{StaticResource GapControl}"
+                     LineSpacing="{StaticResource GapTight}" />
         </ItemsPanelTemplate>
       </ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
@@ -48,5 +57,5 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-  </StackPanel>
+  </DockPanel>
 </UserControl>

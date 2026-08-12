@@ -104,8 +104,16 @@ public sealed class ShellViewModel : Observable
         _form = new FormSession(backend, _session, dispatch);
 
         Setup = new SetupViewModel(backend, _form, _session, dispatch);
-        Broadcast = new BroadcastViewModel(backend, _session, dispatch);
+        Broadcast = new BroadcastViewModel(backend, _form, _session, dispatch);
         Viewer = new ViewerViewModel(backend, _form, _session, dispatch);
+
+        // The preview's end-to-end route and the viewer's grid can want one decode: it is keyed
+        // by the stream and the leg, and this machine's own stream is one the grid may tile. A
+        // stop from either would take the picture out of the other, so the card reads the grid's
+        // answer through before it closes anything (Preview/ViewModel/PreviewViewModel.cs).
+        // Wired here rather than passed in, because the shell is what holds both screens and the
+        // viewer does not exist yet when the broadcast screen is built.
+        Broadcast.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
 
         // Every destination re-renders on any change, because the chrome reads all three: the
         // nav strip dims broadcast when nothing publishes and the status band prints the

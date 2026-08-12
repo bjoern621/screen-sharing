@@ -305,6 +305,32 @@ Both together are what a tile draws: which curve it is showing, whether anything
 
 What a running pipeline actually did is reported rather than assumed: the receive state names the chain, the memory the decoder handed its frames over in, and the memory the sink read them from, because a hardware decoder that downloaded its own frames costs the download the row promised to avoid.
 
+### What a tile reports
+
+A decode answers two different questions and the contract asks them separately.
+
+`ReceiveStream` is what a decode **is**: the chain, the decoder, the memory at each end, the transfer characteristic, whether the range is being rolled down.
+It settles when the pipeline negotiates and is announced whenever it moves, like every other state.
+
+`ReceiveStreamStats` is what a decode **is doing**: what is arriving and at what rate, what came out of the decoder, what the sink took and what it threw away for being late, how the pipeline is timed, and the counters the transport's own elements keep.
+None of that settles, so it is read off the running pipeline on a clock - `internal/app/receivestats.go`, once a second, while anything is decoding - and pushed as its own event.
+Folding it into the state event would push everything a tile knows at sampling rate and make every consumer of that state re-render for counters most of them never draw.
+
+**The rates are computed here rather than by each shell**, for the reason the relay's per-path bitrates are: they are byte and frame deltas divided by an interval, and an interval each reader chose for itself would make one decode read differently in two windows.
+The interval is the difference between two readings of the pipeline's own uptime rather than the ticker's period, so a tick the scheduler held back divides a real delta by the time that really passed.
+A rate carries presence and is absent on the first sample of a run, and on the first after a rebuild: a decode with one reading has no rate, and a zero there would say a stream is arriving at nothing.
+
+**The counters cross as identifiers and figures, never as prose.**
+`internal/receive/statsources.go` says which elements keep counters worth reading and which fields to take from them, and stops there; the element's own field name - `packets-received-lost`, `rtx-success-count` - is what reaches a shell, and what it is called on screen is the shell's (`ipc-api.md`, and `api/proto/screenshare/v1/text.proto`).
+A shell with no word for a key shows the key.
+
+The one figure the backend cannot supply is what the window drawing the frames did with them.
+A compositor too slow to take a frame is invisible from this side: the backend sees a slot of its pool that has not come back, and the shell is the only place that becomes a count.
+
+**Adding a counter is two edits.**
+A field the transport's elements already report is one entry in `statSources` and one in the shell's own table of what a counter means; a figure read off the pipeline is a field on `receive.Stats`, a field on `ReceiveStreamStats`, and the same table entry.
+A field with no entry renders as its key, which is what gets the entry written.
+
 ## The frame channel
 
 Frames do not cross the control API, and they will not.
@@ -390,8 +416,21 @@ The publish's local preview is the second kind of decode a subscription may name
 ### What the broadcast preview draws
 
 Three surfaces consume frames, and the second one consumes its own stream.
-The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing, **decoded from a copy that never leaves the machine**.
+The viewer's grid draws whatever the reader asked to see; the broadcast screen's preview tile draws the stream this machine is publishing.
 The third is the setup wizard's screen picker, below.
+
+**The preview draws that stream by one of two routes, and the card's toggle is which.**
+They differ by where the picture is taken and by nothing else: both carry the same encode, so neither answers what the capture looked like before it, and what one shows and the other cannot is everything downstream of the encoder.
+The **local** route is a copy that never leaves the machine, and the rest of this section is how it is carried.
+The **end-to-end** route is `StartReceive` on `WatchKey{this machine's stream, the tile leg}`, read back off the relay like any other tile, so it crosses the uplink, the relay and the way back.
+
+**The two costs are opposite, which is why it is a choice and not a setting.**
+The local route costs one decode here, spends no bandwidth and takes no reader slot, so the broadcast screen's viewer count and its worst-viewer round trip describe viewers rather than this machine watching itself.
+The end-to-end route is a relay client: it occupies a reader slot, it is counted among those same figures, and it pays a viewer's downstream bandwidth.
+So the card opens on the local route and the other is asked for by name, and each states its own cost on screen (`avalonia/ScreenShare.App/Copy/Cards.cs`).
+
+The end-to-end route was the whole of the preview once, and being the only route was its fault: a screen nobody was watching reported one viewer, and the plot beside it described the publisher's own round trip.
+What fixed that was the local route existing, not the relay one going away - a reader who has chosen to spend a viewer slot knows they are one of the viewers, and the sentence under the card says so.
 
 **The constraint that shapes it is where the encoder runs.**
 Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it, and what makes the ffmpeg engine reachable at all.
@@ -422,14 +461,17 @@ The port has to be in the child's argv, so the decision belongs to the launch; t
 Both halves are idempotent: a second bring-up with one already running changes nothing, and a stop with none running succeeds.
 Every path that ends the child ends the preview with it - a stop, an apply, a retry's exit, the process shutting down - and a preview that fails to come up costs the preview and never the stream (`internal/app/preview.go`).
 
-**The cost moved, and so did what the picture means.**
-It costs one local decode, it spends no bandwidth, and the relay serves no reader for it, so the broadcast screen's viewer count and its worst-viewer round trip describe viewers rather than this machine watching itself - which is what the loopback this replaces got wrong.
-What it gives up is the half the card has to say out loud: the picture is taken **before** the relay, so it shows what is being sent and nothing about what anybody receives.
-A congested uplink, a relay dropping packets and a viewer on a bad link all leave it looking perfect, and what answers those is the viewer table and the round-trip plot beside it.
+**What the local picture gives up is the half the card has to say out loud.**
+The picture is taken **before** the relay, so it shows what is being sent and nothing about what anybody receives.
+A congested uplink, a relay dropping packets and a viewer on a bad link all leave it looking perfect.
+What answers those is the end-to-end route, the viewer table and the round-trip plot beside it.
 
-The route used to be a loopback: `StartReceive` on `WatchKey{this machine's stream, the tile leg}`, read back off the relay like any other tile.
-It worked, it needed no new concept, and its fault was exactly the one above - the preview was a relay client, so it occupied a reader slot and the screen reported a viewer nobody had.
-The rendered command still carries none of the preview leg, for the reason it carries none of the meter's: the port belongs to one launch, and whether two settings build the same pipeline is decided by comparing that rendered string (`publish.SamePipeline`).
+The rendered command carries none of the preview leg, for the reason it carries none of the meter's: the port belongs to one launch, and whether two settings build the same pipeline is decided by comparing that rendered string (`publish.SamePipeline`).
+
+**One decode serves every window drawing it, and the end-to-end route is one of those windows.**
+A decode is keyed by the stream and the leg, so a tile in the viewer's grid on the same pair is the same pipeline, and a stop from either would take the picture out of the other.
+The preview therefore reads the grid's answer through before it closes anything and leaves the pipeline to the window that still wants it.
+It also asks again for a decode it saw running and no longer sees, which is what makes a pipeline another window closed a blink rather than a card that stays dark.
 
 ### What the screen picker draws
 

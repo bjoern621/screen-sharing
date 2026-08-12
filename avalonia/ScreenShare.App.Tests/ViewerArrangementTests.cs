@@ -424,6 +424,28 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
+    /// The panel is composed only while it is up, and turning it on reaches a render pass.
+    ///
+    /// Both halves matter. Forty rows per tile per sample is work every tile in the grid would
+    /// be doing to draw a panel nobody opened; and a panel that waited for the next sample to
+    /// fill in would open empty for as long as a second, which reads as a decode reporting
+    /// nothing rather than as a panel that has not been composed yet.
+    /// </summary>
+    [Fact]
+    public void TheStatsPanelIsComposedOnlyWhileItIsUp()
+    {
+        var tile = Tile(Grid("one"), "one");
+
+        Assert.Empty(tile.Stats);
+
+        tile.ToggleStats.Execute(null);
+        Assert.NotEmpty(tile.Stats);
+
+        tile.ToggleStats.Execute(null);
+        Assert.Empty(tile.Stats);
+    }
+
+    /// <summary>
     /// The menu reports which arrangements this tile is in.
     ///
     /// Every row's words are fixed and its state is the tick beside them, so what the bindings

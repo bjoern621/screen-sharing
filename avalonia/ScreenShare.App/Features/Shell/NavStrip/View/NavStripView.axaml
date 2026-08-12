@@ -14,7 +14,7 @@
   <Border Classes="navstrip" Padding="12,0">
     <Grid ColumnDefinitions="Auto,*,Auto">
 
-      <!-- Where you may go. The hint hugs the segments, so it sits here. -->
+      <!-- Where a reader may go. -->
       <StackPanel Grid.Column="0"
                   Orientation="Horizontal"
                   Spacing="{StaticResource GapControl}"
@@ -54,12 +54,20 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-
-        <TextBlock Classes="hint"
-                   Text="{Binding Hint}"
-                   IsVisible="{Binding ShowsHint}"
-                   VerticalAlignment="Center" />
       </StackPanel>
+
+      <!--
+        The hint hugs the segments, and takes the room between them and the pill rather than a
+        width of its own. Sized to its text it would push the pill off a narrow window, and the
+        one thing this strip says about the running stream would be the first thing to go.
+      -->
+      <TextBlock Grid.Column="1"
+                 Classes="hint"
+                 Text="{Binding Hint}"
+                 IsVisible="{Binding ShowsHint}"
+                 TextWrapping="Wrap"
+                 Margin="10,0"
+                 VerticalAlignment="Center" />
 
       <!-- Live state. -->
       <StackPanel Grid.Column="2"

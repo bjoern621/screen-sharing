@@ -2,28 +2,28 @@ using System.Runtime.CompilerServices;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
+using ScreenShare.App.Features.Broadcast.Preview.Model;
 using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The broadcast preview draws what is being sent, from a copy that never leaves this
-/// machine.
+/// The broadcast preview draws one of two pictures of the stream this machine is sending, and
+/// the reader picks which.
 ///
-/// <b>What these state is that the relay is not a party to it.</b> The preview used to be a
-/// loopback - a decode of this machine's own stream, opened with <c>StartReceive</c> and read
-/// back off the relay - which worked and cost the broadcast screen its own figures: the card
-/// occupied a reader slot, so a stream nobody was watching reported one viewer and the
-/// worst-viewer plot described the publisher's own round trip. The publish child now copies
-/// its encoded video to a loopback port and the backend decodes that, so there is no receive
-/// effect for this card to call and no reader for the relay to count. That is asserted here
-/// against the calls the seam received rather than against what the card drew, because a
-/// receive effect creeping back in is invisible on screen.
+/// <b>What these state is which route pays the relay.</b> The local route is a copy the publish
+/// child writes to a loopback port, so the relay is not a party to it: no decode is opened,
+/// none is closed, and no reader slot is taken - which is what keeps the viewer figures beside
+/// the card describing viewers rather than the publisher watching itself. The end-to-end route
+/// is the opposite by design: it is a decode of this machine's own stream off the relay, and it
+/// is asserted against the calls the seam received rather than against what the card drew,
+/// because a receive effect on the wrong route is invisible on screen.
 ///
 /// <b>The rest is the lifecycle</b>, which is the other part that can go wrong invisibly: a
 /// converge that rebuilds the tile on every render pass restarts a frame subscription a second
-/// and nothing says so.
+/// and nothing says so, and one that lets go of a decode without closing it leaves a reader on
+/// the relay for the life of the window.
 /// </summary>
 public sealed class BroadcastPreviewTests
 {
@@ -51,27 +51,45 @@ public sealed class BroadcastPreviewTests
         /// <summary>What is publishing. Nothing by default, which the absent <c>Live</c> is what says.</summary>
         public PublishState Publish { get; set; } = new();
 
-        /// <summary>Every relay decode a start or a stop was asked for. The preview must never add to either.</summary>
+        /// <summary>
+        /// Every relay decode a start or a stop was asked for, in the order it was asked. The
+        /// local route must never add to either, and the end-to-end route is judged on exactly
+        /// which pairs it opened and closed.
+        /// </summary>
         public List<WatchKey> Started { get; } = [];
 
         public List<WatchKey> Stopped { get; } = [];
+
+        /// <summary>
+        /// Why the next start is refused, empty while none is. It is the leg that cannot carry
+        /// this stream's format, which is the refusal the end-to-end route actually meets.
+        /// </summary>
+        public string StartRefusal { get; set; } = "";
 
         /// <summary>How many frame subscriptions were opened, per kind.</summary>
         public int PreviewSubscriptions { get; private set; }
 
         public int RelaySubscriptions { get; private set; }
 
+        /// <summary>
+        /// Opens one decode, and records it. The seed is what holds the open set, so what
+        /// <see cref="ReceivingAsync"/> answers with is the effect this call had rather than a
+        /// second list kept here.
+        /// </summary>
         public Task StartReceiveAsync(
             string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         {
             Started.Add(new WatchKey { StreamName = streamName, Transport = transport });
-            return Task.CompletedTask;
+
+            return StartRefusal.Length > 0
+                ? Task.FromException(new BackendUnavailableException(StartRefusal))
+                : _seed.StartReceiveAsync(streamName, transport, toneMap, cancellation);
         }
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         {
             Stopped.Add(new WatchKey { StreamName = streamName, Transport = transport });
-            return Task.CompletedTask;
+            return _seed.StopReceiveAsync(streamName, transport, cancellation);
         }
 
         // A fixture has no GPU and no pipeline, so what is recorded is the ask. Refusing after
@@ -219,18 +237,48 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A card on screen, over a session that has read the fixture once. The session is started
-    /// rather than written to, because its fields are its own: every state a screen reads is
-    /// one the backend answered with.
+    /// The leg the fixture's stored settings name for a viewer's tile, which is the one the
+    /// end-to-end route receives over.
     /// </summary>
+    private const string Leg = "srt";
+
+    /// <summary>A card on screen, on the route it opens on.</summary>
     private static (PreviewViewModel Preview, Session Session) Showing(PreviewBackend backend)
+        => Showing(backend, PreviewRoute.Local);
+
+    /// <summary>
+    /// A card on screen and on one route, over a session that has read the fixture once. The
+    /// session is started rather than written to, because its fields are its own: every state a
+    /// screen reads is one the backend answered with.
+    /// </summary>
+    private static (PreviewViewModel Preview, Session Session) Showing(PreviewBackend backend, PreviewRoute route)
     {
         var session = Read(backend);
-        var preview = new PreviewViewModel(backend, session, static action => action());
+        var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
 
         preview.SetShowing(true);
+        Choose(preview, route);
+        Settle(preview, session);
         return (preview, session);
     }
+
+    /// <summary>
+    /// Lets the card see what its own effects did. What is decoding is the backend's answer and
+    /// it moves when a decode is opened or closed; the app learns that off the event stream, and
+    /// this fixture's event stream ends at once, so reading again is what stands in for it.
+    /// </summary>
+    private static void Settle(PreviewViewModel preview, Session session)
+    {
+        session.Start();
+        preview.Apply();
+    }
+
+    /// <summary>
+    /// Selects one route the way the toggle does: by handing the card the segment that stands
+    /// for it, rather than by a setter of its own.
+    /// </summary>
+    private static void Choose(PreviewViewModel preview, PreviewRoute route)
+        => preview.SelectedRoute = preview.Routes.Single(tab => tab.Value == route);
 
     /// <summary>
     /// A session that has read the fixture. Every answer is already completed and the
@@ -242,6 +290,14 @@ public sealed class BroadcastPreviewTests
         session.Start();
         return session;
     }
+
+    /// <summary>
+    /// The settings the backend is holding, read the same way the window reads them. The card
+    /// takes one value out of them - the leg its end-to-end route receives on - and the seeded
+    /// answer names <see cref="Leg"/>.
+    /// </summary>
+    private static FormSession Settings(PreviewBackend backend, Session session)
+        => new(backend, session, static action => action());
 
     [Fact]
     public void TheConvergeDrawsThePreviewTheBackendIsRunning()
@@ -255,30 +311,6 @@ public sealed class BroadcastPreviewTests
         Assert.Equal(Stream, preview.Tile.Name);
         Assert.True(preview.Tile.Source.IsPreview);
         Assert.Equal("", preview.Tile.Transport);
-    }
-
-    /// <summary>
-    /// The point of the change, asserted where it can be asserted: the relay is asked for
-    /// nothing. No decode is opened, none is closed, and no relay frame subscription is made,
-    /// so the relay serves no reader for this picture and counts none.
-    /// </summary>
-    [Fact]
-    public async Task ThePreviewAsksTheRelayForNothing()
-    {
-        var backend = new PreviewBackend { Publish = Live() };
-
-        var (preview, _) = Showing(backend);
-        Assert.NotNull(preview.Tile);
-
-        // The subscription is the control's, so it is opened here the way the control opens
-        // it. What is being asserted is which of the two calls it lands on.
-        await Assert.ThrowsAsync<BackendUnavailableException>(
-            () => preview.Tile.OpenAsync(CancellationToken.None));
-
-        Assert.Equal(1, backend.PreviewSubscriptions);
-        Assert.Equal(0, backend.RelaySubscriptions);
-        Assert.Empty(backend.Started);
-        Assert.Empty(backend.Stopped);
     }
 
     [Fact]
@@ -307,7 +339,7 @@ public sealed class BroadcastPreviewTests
         var backend = new PreviewBackend { Publish = Live() };
         var session = Read(backend);
 
-        var preview = new PreviewViewModel(backend, session, static action => action());
+        var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
 
         Assert.Null(preview.Tile);
         Assert.False(preview.HasTile);
@@ -392,6 +424,8 @@ public sealed class BroadcastPreviewTests
         {
             Cards.PreviewNotPublishing,
             Cards.PreviewNotPreviewed,
+            Cards.PreviewNoWatchLeg,
+            Cards.PreviewOpening,
             "Nothing is decoding this stream.",
             "Connecting.",
         };
@@ -432,8 +466,223 @@ public sealed class BroadcastPreviewTests
 
         var (preview, _) = Showing(backend);
 
-        Assert.Equal(Cards.PreviewCost, preview.Cost);
+        Assert.Equal(Cards.PreviewLocalCost, preview.Cost);
         Assert.Contains("never reaches the relay", preview.Cost);
         Assert.Contains("nothing about what viewers receive", preview.Cost);
+    }
+
+    // --- The route toggle -----------------------------------------------------------
+    //
+    // The card draws two pictures of one stream and the reader picks which. What is asserted
+    // here is the half that is invisible on screen: which route asks the relay for a decode,
+    // which one asks it for nothing, and that a switch between them leaves exactly one open.
+
+    [Fact]
+    public void TheToggleOffersEveryRouteAndOpensOnTheLocalOne()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+
+        var (preview, _) = Showing(backend);
+
+        Assert.Equal(PreviewRoutes.All, preview.Routes.Select(tab => tab.Value));
+        Assert.Equal(PreviewRoute.Local, preview.SelectedRoute.Value);
+        Assert.All(preview.Routes, tab => Assert.NotEqual("", tab.Label));
+        Assert.NotEqual("", preview.RouteChoice);
+    }
+
+    /// <summary>
+    /// The end-to-end route is a viewer of this machine's own stream, so it opens a decode
+    /// exactly as the grid does: on the stream that is publishing, over the leg the stored
+    /// settings name a tile receives on.
+    /// </summary>
+    [Fact]
+    public void TheEndToEndRouteReceivesThisMachinesOwnStream()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+
+        var opened = Assert.Single(backend.Started);
+        Assert.Equal(Stream, opened.StreamName);
+        Assert.Equal(Leg, opened.Transport);
+
+        Assert.NotNull(preview.Tile);
+        Assert.True(preview.Tile.Source.IsRelay);
+        Assert.Equal(Leg, preview.Tile.Transport);
+        Assert.True(preview.HasLeg);
+    }
+
+    /// <summary>
+    /// Each route makes its own claim about the relay, and the two are opposite. A single
+    /// sentence for both would be false under one of them.
+    /// </summary>
+    [Fact]
+    public void EachRouteStatesItsOwnCost()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Showing(backend);
+
+        Assert.Equal(Cards.PreviewLocalCost, preview.Cost);
+
+        Choose(preview, PreviewRoute.EndToEnd);
+
+        Assert.Equal(Cards.PreviewEndToEndCost, preview.Cost);
+        Assert.NotEqual(Cards.PreviewLocalCost, Cards.PreviewEndToEndCost);
+        Assert.Contains("what a viewer receives", preview.Cost);
+    }
+
+    /// <summary>
+    /// The whole of what the toggle costs, asserted where it can be: switching to the local
+    /// route closes the decode the other one opened, and switching back opens it again. A route
+    /// that let go of the ask without closing would leave a reader slot on the relay for the
+    /// life of the window.
+    /// </summary>
+    [Fact]
+    public void SwitchingRoutesLeavesExactlyOneDecodeOpen()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, session) = Showing(backend, PreviewRoute.EndToEnd);
+
+        Assert.Single(backend.Started);
+        Assert.Empty(backend.Stopped);
+
+        Choose(preview, PreviewRoute.Local);
+
+        var closed = Assert.Single(backend.Stopped);
+        Assert.Equal(Stream, closed.StreamName);
+        Assert.Equal(Leg, closed.Transport);
+        Assert.True(preview.Tile?.Source.IsPreview);
+
+        Settle(preview, session);
+        Choose(preview, PreviewRoute.EndToEnd);
+
+        Assert.Equal(2, backend.Started.Count);
+        Assert.Single(backend.Stopped);
+    }
+
+    /// <summary>
+    /// The local route asks the relay for nothing, which is the property the loopback leg
+    /// exists for: no decode is opened, none is closed, and no relay frame subscription is
+    /// made, so the relay serves no reader for that picture and counts none.
+    /// </summary>
+    [Fact]
+    public async Task TheLocalRouteAsksTheRelayForNothing()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+
+        var (preview, _) = Showing(backend);
+        Assert.NotNull(preview.Tile);
+
+        await Assert.ThrowsAsync<BackendUnavailableException>(
+            () => preview.Tile.OpenAsync(CancellationToken.None));
+
+        Assert.Equal(1, backend.PreviewSubscriptions);
+        Assert.Equal(0, backend.RelaySubscriptions);
+        Assert.Empty(backend.Started);
+        Assert.Empty(backend.Stopped);
+    }
+
+    /// <summary>
+    /// A render pass on the end-to-end route asks for nothing it has already asked for. The
+    /// pass runs on every event the session reports, so a converge that re-asked would spend a
+    /// round trip a second on a decode that is already open.
+    /// </summary>
+    [Fact]
+    public void ASecondPassOnTheEndToEndRouteAsksForNothing()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+
+        var tile = preview.Tile;
+        Assert.NotNull(tile);
+
+        preview.Apply();
+        preview.Apply();
+        Choose(preview, PreviewRoute.EndToEnd);
+
+        Assert.Single(backend.Started);
+        Assert.Empty(backend.Stopped);
+        Assert.Same(tile, preview.Tile);
+    }
+
+    /// <summary>
+    /// Leaving the screen closes the decode, and not only the subscription. The reader slot is
+    /// what the end-to-end route costs the relay, so a card nobody is looking at that went on
+    /// holding one would be spending a viewer's bandwidth on a picture nothing draws.
+    /// </summary>
+    [Fact]
+    public void LeavingTheScreenClosesTheEndToEndDecode()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+
+        preview.SetShowing(false);
+
+        Assert.Single(backend.Stopped);
+        Assert.Null(preview.Tile);
+    }
+
+    /// <summary>
+    /// A decode the viewer's grid is also drawing is left running. One pipeline serves both
+    /// windows, so a stop from this card would take the picture out of a tile the reader is
+    /// looking at on the other screen.
+    /// </summary>
+    [Fact]
+    public void ADecodeTheGridIsDrawingIsLeftOpen()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+
+        preview.SetGridLeg(stream => stream == Stream ? Leg : "");
+        preview.SetShowing(false);
+
+        Assert.Single(backend.Started);
+        Assert.Empty(backend.Stopped);
+    }
+
+    /// <summary>
+    /// A refused start is shown as the backend wrote it. A leg that cannot carry this stream's
+    /// format names the format and the protocols that would have carried it, which is the whole
+    /// of what makes the refusal actionable - and is nothing this side could compose.
+    /// </summary>
+    [Fact]
+    public void ARefusedDecodeSaysWhyInTheBackendsWords()
+    {
+        const string refusal = "srt does not carry av1: rtsp and webrtc do.";
+        var backend = new PreviewBackend { Publish = Live(), StartRefusal = refusal };
+
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+
+        Assert.Equal(refusal, preview.Placeholder);
+        Assert.True(preview.HasPlaceholder);
+        Assert.Null(preview.Tile);
+
+        // Asked once and not again. A refusal is a fact about the key rather than a moment, so
+        // re-asking every pass would be a round trip a second against a leg that has answered.
+        preview.Apply();
+        preview.Apply();
+        Assert.Single(backend.Started);
+    }
+
+    /// <summary>
+    /// Switching off a refused route clears its sentence. Held across the switch, it would stand
+    /// under the other route's picture describing a leg that route never uses.
+    /// </summary>
+    [Fact]
+    public void LeavingARefusedRouteClearsItsSentence()
+    {
+        var backend = new PreviewBackend
+        {
+            Publish = Decoding(live: true),
+            StartRefusal = "srt does not carry av1.",
+        };
+        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        Assert.Equal(backend.StartRefusal, preview.Placeholder);
+
+        Choose(preview, PreviewRoute.Local);
+
+        Assert.Equal("", preview.Placeholder);
+        Assert.False(preview.HasPlaceholder);
+        Assert.True(preview.Tile?.Source.IsPreview);
     }
 }
