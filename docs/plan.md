@@ -124,6 +124,15 @@ Neither engine does fingerprint pinning, so an "accept this fingerprint" step wo
 
 The key, token and index service lives in this repository under `cmd/`, because the path-prefix derivation has to be identical on both sides and two repositories means two copies of it.
 
+**Built: the service** (`cmd/groupd`, `internal/groupsvc`, `internal/token`).
+It holds a signing key and nothing else: a group is created by drawing a key, a key is traded for a short relay token granting that key's prefix, and the index answers a caller's group or the public streams by reading the relay's own path list.
+There is no membership store because there is nothing to store - possession of the key is membership, and the prefix is the key's own digest - which is also what makes rotation drawing a second key and using it.
+The token is RS256 against `crypto/rsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
+
+**What is left.** The relay's own configuration - `authJWTJWKS` pointed at this service, the per-path permissions, the SRT passphrase in `pathDefaults` - and the reverse proxy with ACME in front of all three.
+Then the group model in the app: the key as a setting, the prefix in front of every transport's path, and a shell to create, paste and rotate one.
+Nothing wires the prefix into the transports yet, because an app that required a group before there was a way to obtain one is an app that cannot publish.
+
 ## The pointer channel
 
 The `metadata` cursor mode is declared and refused, because nothing carries a pointer position to a viewer and no viewer draws one.
