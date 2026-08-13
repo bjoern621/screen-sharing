@@ -8,16 +8,16 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// The consumer's half of a descriptor pool.
 ///
-/// What this locks out is the one thing about it that fails silently: the shape of the kernel's
-/// control message. A descriptor arrives beside the payload rather than in it, in a header whose
-/// fields are pointer-sized and pointer-aligned, and a reader that lays that out wrong takes a
-/// number out of the padding and imports whatever file it happens to name. The symptom is a tile
-/// drawing noise on one machine and nothing on another, which is why the layout is asserted here
-/// against descriptors of a known size.
+/// What this locks out is the one thing about it that fails silently: the shape of the kernel's control
+/// message.
+/// A descriptor arrives beside the payload rather than in it, in a header whose fields are pointer-sized and
+/// pointer-aligned, and a reader that lays that out wrong takes a number out of the padding and imports
+/// whatever file it happens to name.
+/// The symptom is a tile drawing noise on one machine and nothing on another, which is why the layout is
+/// asserted here against descriptors of a known size.
 ///
-/// The backend that would send them is not needed and is not run: what is under test is the
-/// reader, so the sender is this file, and it writes exactly what
-/// <c>internal/receive/descriptors_linux.go</c> writes.
+/// The backend that would send them is not needed and is not run: what is under test is the reader, so the
+/// sender is this file, and it writes exactly what <c>internal/receive/descriptors_linux.go</c> writes.
 /// </summary>
 public sealed class FrameDescriptorsTests
 {
@@ -32,8 +32,8 @@ public sealed class FrameDescriptorsTests
     {
         if (!OperatingSystem.IsLinux())
         {
-            // Rights over a Unix socket are the Linux handle kind's transport, and no other
-            // platform's pool announces a socket at all.
+            // Rights over a Unix socket are the Linux handle kind's transport, and no other platform's pool
+            // announces a socket at all.
             return;
         }
 
@@ -62,9 +62,8 @@ public sealed class FrameDescriptorsTests
         using var lent = new LentFiles(Slots - 1, FileBytes);
         await using var sender = Sender.Listening(lent);
 
-        // A pool of three slots whose socket answers with two is a backend that died mid-pool,
-        // and a reader that waited for the third would be a tile that never draws and never says
-        // why.
+        // A pool of three slots whose socket answers with two is a backend that died mid-pool, and a reader
+        // that waited for the third would be a tile that never draws and never says why.
         await Assert.ThrowsAsync<BackendUnavailableException>(
             () => FrameDescriptors.ReceiveAsync(sender.Address, Slots, CancellationToken.None));
     }
@@ -102,8 +101,8 @@ public sealed class FrameDescriptorsTests
     }
 
     /// <summary>
-    /// The backend's half: a socket that answers a connection with one message per slot, the
-    /// slot's index as the payload and the slot's descriptor as the right beside it.
+    /// The backend's half: a socket that answers a connection with one message per slot, the slot's index as
+    /// the payload and the slot's descriptor as the right beside it.
     /// </summary>
     private sealed class Sender : IAsyncDisposable
     {
@@ -149,8 +148,7 @@ public sealed class FrameDescriptorsTests
             }
             catch (Exception)
             {
-                // The accept was cancelled by the dispose, which is how a test that never
-                // connected ends.
+                // The accept was cancelled by the dispose, which is how a test that never connected ends.
             }
             Directory.Delete(_directory, recursive: true);
         }

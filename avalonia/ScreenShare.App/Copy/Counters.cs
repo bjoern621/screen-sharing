@@ -3,40 +3,39 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// One figure of the stats panel: what it is called, and what a reader is meant to do with it.
 ///
-/// A label with no tip is a number nobody can act on, so both are one entry and neither is
-/// written without the other.
+/// A label with no tip is a number nobody can act on, so both are one entry and neither is written without
+/// the other.
 /// </summary>
-/// <param name="Label">The name of the figure, as the row prints it.</param>
-/// <param name="Tip">What the figure means and what a reading of it is evidence of. It never
-/// restates the unit already printed beside it (<c>docs/tooltips.md</c>).</param>
+/// <param name="Label">The name of the figure, as the row prints it.</param> <param name="Tip">What the
+/// figure means and what a reading of it is evidence of.
+/// It never restates the unit already printed beside it (<c>docs/tooltips.md</c>).</param>
 public readonly record struct Counter(string Label, string Tip);
 
 /// <summary>
-/// Every word of the stats panel: its headings, its rows, and the counters the transport's own
-/// elements keep.
+/// Every word of the stats panel: its headings, its rows, and the counters the transport's own elements keep.
 ///
-/// <b>It is keyed on the identifiers the two sides share.</b> The backend sends a decode's
-/// sample under the contract's field names and an element's counters under the element's own,
-/// and neither of them is a word for a reader (<c>api/proto/screenshare/v1/text.proto</c>). This
-/// is the table that turns them into one, in the same shape and for the same reason
-/// <see cref="Words"/> turns a codec identifier into a name.
+/// <b>It is keyed on the identifiers the two sides share.</b> The backend sends a decode's sample under the
+/// contract's field names and an element's counters under the element's own, and neither of them is a word
+/// for a reader (<c>api/proto/screenshare/v1/text.proto</c>).
+/// This is the table that turns them into one, in the same shape and for the same reason <see cref="Words"/>
+/// turns a codec identifier into a name.
 ///
-/// <b>An entry that is missing renders as the key.</b> That is the fallback every table here
-/// takes, and it is what gets the entry written: a counter this build has no words for is still
-/// a counter the backend will send, and a reader shown "rtx-success-count" can search for it,
-/// where a reader shown nothing has lost the row.
+/// <b>An entry that is missing renders as the key.</b> That is the fallback every table here takes, and it is
+/// what gets the entry written: a counter this build has no words for is still a counter the backend will
+/// send, and a reader shown "rtx-success-count" can search for it, where a reader shown nothing has lost the
+/// row.
 ///
-/// The transport rows are the ones worth reading twice. Which of them a decode reports follows
-/// from the leg it was opened on - SRT counts a link, RTSP counts a jitterbuffer per track - so
-/// a reader comparing two legs of one stream is comparing two different sets of evidence about
-/// the same question.
+/// The transport rows are the ones worth reading twice.
+/// Which of them a decode reports follows from the leg it was opened on - SRT counts a link, RTSP counts a
+/// jitterbuffer per track - so a reader comparing two legs of one stream is comparing two different sets of
+/// evidence about the same question.
 /// </summary>
 public static class Counters
 {
     /// <summary>
-    /// The panel's headings. Each names a stage of the pipeline in the order the frames pass
-    /// through it, because the panel is read top to bottom when a stream looks wrong and the
-    /// first stage that reads badly is the one to act on.
+    /// The panel's headings.
+    /// Each names a stage of the pipeline in the order the frames pass through it, because the panel is read
+    /// top to bottom when a stream looks wrong and the first stage that reads badly is the one to act on.
     /// </summary>
     private static readonly Dictionary<string, Counter> Headings = new()
     {
@@ -64,8 +63,8 @@ public static class Counters
     };
 
     /// <summary>
-    /// What each element of the transport is, for the heading of its block. An element's
-    /// pipeline name is not a description of it, and the counters underneath mean different
+    /// What each element of the transport is, for the heading of its block.
+    /// An element's pipeline name is not a description of it, and the counters underneath mean different
     /// things depending on which of these is keeping them.
     /// </summary>
     private static readonly Dictionary<string, Counter> Elements = new()
@@ -79,8 +78,8 @@ public static class Counters
     };
 
     /// <summary>
-    /// Every row of the panel, keyed by the contract field it prints or, for the transport
-    /// blocks, by the element's own name for the counter.
+    /// Every row of the panel, keyed by the contract field it prints or, for the transport blocks, by the
+    /// element's own name for the counter.
     /// </summary>
     private static readonly Dictionary<string, Counter> Fields = new()
     {
@@ -281,13 +280,11 @@ public static class Counters
     public static Counter Field(string key) => Look(Fields, key);
 
     /// <summary>
-    /// The entry for an identifier, falling back to the identifier itself with nothing said
-    /// about it.
+    /// The entry for an identifier, falling back to the identifier itself with nothing said about it.
     ///
-    /// The fallback is the honest answer rather than a guard, for the reason
-    /// <see cref="Words"/> takes the same one: a counter this build has no words for is still a
-    /// counter the backend sends, and a row printing its raw key is one a reader can search for
-    /// and report.
+    /// The fallback is the honest answer rather than a guard, for the reason <see cref="Words"/> takes the
+    /// same one: a counter this build has no words for is still a counter the backend sends, and a row
+    /// printing its raw key is one a reader can search for and report.
     /// </summary>
     private static Counter Look(Dictionary<string, Counter> table, string id) =>
         id.Length > 0 && table.TryGetValue(id, out var entry) ? entry : new Counter(id, "");

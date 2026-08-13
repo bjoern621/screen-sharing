@@ -5,20 +5,21 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <summary>
 /// Which of the three pictures a tile draws from.
 ///
-/// <b>It is the contract's own distinction and not a second one.</b> <c>FrameSubscribe</c>
-/// names a <c>WatchKey</c>, the running publish's preview, or one of this machine's monitors,
-/// because the three are different kinds of thing: a relay decode is identified by the stream
-/// and the protocol it crossed the relay over, the publish preview is identified by nothing at
-/// all - there is at most one publish, and the preview is part of it - and a monitor preview by
-/// the index its output is enumerated under. This type is that oneof, so the screens that put a
-/// tile on the air pick between them once here rather than each in their own way.
+/// <b>It is the contract's own distinction and not a second one.</b> <c>FrameSubscribe</c> names a
+/// <c>WatchKey</c>, the running publish's preview, or one of this machine's monitors, because the three are
+/// different kinds of thing: a relay decode is identified by the stream and the protocol it crossed the relay
+/// over, the publish preview is identified by nothing at all - there is at most one publish, and the preview
+/// is part of it - and a monitor preview by the index its output is enumerated under.
+/// This type is that oneof, so the screens that put a tile on the air pick between them once here rather than
+/// each in their own way.
 ///
-/// <b>What two of them are not is a leg.</b> The publish preview's frames never reached the
-/// relay: the publish child copies its already-encoded video to a loopback port and the backend
-/// decodes it there (<c>docs/viewer-architecture.md</c>). A monitor preview's were never encoded
-/// or carried at all - the capture element hands raw pictures to the render chain. Giving either
-/// a transport name would put a protocol in the table every consumer reads, and nothing could be
-/// done with it.
+/// <b>What two of them are not is a leg.</b> The publish preview's frames never reached the relay: the
+/// publish child copies its already-encoded video to a loopback port and the backend decodes it there
+/// (<c>docs/viewer-architecture.md</c>).
+/// A monitor preview's were never encoded or carried at all - the capture element hands raw pictures to the
+/// render chain.
+/// Giving either a transport name would put a protocol in the table every consumer reads, and nothing could
+/// be done with it.
 /// </summary>
 public sealed record TileSource
 {
@@ -40,9 +41,9 @@ public sealed record TileSource
     }
 
     /// <summary>
-    /// The local preview of the running publish. The stream name is carried for what a heading
-    /// prints and for nothing else: the subscription names no stream, because the backend has
-    /// only one publish to preview.
+    /// The local preview of the running publish.
+    /// The stream name is carried for what a heading prints and for nothing else: the subscription names no
+    /// stream, because the backend has only one publish to preview.
     /// </summary>
     public static TileSource Preview(string streamName)
     {
@@ -52,9 +53,9 @@ public sealed record TileSource
     }
 
     /// <summary>
-    /// One of this machine's screens, read live. The heading is written by the caller, because
-    /// what a screen is called is a size, a refresh rate and whether it is the main one - all of
-    /// which the catalog carries and this type does not.
+    /// One of this machine's screens, read live.
+    /// The heading is written by the caller, because what a screen is called is a size, a refresh rate and
+    /// whether it is the main one - all of which the catalog carries and this type does not.
     /// </summary>
     public static TileSource MonitorPreview(int monitor, string heading)
     {
@@ -79,8 +80,8 @@ public sealed record TileSource
     public bool IsPreview => Kind == TileSourceKind.PublishPreview;
 
     /// <summary>
-    /// Whether this tile draws a relay decode, which is the one kind with a leg to name and the
-    /// one kind an audio branch can belong to.
+    /// Whether this tile draws a relay decode, which is the one kind with a leg to name and the one kind an
+    /// audio branch can belong to.
     /// </summary>
     public bool IsRelay => Kind == TileSourceKind.Relay;
 
@@ -92,10 +93,10 @@ public sealed record TileSource
     };
 
     /// <summary>
-    /// Subscribes to this source's frames. It opens nothing either way - the relay's decode is
-    /// <c>StartReceive</c>'s, the publish preview's is the publish's, and a screen's is
-    /// <c>StartMonitorPreview</c>'s - so a caller that has not established one is refused rather
-    /// than served.
+    /// Subscribes to this source's frames.
+    /// It opens nothing either way - the relay's decode is <c>StartReceive</c>'s, the publish preview's is
+    /// the publish's, and a screen's is <c>StartMonitorPreview</c>'s - so a caller that has not established
+    /// one is refused rather than served.
     /// </summary>
     public Task<FrameChannel> OpenAsync(IBackend backend, CancellationToken cancellation)
     {
@@ -113,9 +114,8 @@ public sealed record TileSource
 /// <summary>
 /// The three pictures the frame channel carries, as the shell picks between them.
 ///
-/// An explicit discriminator rather than a flag, for the reason the backend's own
-/// <c>FrameSource</c> has one: two kinds can be told apart by whether the one that carries a key
-/// has it, and three cannot.
+/// An explicit discriminator rather than a flag, for the reason the backend's own <c>FrameSource</c> has one:
+/// two kinds can be told apart by whether the one that carries a key has it, and three cannot.
 /// </summary>
 public enum TileSourceKind
 {

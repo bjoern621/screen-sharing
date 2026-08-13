@@ -5,29 +5,29 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 
 /// <summary>
-/// The design's one editable control on this screen: smoother against sharper, drawn where a
-/// live-safe quality change would belong if the backend had one.
+/// The design's one editable control on this screen: smoother against sharper, drawn where a live-safe
+/// quality change would belong if the backend had one.
 ///
-/// <b>It is inert, and the reason is on the control rather than in this comment.</b> The
-/// backend has no effect that changes an encoder's quality without rebuilding the pipeline:
-/// both engines run a child built from an argv and neither takes a value back afterwards, so
-/// <c>ApplyToStream</c> restarts the stream and is the opposite of live-safe. A slider wired
-/// to that would be a control whose whole promise is false. It stays on screen, greyed and
-/// carrying why, because the concept is one the reader is entitled to understand - the same
-/// treatment the settings form gives a knob the current combination blocks
+/// <b>It is inert, and the reason is on the control rather than in this comment.</b> The backend has no
+/// effect that changes an encoder's quality without rebuilding the pipeline: both engines run a child built
+/// from an argv and neither takes a value back afterwards, so <c>ApplyToStream</c> restarts the stream and is
+/// the opposite of live-safe.
+/// A slider wired to that would be a control whose whole promise is false.
+/// It stays on screen, greyed and carrying why, because the concept is one the reader is entitled to
+/// understand - the same treatment the settings form gives a knob the current combination blocks
 /// (<c>docs/field-availability.md</c>, "The rule").
 ///
-/// <b>Greyed and carrying why are things the view has to draw, and for a while it drew
-/// neither.</b> <see cref="IsEnabled"/> and <see cref="Reason"/> were stated here and bound
-/// nowhere, so the track took a hand that changed nothing and the card's caption promised the
-/// live-safe apply this very comment denies. Both are bound now, and the assertion at the foot
-/// of <see cref="Apply"/> is what a view model can do about it: a state this one names has to
-/// reach the screen through a binding, and the invariant at least keeps the two properties
-/// from disagreeing with each other.
+/// <b>Greyed and carrying why are things the view has to draw, and for a while it drew neither.</b>
+/// <see cref="IsEnabled"/> and <see cref="Reason"/> were stated here and bound nowhere, so the track took a
+/// hand that changed nothing and the card's caption promised the live-safe apply this very comment denies.
+/// Both are bound now, and the assertion at the foot of <see cref="Apply"/> is what a view model can do about
+/// it: a state this one names has to reach the screen through a binding, and the invariant at least keeps the
+/// two properties from disagreeing with each other.
 ///
-/// The footnote reports the quality the stream is <i>running</i> at rather than predicting one
-/// from the slider. Nothing here knows what a new position would cost; the encoder answers
-/// that, and a guessed estimate would be a number a publisher could act on and be wrong about.
+/// The footnote reports the quality the stream is <i>running</i> at rather than predicting one from the
+/// slider.
+/// Nothing here knows what a new position would cost; the encoder answers that, and a guessed estimate would
+/// be a number a publisher could act on and be wrong about.
 /// </summary>
 public sealed class NudgeViewModel : Observable
 {
@@ -56,9 +56,9 @@ public sealed class NudgeViewModel : Observable
     }
 
     /// <summary>
-    /// Where the reader has put the slider, 0 for smoother and 100 for sharper. Owned by
-    /// the reader, so <see cref="Apply"/> never writes it - a render pass that moved the
-    /// thumb would fight the hand holding it.
+    /// Where the reader has put the slider, 0 for smoother and 100 for sharper.
+    /// Owned by the reader, so <see cref="Apply"/> never writes it - a render pass that moved the thumb would
+    /// fight the hand holding it.
     /// </summary>
     public double Sharpness
     {
@@ -82,9 +82,9 @@ public sealed class NudgeViewModel : Observable
     public string Estimate { get => _estimate; private set => Set(ref _estimate, value); }
 
     /// <summary>
-    /// Whether the track takes a hand. Always false, and stated as a property rather than
-    /// written into the markup so the view has one thing to bind and the reason beside it
-    /// cannot end up describing a control that is live.
+    /// Whether the track takes a hand.
+    /// Always false, and stated as a property rather than written into the markup so the view has one thing
+    /// to bind and the reason beside it cannot end up describing a control that is live.
     /// </summary>
     public bool IsEnabled => false;
 
@@ -92,9 +92,9 @@ public sealed class NudgeViewModel : Observable
     public string Reason => Copy.Cards.NudgeInert;
 
     /// <summary>
-    /// The caveat beside the card's title. It sits where a permission slip would and says the
-    /// opposite, because that is what is true: read from the same table as <see cref="Reason"/>,
-    /// so the short form and the long one cannot come to disagree.
+    /// The caveat beside the card's title.
+    /// It sits where a permission slip would and says the opposite, because that is what is true: read from
+    /// the same table as <see cref="Reason"/>, so the short form and the long one cannot come to disagree.
     /// </summary>
     public string Caveat => Copy.Cards.NudgeCaveat;
 

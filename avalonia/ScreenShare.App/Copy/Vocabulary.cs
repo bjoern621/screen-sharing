@@ -6,24 +6,23 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// How this shell names one option of one control, and what it says about it.
 ///
-/// The backend sends an entry as a bare value - <c>hevc_nvenc</c>, <c>2</c>,
-/// <c>1280x720</c> - and which control it belongs to. Naming it needs both: <c>auto</c>
-/// means one thing under the frame path and another under the download route, and no
-/// table keyed on the value alone can tell them apart. So the field key is the switch and
-/// the value is the lookup, which is also why a control added to the contract shows up
-/// here as a row rather than as a change anywhere else.
+/// The backend sends an entry as a bare value - <c>hevc_nvenc</c>, <c>2</c>, <c>1280x720</c> - and which
+/// control it belongs to.
+/// Naming it needs both: <c>auto</c> means one thing under the frame path and another under the download
+/// route, and no table keyed on the value alone can tell them apart.
+/// So the field key is the switch and the value is the lookup, which is also why a control added to the
+/// contract shows up here as a row rather than as a change anywhere else.
 ///
-/// Three entries need more than their own value to be named, and all three read the
-/// catalog: a codec is named by the format and the family its row carries, a capture
-/// backend by the engine that reads it, and a monitor by the size and refresh rate of the
-/// output at that index. The catalog is optional and absent until the first read lands,
-/// and every method answers without it - a codec falls back to its encoder name and a
-/// screen to its index, which are exactly what the backend called them.
+/// Three entries need more than their own value to be named, and all three read the catalog: a codec is named
+/// by the format and the family its row carries, a capture backend by the engine that reads it, and a monitor
+/// by the size and refresh rate of the output at that index.
+/// The catalog is optional and absent until the first read lands, and every method answers without it - a
+/// codec falls back to its encoder name and a screen to its index, which are exactly what the backend called
+/// them.
 ///
-/// Two of those three are named against the whole table rather than off their own row,
-/// because a name that repeats is a name that does not identify: the same screen is read
-/// by both engines and the same format is produced by several encoders in one family, so
-/// what separates the entries is what the name has to carry.
+/// Two of those three are named against the whole table rather than off their own row, because a name that
+/// repeats is a name that does not identify: the same screen is read by both engines and the same format is
+/// produced by several encoders in one family, so what separates the entries is what the name has to carry.
 /// </summary>
 public sealed class Vocabulary
 {
@@ -60,8 +59,8 @@ public sealed class Vocabulary
     };
 
     /// <summary>
-    /// The paragraph behind one entry, and nothing where the name says it all. It is what
-    /// a radio card shows under its title and what a dropdown shows where there is room.
+    /// The paragraph behind one entry, and nothing where the name says it all.
+    /// It is what a radio card shows under its title and what a dropdown shows where there is room.
     /// </summary>
     public string Describe(string fieldKey, string value) => Fields.Template(fieldKey) switch
     {
@@ -87,14 +86,14 @@ public sealed class Vocabulary
     /// <summary>
     /// What one group settled on, in the few words a step chip repeats.
     ///
-    /// It is composed here and not received, because it is a shorthand: a separator, an
-    /// abbreviation and a length, all decided by the strip it sits in. The values behind it
-    /// are the draft's own, so it cannot say anything the form does not.
+    /// It is composed here and not received, because it is a shorthand: a separator, an abbreviation and a
+    /// length, all decided by the strip it sits in.
+    /// The values behind it are the draft's own, so it cannot say anything the form does not.
     ///
-    /// A group with nothing worth a line answers with nothing rather than with a string of
-    /// numbers. The relay settles on an address and seven ports, and only the address is worth
-    /// repeating: "8890 · 8554 · 8889" beside a step name says less than a blank does, because
-    /// a port means nothing without the label it sat under.
+    /// A group with nothing worth a line answers with nothing rather than with a string of numbers.
+    /// The relay settles on an address and seven ports, and only the address is worth repeating: "8890 ·
+    /// 8554 · 8889" beside a step name says less than a blank does, because a port means nothing without the
+    /// label it sat under.
     /// </summary>
     public string Shorthand(string groupKey, Settings? settings)
     {
@@ -111,9 +110,8 @@ public sealed class Vocabulary
             "quality" => Join(CodecShorthand(publish.Codec), Quality(publish)),
             "audio" => AudioShorthand(publish),
             "transport" => Words.Transport(publish.PublishTransport),
-            // The watch group holds two legs now, and the shorthand names the player's:
-            // it is the one a reader acts on from the roster, where the tile's leg is what
-            // a tile opens for itself.
+            // The watch group holds two legs now, and the shorthand names the player's: it is the one a
+            // reader acts on from the roster, where the tile's leg is what a tile opens for itself.
             "watch" => Words.Transport(settings.Viewer.PlayerWatchTransport),
             "relay" => settings.Relay.Host,
             _ => "",
@@ -122,16 +120,16 @@ public sealed class Vocabulary
 
     /// <summary>
     /// The whole configuration in one line: what quality it holds, and on what picture.
-    /// The two answer the questions a reader glancing at a running stream has, in that
-    /// order, because the picture is the part they can see for themselves.
+    /// The two answer the questions a reader glancing at a running stream has, in that order, because the
+    /// picture is the part they can see for themselves.
     /// </summary>
     public string Headline(PublishSettings? settings) =>
         settings is null ? "" : Join(Quality(settings), Picture(settings));
 
     /// <summary>
-    /// What the rate control settled on. Each mode names the number it is actually holding,
-    /// because that number is the answer and the mode's name alone is not: "20 Mbit/s" is
-    /// what a reader checks against their connection.
+    /// What the rate control settled on.
+    /// Each mode names the number it is actually holding, because that number is the answer and the mode's
+    /// name alone is not: "20 Mbit/s" is what a reader checks against their connection.
     /// </summary>
     private static string Quality(PublishSettings s) => s.Mode switch
     {
@@ -144,10 +142,10 @@ public sealed class Vocabulary
     };
 
     /// <summary>
-    /// The picture, in the shorthand every viewer already reads: "1080p60". The size is the
-    /// one being sent, which is the scaled size where one is set and the screen's own where
-    /// it is not - and where neither is known, the frame rate stands alone rather than the
-    /// line claiming a size nothing measured.
+    /// The picture, in the shorthand every viewer already reads: "1080p60".
+    /// The size is the one being sent, which is the scaled size where one is set and the screen's own where
+    /// it is not - and where neither is known, the frame rate stands alone rather than the line claiming a
+    /// size nothing measured.
     /// </summary>
     private string Picture(PublishSettings s)
     {
@@ -158,10 +156,10 @@ public sealed class Vocabulary
     /// <summary>
     /// What the second track is mixed from, at the width a step chip has.
     ///
-    /// One source is named; several are counted, because a chip that listed three kinds
-    /// would be a chip nobody can read at a glance. Entries that record nothing are not
-    /// sources: the list carries a row for a reader to grow it by, and one turned off keeps
-    /// its place until the next resolve takes it away.
+    /// One source is named; several are counted, because a chip that listed three kinds would be a chip
+    /// nobody can read at a glance.
+    /// Entries that record nothing are not sources: the list carries a row for a reader to grow it by, and
+    /// one turned off keeps its place until the next resolve takes it away.
     /// </summary>
     private string AudioShorthand(PublishSettings s)
     {
@@ -190,15 +188,15 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A codec named by what it produces and what produces it, which are the two questions
-    /// it answers: the format is what a viewer has to decode and the family is what this
-    /// machine has to have. Without the catalog the encoder's own name stands, which is
-    /// what the backend called it and what a log line will spell.
+    /// A codec named by what it produces and what produces it, which are the two questions it answers: the
+    /// format is what a viewer has to decode and the family is what this machine has to have.
+    /// Without the catalog the encoder's own name stands, which is what the backend called it and what a log
+    /// line will spell.
     ///
-    /// Where a family holds more than one encoder for a format, those two facts no longer
-    /// separate the entries and the encoder's own name is appended. It is the software AV1
-    /// encoders that this happens to, and their names are what the command preview prints
-    /// and what the paragraph behind each entry is about.
+    /// Where a family holds more than one encoder for a format, those two facts no longer separate the
+    /// entries and the encoder's own name is appended.
+    /// It is the software AV1 encoders that this happens to, and their names are what the command preview
+    /// prints and what the paragraph behind each entry is about.
     /// </summary>
     private string Codec(string name)
     {
@@ -213,8 +211,8 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// Whether another row of the catalog produces this row's format on its family, which
-    /// is what decides that neither name identifies an encoder on its own.
+    /// Whether another row of the catalog produces this row's format on its family, which is what decides
+    /// that neither name identifies an encoder on its own.
     /// </summary>
     private bool SharesFormatAndFamily(VideoCodec row)
     {
@@ -235,14 +233,13 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A capture backend named by what it reads and by the engine that reads it. The engine
-    /// is half the choice rather than a footnote: it decides which encoders and which
-    /// transports the rest of the form goes on to offer, and it is what a refusal elsewhere
-    /// tells the reader to change - "pick a capture method that runs ffmpeg" names nothing
-    /// a reader can find in a list that does not say which is which.
+    /// A capture backend named by what it reads and by the engine that reads it.
+    /// The engine is half the choice rather than a footnote: it decides which encoders and which transports
+    /// the rest of the form goes on to offer, and it is what a refusal elsewhere tells the reader to change -
+    /// "pick a capture method that runs ffmpeg" names nothing a reader can find in a list that does not say
+    /// which is which.
     ///
-    /// Without the catalog, and for an entry newer than its rows, the source's name stands
-    /// alone.
+    /// Without the catalog, and for an entry newer than its rows, the source's name stands alone.
     /// </summary>
     private string Capture(string value)
     {
@@ -276,9 +273,9 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// What a codec is, which is the format's paragraph plus whatever the encoder adds
-    /// beyond it. Only the three software AV1 encoders add anything: the format does not
-    /// identify them and they differ enough to choose between.
+    /// What a codec is, which is the format's paragraph plus whatever the encoder adds beyond it.
+    /// Only the three software AV1 encoders add anything: the format does not identify them and they differ
+    /// enough to choose between.
     /// </summary>
     private string DescribeCodec(string name)
     {
@@ -299,8 +296,8 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A pixel format, with the identifier kept beside the plain-language half. The reader
-    /// will meet <c>yuv420p</c> again in the command preview and in every answer they find
+    /// A pixel format, with the identifier kept beside the plain-language half.
+    /// The reader will meet <c>yuv420p</c> again in the command preview and in every answer they find
     /// elsewhere, so hiding it would make this app the only place it has another name.
     /// </summary>
     private static string Chroma(string value)
@@ -310,8 +307,9 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A screen, named by its index and what it can show. The index leads because it is
-    /// what the reader matches against their own arrangement and what the settings carry.
+    /// A screen, named by its index and what it can show.
+    /// The index leads because it is what the reader matches against their own arrangement and what the
+    /// settings carry.
     /// </summary>
     private string Screen(string value)
     {
@@ -331,13 +329,13 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// One device inside an audio kind. The empty value is the kind's own default, which is
-    /// what an entry naming no device takes and what follows whatever the system is set to.
+    /// One device inside an audio kind.
+    /// The empty value is the kind's own default, which is what an entry naming no device takes and what
+    /// follows whatever the system is set to.
     ///
-    /// Everything else is named by what the machine calls it, off the catalog's enumeration,
-    /// and falls back to the handle itself: a device the enumeration no longer reports is one
-    /// the settings still carry, and showing what a publish would open is a screen a reader
-    /// can act on where a blank is one they cannot.
+    /// Everything else is named by what the machine calls it, off the catalog's enumeration, and falls back
+    /// to the handle itself: a device the enumeration no longer reports is one the settings still carry, and
+    /// showing what a publish would open is a screen a reader can act on where a blank is one they cannot.
     /// </summary>
     private string Device(string value)
     {
@@ -351,8 +349,8 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// An output size. The empty value is the capture's own size, which is the entry that
-    /// scales nothing.
+    /// An output size.
+    /// The empty value is the capture's own size, which is the entry that scales nothing.
     /// </summary>
     private static string Resolution(string value)
     {
@@ -368,10 +366,9 @@ public sealed class Vocabulary
     /// <summary>
     /// A step of the frame rate's ladder, named with its unit.
     ///
-    /// The unit is repeated here although the field already states it beside its label,
-    /// because these entries are read where that label is not: an opened menu is a list of
-    /// bare figures otherwise, and "60" and "120" say what they are only to a reader who
-    /// still has the heading in view.
+    /// The unit is repeated here although the field already states it beside its label, because these entries
+    /// are read where that label is not: an opened menu is a list of bare figures otherwise, and "60" and
+    /// "120" say what they are only to a reader who still has the heading in view.
     /// </summary>
     private static string Rate(string value) => $"{value} fps";
 
@@ -418,9 +415,9 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A shorthand out of its parts, dropping the ones that had nothing to say. An empty
-    /// part joined anyway would leave a separator with nothing on one side of it, which
-    /// reads as something having failed to render.
+    /// A shorthand out of its parts, dropping the ones that had nothing to say.
+    /// An empty part joined anyway would leave a separator with nothing on one side of it, which reads as
+    /// something having failed to render.
     /// </summary>
     private static string Join(params string[] parts) =>
         string.Join(" · ", parts.Where(part => part.Length > 0));

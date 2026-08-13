@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"bjoernblessin.de/go-utils/util/assert"
+
 	"fmt"
 	"net/url"
 
@@ -15,12 +17,11 @@ import (
 //     while a display-paced player drains slowly.
 //   - pkt_size 1316 = 7 MPEG-TS packets per SRT datagram.
 //
-// A latency here is what this end asks for, not what the link runs at. SRT
-// negotiates one delay per direction in the handshake and both ends take the
-// larger of the two values, so the relay's own setting is a floor under every
-// hop against it. MediaMTX exposes no SRT latency option and runs on its
-// library's 120 ms default, which is why a window below that comes back as 120
-// while one above it is honoured exactly.
+// A latency here is what this end asks for, not what the link runs at.
+// SRT negotiates one delay per direction in the handshake and both ends take the larger of the two
+// values, so the relay's own setting is a floor under every hop against it.
+// MediaMTX exposes no SRT latency option and runs on its library's 120 ms default,
+// which is why a window below that comes back as 120 while one above it is honoured exactly.
 type SRT struct{}
 
 func init() {
@@ -32,16 +33,16 @@ const srtBufBytes = 150_000_000
 
 func (SRT) Name() string { return "srt" }
 
-// srtCarriage is what MediaMTX registers a stream type for in the MPEG-TS it
-// ingests and re-serves: H.264 and H.265, with Opus and AAC beside them. AV1, VP9
-// and VP8 have no such mapping there, so a stream in one of them neither reaches
-// an SRT publish nor comes back out of an SRT read, whatever the relay ingested
-// it over.
+// srtCarriage is what MediaMTX registers a stream type for in the MPEG-TS it ingests and re-serves:
+// H.264 and H.265, with Opus and AAC beside them.
+// AV1, VP9 and VP8 have no such mapping there, so a stream in one of them neither reaches an SRT
+// publish nor comes back out of an SRT read, whatever the relay ingested it over.
 //
-// One value covers all four engine legs because MPEG-TS is where the two engines
-// meet: ffmpeg's mpegts muxer and GStreamer's mpegtsmux write the same stream
-// types, and libavformat and tsdemux read them back. Naming it once is what makes
-// that agreement a statement rather than four lists that happen to match.
+// One value covers all four engine legs because MPEG-TS is where the two engines meet:
+// ffmpeg's mpegts muxer and GStreamer's mpegtsmux write the same stream types,
+// and libavformat and tsdemux read them back.
+// Naming it once is what makes that agreement a statement rather than four lists that happen to
+// match.
 var srtCarriage = Carriage{
 	Video: []string{"h264", "hevc"},
 	Audio: []string{"opus", "aac"},
@@ -61,8 +62,8 @@ func (SRT) Formats() Formats {
 }
 
 func (SRT) PublishArgs(s settings.Settings) []string {
-	// ffmpeg's srt protocol: latency in MICROSECONDS, and ffmpeg's own buffer
-	// option names (pkt_size/sndbuf/ffs).
+	// ffmpeg's srt protocol: latency in MICROSECONDS, and ffmpeg's own buffer option names
+	// (pkt_size/sndbuf/ffs).
 	url := fmt.Sprintf(
 		"srt://%s:%d?streamid=publish:%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
 		s.Relay.Host, s.Relay.SrtPort, s.Relay.Path(s.Publish.Name), s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
@@ -70,13 +71,13 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 	return []string{"-f", "mpegts", url}
 }
 
-// GstSink returns the muxer and sink elements that terminate a GStreamer
-// pipeline for this transport.
+// GstSink returns the muxer and sink elements that terminate a GStreamer pipeline for this
+// transport.
 //
-// GStreamer's srtsink uses libsrt, whose configuration differs from ffmpeg's srt
-// protocol: the URI is a bare srt://host:port, and streamid and latency (in
-// MILLISECONDS, not ffmpeg's microseconds) are separate properties. alignment=7
-// packs 7 * 188-byte TS packets per buffer to match the SRT payload size.
+// GStreamer's srtsink uses libsrt, whose configuration differs from ffmpeg's srt protocol:
+// the URI is a bare srt://host:port, and streamid and latency (in MILLISECONDS,
+// not ffmpeg's microseconds) are separate properties.
+// alignment=7 packs 7 * 188-byte TS packets per buffer to match the SRT payload size.
 func (SRT) GstSink(s settings.Settings) []string {
 	return append([]string{
 		"mpegtsmux", "name=" + GstMuxName, "alignment=7",
@@ -90,16 +91,19 @@ func (SRT) GstSink(s settings.Settings) []string {
 }
 
 func (SRT) WatchURL(s settings.Settings, streamName string) string {
+	assert.Assert(streamName != "", "a watch URL names the stream it opens")
+
 	return fmt.Sprintf(
 		"srt://%s:%d?streamid=read:%s&latency=%d&rcvbuf=%d&ffs=%d",
 		s.Relay.Host, s.Relay.SrtPort, streamName, s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 }
 
-// GstSource returns the source elements a receiving GStreamer pipeline decodes
-// from. As on the sink side, srtsrc takes streamid and latency (milliseconds)
-// as properties on a bare srt:// URI; the buffer options in WatchURL are
-// ffmpeg protocol knobs with no srtsrc equivalent.
+// GstSource returns the source elements a receiving GStreamer pipeline decodes from.
+// As on the sink side, srtsrc takes streamid and latency (milliseconds) as properties on a bare
+// srt:// URI; the buffer options in WatchURL are ffmpeg protocol knobs with no srtsrc equivalent.
 func (SRT) GstSource(s settings.Settings, streamName string) []string {
+	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+
 	return append([]string{
 		"srtsrc",
 		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
@@ -109,8 +113,8 @@ func (SRT) GstSource(s settings.Settings, streamName string) []string {
 	}, srtPassphraseProperty(s)...)
 }
 
-// srtWatchKnobs are the watch-leg knobs a viewer can change per stream, the
-// settings fields GstSource and WatchURL read.
+// srtWatchKnobs are the watch-leg knobs a viewer can change per stream, the settings fields
+// GstSource and WatchURL read.
 var srtWatchKnobs = []watchKnob{
 	intKnob("srtWatchLatencyMs", "SRT latency (ms)",
 		"Retransmit window of the watch leg (relay to viewer), where internet loss usually lives. "+
@@ -126,12 +130,12 @@ func (t SRT) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), srtWatchKnobs, s, key, value)
 }
 
-// srtPassphraseQuery is the passphrase as ffmpeg's SRT protocol takes it, and nothing where
-// the relay is keyed with none.
+// srtPassphraseQuery is the passphrase as ffmpeg's SRT protocol takes it, and nothing where the
+// relay is keyed with none.
 //
-// Both legs carry it, because the relay keys both: pathDefaults sets one value for publishing
-// and one for reading, and an operator setting the pair sets them alike. A leg that carried it
-// on one side only would be a stream that connects and never plays.
+// Both legs carry it, because the relay keys both: pathDefaults sets one value for publishing and
+// one for reading, and an operator setting the pair sets them alike.
+// A leg that carried it on one side only would be a stream that connects and never plays.
 func srtPassphraseQuery(s settings.Settings) string {
 	if s.Relay.SrtPassphrase == "" {
 		return ""
@@ -139,9 +143,9 @@ func srtPassphraseQuery(s settings.Settings) string {
 	return "&passphrase=" + url.QueryEscape(s.Relay.SrtPassphrase)
 }
 
-// srtPassphraseProperty is the same value as the GStreamer elements take it: a property on
-// srtsink and srtsrc rather than a query on the URI, which is the same difference the latency
-// and the stream id already have between the two engines.
+// srtPassphraseProperty is the same value as the GStreamer elements take it:
+// a property on srtsink and srtsrc rather than a query on the URI, which is the same difference the
+// latency and the stream id already have between the two engines.
 func srtPassphraseProperty(s settings.Settings) []string {
 	if s.Relay.SrtPassphrase == "" {
 		return nil

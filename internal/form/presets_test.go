@@ -10,9 +10,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// presetCases are the machines a preset is resolved against: the two Linux sessions,
-// Windows, a machine whose settings name nothing this app carries, and one whose probe
-// found a single encoder family - which is where a preset that no candidate reaches is.
+// presetCases are the machines a preset is resolved against: the two Linux sessions, Windows,
+// a machine whose settings name nothing this app carries, and one whose probe found a single
+// encoder family - which is where a preset that no candidate reaches is.
 func presetCases() []availabilityCase {
 	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
@@ -32,8 +32,8 @@ func presetCases() []availabilityCase {
 	}
 }
 
-// presetOf reads one row of the table, so a test names the preset it is about rather than
-// an index into it.
+// presetOf reads one row of the table, so a test names the preset it is about rather than an index
+// into it.
 func presetOf(t *testing.T, key string) preset {
 	t.Helper()
 
@@ -46,8 +46,8 @@ func presetOf(t *testing.T, key string) preset {
 	return preset{}
 }
 
-// presetOnlyFamily is a probe result on which one encoder family works and every other
-// codec was tested and refused, on both publish engines.
+// presetOnlyFamily is a probe result on which one encoder family works and every other codec was
+// tested and refused, on both publish engines.
 func presetOnlyFamily(family string) encoders.Availability {
 	usable := make(map[string]map[string]bool, len(capabilities.Engines))
 	for _, engine := range capabilities.Engines {
@@ -60,10 +60,10 @@ func presetOnlyFamily(family string) encoders.Availability {
 	return encoders.Availability{Usable: usable}
 }
 
-// A preset states a goal, and the settings that reach it are this machine's answer. So the
-// one thing every reachable preset owes is that its own promise holds of what it returns:
-// a search that answered with settings outside the claim would hand a surface a preset it
-// had to stop marking as selected the moment it was applied.
+// A preset states a goal, and the settings that reach it are this machine's answer.
+// So the one thing every reachable preset owes is that its own promise holds of what it returns:
+// a search that answered with settings outside the claim would hand a surface a preset it had to
+// stop marking as selected the moment it was applied.
 func TestAResolvedPresetDeliversItsOwnPromise(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -80,9 +80,9 @@ func TestAResolvedPresetDeliversItsOwnPromise(t *testing.T) {
 	}
 }
 
-// Applying twice equals applying once, which is what makes a preset an idempotent
-// operation rather than a step: the settings a search returns are themselves the candidate
-// the next search reaches first (docs/development-principles.md).
+// Applying twice equals applying once, which is what makes a preset an idempotent operation rather
+// than a step: the settings a search returns are themselves the candidate the next search reaches
+// first (docs/development-principles.md).
 func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -104,9 +104,9 @@ func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 }
 
 // A preset is only ever offered as a configuration the rest of the form already accepts.
-// The search puts every candidate through the same repair the form runs and keeps it only
-// if it comes back untouched, so a preset that landed on a value the form would grey would
-// be this package disagreeing with itself.
+// The search puts every candidate through the same repair the form runs and keeps it only if it
+// comes back untouched, so a preset that landed on a value the form would grey would be this
+// package disagreeing with itself.
 func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -122,10 +122,10 @@ func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 	}
 }
 
-// The publish transport is not searched: it is how viewers are reached rather than a
-// property of the picture, and the sentence on an unreachable preset names it as the thing
-// the search worked within. A preset that moved it would answer a request about the
-// picture by changing who can watch.
+// The publish transport is not searched: it is how viewers are reached rather than a property of
+// the picture, and the sentence on an unreachable preset names it as the thing the search worked
+// within.
+// A preset that moved it would answer a request about the picture by changing who can watch.
 func TestAPresetLeavesThePublishTransportWhereItIs(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -142,10 +142,10 @@ func TestAPresetLeavesThePublishTransportWhereItIs(t *testing.T) {
 	}
 }
 
-// A preset is a way of publishing and nothing else. The relay is per site and the viewer's
-// own fields are per driver - a render chain this machine registers is one the machine it
-// is copied to may not - so a preset that carried either would be the thing that breaks on
-// the next machine (docs/presets.md).
+// A preset is a way of publishing and nothing else.
+// The relay is per site and the viewer's own fields are per driver - a render chain this machine
+// registers is one the machine it is copied to may not - so a preset that carried either would be
+// the thing that breaks on the next machine (docs/presets.md).
 func TestAPresetTouchesNothingOutsideThePublishGroup(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -164,9 +164,10 @@ func TestAPresetTouchesNothingOutsideThePublishGroup(t *testing.T) {
 	}
 }
 
-// The selection is derived from the settings and never remembered, so a preset applied is a
-// preset marked. The two halves of a preset meet here: the ladder produces settings, and
-// the claim reads them back.
+// The selection is derived from the settings and never remembered, so a preset applied is a preset
+// marked.
+// The two halves of a preset meet here: the ladder produces settings, and the claim reads them
+// back.
 func TestApplyingAPresetSelectsIt(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -187,9 +188,10 @@ func TestApplyingAPresetSelectsIt(t *testing.T) {
 	}
 }
 
-// Settings inside a claim keep the preset selected however they got there, and settings
-// outside it drop out of it. That is the whole of what a derived selection buys: a field
-// edited to a value the promise still covers is not a different way of publishing.
+// Settings inside a claim keep the preset selected however they got there,
+// and settings outside it drop out of it.
+// That is the whole of what a derived selection buys: a field edited to a value the promise still
+// covers is not a different way of publishing.
 func TestTheSelectionFollowsTheSettingsRatherThanTheApply(t *testing.T) {
 	gaming := presetOf(t, "gaming")
 
@@ -207,20 +209,21 @@ func TestTheSelectionFollowsTheSettingsRatherThanTheApply(t *testing.T) {
 	}
 }
 
-// A preset no candidate satisfies is stated as unreachable with the reason, and nothing is
-// applied: a repaired near-miss would be a configuration the user did not ask for carrying
-// the name of one they did.
+// A preset no candidate satisfies is stated as unreachable with the reason, and nothing is applied:
+// a repaired near-miss would be a configuration the user did not ask for carrying the name of one
+// they did.
 //
-// The lossless preset is the case that exists. No VA profile codes bit-exact, so a machine
-// whose only encoders are VAAPI reaches no candidate for it.
+// The lossless preset is the case that exists.
+// No VA profile codes bit-exact, so a machine whose only encoders are VAAPI reaches no candidate
+// for it.
 func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	if _, gap := mustCodec(t, "hevc_vaapi").OptionGap(
 		capabilities.EngineGst, capabilities.OptionMode, capabilities.ModeLossless); !gap {
 		t.Fatal("the VA encoders code lossless, so this test no longer names an unreachable preset")
 	}
 
-	// A Wayland session reaches the portal alone, which runs the GStreamer engine, and the
-	// probe found nothing but the VA elements there.
+	// A Wayland session reaches the portal alone, which runs the GStreamer engine,
+	// and the probe found nothing but the VA elements there.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	deps.Encoders = presetOnlyFamily(capabilities.FamilyVaapi)
 
@@ -239,14 +242,15 @@ func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	}
 }
 
-// A preset reaches whichever encoder the machine has, and the ladder step follows that
-// encoder rather than the preset.
+// A preset reaches whichever encoder the machine has, and the ladder step follows that encoder
+// rather than the preset.
 //
-// The step is the encoder's own identifier, so a preset that named one would carry it onto
-// every candidate: the repair moves a step off the candidate codec's ladder, a repaired
-// candidate is a rejected one, and the whole table would quietly resolve on the family
-// whose ladder the step came from and on no other. What each mode is worth running at is
-// the codec row's, which is the same answer a fresh installation gets.
+// The step is the encoder's own identifier, so a preset that named one would carry it onto every
+// candidate: the repair moves a step off the candidate codec's ladder, a repaired candidate is a
+// rejected one, and the whole table would quietly resolve on the family whose ladder the step came
+// from and on no other.
+// What each mode is worth running at is the codec row's, which is the same answer a fresh
+// installation gets.
 func TestAPresetReachesAMachineWithNoNvidiaEncoder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	deps.Encoders = presetOnlyFamily(capabilities.FamilySoftware)

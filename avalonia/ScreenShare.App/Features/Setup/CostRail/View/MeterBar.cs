@@ -6,17 +6,18 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Setup.CostRail.View;
 
 /// <summary>
-/// A figure against a limit, both as shares of one bar: a track, a fill, and a one-pixel
-/// marker where the limit stands.
+/// A figure against a limit, both as shares of one bar: a track, a fill, and a one-pixel marker where the
+/// limit stands.
 ///
-/// Drawn rather than laid out. The obvious markup - two star columns whose widths a converter
-/// derives from the share - binds against <c>ColumnDefinition</c>, which is not an element and
-/// therefore has no data context to bind through. Drawing it is also what lets the fill run
-/// past the marker instead of being clamped at it, which is the one state this control exists
-/// to show: a predicted bitrate the line cannot carry.
+/// Drawn rather than laid out.
+/// The obvious markup - two star columns whose widths a converter derives from the share - binds against
+/// <c>ColumnDefinition</c>, which is not an element and therefore has no data context to bind through.
+/// Drawing it is also what lets the fill run past the marker instead of being clamped at it, which is the one
+/// state this control exists to show: a predicted bitrate the line cannot carry.
 ///
-/// It states no colour and no size. Everything comes in from the caller, so the design system
-/// stays the only thing that decides them (avalonia/README.md, "Nothing outside Design/").
+/// It states no colour and no size.
+/// Everything comes in from the caller, so the design system stays the only thing that decides them
+/// (avalonia/README.md, "Nothing outside Design/").
 /// </summary>
 public sealed class MeterBar : Control
 {
@@ -83,9 +84,9 @@ public sealed class MeterBar : Control
     }
 
     /// <summary>
-    /// The one draw pass. Back to front: the track, the fill clipped to its rounded ends, and
-    /// the marker over both at the control's full height so it reads as a limit rather than as
-    /// part of the fill.
+    /// The one draw pass.
+    /// Back to front: the track, the fill clipped to its rounded ends, and the marker over both at the
+    /// control's full height so it reads as a limit rather than as part of the fill.
     /// </summary>
     public override void Render(DrawingContext context)
     {
@@ -108,8 +109,8 @@ public sealed class MeterBar : Control
         var fill = Math.Clamp(Fill, 0, 1);
         if (FillBrush is { } front && fill > 0)
         {
-            // Clipped to the track's own shape, so a short fill keeps the rounded left cap and
-            // gains no rounded right one.
+            // Clipped to the track's own shape, so a short fill keeps the rounded left cap and gains no
+            // rounded right one.
             using (context.PushGeometryClip(new RectangleGeometry(track, radius, radius)))
             {
                 context.FillRectangle(front, new Rect(track.X, track.Y, width * fill, thickness));

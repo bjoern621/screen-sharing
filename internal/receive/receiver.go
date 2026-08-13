@@ -170,8 +170,9 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	initGStreamer()
 
 	c := resolve(open.Chain)
-	open.ToneMap = toneMapFor(st.Name, open.ToneMap)
-	desc := c.launch(st, open)
+	rung := toneMapFor(st.Name, open.ToneMap)
+	open.ToneMap = rung.declared()
+	desc := c.launch(st, rung)
 	logger.Debugf("stream %q pipeline: %s", st.Name, desc)
 
 	el, err := gst.ParseLaunch(desc)
@@ -187,6 +188,15 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	sink, ok := pipeline.GetByName(sinkName).(gstapp.AppSink)
 	if !ok {
 		return nil, fmt.Errorf("stream %q: no appsink named %s in the pipeline", st.Name, sinkName)
+	}
+	// A rung that brings its own conversion carries it as GLSL rather than in the launch
+	// line, because a shader holds the newlines its preprocessor directives need and the
+	// quotes the parser reads as syntax. The element it is written into is one this line
+	// named itself, so its absence is this package having got its own fragment wrong.
+	if rung.shader != "" {
+		shader := pipeline.GetByName(toneMapName)
+		assert.Assert(shader != nil, "a rung that carries a shader builds the element it is written into", rung.name, toneMapName)
+		shader.SetObjectProperty("fragment", rung.shader)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

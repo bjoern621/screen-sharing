@@ -8,16 +8,16 @@ namespace ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
 /// <summary>
 /// What has happened to this session, in the order the log recorded it.
 ///
-/// The card shows a window onto the log and never the whole of it - "Open full log" is
-/// the escape hatch, and it navigates rather than expanding in place, so this card cannot
-/// grow into a log viewer with its own filters.
+/// The card shows a window onto the log and never the whole of it - "Open full log" is the escape hatch, and
+/// it navigates rather than expanding in place, so this card cannot grow into a log viewer with its own
+/// filters.
 /// </summary>
 public sealed class SessionLogViewModel : Observable
 {
     /// <param name="open">
-    /// Opens the whole log, and answers when the backend has. The card does not own that
-    /// surface - the files are on the backend's machine - but it does own saying that the
-    /// request is out, which is why this is a call it waits on rather than news it raises.
+    /// Opens the whole log, and answers when the backend has.
+    /// The card does not own that surface - the files are on the backend's machine - but it does own saying
+    /// that the request is out, which is why this is a call it waits on rather than news it raises.
     /// </param>
     /// <param name="dispatch">The UI loop the answer is marshalled back to.</param>
     public SessionLogViewModel(Func<Task> open, Action<Action> dispatch)
@@ -35,9 +35,9 @@ public sealed class SessionLogViewModel : Observable
     private IReadOnlyList<LogLine> _recorded = [];
 
     /// <summary>
-    /// What has happened to this stream, newest first: a child process that ended, or a viewer
-    /// that started or stopped watching. Both are composed above this card, which renders the
-    /// lines and does not decide what belongs on one.
+    /// What has happened to this stream, newest first: a child process that ended, or a viewer that started
+    /// or stopped watching.
+    /// Both are composed above this card, which renders the lines and does not decide what belongs on one.
     /// </summary>
     public IReadOnlyList<LogLine> Recorded
     {

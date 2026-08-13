@@ -15,35 +15,36 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// encodeTimeout bounds one test encode. Two frames at 320x240 return in well under a
-// second on every element here, so the only thing this catches is an element that
-// takes the frames and emits nothing: svtav1enc does exactly that in the low-delay
-// structure, and a stall is a failure like any other, not a reason to wait.
+// encodeTimeout bounds one test encode.
+// Two frames at 320x240 return in well under a second on every element here,
+// so the only thing this catches is an element that takes the frames and emits nothing:
+// svtav1enc does exactly that in the low-delay structure, and a stall is a failure like any other,
+// not a reason to wait.
 const encodeTimeout = 20 * time.Second
 
 // baseStream is the default draft with the two ladder steps left unnamed.
 //
-// The tests in this package reach every codec off one draft, and a step is one encoder's
-// own identifier, so a draft carrying the default codec's step would hand most of them a
-// step from an encoder that never heard of it - which the builder refuses, the way it
-// refuses the default quantizer on a codec whose scale stops below it. An unnamed step is
-// the codec's declared one (capabilities.Ladder.Resolve), so each codec here encodes at
-// the step its own row names for the mode under test.
+// The tests in this package reach every codec off one draft, and a step is one encoder's own
+// identifier, so a draft carrying the default codec's step would hand most of them a step from an
+// encoder that never heard of it - which the builder refuses, the way it refuses the default
+// quantizer on a codec whose scale stops below it.
+// An unnamed step is the codec's declared one (capabilities.Ladder.Resolve),
+// so each codec here encodes at the step its own row names for the mode under test.
 func baseStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Effort, s.Publish.Tune = "", ""
 	return s
 }
 
-// The encoder mappings are a wire format shared with GStreamer: every element name
-// has to exist, every property has to be spelled the way that element spells it, and
-// every value has to sit in its range. None of that holds against a compiler, and a
-// wrong property is a pipeline that only fails once a user hits Publish. So this runs
-// a real gst-launch per codec and mode, on videotestsrc rather than the portal node.
+// The encoder mappings are a wire format shared with GStreamer: every element name has to exist,
+// every property has to be spelled the way that element spells it, and every value has to sit in
+// its range.
+// None of that holds against a compiler, and a wrong property is a pipeline that only fails once a
+// user hits Publish.
+// So this runs a real gst-launch per codec and mode, on videotestsrc rather than the portal node.
 //
-// The capability table drives the loop, which is what makes the test find a codec
-// added there without a mapping, or a mode declared reachable that the element has no
-// property for.
+// The capability table drives the loop, which is what makes the test find a codec added there
+// without a mapping, or a mode declared reachable that the element has no property for.
 func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -61,11 +62,12 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 			continue
 		}
 
-		// The chroma is the last format this engine reaches, which is the narrowest
-		// (10-bit where the element takes it, 4:2:0 where it does not) and therefore
-		// the one most likely to fail negotiation. A format the table declares gapped
-		// here is left out: refusing it is the point, and pinning it would only assert
-		// that the element rejects what capabilities.Validate already refuses.
+		// The chroma is the last format this engine reaches, which is the narrowest (10-bit where the
+		// element takes it, 4:2:0 where it does not) and therefore the one most likely to fail
+		// negotiation.
+		// A format the table declares gapped here is left out: refusing it is the point,
+		// and pinning it would only assert that the element rejects what capabilities.Validate already
+		// refuses.
 		engineChromas := cap.EngineChromas("gstreamer")
 
 		for _, mode := range []string{"cbr", "vbr", "abr", "crf", "lossless"} {
@@ -75,14 +77,14 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 			t.Run(name+"/"+mode, func(t *testing.T) {
 				s := baseStream()
 				s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = name, mode, engineChromas[len(engineChromas)-1]
-				// The quantizer target rides each encoder's own scale, and the default
-				// settings carry one from another codec's.
+				// The quantizer target rides each encoder's own scale, and the default settings carry one from
+				// another codec's.
 				s.Publish.Cq = cap.CqMaxOn(EngineGst) / 2
 
-				// System memory: what this covers is the properties an element takes,
-				// and the frames come off videotestsrc with no device in the chain. The
-				// device elements and the layouts they negotiate are measured where the
-				// conversion into them is (TestPublishedColorimetryReachesTheDecoder).
+				// System memory: what this covers is the properties an element takes, and the frames come off
+				// videotestsrc with no device in the chain.
+				// The device elements and the layouts they negotiate are measured where the conversion into
+				// them is (TestPublishedColorimetryReachesTheDecoder).
 				format, err := gstChromaFormat(name, s.Publish.Chroma, gpupath.MemorySystem)
 				if err != nil {
 					t.Fatal(err)
@@ -108,8 +110,8 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 				if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 					err = errors.New("the pipeline stalled: two frames in, nothing out")
 				}
-				// gst-launch reports a bad property or an unset caps field on stderr and
-				// still exits zero for some of them, so the output is checked as well.
+				// gst-launch reports a bad property or an unset caps field on stderr and still exits zero for
+				// some of them, so the output is checked as well.
 				if err != nil || strings.Contains(string(out), "no property") {
 					t.Errorf("gst-launch %s: %v\n%s", strings.Join(args, " "), err, out)
 				}
@@ -118,11 +120,11 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 	}
 }
 
-// Every codec the capability table declares implemented has to be buildable on the
-// engine that will be asked for it, or the portal capture backend fails at launch on a
-// combination the UI offered. A codec the table gaps off this engine is not asked for:
-// Validate refuses it here, which is the AMF rows' case, their plugin being
-// Windows-only, and the Vulkan ones', whose encoder takes Vulkan device memory.
+// Every codec the capability table declares implemented has to be buildable on the engine that will
+// be asked for it, or the portal capture backend fails at launch on a combination the UI offered.
+// A codec the table gaps off this engine is not asked for: Validate refuses it here,
+// which is the AMF rows' case, their plugin being Windows-only, and the Vulkan ones',
+// whose encoder takes Vulkan device memory.
 func TestEveryImplementedCodecHasAGstMapping(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		_, gap := c.EngineGap(EngineGst)
@@ -135,8 +137,8 @@ func TestEveryImplementedCodecHasAGstMapping(t *testing.T) {
 	}
 }
 
-// The reverse holds too: a mapping for a codec this engine is told it cannot run is
-// dead code the pipeline never reaches, and the gap's reason would be a lie.
+// The reverse holds too: a mapping for a codec this engine is told it cannot run is dead code the
+// pipeline never reaches, and the gap's reason would be a lie.
 func TestNoGstMappingForAGappedCodec(t *testing.T) {
 	for name := range gstCodecs {
 		c, ok := capabilities.Get(name)
@@ -149,10 +151,10 @@ func TestNoGstMappingForAGappedCodec(t *testing.T) {
 	}
 }
 
-// The quantizer target reaches every element on that element's own scale, so a codec
-// counting to 255 must not be handed a value clamped to 51, and the reverse.
-// The scale read here is this engine's: qsvvp9enc passes VP9's own quantizer index through
-// where the ffmpeg wrapper of the same silicon states a CQP on the H.26x scale.
+// The quantizer target reaches every element on that element's own scale, so a codec counting to
+// 255 must not be handed a value clamped to 51, and the reverse.
+// The scale read here is this engine's: qsvvp9enc passes VP9's own quantizer index through where
+// the ffmpeg wrapper of the same silicon states a CQP on the H.26x scale.
 func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 	for _, name := range []string{"libx264", "libvpx-vp9", "librav1e", "vp9_qsv"} {
 		cap, _ := capabilities.Get(name)
@@ -170,9 +172,9 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 	}
 }
 
-// The va elements state a VBR target as a percentage of the ceiling and take 50 at the
-// lowest, so a target under half its ceiling is a pair they have no form for. Coding it
-// at the floor would run 100 Mbit/s where 20 was asked for, and the ffmpeg engine hands
+// The va elements state a VBR target as a percentage of the ceiling and take 50 at the lowest,
+// so a target under half its ceiling is a pair they have no form for.
+// Coding it at the floor would run 100 Mbit/s where 20 was asked for, and the ffmpeg engine hands
 // the same settings to the same hardware as -b:v 20M -maxrate 200M.
 func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	s := baseStream()
@@ -188,8 +190,8 @@ func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 		}
 	}
 
-	// Half the ceiling is the lowest ratio the property expresses, so it builds, and
-	// what it builds targets what the settings state.
+	// Half the ceiling is the lowest ratio the property expresses, so it builds,
+	// and what it builds targets what the settings state.
 	s.Publish.BitrateM = 100
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
@@ -200,10 +202,11 @@ func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	}
 }
 
-// Every bitrate mode can drive the bitrate property past the range it accepts: cbr and
-// vbr with the figure the settings carry, abr with the ceiling it derives at twice the
-// target. Each is refused, since the alternative is a stream running at the bound
-// instead of at the rate the form shows.
+// Every bitrate mode can drive the bitrate property past the range it accepts:
+// cbr and vbr with the figure the settings carry, abr with the ceiling it derives at twice the
+// target.
+// Each is refused, since the alternative is a stream running at the bound instead of at the rate
+// the form shows.
 func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	aboveBoundM := vaMaxBitrateKbps/1000 + 1
 	for _, tc := range []struct {
@@ -237,10 +240,10 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	}
 }
 
-// The AV1 and VP9 qsv elements hold their bitrate in an unsigned 16-bit property where
-// the H.264 and H.265 ones take any rate, so the bound belongs to the row and not to the
-// family. Each bitrate mode can drive it past the range: cbr and vbr with the figure the
-// settings carry, abr with the ceiling it derives at twice the target.
+// The AV1 and VP9 qsv elements hold their bitrate in an unsigned 16-bit property where the H.264
+// and H.265 ones take any rate, so the bound belongs to the row and not to the family.
+// Each bitrate mode can drive it past the range: cbr and vbr with the figure the settings carry,
+// abr with the ceiling it derives at twice the target.
 func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 	aboveBoundM := qsvShortBitrateKbps/1000 + 1
 	for _, tc := range []struct {
@@ -263,8 +266,8 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 				t.Errorf("the refusal %q does not name the %d kbit/s limit", err, qsvShortBitrateKbps)
 			}
 
-			// The same rate on an H.26x element is inside its property's range, so the
-			// bound must not reach it.
+			// The same rate on an H.26x element is inside its property's range, so the bound must not reach
+			// it.
 			s.Publish.Codec = "h264_qsv"
 			if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 				t.Errorf("h264_qsv %s at %d Mbit/s: %v", tc.mode, tc.bitrateM, err)
@@ -285,14 +288,13 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 	}
 }
 
-// The two engines drive one SVT-AV1 library through different bindings, so a
-// stream's look must not depend on which capture backend produced it. The preset
-// is the knob that decides that look, and both builders now take it off the codec's
-// row, so what this holds is that neither of them spells a value of its own into the
-// command.
+// The two engines drive one SVT-AV1 library through different bindings, so a stream's look must not
+// depend on which capture backend produced it.
+// The preset is the knob that decides that look, and both builders now take it off the codec's row,
+// so what this holds is that neither of them spells a value of its own into the command.
 //
-// Both sides are read out of what was built rather than from a table, since a test that
-// asked the row would agree with itself whatever the builders spend.
+// Both sides are read out of what was built rather than from a table, since a test that asked the
+// row would agree with itself whatever the builders spend.
 func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	s := baseStream()
 	s.Publish.Codec = "libsvtav1"
@@ -300,9 +302,10 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	s.Publish.Transport = "rtsp"
 	s.Publish.Mode = "crf"
 	s.Publish.Capture = "x11grab"
-	// The steps this codec declares, which is what a draft naming it holds after the
-	// migration or the repair. The defaults carry another encoder's, and both builders
-	// refuse a step off the ladder rather than encoding at one the row never named.
+	// The steps this codec declares, which is what a draft naming it holds after the migration or the
+	// repair.
+	// The defaults carry another encoder's, and both builders refuse a step off the ladder rather than
+	// encoding at one the row never named.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 
 	args, err := ffmpeg.BuildPublishArgs(s, nil)
@@ -338,14 +341,13 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	}
 }
 
-// The GStreamer half of TestAbrAndVbrDifferWhereBothAreAllowed. abr aims at an
-// average and vbr bounds the burst above it, so an element that takes no ceiling
-// implements one of the two, and the table declares the other as a mode gap
-// (gstNoRateCeiling).
+// The GStreamer half of TestAbrAndVbrDifferWhereBothAreAllowed.
+// abr aims at an average and vbr bounds the burst above it, so an element that takes no ceiling
+// implements one of the two, and the table declares the other as a mode gap (gstNoRateCeiling).
 //
 // Every software element here was the failure this guards: x264enc, x265enc, vp8enc,
-// vp9enc and av1enc all built one command for both modes, so a VBR publish ran as an
-// uncapped average while the command and the estimate kept calling it VBR.
+// vp9enc and av1enc all built one command for both modes, so a VBR publish ran as an uncapped
+// average while the command and the estimate kept calling it VBR.
 func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -359,14 +361,15 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
 			s := baseStream()
 			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[0]
-			// A rate every element's property takes, so what this compares is the two
-			// modes and not one codec's rate bound. The defaults sit above SVT-AV1's
-			// ceiling and above what the qsv elements accept once abr doubles it.
+			// A rate every element's property takes, so what this compares is the two modes and not one
+			// codec's rate bound.
+			// The defaults sit above SVT-AV1's ceiling and above what the qsv elements accept once abr
+			// doubles it.
 			//
-			// The ceiling is deliberately not twice the target. That is the value abr
-			// derives for the families that coded against a maximum either way, so the
-			// two modes agree there for a reason, and a fixture sitting on it would
-			// report the agreement as a collapse.
+			// The ceiling is deliberately not twice the target.
+			// That is the value abr derives for the families that coded against a maximum either way,
+			// so the two modes agree there for a reason, and a fixture sitting on it would report the
+			// agreement as a collapse.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
 			if capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM) != nil {
 				continue

@@ -291,10 +291,31 @@ It is one value for every tile rather than one per stream: a chain falls back be
 A stream carrying one of the BT.2100 curves carries more range than a standard display shows, and no chain above converts it: every one of them applies matrix and range and no transfer function at all, so the frames reach the window labelled sRGB and carrying PQ samples.
 Rolling that range down is a rung of its own, built between the decoder and the chain, where the frames still carry the range they were coded in.
 
-The rung is `vapostproc hdr-tone-mapping=true`, which asks the VA driver for its tone-mapping filter, and it is declared on Linux alone.
-The software converter is not a substitute and was measured rather than assumed: `videoconvert gamma-mode=remap` converts the curve while normalizing PQ against the format's ten thousand nits rather than the display's hundred, and a mid-grey PQ frame through it comes out at a fifth of the code value it went in at.
+Two rungs are declared, and which one a machine builds is decided by parsing the fragment rather than by looking its factories up.
+
+`vapostproc hdr-tone-mapping=true` is first, and it asks the VA driver for its own tone-mapping filter.
+It is one element, because vapostproc takes and hands back either VA memory or system memory, so it needs no upload and links to whatever the chain after it begins with.
+It is Linux's alone, VA-API being the one driver interface in reach that states such a filter.
+
+Whether the driver has the filter is a different question from whether the element registers, and it is the question the probe exists for.
+`vapostproc` registers wherever a VA driver loads at all, while `hdr-tone-mapping` is a property GStreamer adds only where the driver reports `VAProcFilterHighDynamicRangeToneMapping`.
+Mesa's radeonsi reports it on no generation, so on an AMD card the element is there and the property is not, and a rung chosen by a registry lookup builds a launch line the parser rejects, which fails the decode outright instead of falling back.
+Probing by parse is the same operation the pipeline performs, which is what stops the two from ever disagreeing.
+
+The second rung brings its own conversion instead of asking for one: `glupload ! glcolorconvert ! glshader ! gldownload`, whose fragment shader inverts the PQ curve, puts BT.2408 reference white at display white, rolls what is above a knee into what is left below 1.0, converts BT.2020 primaries to BT.709 and encodes sRGB.
+It is carried on every platform, because it depends on no driver feature.
+The GLSL is written into the element after the parse rather than carried in the line, since a shader holds the newlines its preprocessor directives need and the quotes the parser reads as syntax.
+`glcolorconvert` ahead of it is not optional: `glshader` samples one RGBA texture where a decoder hands over planar YUV, and the conversion applies matrix and range and no transfer function, which is what leaves the curve intact for the shader to invert.
+`gldownload` is what lets one rung serve every chain, passing GL memory straight through where what follows accepts it, so the `gl` chain pays nothing and a chain in system memory or on another device gets the download it needs.
+Windows pays a round trip for it, its default chain being Direct3D 11, and only a tile that asked to tone-map pays it.
+
+The shader rolls PQ down and leaves HLG alone.
+PQ is absolute, so an untouched PQ picture is wrong by the ratio between the display's peak and the format's ten thousand nits, which is the failure the rung exists for.
+HLG is display-referred and its lower range tracks a standard gamma curve, which is the property it was designed around, so an HLG stream drawn as it arrives is approximately right rather than wrong.
+
+The software converter is a substitute for neither, and it was measured rather than assumed: `videoconvert gamma-mode=remap` converts the curve while normalizing PQ against the format's ten thousand nits rather than the display's hundred, and a mid-grey PQ frame through it comes out at a fifth of the code value it went in at.
 A darker picture is not a tone map.
-`d3d11convert` states the same two conversion modes as the software converter, gamma and primaries, and neither is a luminance rolloff, so Windows declares no rung and says so rather than offering a conversion the element does not promise.
+`d3d11convert` states the same two conversion modes as the software converter, gamma and primaries, and neither is a luminance rolloff, so it is named as a rung nowhere.
 
 It is a choice per tile, and it is asked for on `StartReceive` because it is part of what the decode is built from: a second call naming the other answer rebuilds that decode.
 The choice is stored nowhere.

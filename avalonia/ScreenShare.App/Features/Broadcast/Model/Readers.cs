@@ -5,22 +5,22 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
-/// The two facts about a relay reader that more than one card on this screen states: who it is,
-/// and when the relay accepted it.
+/// The two facts about a relay reader that more than one card on this screen states: who it is, and when the
+/// relay accepted it.
 ///
-/// They live in one place because the viewer table and the session log describe the same
-/// connections, and two spellings of "who is this" would let a row and a line disagree about one
-/// viewer while both were reading the same roster.
+/// They live in one place because the viewer table and the session log describe the same connections, and two
+/// spellings of "who is this" would let a row and a line disagree about one viewer while both were reading
+/// the same roster.
 /// </summary>
 public static class Readers
 {
     /// <summary>
-    /// Who a reader is: the address the relay saw, its handle on the connection where the relay
-    /// described it nowhere, and <see cref="Figure.NoValue"/> where it stated neither.
+    /// Who a reader is: the address the relay saw, its handle on the connection where the relay described it
+    /// nowhere, and <see cref="Figure.NoValue"/> where it stated neither.
     ///
-    /// It falls back and then gives up rather than asserting. These are the relay's own words,
-    /// and a relay that named a reader nothing is an environment condition this screen has to
-    /// survive - an unnameable viewer still reads as somebody who is connected.
+    /// It falls back and then gives up rather than asserting.
+    /// These are the relay's own words, and a relay that named a reader nothing is an environment condition
+    /// this screen has to survive - an unnameable viewer still reads as somebody who is connected.
     /// </summary>
     public static string NameOf(RelayReader reader)
     {
@@ -31,9 +31,9 @@ public static class Readers
     }
 
     /// <summary>
-    /// When the relay accepted this reader, and null where it said nothing this shell could
-    /// parse. It is the relay's clock: the relay is the only side that can date its own
-    /// connections, so this converts the instant and never composes one.
+    /// When the relay accepted this reader, and null where it said nothing this shell could parse.
+    /// It is the relay's clock: the relay is the only side that can date its own connections, so this
+    /// converts the instant and never composes one.
     /// </summary>
     public static DateTimeOffset? JoinedAt(RelayReader reader)
     {

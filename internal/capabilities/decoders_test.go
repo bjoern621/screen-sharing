@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// Both tables speak the same two vocabularies, formats and pixel formats, and the decode
-// verdict is looked up with values the codec table produced. A decoder row naming a
-// format nothing publishes answers a question no caller asks, and one naming a chroma
-// outside the set matches nothing it was written to cover.
+// Both tables speak the same two vocabularies, formats and pixel formats, and the decode verdict is
+// looked up with values the codec table produced.
+// A decoder row naming a format nothing publishes answers a question no caller asks,
+// and one naming a chroma outside the set matches nothing it was written to cover.
 func TestEveryDecoderRowSpeaksTheCodecTablesVocabulary(t *testing.T) {
 	chromas := map[string]bool{}
 	for _, c := range Codecs {
@@ -34,9 +34,9 @@ func TestEveryDecoderRowSpeaksTheCodecTablesVocabulary(t *testing.T) {
 	}
 }
 
-// A viewer decodes what a publisher sent, so every format and chroma the encode table
-// offers has to reach some decoder. A pair with neither a hardware nor a software row is
-// a stream nothing plays.
+// A viewer decodes what a publisher sent, so every format and chroma the encode table offers has to
+// reach some decoder.
+// A pair with neither a hardware nor a software row is a stream nothing plays.
 func TestEveryPublishableStreamHasADecoder(t *testing.T) {
 	for _, c := range Codecs {
 		if !c.Implemented {
@@ -55,8 +55,8 @@ func TestEveryPublishableStreamHasADecoder(t *testing.T) {
 	}
 }
 
-// One software decoder per format, since it is the one a verdict is measured against: two
-// rows would make "the CPU path" ambiguous and the first row would silently win.
+// One software decoder per format, since it is the one a verdict is measured against:
+// two rows would make "the CPU path" ambiguous and the first row would silently win.
 func TestOneSoftwareDecoderPerFormat(t *testing.T) {
 	seen := map[string]string{}
 	for _, d := range Decoders {
@@ -70,10 +70,10 @@ func TestOneSoftwareDecoderPerFormat(t *testing.T) {
 	}
 }
 
-// The verdicts the model exists for. 4:2:0 reaches every vendor, HEVC's full-chroma
-// profiles reach two of them, and H.264 4:4:4 reaches none: it is the one combination no
-// vendor ever put in silicon, which is also what makes lossless H.264 a software decode
-// everywhere.
+// The verdicts the model exists for.
+// 4:2:0 reaches every vendor, HEVC's full-chroma profiles reach two of them,
+// and H.264 4:4:4 reaches none: it is the one combination no vendor ever put in silicon,
+// which is also what makes lossless H.264 a software decode everywhere.
 func TestHardwareDecodeVerdicts(t *testing.T) {
 	cases := []struct {
 		format, chroma string
@@ -105,9 +105,9 @@ func TestHardwareDecodeVerdicts(t *testing.T) {
 	}
 }
 
-// The verdict follows the bitstream and not the encoder, so the two ways to publish one
-// format cost a viewer the same, and the reasons a publisher is shown come from the
-// families that carry the format but not the pixel format.
+// The verdict follows the bitstream and not the encoder, so the two ways to publish one format cost
+// a viewer the same, and the reasons a publisher is shown come from the families that carry the
+// format but not the pixel format.
 func TestDecodeOfFollowsTheFormat(t *testing.T) {
 	software, err := DecodeOf("libx265", "gbrp")
 	if err != nil {
@@ -124,8 +124,8 @@ func TestDecodeOfFollowsTheFormat(t *testing.T) {
 	if software.Software.Element != "avdec_h265" {
 		t.Errorf("HEVC falls back to %q, want avdec_h265", software.Software.Element)
 	}
-	// The two families that carry HEVC without its Range Extensions profiles are the
-	// ones a publisher choosing RGB is told about, and each says why.
+	// The two families that carry HEVC without its Range Extensions profiles are the ones a publisher
+	// choosing RGB is told about, and each says why.
 	var missing []string
 	for _, d := range software.Missing {
 		missing = append(missing, d.Element)

@@ -6,20 +6,20 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// The axes a rule may match on: the vocabulary, declared once, so a rule names a fact
-// by the same identifier every other consumer knows it by.
+// The axes a rule may match on: the vocabulary, declared once, so a rule names a fact by the same
+// identifier every other consumer knows it by.
 //
-// An axis that is a settings field carries that field's key, so a rule matching on the
-// codec and a form control the same rule greys are the one identifier on both sides. The
-// keys are spelled here rather than imported because this package is the one every other
-// domain package registers into and may therefore import nothing of theirs; the form
-// holds the two lists to each other in a test, so a rename that reaches only one of them
-// fails there rather than by binding nothing.
+// An axis that is a settings field carries that field's key, so a rule matching on the codec and a
+// form control the same rule greys are the one identifier on both sides.
+// The keys are spelled here rather than imported because this package is the one every other domain
+// package registers into and may therefore import nothing of theirs; the form holds the two lists
+// to each other in a test, so a rename that reaches only one of them fails there rather than by
+// binding nothing.
 //
-// The rest are derived facts, which are exactly what the old Gap could not express: the
-// publish engine is not a settings field but follows from the capture backend, and it
-// had a column of its own on every gap because there was nowhere else to put it. A
-// derived axis carries no field key, because there is no control to name.
+// The rest are derived facts, which are exactly what the old Gap could not express:
+// the publish engine is not a settings field but follows from the capture backend,
+// and it had a column of its own on every gap because there was nowhere else to put it.
+// A derived axis carries no field key, because there is no control to name.
 const (
 	AxisCodec      = "publish.codec"
 	AxisChroma     = "publish.chroma"
@@ -33,11 +33,11 @@ const (
 	AxisBitrateM   = "publish.bitrate_mbps"
 	AxisCq         = "publish.cq"
 
-	// FieldAudioGain is a control a rule lands on and no rule matches on. Not every
-	// control is a fact a configuration reads: the level one entry of the audio list runs
-	// at is something a rule states liveness about, and nothing binds under it. It is
-	// spelled here for the reason the axes are, since the form and the publish engine both
-	// name it and a second spelling is one that can disagree.
+	// FieldAudioGain is a control a rule lands on and no rule matches on.
+	// Not every control is a fact a configuration reads: the level one entry of the audio list runs at
+	// is something a rule states liveness about, and nothing binds under it.
+	// It is spelled here for the reason the axes are, since the form and the publish engine both name
+	// it and a second spelling is one that can disagree.
 	FieldAudioGain = "publish.audio_sources[].gain"
 
 	AxisEngine  = "engine"
@@ -47,13 +47,12 @@ const (
 	AxisDisplay = "platform.display"
 )
 
-// Kind is what an axis reads as, which decides how a match against it is written and
-// which of the two halves of a Value carries it.
+// Kind is what an axis reads as, which decides how a match against it is written and which of the
+// two halves of a Value carries it.
 type Kind int
 
 const (
-	// KindText is an identifier out of a closed set: a codec name, a pixel format, an
-	// engine.
+	// KindText is an identifier out of a closed set: a codec name, a pixel format, an engine.
 	KindText Kind = iota + 1
 	// KindNumber is a quantity, matched by range rather than by membership.
 	KindNumber
@@ -65,18 +64,18 @@ type Axis struct {
 	Name string
 	// Kind is what it reads as.
 	Kind Kind
-	// Arg is the argument a reason carries this axis under, so a statement naming the
-	// axis gets the current value attached without the rule spelling it. An axis with no
-	// argument is one no sentence has a slot for, which is asserted against rather than
-	// dropped: a fact worth constraining on is a fact worth naming in the refusal.
+	// Arg is the argument a reason carries this axis under, so a statement naming the axis gets the
+	// current value attached without the rule spelling it.
+	// An axis with no argument is one no sentence has a slot for, which is asserted against rather
+	// than dropped: a fact worth constraining on is a fact worth naming in the refusal.
 	Arg screensharev1.TextArgName
 }
 
 // axes is the vocabulary, in domain order.
 //
-// The order is read rather than decorative: a reason attaches the axes its rule matched
-// on in this order, so two rules matching the same facts produce their identifiers in
-// the same sequence and a shell reading them meets the subject before the qualifier.
+// The order is read rather than decorative: a reason attaches the axes its rule matched on in this
+// order, so two rules matching the same facts produce their identifiers in the same sequence and a
+// shell reading them meets the subject before the qualifier.
 var axes = []Axis{
 	{Name: AxisCapture, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CAPTURE},
 	{Name: AxisEngine, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE},
@@ -96,8 +95,8 @@ var axes = []Axis{
 	{Name: AxisCq, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CQ},
 }
 
-// The table describes one vocabulary, so a duplicate name or an axis with nothing to
-// carry its value is a bug in this file rather than a condition to survive.
+// The table describes one vocabulary, so a duplicate name or an axis with nothing to carry its
+// value is an Entwicklungsfehler rather than a condition to survive.
 func init() {
 	seen := make(map[string]bool, len(axes))
 	for _, a := range axes {
@@ -110,8 +109,7 @@ func init() {
 	}
 }
 
-// Declared returns the axis this name declares, and false for a name the vocabulary does
-// not carry.
+// Declared returns the axis this name declares, and false for a name the vocabulary does not carry.
 func Declared(name string) (Axis, bool) {
 	for _, a := range axes {
 		if a.Name == name {
@@ -121,14 +119,15 @@ func Declared(name string) (Axis, bool) {
 	return Axis{}, false
 }
 
-// Axes is the vocabulary in domain order, for a caller assembling the facts or
-// reporting on what may be matched.
+// Axes is the vocabulary in domain order, for a caller assembling the facts or reporting on what
+// may be matched.
 func Axes() []Axis {
 	return axes
 }
 
-// Value is one axis's reading. Which half carries it is the axis's Kind, and reading the
-// other half is asserted against rather than answered with a zero.
+// Value is one axis's reading.
+// Which half carries it is the axis's Kind, and reading the other half is asserted against rather
+// than answered with a zero.
 type Value struct {
 	text string
 	num  int
@@ -159,8 +158,9 @@ func (v Value) Number() int {
 
 // Facts is one configuration as the axes read it.
 //
-// It is assembled by the caller that holds the settings and the machine's answers, which
-// is what keeps this package free of both. Every axis a registered rule names has to be
-// present: an absent fact would make the rule bind nothing, which reads on screen as a
-// combination that is allowed rather than as a question nobody answered.
+// It is assembled by the caller that holds the settings and the machine's answers,
+// which is what keeps this package free of both.
+// Every axis a registered rule names has to be present: an absent fact would make the rule bind
+// nothing, which reads on screen as a combination that is allowed rather than as a question nobody
+// answered.
 type Facts map[string]Value

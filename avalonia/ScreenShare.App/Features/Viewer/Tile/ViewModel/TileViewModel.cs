@@ -11,28 +11,27 @@ using TablerIcons;
 namespace ScreenShare.App.Features.Viewer.Tile.ViewModel;
 
 /// <summary>
-/// One tile of the grid: the stream it draws, the figures over it, and the subscription the
-/// control behind it reads.
+/// One tile of the grid: the stream it draws, the figures over it, and the subscription the control behind it
+/// reads.
 ///
-/// <b>It holds two kinds of figure and they come from opposite directions.</b> What the
-/// pipeline is - the render chain that ran, the memory at each end, the decoder - is the
-/// backend's and is read through <see cref="Session.Receiving"/> on every pass, like every
-/// other state this shell draws. What this window got and drew is the tile's own and can come
-/// from nowhere else: a backend cannot see that a compositor was too slow to take a frame.
-/// The second kind arrives through <see cref="Report"/> and is the only state this class
-/// stores.
+/// <b>It holds two kinds of figure and they come from opposite directions.</b> What the pipeline is - the
+/// render chain that ran, the memory at each end, the decoder - is the backend's and is read through
+/// <see cref="Session.Receiving"/> on every pass, like every other state this shell draws.
+/// What this window got and drew is the tile's own and can come from nowhere else: a backend cannot see that
+/// a compositor was too slow to take a frame.
+/// The second kind arrives through <see cref="Report"/> and is the only state this class stores.
 ///
-/// <b>It decides nothing about the decode.</b> Whether a stream is being received is
-/// <c>StartReceive</c>'s answer and the roster's business, and whether the publish's local
-/// preview is running is the publish's; this draws whatever the subscription hands it and
-/// says why when it is handed nothing.
+/// <b>It decides nothing about the decode.</b> Whether a stream is being received is <c>StartReceive</c>'s
+/// answer and the roster's business, and whether the publish's local preview is running is the publish's;
+/// this draws whatever the subscription hands it and says why when it is handed nothing.
 ///
-/// <b>It is one class for every kind of tile, and that is deliberate.</b> The viewer's grid
-/// draws relay decodes, the broadcast screen's preview draws either the local one or a relay
-/// decode of this machine's own stream, and the wizard draws a screen; the difference between
-/// them is entirely in what a subscription names (<see cref="TileSource"/>) and where the
-/// pipeline's own state is read from (<see cref="TilePipeline"/>). A second implementation
-/// would be a second answer to what a dropped frame is and where a lent handle goes back.
+/// <b>It is one class for every kind of tile, and that is deliberate.</b> The viewer's grid draws relay
+/// decodes, the broadcast screen's preview draws either the local one or a relay decode of this machine's own
+/// stream, and the wizard draws a screen; the difference between them is entirely in what a subscription
+/// names (<see cref="TileSource"/>) and where the pipeline's own state is read from
+/// (<see cref="TilePipeline"/>).
+/// A second implementation would be a second answer to what a dropped frame is and where a lent handle goes
+/// back.
 /// </summary>
 public sealed class TileViewModel : Observable, IFrameSource
 {
@@ -41,19 +40,21 @@ public sealed class TileViewModel : Observable, IFrameSource
     private readonly Action<Action> _dispatch;
 
     /// <summary>
-    /// What the control last reported. The one piece of state here, and it is this window's own.
+    /// What the control last reported.
+    /// The one piece of state here, and it is this window's own.
     ///
-    /// It starts at <see cref="TileReport.Nothing"/> rather than at the struct's default,
-    /// because a tile is rendered as soon as it is added and its first report arrives after
-    /// that: a default carries a null notice, and the render reads the notice.
+    /// It starts at <see cref="TileReport.Nothing"/> rather than at the struct's default, because a tile is
+    /// rendered as soon as it is added and its first report arrives after that: a default carries a null
+    /// notice, and the render reads the notice.
     /// </summary>
     private TileReport _report = TileReport.Nothing;
 
     /// <param name="arrange">
-    /// Asks the screen holding this tile to arrange it differently: focus it, pop it out, put it
-    /// on a screen of its own. The tile raises the intent and decides none of it - which tile is
-    /// focused and which window a stream is drawn in are facts about the whole grid, and a tile
-    /// that wrote them would be one of several authors of one arrangement.
+    /// Asks the screen holding this tile to arrange it differently: focus it, pop it out, put it on a screen
+    /// of its own.
+    /// The tile raises the intent and decides none of it - which tile is focused and which window a stream is
+    /// drawn in are facts about the whole grid, and a tile that wrote them would be one of several authors of
+    /// one arrangement.
     /// </param>
     public TileViewModel(TileSource source, IBackend backend, Action<Action> dispatch, Action<TileIntent> arrange)
     {
@@ -71,10 +72,9 @@ public sealed class TileViewModel : Observable, IFrameSource
         ToggleFullscreen = new DelegateCommand(() => arrange(TileIntent.Fullscreen));
         LeaveFullscreen = new DelegateCommand(() => arrange(TileIntent.LeaveFullscreen));
         LeavePopOut = new DelegateCommand(() => arrange(TileIntent.LeavePopOut));
-        // The panel is derived on the render pass and only while it is up, so turning it on has
-        // to reach one. Raising Changed is how: the screen holding this tile renders it against
-        // the state as it stands now, rather than the panel opening empty and filling in
-        // whenever the next sample happens to land.
+        // The panel is derived on the render pass and only while it is up, so turning it on has to reach one.
+        // Raising Changed is how: the screen holding this tile renders it against the state as it stands now,
+        // rather than the panel opening empty and filling in whenever the next sample happens to land.
         ToggleStats = new DelegateCommand(() =>
         {
             ShowStats = !ShowStats;
@@ -117,67 +117,71 @@ public sealed class TileViewModel : Observable, IFrameSource
     private double _aspect = TileLayout.UnknownAspect;
 
     /// <summary>
-    /// Width over height of the stream this tile draws, and the assumed shape until the frame
-    /// channel has announced a pool.
+    /// Width over height of the stream this tile draws, and the assumed shape until the frame channel has
+    /// announced a pool.
     ///
-    /// It is the shape of the frames that arrive rather than of the box they are drawn in, which
-    /// is what makes it an input to the arrangement instead of a result of it. It moves once per
-    /// stream in the ordinary case - when the first pool lands - and again if the source resizes.
+    /// It is the shape of the frames that arrive rather than of the box they are drawn in, which is what
+    /// makes it an input to the arrangement instead of a result of it.
+    /// It moves once per stream in the ordinary case - when the first pool lands - and again if the source
+    /// resizes.
     /// </summary>
     public double Aspect { get => _aspect; private set => Set(ref _aspect, value); }
 
     /// <summary>
     /// The size of the frames this tile is drawing, and zero until a pool has announced one.
     ///
-    /// It is the frames own size rather than the decode's reported one, for the reason
-    /// <see cref="Aspect"/> is: what a tile draws is what the scaler produced for it. Anything
-    /// placing something over the picture needs it, because a position in the picture's pixels
-    /// is not a position in the card's.
+    /// It is the frames own size rather than the decode's reported one, for the reason <see cref="Aspect"/>
+    /// is: what a tile draws is what the scaler produced for it.
+    /// Anything placing something over the picture needs it, because a position in the picture's pixels is
+    /// not a position in the card's.
     /// </summary>
     public int PictureWidth => _report.Width;
 
     public int PictureHeight => _report.Height;
 
     /// <summary>
-    /// Whether this is the focused tile. Written by the screen that owns the arrangement, never
-    /// here: at most one tile carries it, and a tile cannot know what the others are doing.
+    /// Whether this is the focused tile.
+    /// Written by the screen that owns the arrangement, never here: at most one tile carries it, and a tile
+    /// cannot know what the others are doing.
     /// </summary>
     public bool IsFocused { get => _isFocused; set => Set(ref _isFocused, value); }
 
     /// <summary>
     /// Whether this stream is being drawn in a window of its own.
     ///
-    /// The tile keeps its place in the grid while it is: the slot stays, at this stream's shape,
-    /// and draws a plate saying where the picture went. Nothing reflows when a stream pops out
-    /// and nothing reflows when it comes back, which is the point of keeping the slot.
+    /// The tile keeps its place in the grid while it is: the slot stays, at this stream's shape, and draws a
+    /// plate saying where the picture went.
+    /// Nothing reflows when a stream pops out and nothing reflows when it comes back, which is the point of
+    /// keeping the slot.
     ///
-    /// The plate holds no subscription and asks for no render size. The popped window is the only
-    /// consumer, and a black box costing a full-size texture pool would be the one arrangement
-    /// this shell pays for twice.
+    /// The plate holds no subscription and asks for no render size.
+    /// The popped window is the only consumer, and a black box costing a full-size texture pool would be the
+    /// one arrangement this shell pays for twice.
     ///
-    /// <b>It says where the picture is, not what a card draws.</b> Both cards read this one tile
-    /// while a stream is popped out, so which of them draws the plate is stated by the host that
-    /// templates it (<c>Features/Viewer/Tile/View/TileCard.axaml.cs</c>). A card that decided it
-    /// from here would draw the plate in the window that was opened to hold the picture.
+    /// <b>It says where the picture is, not what a card draws.</b> Both cards read this one tile while a
+    /// stream is popped out, so which of them draws the plate is stated by the host that templates it
+    /// (<c>Features/Viewer/Tile/View/TileCard.axaml.cs</c>).
+    /// A card that decided it from here would draw the plate in the window that was opened to hold the
+    /// picture.
     /// </summary>
     public bool IsPoppedOut { get => _isPoppedOut; set => Set(ref _isPoppedOut, value); }
 
     /// <summary>
     /// Whether the window drawing this stream is filling a screen with it.
     ///
-    /// Written by the screen that owns the arrangement, like the two above and for the same
-    /// reason: which window a stream is in decides which fullscreen state answers for it, and a
-    /// tile knows neither. It is here so the menu's fullscreen row can show whether it is in
-    /// force, which is the one thing a reader cannot see from inside a filled screen.
+    /// Written by the screen that owns the arrangement, like the two above and for the same reason: which
+    /// window a stream is in decides which fullscreen state answers for it, and a tile knows neither.
+    /// It is here so the menu's fullscreen row can show whether it is in force, which is the one thing a
+    /// reader cannot see from inside a filled screen.
     /// </summary>
     public bool IsFullscreen { get => _isFullscreen; set => Set(ref _isFullscreen, value); }
 
     /// <summary>
     /// Whether the stats panel is up over this tile.
     ///
-    /// Per tile rather than per window: it is turned on for the one stream being diagnosed, and
-    /// an app-wide switch would paint six tiles to answer a question about one. Off by default,
-    /// and it dies with the tile - a diagnostic that outlived the question is a diagnostic
+    /// Per tile rather than per window: it is turned on for the one stream being diagnosed, and an app-wide
+    /// switch would paint six tiles to answer a question about one.
+    /// Off by default, and it dies with the tile - a diagnostic that outlived the question is a diagnostic
     /// nobody turned off.
     /// </summary>
     public bool ShowStats { get => _showStats; private set => Set(ref _showStats, value); }
@@ -186,16 +190,15 @@ public sealed class TileViewModel : Observable, IFrameSource
     public string Title { get => _title; private set => Set(ref _title, value); }
 
     /// <summary>
-    /// The stats panel: every stage of the pipeline and the figures read off it, in the order
-    /// the frames pass through.
+    /// The stats panel: every stage of the pipeline and the figures read off it, in the order the frames pass
+    /// through.
     ///
-    /// Empty while the panel is down, which is what keeps it free: nothing composes forty rows
-    /// per tile per sample to draw a panel nobody opened.
+    /// Empty while the panel is down, which is what keeps it free: nothing composes forty rows per tile per
+    /// sample to draw a panel nobody opened.
     ///
-    /// It is converged rather than replaced on each pass, which is what lets a tooltip survive
-    /// the sample that lands under it: a row keeps its identity for as long as the pipeline
-    /// reports the same figures, and only the reading is written
-    /// (<see cref="Features.Viewer.Tile.Model.TileStats.Merge"/>).
+    /// It is converged rather than replaced on each pass, which is what lets a tooltip survive the sample
+    /// that lands under it: a row keeps its identity for as long as the pipeline reports the same figures,
+    /// and only the reading is written (<see cref="Features.Viewer.Tile.Model.TileStats.Merge"/>).
     /// </summary>
     public ObservableCollection<StatSection> Stats { get; } = [];
 
@@ -210,15 +213,15 @@ public sealed class TileViewModel : Observable, IFrameSource
     // --- Audio -----------------------------------------------------------------------
     //
     // All three are read through the decode's state rather than remembered from what was sent
-    // (docs/ipc-api.md): the loudness belongs to the decode, two windows on one decode share one
-    // audio branch, and a slider that trusted its own last write would be the second author of a
-    // value it does not own.
+    // (docs/ipc-api.md): the loudness belongs to the decode, two windows on one decode share one audio
+    // branch, and a slider that trusted its own last write would be the second author of a value it does not
+    // own.
 
     /// <summary>
     /// Whether the decode carries an audio track at all.
     ///
-    /// False is a different fact from silence and draws differently: no meter and a greyed
-    /// volume, rather than an empty meter and a live one.
+    /// False is a different fact from silence and draws differently: no meter and a greyed volume, rather
+    /// than an empty meter and a live one.
     /// </summary>
     public bool HasAudio { get => _hasAudio; private set => Set(ref _hasAudio, value); }
 
@@ -228,10 +231,10 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// How loud the decode plays, from zero to one.
     ///
-    /// The setter is what the slider writes, and it sends rather than stores: the value comes
-    /// back on the decode's state and is written here by the render pass. A drag therefore issues
-    /// one effect per step, each of which is a state the backend can already be in - which is why
-    /// the effect had to be idempotent before a slider could be pointed at it.
+    /// The setter is what the slider writes, and it sends rather than stores: the value comes back on the
+    /// decode's state and is written here by the render pass.
+    /// A drag therefore issues one effect per step, each of which is a state the backend can already be in -
+    /// which is why the effect had to be idempotent before a slider could be pointed at it.
     /// </summary>
     public double Volume
     {
@@ -248,12 +251,11 @@ public sealed class TileViewModel : Observable, IFrameSource
     }
 
     /// <summary>
-    /// How loud the stream actually is, as a fraction of the meter's span, and zero where nothing
-    /// is being metered.
+    /// How loud the stream actually is, as a fraction of the meter's span, and zero where nothing is being
+    /// metered.
     ///
-    /// It is measured before the volume element, so a muted tile still shows its stream making
-    /// noise - which is how a reader notices they muted the one that started talking
-    /// (<c>internal/receive/audio.go</c>).
+    /// It is measured before the volume element, so a muted tile still shows its stream making noise - which
+    /// is how a reader notices they muted the one that started talking (<c>internal/receive/audio.go</c>).
     /// </summary>
     public double Level { get => _level; private set => Set(ref _level, value); }
 
@@ -262,60 +264,55 @@ public sealed class TileViewModel : Observable, IFrameSource
 
     // --- Colour ----------------------------------------------------------------------
     //
-    // All four are read through the decode's state for the reason the loudness is: what a
-    // stream carries is settled when the decoder negotiates, what the pipeline does about it
-    // is what the pipeline was built with, and a tile that remembered what it asked for would
-    // be the second author of both.
+    // All four are read through the decode's state for the reason the loudness is: what a stream carries is
+    // settled when the decoder negotiates, what the pipeline does about it is what the pipeline was built
+    // with, and a tile that remembered what it asked for would be the second author of both.
 
     /// <summary>
     /// Whether this stream carries more range than a standard display shows.
     ///
-    /// The backend's verdict on the transfer characteristic and not a reading of it here: two
-    /// curves are HDR and every other one describes a standard-range picture whatever its
-    /// primaries are, and that table belongs to the side that also refuses to publish one in
-    /// eight bits.
+    /// The backend's verdict on the transfer characteristic and not a reading of it here: two curves are HDR
+    /// and every other one describes a standard-range picture whatever its primaries are, and that table
+    /// belongs to the side that also refuses to publish one in eight bits.
     /// </summary>
     public bool IsHdr { get => _isHdr; private set => Set(ref _isHdr, value); }
 
     /// <summary>
     /// Whether the decode is rolling that range down into the one this display shows.
     ///
-    /// What ran, not what was asked for: a machine with no element for it builds the decode
-    /// without one, and a tick that showed the request would claim a conversion nobody made.
+    /// What ran, not what was asked for: a machine with no element for it builds the decode without one, and
+    /// a tick that showed the request would claim a conversion nobody made.
     /// </summary>
     public bool ToneMapped { get => _toneMapped; private set => Set(ref _toneMapped, value); }
 
     /// <summary>
-    /// Whether this machine can roll the range down at all, which is what the control is
-    /// enabled by. A machine that cannot keeps the row greyed with <see cref="ColourNote"/>
-    /// saying what is absent, rather than offering a conversion nothing performs.
+    /// Whether this machine can roll the range down at all, which is what the control is enabled by.
+    /// A machine that cannot keeps the row greyed with <see cref="ColourNote"/> saying what is absent, rather
+    /// than offering a conversion nothing performs.
     /// </summary>
     public bool CanToneMap { get => _canToneMap; private set => Set(ref _canToneMap, value); }
 
     /// <summary>
-    /// What this tile is drawing in colour terms, and empty for a stream whose range this
-    /// display shows.
+    /// What this tile is drawing in colour terms, and empty for a stream whose range this display shows.
     ///
-    /// It is the badge over the picture, and the whole of what tells a reader the choice
-    /// exists: an HDR stream drawn as it arrives is not obviously wrong, it is a picture with
-    /// the wrong brightness, which reads as a bad stream rather than as a setting.
+    /// It is the badge over the picture, and the whole of what tells a reader the choice exists: an HDR
+    /// stream drawn as it arrives is not obviously wrong, it is a picture with the wrong brightness, which
+    /// reads as a bad stream rather than as a setting.
     /// </summary>
     public string ColourNote { get => _colourNote; private set => Set(ref _colourNote, value); }
 
     /// <summary>
-    /// Whether the badge has anything to say, which is what draws it. Written beside the
-    /// sentence rather than derived from it, which is how <see cref="HasNotice"/> is written
-    /// too: a binding on a computed property is one nothing raises a change for.
+    /// Whether the badge has anything to say, which is what draws it.
+    /// Written beside the sentence rather than derived from it, which is how <see cref="HasNotice"/> is
+    /// written too: a binding on a computed property is one nothing raises a change for.
     /// </summary>
     public bool HasColourNote { get => _hasColourNote; private set => Set(ref _hasColourNote, value); }
 
     /// <summary>
-    /// What the tone-map row says: what it does on a machine that can, and what is absent on
-    /// one that cannot.
+    /// What the tone-map row says: what it does on a machine that can, and what is absent on one that cannot.
     ///
-    /// A greyed control that says nothing teaches nothing, which is the same contract every
-    /// refused option in this app keeps - the row names what would have to be installed
-    /// (<c>docs/field-availability.md</c>).
+    /// A greyed control that says nothing teaches nothing, which is the same contract every refused option in
+    /// this app keeps - the row names what would have to be installed (<c>docs/field-availability.md</c>).
     /// </summary>
     public string ToneMapNote { get => _toneMapNote; private set => Set(ref _toneMapNote, value); }
 
@@ -331,21 +328,21 @@ public sealed class TileViewModel : Observable, IFrameSource
     public DelegateCommand ToggleFullscreen { get; }
 
     /// <summary>
-    /// Gives the window holding this tile back to its grid, and does nothing when it is not
-    /// filling a screen.
+    /// Gives the window holding this tile back to its grid, and does nothing when it is not filling a screen.
     ///
-    /// One direction rather than a toggle, because it is what Escape means: a key that toggled
-    /// would take a windowed stream fullscreen from inside a menu the reader was trying to close.
+    /// One direction rather than a toggle, because it is what Escape means: a key that toggled would take a
+    /// windowed stream fullscreen from inside a menu the reader was trying to close.
     /// </summary>
     public DelegateCommand LeaveFullscreen { get; }
 
     /// <summary>
     /// Draws this stream in the grid, and does nothing when it is already there.
     ///
-    /// What a closed pop-out window reports. One direction rather than a toggle, because a window
-    /// that has closed is news about a state rather than a request to change one: the pass that
-    /// closes a window is itself acting on a stream that was already given back, and a toggle
-    /// raised from there would pop the stream straight out again into a second window.
+    /// What a closed pop-out window reports.
+    /// One direction rather than a toggle, because a window that has closed is news about a state rather than
+    /// a request to change one: the pass that closes a window is itself acting on a stream that was already
+    /// given back, and a toggle raised from there would pop the stream straight out again into a second
+    /// window.
     /// </summary>
     public DelegateCommand LeavePopOut { get; }
 
@@ -356,37 +353,38 @@ public sealed class TileViewModel : Observable, IFrameSource
     public PendingCommand ToggleMute { get; }
 
     /// <summary>
-    /// Rolls this stream's range down into the one this display shows, or draws it as it
-    /// arrives. Enabled on a tile drawing an HDR stream on a machine that has an element for
-    /// it, and greyed with a reason everywhere else.
+    /// Rolls this stream's range down into the one this display shows, or draws it as it arrives.
+    /// Enabled on a tile drawing an HDR stream on a machine that has an element for it, and greyed with a
+    /// reason everywhere else.
     /// </summary>
     public PendingCommand ToggleToneMap { get; }
 
-    // Every row in the menu names one arrangement and holds still. The glyph and the wording are
-    // the markup's, because neither of them moves; what moves is the state each row reports, and
-    // that is the five flags above and beside this block, which the row draws as a tick
+    // Every row in the menu names one arrangement and holds still.
+    // The glyph and the wording are the markup's, because neither of them moves; what moves is the state each
+    // row reports, and that is the five flags above and beside this block, which the row draws as a tick
     // (docs/design-language.md, "Menus").
     //
-    // The pair of properties per row that used to be here - a label reading "Unmute" on a muted
-    // stream and a glyph swapping under it - said what pressing the row would do and therefore
-    // never said what was true. A menu is read at rest far more often than it is pressed.
+    // The pair of properties per row that used to be here - a label reading "Unmute" on a muted stream and a
+    // glyph swapping under it - said what pressing the row would do and therefore never said what was true.
+    // A menu is read at rest far more often than it is pressed.
 
     // --- Lifecycle -------------------------------------------------------------------
 
     /// <summary>
-    /// The one render function. Reads the decode's state through on every pass and combines it
-    /// with the report the control last made, so an unchanged pair fires no binding.
+    /// The one render function.
+    /// Reads the decode's state through on every pass and combines it with the report the control last made,
+    /// so an unchanged pair fires no binding.
     /// </summary>
     /// <param name="sample">
-    /// The last sample of this decode, and null where none has arrived or where this tile draws
-    /// something that is not a relay decode. It is separate from <paramref name="pipeline"/>
-    /// because the two are a state and a measurement: what a decode is is announced when it
-    /// changes, and what it is doing is read off the pipeline on a clock.
+    /// The last sample of this decode, and null where none has arrived or where this tile draws something
+    /// that is not a relay decode.
+    /// It is separate from <paramref name="pipeline"/> because the two are a state and a measurement: what a
+    /// decode is is announced when it changes, and what it is doing is read off the pipeline on a clock.
     /// </param>
     public void Apply(TilePipeline? pipeline, ReceiveStreamStats? sample)
     {
-        // Only a relay decode crossed a protocol, so only a relay decode has one to name
-        // beside the stream. Everything else on the heading is the same fact either way.
+        // Only a relay decode crossed a protocol, so only a relay decode has one to name beside the stream.
+        // Everything else on the heading is the same fact either way.
         Title = _source.IsRelay ? $"{Name} · {Words.Transport(Transport)}" : Name;
         IsLive = _report.Live;
 
@@ -394,15 +392,16 @@ public sealed class TileViewModel : Observable, IFrameSource
         HasNotice = Notice.Length > 0;
         Aspect = AspectOf();
 
-        // Composed only while the panel is up. It is forty rows off a sample that lands once a
-        // second, and every tile in the grid would be building them to draw none of them.
+        // Composed only while the panel is up.
+        // It is forty rows off a sample that lands once a second, and every tile in the grid would be
+        // building them to draw none of them.
         TileStats.Merge(Stats, ShowStats ? TileStats.Of(sample, _report) : []);
 
-        // The loudness is the pipeline's and is read through it. A pipeline that is gone leaves
-        // the controls at their defaults rather than at whatever the last one was set to: the
-        // next decode of this stream starts unchanged and unmuted, and a slider showing
-        // otherwise would be describing a pipeline that no longer exists. A preview reports no
-        // track at all, so it lands here as a video-only stream does.
+        // The loudness is the pipeline's and is read through it.
+        // A pipeline that is gone leaves the controls at their defaults rather than at whatever the last one
+        // was set to: the next decode of this stream starts unchanged and unmuted, and a slider showing
+        // otherwise would be describing a pipeline that no longer exists.
+        // A preview reports no track at all, so it lands here as a video-only stream does.
         HasAudio = pipeline?.HasAudio ?? false;
         Set(ref _volume, pipeline?.Volume ?? 1, nameof(Volume));
         Muted = pipeline?.Muted ?? false;
@@ -410,16 +409,17 @@ public sealed class TileViewModel : Observable, IFrameSource
 
         if (!HasAudio)
         {
-            // No track is no meter. Left where it was, a bar would go on showing the last
-            // measurement of a stream that has stopped carrying sound.
+            // No track is no meter.
+            // Left where it was, a bar would go on showing the last measurement of a stream that has stopped
+            // carrying sound.
             HasLevel = false;
             Level = 0;
         }
 
-        // The colour is the pipeline's too, and a pipeline that is gone leaves nothing to say
-        // about it: what a stream carried is a fact about a decode that is no longer running.
-        // Only a relay decode is offered the choice, because only a relay decode is opened by
-        // the call that carries it.
+        // The colour is the pipeline's too, and a pipeline that is gone leaves nothing to say about it: what
+        // a stream carried is a fact about a decode that is no longer running.
+        // Only a relay decode is offered the choice, because only a relay decode is opened by the call that
+        // carries it.
         IsHdr = pipeline?.Hdr ?? false;
         ToneMapped = pipeline?.ToneMap ?? false;
         CanToneMap = _source.IsRelay && IsHdr && (pipeline?.CanToneMap ?? false);
@@ -437,9 +437,9 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// Takes one measurement of this decode's loudness, or none.
     ///
-    /// <b>Its own entry point, and not part of <see cref="Apply"/>.</b> Levels arrive fifteen
-    /// times a second on a stream of their own, and running the render pass at that rate would
-    /// re-read the whole session to move one bar (<c>Backend/Session.cs</c>, <c>Metered</c>).
+    /// <b>Its own entry point, and not part of <see cref="Apply"/>.</b> Levels arrive fifteen times a second
+    /// on a stream of their own, and running the render pass at that rate would re-read the whole session to
+    /// move one bar (<c>Backend/Session.cs</c>, <c>Metered</c>).
     /// This writes the two properties the meter binds and nothing else.
     /// </summary>
     public void Meter(AudioLevel? level)
@@ -458,10 +458,10 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// Where one decibel reading sits on the meter, from zero to one.
     ///
-    /// Decibels relative to full scale run from zero downwards with no bottom - digital silence
-    /// is negative infinity - so a bar needs a floor, and this is it. Sixty decibels of span is
-    /// the range a meter of this size can show a difference across; quieter than that reads as
-    /// silence, which for a bar a few pixels tall it is.
+    /// Decibels relative to full scale run from zero downwards with no bottom - digital silence is negative
+    /// infinity - so a bar needs a floor, and this is it.
+    /// Sixty decibels of span is the range a meter of this size can show a difference across; quieter than
+    /// that reads as silence, which for a bar a few pixels tall it is.
     /// </summary>
     private static double Fraction(double db)
     {
@@ -476,11 +476,11 @@ public sealed class TileViewModel : Observable, IFrameSource
     }
 
     /// <summary>
-    /// The shape the tile is arranged at: the frames' own once a pool has announced one, and the
-    /// assumed shape until then.
+    /// The shape the tile is arranged at: the frames' own once a pool has announced one, and the assumed
+    /// shape until then.
     ///
-    /// The frames' size rather than the decode's reported one, because what a tile draws is what
-    /// the scaler produced for it and the two differ by exactly the bound this tile asked for.
+    /// The frames' size rather than the decode's reported one, because what a tile draws is what the scaler
+    /// produced for it and the two differ by exactly the bound this tile asked for.
     /// </summary>
     private double AspectOf()
         => _report.Width > 0 && _report.Height > 0
@@ -490,30 +490,26 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// Asks the backend for a loudness, and says nothing about what it became.
     ///
-    /// The answer arrives as receive state, like every other effect's does, so what the slider
-    /// draws is a fact the backend stated rather than the value this shell last sent. A refusal
-    /// is swallowed here on purpose: the one refusal this call has is a decode that is no longer
+    /// The answer arrives as receive state, like every other effect's does, so what the slider draws is a
+    /// fact the backend stated rather than the value this shell last sent.
+    /// A refusal is swallowed here on purpose: the one refusal this call has is a decode that is no longer
     /// running, and the tile is already drawing that.
     /// </summary>
     /// <summary>
-    /// Asks for this stream to be drawn rolled down into the range this display shows, or as
-    /// it arrives.
+    /// Asks for this stream to be drawn rolled down into the range this display shows, or as it arrives.
     ///
-    /// <b>It is the same call that opened the decode.</b> Tone mapping is an element of the
-    /// pipeline rather than a value written to a running one, so the answer is changed by
-    /// naming the state the decode should be in and letting the backend rebuild it - which
-    /// makes a repeat of this cost nothing, and makes the tick come back through the decode's
-    /// own state rather than from what was sent.
+    /// <b>It is the same call that opened the decode.</b> Tone mapping is an element of the pipeline rather
+    /// than a value written to a running one, so the answer is changed by naming the state the decode should
+    /// be in and letting the backend rebuild it - which makes a repeat of this cost nothing, and makes the
+    /// tick come back through the decode's own state rather than from what was sent.
     ///
-    /// The tile goes dark for as long as one decode takes to open, which is the price of the
-    /// element being in the line, and it is why this is a choice and not something done to
-    /// every HDR stream.
+    /// The tile goes dark for as long as one decode takes to open, which is the price of the element being in
+    /// the line, and it is why this is a choice and not something done to every HDR stream.
     /// </summary>
     private async Task SendToneMapAsync(bool toneMap)
     {
-        // Only a relay decode is opened by this call, and neither preview has the pair it is
-        // keyed by. Nothing on screen offers the choice on one; this is the guard for a caller
-        // that got there anyway.
+        // Only a relay decode is opened by this call, and neither preview has the pair it is keyed by.
+        // Nothing on screen offers the choice on one; this is the guard for a caller that got there anyway.
         if (!_source.IsRelay)
         {
             return;
@@ -533,10 +529,11 @@ public sealed class TileViewModel : Observable, IFrameSource
 
     private async Task SendAudioAsync(double volume, bool muted)
     {
-        // The effect is keyed by the pair a relay decode is identified by, and neither preview
-        // has either half of it. Refusing here rather than at the control is the honest shape:
-        // a preview reports no track, so nothing on screen offers a volume in the first place,
-        // and this is the guard for a caller that got one anyway.
+        // The effect is keyed by the pair a relay decode is identified by, and neither preview has either
+        // half of it.
+        // Refusing here rather than at the control is the honest shape: a preview reports no track, so
+        // nothing on screen offers a volume in the first place, and this is the guard for a caller that got
+        // one anyway.
         if (!_source.IsRelay)
         {
             return;
@@ -561,8 +558,8 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <inheritdoc />
     public void Report(TileReport report)
     {
-        // The control is on the UI loop already, but the dispatch is kept rather than assumed:
-        // it is the one guarantee that a report and an event-driven pass cannot interleave.
+        // The control is on the UI loop already, but the dispatch is kept rather than assumed: it is the one
+        // guarantee that a report and an event-driven pass cannot interleave.
         _dispatch(() =>
         {
             _report = report;
@@ -576,20 +573,19 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// Why this tile is dark.
     ///
-    /// Three states a reader has to be able to tell apart, and the order is the order they
-    /// happen in: nothing is decoding this pair, the pipeline is up and no frame has left it,
-    /// or the tile itself could not draw what it was handed. The last one is the control's own
-    /// sentence and is shown as it stands, because it names a driver or a handle type and
-    /// nothing else here knows either.
+    /// Three states a reader has to be able to tell apart, and the order is the order they happen in: nothing
+    /// is decoding this pair, the pipeline is up and no frame has left it, or the tile itself could not draw
+    /// what it was handed.
+    /// The last one is the control's own sentence and is shown as it stands, because it names a driver or a
+    /// handle type and nothing else here knows either.
     /// </summary>
     /// <summary>
     /// The badge over an HDR picture, and nothing for a stream whose range this display shows.
     ///
-    /// It names the curve and what is being done about it, in that order, because those are
-    /// the two things a reader comparing two tiles of one stream is comparing. It is drawn in
-    /// both states rather than only the untouched one: a tile that says nothing once the
-    /// conversion is on would leave the reader unable to tell which of the two they are
-    /// looking at.
+    /// It names the curve and what is being done about it, in that order, because those are the two things a
+    /// reader comparing two tiles of one stream is comparing.
+    /// It is drawn in both states rather than only the untouched one: a tile that says nothing once the
+    /// conversion is on would leave the reader unable to tell which of the two they are looking at.
     /// </summary>
     private static string ColourNoteFor(TilePipeline? pipeline)
     {
@@ -604,12 +600,12 @@ public sealed class TileViewModel : Observable, IFrameSource
     }
 
     /// <summary>
-    /// What the tone-map row says beside itself, and nothing where the control is live and
-    /// needs no explaining.
+    /// What the tone-map row says beside itself, and nothing where the control is live and needs no
+    /// explaining.
     ///
-    /// A row this tile cannot take names what is absent, which is the contract every refused
-    /// option in this app keeps: an element this build does not register is something to
-    /// install, and a platform with no route at all is not, so the two do not read alike.
+    /// A row this tile cannot take names what is absent, which is the contract every refused option in this
+    /// app keeps: an element this build does not register is something to install, and a platform with no
+    /// route at all is not, so the two do not read alike.
     /// </summary>
     private static string ToneMapNoteFor(TilePipeline? pipeline, bool isRelay)
     {
@@ -640,8 +636,8 @@ public sealed class TileViewModel : Observable, IFrameSource
 
         if (pipeline is null)
         {
-            // In the source's own terms: a stream nobody opened a decode for and a screen
-            // nobody is reading are different things to do something about.
+            // In the source's own terms: a stream nobody opened a decode for and a screen nobody is reading
+            // are different things to do something about.
             return _source.Missing;
         }
 

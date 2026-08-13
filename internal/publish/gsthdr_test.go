@@ -8,9 +8,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/gstrun"
 )
 
-// What the caps say is the whole of the verdict, so the readings are held to real caps
-// strings: the named colorimetries a capture negotiates, the four-component form a
-// capsfilter pins, and caps carrying no colorimetry at all.
+// What the caps say is the whole of the verdict, so the readings are held to real caps strings:
+// the named colorimetries a capture negotiates, the four-component form a capsfilter pins,
+// and caps carrying no colorimetry at all.
 func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -37,17 +37,17 @@ func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 			trans: "bt709",
 		},
 		{
-			// Wide primaries and a standard-range curve. It is the case the transfer
-			// characteristic exists to separate: a wide-gamut SDR desktop is not HDR, and
-			// reading the primaries instead would publish this one as if it were.
+			// Wide primaries and a standard-range curve.
+			// It is the case the transfer characteristic exists to separate: a wide-gamut SDR desktop is not
+			// HDR, and reading the primaries instead would publish this one as if it were.
 			name:  "a wide-gamut SDR surface",
 			caps:  "video/x-raw, format=(string)BGRx, colorimetry=(string)bt2020",
 			hdr:   false,
 			trans: "bt2020-10",
 		},
 		{
-			// The form a capsfilter pins: range:matrix:transfer:primaries. It answers in
-			// the same nicks the named form does, which is what lets the child hold one
+			// The form a capsfilter pins: range:matrix:transfer:primaries.
+			// It answers in the same nicks the named form does, which is what lets the child hold one
 			// against the other when it narrows the encoder input to the surface's colour.
 			name:  "the four-component form",
 			caps:  "video/x-raw, format=(string)P010_10LE, colorimetry=(string)1:6:14:7",
@@ -61,8 +61,8 @@ func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 			trans: "bt709",
 		},
 		{
-			// Caps carrying none are SDR. Guessing upward is what publishes a PQ tag over
-			// a desktop that never carried one.
+			// Caps carrying none are SDR.
+			// Guessing upward is what publishes a PQ tag over a desktop that never carried one.
 			name:  "caps that say nothing about colour",
 			caps:  "video/x-raw, format=(string)I420, width=(int)64",
 			hdr:   false,
@@ -80,9 +80,9 @@ func TestAnHdrCaptureIsReadOffTheCapsAndNeverGuessed(t *testing.T) {
 	}
 }
 
-// An HDR capture in eight bits stops the publish, and the refusal names both ends: what
-// the capture turned out to carry and what the settings asked to code it as. Either one is
-// a way out, and which to take is the user's.
+// An HDR capture in eight bits stops the publish, and the refusal names both ends:
+// what the capture turned out to carry and what the settings asked to code it as.
+// Either one is a way out, and which to take is the user's.
 func TestAnHdrCaptureRefusesTheEightBitFormats(t *testing.T) {
 	const pq = "video/x-raw, format=(string)P010_10LE, colorimetry=(string)bt2100-pq"
 
@@ -109,8 +109,9 @@ func TestAnHdrCaptureRefusesTheEightBitFormats(t *testing.T) {
 	}
 }
 
-// An SDR capture is refused nothing, whatever it is coded as. The rule is about a surface
-// that carries more than the format can, and every combination here carries less.
+// An SDR capture is refused nothing, whatever it is coded as.
+// The rule is about a surface that carries more than the format can, and every combination here
+// carries less.
 func TestAnSdrCaptureIsRefusedNothing(t *testing.T) {
 	for _, chroma := range []string{"yuv420p", "gbrp", tenBitChroma} {
 		s := baseStream()
@@ -121,9 +122,10 @@ func TestAnSdrCaptureIsRefusedNothing(t *testing.T) {
 	}
 }
 
-// The two kinds of line on the child's output reach the two readers of it, and neither
-// sees the other's. The meter is nil here, which is a run nobody asked progress from and
-// which still reports what it captured.
+// The two kinds of line on the child's output reach the two readers of it,
+// and neither sees the other's.
+// The meter is nil here, which is a run nobody asked progress from and which still reports what it
+// captured.
 func TestTheChildsOutputSplitsCapsFromProgress(t *testing.T) {
 	output := strings.Join([]string{
 		"progressreport0 (00:00:01): 60 buffers",
@@ -144,9 +146,9 @@ func TestTheChildsOutputSplitsCapsFromProgress(t *testing.T) {
 	}
 }
 
-// Through the runner the publish child runs: a pipeline whose source negotiates PQ is
-// reported as PQ, so the verdict above is taken on what a capture really says rather than
-// on a string written in a test.
+// Through the runner the publish child runs: a pipeline whose source negotiates PQ is reported as
+// PQ, so the verdict above is taken on what a capture really says rather than on a string written
+// in a test.
 func TestAPqPipelineReportsItselfAsHdr(t *testing.T) {
 	caps := runnerCaps(t, "videotestsrc num-buffers=2 ! video/x-raw,format=P010_10LE,width=64,height=64,colorimetry=bt2100-pq ! fakesink")
 
@@ -169,9 +171,10 @@ func TestAnOrdinaryPipelineReportsItselfAsSdr(t *testing.T) {
 	}
 }
 
-// runnerCaps plays one pipeline through the runner the publish child runs and returns the
-// caps it reported. videotestsrc rather than a capture backend: what is under test is the
-// reading, and a run needing a screen or a portal consent would be testing the machine.
+// runnerCaps plays one pipeline through the runner the publish child runs and returns the caps it
+// reported.
+// videotestsrc rather than a capture backend: what is under test is the reading,
+// and a run needing a screen or a portal consent would be testing the machine.
 func runnerCaps(t *testing.T, description string) string {
 	t.Helper()
 

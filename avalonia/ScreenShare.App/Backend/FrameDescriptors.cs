@@ -7,29 +7,28 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// The other half of the frame channel on a platform whose handles are file descriptors.
 ///
-/// <b>A descriptor is not a number that can be sent.</b> It indexes one process's own table, so
-/// the value naming a frame in the backend names something else here, or nothing at all. The
-/// kernel's way to move one is <c>SCM_RIGHTS</c> over a Unix socket, which installs a
-/// descriptor of this process's own naming the same memory - which is why a dmabuf pool
-/// announces a socket path where a shared-texture pool announces a number
-/// (<c>api/proto/screenshare/v1/frame.proto</c>, <c>FramePool.fd_socket</c>).
+/// <b>A descriptor is not a number that can be sent.</b> It indexes one process's own table, so the value
+/// naming a frame in the backend names something else here, or nothing at all.
+/// The kernel's way to move one is <c>SCM_RIGHTS</c> over a Unix socket, which installs a descriptor of this
+/// process's own naming the same memory - which is why a dmabuf pool announces a socket path where a
+/// shared-texture pool announces a number (<c>api/proto/screenshare/v1/frame.proto</c>,
+/// <c>FramePool.fd_socket</c>).
 ///
-/// <b>It reads and does not import.</b> What the descriptors become on the GPU belongs to the
-/// control that draws; this is the transport, and it sits beside the channel that named the
-/// socket.
+/// <b>It reads and does not import.</b> What the descriptors become on the GPU belongs to the control that
+/// draws; this is the transport, and it sits beside the channel that named the socket.
 ///
-/// The backend answers every connection with the same set for as long as the pool lives, so
-/// reading is repeatable: a generation that is re-imported reads the descriptors again rather
-/// than depending on a handshake that happened once.
+/// The backend answers every connection with the same set for as long as the pool lives, so reading is
+/// repeatable: a generation that is re-imported reads the descriptors again rather than depending on a
+/// handshake that happened once.
 /// </summary>
 internal static class FrameDescriptors
 {
     /// <summary>
     /// Receives one descriptor per slot, in index order.
     ///
-    /// The read runs off the UI thread because it is a socket round trip with another process,
-    /// and it is bounded by the caller's cancellation: a backend that died mid-pool leaves a
-    /// socket that accepts and never answers, which would otherwise be a tile waiting forever.
+    /// The read runs off the UI thread because it is a socket round trip with another process, and it is
+    /// bounded by the caller's cancellation: a backend that died mid-pool leaves a socket that accepts and
+    /// never answers, which would otherwise be a tile waiting forever.
     /// </summary>
     public static Task<int[]> ReceiveAsync(string socketPath, int slots, CancellationToken cancellation)
     {
@@ -62,8 +61,8 @@ internal static class FrameDescriptors
         }
         catch
         {
-            // Every descriptor already received is this process's own, and a caller that never
-            // got the set has nothing to close them with.
+            // Every descriptor already received is this process's own, and a caller that never got the set
+            // has nothing to close them with.
             Close(descriptors, received);
             throw;
         }
@@ -71,9 +70,10 @@ internal static class FrameDescriptors
     }
 
     /// <summary>
-    /// One message: the slot's index as the payload and the slot's descriptor as the right that
-    /// rides with it. The two travel together so a descriptor cannot be paired with the wrong
-    /// slot, whatever order the reads happen in.
+    /// One message: the slot's index as the payload and the slot's descriptor as the right that rides with
+    /// it.
+    /// The two travel together so a descriptor cannot be paired with the wrong slot, whatever order the reads
+    /// happen in.
     /// </summary>
     private static unsafe (int Index, int Descriptor) ReceiveOne(Socket socket, CancellationToken cancellation)
     {
@@ -93,9 +93,8 @@ internal static class FrameDescriptors
         while (true)
         {
             cancellation.ThrowIfCancellationRequested();
-            // Polled rather than blocked in: the descriptor arrives on a socket the backend
-            // may never answer on, and a blocking read there is a tile that waits for the rest
-            // of the run.
+            // Polled rather than blocked in: the descriptor arrives on a socket the backend may never answer
+            // on, and a blocking read there is a tile that waits for the rest of the run.
             if (!socket.Poll(PollInterval, SelectMode.SelectRead))
             {
                 continue;
@@ -118,8 +117,9 @@ internal static class FrameDescriptors
             throw new BackendUnavailableException("The backend closed the descriptor socket early.");
         }
 
-        // One right per message, and it is a descriptor. Anything else is a backend speaking a
-        // protocol this build does not know, which is worth saying rather than dereferencing.
+        // One right per message, and it is a descriptor.
+        // Anything else is a backend speaking a protocol this build does not know, which is worth saying
+        // rather than dereferencing.
         var header = (ControlHeader*)control;
         if ((long)message.ControlLength < ControlSpace || header->Level != SOL_SOCKET ||
             header->Type != SCM_RIGHTS)
@@ -147,9 +147,9 @@ internal static class FrameDescriptors
     }
 
     /// <summary>
-    /// Closes descriptors this process owns. Every one that was received is this process's own,
-    /// so a pool that is dropped without closing them leaks a descriptor and pins the memory
-    /// the backend has already freed.
+    /// Closes descriptors this process owns.
+    /// Every one that was received is this process's own, so a pool that is dropped without closing them
+    /// leaks a descriptor and pins the memory the backend has already freed.
     /// </summary>
     public static void Release(IReadOnlyList<int> descriptors)
     {
@@ -170,9 +170,9 @@ internal static class FrameDescriptors
     /// <summary>
     /// The control buffer's shape, which is <c>CMSG_SPACE(sizeof(int))</c> written out.
     ///
-    /// It is computed from the pointer size rather than pinned at the 64-bit numbers, because
-    /// the header's first field is a <c>size_t</c> and its alignment is the same word: the
-    /// layout the kernel writes differs between a 64-bit and a 32-bit build of this app.
+    /// It is computed from the pointer size rather than pinned at the 64-bit numbers, because the header's
+    /// first field is a <c>size_t</c> and its alignment is the same word: the layout the kernel writes
+    /// differs between a 64-bit and a 32-bit build of this app.
     /// </summary>
     private static readonly int ControlDataOffset = Align(IntPtr.Size + sizeof(int) + sizeof(int));
     private static readonly int ControlSpace = ControlDataOffset + Align(sizeof(int));

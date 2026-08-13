@@ -10,17 +10,16 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The advanced drawer, which draws the part of the quality group the step above it places
-/// nowhere.
+/// The advanced drawer, which draws the part of the quality group the step above it places nowhere.
 ///
-/// What these lock out is the drawer inventing a table. It once carried one - an element
-/// name, five property rows and their defaults, seeded from a mockup - and every assertion
-/// below is against a value some form carried, so a drawer that started printing figures of
+/// What these lock out is the drawer inventing a table.
+/// It once carried one - an element name, five property rows and their defaults, seeded from a mockup - and
+/// every assertion below is against a value some form carried, so a drawer that started printing figures of
 /// its own would fail here rather than on someone's screen (docs/ipc-api.md, "The rule").
 ///
-/// The group is driven directly rather than through a backend, because what is under test is
-/// the split between the two layouts and not a resolve. The last test does use the flow, and
-/// it is the one that states the split as an invariant.
+/// The group is driven directly rather than through a backend, because what is under test is the split
+/// between the two layouts and not a resolve.
+/// The last test does use the flow, and it is the one that states the split as an invariant.
 /// </summary>
 public sealed class AdvancedDrawerTests
 {
@@ -93,8 +92,9 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// Every string in a row is the form's. The label, the unit and the note are read back
-    /// as they arrived, which is the whole of what replaced the mockup's table.
+    /// Every string in a row is the form's.
+    /// The label, the unit and the note are read back as they arrived, which is the whole of what replaced
+    /// the mockup's table.
     /// </summary>
     [Fact]
     public void ARowRepeatsWhatTheFormSaidAboutTheField()
@@ -103,8 +103,8 @@ public sealed class AdvancedDrawerTests
 
         var row = new AdvancedDrawerViewModel(group).Rows.Single();
 
-        // The value and the unit are the form's; the heading and the paragraph are this
-        // side's, looked up by the key the form named the field by.
+        // The value and the unit are the form's; the heading and the paragraph are this side's, looked up by
+        // the key the form named the field by.
         Assert.Equal("2000", row.Readback);
         Assert.Equal(Fields.Of("vbv_ms").Label, row.Label);
         Assert.Equal(Fields.Of("vbv_ms").Help, row.Help);
@@ -112,8 +112,8 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// The rows are controls rather than a printout: moving one reports the settings field
-    /// it edits, which is what the old table could not do at all.
+    /// The rows are controls rather than a printout: moving one reports the settings field it edits, which is
+    /// what the old table could not do at all.
     /// </summary>
     [Fact]
     public void MovingARowReportsTheSettingsFieldItEdits()
@@ -128,10 +128,10 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// A number carrying a ladder is one control and not two. It is drawn where typed values
-    /// are drawn, and it is neither of the two kinds it is built from: a renderer that read it
-    /// as a plain number would drop the ladder, and one that read it as a select would put a
-    /// dropdown on the screen with no box to type a rate the ladder does not carry.
+    /// A number carrying a ladder is one control and not two.
+    /// It is drawn where typed values are drawn, and it is neither of the two kinds it is built from: a
+    /// renderer that read it as a plain number would drop the ladder, and one that read it as a select would
+    /// put a dropdown on the screen with no box to type a rate the ladder does not carry.
     /// </summary>
     [Fact]
     public void ANumberCarryingALadderIsOneControlAndNotTwo()
@@ -150,8 +150,8 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// The two halves write the same setting, and both write it as a number. Picking a step
-    /// through a control whose options are strings is where a value silently becomes zero,
+    /// The two halves write the same setting, and both write it as a number.
+    /// Picking a step through a control whose options are strings is where a value silently becomes zero,
     /// which is the whole reason the field carries the kind its value arrived in.
     /// </summary>
     [Fact]
@@ -179,8 +179,8 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// Rendering twice over an unchanged group produces the same rows, which is what lets a
-    /// spinner keep its caret across a pass (docs/development-principles.md, "Idempotency").
+    /// Rendering twice over an unchanged group produces the same rows, which is what lets a spinner keep its
+    /// caret across a pass (docs/development-principles.md, "Idempotency").
     /// </summary>
     [Fact]
     public void ASecondRenderPassLeavesTheRowsAlone()
@@ -195,9 +195,10 @@ public sealed class AdvancedDrawerTests
     }
 
     /// <summary>
-    /// The invariant the two layouts share, stated against a whole flow: a control the
-    /// backend offered is reachable in exactly one of them. A field in neither is a setting
-    /// nobody can edit; a field in both is one setting edited from two places.
+    /// The invariant the two layouts share, stated against a whole flow: a control the backend offered is
+    /// reachable in exactly one of them.
+    /// A field in neither is a setting nobody can edit; a field in both is one setting edited from two
+    /// places.
     /// </summary>
     [Fact]
     public async Task EveryFieldOfTheGroupIsDrawnExactlyOnce()

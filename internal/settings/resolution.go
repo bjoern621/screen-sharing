@@ -4,23 +4,27 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// The output resolution: the one setting that is a pair of numbers the user picks as a
-// single thing.
+// The output resolution: the one setting that is a pair of numbers the user picks as a single
+// thing.
 //
-// It travels as "WIDTHxHEIGHT" for the reason the domain model gives for every other
-// option value: the settings' own spelling is what a form control offers and what a
-// refusal names, so the value the encoder is given and the value the reader picked are
-// the same string. This file is the only place that spelling is read or written, so the
-// two engines cannot disagree about what it means.
+// It travels as "WIDTHxHEIGHT" for the reason the domain model gives for every other option value.
+// The settings' own spelling is what a form control offers and what a refusal names,
+// so the value the encoder is given and the value the reader picked are the same string.
+// This file is the only place that spelling is read or written, so the two engines cannot disagree
+// about what it means.
 
-// resolutionSeparator is what the two figures are joined by. Lowercase 'x' rather than
-// the multiplication sign a label prints: the value is parsed, and a label is not.
+// resolutionSeparator is what the two figures are joined by.
+// Lowercase 'x' rather than the multiplication sign a label prints: the value is parsed,
+// and a label is not.
 const resolutionSeparator = "x"
 
-// minOutputDimension is the smallest picture a scaler is asked for. Below it there is no
-// encode worth the round trip, and a zero or negative figure is a value no filter takes.
+// minOutputDimension is the smallest picture a scaler is asked for.
+// Below it there is no encode worth the round trip, and a zero or negative figure is a value no
+// filter takes.
 const minOutputDimension = 16
 
 // Size is a picture size in pixels.
@@ -34,18 +38,20 @@ func (s Size) String() string {
 	return strconv.Itoa(s.Width) + resolutionSeparator + strconv.Itoa(s.Height)
 }
 
-// FormatSize is String for a caller holding two figures rather than a Size, which is what
-// builds an option list from a monitor's dimensions.
+// FormatSize is String for a caller holding two figures rather than a Size,
+// which is what builds an option list from a monitor's dimensions.
 func FormatSize(width, height int) string {
 	return Size{Width: width, Height: height}.String()
 }
 
 // ParseSize reads a size as the settings carry it.
 //
-// It is strict about the shape and about the numbers: every value that reaches it was
-// written by this side, into a list for this field, so a malformed one is a caller that
-// made one up rather than a user who typed badly. The error says which part failed, since
-// the caller that made it up is the one reading the message.
+// It is strict about the shape and about the numbers, and it refuses with an error rather than
+// asserting.
+// The values it is given were written by this side, but they travel through a file the user owns
+// and can edit, so a malformed one is an Umgebungsfehler on the way back in.
+// The error says which part failed, since the reader of that message is whoever has to repair the
+// value.
 func ParseSize(value string) (Size, error) {
 	width, height, found := strings.Cut(value, resolutionSeparator)
 	if !found {
@@ -64,23 +70,29 @@ func ParseSize(value string) (Size, error) {
 	if w < minOutputDimension || h < minOutputDimension {
 		return Size{}, fmt.Errorf("output resolution %q is below the %d px floor either side", value, minOutputDimension)
 	}
-	// Every chroma subsampling this app encodes in needs an even picture, and an odd one
-	// is a scaler failure rather than a picture. It is refused here rather than rounded,
-	// because a size the run silently changed is a size no form can show back.
+	// Every chroma subsampling this app encodes in needs an even picture, and an odd one is a scaler
+	// failure rather than a picture.
+	// It is refused here rather than rounded, because a size the run silently changed is a size no
+	// form can show back.
 	if w%2 != 0 || h%2 != 0 {
 		return Size{}, fmt.Errorf("output resolution %q is odd on one side, and every chroma subsampling here needs an even picture", value)
 	}
 
-	return Size{Width: w, Height: h}, nil
+	size := Size{Width: w, Height: h}
+	assert.Assert(size.Width >= minOutputDimension && size.Height >= minOutputDimension,
+		"a parsed size clears the floor on both sides", size.Width, size.Height)
+	assert.Assert(size.Width%2 == 0 && size.Height%2 == 0,
+		"a parsed size is even on both sides", size.Width, size.Height)
+	return size, nil
 }
 
-// OutputSize is the picture the encoder is fed, and whether the capture is scaled to
-// reach it at all.
+// OutputSize is the picture the encoder is fed, and whether the capture is scaled to reach it at
+// all.
 //
 // The empty setting is not an error and not a zero size: it is the capture's own size,
-// which is what every build did before the field existed. A caller that gets false back
-// adds no scaling stage, which is why the two answers are separated rather than the
-// caller being handed a zero to test.
+// which is what every build did before the field existed.
+// A caller that gets false back adds no scaling stage, which is why the two answers are separated
+// rather than the caller being handed a zero to test.
 func (p Publish) OutputSize() (Size, bool, error) {
 	if p.OutputResolution == "" {
 		return Size{}, false, nil

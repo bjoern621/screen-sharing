@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 380" width="640" height="380" font-family="sans-serif" font-size="12">
+  <title>Rolling a PQ source down onto a 100-nit display</title>
+
+  <g stroke="#888888" stroke-width="1" fill="none">
+    <path d="M 70 60 L 70 300"/>
+    <path d="M 70 300 L 566 300"/>
+    <path d="M 566 300 l -6 -3 l 0 6 z" fill="#888888"/>
+  </g>
+
+  <g stroke="#888888" stroke-width="1">
+    <path d="M 66 300 L 70 300"/>
+    <path d="M 66 191 L 70 191"/>
+    <path d="M 66 82 L 70 82"/>
+    <path d="M 70 300 L 70 304"/>
+    <path d="M 150 300 L 150 304"/>
+    <path d="M 230 300 L 230 304"/>
+    <path d="M 310 300 L 310 304"/>
+    <path d="M 390 300 L 390 304"/>
+    <path d="M 470 300 L 470 304"/>
+    <path d="M 550 300 L 550 304"/>
+  </g>
+
+  <g fill="#888888" text-anchor="end">
+    <text x="62" y="304">0</text>
+    <text x="62" y="195">50</text>
+    <text x="62" y="86">100</text>
+  </g>
+
+  <g fill="#888888" text-anchor="middle">
+    <text x="70" y="319">0</text>
+    <text x="150" y="319">100</text>
+    <text x="230" y="319">203</text>
+    <text x="310" y="319">400</text>
+    <text x="390" y="319">1000</text>
+    <text x="470" y="319">4000</text>
+    <text x="550" y="319">10000</text>
+    <text x="318" y="344">source luminance, nits (PQ is absolute)</text>
+  </g>
+
+  <text x="20" y="180" fill="#888888" text-anchor="middle" transform="rotate(-90 20 180)">display luminance, nits</text>
+
+  <g stroke="#888888" stroke-width="1" stroke-dasharray="3 3" opacity="0.7">
+    <path d="M 70 82 L 550 82"/>
+    <path d="M 230 300 L 230 97"/>
+  </g>
+
+  <polyline points="70,300 150,82 550,82" fill="none" stroke="#d1721f" stroke-width="2"/>
+  <polyline points="70,300 150,115 230,97 310,88 390,84 470,83 550,82" fill="none" stroke="#3b7dd8" stroke-width="2"/>
+
+  <g fill="#d1721f" text-anchor="end">
+    <text x="548" y="74">clip: everything above the peak becomes white</text>
+  </g>
+  <g fill="#3b7dd8" text-anchor="end">
+    <text x="548" y="130">BT.2390 roll-off, reaching the peak asymptotically</text>
+  </g>
+  <g fill="#888888">
+    <text x="120" y="250">linear below the knee,</text>
+    <text x="120" y="266">so mid-tones keep their absolute level</text>
+    <text x="236" y="288" font-size="11">BT.2408 reference white</text>
+  </g>
+</svg>

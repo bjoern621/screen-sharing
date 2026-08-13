@@ -6,9 +6,9 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 
 /// <summary>
-/// How far the flow has got past one chip. Four states rather than a done flag: the
-/// terminal step is neither done nor merely upcoming, and the strip draws it open-ended so
-/// nobody reads it as one more form to fill in.
+/// How far the flow has got past one chip.
+/// Four states rather than a done flag: the terminal step is neither done nor merely upcoming, and the strip
+/// draws it open-ended so nobody reads it as one more form to fill in.
 /// </summary>
 public enum StepChipState
 {
@@ -19,10 +19,10 @@ public enum StepChipState
 }
 
 /// <summary>
-/// One chip of the strip. A record, so a render pass that changes nothing produces rows
-/// that compare equal and the bound collection is left alone -
-/// <see cref="Select"/> holds the owner's own command instance for that step, which is
-/// what keeps two passes over the same step equal rather than merely equivalent.
+/// One chip of the strip.
+/// A record, so a render pass that changes nothing produces rows that compare equal and the bound collection
+/// is left alone - <see cref="Select"/> holds the owner's own command instance for that step, which is what
+/// keeps two passes over the same step equal rather than merely equivalent.
 /// </summary>
 public sealed record StepChipViewModel
 {
@@ -32,9 +32,9 @@ public sealed record StepChipViewModel
     public required StepChipState State { get; init; }
 
     /// <summary>
-    /// The step number. A walked step wears a tick instead, and the tick is an icon rather
-    /// than a character, so the two cannot be one string: <see cref="IsDone"/> is what says
-    /// which of the two the badge is showing.
+    /// The step number.
+    /// A walked step wears a tick instead, and the tick is an icon rather than a character, so the two cannot
+    /// be one string: <see cref="IsDone"/> is what says which of the two the badge is showing.
     /// </summary>
     public required string Badge { get; init; }
 
@@ -47,8 +47,8 @@ public sealed record StepChipViewModel
     public required bool HasConnector { get; init; }
 
     /// <summary>
-    /// Whether the connector left of this chip is the bright one. Bright up to and
-    /// including the connector leaving the current step: the line reads as the distance
+    /// Whether the connector left of this chip is the bright one.
+    /// Bright up to and including the connector leaving the current step: the line reads as the distance
     /// already covered.
     /// </summary>
     public required bool IsConnectorLit { get; init; }
@@ -63,9 +63,9 @@ public sealed record StepChipViewModel
 }
 
 /// <summary>
-/// Builds the strip for one set of steps and one current step. Pure and total: the same
-/// inputs always yield the same rows, so a render pass calls it unconditionally and the
-/// reconcile decides whether anything moved.
+/// Builds the strip for one set of steps and one current step.
+/// Pure and total: the same inputs always yield the same rows, so a render pass calls it unconditionally and
+/// the reconcile decides whether anything moved.
 /// </summary>
 public static class StepChips
 {
@@ -107,9 +107,8 @@ public static class StepChips
     }
 
     /// <summary>
-    /// Current wins over terminal: the last step is drawn open-ended only while the reader
-    /// has not reached it, and a white chip that also looked unreachable would read as a
-    /// dead end.
+    /// Current wins over terminal: the last step is drawn open-ended only while the reader has not reached
+    /// it, and a white chip that also looked unreachable would read as a dead end.
     /// </summary>
     private static StepChipState StateOf(SetupStepRow row, int index, int currentIndex)
     {

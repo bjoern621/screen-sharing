@@ -44,10 +44,9 @@ func TestBuildTestStreamArgs(t *testing.T) {
 	}
 }
 
-// The surfaces are handed out round-robin so that simultaneous test streams are told apart
-// on screen, and every row states the whole surface: a row that named a pattern and left
-// the format or the colour to the source would publish a stream whose colour depends on
-// the frame size.
+// The surfaces are handed out round-robin so that simultaneous test streams are told apart on
+// screen, and every row states the whole surface: a row that named a pattern and left the format or
+// the colour to the source would publish a stream whose colour depends on the frame size.
 func TestTestSurfacesCycleAndStateTheirSurface(t *testing.T) {
 	if TestSurfaceOf(0) != TestSurfaceOf(len(testSurfaces)) {
 		t.Error("the surfaces must wrap around")
@@ -68,13 +67,14 @@ func TestTestSurfacesCycleAndStateTheirSurface(t *testing.T) {
 	}
 }
 
-// The set carries one HDR stream, and it is inside the set this process brings up with
-// itself rather than behind a count nobody asks for. A viewer's HDR path is not exercised
-// by a grid of standard-range streams, and that path is the one with no other way to be
-// reached on a machine whose screens are all standard range.
+// The set carries one HDR stream, and it is inside the set this process brings up with itself
+// rather than behind a count nobody asks for.
+// A viewer's HDR path is not exercised by a grid of standard-range streams,
+// and that path is the one with no other way to be reached on a machine whose screens are all
+// standard range.
 //
-// The HDR row is also the ten-bit one, which is the rule the publish path enforces on a
-// real capture: an HDR surface cannot ride in eight bits.
+// The HDR row is also the ten-bit one, which is the rule the publish path enforces on a real
+// capture: an HDR surface cannot ride in eight bits.
 func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	const bootSet = 3
 
@@ -97,13 +97,13 @@ func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	}
 }
 
-// The whole point of the row, measured rather than assumed: a stream published from the
-// HDR surface arrives carrying HDR.
+// The whole point of the row, measured rather than assumed: a stream published from the HDR surface
+// arrives carrying HDR.
 //
-// It is the argv the app launches, not a pipeline written for the test, and it is read
-// back the way a viewer reads it - off the caps the decoder produces. The relay is the one
-// thing left out: what it re-serves is bytes, and what this asserts is that the bytes leave
-// the encoder with the colour the surface was drawn in.
+// It is the argv the app launches, not a pipeline written for the test, and it is read back the way
+// a viewer reads it - off the caps the decoder produces.
+// The relay is the one thing left out: what it re-serves is bytes, and what this asserts is that
+// the bytes leave the encoder with the colour the surface was drawn in.
 func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -123,11 +123,12 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The relay's sink is replaced by a file and the run is bounded, so everything between
-	// the source and the handover is the argv the app launches. The sink is cut by its own
-	// length rather than searched for, because the transport is what states how many
-	// arguments it is. Byte-stream because that is what a parser reads back out of a bare
-	// file, where the sink would have carried the framing itself.
+	// The relay's sink is replaced by a file and the run is bounded, so everything between the source
+	// and the handover is the argv the app launches.
+	// The sink is cut by its own length rather than searched for, because the transport is what states
+	// how many arguments it is.
+	// Byte-stream because that is what a parser reads back out of a bare file,
+	// where the sink would have carried the framing itself.
 	sink, ok := transport.GstSink(s)
 	if !ok {
 		t.Fatal("the rtsp transport has no GStreamer sink, so there is nothing to cut")
@@ -147,8 +148,8 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 		t.Fatalf("decoding the HDR test stream: %v\n%s", err, out)
 	}
 
-	// Read as a viewer reads it: the transfer characteristic decides the verdict, and the
-	// verdict is what a tile offers a choice on.
+	// Read as a viewer reads it: the transfer characteristic decides the verdict,
+	// and the verdict is what a tile offers a choice on.
 	decoded, stated := decodedColorimetry(out)
 	if !stated {
 		t.Fatalf("the HDR test stream decodes stating no colour at all:\n%s", out)

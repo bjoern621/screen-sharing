@@ -18,15 +18,14 @@ import (
 )
 
 // superviseConfig launches one child process for an engine that is not ffmpeg.
-// extraFiles are inherited by the child starting at fd 3, in order; the portal
-// PipeWire remote fd is passed this way, and nothing is passed this way on
-// Windows, which inherits no descriptors. onCleanup runs after the child exits,
-// releasing engine-owned resources (the portal session).
-// parseStdout, when set, consumes the child's stdout, which is where an engine
-// prints its progress; the stream is teed into the run log on the way, so the
-// log holds everything the child said either way.
-// env adds to this process's environment rather than replacing it, so a child
-// keeps everything the app was started with (GstChildEnv is what fills it).
+// extraFiles are inherited by the child starting at fd 3, in order; the portal PipeWire remote fd
+// is passed this way, and nothing is passed this way on Windows, which inherits no descriptors.
+// onCleanup runs after the child exits, releasing engine-owned resources (the portal session).
+// parseStdout, when set, consumes the child's stdout, which is where an engine prints its progress;
+// the stream is teed into the run log on the way, so the log holds everything the child said either
+// way.
+// env adds to this process's environment rather than replacing it, so a child keeps everything the
+// app was started with (GstChildEnv is what fills it).
 type superviseConfig struct {
 	exe         string
 	env         []string
@@ -38,21 +37,21 @@ type superviseConfig struct {
 	onCleanup   func()
 }
 
-// supervise starts and watches the child, mirroring ffmpeg.Start's behaviour for
-// engines that speak no ffmpeg -progress stream: stderr is teed to a per-run log
-// and a bounded tail, and onExit fires once with the tail and log path.
+// supervise starts and watches the child, mirroring ffmpeg.Start's behaviour for engines that speak
+// no ffmpeg -progress stream: stderr is teed to a per-run log and a bounded tail,
+// and onExit fires once with the tail and log path.
 func supervise(cfg superviseConfig) (Handle, error) {
 	assert.Assert(cfg.exe != "", "a supervised child names the executable to run", cfg.tag)
 	assert.Assert(cfg.tag != "", "a supervised child names its run log", cfg.exe)
-	// The descriptors are handed to the child by position, so a closed slot would
-	// shift every later fd and land the pipeline on the wrong one.
+	// The descriptors are handed to the child by position, so a closed slot would shift every later fd
+	// and land the pipeline on the wrong one.
 	for i, f := range cfg.extraFiles {
 		assert.IsNotNil(f, "an inherited descriptor is an open file", cfg.tag, i)
 	}
-	// Windows inherits none at all: os/exec supports ExtraFiles on Unix alone, and
-	// a child handed one there does not start, failing with "fork/exec <exe>: not
-	// supported by windows" rather than anything naming a descriptor. Asserting it
-	// here states which caller was wrong; the exec error names only the launcher.
+	// Windows inherits none at all: os/exec supports ExtraFiles on Unix alone,
+	// and a child handed one there does not start, failing with "fork/exec <exe>:
+	// not supported by windows" rather than anything naming a descriptor.
+	// Asserting it here states which caller was wrong; the exec error names only the launcher.
 	assert.Assert(runtime.GOOS != "windows" || len(cfg.extraFiles) == 0,
 		"a Windows child is passed no descriptors to inherit", cfg.tag, len(cfg.extraFiles))
 
@@ -67,8 +66,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	}
 	fmt.Fprintf(logFile, "%s %s\n\n", cfg.exe, strings.Join(cfg.args, " "))
 
-	// The stderr copier and the stdout tee both write the one log, so the writes
-	// are serialized to keep either from landing inside the other's line.
+	// The stderr copier and the stdout tee both write the one log, so the writes are serialized to
+	// keep either from landing inside the other's line.
 	log := &syncWriter{w: logFile}
 
 	cmd := exec.Command(cfg.exe, cfg.args...)
@@ -99,8 +98,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", cfg.exe, err)
 	}
-	// Before the goroutine that waits on the child, for the reason KillOnAppExit
-	// documents. A GStreamer pipeline orphans exactly like an ffmpeg one.
+	// Before the goroutine that waits on the child, for the reason KillOnAppExit documents.
+	// A GStreamer pipeline orphans exactly like an ffmpeg one.
 	ffmpeg.KillOnAppExit(cmd)
 
 	proc := &child{cmd: cmd}
@@ -141,8 +140,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	return proc, nil
 }
 
-// child is a supervised non-ffmpeg process. Its methods are safe to call from
-// multiple goroutines.
+// child is a supervised non-ffmpeg process.
+// Its methods are safe to call from multiple goroutines.
 type child struct {
 	cmd     *exec.Cmd
 	running atomic.Bool
@@ -161,8 +160,8 @@ func (c *child) Stop() {
 	}
 }
 
-// tailBuffer keeps the last max bytes written to it, so the end of stderr can be
-// surfaced in an exit message without holding the whole log in memory.
+// tailBuffer keeps the last max bytes written to it, so the end of stderr can be surfaced in an
+// exit message without holding the whole log in memory.
 type tailBuffer struct {
 	mu  sync.Mutex
 	buf []byte

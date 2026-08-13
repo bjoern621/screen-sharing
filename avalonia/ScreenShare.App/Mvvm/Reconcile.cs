@@ -6,10 +6,10 @@ namespace ScreenShare.App.Mvvm;
 /// <summary>
 /// Converges a bound collection onto the rows a render function just derived.
 ///
-/// Clear-then-fill rather than an incremental patch: the lists on this screen are small,
-/// and clear-then-fill is idempotent by construction. The guard in front of it is what
-/// makes that safe to run every pass - rows are records, so an unchanged reading compares
-/// equal and the collection is left alone, which is what keeps a per-second refresh from
+/// Clear-then-fill rather than an incremental patch: the lists on this screen are small, and clear-then-fill
+/// is idempotent by construction.
+/// The guard in front of it is what makes that safe to run every pass - rows are records, so an unchanged
+/// reading compares equal and the collection is left alone, which is what keeps a per-second refresh from
 /// resetting scroll position (docs/development-principles.md, "Idempotency").
 /// </summary>
 public static class Reconcile

@@ -6,18 +6,18 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 
 /// <summary>
-/// The strip that answers three questions at once: where you are, where else you may go,
-/// and whether the world is being changed right now.
+/// The strip that answers three questions at once: where you are, where else you may go, and whether the
+/// world is being changed right now.
 ///
-/// It owns none of that. The shell owns the destination, its availability and how long the
-/// stream has been running, and pushes all three in through <see cref="Show"/>; the fields
-/// behind them are the cache <see cref="Apply"/> refills on every pass, never a second copy
-/// that can drift (docs/development-principles.md, "State is written explicitly and read
-/// continuously"). The timer in particular is the encoder's own, which is why no clock ticks
-/// in here.
+/// It owns none of that.
+/// The shell owns the destination, its availability and how long the stream has been running, and pushes all
+/// three in through <see cref="Show"/>; the fields behind them are the cache <see cref="Apply"/> refills on
+/// every pass, never a second copy that can drift (docs/development-principles.md, "State is written
+/// explicitly and read continuously").
+/// The timer in particular is the encoder's own, which is why no clock ticks in here.
 ///
-/// The one thing the strip does own is the user's click, which is why
-/// <see cref="SelectedTab"/> is the only public setter here.
+/// The one thing the strip does own is the user's click, which is why <see cref="SelectedTab"/> is the only
+/// public setter here.
 /// </summary>
 public sealed class NavStripViewModel : Observable
 {
@@ -48,14 +48,15 @@ public sealed class NavStripViewModel : Observable
     private string _elapsed = "";
 
     /// <summary>
-    /// The strip's whole input, written in one go so its three parts cannot disagree: a
-    /// segment that is dimmed and selected at once has no rendering, and neither has a pill
-    /// that says sharing with nothing publishing. Idempotent.
+    /// The strip's whole input, written in one go so its three parts cannot disagree: a segment that is
+    /// dimmed and selected at once has no rendering, and neither has a pill that says sharing with nothing
+    /// publishing.
+    /// Idempotent.
     /// </summary>
     /// <param name="elapsed">
     /// How long the encoder has been running, as the shell composed it from the running state.
-    /// It is handed in rather than counted here: no clock in this strip could agree with the
-    /// encoder's own, and the pill beside the header figures reads the same field.
+    /// It is handed in rather than counted here: no clock in this strip could agree with the encoder's own,
+    /// and the pill beside the header figures reads the same field.
     /// </param>
     public void Show(Destination current, bool broadcastAvailable, string elapsed)
     {
@@ -76,9 +77,9 @@ public sealed class NavStripViewModel : Observable
     private DestinationTab? _selectedTab;
 
     /// <summary>
-    /// What the segmented control has selected. The user owns it, so its setter is the
-    /// named write and reports the choice onwards; <see cref="Apply"/> writes the field
-    /// behind it instead, which is what stops a render pass from looking like a click.
+    /// What the segmented control has selected.
+    /// The user owns it, so its setter is the named write and reports the choice onwards; <see cref="Apply"/>
+    /// writes the field behind it instead, which is what stops a render pass from looking like a click.
     /// </summary>
     public DestinationTab? SelectedTab
     {
@@ -90,9 +91,9 @@ public sealed class NavStripViewModel : Observable
                 return;
             }
 
-            // A dimmed segment is still an item, and a list box will land on one by
-            // keyboard. Refusing here is what lets the shell assert availability rather
-            // than defend against its own strip; Apply below puts the selection back.
+            // A dimmed segment is still an item, and a list box will land on one by keyboard.
+            // Refusing here is what lets the shell assert availability rather than defend against its own
+            // strip; Apply below puts the selection back.
             if (value is { IsAvailable: true })
             {
                 _select(value.Value);
@@ -121,8 +122,9 @@ public sealed class NavStripViewModel : Observable
     public bool ShowsSharing { get => _showsSharing; private set => Set(ref _showsSharing, value); }
 
     /// <summary>
-    /// The one render function. Every output is written on every pass, the off branches
-    /// included, so the pill's text cannot survive the state that justified it.
+    /// The one render function.
+    /// Every output is written on every pass, the off branches included, so the pill's text cannot survive
+    /// the state that justified it.
     /// </summary>
     public void Apply()
     {
@@ -131,8 +133,8 @@ public sealed class NavStripViewModel : Observable
             tab.SetAvailable(tab.Value != Destination.Broadcast || _broadcastAvailable);
         }
 
-        // Written through the field, not the property: going through the setter would send
-        // the shell's own answer back to it as though the user had clicked.
+        // Written through the field, not the property: going through the setter would send the shell's own
+        // answer back to it as though the user had clicked.
         var selected = TabFor(_current);
         Set<DestinationTab?>(ref _selectedTab, selected, nameof(SelectedTab));
 
@@ -140,16 +142,16 @@ public sealed class NavStripViewModel : Observable
         Hint = ShowsHint ? BroadcastHint : "";
 
         // The pill answers "is this machine broadcasting", not "which destination is showing"
-        // (docs/design-language.md, "Status language"): the one red is spent on sharing,
-        // so standing on the viewer while publishing nothing must not light it. The shell's
-        // availability flag is that same fact - broadcast is reachable exactly while something
+        // (docs/design-language.md, "Status language"): the one red is spent on sharing, so standing on the
+        // viewer while publishing nothing must not light it.
+        // The shell's availability flag is that same fact - broadcast is reachable exactly while something
         // publishes - so the strip reads it rather than keeping a second copy that can drift.
         ShowsSharing = _broadcastAvailable;
         SharingLabel = ShowsSharing ? SharingText : "";
         SharingTimer = ShowsSharing ? _elapsed : "";
 
-        // The pair the whole strip turns on: the segment standing lit is the one the shell
-        // showed, and it is one the reader could have reached.
+        // The pair the whole strip turns on: the segment standing lit is the one the shell showed, and it is
+        // one the reader could have reached.
         Assert.That(selected.IsAvailable, "the destination a strip stands in is one it can reach", (int)selected.Value);
         Assert.That(ShowsHint == (Hint.Length > 0), "the setup hint and its text agree", ShowsHint, Hint);
         Assert.That(ShowsSharing == (SharingLabel.Length > 0), "the sharing pill and its text agree", ShowsSharing, SharingLabel);

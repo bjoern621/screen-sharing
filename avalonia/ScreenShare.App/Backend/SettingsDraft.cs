@@ -8,29 +8,28 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Writes one field of a settings draft, named as the form named it.
 ///
-/// This is the whole of what the shell knows about <see cref="Settings"/>: that a
-/// <c>Field.key</c> is a group of that message and a field in that group, and that a
-/// <c>FieldValue</c> fits it. The write goes through the message descriptors rather than a
-/// switch over field names, which is what keeps the shell free of the vocabulary - a field
-/// added to the contract is a control that appears and works, with nothing here to edit
-/// (docs/ipc-api.md, "The rule").
+/// This is the whole of what the shell knows about <see cref="Settings"/>: that a <c>Field.key</c> is a group
+/// of that message and a field in that group, and that a <c>FieldValue</c> fits it.
+/// The write goes through the message descriptors rather than a switch over field names, which is what keeps
+/// the shell free of the vocabulary - a field added to the contract is a control that appears and works, with
+/// nothing here to edit (docs/ipc-api.md, "The rule").
 /// </summary>
 public static class SettingsDraft
 {
     /// <summary>
-    /// The character between a key's group and its field, as settings.proto spells the
-    /// two: "relay.host", "publish.codec", "viewer.render_chain".
+    /// The character between a key's group and its field, as settings.proto spells the two: "relay.host",
+    /// "publish.codec", "viewer.render_chain".
     /// </summary>
     public const char KeySeparator = '.';
 
     /// <summary>
-    /// The settings group a preset is (<c>docs/presets.md</c>), which is the one group this
-    /// shell has a reason to name.
+    /// The settings group a preset is (<c>docs/presets.md</c>), which is the one group this shell has a
+    /// reason to name.
     ///
-    /// Read off the descriptor rather than typed out, so it is the same fact as the property a
-    /// whole-group write assigns (<see cref="FormSession.WritePublish"/>). A spelling written
-    /// here by hand would be a second name for one field, free to disagree with the keys the
-    /// form sends the moment either moved.
+    /// Read off the descriptor rather than typed out, so it is the same fact as the property a whole-group
+    /// write assigns (<see cref="FormSession.WritePublish"/>).
+    /// A spelling written here by hand would be a second name for one field, free to disagree with the keys
+    /// the form sends the moment either moved.
     /// </summary>
     public static readonly string PublishGroup =
         Settings.Descriptor.FindFieldByNumber(Settings.PublishFieldNumber).Name;
@@ -45,9 +44,9 @@ public static class SettingsDraft
     }
 
     /// <summary>
-    /// Reads one field of a settings draft, named as the form named it. It is Write's
-    /// inverse and exists for the same reason: a key addresses a message here, in one
-    /// place, rather than at every caller that wants a value out of a draft.
+    /// Reads one field of a settings draft, named as the form named it.
+    /// It is Write's inverse and exists for the same reason: a key addresses a message here, in one place,
+    /// rather than at every caller that wants a value out of a draft.
     /// </summary>
     public static FieldValue Read(Settings draft, string key)
     {
@@ -69,10 +68,10 @@ public static class SettingsDraft
     /// <summary>
     /// The group message a key addresses and the field in it.
     ///
-    /// A group the draft arrived without is created rather than refused: the draft is the
-    /// shell's own and a group it has not been given yet is one nothing has written to, so
-    /// the write that is about to happen is what fills it. A key that names no group, or no
-    /// field in one, is a contract both sides disagree about.
+    /// A group the draft arrived without is created rather than refused: the draft is the shell's own and a
+    /// group it has not been given yet is one nothing has written to, so the write that is about to happen is
+    /// what fills it.
+    /// A key that names no group, or no field in one, is a contract both sides disagree about.
     /// </summary>
     private static (IMessage Group, FieldDescriptor Field) Resolve(Settings draft, string key)
     {
@@ -103,8 +102,8 @@ public static class SettingsDraft
     }
 
     /// <summary>
-    /// The brackets around the index of a repeated field: <c>publish.audio_sources[2].gain</c>
-    /// names the third entry's gain.
+    /// The brackets around the index of a repeated field: <c>publish.audio_sources[2].gain</c> names the
+    /// third entry's gain.
     /// </summary>
     private const char IndexOpen = '[';
 
@@ -113,11 +112,11 @@ public static class SettingsDraft
     /// <summary>
     /// The entry of a repeated field a key addresses, and the field inside that entry.
     ///
-    /// An entry the list does not have yet is appended on the way, up to the one past its end
-    /// and no further: that entry is the row the form draws for a reader to grow the list by,
-    /// so a write through its key is what adds it, and a write past it would leave a hole
-    /// nothing chose. The shell decides none of that - it walks the address the form gave it,
-    /// exactly as it does for a plain field.
+    /// An entry the list does not have yet is appended on the way, up to the one past its end and no further:
+    /// that entry is the row the form draws for a reader to grow the list by, so a write through its key is
+    /// what adds it, and a write past it would leave a hole nothing chose.
+    /// The shell decides none of that - it walks the address the form gave it, exactly as it does for a plain
+    /// field.
     /// </summary>
     private static (IMessage Group, FieldDescriptor Field) Entry(IMessage group, string path, string key)
     {
@@ -151,10 +150,10 @@ public static class SettingsDraft
     }
 
     /// <summary>
-    /// The value in the type the settings field holds. A mismatch between the two is a
-    /// broken contract rather than a condition to survive: the backend chose the control
-    /// kind from the field's own type, so a number arriving for a string field means the
-    /// two ends disagree about the message.
+    /// The value in the type the settings field holds.
+    /// A mismatch between the two is a broken contract rather than a condition to survive: the backend chose
+    /// the control kind from the field's own type, so a number arriving for a string field means the two ends
+    /// disagree about the message.
     /// </summary>
     private static object Fitted(FieldDescriptor descriptor, FieldValue value, string key) => descriptor.FieldType switch
     {

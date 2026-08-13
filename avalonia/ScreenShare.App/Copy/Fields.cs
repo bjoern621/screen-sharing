@@ -3,40 +3,41 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// What each control is called, what it teaches, and where to read more.
 ///
-/// The backend sends a field as a key - <c>bitrate_mbps</c>, <c>capture_memory</c> - and
-/// this is where that key becomes a heading and a paragraph. Which controls exist, in what
-/// order, under which heading, and which of them are reachable is the backend's answer and
-/// is not restated here; what any of it says is this file's (docs/ipc-api.md).
+/// The backend sends a field as a key - <c>bitrate_mbps</c>, <c>capture_memory</c> - and this is where that
+/// key becomes a heading and a paragraph.
+/// Which controls exist, in what order, under which heading, and which of them are reachable is the backend's
+/// answer and is not restated here; what any of it says is this file's (docs/ipc-api.md).
 ///
-/// The help text is the reason the form is worth reading rather than clicking through. It
-/// answers three things in this order: what the control does, what moving it costs, and
-/// what to do about it. A control whose help only expands its own label has been left
-/// without help.
+/// The help text is the reason the form is worth reading rather than clicking through.
+/// It answers three things in this order: what the control does, what moving it costs, and what to do about
+/// it.
+/// A control whose help only expands its own label has been left without help.
 ///
-/// A key with no entry renders with the key itself as its heading and no paragraph. That
-/// is a defect - a control the reader has to guess at - and it is visible on screen rather
-/// than swallowed, which is what makes it get fixed.
+/// A key with no entry renders with the key itself as its heading and no paragraph.
+/// That is a defect - a control the reader has to guess at - and it is visible on screen rather than
+/// swallowed, which is what makes it get fixed.
 /// </summary>
 public static class Fields
 {
     /// <summary>
     /// What a control the backend marked live costs to change while a stream is running.
     ///
-    /// It sits beside the label, in a chip's width, so the answer is there before the edit
-    /// rather than after the picture has already blinked. Which controls carry it is the
-    /// backend's answer and moves with the settings; the sentence is this side's.
+    /// It sits beside the label, in a chip's width, so the answer is there before the edit rather than after
+    /// the picture has already blinked.
+    /// Which controls carry it is the backend's answer and moves with the settings; the sentence is this
+    /// side's.
     /// </summary>
     public const string LiveNotice = "applies without reconnecting";
 
     /// <summary>
-    /// One control's copy: the heading over it, the paragraph behind it, and the article
-    /// for the concept where one exists.
+    /// One control's copy: the heading over it, the paragraph behind it, and the article for the concept
+    /// where one exists.
     /// </summary>
     public sealed record Entry(string Label, string Help, string Doc = "");
 
     /// <summary>
-    /// One group's copy: the heading and the sentence under it. A group heading is a step
-    /// name in the wizard as well, so it stays short enough for a chip.
+    /// One group's copy: the heading and the sentence under it.
+    /// A group heading is a step name in the wizard as well, so it stays short enough for a chip.
     /// </summary>
     public sealed record GroupEntry(string Title, string Help);
 
@@ -264,8 +265,9 @@ public static class Fields
     };
 
     /// <summary>
-    /// The copy for one field key. A key with no entry falls back to the key itself, which
-    /// draws a control the reader can at least identify and report.
+    /// The copy for one field key.
+    /// A key with no entry falls back to the key itself, which draws a control the reader can at least
+    /// identify and report.
     /// </summary>
     public static Entry Of(string key) =>
         key.Length > 0 && Entries.TryGetValue(Template(key), out var entry) ? entry : new Entry(key, "");
@@ -274,10 +276,10 @@ public static class Fields
     /// The control a key names, with the entry of a list taken out of it:
     /// <c>publish.audio_sources[2].gain</c> is a value of <c>publish.audio_sources[].gain</c>.
     ///
-    /// Copy is written for the control and never for one entry of a list, because the third
-    /// microphone's level means what the first one's does. It is the same normalisation the
-    /// backend does when it looks a control up in its own tables (internal/form/keys.go), and
-    /// it is here so every lookup on this side agrees about what a key names.
+    /// Copy is written for the control and never for one entry of a list, because the third microphone's
+    /// level means what the first one's does.
+    /// It is the same normalisation the backend does when it looks a control up in its own tables
+    /// (internal/form/keys.go), and it is here so every lookup on this side agrees about what a key names.
     /// </summary>
     public static string Template(string key)
     {
@@ -291,8 +293,9 @@ public static class Fields
         key.Length > 0 && Groups.TryGetValue(key, out var entry) ? entry : new GroupEntry(key, "");
 
     /// <summary>
-    /// How a unit is written after its figure. It is a separate word rather than part of
-    /// the number, because the design sets figures in mono and everything else in sans.
+    /// How a unit is written after its figure.
+    /// It is a separate word rather than part of the number, because the design sets figures in mono and
+    /// everything else in sans.
     /// </summary>
     public static string Unit(Api.V1.Unit unit) => unit switch
     {

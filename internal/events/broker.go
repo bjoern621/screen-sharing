@@ -1,18 +1,19 @@
 // Package events is the one place a change to the running state is announced.
 //
-// Every producer in the backend publishes here and every surface in front of it
-// subscribes here, which is what keeps a window that pressed a button and a window
-// that did not from being told different things (docs/ipc-api.md, "Events").
+// Every producer in the backend publishes here and every surface in front of it subscribes here,
+// which is what keeps a window that pressed a button and a window that did not from being told
+// different things (docs/ipc-api.md, "Events").
 //
-// The events are the contract's own messages rather than a shape of this package's
-// own. A second state vocabulary between the producer and the wire is the drift the
-// contract exists to remove, so a producer builds a screensharev1.Event and this
-// package only decides who receives it and in what order.
+// The events are the contract's own messages rather than a shape of this package's own.
+// A second state vocabulary between the producer and the wire is the drift the contract exists to
+// remove, so a producer builds a screensharev1.Event and this package only decides who receives it
+// and in what order.
 //
-// Two rules of the contract are structural here. Every event carries a whole state,
-// never a delta, so a dropped event costs a subscriber nothing but the interval it
-// was stale for. And a subscriber that acted still waits for the event, so an effect
-// never answers with the state it produced.
+// Two rules of the contract are structural here.
+// Every event carries a whole state, never a delta, so a dropped event costs a subscriber nothing
+// but the interval it was stale for.
+// And a subscriber that acted still waits for the event, so an effect never answers with the state
+// it produced.
 package events
 
 import (
@@ -28,9 +29,9 @@ import (
 
 // Kinds lists every event kind, in the order events.proto declares them.
 //
-// They are the contract's own enum rather than strings this package spells. A kind a
-// subscriber names used to be the oneof's field name typed into a request, which put
-// the set in three places that could each miss a value and made a misspelling a
+// They are the contract's own enum rather than strings this package spells.
+// A kind a subscriber names used to be the oneof's field name typed into a request,
+// which put the set in three places that could each miss a value and made a misspelling a
 // subscription that waits forever.
 var Kinds = []screensharev1.EventKind{
 	screensharev1.EventKind_EVENT_KIND_PUBLISH_STATE,
@@ -49,20 +50,20 @@ var Kinds = []screensharev1.EventKind{
 	screensharev1.EventKind_EVENT_KIND_MONITOR_PREVIEW_STATE,
 }
 
-// queueDepth is how many events one subscriber may fall behind by before the
-// broker starts dropping the oldest of them.
+// queueDepth is how many events one subscriber may fall behind by before the broker starts dropping
+// the oldest of them.
 //
-// A depth exists at all because the per-second statistics are the high-rate kind and
-// a subscriber that stalls must not stall the encoder that is publishing them. The
-// oldest is what goes, because every event is a whole state: the newest is the one
-// worth having, and the sequence number is what says a gap happened.
+// A depth exists at all because the per-second statistics are the high-rate kind and a subscriber
+// that stalls must not stall the encoder that is publishing them.
+// The oldest is what goes, because every event is a whole state: the newest is the one worth
+// having, and the sequence number is what says a gap happened.
 const queueDepth = 64
 
 // Broker fans one event out to every subscriber.
 type Broker struct {
 	mu sync.Mutex
-	// subscribers is keyed by an id handed out at subscribe time, so a cancel removes
-	// exactly the one it belongs to and never a same-shaped neighbour.
+	// subscribers is keyed by an id handed out at subscribe time, so a cancel removes exactly the one
+	// it belongs to and never a same-shaped neighbour.
 	subscribers map[uint64]*subscriber
 	nextID      uint64
 }
@@ -71,15 +72,17 @@ type Broker struct {
 type subscriber struct {
 	// kinds is the filter, nil for a subscriber that asked for everything.
 	kinds map[screensharev1.EventKind]bool
-	// out carries the events. It is buffered to queueDepth and is closed by the
-	// cancel function alone, so a send never races a close.
+	// out carries the events.
+	// It is buffered to queueDepth and is closed by the cancel function alone,
+	// so a send never races a close.
 	out chan *screensharev1.Event
 	// sequence counts the events this subscription was numbered for, from one.
 	//
-	// It is per subscriber and not per broker, and that is what makes the number mean
-	// what the contract says it means. A shared counter skipped a number for every
-	// event a filter dropped, so a subscriber that named kinds - the whole reason the
-	// filter exists - saw a permanent gap it could not tell from falling behind.
+	// It is per subscriber and not per broker, and that is what makes the number mean what the
+	// contract says it means.
+	// A shared counter skipped a number for every event a filter dropped, so a subscriber that named
+	// kinds, the whole reason the filter exists, saw a permanent gap it could not tell from falling
+	// behind.
 	sequence uint64
 	// dropped counts what this subscriber fell behind by, for the log.
 	dropped uint64
@@ -100,18 +103,19 @@ func Known(kind screensharev1.EventKind) bool {
 	return false
 }
 
-// Subscribe opens a stream of events, narrowed to kinds where any are named and
-// carrying every kind where none are.
+// Subscribe opens a stream of events, narrowed to kinds where any are named and carrying every kind
+// where none are.
 //
-// The caller must call cancel when it is done, whether the call ended by return or
-// by the client going away: the subscriber holds a channel the broker sends on until
-// it is removed. Calling cancel twice is safe, which is what lets it be deferred and
-// also called on an error path.
+// The caller must call cancel when it is done, whether the call ended by return or by the client
+// going away: the subscriber holds a channel the broker sends on until it is removed.
+// Calling cancel twice is safe, which is what lets it be deferred and also called on an error path.
 //
-// An unknown kind is an error rather than an empty stream, on the contract's rule
-// that a shell asking for a kind this build does not have should learn it now.
-// EVENT_KIND_UNSPECIFIED is among the unknown ones: a request that failed to say what
-// it wanted is not a request for all of it.
+// An unknown kind is an error rather than an empty stream, on the contract's rule that a shell
+// asking for a kind this build does not have should learn it now.
+// It is an Umgebungsfehler and not an assert: the value came off the wire from a shell that may
+// have been built against a different minor version.
+// EVENT_KIND_UNSPECIFIED is among the unknown ones: a request that failed to say what it wanted is
+// not a request for all of it.
 func (b *Broker) Subscribe(kinds []screensharev1.EventKind) (<-chan *screensharev1.Event, func(), error) {
 	var filter map[screensharev1.EventKind]bool
 	if len(kinds) > 0 {
@@ -138,8 +142,8 @@ func (b *Broker) Subscribe(kinds []screensharev1.EventKind) (<-chan *screenshare
 			b.mu.Lock()
 			delete(b.subscribers, id)
 			b.mu.Unlock()
-			// The subscriber is out of the map before the channel closes, so no publish
-			// can still be holding it, and the receiver's range ends.
+			// The subscriber is out of the map before the channel closes, so no publish can still be holding
+			// it, and the receiver's range ends.
 			close(sub.out)
 		})
 	}
@@ -147,17 +151,18 @@ func (b *Broker) Subscribe(kinds []screensharev1.EventKind) (<-chan *screenshare
 	return sub.out, cancel, nil
 }
 
-// Publish hands one event to every subscriber that asked for its kind, each with its
-// own copy carrying its own sequence number.
+// Publish hands one event to every subscriber that asked for its kind, each with its own copy
+// carrying its own sequence number.
 //
-// It never blocks. A subscriber whose queue is full loses its oldest queued event to
-// make room, because every event is a whole state and the newest is the one worth
-// keeping. The number is spent before the enqueue rather than after it, so a dropped
-// event leaves the gap that is the whole point of numbering them.
+// It never blocks.
+// A subscriber whose queue is full loses its oldest queued event to make room,
+// because every event is a whole state and the newest is the one worth keeping.
+// The number is spent before the enqueue rather than after it, so a dropped event leaves the gap
+// that is the whole point of numbering them.
 //
-// Each subscriber gets a clone. The alternative is one message every subscriber's
-// stream writes its own number into, which is a data race on a value that has to
-// differ per reader.
+// Each subscriber gets a clone.
+// The alternative is one message every subscriber's stream writes its own number into,
+// which is a data race on a value that has to differ per reader.
 func (b *Broker) Publish(e *screensharev1.Event) {
 	assert.IsNotNil(e, "an announced change is an event")
 	kind := KindOf(e)
@@ -174,12 +179,13 @@ func (b *Broker) Publish(e *screensharev1.Event) {
 		sub.sequence++
 		event := proto.Clone(e).(*screensharev1.Event)
 		event.Sequence = sub.sequence
+		assert.Assert(event.Sequence > 0, "a delivered event is numbered from one", event.Sequence)
 
 		select {
 		case sub.out <- event:
 		default:
-			// Full: drop the oldest to make room for this one. The receive cannot block,
-			// since this is the only sender and the buffer is known full.
+			// Full: drop the oldest to make room for this one.
+			// The receive cannot block, since this is the only sender and the buffer is known full.
 			select {
 			case <-sub.out:
 				sub.dropped++
@@ -233,19 +239,21 @@ func KindOf(e *screensharev1.Event) screensharev1.EventKind {
 	}
 }
 
-// KindNames lists the declared kinds as their enum names, for the sentence that
-// refuses an unknown one.
+// KindNames lists the declared kinds as their enum names, for the sentence that refuses an unknown
+// one.
 func KindNames() []string {
 	out := make([]string, 0, len(Kinds))
 	for _, k := range Kinds {
 		out = append(out, k.String())
 	}
+
+	assert.Assert(len(out) == len(Kinds), "every declared kind is named", len(out), len(Kinds))
 	return out
 }
 
-// UnknownKindError is a subscriber naming an event kind this build has none of. It
-// is an environment condition rather than a bug in this code: the value came off the
-// wire from a shell that may have been built against a different minor version.
+// UnknownKindError is a subscriber naming an event kind this build has none of.
+// It is an Umgebungsfehler rather than a bug in this code: the value came off the wire from a shell
+// that may have been built against a different minor version.
 type UnknownKindError struct {
 	Kind screensharev1.EventKind
 }

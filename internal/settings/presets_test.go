@@ -45,9 +45,9 @@ func TestLoadPresetsMissingFileIsNotAFailure(t *testing.T) {
 	}
 }
 
-// SavePreset and DeletePreset both rewrite the whole file from what LoadPresets
-// returned. A corrupt file that read as an empty list would take every preset in
-// it down with the next save, so the save is refused and the values are kept.
+// SavePreset and DeletePreset both rewrite the whole file from what LoadPresets returned.
+// A corrupt file that read as an empty list would take every preset in it down with the next save,
+// so the save is refused and the values are kept.
 func TestSavePresetRefusesToWriteOverACorruptFile(t *testing.T) {
 	isolateConfig(t)
 
@@ -83,8 +83,8 @@ func TestDeletePresetRefusesToWriteOverACorruptFile(t *testing.T) {
 	}
 }
 
-// The set-aside leaves no file behind, so the same action repeated writes a fresh
-// one rather than staying refused.
+// The set-aside leaves no file behind, so the same action repeated writes a fresh one rather than
+// staying refused.
 func TestSavePresetSucceedsAfterTheCorruptFileIsKept(t *testing.T) {
 	isolateConfig(t)
 

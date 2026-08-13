@@ -7,14 +7,14 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 
 /// <summary>
-/// The bottom band: what the window is carrying, and the one sentence that says what the
-/// view in front of it affords.
+/// The bottom band: what the window is carrying, and the one sentence that says what the view in front of it
+/// affords.
 ///
-/// The design draws a status bar on the viewer only. Setup is receiving nothing and
-/// broadcast is decoding nothing, so their figures would be a lie and the source states no
-/// copy for either. The band keeps its height in every destination and says nothing where
-/// the design says nothing, rather than inventing a number
-/// (scratchpad/spec/6a-nav-chrome.md, "Explicitly not specified in the source").
+/// The design draws a status bar on the viewer only.
+/// Setup is receiving nothing and broadcast is decoding nothing, so their figures would be a lie and the
+/// source states no copy for either.
+/// The band keeps its height in every destination and says nothing where the design says nothing, rather than
+/// inventing a number (scratchpad/spec/6a-nav-chrome.md, "Explicitly not specified in the source").
 /// </summary>
 public sealed class StatusBarViewModel : Observable
 {
@@ -26,15 +26,16 @@ public sealed class StatusBarViewModel : Observable
     private string _figuresHint = "";
 
     /// <summary>
-    /// The band's whole input. The figures arrive rather than being held here, because the
-    /// destination in front of the band is the one that knows them: the viewer derives its
-    /// counts from the chips a reader just toggled, and a band that kept its own copy would
-    /// go on printing the throughput of a decoder that has already been torn down.
+    /// The band's whole input.
+    /// The figures arrive rather than being held here, because the destination in front of the band is the
+    /// one that knows them: the viewer derives its counts from the chips a reader just toggled, and a band
+    /// that kept its own copy would go on printing the throughput of a decoder that has already been torn
+    /// down.
     ///
-    /// The load figures arrive as a list and not as named slots. What a destination has to
-    /// report is that destination's business, and a band with a field per figure would have
-    /// to be edited every time one is split - which is exactly what splitting the pooled
-    /// decode percent into GPU and cores would have cost.
+    /// The load figures arrive as a list and not as named slots.
+    /// What a destination has to report is that destination's business, and a band with a field per figure
+    /// would have to be edited every time one is split - which is exactly what splitting the pooled decode
+    /// percent into GPU and cores would have cost.
     /// Idempotent.
     /// </summary>
     public void Show(Destination current, string streams, IReadOnlyList<string> load, string hint)
@@ -64,8 +65,9 @@ public sealed class StatusBarViewModel : Observable
     public string Streams { get => _streams; private set => Set(ref _streams, value); }
 
     /// <summary>
-    /// The measurements, in the order the destination handed them over. Each reads a shade
-    /// quieter than the prose beside it, in tabular figures so a tick does not reflow the row.
+    /// The measurements, in the order the destination handed them over.
+    /// Each reads a shade quieter than the prose beside it, in tabular figures so a tick does not reflow the
+    /// row.
     /// </summary>
     public ObservableCollection<string> Load { get; } = [];
 
@@ -75,8 +77,9 @@ public sealed class StatusBarViewModel : Observable
     public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
 
     /// <summary>
-    /// The one render function. Every output is written on every pass, so a figure from the
-    /// viewer cannot survive a step back into setup.
+    /// The one render function.
+    /// Every output is written on every pass, so a figure from the viewer cannot survive a step back into
+    /// setup.
     /// </summary>
     public void Apply()
     {
@@ -85,9 +88,9 @@ public sealed class StatusBarViewModel : Observable
         ShowsMetrics = speaks && _figuresStreams.Length > 0;
         Streams = ShowsMetrics ? _figuresStreams : "";
 
-        // Emptied rather than left standing where the destination reports nothing: the band
-        // keeps its height in every destination, but a figure from the viewer must not
-        // survive a step back into setup (docs/development-principles.md, "One render function").
+        // Emptied rather than left standing where the destination reports nothing: the band keeps its height
+        // in every destination, but a figure from the viewer must not survive a step back into setup
+        // (docs/development-principles.md, "One render function").
         Reconcile.Onto(Load, ShowsMetrics ? _figuresLoad : []);
 
         Hint = speaks ? _figuresHint : "";
@@ -99,9 +102,9 @@ public sealed class StatusBarViewModel : Observable
     }
 
     /// <summary>
-    /// Whether the band says anything at all in this destination. Exhaustive, so a
-    /// destination added without an answer fails here rather than showing the previous
-    /// one's throughput.
+    /// Whether the band says anything at all in this destination.
+    /// Exhaustive, so a destination added without an answer fails here rather than showing the previous one's
+    /// throughput.
     /// </summary>
     private static bool SpeaksFor(Destination destination) => destination switch
     {

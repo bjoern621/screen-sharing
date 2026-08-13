@@ -11,10 +11,11 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// previewCodecs is one codec per bitstream format the app publishes, so the tests below
-// cover the whole of what the preview leg has to carry rather than the one format that
-// happens to be the default. RTSP is the transport because it is the one that carries
-// every format, which is the same reason the preview leg is RTP.
+// previewCodecs is one codec per bitstream format the app publishes, so the tests below cover the
+// whole of what the preview leg has to carry rather than the one format that happens to be the
+// default.
+// RTSP is the transport because it is the one that carries every format, which is the same reason
+// the preview leg is RTP.
 var previewCodecs = map[string]string{
 	"h264": "libx264",
 	"hevc": "libx265",
@@ -23,14 +24,14 @@ var previewCodecs = map[string]string{
 	"vp8":  "libvpx",
 }
 
-// previewStream is settings that publish the codec over the one transport that carries
-// every format, through the engine the capture backend runs on.
+// previewStream is settings that publish the codec over the one transport that carries every
+// format, through the engine the capture backend runs on.
 //
-// The rate-control mode is asked of the capability table rather than named, for the
-// reason every consumer of that table asks it: the defaults are a lossless encode at
-// 150 Mbit/s and four of the five rows gap that one way or another, while what these
-// tests are about is the shape of the command rather than which qualities a family can
-// code. A mode written here would be a sixth statement of the table's own answer.
+// The rate-control mode is asked of the capability table rather than named,
+// for the reason every consumer of that table asks it: the defaults are a lossless encode at 150
+// Mbit/s and four of the five rows gap that one way or another, while what these tests are about is
+// the shape of the command rather than which qualities a family can code.
+// A mode written here would be a sixth statement of the table's own answer.
 func previewStream(t *testing.T, capture, codec string) settings.Settings {
 	t.Helper()
 
@@ -53,9 +54,9 @@ func previewStream(t *testing.T, capture, codec string) settings.Settings {
 	return s
 }
 
-// Every format the app publishes has a local preview leg, and the two halves of that leg
-// agree. A payloader writing one payload format beside caps naming another is a preview
-// that decodes nothing, and nothing in either half says so on its own.
+// Every format the app publishes has a local preview leg, and the two halves of that leg agree.
+// A payloader writing one payload format beside caps naming another is a preview that decodes
+// nothing, and nothing in either half says so on its own.
 func TestEveryPublishableFormatHasAPreviewLegWithBothHalves(t *testing.T) {
 	for _, format := range capabilities.Formats() {
 		codec, ok := previewCodecs[format]
@@ -89,9 +90,10 @@ func TestEveryPublishableFormatHasAPreviewLegWithBothHalves(t *testing.T) {
 	}
 }
 
-// The GStreamer child copies the encoded stream to the loopback port, off the same tee
-// the meter hangs on. Two taps and the muxer are three branches of one tee, and a
-// pipeline that grew a second tee would be a second copy of the encoded stream.
+// The GStreamer child copies the encoded stream to the loopback port, off the same tee the meter
+// hangs on.
+// Two taps and the muxer are three branches of one tee, and a pipeline that grew a second tee would
+// be a second copy of the encoded stream.
 func TestTheGstPipelineTeesThePreviewOffTheEncodedStream(t *testing.T) {
 	for format, codec := range previewCodecs {
 		s := previewStream(t, "portal", codec)
@@ -118,15 +120,15 @@ func TestTheGstPipelineTeesThePreviewOffTheEncodedStream(t *testing.T) {
 		if !strings.Contains(line, "tcpclientsink host="+previewHost+" port=54321") {
 			t.Errorf("%s: the preview branch displaced the meter's: %s", format, line)
 		}
-		// The branch leaks rather than backpressures, because a preview able to hold up
-		// the encode path is a preview able to stall the stream it previews.
+		// The branch leaks rather than backpressures, because a preview able to hold up the encode path
+		// is a preview able to stall the stream it previews.
 		payloader := strings.Index(line, previewCarriages[format].payloader[0])
 		leaky := strings.LastIndex(line[:payloader], "leaky=downstream")
 		if leaky < 0 {
 			t.Errorf("%s: the preview branch can backpressure the encoder: %s", format, line)
 		}
-		// The trunk still reaches the muxer, and still through a queue: a tee's request
-		// pad and a muxer's do not link to each other directly.
+		// The trunk still reaches the muxer, and still through a queue: a tee's request pad and a muxer's
+		// do not link to each other directly.
 		last := strings.LastIndex(line, gstTeeName+". !")
 		if mux := strings.Index(line, "name="+"mux"); last < 0 || mux < last || !strings.Contains(line[last:], "queue") {
 			t.Errorf("%s: the muxer is no longer the last branch off the tee: %s", format, line)
@@ -134,8 +136,8 @@ func TestTheGstPipelineTeesThePreviewOffTheEncodedStream(t *testing.T) {
 	}
 }
 
-// The rendered command carries no preview leg, and the reason is not tidiness: the port
-// belongs to one launch, and whether two settings build one pipeline is decided by
+// The rendered command carries no preview leg, and the reason is not tidiness:
+// the port belongs to one launch, and whether two settings build one pipeline is decided by
 // comparing exactly this string (SamePipeline).
 func TestTheRenderedCommandCarriesNoPreviewLeg(t *testing.T) {
 	for _, capture := range []string{"portal", "gdigrab"} {
@@ -147,8 +149,8 @@ func TestTheRenderedCommandCarriesNoPreviewLeg(t *testing.T) {
 			}
 			line, err := engine.Command(s)
 			if err != nil {
-				// A capture backend this machine cannot render for is not what this test
-				// is about; the shape of the command it would render is.
+				// A capture backend this machine cannot render for is not what this test is about;
+				// the shape of the command it would render is.
 				continue
 			}
 			if strings.Contains(line, "udpsink") || strings.Contains(line, "rtp://"+previewHost) ||
@@ -159,9 +161,9 @@ func TestTheRenderedCommandCarriesNoPreviewLeg(t *testing.T) {
 	}
 }
 
-// The ffmpeg child writes the same encoded packets twice through the tee muxer: the
-// relay's leg as the transport states it, and the preview's beside it. Two outputs
-// written any other way are two encoders on one capture, which is the whole reason the
+// The ffmpeg child writes the same encoded packets twice through the tee muxer:
+// the relay's leg as the transport states it, and the preview's beside it.
+// Two outputs written any other way are two encoders on one capture, which is the whole reason the
 // tee muxer is the shape.
 func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 	for format, codec := range previewCodecs {
@@ -192,13 +194,13 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 		if !strings.Contains(line, "onfail=ignore") {
 			t.Errorf("%s: a preview slave that cannot open would end the stream: %s", format, line)
 		}
-		// The streams are mapped by hand, because automatic stream selection does not
-		// apply to a tee and an unmapped tee writes no stream at all.
+		// The streams are mapped by hand, because automatic stream selection does not apply to a tee and
+		// an unmapped tee writes no stream at all.
 		if !strings.Contains(line, "-map 0:v") {
 			t.Errorf("%s: the video is not mapped into the tee: %s", format, line)
 		}
-		// A draft payload format is refused by the RTP muxer unless compliance is
-		// loosened, and it is loosened on the preview slave alone.
+		// A draft payload format is refused by the RTP muxer unless compliance is loosened,
+		// and it is loosened on the preview slave alone.
 		draft := previewCarriages[format].draft
 		if got := strings.Contains(line, "strict=experimental"); got != draft {
 			t.Errorf("%s: strict=experimental is %v and the payload format's draft status is %v: %s", format, got, draft, line)
@@ -206,9 +208,10 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 	}
 }
 
-// A filter source has no input to map, so its chain's output is labelled and the label
-// is what the map names. Without it the tee writes nothing, and the failure is a stream
-// that never starts rather than a preview that does not.
+// A filter source has no input to map, so its chain's output is labelled and the label is what the
+// map names.
+// Without it the tee writes nothing, and the failure is a stream that never starts rather than a
+// preview that does not.
 func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 	s := previewStream(t, "ddagrab", "libx264")
 	tap, ok := ffmpegPreviewTap(s.Publish.Codec, PreviewLeg{Port: 45678})
@@ -232,8 +235,8 @@ func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 	}
 }
 
-// The port is the kernel's answer rather than a number this package picked, and two
-// allocations in a row do not collide - which is the whole reason it is allocated at all
+// The port is the kernel's answer rather than a number this package picked,
+// and two allocations in a row do not collide - which is the whole reason it is allocated at all
 // rather than being a constant.
 func TestPreviewPortsAreAllocatedAndBindable(t *testing.T) {
 	first, err := AllocatePreviewPort()
@@ -251,8 +254,8 @@ func TestPreviewPortsAreAllocatedAndBindable(t *testing.T) {
 		if port <= 0 || port > 65535 {
 			t.Errorf("port %d is not a port", port)
 		}
-		// The socket is handed back before the number is, so the receiving pipeline can
-		// bind it. A port that stayed held would be one no udpsrc could take.
+		// The socket is handed back before the number is, so the receiving pipeline can bind it.
+		// A port that stayed held would be one no udpsrc could take.
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP(previewHost), Port: port})
 		if err != nil {
 			t.Errorf("port %d was not released by the allocation that reported it: %v", port, err)
@@ -262,9 +265,10 @@ func TestPreviewPortsAreAllocatedAndBindable(t *testing.T) {
 	}
 }
 
-// A codec whose format has no local carriage publishes without a preview rather than
-// failing to publish. It is the branch the table's own completeness hides today, and it
-// is the one that decides whether a format added later costs a stream.
+// A codec whose format has no local carriage publishes without a preview rather than failing to
+// publish.
+// It is the branch the table's own completeness hides today, and it is the one that decides whether
+// a format added later costs a stream.
 func TestAFormatWithNoLocalCarriagePublishesWithoutAPreview(t *testing.T) {
 	const format = "h264"
 	codec := previewCodecs[format]

@@ -5,11 +5,11 @@ using ScreenShare.App.Controls;
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// One line of the pre-publish list as the rail and the review render it. A record, so a
-/// render pass over an unchanged list compares equal and leaves the bound collection alone.
+/// One line of the pre-publish list as the rail and the review render it.
+/// A record, so a render pass over an unchanged list compares equal and leaves the bound collection alone.
 ///
-/// <see cref="FixedInStep"/> is what stops an unresolved line from being a dead end: it names
-/// the step that owns the control at fault instead of leaving the reader to hunt for it.
+/// <see cref="FixedInStep"/> is what stops an unresolved line from being a dead end: it names the step that
+/// owns the control at fault instead of leaving the reader to hunt for it.
 /// </summary>
 public sealed record PreflightCheckRow
 {
@@ -31,9 +31,9 @@ public sealed record PreflightCheckRow
 /// ignore - and the seeded lists were a second, fictional answer sitting beside the real one
 /// while the real one was printed under the form as loose panels. Both moved here.
 ///
-/// The one thing this side decides is where a diagnostic is anchored: the contract carries the
-/// field key it is about, and which step holds that field is placement, which is the shell's
-/// (docs/ipc-api.md, "The rule").
+/// The one thing this side decides is where a diagnostic is anchored: the contract carries the field key it
+/// is about, and which step holds that field is placement, which is the shell's (docs/ipc-api.md, "The
+/// rule").
 /// </summary>
 public static class PreflightChecks
 {
@@ -41,8 +41,8 @@ public static class PreflightChecks
     /// The diagnostics as lines, ranked as the form ranked them.
     /// </summary>
     /// <param name="stepOf">
-    /// Names the step that owns one field key, and answers empty for a key no step holds and
-    /// for the diagnostics that are about the combination rather than any single field.
+    /// Names the step that owns one field key, and answers empty for a key no step holds and for the
+    /// diagnostics that are about the combination rather than any single field.
     /// </param>
     public static IReadOnlyList<PreflightCheckRow> Of(
         IReadOnlyList<Diagnostic> diagnostics, Func<string, string> stepOf)
@@ -66,9 +66,9 @@ public static class PreflightChecks
     }
 
     /// <summary>
-    /// What the list says when the form found nothing to say. A line rather than an empty
-    /// panel: "nothing is wrong" is an answer the reader wants, and a card that vanishes when
-    /// the last warning clears reads as a card that broke.
+    /// What the list says when the form found nothing to say.
+    /// A line rather than an empty panel: "nothing is wrong" is an answer the reader wants, and a card that
+    /// vanishes when the last warning clears reads as a card that broke.
     /// </summary>
     public static readonly PreflightCheckRow Clear = new()
     {
@@ -78,8 +78,9 @@ public static class PreflightChecks
     };
 
     /// <summary>
-    /// The severity as the list draws it. Exhaustive, so a severity added to the contract
-    /// fails here rather than rendering as whatever the default happened to be.
+    /// The severity as the list draws it.
+    /// Exhaustive, so a severity added to the contract fails here rather than rendering as whatever the
+    /// default happened to be.
     /// </summary>
     private static CheckState StateOf(Severity severity) => severity switch
     {
@@ -90,8 +91,8 @@ public static class PreflightChecks
     };
 
     /// <summary>
-    /// The one line a chip can say about the whole list. Derived rather than stored, so the
-    /// strip cannot claim two things are owed while the list shows none.
+    /// The one line a chip can say about the whole list.
+    /// Derived rather than stored, so the strip cannot claim two things are owed while the list shows none.
     /// </summary>
     public static string SummaryOf(IReadOnlyList<PreflightCheckRow> checks)
     {

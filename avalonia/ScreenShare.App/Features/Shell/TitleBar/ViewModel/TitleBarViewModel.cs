@@ -5,14 +5,13 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.TitleBar.ViewModel;
 
 /// <summary>
-/// The title bar's state: the one line that says which window this is, and the three
-/// commands the window controls fire.
+/// The title bar's state: the one line that says which window this is, and the three commands the window
+/// controls fire.
 ///
-/// Minimise, maximise and close are the only things on any screen that a view model cannot
-/// carry out by itself - they are the platform's, not the app's. They arrive through
-/// <see cref="Attach"/> rather than being reached for, so the bar stays constructible in a
-/// test and the window keeps being built around the view model instead of the other way
-/// round.
+/// Minimise, maximise and close are the only things on any screen that a view model cannot carry out by
+/// itself - they are the platform's, not the app's.
+/// They arrive through <see cref="Attach"/> rather than being reached for, so the bar stays constructible in
+/// a test and the window keeps being built around the view model instead of the other way round.
 /// </summary>
 public sealed class TitleBarViewModel : Observable
 {
@@ -40,8 +39,9 @@ public sealed class TitleBarViewModel : Observable
     private bool _maximised;
 
     /// <summary>
-    /// The window's identity, written in one go so the destination and the session it
-    /// belongs to cannot disagree in the title. Idempotent.
+    /// The window's identity, written in one go so the destination and the session it belongs to cannot
+    /// disagree in the title.
+    /// Idempotent.
     /// </summary>
     public void Show(Destination current, string session)
     {
@@ -53,10 +53,11 @@ public sealed class TitleBarViewModel : Observable
     }
 
     /// <summary>
-    /// Whether the window is maximised. The middle caption button is one button with two
-    /// meanings on Windows - maximise while the window is normal, restore while it is not -
-    /// so the bar is told the state rather than inferring it from the command it last fired,
-    /// which would be a second, drifting copy of what the window actually is. Idempotent.
+    /// Whether the window is maximised.
+    /// The middle caption button is one button with two meanings on Windows - maximise while the window is
+    /// normal, restore while it is not - so the bar is told the state rather than inferring it from the
+    /// command it last fired, which would be a second, drifting copy of what the window actually is.
+    /// Idempotent.
     /// </summary>
     public void ShowMaximised(bool maximised)
     {
@@ -65,9 +66,9 @@ public sealed class TitleBarViewModel : Observable
     }
 
     /// <summary>
-    /// Hands the bar the three things only a window can do. Idempotent: attaching twice
-    /// leaves one set of actions, and the commands stay enabled either way, because a
-    /// window control that greys itself out before composition finishes reads as a fault.
+    /// Hands the bar the three things only a window can do.
+    /// Idempotent: attaching twice leaves one set of actions, and the commands stay enabled either way,
+    /// because a window control that greys itself out before composition finishes reads as a fault.
     /// </summary>
     public void Attach(Action minimise, Action toggleMaximise, Action close)
     {
@@ -97,9 +98,10 @@ public sealed class TitleBarViewModel : Observable
     public string MaximiseLabel { get => _maximiseLabel; private set => Set(ref _maximiseLabel, value); }
 
     /// <summary>
-    /// The one render function. The design shows a title only for the viewer window
-    /// ("Viewer — lab-04"), so the pattern - destination, em dash with a space either side,
-    /// session - is this module's reading of it, applied to all three the same way.
+    /// The one render function.
+    /// The design shows a title only for the viewer window ("Viewer — lab-04"), so the pattern -
+    /// destination, em dash with a space either side, session - is this module's reading of it, applied to
+    /// all three the same way.
     /// </summary>
     public void Apply()
     {

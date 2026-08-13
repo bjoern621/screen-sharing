@@ -2,10 +2,11 @@
 
 Abbreviations and initialisms this project uses, in code, configuration, documentation or the user interface.
 A term earns a row by appearing somewhere in the repository, not by being common in the field.
-Which combinations are actually offered is decided by the capability table in `desktop/internal/capabilities`, not here.
+Which combinations are actually offered is decided by the capability table in `internal/capabilities`, not here.
 
 Expansion first, meaning second.
 Where an abbreviation carries two senses in this repository, each sense gets its own row.
+`video-stack.md` holds the other half of the subject: what each of these things sits between, what it constrains, and what breaks when it disagrees with its neighbour.
 
 The first section is different: it fixes the words for the app's own moving parts.
 Those names are normative, not descriptive.

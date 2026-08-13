@@ -182,6 +182,18 @@
           wl-screenrec # wlroots screencopy, zero-copy DMA-BUF, hardware encode, no root
           wf-recorder # wlroots screencopy, ffmpeg-backed, no root
           wlr-randr # wlroots monitor enumeration (display pkg listWlrRandr)
+          # VAAPI is split across two closures, and vainfo is what checks them against
+          # each other.
+          # The dispatch library comes from this shell; the driver it loads is the
+          # host's, under /run/opengl-driver.
+          # libva locates that driver through a version-stamped init symbol, probing
+          # from its own VA-API version downwards, so a libva older than the one the
+          # host's Mesa was built against opens no driver at all.
+          # Both engines lose every VAAPI element when that happens: the gst va plugin
+          # registers zero features, and ffmpeg's vaapi device creation fails.
+          # encoders.Detect then greys every VAAPI row, which reads as a machine with no
+          # hardware encode rather than as a version mismatch, so the nixpkgs pin is
+          # what has to move.
           libva-utils # vainfo: confirm VAAPI encode entrypoints for hardware encode
           libdrm # modetest: enumerate CRTCs and planes to pick a kmsgrab device
           drm_info # DRM connector, plane, and format dump

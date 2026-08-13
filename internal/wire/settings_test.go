@@ -8,16 +8,16 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// populatedSettings is a settings.Settings with every field set, and every field set to
-// a value no other field holds.
+// populatedSettings is a settings.Settings with every field set, and every field set to a value no
+// other field holds.
 //
-// Distinctness is the whole point of the fixture rather than a tidiness. The failure
-// this conversion actually has is not a field left out - that shows up as a zero - but
-// a field mapped to its twin: BitrateM written into maxrate_mbps, the publish RTSP
-// protocol read back out of the watch one, the player's watch leg landing in the tile's.
-// Every one of those survives a round trip unnoticed the moment two fields share a
-// value, so no two here do - across the three groups and not only inside one, because
-// the conversion writes all three.
+// Distinctness is the whole point of the fixture rather than a tidiness.
+// The failure this conversion actually has is not a field left out - that shows up as a zero - but
+// a field mapped to its twin: BitrateM written into maxrate_mbps, the publish RTSP protocol read
+// back out of the watch one, the player's watch leg landing in the tile's.
+// Every one of those survives a round trip unnoticed the moment two fields share a value,
+// so no two here do - across the three groups and not only inside one, because the conversion
+// writes all three.
 func populatedSettings() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
@@ -70,12 +70,13 @@ func populatedSettings() settings.Settings {
 	}
 }
 
-// eachField visits every leaf field of a settings value, group by group, naming each as
-// the key a form would: the group, a dot, the field.
+// eachField visits every leaf field of a settings value, group by group, naming each as the key a
+// form would: the group, a dot, the field.
 //
-// The walk is two levels deep and stops there, because that is the shape settings.Settings
-// has: three groups of plain values. A group gaining a struct field would leave this
-// comparing two structs, which is still a comparison and still fails on a difference.
+// The walk is two levels deep and stops there, because that is the shape settings.Settings has:
+// three groups of plain values.
+// A group gaining a struct field would leave this comparing two structs, which is still a
+// comparison and still fails on a difference.
 func eachField(s settings.Settings, visit func(name string, value reflect.Value)) {
 	v := reflect.ValueOf(s)
 	for i := range v.NumField() {
@@ -93,21 +94,21 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 
 // offContract are the settings fields this conversion deliberately does not carry.
 //
-// One is, and it is a migration's own working room rather than a setting: the old key a
-// file written before the audio list carried is read once, turned into the list and
-// cleared, so a draft crossing to a shell and back has nothing to say about it and a
-// fixture that gave it a value would be asserting that the contract carries a field it has
-// no reason to (settings/migrate.go).
+// One is, and it is a migration's own working room rather than a setting: the old key a file
+// written before the audio list carried is read once, turned into the list and cleared,
+// so a draft crossing to a shell and back has nothing to say about it and a fixture that gave it a
+// value would be asserting that the contract carries a field it has no reason to
+// (settings/migrate.go).
 var offContract = map[string]bool{"Publish.LegacyAudio": true}
 
-// A settings draft crosses to a shell and comes back edited on every keystroke, so a
-// field that loses its value on the way is a setting the user cannot change and a
-// setting that silently reverts.
+// A settings draft crosses to a shell and comes back edited on every keystroke,
+// so a field that loses its value on the way is a setting the user cannot change and a setting that
+// silently reverts.
 //
-// It is a plain round trip now. The contract carries every settings field, so nothing
-// has to be merged onto a held draft to survive a shell that could not see it: the
-// two knobs that used to need that were the obsolete GTK4 grid's, and both are
-// ViewerSettings fields since the split.
+// It is a plain round trip now.
+// The contract carries every settings field, so nothing has to be merged onto a held draft to
+// survive a shell that could not see it: the two knobs that used to need that were the obsolete
+// GTK4 grid's, and both are ViewerSettings fields since the split.
 func TestARoundTripKeepsEveryField(t *testing.T) {
 	want := populatedSettings()
 	got := ToSettings(Settings(want))
@@ -133,9 +134,9 @@ func fieldByName(s settings.Settings, name string) reflect.Value {
 	return found
 }
 
-// A field added to settings.Settings and forgotten in the fixture would leave the round
-// trip above comparing two zeroes and passing, which is the one way this package can
-// drop a setting and be told it is fine.
+// A field added to settings.Settings and forgotten in the fixture would leave the round trip above
+// comparing two zeroes and passing, which is the one way this package can drop a setting and be
+// told it is fine.
 //
 // The instruction on failure: give the named field a value here that no other field in
 // populatedSettings holds, and map it in both directions of the group it belongs to.
@@ -148,12 +149,13 @@ func TestEveryFieldIsGivenAValueInTheFixture(t *testing.T) {
 	})
 }
 
-// The fixture only catches a swapped twin while no two fields share a value, and it is
-// a hand-written table that a later edit can quietly collide.
+// The fixture only catches a swapped twin while no two fields share a value,
+// and it is a hand-written table that a later edit can quietly collide.
 func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
-	// Keyed by the value's rendering rather than by the value, because a settings field may
-	// be a list and a list is not a map key. What the check is about is whether two fields
-	// are indistinguishable to a reader of the round trip, and two that print alike are.
+	// Keyed by the value's rendering rather than by the value, because a settings field may be a list
+	// and a list is not a map key.
+	// What the check is about is whether two fields are indistinguishable to a reader of the round
+	// trip, and two that print alike are.
 	seen := map[string]string{}
 	eachField(populatedSettings(), func(name string, v reflect.Value) {
 		value := fmt.Sprintf("%v", v.Interface())
@@ -165,14 +167,13 @@ func TestTheFixtureGivesNoTwoFieldsTheSameValue(t *testing.T) {
 	})
 }
 
-// A request that arrives with no settings set was written by another process, which
-// makes it an environment condition the app survives and the caller's to reject. This
-// package turning it into a panic would make a malformed message able to kill the
-// process holding the encoder.
+// A request that arrives with no settings set was written by another process,
+// which makes it an environment condition the app survives and the caller's to reject.
+// This package turning it into a panic would make a malformed message able to kill the process
+// holding the encoder.
 //
-// The groups are read through their own accessors for the same reason, so a message
-// that carried one group and not another converts rather than panicking on the absent
-// one.
+// The groups are read through their own accessors for the same reason, so a message that carried
+// one group and not another converts rather than panicking on the absent one.
 func TestANilMessageConvertsToTheZeroSettings(t *testing.T) {
 	if got := ToSettings(nil); !reflect.DeepEqual(got, settings.Settings{}) {
 		t.Errorf("ToSettings(nil) = %+v, want the zero settings.Settings", got)
@@ -180,13 +181,13 @@ func TestANilMessageConvertsToTheZeroSettings(t *testing.T) {
 }
 
 // The empty output resolution is the capture's own size reaching the encoder unscaled,
-// which is a value and not an absence: settings.Publish.OutputSize answers false for it
-// rather than a zero size, and a conversion that turned it into anything else - a
-// literal "0x0", the monitor's dimensions filled in helpfully - would put a scaling
-// stage in front of every stream that never asked for one.
+// which is a value and not an absence: settings.Publish.OutputSize answers false for it rather than
+// a zero size, and a conversion that turned it into anything else - a literal "0x0",
+// the monitor's dimensions filled in helpfully - would put a scaling stage in front of every stream
+// that never asked for one.
 //
-// The round-trip test above already covers a resolution that is set. This one pins the
-// meaning of the empty one, because that is the case a well-meaning edit breaks.
+// The round-trip test above already covers a resolution that is set.
+// This one pins the meaning of the empty one, because that is the case a well-meaning edit breaks.
 func TestAnUnscaledCaptureCrossesAsTheEmptyResolution(t *testing.T) {
 	unscaled := populatedSettings()
 	unscaled.Publish.OutputResolution = ""
@@ -199,13 +200,12 @@ func TestAnUnscaledCaptureCrossesAsTheEmptyResolution(t *testing.T) {
 	}
 }
 
-// A preset travels whole rather than as a diff against the defaults, so applying one is
-// an assignment: the name selects it and the settings under it are the entire state the
-// user saved.
+// A preset travels whole rather than as a diff against the defaults, so applying one is an
+// assignment: the name selects it and the settings under it are the entire state the user saved.
 //
-// What it saves is the publish group and nothing else. Where the relay is belongs to a
-// deployment and how this machine watches belongs to a viewer, so a preset carrying
-// either would move a setting the user never meant to save.
+// What it saves is the publish group and nothing else.
+// Where the relay is belongs to a deployment and how this machine watches belongs to a viewer,
+// so a preset carrying either would move a setting the user never meant to save.
 func TestAPresetCarriesItsNameAndAllOfItsSettings(t *testing.T) {
 	p := settings.Preset{Name: "work", Settings: populatedSettings().Publish}
 
@@ -218,8 +218,8 @@ func TestAPresetCarriesItsNameAndAllOfItsSettings(t *testing.T) {
 	}
 }
 
-// An empty list and a missing one are the same thing on the wire, and a caller ranging
-// over the result should not have to know which it got.
+// An empty list and a missing one are the same thing on the wire, and a caller ranging over the
+// result should not have to know which it got.
 func TestNoSavedPresetsConvertToAnEmptyList(t *testing.T) {
 	got := Presets(nil)
 	if got == nil {
@@ -230,8 +230,8 @@ func TestNoSavedPresetsConvertToAnEmptyList(t *testing.T) {
 	}
 }
 
-// The store's order is the order the user saved in and the order a shell lists, so it
-// is part of what crosses.
+// The store's order is the order the user saved in and the order a shell lists,
+// so it is part of what crosses.
 func TestPresetsCrossInStoreOrder(t *testing.T) {
 	ps := []settings.Preset{
 		{Name: "first", Settings: populatedSettings().Publish},

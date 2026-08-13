@@ -8,24 +8,24 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// previewApp is a backend with nothing running, for the preview's own lifecycle. It
-// needs no relay, no child and no control socket: what is under test is the pipeline the
-// publish brings up, which is this process's.
+// previewApp is a backend with nothing running, for the preview's own lifecycle.
+// It needs no relay, no child and no control socket: what is under test is the pipeline the publish
+// brings up, which is this process's.
 func previewApp() *App {
 	return &App{events: events.New(), settings: settings.Defaults()}
 }
 
-// previewSettings publish something with a local carriage, which is what makes a preview
-// worth bringing up at all.
+// previewSettings publish something with a local carriage, which is what makes a preview worth
+// bringing up at all.
 func previewSettings() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Name, s.Publish.Codec = "preview-lifecycle-test", "libx264"
 	return s
 }
 
-// A second start changes nothing. The preview is brought up by a launch, and a launch
-// that ran twice - a retry racing a manual start - would otherwise bind a second port
-// for a child that will only ever be told about one.
+// A second start changes nothing.
+// The preview is brought up by a launch, and a launch that ran twice - a retry racing a manual
+// start - would otherwise bind a second port for a child that will only ever be told about one.
 func TestBringingTheLocalPreviewUpTwiceChangesNothing(t *testing.T) {
 	a := previewApp()
 	s := previewSettings()
@@ -51,14 +51,14 @@ func TestBringingTheLocalPreviewUpTwiceChangesNothing(t *testing.T) {
 	if a.preview != nil {
 		t.Error("a stopped preview is still reported as running")
 	}
-	// A stop on a preview that is not running is what the caller asked for and is
-	// already true, which is the same contract StopReceive holds itself to.
+	// A stop on a preview that is not running is what the caller asked for and is already true,
+	// which is the same contract StopReceive holds itself to.
 	a.stopPreviewLocked()
 }
 
-// The port the child is told about is the port the pipeline is listening on, and it is
-// gone once the preview stops. A port left bound would be one the next launch could not
-// be given.
+// The port the child is told about is the port the pipeline is listening on,
+// and it is gone once the preview stops.
+// A port left bound would be one the next launch could not be given.
 func TestTheLocalPreviewHoldsThePortItReportsAndReleasesIt(t *testing.T) {
 	a := previewApp()
 	s := previewSettings()

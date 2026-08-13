@@ -8,20 +8,21 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// The stats panel: what a tile prints when a reader turns it on to diagnose one stream.
 ///
-/// Two defects are what these lock out. A figure nothing has measured printing as a zero, which
-/// would read as a decode receiving nothing rather than as a pipeline that has not negotiated -
-/// the whole panel is read during the seconds a stream is opening, so every row spends time in
-/// that state. And a row with no tip, which is a number a reader cannot act on: the keys are the
-/// contract's own field names, so a row whose key is misspelt renders as the raw key with
-/// nothing said about it, and nothing else would catch that.
+/// Two defects are what these lock out.
+/// A figure nothing has measured printing as a zero, which would read as a decode receiving nothing rather
+/// than as a pipeline that has not negotiated - the whole panel is read during the seconds a stream is
+/// opening, so every row spends time in that state.
+/// And a row with no tip, which is a number a reader cannot act on: the keys are the contract's own field
+/// names, so a row whose key is misspelt renders as the raw key with nothing said about it, and nothing else
+/// would catch that.
 /// </summary>
 public sealed class TileStatsTests
 {
     /// <summary>
-    /// One decode's sample, as the backend takes it off a running pipeline that has negotiated
-    /// everything and been measured at least twice. Tests that are about an absence take a field
-    /// back off it rather than building a second fixture, so what each of them is about is the
-    /// line that differs.
+    /// One decode's sample, as the backend takes it off a running pipeline that has negotiated everything and
+    /// been measured at least twice.
+    /// Tests that are about an absence take a field back off it rather than building a second fixture, so
+    /// what each of them is about is the line that differs.
     /// </summary>
     private static ReceiveStreamStats Sample() => new()
     {
@@ -100,9 +101,10 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The guard on the tables. Every row is keyed on an identifier one of the two sides owns,
-    /// and an entry that is missing renders as that identifier with nothing said about it -
-    /// which is visible on screen but only to somebody looking at that row.
+    /// The guard on the tables.
+    /// Every row is keyed on an identifier one of the two sides owns, and an entry that is missing renders as
+    /// that identifier with nothing said about it - which is visible on screen but only to somebody looking
+    /// at that row.
     /// </summary>
     [Fact]
     public void EveryRowAndEveryHeadingSaysWhatItMeans()
@@ -137,9 +139,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The identifiers the backend sends are named in this shell's own words, which is the same
-    /// rule every other identifier on the contract follows: the decode reports "smpte2084" and
-    /// "memory:DMABuf", and neither is a word for a reader.
+    /// The identifiers the backend sends are named in this shell's own words, which is the same rule every
+    /// other identifier on the contract follows: the decode reports "smpte2084" and "memory:DMABuf", and
+    /// neither is a word for a reader.
     /// </summary>
     [Fact]
     public void TheIdentifiersTheBackendSendsArePrintedAsWords()
@@ -153,9 +155,10 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A decode on its first tick has counters and no rates, and every field the pads have not
-    /// negotiated is empty. None of that is a measurement of zero, and a panel that printed it
-    /// as one would say the stream is arriving at nothing.
+    /// A decode on its first tick has counters and no rates, and every field the pads have not negotiated is
+    /// empty.
+    /// None of that is a measurement of zero, and a panel that printed it as one would say the stream is
+    /// arriving at nothing.
     /// </summary>
     [Fact]
     public void AFigureNothingHasMeasuredPrintsAsAbsent()
@@ -174,8 +177,8 @@ public sealed class TileStatsTests
         Assert.Equal("…", Value(panel, "Timing", "Latency window"));
         Assert.Equal("…", Value(panel, "This window", "Handed over at"));
 
-        // A counter that has counted nothing has counted zero, which is a reading rather than an
-        // absence and is drawn as one.
+        // A counter that has counted nothing has counted zero, which is a reading rather than an absence and
+        // is drawn as one.
         Assert.Equal("0", Value(panel, "This window", "Frames taken"));
     }
 
@@ -197,9 +200,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// Whether the range is being rolled down is drawn in both directions. A reader comparing two
-    /// tiles of one HDR stream is comparing exactly this row, so a row that vanished when the
-    /// answer was "off" would leave them unable to tell the tiles apart.
+    /// Whether the range is being rolled down is drawn in both directions.
+    /// A reader comparing two tiles of one HDR stream is comparing exactly this row, so a row that vanished
+    /// when the answer was "off" would leave them unable to tell the tiles apart.
     /// </summary>
     [Fact]
     public void ToneMappingIsStatedWhicheverWayItWent()
@@ -212,9 +215,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// The transport's counters, which are the evidence that separates a stream this machine
-    /// cannot decode fast enough from one the network is not delivering. Which of them a decode
-    /// reports follows from the leg it was opened on.
+    /// The transport's counters, which are the evidence that separates a stream this machine cannot decode
+    /// fast enough from one the network is not delivering.
+    /// Which of them a decode reports follows from the leg it was opened on.
     /// </summary>
     [Fact]
     public void TheTransportsOwnCountersBecomeABlockPerElement()
@@ -234,9 +237,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A counter this build has no words for still reaches the panel, under the element's own
-    /// name for it. It is a row a reader can search for and report, where swallowing it would
-    /// leave a diagnostic quietly missing evidence.
+    /// A counter this build has no words for still reaches the panel, under the element's own name for it.
+    /// It is a row a reader can search for and report, where swallowing it would leave a diagnostic quietly
+    /// missing evidence.
     /// </summary>
     [Fact]
     public void ACounterThisBuildHasNoWordsForIsPrintedUnderItsOwnKey()
@@ -253,9 +256,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A tile with no sample still prints what this window did, because those counters are the
-    /// window's own: the frame channel is the same whether the pictures come off the relay, off
-    /// the publish's own loopback copy, or off a screen this machine is reading.
+    /// A tile with no sample still prints what this window did, because those counters are the window's own:
+    /// the frame channel is the same whether the pictures come off the relay, off the publish's own loopback
+    /// copy, or off a screen this machine is reading.
     /// </summary>
     [Fact]
     public void TheWindowsOwnBlockIsDrawnWithNoSampleAtAll()
@@ -269,9 +272,9 @@ public sealed class TileStatsTests
     /// <summary>
     /// A row survives the sample that lands under it, and takes the new reading.
     ///
-    /// This is what makes the tooltips usable at all. A panel rebuilt on every sample takes the
-    /// row out from under a resting pointer once a second, which closes the tip that row exists
-    /// to show - and a tip nobody can finish reading is a tip nobody reads.
+    /// This is what makes the tooltips usable at all.
+    /// A panel rebuilt on every sample takes the row out from under a resting pointer once a second, which
+    /// closes the tip that row exists to show - and a tip nobody can finish reading is a tip nobody reads.
     /// </summary>
     [Fact]
     public void ARowSurvivesTheSampleThatLandsUnderIt()
@@ -292,9 +295,9 @@ public sealed class TileStatsTests
     }
 
     /// <summary>
-    /// A pipeline that negotiates something it had not rebuilds the block that gained rows, and
-    /// nothing else about the panel. An audio branch coming up is the case: it is a whole block
-    /// that was not there a second ago.
+    /// A pipeline that negotiates something it had not rebuilds the block that gained rows, and nothing else
+    /// about the panel.
+    /// An audio branch coming up is the case: it is a whole block that was not there a second ago.
     /// </summary>
     [Fact]
     public void ABlockTheDecodeGainsIsBuiltWhenItArrives()

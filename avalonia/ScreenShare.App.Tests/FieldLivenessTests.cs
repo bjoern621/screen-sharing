@@ -9,9 +9,9 @@ namespace ScreenShare.App.Tests;
 /// What a control costs to change while people are watching.
 ///
 /// The backend answers it per control and per combination, and this side repeats the answer.
-/// What these lock out is the shell growing a list of its own: the flag moves with the
-/// engine, the codec and the rate-control mode, so a list held here would go on promising a
-/// reconnect-free edit after the backend stopped delivering one (docs/ipc-api.md, "The rule").
+/// What these lock out is the shell growing a list of its own: the flag moves with the engine, the codec and
+/// the rate-control mode, so a list held here would go on promising a reconnect-free edit after the backend
+/// stopped delivering one (docs/ipc-api.md, "The rule").
 /// </summary>
 public sealed class FieldLivenessTests
 {
@@ -48,9 +48,9 @@ public sealed class FieldLivenessTests
     }
 
     /// <summary>
-    /// The flag is an output like every other, written on every pass. A control that stopped
-    /// being live - because the mode moved to one that sends the encoder no rate - has to stop
-    /// saying so through the same render function that started saying it.
+    /// The flag is an output like every other, written on every pass.
+    /// A control that stopped being live - because the mode moved to one that sends the encoder no rate - has
+    /// to stop saying so through the same render function that started saying it.
     /// </summary>
     [Fact]
     public void ASecondPassTakesTheFlagBack()

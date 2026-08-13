@@ -82,11 +82,10 @@ The note is a rule on the engine axis and it lands on the 10-bit format alone, w
 **Built: the viewer half.** The render chain gains a rung between the decoder and the chain, where the frames still carry the range they were coded in, and the choice rides on `StartReceive` because it is part of what the decode is built from (`receive/tonemap.go`).
 It is per tile and stored nowhere, so two tiles can watch one stream through two answers and neither outlives the decode it was made about.
 
-One rung is declared and it is `vapostproc hdr-tone-mapping=true`, which is the only element in reach that states a luminance rolloff.
-The rest of the paragraph this replaces was a guess, and measuring it corrected two things.
-`videoconvert gamma-mode=remap` does convert the transfer function, on every platform and with no rung at all - but it normalizes PQ against the format's ten thousand nits rather than the display's hundred, and a mid-grey PQ frame through it comes out at a fifth of the code value it went in at.
-A darker picture is not a tone map, so it is not offered as one.
-`d3d11convert` states gamma and primaries conversion, the same two the software converter states, and neither is a rolloff either, so Windows declares no rung and the tile says so rather than offering a conversion the element does not promise.
+Two rungs are declared, and which one a machine builds is decided by parsing the fragment rather than by looking its factories up.
+`vapostproc hdr-tone-mapping=true` is taken where the VA driver carries the tone-mapping filter, and a `glshader` rung carrying its own PQ curve is taken everywhere else, which is every platform and every driver that has no such filter.
+Probing by parse is what the second rung's existence turned from a nicety into a correctness question: the element registers on a driver without the filter, the property does not, and the launch line the pair produced failed the decode rather than falling back.
+The reasoning moved to `viewer-architecture.md`, "Tone mapping".
 
 A machine with no rung builds the decode without one and reports that it did, which is the chain's own fallback, and the comparison a repeated call makes is against what a request builds rather than against the request: held the other way round, a viewer on a machine that cannot convert would tear the same decode down on every pass.
 The tile draws the transfer the decode negotiated beside what is being done about it, in both states, because an HDR stream drawn as it arrives is not obviously wrong - it is a picture with the wrong brightness, which reads as a bad stream rather than as a setting.

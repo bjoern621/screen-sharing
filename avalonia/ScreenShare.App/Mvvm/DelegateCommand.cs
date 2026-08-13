@@ -4,8 +4,8 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Mvvm;
 
 /// <summary>
-/// An <see cref="ICommand"/> over a delegate, so a button binds to a view-model method
-/// instead of a code-behind handler reaching into widgets.
+/// An <see cref="ICommand"/> over a delegate, so a button binds to a view-model method instead of a
+/// code-behind handler reaching into widgets.
 /// </summary>
 public sealed class DelegateCommand : ICommand
 {

@@ -12,9 +12,9 @@ import (
 )
 
 // A token is verified by the relay and never by this app, so what these hold is the shape a
-// verifier reads: the three segments, the signature over the first two, and a JWKS carrying
-// the key that checks it. A token this package signs and nothing can verify is a stream
-// nobody can open.
+// verifier reads: the three segments, the signature over the first two, and a JWKS carrying the key
+// that checks it.
+// A token this package signs and nothing can verify is a stream nobody can open.
 
 func mustSigner(t *testing.T) *Signer {
 	t.Helper()
@@ -25,8 +25,8 @@ func mustSigner(t *testing.T) *Signer {
 	return s
 }
 
-// The signature is over the header and the payload, in the algorithm the header names. It is
-// verified here the way a relay verifies it: recompute the digest over the first two segments
+// The signature is over the header and the payload, in the algorithm the header names.
+// It is verified here the way a relay verifies it: recompute the digest over the first two segments
 // and check it against the third with the public key.
 func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	s := mustSigner(t)
@@ -50,9 +50,8 @@ func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	}
 }
 
-// publishedKey rebuilds the public key out of the JWKS, which is the only way a relay ever
-// sees it. Reading the signer's own key instead would verify a token against something no
-// verifier holds.
+// publishedKey rebuilds the public key out of the JWKS, which is the only way a relay ever sees it.
+// Reading the signer's own key instead would verify a token against something no verifier holds.
 func publishedKey(t *testing.T, s *Signer) *rsa.PublicKey {
 	t.Helper()
 	var document struct {
@@ -85,8 +84,8 @@ func publishedKey(t *testing.T, s *Signer) *rsa.PublicKey {
 	return &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
 }
 
-// The claims are what the relay reads: the window it checks the connection against, and the
-// permissions under the claim its configuration names.
+// The claims are what the relay reads: the window it checks the connection against,
+// and the permissions under the claim its configuration names.
 func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 	s := mustSigner(t)
 	now := time.Unix(1_700_000_000, 0)
@@ -127,9 +126,9 @@ func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 	}
 }
 
-// The header names one algorithm and this package produces one. A verifier that read the
-// algorithm out of the token is one an attacker points at "none"; the relay is configured with
-// this algorithm, and a token claiming another is a token it refuses.
+// The header names one algorithm and this package produces one.
+// A verifier that read the algorithm out of the token is one an attacker points at "none";
+// the relay is configured with this algorithm, and a token claiming another is a token it refuses.
 func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 	s := mustSigner(t)
 
@@ -154,8 +153,8 @@ func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 	}
 }
 
-// A grant is anchored at both ends of the prefix. Unanchored, one group's token would open
-// every group whose id merely contains it.
+// A grant is anchored at both ends of the prefix.
+// Unanchored, one group's token would open every group whose id merely contains it.
 func TestAGrantReachesOneGroupAndNoOther(t *testing.T) {
 	permissions := GroupPermissions("ABCD/")
 	if len(permissions) != 2 {
@@ -171,8 +170,8 @@ func TestAGrantReachesOneGroupAndNoOther(t *testing.T) {
 	}
 }
 
-// One key is always called the same thing, and two keys are never called one: a relay holding
-// both during a rotation picks the one a token's header names.
+// One key is always called the same thing, and two keys are never called one:
+// a relay holding both during a rotation picks the one a token's header names.
 func TestAKeyIsNamedByWhatItPublishes(t *testing.T) {
 	first, second := mustSigner(t), mustSigner(t)
 	if first.KeyID() != SignerFor(first.key).KeyID() {

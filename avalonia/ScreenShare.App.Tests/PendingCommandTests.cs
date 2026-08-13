@@ -6,9 +6,9 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// The wait every asked-for effect on this surface is drawn from.
 ///
-/// <b>One fact, two readers.</b> A control draws its spinner from the same field the command
-/// refuses a second press off, so these tests state what the command was told and assert what
-/// both of them would see - never that a flag was assigned.
+/// <b>One fact, two readers.</b> A control draws its spinner from the same field the command refuses a second
+/// press off, so these tests state what the command was told and assert what both of them would see - never
+/// that a flag was assigned.
 /// </summary>
 public sealed class PendingCommandTests
 {
@@ -16,8 +16,8 @@ public sealed class PendingCommandTests
     private static readonly Action<Action> Inline = action => action();
 
     /// <summary>
-    /// A call that has not been answered is in flight, and it stops being in flight when the
-    /// answer lands. Nothing has to remember that it was running.
+    /// A call that has not been answered is in flight, and it stops being in flight when the answer lands.
+    /// Nothing has to remember that it was running.
     /// </summary>
     [Fact]
     public void ACallThatHasNotAnsweredIsInFlightUntilItDoes()
@@ -40,8 +40,9 @@ public sealed class PendingCommandTests
     }
 
     /// <summary>
-    /// A second press while the first call is out asks for nothing. It is the guard that holds
-    /// when a press and the round trip race, which is the interval the whole type exists for.
+    /// A second press while the first call is out asks for nothing.
+    /// It is the guard that holds when a press and the round trip race, which is the interval the whole type
+    /// exists for.
     /// </summary>
     [Fact]
     public void ASecondPressWhileTheFirstCallIsOutAsksForNothing()
@@ -70,8 +71,8 @@ public sealed class PendingCommandTests
     }
 
     /// <summary>
-    /// A call that threw past whatever the effect handles still ends the wait. A flag left set
-    /// is a control that never comes back, which is worse than the failure that set it.
+    /// A call that threw past whatever the effect handles still ends the wait.
+    /// A flag left set is a control that never comes back, which is worse than the failure that set it.
     /// </summary>
     [Fact]
     public void ACallThatFailedStillEndsTheWait()
@@ -89,8 +90,8 @@ public sealed class PendingCommandTests
     }
 
     /// <summary>
-    /// Both edges are announced, because an owner that renders this state - the setup flow's
-    /// publish gate reads it - has to draw the press as well as the answer.
+    /// Both edges are announced, because an owner that renders this state - the setup flow's publish gate
+    /// reads it - has to draw the press as well as the answer.
     /// </summary>
     [Fact]
     public void BothEdgesAreAnnouncedToWhoeverRendersThem()
@@ -108,8 +109,8 @@ public sealed class PendingCommandTests
     }
 
     /// <summary>
-    /// Whatever else gates the press is still asked, and is asked on every read rather than
-    /// captured - a command made once is pressed on many passes.
+    /// Whatever else gates the press is still asked, and is asked on every read rather than captured - a
+    /// command made once is pressed on many passes.
     /// </summary>
     [Fact]
     public void WhateverElseGatesThePressIsStillRead()
@@ -138,9 +139,9 @@ public sealed class PendingCommandTests
     }
 
     /// <summary>
-    /// The completion goes through the loop it was handed, and not through whichever thread the
-    /// transport finished on. Everything a command's state is read by is a binding, and those
-    /// tolerate one thread.
+    /// The completion goes through the loop it was handed, and not through whichever thread the transport
+    /// finished on.
+    /// Everything a command's state is read by is a binding, and those tolerate one thread.
     /// </summary>
     [Fact]
     public void TheCompletionIsMarshalledThroughTheLoopItWasGiven()

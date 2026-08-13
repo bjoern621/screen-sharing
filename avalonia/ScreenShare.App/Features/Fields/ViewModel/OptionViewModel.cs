@@ -5,14 +5,15 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// <summary>
 /// One entry of a select or radio field, as the form described it and the screen draws it.
 ///
-/// Every string here was written by the backend. The shell decides which of them is bold,
-/// which is dimmed and where they sit; it does not decide what any of them says, and it
-/// does not decide whether the entry is reachable - <see cref="IsEnabled"/> and
+/// Every string here was written by the backend.
+/// The shell decides which of them is bold, which is dimmed and where they sit; it does not decide what any
+/// of them says, and it does not decide whether the entry is reachable - <see cref="IsEnabled"/> and
 /// <see cref="Reason"/> arrive already decided (docs/ipc-api.md, "The rule").
 ///
-/// A record, so a render pass over an unchanged field produces rows that compare equal and
-/// the bound collection is left alone. <see cref="Choose"/> holds the field's own command
-/// instance for this value, which is what makes two passes equal rather than merely alike.
+/// A record, so a render pass over an unchanged field produces rows that compare equal and the bound
+/// collection is left alone.
+/// <see cref="Choose"/> holds the field's own command instance for this value, which is what makes two passes
+/// equal rather than merely alike.
 /// </summary>
 public sealed record OptionViewModel
 {
@@ -41,10 +42,10 @@ public sealed record OptionViewModel
     public required DelegateCommand Choose { get; init; }
 
     /// <summary>
-    /// The two lines under the label, and both are drawn where both are present. A refused
-    /// entry that lost its paragraph would answer why it cannot be picked while dropping
-    /// what it is, which leaves the reader with a limit and nothing to weigh it against;
-    /// the refusal leads, because on a greyed row it is the line that was looked for.
+    /// The two lines under the label, and both are drawn where both are present.
+    /// A refused entry that lost its paragraph would answer why it cannot be picked while dropping what it
+    /// is, which leaves the reader with a limit and nothing to weigh it against; the refusal leads, because
+    /// on a greyed row it is the line that was looked for.
     /// </summary>
     public bool HasReason => Reason.Length > 0;
 
@@ -53,9 +54,9 @@ public sealed record OptionViewModel
     /// <summary>
     /// The refusal as a tooltip carries it, and null while the entry is live.
     ///
-    /// Null rather than empty, because that is the difference Avalonia reads: a tooltip
-    /// whose tip is the empty string still opens, so an entry nothing is wrong with would
-    /// sprout an empty box under the pointer.
+    /// Null rather than empty, because that is the difference Avalonia reads: a tooltip whose tip is the
+    /// empty string still opens, so an entry nothing is wrong with would sprout an empty box under the
+    /// pointer.
     /// </summary>
     public string? Refusal => Reason.Length > 0 ? Reason : null;
 

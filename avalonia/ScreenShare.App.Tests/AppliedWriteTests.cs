@@ -8,18 +8,19 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// What happens to a write the form marks applied rather than staged.
 ///
-/// The defect these lock out was a deadlock, and it took the relay with it. Every field of the
-/// wizard was staged until a commit, and the only commit is the publish - so the relay's
-/// address, which is the one setting the backend reads on a poll of its own, could not reach
-/// the backend without a stream being started. The publish that would have carried it was
-/// refused, correctly, because the relay it was about to change could not be reached. A reader
-/// who moved their relay could type the new address, watch the screen go on saying it could not
-/// dial the old one, and have no way out of the app at all.
+/// The defect these lock out was a deadlock, and it took the relay with it.
+/// Every field of the wizard was staged until a commit, and the only commit is the publish - so the relay's
+/// address, which is the one setting the backend reads on a poll of its own, could not reach the backend
+/// without a stream being started.
+/// The publish that would have carried it was refused, correctly, because the relay it was about to change
+/// could not be reached.
+/// A reader who moved their relay could type the new address, watch the screen go on saying it could not dial
+/// the old one, and have no way out of the app at all.
 ///
-/// The form now says which groups are the settings themselves (<c>form.proto</c>,
-/// FieldGroup.applied) and a write to one of those is stored as it is made. Which groups those
-/// are is not decided here: these tests state what the shell does with the answer, not what the
-/// answer is.
+/// The form now says which groups are the settings themselves (<c>form.proto</c>, FieldGroup.applied) and a
+/// write to one of those is stored as it is made.
+/// Which groups those are is not decided here: these tests state what the shell does with the answer, not
+/// what the answer is.
 /// </summary>
 public sealed class AppliedWriteTests
 {
@@ -42,8 +43,8 @@ public sealed class AppliedWriteTests
         => flow.Form.Write(key, new FieldValue { Text = value });
 
     /// <summary>
-    /// The write that was impossible before: the relay's address reaches the backend on its own,
-    /// with nothing published and nothing else pressed.
+    /// The write that was impossible before: the relay's address reaches the backend on its own, with nothing
+    /// published and nothing else pressed.
     /// </summary>
     [Fact]
     public async Task AWriteToAnAppliedGroupIsStoredWithoutACommit()
@@ -55,14 +56,15 @@ public sealed class AppliedWriteTests
         var stored = Assert.Single(flow.Backend.Saved);
         Assert.Equal("relay.example", stored.Relay.Host);
 
-        // Stored, not started. The two are different effects and only one of them was asked for.
+        // Stored, not started.
+        // The two are different effects and only one of them was asked for.
         Assert.Empty(flow.Backend.Started);
     }
 
     /// <summary>
-    /// A staged group keeps its old behaviour, which is the half of this that must not move: a
-    /// reader configuring a stream is making a proposal, and a half-configured pipeline becoming
-    /// what this machine is on every keystroke is the failure mode in the other direction.
+    /// A staged group keeps its old behaviour, which is the half of this that must not move: a reader
+    /// configuring a stream is making a proposal, and a half-configured pipeline becoming what this machine
+    /// is on every keystroke is the failure mode in the other direction.
     /// </summary>
     [Fact]
     public async Task AWriteToAStagedGroupIsHeldForTheCommit()
@@ -76,9 +78,9 @@ public sealed class AppliedWriteTests
     }
 
     /// <summary>
-    /// A write the backend refuses says so, in that side's own words, and the next one that
-    /// lands clears it. It is a notice and not the banner that blocks the publish: settings that
-    /// could not be stored are still settings a stream can be started on.
+    /// A write the backend refuses says so, in that side's own words, and the next one that lands clears it.
+    /// It is a notice and not the banner that blocks the publish: settings that could not be stored are still
+    /// settings a stream can be started on.
     /// </summary>
     [Fact]
     public async Task AWriteThatCouldNotBeStoredNamesTheReason()
@@ -105,11 +107,11 @@ public sealed class AppliedWriteTests
     /// <summary>
     /// Two writes with the first still unanswered store the newer draft, and store it last.
     ///
-    /// Unary calls carry no ordering between them, so writing each one as it arrives would let a
-    /// burst - a port spinner held down, a hostname corrected twice - finish out of order and
-    /// leave an older value stored than the one on screen. One write is in flight at a time and
-    /// what waits behind it is a draft rather than a queue, since they are all the same settings
-    /// and the older ones have nothing left to say.
+    /// Unary calls carry no ordering between them, so writing each one as it arrives would let a burst - a
+    /// port spinner held down, a hostname corrected twice - finish out of order and leave an older value
+    /// stored than the one on screen.
+    /// One write is in flight at a time and what waits behind it is a draft rather than a queue, since they
+    /// are all the same settings and the older ones have nothing left to say.
     /// </summary>
     [Fact]
     public async Task TwoWritesInFlightStoreTheNewestDraftLast()
@@ -126,8 +128,8 @@ public sealed class AppliedWriteTests
         Assert.Equal(1, backend.HeldSaves);
         Assert.Equal("first", Assert.Single(backend.Saved).Relay.Host);
 
-        // Taken before the first is answered, so it is the write that follows it and not the one
-        // already sent.
+        // Taken before the first is answered, so it is the write that follows it and not the one already
+        // sent.
         var follows = backend.NextSaveAsked;
         backend.AnswerSave();
         await follows;

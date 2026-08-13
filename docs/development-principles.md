@@ -139,7 +139,7 @@ Construction, rendering, input wiring and formatting are four responsibilities.
 A file that does all four is the shape this rule exists to break up.
 
 Static facts belong in a table, not in a `switch` spread through the logic.
-`ui/stats/rows.go` and `ui/sidebar` status faces are the pattern: one table of facts, and every consumer reads it instead of restating the rule.
+`platform.AudioSources` is the pattern: one row per capture source, read by the form, the repair and both publish engines instead of each restating what a machine can capture.
 `docs/domain-model.md` covers the same principle for the codec and transport tables.
 
 ## Contracts

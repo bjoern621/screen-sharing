@@ -8,13 +8,14 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// The one engine that cannot read what it captured says so where a reader is reaching for
-// the format an HDR surface rides in.
+// The one engine that cannot read what it captured says so where a reader is reaching for the
+// format an HDR surface rides in.
 //
-// It is a note and never a refusal, because a refusal needs a fact and the fact is exactly
-// what that engine cannot establish: a running ffmpeg tells its caller what it is encoding
-// and never what it read. What the note buys is that the reader is told before the stream
-// goes out, rather than by a viewer whose picture is wrong.
+// It is a note and never a refusal, because a refusal needs a fact and the fact is exactly what
+// that engine cannot establish: a running ffmpeg tells its caller what it is encoding and never
+// what it read.
+// What the note buys is that the reader is told before the stream goes out,
+// rather than by a viewer whose picture is wrong.
 func TestTheEngineThatCannotReadTheSurfaceSaysSo(t *testing.T) {
 	for _, tc := range []struct {
 		engine string
@@ -36,16 +37,16 @@ func TestTheEngineThatCannotReadTheSurfaceSaysSo(t *testing.T) {
 		if !tc.noted {
 			continue
 		}
-		// The note names the engine that does carry the surface's colour, so it states the
-		// way out and not only the limit.
+		// The note names the engine that does carry the surface's colour, so it states the way out and
+		// not only the limit.
 		if !namesArg(notes[0], screensharev1.TextArgName_TEXT_ARG_NAME_OTHER_ENGINE, EngineGst) {
 			t.Errorf("the note is %v, and it does not name the engine that carries it", notes[0])
 		}
 	}
 }
 
-// The note is on the format an HDR surface rides in and on no other, so a standard-range
-// publish is not followed around by a statement about a case it is not in.
+// The note is on the format an HDR surface rides in and on no other, so a standard-range publish is
+// not followed around by a statement about a case it is not in.
 func TestTheNoteIsOnTheTenBitFormatAlone(t *testing.T) {
 	facts := rules.Facts{
 		rules.AxisEngine: rules.TextValue(EngineFfmpeg),

@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-// The reader is the one part of the pointer channel that touches a display server, so what it
-// is held to is that it answers a real one: a reader that compiled and reported nothing would
-// be a channel carrying a position nobody moved.
+// The reader is the one part of the pointer channel that touches a display server,
+// so what it is held to is that it answers a real one: a reader that compiled and reported nothing
+// would be a channel carrying a position nobody moved.
 
-// A session with an X server answers, and the answer is a position on the screen it is
-// reading. A session without one says so rather than failing, because that is a Wayland
-// session, where the position comes from the capture's own metadata instead.
+// A session with an X server answers, and the answer is a position on the screen it is reading.
+// A session without one says so rather than failing, because that is a Wayland session,
+// where the position comes from the capture's own metadata instead.
 func TestTheX11ReaderAnswersWhereThereIsADisplay(t *testing.T) {
 	r, ok := NewX11()
 	if !ok {
@@ -38,8 +38,8 @@ func TestTheX11ReaderAnswersWhereThereIsADisplay(t *testing.T) {
 	}
 }
 
-// The reader is asked hundreds of times a second, so reading twice has to be reading twice
-// rather than opening a connection twice.
+// The reader is asked hundreds of times a second, so reading twice has to be reading twice rather
+// than opening a connection twice.
 func TestReadingTwiceUsesOneConnection(t *testing.T) {
 	r, ok := NewX11()
 	if !ok {
@@ -54,8 +54,8 @@ func TestReadingTwiceUsesOneConnection(t *testing.T) {
 	}
 }
 
-// Closing twice is what a supervised child does when it is stopped while it is stopping, and
-// the second close must not take the process with it.
+// Closing twice is what a supervised child does when it is stopped while it is stopping,
+// and the second close must not take the process with it.
 func TestClosingTwiceIsSafe(t *testing.T) {
 	r, ok := NewX11()
 	if !ok {

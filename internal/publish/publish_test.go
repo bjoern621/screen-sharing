@@ -10,13 +10,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// A capture backend carries every transport its engine can serialize through, so
-// the two engines part where a transport implements one publish form only: RTMP
-// has an ffmpeg muxer and no GStreamer counterpart, which leaves it off every
-// GStreamer backend and on every ffmpeg one.
+// A capture backend carries every transport its engine can serialize through,
+// so the two engines part where a transport implements one publish form only:
+// RTMP has an ffmpeg muxer and no GStreamer counterpart, which leaves it off every GStreamer
+// backend and on every ffmpeg one.
 //
-// Every registered backend is named, so a row added without an expectation fails
-// here rather than shipping a transport list nothing checked.
+// Every registered backend is named, so a row added without an expectation fails here rather than
+// shipping a transport list nothing checked.
 func TestTransportsFor(t *testing.T) {
 	cases := map[string][]string{
 		"x11grab":               {"rtmp", "rtsp", "srt", "webrtc"},
@@ -52,8 +52,8 @@ func TestTransportsForUnknownCapture(t *testing.T) {
 	}
 }
 
-// publishable is a stream both engines render a pipeline for, on the software encoder
-// every machine has and the rate-control mode that reads the most knobs.
+// publishable is a stream both engines render a pipeline for, on the software encoder every machine
+// has and the rate-control mode that reads the most knobs.
 func publishable() settings.Settings {
 	s := baseStream()
 	s.Publish.Capture = "x11grab"
@@ -75,10 +75,10 @@ func TestSamePipelineHoldsForUnchangedSettings(t *testing.T) {
 	}
 }
 
-// The watch leg and the figures the form warns from are settings of the app rather than
-// of the pipeline, so moving one leaves a running publish alone. A builder that starts
-// reading one of these fails here, which is the point: the same comparison decides
-// whether the stream is restarted under the user.
+// The watch leg and the figures the form warns from are settings of the app rather than of the
+// pipeline, so moving one leaves a running publish alone.
+// A builder that starts reading one of these fails here, which is the point:
+// the same comparison decides whether the stream is restarted under the user.
 func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
 		"apiPort":            func(s *settings.Settings) { s.Relay.ApiPort = 19997 },
@@ -109,9 +109,10 @@ func TestSamePipelineIgnoresWhatNoPipelineReads(t *testing.T) {
 	}
 }
 
-// What the pipeline is built from moves the pipeline. Each of these reaches a different
-// part of the command (the relay path, the source, the encoder, the sink), so the
-// comparison is held to the whole line rather than to the encoder arguments alone.
+// What the pipeline is built from moves the pipeline.
+// Each of these reaches a different part of the command (the relay path, the source, the encoder,
+// the sink), so the comparison is held to the whole line rather than to the encoder arguments
+// alone.
 func TestSamePipelineSeesWhatThePipelineIsBuiltFrom(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
 		"name":      func(s *settings.Settings) { s.Publish.Name = "other" },
@@ -119,8 +120,8 @@ func TestSamePipelineSeesWhatThePipelineIsBuiltFrom(t *testing.T) {
 		"fps":       func(s *settings.Settings) { s.Publish.Fps = 30 },
 		"codec":     func(s *settings.Settings) { s.Publish.Codec = "libx265" },
 		"bitrateM":  func(s *settings.Settings) { s.Publish.BitrateM = 40 },
-		// Not 2*fps, which is the interval the auto value already resolves to and so
-		// the one explicit value that builds the pipeline it replaces.
+		// Not 2*fps, which is the interval the auto value already resolves to and so the one explicit
+		// value that builds the pipeline it replaces.
 		"gop":       func(s *settings.Settings) { s.Publish.Gop = 90 },
 		"transport": func(s *settings.Settings) { s.Publish.Transport = "rtsp" },
 		"capture":   func(s *settings.Settings) { s.Publish.Capture = "ximagesrc" },
@@ -141,8 +142,8 @@ func TestSamePipelineSeesWhatThePipelineIsBuiltFrom(t *testing.T) {
 	}
 }
 
-// A settings object no engine can render names a pipeline that cannot run. Answering
-// "the same" for it would report a stream as carrying settings it could never carry.
+// A settings object no engine can render names a pipeline that cannot run.
+// Answering "the same" for it would report a stream as carrying settings it could never carry.
 func TestSamePipelineRefusesSettingsNoEngineRenders(t *testing.T) {
 	before := publishable()
 	after := before
@@ -155,15 +156,15 @@ func TestSamePipelineRefusesSettingsNoEngineRenders(t *testing.T) {
 	}
 }
 
-// A backend whose platform serves no monitor source refuses desktop audio rather than
-// publishing a silent track, whichever engine runs it.
+// A backend whose platform serves no monitor source refuses desktop audio rather than publishing a
+// silent track, whichever engine runs it.
 //
-// The refusal is asserted through Command, because that is the one path a run and the
-// displayed line both take: an engine that only refused inside Start would show a user
-// a command the publish button cannot execute. The verdict is the source table's, so
-// what a greyed option says before publishing and what a refused publish says rest on
-// one answer rather than two that drift; the refusal names the backend and the source
-// rather than quoting the table's statement, because it is an operational error and
+// The refusal is asserted through Command, because that is the one path a run and the displayed
+// line both take: an engine that only refused inside Start would show a user a command the publish
+// button cannot execute.
+// The verdict is the source table's, so what a greyed option says before publishing and what a
+// refused publish says rest on one answer rather than two that drift; the refusal names the backend
+// and the source rather than quoting the table's statement, because it is an operational error and
 // the statement is what the greyed option shows (api/proto/screenshare/v1/text.proto).
 func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testing.T) {
 	for capture := range captureBackends {
@@ -175,9 +176,8 @@ func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testin
 		_, err := Command(s)
 
 		if available {
-			// A backend on a serving platform is left to fail, or not, on everything else a
-			// pipeline needs; what is asserted is only that the audio source was not what
-			// refused it.
+			// A backend on a serving platform is left to fail, or not, on everything else a pipeline needs;
+			// what is asserted is only that the audio source was not what refused it.
 			if err != nil && strings.Contains(err.Error(), "desktop audio") {
 				t.Errorf("%s runs on a platform serving desktop audio and must not refuse it: %v", capture, err)
 			}
@@ -195,8 +195,8 @@ func TestABackendWhosePlatformServesNoMonitorSourceRefusesDesktopAudio(t *testin
 }
 
 // Every registered backend is answerable for, and the absent source is refused by none:
-// a stream with no second track asks nothing of the machine, so a platform cannot be
-// missing the piece that serves it.
+// a stream with no second track asks nothing of the machine, so a platform cannot be missing the
+// piece that serves it.
 func TestEveryCaptureBackendAnswersForEveryAudioSource(t *testing.T) {
 	for capture := range captureBackends {
 		available, reason := AudioAvailable(capture, platform.AudioSourceNone)

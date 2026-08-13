@@ -8,21 +8,21 @@ namespace ScreenShare.App.Features.Setup.ScreenPicker.View;
 /// <summary>
 /// Markup, and the fact the markup cannot state: whether this grid is being looked at.
 ///
-/// <b>What the answer decides here is more than a subscription.</b> The broadcast preview's
-/// pictures come off a pipeline the publish already runs; these come off screen captures the
-/// backend opens because this grid asked for them, one per monitor. So a grid nobody is looking
-/// at stops reading the screens rather than merely stopping drawing them
+/// <b>What the answer decides here is more than a subscription.</b> The broadcast preview's pictures come off
+/// a pipeline the publish already runs; these come off screen captures the backend opens because this grid
+/// asked for them, one per monitor.
+/// So a grid nobody is looking at stops reading the screens rather than merely stopping drawing them
 /// (<see cref="ScreenPickerViewModel"/>).
 ///
-/// Nothing here sets a widget property and nothing here reads one. It writes one input of the
-/// view model and lets the render function decide what it means.
+/// Nothing here sets a widget property and nothing here reads one.
+/// It writes one input of the view model and lets the render function decide what it means.
 /// </summary>
 public sealed partial class ScreenPickerView : UserControl
 {
     /// <summary>
-    /// Whether the grid is on screen in a window that is in front. Both halves are facts only a
-    /// control and the platform can answer, and the broadcast preview asks the same question,
-    /// so the answer is worked out in one place (<see cref="ShowingWatch"/>).
+    /// Whether the grid is on screen in a window that is in front.
+    /// Both halves are facts only a control and the platform can answer, and the broadcast preview asks the
+    /// same question, so the answer is worked out in one place (<see cref="ShowingWatch"/>).
     /// </summary>
     private readonly ShowingWatch _showing;
 
@@ -54,9 +54,9 @@ public sealed partial class ScreenPickerView : UserControl
     }
 
     /// <summary>
-    /// Tells the grid whether it is being looked at. Idempotent: the write it makes is
-    /// idempotent itself, so a data context that changed without the tree or the window moving
-    /// reports the same fact again and converges to the same world.
+    /// Tells the grid whether it is being looked at.
+    /// Idempotent: the write it makes is idempotent itself, so a data context that changed without the tree
+    /// or the window moving reports the same fact again and converges to the same world.
     /// </summary>
     private void Tell(bool showing)
     {

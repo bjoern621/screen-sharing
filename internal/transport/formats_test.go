@@ -12,10 +12,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// legs are the two directions a carriage is stated for, each paired with the capability
-// interface every engine serializes that direction through.
-// One table drives every per-leg check below, so a leg gained here is checked the same way
-// the two present ones are.
+// legs are the two directions a carriage is stated for, each paired with the capability interface
+// every engine serializes that direction through.
+// One table drives every per-leg check below, so a leg gained here is checked the same way the two
+// present ones are.
 var legs = []struct {
 	name       string
 	carriages  func(Formats) map[string]Carriage
@@ -41,9 +41,9 @@ var legs = []struct {
 
 // A carriage and the serialization that builds it are two halves of one statement,
 // per leg and per engine.
-// A transport stating formats one engine cannot serialize offers that engine a combination
-// nothing can build, and one serializing a leg it states no carriage for is offered for
-// streams and refused for every one of them.
+// A transport stating formats one engine cannot serialize offers that engine a combination nothing
+// can build, and one serializing a leg it states no carriage for is offered for streams and refused
+// for every one of them.
 // Register asserts the pair on the way in, and this reads it back off the registry,
 // which is what holds a transport whose Formats method answers with more than a literal.
 func TestEveryStatedCarriageHasItsSerialization(t *testing.T) {
@@ -64,8 +64,8 @@ func TestEveryStatedCarriageHasItsSerialization(t *testing.T) {
 	}
 }
 
-// statedNoSerialization states a publish carriage on the ffmpeg engine and implements
-// no publisher for it, one half of the pair Register refuses.
+// statedNoSerialization states a publish carriage on the ffmpeg engine and implements no publisher
+// for it, one half of the pair Register refuses.
 type statedNoSerialization struct{}
 
 func (statedNoSerialization) Name() string { return "stated-no-serialization" }
@@ -76,8 +76,8 @@ func (statedNoSerialization) Formats() Formats {
 	}}
 }
 
-// serializationNoCarriage is the other half: it serializes an ffmpeg publish and states
-// a carriage for the watch leg alone.
+// serializationNoCarriage is the other half: it serializes an ffmpeg publish and states a carriage
+// for the watch leg alone.
 // Its watch entry is consistent, so the publish leg is the only thing the assertion can fire on.
 type serializationNoCarriage struct{}
 
@@ -97,15 +97,15 @@ func (serializationNoCarriage) GstSource(settings.Settings, string) []string {
 	return []string{"srtsrc", "uri=srt://relay.example:8890"}
 }
 
-// Register is where the two halves are held to each other, so a transport stating one
-// without the other must not reach the registry.
-// Every roster and every refusal here reads the carriage, and would answer for a leg that
-// cannot be built, or hide one that can.
+// Register is where the two halves are held to each other, so a transport stating one without the
+// other must not reach the registry.
+// Every roster and every refusal here reads the carriage, and would answer for a leg that cannot be
+// built, or hide one that can.
 func TestRegisterRefusesAHalfStatedLeg(t *testing.T) {
-	// assert panics through the standard logger, so each refusal below prints its message
-	// on the way out.
-	// That message is the expected outcome rather than something to report, and the test
-	// reads it off the panic value instead.
+	// assert panics through the standard logger, so each refusal below prints its message on the way
+	// out.
+	// That message is the expected outcome rather than something to report, and the test reads it off
+	// the panic value instead.
 	log.SetOutput(io.Discard)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
@@ -120,8 +120,8 @@ func TestRegisterRefusesAHalfStatedLeg(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			defer func() {
 				// The message is checked, not just the panic.
-				// Every other assertion in Register aborts the same way and would prove
-				// nothing about the pair this case breaks.
+				// Every other assertion in Register aborts the same way and would prove nothing about the pair
+				// this case breaks.
 				switch panicked := recover().(type) {
 				case nil:
 					t.Errorf("Register accepted %s", tc.name)
@@ -141,10 +141,10 @@ func TestRegisterRefusesAHalfStatedLeg(t *testing.T) {
 	}
 }
 
-// Every format a codec here produces needs a way out and a way back on the engine that
-// produced it: one transport that engine publishes it over and one it receives it over.
-// A format with neither on an engine is a codec the settings form offers for that capture
-// backend and no stream can use.
+// Every format a codec here produces needs a way out and a way back on the engine that produced it:
+// one transport that engine publishes it over and one it receives it over.
+// A format with neither on an engine is a codec the settings form offers for that capture backend
+// and no stream can use.
 func TestEveryFormatHasBothLegsOnEveryEngine(t *testing.T) {
 	for _, engine := range capabilities.Engines {
 		for _, format := range capabilities.Formats() {
@@ -158,10 +158,10 @@ func TestEveryFormatHasBothLegsOnEveryEngine(t *testing.T) {
 	}
 }
 
-// A publish carriage names what an encoder here will hand the muxer, so every video format
-// in one has to be a format the codec table produces.
-// A name no row produces is either a typo, which narrows the transport to nothing for that
-// format, or a promise about a codec this app cannot encode.
+// A publish carriage names what an encoder here will hand the muxer, so every video format in one
+// has to be a format the codec table produces.
+// A name no row produces is either a typo, which narrows the transport to nothing for that format,
+// or a promise about a codec this app cannot encode.
 //
 // The watch leg is not held to it.
 // The relay re-serves whatever it ingested, including a stream this app never published,
@@ -198,15 +198,14 @@ func TestCarriesFormat(t *testing.T) {
 		{"hls", capabilities.EngineFfmpeg, "h264", false, true},
 		{"hls", capabilities.EngineFfmpeg, "vp8", false, false},
 		{"hls", capabilities.EngineGst, "h264", false, false},
-		// RTMP is the asymmetric one: the flv muxer writes the enhanced-RTMP tags the relay
-		// ingests, flvmux writes none of them, and the FLV demuxers behind both viewers
-		// read H.264 alone.
+		// RTMP is the asymmetric one: the flv muxer writes the enhanced-RTMP tags the relay ingests,
+		// flvmux writes none of them, and the FLV demuxers behind both viewers read H.264 alone.
 		{"rtmp", capabilities.EngineFfmpeg, "hevc", true, false},
 		{"rtmp", capabilities.EngineGst, "hevc", false, false},
 		{"rtmp", capabilities.EngineFfmpeg, "h264", true, true},
 		{"rtmp", capabilities.EngineGst, "h264", false, true},
-		// WHIP ingest is H.264 through ffmpeg's muxer and the WebRTC video set through
-		// whipclientsink, and WHEP playback is the receiving pipeline's alone.
+		// WHIP ingest is H.264 through ffmpeg's muxer and the WebRTC video set through whipclientsink,
+		// and WHEP playback is the receiving pipeline's alone.
 		{"webrtc", capabilities.EngineFfmpeg, "h264", true, false},
 		{"webrtc", capabilities.EngineGst, "h264", true, true},
 		{"webrtc", capabilities.EngineFfmpeg, "vp9", false, false},
@@ -225,8 +224,8 @@ func TestCarriesFormat(t *testing.T) {
 }
 
 // The watch lists narrow per format, and a format no codec here produces narrows nothing.
-// The relay snapshot can be older than the stream, so absent information must not take a
-// working choice away.
+// The relay snapshot can be older than the stream, so absent information must not take a working
+// choice away.
 func TestWatchNamesForNarrowsByFormat(t *testing.T) {
 	if got := WatchNamesFor(capabilities.EngineFfmpeg, "vp9"); slices.Contains(got, "srt") {
 		t.Errorf("WatchNamesFor(ffmpeg, vp9) = %v, must exclude srt", got)
@@ -259,16 +258,16 @@ func TestValidatePublish(t *testing.T) {
 	if err := ValidatePublish("srt", capabilities.EngineFfmpeg, "nope"); err == nil {
 		t.Error("an unknown codec must be refused")
 	}
-	// A transport with no publish form on the running engine is refused there and carries
-	// the same codec on the other one, which is the whole reason the refusal names the engine.
+	// A transport with no publish form on the running engine is refused there and carries the same
+	// codec on the other one, which is the whole reason the refusal names the engine.
 	if err := ValidatePublish("rtmp", capabilities.EngineGst, "libx264"); err == nil {
 		t.Error("rtmp has no GStreamer publish form and must be refused there")
 	}
 	if err := ValidatePublish("rtmp", capabilities.EngineFfmpeg, "libx264"); err != nil {
 		t.Errorf("rtmp carries libx264 through the flv muxer: %v", err)
 	}
-	// A refusal names where the codec would have worked, since that is the change the
-	// settings have to make.
+	// A refusal names where the codec would have worked, since that is the change the settings have to
+	// make.
 	err := ValidatePublish("srt", capabilities.EngineFfmpeg, "libvpx-vp9")
 	if err == nil {
 		t.Fatal("srt/MPEG-TS has no VP9 mapping and must be refused")

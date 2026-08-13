@@ -6,16 +6,16 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Broadcast.Plots.View;
 
 /// <summary>
-/// One or two polylines over a source coordinate space, with an optional area under the
-/// first, an optional gridline and an optional shaded band.
+/// One or two polylines over a source coordinate space, with an optional area under the first, an optional
+/// gridline and an optional shaded band.
 ///
-/// No axes, no ticks, no frame lines: the design has none. Scale is carried entirely by
-/// the annotation text the plot card lays over this control, which is why nothing here
-/// draws a single glyph.
+/// No axes, no ticks, no frame lines: the design has none.
+/// Scale is carried entirely by the annotation text the plot card lays over this control, which is why
+/// nothing here draws a single glyph.
 ///
-/// Samples arrive in the space they were drawn in (<see cref="Extent"/>) and are stretched
-/// to the control's bounds, so the whole window stays on screen at any card width. How much
-/// stream that window covers is the card's to state, since it is the samples' and not this
+/// Samples arrive in the space they were drawn in (<see cref="Extent"/>) and are stretched to the control's
+/// bounds, so the whole window stays on screen at any card width.
+/// How much stream that window covers is the card's to state, since it is the samples' and not this
 /// control's.
 /// </summary>
 public sealed class Sparkline : Control
@@ -159,9 +159,9 @@ public sealed class Sparkline : Control
     }
 
     /// <summary>
-    /// The one draw pass. Back to front: the band names a moment in time, the gridline
-    /// names a ceiling, and the data goes over both - the secondary series first so the
-    /// primary one reads in front of it.
+    /// The one draw pass.
+    /// Back to front: the band names a moment in time, the gridline names a ceiling, and the data goes over
+    /// both - the secondary series first so the primary one reads in front of it.
     /// </summary>
     public override void Render(DrawingContext context)
     {
@@ -249,7 +249,8 @@ public sealed class Sparkline : Control
 
         if (BandEdgeBrush is not null)
         {
-            // The only dashed line in the whole design. Every data stroke stays solid.
+            // The only dashed line in the whole design.
+            // Every data stroke stays solid.
             var pen = new Pen(BandEdgeBrush, 1, new DashStyle([3, 3], 0));
             context.DrawLine(pen, new Point(left, 0), new Point(left, height));
             context.DrawLine(pen, new Point(right, 0), new Point(right, height));

@@ -15,9 +15,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// A start the backend refuses is FAILED_PRECONDITION and never INVALID_ARGUMENT: the request
-// is well formed - every integer is a monitor index somewhere - and what refuses it is a fact
-// about this machine, which is the distinction docs/ipc-api.md draws between the two codes.
+// A start the backend refuses is FAILED_PRECONDITION and never INVALID_ARGUMENT:
+// the request is well formed - every integer is a monitor index somewhere - and what refuses it is
+// a fact about this machine, which is the distinction docs/ipc-api.md draws between the two codes.
 // The sentence is the backend's own, so the reason travels rather than being replaced.
 func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	server := New(&fakeBackend{err: errors.New("this session cannot read one monitor apart from another")},
@@ -53,10 +53,10 @@ func TestStoppingAScreenNobodyIsReadingSucceeds(t *testing.T) {
 	}
 }
 
-// The three subscription arms are dispatched to three different backend methods, and a
-// subscription that named none of them is refused rather than served the first arm. Two arms
-// carry no key at all, so a discriminator read off a missing key would send an empty request
-// to whichever method it defaulted to.
+// The three subscription arms are dispatched to three different backend methods,
+// and a subscription that named none of them is refused rather than served the first arm.
+// Two arms carry no key at all, so a discriminator read off a missing key would send an empty
+// request to whichever method it defaulted to.
 func TestAFrameSubscriptionNamesOneOfTheThreePictures(t *testing.T) {
 	for name, tc := range map[string]struct {
 		subscribe *screensharev1.FrameSubscribe

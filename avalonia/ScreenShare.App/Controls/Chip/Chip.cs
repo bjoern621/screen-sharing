@@ -4,13 +4,13 @@ using Avalonia.Controls.Primitives;
 namespace ScreenShare.App.Controls;
 
 /// <summary>
-/// A capsule that names one stream and toggles it. The only toggle in the viewer, and a
-/// performance control rather than a preference: turning a chip off tears the decoder
-/// down, so the chip reports the bandwidth that frees.
+/// A capsule that names one stream and toggles it.
+/// The only toggle in the viewer, and a performance control rather than a preference: turning a chip off
+/// tears the decoder down, so the chip reports the bandwidth that frees.
 ///
-/// It is a <see cref="ToggleButton"/> because that is exactly what it is - the checked
-/// state is the stream being shown, and the struck-through unchecked skin comes from the
-/// <c>:unchecked</c> pseudo-class rather than from anything a view has to remember to set.
+/// It is a <see cref="ToggleButton"/> because that is exactly what it is - the checked state is the stream
+/// being shown, and the struck-through unchecked skin comes from the <c>:unchecked</c> pseudo-class rather
+/// than from anything a view has to remember to set.
 /// </summary>
 public sealed class Chip : ToggleButton
 {

@@ -7,45 +7,46 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// The surface for a handle the compositor imports itself: a shared texture, named to
-/// Avalonia's own device and drawn as a composition visual.
+/// The surface for a handle the compositor imports itself: a shared texture, named to Avalonia's own device
+/// and drawn as a composition visual.
 ///
-/// <b>Nothing here reads a pixel.</b> The backend decodes into a shared texture, names it on
-/// the frame channel, and this hands that name to the compositor. No frame crosses a message,
-/// no frame enters system memory, and no frame is copied by this process
+/// <b>Nothing here reads a pixel.</b> The backend decodes into a shared texture, names it on the frame
+/// channel, and this hands that name to the compositor.
+/// No frame crosses a message, no frame enters system memory, and no frame is copied by this process
 /// (<c>docs/viewer-architecture.md</c>, "The frame channel").
 ///
-/// <b>It is not a <see cref="NativeControlHost"/>, and that is the design decision this
-/// control exists to carry.</b> Handing GStreamer a window handle is the easy path and the
-/// wrong one: a native child window draws above every Avalonia control, so a figure or a menu
-/// over the video would disappear behind it. A composition surface is a visual among visuals,
-/// so what is drawn over a tile stays over it (<c>avalonia/README.md</c>).
+/// <b>It is not a <see cref="NativeControlHost"/>, and that is the design decision this control exists to
+/// carry.</b> Handing GStreamer a window handle is the easy path and the wrong one: a native child window
+/// draws above every Avalonia control, so a figure or a menu over the video would disappear behind it.
+/// A composition surface is a visual among visuals, so what is drawn over a tile stays over it
+/// (<c>avalonia/README.md</c>).
 ///
-/// <b>The loan is what makes it correct.</b> Each frame arrives as a slot the backend has
-/// lent, and the slot goes back only after the compositor has taken it - which is what
-/// <see cref="CompositionDrawingSurface.UpdateWithKeyedMutexAsync"/> waits for. A tile that is
-/// slow therefore costs frames the backend drops, and never a half-written picture and never a
+/// <b>The loan is what makes it correct.</b> Each frame arrives as a slot the backend has lent, and the slot
+/// goes back only after the compositor has taken it - which is what
+/// <see cref="CompositionDrawingSurface.UpdateWithKeyedMutexAsync"/> waits for.
+/// A tile that is slow therefore costs frames the backend drops, and never a half-written picture and never a
 /// stalled pipeline.
 /// </summary>
 internal sealed class SharedTextureSurface : Control, ITileSurface
 {
     /// <summary>
-    /// The compositor objects this surface draws through. They are made once per attach and
-    /// dropped on detach, because a composition visual belongs to the compositor of the tree
-    /// it is in and a tile can be moved between trees.
+    /// The compositor objects this surface draws through.
+    /// They are made once per attach and dropped on detach, because a composition visual belongs to the
+    /// compositor of the tree it is in and a tile can be moved between trees.
     /// </summary>
     private CompositionDrawingSurface? _surface;
 
     /// <summary>
-    /// The visual the surface is drawn by. It is kept because the size lives here rather than
-    /// on the surface: a drawing surface holds pixels and a visual holds where they go.
+    /// The visual the surface is drawn by.
+    /// It is kept because the size lives here rather than on the surface: a drawing surface holds pixels and
+    /// a visual holds where they go.
     /// </summary>
     private CompositionSurfaceVisual? _visual;
 
     /// <summary>
-    /// The imported slots of the current pool, by slot index. Each is imported once and drawn
-    /// from many times, which is the whole point of the pool: a per-frame import would be a
-    /// per-frame trip through the graphics driver.
+    /// The imported slots of the current pool, by slot index.
+    /// Each is imported once and drawn from many times, which is the whole point of the pool: a per-frame
+    /// import would be a per-frame trip through the graphics driver.
     /// </summary>
     private readonly List<ICompositionImportedGpuImage> _slots = [];
 
@@ -138,10 +139,10 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
     /// <summary>
     /// Draws one lent slot and waits for the compositor to take it.
     ///
-    /// The await is the flow control. It completes when the compositor has taken the texture,
-    /// which is when the slot is genuinely free, so the release that follows is a statement
-    /// rather than a guess - and a tile the compositor is slow to serve stops asking for frames
-    /// instead of overwriting one it is still drawing.
+    /// The await is the flow control.
+    /// It completes when the compositor has taken the texture, which is when the slot is genuinely free, so
+    /// the release that follows is a statement rather than a guess - and a tile the compositor is slow to
+    /// serve stops asking for frames instead of overwriting one it is still drawing.
     /// </summary>
     public Task DrawAsync(uint slot, CancellationToken cancellation)
     {
@@ -156,9 +157,9 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
     /// <summary>
     /// Drops the imports of the pool that is no longer current.
     ///
-    /// The dispose is awaited rather than fired off, because an import is released on the
-    /// render thread and the backend frees the texture behind it as soon as the call ends: a
-    /// release still in flight when that happens is a release against memory that is gone.
+    /// The dispose is awaited rather than fired off, because an import is released on the render thread and
+    /// the backend frees the texture behind it as soon as the call ends: a release still in flight when that
+    /// happens is a release against memory that is gone.
     /// </summary>
     private async Task ReleaseAsync()
     {
@@ -173,13 +174,12 @@ internal sealed class SharedTextureSurface : Control, ITileSurface
     public async ValueTask DisposeAsync() => await ReleaseAsync().ConfigureAwait(true);
 
     /// <summary>
-    /// The compositor's name for a handle type the backend can lend, and null for one this
-    /// surface does not import.
+    /// The compositor's name for a handle type the backend can lend, and null for one this surface does not
+    /// import.
     ///
-    /// This is where the contract's identifiers meet the toolkit's, and it is a map rather than
-    /// an assumption: which handle types a backend imports differs between two graphics
-    /// backends on one operating system, which is why the supported list is asked for rather
-    /// than derived from the platform.
+    /// This is where the contract's identifiers meet the toolkit's, and it is a map rather than an
+    /// assumption: which handle types a backend imports differs between two graphics backends on one
+    /// operating system, which is why the supported list is asked for rather than derived from the platform.
     /// </summary>
     private static string? HandleTypeOf(FrameHandleType type) => type switch
     {

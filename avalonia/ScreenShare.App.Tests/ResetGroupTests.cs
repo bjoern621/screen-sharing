@@ -8,15 +8,16 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Putting one group of settings back to what a fresh installation holds.
 ///
-/// It exists for the group nothing else can restore. A staged group is a proposal, so a reader
-/// who dislikes what they typed walks away from it; an applied group is stored as it is typed
-/// and is already what this machine is (<c>form.proto</c>, FieldGroup.applied). Where the relay
-/// is, is that group - a reader who changed a port has nowhere else to read the number the relay
-/// serves on.
+/// It exists for the group nothing else can restore.
+/// A staged group is a proposal, so a reader who dislikes what they typed walks away from it; an applied
+/// group is stored as it is typed and is already what this machine is (<c>form.proto</c>,
+/// FieldGroup.applied).
+/// Where the relay is, is that group - a reader who changed a port has nowhere else to read the number the
+/// relay serves on.
 ///
-/// The values are not stated here and are not stated in the shell either. Every field carries
-/// what it starts as (<c>Field.default_value</c>), and these tests hold the shell to writing
-/// exactly those back rather than to any particular number.
+/// The values are not stated here and are not stated in the shell either.
+/// Every field carries what it starts as (<c>Field.default_value</c>), and these tests hold the shell to
+/// writing exactly those back rather than to any particular number.
 /// </summary>
 public sealed class ResetGroupTests
 {
@@ -41,8 +42,8 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// The whole group goes back, not the one field that was moved last: an address and a port
-    /// are both settings the reader had no other way back to.
+    /// The whole group goes back, not the one field that was moved last: an address and a port are both
+    /// settings the reader had no other way back to.
     /// </summary>
     [Fact]
     public async Task AResetPutsEveryFieldOfTheGroupBack()
@@ -64,9 +65,9 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// A reset reaches the group it names and nothing else. The wizard's other steps are a
-    /// proposal the reader is still building, and a press on one heading is not an opinion about
-    /// the others.
+    /// A reset reaches the group it names and nothing else.
+    /// The wizard's other steps are a proposal the reader is still building, and a press on one heading is
+    /// not an opinion about the others.
     /// </summary>
     [Fact]
     public async Task AResetLeavesTheOtherGroupsWhereTheyAre()
@@ -84,9 +85,9 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// The group is stored once rather than once per field. Every field goes into the draft
-    /// before anything is stored, because the reset is one change of mind about a group and not
-    /// a burst of the writes a reader could have made by hand.
+    /// The group is stored once rather than once per field.
+    /// Every field goes into the draft before anything is stored, because the reset is one change of mind
+    /// about a group and not a burst of the writes a reader could have made by hand.
     /// </summary>
     [Fact]
     public async Task AResetOfAnAppliedGroupIsStoredOnce()
@@ -104,13 +105,14 @@ public sealed class ResetGroupTests
         Assert.Equal(stored + 1, flow.Backend.Saved.Count);
         Assert.Equal(fresh.Relay, flow.Backend.Saved[^1].Relay);
 
-        // Stored, not started. The two are different effects and only one of them was asked for.
+        // Stored, not started.
+        // The two are different effects and only one of them was asked for.
         Assert.Empty(flow.Backend.Started);
     }
 
     /// <summary>
-    /// Which headings offer the press is the form's answer: the groups whose fields are the
-    /// settings themselves, and no others.
+    /// Which headings offer the press is the form's answer: the groups whose fields are the settings
+    /// themselves, and no others.
     /// </summary>
     [Fact]
     public async Task TheOfferFollowsTheFormsAppliedGroups()
@@ -126,8 +128,8 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// A pass over an unchanged form produces the same offer, which is what keeps the button from
-    /// being rebuilt under a pointer that is on it.
+    /// A pass over an unchanged form produces the same offer, which is what keeps the button from being
+    /// rebuilt under a pointer that is on it.
     /// </summary>
     [Fact]
     public async Task AnUnchangedPassOffersTheSameAction()
@@ -142,8 +144,8 @@ public sealed class ResetGroupTests
     }
 
     /// <summary>
-    /// The press goes through the same write the reader's own edits do, so what the button
-    /// restores and what a reader could type are one path into the draft.
+    /// The press goes through the same write the reader's own edits do, so what the button restores and what
+    /// a reader could type are one path into the draft.
     /// </summary>
     [Fact]
     public async Task ThePressPutsTheGroupBack()

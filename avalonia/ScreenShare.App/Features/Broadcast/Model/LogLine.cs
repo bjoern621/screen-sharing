@@ -5,21 +5,21 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
-/// One line of the session log: when, how loud, and what happened. Mono throughout, because
-/// every part of it is machine-generated.
+/// One line of the session log: when, how loud, and what happened.
+/// Mono throughout, because every part of it is machine-generated.
 ///
-/// The level is carried as the word the log itself prints rather than as an enum: this screen
-/// only ever renders it, and a level it has never seen still reads correctly instead of
-/// falling into an exhaustive-dispatch trap.
+/// The level is carried as the word the log itself prints rather than as an enum: this screen only ever
+/// renders it, and a level it has never seen still reads correctly instead of falling into an
+/// exhaustive-dispatch trap.
 ///
-/// <b>Two kinds of thing produce a line, and they reach this screen differently.</b> The
-/// backend's event stream carries what this shell did not do - a pipeline that died on its own,
-/// a viewer that closed, the grid window ending - each with the failure as prose and the run
-/// log's path. The relay's roster carries who is watching, and the audience lines are the
-/// difference between two of its snapshots, because no event announces a viewer arriving
-/// (<c>Audience</c>). The card shows both; the whole log is the file behind
-/// <see cref="ExitInfo.LogPath"/>, which is opened through the backend rather than read here,
-/// because the file is on the backend's machine and this shell may one day not be.
+/// <b>Two kinds of thing produce a line, and they reach this screen differently.</b> The backend's event
+/// stream carries what this shell did not do - a pipeline that died on its own, a viewer that closed, the
+/// grid window ending - each with the failure as prose and the run log's path.
+/// The relay's roster carries who is watching, and the audience lines are the difference between two of its
+/// snapshots, because no event announces a viewer arriving (<c>Audience</c>).
+/// The card shows both; the whole log is the file behind <see cref="ExitInfo.LogPath"/>, which is opened
+/// through the backend rather than read here, because the file is on the backend's machine and this shell may
+/// one day not be.
 /// </summary>
 public sealed record LogLine(string Time, string Level, string Message)
 {
@@ -31,18 +31,18 @@ public sealed record LogLine(string Time, string Level, string Message)
     public bool IsWarning => Level == Warning;
 
     /// <summary>
-    /// The run log this line came from, empty where there is none. It is the backend's own path
-    /// and is carried rather than parsed: a shell that built one would be assuming where the
-    /// backend keeps its logs.
+    /// The run log this line came from, empty where there is none.
+    /// It is the backend's own path and is carried rather than parsed: a shell that built one would be
+    /// assuming where the backend keeps its logs.
     /// </summary>
     public string LogPath { get; init; } = "";
 
     public bool HasLog => LogPath.Length > 0;
 
     /// <summary>
-    /// One ended child process as a line. A clean exit carries no message, so it says so
-    /// plainly rather than printing an empty one; a failure is a warning and prints the
-    /// backend's sentence as it stands.
+    /// One ended child process as a line.
+    /// A clean exit carries no message, so it says so plainly rather than printing an empty one; a failure is
+    /// a warning and prints the backend's sentence as it stands.
     /// </summary>
     public static LogLine Of(SessionExit exit)
     {
@@ -58,10 +58,11 @@ public sealed record LogLine(string Time, string Level, string Message)
     }
 
     /// <summary>
-    /// One viewer arriving or leaving as a line. Both are ordinary news: a viewer that closed a
-    /// window did nothing wrong, and the one loud level on this card is kept for a process that
-    /// failed. Neither carries a run log either - the file is the publisher's own, and a viewer
-    /// on another machine has no run of ours behind it.
+    /// One viewer arriving or leaving as a line.
+    /// Both are ordinary news: a viewer that closed a window did nothing wrong, and the one loud level on
+    /// this card is kept for a process that failed.
+    /// Neither carries a run log either - the file is the publisher's own, and a viewer on another machine
+    /// has no run of ours behind it.
     /// </summary>
     public static LogLine Of(AudienceChange change)
     {

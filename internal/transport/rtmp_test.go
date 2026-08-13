@@ -39,8 +39,8 @@ func TestRTMPPublishArgs(t *testing.T) {
 	}
 }
 
-// The watch leg names the stream being watched, not the one being published: a
-// viewer opens someone else's stream over a transport it picks per window.
+// The watch leg names the stream being watched, not the one being published:
+// a viewer opens someone else's stream over a transport it picks per window.
 func TestRTMPWatchURL(t *testing.T) {
 	got := RTMP{}.WatchURL(rtmpTestStream(), "bob")
 	if got != "rtmp://relay.example:1935/bob" {
@@ -57,9 +57,9 @@ func TestRTMPGstSource(t *testing.T) {
 	}
 }
 
-// RTMP publishes through ffmpeg alone: flvmux writes the legacy tags only, so
-// the GStreamer engine has no sink to terminate a pipeline with, and a capture
-// backend on that engine must not be offered the transport at all.
+// RTMP publishes through ffmpeg alone: flvmux writes the legacy tags only,
+// so the GStreamer engine has no sink to terminate a pipeline with, and a capture backend on that
+// engine must not be offered the transport at all.
 func TestRTMPCapabilities(t *testing.T) {
 	s := rtmpTestStream()
 	s.Publish.Transport = "rtmp"
@@ -76,8 +76,8 @@ func TestRTMPCapabilities(t *testing.T) {
 	if _, ok := WatchURL("rtmp", s, "bob"); !ok {
 		t.Error("WatchURL must report true for rtmp")
 	}
-	// Both watch engines read the legacy FLV tags, so the transport is watchable on the
-	// engine it cannot publish on.
+	// Both watch engines read the legacy FLV tags, so the transport is watchable on the engine it
+	// cannot publish on.
 	for _, engine := range capabilities.Engines {
 		if !CanWatch("rtmp", engine) {
 			t.Errorf("CanWatch must report true for rtmp on the %s engine", engine)

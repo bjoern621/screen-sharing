@@ -9,8 +9,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// cursorFacts is a configuration the pointer rules bind against. They name the capture
-// backend and nothing else, so that is what a caller has to answer.
+// cursorFacts is a configuration the pointer rules bind against.
+// They name the capture backend and nothing else, so that is what a caller has to answer.
 func cursorFacts(capture string) rules.Facts {
 	return rules.Facts{rules.AxisCapture: rules.TextValue(capture)}
 }
@@ -23,10 +23,10 @@ func TestCursorRulesAnswerWhatTheTableServes(t *testing.T) {
 			served := CursorServed(capture, mode)
 			refused := !v.ValueEnabled(rules.AxisCursor, mode)
 
-			// Metadata is the one mode a backend can serve and the app still refuse: the
-			// portal reports a position nothing here reads yet, which is a fact about this
-			// app rather than about that capture. Every other mode, and every other
-			// backend, is the table's answer alone.
+			// Metadata is the one mode a backend can serve and the app still refuse:
+			// the portal reports a position nothing here reads yet, which is a fact about this app rather
+			// than about that capture.
+			// Every other mode, and every other backend, is the table's answer alone.
 			if mode == cursor.Metadata && capture == "portal" {
 				if !refused {
 					t.Errorf("%s: the metadata mode is offered while nothing reads the capture's own pointer", capture)
@@ -40,9 +40,9 @@ func TestCursorRulesAnswerWhatTheTableServes(t *testing.T) {
 	}
 }
 
-// Every backend leaves a way to publish. A combination where the pointer control has no
-// legal value would be a form the repair cannot move off, so the table is held to it
-// rather than trusted.
+// Every backend leaves a way to publish.
+// A combination where the pointer control has no legal value would be a form the repair cannot move
+// off, so the table is held to it rather than trusted.
 func TestEveryBackendServesAPointerMode(t *testing.T) {
 	for _, capture := range Captures() {
 		v := rules.EvaluateRules(cursorFacts(capture), cursorRules())
@@ -58,8 +58,8 @@ func TestEveryBackendServesAPointerMode(t *testing.T) {
 	}
 }
 
-// The scanout backend is the one that cannot draw the pointer, and it says so with the
-// fact about its own path rather than with a sentence about backends in general.
+// The scanout backend is the one that cannot draw the pointer, and it says so with the fact about
+// its own path rather than with a sentence about backends in general.
 func TestTheScanoutBackendCannotDrawThePointer(t *testing.T) {
 	v := rules.EvaluateRules(cursorFacts("kmsgrab"), cursorRules())
 
@@ -78,9 +78,9 @@ func TestTheScanoutBackendCannotDrawThePointer(t *testing.T) {
 	}
 }
 
-// On the portal both facts bind and both cross: the capture does report a pointer
-// position, and this app carries none. A reader who saw only the first would go looking
-// for a setting that would not help.
+// On the portal both facts bind and both cross: the capture does report a pointer position,
+// and this app carries none.
+// A reader who saw only the first would go looking for a setting that would not help.
 func TestThePortalCarriesOnlyTheAppsOwnLimit(t *testing.T) {
 	v := rules.EvaluateRules(cursorFacts("portal"), cursorRules())
 
@@ -92,16 +92,16 @@ func TestThePortalCarriesOnlyTheAppsOwnLimit(t *testing.T) {
 		t.Errorf("the portal states %v, want the fact that nothing carries a pointer", got)
 	}
 
-	// The X11 backend serves the mode: its display server answers any client that asks
-	// where the pointer is, which is what the publish child reads there. So it states
-	// nothing at all, where the portal states the one fact above.
+	// The X11 backend serves the mode: its display server answers any client that asks where the
+	// pointer is, which is what the publish child reads there.
+	// So it states nothing at all, where the portal states the one fact above.
 	x11 := rules.EvaluateRules(cursorFacts("ximagesrc"), cursorRules())
 	if got := len(x11.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 0 {
 		t.Errorf("a backend whose display server answers states %d facts, want none", got)
 	}
 
-	// A backend with no pointer position to report states its own fact, which is a
-	// different thing to fix than the app's.
+	// A backend with no pointer position to report states its own fact, which is a different thing to
+	// fix than the app's.
 	kms := rules.EvaluateRules(cursorFacts("kmsgrab"), cursorRules())
 	if got := len(kms.ValueReasons(rules.AxisCursor, cursor.Metadata)); got != 1 {
 		t.Errorf("a backend with no pointer metadata states %d facts, want its own", got)

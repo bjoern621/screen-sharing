@@ -1,11 +1,11 @@
-// Package ffmpeg builds the ffmpeg publish command line, locates the media
-// executables, and supervises the child processes.
+// Package ffmpeg builds the ffmpeg publish command line, locates the media executables,
+// and supervises the child processes.
 //
 // The argument builder mirrors the prototype script in scripts/publish.ps1;
-// the values there were tuned against a real relay and are the reference for
-// what it must produce. The destination URL and muxer come from the transport
-// registry, so the encoder args stay independent of how bytes leave the
-// machine. The viewer command lines live in the watch package.
+// the values there were tuned against a real relay and are the reference for what it must produce.
+// The destination URL and muxer come from the transport registry, so the encoder args stay
+// independent of how bytes leave the machine.
+// The viewer command lines live in the watch package.
 package ffmpeg
 
 import (
@@ -27,31 +27,31 @@ import (
 
 // Tap is a second output a publish command copies its already-encoded video to.
 //
-// It is a copy and never a second encode. ffmpeg builds one encoder per output, so two
-// outputs written the ordinary way are two encoders on one capture; the tee muxer is
-// what takes the packets one encoder produced and writes them to several muxers, and it
-// is the only shape here that does.
+// It is a copy and never a second encode.
+// ffmpeg builds one encoder per output, so two outputs written the ordinary way are two encoders on
+// one capture; the tee muxer is what takes the packets one encoder produced and writes them to
+// several muxers, and it is the only shape here that does.
 //
-// The options are the slave's own, already in the tee muxer's key=value spelling, and
-// they are the tap's business rather than this package's: what to select, which muxer,
-// and whatever that muxer needs. What this package owns is where the tee goes and which
-// streams reach it.
+// The options are the slave's own, already in the tee muxer's key=value spelling,
+// and they are the tap's business rather than this package's: what to select, which muxer,
+// and whatever that muxer needs.
+// What this package owns is where the tee goes and which streams reach it.
 type Tap struct {
 	Options []string
 	URL     string
 }
 
-// BuildPublishArgs returns the ffmpeg arguments (without the executable) that
-// capture the selected monitor and push the encoded stream to the relay.
+// BuildPublishArgs returns the ffmpeg arguments (without the executable) that capture the selected
+// monitor and push the encoded stream to the relay.
 //
-// The order matches scripts/publish.ps1: capture input, encoder, pixel format
-// and color range, GOP, then the transport's muxer and destination URL.
+// The order matches scripts/publish.ps1: capture input, encoder, pixel format and color range, GOP,
+// then the transport's muxer and destination URL.
 //
-// tap is a second output the encoded video is copied to, nil for a command with one
-// output. A command that carries one is written through the tee muxer, which changes
-// two things and nothing else: automatic stream selection does not apply to a tee, so
-// the streams are mapped by hand, and the transport's own output arguments are rendered
-// as a slave of it rather than as the command's single output.
+// tap is a second output the encoded video is copied to, nil for a command with one output.
+// A command that carries one is written through the tee muxer, which changes two things and nothing
+// else: automatic stream selection does not apply to a tee, so the streams are mapped by hand,
+// and the transport's own output arguments are rendered as a slave of it rather than as the
+// command's single output.
 func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	if _, ok := transport.Get(s.Publish.Transport); !ok {
 		return nil, fmt.Errorf("unknown transport %q", s.Publish.Transport)
@@ -72,9 +72,9 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	if err := transport.ValidatePublishSettings(s); err != nil {
 		return nil, err
 	}
-	// Every grabber takes the rate as an input option and the keyframe interval
-	// follows from it (gopFor), so a non-positive rate would reach the command as
-	// "-framerate 0" and "-g 0". The GStreamer engine refuses the same value.
+	// Every grabber takes the rate as an input option and the keyframe interval follows from it
+	// (gopFor), so a non-positive rate would reach the command as "-framerate 0" and "-g 0". The
+	// GStreamer engine refuses the same value.
 	if s.Publish.Fps <= 0 {
 		return nil, fmt.Errorf("the ffmpeg publish engine needs a positive fps, got %d", s.Publish.Fps)
 	}
@@ -106,42 +106,38 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 		return nil, err
 	}
 
-	// On the GPU path the frames never become software ones, so the map and the
-	// device-side conversion replace the colour tag, the upload and the device option
-	// in one chain: the conversion states the colour it wrote, and the encoder takes
-	// its device from the frames it is handed (gpu.go).
+	// On the GPU path the frames never become software ones, so the map and the device-side conversion
+	// replace the colour tag, the upload and the device option in one chain: the conversion states the
+	// colour it wrote, and the encoder takes its device from the frames it is handed (gpu.go).
 	var device []string
 	onDevice := gpupath.OnDevice(memory)
 	surface := onDevice
 	if surface {
-		// The scale is the device-side conversion's own, because there is no software
-		// stage left to put one in: the frames are already on the device and a swscale
-		// filter cannot read them. A family whose only device path leaves the conversion
-		// to the encoder has nothing to carry the size either, and GpuFilters refuses it
-		// rather than dropping the setting.
+		// The scale is the device-side conversion's own, because there is no software stage left to put
+		// one in: the frames are already on the device and a swscale filter cannot read them.
+		// A family whose only device path leaves the conversion to the encoder has nothing to carry the
+		// size either, and GpuFilters refuses it rather than dropping the setting.
 		gpu, err := GpuFilters(s.Publish.Codec, s.Publish.Chroma, s.Publish.ColorRange, size, scaled)
 		if err != nil {
 			return nil, err
 		}
 		src.filters = append(src.filters, gpu...)
 	} else {
-		// Scaled while the frames are still software ones and before anything else reads
-		// them: the colour tag describes what the encoder is given, and the upload pins a
-		// surface layout, so a scale after either would resize a picture both had already
-		// been told the shape of.
+		// Scaled while the frames are still software ones and before anything else reads them:
+		// the colour tag describes what the encoder is given, and the upload pins a surface layout,
+		// so a scale after either would resize a picture both had already been told the shape of.
 		if scaled {
 			src.filters = append(src.filters, scaleFilter(size))
 		}
 
-		// The colour description rides on the frames, so it is tagged while they are
-		// still software ones, ahead of the upload a surface encode ends its chain in.
+		// The colour description rides on the frames, so it is tagged while they are still software ones,
+		// ahead of the upload a surface encode ends its chain in.
 		if colour := colourFilter(s.Publish.Chroma); colour != "" {
 			src.filters = append(src.filters, colour)
 		}
 
-		// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead
-		// of the input and the grabber's chain ends in a conversion and an upload
-		// (hwsurface.go).
+		// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead of the input and
+		// the grabber's chain ends in a conversion and an upload (hwsurface.go).
 		var uploads bool
 		device, uploads, err = HwSurfaceDevice(s.Publish.Codec)
 		if err != nil {
@@ -157,23 +153,21 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 		surface = uploads
 	}
 
-	// The filter chain and the maps are one decision when there is a tee, because a
-	// filter source has no input to map: its chain's output is labelled, and the label is
-	// what the map names. Without a tee neither exists and the command is what it has
-	// always been, ffmpeg's automatic stream selection picking the one video and the one
-	// audio stream there are.
-	// The audio inputs follow the capture's, so which index each takes is a count of what
-	// came before them rather than a constant: a filter source contributes no -i at all,
-	// and the one grabber that is one would otherwise have its audio mapped off an input
-	// that is not there.
+	// The filter chain and the maps are one decision when there is a tee, because a filter source has
+	// no input to map: its chain's output is labelled, and the label is what the map names.
+	// Without a tee neither exists and the command is what it has always been,
+	// ffmpeg's automatic stream selection picking the one video and the one audio stream there are.
+	// The audio inputs follow the capture's, so which index each takes is a count of what came before
+	// them rather than a constant: a filter source contributes no -i at all, and the one grabber that
+	// is one would otherwise have its audio mapped off an input that is not there.
 	inputs := inputCount(src.args)
 	audioFilters, audioOut := audioMixFilters(s, inputs)
 
-	// The filter chain and the maps are one decision wherever either exists, because a
-	// filter source has no input to map and a mixed track has no input either: each chain's
-	// output is labelled, and the label is what the map names. With neither, the command is
-	// what it has always been, ffmpeg's automatic stream selection picking the one video and
-	// the one audio stream there are.
+	// The filter chain and the maps are one decision wherever either exists, because a filter source
+	// has no input to map and a mixed track has no input either: each chain's output is labelled,
+	// and the label is what the map names.
+	// With neither, the command is what it has always been, ffmpeg's automatic stream selection
+	// picking the one video and the one audio stream there are.
 	filters := src.filters
 	var maps []string
 	if tap != nil || len(audioFilters) > 0 {
@@ -197,11 +191,12 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	args = append(args, src.args...)
 	args = append(args, audioIn...)
 
-	// The audio graph is always a complex one: it reads inputs by index and labels what it
-	// produces, which is what -af cannot do. Where the capture's chain is a simple one the
-	// two ride as separate options, each naming its own streams; where the capture is
-	// itself a filter source, they are one graph of two chains, because a command states
-	// -filter_complex once and a second one would replace the first.
+	// The audio graph is always a complex one: it reads inputs by index and labels what it produces,
+	// which is what -af cannot do.
+	// Where the capture's chain is a simple one the two ride as separate options,
+	// each naming its own streams; where the capture is itself a filter source,
+	// they are one graph of two chains, because a command states -filter_complex once and a second one
+	// would replace the first.
 	complexAudio := len(audioFilters) > 0
 	if complexAudio && src.filterFlag == "-filter_complex" {
 		filters = append(append([]string{}, strings.Join(filters, ",")), audioFilters...)
@@ -216,18 +211,18 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	}
 	args = append(args, maps...)
 	args = append(args, enc...)
-	// The upload filter has already pinned a surface encode's layout, and the encoder's
-	// own pixel format is the opaque hardware one, so -pix_fmt would ask ffmpeg to
-	// convert GPU surfaces it cannot read.
+	// The upload filter has already pinned a surface encode's layout, and the encoder's own pixel
+	// format is the opaque hardware one, so -pix_fmt would ask ffmpeg to convert GPU surfaces it
+	// cannot read.
 	if !surface {
 		args = append(args, "-pix_fmt", s.Publish.Chroma)
 	}
 	// color_range only applies to YUV formats; gbrp is inherently full range.
 	//
-	// It is also dropped on a device path whose family converts nothing: there is no
-	// swscale stage for the option to steer, the encoder converts the captured RGB by a
-	// range of its own and signals that one, and a displayed command must not carry an
-	// option the run ignores (gpu.go, gpupath.ColourEncoder).
+	// It is also dropped on a device path whose family converts nothing: there is no swscale stage for
+	// the option to steer, the encoder converts the captured RGB by a range of its own and signals
+	// that one, and a displayed command must not carry an option the run ignores (gpu.go,
+	// gpupath.ColourEncoder).
 	if s.Publish.Chroma != "gbrp" && !(onDevice && !GpuStatesColour(s.Publish.Codec)) {
 		args = append(args, "-color_range", s.Publish.ColorRange)
 	}
@@ -249,10 +244,11 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	}
 
 	// The relay leg is rendered from the same arguments it would be the whole output of,
-	// rather than declared a second time per transport. What a transport states is one
-	// output: option pairs and the destination last, and a tee slave is that statement in
-	// the tee muxer's own spelling. A second declaration would be the one that fell behind
-	// the first the next time a transport grew an option.
+	// rather than declared a second time per transport.
+	// What a transport states is one output: option pairs and the destination last,
+	// and a tee slave is that statement in the tee muxer's own spelling.
+	// A second declaration would be the one that fell behind the first the next time a transport grew
+	// an option.
 	relay, err := teeSlaveOf(pub)
 	if err != nil {
 		return nil, err
@@ -260,14 +256,15 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	return append(args, "-f", "tee", relay+"|"+teeSlave(tap.Options, tap.URL)), nil
 }
 
-// filterOutLabel names the output of a filter source's chain, so a map has something to
-// name where there is no input to name instead. It is only ever written on a command
-// that tees, because it exists for the map and the map exists for the tee.
+// filterOutLabel names the output of a filter source's chain, so a map has something to name where
+// there is no input to name instead.
+// It is only ever written on a command that tees, because it exists for the map and the map exists
+// for the tee.
 const filterOutLabel = "[out]"
 
-// inputCount is how many inputs a capture backend's arguments open. It counts -i rather
-// than reading a field, because the field would be the same fact written twice and the
-// one that could disagree with the arguments actually built.
+// inputCount is how many inputs a capture backend's arguments open.
+// It counts -i rather than reading a field, because the field would be the same fact written twice
+// and the one that could disagree with the arguments actually built.
 func inputCount(args []string) int {
 	n := 0
 	for _, arg := range args {
@@ -281,15 +278,16 @@ func inputCount(args []string) int {
 
 // teeSlaveOf renders one output's arguments as a slave of the tee muxer.
 //
-// The shape it takes is the shape every transport already yields: pairs of an option and
-// its value, then the destination. "-f mpegts srt://..." becomes "[f=mpegts]srt://...",
-// and an option a protocol adds for itself travels with it.
+// The shape it takes is the shape every transport already yields: pairs of an option and its value,
+// then the destination.
+// "-f mpegts srt://..."
+// becomes "[f=mpegts]srt://...", and an option a protocol adds for itself travels with it.
 //
-// The two spellings differ in what may appear in them, so the ones that cannot be
-// written are refused rather than escaped. A colon separates the options inside the
-// bracket and a bar separates the slaves, so neither can appear in an option; the URL is
-// everything after the bracket and so may hold colons, which every one of these
-// destinations does.
+// The two spellings differ in what may appear in them, so the ones that cannot be written are
+// refused rather than escaped.
+// A colon separates the options inside the bracket and a bar separates the slaves,
+// so neither can appear in an option; the URL is everything after the bracket and so may hold
+// colons, which every one of these destinations does.
 func teeSlaveOf(args []string) (string, error) {
 	assert.Assert(len(args) > 0, "an output yields arguments")
 
@@ -316,8 +314,7 @@ func teeSlaveOf(args []string) (string, error) {
 	return teeSlave(options, url), nil
 }
 
-// teeSlave writes one slave of the tee muxer: its options in brackets, then its
-// destination.
+// teeSlave writes one slave of the tee muxer: its options in brackets, then its destination.
 func teeSlave(options []string, url string) string {
 	assert.Assert(url != "", "a tee slave names its destination", strings.Join(options, ":"))
 
@@ -326,54 +323,54 @@ func teeSlave(options []string, url string) string {
 
 // scaleAlgorithm is what swscale resamples the picture with.
 //
-// Lanczos rather than the bicubic default, because what is being scaled is a desktop: the
-// picture is text and hairlines rather than photographs, and a softer kernel costs
-// exactly the edges a reader is trying to read. It is stated rather than left to the
-// default so a displayed command says which resampler ran.
+// Lanczos rather than the bicubic default, because what is being scaled is a desktop:
+// the picture is text and hairlines rather than photographs, and a softer kernel costs exactly the
+// edges a reader is trying to read.
+// It is stated rather than left to the default so a displayed command says which resampler ran.
 const scaleAlgorithm = "lanczos"
 
 // scaleFilter resamples software frames to the picture the encoder is fed.
 //
-// The aspect ratio is not preserved and is not asked to be: the size came from a list
-// derived from the capture's own dimensions, so a value that does not match the source's
-// ratio is one this side generated deliberately.
+// The aspect ratio is not preserved and is not asked to be: the size came from a list derived from
+// the capture's own dimensions, so a value that does not match the source's ratio is one this side
+// generated deliberately.
 func scaleFilter(size settings.Size) string {
 	return fmt.Sprintf("scale=%d:%d:flags=%s", size.Width, size.Height, scaleAlgorithm)
 }
 
-// colourDescription is the colour space this engine encodes against, spelled as
-// setparams and ffprobe name it. It is the ffmpeg side of what the GStreamer engine
-// pins as gstBt709: BT.709 is the colour space of every HD and larger picture, which
-// is every screen this app captures, so a stream's colour does not follow from which
-// engine published it.
+// colourDescription is the colour space this engine encodes against, spelled as setparams and
+// ffprobe name it.
+// It is the ffmpeg side of what the GStreamer engine pins as gstBt709: BT.709 is the colour space
+// of every HD and larger picture, which is every screen this app captures,
+// so a stream's colour does not follow from which engine published it.
 const colourDescription = "bt709"
 
-// colourFilter tags the captured frames with the colour space they are encoded
-// against, empty for a chroma with none to state.
+// colourFilter tags the captured frames with the colour space they are encoded against,
+// empty for a chroma with none to state.
 //
-// The tag is what puts the colour description in the bitstream, and the bitstream is
-// the only place a viewer reads it from, since RTP and MPEG-TS carry no colour of
-// their own. A component left unsignalled is one the viewer picks off the picture
-// size, and it picks limited-range BT.709, so an unsignalled full-range stream is
-// expanded as if it were limited: crushed blacks, clipped whites.
+// The tag is what puts the colour description in the bitstream, and the bitstream is the only place
+// a viewer reads it from, since RTP and MPEG-TS carry no colour of their own.
+// A component left unsignalled is one the viewer picks off the picture size,
+// and it picks limited-range BT.709, so an unsignalled full-range stream is expanded as if it were
+// limited: crushed blacks, clipped whites.
 //
-// The output options reach only part of it. -colorspace lands in the bitstream where
-// -color_primaries and -color_trc do not, and a partial description is no
-// description, a GStreamer viewer reporting no colorimetry at all for one.
+// The output options reach only part of it.
+// -colorspace lands in the bitstream where -color_primaries and -color_trc do not,
+// and a partial description is no description, a GStreamer viewer reporting no colorimetry at all
+// for one.
 //
-// The range is deliberately absent from the tag. Left unspecified on the frames, the
-// conversion to the encoder's pixel format takes its target range from -color_range.
-// Stated here as well, that conversion writes limited range whatever -color_range
-// says, and full-range white reaches the encoder as Y=235 under a bitstream claiming
-// 255.
+// The range is deliberately absent from the tag.
+// Left unspecified on the frames, the conversion to the encoder's pixel format takes its target
+// range from -color_range.
+// Stated here as well, that conversion writes limited range whatever -color_range says,
+// and full-range white reaches the encoder as Y=235 under a bitstream claiming 255.
 //
-// Planar RGB is skipped for the reason it carries no -color_range: it has no matrix
-// and is full range by construction.
+// Planar RGB is skipped for the reason it carries no -color_range: it has no matrix and is full
+// range by construction.
 //
-// It takes the chroma rather than the settings because the GPU path needs the same tag
-// from a caller that holds no settings struct: on a pair whose only device path leaves
-// the conversion to the encoder, this tag is the whole of what the command still states
-// about the colour (gpu.go).
+// It takes the chroma rather than the settings because the GPU path needs the same tag from a
+// caller that holds no settings struct: on a pair whose only device path leaves the conversion to
+// the encoder, this tag is the whole of what the command still states about the colour (gpu.go).
 func colourFilter(chroma string) string {
 	if chroma == "gbrp" {
 		return ""
@@ -382,10 +379,10 @@ func colourFilter(chroma string) string {
 		colourDescription, colourDescription, colourDescription)
 }
 
-// gopFor returns the keyframe interval in frames. A settings value of zero is the
-// form's automatic setting, a keyframe every two seconds. The encoder builder reads
-// it as well, since one encoder aligns its parameter-set repeat to the GOP, so both
-// halves of the command have to agree on the interval.
+// gopFor returns the keyframe interval in frames.
+// A settings value of zero is the form's automatic setting, a keyframe every two seconds.
+// The encoder builder reads it as well, since one encoder aligns its parameter-set repeat to the
+// GOP, so both halves of the command have to agree on the interval.
 func gopFor(s settings.Settings) int {
 	if s.Publish.Gop > 0 {
 		return s.Publish.Gop
@@ -393,31 +390,29 @@ func gopFor(s settings.Settings) int {
 	return s.Publish.Fps * 2
 }
 
-// captureSource is one screen grabber's contribution to the command: the input
-// arguments, and the filter chain the frames reach the encoder through. The chain
-// is kept apart from the arguments because the encoder may extend it (a VAAPI
-// encode appends a conversion and an upload) and a chain can only be passed once.
+// captureSource is one screen grabber's contribution to the command: the input arguments,
+// and the filter chain the frames reach the encoder through.
+// The chain is kept apart from the arguments because the encoder may extend it (a VAAPI encode
+// appends a conversion and an upload) and a chain can only be passed once.
 type captureSource struct {
 	// args are the input options and the -i itself, empty for a filter source.
 	args []string
 	// filters is the chain, one link per element, joined with commas when emitted.
 	filters []string
-	// filterFlag is the option the chain travels in, -vf by default and
-	// -filter_complex for ddagrab, which is a source filter with no input to attach
-	// a per-stream chain to.
+	// filterFlag is the option the chain travels in, -vf by default and -filter_complex for ddagrab,
+	// which is a source filter with no input to attach a per-stream chain to.
 	filterFlag string
 }
 
 // captureBackends is the input side of the command, one entry per screen grabber.
-// ddagrab and gdigrab are Windows-only, x11grab and kmsgrab Linux-only, and
-// avfoundation macOS-only, which the capture list the UI offers already reflects
-// (see publish.Captures). fps arrives rendered because every grabber takes it as a
-// string.
+// ddagrab and gdigrab are Windows-only, x11grab and kmsgrab Linux-only, and avfoundation
+// macOS-only, which the capture list the UI offers already reflects (see publish.Captures).
+// fps arrives rendered because every grabber takes it as a string.
 //
-// A backend returns an error where the settings name something it cannot capture: a
-// monitor this machine does not have, a DRM download strategy no table row names.
-// The alternative is a command that captures something else, which is the one
-// outcome the form has no way to show.
+// A backend returns an error where the settings name something it cannot capture:
+// a monitor this machine does not have, a DRM download strategy no table row names.
+// The alternative is a command that captures something else, which is the one outcome the form has
+// no way to show.
 var captureBackends = map[string]func(s settings.Settings, fps, memory string) (captureSource, error){
 	"ddagrab":      ddagrabArgs,
 	"gdigrab":      gdigrabArgs,
@@ -426,10 +421,10 @@ var captureBackends = map[string]func(s settings.Settings, fps, memory string) (
 	"avfoundation": avfoundationArgs,
 }
 
-// captureArgs returns the input arguments and filter chain for the configured
-// capture backend, in the memory this run's frames reach the encoder in. A backend
-// with no GPU path is handed the resolved value all the same and ignores it, so the
-// one place the two shapes are chosen between stays the pair table.
+// captureArgs returns the input arguments and filter chain for the configured capture backend,
+// in the memory this run's frames reach the encoder in.
+// A backend with no GPU path is handed the resolved value all the same and ignores it,
+// so the one place the two shapes are chosen between stays the pair table.
 func captureArgs(s settings.Settings, memory string) (captureSource, error) {
 	build, ok := captureBackends[s.Publish.Capture]
 	if !ok {
@@ -445,12 +440,13 @@ func captureArgs(s settings.Settings, memory string) (captureSource, error) {
 	return src, nil
 }
 
-// frameMemory resolves where this run's frames reach the encoder, against the pair
-// table both publish engines read.
+// frameMemory resolves where this run's frames reach the encoder, against the pair table both
+// publish engines read.
 //
-// No device check follows it here. Both of this engine's GPU paths map the captured
-// frames onto a device derived from the frames themselves, so the encoder runs on the
-// GPU the capture came off whatever else the machine carries.
+// No device check follows it here.
+// Both of this engine's GPU paths map the captured frames onto a device derived from the frames
+// themselves, so the encoder runs on the GPU the capture came off whatever else the machine
+// carries.
 func frameMemory(s settings.Settings) (string, error) {
 	c, ok := capabilities.Get(s.Publish.Codec)
 	if !ok {
@@ -461,11 +457,11 @@ func frameMemory(s settings.Settings) (string, error) {
 
 // ddagrabArgs captures on the GPU as a filter source.
 //
-// On the system-memory path hwdownload hands the frames back so any encoder can read
-// them, and format=bgra pins the layout swscale converts from. On either device path the
-// texture stays where Desktop Duplication put it, and what follows is the family's own
-// business: a map onto the encoder's device where the family converts there, and nothing
-// at all where the encoder reads the texture itself.
+// On the system-memory path hwdownload hands the frames back so any encoder can read them,
+// and format=bgra pins the layout swscale converts from.
+// On either device path the texture stays where Desktop Duplication put it,
+// and what follows is the family's own business: a map onto the encoder's device where the family
+// converts there, and nothing at all where the encoder reads the texture itself.
 func ddagrabArgs(s settings.Settings, fps, memory string) (captureSource, error) {
 	filters := []string{fmt.Sprintf("ddagrab=output_idx=%d:framerate=%s:draw_mouse=%s",
 		s.Publish.Monitor, fps, drawMouse(s))}
@@ -481,15 +477,15 @@ func gdigrabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	}}, nil
 }
 
-// drawMouse is what the pointer setting means to an ffmpeg capture device, as the "1" or
-// "0" every one of them spells it with.
+// drawMouse is what the pointer setting means to an ffmpeg capture device,
+// as the "1" or "0" every one of them spells it with.
 //
-// The three modes collapse to two here because this engine has no third: an ffmpeg
-// capture either draws the pointer into the frames or leaves it out, and nothing on this
-// path reports a position to send beside the picture. Which backends serve which mode is
-// the capture table's answer, and a mode a backend does not serve is refused before a
-// command is built (internal/publish/cursor.go), so this only ever sees a mode the device
-// can run.
+// The three modes collapse to two here because this engine has no third: an ffmpeg capture either
+// draws the pointer into the frames or leaves it out, and nothing on this path reports a position
+// to send beside the picture.
+// Which backends serve which mode is the capture table's answer, and a mode a backend does not
+// serve is refused before a command is built (internal/publish/cursor.go),
+// so this only ever sees a mode the device can run.
 func drawMouse(s settings.Settings) string {
 	if s.Publish.Cursor == cursor.Embedded {
 		return "1"
@@ -499,14 +495,14 @@ func drawMouse(s settings.Settings) string {
 
 // x11grabArgs crops the X screen to the selected monitor's geometry.
 //
-// A monitor index no enumerated output carries is refused: it names a screen this
-// machine does not have, and capturing the whole desktop instead would publish
-// something other than what the form shows selected. The one index with no geometry
-// is display.List's placeholder, which stands for enumeration being unavailable
-// here, and the whole X screen is what the single entry it offers means.
+// A monitor index no enumerated output carries is refused: it names a screen this machine does not
+// have, and capturing the whole desktop instead would publish something other than what the form
+// shows selected.
+// The one index with no geometry is display.List's placeholder, which stands for enumeration being
+// unavailable here, and the whole X screen is what the single entry it offers means.
 //
-// DISPLAY is likewise refused when unset rather than guessed at: x11grab reads an X
-// screen, and no environment naming one is no X session to capture.
+// DISPLAY is likewise refused when unset rather than guessed at: x11grab reads an X screen,
+// and no environment naming one is no X session to capture.
 func x11grabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	disp := os.Getenv("DISPLAY")
 	if disp == "" {
@@ -526,27 +522,27 @@ func x11grabArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	)}, nil
 }
 
-// avfoundationScreenDevice is the name AVFoundation lists a screen under, with the
-// monitor index appended. ffmpeg takes one video and one audio device in a single
-// -i, separated by a colon, so the audio half is part of this string rather than an
-// input of its own.
+// avfoundationScreenDevice is the name AVFoundation lists a screen under, with the monitor index
+// appended.
+// ffmpeg takes one video and one audio device in a single -i, separated by a colon,
+// so the audio half is part of this string rather than an input of its own.
 const avfoundationScreenDevice = "Capture screen "
 
-// avfNoAudioDevice is the audio half of the device string. It stays unset because
-// the two halves travel together: an audio device named here would become this
-// input's second stream whatever the audio setting says, and desktop audio is
-// refused on this backend for a reason of its own (audioInputArgs).
+// avfNoAudioDevice is the audio half of the device string.
+// It stays unset because the two halves travel together: an audio device named here would become
+// this input's second stream whatever the audio setting says, and desktop audio is refused on this
+// backend for a reason of its own (audioInputArgs).
 const avfNoAudioDevice = ":none"
 
 // avfoundationArgs captures a macOS screen through AVFoundation.
 //
-// The monitor index goes into the device name without a lookup, the way ddagrab's
-// output_idx does. What it indexes is AVFoundation's own list of screen devices,
-// and display.List has no macOS enumerator to hold it against: the placeholder it
-// answers with there would refuse every index but zero.
+// The monitor index goes into the device name without a lookup, the way ddagrab's output_idx does.
+// What it indexes is AVFoundation's own list of screen devices, and display.List has no macOS
+// enumerator to hold it against: the placeholder it answers with there would refuse every index but
+// zero.
 //
-// The device naming is ffmpeg's documented avfoundation input rather than a reading
-// off a machine, since macOS is not available here.
+// The device naming is ffmpeg's documented avfoundation input rather than a reading off a machine,
+// since macOS is not available here.
 func avfoundationArgs(s settings.Settings, fps, _ string) (captureSource, error) {
 	return captureSource{args: []string{
 		"-f", "avfoundation",
@@ -558,17 +554,17 @@ func avfoundationArgs(s settings.Settings, fps, _ string) (captureSource, error)
 
 // audioInputArgs returns one capture input per recorded source, in list order.
 //
-// Each is opened by the handle its kind or its own device names: desktop audio as the
-// monitor of the default sink, a microphone as the default input, an entry naming a device
-// as that device (platform.AudioSourceDevice). "-f pulse" against GStreamer's
-// "pulsesrc device=" is the whole of what the two engines differ by, and the names
-// themselves are stated once for both.
+// Each is opened by the handle its kind or its own device names: desktop audio as the monitor of
+// the default sink, a microphone as the default input, an entry naming a device as that device
+// (platform.AudioSourceDevice).
+// "-f pulse" against GStreamer's "pulsesrc device=" is the whole of what the two engines differ by,
+// and the names themselves are stated once for both.
 //
-// Whether the backend's platform serves a kind at all is settled above this builder, in
-// publish.AudioAvailable, for the reason the package comment gives: the arguments are built
-// from the settings alone and the capture backend's operating system is publish's column to
-// read. What reaches here is a stream a caller already had refused, the way an unknown codec
-// is (audioEncodeArgs).
+// Whether the backend's platform serves a kind at all is settled above this builder,
+// in publish.AudioAvailable, for the reason the package comment gives: the arguments are built from
+// the settings alone and the capture backend's operating system is publish's column to read.
+// What reaches here is a stream a caller already had refused, the way an unknown codec is
+// (audioEncodeArgs).
 func audioInputArgs(s settings.Settings) ([]string, error) {
 	var out []string
 	for _, a := range s.Publish.Recorded() {
@@ -581,12 +577,12 @@ func audioInputArgs(s settings.Settings) ([]string, error) {
 	return out, nil
 }
 
-// audioDevice is the handle one entry is opened by: its own device where it names one, and
-// the kind's default where it does not.
+// audioDevice is the handle one entry is opened by: its own device where it names one,
+// and the kind's default where it does not.
 //
-// A kind with no default and no device of its own is refused rather than opened as
-// something else: an entry that reached here naming an application is one the enumeration
-// never answered for, and opening the desktop instead would publish the wrong room.
+// A kind with no default and no device of its own is refused rather than opened as something else:
+// an entry that reached here naming an application is one the enumeration never answered for,
+// and opening the desktop instead would publish the wrong room.
 func audioDevice(a settings.AudioSource) (string, error) {
 	if a.Device != "" {
 		return a.Device, nil
@@ -597,17 +593,20 @@ func audioDevice(a settings.AudioSource) (string, error) {
 	return "", fmt.Errorf("audio source %q names no device to open", a.Source)
 }
 
-// audioMixFilters is the filter graph mixing every recorded source into one track, and the
-// label its output carries. It is empty for a stream with no second track.
+// audioMixFilters is the filter graph mixing every recorded source into one track,
+// and the label its output carries.
+// It is empty for a stream with no second track.
 //
-// One track and not several is carriage rather than preference: RTMP carries one audio
-// track and the relay re-serves every ingest on all of its listeners, so a two-track stream
-// would be unplayable on the narrowest leg while the form said it published.
+// One track and not several is carriage rather than preference: RTMP carries one audio track and
+// the relay re-serves every ingest on all of its listeners, so a two-track stream would be
+// unplayable on the narrowest leg while the form said it published.
 //
-// amix normalizes by default, dividing every input by the number of them, which would make
-// adding a second source halve the first. The gains are the user's, so it is turned off and
-// each input carries its own volume stage instead. A single source keeps the stage as well,
-// because the gain applies to one source exactly as it does to three.
+// amix normalizes by default, dividing every input by the number of them, which would make adding a
+// second source halve the first.
+// The gains are the user's, so it is turned off and each input carries its own volume stage
+// instead.
+// A single source keeps the stage as well, because the gain applies to one source exactly as it
+// does to three.
 //
 // first is the input index the audio inputs start at, which is a count of what the capture
 // contributed rather than a constant: a filter source contributes no -i at all.
@@ -625,28 +624,28 @@ func audioMixFilters(s settings.Settings, first int) ([]string, string) {
 		mixed += label
 	}
 	if len(recorded) == 1 {
-		// One source needs no mixer, so its own stage carries the output label and the
-		// graph is the one filter the gain is.
+		// One source needs no mixer, so its own stage carries the output label and the graph is the one
+		// filter the gain is.
 		return []string{strings.TrimSuffix(filters[0], mixed) + audioOutLabel}, audioOutLabel
 	}
 	return append(filters, fmt.Sprintf("%samix=inputs=%d:normalize=0%s",
 		mixed, len(recorded), audioOutLabel)), audioOutLabel
 }
 
-// The labels the audio graph names its stages and its output by. The output label is what
-// the map names, the way the video filter source's is (filterOutLabel).
+// The labels the audio graph names its stages and its output by.
+// The output label is what the map names, the way the video filter source's is (filterOutLabel).
 const (
 	audioStageLabel = "a"
 	audioOutLabel   = "[aout]"
 )
 
-// audioEncodeArgs encodes the captured audio as a stereo track in the configured
-// codec. The encoder name, the sample rate and the bitrate all come from the
-// audio table, so this engine and the GStreamer one code the same track from one
-// declaration rather than from two hardcoded element lists.
+// audioEncodeArgs encodes the captured audio as a stereo track in the configured codec.
+// The encoder name, the sample rate and the bitrate all come from the audio table,
+// so this engine and the GStreamer one code the same track from one declaration rather than from
+// two hardcoded element lists.
 //
-// The stream reaching here is validated, so an unknown codec or one this engine
-// cannot code is a caller that skipped the validator rather than a user's value.
+// The stream reaching here is validated, so an unknown codec or one this engine cannot code is a
+// caller that skipped the validator rather than a user's value.
 func audioEncodeArgs(s settings.Settings) ([]string, error) {
 	a, ok := capabilities.GetAudio(s.Publish.AudioTrack())
 	if !ok {

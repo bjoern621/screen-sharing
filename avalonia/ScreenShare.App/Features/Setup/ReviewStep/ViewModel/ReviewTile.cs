@@ -4,13 +4,13 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 
 /// <summary>
-/// One summary tile of the review. Deliberately not key/value rows: the fields are
-/// self-describing (<c>latency 120 ms</c>, <c>cq 21</c>), so a key column would print the
-/// word twice and halve the width left for the value. A heading, a way back to the step
-/// that owns it, and free-form value lines.
+/// One summary tile of the review.
+/// Deliberately not key/value rows: the fields are self-describing (<c>latency 120 ms</c>, <c>cq 21</c>), so
+/// a key column would print the word twice and halve the width left for the value.
+/// A heading, a way back to the step that owns it, and free-form value lines.
 ///
-/// A record whose <see cref="Edit"/> is the owner's own command instance, so two passes
-/// over an unchanged review compare equal.
+/// A record whose <see cref="Edit"/> is the owner's own command instance, so two passes over an unchanged
+/// review compare equal.
 /// </summary>
 public sealed record ReviewTile
 {
@@ -24,13 +24,13 @@ public sealed record ReviewTile
 }
 
 /// <summary>
-/// The tiles: one per group of the resolved form, carrying the shorthand that group settled
-/// on and a way back to the step that owns it.
+/// The tiles: one per group of the resolved form, carrying the shorthand that group settled on and a way back
+/// to the step that owns it.
 ///
-/// Composed by the backend rather than here. <c>FieldGroup.summary</c> is the same sentence
-/// the strip's chip repeats, so the review and the strip cannot disagree about what a step
-/// settled on - which four hand-written tiles of mockup text did, permanently, since they
-/// were the same four sentences whatever the settings said.
+/// Composed by the backend rather than here.
+/// <c>FieldGroup.summary</c> is the same sentence the strip's chip repeats, so the review and the strip
+/// cannot disagree about what a step settled on - which four hand-written tiles of mockup text did,
+/// permanently, since they were the same four sentences whatever the settings said.
 /// </summary>
 public static class ReviewTiles
 {

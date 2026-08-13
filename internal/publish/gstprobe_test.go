@@ -10,9 +10,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// probeSettings is a stream the probe builder can be exercised on: the software
-// encoder every install carries, at a size small enough that a real run of it costs
-// nothing.
+// probeSettings is a stream the probe builder can be exercised on: the software encoder every
+// install carries, at a size small enough that a real run of it costs nothing.
 func probeSettings() settings.Settings {
 	s := baseStream()
 	s.Publish.Capture = "portal"
@@ -23,10 +22,10 @@ func probeSettings() settings.Settings {
 	return s
 }
 
-// The probe pipeline is a wire format like the encoder mappings themselves: an
-// element name or a property this builder gets wrong is a measurement that fails
-// where the publish it predicts would have run. So this launches the real thing on
-// both ends of the content range.
+// The probe pipeline is a wire format like the encoder mappings themselves:
+// an element name or a property this builder gets wrong is a measurement that fails where the
+// publish it predicts would have run.
+// So this launches the real thing on both ends of the content range.
 func TestGstEncodeProbeAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -55,9 +54,8 @@ func TestGstEncodeProbeAgainstGstLaunch(t *testing.T) {
 	}
 }
 
-// The ceiling pipeline is what says whether a measurement found the encoder or the
-// generator, so it has to run on the same frames the encode does and stop at the
-// sink.
+// The ceiling pipeline is what says whether a measurement found the encoder or the generator,
+// so it has to run on the same frames the encode does and stop at the sink.
 func TestGstProbeCeilingAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -71,9 +69,9 @@ func TestGstProbeCeilingAgainstGstLaunch(t *testing.T) {
 	}
 }
 
-// The probe exists to time the encoder, so the generator has to be on a thread of its
-// own. Serialised behind it, the reading is the sum of the two and the encoder is
-// priced with its instrument.
+// The probe exists to time the encoder, so the generator has to be on a thread of its own.
+// Serialised behind it, the reading is the sum of the two and the encoder is priced with its
+// instrument.
 func TestGstEncodeProbeDecouplesTheGenerator(t *testing.T) {
 	args, err := GstEncodeProbe(probeSettings(), 320, 240, 2, true)
 	if err != nil {
@@ -89,9 +87,9 @@ func TestGstEncodeProbeDecouplesTheGenerator(t *testing.T) {
 	}
 }
 
-// The probe measures the encoder the settings name, so what it builds around that
-// encoder has to be what a publish builds: the same rate-control properties on the
-// same element, reached through the same encoder-input caps.
+// The probe measures the encoder the settings name, so what it builds around that encoder has to be
+// what a publish builds: the same rate-control properties on the same element,
+// reached through the same encoder-input caps.
 func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	s := probeSettings()
 	probe, err := GstEncodeProbe(s, 320, 240, 2, true)
@@ -121,11 +119,12 @@ func TestGstEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	}
 }
 
-// A probe of a device path has to reach that path's encoder, which is a different element
-// reading a different memory. The generated frames start in system memory where a captured
-// one is already on the device, so the family's upload has to sit between the generator and
-// the conversion: without it the probe builds a pipeline whose first link fails, and the
-// measurement is missing exactly where the publish it predicts runs fastest.
+// A probe of a device path has to reach that path's encoder, which is a different element reading a
+// different memory.
+// The generated frames start in system memory where a captured one is already on the device,
+// so the family's upload has to sit between the generator and the conversion:
+// without it the probe builds a pipeline whose first link fails, and the measurement is missing
+// exactly where the publish it predicts runs fastest.
 func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 	s := gstD3d11Stream()
 	s.Publish.Fps = 30
@@ -155,10 +154,11 @@ func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 	}
 }
 
-// The transport is no part of what an encoder costs, so a leg that cannot carry the
-// codec has to leave the measurement alone. Refusing here would answer a question
-// about this CPU with a fact about a protocol, and the settings form would lose the
-// probe exactly where a user is picking their way out of the refusal.
+// The transport is no part of what an encoder costs, so a leg that cannot carry the codec has to
+// leave the measurement alone.
+// Refusing here would answer a question about this CPU with a fact about a protocol,
+// and the settings form would lose the probe exactly where a user is picking their way out of the
+// refusal.
 func TestGstEncodeProbeIgnoresTheTransport(t *testing.T) {
 	s := probeSettings()
 	s.Publish.Transport = "hls"
@@ -167,9 +167,9 @@ func TestGstEncodeProbeIgnoresTheTransport(t *testing.T) {
 	}
 }
 
-// A settings combination the engine cannot encode is refused, since there is no
-// encoder to time. That check is the capability table's, so the probe has to run it
-// rather than build a pipeline the element rejects at negotiation.
+// A settings combination the engine cannot encode is refused, since there is no encoder to time.
+// That check is the capability table's, so the probe has to run it rather than build a pipeline the
+// element rejects at negotiation.
 func TestGstEncodeProbeRefusesAGappedCombination(t *testing.T) {
 	s := probeSettings()
 	s.Publish.Chroma = "gbrp" // gstNoPlanarRGB: no encoder element here takes planar RGB
@@ -178,9 +178,8 @@ func TestGstEncodeProbeRefusesAGappedCombination(t *testing.T) {
 	}
 }
 
-// The keyframe interval is part of what an encode costs, and both halves of this
-// engine resolve it from the same rule, so a probe and the run it predicts cannot
-// code at different intervals.
+// The keyframe interval is part of what an encode costs, and both halves of this engine resolve it
+// from the same rule, so a probe and the run it predicts cannot code at different intervals.
 func TestGstGopMatchesTheAutomaticSetting(t *testing.T) {
 	s := probeSettings()
 	s.Publish.Gop = 0
@@ -193,8 +192,8 @@ func TestGstGopMatchesTheAutomaticSetting(t *testing.T) {
 	}
 }
 
-// Both ends of the range have to be patterns videotestsrc actually has, and they have
-// to differ: one pattern measured twice is a range with nothing in it.
+// Both ends of the range have to be patterns videotestsrc actually has, and they have to differ:
+// one pattern measured twice is a range with nothing in it.
 func TestGstProbePatternsDiffer(t *testing.T) {
 	if gstProbeHeavy == gstProbeLight {
 		t.Fatal("both ends of the content range generate the same frames")
@@ -217,14 +216,13 @@ func TestGstProbePatternsDiffer(t *testing.T) {
 	}
 }
 
-// Whatever this engine can publish, it has to be able to measure. A combination the
-// form lets a user start and the probe refuses is one whose cost stays invisible
-// until the frames are already being discarded, which is the case the probe exists
-// for.
+// Whatever this engine can publish, it has to be able to measure.
+// A combination the form lets a user start and the probe refuses is one whose cost stays invisible
+// until the frames are already being discarded, which is the case the probe exists for.
 //
-// The run is what drives the loop rather than a list of its own: buildPipeline
-// deciding a combination is publishable is the whole precondition, so a codec, chroma
-// or mode added anywhere below it is covered here without being named.
+// The run is what drives the loop rather than a list of its own: buildPipeline deciding a
+// combination is publishable is the whole precondition, so a codec, chroma or mode added anywhere
+// below it is covered here without being named.
 func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if _, gap := c.EngineGap(EngineGst); !c.Implemented || gap {
@@ -246,9 +244,9 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 	}
 }
 
-// A run of no frames or of a picture with no size is a caller's mistake, not a
-// user's: the resolution is refused where it is read off the machine, so a probe
-// reached with one is a bug above it.
+// A run of no frames or of a picture with no size is a caller's mistake, not a user's:
+// the resolution is refused where it is read off the machine, so a probe reached with one is a bug
+// above it.
 func TestGstEncodeProbeAssertsItsBounds(t *testing.T) {
 	for _, tc := range []struct {
 		name                  string

@@ -6,12 +6,11 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// The grid's arrangement.
 ///
-/// What these lock out is a grid that quietly stops honouring its own rules: rows that do not
-/// fill the width, tiles that are not their stream's shape, an arrangement that squashes tiles
-/// below legibility rather than scrolling, and an order that depends on which tile happened to
-/// report its aspect first. Every one of those is invisible in a screenshot of a lucky case and
-/// obvious in a screenshot of an unlucky one, which is why they are asserted here rather than
-/// looked at.
+/// What these lock out is a grid that quietly stops honouring its own rules: rows that do not fill the width,
+/// tiles that are not their stream's shape, an arrangement that squashes tiles below legibility rather than
+/// scrolling, and an order that depends on which tile happened to report its aspect first.
+/// Every one of those is invisible in a screenshot of a lucky case and obvious in a screenshot of an unlucky
+/// one, which is why they are asserted here rather than looked at.
 ///
 /// The solver is pure, so none of this needs a window (<c>Features/Viewer/Model/TileLayout.cs</c>).
 /// </summary>
@@ -28,9 +27,9 @@ public sealed class TileLayoutTests
         => arrangement.Tiles.Select(t => t.Y).Distinct().Order().ToList();
 
     /// <summary>
-    /// A row is centred in the width. Rows come out as wide as their contents make them, so most
-    /// are narrower than the box; what is not allowed is slack piled on one side, which reads as
-    /// broken alignment rather than as a margin.
+    /// A row is centred in the width.
+    /// Rows come out as wide as their contents make them, so most are narrower than the box; what is not
+    /// allowed is slack piled on one side, which reads as broken alignment rather than as a margin.
     /// </summary>
     [Fact]
     public void EveryRowIsCentredInTheWidth()
@@ -49,9 +48,10 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The stack of rows is centred in the height. Three tiles in a wide box come out as a row of
-    /// two over a row of one, and the rows are then bounded by the width rather than the height:
-    /// the leftover is a margin split above and below, not an empty half-window under the tiles.
+    /// The stack of rows is centred in the height.
+    /// Three tiles in a wide box come out as a row of two over a row of one, and the rows are then bounded by
+    /// the width rather than the height: the leftover is a margin split above and below, not an empty
+    /// half-window under the tiles.
     /// </summary>
     [Fact]
     public void TheStackIsCentredInTheHeight()
@@ -67,9 +67,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// An arrangement bounded by the height starts at the top of the box, because there is
-    /// nothing left over to split. The centring is a margin and never a gap the tiles are pushed
-    /// down by.
+    /// An arrangement bounded by the height starts at the top of the box, because there is nothing left over
+    /// to split.
+    /// The centring is a margin and never a gap the tiles are pushed down by.
     /// </summary>
     [Fact]
     public void AnArrangementThatFillsTheHeightStartsAtTheTop()
@@ -82,9 +82,9 @@ public sealed class TileLayoutTests
     /// <summary>
     /// Every tile is the same height, whichever row it is in.
     ///
-    /// This is the rule the arrangement is built around. Letting each row fill the width would
-    /// give a row of one tile about twice the height of a row of two, which draws as one big tile
-    /// beside some small ones rather than as a grid of equals.
+    /// This is the rule the arrangement is built around.
+    /// Letting each row fill the width would give a row of one tile about twice the height of a row of two,
+    /// which draws as one big tile beside some small ones rather than as a grid of equals.
     /// </summary>
     [Theory]
     [InlineData(3)]
@@ -98,13 +98,13 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Three tiles of one shape come out the same size as each other, whichever rows they land
-    /// in. It is the case the equal-height rule was written for, so it is asserted on its own.
+    /// Three tiles of one shape come out the same size as each other, whichever rows they land in.
+    /// It is the case the equal-height rule was written for, so it is asserted on its own.
     ///
-    /// The row count is deliberately not asserted. Two rows of two and one draws each tile larger
-    /// than one row of three in a box this shape, and picking the arrangement that draws the most
-    /// picture is the solver's job - what matters here is that the three come out equal either
-    /// way.
+    /// The row count is deliberately not asserted.
+    /// Two rows of two and one draws each tile larger than one row of three in a box this shape, and picking
+    /// the arrangement that draws the most picture is the solver's job - what matters here is that the three
+    /// come out equal either way.
     /// </summary>
     [Fact]
     public void ThreeEqualTilesComeOutEqual()
@@ -116,9 +116,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// A tile is drawn at its own aspect ratio, always. That is what makes cell widths follow the
-    /// stream and row height follow the row, and it is the property that says nothing is ever
-    /// stretched or cropped to make an arrangement come out even.
+    /// A tile is drawn at its own aspect ratio, always.
+    /// That is what makes cell widths follow the stream and row height follow the row, and it is the property
+    /// that says nothing is ever stretched or cropped to make an arrangement come out even.
     /// </summary>
     [Fact]
     public void ATileKeepsItsOwnShape()
@@ -130,8 +130,7 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Tiles in one row share one height, and that is the property the whole arrangement is
-    /// built on.
+    /// Tiles in one row share one height, and that is the property the whole arrangement is built on.
     /// </summary>
     [Fact]
     public void ARowIsOneHeight()
@@ -146,8 +145,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// An arrangement that fits stays inside the box and does not report that it scrolls. This
-    /// is the ordinary case and the one a reader is in nearly always.
+    /// An arrangement that fits stays inside the box and does not report that it scrolls.
+    /// This is the ordinary case and the one a reader is in nearly always.
     /// </summary>
     [Fact]
     public void AFittingArrangementDoesNotScroll()
@@ -159,9 +158,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The box is filled rather than merely fitted: the arrangement uses most of the height it
-    /// was given. A solver that always chose one row would pass every test above and leave two
-    /// thirds of the window empty, which is the failure this one exists for.
+    /// The box is filled rather than merely fitted: the arrangement uses most of the height it was given.
+    /// A solver that always chose one row would pass every test above and leave two thirds of the window
+    /// empty, which is the failure this one exists for.
     /// </summary>
     [Fact]
     public void AFittingArrangementFillsTheBox()
@@ -172,8 +171,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Below legibility the grid scrolls instead of shrinking. Twenty tiles in a short box
-    /// cannot all be legible, and the answer is a taller arrangement rather than a squashed one.
+    /// Below legibility the grid scrolls instead of shrinking.
+    /// Twenty tiles in a short box cannot all be legible, and the answer is a taller arrangement rather than
+    /// a squashed one.
     /// </summary>
     [Fact]
     public void TooManyTilesScrollRatherThanShrink()
@@ -200,9 +200,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// A tile whose stream has not said what shape it is gets the assumed one, and an impossible
-    /// aspect - a pipeline reporting a zero dimension - lands on the same answer rather than
-    /// dividing the arrangement by zero.
+    /// A tile whose stream has not said what shape it is gets the assumed one, and an impossible aspect - a
+    /// pipeline reporting a zero dimension - lands on the same answer rather than dividing the arrangement by
+    /// zero.
     /// </summary>
     [Theory]
     [InlineData(0)]
@@ -217,8 +217,8 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Results come back in the caller's order however the search sorted them, so no caller has
-    /// to undo the sort and no tile can be handed another tile's rectangle.
+    /// Results come back in the caller's order however the search sorted them, so no caller has to undo the
+    /// sort and no tile can be handed another tile's rectangle.
     /// </summary>
     [Fact]
     public void PlacementsComeBackInTheCallersOrder()
@@ -230,8 +230,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// The same tiles arrange the same way twice. The search sorts by aspect and ties keep their
-    /// input order, so an arrangement cannot depend on which equal-shaped tile was reached first.
+    /// The same tiles arrange the same way twice.
+    /// The search sorts by aspect and ties keep their input order, so an arrangement cannot depend on which
+    /// equal-shaped tile was reached first.
     /// </summary>
     [Fact]
     public void TheSameTilesArrangeTheSameWay()
@@ -245,9 +246,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Nothing to arrange is an empty arrangement rather than a division by a count of zero, and
-    /// a box with no room in it is the same answer for the same reason: a window that has not
-    /// been measured yet arranges nothing rather than crashing on its first pass.
+    /// Nothing to arrange is an empty arrangement rather than a division by a count of zero, and a box with
+    /// no room in it is the same answer for the same reason: a window that has not been measured yet arranges
+    /// nothing rather than crashing on its first pass.
     /// </summary>
     [Theory]
     [InlineData(0, 0)]
@@ -272,8 +273,9 @@ public sealed class TileLayoutTests
     }
 
     /// <summary>
-    /// Tiles never overlap. Every other property here could hold while two rectangles sat on top
-    /// of each other, and a grid whose tiles overlap is the one failure a reader cannot miss.
+    /// Tiles never overlap.
+    /// Every other property here could hold while two rectangles sat on top of each other, and a grid whose
+    /// tiles overlap is the one failure a reader cannot miss.
     /// </summary>
     [Fact]
     public void TilesDoNotOverlap()

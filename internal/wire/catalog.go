@@ -18,36 +18,37 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// CatalogInput is the part of the catalog that is this machine's rather than the
-// model's. The fixed tables are read through as package globals; only what a probe
-// or an enumeration answered travels in.
+// CatalogInput is the part of the catalog that is this machine's rather than the model's.
+// The fixed tables are read through as package globals; only what a probe or an enumeration
+// answered travels in.
 //
-// The split is the same one form.Deps makes and for the same reason: a table is the
-// same on every call, so copying one in would be a second definition of it waiting to
-// go stale, while the monitors, the platform and the probe result differ per machine
-// and a test builds a catalog for a machine it is not running on.
+// The split is the same one form.Deps makes and for the same reason: a table is the same on every
+// call, so copying one in would be a second definition of it waiting to go stale,
+// while the monitors, the platform and the probe result differ per machine and a test builds a
+// catalog for a machine it is not running on.
 type CatalogInput struct {
 	Platform platform.Info
 	Monitors []display.Monitor
 	Encoders encoders.Availability
 	// AudioDevices is what this machine offers inside each audio kind, enumerated once
-	// (internal/audiodev). It is the machine half of the audio answer, where the kinds
-	// beside it are the declared one.
+	// (internal/audiodev).
+	// It is the machine half of the audio answer, where the kinds beside it are the declared one.
 	AudioDevices []platform.AudioDevice
 }
 
 // Catalog shapes every fixed fact onto the contract in one message.
 //
 // It is one message rather than one per table because the tables constrain each other:
-// a shell that fetched them separately could hold a codec list from before a probe
-// finished and a probe result from after it.
+// a shell that fetched them separately could hold a codec list from before a probe finished and a
+// probe result from after it.
 //
-// Almost every assertion in this file is here rather than at a caller, and that is the
-// point of the function. It turns closed internal enumerations - the two publish
-// engines, the two legs, the two GPU-path colour verdicts - into wire enums, and it
-// indexes tables by keys those same tables produced. A value outside a set therefore
-// fails at the conversion, where the offending row is named, rather than reaching a
-// shell as an UNSPECIFIED enum that draws as nothing and explains nothing.
+// Almost every assertion in this file is here rather than at a caller, and that is the point of the
+// function.
+// It turns closed internal enumerations - the two publish engines, the two legs,
+// the two GPU-path colour verdicts - into wire enums, and it indexes tables by keys those same
+// tables produced.
+// A value outside a set therefore fails at the conversion, where the offending row is named,
+// rather than reaching a shell as an UNSPECIFIED enum that draws as nothing and explains nothing.
 func Catalog(in CatalogInput) *screensharev1.Catalog {
 	out := &screensharev1.Catalog{
 		Platform: &screensharev1.Platform{Os: in.Platform.OS, Display: in.Platform.Display},
@@ -76,59 +77,61 @@ func Catalog(in CatalogInput) *screensharev1.Catalog {
 		NoMonitorPreview: catalogNoMonitorPreview(in.Platform),
 	}
 
-	// A machine may legitimately have no monitors this enumeration reached and no
-	// encoder the probe could run, so neither is asserted. A catalog with no codecs,
-	// no capture backends or no carriage is a different thing entirely: those come from
-	// tables compiled into this binary, and an empty one is a broken table rather than
-	// a bare machine. The publish engines are no longer among the checks because they
-	// are no longer a list on the wire - they are the Engine enum, and a build cannot
-	// ship without its values.
+	// A machine may legitimately have no monitors this enumeration reached and no encoder the probe
+	// could run, so neither is asserted.
+	// A catalog with no codecs, no capture backends or no carriage is a different thing entirely:
+	// those come from tables compiled into this binary, and an empty one is a broken table rather than
+	// a bare machine.
+	// The publish engines are no longer among the checks because they are no longer a list on the wire
+	// - they are the Engine enum, and a build cannot ship without its values.
 	assert.Assert(len(out.GetCodecs()) > 0, "a catalog carries the codec table", len(out.GetCodecs()))
 	assert.Assert(len(out.GetCaptures()) > 0, "a catalog carries the capture backends", len(out.GetCaptures()))
 	assert.Assert(len(out.GetCarriage()) > 0, "a catalog carries what the transports carry", len(out.GetCarriage()))
 	return out
 }
 
-// engines is the one table converting an engine's Go spelling to its wire enum. It
-// holds the two publish engines and the browser, which is the watch leg's third
-// reader and states a carriage like the other two.
+// engines is the one table converting an engine's Go spelling to its wire enum.
+// It holds the two publish engines and the browser, which is the watch leg's third reader and
+// states a carriage like the other two.
 //
-// The Go tables carry the engine as a string because the capabilities package depends
-// on nothing, which is what lets both engines and every consumer read it. The contract
-// carries an enum because a shell switching on a string would be a shell holding the
-// spelling. The two meet here and nowhere else.
+// The Go tables carry the engine as a string because the capabilities package depends on nothing,
+// which is what lets both engines and every consumer read it.
+// The contract carries an enum because a shell switching on a string would be a shell holding the
+// spelling.
+// The two meet here and nowhere else.
 var engines = map[string]screensharev1.Engine{
 	capabilities.EngineFfmpeg: screensharev1.Engine_ENGINE_FFMPEG,
 	capabilities.EngineGst:    screensharev1.Engine_ENGINE_GSTREAMER,
 	transport.EngineBrowser:   screensharev1.Engine_ENGINE_BROWSER,
 }
 
-// The legs, as transport.Register keys its two carriage maps. The transport package
-// declares no constant for them, so they are named once here rather than typed at each
-// of the two rows carriage builds.
+// The legs, as transport.Register keys its two carriage maps.
+// The transport package declares no constant for them, so they are named once here rather than
+// typed at each of the two rows carriage builds.
 const (
 	legPublish = "publish"
 	legWatch   = "watch"
 )
 
-// legs is the same table for the two halves of a stream's path, spelled as the
-// transport registry spells them where it holds a carriage per leg.
+// legs is the same table for the two halves of a stream's path, spelled as the transport registry
+// spells them where it holds a carriage per leg.
 var legs = map[string]screensharev1.Leg{
 	legPublish: screensharev1.Leg_LEG_PUBLISH,
 	legWatch:   screensharev1.Leg_LEG_WATCH,
 }
 
 // colours is the same table for what a GPU path does to the colour the settings name.
-// gpupath calls the two verdicts exact and encoder (gpupath/colour.go), and the
-// contract spells them PATH_COLOUR_EXACT and PATH_COLOUR_ENCODER.
+// gpupath calls the two verdicts exact and encoder (gpupath/colour.go), and the contract spells
+// them PATH_COLOUR_EXACT and PATH_COLOUR_ENCODER.
 var colours = map[gpupath.Colour]screensharev1.PathColour{
 	gpupath.ColourExact:   screensharev1.PathColour_PATH_COLOUR_EXACT,
 	gpupath.ColourEncoder: screensharev1.PathColour_PATH_COLOUR_ENCODER,
 }
 
-// engineEnum converts a named engine, publish or watch. An engine outside the table is
-// a table that gained a value without this site gaining a case, which fails here rather
-// than arriving as ENGINE_UNSPECIFIED and drawing as an engine nobody named.
+// engineEnum converts a named engine, publish or watch.
+// An engine outside the table is a table that gained a value without this site gaining a case,
+// which fails here rather than arriving as ENGINE_UNSPECIFIED and drawing as an engine nobody
+// named.
 func engineEnum(engine string) screensharev1.Engine {
 	e, ok := engines[engine]
 	if !ok {
@@ -137,12 +140,13 @@ func engineEnum(engine string) screensharev1.Engine {
 	return e
 }
 
-// gapEngine converts the engine a Gap names, where the empty string is a fact and not
-// an omission: a gap naming no engine binds on every one, and the contract spells that
-// ENGINE_ANY rather than ENGINE_UNSPECIFIED. The two were one value until the enum
-// gained the third, which made a field nobody set and a gap that binds everywhere
-// indistinguishable - and made the dropped field the strongest claim the message can
-// make. Every other value goes through engineEnum and is asserted there.
+// gapEngine converts the engine a Gap names, where the empty string is a fact and not an omission:
+// a gap naming no engine binds on every one, and the contract spells that ENGINE_ANY rather than
+// ENGINE_UNSPECIFIED.
+// The two were one value until the enum gained the third, which made a field nobody set and a gap
+// that binds everywhere indistinguishable - and made the dropped field the strongest claim the
+// message can make.
+// Every other value goes through engineEnum and is asserted there.
 func gapEngine(engine string) screensharev1.Engine {
 	if engine == "" {
 		return screensharev1.Engine_ENGINE_ANY
@@ -168,24 +172,24 @@ func colourEnum(colour gpupath.Colour) screensharev1.PathColour {
 	return c
 }
 
-// catalogNoMonitorPreview states why this session cannot show what a monitor holds, and
-// is nil where it can.
+// catalogNoMonitorPreview states why this session cannot show what a monitor holds,
+// and is nil where it can.
 //
-// It is derived here rather than carried in, like the capture backends' availability
-// beside it: the answer follows from the session and from a table this binary holds, so
-// asking the machine for it would be reading the same fact twice.
+// It is derived here rather than carried in, like the capture backends' availability beside it:
+// the answer follows from the session and from a table this binary holds, so asking the machine for
+// it would be reading the same fact twice.
 func catalogNoMonitorPreview(p platform.Info) *screensharev1.Text {
 	_, gap := screensrc.Session(p)
 	return gap
 }
 
-// catalogMonitors converts the display enumeration. A machine whose outputs could not
-// be enumerated contributes an empty list, which is what a shell draws as "no monitor
-// found" rather than as a monitor at index zero.
+// catalogMonitors converts the display enumeration.
+// A machine whose outputs could not be enumerated contributes an empty list,
+// which is what a shell draws as "no monitor found" rather than as a monitor at index zero.
 //
-// A refresh rate of zero is one the enumeration could not read, and it crosses as an
-// absent field rather than as the number nought. The two used to be the same bytes with
-// a comment asking the reader to tell them apart.
+// A refresh rate of zero is one the enumeration could not read, and it crosses as an absent field
+// rather than as the number nought.
+// The two used to be the same bytes with a comment asking the reader to tell them apart.
 func catalogMonitors(monitors []display.Monitor) []*screensharev1.Monitor {
 	out := make([]*screensharev1.Monitor, 0, len(monitors))
 	for _, m := range monitors {
@@ -208,18 +212,18 @@ func catalogMonitors(monitors []display.Monitor) []*screensharev1.Monitor {
 
 // catalogEncoders converts the probe result, keeping its two halves apart.
 //
-// The distinction is the whole point of the message: an engine whose own tooling is
-// missing was not asked about any codec, and an engine that was asked and found
-// nothing usable is a machine without the hardware. Collapsing the first into the
-// second would present a missing ffmpeg as a machine with no encoders, and the two
-// encoders the probe assumes present would stay selectable while being the only ones
-// certain to fail at launch.
-// The two halves are a oneof on one row per engine rather than two maps keyed by engine
-// name. Detect answers an engine with verdicts or with the reason it could not be asked
-// and never with both, and the row is what says so: the parallel maps could hold the
-// same engine twice, which is a probe contradicting itself that only an assertion here
-// could catch. The engines are walked in the capability table's order, so two catalogs
-// built from one availability compare equal.
+// The distinction is the whole point of the message: an engine whose own tooling is missing was not
+// asked about any codec, and an engine that was asked and found nothing usable is a machine without
+// the hardware.
+// Collapsing the first into the second would present a missing ffmpeg as a machine with no
+// encoders, and the two encoders the probe assumes present would stay selectable while being the
+// only ones certain to fail at launch.
+// The two halves are a oneof on one row per engine rather than two maps keyed by engine name.
+// Detect answers an engine with verdicts or with the reason it could not be asked and never with
+// both, and the row is what says so: the parallel maps could hold the same engine twice,
+// which is a probe contradicting itself that only an assertion here could catch.
+// The engines are walked in the capability table's order, so two catalogs built from one
+// availability compare equal.
 func catalogEncoders(a encoders.Availability) *screensharev1.EncoderAvailability {
 	out := &screensharev1.EncoderAvailability{}
 	for _, engine := range capabilities.Engines {
@@ -227,17 +231,17 @@ func catalogEncoders(a encoders.Availability) *screensharev1.EncoderAvailability
 		reason, unprobed := a.Unprobed[engine]
 		assert.Assert(!(probed && unprobed), "an engine is either probed or carries the reason it was not", engine)
 		if !probed && !unprobed {
-			// An engine the probe has not reached at all yet. It contributes no row, which
-			// is what a fresh process looks like: nothing is claimed about either engine
-			// until something has asked.
+			// An engine the probe has not reached at all yet.
+			// It contributes no row, which is what a fresh process looks like: nothing is claimed about
+			// either engine until something has asked.
 			continue
 		}
 
 		row := &screensharev1.EngineProbe{Engine: engineEnum(engine)}
 		if unprobed {
-			// The tool's own "not found" is the machine's answer rather than a fact about
-			// the domain, so it stays in the run log and what crosses is the statement
-			// that this engine could not be asked at all.
+			// The tool's own "not found" is the machine's answer rather than a fact about the domain,
+			// so it stays in the run log and what crosses is the statement that this engine could not be
+			// asked at all.
 			assert.Assert(reason != "", "an unprobed engine records why it could not be asked", engine)
 			row.Result = &screensharev1.EngineProbe_Unprobed{
 				Unprobed: text.Of(screensharev1.TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING,
@@ -257,13 +261,13 @@ func catalogEncoders(a encoders.Availability) *screensharev1.EncoderAvailability
 	return out
 }
 
-// catalogGpuPaths converts the pair table: the capture backend and encoder family
-// combinations whose frames reach the encoder without leaving the GPU.
+// catalogGpuPaths converts the pair table: the capture backend and encoder family combinations
+// whose frames reach the encoder without leaving the GPU.
 //
-// The Signalled triple a ColourEncoder row carries has no field of its own here. It is
-// what the row's cost statement is about, so it crosses as that statement's arguments:
-// a surface saying what the encoder writes instead names the pixel format and the
-// colour range it will signal, and nothing else on this table needs them.
+// The Signalled triple a ColourEncoder row carries has no field of its own here.
+// It is what the row's cost statement is about, so it crosses as that statement's arguments:
+// a surface saying what the encoder writes instead names the pixel format and the colour range it
+// will signal, and nothing else on this table needs them.
 func catalogGpuPaths() []*screensharev1.GpuPath {
 	out := make([]*screensharev1.GpuPath, 0, len(gpupath.Paths))
 	for _, p := range gpupath.Paths {
@@ -289,12 +293,12 @@ func gpuPathImport(p gpupath.Path) *screensharev1.Text {
 // GpuPathCost states what a colour-trading pair takes instead of the settings' colour,
 // and nil for a pair that takes nothing.
 //
-// The pixel format and colour range the encoder signals ride along, because that is
-// what the trade is: the run publishes something other than what the two colour fields
-// show, and a statement that named the trade without naming the values would leave the
-// reader to guess which ones. It is exported because the form makes the same statement
-// on the greyed controls, and one function is what keeps the reference set and the form
-// from describing one row two ways.
+// The pixel format and colour range the encoder signals ride along, because that is what the trade
+// is: the run publishes something other than what the two colour fields show,
+// and a statement that named the trade without naming the values would leave the reader to guess
+// which ones.
+// It is exported because the form makes the same statement on the greyed controls,
+// and one function is what keeps the reference set and the form from describing one row two ways.
 func GpuPathCost(p gpupath.Path) *screensharev1.Text {
 	if !p.Colour.TradesColour() {
 		return nil
@@ -306,24 +310,23 @@ func GpuPathCost(p gpupath.Path) *screensharev1.Text {
 		text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_COLOR_RANGE, p.Signalled.Range))
 }
 
-// catalogCaptures converts the publish registry: one row per capture backend the app
-// can run, with the engine that runs it and the publish legs that engine can carry.
+// catalogCaptures converts the publish registry: one row per capture backend the app can run,
+// with the engine that runs it and the publish legs that engine can carry.
 //
-// available and reason are read through to publish.Available, which is where the
-// platform and session gate lives (docs/capture-architecture.md, "The backend's
-// platform applicability"). It sits beside the registry rather than here because a
-// backend that cannot run on this machine and a backend that has no engine are the
-// same question asked twice, and because the sentence a shell shows has to be the same
-// one the form greys the control with: restating the rule in this package would be a
-// second copy of it, which is the drift this contract exists to end.
+// available and reason are read through to publish.Available, which is where the platform and
+// session gate lives (docs/capture-architecture.md, "The backend's platform applicability").
+// It sits beside the registry rather than here because a backend that cannot run on this machine
+// and a backend that has no engine are the same question asked twice, and because the sentence a
+// shell shows has to be the same one the form greys the control with: restating the rule in this
+// package would be a second copy of it, which is the drift this contract exists to end.
 func catalogCaptures(p platform.Info) []*screensharev1.CaptureBackend {
 	names := publish.Captures()
 	out := make([]*screensharev1.CaptureBackend, 0, len(names))
 	for _, name := range names {
 		engine, err := publish.EngineFor(name)
 		// Captures lists the registry's own keys, so every name here resolves.
-		// Skipping one instead would leave a capture backend out of the catalog, and a
-		// capture the catalog does not name is one no shell can offer at all.
+		// Skipping one instead would leave a capture backend out of the catalog, and a capture the
+		// catalog does not name is one no shell can offer at all.
 		assert.IsNil(err, "a listed capture backend has a publisher", name)
 		transports, err := publish.TransportsFor(name)
 		assert.IsNil(err, "a listed capture backend has a publisher", name)
@@ -337,30 +340,30 @@ func catalogCaptures(p platform.Info) []*screensharev1.CaptureBackend {
 			Transports: transports,
 			Available:  available,
 			Reason:     reason,
-			// The privilege a backend needs is not an unavailability and rides beside the
-			// verdict rather than inside it: the process holds it or the capture dies at
-			// launch, and nothing here can tell which in advance.
+			// The privilege a backend needs is not an unavailability and rides beside the verdict rather
+			// than inside it: the process holds it or the capture dies at launch, and nothing here can tell
+			// which in advance.
 			Grant: publish.Grant(name),
 		})
 	}
 	return out
 }
 
-// catalogAudioSources converts the second-track source table: the sources a session of
-// this platform actually serves, which is what the field says it carries.
+// catalogAudioSources converts the second-track source table: the sources a session of this
+// platform actually serves, which is what the field says it carries.
 //
-// Which sources exist is the platform's answer, so the rows are read from there rather
-// than stated here (docs/domain-model.md, "The second-track capture sources"). The table
-// answers for every declared source on every platform, and this keeps the served ones,
-// because the two readers of it want opposite halves of one answer: a catalog names what
-// the machine has, and the form offers all of them and greys what it does not, since a
-// source greyed with what the machine is missing teaches where a shorter list only
-// puzzles. Neither derives its list from the other, and the rule either would have to
-// restate lives in one file.
+// Which sources exist is the platform's answer, so the rows are read from there rather than stated
+// here (docs/domain-model.md, "The second-track capture sources").
+// The table answers for every declared source on every platform, and this keeps the served ones,
+// because the two readers of it want opposite halves of one answer: a catalog names what the
+// machine has, and the form offers all of them and greys what it does not,
+// since a source greyed with what the machine is missing teaches where a shorter list only puzzles.
+// Neither derives its list from the other, and the rule either would have to restate lives in one
+// file.
 //
-// No availability flag rides along, unlike the capture backends. A capture backend
-// crosses as a message with an engine and a transport roster and had room for one; this
-// field is a repeated string, and the reason a source is out of reach is a sentence a
+// No availability flag rides along, unlike the capture backends.
+// A capture backend crosses as a message with an engine and a transport roster and had room for
+// one; this field is a repeated string, and the reason a source is out of reach is a sentence a
 // screen shows, which is the form's half of the contract and arrives on FieldOption.
 func catalogAudioSources(p platform.Info) []string {
 	sources := platform.AudioSources(p)
@@ -372,27 +375,27 @@ func catalogAudioSources(p platform.Info) []string {
 		out = append(out, s.ID)
 	}
 
-	// Every platform serves the absent source, so a machine that offers no audio source
-	// at all is a table that stopped declaring one rather than a bare machine.
+	// Every platform serves the absent source, so a machine that offers no audio source at all is a
+	// table that stopped declaring one rather than a bare machine.
 	assert.Assert(len(out) > 0, "a catalog carries the second-track sources this platform serves", p.OS)
 	return out
 }
 
-// catalogCarriage converts the transport tables: one row per transport, leg and engine
-// that actually exists.
+// catalogCarriage converts the transport tables: one row per transport, leg and engine that
+// actually exists.
 //
-// A leg an engine cannot serialize contributes no row, which is what keeps the wire
-// shape and the registry's own invariant the same statement: Register holds a stated
-// carriage and the matching serialization capability to each other, so a row here
-// exists exactly where there is code to build that leg on that engine.
+// A leg an engine cannot serialize contributes no row, which is what keeps the wire shape and the
+// registry's own invariant the same statement: Register holds a stated carriage and the matching
+// serialization capability to each other, so a row here exists exactly where there is code to build
+// that leg on that engine.
 func catalogCarriage() []*screensharev1.TransportCarriage {
 	var out []*screensharev1.TransportCarriage
 	for _, name := range transport.Names() {
 		f, ok := transport.FormatsOf(name)
 		assert.Assert(ok, "a listed transport is a registered one", name)
-		// The two legs are walked over their own engine lists, because the readers
-		// are not the publishers: the browser reads a page the relay serves and
-		// publishes nothing, so one walk over either list would drop rows.
+		// The two legs are walked over their own engine lists, because the readers are not the
+		// publishers: the browser reads a page the relay serves and publishes nothing,
+		// so one walk over either list would drop rows.
 		for _, engine := range capabilities.Engines {
 			if c, ok := f.Publish[engine]; ok {
 				out = append(out, carriageRow(name, legPublish, engine, c))
@@ -407,9 +410,9 @@ func catalogCarriage() []*screensharev1.TransportCarriage {
 	return out
 }
 
-// carriageRow is one (transport, leg, engine) row. The video formats and the audio
-// codecs travel together because what a listener carries as a bitstream and what it
-// carries as a second track are one fact about that listener.
+// carriageRow is one (transport, leg, engine) row.
+// The video formats and the audio codecs travel together because what a listener carries as a
+// bitstream and what it carries as a second track are one fact about that listener.
 func carriageRow(name, leg, engine string, c transport.Carriage) *screensharev1.TransportCarriage {
 	assert.Assert(len(c.Video) > 0, "a stated carriage carries a video format", name, leg, engine)
 	return &screensharev1.TransportCarriage{
@@ -423,15 +426,16 @@ func carriageRow(name, leg, engine string, c transport.Carriage) *screensharev1.
 
 // catalogWatchByFormat narrows the watch list per bitstream format.
 //
-// The relay re-serves an ingested stream on the listeners whose protocol has a payload
-// mapping for it and on no others, so the watch choice is per stream rather than
-// global: offering the whole list would put an SRT viewer in front of a VP9 stream,
-// which MPEG-TS has no mapping for, and the viewer would open, receive nothing, and
-// report a broken stream instead of an impossible combination.
+// The relay re-serves an ingested stream on the listeners whose protocol has a payload mapping for
+// it and on no others, so the watch choice is per stream rather than global:
+// offering the whole list would put an SRT viewer in front of a VP9 stream,
+// which MPEG-TS has no mapping for, and the viewer would open, receive nothing,
+// and report a broken stream instead of an impossible combination.
 //
-// The engine is the URL-opening players', because this is the list an external viewer
-// is opened from. What a receiving pipeline can take instead is the GStreamer watch
-// rows of carriage, which is where a viewer that is not a player reads it.
+// The engine is the URL-opening players', because this is the list an external viewer is opened
+// from.
+// What a receiving pipeline can take instead is the GStreamer watch rows of carriage,
+// which is where a viewer that is not a player reads it.
 func catalogWatchByFormat() map[string]*screensharev1.TransportList {
 	formats := capabilities.Formats()
 	out := make(map[string]*screensharev1.TransportList, len(formats))

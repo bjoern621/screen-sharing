@@ -1,17 +1,17 @@
 // Package control serves the control contract: one ControlService implementation,
 // over a local socket, in front of the backend that owns the product.
 //
-// The rule the contract encodes is docs/ipc-api.md: a shell shows what the backend
-// describes and asks the backend to act, and decides nothing. This package is the
-// side of that boundary which describes and acts. It holds no domain rules of its
-// own - the tables live in capabilities, transport, gpupath and publish, the
-// presentation of them in form, and the shaping of both onto the contract in wire -
-// so a method here is a dispatch and not a decision.
+// The rule the contract encodes is docs/ipc-api.md: a shell shows what the backend describes and
+// asks the backend to act, and decides nothing.
+// This package is the side of that boundary which describes and acts.
+// It holds no domain rules of its own - the tables live in capabilities, transport,
+// gpupath and publish, the presentation of them in form, and the shaping of both onto the contract
+// in wire - so a method here is a dispatch and not a decision.
 //
-// The methods divide into three kinds, and the division is the rule in executable
-// form: reads compute and change nothing, effects do the one thing the user asked
-// for, and Subscribe carries what changed. A method that is neither does not belong
-// here.
+// The methods divide into three kinds, and the division is the rule in executable form:
+// reads compute and change nothing, effects do the one thing the user asked for,
+// and Subscribe carries what changed.
+// A method that is neither does not belong here.
 package control
 
 import (
@@ -35,78 +35,73 @@ import (
 
 // Backend is everything the service reaches to answer a read or to run an effect.
 //
-// It is an interface rather than a concrete app so the contract can be served in
-// front of a test double with no window, no encoder and no relay, which is the
-// property the boundary rule was chosen for: everything a shell displays was
-// computed somewhere a test can reach.
+// It is an interface rather than a concrete app so the contract can be served in front of a test
+// double with no window, no encoder and no relay, which is the property the boundary rule was
+// chosen for: everything a shell displays was computed somewhere a test can reach.
 //
-// Every method here is either a read of state the implementation owns or one named
-// effect. None of them formats, greys or labels anything: that is form's work, and a
-// backend that returned a sentence for the screen would be a second author of the
-// vocabulary.
+// Every method here is either a read of state the implementation owns or one named effect.
+// None of them formats, greys or labels anything: that is form's work, and a backend that returned
+// a sentence for the screen would be a second author of the vocabulary.
 type Backend interface {
 	// --- Reads ---
 
-	// Settings are the settings the backend holds, which are the starting draft for a
-	// form.
+	// Settings are the settings the backend holds, which are the starting draft for a form.
 	Settings() settings.Settings
-	// StoreNotice states why the persisted settings could not be restored, nil when
-	// they were.
+	// StoreNotice states why the persisted settings could not be restored, nil when they were.
 	StoreNotice() *screensharev1.Text
 	// Monitors lists this machine's display outputs.
 	Monitors() []display.Monitor
 	// Platform reports the OS and, on Linux, the display server.
 	Platform() platform.Info
-	// Encoders reports what this machine can really encode, per engine. The probe runs
-	// once and is cached for the process lifetime, so the first call costs seconds and
+	// Encoders reports what this machine can really encode, per engine.
+	// The probe runs once and is cached for the process lifetime, so the first call costs seconds and
 	// every one after it costs nothing.
 	Encoders(ctx context.Context) encoders.Availability
-	// CachedEncoders is the probe result if one has been taken, and the zero value if
-	// none has. It exists because a form is resolved on every keystroke and a probe
-	// takes seconds: a resolve reads what is known now, and an unprobed engine is an
-	// engine nothing is greyed on rather than an engine with nothing usable.
+	// CachedEncoders is the probe result if one has been taken, and the zero value if none has.
+	// It exists because a form is resolved on every keystroke and a probe takes seconds:
+	// a resolve reads what is known now, and an unprobed engine is an engine nothing is greyed on
+	// rather than an engine with nothing usable.
 	CachedEncoders() encoders.Availability
-	// AudioDevices is what this machine offers inside each audio kind, enumerated once and
-	// answered from memory afterwards. It is read on a resolve for the reason
-	// CachedEncoders is: a form resolves on every keystroke, and the enumeration is a
-	// subprocess.
+	// AudioDevices is what this machine offers inside each audio kind, enumerated once and answered
+	// from memory afterwards.
+	// It is read on a resolve for the reason CachedEncoders is: a form resolves on every keystroke,
+	// and the enumeration is a subprocess.
 	AudioDevices() []platform.AudioDevice
 	// PublishState is the running publish state.
 	PublishState() wire.PublishSnapshot
-	// RelayStatus is the latest relay snapshot. The backend owns the polling, so this
-	// reads the last one rather than fetching a new one.
+	// RelayStatus is the latest relay snapshot.
+	// The backend owns the polling, so this reads the last one rather than fetching a new one.
 	RelayStatus() relay.Status
 	// Watching lists the external viewers currently open.
 	Watching() []wire.WatchKey
-	// ReceiveState is every stream the backend is decoding, read off the running
-	// pipelines rather than remembered: the chain that ran is not always the one that
-	// was asked for.
+	// ReceiveState is every stream the backend is decoding, read off the running pipelines rather than
+	// remembered: the chain that ran is not always the one that was asked for.
 	ReceiveState() []wire.ReceiveStream
-	// TestStreamsRunning counts the synthetic publishers alive, which is not the count
-	// that was asked for: one that died on its own drops out of it.
+	// TestStreamsRunning counts the synthetic publishers alive, which is not the count that was asked
+	// for: one that died on its own drops out of it.
 	TestStreamsRunning() int
 	// MaxTestStreams is how many synthetic publishers the backend will run at once.
 	//
-	// It is readable rather than only enforced so an over-large request is refused
-	// where every other request-earned refusal in this service is made: above the call,
-	// with the code the contract names for a bounded resource. A bound that could only
-	// be discovered by asking for too much would arrive as an untyped error, and a
-	// missing binary would then be indistinguishable from a saturated machine.
+	// It is readable rather than only enforced so an over-large request is refused where every other
+	// request-earned refusal in this service is made: above the call, with the code the contract names
+	// for a bounded resource.
+	// A bound that could only be discovered by asking for too much would arrive as an untyped error,
+	// and a missing binary would then be indistinguishable from a saturated machine.
 	MaxTestStreams() int
 	// --- Effects ---
 	//
-	// The measurements are among them. Each runs the real thing, takes seconds, and
-	// leaves behind a result a later read sees, which is what an effect is: the probe
-	// replaces what CachedEncoders answers with, and neither of the other two is
-	// anything a shell may call on a keystroke.
+	// The measurements are among them.
+	// Each runs the real thing, takes seconds, and leaves behind a result a later read sees,
+	// which is what an effect is: the probe replaces what CachedEncoders answers with,
+	// and neither of the other two is anything a shell may call on a keystroke.
 
 	// MeasureUplink probes this machine's real upload throughput in Mbit/s.
 	MeasureUplink(ctx context.Context) (float64, error)
 	// MeasureEncodeRate times the configured encoder on generated frames.
 	MeasureEncodeRate(ctx context.Context, s settings.Settings) (encoderate.Rate, error)
 
-	// SaveSettings persists the settings the shell holds. It does not touch a running
-	// stream: what reaches a live pipeline is ApplyToStream's business.
+	// SaveSettings persists the settings the shell holds.
+	// It does not touch a running stream: what reaches a live pipeline is ApplyToStream's business.
 	SaveSettings(s settings.Settings) error
 	// StartPublish persists the settings and starts the encoder on them.
 	StartPublish(s settings.Settings) error
@@ -118,93 +113,89 @@ type Backend interface {
 	StartWatch(key wire.WatchKey) error
 	// StopWatch closes one open viewer.
 	StopWatch(key wire.WatchKey)
-	// StartReceive opens a decode for one stream on one leg, inside the backend, and
-	// StopReceive closes one. They are the tile path's counterpart of the two above:
-	// what they open is a decode and never a tile.
+	// StartReceive opens a decode for one stream on one leg, inside the backend,
+	// and StopReceive closes one.
+	// They are the tile path's counterpart of the two above: what they open is a decode and never a
+	// tile.
 	//
-	// toneMap asks for an HDR stream to be rolled down into the range a standard display
-	// shows. It is part of what the decode is built from, so a decode already open with
-	// the other answer is rebuilt to reach the state the call names.
+	// toneMap asks for an HDR stream to be rolled down into the range a standard display shows.
+	// It is part of what the decode is built from, so a decode already open with the other answer is
+	// rebuilt to reach the state the call names.
 	StartReceive(key wire.WatchKey, toneMap bool) error
 	StopReceive(key wire.WatchKey)
-	// SetReceiveAudio sets how loud one decode plays and whether it plays at all, and
-	// refuses where nothing is decoding the pair. The loudness belongs to the decode
-	// and not to a window drawing it: one pipeline holds one audio branch, so a
-	// per-window volume would be several controls over one element.
+	// SetReceiveAudio sets how loud one decode plays and whether it plays at all,
+	// and refuses where nothing is decoding the pair.
+	// The loudness belongs to the decode and not to a window drawing it: one pipeline holds one audio
+	// branch, so a per-window volume would be several controls over one element.
 	SetReceiveAudio(key wire.WatchKey, volume float64, muted bool) error
-	// AudioLevels is how loud every decode carrying audio is, at this instant. A read
-	// rather than a stream, because the cadence belongs to the service that ticks it
-	// and not to the backend that measures.
+	// AudioLevels is how loud every decode carrying audio is, at this instant.
+	// A read rather than a stream, because the cadence belongs to the service that ticks it and not to
+	// the backend that measures.
 	AudioLevels() []wire.AudioLevel
-	// Pointer is where the publishing machine's pointer is, at this instant, and false
-	// where the publish in force is not reporting one.
+	// Pointer is where the publishing machine's pointer is, at this instant, and false where the
+	// publish in force is not reporting one.
 	//
 	// That is every cursor mode but the one that sends the position instead of drawing it,
-	// and every engine whose child cannot read one. A read rather than a stream, for the
-	// reason the levels are: the cadence belongs to the service that ticks it and not to
-	// the backend that reads.
+	// and every engine whose child cannot read one.
+	// A read rather than a stream, for the reason the levels are: the cadence belongs to the service
+	// that ticks it and not to the backend that reads.
 	Pointer() (pointer.Position, bool)
 	// SubscribeFrames opens one consumer's view of a decode that is already running,
 	// and refuses where nothing is decoding the pair.
 	//
-	// It is on this interface and not on a second one because the frame service serves
-	// the same backend the control service does: the decode a subscription draws from
-	// is the one StartReceive opened, and two interfaces onto it would be two ideas of
-	// which decodes exist.
+	// It is on this interface and not on a second one because the frame service serves the same
+	// backend the control service does: the decode a subscription draws from is the one StartReceive
+	// opened, and two interfaces onto it would be two ideas of which decodes exist.
 	SubscribeFrames(key wire.WatchKey) (FrameStream, error)
-	// SubscribePreviewFrames opens one consumer's view of the running publish's local
-	// preview, and refuses where nothing is publishing with one behind it.
+	// SubscribePreviewFrames opens one consumer's view of the running publish's local preview,
+	// and refuses where nothing is publishing with one behind it.
 	//
-	// It is a second method rather than a key the first one could take, because the
-	// preview has no key: what it draws never crossed the relay, so there is no
-	// transport to name it by and a synthetic one would put a protocol in the table
-	// every consumer reads (preview.go).
+	// It is a second method rather than a key the first one could take, because the preview has no
+	// key: what it draws never crossed the relay, so there is no transport to name it by and a
+	// synthetic one would put a protocol in the table every consumer reads (preview.go).
 	SubscribePreviewFrames() (FrameStream, error)
-	// StartMonitorPreview reads one of this machine's screens into a picture the frame
-	// channel can hand over, and StopMonitorPreview closes one. They are the wizard's
-	// counterpart of the receive pair, and what they open is a screen capture and never
-	// a tile.
+	// StartMonitorPreview reads one of this machine's screens into a picture the frame channel can
+	// hand over, and StopMonitorPreview closes one.
+	// They are the wizard's counterpart of the receive pair, and what they open is a screen capture
+	// and never a tile.
 	StartMonitorPreview(monitor int) error
 	StopMonitorPreview(monitor int)
-	// MonitorPreviewState is every monitor being previewed, read off the running
-	// pipelines rather than remembered: a preview that has produced no frame yet is
-	// still opening the screen.
+	// MonitorPreviewState is every monitor being previewed, read off the running pipelines rather than
+	// remembered: a preview that has produced no frame yet is still opening the screen.
 	MonitorPreviewState() []wire.PreviewedMonitor
-	// SubscribeMonitorFrames opens one consumer's view of a monitor preview that is
-	// already running, and refuses where nothing is previewing that screen.
+	// SubscribeMonitorFrames opens one consumer's view of a monitor preview that is already running,
+	// and refuses where nothing is previewing that screen.
 	//
-	// A third method rather than a key the first two could take, for the reason the
-	// preview has one of its own: the three name three different kinds of thing, and a
-	// single key would have to be a stream name for one, nothing for another and an
-	// output index for the third.
+	// A third method rather than a key the first two could take, for the reason the preview has one of
+	// its own: the three name three different kinds of thing, and a single key would have to be a
+	// stream name for one, nothing for another and an output index for the third.
 	SubscribeMonitorFrames(monitor int) (FrameStream, error)
 	// StartTestStreams launches synthetic publishers, replacing a running set.
 	StartTestStreams(count int) error
 	// StopTestStreams stops every synthetic publisher.
 	StopTestStreams()
-	// OpenInBrowser opens the relay's player page for one stream in the machine's
-	// default browser, and refuses a leg the relay serves no page on or the stream's
-	// format does not cross. It opens no viewer this backend owns, so nothing it does
-	// reaches the viewer state.
+	// OpenInBrowser opens the relay's player page for one stream in the machine's default browser,
+	// and refuses a leg the relay serves no page on or the stream's format does not cross.
+	// It opens no viewer this backend owns, so nothing it does reaches the viewer state.
 	OpenInBrowser(key wire.WatchKey) error
 	// ForgetPortalConsent drops the stored screen-capture consent.
 	ForgetPortalConsent() error
-	// OpenLog opens one run log in the machine's default application, and
-	// OpenLogsFolder the directory holding them.
+	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
+	// holding them.
 	OpenLog(path string) error
 	OpenLogsFolder() error
 }
 
 // FrameStream is one consumer's running subscription to a decode's frames.
 //
-// It is an interface for the reason Backend is one: the frame service has to be
-// servable in front of something with no GPU and no pipeline, and a concrete
-// subscription would make every test of this service a test of the exporter behind it.
+// It is an interface for the reason Backend is one: the frame service has to be servable in front
+// of something with no GPU and no pipeline, and a concrete subscription would make every test of
+// this service a test of the exporter behind it.
 //
-// The methods are the protocol. Events carries what the backend says and closes when
-// the subscription ends, Err then says why, Release hands one slot back, SetRenderSize
-// says how many pixels the consumer will draw at, and Close ends it from this side and
-// frees the memory.
+// The methods are the protocol.
+// Events carries what the backend says and closes when the subscription ends, Err then says why,
+// Release hands one slot back, SetRenderSize says how many pixels the consumer will draw at,
+// and Close ends it from this side and frees the memory.
 type FrameStream interface {
 	Events() <-chan receive.Event
 	Err() error
@@ -215,10 +206,10 @@ type FrameStream interface {
 
 // The contract version this build implements.
 //
-// The major settles on Hello before any other method is reached, so a mismatch is a
-// sentence naming both versions rather than a field that silently arrives empty. The
-// minor is informational: a shell built against a lower minor works, and one built
-// against a higher minor may find a method missing.
+// The major settles on Hello before any other method is reached, so a mismatch is a sentence naming
+// both versions rather than a field that silently arrives empty.
+// The minor is informational: a shell built against a lower minor works, and one built against a
+// higher minor may find a method missing.
 const (
 	ProtocolMajor = 1
 	ProtocolMinor = 0
@@ -226,16 +217,17 @@ const (
 
 // Server is the ControlService implementation.
 //
-// It holds no state of its own beyond its collaborators. Every answer it gives is
-// read through to the backend, the tables or the broker on the call that asks for
-// it, which is the rule that keeps two copies of one fact from drifting apart.
+// It holds no state of its own beyond its collaborators.
+// Every answer it gives is read through to the backend, the tables or the broker on the call that
+// asks for it, which is the rule that keeps two copies of one fact from drifting apart.
 type Server struct {
 	screensharev1.UnimplementedControlServiceServer
 
 	backend Backend
 	events  *events.Broker
-	// version is this build, for Hello. It is handed in rather than read here because
-	// the build stamp belongs to package main, which is what the linker writes into.
+	// version is this build, for Hello.
+	// It is handed in rather than read here because the build stamp belongs to package main,
+	// which is what the linker writes into.
 	version string
 }
 
@@ -243,6 +235,7 @@ type Server struct {
 func New(backend Backend, broker *events.Broker, version string) *Server {
 	assert.IsNotNil(backend, "a control service serves a backend")
 	assert.IsNotNil(broker, "a control service announces changes from a broker")
+	assert.Assert(version != "", "a control service names the build a handshake answers with")
 
 	return &Server{backend: backend, events: broker, version: version}
 }

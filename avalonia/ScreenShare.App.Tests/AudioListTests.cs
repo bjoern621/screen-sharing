@@ -8,11 +8,11 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// The audio source list, as the shell writes it.
 ///
-/// A form field key is an address into the settings message, and a list entry makes it three
-/// steps rather than two: the group, the entry of a repeated field, the field inside it. What
-/// these lock out is the shell learning anything else about the list. It appends no entry it
-/// was not addressed to, it decides nothing about which entry is which, and it looks copy up
-/// by the control rather than by the entry (docs/ipc-api.md, "The rule").
+/// A form field key is an address into the settings message, and a list entry makes it three steps rather
+/// than two: the group, the entry of a repeated field, the field inside it.
+/// What these lock out is the shell learning anything else about the list.
+/// It appends no entry it was not addressed to, it decides nothing about which entry is which, and it looks
+/// copy up by the control rather than by the entry (docs/ipc-api.md, "The rule").
 /// </summary>
 public sealed class AudioListTests
 {
@@ -32,9 +32,10 @@ public sealed class AudioListTests
     }
 
     /// <summary>
-    /// The row the form draws past the end of the list is what a reader grows it by, so a
-    /// write through its key adds the entry. That is the whole of adding a source: an ordinary
-    /// settings write through an ordinary control, with no effect on the contract for it.
+    /// The row the form draws past the end of the list is what a reader grows it by, so a write through its
+    /// key adds the entry.
+    /// That is the whole of adding a source: an ordinary settings write through an ordinary control, with no
+    /// effect on the contract for it.
     /// </summary>
     [Fact]
     public void AWriteOnePastTheEndAddsTheEntry()
@@ -48,8 +49,8 @@ public sealed class AudioListTests
     }
 
     /// <summary>
-    /// A fresh entry carries no level, which is unity rather than silence: the field carries
-    /// presence exactly so that a source a reader has just added is not one nobody can hear.
+    /// A fresh entry carries no level, which is unity rather than silence: the field carries presence exactly
+    /// so that a source a reader has just added is not one nobody can hear.
     /// </summary>
     [Fact]
     public void AFreshEntryCarriesNoLevelOfItsOwn()
@@ -62,8 +63,8 @@ public sealed class AudioListTests
     }
 
     /// <summary>
-    /// A write past the end of the list is refused rather than filling the gap, because the
-    /// entries between would be entries nobody chose.
+    /// A write past the end of the list is refused rather than filling the gap, because the entries between
+    /// would be entries nobody chose.
     /// </summary>
     [Fact]
     public void AWriteBeyondTheGrowingRowIsRefused()
@@ -86,8 +87,8 @@ public sealed class AudioListTests
     }
 
     /// <summary>
-    /// Copy is written for the control and never for one entry, because the third microphone's
-    /// level means what the first one's does.
+    /// Copy is written for the control and never for one entry, because the third microphone's level means
+    /// what the first one's does.
     /// </summary>
     [Fact]
     public void EveryEntryOfAListSharesTheControlsCopy()
@@ -100,8 +101,8 @@ public sealed class AudioListTests
     }
 
     /// <summary>
-    /// The entries of a list control are named the same way whichever entry they are on, which
-    /// is the same normalisation the copy lookup makes.
+    /// The entries of a list control are named the same way whichever entry they are on, which is the same
+    /// normalisation the copy lookup makes.
     /// </summary>
     [Fact]
     public void AnEntrysOptionsAreNamedByTheControl()

@@ -11,11 +11,10 @@ import (
 
 // The property each element spells its effort knob with.
 //
-// They are stated here rather than derived because they are this engine's spelling of a
-// fact the table holds in the encoder's own vocabulary: the x26x elements say
-// speed-preset where ffmpeg says -preset, and svtav1enc says preset where rav1enc says
-// speed-preset again. What the table declares is the step; which property carries it is
-// the builder's.
+// They are stated here rather than derived because they are this engine's spelling of a fact the
+// table holds in the encoder's own vocabulary: the x26x elements say speed-preset where ffmpeg says
+// -preset, and svtav1enc says preset where rav1enc says speed-preset again.
+// What the table declares is the step; which property carries it is the builder's.
 var gstEffortProperties = map[string]string{
 	"libx264":    "speed-preset",
 	"libx265":    "speed-preset",
@@ -24,9 +23,9 @@ var gstEffortProperties = map[string]string{
 	"libaom-av1": "cpu-used",
 	"libsvtav1":  "preset",
 	"librav1e":   "speed-preset",
-	// The nvcodec elements take the same p1-p7 steps ffmpeg does. Their preset enum
-	// carries the ladder beside the presets it deprecates, and the deprecated entries say
-	// so themselves: "Default (deprecated, use p1~7 with tune)".
+	// The nvcodec elements take the same p1-p7 steps ffmpeg does.
+	// Their preset enum carries the ladder beside the presets it deprecates, and the deprecated
+	// entries say so themselves: "Default (deprecated, use p1~7 with tune)".
 	"h264_nvenc": "preset",
 	"hevc_nvenc": "preset",
 	"av1_nvenc":  "preset",
@@ -41,9 +40,9 @@ var gstEffortProperties = map[string]string{
 // The ladders state what the elements spend, which is the same claim
 // ffmpeg.TestTheLaddersStateWhatTheBuildersSpend makes about the other builder.
 //
-// One library reached through two bindings has to encode alike, so the two engines read
-// one table rather than each holding its own constants: a stream's look must not depend on
-// which capture backend produced it.
+// One library reached through two bindings has to encode alike, so the two engines read one table
+// rather than each holding its own constants: a stream's look must not depend on which capture
+// backend produced it.
 func TestTheLaddersStateWhatTheElementsSpend(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -70,9 +69,10 @@ func TestTheLaddersStateWhatTheElementsSpend(t *testing.T) {
 
 // A codec this engine builds spends an effort step exactly when its row declares a ladder.
 //
-// The two directions are different failures. A ladder nothing spends is a control the form
-// offers and the encode ignores, which is what the availability contract rules out; a step
-// spent off a row that declares none is a property value nothing chose.
+// The two directions are different failures.
+// A ladder nothing spends is a control the form offers and the encode ignores,
+// which is what the availability contract rules out; a step spent off a row that declares none is a
+// property value nothing chose.
 func TestEveryLadderIsSpent(t *testing.T) {
 	for name := range gstCodecs {
 		c, ok := capabilities.Get(name)
@@ -88,14 +88,15 @@ func TestEveryLadderIsSpent(t *testing.T) {
 	}
 }
 
-// A tune step travels in whichever property the element spells it with, which is not what
-// ffmpeg spells it as.
+// A tune step travels in whichever property the element spells it with, which is not what ffmpeg
+// spells it as.
 //
-// x264enc splits x264's list across two properties: tune takes the three tunes that change
-// what it codes, psy-tune the five that weigh what the eye sees. x265enc takes one enum
-// whose zero entry has to be spelled by number, because leaving the property off means ssim
-// on that element rather than no tuning. The nvcodec elements spell the SDK's four in full
-// words, where the row and ffmpeg use the SDK's abbreviations.
+// x264enc splits x264's list across two properties: tune takes the three tunes that change what it
+// codes, psy-tune the five that weigh what the eye sees.
+// x265enc takes one enum whose zero entry has to be spelled by number, because leaving the property
+// off means ssim on that element rather than no tuning.
+// The nvcodec elements spell the SDK's four in full words, where the row and ffmpeg use the SDK's
+// abbreviations.
 func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 	for _, tc := range []struct {
 		codec, step, want string
@@ -135,9 +136,9 @@ func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 	}
 }
 
-// mustGstEncoder builds one element's properties for one mode, on a draft the codec
-// accepts: the quantizer rides its own scale and the bitrate stays under its ceiling, so
-// what comes back is refused for nothing but the knob under test.
+// mustGstEncoder builds one element's properties for one mode, on a draft the codec accepts:
+// the quantizer rides its own scale and the bitrate stays under its ceiling,
+// so what comes back is refused for nothing but the knob under test.
 func mustGstEncoder(t *testing.T, c capabilities.Codec, mode string) []string {
 	t.Helper()
 
@@ -148,18 +149,17 @@ func mustGstEncoder(t *testing.T, c capabilities.Codec, mode string) []string {
 
 	s := baseStream()
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[len(chromas)-1]
-	// The two ladder steps come off the codec's own row, which is what a fresh
-	// installation, the migration and the repair all do.
+	// The two ladder steps come off the codec's own row, which is what a fresh installation,
+	// the migration and the repair all do.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(c.Name, mode)
 	s.Publish.Cq = c.CqMaxOn(capabilities.EngineGst) / 2
 	if limit := c.BitrateLimitOn(capabilities.EngineGst); limit > 0 && s.Publish.BitrateM > limit {
 		s.Publish.BitrateM = limit
 	}
-	// Under the bound the element's own properties impose as well, which the capability
-	// table does not carry: two of the qsv elements state their rate in an unsigned 16-bit
-	// field, and a draft above it is refused before any ladder step is spent
-	// (qsvShortRateLimits). What this asks about is the step, so the rate is put where the
-	// question can be reached.
+	// Under the bound the element's own properties impose as well, which the capability table does not
+	// carry: two of the qsv elements state their rate in an unsigned 16-bit field,
+	// and a draft above it is refused before any ladder step is spent (qsvShortRateLimits).
+	// What this asks about is the step, so the rate is put where the question can be reached.
 	if elementRateCeilingM > 0 && s.Publish.BitrateM > elementRateCeilingM {
 		s.Publish.BitrateM = elementRateCeilingM
 		s.Publish.MaxrateM = elementRateCeilingM
@@ -187,9 +187,9 @@ func assertProperty(t *testing.T, encoder []string, property, want string) {
 	t.Errorf("the element takes no %s, where the table declares %q", property, want)
 }
 
-// tuneProperties is whichever tune property an element carries, and the empty string where
-// it carries neither: two properties spell one ladder on x264enc, and which one a step
-// lands on is the claim under test.
+// tuneProperties is whichever tune property an element carries, and the empty string where it
+// carries neither: two properties spell one ladder on x264enc, and which one a step lands on is the
+// claim under test.
 func tuneProperties(encoder []string) string {
 	for _, p := range encoder {
 		if strings.HasPrefix(p, "tune=") || strings.HasPrefix(p, "psy-tune=") {
@@ -201,9 +201,10 @@ func tuneProperties(encoder []string) string {
 
 // elementRateCeilingM is a rate every element in the table accepts, in megabits.
 //
-// It is the lowest bound any of them imposes, divided by the largest factor a mode places a
-// ceiling at above the target: the abr mappings ask for headroom above the rate, so a draft
-// exactly at the bound is one the ceiling then exceeds. One figure for every codec rather
-// than a lookup per row, because what it is for is reaching the question - this asks about
-// ladder steps, and a rate refused before the step is spent answers a different one.
+// It is the lowest bound any of them imposes, divided by the largest factor a mode places a ceiling
+// at above the target: the abr mappings ask for headroom above the rate, so a draft exactly at the
+// bound is one the ceiling then exceeds.
+// One figure for every codec rather than a lookup per row, because what it is for is reaching the
+// question - this asks about ladder steps, and a rate refused before the step is spent answers a
+// different one.
 var elementRateCeilingM = qsvShortBitrateKbps / 1000 / qsvAbrPeak

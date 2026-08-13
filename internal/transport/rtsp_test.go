@@ -7,8 +7,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// rtspStream carries knobs on both legs that differ from the defaults, so a
-// serialization that ignores them shows up as the default rather than passing.
+// rtspStream carries knobs on both legs that differ from the defaults, so a serialization that
+// ignores them shows up as the default rather than passing.
 func rtspStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
@@ -76,8 +76,8 @@ func TestRTSPGstSource(t *testing.T) {
 	}
 }
 
-// A stream whose legs disagree is what separates the two fields: a serialization
-// reading the other leg's protocol passes every test where they happen to agree.
+// A stream whose legs disagree is what separates the two fields: a serialization reading the other
+// leg's protocol passes every test where they happen to agree.
 func TestRTSPProtocolPerLeg(t *testing.T) {
 	s := rtspStream()
 	s.Publish.RtspPublishProtocol = "tcp"
@@ -103,8 +103,8 @@ func TestRTSPValidatePublishSettings(t *testing.T) {
 		}
 	}
 
-	// The empty value is a settings file written before the field existed and
-	// migration missed; neither serialization has anything to write for it.
+	// The empty value is a settings file written before the field existed and migration missed;
+	// neither serialization has anything to write for it.
 	for _, protocol := range []string{"", "sctp", "TCP"} {
 		s := rtspStream()
 		s.Publish.RtspPublishProtocol = protocol
@@ -114,8 +114,8 @@ func TestRTSPValidatePublishSettings(t *testing.T) {
 	}
 }
 
-// The package-level entry point is what the publish engines call, so it has to
-// reach the transport's own answer rather than pass everything through.
+// The package-level entry point is what the publish engines call, so it has to reach the
+// transport's own answer rather than pass everything through.
 func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 	s := rtspStream()
 	s.Publish.RtspPublishProtocol = "sctp"
@@ -123,8 +123,8 @@ func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 		t.Error("ValidatePublishSettings = nil, want the rtsp refusal")
 	}
 
-	// SRT declares no publish-leg settings of its own, and an unknown transport is
-	// ValidatePublish's refusal rather than this one's.
+	// SRT declares no publish-leg settings of its own, and an unknown transport is ValidatePublish's
+	// refusal rather than this one's.
 	for _, name := range []string{"srt", "nope"} {
 		s := rtspStream()
 		s.Publish.Transport = name

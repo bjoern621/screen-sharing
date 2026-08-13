@@ -10,16 +10,16 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The viewer table is a row per reader the relay named, and every cell in it is a figure the
-/// relay stated about that reader.
+/// The viewer table is a row per reader the relay named, and every cell in it is a figure the relay stated
+/// about that reader.
 ///
-/// It used to be a count and a sentence saying that the relay reported how many were connected
-/// and not who they were. That was true of what the backend read rather than of the relay: the
-/// path list carries a reader array, and the per-protocol connection lists carry the figures.
-/// These tests state a roster and assert that the rows came out of it - and, just as hard, that
-/// a figure the relay did not state comes out absent rather than as a zero, because a viewer
-/// nobody timed and a viewer with a perfect link are the two things this table may never
-/// confuse.
+/// It used to be a count and a sentence saying that the relay reported how many were connected and not who
+/// they were.
+/// That was true of what the backend read rather than of the relay: the path list carries a reader array, and
+/// the per-protocol connection lists carry the figures.
+/// These tests state a roster and assert that the rows came out of it - and, just as hard, that a figure the
+/// relay did not state comes out absent rather than as a zero, because a viewer nobody timed and a viewer
+/// with a perfect link are the two things this table may never confuse.
 /// </summary>
 public sealed class ViewerRosterTests
 {
@@ -122,8 +122,8 @@ public sealed class ViewerRosterTests
     [Fact]
     public void AReaderTheRelayDescribedNowhereIsStillNamed()
     {
-        // Every figure absent: the path named this reader and the per-protocol list did not
-        // answer, which is what a relay with that listener switched off produces.
+        // Every figure absent: the path named this reader and the per-protocol list did not answer, which is
+        // what a relay with that listener switched off produces.
         var unmeasured = new RelayReader { Type = "moqSession", Id = "5c1f", Transport = "moq" };
 
         var table = Table(Serving(unmeasured));
@@ -139,8 +139,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A relay that named a reader nothing at all is an environment condition, not a bug in this
-    /// code. The row renders as an unnameable viewer, which still says somebody is connected.
+    /// A relay that named a reader nothing at all is an environment condition, not a bug in this code.
+    /// The row renders as an unnameable viewer, which still says somebody is connected.
     /// </summary>
     [Fact]
     public void AReaderTheRelayNamedNothingStillRenders()
@@ -186,8 +186,8 @@ public sealed class ViewerRosterTests
 
     /// <summary>
     /// The property the whole table hangs on: a roster pushed again unchanged does not repaint.
-    /// The relay is polled while the reader has the pointer over the card, and a clear-and-fill
-    /// on every poll would reset the scroll position of a table nothing had happened to.
+    /// The relay is polled while the reader has the pointer over the card, and a clear-and-fill on every poll
+    /// would reset the scroll position of a table nothing had happened to.
     /// </summary>
     [Fact]
     public void AnUnchangedRosterRenderedAgainTouchesNothing()
@@ -220,8 +220,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The header's round trip and loss are one viewer's and the worst one's. A mean would be a
-    /// figure nobody is experiencing, and would average a single struggling viewer away.
+    /// The header's round trip and loss are one viewer's and the worst one's.
+    /// A mean would be a figure nobody is experiencing, and would average a single struggling viewer away.
     /// </summary>
     [Fact]
     public void TheHeaderPromotesTheWorstViewersFigures()
@@ -245,9 +245,9 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A stream whose viewers are all on legs the relay does not time has viewers and no
-    /// latency. That is not the same as a stream nobody is watching, and the header says so by
-    /// showing a viewer count beside two absences.
+    /// A stream whose viewers are all on legs the relay does not time has viewers and no latency.
+    /// That is not the same as a stream nobody is watching, and the header says so by showing a viewer count
+    /// beside two absences.
     /// </summary>
     [Fact]
     public void ViewersOnAnUntimedLegLeaveTheLatencyFiguresAbsent()
@@ -260,10 +260,11 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// Which legs a stream is watched over is one fact, read off the roster where every other
-    /// relay figure on this screen is read. Distinct and in the order the roster names them,
-    /// because what it is for is being read as prose; and a reader the relay named no protocol
-    /// for takes no part, so the sentence naming the legs has no gap in it.
+    /// Which legs a stream is watched over is one fact, read off the roster where every other relay figure on
+    /// this screen is read.
+    /// Distinct and in the order the roster names them, because what it is for is being read as prose; and a
+    /// reader the relay named no protocol for takes no part, so the sentence naming the legs has no gap in
+    /// it.
     /// </summary>
     [Fact]
     public void TheLegsAreTheDistinctTransportsOnTheRoster()
@@ -281,10 +282,10 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A promoted figure that reads as unmeasured carries why, where the reason is one the
-    /// publisher can act on: viewers, and none of them on a leg the relay times. A measured
-    /// figure carries none, and neither does a stream nobody is watching - the viewer count
-    /// beside it has already said that.
+    /// A promoted figure that reads as unmeasured carries why, where the reason is one the publisher can act
+    /// on: viewers, and none of them on a leg the relay times.
+    /// A measured figure carries none, and neither does a stream nobody is watching - the viewer count beside
+    /// it has already said that.
     /// </summary>
     [Fact]
     public void AnAbsentLatencyFigureCarriesTheReasonItIsAbsent()
@@ -298,8 +299,9 @@ public sealed class ViewerRosterTests
         Assert.EndsWith("watched over rtmp", untimed.Figures[2].Note);
         Assert.EndsWith("watched over rtmp", untimed.Figures[3].Note);
 
-        // Only the two figures the reason is about. A note on the throughput beside them would
-        // be a sentence about a leg that has nothing to do with it.
+        // Only the two figures the reason is about.
+        // A note on the throughput beside them would be a sentence about a leg that has nothing to do with
+        // it.
         Assert.Null(untimed.Figures[0].Note);
         Assert.Null(untimed.Figures[1].Note);
         Assert.Null(untimed.Figures[4].Note);
@@ -318,8 +320,9 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The latency plot is the relay snapshots' own shape, the same way the egress plot is the
-    /// encoder samples'. Two snapshots make a curve; one is a reading and not a shape.
+    /// The latency plot is the relay snapshots' own shape, the same way the egress plot is the encoder
+    /// samples'.
+    /// Two snapshots make a curve; one is a reading and not a shape.
     /// </summary>
     [Fact]
     public void TheLatencyCurvesAreDrawnFromTheRelaySnapshots()
@@ -362,9 +365,9 @@ public sealed class ViewerRosterTests
         Assert.False(unwatched.HasLatency);
         Assert.Equal("nobody is watching yet", unwatched.LatencyNotice);
 
-        // Viewers, and none of them on the one leg the relay times. The sentence names the legs
-        // they are actually on: "no viewer is on a leg the relay times" is true and leaves a
-        // publisher with nothing to change.
+        // Viewers, and none of them on the one leg the relay times.
+        // The sentence names the legs they are actually on: "no viewer is on a leg the relay times" is true
+        // and leaves a publisher with nothing to change.
         var untimed = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
@@ -374,8 +377,9 @@ public sealed class ViewerRosterTests
         Assert.Contains("srt", untimed.LatencyNotice);
         Assert.EndsWith("watched over rtmp", untimed.LatencyNotice);
 
-        // Timed once. There is a measurement and no shape yet, and saying that nobody is timed
-        // here would contradict the figure the header is showing from the same snapshot.
+        // Timed once.
+        // There is a measurement and no shape yet, and saying that nobody is timed here would contradict the
+        // figure the header is showing from the same snapshot.
         var once = Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0));
         var starting = new PlotsViewModel
         {
@@ -388,10 +392,10 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The latency axis ends at the newest snapshot rather than at the newest one that timed
-    /// somebody, so readings that fell out of the window leave the plot. Without that, a stream
-    /// whose SRT viewer left an hour ago would go on drawing that viewer's round trip beside a
-    /// header saying nobody is timed.
+    /// The latency axis ends at the newest snapshot rather than at the newest one that timed somebody, so
+    /// readings that fell out of the window leave the plot.
+    /// Without that, a stream whose SRT viewer left an hour ago would go on drawing that viewer's round trip
+    /// beside a header saying nobody is timed.
     /// </summary>
     [Fact]
     public void ACurveOfReadingsOlderThanTheWindowLeavesThePlot()
@@ -416,9 +420,10 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// Nothing announces a viewer. The relay reports who is connected at each poll, so who
-    /// arrived and who left is the difference between two of those answers and exists nowhere
-    /// else - which is why the session log derives it from the series rather than being told.
+    /// Nothing announces a viewer.
+    /// The relay reports who is connected at each poll, so who arrived and who left is the difference between
+    /// two of those answers and exists nowhere else - which is why the session log derives it from the series
+    /// rather than being told.
     /// </summary>
     [Fact]
     public void ArrivingAndLeavingAreTheDifferenceBetweenTwoRosters()
@@ -436,8 +441,8 @@ public sealed class ViewerRosterTests
 
         Assert.Equal(3, changes.Count);
 
-        // The first roster's readers are arrivals: they are watching, and the join time they
-        // carry is the relay's own rather than the poll that found them.
+        // The first roster's readers are arrivals: they are watching, and the join time they carry is the
+        // relay's own rather than the poll that found them.
         Assert.True(changes[0].Arrived);
         Assert.Equal("10.0.0.1:1", changes[0].Name);
         Assert.Equal("srt", changes[0].Via);
@@ -446,8 +451,8 @@ public sealed class ViewerRosterTests
         Assert.True(changes[1].Arrived);
         Assert.Equal("10.0.0.2:2", changes[1].Name);
 
-        // A departure has no stamp of its own anywhere, so it is dated by the poll that first
-        // did not name the reader.
+        // A departure has no stamp of its own anywhere, so it is dated by the poll that first did not name
+        // the reader.
         Assert.False(changes[2].Arrived);
         Assert.Equal("10.0.0.1:1", changes[2].Name);
         Assert.Equal("srt", changes[2].Via);
@@ -460,8 +465,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A poll that named no path for this stream says nothing about who is watching. Reading it
-    /// as an empty roster would put a departure in the log for every viewer each time the relay
+    /// A poll that named no path for this stream says nothing about who is watching.
+    /// Reading it as an empty roster would put a departure in the log for every viewer each time the relay
     /// was unreachable, and an arrival for every one of them on the poll after.
     /// </summary>
     [Fact]
@@ -482,8 +487,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A stream nothing is publishing has no path to read a roster off, so it produces no lines
-    /// at all - rather than every reader of a path that happens to carry the empty name.
+    /// A stream nothing is publishing has no path to read a roster off, so it produces no lines at all -
+    /// rather than every reader of a path that happens to carry the empty name.
     /// </summary>
     [Fact]
     public void AStreamWithNoNameHasNoAudience()

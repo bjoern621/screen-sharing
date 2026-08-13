@@ -9,12 +9,13 @@ namespace ScreenShare.App.Features.Viewer.Tile.View;
 /// <summary>
 /// The keys a tile answers to, as the one table the menu row and the press both read.
 ///
-/// A gesture written into the markup and a switch over <see cref="Key"/> beside it would be two
-/// answers to what F does, and the menu would go on printing the older one for as long as nobody
-/// compared them. The row takes its gesture from here and so does the press that acts on it.
+/// A gesture written into the markup and a switch over <see cref="Key"/> beside it would be two answers to
+/// what F does, and the menu would go on printing the older one for as long as nobody compared them.
+/// The row takes its gesture from here and so does the press that acts on it.
 ///
-/// Only the three arrangements have keys. Mute is a call the backend can refuse and the stats
-/// overlay is a diagnostic, and neither is worth a letter a resting pointer can hit.
+/// Only the three arrangements have keys.
+/// Mute is a call the backend can refuse and the stats overlay is a diagnostic, and neither is worth a letter
+/// a resting pointer can hit.
 /// </summary>
 public static class TileKeys
 {
@@ -37,8 +38,8 @@ public static class TileKeys
     /// <summary>
     /// What a press asks of this tile, and null for a key that is none of these.
     ///
-    /// The gesture decides, so a held modifier is a different gesture and matches nothing here:
-    /// Ctrl+F belongs to whatever else claims it and never to a tile.
+    /// The gesture decides, so a held modifier is a different gesture and matches nothing here: Ctrl+F
+    /// belongs to whatever else claims it and never to a tile.
     /// </summary>
     public static DelegateCommand? Command(TileViewModel tile, KeyEventArgs press)
     {

@@ -12,26 +12,27 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// <summary>
 /// One control of the resolved form, as the screen draws it.
 ///
-/// This is the shell's whole understanding of a setting: a key, a control kind it maps to
-/// a widget, and a handful of statements the backend made about it. It evaluates no rule
-/// and invents no value - which entries exist, which are reachable and why not all arrive
-/// already decided (docs/ipc-api.md, "The rule").
+/// This is the shell's whole understanding of a setting: a key, a control kind it maps to a widget, and a
+/// handful of statements the backend made about it.
+/// It evaluates no rule and invents no value - which entries exist, which are reachable and why not all
+/// arrive already decided (docs/ipc-api.md, "The rule").
 ///
-/// What it does own is every word. The heading, the paragraph behind it, what each entry
-/// is called and the sentence in place of a greyed one are all written on this side and
-/// looked up by <see cref="Key"/> and by the entry's value (ScreenShare.App.Copy). The
-/// backend sends <c>hevc_nvenc</c>; this is where that becomes something to read.
+/// What it does own is every word.
+/// The heading, the paragraph behind it, what each entry is called and the sentence in place of a greyed one
+/// are all written on this side and looked up by <see cref="Key"/> and by the entry's value
+/// (ScreenShare.App.Copy).
+/// The backend sends <c>hevc_nvenc</c>; this is where that becomes something to read.
 ///
-/// <b>Inputs</b> are <see cref="Text"/>, <see cref="Number"/>, <see cref="Slide"/> and
-/// <see cref="Flag"/>, the four shapes a widget writes back. Each setter reports the change
-/// to whoever owns the draft and nothing else; it does not decide whether the change was
-/// legal, because the next resolved form is the answer to that.
+/// <b>Inputs</b> are <see cref="Text"/>, <see cref="Number"/>, <see cref="Slide"/> and <see cref="Flag"/>,
+/// the four shapes a widget writes back.
+/// Each setter reports the change to whoever owns the draft and nothing else; it does not decide whether the
+/// change was legal, because the next resolved form is the answer to that.
 ///
-/// <b>Outputs</b> are written by <see cref="Apply"/> on every pass, including the branches
-/// that turn a control off. The one departure from the usual split is deliberate: the
-/// value is an output as well, since the backend may repair a draft and a shell adopts the
-/// repaired one wholesale. The echo guard is what keeps that from being read back as a
-/// fresh edit.
+/// <b>Outputs</b> are written by <see cref="Apply"/> on every pass, including the branches that turn a
+/// control off.
+/// The one departure from the usual split is deliberate: the value is an output as well, since the backend
+/// may repair a draft and a shell adopts the repaired one wholesale.
+/// The echo guard is what keeps that from being read back as a fresh edit.
 /// </summary>
 public sealed class FieldViewModel : Observable
 {
@@ -39,24 +40,23 @@ public sealed class FieldViewModel : Observable
     private readonly Dictionary<string, DelegateCommand> _choose = [];
 
     /// <summary>
-    /// Which shape this field's value has, as the last resolved form carried it. An option
-    /// value is a string whatever the field is, so this is what turns a pick back into the
-    /// type the settings field holds - without which a select over a number would mark one
-    /// entry and write zero.
+    /// Which shape this field's value has, as the last resolved form carried it.
+    /// An option value is a string whatever the field is, so this is what turns a pick back into the type the
+    /// settings field holds - without which a select over a number would mark one entry and write zero.
     /// </summary>
     private FieldValue.KindOneofCase _kind = FieldValue.KindOneofCase.Text;
 
     /// <summary>
-    /// True while <see cref="Apply"/> is assigning the inputs. A widget's setter checks it
-    /// and reports nothing, so adopting a repaired value does not read as the user typing.
+    /// True while <see cref="Apply"/> is assigning the inputs.
+    /// A widget's setter checks it and reports nothing, so adopting a repaired value does not read as the
+    /// user typing.
     /// </summary>
     private bool _adopting;
 
     /// <summary>
-    /// How this field's entries are named, as the last pass was given it. It is held rather
-    /// than passed down because the entries are rebuilt inside the same pass that sets it,
-    /// and a naming that lagged one pass behind would label a fresh list from a stale
-    /// catalog.
+    /// How this field's entries are named, as the last pass was given it.
+    /// It is held rather than passed down because the entries are rebuilt inside the same pass that sets it,
+    /// and a naming that lagged one pass behind would label a fresh list from a stale catalog.
     /// </summary>
     private Vocabulary _words = Vocabulary.Empty;
 
@@ -175,8 +175,8 @@ public sealed class FieldViewModel : Observable
     public ObservableCollection<OptionViewModel> Options { get; }
 
     /// <summary>
-    /// The effect offered beside this control, null where the screen offers none. It is the
-    /// screen's own placement rather than anything the form described, and it writes this field
+    /// The effect offered beside this control, null where the screen offers none.
+    /// It is the screen's own placement rather than anything the form described, and it writes this field
     /// through the same path a keystroke does (<see cref="FieldAction"/>).
     /// </summary>
     public FieldAction? Action { get => _action; private set => Set(ref _action, value); }
@@ -184,12 +184,12 @@ public sealed class FieldViewModel : Observable
     public bool HasAction { get => _hasAction; private set => Set(ref _hasAction, value); }
 
     /// <summary>
-    /// Why the effect beside this control is refused, or what its last attempt answered. Empty
-    /// where there is no effect or nothing to say about it.
+    /// Why the effect beside this control is refused, or what its last attempt answered.
+    /// Empty where there is no effect or nothing to say about it.
     ///
-    /// It is lifted off the action rather than bound through it, because a control that offers
-    /// none has no action to bind through - and a binding down a null path draws the sentence's
-    /// absence as an empty line instead of no line.
+    /// It is lifted off the action rather than bound through it, because a control that offers none has no
+    /// action to bind through - and a binding down a null path draws the sentence's absence as an empty line
+    /// instead of no line.
     /// </summary>
     public string ActionNotice { get => _actionNotice; private set => Set(ref _actionNotice, value); }
 
@@ -215,9 +215,9 @@ public sealed class FieldViewModel : Observable
     public string Readback { get => _readback; private set => Set(ref _readback, value); }
 
     /// <summary>
-    /// The picked entry's label, which is what a closed dropdown shows. It falls back to the
-    /// raw value for the case the contract allows: a backend may answer with a legal value
-    /// that is not one of the entries it offered.
+    /// The picked entry's label, which is what a closed dropdown shows.
+    /// It falls back to the raw value for the case the contract allows: a backend may answer with a legal
+    /// value that is not one of the entries it offered.
     /// </summary>
     public string PickedLabel { get => _pickedLabel; private set => Set(ref _pickedLabel, value); }
 
@@ -230,16 +230,16 @@ public sealed class FieldViewModel : Observable
     public bool IsVisible { get => _isVisible; private set => Set(ref _isVisible, value); }
 
     /// <summary>
-    /// True where changing this control reaches the pipeline that is already carrying the
-    /// stream, so applying it costs nobody watching a reconnect. False on every control whose
-    /// value is part of that pipeline's shape, where the backend replaces the encoder child
-    /// and every viewer reconnects across the gap.
+    /// True where changing this control reaches the pipeline that is already carrying the stream, so applying
+    /// it costs nobody watching a reconnect.
+    /// False on every control whose value is part of that pipeline's shape, where the backend replaces the
+    /// encoder child and every viewer reconnects across the gap.
     ///
-    /// It is the backend's answer per combination rather than a list held here: which engine
-    /// runs the capture backend decides whether anything applies live at all, and the codec
-    /// and rate-control mode decide whether the encoder is being sent that value. A list on
-    /// this side would keep promising a reconnect-free edit after the backend stopped being
-    /// able to deliver one.
+    /// It is the backend's answer per combination rather than a list held here: which engine runs the capture
+    /// backend decides whether anything applies live at all, and the codec and rate-control mode decide
+    /// whether the encoder is being sent that value.
+    /// A list on this side would keep promising a reconnect-free edit after the backend stopped being able to
+    /// deliver one.
     /// </summary>
     public bool AppliesLive { get => _appliesLive; private set => Set(ref _appliesLive, value); }
 
@@ -263,9 +263,9 @@ public sealed class FieldViewModel : Observable
     public bool IsNumber { get => _isNumber; private set => Set(ref _isNumber, value); }
 
     /// <summary>
-    /// A number that also carries a ladder, drawn as the typed box and the ladder glued into
-    /// one control. It is not <see cref="IsNumber"/>: the two write the same setting, so a
-    /// renderer that drew both would put two boxes on the screen for one knob.
+    /// A number that also carries a ladder, drawn as the typed box and the ladder glued into one control.
+    /// It is not <see cref="IsNumber"/>: the two write the same setting, so a renderer that drew both would
+    /// put two boxes on the screen for one knob.
     /// </summary>
     public bool IsNumberSelect { get => _isNumberSelect; private set => Set(ref _isNumberSelect, value); }
 
@@ -278,10 +278,11 @@ public sealed class FieldViewModel : Observable
     public bool IsRadio { get => _isRadio; private set => Set(ref _isRadio, value); }
 
     /// <summary>
-    /// Either of the two kinds whose whole control is its options. The generic renderer draws
-    /// one list for both, so it asks this rather than binding two lists that differed in
-    /// nothing. A number carrying a ladder is not one of them: its options sit behind a caret
-    /// beside a box, which is a different control and not a differently spaced list.
+    /// Either of the two kinds whose whole control is its options.
+    /// The generic renderer draws one list for both, so it asks this rather than binding two lists that
+    /// differed in nothing.
+    /// A number carrying a ladder is not one of them: its options sit behind a caret beside a box, which is a
+    /// different control and not a differently spaced list.
     /// </summary>
     public bool IsChoice { get => _isChoice; private set => Set(ref _isChoice, value); }
 
@@ -295,9 +296,9 @@ public sealed class FieldViewModel : Observable
     public double Step { get => _step; private set => Set(ref _step, value); }
 
     /// <summary>
-    /// The same bounds in the type a spinner binds. Stated twice rather than converted at
-    /// the binding, because a compiled binding that has to convert is one the compiler
-    /// cannot check.
+    /// The same bounds in the type a spinner binds.
+    /// Stated twice rather than converted at the binding, because a compiled binding that has to convert is
+    /// one the compiler cannot check.
     /// </summary>
     public decimal NumberMinimum { get => _numberMinimum; private set => Set(ref _numberMinimum, value); }
 
@@ -306,14 +307,15 @@ public sealed class FieldViewModel : Observable
     public decimal NumberStep { get => _numberStep; private set => Set(ref _numberStep, value); }
 
     /// <summary>
-    /// The one render function. Safe to run twice: every output is read out of the message,
-    /// the options compare equal across two passes over one field, and the inputs are
-    /// assigned under the echo guard so an unchanged form reports nothing back.
+    /// The one render function.
+    /// Safe to run twice: every output is read out of the message, the options compare equal across two
+    /// passes over one field, and the inputs are assigned under the echo guard so an unchanged form reports
+    /// nothing back.
     /// </summary>
     /// <param name="action">
-    /// The effect this screen offers beside the control, null where it offers none. Passed on
-    /// every pass rather than held, so a screen that stops offering it turns the button off
-    /// through the same render function that turned it on.
+    /// The effect this screen offers beside the control, null where it offers none.
+    /// Passed on every pass rather than held, so a screen that stops offering it turns the button off through
+    /// the same render function that turned it on.
     /// </param>
     public void Apply(Field field, Vocabulary words, FieldAction? action = null)
     {
@@ -328,8 +330,8 @@ public sealed class FieldViewModel : Observable
         ActionNotice = action?.Notice ?? "";
         HasActionNotice = ActionNotice.Length > 0;
 
-        // The heading and the paragraph are this side's, keyed by the field the backend
-        // named; the reason and the note are statements it made, turned into sentences here.
+        // The heading and the paragraph are this side's, keyed by the field the backend named; the reason and
+        // the note are statements it made, turned into sentences here.
         var copy = Copy.Fields.Of(Key);
         Label = copy.Label;
         Help = copy.Help;
@@ -356,8 +358,8 @@ public sealed class FieldViewModel : Observable
         IsChoice = IsSelect || IsRadio;
         IsReadonly = field.Control == ControlKind.Readonly;
 
-        // Absence of a range means unbounded rather than zero, so a field with none is given
-        // the widest bounds the widget can hold instead of being pinned at nothing.
+        // Absence of a range means unbounded rather than zero, so a field with none is given the widest
+        // bounds the widget can hold instead of being pinned at nothing.
         Minimum = field.Range?.Min ?? int.MinValue;
         Maximum = field.Range?.Max ?? int.MaxValue;
         Step = field.Range is { Step: > 0 } range ? range.Step : 1;
@@ -369,8 +371,8 @@ public sealed class FieldViewModel : Observable
         Adopt(field.Value);
         Reconcile.Onto(Options, OptionRows(field));
 
-        // The closed dropdown's face, set on every pass including the branch where nothing is
-        // picked, so a field that lost its entry cannot go on showing the last one it had.
+        // The closed dropdown's face, set on every pass including the branch where nothing is picked, so a
+        // field that lost its entry cannot go on showing the last one it had.
         var picked = Options.FirstOrDefault(option => option.IsSelected);
         PickedLabel = picked?.Label ?? Readback;
         PickedNote = picked?.Note ?? "";
@@ -385,9 +387,10 @@ public sealed class FieldViewModel : Observable
     }
 
     /// <summary>
-    /// Takes the value the form carries. It is the backend's answer including any repair, so
-    /// it is assigned rather than compared against what the widget held: adopting the whole
-    /// draft is what keeps a greyed option and its replacement from disagreeing.
+    /// Takes the value the form carries.
+    /// It is the backend's answer including any repair, so it is assigned rather than compared against what
+    /// the widget held: adopting the whole draft is what keeps a greyed option and its replacement from
+    /// disagreeing.
     /// </summary>
     private void Adopt(FieldValue value)
     {
@@ -426,8 +429,9 @@ public sealed class FieldViewModel : Observable
     }
 
     /// <summary>
-    /// The entries, with the picked one marked. The command per value is made once and
-    /// reused, which is what lets an unchanged pass produce rows that compare equal.
+    /// The entries, with the picked one marked.
+    /// The command per value is made once and reused, which is what lets an unchanged pass produce rows that
+    /// compare equal.
     /// </summary>
     private IReadOnlyList<OptionViewModel> OptionRows(Field field)
     {
@@ -454,8 +458,8 @@ public sealed class FieldViewModel : Observable
             return command;
         }
 
-        // The kind is read when the command runs rather than captured now, so a command made
-        // on one pass still writes the type the field carries on the next.
+        // The kind is read when the command runs rather than captured now, so a command made on one pass
+        // still writes the type the field carries on the next.
         command = new DelegateCommand(() => _write(Key, FieldValues.Of(_kind, value)));
         _choose[value] = command;
         return command;

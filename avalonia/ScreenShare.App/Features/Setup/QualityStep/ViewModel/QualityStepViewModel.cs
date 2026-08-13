@@ -8,31 +8,33 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 
 /// <summary>
-/// The quality step: the same group of the resolved form the generic renderer would draw,
-/// laid out the way this screen is designed instead.
+/// The quality step: the same group of the resolved form the generic renderer would draw, laid out the way
+/// this screen is designed instead.
 ///
-/// <b>It holds no state of its own.</b> Which rate-control modes exist, what each is called,
-/// what the quantizer's ends mean, which resolutions this source can be scaled to, which
-/// frame rates the panel can produce and what a keyframe interval works out to are all the
-/// backend's answers, arriving through <see cref="FieldGroupViewModel"/> already decided
-/// (docs/ipc-api.md, "The rule"). Every write leaves through the field the reader moved.
+/// <b>It holds no state of its own.</b> Which rate-control modes exist, what each is called, what the
+/// quantizer's ends mean, which resolutions this source can be scaled to, which frame rates the panel can
+/// produce and what a keyframe interval works out to are all the backend's answers, arriving through
+/// <see cref="FieldGroupViewModel"/> already decided (docs/ipc-api.md, "The rule").
+/// Every write leaves through the field the reader moved.
 ///
-/// What this class does is placement, which the contract leaves to the shell: the rate
-/// control is drawn as cards because each option carries a paragraph, the quantizer sits on a
-/// banded track because its scale has named zones, and everything else the group offers as a
-/// select goes in the read-back row at the foot. A field the form adds to the group appears
-/// there without an edit here; a field it removes stops being drawn.
+/// What this class does is placement, which the contract leaves to the shell: the rate control is drawn as
+/// cards because each option carries a paragraph, the quantizer sits on a banded track because its scale has
+/// named zones, and everything else the group offers as a select goes in the read-back row at the foot.
+/// A field the form adds to the group appears there without an edit here; a field it removes stops being
+/// drawn.
 ///
-/// <b>Outputs</b> only, written by <see cref="Apply"/> on every pass, including the branches
-/// that turn a control off. The step re-renders when the group's fields change, which is the
-/// same notification the generic renderer redraws from.
+/// <b>Outputs</b> only, written by <see cref="Apply"/> on every pass, including the branches that turn a
+/// control off.
+/// The step re-renders when the group's fields change, which is the same notification the generic renderer
+/// redraws from.
 /// </summary>
 public sealed class QualityStepViewModel : Observable
 {
     /// <summary>
-    /// The two fields this layout places by name, read from the table that also tells the
-    /// drawer below what it is left with. Everything else the group carries is drawn
-    /// generically, so those two keys are the whole of what this screen assumes about it.
+    /// The two fields this layout places by name, read from the table that also tells the drawer below what
+    /// it is left with.
+    /// Everything else the group carries is drawn generically, so those two keys are the whole of what this
+    /// screen assumes about it.
     /// </summary>
     private const string ModeKey = QualityLayout.ModeKey;
     private const string QuantizerKey = QualityLayout.QuantizerKey;
@@ -56,10 +58,9 @@ public sealed class QualityStepViewModel : Observable
         _group = group;
         Selects = [];
 
-        // The group is rendered by the flow that owns the draft, so this step learns of a
-        // change the same way any other reader does: from the notification, never by holding
-        // a copy (docs/development-principles.md, "State is written explicitly and read
-        // continuously").
+        // The group is rendered by the flow that owns the draft, so this step learns of a change the same way
+        // any other reader does: from the notification, never by holding a copy
+        // (docs/development-principles.md, "State is written explicitly and read continuously").
         _group.PropertyChanged += (_, _) => Apply();
         ((INotifyCollectionChanged)_group.Fields).CollectionChanged += (_, _) => Apply();
 
@@ -77,10 +78,10 @@ public sealed class QualityStepViewModel : Observable
     public string Summary { get => _summary; private set => Set(ref _summary, value); }
 
     /// <summary>
-    /// Whether the form carries this group at all. False is the honest state before the first
-    /// resolve and for a backend that does not describe the step, and the card is not drawn
-    /// at all rather than drawn empty or drawn around a sentence of its own: an unreachable
-    /// backend is reported once, above the column that would hold it.
+    /// Whether the form carries this group at all.
+    /// False is the honest state before the first resolve and for a backend that does not describe the step,
+    /// and the card is not drawn at all rather than drawn empty or drawn around a sentence of its own: an
+    /// unreachable backend is reported once, above the column that would hold it.
     /// </summary>
     public bool IsResolved { get => _isResolved; private set => Set(ref _isResolved, value); }
 
@@ -95,16 +96,16 @@ public sealed class QualityStepViewModel : Observable
     public bool HasQuantizer { get => _hasQuantizer; private set => Set(ref _hasQuantizer, value); }
 
     /// <summary>
-    /// How many rate-control cards sit across the step, for the count of modes this form
-    /// offers. A shape rather than a control: the panel divides the same options into rows
-    /// from it (<see cref="QualityLayout.CardColumns"/>).
+    /// How many rate-control cards sit across the step, for the count of modes this form offers.
+    /// A shape rather than a control: the panel divides the same options into rows from it
+    /// (<see cref="QualityLayout.CardColumns"/>).
     /// </summary>
     public int ModeColumns { get => _modeColumns; private set => Set(ref _modeColumns, value); }
 
     /// <summary>
-    /// The one render function. Safe to run twice: the group hands back the same field view
-    /// models by key, so an unchanged pass assigns the same references and reconciles onto an
-    /// equal list, and no binding fires.
+    /// The one render function.
+    /// Safe to run twice: the group hands back the same field view models by key, so an unchanged pass
+    /// assigns the same references and reconciles onto an equal list, and no binding fires.
     /// </summary>
     public void Apply()
     {
@@ -126,13 +127,13 @@ public sealed class QualityStepViewModel : Observable
     }
 
     /// <summary>
-    /// The controls the read-back row draws: every options field the group offers, in the
-    /// order the form gave them and minus the two this layout places itself.
+    /// The controls the read-back row draws: every options field the group offers, in the order the form gave
+    /// them and minus the two this layout places itself.
     ///
-    /// Chosen by control kind rather than by key, which is what keeps the row open: a
-    /// resolution, a frame rate and a keyframe interval are three dropdowns to this code and
-    /// nothing more, and a fourth one arrives without a line changing here. The fields with
-    /// no options fall to the drawer below, which is the other half of
+    /// Chosen by control kind rather than by key, which is what keeps the row open: a resolution, a frame
+    /// rate and a keyframe interval are three dropdowns to this code and nothing more, and a fourth one
+    /// arrives without a line changing here.
+    /// The fields with no options fall to the drawer below, which is the other half of
     /// <see cref="QualityLayout"/>.
     /// </summary>
     private IReadOnlyList<FieldViewModel> Placed()

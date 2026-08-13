@@ -1,15 +1,18 @@
 package settings
 
-import "encoding/json"
+import (
+	"encoding/json"
 
-// flat is the one settings shape every build before the three groups wrote: one
-// object with every key at the top level, the leg spelled into the field names that
-// needed it.
+	"bjoernblessin.de/go-utils/util/assert"
+)
+
+// flat is the one settings shape every build before the three groups wrote:
+// one object with every key at the top level, the leg spelled into the field names that needed it.
 //
 // It is kept so a stored file survives the split rather than reading as a first start.
-// Only the fields that moved or were renamed are here; everything else keeps its key
-// inside its group, so the ordinary decode already found it - which is why this is a
-// second pass over the same bytes rather than a whole second struct.
+// Only the fields that moved or were renamed are here; everything else keeps its key inside its
+// group, so the ordinary decode already found it, which is why this is a second pass over the same
+// bytes rather than a whole second struct.
 type flat struct {
 	RelayHost  *string `json:"relayHost"`
 	RelayPort  *int    `json:"relayPort"`
@@ -44,9 +47,9 @@ type flat struct {
 	UplinkMbps          *int    `json:"uplinkMbps"`
 	OutputResolution    *string `json:"outputResolution"`
 
-	// WatchTransport was the one watch leg, which the player keeps; GridTransport was
-	// the GTK grid window's, which the tile receiver inherits, since it is the leg a
-	// receiving pipeline was already being given.
+	// WatchTransport was the one watch leg, which the player keeps.
+	// GridTransport was the GTK grid window's, which the tile receiver inherits,
+	// since it is the leg a receiving pipeline was already being given.
 	WatchTransport     *string `json:"watchTransport"`
 	GridTransport      *string `json:"gridTransport"`
 	RtspWatchProtocol  *string `json:"rtspWatchProtocol"`
@@ -54,17 +57,17 @@ type flat struct {
 	RtspWatchLatencyMs *int    `json:"rtspWatchLatencyMs"`
 }
 
-// decodeFlat reads a settings file written before the three groups, and reports false
-// for one written after them.
+// decodeFlat reads a settings file written before the three groups, and reports false for one
+// written after them.
 //
-// A file is the old shape when it carries the one key the old shape always wrote and
-// no group ever will. Presence rather than emptiness: a relay host is a string a user
-// can legitimately have cleared, and a test on its value would read an edited new file
-// as an old one.
+// A file is the old shape when it carries the one key the old shape always wrote and no group ever
+// will.
+// Presence rather than emptiness: a relay host is a string a user can legitimately have cleared,
+// and a test on its value would read an edited new file as an old one.
 //
-// Every field is a pointer for the same reason. A key the old file did not carry is a
-// key the defaults answer, and a zero taken from an absent key would set a frame rate
-// of zero or a port of none where the old build had neither.
+// Every field is a pointer for the same reason.
+// A key the old file did not carry is a key the defaults answer, and a zero taken from an absent
+// key would set a frame rate of zero or a port of none where the old build had neither.
 func decodeFlat(data []byte) (Settings, bool) {
 	var f flat
 	if err := json.Unmarshal(data, &f); err != nil {
@@ -116,18 +119,24 @@ func decodeFlat(data []byte) (Settings, bool) {
 	return s, true
 }
 
-// set writes a stored value over a default, and leaves the default where the file
-// carried no such key.
+// set writes a stored value over a default, and leaves the default where the file carried no such
+// key.
 func set[T any](into *T, stored *T) {
+	assert.IsNotNil(into, "a stored value is written into a field")
+
 	if stored != nil {
 		*into = *stored
 	}
 }
 
-// migrate upgrades a decoded settings object to the current schema. It renames the
-// pre-rate-control modes (latency/quality became cbr/crf) and fills fields added since
-// the file was written. Applied to the working settings and to every saved preset, so
-// a file written by an older build stays usable.
+// migrate upgrades a decoded settings object to the current schema.
+// It renames the pre-rate-control modes (latency and quality became cbr and crf) and fills fields
+// added since the file was written.
+// Applied to the working settings and to every saved preset, so a file written by an older build
+// stays usable.
+//
+// It is idempotent: a second pass over its own output renames nothing, because the old mode names
+// are gone, and fills nothing, because every key it fills is non-empty by then.
 func migrate(s Settings) Settings {
 	d := Defaults()
 	s.Relay = migrateRelay(s.Relay, d.Relay)
@@ -136,9 +145,8 @@ func migrate(s Settings) Settings {
 	return s
 }
 
-// migrateRelay fills the listeners a file written before a transport was registered
-// lacks. No transport can be reached on port zero, so a missing port is not a value
-// the user chose.
+// migrateRelay fills the listeners a file written before a transport was registered lacks.
+// No transport can be reached on port zero, so a missing port is not a value the user chose.
 func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.SrtPort, d.SrtPort)
 	fillNum(&r.ApiPort, d.ApiPort)
@@ -146,6 +154,10 @@ func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.WebrtcPort, d.WebrtcPort)
 	fillNum(&r.RtmpPort, d.RtmpPort)
 	fillNum(&r.HlsPort, d.HlsPort)
+
+	assert.Assert(r.SrtPort > 0 && r.ApiPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0,
+		"an upgraded relay names a port for every listener",
+		r.SrtPort, r.ApiPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort)
 	return r
 }
 
@@ -157,58 +169,65 @@ func migratePublish(p, d Publish) Publish {
 	case "quality":
 		p.Mode = "crf"
 	}
-	// A zero ceiling would leave VBR no room above the target; default it. VbvMs
-	// zero is a valid value (the encoder's own buffer default), so it is left.
+	// A zero ceiling would leave VBR no room above the target, so it is defaulted.
+	// VbvMs zero is a valid value, the encoder's own buffer default, so it is left.
 	fillNum(&p.MaxrateM, d.MaxrateM)
-	// Files from before the per-hop latency split lack this key; zero would disable
-	// SRT's retransmit window entirely.
+	// Files from before the per-hop latency split lack this key; zero would disable SRT's retransmit
+	// window entirely.
 	fillNum(&p.SrtPublishLatencyMs, d.SrtPublishLatencyMs)
-	// The publish leg's protocol was fixed before it was a field, so a file from then
-	// names none and the transport refuses the publish over the empty value.
+	// The publish leg's protocol was fixed before it was a field, so a file from then names none and
+	// the transport refuses the publish over the empty value.
 	fillText(&p.RtspPublishProtocol, d.RtspPublishProtocol)
-	// A file written while the second track was one source carries that source's name
-	// under the old key, which the ordinary decode never looked at: the field is a list
-	// now and the two shapes have no reading in common. The one source becomes the one
-	// entry, at unity gain and unmuted, so a stored stream keeps recording what it did.
-	// A file written before the option at all carries neither, and gets the empty list a
-	// fresh installation has.
+	// A file written while the second track was one source carries that source's name under the old
+	// key, which the ordinary decode never looked at: the field is a list now and the two shapes have
+	// no reading in common.
+	// The one source becomes the one entry, at unity gain and unmuted, so a stored stream keeps
+	// recording what it did.
+	// A file written before the option at all carries neither, and gets the empty list a fresh
+	// installation has.
 	p.AudioSources = audioSourcesOf(&p.LegacyAudio, p.AudioSources)
 	p.LegacyAudio = ""
-	// A file written before the audio codec became a setting names none, and both
-	// engines refuse an audio track whose codec no table row carries. Opus is what
-	// those builds encoded, so filling it keeps a stored stream publishing the track it
+	// A file written before the audio codec became a setting names none, and both engines refuse an
+	// audio track whose codec no table row carries.
+	// Opus is what those builds encoded, so filling it keeps a stored stream publishing the track it
 	// always did rather than starting it on a codec the file never chose.
 	fillText(&p.AudioCodec, d.AudioCodec)
-	// The DRM download strategy and the encoder preset are both matched against a
-	// table by the builders that read them, and both reject a value the table does
-	// not name. Filling the key a file written before the option lacks is what keeps
-	// that rejection about a value the user chose.
+	// The DRM download strategy and the encoder preset are both matched against a table by the
+	// builders that read them, and both reject a value the table does not name.
+	// Filling the key a file written before the option lacks is what keeps that rejection about a
+	// value the user chose.
 	fillText(&p.DrmMap, d.DrmMap)
-	// A file written before the ladders became settings names no step, and every builder
-	// refuses a value its ladder does not carry. The codec's own default for the mode is
-	// what those builds spent, so filling it keeps a stored stream encoding as it did.
+	// A file written before the ladders became settings names no step, and every builder refuses a
+	// value its ladder does not carry.
+	// The codec's own default for the mode is what those builds spent, so filling it keeps a stored
+	// stream encoding as it did.
 	if p.Effort == "" || p.Tune == "" {
 		effort, tune := LadderSteps(p.Codec, p.Mode)
 		fillText(&p.Effort, effort)
 		fillText(&p.Tune, tune)
 	}
-	// A file written before the frame memory option names none, and every engine
-	// refuses a value its table does not carry. The table's own default is the value
-	// every pair satisfies, so filling it keeps a stored stream publishing exactly as
-	// it did: a pair with no GPU path resolves to the same system memory it always
-	// used, and one that has a path takes it.
+	// A file written before the frame memory option names none, and every engine refuses a value its
+	// table does not carry.
+	// The table's own default is the value every pair satisfies, so filling it keeps a stored stream
+	// publishing exactly as it did: a pair with no GPU path resolves to the same system memory it
+	// always used, and one that has a path takes it.
 	fillText(&p.CaptureMemory, d.CaptureMemory)
-	// A file written before the pointer became a setting names no mode, and the builders
-	// reject a value no table carries. The default is what those builds did: every
-	// backend but kmsgrab drew the pointer into the frames, so filling it keeps a stored
-	// stream looking exactly as it did rather than starting it without one.
+	// A file written before the pointer became a setting names no mode, and the builders reject a
+	// value no table carries.
+	// The default is what those builds did: every backend but kmsgrab drew the pointer into the
+	// frames, so filling it keeps a stored stream looking exactly as it did rather than starting it
+	// without one.
 	fillText(&p.Cursor, d.Cursor)
+
+	assert.Assert(p.LegacyAudio == "", "an upgraded publish carries no pre-list audio key", p.LegacyAudio)
+	assert.Assert(p.Mode != "latency" && p.Mode != "quality",
+		"an upgraded publish names a rate control the tables carry", p.Mode)
 	return p
 }
 
-// migrateViewer fills the watch knobs a file written before each of them lacks. None
-// of the zero values is one a receiver can be given: no leg to open, no RTP lower
-// transport to negotiate, no retransmit window, no jitter buffer and no render chain.
+// migrateViewer fills the watch knobs a file written before each of them lacks.
+// None of the zero values is one a receiver can be given: no leg to open, no RTP lower transport to
+// negotiate, no retransmit window, no jitter buffer and no render chain.
 func migrateViewer(v, d Viewer) Viewer {
 	fillText(&v.PlayerWatchTransport, d.PlayerWatchTransport)
 	fillText(&v.TileWatchTransport, d.TileWatchTransport)
@@ -216,34 +235,43 @@ func migrateViewer(v, d Viewer) Viewer {
 	fillNum(&v.SrtWatchLatencyMs, d.SrtWatchLatencyMs)
 	fillNum(&v.RtspWatchLatencyMs, d.RtspWatchLatencyMs)
 	fillText(&v.RenderChain, d.RenderChain)
+
+	assert.Assert(v.PlayerWatchTransport != "" && v.TileWatchTransport != "" && v.RenderChain != "",
+		"an upgraded viewer names both legs and a render chain",
+		v.PlayerWatchTransport, v.TileWatchTransport, v.RenderChain)
 	return v
 }
 
-// fillText writes the default over a string a stored file did not carry. Empty is what
-// "did not carry" means for every field it is called on, which is why each call site
+// fillText writes the default over a string a stored file did not carry.
+// Empty is what "did not carry" means for every field it is called on, which is why each call site
 // above says why empty is not a value the user could have chosen there.
 func fillText(into *string, def string) {
+	assert.IsNotNil(into, "a default is written into a field")
+
 	if *into == "" {
 		*into = def
 	}
 }
 
-// fillNum is fillText for a figure, and takes anything at or below zero rather than
-// zero alone: every number it is called on is a port, a window or a ceiling, and none
-// of those has a meaning at zero or below that a file could have stored on purpose.
+// fillNum is fillText for a figure, and takes anything at or below zero rather than zero alone.
+// Every number it is called on is a port, a window or a ceiling, and none of those has a meaning at
+// zero or below that a file could have stored on purpose.
 func fillNum(into *int, def int) {
+	assert.IsNotNil(into, "a default is written into a field")
+
 	if *into <= 0 {
 		*into = def
 	}
 }
 
-// audioSourcesOf turns the one source name an older file carried into the list a current
-// one holds, and leaves a list that is already there alone.
+// audioSourcesOf turns the one source name an older file carried into the list a current one holds,
+// and leaves a list that is already there alone.
 //
-// The stored list wins wherever it has entries, because a file carrying both was written by
-// a build that had the list: the old key is what that build left behind rather than a
-// second opinion about what to record. A name of the absent source becomes the empty list,
-// which is the same stream - no second track - written the way the field spells it now.
+// The stored list wins wherever it has entries, because a file carrying both was written by a build
+// that had the list: the old key is what that build left behind rather than a second opinion about
+// what to record.
+// A name of the absent source becomes the empty list, which is the same stream, no second track,
+// written the way the field spells it now.
 func audioSourcesOf(legacy *string, stored []AudioSource) []AudioSource {
 	if len(stored) > 0 || legacy == nil || *legacy == "" || *legacy == audioSourceNone {
 		return stored

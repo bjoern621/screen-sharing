@@ -48,8 +48,8 @@ func TestWebRTCGstSink(t *testing.T) {
 	}
 	sink := WebRTC{}.GstSink(s)
 
-	// The endpoint is a property of the element's signaller, not of the element, and
-	// the audio branch attaches by the mux name, so both have to be spelled exactly.
+	// The endpoint is a property of the element's signaller, not of the element,
+	// and the audio branch attaches by the mux name, so both have to be spelled exactly.
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
@@ -73,9 +73,8 @@ func TestWebRTCGstSource(t *testing.T) {
 	}
 	src := WebRTC{}.GstSource(s, "bob")
 
-	// The endpoint is the viewer's half of the exchange, and the empty audio caps
-	// are what keeps the relay from refusing the offer, so both have to be spelled
-	// exactly.
+	// The endpoint is the viewer's half of the exchange, and the empty audio caps are what keeps the
+	// relay from refusing the offer, so both have to be spelled exactly.
 	for _, want := range []string{
 		"whepsrc",
 		"whep-endpoint=http://relay.example:8889/bob/whep",
@@ -88,8 +87,8 @@ func TestWebRTCGstSource(t *testing.T) {
 }
 
 // WebRTC publishes on both engines and is watched by a receiving pipeline alone:
-// WHEP is a signaling exchange rather than a URL a viewer program opens, so the
-// capability helpers must split the two watch questions apart.
+// WHEP is a signaling exchange rather than a URL a viewer program opens, so the capability helpers
+// must split the two watch questions apart.
 func TestWebRTCCapabilities(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
@@ -132,9 +131,9 @@ func TestWebRTCCapabilities(t *testing.T) {
 		}
 	}
 
-	// The leg no player opens is the one a browser does, from the page the relay
-	// serves: the exchange runs in the page's own RTCPeerConnection, so the address
-	// is the path and never the whep endpoint the receiving pipeline posts to.
+	// The leg no player opens is the one a browser does, from the page the relay serves:
+	// the exchange runs in the page's own RTCPeerConnection, so the address is the path and never the
+	// whep endpoint the receiving pipeline posts to.
 	page, ok := BrowserURL("webrtc", s, "bob")
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
@@ -147,10 +146,11 @@ func TestWebRTCCapabilities(t *testing.T) {
 	}
 }
 
-// The two engines negotiate different video sets over the same WHIP endpoint: ffmpeg's whip
-// muxer has one H.264 payloader, and whipclientsink payloads whatever webrtcbin offers.
-// Collapsing the two carriages into one list would have to take the narrower of them, which
-// refuses the GStreamer engine two formats it serializes correctly, and the narrowing is
+// The two engines negotiate different video sets over the same WHIP endpoint:
+// ffmpeg's whip muxer has one H.264 payloader, and whipclientsink payloads whatever webrtcbin
+// offers.
+// Collapsing the two carriages into one list would have to take the narrower of them,
+// which refuses the GStreamer engine two formats it serializes correctly, and the narrowing is
 // invisible at the point it costs a publish.
 // So the difference is pinned here rather than left to hold by coincidence.
 func TestWebRTCPublishCarriagesDifferPerEngine(t *testing.T) {
@@ -174,8 +174,8 @@ func TestWebRTCPublishCarriagesDifferPerEngine(t *testing.T) {
 			t.Errorf("whipclientsink payloads %s, so the gstreamer carriage must hold it", format)
 		}
 	}
-	// Opus is the whole audio set on both, which follows from what WebRTC negotiates
-	// rather than from either engine's muxer.
+	// Opus is the whole audio set on both, which follows from what WebRTC negotiates rather than from
+	// either engine's muxer.
 	for _, c := range []Carriage{ffmpeg, gst} {
 		if !slices.Equal(c.Audio, []string{"opus"}) {
 			t.Errorf("a WebRTC publish carriage holds %v, want opus alone", c.Audio)

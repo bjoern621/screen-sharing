@@ -366,9 +366,13 @@ func missingFactory(needs []string) string {
 	return ""
 }
 
-// launch is the whole launch line: the stream's own source fragment, the tone-map rung
-// where the viewer asked for one, the chain's elements, and the queue and sink every
-// chain ends in.
+// launch is the whole launch line: the stream's own source fragment, the tone-map rung, the
+// chain's elements, and the queue and sink every chain ends in.
+//
+// The rung is passed in rather than read here, and it is the one that resolved rather than
+// the one that was asked for. A decode that asked for no tone mapping and a decode on a
+// machine that cannot both carry the zero rung, which builds nothing, so this writes what
+// ran and never what was wanted.
 //
 // A raw stream hands over pictures rather than a bitstream, which is what takes the
 // decoder out of the line. A screen read off this machine is the case that exists:
@@ -379,15 +383,13 @@ func missingFactory(needs []string) string {
 // carry the range they were coded in. Behind the chain's converter they are already
 // labelled sRGB, and a rolloff applied there would be reading its input off a label that
 // no longer describes the samples.
-func (c chain) launch(st Stream, open Open) string {
-	parts := make([]string, 0, len(c.elements)+len(toneMapping.elements)+4)
+func (c chain) launch(st Stream, rung toneMapRung) string {
+	parts := make([]string, 0, len(c.elements)+len(rung.elements)+4)
 	parts = append(parts, st.Source)
 	if !st.Raw {
 		parts = append(parts, "decodebin name="+decodeName)
 	}
-	if open.ToneMap {
-		parts = append(parts, toneMapping.elements...)
-	}
+	parts = append(parts, rung.elements...)
 	parts = append(parts, c.elements...)
 	parts = append(parts, renderQueue, renderSink)
 	return strings.Join(parts, " ! ")

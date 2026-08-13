@@ -20,9 +20,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// fieldDeclaredKeys is every constant in keys.go, written out rather than derived, because
-// there is nothing to derive it from: Go has no reflection over a const block. It is the
-// second copy of that list and the only one, which is what makes the bijection below a
+// fieldDeclaredKeys is every constant in keys.go, written out rather than derived,
+// because there is nothing to derive it from: Go has no reflection over a const block.
+// It is the second copy of that list and the only one, which is what makes the bijection below a
 // real check rather than a tautology - a key added to keys.go and to no table fails here.
 var fieldDeclaredKeys = []string{
 	KeyName, KeyRelayHost, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
@@ -46,9 +46,9 @@ var fieldDeclaredGroups = []string{
 	GroupTransport, GroupWatch, GroupRelay,
 }
 
-// fieldTestDeps is a machine with two monitors, so a test resolves a form for hardware it
-// is not running on. That is the whole reason Deps exists rather than a probe read at
-// call time.
+// fieldTestDeps is a machine with two monitors, so a test resolves a form for hardware it is not
+// running on.
+// That is the whole reason Deps exists rather than a probe read at call time.
 func fieldTestDeps() Deps {
 	return Deps{
 		Monitors: []display.Monitor{
@@ -81,8 +81,8 @@ func fieldOptionValues(t *testing.T, key string) []string {
 	case f.options != nil:
 		built = f.options(d, s)
 	case f.itemOptions != nil:
-		// The entry a fresh installation draws, which is the row past the end of an empty
-		// list: the one a reader grows it by.
+		// The entry a fresh installation draws, which is the row past the end of an empty list:
+		// the one a reader grows it by.
 		built = f.itemOptions(d, s, settings.DefaultAudioSource())
 	default:
 		t.Fatalf("%s offers no options", key)
@@ -95,10 +95,10 @@ func fieldOptionValues(t *testing.T, key string) []string {
 	return out
 }
 
-// A shell binds its widgets by key and a capability gap names the control it greys by the
-// same key, so a key with no row is a gap pointing at nothing and a row with a key no
-// constant declares is a control nothing can ever point at. The two lists are therefore
-// one list, and this is where they are held to it.
+// A shell binds its widgets by key and a capability gap names the control it greys by the same key,
+// so a key with no row is a gap pointing at nothing and a row with a key no constant declares is a
+// control nothing can ever point at.
+// The two lists are therefore one list, and this is where they are held to it.
 func TestEveryDeclaredKeyHasExactlyOneRow(t *testing.T) {
 	for _, key := range fieldDeclaredKeys {
 		rows := 0
@@ -124,8 +124,8 @@ func TestEveryRowNamesADeclaredKey(t *testing.T) {
 	}
 }
 
-// resolveField calls the value function on every row it renders, so a row without one is
-// a panic on the first resolve rather than a control that renders empty.
+// resolveField calls the value function on every row it renders, so a row without one is a panic on
+// the first resolve rather than a control that renders empty.
 func TestEveryRowShowsAValue(t *testing.T) {
 	s := settings.Defaults()
 	for i := range fieldTable {
@@ -134,8 +134,8 @@ func TestEveryRowShowsAValue(t *testing.T) {
 			t.Errorf("%s reads its value either off the draft or off one entry, and states neither or both", f.key)
 			continue
 		}
-		// A repeated row is read for the entry a fresh installation would draw, which is
-		// the row past the end of an empty list: the one a reader grows it by.
+		// A repeated row is read for the entry a fresh installation would draw, which is the row past the
+		// end of an empty list: the one a reader grows it by.
 		entry := noEntry
 		if f.repeat {
 			entry = 0
@@ -146,10 +146,10 @@ func TestEveryRowShowsAValue(t *testing.T) {
 	}
 }
 
-// Every control states what a fresh installation holds there, and states it from the
-// defaults rather than from the draft in front of it. A shell puts a group of settings
-// back with it, and a default that followed the draft would put a changed value back to
-// what it was just changed to.
+// Every control states what a fresh installation holds there, and states it from the defaults
+// rather than from the draft in front of it.
+// A shell puts a group of settings back with it, and a default that followed the draft would put a
+// changed value back to what it was just changed to.
 func TestEveryFieldStatesWhatAFreshInstallationHolds(t *testing.T) {
 	fresh := settings.Defaults()
 
@@ -184,9 +184,8 @@ func TestEveryFieldStatesWhatAFreshInstallationHolds(t *testing.T) {
 	}
 }
 
-// A row assigned to a group no groups entry carries renders nowhere: resolveGroups walks
-// the groups and picks the rows naming each, so the field would be silently absent from
-// every screen.
+// A row assigned to a group no groups entry carries renders nowhere: resolveGroups walks the groups
+// and picks the rows naming each, so the field would be silently absent from every screen.
 func TestEveryRowBelongsToADeclaredGroup(t *testing.T) {
 	for _, f := range fieldTable {
 		if !slices.Contains(fieldDeclaredGroups, f.group) {
@@ -200,9 +199,10 @@ func TestEveryRowBelongsToADeclaredGroup(t *testing.T) {
 	}
 }
 
-// resolveGroups drops a group with no fields, so a heading no row names is a heading that
-// never appears. Declaring one is then either a row that was forgotten or a group that
-// should not exist, and both are worth failing on.
+// resolveGroups drops a group with no fields, so a heading no row names is a heading that never
+// appears.
+// Declaring one is then either a row that was forgotten or a group that should not exist,
+// and both are worth failing on.
 func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 	for _, g := range groups {
 		rows := 0
@@ -222,10 +222,10 @@ func TestEveryGroupDrawsAtLeastOneField(t *testing.T) {
 	}
 }
 
-// Every group is declared once and under a key the form spells, since the key is the
-// whole of a group on the wire: the heading over it and the paragraph under it are
-// looked up by that key on the surface that draws it, and one the surface has never
-// heard of would render as an unnamed run of fields.
+// Every group is declared once and under a key the form spells, since the key is the whole of a
+// group on the wire: the heading over it and the paragraph under it are looked up by that key on
+// the surface that draws it, and one the surface has never heard of would render as an unnamed run
+// of fields.
 func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	declared := []string{
 		GroupStream, GroupSource, GroupQuality, GroupAudio,
@@ -248,15 +248,15 @@ func TestEveryGroupIsDeclaredOnceUnderADeclaredKey(t *testing.T) {
 	}
 }
 
-// Which groups are applied rather than staged, stated where a reader of the contract
-// looks for it. The list is written out rather than read off the table it checks, which
-// is what makes it a check: a group that gains or loses the flag fails here, and the
-// consequence of getting it wrong is invisible until someone is stuck.
+// Which groups are applied rather than staged, stated where a reader of the contract looks for it.
+// The list is written out rather than read off the table it checks, which is what makes it a check:
+// a group that gains or loses the flag fails here, and the consequence of getting it wrong is
+// invisible until someone is stuck.
 //
 // Applied wrong in one direction persists a half-configured stream on every keystroke.
-// Applied wrong in the other direction is the deadlock form.proto describes: the relay's
-// address only reaches the backend through a publish, and the publish is refused because
-// the relay it would change cannot be reached.
+// Applied wrong in the other direction is the deadlock form.proto describes:
+// the relay's address only reaches the backend through a publish, and the publish is refused
+// because the relay it would change cannot be reached.
 func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 	applied := map[string]bool{
 		GroupRelay: true,
@@ -268,8 +268,7 @@ func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 		}
 	}
 
-	// The flag has to survive the render, since a shell reads it off the group and not
-	// off this table.
+	// The flag has to survive the render, since a shell reads it off the group and not off this table.
 	for _, g := range resolveGroups(fieldTestDeps(), settings.Defaults(), settings.Defaults()) {
 		if want := applied[g.GetKey()]; g.GetApplied() != want {
 			t.Errorf("resolved group %q is applied=%v, want %v", g.GetKey(), g.GetApplied(), want)
@@ -277,12 +276,13 @@ func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 	}
 }
 
-// The contract fills options for a select and a radio, a range for a number and a
-// slider, both for the number that carries a ladder, and leaves each empty on the
-// controls it does not apply to. A select with no options is a dropdown a shell cannot
-// open; a number with no range is a field with no ends, which the contract says a shell
-// must read as unbounded rather than as zero; and a number-select missing either half is
-// one of the two ordinary controls mislabelled as the combined one.
+// The contract fills options for a select and a radio, a range for a number and a slider,
+// both for the number that carries a ladder, and leaves each empty on the controls it does not
+// apply to.
+// A select with no options is a dropdown a shell cannot open; a number with no range is a field
+// with no ends, which the contract says a shell must read as unbounded rather than as zero;
+// and a number-select missing either half is one of the two ordinary controls mislabelled as the
+// combined one.
 func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 	for _, f := range fieldTable {
 		switch f.control {
@@ -317,9 +317,9 @@ func TestASelectOffersOptionsAndANumberStatesARange(t *testing.T) {
 	}
 }
 
-// The ladder is a shortcut and not the domain: every step is a rate the range admits, so
-// picking one can never write a value the same form would refuse. It is the claim the
-// combined control rests on, and the two halves are stated in two places.
+// The ladder is a shortcut and not the domain: every step is a rate the range admits,
+// so picking one can never write a value the same form would refuse.
+// It is the claim the combined control rests on, and the two halves are stated in two places.
 func TestTheFrameRateLadderStaysInsideItsRange(t *testing.T) {
 	d := fieldTestDeps()
 	s := settings.Defaults()
@@ -337,8 +337,8 @@ func TestTheFrameRateLadderStaysInsideItsRange(t *testing.T) {
 	}
 }
 
-// A saved rate the ladder does not carry is offered all the same, so the closed control
-// shows the rate the stream is captured at rather than the nearest step to it.
+// A saved rate the ladder does not carry is offered all the same, so the closed control shows the
+// rate the stream is captured at rather than the nearest step to it.
 func TestTheFrameRateLadderCarriesASavedRateOffIt(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Fps = 37
@@ -350,9 +350,9 @@ func TestTheFrameRateLadderCarriesASavedRateOffIt(t *testing.T) {
 	}
 }
 
-// A unit says what a number means, and every quantity here is one. It is an enum and
-// not a spelling: how "Mbit/s" is set beside its figure is typography, and a field
-// carrying one string could not tell a surface which half was which.
+// A unit says what a number means, and every quantity here is one.
+// It is an enum and not a spelling: how "Mbit/s" is set beside its figure is typography,
+// and a field carrying one string could not tell a surface which half was which.
 func TestEveryQuantityStatesItsUnit(t *testing.T) {
 	units := map[string]screensharev1.Unit{
 		KeyFps:                 screensharev1.Unit_UNIT_FRAMES_PER_SECOND,
@@ -372,8 +372,8 @@ func TestEveryQuantityStatesItsUnit(t *testing.T) {
 			t.Errorf("%s carries unit %v, want %v", key, got, want)
 		}
 	}
-	// A field that is not a quantity states no unit, so a surface never draws one beside
-	// a stream name or a codec.
+	// A field that is not a quantity states no unit, so a surface never draws one beside a stream name
+	// or a codec.
 	for _, f := range fieldTable {
 		if _, quantity := units[f.key]; quantity {
 			continue
@@ -384,10 +384,10 @@ func TestEveryQuantityStatesItsUnit(t *testing.T) {
 	}
 }
 
-// The verdict on an option is availability's alone. A builder that pre-enabled an entry
-// would be a second place deciding what is greyed, and resolveField overwrites both
-// fields anyway, so a value set here is either ignored or a disagreement waiting to be
-// read as the truth.
+// The verdict on an option is availability's alone.
+// A builder that pre-enabled an entry would be a second place deciding what is greyed,
+// and resolveField overwrites both fields anyway, so a value set here is either ignored or a
+// disagreement waiting to be read as the truth.
 func TestAnOptionLeavesItsVerdictToAvailability(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	for _, f := range fieldTable {
@@ -403,10 +403,10 @@ func TestAnOptionLeavesItsVerdictToAvailability(t *testing.T) {
 	}
 }
 
-// A shell names an entry by its value and sends the same value back, so two entries
-// sharing one are a control with two ways to mean the same thing - a repair that can
-// never settle. The empty value is legal on exactly one control, the output resolution,
-// where it means the capture reaches the encoder unscaled.
+// A shell names an entry by its value and sends the same value back, so two entries sharing one are
+// a control with two ways to mean the same thing - a repair that can never settle.
+// The empty value is legal on exactly one control, the output resolution, where it means the
+// capture reaches the encoder unscaled.
 func TestEveryOptionCarriesADistinctValue(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	for _, f := range fieldTable {
@@ -453,9 +453,9 @@ func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
 		{KeyCodec, codecNames},
 		{KeyMode, capabilities.Modes},
 		{KeyAudioCodec, capabilities.AudioNames()},
-		// fieldTestDeps names no platform, which is what the table answers with every
-		// source offered; the platforms that serve fewer are the greying test's, since a
-		// source a machine cannot serve is greyed here rather than left out.
+		// fieldTestDeps names no platform, which is what the table answers with every source offered;
+		// the platforms that serve fewer are the greying test's, since a source a machine cannot serve is
+		// greyed here rather than left out.
 		{KeyAudioSource, platform.AudioSourceIDs(platform.Info{})},
 		{KeyPlayerWatchTransport, transport.WatchNames(capabilities.EngineFfmpeg)},
 	}
@@ -466,13 +466,13 @@ func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
 	}
 }
 
-// An audio source's note is what serves it here, read off the platform table rather than
-// written into the paragraph beside it.
+// An audio source's note is what serves it here, read off the platform table rather than written
+// into the paragraph beside it.
 //
-// The mechanism is the part that differs per platform, so a paragraph naming one
-// platform's would be read on the other two as a description of what their machine is
-// doing. A machine that serves the source therefore names what serves it, and one that
-// does not names nothing and carries the greying's sentence instead.
+// The mechanism is the part that differs per platform, so a paragraph naming one platform's would
+// be read on the other two as a description of what their machine is doing.
+// A machine that serves the source therefore names what serves it, and one that does not names
+// nothing and carries the greying's sentence instead.
 func TestAnAudioSourcesNoteIsWhatServesItHere(t *testing.T) {
 	for _, info := range []platform.Info{
 		{OS: "linux", Display: "wayland"}, {OS: "windows"}, {OS: "darwin"},
@@ -490,10 +490,10 @@ func TestAnAudioSourcesNoteIsWhatServesItHere(t *testing.T) {
 	}
 }
 
-// The pixel formats have no table of their own: a chroma is a fact about a codec, so the
-// union of the rows is the value space. A format some codec codes and the form does not
-// offer is unreachable; one the form offers and no codec codes is greyed for every
-// selection, which is a dead entry rather than a teaching one.
+// The pixel formats have no table of their own: a chroma is a fact about a codec,
+// so the union of the rows is the value space.
+// A format some codec codes and the form does not offer is unreachable; one the form offers and no
+// codec codes is greyed for every selection, which is a dead entry rather than a teaching one.
 func TestThePixelFormatsAreTheUnionOfWhatTheCodecsCode(t *testing.T) {
 	offered := fieldOptionValues(t, KeyChroma)
 	coded := optionCodedChromas()
@@ -510,9 +510,9 @@ func TestThePixelFormatsAreTheUnionOfWhatTheCodecsCode(t *testing.T) {
 }
 
 // The publish leg offers what either engine can serialize, not what the running one can.
-// A transport this capture backend's engine lacks is one the neighbouring backend has, so
-// the entry stays and is greyed with the engine named; a protocol no engine ingests is
-// absent, since no choice on this screen could lift the reason.
+// A transport this capture backend's engine lacks is one the neighbouring backend has,
+// so the entry stays and is greyed with the engine named; a protocol no engine ingests is absent,
+// since no choice on this screen could lift the reason.
 func TestThePublishLegOffersWhatEitherEngineSerializes(t *testing.T) {
 	offered := fieldOptionValues(t, KeyTransport)
 	var union []string
@@ -534,9 +534,9 @@ func TestThePublishLegOffersWhatEitherEngineSerializes(t *testing.T) {
 	}
 }
 
-// The monitor list is the enumeration plus whatever the settings already name. A stale
-// selection is what the user has to see in order to move off it, so it is present even
-// when the machine no longer reports that output.
+// The monitor list is the enumeration plus whatever the settings already name.
+// A stale selection is what the user has to see in order to move off it, so it is present even when
+// the machine no longer reports that output.
 func TestTheMonitorListKeepsAStaleSelection(t *testing.T) {
 	d := fieldTestDeps()
 	s := settings.Defaults()
@@ -561,9 +561,9 @@ func TestTheMonitorListKeepsAStaleSelection(t *testing.T) {
 	}
 }
 
-// The resolution ladder is derived from the captured monitor rather than listed, so
-// selecting another screen produces another ladder, every entry names what it was scaled
-// from, and no entry is an upscale.
+// The resolution ladder is derived from the captured monitor rather than listed,
+// so selecting another screen produces another ladder, every entry names what it was scaled from,
+// and no entry is an upscale.
 func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 	d := fieldTestDeps()
 	s := settings.Defaults()
@@ -578,9 +578,10 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 	if !slices.Equal(values, want) {
 		t.Errorf("the ladder off a 2560x1440 monitor is %v, want %v", values, want)
 	}
-	// Every scaled entry carries the size it was derived from, so a reader is never
-	// asked to work out where 1600x900 came from. The unscaled entry carries none: it
-	// is the source size, and the monitor's own catalog row is what says what that is.
+	// Every scaled entry carries the size it was derived from, so a reader is never asked to work out
+	// where 1600x900 came from.
+	// The unscaled entry carries none: it is the source size, and the monitor's own catalog row is
+	// what says what that is.
 	for i, o := range options {
 		note := o.GetNote()
 		if i == 0 {
@@ -597,8 +598,8 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 		t.Error("the unscaled entry is the one this backend delivers, so it is the recommended one")
 	}
 
-	// The second monitor is shorter, so the ladder off it is shorter too: a step at or
-	// above the source's own height would be an upscale.
+	// The second monitor is shorter, so the ladder off it is shorter too: a step at or above the
+	// source's own height would be an upscale.
 	s.Publish.Monitor = 1
 	values = values[:0]
 	for _, o := range fieldRowFor(t, KeyOutputResolution).options(d, s) {
@@ -608,8 +609,8 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 		t.Errorf("the ladder off a 1920x1080 monitor is %v, want %v", values, want)
 	}
 
-	// A monitor enumeration reported nothing for leaves the unscaled entry alone: there is
-	// no source size to scale from, and absolute sizes would be a claim about a screen this
+	// A monitor enumeration reported nothing for leaves the unscaled entry alone:
+	// there is no source size to scale from, and absolute sizes would be a claim about a screen this
 	// machine cannot measure.
 	s.Publish.Monitor = 9
 	values = values[:0]
@@ -621,8 +622,9 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 	}
 }
 
-// Every width the ladder offers is even. Every chroma subsampling this app encodes in
-// needs one, so an odd width is a scaler failure rather than a picture.
+// Every width the ladder offers is even.
+// Every chroma subsampling this app encodes in needs one, so an odd width is a scaler failure
+// rather than a picture.
 func TestTheOutputResolutionLadderOffersEvenWidths(t *testing.T) {
 	d := Deps{Monitors: []display.Monitor{{Index: 0, Width: 1366, Height: 768}}}
 	for _, o := range fieldRowFor(t, KeyOutputResolution).options(d, settings.Defaults()) {
@@ -640,10 +642,10 @@ func TestTheOutputResolutionLadderOffersEvenWidths(t *testing.T) {
 	}
 }
 
-// The chroma ladder is the one presentation decision left in this package: which order
-// the pixel formats are offered in, most colour detail kept first. It is an argument
-// about the trade rather than about wording, which is why it survived the move - but a
-// step naming a format no codec codes would silently drop out of the list it is meant to
+// The chroma ladder is the one presentation decision left in this package:
+// which order the pixel formats are offered in, most colour detail kept first.
+// It is an argument about the trade rather than about wording, which is why it survived the move -
+// but a step naming a format no codec codes would silently drop out of the list it is meant to
 // order, and a coded format the ladder forgets lands after the ones it names.
 func TestTheChromaLadderOrdersExactlyWhatTheCodecsCode(t *testing.T) {
 	coded := optionCodedChromas()
@@ -659,10 +661,9 @@ func TestTheChromaLadderOrdersExactlyWhatTheCodecsCode(t *testing.T) {
 	}
 }
 
-// The colour range is one of the four value sets no Go table exports, so this is what
-// holds the list here against the domain: a codec that cannot encode at a range declares
-// a gap on it, and a gap on a value the form never offers states a reason for an option
-// that was never on offer.
+// The colour range is one of the four value sets no Go table exports, so this is what holds the
+// list here against the domain: a codec that cannot encode at a range declares a gap on it,
+// and a gap on a value the form never offers states a reason for an option that was never on offer.
 func TestEveryGappedColourRangeIsOffered(t *testing.T) {
 	offered := fieldOptionValues(t, KeyColorRange)
 	for _, c := range capabilities.Codecs {
@@ -677,9 +678,10 @@ func TestEveryGappedColourRangeIsOffered(t *testing.T) {
 	}
 }
 
-// The RTP lower transports are another of the four. The transport package declares them
-// as the watch leg's knob choices, which is the one place they cross a package boundary,
-// so both legs' lists are held against it here even though neither is built from it.
+// The RTP lower transports are another of the four.
+// The transport package declares them as the watch leg's knob choices, which is the one place they
+// cross a package boundary, so both legs' lists are held against it here even though neither is
+// built from it.
 func TestEveryRtspProtocolTheTransportDeclaresIsOffered(t *testing.T) {
 	var declared []string
 	for _, o := range transport.WatchOptions("rtsp", settings.Defaults()) {
@@ -703,13 +705,13 @@ func TestEveryRtspProtocolTheTransportDeclaresIsOffered(t *testing.T) {
 	}
 }
 
-// The effort control offers the selected codec's own ladder, in the order the table
-// declares it: most effort first, whatever direction that encoder's own numbering runs.
-// NVENC counts p1 fastest to p7 slowest, so its ladder is offered counting down, the same
-// way the chroma ladder runs from most colour detail to least.
+// The effort control offers the selected codec's own ladder, in the order the table declares it:
+// most effort first, whatever direction that encoder's own numbering runs.
+// NVENC counts p1 fastest to p7 slowest, so its ladder is offered counting down,
+// the same way the chroma ladder runs from most colour detail to least.
 //
-// The default codec's ladder is what a fresh installation meets, and the step it starts on
-// has to be one of its rungs, or the control opens on a value it does not offer.
+// The default codec's ladder is what a fresh installation meets, and the step it starts on has to
+// be one of its rungs, or the control opens on a value it does not offer.
 func TestTheEffortLadderIsTheCodecsOwnMostEffortFirst(t *testing.T) {
 	fresh := settings.Defaults()
 	c, ok := capabilities.Get(fresh.Publish.Codec)
@@ -727,9 +729,9 @@ func TestTheEffortLadderIsTheCodecsOwnMostEffortFirst(t *testing.T) {
 	}
 }
 
-// Every closed set the settings start on is a set the form offers. A default the form
-// cannot show is a first launch that opens on a value the user cannot pick again, which
-// is the same disagreement between the tables and the screen the package exists to
+// Every closed set the settings start on is a set the form offers.
+// A default the form cannot show is a first launch that opens on a value the user cannot pick
+// again, which is the same disagreement between the tables and the screen the package exists to
 // prevent - read from the other end.
 func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 	s := settings.Defaults()
@@ -756,9 +758,9 @@ func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 	}
 }
 
-// Every range admits the value a fresh installation starts on. A default outside its own
-// control's ends is a slider that opens pinned to one end, or a number field that reports
-// the user's untouched setting as out of range.
+// Every range admits the value a fresh installation starts on.
+// A default outside its own control's ends is a slider that opens pinned to one end,
+// or a number field that reports the user's untouched setting as out of range.
 func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	for i := range fieldTable {
@@ -791,9 +793,9 @@ func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 	}
 }
 
-// The quantizer range follows the encoder and the engine that drives it, because the
-// scales differ: the same number is a different quality per codec, so a fixed range would
-// clamp a wide scale to a fraction of itself and offer a narrow one values it refuses.
+// The quantizer range follows the encoder and the engine that drives it, because the scales differ:
+// the same number is a different quality per codec, so a fixed range would clamp a wide scale to a
+// fraction of itself and offer a narrow one values it refuses.
 func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	s.Publish.Mode = capabilities.ModeCrf
@@ -801,9 +803,9 @@ func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 		s.Publish.Codec = c.Name
 		want := c.CqMaxOn(optionEngineOf(s))
 		if want == 0 {
-			// A row declaring no scale narrows nothing, which is what declaring none
-			// means: the unwired families count on whatever their builder sets, and no
-			// number here is one the table would honour.
+			// A row declaring no scale narrows nothing, which is what declaring none means:
+			// the unwired families count on whatever their builder sets, and no number here is one the table
+			// would honour.
 			want = capabilities.WidestCqScale()
 		}
 		if got := fieldCqBounds(d, s).GetMax(); got != int64(want) {
@@ -812,10 +814,11 @@ func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 	}
 }
 
-// A scale binds in the mode that reads the knob and nowhere else, which is the half the
-// column could not carry: it narrowed the control on every resolve, including the modes
-// that send the encoder no quantizer at all. The control is greyed in those modes anyway,
-// so what this pins is that the range offered and the range accepted are one answer.
+// A scale binds in the mode that reads the knob and nowhere else, which is the half the column
+// could not carry: it narrowed the control on every resolve, including the modes that send the
+// encoder no quantizer at all.
+// The control is greyed in those modes anyway, so what this pins is that the range offered and the
+// range accepted are one answer.
 func TestTheQuantizerRangeIsWholeWhereTheKnobIsUnread(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	s.Publish.Codec = "libx264"
@@ -830,8 +833,8 @@ func TestTheQuantizerRangeIsWholeWhereTheKnobIsUnread(t *testing.T) {
 	}
 }
 
-// The bitrate range narrows to the codec's own ceiling where it declares one. An encoder
-// with a ceiling refuses the encode rather than clamping, so a target above it is a
+// The bitrate range narrows to the codec's own ceiling where it declares one.
+// An encoder with a ceiling refuses the encode rather than clamping, so a target above it is a
 // publish that dies at launch.
 func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
@@ -848,9 +851,10 @@ func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 	}
 }
 
-// The ceiling is on the target the encoder is given, so it binds in the three modes that
-// aim at one. A constant-quality encode sends none, and narrowing there would be the form
-// stating a limit on a number nothing reads.
+// The ceiling is on the target the encoder is given, so it binds in the three modes that aim at
+// one.
+// A constant-quality encode sends none, and narrowing there would be the form stating a limit on a
+// number nothing reads.
 func TestTheBitrateRangeIsWholeWhereNoTargetIsSent(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	s.Publish.Codec = "libsvtav1"
@@ -865,14 +869,14 @@ func TestTheBitrateRangeIsWholeWhereNoTargetIsSent(t *testing.T) {
 	}
 }
 
-// A capture backend behind a privilege says so on its own entry, and one behind none
-// says nothing. The entry stays selectable either way - the process holds the privilege
-// or the capture dies at launch, and nothing can tell which in advance - so the note is
-// what makes it honest about what it is asking for.
+// A capture backend behind a privilege says so on its own entry, and one behind none says nothing.
+// The entry stays selectable either way - the process holds the privilege or the capture dies at
+// launch, and nothing can tell which in advance - so the note is what makes it honest about what it
+// is asking for.
 //
-// Which publish engine a backend runs is deliberately not here. It is a column of the
-// backend's own catalog row, and a note repeating it would be a second answer to a
-// question one table already answers.
+// Which publish engine a backend runs is deliberately not here.
+// It is a column of the backend's own catalog row, and a note repeating it would be a second answer
+// to a question one table already answers.
 func TestACaptureBackendBehindAPrivilegeSaysSoOnItsEntry(t *testing.T) {
 	for _, o := range fieldRowFor(t, KeyCapture).options(fieldTestDeps(), settings.Defaults()) {
 		if _, err := publish.EngineFor(o.GetValue()); err != nil {
@@ -886,9 +890,10 @@ func TestACaptureBackendBehindAPrivilegeSaysSoOnItsEntry(t *testing.T) {
 	}
 }
 
-// The one radio is the rate-control mode, which is what the contract reserves that
-// control for: the few choices carrying a paragraph each. Every other closed set is a
-// select, so a second radio is a decision about layout made in the wrong place.
+// The one radio is the rate-control mode, which is what the contract reserves that control for:
+// the few choices carrying a paragraph each.
+// Every other closed set is a select, so a second radio is a decision about layout made in the
+// wrong place.
 func TestTheRateControlModeIsTheOnlyRadio(t *testing.T) {
 	for _, f := range fieldTable {
 		radio := f.control == screensharev1.ControlKind_CONTROL_KIND_RADIO
@@ -896,9 +901,9 @@ func TestTheRateControlModeIsTheOnlyRadio(t *testing.T) {
 			t.Errorf("%s is drawn as %v", f.key, f.control)
 		}
 	}
-	// What each mode's card says is the surface's, keyed by the value below, so what is
-	// checked here is that every mode the capability table declares reaches the control
-	// at all: a mode missing from the radio is one no card can be written for.
+	// What each mode's card says is the surface's, keyed by the value below, so what is checked here
+	// is that every mode the capability table declares reaches the control at all:
+	// a mode missing from the radio is one no card can be written for.
 	offered := fieldRowFor(t, KeyMode).options(fieldTestDeps(), settings.Defaults())
 	if len(offered) != len(capabilities.Modes) {
 		t.Errorf("the rate-control radio offers %d entries, and the table declares %d",
@@ -911,13 +916,13 @@ func TestTheRateControlModeIsTheOnlyRadio(t *testing.T) {
 	}
 }
 
-// A resolved control offers everything the reader can pick before everything they
-// cannot, so a list is answerable from the top on whatever machine it is drawn on.
+// A resolved control offers everything the reader can pick before everything they cannot,
+// so a list is answerable from the top on whatever machine it is drawn on.
 //
-// The check runs over every case availabilityCases states, because the partition is only
-// visible where something is greyed: on a Linux session the Windows capture backends
-// sink, on a Windows one the macOS backend does, and on a machine with no NVIDIA encoder
-// the NVENC codecs do.
+// The check runs over every case availabilityCases states, because the partition is only visible
+// where something is greyed: on a Linux session the Windows capture backends sink,
+// on a Windows one the macOS backend does, and on a machine with no NVIDIA encoder the NVENC codecs
+// do.
 func TestAResolvedControlOffersTheReachableEntriesFirst(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, g := range Resolve(tc.deps, tc.s).GetGroups() {
@@ -938,10 +943,10 @@ func TestAResolvedControlOffersTheReachableEntriesFirst(t *testing.T) {
 	}
 }
 
-// The partition keeps every entry and reorders nothing inside either half, which is what
-// separates it from a sort: the chroma ladder, the codec table's order and the capture
-// registry's order all survive it, and an entry this combination rules out is still on
-// the list with its reason (docs/field-availability.md).
+// The partition keeps every entry and reorders nothing inside either half,
+// which is what separates it from a sort: the chroma ladder, the codec table's order and the
+// capture registry's order all survive it, and an entry this combination rules out is still on the
+// list with its reason (docs/field-availability.md).
 func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for i := range fieldTable {
@@ -950,8 +955,8 @@ func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 				continue
 			}
 
-			// A repeated row is asked about the row a reader grows the list by, which is
-			// the entry every draft here has: none of them holds an audio source.
+			// A repeated row is asked about the row a reader grows the list by, which is the entry every
+			// draft here has: none of them holds an audio source.
 			entry := noEntry
 			if f.repeat {
 				entry = 0
@@ -989,8 +994,8 @@ func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 	}
 }
 
-// fieldOptions is what one row's builder offers for one entry, whichever of the two builders
-// the row carries.
+// fieldOptions is what one row's builder offers for one entry, whichever of the two builders the
+// row carries.
 func fieldOptions(f *field, d Deps, s settings.Settings, entry int) []*screensharev1.FieldOption {
 	if f.repeat {
 		return f.itemOptions(d, s, audioEntry(s, entry))

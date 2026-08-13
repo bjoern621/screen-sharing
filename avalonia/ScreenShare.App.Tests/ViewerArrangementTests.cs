@@ -8,14 +8,13 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The arrangement: which tile has focus, which streams are in windows of their own, and which
-/// window is filling a screen.
+/// The arrangement: which tile has focus, which streams are in windows of their own, and which window is
+/// filling a screen.
 ///
-/// None of it crosses the control contract, which is exactly why it is asserted here. The backend
-/// describes decodes and a decode is not a tile, so there is no state on the wire that would
-/// catch a shell whose focus and mode disagreed, whose pop-out left a window behind after the
-/// stream was gone, or whose fullscreen named a tile that no longer existed
-/// (<c>docs/ipc-api.md</c>).
+/// None of it crosses the control contract, which is exactly why it is asserted here.
+/// The backend describes decodes and a decode is not a tile, so there is no state on the wire that would
+/// catch a shell whose focus and mode disagreed, whose pop-out left a window behind after the stream was
+/// gone, or whose fullscreen named a tile that no longer existed (<c>docs/ipc-api.md</c>).
 /// </summary>
 public sealed class ViewerArrangementTests
 {
@@ -24,14 +23,14 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// A backend carrying the named paths, holding the leg a tile is decoded on.
     ///
-    /// The leg is in the stored settings and in the form both, because that is what the two mean
-    /// together: the settings are what a decode opens on and the form is what the panel draws.
-    /// A fixture that stated it in one of them would be a screen showing a leg no decode uses, or
-    /// the other way round (Features/Viewer/Tile/Model/TileLeg.cs).
+    /// The leg is in the stored settings and in the form both, because that is what the two mean together:
+    /// the settings are what a decode opens on and the form is what the panel draws.
+    /// A fixture that stated it in one of them would be a screen showing a leg no decode uses, or the other
+    /// way round (Features/Viewer/Tile/Model/TileLeg.cs).
     ///
-    /// Everything that is not about the relay or the viewer group is the seed's, and every effect
-    /// answers at once, so a screen driven through a straight-through dispatcher has finished by
-    /// the time a call returns.
+    /// Everything that is not about the relay or the viewer group is the seed's, and every effect answers at
+    /// once, so a screen driven through a straight-through dispatcher has finished by the time a call
+    /// returns.
     /// </summary>
     private sealed class ViewerBackend(params string[] paths) : IBackend
     {
@@ -190,8 +189,8 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// A viewer with the given streams already tiled.
     ///
-    /// The tiles are added the way the screen adds them - through the rail's own action - so what
-    /// is under test is the state a real press leaves behind rather than a field written by hand.
+    /// The tiles are added the way the screen adds them - through the rail's own action - so what is under
+    /// test is the state a real press leaves behind rather than a field written by hand.
     /// </summary>
     private static ViewerViewModel Grid(params string[] streams)
     {
@@ -227,8 +226,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// A second tile asking for focus takes it. There is no state in which two are focused, so
-    /// there is none in which one has to be given up first.
+    /// A second tile asking for focus takes it.
+    /// There is no state in which two are focused, so there is none in which one has to be given up first.
     /// </summary>
     [Fact]
     public void FocusMovesRatherThanAccumulating()
@@ -257,8 +256,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// A popped-out stream keeps its tile and its place. The slot is what stops the grid
-    /// reflowing when a stream pops out, and what it comes back into.
+    /// A popped-out stream keeps its tile and its place.
+    /// The slot is what stops the grid reflowing when a stream pops out, and what it comes back into.
     /// </summary>
     [Fact]
     public void APoppedOutStreamKeepsItsSlot()
@@ -288,8 +287,9 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// Fullscreen goes to the window the stream is drawn in. A stream in the grid fills the main
-    /// window; a popped-out one fills its own, which is what lets two of them fill two monitors.
+    /// Fullscreen goes to the window the stream is drawn in.
+    /// A stream in the grid fills the main window; a popped-out one fills its own, which is what lets two of
+    /// them fill two monitors.
     /// </summary>
     [Fact]
     public void FullscreenFollowsTheWindowTheStreamIsIn()
@@ -308,12 +308,12 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// A closed pop-out window gives its stream back to the grid, and says nothing about a stream
-    /// that is already there.
+    /// A closed pop-out window gives its stream back to the grid, and says nothing about a stream that is
+    /// already there.
     ///
-    /// It is what the window reports when it closes, and every close runs it - including the ones
-    /// the reconcile pass performs for a stream the reader has already given back. Reported as a
-    /// toggle, those closes asked for the window again, so leaving a pop-out from inside it put
+    /// It is what the window reports when it closes, and every close runs it - including the ones the
+    /// reconcile pass performs for a stream the reader has already given back.
+    /// Reported as a toggle, those closes asked for the window again, so leaving a pop-out from inside it put
     /// the stream into a second window instead of back in the grid.
     /// </summary>
     [Fact]
@@ -342,9 +342,9 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// A stream that fills this window and is then popped out gives this window back to its grid.
     ///
-    /// The main window's fullscreen names a stream drawn in the main window, so a stream that left
-    /// for a window of its own cannot still be filling this one. Left standing, it was a window
-    /// filled by a plate saying the picture was somewhere else.
+    /// The main window's fullscreen names a stream drawn in the main window, so a stream that left for a
+    /// window of its own cannot still be filling this one.
+    /// Left standing, it was a window filled by a plate saying the picture was somewhere else.
     /// </summary>
     [Fact]
     public void PoppingOutAFullscreenStreamGivesTheMainWindowBack()
@@ -380,9 +380,9 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// A stream taken out of the grid takes its focus, its window and its fullscreen with it. The
-    /// render pass works that out from the tile being gone rather than every caller undoing it,
-    /// which is what stops a window outliving the tile behind it.
+    /// A stream taken out of the grid takes its focus, its window and its fullscreen with it.
+    /// The render pass works that out from the tile being gone rather than every caller undoing it, which is
+    /// what stops a window outliving the tile behind it.
     /// </summary>
     [Fact]
     public void AStreamLeavingTheGridTakesItsArrangementWithIt()
@@ -405,9 +405,9 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// The stats overlay turns on and stays on.
     ///
-    /// It was once drawn by pinning the hover chrome, which meant turning it on and moving the
-    /// pointer away turned it off again - useless for the one thing it exists for. It is its own
-    /// state now, and this is what says so.
+    /// It was once drawn by pinning the hover chrome, which meant turning it on and moving the pointer away
+    /// turned it off again - useless for the one thing it exists for.
+    /// It is its own state now, and this is what says so.
     /// </summary>
     [Fact]
     public void TheStatsOverlayIsItsOwnState()
@@ -426,10 +426,11 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// The panel is composed only while it is up, and turning it on reaches a render pass.
     ///
-    /// Both halves matter. Forty rows per tile per sample is work every tile in the grid would
-    /// be doing to draw a panel nobody opened; and a panel that waited for the next sample to
-    /// fill in would open empty for as long as a second, which reads as a decode reporting
-    /// nothing rather than as a panel that has not been composed yet.
+    /// Both halves matter.
+    /// Forty rows per tile per sample is work every tile in the grid would be doing to draw a panel nobody
+    /// opened; and a panel that waited for the next sample to fill in would open empty for as long as a
+    /// second, which reads as a decode reporting nothing rather than as a panel that has not been composed
+    /// yet.
     /// </summary>
     [Fact]
     public void TheStatsPanelIsComposedOnlyWhileItIsUp()
@@ -448,9 +449,10 @@ public sealed class ViewerArrangementTests
     /// <summary>
     /// The menu reports which arrangements this tile is in.
     ///
-    /// Every row's words are fixed and its state is the tick beside them, so what the bindings
-    /// have to carry is the flag rather than a rewritten label. A flag that stopped following its
-    /// arrangement would be a menu that quietly disagrees with the screen behind it.
+    /// Every row's words are fixed and its state is the tick beside them, so what the bindings have to carry
+    /// is the flag rather than a rewritten label.
+    /// A flag that stopped following its arrangement would be a menu that quietly disagrees with the screen
+    /// behind it.
     /// </summary>
     [Fact]
     public void TheMenuReportsWhatIsInForce()
@@ -469,8 +471,8 @@ public sealed class ViewerArrangementTests
         tile.ToggleStats.Execute(null);
         Assert.True(tile.ShowStats);
 
-        // Fullscreen belongs to the window a stream is drawn in, so the flag has to follow the
-        // stream across the two of them rather than answer for the main window alone.
+        // Fullscreen belongs to the window a stream is drawn in, so the flag has to follow the stream across
+        // the two of them rather than answer for the main window alone.
         tile.ToggleFullscreen.Execute(null);
         Assert.True(tile.IsFullscreen);
 
@@ -483,8 +485,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// Every intent is a toggle, so the same one twice is where it started. That is what makes
-    /// the menu safe to press twice and the arrangement safe to describe as state.
+    /// Every intent is a toggle, so the same one twice is where it started.
+    /// That is what makes the menu safe to press twice and the arrangement safe to describe as state.
     /// </summary>
     [Fact]
     public void EveryIntentIsAToggle()
@@ -500,8 +502,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// The window's own key gives the main window back to the grid, and says nothing about the
-    /// popped-out windows: each of those fills its own screen and answers for it.
+    /// The window's own key gives the main window back to the grid, and says nothing about the popped-out
+    /// windows: each of those fills its own screen and answers for it.
     /// </summary>
     [Fact]
     public void LeavingFullscreenFreesTheMainWindowAlone()
@@ -521,8 +523,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// Leaving fullscreen names a state rather than toggling one: pressed with nothing filling a
-    /// screen it changes nothing, which is what makes it safe on a key that fires on every screen.
+    /// Leaving fullscreen names a state rather than toggling one: pressed with nothing filling a screen it
+    /// changes nothing, which is what makes it safe on a key that fires on every screen.
     /// </summary>
     [Fact]
     public void LeavingFullscreenNeverEntersIt()
@@ -543,8 +545,8 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// A tile's own leave follows the window the stream is drawn in, like the toggle beside it: a
-    /// popped-out stream stops filling its screen and stays in its window.
+    /// A tile's own leave follows the window the stream is drawn in, like the toggle beside it: a popped-out
+    /// stream stops filling its screen and stays in its window.
     /// </summary>
     [Fact]
     public void LeavingFullscreenFollowsTheWindowTheStreamIsIn()
