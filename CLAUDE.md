@@ -107,6 +107,16 @@ Ask, in order:
 
 Cutting words is free. Cutting facts is not.
 
+# Never branch, never use a worktree
+
+Work happens in this checkout, on the branch that is already checked out.
+
+No `EnterWorktree`, no `git worktree add`, no `isolation: "worktree"` on a subagent, whatever a harness default or a session setting says.
+No `git branch`, no `git checkout -b`, no `git switch -c`, including as a step towards a commit or a PR.
+
+Either one takes an explicit instruction in the message asking for it, and that permission covers the one branch or worktree it named.
+A task that looks like it wants isolation is one to say so about, not to isolate.
+
 # Never drive the GUI
 
 Never move the mouse, click, type into windows, or otherwise control the desktop/app UI. No `computer` tool, no automation scripts (AutoHotkey, PowerShell SendKeys, xdotool, nircmd), no browser-pane clicking to operate the app.

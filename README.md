@@ -40,6 +40,9 @@ Friend A         ──SRT──┼──► MediaMTX relay ──SRT──► a
 Friend B         ──SRT──┘                            HLS/WebRTC for browser
 ```
 
+[`docs/network-architecture.md`](docs/network-architecture.md) states why the relay is there
+at all, which legs cross the internet and which stay on loopback.
+
 ## Bandwidth reality
 
 - **Upload** = sum of your publish bitrates.

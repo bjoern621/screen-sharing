@@ -28,11 +28,15 @@ docs {
   A relay that authenticates grants its API to nothing a group token carries, so reading it takes an operator's own credential and a way in:
 
   ```bash
-  ssh -N -L 9997:127.0.0.1:9997 <relay host>
-  ssh <relay host> sudo groupd -api-token 30m -key /var/lib/private/groupd/signing-key.pem
+  ssh -f -N -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 <relay host>
+  sh scripts/relay-api-token.sh <relay host> 2h
   ```
 
   The tunnel is because the API binds loopback and the proxy does not front it.
-  The second command prints a token granting the API for the window given, signed with the key the group service already holds, and that token is what `relayApiToken` takes.
+  The script prints a token granting the API for the window given and nothing else, signed on the relay host because that key signs every group's tokens too.
+  The token is what `relayApiToken` takes, without the scheme word, the header above carrying that.
+
+  A tunnel that has gone stale keeps its listener open while forwarding nothing, so a request that hangs rather than refusing is one to restart it for.
+  The keepalive is what makes it drop instead.
   It is minted over SSH rather than by anything in this collection because the signing key mints every group's tokens too, so it stays on the machine it is on.
 }

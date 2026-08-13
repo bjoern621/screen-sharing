@@ -19,16 +19,18 @@ bru run --env Local
 
 Pick an environment first.
 `Local` points at a relay and a group service on loopback, on the ports `mediamtx.yml` and `groupd`'s defaults use.
-`Proxied` points at a deployment behind the reverse proxy, where one name on the standard port fronts the group service and the HLS listener alike.
+`Production` points at the deployed relay behind the reverse proxy, where one name on the standard port fronts the group service and the HLS listener alike.
 That name is the proxy's `SCREENSHARE_DOMAIN`, so another deployment is this environment with its own domain in both fields.
 
 `relayApi` stays on loopback in both.
 The proxy does not front the relay's API and the relay binds it to loopback, so the `Relay` folder wants a tunnel and a credential of its own against a deployment:
 
 ```bash
-ssh -N -L 9997:127.0.0.1:9997 <relay host>
-ssh <relay host> sudo groupd -api-token 30m -key /var/lib/private/groupd/signing-key.pem
+ssh -f -N -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 <relay host>
+sh scripts/relay-api-token.sh <relay host> 2h
 ```
+
+A stale tunnel keeps listening while it forwards nothing, so a request that hangs instead of refusing is one to restart it for.
 
 The printed token goes in `relayApiToken`, and it grants the API alone.
 A group token grants publishing and reading under one prefix and never the API, which is why the operator's is signed separately and on the machine the signing key is on.

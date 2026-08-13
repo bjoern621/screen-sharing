@@ -5,13 +5,17 @@ meta {
 }
 
 get {
-  url: {{groupService}}/streams?group={{groupKey}}
+  url: {{groupService}}/streams?group={{groupKeyQuery}}
   body: none
   auth: none
 }
 
 params:query {
-  group: {{groupKey}}
+  group: {{groupKeyQuery}}
+}
+
+script:pre-request {
+  bru.setVar("groupKeyQuery", encodeURIComponent(bru.getEnvVar("groupKey") || ""));
 }
 
 tests {
@@ -34,4 +38,8 @@ docs {
 
   Rows carry no reader count and no rate.
   Those are the relay's operational state, answered by `Paths list` to a caller who can reach the relay's API.
+
+  The key is percent-encoded into `groupKeyQuery` before the request rather than read straight out of the environment.
+  A group key is 43 characters of standard base64, so about half of all keys carry a `+` somewhere, and a `+` written into a query is a space by the time a server reads it: the answer is then "illegal base64 data", naming the position the `+` was at.
+  The service is right to refuse it, the encoding being the caller's job, which is what `url.QueryEscape` does on the app's side (`backend/internal/groupclient`).
 }
