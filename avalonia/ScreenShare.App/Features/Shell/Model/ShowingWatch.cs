@@ -8,12 +8,18 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// Whether a control is being looked at: it stands in a visual tree, in a window that is in front of the
 /// reader.
 ///
-/// <b>Two controls need this fact and it is one fact, so it is written once.</b> The broadcast screen's
-/// preview card and the wizard's screen picker both draw pictures the backend has to produce - GPU copies
-/// into lent slots, and in the picker's case a screen capture per monitor.
-/// Neither is free, and the shell renders every destination on every pass, so a card that drew whenever
-/// anything was available would charge a reader who never opened the screen and one that drew for as long as
-/// the screen was open would charge a reader whose window has been behind a terminal for an hour.
+/// <b>It is for a surface whose drawing makes the backend spend something it otherwise would not.</b> The
+/// wizard's screen picker is one: its pictures come off a screen capture per monitor that the backend opens
+/// because the grid asked for it.
+/// The shell renders every destination on every pass, so a grid that drew whenever anything was available
+/// would charge a reader who never opened the screen, and one that drew for as long as the screen was open
+/// would charge a reader whose window has been behind a terminal for an hour.
+///
+/// <b>It is not the rule for every picture, and the broadcast preview is the counter-case.</b> That card
+/// draws what the reader asked it to draw and follows no window, because a publisher's window stands behind
+/// the thing being shared for most of a session
+/// (<c>Features/Broadcast/Preview/ViewModel/PreviewViewModel.cs</c>).
+/// What decides is whether a window going behind means the reader stopped wanting the picture.
 ///
 /// <b>Neither half is a fact a view model can read.</b> Whether a control is in a visual tree is the
 /// control's own, and whether the window is in front is the platform's (<see cref="IWindowPresence"/>).

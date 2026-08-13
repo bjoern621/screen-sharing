@@ -76,6 +76,21 @@ func TestRTSPGstSource(t *testing.T) {
 	}
 }
 
+// The source hands out a pad per track, and a launch line's decoder has room for one of them.
+// The picture is the one it must be given: pinned by caps rather than left to the announcement
+// order, a session whose audio track was announced first decodes the sound into the render chain
+// and leaves the picture unlinked, which is a tile that draws nothing.
+func TestRTSPGstSourcePinsTheDecoderToThePicture(t *testing.T) {
+	src := RTSP{}.GstSource(rtspStream(), "bob")
+
+	if !slices.Contains(src, "application/x-rtp,media=video") {
+		t.Errorf("GstSource = %v, which leaves the decoder to take whichever track came first", src)
+	}
+	if at := slices.Index(src, "!"); at < 0 || at != len(src)-2 {
+		t.Errorf("GstSource = %v, want the capsfilter as the last element of the fragment", src)
+	}
+}
+
 // A stream whose legs disagree is what separates the two fields: a serialization reading the other
 // leg's protocol passes every test where they happen to agree.
 func TestRTSPProtocolPerLeg(t *testing.T) {

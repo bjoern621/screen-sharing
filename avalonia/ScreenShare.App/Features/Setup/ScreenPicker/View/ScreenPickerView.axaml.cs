@@ -21,8 +21,8 @@ public sealed partial class ScreenPickerView : UserControl
 {
     /// <summary>
     /// Whether the grid is on screen in a window that is in front.
-    /// Both halves are facts only a control and the platform can answer, and the broadcast preview asks the
-    /// same question, so the answer is worked out in one place (<see cref="ShowingWatch"/>).
+    /// Both halves are facts only a control and the platform can answer, and neither is this screen's own, so
+    /// the answer is worked out in the shell (<see cref="ShowingWatch"/>).
     /// </summary>
     private readonly ShowingWatch _showing;
 

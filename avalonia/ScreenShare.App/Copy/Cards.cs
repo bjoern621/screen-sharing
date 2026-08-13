@@ -90,6 +90,29 @@ public static class Cards
     public const string PreviewNotPublishing = "Nothing is publishing, so there is nothing being sent to show.";
 
     /// <summary>
+    /// What the preview's transport control does, in the two directions it goes.
+    ///
+    /// Both name the picture and not the stream, which is the misreading the words have to prevent: this
+    /// control stops a card drawing and the red one in the header stops the broadcast.
+    /// </summary>
+    public const string PreviewStopTip = "Stop drawing this preview";
+
+    public const string PreviewPlayTip = "Draw this preview again";
+
+    /// <summary>
+    /// The card is stopped, which is the reader's own doing rather than a state of the stream.
+    ///
+    /// It states what stopping saved, because that is what makes the control worth pressing: the local route
+    /// gives back a decode on this machine, and the end-to-end route gives back the reader slot and the
+    /// downstream bandwidth it was paying the relay.
+    /// The stream is untouched either way, and the sentence says so before anything else - a preview that
+    /// went dark is exactly the thing a reader could mistake for a broadcast that had.
+    /// </summary>
+    public const string PreviewStopped =
+        "The preview is stopped. The stream is unaffected: what stops is this picture, and the "
+        + "decode behind it.";
+
+    /// <summary>
     /// What the screen picker's pictures are, said once above the grid.
     ///
     /// <b>The half worth stating is that nothing is being shared yet.</b> A live picture of a screen in an

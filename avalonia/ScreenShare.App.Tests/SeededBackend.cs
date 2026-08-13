@@ -597,6 +597,20 @@ internal sealed class SeededBackend : IBackend
     /// <summary>Which open decodes were built with the rung, by the pair they are keyed by.</summary>
     private readonly Dictionary<WatchKey, bool> _toneMapped = [];
 
+    /// <summary>
+    /// Whether the decodes this fixture runs carry a sound track.
+    /// A machine's fact rather than something derived here, so a test about the volume states it.
+    /// </summary>
+    public bool HasAudio { get; set; }
+
+    /// <summary>
+    /// What each decode is playing at, and the unchanged level for a pair nothing has asked about.
+    /// It is written by <see cref="SetReceiveAudioAsync"/> and read back through
+    /// <see cref="ReceivingAsync"/>, so a test asserts what the decode plays at rather than what the shell
+    /// last sent.
+    /// </summary>
+    private readonly Dictionary<WatchKey, (double Volume, bool Muted)> _audio = [];
+
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => Task.FromResult<IReadOnlyList<ReceiveStream>>(
             Decoded.Select(key => new ReceiveStream
@@ -610,6 +624,9 @@ internal sealed class SeededBackend : IBackend
                 ToneMap = CanToneMap && _toneMapped.GetValueOrDefault(key),
                 CanToneMap = CanToneMap,
                 ToneMapMissing = CanToneMap ? "" : ToneMapMissing,
+                HasAudio = HasAudio,
+                Volume = _audio.GetValueOrDefault(key, (1, false)).Volume,
+                Muted = _audio.GetValueOrDefault(key, (1, false)).Muted,
             }).ToList());
 
     /// <summary>
@@ -643,9 +660,14 @@ internal sealed class SeededBackend : IBackend
     // Nothing is decoding behind a fixture, so there is no audio branch to be loud.
     // The call succeeds rather than refusing: what it asks for is a state, and a fixture's state is whatever
     // it is told, which is what keeps a caller's idempotence testable here.
+    // The pair is held against the decode and reported back, because a caller that computes its next level
+    // from what the decode plays at can only be tested against a fixture that answers.
     public Task SetReceiveAudioAsync(
         string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
-        => Task.CompletedTask;
+    {
+        _audio[new WatchKey { StreamName = streamName, Transport = transport }] = (volume, muted);
+        return Task.CompletedTask;
+    }
 
     // A fixture has no GPU and no pipeline, so there is nothing to lend and nothing to draw.
     // Refusing is the honest answer: a fake stream of handles would be a fake naming GPU memory that does not

@@ -7,6 +7,7 @@ using ScreenShare.App.Features.Broadcast.Preview.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 
@@ -33,6 +34,13 @@ namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 /// among those figures, and it pays a viewer's downstream bandwidth.
 /// So the card opens on the local route and the other is asked for by name.
 ///
+/// <b>Whether the picture is drawn at all is the reader's, and the card opens drawing it.</b> It does not
+/// follow the window: a publisher's window stands behind the thing being shared for most of a session, so a
+/// preview that stopped whenever nobody was looking at it would be dark at the moment a reader came back to
+/// check on it, and would pay a pool import and a reconnect to come back.
+/// The stop is what closes the end-to-end route's decode while a publish stands, which is the whole of what
+/// makes the control worth having rather than a way to blank a tile (<see cref="SetPlaying"/>).
+///
 /// <b>Only one of the two routes has an effect to call.</b> The local preview pipeline goes up with the
 /// publish child and down with it, so there is nothing here to converge on beyond the subscription.
 /// The end-to-end route opens a decode with <c>StartReceive</c> and closes it with <c>StopReceive</c>,
@@ -52,17 +60,15 @@ public sealed class PreviewViewModel : Observable
     private readonly Action<Action> _dispatch;
 
     /// <summary>
-    /// Whether this card is being looked at: it stands in a visual tree, in a window that is in front of the
-    /// reader.
-    /// Both halves are facts the view knows and the view model cannot read: the shell renders every
-    /// destination on every pass, so without them a reader who never opened this screen, or whose window has
-    /// been behind another for an hour, would still be paying for the frame traffic and the GPU copies of a
-    /// picture nobody is looking at.
-    /// On the end-to-end route it is what the relay reader slot is paid for too, which is why leaving the
-    /// screen closes the decode rather than merely stopping the drawing.
-    /// Written by <see cref="SetShowing"/> and by nothing else.
+    /// Whether the reader wants this picture drawn.
+    ///
+    /// It is this card's own state and there is nowhere to read it back from: the local pipeline belongs to
+    /// the publish, a relay decode outlives every window drawing it, and neither carries who is watching.
+    /// True to begin with, because a card that has to be started before it shows anything reads as a card
+    /// that is broken.
+    /// Written by <see cref="SetPlaying"/> and by nothing else.
     /// </summary>
-    private bool _showing;
+    private bool _playing = true;
 
     /// <summary>
     /// Which picture the reader asked for.
@@ -173,6 +179,10 @@ public sealed class PreviewViewModel : Observable
         Routes = PreviewRoutes.All.Select(route => new PreviewRouteTab(route)).ToList();
         _selectedRoute = Routes[0];
 
+        // The button's transition over the named write, which is what a control that shows one state at a
+        // time can press.
+        TogglePlay = new DelegateCommand(() => SetPlaying(!_playing));
+
         Assert.That(Routes.Count == PreviewRoutes.All.Count, "a segment per route", Routes.Count);
         Assert.That(_selectedRoute.Value == _route, "the toggle opens on the route the card draws");
 
@@ -198,17 +208,17 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// Says whether the card is being looked at.
+    /// Says whether the picture is drawn.
     /// The named write of that state, and idempotent: telling it what it already holds re-renders and
     /// converges to the same world.
     ///
-    /// The view calls it, because whether a control is in a visual tree and whether the window around it is
-    /// in front are facts only the control and the platform can see.
-    /// Nothing else writes it, and no render pass reads a toolkit to find it out for itself.
+    /// It names the state rather than the transition, so a caller that cannot see which way the card is
+    /// pointing still gets what it asked for.
+    /// <see cref="TogglePlay"/> is the button's flip over it, and the only caller that needs one.
     /// </summary>
-    public void SetShowing(bool showing)
+    public void SetPlaying(bool playing)
     {
-        _showing = showing;
+        _playing = playing;
         Apply();
     }
 
@@ -242,6 +252,9 @@ public sealed class PreviewViewModel : Observable
     private bool _hasLeg;
     private bool _isSharing;
     private bool _hasTile;
+    private bool _isPlaying;
+    private Icons _playGlyph;
+    private string _playTip = "";
     private PreviewRouteTab _selectedRoute;
 
     /// <summary>
@@ -256,6 +269,27 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>Whether a tile is on the card, which is what separates it from its placeholder state.</summary>
     public bool HasTile { get => _hasTile; private set => Set(ref _hasTile, value); }
+
+    /// <summary>Whether the card is drawing the picture, as the reader last asked.</summary>
+    public bool IsPlaying { get => _isPlaying; private set => Set(ref _isPlaying, value); }
+
+    /// <summary>
+    /// Stops the picture, or starts it again.
+    /// Always pressable: it names a state of this card rather than an effect on a stream, so it is answerable
+    /// with nothing publishing and on either route.
+    /// </summary>
+    public DelegateCommand TogglePlay { get; }
+
+    /// <summary>
+    /// One glyph that changes rather than two controls one of which is hidden, so the control never moves
+    /// under the pointer.
+    /// It shows what pressing does and not what the card is doing, which is how a transport control reads
+    /// everywhere else.
+    /// </summary>
+    public Icons PlayGlyph { get => _playGlyph; private set => Set(ref _playGlyph, value); }
+
+    /// <summary>What the press does, since a glyph is not a sentence.</summary>
+    public string PlayTip { get => _playTip; private set => Set(ref _playTip, value); }
 
     /// <summary>One segment per route, in the table's order. Fixed for the card's life.</summary>
     public IReadOnlyList<PreviewRouteTab> Routes { get; }
@@ -372,9 +406,8 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// The size this card is drawing the picture at, written by the view as it lays out.
     ///
-    /// It is the one fact the view knows and the view model cannot read, which is the same reason
-    /// <see cref="SetShowing"/> exists: a marker placed without it would be placed on a picture whose size
-    /// nothing here had measured.
+    /// It is the one fact the view knows and the view model cannot read, and therefore the one input the view
+    /// writes: a marker placed without it would be placed on a picture whose size nothing here had measured.
     /// </summary>
     public void SetPictureSize(double width, double height)
     {
@@ -454,6 +487,10 @@ public sealed class PreviewViewModel : Observable
         Quality = $"cq {Figure.Of(reading.Cq)}";
         Cost = PreviewRoutes.CostOf(_route);
 
+        IsPlaying = _playing;
+        PlayGlyph = _playing ? Icons.IconPlayerStop : Icons.IconPlayerPlay;
+        PlayTip = _playing ? Cards.PreviewStopTip : Cards.PreviewPlayTip;
+
         // The leg the picture actually crossed, off the tile that is drawing it.
         // Only the end-to-end route has one, and the local route's tile reports the empty string, so there is
         // no case for the route here.
@@ -473,22 +510,24 @@ public sealed class PreviewViewModel : Observable
         Assert.That(
             _route == PreviewRoute.EndToEnd || _asked is null,
             "only the end-to-end route holds a relay decode open", (int)_route);
+        Assert.That(_playing || _asked is null, "a stopped preview holds no relay decode open");
+        Assert.That(PlayTip.Length > 0, "a preview's transport control says what pressing it does");
         Assert.That(Cost.Length > 0, "a preview states what it is showing and what it is not");
         Assert.That(SelectedRoute.Value == _route, "the toggle and the picture name one route", (int)_route);
     }
 
     /// <summary>
     /// The relay decode the end-to-end route needs, and null where it needs none - which is every pass on the
-    /// local route, every pass with the card off screen, and every pass with nothing publishing.
+    /// local route, every pass with the card stopped, and every pass with nothing publishing.
     ///
-    /// All three facts are read through rather than remembered.
+    /// The stream and the leg are read through on every pass; the route and the stop are the card's own.
     /// The stream is the publish's own name, because what this route receives is this machine's stream and
     /// not a stream a reader chose; the leg is the viewer's, because how this machine watches is one setting
     /// and a second one here would be a second answer to it.
     /// </summary>
     private WatchKey? Wanted()
     {
-        if (!_showing || _route != PreviewRoute.EndToEnd)
+        if (!_playing || _route != PreviewRoute.EndToEnd)
         {
             return null;
         }
@@ -513,15 +552,15 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// The picture the chosen route has running behind it, and null for "nothing to draw".
     ///
-    /// Two facts have to hold on either route and each is read through rather than remembered: the card is
-    /// being looked at, and something is producing the picture.
+    /// Two facts have to hold on either route and each is read through rather than remembered: the reader has
+    /// the card playing, and something is producing the picture.
     /// What that something is differs - the local route's pipeline is part of the publish, and the end-to-end
     /// route's is a decode in the receive state - and reading both into one shape here is what lets one tile
     /// draw either (<c>Features/Viewer/Tile/Model/TilePipeline.cs</c>).
     /// </summary>
     private TilePipeline? Running(WatchKey? wanted)
     {
-        if (!_showing)
+        if (!_playing)
         {
             return null;
         }
@@ -772,16 +811,24 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// Why the card is dark, in the order a reader can act on.
     ///
-    /// A refusal comes first, because it is the one sentence that names something to change: a leg that
+    /// A stop comes first, because it is the reader's own doing and outranks every reason the machine has:
+    /// a card stopped over an unpublished stream is stopped, and saying anything else would send a reader
+    /// after a state they did not ask about.
+    /// A refusal comes next, because it is the one sentence that names something to change: a leg that
     /// cannot carry this stream's format is answered by choosing another, and every state under it is
     /// answered by waiting.
-    /// A tile answers for itself next, because the three reasons a tile has nothing to draw are the tile's
-    /// own and are already written there.
+    /// A tile answers for itself after those, because the three reasons a tile has nothing to draw are the
+    /// tile's own and are already written there.
     /// What is left is this card's, and the last of them is the chosen route's - the two routes are dark for
     /// different reasons and neither is folded into the other.
     /// </summary>
     private string PlaceholderFor()
     {
+        if (!_playing)
+        {
+            return Cards.PreviewStopped;
+        }
+
         if (_refusal.Length > 0)
         {
             return _refusal;

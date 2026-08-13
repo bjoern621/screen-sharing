@@ -23,6 +23,8 @@ namespace ScreenShare.App.Tests;
 /// <b>The rest is the lifecycle</b>, which is the other part that can go wrong invisibly: a converge that
 /// rebuilds the tile on every render pass restarts a frame subscription a second and nothing says so, and one
 /// that lets go of a decode without closing it leaves a reader on the relay for the life of the window.
+/// The reader's stop is part of that lifecycle and not a way of blanking the tile: it is what gives the relay
+/// slot back, so it is asserted against the calls the seam received as well.
 /// </summary>
 public sealed class BroadcastPreviewTests
 {
@@ -243,21 +245,20 @@ public sealed class BroadcastPreviewTests
     /// </summary>
     private const string Leg = "srt";
 
-    /// <summary>A card on screen, on the route it opens on.</summary>
-    private static (PreviewViewModel Preview, Session Session) Showing(PreviewBackend backend)
-        => Showing(backend, PreviewRoute.Local);
+    /// <summary>A card on the route it opens on.</summary>
+    private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend)
+        => Card(backend, PreviewRoute.Local);
 
     /// <summary>
-    /// A card on screen and on one route, over a session that has read the fixture once.
+    /// A card on one route, over a session that has read the fixture once.
     /// The session is started rather than written to, because its fields are its own: every state a screen
     /// reads is one the backend answered with.
     /// </summary>
-    private static (PreviewViewModel Preview, Session Session) Showing(PreviewBackend backend, PreviewRoute route)
+    private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend, PreviewRoute route)
     {
         var session = Read(backend);
         var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
 
-        preview.SetShowing(true);
         Choose(preview, route);
         Settle(preview, session);
         return (preview, session);
@@ -307,7 +308,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live() };
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.NotNull(preview.Tile);
         Assert.True(preview.HasTile);
@@ -320,14 +321,14 @@ public sealed class BroadcastPreviewTests
     public void ASecondPassOverUnchangedInputChangesNothing()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         var tile = preview.Tile;
         Assert.NotNull(tile);
 
         preview.Apply();
         preview.Apply();
-        preview.SetShowing(true);
+        preview.SetPlaying(true);
 
         // The same tile and not an equal one: a tile is a running frame subscription, so a rebuilt tile is a
         // restarted subscription however alike the two look.
@@ -336,36 +337,90 @@ public sealed class BroadcastPreviewTests
         Assert.Empty(backend.Stopped);
     }
 
+    /// <summary>
+    /// A card that has just been built is drawing.
+    /// It is the default the whole control exists around: the picture a publisher wants is the one they are
+    /// sending, so a card that had to be started first would be a card that looked broken.
+    /// </summary>
     [Fact]
-    public void TheCardDrawsNothingWhileItIsOffScreen()
+    public void TheCardOpensPlaying()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var session = Read(backend);
 
         var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
 
-        Assert.Null(preview.Tile);
-        Assert.False(preview.HasTile);
+        Assert.True(preview.IsPlaying);
+        Assert.NotNull(preview.Tile);
+        Assert.True(preview.HasTile);
     }
 
+    /// <summary>
+    /// Stopping ends the subscription and says so, and it says it before every state of the machine: the card
+    /// is dark because it was asked to be, and a sentence about the stream would send a reader after a
+    /// problem nobody has.
+    /// </summary>
     [Fact]
-    public void LeavingTheScreenEndsTheSubscription()
+    public void StoppingEndsTheSubscription()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
         Assert.NotNull(preview.Tile);
 
-        preview.SetShowing(false);
+        preview.SetPlaying(false);
 
+        Assert.False(preview.IsPlaying);
         Assert.Null(preview.Tile);
         Assert.False(preview.HasTile);
+        Assert.Equal(Cards.PreviewStopped, preview.Placeholder);
+    }
+
+    /// <summary>
+    /// The control the reader presses is a flip over the named write, and what it flips is the card's own
+    /// state rather than anything on the backend.
+    /// </summary>
+    [Fact]
+    public void TheControlStopsAndStartsAndSaysWhichWayItGoes()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend);
+
+        var playing = preview.PlayTip;
+        preview.TogglePlay.Execute(null);
+
+        Assert.False(preview.IsPlaying);
+        Assert.NotEqual(playing, preview.PlayTip);
+        Assert.NotEqual("", preview.PlayTip);
+
+        preview.TogglePlay.Execute(null);
+
+        Assert.True(preview.IsPlaying);
+        Assert.Equal(playing, preview.PlayTip);
+        Assert.NotNull(preview.Tile);
+    }
+
+    /// <summary>
+    /// Stopping a card that is already stopped changes nothing, which is what makes the write safe to repeat
+    /// from a render pass.
+    /// </summary>
+    [Fact]
+    public void StoppingTwiceIsTheSameAsStoppingOnce()
+    {
+        var backend = new PreviewBackend { Publish = Live() };
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
+
+        preview.SetPlaying(false);
+        preview.SetPlaying(false);
+
+        Assert.Single(backend.Stopped);
+        Assert.Null(preview.Tile);
     }
 
     [Fact]
     public void GoingOffAirEndsTheSubscription()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, session) = Showing(backend);
+        var (preview, session) = Card(backend);
         Assert.NotNull(preview.Tile);
 
         // The stream ended, and the session learns it the way it learns everything: by reading the backend
@@ -380,13 +435,13 @@ public sealed class BroadcastPreviewTests
     }
 
     [Fact]
-    public void ComingBackToSharingDrawsAgain()
+    public void StartingAgainDrawsAgain()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
-        preview.SetShowing(false);
-        preview.SetShowing(true);
+        preview.SetPlaying(false);
+        preview.SetPlaying(true);
 
         Assert.NotNull(preview.Tile);
         Assert.True(preview.Tile.Source.IsPreview);
@@ -397,7 +452,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend();
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.Null(preview.Tile);
         Assert.True(preview.HasPlaceholder);
@@ -414,7 +469,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live(previewed: false) };
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.Null(preview.Tile);
         Assert.Equal(Cards.PreviewNotPreviewed, preview.Placeholder);
@@ -429,6 +484,7 @@ public sealed class BroadcastPreviewTests
             Cards.PreviewNotPreviewed,
             Cards.PreviewNoWatchLeg,
             Cards.PreviewOpening,
+            Cards.PreviewStopped,
             "Nothing is decoding this stream.",
             "Connecting.",
         };
@@ -445,7 +501,7 @@ public sealed class BroadcastPreviewTests
     public void ATileWithNoFrameYetSaysWhichStateItIsIn()
     {
         var backend = new PreviewBackend { Publish = Decoding(live: false) };
-        var (preview, session) = Showing(backend);
+        var (preview, session) = Card(backend);
 
         Assert.Equal("Connecting.", preview.Placeholder);
 
@@ -466,7 +522,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live() };
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.Equal(Cards.PreviewLocalCost, preview.Cost);
         Assert.Contains("never reaches the relay", preview.Cost);
@@ -484,7 +540,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live() };
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.Equal(PreviewRoutes.All, preview.Routes.Select(tab => tab.Value));
         Assert.Equal(PreviewRoute.Local, preview.SelectedRoute.Value);
@@ -501,7 +557,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live() };
 
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
         var opened = Assert.Single(backend.Started);
         Assert.Equal(Stream, opened.StreamName);
@@ -521,7 +577,7 @@ public sealed class BroadcastPreviewTests
     public void EachRouteStatesItsOwnCost()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
 
         Assert.Equal(Cards.PreviewLocalCost, preview.Cost);
 
@@ -542,7 +598,7 @@ public sealed class BroadcastPreviewTests
     public void SwitchingRoutesLeavesExactlyOneDecodeOpen()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, session) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, session) = Card(backend, PreviewRoute.EndToEnd);
 
         Assert.Single(backend.Started);
         Assert.Empty(backend.Stopped);
@@ -571,7 +627,7 @@ public sealed class BroadcastPreviewTests
     {
         var backend = new PreviewBackend { Publish = Live() };
 
-        var (preview, _) = Showing(backend);
+        var (preview, _) = Card(backend);
         Assert.NotNull(preview.Tile);
 
         await Assert.ThrowsAsync<BackendUnavailableException>(
@@ -592,7 +648,7 @@ public sealed class BroadcastPreviewTests
     public void ASecondPassOnTheEndToEndRouteAsksForNothing()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
         var tile = preview.Tile;
         Assert.NotNull(tile);
@@ -607,17 +663,17 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// Leaving the screen closes the decode, and not only the subscription.
-    /// The reader slot is what the end-to-end route costs the relay, so a card nobody is looking at that went
-    /// on holding one would be spending a viewer's bandwidth on a picture nothing draws.
+    /// Stopping closes the decode, and not only the subscription.
+    /// The reader slot is what the end-to-end route costs the relay, so a stop that left one open would give
+    /// a reader back the picture and none of what it was paying for.
     /// </summary>
     [Fact]
-    public void LeavingTheScreenClosesTheEndToEndDecode()
+    public void StoppingClosesTheEndToEndDecode()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
-        preview.SetShowing(false);
+        preview.SetPlaying(false);
 
         Assert.Single(backend.Stopped);
         Assert.Null(preview.Tile);
@@ -632,10 +688,10 @@ public sealed class BroadcastPreviewTests
     public void ADecodeTheGridIsDrawingIsLeftOpen()
     {
         var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
         preview.SetGridLeg(stream => stream == Stream ? Leg : "");
-        preview.SetShowing(false);
+        preview.SetPlaying(false);
 
         Assert.Single(backend.Started);
         Assert.Empty(backend.Stopped);
@@ -653,7 +709,7 @@ public sealed class BroadcastPreviewTests
         const string refusal = "srt does not carry av1: rtsp and webrtc do.";
         var backend = new PreviewBackend { Publish = Live(), StartRefusal = refusal };
 
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
         Assert.Equal(refusal, preview.Placeholder);
         Assert.True(preview.HasPlaceholder);
@@ -680,7 +736,7 @@ public sealed class BroadcastPreviewTests
             Publish = Decoding(live: true),
             StartRefusal = "srt does not carry av1.",
         };
-        var (preview, _) = Showing(backend, PreviewRoute.EndToEnd);
+        var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
         Assert.Equal(backend.StartRefusal, preview.Placeholder);
 
         Choose(preview, PreviewRoute.Local);

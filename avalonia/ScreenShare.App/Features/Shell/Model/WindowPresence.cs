@@ -6,9 +6,9 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// Whether a window is in front of the reader, for the screens that stop working when it is not.
 ///
 /// <b>What it is for.</b> A picture nobody is looking at still costs what a picture costs - a GPU copy per
-/// frame into a lent slot, a message on the frame channel and a draw - so a surface that draws frames reads
-/// this and stops while the window is behind something
-/// (<c>Features/Broadcast/Preview/View/PreviewView.axaml.cs</c>).
+/// frame into a lent slot, a message on the frame channel and a draw - and the wizard's screen picker costs
+/// a screen capture per monitor on top of that, so it reads this and stops while the window is behind
+/// something (<c>Features/Setup/ScreenPicker/View/ScreenPickerView.axaml.cs</c>).
 /// It answers one question and governs nothing: what a reader does with the answer is the reader's.
 ///
 /// <b>Why it is an interface.</b> "In front" is a fact each windowing system answers differently, and better

@@ -1,12 +1,14 @@
 package publish
 
 import (
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/colour"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -95,6 +97,192 @@ func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	if hdr != 1 {
 		t.Errorf("the set of %d brings up %d HDR streams, want exactly one", bootSet, hdr)
 	}
+}
+
+// The set carries one sounding stream, and it too is inside the set this process brings up with
+// itself: the per-stream volume, the level meter beside it and two streams playing at once are
+// reached by a stream that has a track and by nothing else.
+//
+// One row and not all of them, so a silent tile stays there to compare against.
+// Its codec is coded by this engine and carried by RTSP, which is the leg every test stream
+// publishes over, so the row is a stream the relay ingests rather than a refusal at launch.
+func TestTheSetCarriesASoundingStreamItBringsUpWithItself(t *testing.T) {
+	const bootSet = 3
+
+	sounding := 0
+	for i := range bootSet {
+		surface := TestSurfaceOf(i)
+		if surface.Audio == "" {
+			continue
+		}
+		sounding++
+		if surface.Label == "" {
+			t.Error("the sounding surface reaches the roster under a name that says nothing about it")
+		}
+		if err := capabilities.ValidateAudio(EngineGst, surface.Audio); err != nil {
+			t.Errorf("the sounding surface is coded by no GStreamer element: %v", err)
+		}
+		if err := transport.ValidatePublishAudio("rtsp", EngineGst, surface.Audio); err != nil {
+			t.Errorf("the sounding surface publishes over a leg that does not carry it: %v", err)
+		}
+	}
+	if sounding != 1 {
+		t.Errorf("the set of %d brings up %d sounding streams, want exactly one", bootSet, sounding)
+	}
+	if len(testSurfaces) == sounding {
+		t.Error("every surface sounds, so there is no silent tile to compare one against")
+	}
+}
+
+// A silent row publishes what it always did.
+// The audio branch is the sounding row's alone, and a row that names no codec builds none of it:
+// the queue included, which is there for a second pad and for nothing else.
+func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
+	s := settings.Settings{
+		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+	}
+
+	silent := TestSurface{Pattern: "smpte", Format: testChroma8, Colorimetry: testSDR}
+	args, err := BuildTestStreamArgs(s, "test-1", silent)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	joined := strings.Join(args, " ")
+	for _, unwanted := range []string{"audiotestsrc", "queue", transport.GstMuxName + "."} {
+		if strings.Contains(joined, unwanted) {
+			t.Errorf("a silent test stream builds %q: %s", unwanted, joined)
+		}
+	}
+}
+
+// The sounding row's branch is the audio table's, element for element, rather than a second set of
+// names beside it: a codec whose encoder or rate changes there changes here with it.
+// The branch attaches to the sink's mux pad, which is what makes the track a second RTP stream of
+// the session the picture travels in.
+func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
+	s := settings.Settings{
+		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+	}
+
+	surface := soundingSurface(t)
+	a, ok := capabilities.GetAudio(surface.Audio)
+	if !ok {
+		t.Fatalf("the sounding surface names audio codec %q, which the table does not carry", surface.Audio)
+	}
+	enc, ok := a.EncoderOn(EngineGst)
+	if !ok {
+		t.Fatalf("audio codec %s has no GStreamer encoder", a.Name)
+	}
+
+	args, err := BuildTestStreamArgs(s, "test-3-audio", surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, want := range []string{
+		"audiotestsrc",
+		fmt.Sprintf("audio/x-raw,rate=%d,channels=2", a.Rate),
+		enc.Element,
+		fmt.Sprintf("bitrate=%d", a.BitrateK*1000),
+		enc.Parser,
+	} {
+		if !slices.Contains(args, want) {
+			t.Errorf("missing %q in %v", want, args)
+		}
+	}
+	if args[len(args)-1] != transport.GstMuxName+"." {
+		t.Errorf("the audio branch attaches to %q rather than to the sink's mux pad", args[len(args)-1])
+	}
+	if !slices.Contains(args, "queue") {
+		t.Errorf("a two-pad sink is fed without a queue, so one branch stalls the other: %v", args)
+	}
+}
+
+// The whole point of the row, measured rather than assumed: a stream published from the sounding
+// surface carries a track that decodes.
+//
+// It is the argv the app launches, with the relay's sink replaced by a file's muxer, and it is read
+// back the way a viewer reads it - through a decoder, off the raw caps that reached the sink.
+// Both sources are bounded, which is the only edit a run of a live pipeline needs to end on its own.
+func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
+	if _, err := exec.LookPath(GstExe); err != nil {
+		t.Skipf("%s not installed", GstExe)
+	}
+
+	surface := soundingSurface(t)
+	a, ok := capabilities.GetAudio(surface.Audio)
+	if !ok {
+		t.Fatalf("the sounding surface names audio codec %q, which the table does not carry", surface.Audio)
+	}
+
+	s := settings.Settings{
+		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
+	}
+	args, err := BuildTestStreamArgs(s, "test-3-audio", surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The sink is cut by its own length and the branch behind it by the branch's,
+	// because the transport states how many arguments the one is and the audio table the other:
+	// what is left between them is the argv the app launches.
+	sink, ok := transport.GstSink(s)
+	if !ok {
+		t.Fatal("the rtsp transport has no GStreamer sink, so there is nothing to cut")
+	}
+	audio := testAudioBranch(surface)
+	if len(audio) == 0 {
+		t.Fatal("the sounding surface builds no audio branch")
+	}
+
+	file := filepath.Join(t.TempDir(), "sounding.mkv")
+	publish := slices.Concat(
+		[]string{"videotestsrc", "num-buffers=30"},
+		args[1:len(args)-len(sink)-len(audio)],
+		[]string{"matroskamux", "name=" + transport.GstMuxName, "!", "filesink", "location=" + file},
+		[]string{"audiotestsrc", "num-buffers=50"},
+		audio[1:])
+	if out, err := runGst(t, publish); err != nil {
+		t.Fatalf("publishing the sounding test stream: %v\n%s", err, out)
+	}
+
+	out, err := runGst(t, []string{"-v", "filesrc", "location=" + file,
+		"!", "matroskademux", "name=demux", "demux.audio_0",
+		"!", "decodebin", "!", "audioconvert", "!", "fakesink"})
+	if err != nil {
+		t.Fatalf("decoding the sounding test stream: %v\n%s", err, out)
+	}
+
+	caps := gstSinkPadCaps.FindStringSubmatch(out)
+	if caps == nil {
+		t.Fatalf("the sounding test stream's track reached no sink:\n%s", out)
+	}
+	if !strings.Contains(caps[1], "audio/x-raw") {
+		t.Errorf("the sounding test stream decodes as %q rather than as audio", caps[1])
+	}
+	if want := fmt.Sprintf("rate=(int)%d", a.Rate); !strings.Contains(caps[1], want) {
+		t.Errorf("the sounding test stream decodes as %q, which is not the %s rate %q",
+			caps[1], a.Name, want)
+	}
+}
+
+// soundingSurface is the row the set publishes a track from, and fails the case that asks for it
+// when the table holds none: every audio case is about that row, and a table without one is the
+// silence they exist to catch.
+func soundingSurface(t *testing.T) TestSurface {
+	t.Helper()
+
+	for i := range len(testSurfaces) {
+		if surface := TestSurfaceOf(i); surface.Audio != "" {
+			return surface
+		}
+	}
+	t.Fatal("no test surface carries audio")
+	return TestSurface{}
 }
 
 // The whole point of the row, measured rather than assumed: a stream published from the HDR surface

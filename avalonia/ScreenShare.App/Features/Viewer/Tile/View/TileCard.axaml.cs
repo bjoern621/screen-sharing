@@ -165,12 +165,12 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Runs the arrangement a key names on the tile the pointer is over.
+    /// Runs what a key names on the tile the pointer is over.
     ///
-    /// The same three states the menu's first group names, on the keys that group prints beside them, so a
-    /// reader who has read the menu once does not have to open it again.
+    /// The same states the menu's rows name, on the keys those rows print beside them, so a reader who has
+    /// read the menu once does not have to open it again.
     /// Each names a state rather than a transition, which is what makes a second press a round trip rather
-    /// than a second arrangement.
+    /// than a second arrangement; the volume keys name the level they want for the same reason.
     /// </summary>
     private void OnKeyPressed(object? sender, KeyEventArgs e)
     {
@@ -190,12 +190,20 @@ public partial class TileCard : UserControl
             return;
         }
 
-        if (TileKeys.Command(tile, e) is not { } arrange)
+        if (TileKeys.Command(tile, e) is not { } command)
         {
             return;
         }
 
-        arrange.Execute(null);
+        // A key is refused wherever the row it names is greyed: a stream with no sound track has no volume
+        // to move and nothing to silence.
+        // The press is left unhandled, because a key this tile cannot answer is not this tile's.
+        if (!command.CanExecute(null))
+        {
+            return;
+        }
+
+        command.Execute(null);
         e.Handled = true;
     }
 

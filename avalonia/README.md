@@ -425,18 +425,16 @@ a tile in the viewer's grid. It reads the grid's answer through before closing a
 leaves the pipeline to the window that still wants it, and it asks again for one it saw running
 and no longer sees.
 
-Two things about it are still the shell's own arrangement. Whether the card is being looked at
-is an input the view writes, because the window renders every destination on every pass and
-frames nobody is looking at are GPU copies nobody asked for. It is two facts: the control is in
-a visual tree, which it writes on attach and detach, and the window is in front of the reader,
-which it reads off `Features/Shell/Model/WindowPresence.cs`. That one is an interface because
-"in front" is each windowing system's own answer - macOS reports occlusion, Windows reports a
-cloaked window, X11 has `_NET_WM_STATE_HIDDEN` - and the reading every platform gets until one
-of them is given its own is Avalonia's: visible, not minimised, active. Losing the front is
-acted on a second late, so a click into another window and back costs no pool; getting it back
-is acted on at once. And the placeholder stays for the states where there is no picture - a leg
-that refused the decode, nothing publishing, a route with nothing running behind it, and the
-tile's own three - each of them saying which one it is.
+Two things about it are still the shell's own arrangement. Whether the card draws is the
+reader's, written by the transport control over the picture and by nothing else; the card opens
+drawing. It does not follow the window, which is the one place this card and the wizard's screen
+picker part company: a publisher's window stands behind the thing being shared for most of a
+session, so a card that stopped whenever nobody was looking at it would be dark at the moment a
+reader came back to check on it, and would pay a pool import and a reconnect to come back. What
+the stop is worth is the end-to-end route's reader slot, which is why it closes the decode
+rather than merely clearing the tile. And the placeholder stays for the states where there is no
+picture - stopped, a leg that refused the decode, nothing publishing, a route with nothing
+running behind it, and the tile's own three - each of them saying which one it is.
 
 The card's own sentence is the selected route's, because the two make opposite claims and one
 sentence for both would be false under one of them. The local route says it costs one decode
@@ -540,8 +538,9 @@ in the contract describes any of it either, and that is the point: how a viewer 
 it receives is this module's job, so the backend describes no grid to open, no tiles to
 report and no layout to pick (`docs/ipc-api.md`).
 
-`F`, `O` and `P` are the tile's own keys rather than the window's, and they name the three
-states the menu's first group does: filling a screen, focused, and in a window of its own.
+The keys are the tile's own rather than the window's, and each names a state the menu names:
+`F`, `O` and `P` for filling a screen, focused and in a window of its own, `M` for silenced,
+`S` for the stats overlay, and `+` and `-` for the level the decode plays at.
 A shortcut on the window would have to invent a rule for which tile it meant, and each candidate
 for that rule (the focused tile, the last one touched) is a second arrangement state to keep.
 Hanging them off the tile makes the pointer the rule instead, so each card listens for keys on
@@ -551,6 +550,9 @@ The card never takes the keyboard, because taking it on hover would take it out 
 reader was typing in.
 The keys are one table, read by the press and by the gesture the menu row prints, since a menu
 that named a key nothing acted on would be wrong the moment either half moved.
+A press asks the command whether it can run before it runs it, so a key is refused wherever the
+row it names is greyed: a stream with no sound track has nothing for `M` or the volume keys to
+do, and the press is left for whatever else wants it.
 
 ## How the repository's principles land in C#
 

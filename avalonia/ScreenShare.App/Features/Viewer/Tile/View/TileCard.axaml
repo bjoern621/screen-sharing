@@ -97,10 +97,11 @@
     is, and what is printed over it. The dividers are the grouping - a menu of seven equal rows
     makes the reader do the sorting every time it opens.
 
-    The three arrangements carry a key each, printed at the quiet end of the row. A menu is where
-    a reader finds out what a tile affords, so it is where they find out what to press instead.
-    The key acts on the tile under the pointer, which is the tile they had to be pointing at to
-    open this menu (Features/Viewer/Tile/View/TileKeys.cs).
+    Every row but the tone-map one carries a key, printed at the quiet end of the row, and the
+    volume carries the pair that moves it. A menu is where a reader finds out what a tile
+    affords, so it is where they find out what to press instead. The key acts on the tile under
+    the pointer, which is the tile they had to be pointing at to open this menu
+    (Features/Viewer/Tile/View/TileKeys.cs).
 
     Every row here names a state rather than a transition, and shows whether that state is in
     force as a tick at the end of the row. The words and the glyph never change, so a reader
@@ -151,6 +152,7 @@
         audio track, which is a different thing from a silent one: there is nothing to be loud.
       -->
       <MenuItem Header="Mute" Command="{Binding ToggleMute}" IsEnabled="{Binding HasAudio}"
+                InputGesture="{x:Static tiles:TileKeys.Mute}"
                 IsChecked="{Binding Muted, Mode=OneWay}">
         <MenuItem.Icon>
           <ti:TablerIcon Icon="IconVolumeOff" />
@@ -165,13 +167,18 @@
 
         It is the one row that carries a control rather than a state, so it is the one row with
         no tick: the slider's own position is the reading.
+
+        Its keys are printed inside the row rather than in the key column, because the column
+        holds one gesture and this row is moved by two. They read as that column does - hint
+        weight, at the quiet end - so a reader scanning down the menu finds the keys in one
+        place (Features/Viewer/Tile/View/TileKeys.cs).
       -->
       <MenuItem StaysOpenOnClick="True" IsEnabled="{Binding HasAudio}">
         <MenuItem.Icon>
           <ti:TablerIcon Icon="IconVolume" />
         </MenuItem.Icon>
         <MenuItem.Header>
-          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{StaticResource GapControl}" MinWidth="190">
+          <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{StaticResource GapControl}" MinWidth="190">
             <TextBlock Grid.Column="0" Text="Volume" VerticalAlignment="Center" />
             <Slider Grid.Column="1"
                     Name="VolumeSlider"
@@ -179,6 +186,8 @@
                     Value="{Binding Volume, Mode=TwoWay}"
                     PointerPressed="OnVolumePressed"
                     VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Classes="hint" Text="+ / -"
+                       Margin="9,0,0,0" VerticalAlignment="Center" />
           </Grid>
         </MenuItem.Header>
       </MenuItem>
@@ -209,6 +218,7 @@
       <Separator />
 
       <MenuItem Header="Stats overlay" Command="{Binding ToggleStats}"
+                InputGesture="{x:Static tiles:TileKeys.Stats}"
                 IsChecked="{Binding ShowStats, Mode=OneWay}">
         <MenuItem.Icon>
           <ti:TablerIcon Icon="IconChartBar" />
@@ -320,21 +330,25 @@
                                  Margin="0,0,0,3" />
 
                       <!--
-                        Label left, figure right, on a shared grid so the figures line up down the
-                        block. The tip is on the whole row rather than on the label alone, because
-                        the figure is the half a reader is pointing at.
+                        Label left, figure right. The label takes the width its text needs and the
+                        figure wraps into what is left, which is the way round the two can be
+                        sized: the labels are a fixed vocabulary and the readings are not, and a
+                        reading as long as "Graphics card, Direct3D 11 - driver's colour" claiming
+                        its width first leaves its own label a column one letter wide.
+
+                        The tip hangs off the label rather than the row. It opens over whatever it
+                        is standing on, and the readings are the half of the row a reader is
+                        watching change.
                       -->
                       <ItemsControl ItemsSource="{Binding Lines}">
                         <ItemsControl.ItemTemplate>
                           <DataTemplate x:DataType="model:StatLine">
-                            <Grid ColumnDefinitions="*,Auto"
-                                  ColumnSpacing="{StaticResource GapControl}"
-                                  Background="Transparent"
-                                  ToolTip.Tip="{Binding Tip}">
+                            <Grid ColumnDefinitions="Auto,*"
+                                  ColumnSpacing="{StaticResource GapControl}">
                               <TextBlock Grid.Column="0" Classes="hint" Text="{Binding Label}"
-                                         TextWrapping="Wrap" />
+                                         ToolTip.Tip="{Binding Tip}" />
                               <TextBlock Grid.Column="1" Classes="figure" Text="{Binding Value}"
-                                         TextAlignment="Right" />
+                                         TextWrapping="Wrap" TextAlignment="Right" />
                             </Grid>
                           </DataTemplate>
                         </ItemsControl.ItemTemplate>

@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ti="using:TablerIcons"
              xmlns:model="using:ScreenShare.App.Features.Broadcast.Preview.Model"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.Preview.ViewModel"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
@@ -98,6 +99,30 @@
                    Canvas.Left="{Binding PointerLeft}"
                    Canvas.Top="{Binding PointerTop}" />
         </Canvas>
+
+        <!--
+          Stop the picture, or start it again. Opposite the sharing badge: the badge says what
+          the stream is doing and this says what the card is doing, and a reader must not read
+          one for the other - which is also why the control carries no red.
+
+          Over the picture rather than under the route toggle, because it acts on the picture
+          and because it has to stay reachable on a card that is drawing nothing: a stopped
+          preview is a dark tile with a sentence in the middle of it, and the way back has to be
+          in the same place it was pressed.
+
+          The plate behind it is the figure strip's, for the same reason: a glyph alone sits on
+          whatever the stream happens to be showing.
+        -->
+        <Panel Margin="8" HorizontalAlignment="Right" VerticalAlignment="Top">
+          <Border Background="{StaticResource TileBrush}"
+                  Opacity="0.62"
+                  CornerRadius="{StaticResource RadiusControl}" />
+          <Button Theme="{StaticResource IconButton}"
+                  Command="{Binding TogglePlay}"
+                  ToolTip.Tip="{Binding PlayTip}">
+            <ti:TablerIcon Classes="button" Icon="{Binding PlayGlyph}" />
+          </Button>
+        </Panel>
 
         <Panel Margin="8" VerticalAlignment="Bottom">
           <!-- Opacity on a bare fill, so the text over it keeps its own contrast. -->

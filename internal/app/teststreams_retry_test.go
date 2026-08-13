@@ -2,7 +2,10 @@ package app
 
 import (
 	"strconv"
+	"strings"
 	"testing"
+
+	"bjoernblessin.de/screenshare/internal/publish"
 )
 
 // TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on, so there is no attempt at
@@ -69,11 +72,23 @@ func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 
 // TestASlotNamesTheStreamItPublishes: the slot is the stream's identity, so a relaunch has to come
 // back on the row the roster already shows rather than beside it.
+//
+// The slot number leads, and the surface's own label follows it where it has one: two slots that
+// arrived at one name would be one row of the roster and two publishers pushing to it.
 func TestASlotNamesTheStreamItPublishes(t *testing.T) {
-	if name := testStreamName(0); name != "test-1" {
-		t.Errorf("slot 0 is named %q, want test-1", name)
-	}
-	if name := testStreamName(2); name != "test-3" {
-		t.Errorf("slot 2 is named %q, want test-3", name)
+	seen := map[string]bool{}
+	for slot := range maxTestStreams {
+		name := testStreamName(slot)
+
+		if number := "test-" + strconv.Itoa(slot+1); !strings.HasPrefix(name, number) {
+			t.Errorf("slot %d is named %q, which does not lead with %q", slot, name, number)
+		}
+		if label := publish.TestSurfaceOf(slot).Label; label != "" && !strings.Contains(name, label) {
+			t.Errorf("slot %d draws a surface labelled %q and reaches the roster as %q", slot, label, name)
+		}
+		if seen[name] {
+			t.Errorf("slot %d publishes under %q, which another slot already holds", slot, name)
+		}
+		seen[name] = true
 	}
 }

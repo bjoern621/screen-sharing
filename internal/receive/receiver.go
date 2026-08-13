@@ -223,6 +223,7 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 	r.watchSamples(ev.OnLive)
 	if !st.Raw {
 		r.watchDecodePads(ev.OnAudio)
+		r.watchSourcePads(ev.OnAudio)
 	}
 	r.watchElements()
 
@@ -294,6 +295,32 @@ func (r *Receiver) watchDecodePads(onAudio func()) {
 	dec.Connect("pad-added", func(_ gst.Element, pad gst.Pad) {
 		r.onDecodePad(pad, onAudio)
 	})
+}
+
+// watchSourcePads decodes the tracks the launch line has no room for.
+//
+// A source that carries each track in a stream of its own hands out a pad per track, and the line
+// holds one decoder: rtspsrc offers RTP video and RTP audio, the delayed link places the picture
+// and the audio pad is left with nowhere to go. A source that hands over one muxed pad, which is
+// every other transport here, exposes nothing this has anything to do.
+//
+// The source is the element nothing feeds, which is what makes it reachable without the transport
+// naming it: a fragment states what it opens and where from, and what its element is called is no
+// part of that.
+func (r *Receiver) watchSourcePads(onAudio func()) {
+	sources := 0
+	for v := range r.pipeline.IterateSources().Values() {
+		src, ok := v.(gst.Element)
+		if !ok {
+			continue
+		}
+		sources++
+		src.Connect("pad-added", func(_ gst.Element, pad gst.Pad) {
+			r.onSourcePad(pad, onAudio)
+		})
+	}
+
+	assert.Assert(sources == 1, "a receive pipeline decodes from one source", r.name, sources)
 }
 
 // watchElements classifies the elements the pipeline holds and the ones it grows.

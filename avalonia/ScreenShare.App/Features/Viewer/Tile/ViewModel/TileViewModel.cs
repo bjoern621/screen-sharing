@@ -49,6 +49,13 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// </summary>
     private TileReport _report = TileReport.Nothing;
 
+    /// <summary>
+    /// How far one press of the volume keys moves the level: a twentieth of the range.
+    /// Coarse enough that a press is audible, fine enough that a reader can land on a level rather than
+    /// beside it.
+    /// </summary>
+    private const double VolumeStep = 0.05;
+
     /// <param name="arrange">
     /// Asks the screen holding this tile to arrange it differently: focus it, pop it out, put it on a screen
     /// of its own.
@@ -82,6 +89,9 @@ public sealed class TileViewModel : Observable, IFrameSource
         });
         ToggleMute = new PendingCommand(() => SendAudioAsync(Volume, !Muted), dispatch, () => HasAudio);
         ToggleToneMap = new PendingCommand(() => SendToneMapAsync(!ToneMapped), dispatch, () => CanToneMap);
+        // The keys write what the slider writes, so a step goes down the one path that sends a volume.
+        Louder = new DelegateCommand(() => Volume = Math.Clamp(Volume + VolumeStep, 0, 1), () => HasAudio);
+        Quieter = new DelegateCommand(() => Volume = Math.Clamp(Volume - VolumeStep, 0, 1), () => HasAudio);
     }
 
     /// <summary>Which decode this tile draws from, read through rather than taken apart.</summary>
@@ -351,6 +361,20 @@ public sealed class TileViewModel : Observable, IFrameSource
 
     /// <summary>Silences this decode, or unsilences it at the volume that was chosen.</summary>
     public PendingCommand ToggleMute { get; }
+
+    /// <summary>
+    /// Plays this decode one step louder, and does nothing once it is at the top of the range.
+    ///
+    /// It names the level it wants rather than a change, like the slider does and for the same reason: the
+    /// value comes back on the decode's state, so a press computes its target from what the decode is
+    /// playing at now rather than from what a previous press asked for.
+    /// The menu's volume row is where a reader finds it, so it carries no row of its own
+    /// (<c>Features/Viewer/Tile/View/TileKeys.cs</c>).
+    /// </summary>
+    public DelegateCommand Louder { get; }
+
+    /// <summary>Plays this decode one step quieter, and does nothing once it is silent.</summary>
+    public DelegateCommand Quieter { get; }
 
     /// <summary>
     /// Rolls this stream's range down into the one this display shows, or draws it as it arrives.

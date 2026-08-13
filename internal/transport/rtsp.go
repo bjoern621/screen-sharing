@@ -106,6 +106,14 @@ func (RTSP) WatchURL(s settings.Settings, streamName string) string {
 // protocols names the RTP lower transport rtspsrc offers the relay.
 // Neither is left at the element's own default, which is a 2000 ms buffer and a UDP-first
 // negotiation.
+//
+// Each track is its own RTP stream, so the element hands out a pad per track rather than one muxed
+// pad, and the capsfilter is what decides which of them the pipeline's decoder is given.
+// Without it that is whichever track the relay announced first: the decoder takes any caps, a
+// launch line links the first pad that fits, and a session whose audio was announced first would
+// decode the sound and leave the picture with nowhere to go.
+// The track this leaves unlinked is decoded beside the picture (internal/receive), so an audio
+// track reaches the branch that plays it rather than being dropped here.
 func (RTSP) GstSource(s settings.Settings, streamName string) []string {
 	assert.Assert(streamName != "", "a receive source names the stream it decodes")
 
@@ -114,6 +122,7 @@ func (RTSP) GstSource(s settings.Settings, streamName string) []string {
 		"location=" + rtspURL(s, streamName),
 		"protocols=" + s.Viewer.RtspWatchProtocol,
 		fmt.Sprintf("latency=%d", s.Viewer.RtspWatchLatencyMs),
+		"!", "application/x-rtp,media=video",
 	}
 }
 

@@ -137,6 +137,12 @@ A player plays the second track the mux carries.
 A receive pipeline grows a branch for it when `decodebin` exposes an audio pad, and that branch ends in a sink of its own rather than travelling to the shell: the backend runs on the machine the shell is on, so a second channel would carry the samples across a process boundary to reach the same output device.
 The frame channel is therefore about frames alone, and the volume and mute a tile offers are effects on the receiver rather than anything the channel carries.
 
+Which pad the branch is grown from depends on how the leg carries its tracks.
+A transport that hands over one muxed stream leaves the separating to `decodebin`, which exposes a pad per elementary stream and so exposes the audio one itself.
+RTSP carries each track as its own RTP stream, so `rtspsrc` hands out a pad per track and a launch line has room for one of them: the source fragment pins that one to the picture (`application/x-rtp,media=video`), because a decoder that takes any caps would otherwise take whichever track the relay announced first and leave the other with nowhere to go.
+The track left unlinked is decoded beside the picture, in a decoder the receiver adds to the running pipeline, and what that decoder exposes reaches the same audio pad handler.
+Without both halves an RTSP tile receives the audio track and drops it at the source, which is a stream that plays silently while the relay reports two tracks on it.
+
 The branch is `queue ! audioconvert ! level ! audioresample ! volume ! autoaudiosink`, and two of its elements are reachable from the control API.
 
 `SetReceiveAudio` writes the `volume` element, keyed by the pair every other receive message is keyed by.
@@ -494,6 +500,12 @@ A decode is keyed by the stream and the leg, so a tile in the viewer's grid on t
 The preview therefore reads the grid's answer through before it closes anything and leaves the pipeline to the window that still wants it.
 It also asks again for a decode it saw running and no longer sees, which is what makes a pipeline another window closed a blink rather than a card that stays dark.
 
+**Whether the card draws is the reader's, and it opens drawing.**
+The control over the picture is the whole of what decides it, and it follows no window.
+A publisher's window stands behind the thing being shared for most of a session, so a card that stopped whenever nobody was looking at it would be dark at the moment a reader came back to check on it, and would pay a pool import and a reconnect to come back.
+That is the opposite of the wizard's screen picker, which does stop with the window: its pictures are screen captures the backend opens because the grid asked, and a reader who is not on the source step has stopped wanting them.
+The stop is what closes the end-to-end route's decode while a publish stands, so it gives back the reader slot and the downstream bandwidth rather than only clearing the tile.
+
 ### What the screen picker draws
 
 The wizard's source step offers a picture of every monitor, so a screen is chosen by looking at it rather than by its number.
@@ -563,7 +575,12 @@ One row is HDR, drawn in PQ at ten bits and published as H.264 High 10, and it s
 Its label reaches the relay as part of the name, because "test-2" says nothing a viewer can pick by before anything has decoded.
 That row is the one the browser page cannot decode, which is why the rest of the set stays 4:2:0.
 
-Measured rather than assumed, through a running relay: a stream published from that row is received carrying `bt2100-pq` in `I420_10LE`, so a tile draws it as HDR and offers the tone-map choice rather than merely looking bright.
+One row sounds, and it sits inside that same set.
+It draws its track from `audiotestsrc` and codes it with the elements the audio capability table names, so a test stream is coded by what a real publish is coded by, and the track reaches the relay as a second RTP stream of the session the picture travels in.
+Pink noise at a fifth of full scale is what it plays, which reaches a meter at about -30 dBFS: the meter is one of the things the row exists to exercise and wants a signal that is there continuously, where a tick a second leaves it reading silence between ticks and a tone at one frequency runs for as long as the backend does.
+The other rows stay silent, so the volume a tile carries, the level meter beside it and two streams playing at once all have something to be compared against.
+
+Measured rather than assumed, through a running relay: a stream published from the HDR row is received carrying `bt2100-pq` in `I420_10LE`, so a tile draws it as HDR and offers the tone-map choice rather than merely looking bright, and one published from the sounding row is received with an Opus track beside the picture.
 
 They are always on because the screens that watch are being built against them.
 A relay carrying nothing puts the roster in its empty state rather than in the one under construction, and a tile grid cannot be looked at on a machine that has to publish its own screen first.

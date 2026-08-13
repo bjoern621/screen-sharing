@@ -97,6 +97,40 @@ func (r *Receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 	}
 }
 
+// onSourcePad decodes a track the launch line left unlinked, into a decoder of its own.
+//
+// The pads that reach here are the ones a source with a pad per track offers beyond the first: the
+// picture is placed by the line and this is what the audio track of an RTSP session would otherwise
+// be, received and dropped at the source. What the new decoder exposes goes through onDecodePad,
+// so an audio pad becomes the branch whatever decoder produced it, and the state of the pipeline it
+// is added to is what it is synced to.
+//
+// A pad the line did link is left alone, which is what makes this safe to run for every pad the
+// source exposes.
+//
+// A failure costs the track and nothing else: the picture is already decoding through a decoder
+// this one never touches, so it is logged rather than failing the stream.
+func (r *Receiver) onSourcePad(pad gst.Pad, onAudio func()) {
+	if pad.IsLinked() {
+		return
+	}
+
+	dec := gst.ElementFactoryMake("decodebin", "dec-"+pad.GetName())
+	if dec == nil {
+		logger.Warnf("stream %q has no decodebin element, the track beside the picture stays off", r.name)
+		return
+	}
+	r.pipeline.Add(dec)
+	dec.Connect("pad-added", func(_ gst.Element, decoded gst.Pad) {
+		r.onDecodePad(decoded, onAudio)
+	})
+	dec.SyncStateWithParent()
+
+	if ret := pad.Link(dec.GetStaticPad("sink")); ret != gst.PadLinkOK {
+		logger.Warnf("stream %q could not decode the track beside the picture (%d)", r.name, ret)
+	}
+}
+
 // SetAudio sets how loud the stream plays and whether it plays at all.
 //
 // What it asks for is held here whether or not the audio branch exists yet, and
