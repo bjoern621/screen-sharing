@@ -398,7 +398,7 @@ public sealed class FormSession
     ///
     /// Not the same question as <see cref="Applies"/>: the form groups the screen by what the reader is
     /// deciding and a key by which message holds the value, so one settings group's fields reach the screen
-    /// spread over several form groups (<c>internal/form/keys.go</c>).
+    /// spread over several form groups (<c>backend/internal/form/keys.go</c>).
     /// Any one of them being applied makes the write a setting, since that is the field the backend would
     /// otherwise never be handed.
     /// </summary>

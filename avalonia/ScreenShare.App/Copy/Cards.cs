@@ -76,7 +76,7 @@ public static class Cards
     /// Leads with nothing being shared yet: a live picture of a screen, in an app whose purpose is sending
     /// one, is what a reader could take for a stream already on the air.
     /// The picture is the rectangle the stream would carry, read by the same element
-    /// (<c>internal/screensrc</c>).
+    /// (<c>backend/internal/screensrc</c>).
     /// </summary>
     public const string ScreenPickerCost =
         "Nothing is being shared yet. Each picture is what that screen is showing now, read the "

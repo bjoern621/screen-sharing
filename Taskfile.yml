@@ -95,8 +95,9 @@ tasks:
 
   dev:
     desc: Run the backend in the foreground
+    dir: backend
     env:
-      # go-gst is a cgo binding, so every file in internal/receive is gated on cgo. Go
+      # go-gst is a cgo binding, so every file in backend/internal/receive is gated on cgo. Go
       # turns CGO_ENABLED off by itself when it finds no C compiler, which makes a build
       # run outside the toolchain's reach fail as "build constraints exclude all Go
       # files" in packages that look unrelated to the compiler. Asking for cgo outright
@@ -105,7 +106,7 @@ tasks:
     cmds:
       # The backend has no window: it opens the control socket and waits, and the
       # Avalonia shell connects to it ('task avalonia'). Ending this task ends the
-      # children it supervises, which is what the signal handler in cmd/backend is for.
+      # children it supervises, which is what the signal handler in backend/cmd/backend is for.
       #
       # The MSYS2 prefix on Windows answers two needs at once: the toolchain and the
       # GStreamer development files cgo compiles the receive pipelines against, and the
@@ -138,7 +139,7 @@ tasks:
       # the pipe is free, and fails this task rather than starting a second backend
       # when something outside this build tree holds it.
       - platforms: [windows]
-        cmd: powershell -NoProfile -File scripts/dev-stop.ps1
+        cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/scripts/dev-stop.ps1'
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
       - platforms: [windows]
@@ -160,10 +161,11 @@ tasks:
     # The toolchain and the GStreamer development files come from the flake's dev
     # shell here. On Windows they come from MSYS2 and the task that names it is
     # build:windows.
+    dir: backend
     env:
       CGO_ENABLED: "1"
     cmds:
-      - go build -o build/bin/screenshare-backend ./cmd/backend
+      - go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend' ./cmd/backend
 
   build:windows:
     desc: Build the Windows backend binary and copy ffmpeg/ffplay in beside it
@@ -171,6 +173,7 @@ tasks:
     # already says: the receive pipelines link GStreamer through cgo, and a cgo build
     # needs the target's own toolchain and development files.
     platforms: [windows]
+    dir: backend
     env:
       CGO_ENABLED: "1"
     cmds:
@@ -179,7 +182,7 @@ tasks:
           go build -o '{{.ROOT_DIR}}/build/bin/screenshare-backend.exe' ./cmd/backend
       # ffmpeg and ffplay ship beside the binary, so drop those two executables in
       # build/windows/redist first (see that directory's README).
-      - cmd: powershell -NoProfile -Command "Copy-Item -Force build/windows/redist/ffmpeg.exe,build/windows/redist/ffplay.exe build/bin/"
+      - cmd: powershell -NoProfile -Command "Copy-Item -Force '{{.ROOT_DIR}}/build/windows/redist/ffmpeg.exe','{{.ROOT_DIR}}/build/windows/redist/ffplay.exe' '{{.ROOT_DIR}}/build/bin/'"
 
   package:linux:
     desc: Build the Linux release tarball into build/dist

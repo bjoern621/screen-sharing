@@ -26,10 +26,7 @@ buildGoModule {
       in
       lib.elem top [
         "api"
-        "cmd"
-        "internal"
-        "go.mod"
-        "go.sum"
+        "backend"
         "VERSION"
       ];
   };
@@ -37,13 +34,14 @@ buildGoModule {
   # The module cache rather than a vendor directory, for the reason nix/package.nix states:
   # `api` is a module of this repository reached by a filesystem replace, and vendoring
   # would fold it into the hash that pins third-party code.
-  # The hash is that package's, since both builds download what one go.mod lists.
+  # The hash is that package's, since both builds download what one backend/go.mod lists.
   proxyVendor = true;
   vendorHash = "sha256-YhwaORkqDclT1JBmo/V+jgICWEdhS6N9w5KQExJilEE=";
 
+  modRoot = "backend";
   subPackages = [ "cmd/groupd" ];
 
-  # Nothing this binary imports reaches internal/receive, the one cgo and GStreamer package,
+  # Nothing this binary imports reaches backend/internal/receive, the one cgo and GStreamer package,
   # so it builds without a C compiler or GStreamer headers on the server.
   env.CGO_ENABLED = 0;
 

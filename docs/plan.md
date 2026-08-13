@@ -41,7 +41,7 @@ The list grows through the settings and not through an effect: the form draws on
 Both are ordinary writes through ordinary controls, so a shell decides nothing about the list's shape.
 
 Two tracks were rejected on carriage, and the sources mix into one.
-Kinds stay a declared table (`desktop`, `mic`, `application`), and what is inside a kind is enumerated (`internal/audiodev`), cached for the process lifetime and read back separately from the probe.
+Kinds stay a declared table (`desktop`, `mic`, `application`), and what is inside a kind is enumerated (`backend/internal/audiodev`), cached for the process lifetime and read back separately from the probe.
 Gain and mute are one live field beside the bitrate: they reach the mixer that is already running, where an entry added or taken off is a different graph and a relaunch.
 
 **Built: per-application capture.** An application playing sound is a PipeWire node, so recording one is taking that node's output: the enumeration reports the output streams beside the sinks and the sources, and the GStreamer branch opens one with `pipewiresrc target-object=` where the other kinds take a `pulsesrc device=`.
@@ -102,7 +102,7 @@ The relay operator and the key service can both watch a private stream, and the 
 **A group is a path prefix.** The path is `<group-id>/<name>`, where the group id derives from a random group key.
 MediaMTX's per-path permissions then do the enforcement, and "which streams may I see" is a string match rather than a query the relay API cannot answer.
 
-**Built: the derivation** (`internal/group`), which is the piece both sides run.
+**Built: the derivation** (`backend/internal/group`), which is the piece both sides run.
 The client computes the prefix it publishes under and the service computes the prefix it grants a token for, so two implementations of one hash would be a member issued a token for a path nobody is publishing to.
 The id is a keyed digest under its own label rather than a hash of the key, because the id is public - it is in every URL a member pastes - and must say nothing about the secret behind it; a key with a second use derives that one under a second label, so what one use publishes cannot be replayed as another's input.
 A stream with no key is refused rather than published under its bare name, which is the "publishing always requires a group" rule where it can actually be enforced.
@@ -139,14 +139,14 @@ Neither engine does fingerprint pinning, so an "accept this fingerprint" step wo
 
 The key, token and index service lives in this repository under `cmd/`, because the path-prefix derivation has to be identical on both sides and two repositories means two copies of it.
 
-**Built: the service** (`cmd/groupd`, `internal/groupsvc`, `internal/token`).
+**Built: the service** (`backend/cmd/groupd`, `backend/internal/groupsvc`, `backend/internal/token`).
 It holds a signing key and nothing else: a group is created by drawing a key, a key is traded for a short relay token granting that key's prefix, and the index answers a caller's group or the public streams by reading the relay's own path list.
 There is no membership store because there is nothing to store - possession of the key is membership, and the prefix is the key's own digest - which is also what makes rotation drawing a second key and using it.
 The token is ES256 against `crypto/ecdsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
 
 Which algorithm is SRT's decision and not a preference.
 A token reaches the relay inside the SRT stream id, every SRT implementation caps that field at 512 bytes, and an RS256 signature is 342 characters on its own: the transport carrying most of this app's streams could not carry its own credential.
-An ES256 token measures 418 bytes with a group's prefix and a stream name beside it, which is what `token.MaxTokenBytes` bounds and what `internal/group`'s name limit leaves room for.
+An ES256 token measures 418 bytes with a group's prefix and a stream name beside it, which is what `token.MaxTokenBytes` bounds and what `backend/internal/group`'s name limit leaves room for.
 
 How a token travels is the relay's answer per protocol, measured against MediaMTX 1.20:
 SRT takes it as the password field of the stream id, `publish:<path>:any:<token>`;
@@ -159,7 +159,7 @@ They are second files rather than edits to the ones at the root, because both de
 The app publishes under its group: the key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
 What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix, so a machine with no key still publishes under the bare name - which is what a relay with no auth serves and what every LAN stream does.
 
-**Built: the app's credential.** `internal/groupclient` trades the group key for a relay token and holds the one it minted until it is close to expiring; `internal/app` attaches it to the settings snapshot every command is built from, and to nothing else.
+**Built: the app's credential.** `backend/internal/groupclient` trades the group key for a relay token and holds the one it minted until it is close to expiring; `backend/internal/app` attaches it to the settings snapshot every command is built from, and to nothing else.
 Each leg carries it the way its protocol takes one, and the relay's own API is no longer read at all where a group service answers: the live-stream list comes from the index, which is what a member's token reaches.
 `Relay.Tls` is what says a proxy fronts the HTTP legs, so those addresses become one name on 443 and the group service is reachable at the same one.
 

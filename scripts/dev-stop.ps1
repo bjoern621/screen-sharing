@@ -4,7 +4,7 @@
 
   Why this exists:
     A named pipe lives only as long as the process holding it, so there is no stale
-    file to clear the way internal/control does on Unix - what is left behind on
+    file to clear the way backend/internal/control does on Unix - what is left behind on
     Windows is a whole backend still running. `go run` starts the compiled binary as
     a child, and a dev run that ends by closing the terminal, by a debugger detaching,
     or by anything else that does not deliver Ctrl+C to the console group leaves that
@@ -43,7 +43,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-# Kept in step with internal/control/listen_windows.go, which is where the name is
+# Kept in step with backend/internal/control/listen_windows.go, which is where the name is
 # defined. The version is part of it, so a v2 backend is a different pipe and this
 # script neither waits for nor reports on that one.
 $pipe = "screenshare-control-v1"

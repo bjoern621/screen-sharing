@@ -4,7 +4,7 @@
   # A revision on both inputs and never a branch, so which package set a checkout builds
   # against is this file's property rather than the day someone last ran `nix flake update`.
   # A branch ref moves ffmpeg and GStreamer under the tree with no commit saying so, and
-  # those two are what every codec verdict in internal/capabilities is measured against.
+  # those two are what every codec verdict in backend/internal/capabilities is measured against.
   #
   # The revision tracks nixos-unstable: a release channel trails GStreamer by a minor series,
   # and the plugin set is the thing under test.
@@ -146,7 +146,7 @@
         };
         linuxDeps = with pkgs; [
           # cgo reads this to find the GStreamer development files gstDeps carries, which is
-          # what internal/receive compiles against.
+          # what backend/internal/receive compiles against.
           pkg-config
           xrandr # X11 monitor enumeration (display pkg listX11)
         ];
@@ -177,7 +177,7 @@
         # Publish: pipewiresrc reads the xdg-desktop-portal ScreenCast node and the rest
         # encodes and ships over SRT or RTSP, in a gst-launch-1.0 child.
         # Watch: a receive pipeline decodes each stream through decodebin into an appsink
-        # (internal/receive), linked into the backend itself, so this list is also what cgo
+        # (backend/internal/receive), linked into the backend itself, so this list is also what cgo
         # compiles that package against.
         #
         # Both sides find these plugins through GST_PLUGIN_SYSTEM_PATH_1_0, set in the

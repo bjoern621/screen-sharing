@@ -87,15 +87,15 @@ publish and decode, and the window in front of it. Opening the app starts both.
 %autosetup
 
 %build
-# internal/receive links GStreamer through cgo. Go turns cgo off by itself when it finds
-# no C compiler, which surfaces as "build constraints exclude all Go files" in packages
+# backend/internal/receive links GStreamer through cgo. Go turns cgo off by itself when it
+# finds no C compiler, which surfaces as "build constraints exclude all Go files" in packages
 # that look unrelated to the compiler; asking for it outright names the missing compiler
 # instead.
 export CGO_ENABLED=1
 export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 
-go build -o dist/screenshare-backend ./cmd/backend
+go build -C backend -o ../dist/screenshare-backend ./cmd/backend
 
 # Framework-dependent: the runtime is a dependency of this package, so the build does not
 # carry a second copy of it. Both binaries land in one directory because the shell starts

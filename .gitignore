@@ -6,7 +6,7 @@
 bin/
 build/bin
 # extracted ffmpeg binary distributions (e.g. ffmpeg-7.x-essentials_build/),
-# NOT the internal/ffmpeg source package
+# NOT the backend/internal/ffmpeg source package
 ffmpeg-*/
 
 # vendored Windows ffmpeg/ffplay payload, copied into build/bin by the bundle task;

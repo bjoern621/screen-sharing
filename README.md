@@ -47,6 +47,22 @@ Friend B         ──SRT──┘                            HLS/WebRTC for br
 - Relay egress = publishers x viewers x bitrate - scales fast. Start modest
   (40–80 Mbps HEVC 4:4:4 already beats Discord), crank when few are watching.
 
+## Repository layout
+
+```
+api/          the control contract, a module of its own so neither side depends on the other
+backend/      the Go module: the headless backend and the group service
+avalonia/     the shell in front of the backend
+build/        icons, the Windows redistributables, and where a build lands
+deploy/       the relay and the group service as containers
+docs/         architecture, domain model and terminology
+nix/          the Nix packages and the NixOS module for the privileged capture path
+packaging/    the Arch and Fedora recipes and the desktop entry
+scripts/      packaging and development helpers
+```
+
+Each of `api/`, `backend/` and `avalonia/` carries a README stating what belongs in it.
+
 ## Building it
 
 `Taskfile.yml` carries the development and packaging tasks; `task` lists them.

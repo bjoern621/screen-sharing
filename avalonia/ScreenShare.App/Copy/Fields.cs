@@ -273,7 +273,7 @@ public static class Fields
     /// The control a key names, with a list index taken out: <c>publish.audio_sources[2].gain</c> is a value
     /// of <c>publish.audio_sources[].gain</c>.
     /// Copy is written for the control and never for one entry of a list, and this is the normalisation the
-    /// backend does in its own tables (internal/form/keys.go).
+    /// backend does in its own tables (backend/internal/form/keys.go).
     /// </summary>
     public static string Template(string key)
     {

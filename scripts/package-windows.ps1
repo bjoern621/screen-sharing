@@ -7,7 +7,7 @@
 # plugin set (docs/packaging.md). One directory holds all of it, which is both what the
 # Windows loader searches first for a DLL and where the app's own lookups start - the
 # shell finds the backend beside itself, and the backend finds ffmpeg and gst-launch-1.0
-# the same way (internal/ffmpeg/exe.go).
+# the same way (backend/internal/ffmpeg/exe.go).
 #
 # What runs before this: `task build:windows` builds the backend and copies ffmpeg and
 # ffplay in beside it, and `task bundle:windows` copies the GStreamer runtime. The Task

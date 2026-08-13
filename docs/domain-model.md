@@ -36,7 +36,7 @@ Gap values are the settings' own: the option is a settings field name and the va
 
 A `Gap` and a numeric ceiling are how a codec's limits are *written*, on the row they belong to.
 They are not what anything *reads*.
-`capabilities/rules.go` turns each of them into a rule in `internal/rules`, and every consumer asks that evaluator: the form's greying, the ends a numeric control is offered between, the repair, and the refusal `capabilities.Validate` returns.
+`capabilities/rules.go` turns each of them into a rule in `backend/internal/rules`, and every consumer asks that evaluator: the form's greying, the ends a numeric control is offered between, the repair, and the refusal `capabilities.Validate` returns.
 
 The move exists because a gap can only name a codec, an engine, an option and a value.
 A fact about a capture backend and a codec together, or a codec and the platform, has no row to sit on, so each one grew a table of its own with a consumer written against it, and every one of those consumers restated part of an answer the gap mechanism already knew how to give.
@@ -92,7 +92,7 @@ A Windows WASAPI loopback or a macOS aggregate device would be another platform 
 The lookup is a table read and nothing else: the same `platform.Info` yields the same ordered list on every call, so a form may resolve on every keystroke without paying for it.
 
 **A kind is declared and what is inside it is enumerated**, which is why they are two controls and two answers.
-Whether a machine serves desktop audio at all is this table's; which microphone is plugged in is not something any table can hold, so `internal/audiodev` reads it off the sound server, once, cached for the process lifetime and read back separately from the call that takes it - the same division the encoder probe makes and for the same reason.
+Whether a machine serves desktop audio at all is this table's; which microphone is plugged in is not something any table can hold, so `backend/internal/audiodev` reads it off the sound server, once, cached for the process lifetime and read back separately from the call that takes it - the same division the encoder probe makes and for the same reason.
 A kind with nothing enumerated still has one thing in it: its own default, which is what an entry naming no device takes.
 A selection the enumeration stops reporting stays on the list with a note rather than being dropped, the way a monitor index no enumeration reported does, because an application that is not running now is one that may be running when the stream starts.
 

@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The build needs the GStreamer and EGL development files cgo compiles against
-      # (internal/receive names the pkg-config modules). The runtime plugin set is not
+      # (backend/internal/receive names the pkg-config modules). The runtime plugin set is not
       # installed: nothing here starts a pipeline.
       - name: Install build dependencies
         run: |
@@ -71,7 +71,7 @@ jobs:
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version-file: go.mod
+          go-version-file: backend/go.mod
           cache: true
 
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -90,8 +90,8 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: |
-          go build ./...
-          go vet ./...
+          go build -C backend ./...
+          go vet -C backend ./...
           dotnet test avalonia/ScreenShare.App.sln
 
       - name: Package
@@ -135,7 +135,7 @@ jobs:
 
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
-          go-version-file: go.mod
+          go-version-file: backend/go.mod
           cache: true
 
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
@@ -178,8 +178,8 @@ jobs:
           CGO_ENABLED: "1"
         run: |
           $env:PATH = "$env:PATH;${{ steps.msys2.outputs.msys2-location }}\mingw64\bin"
-          go build ./...
-          go vet ./...
+          go build -C backend ./...
+          go vet -C backend ./...
           dotnet test avalonia/ScreenShare.App.sln
 
       # MSYS2_ROOT is what the build and bundle tasks resolve the toolchain, the plugin

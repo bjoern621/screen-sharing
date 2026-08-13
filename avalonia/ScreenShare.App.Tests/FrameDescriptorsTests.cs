@@ -13,7 +13,7 @@ namespace ScreenShare.App.Tests;
 /// The symptom is a tile drawing noise on one machine and nothing on another, so the layout is asserted
 /// against descriptors of a known size.
 /// The sender is this file rather than the backend, writing what
-/// <c>internal/receive/descriptors_linux.go</c> writes.
+/// <c>backend/internal/receive/descriptors_linux.go</c> writes.
 /// </summary>
 public sealed class FrameDescriptorsTests
 {

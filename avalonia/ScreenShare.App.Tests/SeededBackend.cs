@@ -65,7 +65,7 @@ internal sealed class SeededBackend : IBackend
         public NumericRange? Range { get; init; }
     }
 
-    /// <summary>One seeded built-in preset, from <c>internal/form/presets.go</c>.</summary>
+    /// <summary>One seeded built-in preset, from <c>backend/internal/form/presets.go</c>.</summary>
     private sealed record PresetSeed
     {
         public required string Key { get; init; }
@@ -768,7 +768,7 @@ internal sealed class SeededBackend : IBackend
     /// whether the draft already delivers it.
     ///
     /// A real resolve searches for the encoder, pixel format and capture backend keeping the promise
-    /// (<c>internal/form/presets.go</c>).
+    /// (<c>backend/internal/form/presets.go</c>).
     /// This states the answer instead, unreachable where the seeded chroma rule refuses the format for the
     /// codec the draft names, because searching would be the preset table written twice.
     /// </summary>
@@ -825,7 +825,7 @@ internal sealed class SeededBackend : IBackend
             Value = ValueOf(seed.Key, settings),
             // What a fresh installation holds, read out of the defaults through the reader the value goes
             // through.
-            // The real form fills it off the same row that reads the draft (internal/form/form.go).
+            // The real form fills it off the same row that reads the draft (backend/internal/form/form.go).
             DefaultValue = ValueOf(seed.Key, Defaults()),
             Range = seed.Range,
         };
@@ -864,7 +864,7 @@ internal sealed class SeededBackend : IBackend
     private static FieldValue ValueOf(string key, Settings settings)
     {
         // The row a reader grows the audio list by is not in the settings, so it answers the default entry,
-        // as the real form does (internal/form/form.go, audioEntry).
+        // as the real form does (backend/internal/form/form.go, audioEntry).
         // Reading it off the draft would answer an empty kind, which is not a value the control offers.
         if (key == "publish.audio_sources[0].source" && settings.Publish.AudioSources.Count == 0)
         {
@@ -926,7 +926,7 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// Whether a change reaches the pipeline already publishing, from <c>internal/publish/live.go</c>.
+    /// Whether a change reaches the pipeline already publishing, from <c>backend/internal/publish/live.go</c>.
     ///
     /// One control carries it: a bitrate, on the engine whose child holds a control socket, in the modes that
     /// send the encoder a rate at all.
@@ -1207,7 +1207,7 @@ internal sealed class SeededBackend : IBackend
                 },
                 // A select and not a number, as the backend answers: one entry per catalog row, so a screen
                 // this machine does not have is a missing entry rather than a number typed past the end of
-                // the list (internal/form/options.go, optionMonitors).
+                // the list (backend/internal/form/options.go, optionMonitors).
                 new()
                 {
                     Key = "publish.monitor",
@@ -1215,7 +1215,7 @@ internal sealed class SeededBackend : IBackend
                     Options = [new() { Value = "0" }, new() { Value = "1" }],
                 },
                 // The real form draws one field per audio source plus the row a reader grows the list by
-                // (internal/form/fields.go).
+                // (backend/internal/form/fields.go).
                 // Only the growing row is seeded, since no draft here records a source.
                 new()
                 {

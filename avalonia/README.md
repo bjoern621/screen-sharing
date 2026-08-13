@@ -5,7 +5,7 @@ it launched were both deleted rather than kept in step (`docs/viewer-architectur
 this is the whole surface - the settings form, the encoder and transport pickers, the
 live-now list and the tile grid all live here.
 
-It started as one vertical slice, a port of `internal/relay` that polled the relay's HTTP
+It started as one vertical slice, a port of `backend/internal/relay` that polled the relay's HTTP
 API itself. That slice is gone, and its deletion is worth stating because it is the rule
 this module runs on: **the shell reads, it does not find out.** Whether the relay is up is
 a state the backend polls and announces (`docs/ipc-api.md`), so a second poller here was a
@@ -361,7 +361,7 @@ and a figure with no source prints an ellipsis rather than a zero.
 **The viewer table is a row per viewer, and the relay measures them one leg at a time.** The
 backend reads the relay's reader array per path and joins each entry to the per-protocol
 connection list its type names, so a row is an address, a join time, and whatever that leg is
-instrumented for (`internal/relay/readers.go`). SRT is the one the relay times a round trip and
+instrumented for (`backend/internal/relay/readers.go`). SRT is the one the relay times a round trip and
 states a loss rate on; the rest report what was sent to them and what the relay's own queue had
 to discard. A cell with no measurement behind it is an ellipsis, so a viewer over RTMP reads as
 untimed and never as a viewer with a perfect link - which is also why the severity rule in

@@ -15,7 +15,7 @@ Every component keeps its own license; nothing here relicenses anything.
 
 ## Compiled in
 
-The backend links Go libraries pinned in `go.mod`, under MIT, BSD-3-Clause and
+The backend links Go libraries pinned in `backend/go.mod`, under MIT, BSD-3-Clause and
 Apache-2.0.
 The GStreamer bindings (`go-gst`) are MIT; the library they bind is not compiled in and
 is covered below.

@@ -192,7 +192,7 @@ That is the discipline the contract-first order buys. A control the shell invent
 ## What each side owes
 
 **The backend owes** one `ControlService` implementation, and every rule that used to live in `frontend/src/util` beside the tables it derives from: the greyings and repairs of `deps.ts`, the dropdown construction of `options.ts`, the prediction of `estimate.ts`, the viewability verdict, and the preset search.
-They live in `internal/form` now, so `domain-model.md`'s list of what derives from the tables has one consumer rather than one per shell.
+They live in `backend/internal/form` now, so `domain-model.md`'s list of what derives from the tables has one consumer rather than one per shell.
 
 It owes a **code** rather than a sentence for every one of those verdicts, and the identifiers behind it. A greying that arrived as prose would be a rule and a wording travelling together, and the wording is the half no backend can get right for a surface it has never seen.
 

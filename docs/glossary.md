@@ -2,7 +2,7 @@
 
 Abbreviations and initialisms this project uses, in code, configuration, documentation or the user interface.
 A term earns a row by appearing somewhere in the repository, not by being common in the field.
-Which combinations are actually offered is decided by the capability table in `internal/capabilities`, not here.
+Which combinations are actually offered is decided by the capability table in `backend/internal/capabilities`, not here.
 
 Expansion first, meaning second.
 Where an abbreviation carries two senses in this repository, each sense gets its own row.
@@ -36,7 +36,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Watch leg         | Relay to viewer. Chosen per receiver, independent of the publish leg: `player_watch_transport` for a player window, `tile_watch_transport` for a tile, and a leg named per press for a browser page. | hop 2, viewer hop, downstream, playback path                       |
 | Shell             | The Avalonia window, and the only one. It decides nothing and draws what the backend describes.                                                                | frontend, client, UI process                                       |
 | Backend           | The headless Go process that owns capture, encode, publish, decode and the domain model.                                                                      | server, daemon, core (when the role is meant)                      |
-| Receive pipeline  | The in-process GStreamer pipeline that pulls one stream off the relay and decodes it for a tile. `internal/receive`.                                           | player pipeline, decode chain, grid pipeline                       |
+| Receive pipeline  | The in-process GStreamer pipeline that pulls one stream off the relay and decodes it for a tile. `backend/internal/receive`.                                           | player pipeline, decode chain, grid pipeline                       |
 | Render chain      | The elements between a receive pipeline's decoder and its sink, and what they say about the colour they produce: `gl`, `cpu`, `d3d11`, `d3d12`, `raw`.         | render path, conversion path, video sink chain                     |
 | Frame channel     | The second gRPC service carrying GPU handle metadata, fences and release-backs from the backend to the shell. Carries no pixels and no control.                | video channel, frame API, stream channel                           |
 

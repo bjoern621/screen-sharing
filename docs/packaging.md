@@ -39,7 +39,7 @@ Nothing beyond those two is needed to open a viewer, on any platform. A viewer
 counts as connected once the relay reports a reader on the path, which the
 backend's own relay poll already reports, and no window-system probe takes part in
 that signal, so a package declares no dependency for it (`StartWatch` in
-`internal/app/watch.go` states the same).
+`backend/internal/app/watch.go` states the same).
 
 ### The AMD AMF runtime
 
@@ -77,7 +77,7 @@ decided by the tree rather than by the day it runs.
 | What | Pinned by | Moved by |
 |------|-----------|----------|
 | Nix package set: ffmpeg, GStreamer, the .NET SDK, Go, AMF, MediaMTX | input revisions in `flake.nix`, recorded in `flake.lock` | editing the revision, then `nix flake lock` |
-| Go modules | `go.sum` | `go get`, then `go mod tidy` |
+| Go modules | `backend/go.sum` | `go get`, then `go mod tidy` |
 | NuGet packages | exact versions in each `.csproj`, hashed in `nix/deps.json` | editing the version, then regenerating `nix/deps.json` |
 | CI actions | commit SHAs in `.github/workflows` | replacing the SHA and the version comment beside it |
 | Container images | tag and digest in `deploy/docker-compose.yml` | replacing the digest |
@@ -85,7 +85,7 @@ decided by the tree rather than by the day it runs.
 The Nix inputs name revisions rather than branches, which is what leaves `nix flake
 update` with nothing to do.
 A branch ref moves the whole package set at once, and ffmpeg and GStreamer are what every
-row of `internal/capabilities` is measured against, so that move is a change to the
+row of `backend/internal/capabilities` is measured against, so that move is a change to the
 app's declared capabilities with no commit behind it.
 
 The revision tracks nixos-unstable rather than a release channel because a release
@@ -263,7 +263,7 @@ One Windows runtime quirk belongs to the running process rather than to the buil
 names its threads by raising the debugger's thread-naming exception, which the Go runtime
 has no owner for and ends the process over, so every pipeline carrying an `srtsrc` or
 `srtsink` died as it was built, reported as `Exception 0x406d1388 ... signal arrived during
-external code execution`. `internal/threadname` disarms it in the backend, which is now the
+external code execution`. `backend/internal/receive` disarms it in the backend, which is now the
 process that builds those elements in-process; a spawned `gst-launch-1.0` is a C program and
 never sees it, which is why the same pipeline plays there. RTSP is unaffected because no
 libsrt is loaded.
@@ -271,7 +271,7 @@ libsrt is loaded.
 A build that reports `build constraints exclude all Go files` for a go-gst package ran
 against a `go` that found no C compiler and disabled cgo, which excludes every file in a
 binding whose files are all cgo. The extra tell is a `go: downloading go1.26.4` line, which
-a `go` newer than `go.mod` would never print, betraying the Windows Go rather than MSYS2's.
+a `go` newer than `backend/go.mod` would never print, betraying the Windows Go rather than MSYS2's.
 The build task asks for cgo outright so this surfaces as the missing compiler instead, and
 `cmd //c "where go gcc"` shows which toolchain a native child of the current shell resolves.
 

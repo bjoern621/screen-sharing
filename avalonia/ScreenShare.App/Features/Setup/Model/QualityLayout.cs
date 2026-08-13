@@ -83,7 +83,7 @@ public static class QualityLayout
     /// Shares and not numbers, because the scale is the codec's on the engine driving it: 0..51 for the H.26x
     /// encoders, 0..63 for libvpx and software AV1, further for one exposing a raw quantizer index.
     /// A quantizer moves between two scales by proportion, which is the rule the backend converts a preset's
-    /// target by (<c>internal/form/presets.go</c>, <c>presetCq</c>), so one share names the same picture on
+    /// target by (<c>backend/internal/form/presets.go</c>, <c>presetCq</c>), so one share names the same picture on
     /// every scale.
     /// On the H.26x scale these two read as 18 and 24.
     ///

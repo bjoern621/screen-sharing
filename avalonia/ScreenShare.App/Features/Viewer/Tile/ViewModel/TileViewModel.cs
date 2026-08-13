@@ -237,7 +237,7 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// How loud the stream is, as a fraction of the meter's span, and zero where nothing is being metered.
     ///
     /// Measured before the volume element, so a muted tile still shows its stream making noise
-    /// (<c>internal/receive/audio.go</c>).
+    /// (<c>backend/internal/receive/audio.go</c>).
     /// </summary>
     public double Level { get => _level; private set => Set(ref _level, value); }
 

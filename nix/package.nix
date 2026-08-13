@@ -61,11 +61,8 @@ let
       in
       lib.elem top [
         "api"
-        "cmd"
-        "internal"
+        "backend"
         "avalonia"
-        "go.mod"
-        "go.sum"
         "VERSION"
       ]
       && !(
@@ -120,21 +117,26 @@ let
     inherit version src;
 
     # The module cache rather than a vendor directory, because `api` is a module of this
-    # repository reached by a filesystem `replace` (go.mod).
+    # repository reached by a filesystem `replace` (backend/go.mod).
     # Vendoring copies it into the fixed-output derivation the hash below pins, so an edit
     # under api/ invalidates a hash that names third-party dependencies, and a store already
     # holding that path builds the old generated code: the compiler then reports a symbol
     # the working tree defines as undefined.
-    # A proxy fetch downloads what go.sum lists and nothing else, so the pin covers
+    # A proxy fetch downloads what backend/go.sum lists and nothing else, so the pin covers
     # third-party code alone and the local module is read from src at build time.
     proxyVendor = true;
     vendorHash = "sha256-YhwaORkqDclT1JBmo/V+jgICWEdhS6N9w5KQExJilEE=";
 
+    # The Go module is backend/, not the repository root, which is where api/ and avalonia/
+    # sit beside it.
+    modRoot = "backend";
     subPackages = [ "cmd/backend" ];
 
-    # internal/receive is cgo throughout: it builds GStreamer pipelines in-process and
+    # backend/internal/receive is cgo throughout: it builds GStreamer pipelines in-process and
     # imports the decoded frames through EGL, and pkg-config is what finds those headers
     # (the module names are in share_linux.go).
+    # libx11 is backend/internal/pointer's: the cursor position is read through Xlib, and a
+    # build without it fails at the pointer package rather than anywhere GStreamer is named.
     nativeBuildInputs = [
       pkg-config
       makeWrapper
@@ -143,6 +145,7 @@ let
       gst_all_1.gstreamer
       gst_all_1.gst-plugins-base
       libglvnd
+      libx11
     ];
 
     # buildGoModule names the binary after its directory, and the rest of the repository

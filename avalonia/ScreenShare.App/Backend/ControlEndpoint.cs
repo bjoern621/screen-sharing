@@ -11,7 +11,7 @@ namespace ScreenShare.App.Backend;
 /// (<c>docs/ipc-api.md</c>, "The format, and why this one").
 ///
 /// The names are the Go side's, spelled again here rather than shared, and both carry the contract major
-/// (<c>internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
+/// (<c>backend/internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
 /// A <c>v2</c> is therefore a second pipe and a second socket: two backends on different majors run side by
 /// side, and a shell that opens the wrong one fails to connect instead of being turned away at <c>Hello</c>.
 ///

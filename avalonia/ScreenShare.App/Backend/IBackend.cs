@@ -207,7 +207,7 @@ public interface IBackend
     /// Removes the preset saved under a name.
     ///
     /// A name the store does not hold is refused rather than shrugged at, which is the backend's decision and
-    /// the one place presets depart from naming a state (<c>internal/control/effects.go</c>).
+    /// the one place presets depart from naming a state (<c>backend/internal/control/effects.go</c>).
     /// So deleting a preset another window has already removed answers with a sentence, and reading the store
     /// again is what puts the screen back in step.
     ///

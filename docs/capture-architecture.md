@@ -85,7 +85,7 @@ Each engine maps those facts to its own vocabulary: `ffmpeg/args.go` to ffmpeg e
 ## Changing settings on a live stream
 
 A publish engine runs a child process built from a command line, and `ffmpeg` takes no value back once it is running.
-The GStreamer runner does: it is this application spawned with a subcommand (`internal/gstrun`), and the engine gives each run a control socket to converge on whole states.
+The GStreamer runner does: it is this application spawned with a subcommand (`backend/internal/gstrun`), and the engine gives each run a control socket to converge on whole states.
 A stream carrying other settings is therefore another pipeline wherever the change is not one of those values, and reaching it means relaunching the child.
 `App.Republish` is that operation, and it takes the cheaper half first: where the running child accepts the change it is written to the socket and every viewer keeps watching, and where it does not the pipeline is torn down and rebuilt.
 Viewers reconnect across a rebuild, which is why the form asks for it rather than making it on every edit.

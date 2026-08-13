@@ -48,11 +48,11 @@ if [ ! -f "$prefix/bin/$launcher" ]; then
 fi
 
 # Both sides of the app's GStreamer use ship here. The backend links the library for
-# the receive pipelines (internal/receive), and it spawns the launcher for a GStreamer
-# publish, for the encode probe and for the test streams (internal/publish, GstExe).
+# the receive pipelines (backend/internal/receive), and it spawns the launcher for a GStreamer
+# publish, for the encode probe and for the test streams (backend/internal/publish, GstExe).
 # The program goes beside the binaries because that is where the app looks first
 # (ffmpeg.FindExe), and the plugins both sides load are named to them by
-# GST_PLUGIN_PATH: internal/gstbundle answers where they went, for this process and
+# GST_PLUGIN_PATH: backend/internal/gstbundle answers where they went, for this process and
 # for the children.
 cp -f "$prefix/bin/$launcher" "$bin/"
 

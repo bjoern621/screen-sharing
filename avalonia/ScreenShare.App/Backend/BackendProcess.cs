@@ -109,7 +109,7 @@ internal static class BackendProcess
     /// null where none of the three has it.
     ///
     /// Beside first is what makes a packaged install work unconfigured, and it is the order the backend
-    /// resolves ffmpeg and the GStreamer launcher in (<c>internal/ffmpeg/exe.go</c>).
+    /// resolves ffmpeg and the GStreamer launcher in (<c>backend/internal/ffmpeg/exe.go</c>).
     /// The directory above is searched because the build tasks put the shell in <c>build/bin/avalonia</c> and
     /// the backend in <c>build/bin</c>.
     /// </summary>

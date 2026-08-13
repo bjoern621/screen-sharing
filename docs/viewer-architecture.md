@@ -26,11 +26,11 @@ Three viewers were deleted: the web grid inside the Wails window, the GTK4 `nati
 The Wails app went with them, and the Avalonia shell is the only one left (`ipc-api.md`).
 
 The reason is not that any of them worked badly.
-Each held its own copy of the domain model - `webgrid.ts` decided what a tile could decode, `nativegrid.ts` decided the same question for the other grid, and `deps.ts` decided what the settings form offered - while `internal/form` decided all three in Go for the shell that arrived last.
+Each held its own copy of the domain model - `webgrid.ts` decided what a tile could decode, `nativegrid.ts` decided the same question for the other grid, and `deps.ts` decided what the settings form offered - while `backend/internal/form` decided all three in Go for the shell that arrived last.
 One rule written three times in three languages is the drift `domain-model.md` exists to prevent, and deleting the copies was cheaper than keeping them in step for as long as the frame channel takes.
 
 The decode knowledge was not deleted with them.
-`nativegrid/internal/player/gstreamer` was lifted into `internal/receive` first, minus the GTK paintable: the receive pipelines, the render chains, the caps negotiation, the GPU memory features and the teardown order all survive the move, because none of them is about GTK.
+`nativegrid/internal/player/gstreamer` was lifted into `backend/internal/receive` first, minus the GTK paintable: the receive pipelines, the render chains, the caps negotiation, the GPU memory features and the teardown order all survive the move, because none of them is about GTK.
 
 Two Go packages went that had no such half.
 `internal/webviewer` drove a browser `VideoDecoder` over a WebSocket, and `internal/moq` fetched and pinned a certificate so a webview could reach the relay's Media-over-QUIC listener.
@@ -262,7 +262,7 @@ The verdict is computed in Go beside the tables it derives from, and reaches the
 
 ## The receive package
 
-`internal/receive` owns everything between the relay and a decoded frame: the source fragment for the chosen watch leg (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), the decoder `decodebin` autoplugs, and the chain that converts what comes out of it.
+`backend/internal/receive` owns everything between the relay and a decoded frame: the source fragment for the chosen watch leg (`transport.GstWatcher`, the watch-side counterpart of `GstPublisher`), the decoder `decodebin` autoplugs, and the chain that converts what comes out of it.
 
 Which elements sit between the source and the sink is a **render chain**, and the package carries a table of them rather than one line: the decoder is the same on every row and what differs is where the frames are converted and what that says about their colour.
 
@@ -340,7 +340,7 @@ A decode answers two different questions and the contract asks them separately.
 It settles when the pipeline negotiates and is announced whenever it moves, like every other state.
 
 `ReceiveStreamStats` is what a decode **is doing**: what is arriving and at what rate, what came out of the decoder, what the sink took and what it threw away for being late, how the pipeline is timed, and the counters the transport's own elements keep.
-None of that settles, so it is read off the running pipeline on a clock - `internal/app/receivestats.go`, once a second, while anything is decoding - and pushed as its own event.
+None of that settles, so it is read off the running pipeline on a clock - `backend/internal/app/receivestats.go`, once a second, while anything is decoding - and pushed as its own event.
 Folding it into the state event would push everything a tile knows at sampling rate and make every consumer of that state re-render for counters most of them never draw.
 
 **The rates are computed here rather than by each shell**, for the reason the relay's per-path bitrates are: they are byte and frame deltas divided by an interval, and an interval each reader chose for itself would make one decode read differently in two windows.
@@ -348,7 +348,7 @@ The interval is the difference between two readings of the pipeline's own uptime
 A rate carries presence and is absent on the first sample of a run, and on the first after a rebuild: a decode with one reading has no rate, and a zero there would say a stream is arriving at nothing.
 
 **The counters cross as identifiers and figures, never as prose.**
-`internal/receive/statsources.go` says which elements keep counters worth reading and which fields to take from them, and stops there; the element's own field name - `packets-received-lost`, `rtx-success-count` - is what reaches a shell, and what it is called on screen is the shell's (`ipc-api.md`, and `api/proto/screenshare/v1/text.proto`).
+`backend/internal/receive/statsources.go` says which elements keep counters worth reading and which fields to take from them, and stops there; the element's own field name - `packets-received-lost`, `rtx-success-count` - is what reaches a shell, and what it is called on screen is the shell's (`ipc-api.md`, and `api/proto/screenshare/v1/text.proto`).
 A shell with no word for a key shows the key.
 
 The one figure the backend cannot supply is what the window drawing the frames did with them.
@@ -379,7 +379,7 @@ The two are halves of one application on one box (`ipc-api.md`), so the less pri
 ### The Linux leg
 
 **The pool is GL textures, and the descriptors are what leaves.**
-The `gl` render chain hands the sink an RGBA texture, so a slot is a texture of the same kind allocated on the decoder's own GL context, and a frame is a GPU copy into one (`internal/receive/share_linux.c`).
+The `gl` render chain hands the sink an RGBA texture, so a slot is a texture of the same kind allocated on the decoder's own GL context, and a frame is a GPU copy into one (`backend/internal/receive/share_linux.c`).
 Each slot is named once with `eglCreateImageKHR` and exported with `EGL_MESA_image_dma_buf_export`, which yields the descriptor, the stride and the offset the contract carries per slot, and the DRM format and modifier it carries per pool.
 
 **A descriptor cannot travel in a message.**
@@ -460,7 +460,7 @@ The end-to-end route was the whole of the preview once, and being the only route
 What fixed that was the local route existing, not the relay one going away - a reader who has chosen to spend a viewer slot knows they are one of the viewers, and the sentence under the card says so.
 
 **The constraint that shapes it is where the encoder runs.**
-Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`internal/publish`), which is what keeps a pipeline that dies from taking the backend with it, and what makes the ffmpeg engine reachable at all.
+Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`backend/internal/publish`), which is what keeps a pipeline that dies from taking the backend with it, and what makes the ffmpeg engine reachable at all.
 So there is no in-process pipeline to hang an `appsink` on, and nothing this process can do to the encoded stream before the child has already sent it somewhere.
 
 **What both engines can do is send it twice.**
@@ -471,7 +471,7 @@ The local carriage is **RTP over UDP on 127.0.0.1**, and it is RTP for the reaso
 All five - H.264, H.265, AV1, VP9 and VP8 - are carried, which is the same reach `transport.Formats` gives RTSP and is why no publishable stream is left without a preview.
 MPEG-TS would have needed no caps and would have carried the two H.26x formats alone.
 
-The two halves of that leg live in one file (`internal/publish/preview.go`), for the reason the progress meter's two halves do: the payloader the child is given and the caps the receiving pipeline is built with have to agree on a payload type and an encoding name, and there is no exchange here to negotiate one.
+The two halves of that leg live in one file (`backend/internal/publish/preview.go`), for the reason the progress meter's two halves do: the payloader the child is given and the caps the receiving pipeline is built with have to agree on a payload type and an encoding name, and there is no exchange here to negotiate one.
 There is none because there is no session protocol: the payload type is pinned at 96 and the encoding name is stated per format, since one process writes both ends.
 The two draft payload formats, AV1 and VP9, need ffmpeg's compliance loosened on that output alone, which is the same fact `transport.draftRtpFormats` carries for the RTSP publish leg.
 
@@ -486,7 +486,7 @@ Giving it a synthetic `transport` entry instead would state that some protocol c
 **The publish opens it and the publish closes it**, which is the answer to the question `docs/ipc-api.md` asks of every effect.
 The port has to be in the child's argv, so the decision belongs to the launch; there is no `StartPreview` on the contract and nothing for a shell to call.
 Both halves are idempotent: a second bring-up with one already running changes nothing, and a stop with none running succeeds.
-Every path that ends the child ends the preview with it - a stop, an apply, a retry's exit, the process shutting down - and a preview that fails to come up costs the preview and never the stream (`internal/app/preview.go`).
+Every path that ends the child ends the preview with it - a stop, an apply, a retry's exit, the process shutting down - and a preview that fails to come up costs the preview and never the stream (`backend/internal/app/preview.go`).
 
 **What the local picture gives up is the half the card has to say out loud.**
 The picture is taken **before** the relay, so it shows what is being sent and nothing about what anybody receives.
@@ -512,7 +512,7 @@ The wizard's source step offers a picture of every monitor, so a screen is chose
 It is the third consumer of the frame channel and the only one that decodes nothing: the capture element hands raw pictures to the render chain, and what leaves is the same handle every other subscription gets.
 
 **It is the same rectangle the stream would carry, because both are built from one head.**
-`internal/screensrc` holds the GStreamer element that reads one output and the properties that single it out, and the publish pipeline's capture head reads it as well (`capture-architecture.md`).
+`backend/internal/screensrc` holds the GStreamer element that reads one output and the properties that single it out, and the publish pipeline's capture head reads it as well (`capture-architecture.md`).
 A preview cropped differently from the stream would be a picture that lies about what is shared, which is the one thing a preview may not do.
 
 **A preview is asked for, unlike the publish's.**
@@ -534,7 +534,7 @@ Wayland reaches a screen through the portal alone, which answers with whatever i
 
 ## The native player
 
-`internal/watch` is the single-stream viewer, and it stays.
+`backend/internal/watch` is the single-stream viewer, and it stays.
 `watch.Select` picks the engine (ffplay by default, mpv via `SCREENSHARE_VIEWER`), and each builds its command line from the transport's `Watcher` URL.
 The leg is passed in by name rather than read off the publish setting, which is what keeps a viewer free to receive over a protocol the stream was not published with.
 A transport without a URL watch form - WebRTC, whose playback is the WHEP exchange rather than an address - is reachable by a receive pipeline and by no player here.
@@ -549,7 +549,7 @@ mpv renders 4:4:4 and a native Wayland window, which is what `SCREENSHARE_VIEWER
 
 ## The relay's page in a browser
 
-`OpenInBrowser` hands the address of the relay's own player page to the desktop, and the desktop opens it the way it opens a log file (`internal/app/watch.go`).
+`OpenInBrowser` hands the address of the relay's own player page to the desktop, and the desktop opens it the way it opens a log file (`backend/internal/app/watch.go`).
 There is no viewer program to find, no pipeline to build and nothing to supervise: MediaMTX serves a page on the WebRTC listener and another on the HLS one, and the page runs the WHEP exchange or fetches the playlist itself.
 The two legs are `transport.BrowserWatcher`'s implementers, which is what the browser carriage on those two rows says, and the roster crosses as `Catalog.browser_watch_transports`.
 

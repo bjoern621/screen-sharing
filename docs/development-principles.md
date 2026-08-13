@@ -110,7 +110,7 @@ Neither works from a diff it was handed, unless the diff is genuinely what the p
 
 **A fact lives in one table.**
 Static knowledge - which transports carry which formats, which chain a platform renders through, what a row shows - is a table every consumer reads, never a `switch` restated at each site.
-`docs/domain-model.md` covers the codec and transport tables; the render chains in `internal/receive/chains.go` are the same shape.
+`docs/domain-model.md` covers the codec and transport tables; the render chains in `backend/internal/receive/chains.go` are the same shape.
 
 **A reader reads through.**
 Nothing here reports what a caller believed it had just done.
@@ -118,7 +118,7 @@ An effect answers empty and the state arrives on the event stream, read back off
 A value cached at construction and never refreshed is the defect this removes.
 
 The one departure is written down where it happens.
-The shell's tile grid is shell state and not the backend's, because the contract describes no grid, and `internal/app` has nothing to read one back from.
+The shell's tile grid is shell state and not the backend's, because the contract describes no grid, and `backend/internal/app` has nothing to read one back from.
 A departure that is not written down is a bug.
 
 ## Components

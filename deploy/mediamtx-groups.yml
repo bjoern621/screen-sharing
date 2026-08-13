@@ -8,7 +8,7 @@
 # the next pull.
 #
 # What enforces a group is here and not in the app. The app puts its streams under the prefix
-# its key derives (internal/group) and the relay refuses anything else, which is what makes
+# its key derives (backend/internal/group) and the relay refuses anything else, which is what makes
 # "publishing always requires a group" a fact rather than a convention: a client that skipped
 # the prefix is refused by the machine serving the stream.
 
@@ -28,7 +28,7 @@ writeQueueSize: 16384
 # The permissions ride in the token rather than being listed here, because they are per group
 # and there is no list of groups: a token grants a path expression anchored at the prefix its
 # key derived, so a member reaches their own group's streams and no others
-# (internal/token, GroupPermissions).
+# (backend/internal/token, GroupPermissions).
 #
 # Every address here is loopback, which is the shape of a host running the relay, the group
 # service and the proxy together. A deployment that splits them across containers overrides
