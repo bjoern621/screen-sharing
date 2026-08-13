@@ -1,0 +1,38 @@
+meta {
+  name: Relay
+  seq: 2
+}
+
+headers {
+  Authorization: Bearer {{relayApiToken}}
+}
+
+docs {
+  # Relay
+
+  The MediaMTX API the app polls for who is live, plus the one media leg that is a plain HTTP GET.
+
+  The API is the single source of truth for which streams exist and who is reading them.
+  It exposes counters and no rates, so the per-path bitrate the app shows is a `bytesReceived` delta between two fetches at a steady cadence (`backend/internal/relay`).
+
+  A fetch is the path list and then one per-protocol list per reader type present, because the path list names a reader by type and id and says nothing else about it.
+  The lists are relay-wide, so two paths served over SRT are two slices of one answer.
+
+  A list whose listener is switched off answers 404, which is a fact about the relay's configuration and not about its health.
+
+  The TLS variants answer the same shape on the same base: `rtspsconns`, `rtspssessions` and `rtmpsconns`.
+  The app folds them into the same transport, which listener a reader arrived on being a fact about the relay rather than about the leg.
+
+  The API takes no credential where the relay authenticates nothing, which is what a LAN relay does (`mediamtx.yml`), and `relayApiToken` is empty there.
+
+  A relay that authenticates grants its API to nothing a group token carries, so reading it takes an operator's own credential and a way in:
+
+  ```bash
+  ssh -N -L 9997:127.0.0.1:9997 <relay host>
+  ssh <relay host> sudo groupd -api-token 30m -key /var/lib/private/groupd/signing-key.pem
+  ```
+
+  The tunnel is because the API binds loopback and the proxy does not front it.
+  The second command prints a token granting the API for the window given, signed with the key the group service already holds, and that token is what `relayApiToken` takes.
+  It is minted over SSH rather than by anything in this collection because the signing key mints every group's tokens too, so it stays on the machine it is on.
+}

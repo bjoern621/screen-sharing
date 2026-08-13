@@ -83,3 +83,19 @@ webrtcLocalUDPAddress: :8189
 
 api: yes
 apiAddress: 127.0.0.1:9997
+
+# --- Which paths exist -----------------------------------------------------------
+#
+# Any of them, created when something publishes one. A relay with no entry here configures no
+# path at all and refuses every publisher with "path is not configured", whatever its token
+# grants.
+#
+# A catch-all rather than a list, because there is nothing to list: a path is a group's prefix
+# and a stream's name, the prefix is the digest of a key this relay never sees, and a group is
+# made by drawing that key rather than by an operator writing it down here.
+#
+# It opens nothing. What a caller may publish or read is the path expression in its token, and
+# a request the entry admits is still refused by the permission check above
+# (backend/internal/token, GroupPermissions).
+paths:
+  all_others:

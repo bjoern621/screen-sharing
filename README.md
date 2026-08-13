@@ -54,6 +54,7 @@ api/          the control contract, a module of its own so neither side depends 
 backend/      the Go module: the headless backend and the group service
 avalonia/     the shell in front of the backend
 build/        icons, the Windows redistributables, and where a build lands
+bruno/        the deployment's HTTP APIs as a request collection
 deploy/       the relay and the group service as containers
 docs/         architecture, domain model and terminology
 nix/          the Nix packages and the NixOS module for the privileged capture path

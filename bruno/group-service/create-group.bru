@@ -1,0 +1,47 @@
+meta {
+  name: Create group
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{groupService}}/groups
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("groupKey", res.body.key);
+    bru.setEnvVar("groupPrefix", res.body.id + "/");
+  }
+}
+
+tests {
+  test("answers a key and the id its streams live under", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.key).to.be.a("string");
+    expect(res.body.id).to.be.a("string");
+  });
+}
+
+docs {
+  # Create group
+
+  Draws a group key and hands it back with the id its streams live under.
+  Nothing is stored, because there is nothing to store: the group exists by somebody holding the key, and the id is that key's own keyed digest.
+
+  The key is the whole secret, so the response is the only time it is readable.
+  The post-response script writes it and the prefix (`id` plus a slash) into the environment, where every later request reads them.
+
+  Creation is open and therefore bounded rather than gated: one address gets `CreationsPerHour` of them, and the one over is refused with 429.
+  Behind a reverse proxy the bound counts the proxy, which leaves the real one to the proxy and makes this a backstop.
+}

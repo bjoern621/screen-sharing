@@ -1,0 +1,32 @@
+meta {
+  name: Paths list
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{relayApi}}/v3/paths/list
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers one item per path the relay carries", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+  });
+}
+
+docs {
+  # Paths list
+
+  Every path the relay carries, with its tracks, its `bytesReceived` counter and its readers.
+
+  This is the one call the app's watch poll always makes, and the rest of a fetch follows from it.
+  A reader here is a type and an id, and the type decides which per-protocol list describes it.
+
+  Tracks name coding formats, in either the ITU or the MPEG spelling depending on how the stream was ingested.
+  `backend/internal/relay` maps both onto the bitstream format the codec table keys on, and a path whose tracks name no format this app knows is carried in the snapshot as a stream with no format rather than dropped.
+
+  Path names are group-prefixed where the deployment has groups, so a path reads as `<group id>/<stream name>`.
+}

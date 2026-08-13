@@ -1,0 +1,29 @@
+meta {
+  name: RTSP sessions
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{relayApi}}/v3/rtspsessions/list
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers a list, or 404 where the listener is off", function () {
+    if (res.getStatus() === 404) {
+      return;
+    }
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+  });
+}
+
+docs {
+  # RTSP sessions
+
+  The RTSP sessions, with the bytes sent and the RTCP-reported packet counters beside them: sent, reported lost, discarded.
+
+  Those counters are the receiver's own report travelling back, which is why loss here is a figure the relay was told rather than one it measured.
+}

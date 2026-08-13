@@ -1,0 +1,29 @@
+meta {
+  name: RTMP conns
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{relayApi}}/v3/rtmpconns/list
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers a list, or 404 where the listener is off", function () {
+    if (res.getStatus() === 404) {
+      return;
+    }
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+  });
+}
+
+docs {
+  # RTMP conns
+
+  The RTMP connections, with the bytes sent and the frames the relay dropped rather than fall behind.
+
+  Discarded frames are the one congestion signal a protocol with no round trip and no loss rate still gives, and they are a fact about the relay rather than about the line.
+}

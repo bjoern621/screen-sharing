@@ -28,7 +28,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
-// main serves keys, tokens and the index on the address given.
+// main serves keys, tokens and the index on the address given, or prints one operator credential and
+// exits where -api-token asks for it.
 //
 // An unreadable key and an unservable address are Umgebungsfehler, and both end this process
 // through logger.Errorf.
@@ -39,6 +40,7 @@ func main() {
 	keyPath := flag.String("key", "", "PEM file holding the signing key, drawn on first run where absent")
 	relayHost := flag.String("relay-host", "127.0.0.1", "host the relay's API answers on")
 	relayAPIPort := flag.Int("relay-api-port", 9997, "port the relay's API answers on")
+	operatorWindow := flag.Duration("api-token", 0, "print a token granting the relay's API for this long and exit, for an operator reading that API directly")
 	flag.Parse()
 
 	signer, err := signerFrom(*keyPath)
@@ -46,6 +48,11 @@ func main() {
 		logger.Errorf("%v", err)
 	}
 	assert.IsNotNil(signer, "a serving instance holds the key it signs with")
+
+	if *operatorWindow > 0 {
+		printOperatorToken(signer, *operatorWindow)
+		return
+	}
 
 	reader := &relayStreams{
 		host:    *relayHost,
@@ -85,6 +92,29 @@ func apiToken(signer *token.Signer) string {
 		return ""
 	}
 	return signed
+}
+
+// printOperatorToken writes a credential for the relay's own API to stdout.
+//
+// The relay grants its API, its metrics and its playback endpoints to nothing a group token carries
+// (deploy/mediamtx-groups.yml), so reading them takes a token signed with this key and asked for
+// here.
+// Printed rather than served, and there is no route that answers it: what makes a caller an operator
+// is standing at the shell of the machine the key is on, and a route would make it holding a group
+// key like everybody else.
+//
+// The window is the caller's, where the index's is fixed at apiWindow.
+// A person reading the API works in sessions rather than in single requests, and a credential that
+// outlives the session is one signed again.
+func printOperatorToken(signer *token.Signer, window time.Duration) {
+	assert.IsNotNil(signer, "a printed token is signed with the key this process read")
+	assert.Assert(window > 0, "a printed token carries a window with something in it", window)
+
+	signed, err := signer.Sign("operator", token.APIPermissions(), time.Now(), window)
+	if err != nil {
+		logger.Errorf("cannot sign a token for the relay's API: %v", err)
+	}
+	fmt.Println(signed)
 }
 
 // signerFrom reads the signing key, drawing one and storing it where the file is absent.

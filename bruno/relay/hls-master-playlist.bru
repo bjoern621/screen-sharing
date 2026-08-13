@@ -1,0 +1,37 @@
+meta {
+  name: HLS master playlist
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{hlsOrigin}}/{{groupPrefix}}{{streamName}}/index.m3u8
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{relayToken}}
+}
+
+tests {
+  test("answers a playlist", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()).to.contain("#EXTM3U");
+  });
+}
+
+docs {
+  # HLS master playlist
+
+  One stream's master playlist, which is what a browser falling back from WebRTC opens.
+
+  The one media leg that is a plain HTTP GET, so it is where a token is quickest to check: an authenticating relay refuses it where the token does not grant read on the path, and a relay that authenticates nothing ignores the header.
+  HLS and WebRTC take the credential in a header rather than a query, their query form being a browser's and answered with a cookie and a redirect that a client keeping no cookie is refused at.
+
+  The relay answers this route with a 302 to the same URL carrying `cookieCheck`, whether or not it authenticates, so what reaches the playlist is a client that follows redirects.
+
+  The URL is `groupPrefix` and `streamName` joined, which is the same address in both environments: a machine in no group has an empty prefix and publishes under the bare name.
+
+  This is the relay's own HLS listener, and the deployment's proxy routes everything it does not match to it (`deploy/Caddyfile`).
+}

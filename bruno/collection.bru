@@ -1,0 +1,20 @@
+auth {
+  mode: none
+}
+
+docs {
+  # screenshare HTTP APIs
+
+  Two services answer HTTP here, and neither is the control contract between the backend and the shell.
+  That one is gRPC over a Unix socket and is described in `docs/ipc-api.md`.
+
+  `Group service` is this repository's own API (`backend/internal/groupsvc`).
+  It draws group keys, trades a key for a short relay token, and answers which streams a key can see.
+  Nothing is stored behind it: possession of the key is membership, the path prefix is the key's own digest, and the stream index is the relay's answer rather than the service's.
+
+  `Relay` is the MediaMTX API the app polls for who is live (`backend/internal/relay`).
+  The path list gives a reader a type and an id and nothing else, so every figure a viewer row shows comes from the per-protocol list that type names.
+
+  Run `Create group` and then `Issue token` first.
+  Both write what the later requests read: the group key, the prefix its streams live under, and the relay token the media legs carry.
+}

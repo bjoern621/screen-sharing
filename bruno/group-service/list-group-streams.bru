@@ -1,0 +1,37 @@
+meta {
+  name: List group streams
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{groupService}}/streams?group={{groupKey}}
+  body: none
+  auth: none
+}
+
+params:query {
+  group: {{groupKey}}
+}
+
+tests {
+  test("answers this group's prefix and the streams under it", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.prefix).to.equal(bru.getEnvVar("groupPrefix"));
+    expect(res.body.streams).to.be.an("array");
+  });
+}
+
+docs {
+  # List group streams
+
+  Answers which streams the relay carries under this key's prefix, one row per stream: the name inside the group, whether it is carrying anything yet, its tracks, and the video format.
+
+  The format is in the vocabulary the codec table keys on (`docs/domain-model.md`), which is what decides the transports a viewer may open the stream over.
+
+  The narrowing happens here rather than in a client: a listing a client filtered arrived carrying every group's streams.
+  A group's listing leaves out the public streams for the same reason it leaves out another group's, that a member asked about their group.
+
+  Rows carry no reader count and no rate.
+  Those are the relay's operational state, answered by `Paths list` to a caller who can reach the relay's API.
+}

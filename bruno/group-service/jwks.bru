@@ -1,0 +1,29 @@
+meta {
+  name: JWKS
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{groupService}}/jwks.json
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers a key set", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.keys).to.be.an("array");
+  });
+}
+
+docs {
+  # JWKS
+
+  The public half of the key every token is signed with, as a JWKS document.
+
+  The relay fetches it and then verifies every connection locally, so nothing here runs per stream.
+  `deploy/mediamtx-groups.yml` points `authJWTJWKS` at this route and reads the permissions out of the `mediamtx_permissions` claim.
+
+  It is public by construction: it verifies a signature and cannot make one.
+}

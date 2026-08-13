@@ -1,0 +1,32 @@
+meta {
+  name: SRT conns
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{relayApi}}/v3/srtconns/list
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers a list, or 404 where the listener is off", function () {
+    if (res.getStatus() === 404) {
+      return;
+    }
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+  });
+}
+
+docs {
+  # SRT conns
+
+  The connections on the relay's SRT listener, publishers and readers alike.
+
+  The widest of the per-protocol lists and the only one carrying a round trip time and a send loss rate, which is why an SRT viewer row shows figures the others leave blank.
+  It also names the bytes it sent as `bytesSent` alone, where every other list answers `outboundBytes` and repeats it under that deprecated name.
+
+  A connection's stream id carries the path and, on an authenticating relay, the token: `publish:<path>:jwt:<token>`.
+}

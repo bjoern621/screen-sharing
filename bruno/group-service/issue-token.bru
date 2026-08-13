@@ -1,0 +1,52 @@
+meta {
+  name: Issue token
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{groupService}}/tokens
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "key": "{{groupKey}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    bru.setEnvVar("relayToken", res.body.token);
+    bru.setEnvVar("groupPrefix", res.body.prefix);
+  }
+}
+
+tests {
+  test("answers a token, the prefix it grants, and when it expires", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.token).to.be.a("string");
+    expect(res.body.prefix).to.match(/\/$/);
+    expect(new Date(res.body.expires).getTime()).to.be.greaterThan(Date.now());
+  });
+}
+
+docs {
+  # Issue token
+
+  Trades a group key for a relay token: a JWT granting publish and read on paths under the key's prefix, and nothing else.
+
+  Deriving the prefix from the key is the whole verification, there being no membership list to check it against.
+  A caller holding a well-formed key is a member, and a malformed one is refused with 400 and the reason.
+
+  The token is minted per call and never stored, the signature deriving from the key like every other answer here.
+  It is valid for `TokenWindow`, which bounds opening connections rather than holding them: the relay checks at the handshake and not again, so a live connection outlives its token.
+
+  The post-response script writes the token, which the media legs carry as `Authorization: Bearer`.
+  `backend/internal/transport/credential.go` states where it rides on each protocol, RTSP and RTMP taking it as a `jwt` query and SRT inside the stream id.
+}

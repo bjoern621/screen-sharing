@@ -1,0 +1,39 @@
+meta {
+  name: WHEP endpoint
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{webrtcOrigin}}/{{groupPrefix}}{{streamName}}/whep
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/sdp
+  Authorization: Bearer {{relayToken}}
+}
+
+body:text {
+  v=0
+}
+
+tests {
+  test("the WebRTC listener answers, and not the HLS one", function () {
+    expect(res.getBody()).to.be.an("object");
+    expect(res.getBody().error).to.contain("SDP");
+  });
+}
+
+docs {
+  # WHEP endpoint
+
+  A routing check, not a session: the offer is one line of nothing, and what is read is who refuses it.
+
+  The relay answers JSON, so a refusal naming SDP means the request reached the WebRTC listener with its credential intact.
+  A plain-text `404 page not found` means it reached the HLS listener instead, which carries no such route, and that is what a reverse proxy matching `/whep` as a prefix does to every real endpoint: the address is the stream's own path with the verb after it, so nothing starts with `/whep` (`deploy/Caddyfile`).
+
+  A real exchange is an SDP offer, an answer, and ICE candidates PATCHed to the resource the answer's `Location` names.
+  No collection runs one, and the app opens it with `whepsrc` instead.
+}

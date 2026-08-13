@@ -38,12 +38,16 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
-	# The browser viewer and the WebRTC signalling behind it. Both are HTTP, so both are the
-	# same certificate and the same name.
-	handle /whip* {
-		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
-	}
-	handle /whep* {
+	# WebRTC signalling, which is HTTP and so is the same certificate and the same name.
+	#
+	# An endpoint is the stream's own path with /whip or /whep after it, and the exchange it
+	# opens answers a resource one segment further down that a client then PATCHes and DELETEs.
+	# The path therefore ends in the verb rather than starting with it, which is why these are
+	# suffix matchers: a prefix one matches the two names alone, and every real endpoint falls
+	# past it into the HLS handler below and is answered 404 by a server that carries no such
+	# route.
+	@webrtc path */whip */whip/* */whep */whep/*
+	handle @webrtc {
 		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
 	}
 

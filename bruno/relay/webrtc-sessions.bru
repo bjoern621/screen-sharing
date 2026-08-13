@@ -1,0 +1,30 @@
+meta {
+  name: WebRTC sessions
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{relayApi}}/v3/webrtcsessions/list
+  body: none
+  auth: none
+}
+
+tests {
+  test("answers a list, or 404 where the listener is off", function () {
+    if (res.getStatus() === 404) {
+      return;
+    }
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.items).to.be.an("array");
+  });
+}
+
+docs {
+  # WebRTC sessions
+
+  The WHIP and WHEP sessions, with the bytes and RTP packets sent and the frames discarded.
+
+  Both halves of the relay's WebRTC pair land here, a publisher having arrived over WHIP and a viewer over WHEP.
+  WHEP is a signalling exchange rather than an address, so no player URL expresses it and the app's own receiving pipeline is what opens one.
+}
