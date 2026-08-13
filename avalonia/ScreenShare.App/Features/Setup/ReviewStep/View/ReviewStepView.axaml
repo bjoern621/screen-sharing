@@ -7,15 +7,8 @@
              x:Class="ScreenShare.App.Features.Setup.ReviewStep.View.ReviewStepView"
              x:DataType="vm:ReviewStepViewModel">
 
-  <!--
-    The last step. It edits nothing - every tile hands back to the step that owns its values
-    - and it carries its own preflight list and its own commit, which is why the cost rail
-    steps aside here rather than repeating the same checks beside it.
-  -->
-
   <Grid ColumnDefinitions="*,Auto">
 
-    <!-- The tiles are as many as the resolved form has groups, so this column scrolls. -->
     <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
       <Border Classes="card" Padding="16,14" VerticalAlignment="Top">
         <StackPanel>
@@ -26,10 +19,6 @@
                      TextTrimming="None"
                      Text="Everything resolved. Click any row to jump back to the step that owns it." />
 
-          <!--
-            Tiles, not key/value rows: the fields name themselves (cq 21, latency 120 ms), so a
-            key column would print the word twice and halve the width left for the value.
-          -->
           <ItemsControl ItemsSource="{Binding Tiles}" Margin="-5">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
@@ -64,25 +53,14 @@
     <Grid Grid.Column="1" Width="330" Margin="10,0,0,0" RowDefinitions="*,Auto">
 
       <!--
-        Everything above the commit scrolls. The preflight list is as long as the settings
-        make it, and a column that grew with it would push the one control this step exists
-        for off the bottom of the window.
+        The preflight list is as long as the settings make it, so everything above the commit
+        scrolls and the commit keeps its own row at the foot of the column.
       -->
       <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
         <StackPanel VerticalAlignment="Top">
 
-          <!--
-            The saved ways of publishing, above the preflight list because it is about the
-            configuration rather than about the press: applying one changes what the tiles on the
-            left say, and saving one keeps what they say now.
-
-            It replaced a switch reading "Save as preset", which was inert and could not have
-            been otherwise - a preset is kept, replaced and deleted by a name, and a toggle has
-            none to give.
-          -->
           <presets:PresetsView DataContext="{Binding Presets}" Margin="0,0,0,10" />
 
-          <!-- The same list the rail carried, at the state that lets the button light. -->
           <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
             <StackPanel>
               <TextBlock Classes="caption" Text="Preflight" Margin="0,0,0,10" />
@@ -102,18 +80,13 @@
         </StackPanel>
       </ScrollViewer>
 
-      <!-- Pinned to the bottom of the column, not to a footer bar, and never scrolled away. -->
       <Border Grid.Row="1" Classes="card" Padding="{StaticResource InsetPanel}">
         <StackPanel>
           <!--
-            The name is the draft's own rather than one written here, so what this promises is
-            the path a viewer will actually ask for. It comes up to full strength inside the
-            sentence because it is the identifier the promise is about.
-
-            The sentence around it is the commit's own (Model/CommitCopy.cs) and moves with what
-            pressing it will do, so a press that restarts a running stream says so here rather
-            than promising a start. Both halves are bound for that reason: a literal in the
-            markup would be one of the two wordings written where the other cannot reach it.
+            Three runs, because the stream name sits inside the sentence at full strength and
+            the sentence itself moves with what the press will do (Model/CommitCopy.cs): a
+            literal here would be one of the two wordings, written where the other cannot
+            reach it.
           -->
           <TextBlock Classes="hint"
                      TextWrapping="Wrap"
@@ -129,10 +102,10 @@
           </TextBlock>
 
           <!--
-            Why the button is locked. It is never a settings problem - those are in the preflight
-            card above, in the backend's own words - and it is no longer a stream already on the
-            air, which changes what the commit does rather than whether it can be done. So this
-            line only ever names the backend or the relay.
+            Why the button is locked, which only ever names the backend or the relay. A
+            settings problem is in the preflight card above in the backend's own words, and a
+            stream already on the air changes what the commit does rather than whether it can
+            be done.
           -->
           <TextBlock Classes="hint danger"
                      TextWrapping="Wrap"
@@ -142,7 +115,6 @@
                      IsVisible="{Binding IsBlocked}"
                      Text="{Binding Blocked}" />
 
-          <!-- What the backend said when it refused the last start, as it stands. -->
           <TextBlock Classes="hint danger"
                      TextWrapping="Wrap"
                      TextTrimming="None"
@@ -155,10 +127,8 @@
             <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
 
             <!--
-              The one red on the screen, on the one control that changes the world. Nothing
-              inside it states a brush of its own: the button's Foreground is what the disabled
-              treatment moves, and content that named the colour would stay bright on a locked
-              button.
+              The dot takes the button's own Foreground, which is what the disabled treatment
+              moves: content naming a brush of its own would stay bright on a locked button.
             -->
             <Button Grid.Column="1"
                     Theme="{StaticResource DangerButton}"

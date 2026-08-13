@@ -6,35 +6,31 @@ import (
 	"bjoernblessin.de/screenshare/internal/text"
 )
 
-// The statement vocabulary this package builds its answers out of.
+// The statement vocabulary this package's answers are built from.
 //
-// Every reason, note and diagnostic below is one code and the identifiers it is about,
-// never a sentence (api/proto/screenshare/v1/text.proto).
-// These wrappers exist so a rule reads as the fact it is stating - say(codecCannotEncodeChroma,
-// argCodec(...), argChroma(...)) - rather than as three lines of enum spelling,
-// and so that an argument is named once here instead of at each of the forty-odd sites that fill
-// it.
+// Every reason, note and diagnostic is one code and the identifiers it is about, never a sentence
+// (api/proto/screenshare/v1/text.proto).
+// The wrappers exist so a rule reads as the fact it states, say(codecCannotEncodeChroma,
+// argCodec(...), argChroma(...)) rather than three lines of enum spelling, and so an argument is
+// named here once instead of at every site that fills it.
 //
-// The naming is deliberate on both halves.
-// A code constant is named for what is true, not for the control it greys:
-// the same fact greys a pixel format on one screen and explains a diagnostic on another,
-// and a name taken from one of the two would read as a lie on the other.
+// A code constant is named for what is true, not for the control it greys.
+// The same fact greys a pixel format on one screen and explains a diagnostic on another, so a name
+// taken from either would read as a lie on the other.
 //
-// Nothing here states a precondition, and the absence is the shape rather than an oversight.
-// Every wrapper below is one call to text.Of or text.ID, and both already assert what they require:
-// that a statement names which statement it is, and that an argument names which substitution it
-// fills (internal/text).
-// Asserting the same thing here would put a second answer beside the first, which is the drift a
-// single owner exists to prevent.
+// Nothing here asserts a precondition, which is the shape rather than an oversight.
+// Every wrapper is one call to text.Of or text.ID, and both already assert what they require:
+// a statement names which statement it is, and an argument names which substitution it fills
+// (internal/text).
+// A second assert beside them is a second answer to one question.
 
-// say is one statement.
-// It is text.Of under this package's own name, so a rule states a fact in one call and nothing here
-// has to spell the constructor's package.
+// say is one statement: text.Of under this package's own name, so no rule spells the constructor's
+// package.
 func say(code screensharev1.TextCode, args ...*screensharev1.TextArg) *screensharev1.Text {
 	return text.Of(code, args...)
 }
 
-// The codes, named for the fact each states.
+// Local names for the generated codes, so a rule states its fact on one line.
 const (
 	captureWrongOS         = screensharev1.TextCode_TEXT_CODE_CAPTURE_WRONG_OS
 	captureTakesNoMonitor  = screensharev1.TextCode_TEXT_CODE_CAPTURE_TAKES_NO_MONITOR
@@ -95,8 +91,8 @@ const (
 	presetStoreUnreadable  = screensharev1.TextCode_TEXT_CODE_PRESET_STORE_UNREADABLE
 )
 
-// The argument constructors, one per substitution the statements above take.
-// Each names the axis its value belongs to, which is what a surface looks the value up in.
+// One constructor per substitution the codes above take.
+// The axis a constructor names is what a surface resolves the identifier in.
 
 func argCapture(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_CAPTURE, v)
@@ -114,15 +110,14 @@ func argTransport(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT, v)
 }
 
-// argValue is the settings value a statement is about, where no argument of its own axis fits:
-// a render chain is not a codec, a chroma or a transport, and giving it one of those names would
-// say it was.
+// argValue is a settings value with no axis of its own: a render chain is not a codec, a chroma or
+// a transport, and giving it one of those names would say it was.
 func argValue(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_VALUE, v)
 }
 
-// argElement is a GStreamer element factory, which nobody picks: it names what this machine is
-// missing rather than a choice that was made.
+// argElement is a GStreamer element factory, which nobody picks: it names what this machine lacks
+// rather than a choice that was made.
 func argElement(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ELEMENT, v)
 }

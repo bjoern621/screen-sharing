@@ -2,19 +2,12 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The quantizer's track, and nothing else. The track it rides on is drawn by the form
-    behind it as three coloured zones - below the recommended band, the band itself, and the
-    tail where the picture stops being usable - so this slider paints no track at all and
-    both halves stay blank.
+    A quantizer slider paints no track: the form behind it draws the coloured zones, so both
+    halves stay blank and the zones show through (Setup/QualityStep/View/QualityStepView.axaml).
+    The thumb and the blank halves are the shared ones from Design/Inputs.axaml, a grip being
+    the design's answer rather than this step's.
 
-    The thumb and the blank half are the shared ones from Design/Inputs.axaml: what a slider
-    grip looks like is the design's answer, not this step's, and a second copy of it here
-    would be a second grip the moment either moved. All that is special about the quantizer
-    is the template that leaves the track to the form, which is the one thing stated below.
-
-    A separate dictionary because a control skin and a form layout are two responsibilities,
-    and the form is long enough already. It is merged by the one view that uses it, which is
-    why nothing had to be registered in App.axaml.
+    Merged by the one view that uses it, so nothing is registered in App.axaml.
   -->
 
   <ControlTheme x:Key="QuantizerSliderTheme" TargetType="Slider" BasedOn="{StaticResource {x:Type Slider}}">

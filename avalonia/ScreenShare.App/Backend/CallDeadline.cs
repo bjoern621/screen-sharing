@@ -5,27 +5,21 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Backend;
 
 /// <summary>
-/// Puts a clock on every call that arrives without one.
+/// Deadline on every unary call that arrives without one.
 ///
-/// <b>What it is for.</b> A control that waits on a round trip is unpressable while it waits
-/// (<see cref="Mvvm.PendingCommand"/>), so an answer that never comes is not a slow button but a dead one:
-/// the spinner is the only state left and nothing the reader can do moves it.
-/// That is the wrong failure for a local socket, where the backend is a process on this machine and "no
-/// answer" means it died, wedged, or lost the connection under the call - all of which are facts worth
-/// showing rather than waiting through.
+/// A control waiting on a round trip is unpressable while it waits (<see cref="Mvvm.PendingCommand"/>), so an
+/// answer that never comes leaves a dead button rather than a slow one.
+/// Over a local socket, no answer means the backend died, wedged, or lost the connection under the call, and
+/// each of those is worth showing rather than waiting through.
 ///
-/// <b>Why here rather than at each call.</b> The bound is a property of talking to a backend over a socket,
-/// not of any one method, and a per-call-site deadline is a rule that holds only where somebody remembered it
-/// - the viewer's toggles were exactly the sites that had forgotten, which is what made a lost answer strand
-/// them.
+/// The bound belongs to talking to a backend over a socket rather than to any one method, so a per-call-site
+/// deadline holds only where somebody remembered it.
 ///
-/// <b>Unary only.</b> The event stream and the frame channel are open for as long as the window is, so a
-/// deadline on those would be a clock on the window itself.
-/// They are streaming calls and this overrides nothing they go through.
+/// Unary only.
+/// The event stream and the frame channel stay open for as long as the window does, and nothing here
+/// overrides what a streaming call goes through.
 ///
-/// A call that named its own deadline keeps it.
-/// The handshake does, and a caller that knows its own method is slower than this bound says so rather than
-/// being overruled by it.
+/// A call that named its own deadline keeps it: the handshake and the encoder probe both do.
 /// </summary>
 public sealed class CallDeadline : Interceptor
 {
@@ -44,9 +38,8 @@ public sealed class CallDeadline : Interceptor
         => continuation(request, Bound(context));
 
     /// <summary>
-    /// The same bound on the blocking overload, which the generated client offers for every unary method.
-    /// Nothing here calls one today, and that is exactly why it is covered: a clock that holds only on the
-    /// overloads somebody remembered is the rule this type exists to replace, one level down.
+    /// The same bound on the blocking overload the generated client offers, so which overload a call site
+    /// picks does not decide whether there is a clock on it.
     /// </summary>
     public override TResponse BlockingUnaryCall<TRequest, TResponse>(
         TRequest request,
@@ -55,8 +48,7 @@ public sealed class CallDeadline : Interceptor
         => continuation(request, Bound(context));
 
     /// <summary>
-    /// The call's context with this bound on it, and the caller's own context untouched where it named a
-    /// deadline of its own.
+    /// The call's context with this bound on it, or the caller's own untouched where it named a deadline.
     /// </summary>
     private ClientInterceptorContext<TRequest, TResponse> Bound<TRequest, TResponse>(
         ClientInterceptorContext<TRequest, TResponse> context)

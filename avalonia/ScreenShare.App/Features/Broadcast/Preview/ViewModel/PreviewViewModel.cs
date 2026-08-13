@@ -12,45 +12,34 @@ using TablerIcons;
 namespace ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 
 /// <summary>
-/// The outgoing preview: what is being sent, and what it costs to show it.
+/// The outgoing preview: one stream, over one of two routes the reader picks between.
 ///
-/// <b>It draws one of two pictures of one stream, and the reader picks which.</b> The local route is a copy
-/// the publish child writes to a loopback port and this machine decodes; the end-to-end route is this
-/// machine's own stream pulled back off the relay over the leg the viewer receives on.
-/// They differ by where the picture is taken and by nothing else - both carry the same encode - so what one
-/// shows and the other cannot is the uplink, the relay and the way back (<see cref="PreviewRoute"/>).
+/// Local route: the copy the publish child writes to a loopback port, decoded on this machine.
+/// End-to-end route: this machine's own stream pulled back off the relay, over the leg the viewer receives on.
+/// Both carry the same encode, so what only the end-to-end route can show is the uplink, the relay and the way
+/// back (<see cref="PreviewRoute"/>).
 ///
-/// <b>The routes are not interchangeable and the card never substitutes one for the other.</b> A publish with
-/// no local preview leg draws nothing on the local route, a relay that is not carrying the path draws nothing
-/// on the end-to-end one, and each state says which it is.
-/// The sentence under the card is the route's own, so the picture and the claim made about it cannot disagree
-/// (<see cref="Cost"/>).
+/// Neither route stands in for the other.
+/// A route with nothing running behind it draws the placeholder naming which state it is in.
 ///
-/// <b>What each route costs is different, and that is the reason the toggle is a choice rather than a
-/// setting.</b> The local route costs one decode on this machine, spends no bandwidth, and the relay serves
-/// no reader for it - the viewer figures beside this card are viewers, with nothing of this machine's own in
-/// them.
-/// The end-to-end route is a relay client like any tile in the grid: it takes a reader slot, it is counted
-/// among those figures, and it pays a viewer's downstream bandwidth.
+/// The local route costs one decode here, no bandwidth and no reader slot.
+/// The end-to-end route is a relay client: a reader slot, a viewer's downstream bandwidth, and a row among the
+/// viewer figures beside the card.
 /// So the card opens on the local route and the other is asked for by name.
 ///
-/// <b>Whether the picture is drawn at all is the reader's, and the card opens drawing it.</b> It does not
-/// follow the window: a publisher's window stands behind the thing being shared for most of a session, so a
-/// preview that stopped whenever nobody was looking at it would be dark at the moment a reader came back to
-/// check on it, and would pay a pool import and a reconnect to come back.
-/// The stop is what closes the end-to-end route's decode while a publish stands, which is the whole of what
-/// makes the control worth having rather than a way to blank a tile (<see cref="SetPlaying"/>).
+/// Whether the picture is drawn is the reader's, and the card opens drawing.
+/// It does not follow the window: a publisher's window stands behind what is being shared, so a card that
+/// stopped while nobody looked would be dark when a reader came back, and would pay a pool import and a
+/// reconnect to return.
+/// Stopping closes the end-to-end route's decode, which is what makes the control worth more than a way to
+/// blank a tile (<see cref="SetPlaying"/>).
 ///
-/// <b>Only one of the two routes has an effect to call.</b> The local preview pipeline goes up with the
-/// publish child and down with it, so there is nothing here to converge on beyond the subscription.
-/// The end-to-end route opens a decode with <c>StartReceive</c> and closes it with <c>StopReceive</c>,
-/// exactly as the viewer's grid does, which is the one place this card asks the backend for anything
-/// (<see cref="Receive"/>).
+/// Only the end-to-end route has an effect to call: <c>StartReceive</c> and <c>StopReceive</c>, as the
+/// viewer's grid calls them (<see cref="Receive"/>).
+/// The local pipeline goes up and down with the publish child, so nothing here converges it.
 ///
-/// <b>The lifecycle is a converge and not a sequence.</b> <see cref="Apply"/> states the world it wants - a
-/// decode where the chosen route needs one, and a tile subscribed to whatever is running - and the converges
-/// decide what has to be asked for or dropped.
-/// A second pass over unchanged input asks for nothing, makes nothing and drops nothing.
+/// <see cref="Apply"/> converges rather than sequences, and a second pass over unchanged input asks for
+/// nothing, makes nothing and drops nothing.
 /// </summary>
 public sealed class PreviewViewModel : Observable
 {
@@ -61,50 +50,44 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Whether the reader wants this picture drawn.
-    ///
-    /// It is this card's own state and there is nowhere to read it back from: the local pipeline belongs to
-    /// the publish, a relay decode outlives every window drawing it, and neither carries who is watching.
-    /// True to begin with, because a card that has to be started before it shows anything reads as a card
-    /// that is broken.
-    /// Written by <see cref="SetPlaying"/> and by nothing else.
+    /// This card's own state, with nowhere to read it back from: the local pipeline belongs to the publish, a
+    /// relay decode outlives every window drawing it, and neither carries who is watching.
+    /// True to begin with, since a card that has to be started reads as one that is broken.
+    /// Written by <see cref="SetPlaying"/> alone.
     /// </summary>
     private bool _playing = true;
 
     /// <summary>
     /// Which picture the reader asked for.
-    /// It is this card's own state and there is nowhere to read it back from: the backend has no opinion
-    /// about which of two pictures of one stream a window draws.
-    /// Written by <see cref="SelectedRoute"/> and by nothing else.
+    /// This card's own state: the backend has no opinion about which of two pictures of one stream a window
+    /// draws.
+    /// Written by <see cref="SelectedRoute"/> alone.
     /// </summary>
     private PreviewRoute _route = PreviewRoute.Local;
 
     /// <summary>
-    /// The tile this card draws, and null while it wants none.
-    ///
-    /// It is <see cref="TileViewModel"/> and not a second frame consumer written here.
-    /// A tile is a source, the figures over it and the subscription the control behind it reads, and this
-    /// card is one of those - a second implementation would be a second answer to what a dropped frame is and
-    /// where a lent handle goes back.
+    /// The tile this card draws, null while it wants none.
+    /// <see cref="TileViewModel"/> reused rather than a second frame consumer, which would be a second answer
+    /// to what a dropped frame is and where a lent handle goes back.
     /// </summary>
     private TileViewModel? _tile;
 
     /// <summary>
-    /// The relay decode this card has asked the backend for, and null while it has asked for none.
+    /// The relay decode this card has asked the backend for, null while it has asked for none.
     ///
-    /// <b>It is the shell's own state, which is the one departure this card makes from reading everything
-    /// through.</b> The backend reports which decodes are running and says nothing about who wanted them, so
-    /// "the decode this card asked for" cannot be derived from the running state - the viewer's grid keeps
-    /// its tile list for the same reason (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
+    /// Shell state, and the one departure this card makes from reading everything through.
+    /// The backend reports which decodes are running and never who wanted them, so the decode this card asked
+    /// for cannot be derived from the running state; the viewer's grid keeps its tile list for the same reason
+    /// (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
     ///
-    /// It holds the key that was asked for rather than the one the settings name now.
-    /// A stop is keyed by the stream and the leg together, so closing on the current setting would leave a
-    /// decode running whenever the leg had moved since it was opened.
+    /// Holds the key that was asked for, not the one the settings name now.
+    /// A stop is keyed by stream and leg together, so closing on the current setting would leave a decode
+    /// running whenever the leg had moved since.
     /// </summary>
     private WatchKey? _asked;
 
     /// <summary>
-    /// Whether a receive effect is in flight, which is what keeps a render pass from issuing a second one
-    /// behind the first.
+    /// Whether a receive effect is in flight, which keeps a render pass from issuing a second behind it.
     /// The pass that runs when the answer lands converges again.
     /// </summary>
     private bool _asking;
@@ -112,57 +95,46 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// Whether the decode named by <see cref="_asked"/> has been seen running.
     ///
-    /// <b>It is what separates "not up yet" from "gone", and the converge needs both.</b> A key that has been
-    /// asked for and is not in the receive state is one of two things: an answer still on its way, which
-    /// asking again would only duplicate, or a pipeline another window closed, which asking again is exactly
-    /// the repair for.
-    /// Nothing on the contract tells them apart - the receive state says what is running and never what was -
-    /// so the one bit that does is held here.
+    /// Separates "not up yet" from "gone", which the contract cannot: the receive state says what is running
+    /// and never what was.
+    /// Asking again repairs a pipeline another window closed, and only duplicates an answer still on its way.
     ///
-    /// Without it the converge cannot settle: the pass that runs when a start answers has not yet been told
-    /// what is decoding, so it would read the key as gone and ask again, and the answer to that would do the
-    /// same.
+    /// Without it the converge never settles: the pass that runs when a start answers has not yet been told
+    /// what is decoding, so it would read the key as gone and ask again.
     /// </summary>
     private bool _open;
 
     /// <summary>
-    /// Why the backend refused to open the end-to-end decode, empty while it has not.
-    /// It is that side's own sentence and is shown as it stands: a leg that cannot carry this stream's format
-    /// names the format and the protocols that would have carried it, which is the whole of what makes the
-    /// refusal actionable (<c>docs/ipc-api.md</c>, "Errors").
+    /// Why the backend refused the end-to-end decode, empty while it has not.
+    /// That side's own sentence, shown as it stands: a leg that cannot carry this stream's format names the
+    /// format and the protocols that would have carried it (<c>docs/ipc-api.md</c>, "Errors").
     ///
-    /// It also stops the converge from asking again.
-    /// A refusal is a fact about this key rather than a moment, so re-asking on every render pass would be a
-    /// round trip a second against a leg that has already answered; it is cleared when the key moves.
+    /// Also stops the converge asking again, a refusal being a fact about this key rather than a moment.
+    /// Cleared when the key moves.
     /// </summary>
     private string _refusal = "";
 
     /// <summary>
-    /// The leg the viewer's grid is drawing one stream on, and the empty string where it is drawing none of
-    /// it.
+    /// The leg the viewer's grid is drawing one stream on, empty where it is drawing none of it.
     ///
-    /// <b>It exists because a decode is one pipeline whoever asked for it.</b> The relay decode this card
-    /// opens is keyed by the stream and the leg, and a tile in the viewer's grid on the same pair is the same
-    /// decode - so a stop issued here would take the picture out of that tile.
-    /// This card therefore lets go of its ask and leaves the pipeline to the window that still wants it.
+    /// A decode is one pipeline whoever asked for it, keyed by stream and leg, so a stop issued here would
+    /// take the picture out of a grid tile on the same pair.
+    /// This card lets go of its ask instead and leaves the pipeline to the window that still wants it.
     ///
-    /// It is a read of the viewer's own state rather than a copy of it, which is what keeps there being one
-    /// answer to which streams are tiled.
-    /// The shell supplies it, because the shell is what holds both screens (<see cref="SetGridLeg"/>).
+    /// A read of the viewer's own state rather than a copy, supplied by the shell, which holds both screens
+    /// (<see cref="SetGridLeg"/>).
     /// </summary>
     private Func<string, string> _gridLeg = static _ => "";
 
     /// <param name="form">
     /// The settings the backend is holding, read for one value: the leg the end-to-end route receives on.
-    /// Stored and not the draft, for the reason the viewer's grid reads the stored ones - the backend builds
-    /// the rest of that decode out of its own settings, so opening on a draft would run an unkept leg against
-    /// kept jitter buffers (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
+    /// Stored and not the draft, because the backend builds the rest of that decode out of its own settings,
+    /// so a draft leg would run against kept jitter buffers (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
     /// </param>
     /// <param name="dispatch">
     /// Hands work to the UI loop.
-    /// The tile's own reports and the answer to a receive effect land on whichever thread the transport
-    /// completed on, and everything this writes is read by a binding that only tolerates being written from
-    /// one.
+    /// The tile's reports and the answer to a receive effect land on whichever thread the transport completed
+    /// on, and every binding here tolerates one writer thread.
     /// </param>
     public PreviewViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
@@ -179,8 +151,6 @@ public sealed class PreviewViewModel : Observable
         Routes = PreviewRoutes.All.Select(route => new PreviewRouteTab(route)).ToList();
         _selectedRoute = Routes[0];
 
-        // The button's transition over the named write, which is what a control that shows one state at a
-        // time can press.
         TogglePlay = new DelegateCommand(() => SetPlaying(!_playing));
 
         Assert.That(Routes.Count == PreviewRoutes.All.Count, "a segment per route", Routes.Count);
@@ -209,12 +179,10 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Says whether the picture is drawn.
-    /// The named write of that state, and idempotent: telling it what it already holds re-renders and
-    /// converges to the same world.
-    ///
-    /// It names the state rather than the transition, so a caller that cannot see which way the card is
-    /// pointing still gets what it asked for.
-    /// <see cref="TogglePlay"/> is the button's flip over it, and the only caller that needs one.
+    /// Names the state rather than the transition, so a caller that cannot see which way the card points still
+    /// gets what it asked for.
+    /// Idempotent: the value it already holds re-renders and converges to the same world.
+    /// <see cref="TogglePlay"/> is the button's flip over it.
     /// </summary>
     public void SetPlaying(bool playing)
     {
@@ -225,13 +193,12 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// Says which leg the viewer's grid draws a given stream on, so the end-to-end route does not close a
     /// decode that window is still drawing.
-    /// The named write of the one fact this card cannot read for itself, and idempotent - it replaces a read,
-    /// and rendering after it converges to the same world.
+    /// Idempotent: it replaces a read, and rendering after it converges to the same world.
     ///
-    /// A function rather than a value, so the answer is read at the moment it matters instead of copied when
-    /// the shell happened to call this.
-    /// The default answers that nothing else is drawing anything, which is what a card built with no shell
-    /// around it - every test - gets.
+    /// A function rather than a value, so the answer is read when it matters instead of copied when the shell
+    /// happened to call this.
+    /// The default answers that nothing else is drawing anything, which is what a card with no shell around it
+    /// gets.
     /// </summary>
     public void SetGridLeg(Func<string, string> legOf)
     {
@@ -258,59 +225,53 @@ public sealed class PreviewViewModel : Observable
     private PreviewRouteTab _selectedRoute;
 
     /// <summary>
-    /// The tile the picture is drawn from, and null while there is none.
-    /// The control bound to it opens the frame subscription when it is attached and cancels it when it is
-    /// not, so clearing this is what ends the subscription (<c>Features/Viewer/Tile/View/StreamTile.cs</c>).
-    ///
-    /// It reads the same field <see cref="Draw"/> writes, rather than a second copy of it: one tile, one
-    /// owner.
+    /// The tile the picture is drawn from, null while there is none.
+    /// The control bound to it opens the frame subscription on attach and cancels it on detach, so clearing
+    /// this is what ends the subscription (<c>Features/Viewer/Tile/View/StreamTile.cs</c>).
+    /// Reads the field <see cref="Draw"/> writes: one tile, one owner.
     /// </summary>
     public TileViewModel? Tile { get => _tile; private set => Set(ref _tile, value); }
 
-    /// <summary>Whether a tile is on the card, which is what separates it from its placeholder state.</summary>
     public bool HasTile { get => _hasTile; private set => Set(ref _hasTile, value); }
 
-    /// <summary>Whether the card is drawing the picture, as the reader last asked.</summary>
     public bool IsPlaying { get => _isPlaying; private set => Set(ref _isPlaying, value); }
 
     /// <summary>
     /// Stops the picture, or starts it again.
-    /// Always pressable: it names a state of this card rather than an effect on a stream, so it is answerable
-    /// with nothing publishing and on either route.
+    /// Always pressable: it names a state of this card rather than an effect on a stream, so it answers with
+    /// nothing publishing and on either route.
     /// </summary>
     public DelegateCommand TogglePlay { get; }
 
     /// <summary>
-    /// One glyph that changes rather than two controls one of which is hidden, so the control never moves
-    /// under the pointer.
-    /// It shows what pressing does and not what the card is doing, which is how a transport control reads
-    /// everywhere else.
+    /// Shows what pressing does, not what the card is doing.
+    /// One glyph that changes rather than two controls one of which is hidden, so it never moves under the
+    /// pointer.
     /// </summary>
     public Icons PlayGlyph { get => _playGlyph; private set => Set(ref _playGlyph, value); }
 
-    /// <summary>What the press does, since a glyph is not a sentence.</summary>
+    /// <summary>What pressing does, in words a glyph cannot carry.</summary>
     public string PlayTip { get => _playTip; private set => Set(ref _playTip, value); }
 
-    /// <summary>One segment per route, in the table's order. Fixed for the card's life.</summary>
+    /// <summary>
+    /// A segment per route, in <see cref="PreviewRoutes.All"/> order.
+    /// Fixed for the card's life.
+    /// </summary>
     public IReadOnlyList<PreviewRouteTab> Routes { get; }
 
     /// <summary>
     /// What the route toggle has selected.
-    /// The reader owns it, so its setter is the write and the render function follows rather than the other
-    /// way round.
-    ///
-    /// Idempotent: selecting the segment that is already selected notifies nothing and converges to the same
-    /// world.
-    /// The control writes it back on selection, which is why it is settable where every other output here is
-    /// not.
+    /// The reader owns it, so the setter is the write and the render function follows.
+    /// Settable where every other output here is not, because the control writes it back on selection.
+    /// Idempotent: selecting the segment already selected notifies nothing.
     /// </summary>
     public PreviewRouteTab SelectedRoute
     {
         get => _selectedRoute;
         set
         {
-            // A list box clears its selection while its items are being replaced, and a null here would be a
-            // card drawing no route at all.
+            // A list box clears its selection while its items are replaced,
+            // and null here would leave the card drawing no route at all.
             if (value is null || ReferenceEquals(value, _selectedRoute))
             {
                 return;
@@ -320,23 +281,18 @@ public sealed class PreviewViewModel : Observable
             _route = value.Value;
 
             // The refusal belonged to the route being left.
-            // Held across the switch, it would stand under the other route's picture describing a leg that
-            // route never uses.
+            // Kept across the switch, it would describe a leg the other route never uses.
             _refusal = "";
             Apply();
         }
     }
 
-    /// <summary>What the toggle chooses, said above it. Fixed, and read straight off the copy table.</summary>
     public string RouteChoice => Cards.PreviewRouteChoice;
 
     /// <summary>
     /// Why the card is dark, empty while it is drawing.
-    ///
-    /// It is one output rather than several because a reader asks one question of a dark tile.
-    /// Which state it is naming is <see cref="PlaceholderFor"/>'s answer, and the states are distinct on
-    /// purpose: the relay refused the decode, nothing is publishing, the chosen route has nothing running
-    /// behind it, and - once there is a tile - the tile's own three.
+    /// One output rather than several, because a reader asks one question of a dark tile.
+    /// Which state it names is <see cref="PlaceholderFor"/>'s answer.
     /// </summary>
     public string Placeholder { get => _placeholder; private set => Set(ref _placeholder, value); }
 
@@ -345,9 +301,9 @@ public sealed class PreviewViewModel : Observable
     /// <summary>
     /// What this picture is and is not, in the chosen route's own words: where it was taken, what it costs,
     /// and which question it cannot answer.
-    /// Stated on the card rather than in a comment, because a preview that looks perfect while viewers suffer
-    /// is exactly the misreading it exists to prevent - and because the two routes make opposite claims, so a
-    /// single sentence for both would be false under one of them.
+    /// On the card rather than in a comment, because a preview that looks perfect while viewers suffer is the
+    /// misreading it exists to prevent.
+    /// One sentence for both routes would be false under one of them, the two making opposite claims.
     /// </summary>
     public string Cost { get => _cost; private set => Set(ref _cost, value); }
 
@@ -356,10 +312,9 @@ public sealed class PreviewViewModel : Observable
     public string Quality { get => _quality; private set => Set(ref _quality, value); }
 
     /// <summary>
-    /// The protocol the picture crossed, as the strip over it prints it, and empty on the route that crossed
-    /// none.
-    /// It is the leg the decode was actually opened on rather than the one the settings name now, which is
-    /// the tile's own answer for the same reason a stop reads it from there.
+    /// The protocol the picture crossed, empty on the route that crossed none.
+    /// The leg the decode was opened on rather than the one the settings name now, read off the tile for the
+    /// same reason a stop is.
     /// </summary>
     public string Leg { get => _leg; private set => Set(ref _leg, value); }
 
@@ -367,8 +322,7 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Whether the inset red outline and the sharing badge show.
-    /// Both mean one thing - this tile is what the world is currently receiving - so both follow the same
-    /// fact.
+    /// Both mean "this tile is what the world is receiving", so both follow one fact.
     /// </summary>
     public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
@@ -380,24 +334,17 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Whether the publish is sending a pointer position at all.
-    ///
     /// False for every cursor mode but the one that sends it, and false while the pointer is off the captured
-    /// screen: a pointer that has left is not at its last position, and drawing it there would leave one
-    /// stuck against an edge for as long as it is away.
-    ///
-    /// It is drawn on both routes.
-    /// The position travels beside the picture rather than in it, so neither route's frames carry a pointer
-    /// and both need the marker drawn over them.
+    /// screen: a pointer that has left is not at its last position.
+    /// Drawn on both routes, the position travelling beside the picture rather than in it.
     /// </summary>
     public bool HasPointer { get => _hasPointer; private set => Set(ref _hasPointer, value); }
 
     /// <summary>
     /// Where the marker sits over the picture, in the rendered card's own pixels.
-    ///
-    /// The backend sends the position in the picture's pixels, so this is the one conversion: the fraction of
-    /// the way across, times the size this card is being drawn at.
-    /// It is done here and not in the view because the view has no idea what the picture's own size is, and
-    /// it is done at all because a viewer's pixels are never the publisher's.
+    /// The backend sends the position in the picture's pixels, so the one conversion is the fraction of the
+    /// way across times the size this card is drawn at.
+    /// Here and not in the view, which does not know the picture's own size.
     /// </summary>
     public double PointerLeft { get => _pointerLeft; private set => Set(ref _pointerLeft, value); }
 
@@ -405,9 +352,8 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// The size this card is drawing the picture at, written by the view as it lays out.
-    ///
-    /// It is the one fact the view knows and the view model cannot read, and therefore the one input the view
-    /// writes: a marker placed without it would be placed on a picture whose size nothing here had measured.
+    /// The one fact the view knows and the view model cannot read, and therefore the one input the view
+    /// writes.
     /// </summary>
     public void SetPictureSize(double width, double height)
     {
@@ -418,10 +364,9 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Takes one pointer position, or none.
-    ///
-    /// <b>Its own entry point, and not part of <see cref="Apply"/>.</b> Positions arrive hundreds of times a
-    /// second on a stream of their own, and running the render pass at that rate would re-read the whole
-    /// session to move one marker (<c>Backend/Session.cs</c>, <c>Metered</c>).
+    /// Its own entry point rather than part of <see cref="Apply"/>: positions arrive hundreds of times a
+    /// second on a stream of their own, and a render pass each would re-read the whole session to move one
+    /// marker (<c>Backend/Session.cs</c>, <c>Metered</c>).
     /// </summary>
     public void Point(PointerPosition? at)
     {
@@ -439,47 +384,39 @@ public sealed class PreviewViewModel : Observable
             return;
         }
 
-        // Centred on the position rather than hung off its top left, because what the marker stands for is a
-        // point and not a box.
+        // Centred on the position, the marker standing for a point rather than a box.
         HasPointer = true;
         PointerLeft = (at.X * _pictureWidth / picture.PictureWidth) - (PointerSize / 2);
         PointerTop = (at.Y * _pictureHeight / picture.PictureHeight) - (PointerSize / 2);
     }
 
-    /// <summary>How wide the marker is drawn, which the view states and this centres by.</summary>
+    /// <summary>Marker width in px, drawn at this size by the view and centred by this.</summary>
     private const double PointerSize = 14;
 
     // --- Lifecycle ------------------------------------------------------------------
 
     /// <summary>
     /// The one render function.
-    /// Sets the off branch of everything it writes, so neither the outline nor the tile nor a refusal can
-    /// stick.
-    ///
-    /// Safe to run twice: the receive converge asks for nothing it has already asked for, the tile converge
-    /// keeps the tile it already has for the picture it is already drawing, and every property setter
-    /// compares before it notifies.
+    /// Sets the off branch of everything it writes, so neither the outline nor the tile nor a refusal sticks.
+    /// Safe to run twice: the receive converge asks for nothing already asked, the tile converge keeps the
+    /// tile drawing the same picture, and every setter compares before it notifies.
     /// </summary>
     public void Apply()
     {
         var reading = Snapshot;
 
-        // The relay decode first, because the tile is built from what is running: a subscription opened
-        // before its decode is refused once and never retries, which is the same order the viewer's grid
-        // opens a tile in (Features/Viewer/ViewModel/ViewerViewModel.cs).
+        // The relay decode first, because the tile is built from what is running:
+        // a subscription opened before its decode is refused once and never retries.
         var wanted = Wanted();
         Receive(wanted);
 
         var pipeline = Running(wanted);
         Converge(pipeline is null ? null : SourceFor(wanted));
 
-        // The tile is rendered from the state the backend reports about the pipeline behind it, read through
-        // on every pass.
-        // A tile whose pipeline is not in the state draws its own reason for that rather than disappearing.
-        //
-        // The sample beside it is the end-to-end route's decode, and nothing on the local route: this card
-        // draws no stats panel either way, and handing a tile the sample its key names is what keeps that a
-        // fact about the card rather than about the tile.
+        // Rendered from what the backend reports about the pipeline behind it, read through on every pass, so
+        // a tile whose pipeline is absent draws its own reason rather than disappearing.
+        // The sample is the end-to-end decode's and nothing on the local route, this card drawing no stats
+        // panel either way.
         _tile?.Apply(pipeline, wanted is null ? null : _session.StatsOf(wanted.StreamName, wanted.Transport));
 
         IsSharing = reading.IsLive;
@@ -491,14 +428,13 @@ public sealed class PreviewViewModel : Observable
         PlayGlyph = _playing ? Icons.IconPlayerStop : Icons.IconPlayerPlay;
         PlayTip = _playing ? Cards.PreviewStopTip : Cards.PreviewPlayTip;
 
-        // The leg the picture actually crossed, off the tile that is drawing it.
-        // Only the end-to-end route has one, and the local route's tile reports the empty string, so there is
-        // no case for the route here.
+        // Only the end-to-end route has a leg and the local route's tile reports the empty string, so there is
+        // no case on the route here.
         Leg = _tile is { Transport.Length: > 0 } tile ? Words.Transport(tile.Transport) : "";
         HasLeg = Leg.Length > 0;
 
-        // After the tile's own pass, because a tile that is drawing has no sentence and one that is not has
-        // written it by now.
+        // After the tile's own pass: a tile that is drawing has no sentence,
+        // and one that is not has written it by now.
         Placeholder = PlaceholderFor();
         HasPlaceholder = Placeholder.Length > 0;
         HasTile = _tile is not null;
@@ -517,13 +453,12 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// The relay decode the end-to-end route needs, and null where it needs none - which is every pass on the
-    /// local route, every pass with the card stopped, and every pass with nothing publishing.
-    ///
-    /// The stream and the leg are read through on every pass; the route and the stop are the card's own.
-    /// The stream is the publish's own name, because what this route receives is this machine's stream and
-    /// not a stream a reader chose; the leg is the viewer's, because how this machine watches is one setting
-    /// and a second one here would be a second answer to it.
+    /// The relay decode the end-to-end route needs, null where it needs none: the local route, a stopped card,
+    /// and nothing publishing.
+    /// The stream and the leg are read through on every pass, the route and the stop being the card's own.
+    /// The stream is the publish's own name, this route receiving this machine's stream rather than one a
+    /// reader chose.
+    /// The leg is the viewer's setting, a second one here being a second answer to how this machine watches.
     /// </summary>
     private WatchKey? Wanted()
     {
@@ -543,20 +478,19 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// The name this machine is publishing under, and the empty string where it is publishing nothing.
-    /// A publish that is live always names itself, so the empty string is a state no tile is made for rather
-    /// than one drawn with a blank heading.
+    /// The name this machine is publishing under, empty where it is publishing nothing.
+    /// A live publish always names itself, so the empty string is a state no tile is made for rather than one
+    /// drawn with a blank heading.
     /// </summary>
     private string Publishing() => _session.Publish?.Live?.Publish?.Name ?? "";
 
     /// <summary>
-    /// The picture the chosen route has running behind it, and null for "nothing to draw".
-    ///
-    /// Two facts have to hold on either route and each is read through rather than remembered: the reader has
-    /// the card playing, and something is producing the picture.
-    /// What that something is differs - the local route's pipeline is part of the publish, and the end-to-end
-    /// route's is a decode in the receive state - and reading both into one shape here is what lets one tile
-    /// draw either (<c>Features/Viewer/Tile/Model/TilePipeline.cs</c>).
+    /// The picture the chosen route has running behind it, null for nothing to draw.
+    /// Two facts are read through on either route: the reader has the card playing, and something is producing
+    /// the picture.
+    /// What produces it differs, the local route's pipeline being part of the publish and the end-to-end
+    /// route's a decode in the receive state, and reading both into one shape lets one tile draw either
+    /// (<c>Features/Viewer/Tile/Model/TilePipeline.cs</c>).
     /// </summary>
     private TilePipeline? Running(WatchKey? wanted)
     {
@@ -571,9 +505,9 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// The decode the backend reports for one key, and null where it is running none.
-    /// Read out of the whole receive state on every pass, because a decode this card did not open - the
-    /// viewer's grid opened the same pair - is the same pipeline and draws the same picture.
+    /// The decode the backend reports for one key, null where it is running none.
+    /// Read out of the whole receive state on every pass, because a decode the viewer's grid opened on the
+    /// same pair is the same pipeline and draws the same picture.
     /// </summary>
     private ReceiveStream? Decoding(WatchKey key)
     {
@@ -589,9 +523,8 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// What a tile on the chosen route subscribes to, and null where this card has no name to build one with.
-    /// It is the contract's own distinction rather than a second one: the local route names the running
-    /// publish's preview and the end-to-end route names a stream and a leg
+    /// What a tile on the chosen route subscribes to, null where this card has no name to build one with.
+    /// The contract's own distinction: the running publish's preview, or a stream and a leg
     /// (<c>Features/Viewer/Tile/Model/TileSource.cs</c>).
     /// </summary>
     private TileSource? SourceFor(WatchKey? wanted)
@@ -606,25 +539,21 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// Converges the backend onto the decode this card wants: opens the one the end-to-end route needs, and
-    /// closes the one it has stopped needing.
+    /// Converges the backend onto the decode this card wants: opens the one the end-to-end route needs, closes
+    /// the one it has stopped needing.
     ///
-    /// <b>Idempotent, which is what makes it safe on a render pass.</b> A key that has already been asked for
-    /// and is running asks nothing, a key that was refused asks nothing until it moves, and one call is in
-    /// flight at a time.
-    /// Rendering a hundred times therefore costs the one round trip the first pass made.
+    /// Idempotent, which is what makes it safe on a render pass.
+    /// A key already asked for and running asks nothing, a refused key asks nothing until it moves, and one
+    /// call is in flight at a time, so a hundred passes cost the first pass's round trip.
     ///
-    /// <b>A decode that went away is asked for again.</b> Decodes are shared and outlive the window that
-    /// opened one, so another window can close the pipeline this card is drawing; re-asking is what makes
-    /// that a blink rather than a card that stays dark until the route is toggled.
-    /// It is a repair for a pipeline that was seen running and is gone, which is what <see cref="_open"/> is
-    /// held for: a key that has never been seen running is one whose answer is still on its way, and asking
-    /// again would only duplicate it.
+    /// A decode that went away is asked for again, decodes being shared and outliving the window that opened
+    /// one.
+    /// The repair is for a pipeline seen running and now gone, which is what <see cref="_open"/> is held for.
     /// </summary>
     private void Receive(WatchKey? want)
     {
-        // The decode this card no longer wants goes first, so a route switch or a leg that moved cannot leave
-        // two open.
+        // The decode this card no longer wants goes first,
+        // so a route switch or a moved leg cannot leave two open.
         if (_asked is not null && !Names(_asked, want))
         {
             var stale = _asked;
@@ -641,15 +570,13 @@ public sealed class PreviewViewModel : Observable
 
         if (Names(_asked, want))
         {
-            // Running is the state this asked for, and there is nothing to do about it.
             if (Decoding(want) is not null)
             {
                 _open = true;
                 return;
             }
 
-            // Asked for and not running: either the answer has not come back yet, or the leg answered with a
-            // refusal.
+            // Asked for and not running: the answer is still out, or the leg refused.
             // Both are waited out rather than asked again.
             if (!_open || _refusal.Length > 0)
             {
@@ -663,17 +590,16 @@ public sealed class PreviewViewModel : Observable
         _ = OpenAsync(want);
     }
 
-    /// <summary>Whether a key names the same decode as another, and false where either is absent.</summary>
+    /// <summary>Whether two keys name one decode, false where either is absent.</summary>
     private static bool Names(WatchKey? key, WatchKey? other)
         => key is not null && other is not null
             && key.StreamName == other.StreamName && key.Transport == other.Transport;
 
     /// <summary>
     /// Asks the relay for a decode of this machine's own stream, and holds the refusal where there is one.
-    ///
     /// Nothing is written about what the decode became: the answer carries no state and what is running
-    /// arrives on the event stream, which is the one path into the display.
-    /// What lands here is only whether there is a sentence to show and that the next pass may ask again.
+    /// arrives on the event stream.
+    /// What lands here is whether there is a sentence to show, and that the next pass may ask again.
     /// </summary>
     private async Task OpenAsync(WatchKey key)
     {
@@ -684,9 +610,8 @@ public sealed class PreviewViewModel : Observable
         }
         catch (BackendUnavailableException e)
         {
-            // The backend's own sentence: a leg that cannot carry this stream's format names the format and
-            // the protocols that would have carried it, which is the whole of what makes the refusal
-            // actionable.
+            // The backend's own sentence: a leg that cannot carry this stream's format
+            // names the format and the protocols that would have carried it.
             refusal = e.Message;
         }
         catch (OperationCanceledException)
@@ -703,11 +628,10 @@ public sealed class PreviewViewModel : Observable
             }
             else if (refusal.Length == 0)
             {
-                // The route was toggled while this was in flight, so the card has already let go of the key -
-                // and the stop that went with it may have reached the backend before this start did, which
-                // would leave a decode open that nothing wants.
-                // Letting go a second time is what closes it, and costs nothing where the first one already
-                // did: a stop naming a decode that is not running is a success.
+                // The route was toggled while this was in flight, so the key is already let go,
+                // and the stop that went with it may have reached the backend before this start did.
+                // Letting go a second time closes what nothing wants, and costs nothing where the first one
+                // already did: a stop naming a decode that is not running is a success.
                 Release(key);
             }
 
@@ -717,11 +641,10 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Lets go of one decode, and closes it unless the viewer's grid is drawing the same pair.
-    ///
-    /// <b>A decode is one pipeline whoever asked for it</b>, keyed by the stream and the leg, so a stop
-    /// issued here takes the picture out of every window drawing it.
-    /// Where the grid holds a tile on the same pair, this card lets go of the ask and leaves the pipeline to
-    /// the window that still wants it; the grid's own stop is what closes it then (<see cref="SetGridLeg"/>).
+    /// A decode is one pipeline whoever asked for it, keyed by stream and leg, so a stop issued here takes the
+    /// picture out of every window drawing it.
+    /// Where the grid holds the same pair, the pipeline is left to it and the grid's own stop is what closes
+    /// it (<see cref="SetGridLeg"/>).
     /// </summary>
     private void Release(WatchKey key)
     {
@@ -741,10 +664,8 @@ public sealed class PreviewViewModel : Observable
         }
         catch (BackendUnavailableException)
         {
-            // A decode this card can no longer reach is one it can no longer close, and the card has already
-            // stopped drawing it.
-            // The backend's own roster is what answers for it from here, which is the same place a shell that
-            // crashed leaves it.
+            // A decode this card cannot reach is one it cannot close, and it has already stopped drawing it.
+            // The backend's own roster answers for it from here, as it does for a shell that crashed.
         }
         catch (OperationCanceledException)
         {
@@ -752,13 +673,12 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// Converges on the picture that is running: makes the tile when there is one to draw and drops it when
+    /// Converges on the picture that is running: makes the tile where there is one to draw, drops it where
     /// there is not.
-    ///
-    /// A tile is kept rather than rebuilt while it names the same picture, because rebuilding one would
-    /// restart a subscription that is already drawing it.
+    /// A tile naming the same picture is kept, rebuilding one restarting a subscription that is already
+    /// drawing.
     /// The comparison is the whole source and not the stream name alone, so an end-to-end route whose leg
-    /// moved gets the tile rebuilt on the leg it is now receiving over.
+    /// moved is rebuilt on the leg it now receives over.
     /// </summary>
     private void Converge(TileSource? source)
     {
@@ -773,15 +693,15 @@ public sealed class PreviewViewModel : Observable
             return;
         }
 
-        // Nothing to rearrange: this card draws one tile with no grid around it, so focus, pop-out and
-        // fullscreen have no meaning here and the intents go nowhere.
-        // The preview's own template offers none of them either - it is the tile that is reused, not the
+        // Nothing to rearrange: one tile with no grid around it, so focus, pop-out and fullscreen mean nothing
+        // here and the intents go nowhere.
+        // The card's template offers none of them either, the tile being what is reused rather than the
         // viewer's menu.
         Draw(new TileViewModel(source, _backend, _dispatch, _ => { }));
     }
 
     /// <summary>
-    /// Puts one tile on the card or takes it off, and moves the subscription to its reports with it.
+    /// Puts one tile on the card or takes it off, moving the subscription to its reports with it.
     /// Idempotent, and the only writer of <see cref="Tile"/>.
     /// </summary>
     private void Draw(TileViewModel? tile)
@@ -798,10 +718,10 @@ public sealed class PreviewViewModel : Observable
 
         if (tile is not null)
         {
-            // A tile reports what it drew, which no state the backend owns can carry - a backend cannot see
-            // that a compositor was too slow to take a frame.
-            // The pass it asks for is this card's own, so the picture and the figures over it are still
-            // written by one render function.
+            // A tile reports what it drew, which no backend state carries:
+            // a backend cannot see that a compositor was too slow to take a frame.
+            // The pass it asks for is this card's own, so one render function still writes the picture and the
+            // figures over it.
             tile.Changed += Apply;
         }
 
@@ -810,17 +730,13 @@ public sealed class PreviewViewModel : Observable
 
     /// <summary>
     /// Why the card is dark, in the order a reader can act on.
-    ///
-    /// A stop comes first, because it is the reader's own doing and outranks every reason the machine has:
-    /// a card stopped over an unpublished stream is stopped, and saying anything else would send a reader
-    /// after a state they did not ask about.
-    /// A refusal comes next, because it is the one sentence that names something to change: a leg that
-    /// cannot carry this stream's format is answered by choosing another, and every state under it is
-    /// answered by waiting.
-    /// A tile answers for itself after those, because the three reasons a tile has nothing to draw are the
-    /// tile's own and are already written there.
-    /// What is left is this card's, and the last of them is the chosen route's - the two routes are dark for
-    /// different reasons and neither is folded into the other.
+    /// A stop comes first, being the reader's own doing: a card stopped over an unpublished stream is stopped.
+    /// A refusal comes next, being the one sentence that names something to change, where every state under it
+    /// is answered by waiting.
+    /// A tile answers for itself after those, the three reasons it has nothing to draw being written there
+    /// already.
+    /// What is left is this card's, the last of them the chosen route's, the two routes being dark for
+    /// different reasons.
     /// </summary>
     private string PlaceholderFor()
     {

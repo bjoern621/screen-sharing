@@ -7,8 +7,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/publish"
 )
 
-// Every publish engine has to answer the probe, or the UI reports a codec available on an engine
-// nothing tested and the publish fails at launch.
+// Every publish engine answers the probe, or a codec is reported available on an engine nothing
+// tested and the publish fails at launch.
 func TestEveryEngineIsProbed(t *testing.T) {
 	for _, engine := range publish.Engines() {
 		probe, ok := engineProbes[engine]
@@ -16,17 +16,16 @@ func TestEveryEngineIsProbed(t *testing.T) {
 			t.Errorf("publish engine %s has no encoder probe", engine)
 			continue
 		}
-		// Detect calls all three.
-		// A nil availability check in particular would make a missing engine read as a machine whose
-		// every encoder failed.
+		// Detect calls all three, and a nil availability check in particular would make a missing
+		// engine read as a machine whose every encoder failed.
 		if probe.available == nil || probe.codecs == nil || probe.usable == nil {
 			t.Errorf("publish engine %s has an incomplete probe: %+v", engine, probe)
 		}
 	}
 }
 
-// A probed codec has to exist in the capability table, on both engines: a name that matches no row
-// would be reported unusable forever, greying a codec nothing offers.
+// A probed codec names a row of the capability table, on either engine.
+// A name that matches none is reported unusable forever, greying a codec nothing offers.
 func TestProbedCodecsAreInTheTable(t *testing.T) {
 	for engine, probe := range engineProbes {
 		for _, codec := range probe.codecs() {
@@ -42,7 +41,7 @@ func TestProbedCodecsAreInTheTable(t *testing.T) {
 	}
 }
 
-// The GStreamer half probes an element per codec, so every codec it lists has to resolve to one.
+// The GStreamer half probes an element per codec, so every codec it lists resolves to one.
 func TestGstProbedCodecsResolveToAnElement(t *testing.T) {
 	for _, codec := range gstProbed() {
 		if _, ok := publish.GstEncoderElement(codec); !ok {

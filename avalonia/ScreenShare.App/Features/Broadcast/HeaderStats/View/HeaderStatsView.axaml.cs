@@ -3,9 +3,8 @@ using Avalonia.Controls;
 namespace ScreenShare.App.Features.Broadcast.HeaderStats.View;
 
 /// <summary>
-/// Markup and nothing else.
-/// A handler here that set a figure directly would mean <c>HeaderStatsViewModel.Apply</c> alone could no
-/// longer restore a correct bar.
+/// Markup only.
+/// A handler writing a figure here leaves <c>HeaderStatsViewModel.Apply</c> no longer the one writer of the bar.
 /// </summary>
 public sealed partial class HeaderStatsView : UserControl
 {

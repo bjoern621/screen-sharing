@@ -12,12 +12,12 @@ import (
 )
 
 // probeTimeout bounds one test encode.
-// Two frames at 320x240 return in well under a second, so this only catches an encoder that takes
-// the frames and emits nothing.
+// Two frames at 320x240 return well under a second, so it catches only an encoder that takes the
+// frames and emits nothing.
 const probeTimeout = 20 * time.Second
 
-// probeStream is a stream the probe builder can be exercised on: the software encoder every ffmpeg
-// build carries, on a screen grabber this engine runs.
+// probeStream is a stream any ffmpeg build encodes: the software encoder they all carry,
+// on a screen grabber this engine runs.
 func probeStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "x11grab"
@@ -25,17 +25,16 @@ func probeStream() settings.Settings {
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
-	// The defaults carry the step the default codec counts on, and this names another one,
-	// whose ladder has no such step.
-	// Clearing it is what the repair does in the app, and it leaves the builder on the row's own
-	// declared step.
+	// The defaults hold the default codec's step, and this row's ladder has no such step.
+	// Clearing is what the repair does in the app, and it leaves the builder on the step this row
+	// declares.
 	s.Publish.Effort, s.Publish.Tune = "", ""
 	return s
 }
 
-// The lavfi sources and the encoder arguments are both wire formats: a filter spelled wrong is a
-// measurement that fails where the publish it predicts would have run.
-// So this runs the real thing on both ends of the content range.
+// Both the lavfi graphs and the encoder arguments are wire formats, so a filter spelled wrong fails
+// a measurement where the publish it predicts would have run.
+// Hence the real binary, on both ends of the content range.
 func TestEncodeProbeAgainstFfmpeg(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
 	if err != nil {
@@ -65,8 +64,8 @@ func TestEncodeProbeAgainstFfmpeg(t *testing.T) {
 	}
 }
 
-// The ceiling command is what says whether a measurement found the encoder or the source,
-// so it has to generate the same frames the encode does and stop at the muxer.
+// The ceiling says whether a measurement found the encoder or the generator, which holds only while
+// it generates the frames the encode does and stops at the muxer.
 func TestProbeCeilingAgainstFfmpeg(t *testing.T) {
 	exe, err := FindExe("ffmpeg")
 	if err != nil {
@@ -81,8 +80,8 @@ func TestProbeCeilingAgainstFfmpeg(t *testing.T) {
 	}
 }
 
-// The probe measures the encoder the settings name, so the encoder half of what it builds has to be
-// the publish command's own.
+// A figure about the encoder the settings name holds only while the probe's encoder half is the
+// publish command's own.
 func TestEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	s := probeStream()
 	probe, err := BuildEncodeProbeArgs(s, 320, 240, 2, true)
@@ -99,8 +98,8 @@ func TestEncodeProbeCarriesTheRunsEncoder(t *testing.T) {
 	}
 }
 
-// The transport is no part of what an encoder costs, so a leg that cannot carry the codec has to
-// leave the measurement alone.
+// The transport is no part of what an encoder costs, so a leg that cannot carry the stream leaves
+// the measurement standing.
 func TestEncodeProbeIgnoresTheTransport(t *testing.T) {
 	s := probeStream()
 	s.Publish.Transport = "hls"
@@ -109,9 +108,8 @@ func TestEncodeProbeIgnoresTheTransport(t *testing.T) {
 	}
 }
 
-// Whatever this engine can publish, it has to be able to measure.
-// A combination the form lets a user start and the probe refuses is one whose cost stays invisible
-// until the frames are already being discarded.
+// A combination the form starts and the probe refuses costs nothing visible until the frames are
+// already being discarded.
 func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if _, gap := c.EngineGap(capabilities.EngineFfmpeg); !c.Implemented || gap {
@@ -133,7 +131,7 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 	}
 }
 
-// A run of no frames or of a picture with no size is a caller's mistake, not a user's.
+// No frames, or a picture with no size, is an Entwicklungsfehler and panics rather than returning.
 func TestEncodeProbeAssertsItsBounds(t *testing.T) {
 	for _, tc := range []struct {
 		name                  string

@@ -8,14 +8,14 @@ import (
 	"time"
 )
 
-// progressBlock renders one -progress block from the fields a test sets, in ffmpeg's own order and
-// spelling.
+// progressBlock renders one -progress block from the fields a test sets, keeping ffmpeg's own
+// spelling and the terminating "progress=" line.
 func progressBlock(fields ...string) string {
 	return strings.Join(fields, "\n") + "\nprogress=continue\n"
 }
 
-// newTestParser returns a parser whose clock the test advances by hand, so the per-interval figures
-// are measured against a known interval.
+// newTestParser returns a parser whose clock the test advances by hand, which is what puts the
+// per-interval figures on a known interval.
 func newTestParser(wall *time.Time, got *[]Stats) *progressParser {
 	return &progressParser{
 		onStats: func(s Stats) { *got = append(*got, s) },
@@ -23,10 +23,10 @@ func newTestParser(wall *time.Time, got *[]Stats) *progressParser {
 	}
 }
 
-// The parser takes the cumulative counters off a block and derives the per-interval figures against
-// the previous block.
-// The first block has no predecessor, so it carries no rate; the second carries them,
-// measured against the wall clock: 30 frames and 250 kB in half a second is 60 fps at 4 Mbps.
+// The counters in a block are cumulative and the per-interval figures come off the previous block.
+// A first block has no predecessor and carries no rate.
+// The second is measured against the wall clock: 30 frames and 250 kB in half a second is 60 fps at
+// 4 Mbps.
 func TestParseProgressSamples(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var got []Stats
@@ -88,9 +88,9 @@ func TestParseProgressSamples(t *testing.T) {
 	}
 }
 
-// Fps is the rate over the last interval, not the run: ffmpeg's own fps field still reports the 60
-// fps the run averaged while the frame counter advances by five in the second the capture
-// collapsed.
+// Fps is the rate over the last interval and not over the run.
+// The fixture is a collapse, which is where the two part: ffmpeg's own fps field still reports the
+// run's 60 while the frame counter advances by five in a second.
 func TestParseProgressFpsIsPerInterval(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var got []Stats
@@ -109,7 +109,7 @@ func TestParseProgressFpsIsPerInterval(t *testing.T) {
 	}
 }
 
-// "N/A" is ffmpeg saying it has no figure yet, which is not a figure of zero.
+// "N/A" is ffmpeg holding no figure yet, which is not a figure of zero.
 // The block after it has no byte baseline either, so its bitrate stays unmeasured rather than
 // counting the whole output as one interval's worth.
 func TestParseProgressUnmeasuredFields(t *testing.T) {
@@ -158,8 +158,8 @@ func TestParseProgressUnmeasuredFields(t *testing.T) {
 	}
 }
 
-// The wire form separates the two states the UI has to tell apart: an unmeasured figure is null,
-// a measured zero is 0.
+// The two states a UI has to tell apart stay apart on the wire: an unmeasured figure is null and a
+// measured zero is 0.
 func TestStatsMarshalJSONMissingIsNull(t *testing.T) {
 	blob, err := json.Marshal(Stats{
 		Frame:   12,

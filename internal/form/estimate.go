@@ -14,55 +14,51 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The quality model, ported from the Wails frontend's util/estimate.ts.
+// The quality model, resting on one measured figure:
+// the bits a pixel of H.264 4:2:0 costs per frame at CQ 23 on mixed content.
+// Every other combination is priced as a ratio against that anchor,
+// so a codec, a pixel format or a quantizer moves the prediction without carrying a bitrate itself.
 //
-// The anchor is the one measured figure the whole prediction rests on: bits per pixel per frame for
-// H.264 4:2:0 at CQ 23 on mixed content.
-// Every other combination is priced as a ratio against it, so a codec, a pixel format or a
-// quantizer moves the figure without any of them carrying a bitrate of its own.
-//
-// The quantizer scale is the anchor's own, which is the H.26x encoders' 51 points.
-// A codec that counts further (libvpx VP9 reaches 63, a raw quantizer index 127 or 255) has its
-// target placed on the anchor scale before the exponent is taken, since the same number is a
-// different quality per encoder.
+// The quantizer scale is the anchor's own, the H.26x encoders' 51 points.
+// A codec that counts further, libvpx VP9 to 63 or a raw quantizer index to 127 or 255,
+// has its target placed on that scale before the exponent is taken,
+// since the same number is a different quality per encoder.
 const (
 	estimateAnchorBpp   = 0.07
 	estimateAnchorCq    = 23
 	estimateAnchorCqMax = 51
-	// estimateCqStep is how many quantizer points on the anchor scale halve or double the rate.
+	// estimateCqStep is the quantizer points, on the anchor scale, that halve or double the rate.
 	estimateCqStep = 6
 )
 
-// The spread the content puts around the nominal figure, from a static desktop to heavy motion.
-// The contract carries one bitrate rather than a range, so the nominal is what estimate reports and
-// the high end is what a diagnostic prices the burst from: constant quality sets no bitrate bound,
-// and a line sized for the average stalls on the first window drag.
+// What content moves the rate to, as a multiple of the nominal figure:
+// a static desktop at the low end, heavy motion at the high end.
+// The contract carries one bitrate rather than a range,
+// so estimate reports the nominal and a diagnostic prices the burst from the high end:
+// constant quality sets no bitrate bound, and a line sized for the average stalls on a window drag.
 const (
 	estimateMotionLow  = 0.4
 	estimateMotionHigh = 2.5
 )
 
-// The lossless spread, as a fraction of the raw rate: a near-static screen compresses hard and
-// heavy motion nears the uncompressed picture.
+// The lossless spread, as a fraction of the raw rate:
+// a near-static screen compresses hard and heavy motion nears the uncompressed picture.
 //
-// estimateLosslessTypical is the midpoint, and it exists because the contract has one figure where
-// the model has two ends.
-// It is derived from the ends rather than measured on its own, so a revision of either end moves it
-// with them.
+// estimateLosslessTypical is the midpoint,
+// which the contract needs because it carries one figure where the model has two ends.
+// It is derived from the ends rather than measured, so a revision of either end moves it.
 const (
 	estimateLosslessLow     = 0.06
 	estimateLosslessHigh    = 0.55
 	estimateLosslessTypical = (estimateLosslessLow + estimateLosslessHigh) / 2
 )
 
-// estimateEfficiency is the relative coding efficiency of each bitstream format:
-// the bits it spends for the quality H.264 reaches at 1.0.
+// estimateEfficiency is the bits each bitstream format spends for the quality H.264 reaches at 1.0.
 //
-// It follows the format and not the encoder family, because it is a property of what the bitstream
-// may express: hevc_nvenc and libx265 spend the same bits for the same quality by definition of the
-// format they both produce.
-// That is why it is keyed by Codec.Format rather than by Codec.Name, and why a codec added to the
-// capability table needs no row here as long as it produces a format that has one.
+// Keyed by Codec.Format and not by Codec.Name,
+// because it is a property of what the bitstream may express:
+// hevc_nvenc and libx265 spend the same bits for the same quality.
+// A codec added to the capability table needs no row here as long as its format has one.
 var estimateEfficiency = map[string]float64{
 	"h264": 1.0,
 	"hevc": 0.6,
@@ -73,20 +69,18 @@ var estimateEfficiency = map[string]float64{
 
 // estimateChromaCost is what one pixel of a pixel format costs, coded and raw.
 type estimateChromaCost struct {
-	// weight is the detail the format carries relative to 4:2:0 at 1.0, which is what the encoder
-	// spends the extra bits on.
+	// weight is the detail the format carries against 4:2:0 at 1.0,
+	// which is what the encoder spends the extra bits on.
 	weight float64
-	// rawBpp is the uncompressed bits per pixel per frame, which is what the capture produces before
-	// anything codes it.
+	// rawBpp is the bits one pixel costs per frame uncompressed, as the capture hands it over.
 	rawBpp float64
 }
 
-// estimateChromas is the cost of each pixel format the codec table declares.
+// estimateChromas is one row per pixel format the codec table declares.
 //
-// The set is closed: capabilities.Codecs names these five and no other, so a chroma absent here is
-// a settings value that no codec can encode, and the prediction is withheld rather than priced
-// against a guessed weight.
-// Predicting nothing is the honest answer for settings the publish path refuses anyway.
+// The set is closed against capabilities.Codecs, so a chroma absent here is one no codec encodes:
+// the prediction is withheld rather than priced against a guessed weight,
+// which is the honest answer for settings the publish path refuses anyway.
 var estimateChromas = map[string]estimateChromaCost{
 	"gbrp":    {weight: 2.0, rawBpp: 24},
 	"yuv444p": {weight: 1.5, rawBpp: 24},
@@ -97,22 +91,22 @@ var estimateChromas = map[string]estimateChromaCost{
 
 // estimate predicts what the settings cost before anything runs.
 //
-// Three figures, and the middle one is what makes the other two legible: the raw rate is what the
-// capture produces, the bitrate is what the encoder is predicted to leave of it,
-// and the headroom is what the stated uplink has left over.
-// It is a prediction and not a promise - the real rate is content-dependent - which is why the
-// measured figures arrive separately once a stream is live.
+// Three figures, all Mbit/s: the raw rate the capture produces,
+// the bitrate the encoder is predicted to leave of it,
+// and the headroom the stated uplink has over that.
+// It is a prediction and not a promise, the real rate being content-dependent,
+// which is why the measured figures arrive separately once a stream is live.
 //
-// Nothing here reads a device or spawns anything: it is arithmetic over the settings,
-// the capability tables and the monitor list it was handed, so a shell may call the resolve it
-// belongs to on every keystroke.
+// It reads no device and spawns nothing, being arithmetic over the draft,
+// the capability tables and the monitor list it was handed,
+// so a shell may call the resolve it belongs to on every keystroke.
 //
-// It answers nil where an input the figure rests on is unresolved.
-// A monitor the enumeration does not contain is the common case and is an environment condition
-// rather than a bug: the machine's outputs changed under a stored settings file,
-// or the platform has no enumerator here.
-// The rest of the form still resolves, the summary carries no estimate, and a diagnostic says the
-// picture size is missing.
+// nil where an input the figure rests on is unresolved.
+// A monitor the enumeration does not hold is the common case,
+// and an environment condition rather than a bug:
+// the machine's outputs changed under a stored settings file, or the platform has no enumerator.
+// The rest of the form still resolves, the summary carries no estimate,
+// and a diagnostic says the picture has no size.
 func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
 	m, found := estimateMonitor(d, s)
 	if !found || m.Width <= 0 || m.Height <= 0 || s.Publish.Fps <= 0 {
@@ -144,49 +138,47 @@ func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
 	return est
 }
 
-// estimateCoded prices the encoded rate for the rate-control mode in force,
+// estimateCoded prices the coded rate in Mbit/s for the rate-control mode in force,
 // and reports false where the mode leaves it unpriceable.
 //
-// The mode decides which question is even being asked, which is why this is not one formula.
-// Three of the modes aim at a bitrate the user set, so the prediction is that target:
-// the encoder holds it, and predicting a quality-model figure instead would contradict the number
-// in the field beside it.
-// The other two are quality-driven and spend whatever the picture costs, so they are priced from
-// the picture.
+// The mode decides which question is asked, which is why this is not one formula.
+// A mode aiming at a bitrate the user set is predicted at that target: the encoder holds it,
+// and a quality-model figure beside the number in the field would contradict it.
+// A quality-driven mode spends whatever the picture costs and is priced from the picture.
 func estimateCoded(s settings.Settings, pixelRate, raw float64, chroma estimateChromaCost) (float64, bool) {
 	switch s.Publish.Mode {
 	case capabilities.ModeCbr, capabilities.ModeAbr, capabilities.ModeVbr:
 		// The target, not the ceiling.
 		// A VBR ceiling is the burst the encoder is allowed rather than the rate it aims at,
-		// and reporting it here would read every VBR configuration as costing its worst second.
-		// The burst is priced where it matters instead, as a diagnostic against the line (estimatePeak).
+		// so reporting it here would read every VBR configuration as costing its worst second.
+		// The burst is priced against the line instead (estimateSpread).
 		return float64(s.Publish.BitrateM), true
 	case capabilities.ModeLossless:
 		return raw * estimateLosslessTypical, true
 	case capabilities.ModeCrf:
 		return estimateConstantQuality(s, pixelRate, chroma)
 	}
-	// The mode is the user's string and arrives from a settings file this app did not necessarily
-	// write, so a value outside the table is answered rather than asserted.
-	// The publish path refuses it with its own reason, which is the sentence worth showing.
+	// The mode arrives from a settings file this app did not necessarily write.
+	// A value outside the table is therefore an Umgebungsfehler: answered with no price,
+	// never asserted, and refused by the publish path with its own reason.
 	return 0, false
 }
 
-// estimateConstantQuality prices a crf encode from the anchor: the quantizer target placed on the
-// anchor scale, the codec's coding efficiency and the chroma's weight.
+// estimateConstantQuality prices a crf encode from the anchor:
+// the quantizer target placed on the anchor scale, times the codec's coding efficiency,
+// times the chroma's weight.
 func estimateConstantQuality(s settings.Settings, pixelRate float64, chroma estimateChromaCost) (float64, bool) {
 	c, known := capabilities.Get(s.Publish.Codec)
 	if !known {
 		return 0, false
 	}
 	efficiency, priced := estimateEfficiency[c.Format]
-	// Format is the capability table's own value, not the user's, so a format with no efficiency is a
-	// row added to one table and not the other.
+	// Format is the capability table's value and not the user's,
+	// so a missing efficiency is a row added to one table and not the other.
 	assert.Assert(priced, "every published bitstream format states a coding efficiency", c.Format)
 
-	// The quantizer is placed on the scale the model is calibrated against.
-	// The scale is the running engine's, since the two engines set different properties and one may
-	// count further than the other.
+	// The scale is the running engine's,
+	// since the two engines set different properties and one may count further than the other.
 	// A codec whose scale this engine declares none for leaves the number where it stands,
 	// there being no ratio to convert it by.
 	cq := float64(s.Publish.Cq)
@@ -200,13 +192,13 @@ func estimateConstantQuality(s settings.Settings, pixelRate float64, chroma esti
 	return pixelRate * bpp / 1e6, true
 }
 
-// estimateSpread is what the content can move the rate to either side of the prediction,
-// and false for a mode that has no second figure to state.
+// estimateSpread is what content can move the rate to, either side of the prediction and in Mbit/s,
+// and false for a mode with no second figure to state.
 //
-// It is derived from the estimate rather than computed a second time, so the spread and the
-// prediction cannot disagree about what the settings produce.
-// The high end is the one a diagnostic is priced from: a line sized for the average stalls on the
-// first window drag, and the drop is the transport's rather than the encoder's.
+// It is derived from the estimate rather than priced again,
+// so the spread and the prediction cannot disagree about what the settings produce.
+// The high end is what a diagnostic is priced from,
+// the drop on a line sized for the average being the transport's rather than the encoder's.
 func estimateSpread(s settings.Settings, est *screensharev1.Estimate) (low, high float64, spreads bool) {
 	if est == nil {
 		return 0, 0, false
@@ -217,21 +209,20 @@ func estimateSpread(s settings.Settings, est *screensharev1.Estimate) (low, high
 	case capabilities.ModeLossless:
 		return est.GetRawMbps() * estimateLosslessLow, est.GetRawMbps() * estimateLosslessHigh, true
 	case capabilities.ModeVbr:
-		// The ceiling is what separates VBR from ABR, so the mode reaches an encoder only where there is
-		// a property for it: an encoder that takes no ceiling carries a mode gap and cannot be in VBR
-		// here at all.
 		// A ceiling under the target is not a burst.
+		// An encoder that takes no ceiling gaps the mode rather than greying the field,
+		// since VBR without a ceiling is ABR (docs/domain-model.md).
 		if s.Publish.MaxrateM > s.Publish.BitrateM {
 			return float64(s.Publish.BitrateM), float64(s.Publish.MaxrateM), true
 		}
 	}
-	// CBR is held at the target every second, and ABR averages toward it with nothing declared above
-	// it, so neither has a second figure to state.
+	// CBR holds the target every second and ABR averages toward it with nothing declared above it,
+	// so neither states a second figure.
 	return 0, 0, false
 }
 
-// estimateMonitor finds the monitor the settings name in the enumeration the capture crops to,
-// so the prediction is priced from the same picture the publish would send.
+// estimateMonitor is the monitor the draft names, out of the enumeration the capture crops to,
+// so the prediction is priced from the picture the publish would send.
 func estimateMonitor(d Deps, s settings.Settings) (display.Monitor, bool) {
 	for _, m := range d.Monitors {
 		if m.Index == s.Publish.Monitor {
@@ -241,9 +232,9 @@ func estimateMonitor(d Deps, s settings.Settings) (display.Monitor, bool) {
 	return display.Monitor{}, false
 }
 
-// estimateFigure renders a rate as the frontend did: tenths under ten, whole numbers above,
-// so a slow combination keeps the digit that distinguishes it and a fast one is not given a
-// precision the model does not have.
+// estimateFigure renders a rate in Mbit/s: tenths under ten, whole numbers above,
+// so a slow combination keeps the digit that distinguishes it,
+// and a fast one is not given a precision the model does not have.
 func estimateFigure(mbps float64) string {
 	if mbps >= 10 {
 		return strconv.Itoa(int(math.Round(mbps)))

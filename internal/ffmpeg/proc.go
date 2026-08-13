@@ -17,21 +17,20 @@ import (
 )
 
 // Stats is one encoder progress sample.
-// Both publish engines emit it, each measuring it from what its own pipeline offers,
-// so the meaning of a field is fixed here rather than by whichever engine filled it:
+// Both publish engines emit it off their own pipelines, so a field means what is stated here rather
+// than what filled it:
 //
-//   - Fps, CaptureFps and InstMbps are per-interval rates: the frames encoded,
-//     the frames captured, and the bytes produced since the previous sample, over
-//     the wall-clock interval between the two samples. A rate averaged over the
-//     run instead would take minutes to follow a collapse.
+//   - Fps, CaptureFps and InstMbps are per-interval rates: frames encoded, frames
+//     captured and bytes produced since the previous sample, over the wall-clock
+//     interval between the two. An average over the run takes minutes to follow a
+//     collapse.
 //   - Speed and AvgMbps are cumulative over the run.
 //   - Dup counts frames the encoder repeated to hold the output rate, which is
-//     what rises when capture cannot keep up with it. Drop counts input frames
-//     discarded because they arrived faster than the output rate, a different
-//     event.
+//     what rises when capture falls behind it. Drop counts input frames discarded
+//     for arriving faster than the output rate, the opposite event.
 //   - Missing marks the figures this sample carries no measurement for.
 //
-// MarshalJSON is the wire format for the "publish:stats" event.
+// MarshalJSON is the wire format of the "publish:stats" event.
 type Stats struct {
 	Frame    int
 	Fps      float64
@@ -42,21 +41,20 @@ type Stats struct {
 	Drop     int
 	InstMbps float64
 	AvgMbps  float64
-	// CaptureFps is how often the screen produced a new picture, as against Fps,
-	// which is how often the encoder emitted one.
-	// The two differ wherever a backend paces its output independently of its source:
-	// the portal path repeats the newest damage frame at the configured rate, so its Fps equals the
-	// target whatever the screen does, and this is the figure a starved capture or a static screen
-	// shows up in.
-	// A pipeline built without the rate probe marks it missing instead of reporting a zero rate.
+	// CaptureFps is how often the screen produced a picture, against Fps, how often the encoder
+	// emitted one.
+	// The two part wherever a backend paces its output independently of its source:
+	// the portal path repeats the newest damage frame at the configured rate, so its Fps holds at the
+	// target whatever the screen does, and a starved capture or a still screen shows up here alone.
+	// A pipeline built with no rate probe marks it missing rather than reporting a zero rate.
 	CaptureFps float64
 	Missing    Missing
 }
 
 // Missing is the set of Stats figures a sample carries no measurement for.
-// ffmpeg reports "N/A" until the first packet is muxed, a per-interval figure has no value on the
-// first sample of a run, and an engine instruments only what its pipeline exposes;
-// none of the three is the measured zero that marks a stalled encoder.
+// ffmpeg reports "N/A" until the first packet is muxed, a per-interval figure has none on the first
+// sample of a run, and an engine instruments what its pipeline exposes and no more.
+// None of the three is the measured zero that marks a stalled encoder.
 // The zero value marks nothing missing, so an engine that measures a figure leaves its flag alone.
 type Missing struct {
 	Fps        bool
@@ -68,9 +66,9 @@ type Missing struct {
 	AvgMbps    bool
 }
 
-// MarshalJSON writes every figure Missing marks as null, which is what keeps an unmeasured figure
-// out of the UI's numbers.
-// encoding/json has no per-field presence for a float64, hence the pointer-shaped wire struct.
+// MarshalJSON writes every figure Missing marks as null, which keeps an unmeasured figure out of the
+// UI's numbers.
+// encoding/json carries no per-field presence for a float64, hence the pointer-shaped wire struct.
 func (s Stats) MarshalJSON() ([]byte, error) {
 	measured := func(v float64, missing bool) *float64 {
 		if missing {
@@ -104,24 +102,23 @@ func (s Stats) MarshalJSON() ([]byte, error) {
 }
 
 // Proc is a running ffmpeg or ffplay child.
-// Its methods are safe to call from multiple goroutines.
+// Its methods are safe to call from any goroutine.
 type Proc struct {
 	cmd     *exec.Cmd
 	running atomic.Bool
-	stopped atomic.Bool // set by Stop so the natural exit is not reported as an error
+	stopped atomic.Bool // set by Stop so the exit that follows is not reported as a failure
 	// Stdin is the child's stdin pipe, nil unless Start was told to open one.
-	// Writes from concurrent goroutines need external coordination.
+	// Concurrent writers need coordination of their own.
 	Stdin io.WriteCloser
 }
 
-// Running reports whether the child is still alive.
+// Running goes false when the child has been reaped, which is after its output pipes have drained.
 func (p *Proc) Running() bool { return p.running.Load() }
 
 // Stop kills the child.
-// The pending exit is reported to onExit with a nil error, since a requested stop is not a failure.
+// The exit that follows reaches onExit with a nil error, a requested stop being no failure.
 //
-// It is idempotent: a child that has already gone is the state a stop asks for, so a second call
-// returns having done nothing.
+// Idempotent: a child already gone is the state a stop asks for, so a second call does nothing.
 func (p *Proc) Stop() {
 	assert.IsNotNil(p.cmd, "a running child was launched from a command")
 
@@ -135,25 +132,28 @@ func (p *Proc) Stop() {
 }
 
 // stdoutLineInitial and stdoutLineMax size the scanner behind onLine.
-// A line is one message, and the roster the native grid answers grows with the stream count,
-// so the limit is generous rather than tuned.
+// One line is one message and the roster the native grid answers grows with the stream count,
+// so the ceiling is generous rather than tuned.
 const (
 	stdoutLineInitial = 64 * 1024
 	stdoutLineMax     = 4 * 1024 * 1024
 )
 
-// Start launches exe with args and supervises it.
+// Start launches exe with args and supervises it until it exits.
+// The child outlives the call and is stopped through Proc.Stop, or by App.shutdown, or on Windows by
+// the Job Object (KillOnAppExit).
 //
-// hideWindow hides the child's console window on Windows (no effect elsewhere);
-// it must be false for ffplay, whose video window would otherwise be hidden too.
-// wantStdin opens a pipe to the child's stdin, exposed as Proc.Stdin; without it the child reads
-// from the null device.
+// hideWindow hides the child's console window on Windows and does nothing elsewhere.
+// It must be false for ffplay, whose video window the same flag would hide.
+// wantStdin opens a pipe to the child's stdin, exposed as Proc.Stdin.
+// Without it the child reads the null device.
 // tag names the run log.
-// onStats, when non-nil, receives an encoder progress sample per ffmpeg -progress block.
-// onLine, when non-nil, receives every line the child writes to stdout, for a child that talks back
-// rather than only logging; both read the same pipe, so a caller passes one or the other.
-// onExit fires once when the child exits, with a non-nil error only on an unexpected failure,
-// the tail of stderr, and the path of the full run log.
+// onStats, when non-nil, takes one encoder progress sample per ffmpeg -progress block.
+// onLine, when non-nil, takes every line the child writes to stdout, for a child that talks back
+// rather than only logging.
+// Both read the one pipe, so a caller passes one or the other.
+// onExit fires once, carrying a non-nil error only on an unexpected exit, the bounded tail of stderr
+// and the path of the full run log.
 func Start(
 	exe string,
 	args []string,
@@ -181,8 +181,8 @@ func Start(
 
 	full := args
 	if onStats != nil {
-		// Machine-readable progress on stdout, kept out of BuildPublishArgs so the command shown in the
-		// UI stays the plain encoder line.
+		// Machine-readable progress on stdout, added here and not in BuildPublishArgs so the command the
+		// UI shows stays the plain encoder line.
 		full = append(append([]string{}, args...), "-progress", "pipe:1")
 	}
 	fmt.Fprintf(logFile, "%s %s\n\n", exe, strings.Join(full, " "))
@@ -225,8 +225,8 @@ func Start(
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", exe, err)
 	}
-	// Here rather than beside the reaping goroutine below: the assignment needs the pid to still be
-	// this child's, which holding the process handle guarantees only until cmd.Wait releases it.
+	// Here and not beside the reaping goroutine below: the pid has to still be this child's,
+	// which the process handle guarantees only until cmd.Wait releases it.
 	KillOnAppExit(cmd)
 
 	proc := &Proc{cmd: cmd, Stdin: stdin}
@@ -250,8 +250,8 @@ func Start(
 		readers.Add(1)
 		go func() {
 			defer readers.Done()
-			// Mirrored into the run log a line at a time, so what the child said is in the log the way it
-			// would be without a reader on the pipe.
+			// Mirrored into the run log a line at a time, so the log holds what a run with no reader on
+			// the pipe would have written.
 			sc := bufio.NewScanner(stdout)
 			sc.Buffer(make([]byte, 0, stdoutLineInitial), stdoutLineMax)
 			for sc.Scan() {
@@ -262,7 +262,7 @@ func Start(
 	}
 
 	go func() {
-		readers.Wait() // all pipe output consumed before reaping the child
+		readers.Wait() // every pipe drained before the child is reaped, so no output is lost to the exit
 		waitErr := cmd.Wait()
 		proc.running.Store(false)
 		logFile.Close()

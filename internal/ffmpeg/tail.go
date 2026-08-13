@@ -7,12 +7,11 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// sanitizeTag makes tag safe to use in a filename (watch tags carry the stream name,
-// which is user-controlled).
+// sanitizeTag maps tag to what a filename may hold.
+// A watch tag carries the stream name, which is another party's text.
 //
-// The postcondition is the whole point of the function rather than a restatement of it: the tag
-// reaches a path, so a separator surviving the mapping would be a stream name choosing where the
-// log is written.
+// The postcondition is the point of the function rather than a restatement of it: the tag reaches a
+// path, so a separator surviving the mapping is a stream name choosing where the log is written.
 func sanitizeTag(tag string) string {
 	out := strings.Map(func(r rune) rune {
 		switch {
@@ -27,9 +26,11 @@ func sanitizeTag(tag string) string {
 	return out
 }
 
-// tailBuffer keeps the last max bytes written to it, used to surface the end of stderr in an exit
-// message without holding the whole log in memory.
+// tailBuffer keeps the last max bytes written to it and drops what runs off the front, which is what
+// carries the end of a child's stderr into an exit message without holding a run's whole output.
+// The end and not the start, since a child states its failure on the way out.
 type tailBuffer struct {
+	// mu guards buf across the goroutine copying stderr and the one reporting the exit.
 	mu  sync.Mutex
 	buf []byte
 	max int

@@ -12,10 +12,10 @@ namespace ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 /// <summary>
 /// The two sparklines: what is going out, and what the far end is doing with it.
 ///
-/// The annotations are the whole scale.
-/// With no axes and no ticks, the ceiling label and the band label are the only things that say what a height
-/// or a moment means, so they are derived from the same reading as the header figures rather than written
-/// into the markup - a ceiling that disagreed with the encoder would be worse than no ceiling.
+/// The annotations carry the whole scale.
+/// With no axes and no ticks, the ceiling label and the window label are the only things saying what a height
+/// or a moment means, so both are derived from the reading the header figures come from rather than written
+/// into the markup.
 /// </summary>
 public sealed class PlotsViewModel : Observable
 {
@@ -42,8 +42,8 @@ public sealed class PlotsViewModel : Observable
     }
 
     /// <summary>
-    /// The encoder samples of this run, oldest first, as the session accumulated them.
-    /// The reading beside them says what the newest one holds; this is the shape it got there by.
+    /// Encoder samples of this run, oldest first, owned and evicted by the session.
+    /// Nothing is kept here: each pass windows the list again by the clock every sample carries.
     /// </summary>
     public IReadOnlyList<PublishStats> Samples
     {
@@ -60,9 +60,9 @@ public sealed class PlotsViewModel : Observable
     }
 
     /// <summary>
-    /// The relay snapshots of this run, oldest first, the same way.
-    /// Which path in them is this stream's is the reading's answer, so the two are read together on every
-    /// pass rather than this holding a name of its own.
+    /// Relay snapshots of this run, oldest first, on the same terms.
+    /// Which path in them is this stream's is the reading's answer, so both are read together on every pass
+    /// and no stream name is held here.
     /// </summary>
     public IReadOnlyList<RelayReading> RelaySamples
     {
@@ -93,63 +93,58 @@ public sealed class PlotsViewModel : Observable
     private string _egressNotice = "";
     private string _latencyNotice = "";
 
-    /// <summary>The coordinate space the series below are expressed in.</summary>
+    /// <summary>Source space the series below are placed in.</summary>
     public Size Extent { get => _extent; private set => Set(ref _extent, value); }
 
     public IReadOnlyList<Point> Egress { get => _egress; private set => Set(ref _egress, value); }
 
     /// <summary>
-    /// The round trip to the worst-off viewer, one point per relay snapshot.
-    /// Empty while the relay times nobody on this path - which is every snapshot with no viewer on a leg it
-    /// measures, not a stream that is doing well.
+    /// Round trip to the worst-off viewer, one point per relay snapshot.
+    /// Empty while the relay times nobody on this path, which is a snapshot with no viewer on a leg it
+    /// measures and not a stream that is doing well.
     /// </summary>
     public IReadOnlyList<Point> Rtt { get => _rtt; private set => Set(ref _rtt, value); }
 
-    /// <summary>
-    /// The send-side loss to the worst-off viewer, over the same window.
-    /// It replaces the design's buffer-fill series, which named a figure the viewer knows and never tells the
-    /// publisher.
-    /// </summary>
+    /// <summary>Send-side loss to the worst-off viewer, over the same window as <see cref="Rtt"/>.</summary>
     public IReadOnlyList<Point> Loss { get => _loss; private set => Set(ref _loss, value); }
 
-    /// <summary>The label naming the ceiling the running pipeline was built with.</summary>
+    /// <summary>Label naming the ceiling the running pipeline was built with: <c>vbv ceiling 12 Mb/s</c>.</summary>
     public string Ceiling { get => _ceiling; private set => Set(ref _ceiling, value); }
 
     /// <summary>
-    /// Where the rule marking that ceiling sits, 0 at the top to 1 at the bottom, and
-    /// <see cref="double.NaN"/> where the ceiling falls outside the drawn range and no rule is drawn.
-    /// Derived from the curve's own scale rather than fixed by the design: a rule at a constant height would
-    /// say the ceiling is wherever the mockup put it.
+    /// Height of the rule marking that ceiling, 0 at the top to 1 at the bottom, and <see cref="double.NaN"/>
+    /// where the ceiling falls outside the drawn range and no rule is drawn.
+    /// Derived from the curve's own scale, since a rule at a constant height marks the ceiling only by
+    /// coincidence.
     /// </summary>
     public double CeilingFraction { get => _ceilingFraction; private set => Set(ref _ceilingFraction, value); }
 
     /// <summary>
-    /// How much stream the plot covers, e.g. <c>60 s</c>, empty where it draws no curve.
-    /// It is the axis rather than a measurement of the run: the width is that span whether or not the stream
-    /// has been up that long, and the curve fills as much of it as has happened.
+    /// Span the plot covers, <c>60 s</c>, empty where it draws no curve.
+    /// It names the axis and not the run: the width is that span whether or not the stream has been up that
+    /// long, and the curve fills as much of it as has happened.
     /// </summary>
     public string Window { get => _window; private set => Set(ref _window, value); }
 
-    /// <summary>The label over the shaded band: when the congestion the band marks happened.</summary>
+    /// <summary>Label over the shaded band. Empty while nothing states a congestion interval.</summary>
     public string Band { get => _band; private set => Set(ref _band, value); }
 
-    /// <summary>Whether the egress curve has a shape to draw. False before a run has two samples.</summary>
+    /// <summary>Whether the egress curve has a shape. False until a run has two samples.</summary>
     public bool HasEgress { get => _hasEgress; private set => Set(ref _hasEgress, value); }
 
-    /// <summary>Whether the latency plot has a shape to draw. False before two snapshots have timed somebody.</summary>
+    /// <summary>Whether the latency plot has a shape. False until two snapshots have timed somebody.</summary>
     public bool HasLatency { get => _hasLatency; private set => Set(ref _hasLatency, value); }
 
-    /// <summary>What stands in for the egress curve while there is none.</summary>
+    /// <summary>Stands in for the egress curve while there is none.</summary>
     public string EgressNotice { get => _egressNotice; private set => Set(ref _egressNotice, value); }
 
-    /// <summary>What stands in for the latency curves while there are none.</summary>
+    /// <summary>Stands in for the latency curves while there are none.</summary>
     public string LatencyNotice { get => _latencyNotice; private set => Set(ref _latencyNotice, value); }
 
     /// <summary>
     /// The one render function.
-    /// The egress curve is the encoder samples' own shape and the two latency curves are the relay
-    /// snapshots': each is drawn where it has something to draw and says why where it has not, because a
-    /// shape with no measurement behind it would read as one.
+    /// Each curve is drawn where it has a shape and says why where it has not, because a shape with no
+    /// measurement behind it reads as a measurement.
     /// </summary>
     public void Apply()
     {
@@ -167,13 +162,11 @@ public sealed class PlotsViewModel : Observable
             : reading.IsLive ? "waiting for the encoder's first samples"
             : "nothing is publishing";
 
-        // Four absences, four facts, and the order they are asked in is the order they stop being true in as
-        // a stream comes up.
-        // The third is the one that would otherwise be told as the fourth and be a lie: a stream the relay
-        // has timed once has a measurement and no shape yet, because one point is a reading and not a curve.
-        // The fourth is the one worth spelling out - SRT is the only leg the relay times, so a stream watched
-        // entirely over RTSP or a browser has viewers and no latency to plot, which is not the same as a
-        // stream nobody is watching.
+        // Four absences, asked in the order they stop being true as a stream comes up.
+        // The third would otherwise be told as the fourth and be a lie: a path timed once has a measurement
+        // and no curve yet, since one point is a reading and not a shape.
+        // The fourth names the legs, because SRT is the leg the relay times: a stream watched over RTSP or a
+        // browser has viewers and nothing to plot.
         HasLatency = Rtt.Count > 0;
         LatencyNotice = HasLatency ? ""
             : !reading.IsLive ? "nothing is publishing"
@@ -181,18 +174,10 @@ public sealed class PlotsViewModel : Observable
             : reading.RttMs is not null ? "waiting for the relay's next snapshot"
             : Cards.Untimed(reading.Legs);
 
-        // The label names the axis, and the axis is fixed: the card is a minute of stream wide whether or not
-        // a minute of it has happened yet, so a young run is a curve against the right edge rather than one
-        // stretched over a span it does not cover.
-        // It is read off the constant the points are placed by, so the two cannot come to say different
-        // things.
+        // Read off the constant the points are placed by, so the label and the axis cannot disagree.
         Window = HasEgress ? $"{PlotSeries.WindowSeconds:0} s" : "";
 
-        // The band names a congestion window nothing detects, so it carries the word alone rather than a
-        // timestamp that would be invented.
-        // The ceiling is the setting the running pipeline was built with, so it moves with the stream, and
-        // the rule marking it is placed against the curve's own scale rather than drawn wherever the design
-        // put it.
+        // The band label carries the word alone, since nothing states when the congestion it marks happened.
         Ceiling = $"vbv ceiling {Figure.Of(reading.VbvCeilingMbps, "0")} Mb/s";
         CeilingFraction = PlotSeries.CeilingFraction(Samples, reading.VbvCeilingMbps);
         Band = reading.CongestionAt.Length > 0 ? $"congestion {reading.CongestionAt}" : "";

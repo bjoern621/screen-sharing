@@ -7,11 +7,9 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// What a control costs to change while people are watching.
-///
-/// The backend answers it per control and per combination, and this side repeats the answer.
-/// What these lock out is the shell growing a list of its own: the flag moves with the engine, the codec and
-/// the rate-control mode, so a list held here would go on promising a reconnect-free edit after the backend
-/// stopped delivering one (docs/ipc-api.md, "The rule").
+/// Liveness moves with the engine, the codec and the rate-control mode, so the backend answers it per control
+/// and the shell repeats that answer (docs/ipc-api.md, "The rule").
+/// A list of live keys held here would promise a reconnect-free edit after the backend stopped delivering one.
 /// </summary>
 public sealed class FieldLivenessTests
 {
@@ -47,11 +45,7 @@ public sealed class FieldLivenessTests
         Assert.False(Rendered(false).AppliesLive);
     }
 
-    /// <summary>
-    /// The flag is an output like every other, written on every pass.
-    /// A control that stopped being live - because the mode moved to one that sends the encoder no rate - has
-    /// to stop saying so through the same render function that started saying it.
-    /// </summary>
+    /// <summary>A mode that sends the encoder no rate takes liveness off a control that had it.</summary>
     [Fact]
     public void ASecondPassTakesTheFlagBack()
     {

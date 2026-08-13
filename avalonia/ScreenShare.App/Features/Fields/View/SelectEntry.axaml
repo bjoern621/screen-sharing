@@ -4,23 +4,19 @@
                     xmlns:ti="using:TablerIcons">
 
   <!--
-    One row of an opened dropdown: what the entry is called, whether it is the one held, what
-    it was derived from, and the paragraph behind it where it has one.
+    One row of an opened dropdown, written against the form's option type.
 
-    It sits here rather than in Controls/Select because it is not part of the control. The
-    select's themes are written against no item type at all - deliberately, so a dropdown is
-    a dropdown whatever it lists - and this row is written against the form's option, which
-    is this feature's. Naming that type from a generic control would point the design system
-    at a screen.
+    It sits here rather than in Controls/Select because it is not part of the control: the
+    select's themes name no item type, so a dropdown is a dropdown whatever it lists, and a
+    generic control naming this type would point the design system at a screen.
 
-    It is one template and not one per caller for the reason the switch is one control: the
-    quality step's read-back row, the generic renderer's ladder and the advanced table's all
-    list the same thing, and three copies of a row drift into three rows.
+    One template rather than one per caller, since every list of options is the same row and
+    copies of it drift.
 
-    Merged into the application's resources (App.axaml) rather than included by each of the
-    three, because all three reach it from inside a DataTemplate: what a template resolves
-    against is the scope above the control it is instantiated on, and the only scope above
-    all three is the application's.
+    Merged into the application's resources (App.axaml) rather than included per caller: a
+    template resolves against the scope above the control it is instantiated on, and every
+    caller reaches it from inside a DataTemplate, so the application's is the only scope
+    above them all.
   -->
 
   <DataTemplate x:Key="SelectEntry" x:DataType="fields:OptionViewModel">

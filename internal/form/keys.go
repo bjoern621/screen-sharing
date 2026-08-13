@@ -9,21 +9,19 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// The field keys, qualified by the settings group they belong to: the group's own field name on
-// Settings, a dot, then the field name inside it, both as settings.proto spells them.
+// The field keys: the settings group's own field name on Settings, a dot, then the field name
+// inside it, both as settings.proto spells them.
+// "publish.codec", "viewer.render_chain", "relay.host".
 //
-// A key is the identity a shell binds its widget by and the identity a Gap names,
-// so the two meet with no mapping in between.
-// That is what makes the spelling worth stating once here rather than typing per table:
-// the wire name is snake_case, the Go struct's field name is not always the same word,
-// and a form that invented its own third spelling would give a shell a control no gap can ever
-// point at.
+// A key is what a shell binds its widget by and what a Gap names, so the two meet with no mapping
+// in between.
+// The wire name is snake_case and the Go struct's field name is not always the same word, so a form
+// inventing a third spelling would hand a shell a control no gap can ever point at.
 //
-// The qualification is also what makes a key an address.
-// settingsField resolves one against the message by walking those two names,
-// so a repair writes through the key rather than through a per-field setter table,
-// and the same two names are what the shell's own draft writer walks
-// (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
+// The qualification is what makes a key an address.
+// settingsField resolves one against the message by walking those two names, so a repair writes
+// through the key rather than through a per-field setter table, and the shell's own draft writer
+// walks the same two (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
 const (
 	KeyRelayHost     = "relay.host"
 	KeyRelayTls      = "relay.tls"
@@ -54,10 +52,9 @@ const (
 	KeyTune       = "publish.tune"
 
 	KeyCapture = "publish.capture"
-	// The four controls of one entry of the audio source list.
-	// Each is a template rather than a key: the list has as many entries as the user made,
-	// so a resolve draws these once per entry with the index filled in, and what a shell binds is
-	// "publish.audio_sources[2].gain" (indexedKey).
+	// The controls of one entry of the audio source list, each a template rather than a key.
+	// The list holds as many entries as the user made, so a resolve draws these once per entry with
+	// the index filled in and a shell binds "publish.audio_sources[2].gain" (indexedKey).
 	KeyAudioSource       = "publish.audio_sources[].source"
 	KeyAudioSourceDevice = "publish.audio_sources[].device"
 	KeyAudioSourceGain   = "publish.audio_sources[].gain"
@@ -73,15 +70,13 @@ const (
 
 	KeyUplinkMbps = "publish.uplink_mbps"
 
-	// KeyOutputResolution is one compound "WIDTHxHEIGHT" control rather than a width and a height,
-	// because the user picks one thing and a form has no way to say that two fields are only ever
-	// legal in pairs.
-	// The legal values are a list this package generates, so the only strings that ever arrive are
-	// ones it wrote.
+	// KeyOutputResolution is one compound control, "1920x1080", rather than a width and a height: the
+	// user picks one thing and a form has no way to say two fields are legal only in pairs.
+	// This package generates the legal values, so the only strings that ever arrive are ones it wrote.
 	KeyOutputResolution = "publish.output_resolution"
 
-	// The two watch legs are two fields because the two receivers reach different protocol sets,
-	// so one field would let each store a leg the other cannot run.
+	// Two fields rather than one because the two receivers reach different protocol sets, and one
+	// field would let each store a leg the other cannot run.
 	KeyPlayerWatchTransport = "viewer.player_watch_transport"
 	KeyTileWatchTransport   = "viewer.tile_watch_transport"
 
@@ -92,12 +87,11 @@ const (
 	KeyRenderChain = "viewer.render_chain"
 )
 
-// The group keys, in no order: the order is the groups table's.
+// The group keys. Their order is the groups table's and not this block's.
 //
-// They are the headings a shell draws, and they are not the settings groups a key is qualified by:
-// a screen is grouped by what the user is deciding, and a message by what the value belongs to.
-// "watch" holds fields from two of the three, and "relay" holds the relay group plus the stream
-// name that names a path on it.
+// They are the headings a shell draws, and they are not the settings groups a key is qualified by.
+// A screen is grouped by what the user is deciding and a message by what the value belongs to,
+// so neither list is derived from the other and one group may hold keys from several messages.
 const (
 	GroupStream    = "stream"
 	GroupSource    = "source"
@@ -108,16 +102,16 @@ const (
 	GroupRelay     = "relay"
 )
 
-// keySeparator divides a key's group from its field.
+// keySeparator stands between a key's group and its field.
 const keySeparator = "."
 
-// The brackets around the index of a repeated field, and the template both of them with nothing
-// between: "publish.audio_sources[].gain" is what a row of the field table carries and
-// "publish.audio_sources[2].gain" is what a shell binds.
+// The brackets around a repeated field's index, and the template both of them with nothing between:
+// a row of the field table carries "publish.audio_sources[].gain" and a shell binds
+// "publish.audio_sources[2].gain".
 //
-// A template is what makes the two one identifier.
-// The row states the control once, the resolve draws it per entry, and every table keyed by the
-// control - its availability, its options, its copy on a surface - is keyed by the template rather
+// The template is what makes the two one identifier.
+// The row states the control once and the resolve draws it per entry, so every table keyed by that
+// control (its availability, its options, its copy on a surface) is keyed by the template rather
 // than gaining an entry per index nobody can enumerate in advance.
 const (
 	keyIndexOpen  = "["
@@ -125,16 +119,15 @@ const (
 	keyIndexEmpty = keyIndexOpen + keyIndexClose
 )
 
-// indexedKey is one entry's key, from the template the row carries and the entry's place in the
-// list.
+// indexedKey is one entry's key, from the row's template and the entry's place in the list.
 func indexedKey(template string, i int) string {
 	return strings.Replace(template, keyIndexEmpty, keyIndexOpen+strconv.Itoa(i)+keyIndexClose, 1)
 }
 
-// keyTemplate is the template one key was drawn from, and the key itself where it names no entry of
-// a list.
-// It is what every table keyed by a control is looked up with, so a statement about one entry's
-// control is written once for the control.
+// keyTemplate is the template a key was drawn from, and the key itself where it names no entry of a
+// list.
+// Every table keyed by a control is looked up with it, so a statement about one entry's control is
+// written once for the control.
 func keyTemplate(key string) string {
 	open := strings.Index(key, keyIndexOpen)
 	close := strings.Index(key, keyIndexClose)
@@ -144,7 +137,7 @@ func keyTemplate(key string) string {
 	return key[:open+1] + key[close:]
 }
 
-// keyIndex is which entry of a list a key names, and false for a key that names no entry.
+// keyIndex is which entry of a list a key names. false where it names no entry.
 func keyIndex(key string) (int, bool) {
 	open := strings.Index(key, keyIndexOpen)
 	close := strings.Index(key, keyIndexClose)
@@ -158,17 +151,17 @@ func keyIndex(key string) (int, bool) {
 	return i, true
 }
 
-// settingsField resolves a qualified key against a settings message: the group named before the
-// dot, then the field named after it.
+// settingsField walks a qualified key into a settings message: the group named before the dot, then
+// the field named after it.
 //
-// It returns the group's own message rather than the outer one, because that is what a write goes
-// through.
-// A group message that is not set yet is created on the way, so a draft that arrived with a group
-// absent is repaired into rather than panicked on: an absent group is another process's message,
-// which makes it an environment condition (docs/development-principles.md).
+// It answers with the group's own message rather than the outer one, since that is what a write
+// goes through.
+// A group message not set yet is created on the way, so a draft that arrived with a group absent is
+// repaired into rather than panicked on: an absent group is another process's message, which makes
+// it an Umgebungsfehler (docs/development-principles.md).
 //
-// The two names are looked up rather than switched on, which is what keeps this from being a third
-// list of fields to hold in step with settings.proto and the table above.
+// The two names are looked up rather than switched on, which keeps this from being a third list of
+// fields to hold in step with settings.proto and the table above.
 func settingsField(m *screensharev1.Settings, key string) (protoreflect.Message, protoreflect.FieldDescriptor, bool) {
 	group, field, ok := strings.Cut(key, keySeparator)
 	if !ok {
@@ -192,14 +185,14 @@ func settingsField(m *screensharev1.Settings, key string) (protoreflect.Message,
 	return inner, descriptor, true
 }
 
-// listField resolves the second half of an indexed key: the entry of a repeated field,
-// and the field inside that entry.
+// listField resolves the second half of an indexed key: the entry of a repeated field, and the
+// field inside that entry.
 //
-// rest is what followed the opening bracket, which is the index, the closing bracket,
-// a dot and the field name.
-// An entry the list does not have yet is appended on the way, up to the one past its end and no
-// further: that entry is the row a form draws for a reader to grow the list by,
-// so a write through its key is what adds it, and a write past it would leave a hole nothing chose.
+// rest is what followed the opening bracket: "2].gain".
+// An entry the list does not hold yet is appended on the way, up to the one past its end and no
+// further.
+// That entry is the row a form draws for a reader to grow the list by, so a write through its key
+// adds it, and a write past it would leave a hole nothing chose.
 func listField(group protoreflect.Message, name, rest string) (protoreflect.Message, protoreflect.FieldDescriptor, bool) {
 	index, after, ok := strings.Cut(rest, keyIndexClose)
 	if !ok {
@@ -234,8 +227,8 @@ func listField(group protoreflect.Message, name, rest string) (protoreflect.Mess
 	return entry, descriptor, true
 }
 
-// keyRepeats reports whether a key is a template, which is to say the control it names is drawn
-// once per entry of a list rather than once.
+// keyRepeats reports whether a key is a template, so the control it names is drawn per entry of a
+// list rather than once.
 func keyRepeats(key string) bool {
 	return strings.Contains(key, keyIndexEmpty)
 }

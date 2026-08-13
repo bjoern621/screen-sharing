@@ -16,46 +16,45 @@ import (
 // The frame channel: the second service on the same socket, carrying handles and never pixels
 // (docs/ipc-api.md, "What crosses, and in what shape").
 //
-// It is a separate server type rather than more methods on Server, because the two services answer
-// to different rules.
-// Every ControlService method is a read, one of the named effects, or the event stream;
-// this one is a loan of memory with a lifetime, and putting it on the same type would make that
-// division a comment rather than a shape.
+// A server type of its own rather than more methods on Server, because the two answer to different
+// rules: every ControlService method is a read, a named effect or the event stream, and this one is
+// a loan of memory with a lifetime.
+// One type would leave that division a comment rather than a shape.
 //
 // Nothing here decides what is drawn.
-// A subscription names a decode StartReceive already opened, and the size it carries is a count of
+// A subscription names a picture something else opened, and the size it carries is a count of
 // pixels rather than a layout.
 
 // FrameServer is the FrameService implementation.
 //
-// Like Server it holds no state of its own: a subscription's whole state lives in the backend that
-// lent it, and this is the pipe between that and one gRPC call.
+// It holds no state of its own, as Server holds none: a subscription's whole state lives in the
+// backend that lent it, and this is the pipe between that and one gRPC call.
 type FrameServer struct {
 	screensharev1.UnimplementedFrameServiceServer
 
 	backend Backend
 }
 
-// NewFrames returns a frame service in front of backend.
 func NewFrames(backend Backend) *FrameServer {
 	assert.IsNotNil(backend, "a frame service serves a backend")
 	return &FrameServer{backend: backend}
 }
 
-// Frames is one consumer's subscription to one decode.
+// Frames is one consumer's subscription to one picture.
+// The first message names which, and one naming none is INVALID_ARGUMENT.
 //
-// The call's shape is what the protocol needs rather than a convenience: the loan and the release
-// have to travel together, because a release on a second call could outlive the subscription it
-// belongs to and would free a slot of a pool that is gone.
+// Bidirectional because the protocol needs it: the loan and the release travel on one call, since a
+// release arriving on a second one could outlive the subscription it belongs to and free a slot of
+// a pool that is gone.
 //
-// The two directions run on two goroutines, which is what gRPC's bidirectional streams require:
-// Send is this one's alone and Recv is the reader's, and neither is safe to share.
-// What joins them is the subscription, whose own methods take its lock.
+// The two directions run on two goroutines, as gRPC's bidirectional streams require.
+// Send belongs to this goroutine and Recv to readRequests, and neither is safe to share.
+// The subscription joins them, and its own methods take its lock.
 func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) error {
 	first, err := stream.Recv()
 	if err != nil {
-		// A consumer that hung up before saying what it wanted is not an error worth reporting:
-		// it is a window that closed between opening the call and filling it.
+		// A consumer that hung up before saying what it wanted is a window that closed between opening
+		// the call and filling it, not a failure to report.
 		return nil
 	}
 
@@ -69,9 +68,9 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 	}
 	// A relay decode is named by a pair, and half of one names nothing that could exist.
 	// The other two need no such check: the publish preview is named by the choice itself,
-	// which is the point of it having no key, and a monitor index that names no output is refused
-	// where the preview is looked for rather than here, because whether an index is one of this
-	// machine's is a fact about the machine and not about the request.
+	// which is the point of its having no key, and a monitor index reaching no output is refused
+	// where the preview is looked for, since whether an index is one of this machine's is a fact
+	// about the machine rather than about the request.
 	if source.Kind == wire.FrameSourceRelay {
 		if source.Stream.StreamName == "" {
 			return invalidArgument("no stream named to receive frames of")
@@ -84,13 +83,13 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 	frames, err := s.subscribe(source)
 	if err != nil {
 		// The world is not ready rather than the request being malformed: a relay decode is opened by
-		// StartReceive and the preview by the publish itself, and a shell that asked for either and lost
-		// the race asks again rather than being told it named something impossible.
+		// StartReceive and the publish preview by the publish itself, so a shell that asked for either
+		// and lost the race asks again instead of being told it named something impossible.
 		return failedPrecondition("cannot draw %s: %v", describe(source), err)
 	}
-	// Closed on every way out, including the ones that never reach the loop below.
-	// It is what frees the pool, so a consumer that died is a consumer whose GPU memory comes back
-	// rather than one that leaks it for the life of the stream.
+	// Closed on every way out, the ones that never reach the loop below included.
+	// The close frees the pool, so a consumer that died gives its GPU memory back rather than holding
+	// it for the life of the stream.
 	defer frames.Close()
 
 	logger.Debugf("control: drawing %s", describe(source))
@@ -113,7 +112,7 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 			}
 		case err := <-hungUp:
 			if err == nil || errors.Is(err, io.EOF) {
-				// The consumer closed its half, which is what a tile that went away does.
+				// The consumer closed its half, as a tile that went away does.
 				return nil
 			}
 			return err
@@ -125,10 +124,9 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 
 // subscribe opens what the request named.
 //
-// The three kinds are dispatched here rather than by the backend, because they are three different
-// questions with three different answers: which decode of several, the one preview of the publish
-// there can be, and which screen.
-// A single method taking a key would need a key two of the three do not have.
+// The kinds are dispatched here rather than by the backend, being different questions: which decode
+// of several, the one preview a publish can have, and which screen.
+// A single method taking a key would need a key the previews do not have.
 func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
 	switch source.Kind {
 	case wire.FrameSourcePublishPreview:
@@ -140,10 +138,9 @@ func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
 	}
 }
 
-// describe names what a subscription draws from, for a log line and for the refusal a consumer is
-// shown.
-// It is written once because both of those read it, and because two of the three kinds have no pair
-// to print.
+// describe names what a subscription draws from, for a log line and for the refusal a consumer
+// reads.
+// Written once because both read it, and because the previews have no pair to print.
 func describe(source wire.FrameSource) string {
 	switch source.Kind {
 	case wire.FrameSourcePublishPreview:
@@ -157,10 +154,10 @@ func describe(source wire.FrameSource) string {
 
 // readRequests drives the consumer's half of the call until it ends.
 //
-// A message that is not one of the three is dropped rather than refused.
-// The contract is additive, so a consumer built against a later minor may say something this build
-// has no case for, and ending its stream over that would turn a forward-compatible addition into a
-// broken tile.
+// A message no case here covers is dropped rather than refused.
+// The contract is additive, so a consumer built against a later minor may send something this build
+// does not know, and ending its stream over that would turn a compatible addition into a broken
+// tile.
 func readRequests(stream screensharev1.FrameService_FramesServer, frames FrameStream) error {
 	for {
 		request, err := stream.Recv()
@@ -179,12 +176,11 @@ func readRequests(stream screensharev1.FrameService_FramesServer, frames FrameSt
 	}
 }
 
-// endOf says why the frames stopped, on the call the consumer is reading.
+// endOf says why the frames stopped, on the call the consumer is reading, and ends it successfully.
 //
-// The call itself succeeds.
-// A pipeline that ended is not a failed request - the subscription did what it was for and then the
-// stream it drew from was over - and the same fact reaches every shell as ReceiveExit on the event
-// stream.
+// A pipeline that ended is not a failed request: the subscription did what it was for and the
+// stream it drew from was then over.
+// The same fact reaches every shell as ReceiveExit on the event stream.
 func endOf(stream screensharev1.FrameService_FramesServer, err error) error {
 	if err == nil {
 		return nil

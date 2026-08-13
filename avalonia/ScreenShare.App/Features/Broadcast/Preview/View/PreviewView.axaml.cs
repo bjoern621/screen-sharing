@@ -5,12 +5,11 @@ using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 namespace ScreenShare.App.Features.Broadcast.Preview.View;
 
 /// <summary>
-/// Markup, and the one fact the markup cannot state: how large the picture is being drawn.
+/// Markup, and the one fact markup cannot state: the size the picture is being drawn at.
 ///
-/// <b>It is not a second definition of what the card shows.</b> Nothing here sets a widget property and
-/// nothing here reads one.
-/// What it does is write one input of the view model - the same shape every other input on this screen has -
-/// and let the render function decide what that means.
+/// No widget property is read or set here.
+/// One view-model input is written, the shape every other input on this screen has, and the render function
+/// decides what it means.
 ///
 /// Whether the card draws is the reader's, written through the card's own transport control, so this view
 /// watches neither the visual tree nor the window
@@ -21,13 +20,10 @@ public sealed partial class PreviewView : UserControl
     public PreviewView() => InitializeComponent();
 
     /// <summary>
-    /// Tells the card how large it is drawing the picture.
+    /// Reports the size the card arranged the picture at, in the card's own pixels.
     ///
-    /// The pointer arrives in the picture's own pixels and is drawn in this card's, so somebody has to know
-    /// both.
-    /// The view model knows the picture's size off the frames; this is where the card's comes from, and it is
-    /// written the same way every other input here is - one value in, and the render function decides what it
-    /// means.
+    /// The pointer arrives in the picture's pixels and is drawn in these, so the conversion needs both.
+    /// The view model reads the picture's size off the frames, and this is the only source for the card's.
     /// </summary>
     protected override Size ArrangeOverride(Size size)
     {

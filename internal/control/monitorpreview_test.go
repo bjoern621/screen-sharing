@@ -15,10 +15,11 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// A start the backend refuses is FAILED_PRECONDITION and never INVALID_ARGUMENT:
-// the request is well formed - every integer is a monitor index somewhere - and what refuses it is
-// a fact about this machine, which is the distinction docs/ipc-api.md draws between the two codes.
-// The sentence is the backend's own, so the reason travels rather than being replaced.
+// A start the backend refuses is FAILED_PRECONDITION and never INVALID_ARGUMENT: the request is
+// well formed, every integer being a monitor index somewhere, and what refuses it is a fact about
+// this machine.
+// That is the line docs/ipc-api.md draws between the two codes.
+// The sentence stays the backend's, so the reason travels instead of being replaced.
 func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	server := New(&fakeBackend{err: errors.New("this session cannot read one monitor apart from another")},
 		events.New(), "test")
@@ -41,9 +42,9 @@ func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	}
 }
 
-// A stop is not refused for a screen nothing is reading, which is the idempotence the whole
-// contract holds to: a stop names the state the caller wants and that state already holds.
-// The backend's error field is set here to prove the stop does not consult it.
+// A stop names the state the caller wants, and for a screen nothing is reading that state already
+// holds, so the call succeeds: the idempotency the whole contract is built on.
+// The backend's error field is set to prove the stop never consults it.
 func TestStoppingAScreenNobodyIsReadingSucceeds(t *testing.T) {
 	server := New(&fakeBackend{err: errors.New("would refuse anything that asked")}, events.New(), "test")
 
@@ -53,10 +54,10 @@ func TestStoppingAScreenNobodyIsReadingSucceeds(t *testing.T) {
 	}
 }
 
-// The three subscription arms are dispatched to three different backend methods,
-// and a subscription that named none of them is refused rather than served the first arm.
-// Two arms carry no key at all, so a discriminator read off a missing key would send an empty
-// request to whichever method it defaulted to.
+// The three subscription arms reach three different backend methods, and one that named no arm is
+// refused rather than served the first.
+// Two arms carry no key, so a discriminator read off a missing key would send an empty request to
+// whichever method it fell through to.
 func TestAFrameSubscriptionNamesOneOfTheThreePictures(t *testing.T) {
 	for name, tc := range map[string]struct {
 		subscribe *screensharev1.FrameSubscribe

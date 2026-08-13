@@ -9,19 +9,18 @@ import (
 	"time"
 )
 
-// The child reports where the pointer is on the same stream it reports its caps on,
-// under a prefix of its own, and the parent reads it back with the parser that lives beside the
-// writer.
-// What these hold is that the two are one format: a line written here and parsed elsewhere is a
-// format that drifts the first time a field is added.
+// The child reports the pointer on the stream it reports its caps on, under a prefix of its own,
+// and the parent reads it back with the parser that lives beside the writer.
+// These hold that the two are one format: a line written here and parsed elsewhere drifts the first
+// time a field is added.
 
 // A run asked for the pointer reports positions while it plays, at its own rate rather than the
 // pipeline's.
 func TestARunReportsWhereThePointerIs(t *testing.T) {
 	var out bytes.Buffer
 
-	// Long enough to outlast several reader ticks and short enough that the test is not a wait:
-	// the pipeline ends itself, which is what stops the reporting.
+	// Long enough to outlast several reader ticks, short enough that the test is not a wait.
+	// The cancelled context is what stops the reporting and the run.
 	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
 	defer cancel()
 
@@ -47,9 +46,8 @@ func TestARunReportsWhereThePointerIs(t *testing.T) {
 }
 
 // A run that did not ask reports none.
-// The mode that sends the position is one of three, and the other two draw the pointer into the
-// frames or leave it out: a child reporting anyway would be writing to a parent that has nowhere to
-// put it.
+// The other cursor modes draw the pointer into the frames or leave it out, so a child reporting
+// anyway writes to a parent with nowhere to put it.
 func TestARunThatDidNotAskReportsNoPointer(t *testing.T) {
 	var out bytes.Buffer
 
@@ -65,7 +63,8 @@ func TestARunThatDidNotAskReportsNoPointer(t *testing.T) {
 	}
 }
 
-// The parser reads what the writer writes, and reads nothing else as a position.
+// The parser reads what the writer writes, and reads nothing else as a position: a caps line,
+// a meter line and a truncated or mistyped field are all not one.
 func TestThePointerLineIsOneFormat(t *testing.T) {
 	for _, line := range []string{
 		"",
@@ -93,7 +92,7 @@ func TestThePointerLineIsOneFormat(t *testing.T) {
 }
 
 // hasDisplay reports whether this session has an X server for the reader to open,
-// which is what separates a machine that cannot report a position from a reporter that does not.
+// which separates a machine that cannot report a position from a reporter that does not.
 func hasDisplay() bool {
 	r, ok := pointer.NewX11()
 	if ok {

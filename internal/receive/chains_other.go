@@ -2,8 +2,8 @@
 
 package receive
 
-// The chain a viewer renders through when nothing chose one, everywhere but Windows.
+// What a viewer renders through where nothing chose a chain, Windows aside.
 //
-// It is the GL chain: the one row that both keeps the frames on the GPU and states
-// the colour it produces, which is what a default nobody picked has to do.
+// The GL row: the only one that both leaves frames on the GPU and states the colour it produces,
+// which is what a chain nobody picked has to do.
 const defaultChain = "gl"

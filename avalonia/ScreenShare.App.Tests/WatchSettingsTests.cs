@@ -11,20 +11,14 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Where the settings about receiving live, and what they do.
 ///
-/// Two defects are locked out here, and they were one misplacement.
-/// The watch group was a step of the sending wizard, so a reader watching without publishing had to open the
-/// broadcast setup to change how their tiles decode - and once there, the only thing that persisted the
-/// change was starting to share, because the wizard's draft reaches the backend through <c>StartPublish</c>.
-/// The group is drawn beside the tiles now and has a save of its own.
+/// The watch group is drawn beside the tiles and kept by a save of its own, so watching without publishing
+/// needs neither the broadcast setup nor a <c>StartPublish</c> to keep a change.
 /// </summary>
 public sealed class WatchSettingsTests
 {
     private static readonly Action<Action> Inline = action => action();
 
-    /// <summary>
-    /// A viewer and a wizard on one draft, built the way the window builds them.
-    /// The pair is what half of these tests are about, so the fixture makes it rather than each test.
-    /// </summary>
+    /// <summary>A viewer and a wizard on one draft, built the way the window builds them.</summary>
     private sealed record Both(
         ViewerViewModel Viewer, SetupViewModel Setup, FormSession Form, SeededBackend Backend);
 
@@ -37,14 +31,13 @@ public sealed class WatchSettingsTests
         var viewer = new ViewerViewModel(backend, form, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
 
-        // The shell renders its destinations when the running state announces, so the fixture stands in for
-        // that pass: without it a relay snapshot would reach the session and never the roster drawn from it
-        // (Features/Shell/ViewModel/ShellViewModel.cs).
+        // Stands in for the shell's own render pass: without it a relay snapshot reaches the session and
+        // never the roster drawn from it (Features/Shell/ViewModel/ShellViewModel.cs).
         session.Changed += viewer.Apply;
 
-        // Reads every running state once and stops before the reconnect delay, so what the session found is
-        // on it and nothing is left dialling behind the assertions.
-        // It is what puts the relay's paths on the roster, which the tests about opening a decode need.
+        // Reads every running state once and stops before the reconnect delay, so nothing is left dialling
+        // behind the assertions.
+        // It is what puts the relay's paths on the roster a decode is opened from.
         _ = session.Start();
         session.Stop();
 
@@ -55,14 +48,14 @@ public sealed class WatchSettingsTests
     private static FieldViewModel Field(Both both, string key)
         => both.Viewer.Watch.Group.Fields.Single(field => field.Key == key);
 
-    /// <summary>Picks one entry and waits for the form that answers the pick.</summary>
+    /// <summary>Chooses an option and waits for the form that answers it.</summary>
     private static async Task ChooseAsync(Both both, string key, string value)
     {
         Field(both, key).Options.Single(option => option.Value == value).Choose.Execute(null);
         await both.Form.Settled;
     }
 
-    /// <summary>The viewer draws the group the wizard does not, and every control the form put in it.</summary>
+    /// <summary>The group the wizard does not draw, with every field the form marked visible.</summary>
     [Fact]
     public async Task TheViewerDrawsTheWatchingGroup()
     {
@@ -78,23 +71,22 @@ public sealed class WatchSettingsTests
 
     /// <summary>
     /// One draft behind both screens.
-    /// A write in the viewer is in the message the wizard commits, which is the property a draft per screen
-    /// could not have: the publish persists the whole settings message, so the two would overwrite each
-    /// other's half.
+    /// The publish persists the whole settings message, so a draft per screen would overwrite the other's
+    /// half.
     /// </summary>
     [Fact]
     public async Task AWriteInTheViewerIsInWhatTheWizardCommits()
     {
-        // A backend the commit can actually be pressed against: the seeded fixture has no relay behind it,
-        // and a reachable one is what unlocks the button.
+        // A backend the commit can be pressed against: the seeded fixture has no reachable relay, and a
+        // reachable one is what unlocks the button.
         var backend = new PublishingBackend();
         var session = new Session(backend, Inline);
         var form = new FormSession(backend, session, Inline);
         var viewer = new ViewerViewModel(backend, form, session, Inline);
         var setup = new SetupViewModel(backend, form, session, Inline);
 
-        // Reads every running state once and stops before the reconnect delay, so what the session found is
-        // on it and nothing is left dialling behind the assertions.
+        // Reads every running state once and stops before the reconnect delay, so nothing is left dialling
+        // behind the assertions.
         _ = session.Start();
         session.Stop();
         await form.Settled;
@@ -110,8 +102,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// Saving hands the whole draft over.
-    /// It is a settings write and not a publish, so a reader who never sends still keeps what they chose.
+    /// Saving hands the whole draft over as a settings write and not as a publish, so a reader who never
+    /// sends keeps what they chose.
     /// </summary>
     [Fact]
     public async Task SavingKeepsTheDraftWithoutPublishing()
@@ -128,8 +120,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// Saving twice with nothing changed asks for a state that already holds, which is a success and not a
-    /// refusal (docs/development-principles.md, "Effects across a process boundary").
+    /// A second save asks for a state that already holds, which is a success
+    /// (docs/development-principles.md, "Effects across a process boundary").
     /// </summary>
     [Fact]
     public async Task SavingTwiceIsNotAnError()
@@ -145,9 +137,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A save the backend refuses shows that side's own sentence and leaves the button pressable.
-    /// The next save that succeeds clears it, which is the render function's usual property applied to a
-    /// string.
+    /// The refusal is the backend's own sentence, and the button stays pressable.
+    /// A save that succeeds clears it, which is the render function's usual property applied to a string.
     /// </summary>
     [Fact]
     public async Task ARefusedSaveShowsTheBackendsSentenceAndClearsOnTheNextOne()
@@ -168,9 +159,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The leg a tile receives on is read through the shared draft on every pass.
-    /// It used to be read once when the screen mounted, so a leg changed anywhere else did not reach a decode
-    /// until the window was reopened.
+    /// The leg a tile receives on is read through the shared draft on every pass, so a leg changed elsewhere
+    /// reaches the next decode without the window being reopened.
     /// </summary>
     [Fact]
     public async Task TheTileLegIsReadThroughRatherThanReadOnce()
@@ -183,9 +173,9 @@ public sealed class WatchSettingsTests
         Assert.Equal("rtsp", both.Form.Draft!.Viewer.TileWatchTransport);
     }
 
-    // --- What a decode opens on ---------------------------------------------------------
+    // --- The leg a decode opens on ------------------------------------------------------
 
-    /// <summary>A backend carrying one ready path, which is what gives the roster a row to tile.</summary>
+    /// <summary>A backend with one ready path, so the roster has a row to open a tile from.</summary>
     private static SeededBackend Carrying(string path)
     {
         var backend = new SeededBackend("linux");
@@ -195,7 +185,7 @@ public sealed class WatchSettingsTests
         return backend;
     }
 
-    /// <summary>Puts one stream in the grid and waits for the decode that answers.</summary>
+    /// <summary>Shows one stream and waits for the decode it opens.</summary>
     private static async Task TileAsync(Both both, string stream)
     {
         var row = both.Viewer.Streams.Single(entry => entry.Name == stream);
@@ -204,14 +194,10 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A decode opens on the leg that was kept, not on the one the panel is showing.
-    ///
-    /// <b>This is the defect the panel's button exists against.</b> The leg is the only one of the group's
-    /// six knobs the shell names in a call - the backend reads the render chain and both jitter buffers out
-    /// of its own settings when it builds the pipeline - so a leg taken from the draft opened an unkept
-    /// protocol against kept buffers.
-    /// Half a staged panel taking effect as it was edited is worse than none of it doing so, because nothing
-    /// on the screen says which half.
+    /// The leg is the only knob in the group the shell names in a call: the backend reads the render chain
+    /// and both jitter buffers out of its own settings as it builds the pipeline.
+    /// Taken off the draft instead, it opens an unkept protocol against kept buffers, and nothing on the
+    /// screen says which half of a staged panel took effect.
     /// </summary>
     [Fact]
     public async Task ATileOpensOnTheKeptLegAndNotOnTheDraftedOne()
@@ -225,7 +211,6 @@ public sealed class WatchSettingsTests
         Assert.Equal("srt", Assert.Single(backend.Decoded).Transport);
     }
 
-    /// <summary>And the kept leg is what the next decode opens on, which is what keeping means.</summary>
     [Fact]
     public async Task AKeptLegIsWhatTheNextTileOpensOn()
     {
@@ -240,9 +225,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The panel says when what it shows is not what a decode would open on, and stops saying it once the two
-    /// agree.
-    /// Without it a staged group looks identical either way, which leaves the button nothing to mean.
+    /// A staged group draws the same controls whether or not it has been kept, so without the notice the
+    /// button has nothing to mean.
     /// </summary>
     [Fact]
     public async Task ThePanelSaysWhenWhatItShowsIsNotWhatIsKept()
@@ -258,10 +242,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A write from the wizard does not leave the viewer's panel claiming to be unkept.
-    /// Both screens edit one draft and the settings travel whole, so an applied field's keystroke stores the
-    /// watch group with it - and a panel that went on warning would be describing a difference that is not
-    /// there.
+    /// The settings travel whole, so an applied field's keystroke stores the watch group with it and the
+    /// panel has no difference left to warn about.
     /// </summary>
     [Fact]
     public async Task AnAppliedWriteElsewhereKeepsTheseSettingsToo()
@@ -276,15 +258,11 @@ public sealed class WatchSettingsTests
         Assert.False(both.Viewer.Watch.IsUnkept);
     }
 
-    // --- What the roster offers ---------------------------------------------------------
+    // --- What a roster row offers -------------------------------------------------------
 
     /// <summary>
     /// A leg the backend ruled out keeps its place on the menu, greys, and carries the sentence that says
-    /// why.
-    /// It is the one rule <c>docs/field-availability.md</c> states about an unavailable option, and this menu
-    /// used to be the one control in the product that did not keep it: the roster took the option's value and
-    /// label and threw the verdict away, so a protocol no player here opens was offered as though it were
-    /// live and answered with a refusal only after the press.
+    /// why, which is what <c>docs/field-availability.md</c> states about every unavailable option.
     /// </summary>
     [Fact]
     public async Task ALegTheBackendRuledOutIsGreyedWithItsReason()
@@ -297,8 +275,7 @@ public sealed class WatchSettingsTests
         Assert.True(refused.HasReason);
         Assert.Contains("HLS", refused.Reason);
 
-        // And the reachable ones are untouched, which is what makes the greying a statement rather than a
-        // screen that greys everything it is unsure about.
+        // The reachable ones are untouched: the greying is a statement, not a screen unsure about everything.
         Assert.All(legs.Where(leg => leg.Value != "hls"), leg =>
         {
             Assert.True(leg.IsEnabled);
@@ -307,9 +284,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A ruled-out leg is greyed and not dropped.
-    /// Removing it would take the sentence with it, and the sentence is what names the legs that would have
-    /// worked.
+    /// Dropping a ruled-out leg would take its sentence with it, and the sentence is what names the legs that
+    /// would have worked.
     /// </summary>
     [Fact]
     public async Task ARuledOutLegStaysOnTheMenu()
@@ -325,9 +301,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A leg already open stays pressable however the availability pass answers for it.
-    /// The press closes the player, and greying it would leave one running with the only control that ends it
-    /// inert - a worse state than the one the greying is about.
+    /// The press on an open leg is what closes the player, so greying it would leave one running with the
+    /// only control that ends it inert.
     /// </summary>
     [Fact]
     public async Task ARuledOutLegThatIsOpenCanStillBeClosed()
@@ -342,12 +317,10 @@ public sealed class WatchSettingsTests
         Assert.True(open.IsEnabled);
     }
 
-    // --- Opening and closing the panel --------------------------------------------------
+    // --- The panel, open and closed -----------------------------------------------------
 
     /// <summary>
-    /// Keeping the settings shuts the panel.
-    /// The reader asked for one thing and it happened, so there is nothing left on the column to look at -
-    /// and the tiles it governs are behind it.
+    /// What the reader asked for has happened, and the tiles the panel governs are behind it.
     /// </summary>
     [Fact]
     public async Task KeepingTheSettingsClosesThePanel()
@@ -362,9 +335,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// A refused save leaves it open.
     /// The sentence explaining the refusal is on this panel, and dismissing it would take that off the screen
-    /// along with the fields it is about.
+    /// with the fields it is about.
     /// </summary>
     [Fact]
     public async Task ARefusedSaveLeavesThePanelOpen()
@@ -380,9 +352,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// The panel's own button shuts it and keeps nothing.
-    /// A reader who moved a control and then dismissed the panel decided against the change, and storing it
-    /// on the way out would be the screen keeping what nobody asked it to.
+    /// A reader who moved a control and then dismissed the panel decided against the change, so nothing is
+    /// stored on the way out.
     /// </summary>
     [Fact]
     public async Task ClosingThePanelKeepsNothing()
@@ -399,8 +370,8 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// Closing a panel that is already closed is a pass that changes nothing, which is what lets a commit run
-    /// it without asking whether it has to.
+    /// Closing a closed panel changes nothing, which is what lets a commit run it without asking whether it
+    /// has to.
     /// </summary>
     [Fact]
     public async Task ClosingAClosedPanelIsNotAnOpen()

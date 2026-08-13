@@ -10,27 +10,24 @@ import (
 
 // The caps features this side reads memory out of.
 //
-// A feature list says what a buffer is beyond its media type. Only a "memory:"
-// feature names where the frames live; a "meta:" feature names something riding
-// along with them and says nothing about memory either way.
+// A "memory:" feature names where the frames live; a "meta:" feature names something riding
+// along with them and says nothing about memory.
 //
-// System memory is MemorySystem, because that is the value a reader reads the same
-// way and one spelling of it is enough. Caps carrying no feature at all mean it,
-// which is why the absence of a feature reads as a value here rather than as a gap.
+// Caps carrying no feature at all are system memory, so absence reads as MemorySystem rather
+// than as a gap, and one spelling of that value serves every reader.
 const (
 	memoryPrefix = "memory:"
-	// memoryUnknown is what caps nobody has negotiated report. It is empty so a
-	// row of the receive state stays missing rather than reading wrong while a pad
-	// is still settling.
+	// memoryUnknown is what caps nobody has negotiated report.
+	// Empty, so a receive-state row stays missing rather than wrong while a pad settles.
 	memoryUnknown = ""
 )
 
-// memoryOf names where the frames on a pad live, off the memory feature of the
-// caps it negotiated.
+// memoryOf names where the frames on a pad live, off its negotiated caps.
 //
-// The feature list belongs to a structure and negotiated caps hold one, so the
-// answer is read off the first. A list that names no memory is system memory:
-// that is what GStreamer means by leaving the feature out.
+// A feature list belongs to a structure and negotiated caps hold one, so the answer comes off
+// the first.
+// A list naming no memory is system memory, which is what GStreamer means by leaving the feature
+// out.
 func memoryOf(caps *gst.Caps) string {
 	if caps == nil || caps.GetSize() == 0 {
 		return memoryUnknown
@@ -47,15 +44,14 @@ func memoryOf(caps *gst.Caps) string {
 	return MemorySystem
 }
 
-// verifyMemory checks the memory the chain asks for against the memory the filter
-// it asks on negotiated. It runs once a frame has left the sink, which is the
-// point where every pad of the chain has caps.
+// verifyMemory compares the memory the chain asks for with the memory its filter negotiated.
+// It runs once a frame has left the sink, the point where every pad of the chain has caps.
 //
-// A chain that asked for device memory and got system memory is an
-// Umgebungsfehler rather than a broken contract: the elements existed, the parser
-// linked them, and what they then agreed on between themselves is theirs. The
-// stream plays, more slowly than the chain promised, and the receive state's
-// memory rows show the same thing this line says.
+// A chain that asked for device memory and got system memory is an Umgebungsfehler and not a
+// broken contract: the elements existed, the parser linked them, and what they agreed on between
+// themselves is theirs.
+// The stream plays, more slowly than the chain promised, so this warns and the receive state's
+// memory rows carry the same fact.
 func (r *Receiver) verifyMemory() {
 	if r.chain.device == "" || r.fit == nil {
 		return

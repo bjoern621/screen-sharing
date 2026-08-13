@@ -2,11 +2,10 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
 /// What a control on this screen asks for.
-/// Every one of them is either live-safe - it changes the stream without tearing it down - or it navigates
-/// away; nothing here edits configuration in place, which is the rule the whole screen exists to enforce.
+/// Every member is live-safe, changing the stream without tearing it down, or navigates away.
+/// Nothing on this screen edits configuration in place.
 ///
-/// The screen names the request and does not perform it: there is no publisher behind this UI yet, and when
-/// there is, it subscribes rather than being reached into.
+/// A request is named here and performed elsewhere: whoever acts on one subscribes and is never reached into.
 /// </summary>
 public enum BroadcastAction
 {

@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-// A token is verified by the relay and never by this app, so what these hold is the shape a
-// verifier reads: the three segments, the signature over the first two, and a JWKS carrying the key
-// that checks it.
+// The relay verifies a token and this app never does, so what these pin is the shape a verifier
+// reads: three segments, a signature over the first two, and a JWKS carrying the key that checks
+// it.
 // A token this package signs and nothing can verify is a stream nobody can open.
 
 func mustSigner(t *testing.T) *Signer {
@@ -25,9 +25,8 @@ func mustSigner(t *testing.T) *Signer {
 	return s
 }
 
-// The signature is over the header and the payload, in the algorithm the header names.
-// It is verified here the way a relay verifies it: recompute the digest over the first two segments
-// and check it against the third with the public key.
+// Verified the way a relay verifies: digest the first two segments, check the third against it with
+// the published key.
 func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	s := mustSigner(t)
 
@@ -55,8 +54,8 @@ func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	}
 }
 
-// publishedKey rebuilds the public key out of the JWKS, which is the only way a relay ever sees it.
-// Reading the signer's own key instead would verify a token against something no verifier holds.
+// publishedKey rebuilds the public key out of the JWKS, the only way a relay ever sees it.
+// Reading the signer's own key would verify a token against something no verifier holds.
 func publishedKey(t *testing.T, s *Signer) *ecdsa.PublicKey {
 	t.Helper()
 	var document struct {
@@ -97,10 +96,9 @@ func publishedKey(t *testing.T, s *Signer) *ecdsa.PublicKey {
 	}
 }
 
-// A token has to fit the SRT stream id it travels in, which is the whole reason the algorithm is
-// ES256 rather than RS256.
-// The bound is measured against a real group's prefix and the longest stream name the app builds a
-// path from, because that is the token that has to fit rather than the shortest one.
+// Fitting the SRT stream id is the whole reason the algorithm is ES256 rather than RS256.
+// Measured against a real group's prefix and the longest stream name the app builds a path from,
+// that being the token that has to fit rather than the shortest one.
 func TestATokenFitsTheStreamIdThatCarriesIt(t *testing.T) {
 	s := mustSigner(t)
 	prefix := strings.Repeat("A", 26) + "/"
@@ -114,8 +112,8 @@ func TestATokenFitsTheStreamIdThatCarriesIt(t *testing.T) {
 	}
 }
 
-// The claims are what the relay reads: the window it checks the connection against,
-// and the permissions under the claim its configuration names.
+// What the relay reads: the window it checks a connection against, and the permissions under the
+// claim its configuration names.
 func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 	s := mustSigner(t)
 	now := time.Unix(1_700_000_000, 0)
@@ -156,9 +154,9 @@ func TestATokenCarriesTheWindowAndThePermissions(t *testing.T) {
 	}
 }
 
-// The header names one algorithm and this package produces one.
-// A verifier that read the algorithm out of the token is one an attacker points at "none";
-// the relay is configured with this algorithm, and a token claiming another is a token it refuses.
+// One algorithm in the header because this package produces one.
+// A verifier that read the algorithm out of the token could be pointed at "none", so the relay is
+// configured with this one and refuses a token claiming another.
 func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 	s := mustSigner(t)
 
@@ -183,7 +181,7 @@ func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 	}
 }
 
-// A grant is anchored at both ends of the prefix.
+// A grant is anchored at the start of the prefix.
 // Unanchored, one group's token would open every group whose id merely contains it.
 func TestAGrantReachesOneGroupAndNoOther(t *testing.T) {
 	permissions := GroupPermissions("ABCD/")
@@ -200,8 +198,8 @@ func TestAGrantReachesOneGroupAndNoOther(t *testing.T) {
 	}
 }
 
-// One key is always called the same thing, and two keys are never called one:
-// a relay holding both during a rotation picks the one a token's header names.
+// One key keeps one name and two keys never share one, which is how a relay holding both through a
+// rotation picks the one a token's header names.
 func TestAKeyIsNamedByWhatItPublishes(t *testing.T) {
 	first, second := mustSigner(t), mustSigner(t)
 	if first.KeyID() != SignerFor(first.key).KeyID() {

@@ -11,17 +11,15 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 )
 
-// isolateConfig points os.UserConfigDir at a fresh temp directory so tests never read or clobber
-// the real settings file.
+// isolateConfig points os.UserConfigDir at a fresh temp directory.
 //
-// Every platform's variable is set, because os.UserConfigDir reads a different one on each and a
-// test that isolates only one platform's is a test that writes the developer's own settings,
-// presets and portal token on the others: XDG_CONFIG_HOME on Linux, AppData on Windows,
-// HOME on macOS.
+// All three variables, os.UserConfigDir reading a different one per platform: XDG_CONFIG_HOME on
+// Linux, AppData on Windows, HOME on macOS.
+// Isolating one platform's is a test that writes the developer's own settings, presets and portal
+// token on the others.
 //
-// The result is asserted rather than assumed.
-// Setting the wrong variable fails silently and destructively, so the one thing this helper must
-// not do is return while os.UserConfigDir still answers with the real directory.
+// The result is read back rather than assumed, the wrong variable failing silently and
+// destructively.
 func isolateConfig(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
@@ -38,8 +36,7 @@ func isolateConfig(t *testing.T) {
 	}
 }
 
-// mustLoad loads the settings and fails the test on the reason instead of carrying it into an
-// assertion about the values.
+// mustLoad fails the test on the reason instead of carrying it into an assertion about the values.
 func mustLoad(t *testing.T) Settings {
 	t.Helper()
 	s, err := Load()
@@ -49,7 +46,7 @@ func mustLoad(t *testing.T) Settings {
 	return s
 }
 
-// mustSettingsPath resolves the settings file for a test seeding one directly.
+// mustSettingsPath is for a test seeding the file directly rather than through Save.
 func mustSettingsPath(t *testing.T) string {
 	t.Helper()
 	path, err := configPath()
@@ -88,7 +85,7 @@ func TestLoadMigratesZeroLatency(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Publish.SrtPublishLatencyMs = 0 // a pre-split settings file lacks these keys
+	s.Publish.SrtPublishLatencyMs = 0 // zero is the key a file written before the two hops leaves out
 	s.Viewer.SrtWatchLatencyMs = 0
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -103,9 +100,8 @@ func TestLoadMigratesZeroLatency(t *testing.T) {
 	}
 }
 
-// A file written while the second track was one source carries that source's name under the old
-// key, and the list is what a current build reads.
-// The one source becomes the one entry, so a stored stream keeps recording what it recorded.
+// A file written while the second track was one source carries that name under the old key.
+// It becomes the one entry, so a stored stream keeps recording what it recorded.
 func TestLoadMigratesTheOneAudioSourceOntoTheList(t *testing.T) {
 	isolateConfig(t)
 
@@ -123,15 +119,15 @@ func TestLoadMigratesTheOneAudioSourceOntoTheList(t *testing.T) {
 	if gain := got.Publish.AudioSources[0].Gain; gain != GainUnity {
 		t.Errorf("the migrated source records at %d percent, want unity", gain)
 	}
-	// The old key is what the migration read, so a file that has been through one no longer carries it
-	// and cannot be migrated a second time onto a list that already has entries.
+	// A file that has been through the migration no longer carries the old key, which is what keeps a
+	// second run off a list that already holds the entry.
 	if got.Publish.LegacyAudio != "" {
 		t.Errorf("the migrated settings still carry the old key: %q", got.Publish.LegacyAudio)
 	}
 }
 
-// A file written before the second track existed at all names no source, and gets the empty list a
-// fresh installation has rather than an entry recording nothing.
+// A file written before the second track existed names no source, and gets the empty list a fresh
+// installation has rather than an entry recording nothing.
 func TestLoadMigratesAFileWithNoAudioAtAll(t *testing.T) {
 	isolateConfig(t)
 
@@ -146,10 +142,9 @@ func TestLoadMigratesAFileWithNoAudioAtAll(t *testing.T) {
 	}
 }
 
-// The audio codec is read only where the source names one, so a stream with the source off
-// publishes no track whatever codec the file carries.
-// Both engines validate through this one value, which keeps "no track" from being a branch each of
-// them takes on its own, and a stale codec from turning a silent stream into a refusal.
+// A stream with the source off publishes no track whatever codec the file carries.
+// Both engines validate through this one value, which keeps a stale codec from turning a silent
+// stream into a refusal.
 func TestAudioTrackFollowsTheSource(t *testing.T) {
 	cases := []struct {
 		source, audioCodec, want string
@@ -157,7 +152,7 @@ func TestAudioTrackFollowsTheSource(t *testing.T) {
 		{"desktop", "opus", "opus"},
 		{"desktop", "aac", "aac"},
 		{"none", "aac", capabilities.AudioNone},
-		// A settings file written before the audio option names no source at all.
+		// A file written before the audio option names no source at all.
 		{"", "opus", capabilities.AudioNone},
 	}
 	for _, tc := range cases {
@@ -177,7 +172,7 @@ func TestAudioTrackFollowsTheSource(t *testing.T) {
 // A file written before the audio codec became a setting names none, and both engines refuse a
 // track whose codec no row carries.
 // The migration fills it with the codec those builds encoded, so a stored stream keeps publishing
-// the track it always did rather than starting on one the file never chose.
+// the track it had.
 func TestLoadMigratesMissingAudioCodec(t *testing.T) {
 	isolateConfig(t)
 
@@ -200,7 +195,7 @@ func TestLoadMigratesMissingWatchTransport(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Viewer.PlayerWatchTransport = "" // a pre-watch-transport settings file lacks the key
+	s.Viewer.PlayerWatchTransport = "" // empty is the key a file written before the option leaves out
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -214,7 +209,7 @@ func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Viewer.RtspWatchLatencyMs = 0 // a pre-RTSP-knobs settings file lacks these keys
+	s.Viewer.RtspWatchLatencyMs = 0 // zero and empty are the keys such a file leaves out
 	s.Viewer.RtspWatchProtocol = ""
 	s.Publish.RtspPublishProtocol = ""
 	if err := Save(s); err != nil {
@@ -233,8 +228,8 @@ func TestLoadMigratesMissingRtspWatchKnobs(t *testing.T) {
 	}
 }
 
-// Both fields are matched against a table by the builder that reads them, so a file written before
-// the option existed has to arrive carrying a value that table names.
+// The builder matches both fields against a table, so a file written before either option has to
+// arrive carrying a value that table names.
 func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 	isolateConfig(t)
 
@@ -256,8 +251,8 @@ func TestLoadMigratesMissingDrmMapAndPreset(t *testing.T) {
 
 // A file written before the frame memory option names none, and both publish engines refuse a value
 // their table does not carry.
-// Migrating it to the table's own default is what keeps an upgrade from turning a working stream
-// into a refusal, and the default is the one value every capture and codec pair satisfies.
+// The table's own default is the one value every capture and codec pair satisfies, so migrating to
+// it is what keeps an upgrade from turning a working stream into a refusal.
 func TestLoadMigratesMissingCaptureMemory(t *testing.T) {
 	isolateConfig(t)
 
@@ -274,8 +269,8 @@ func TestLoadMigratesMissingCaptureMemory(t *testing.T) {
 }
 
 // The portal restore token is the compositor's receipt for one consent, and reusing it is what
-// keeps the picker from popping on every publish.
-// It survives a restart, which is the whole reason it is stored rather than held in the session.
+// keeps the picker off every publish.
+// Surviving a restart is the whole reason it is stored rather than held in the session.
 func TestPortalTokenSurvivesAReload(t *testing.T) {
 	isolateConfig(t)
 
@@ -290,8 +285,7 @@ func TestPortalTokenSurvivesAReload(t *testing.T) {
 	}
 
 	// An empty token is the compositor saying the consent was not persisted, so the one on disk is
-	// spent.
-	// Keeping it would send the next session to SelectSources with a value no compositor will honour.
+	// spent and keeping it would send the next SelectSources a value no compositor honours.
 	if err := SavePortalToken(""); err != nil {
 		t.Fatalf("SavePortalToken: %v", err)
 	}
@@ -308,14 +302,14 @@ func TestPortalTokenSurvivesAReload(t *testing.T) {
 	if got := PortalToken(); got != "" {
 		t.Errorf("a forgotten consent leaves no token, got %q", got)
 	}
-	// Forgetting what is already gone is the state the caller asked for.
+	// Forgetting what is already gone is the state the caller named, so it succeeds.
 	if err := ForgetPortalToken(); err != nil {
 		t.Errorf("ForgetPortalToken on a machine with no token: %v", err)
 	}
 }
 
-// The token is machine- and consent-local, so it must not ride along in a preset:
-// a preset copied to another machine would carry a token no compositor there issued.
+// The token is one machine's and one consent's, so a preset copied to another machine would carry
+// a token no compositor there issued.
 func TestPresetsCarryNoPortalToken(t *testing.T) {
 	isolateConfig(t)
 
@@ -338,8 +332,9 @@ func TestPresetsCarryNoPortalToken(t *testing.T) {
 	}
 }
 
-// A corrupt file yields the defaults, and yields the reason with it: the form opens on values the
-// user did not choose, which is a state to report rather than one to present as their settings.
+// The defaults come back with the reason beside them.
+// The form then opens on values the user did not choose, which is a state to report rather than one
+// to present as their settings.
 func TestLoadCorruptFileReturnsDefaultsAndReason(t *testing.T) {
 	isolateConfig(t)
 
@@ -357,9 +352,9 @@ func TestLoadCorruptFileReturnsDefaultsAndReason(t *testing.T) {
 	}
 }
 
-// The working settings are rewritten on the next field change, so a corrupt file left in place is a
-// file that write destroys.
-// The values have to survive it.
+// The next field change rewrites the working settings, so a corrupt file left in place is one that
+// write destroys.
+// The bytes have to survive it.
 func TestLoadKeepsACorruptFileOutOfSavesReach(t *testing.T) {
 	isolateConfig(t)
 
@@ -385,7 +380,7 @@ func TestLoadKeepsACorruptFileOutOfSavesReach(t *testing.T) {
 	}
 }
 
-// A second failure means the file written after the first one is corrupt too.
+// A second failure is the file written after the first one, which holds the defaults.
 // The copy from the first failure is the user's own data and outranks it.
 func TestLoadKeepsTheFirstCorruptCopy(t *testing.T) {
 	isolateConfig(t)

@@ -6,34 +6,26 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// Turns one statement from the backend into a sentence.
 ///
-/// The backend never sends prose.
-/// It sends a code naming which fact it is stating and the identifiers the fact is about - "this pair shares
-/// no device memory", capture <c>portal</c>, codec <c>libx264</c>, engine <c>gstreamer</c> - and this is
-/// where that becomes something to read (api/proto/screenshare/v1/text.proto).
+/// The backend sends no prose.
+/// It sends a code naming the fact it is stating and the identifiers the fact is about - capture
+/// <c>portal</c>, codec <c>libx264</c>, engine <c>gstreamer</c> - and this is where that becomes something to
+/// read (api/proto/screenshare/v1/text.proto).
 ///
-/// Every sentence here follows the same shape, and it is the shape that makes a greyed control useful rather
-/// than merely honest:
+/// Every sentence names the limit, which side has it, and the way out, which is what makes a greyed control
+/// useful rather than merely honest.
+/// Where the backend hands over an alternative the sentence uses it, and where it hands over none the
+/// sentence stops rather than trailing off.
+/// Identifiers reach the screen through <see cref="Words"/>, so a reader is told about an NVIDIA GPU rather
+/// than about <c>nvenc</c>, and the identifier comes back only where the reader meets it again in a log or a
+/// command line.
 ///
-/// <b>Name the limit, name which side has it, name the way out.</b> "AV1 needs a recent GPU" is a limit with
-/// no side and no exit.
-/// "The GStreamer encoders have no preset ladder - switch to a capture method that runs ffmpeg to use it"
-/// says what is missing, whose it is, and what to do.
-/// Where the backend hands over an alternative, the sentence uses it; where it hands over none, the sentence
-/// stops rather than trailing off.
-///
-/// <b>Say it in the reader's terms.</b> The identifiers cross the wire because they are what both sides agree
-/// on; they reach the screen through <see cref="Words"/>, so a reader is told about an NVIDIA GPU rather than
-/// about <c>nvenc</c>.
-/// The identifier itself comes back only where the reader will meet it again in a log or a command line.
-///
-/// An unknown code renders as the code.
-/// A shell older than its backend will meet one, and a blank where a reason belongs reads as a control greyed
-/// for no reason at all - which is worse than a line the reader can search for.
+/// An unknown code renders as the code: a shell older than its backend will meet one, and a blank where a
+/// reason belongs reads as a control greyed for nothing.
 /// </summary>
 public static class Statements
 {
     /// <summary>
-    /// The sentence for one statement, and the empty string for no statement at all.
+    /// The sentence for one statement, and the empty string for none.
     /// Absence is the normal case: most controls carry no reason and most entries no note.
     /// </summary>
     public static string Of(Text? text)
@@ -46,7 +38,7 @@ public static class Statements
         var a = new Args(text);
         return text.Code switch
         {
-            // --- Capture backends and monitors ------------------------------------
+            // Capture backends and monitors.
 
             TextCode.CaptureWrongOs =>
                 $"{Words.Capture(a.Capture)} needs {Words.OperatingSystem(a.Os)}.",
@@ -55,8 +47,8 @@ public static class Statements
                 $"{Words.Capture(a.Capture)} needs an {Words.DisplayServer(a.Display)} session. "
                 + "On Wayland it would see only the older windows, not the desktop - use the screen picker instead.",
 
-            // A note and not a refusal, so it is a fragment: it prints on the entry's own row, beside the
-            // name, where a sentence would crowd the name out of the width a dropdown has.
+            // A note and not a refusal, so a fragment: it prints on the entry's own row, where a sentence
+            // would crowd out the name.
             // What the privilege is for is the entry's paragraph (Descriptions.Capture).
             TextCode.CaptureNeedsGrant => "needs elevated privileges",
 
@@ -68,10 +60,8 @@ public static class Statements
                 _ => "This capture method chooses what it grabs itself.",
             },
 
-            // Why the wizard offers a list of screens and no pictures of them.
-            // Two sessions reach a screen only through something that chooses for them, and each is named for
-            // what it does rather than for what it lacks: naming the picker and naming the system is what
-            // tells a reader this is how their machine works and not a fault.
+            // Each branch names what the session does rather than what it lacks, so the absence of a picture
+            // reads as how the machine works and not as a fault.
             TextCode.NoMonitorPreview => a.Display == "wayland"
                 ? "Wayland reaches a screen only through the desktop's own picker, which asks "
                   + "every time, so there is no picture of one screen to show here. The picker "
@@ -86,7 +76,7 @@ public static class Statements
             TextCode.ScaledFromSource =>
                 $"from {Plain(a.Width)} × {Plain(a.Height)}",
 
-            // --- Publish engines and the encoder probe ----------------------------
+            // Publish engines and the encoder probe.
 
             TextCode.EngineToolingMissing =>
                 $"{Words.Engine(a.Engine)} is not installed, so nothing that runs on it can encode here. "
@@ -115,7 +105,7 @@ public static class Statements
             TextCode.CodecNotImplemented =>
                 "Not built yet - it is listed so you can see it is coming.",
 
-            // --- Carriage ---------------------------------------------------------
+            // Carriage.
 
             TextCode.TransportCarriesNoCodec => Ways(
                 $"{Words.Transport(a.Transport)} cannot carry this format on {Words.Engine(a.Engine)}",
@@ -150,7 +140,7 @@ public static class Statements
                 : $"The relay does not re-serve {Words.Format(a.Format)} over {Words.Transport(a.Transport)}, so a "
                   + "player would connect and receive nothing.",
 
-            // --- Pixel format, colour and decoding --------------------------------
+            // Pixel format, colour and decoding.
 
             TextCode.CodecCodesNoRgb =>
                 "This encoder cannot take the desktop's pixels directly. Only H.265 and VP9 have a mode for it, "
@@ -176,7 +166,7 @@ public static class Statements
                 + $"{Words.List(a.DecodeFamilies.Select(Words.DecodeFamily), "and")} and nowhere else. "
                 + "Everyone else decodes it on the CPU, which still works and costs them cores.",
 
-            // --- Frame memory and the GPU path ------------------------------------
+            // Frame memory and the GPU path.
 
             TextCode.PairHasNoDeviceMemory =>
                 $"{Words.Capture(a.Capture)} and this encoder share no memory on {Words.Engine(a.Engine)}, "
@@ -203,7 +193,7 @@ public static class Statements
             TextCode.DrmMapUnusedOnDevice =>
                 "The frames stay on the GPU, so nothing is copied back and no route is chosen.",
 
-            // --- What carries the frames on each GPU path -------------------------
+            // What carries the frames on each GPU path.
 
             TextCode.ImportGstPortalVaapi =>
                 "The picker's frames are handed to the encoder directly, and the GPU converts them on the way.",
@@ -224,7 +214,7 @@ public static class Statements
                 $"The encoder converts the picture itself and sends {Words.Chroma(a.Chroma)} at "
                 + $"{Words.ColorRange(a.ColorRange)} whatever you pick here.",
 
-            // --- Rate control ------------------------------------------------------
+            // Rate control.
 
             TextCode.CqOnlyInConstantQuality =>
                 "There is a quality target only when the encoder is holding quality. Switch to constant quality to set one.",
@@ -232,7 +222,7 @@ public static class Statements
             TextCode.BitrateNotInMode =>
                 $"{Words.Mode(a.Mode)} aims at no bandwidth figure - it spends whatever the picture costs.",
 
-            // --- The pointer -------------------------------------------------------
+            // The pointer.
 
             TextCode.KmsgrabHasNoCursorPlane =>
                 $"{Words.Capture(a.Capture)} reads the screen as it is scanned out, and the pointer is composed "
@@ -320,7 +310,7 @@ public static class Statements
             TextCode.AudioTrackCodedAt =>
                 $"{Decimal(a.RateHz / 1000.0)} kHz · {Number(a.BitrateKbps)} kbit/s",
 
-            // --- Where an engine departs from the mode --------------------------------
+            // Where an engine departs from the mode.
 
             TextCode.Rav1ESizesNoRateBuffer =>
                 "rav1e has no rate buffer, in any mode.",
@@ -353,7 +343,7 @@ public static class Statements
                 + $"{Decimal(a.BitrateMbps)} Mbit/s target - it sets the target as a percentage of the ceiling, "
                 + "and half is as low as it goes.",
 
-            // --- Codec capability gaps -----------------------------------------------
+            // Codec capability gaps.
 
             TextCode.GapNvencAv1NoLosslessTune =>
                 "NVIDIA's AV1 encoder has no lossless mode, unlike its H.264 and H.265 ones.",
@@ -434,7 +424,7 @@ public static class Statements
                 "The GStreamer H.265, VP9 and AV1 elements take no RGB input. Sending the desktop's own pixels "
                 + "needs a capture method that runs ffmpeg.",
 
-            // --- Diagnostics ---------------------------------------------------------
+            // Diagnostics.
 
             TextCode.PublishRefused =>
                 "These settings cannot be published as they stand.",
@@ -469,18 +459,17 @@ public static class Statements
                   + $"{Decimal(a.BitrateMbps)} Mbit/s of it - about {Number((long)Math.Round(a.RawMbps / a.BitrateMbps))}:1."
                 : $"Your screen produces {Decimal(a.RawMbps)} Mbit/s uncompressed.",
 
-            // --- Presets ---------------------------------------------------------------
+            // Presets.
 
-            // The sentence names the preset even though it prints under the row that already does, so that it
-            // still says what it is about wherever it is shown.
-            // The publish leg is the way out the backend hands over: it is the one dimension the search does
-            // not move, so it is what is left to change.
+            // The sentence names the preset although it prints under the row that already does, so it still
+            // says what it is about wherever it is shown.
+            // The publish leg is the one dimension the search does not move, so it is what is left to change.
             TextCode.PresetUnreachable =>
                 $"Nothing this machine can run delivers {Words.Preset(a.Preset)} over "
                 + $"{Words.Transport(a.Transport)}. Nothing was changed - a near miss under this "
                 + "name would be settings you did not ask for.",
 
-            // --- Notices ---------------------------------------------------------------
+            // Notices.
 
             TextCode.SettingsStoreUnreadable => a.Path.Length > 0
                 ? $"Your saved settings could not be read, so these are the defaults. The old file was kept as {a.Path}."
@@ -491,19 +480,17 @@ public static class Statements
                 : "Your saved presets could not be read, so none are listed.",
 
             // A backend newer than this build.
-            // The code is shown so it can be searched for and reported, which is more than a blank line gives
-            // anyone.
+            // The code is printed so it can be searched for and reported.
             _ => text.Code.ToString(),
         };
     }
 
-    /// <summary>Whether a statement would render as anything at all.</summary>
+    /// <summary>Whether a statement renders as anything.</summary>
     public static bool Any(Text? text) => Of(text).Length > 0;
 
     /// <summary>
-    /// Why a mode's bandwidth spreads, for the sentence that says the top of the spread is too high.
-    /// It follows the mode alone, so it sits beside the sentence quoting it rather than becoming three
-    /// sentences.
+    /// Why a mode's bandwidth spreads, for the sentence saying the top of the spread is too high.
+    /// It follows the mode alone, so it sits inside that sentence rather than becoming three of them.
     /// </summary>
     private static string Burst(string mode) => mode switch
     {
@@ -514,8 +501,8 @@ public static class Statements
     };
 
     /// <summary>
-    /// A statement and the ways out it carries: "…, but X - or Y." A statement with no way out ends after
-    /// the fact rather than promising one.
+    /// A statement and the ways out it carries: "fact - do X, or do Y."
+    /// A statement with no way out ends after the fact rather than promising one.
     /// </summary>
     private static string Ways(string fact, params string[] ways)
     {
@@ -524,8 +511,8 @@ public static class Statements
     }
 
     /// <summary>
-    /// Several statements read one after another, dropping the ones that had nothing to say.
-    /// Each already ends in its own punctuation, so they are joined with a space.
+    /// Several statements one after another, dropping the ones with nothing to say.
+    /// Each already ends in its own punctuation, so they join with a space.
     /// </summary>
     private static string Sentences(string opening, params string[] rest)
     {
@@ -534,36 +521,33 @@ public static class Statements
         return string.Join(" ", parts);
     }
 
-    /// <summary>A whole figure, grouped the way the reader's own locale groups one.</summary>
+    /// <summary>A whole figure, grouped as the reader's locale groups one.</summary>
     private static string Number(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
     /// <summary>
-    /// A whole figure with no grouping at all, for the ones that are identifiers rather than quantities: a
-    /// pixel dimension is written 2560 everywhere in the world, and a thousands separator in one would read
-    /// as a different number.
+    /// A whole figure with no grouping, for the ones that are identifiers rather than quantities: a pixel
+    /// dimension is written 2560 everywhere, and a separator in one reads as a different number.
     /// </summary>
     private static string Plain(long value) => value.ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// A rate, to one decimal place under ten and to none above it.
-    /// A stream is never precise to a hundredth of a megabit and printing one implies it is.
+    /// A stream is never precise to a hundredth of a megabit, and printing one implies it is.
     /// </summary>
     private static string Decimal(double value) =>
         value < 10 ? value.ToString("0.#", CultureInfo.CurrentCulture) : value.ToString("0", CultureInfo.CurrentCulture);
 
     /// <summary>
     /// A sentence lowercased at its first letter, for quoting one inside another.
-    /// Only the first character moves, so an identifier or an acronym further in is left alone.
+    /// Only the first character moves, so an acronym further in is left alone.
     /// </summary>
     private static string Lower(string sentence) =>
         sentence.Length == 0 || char.IsLower(sentence[0]) ? sentence : char.ToLowerInvariant(sentence[0]) + sentence[1..];
 
     /// <summary>
-    /// The arguments of one statement, read by name.
-    ///
-    /// By name and never by position, because a statement carries the arguments its facts needed and leaves
-    /// out the ones they did not: the engine a way out points at is present on some rows and absent on
-    /// others, and a reader keyed on position would silently shift.
+    /// The arguments of one statement, read by name and never by position.
+    /// A statement carries the arguments its facts needed and leaves out the rest, so a reader keyed on
+    /// position would silently shift.
     /// </summary>
     private readonly struct Args(Text text)
     {
@@ -577,8 +561,7 @@ public static class Statements
 
         public string Transport => Id(TextArgName.Transport);
 
-        /// <summary>The built-in preset a statement is about, which is not the NVENC ladder step
-        /// <see cref="Effort"/> carries.</summary>
+        /// <summary>The built-in preset, not the NVENC ladder step <see cref="Effort"/> carries.</summary>
         public string Preset => Id(TextArgName.Preset);
 
         public string Codec => Id(TextArgName.Codec);
@@ -635,10 +618,9 @@ public static class Statements
 
         public long MaxrateMbps => Num(TextArgName.MaxrateMbps);
 
-        /// <summary>The top of the selected codec's quantizer scale on the engine behind the capture.</summary>
+        /// <summary>Top of the selected codec's quantizer scale on the engine behind the capture.</summary>
         public long CqMax => Num(TextArgName.CqMax);
 
-        /// <summary>The highest bitrate target the selected codec's encoder accepts.</summary>
         public long BitrateLimitMbps => Num(TextArgName.BitrateLimitMbps);
 
         public long UplinkMbps => Num(TextArgName.UplinkMbps);
@@ -648,9 +630,8 @@ public static class Statements
         public long BitrateKbps => Num(TextArgName.BitrateKbps);
 
         /// <summary>
-        /// The bitrate, which arrives as a whole figure where it is a target the user set and as a fraction
-        /// where it is a prediction.
-        /// Both are read here, so a sentence quoting one does not have to know which of the two it got.
+        /// Whole where it is a target the user set, fractional where it is a prediction.
+        /// Both are read here, so a sentence quoting it does not have to know which it got.
         /// </summary>
         public double BitrateMbps => Dec(TextArgName.BitrateMbps);
 

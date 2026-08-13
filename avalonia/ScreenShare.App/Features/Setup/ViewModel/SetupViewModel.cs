@@ -17,72 +17,66 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.ViewModel;
 
 /// <summary>
-/// The setup flow: which step is showing, and the strip that is at once its navigation, its progress and its
-/// summary.
+/// The setup flow: which step is showing, and the strip that is its navigation, its progress and its summary
+/// at once.
 ///
 /// <b>It owns neither the draft nor the form.</b> Both belong to <see cref="FormSession"/>, which the window
 /// holds once, because the viewer edits settings too and a draft each would be two copies of one message.
-/// This class reads that draft through on every pass and writes to it; what it owns is the step the reader is
-/// standing on and the commit.
+/// This flow reads that draft through on every pass and writes to it; what it owns is the step the reader
+/// stands on and the commit.
 ///
-/// <b>It decides nothing else either.</b> Which steps exist, which controls each one draws, what they are
-/// called, which values they offer, which of those are greyed and why, what the configuration is predicted to
-/// cost and the line each step's chip carries all come back from <see cref="IBackend.ResolveFormAsync"/>
-/// already decided (docs/ipc-api.md, "The rule").
+/// <b>It decides nothing else either.</b> Which steps exist, which controls each draws, what they are called,
+/// which values they offer, which of those are greyed and why, what the configuration is predicted to cost and
+/// the line each step's chip carries all arrive decided from <see cref="IBackend.ResolveFormAsync"/>
+/// (docs/ipc-api.md, "The rule").
 ///
-/// <b>The steps are the form's groups, minus the one the viewer draws.</b> They used to be a table here, and
-/// three of the seven rows named group keys the backend does not answer with - so three steps of the wizard
-/// drew an empty column, and the four groups the table did not name were unreachable.
-/// Deriving them removes the class of bug rather than the instance: a group added to the contract is a step
-/// that appears and works with nothing here to edit (<see cref="SetupSteps"/>).
-/// The one group held back is the watch group, and holding it back is placement rather than a second list -
-/// this screen configures what this machine sends, and how a stream comes back governs the tiles in the
-/// viewer (<see cref="GroupPlacement"/>).
+/// <b>The steps are the form's groups, minus the one the viewer draws.</b> Deriving them is what makes a group
+/// added to the contract a step that appears and works with nothing here to edit (<see cref="SetupSteps"/>).
+/// The group held back is the watch group, and holding it back is placement rather than a second list: this
+/// screen configures what this machine sends, and how a stream comes back governs the tiles in the viewer
+/// (<see cref="GroupPlacement"/>).
 ///
 /// <b>Inputs</b> are <see cref="CurrentStep"/> and the field writes that reach the draft through
-/// <see cref="Write"/>.
-/// Both end in <see cref="Apply"/>.
+/// <see cref="Write"/>, and both end in <see cref="Apply"/>.
 ///
 /// <b>Outputs</b> are written by <see cref="Apply"/> on every pass, including the branches that turn a form
 /// off.
-/// A flow whose draft has not resolved yet is an honest state rather than a gap - the strip is empty, every
-/// group renders its unresolved branch, and the sentence saying why sits above the column.
+/// A flow whose draft has not resolved is a state rather than a gap: the strip is empty, every group renders
+/// its unresolved branch, and the sentence saying why sits above the column.
 /// </summary>
 public sealed class SetupViewModel : Observable
 {
     /// <summary>
     /// Which form the main column draws.
-    /// Three, and the split is layout rather than substance: every one of them renders a group of the
-    /// resolved form.
+    /// A split by layout and not by substance: no branch of it knows what its step's settings mean.
     /// </summary>
     private enum StepContent
     {
-        /// <summary>A group of the resolved form, drawn by the one generic renderer.</summary>
+        /// <summary>One group of the resolved form, through the generic renderer.</summary>
         Fields,
 
         /// <summary>
-        /// The same thing in a layout of its own: cards for the choice whose options carry a paragraph each,
-        /// a banded track for the scale with named ends, and a row of dropdowns for what is read back from
-        /// the source.
+        /// A group in a layout of its own: cards for the choice whose options carry a paragraph each, a banded
+        /// track for the scale with named ends, and a row of dropdowns for what is read back off the source.
         /// </summary>
         Quality,
 
-        /// <summary>The review, which asks whether anything blocks the publish rather than editing a setting.</summary>
+        /// <summary>The terminal step: what blocks the publish, rather than a setting to edit.</summary>
         Review,
     }
 
     private readonly IBackend _backend;
 
     /// <summary>
-    /// The draft and the form it resolves to, owned by the window and read through here on every pass.
-    /// This flow holds no copy of either.
+    /// The draft and the form it resolves to, owned by the window and read through on every pass.
+    /// No copy of either is held here.
     /// </summary>
     private readonly FormSession _form;
 
     /// <summary>
-    /// The running state, owned by the window and read through here on every pass.
-    /// The flow holds no copy of it: what is publishing and what the relay answered are two of the four
-    /// things the commit turns on, and a second reading of either is a second opinion about it.
+    /// The running state, owned by the window and read through on every pass.
+    /// No copy is held here: what is publishing and what the relay answered are among the states the commit
+    /// turns on, and a second reading of either is a second opinion about it.
     /// </summary>
     private readonly Session _session;
 
@@ -90,72 +84,70 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// One select command per step key, made once and reused.
-    /// Reusing the instance is what lets a chip row be a record: two passes over the same step then compare
-    /// equal, rather than merely looking alike, and the strip is left alone.
+    /// Reusing the instance is what lets a chip row be a record: two passes over one step compare equal rather
+    /// than merely look alike, and the strip is left alone.
     /// </summary>
     private readonly Dictionary<string, DelegateCommand> _select = [];
 
     /// <summary>
-    /// One renderer per group key, kept across passes and made on demand.
-    /// The form-driven steps differ in nothing this layer can see, so they are instances of one component
-    /// rather than one component each.
+    /// One renderer per group key, made on demand and kept across passes.
+    /// The form-driven steps differ in nothing this layer can see, so they are instances of one component.
     /// </summary>
     private readonly Dictionary<string, FieldGroupViewModel> _groups = [];
 
     /// <summary>
-    /// One reset command per group key, made once and reused, for the reason the select commands are: reusing
-    /// the instance is what lets the action beside a heading be a record that compares equal across passes.
+    /// One reset command per group key, made once and reused, for the reason the select commands are: the held
+    /// instance is what lets the action beside a heading be a record that compares equal across passes.
     /// </summary>
     private readonly Dictionary<string, DelegateCommand> _reset = [];
 
     /// <summary>
     /// The measurement the uplink figure is offered beside.
-    /// The command is held and the action around it is made per pass, because what the action says moves with
-    /// the running state: holding the command is what keeps the button the reader presses and the lock that
-    /// refuses a second press one object (<see cref="FieldAction"/>).
+    /// The command is held and the action around it is made per pass, since what the action says moves with the
+    /// running state: holding the command keeps the button the reader presses and the lock refusing a second
+    /// press one object (<see cref="FieldAction"/>).
     /// </summary>
     private readonly PendingCommand _measure;
 
     // --- What the screen is drawn from ---------------------------------------------
 
     /// <summary>
-    /// Whether a commit this flow asked for is still in flight, read from the command that started it rather
-    /// than mirrored in a field of its own.
-    /// It locks the commit for exactly as long as the round trip lasts, so a second press cannot ask for a
-    /// second stream - or a second restart of one - while the backend is still deciding about the first, and
-    /// it is the same field the button draws its spinner from, so the lock and the wait cannot disagree.
+    /// Whether a commit this flow asked for is still in flight, read off the command that started it rather
+    /// than mirrored in a field.
+    /// It locks the commit for as long as the round trip lasts, so a second press cannot ask for a second
+    /// stream, or a second restart of one, while the backend is still deciding about the first.
+    /// The button draws its spinner from the same field, so the lock and the wait cannot disagree.
     /// </summary>
     private bool Starting => Review.StartSharingCommand.IsRunning;
 
     /// <summary>
     /// Why the backend refused the last commit, empty otherwise.
-    /// It is that side's own sentence and is shown as it stands: a refusal is prose written for a person
-    /// (<c>docs/ipc-api.md</c>, "Errors").
+    /// That side's own sentence, shown as it stands: a refusal is prose written for a person
+    /// (docs/ipc-api.md, "Errors").
     /// </summary>
     private string _refusal = "";
 
     /// <summary>
     /// What the backend answered about the last measurement, empty otherwise.
-    /// It is that side's own sentence and rides on the button that asked for it, which is the control it is
-    /// about - a measurement that did not happen leaves the form drawing perfectly well, so it is neither the
-    /// banner that says the screen could not be described nor a panel at the foot of the column
-    /// (<see cref="MeasureNotice"/>).
+    /// That side's own sentence, and it rides on the button that asked for it: a measurement that did not
+    /// happen leaves the form drawing, so it is neither the banner about a screen that cannot be described nor
+    /// a panel at the foot of the column (<see cref="MeasureNotice"/>).
     /// </summary>
     private string _measured = "";
 
     /// <summary>
     /// The steps the last pass rendered.
-    /// Held because moving through them is an input rather than a render - Back and Continue need the order,
-    /// and the order is the form's.
+    /// Held because moving through them is an input rather than a render: Back and Continue need the order, and
+    /// the order is the form's.
     /// </summary>
     private IReadOnlyList<SetupStepRow> _steps = [];
 
     /// <param name="dispatch">
     /// Hands work to the UI loop.
-    /// Injected rather than reached for, so this type stays free of a toolkit and a test can pass a
-    /// synchronous dispatcher - the same arrangement <see cref="Backend.Session"/> uses, and for the same
-    /// reason: the answer to an effect arrives on whichever thread the transport completed on, and every
-    /// property below is read by a binding that only tolerates being written from one.
+    /// Injected rather than reached for, so this type holds no toolkit and a test passes a synchronous
+    /// dispatcher, the arrangement <see cref="Backend.Session"/> has for the same reason: an effect's answer
+    /// arrives on whichever thread the transport completed on, and every property below is read by a binding
+    /// that tolerates being written from one thread only.
     /// </param>
     public SetupViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
@@ -169,75 +161,71 @@ public sealed class SetupViewModel : Observable
         _session = session;
         _dispatch = dispatch;
 
-        // Everything the render function reads is built before anything can call it, so a step moved from a
-        // child's constructor would still find a complete view model.
+        // Everything the render function reads exists before anything can call it, so a step moved from a
+        // child's constructor still finds a complete view model.
         Steps = [];
         BackCommand = new DelegateCommand(Back, () => CanGoBack);
         ContinueCommand = new DelegateCommand(Continue, () => CanContinue);
 
-        // Looking again is a read across the socket like every other, so the button waits on it rather than
+        // Looking again is a read across the socket like any other, so the button waits on it rather than
         // sitting still while a backend that is coming up is dialled.
         RetryCommand = new PendingCommand(_form.RetryAsync, dispatch, () => IsUnavailable);
 
-        // The measurement is an effect: it uploads a real payload, takes seconds, and the backend refuses it
-        // outright while a stream is publishing.
-        // Hence a button the reader presses, beside the figure it writes, rather than a number that fills
-        // itself in - and one that is greyed in the state the backend refuses, rather than pressable into a
-        // refusal.
+        // Measuring is an effect: a real payload goes up, it takes seconds, and the backend refuses it outright
+        // while a stream is publishing.
+        // Hence a button beside the figure it writes rather than a number that fills itself in, greyed in the
+        // state the backend refuses rather than pressable into a refusal.
         _measure = new PendingCommand(
             MeasureAsync, dispatch, () => _form.Draft is not null && MeasureRefusal().Length == 0);
 
-        // News that the draft or the form behind it moved, which is the one thing this flow draws from.
-        // Raised on the UI loop by the form session itself, so there is nothing to marshal here.
+        // News that the draft, or the form behind it, moved: the one thing this flow draws from.
+        // Raised on the UI loop by the form session, so there is nothing to marshal here.
         _form.Changed += Apply;
 
-        // The one group with a layout of its own, made eagerly because two children hold it.
-        // Which controls it draws is still the form's answer - the step picks its fields out of the group by
+        // The one group with a layout of its own, made eagerly because two children take it.
+        // Which controls it draws is still the form's answer: the step picks its fields out of the group by
         // key, and picking a place for a field is placement.
         Quality = new QualityStepViewModel(Group(QualityLayout.GroupKey));
 
-        // The same group, and the other half of it: the drawer draws the fields the step's layout places
-        // nowhere, so between them every control the backend offered is reachable exactly once
-        // (Model/QualityLayout.cs).
+        // The same group's other half: the drawer draws the fields the step's layout places nowhere, so between
+        // them every control the backend offered is reachable exactly once (Model/QualityLayout.cs).
         Advanced = new AdvancedDrawerViewModel(Group(QualityLayout.GroupKey));
 
-        // The pictures above the source step's controls.
-        // It writes the screen it is told to pick through the same seam every control writes through, so the
-        // grid and the list beneath it are two ways to one value rather than two values.
+        // The pictures over the source step's controls.
+        // The screen it is told to pick goes through the seam every control writes through, so the grid and the
+        // list beneath it are two ways to one value rather than two values.
         Screens = new ScreenPickerViewModel(
             backend, session, dispatch,
             monitor => Write(SourceLayout.MonitorKey, new FieldValue { Number = monitor }));
 
         Rail = new CostRailViewModel();
 
-        // The saved ways of publishing.
-        // It is handed the same two seams this flow holds and nothing of this flow's own: the store is the
-        // backend's and the draft is the window's, so a card that went through here would be one more hop
-        // between a press and the state it changes.
-        // Which screen draws it is the review's answer (ReviewStepViewModel).
+        // The saved ways of publishing, handed the seams this flow reads and nothing of this flow's own: the
+        // store is the backend's and the draft is the window's, so a card routed through here would be one more
+        // hop between a press and the state it changes.
+        // Which screen draws it is the review's own answer (ReviewStepViewModel).
         Review = new ReviewStepViewModel(
             SelectCommandOf, Back, StartSharingAsync, new PresetsViewModel(backend, form, dispatch), dispatch);
 
-        // Both edges of an effect this flow renders: a start locks the commit and a measurement greys the
-        // button that asked for it, and neither is a state anything else here would notice moving.
-        // The commands own the fact and say when it moved; what it looks like is still one pass.
+        // Both edges of an effect this flow renders: a start locks the commit and a measurement greys the button
+        // that asked for it, and neither is a state anything else here would notice moving.
+        // The commands own the fact and say when it moved, and what it looks like is still one pass.
         Review.StartSharingCommand.Changed += Apply;
         _measure.Changed += Apply;
 
-        // Rendered before anything is asked for, so the window has a complete view model to paint whether or
-        // not the backend is reachable, and the first form is a later pass rather than a precondition of the
-        // first one.
+        // Rendered before anything is asked for, so the window has a complete view model to paint whether or not
+        // the backend is reachable, and the first form lands on a later pass rather than gating this one.
         Apply();
     }
 
     /// <summary>
-    /// Raised once the backend has accepted a commit this flow asked for - a start, or an apply onto the
-    /// stream that was already running.
-    /// It is news that the commit went through and carries nothing, in the way every other signal here does:
-    /// what the stream became arrives on the event stream, and the window reads it there.
+    /// Raised once the backend has accepted a commit this flow asked for: a start, or an apply onto the stream
+    /// already running.
+    /// It carries nothing, as every signal here does, since what the stream became arrives on the event stream
+    /// and the window reads it there.
     ///
-    /// Whoever hosts this flow owns what happens next, because what happens next is a change of destination
-    /// and the destination is the window's state rather than this flow's.
+    /// Whoever hosts this flow owns what happens next, because that is a change of destination and the
+    /// destination is the window's state rather than this flow's.
     /// </summary>
     public event Action? WentLive;
 
@@ -248,9 +236,9 @@ public sealed class SetupViewModel : Observable
     /// <summary>
     /// The step showing, named by the form group it draws.
     /// The strip is non-linear on purpose: a returning reader clicks straight to the encode step and starts
-    /// sharing, and nothing requires walking the steps in order.
+    /// sharing, with nothing requiring the steps to be walked in order.
     ///
-    /// Empty until the first form lands, and a key the newest form no longer carries is not an error - the
+    /// Empty until the first form lands, and a key the newest form no longer carries is not an error: the
     /// render pass falls back to the first step rather than drawing nothing.
     /// </summary>
     public string CurrentStep
@@ -290,8 +278,8 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// The screens on offer, drawn from what is on them.
-    /// It appears above the source step's controls and nowhere else, and draws nothing where this machine
-    /// cannot show what one screen holds.
+    /// Above the source step's controls and nowhere else, and drawing nothing where this machine cannot show
+    /// what one screen holds.
     /// </summary>
     public ScreenPickerViewModel Screens { get; }
 
@@ -307,26 +295,25 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// Asks again after the backend could not answer.
-    /// It is a command rather than a timer because a retry loop would hammer an absent socket for as long as
-    /// the window is open.
+    /// A command rather than a timer, because a retry loop would hammer an absent socket for as long as the
+    /// window is open.
     ///
-    /// It is no longer the only way back, and that is the point of keeping it narrow: a backend that comes
-    /// back is noticed by <see cref="FormSession"/>, off the connection the window already holds.
-    /// What is left for the button is the failure nothing else reports - a read the backend served a refusal
-    /// to, or one that failed while the session's own reads did not.
+    /// It is not the only way back, which is the point of keeping it narrow: a backend that comes back is
+    /// noticed by <see cref="FormSession"/>, off the connection the window already holds.
+    /// What is left for the button is the failure nothing else reports, a read the backend served a refusal to
+    /// or one that failed while the session's own reads did not.
     /// </summary>
     public PendingCommand RetryCommand { get; }
 
     /// <summary>
-    /// The read in flight, and an already-completed task when none is.
-    /// Read through from the form session rather than held, for the one caller that legitimately needs it:
-    /// something that has to know the screen has caught up with the draft rather than merely having been
-    /// asked to.
-    /// A test waits on it instead of sleeping; nothing in the render path touches it.
+    /// The read in flight, an already-completed task when none is.
+    /// Read through from the form session rather than held, for the one caller that needs it: something that
+    /// has to know the screen has caught up with the draft rather than merely been asked to.
+    /// A test waits on it instead of sleeping, and nothing in the render path touches it.
     /// </summary>
     public Task Settled => _form.Settled;
 
-    /// <summary>The renderer for the step showing, null on a step that draws something else.</summary>
+    /// <summary>The renderer the step showing draws through, null on a step that draws something else.</summary>
     public FieldGroupViewModel? CurrentGroup { get => _currentGroup; private set => Set(ref _currentGroup, value); }
 
     public bool ShowsFields { get => _showsFields; private set => Set(ref _showsFields, value); }
@@ -337,7 +324,7 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// The rail steps aside on the review, which carries the same list beside its own commit.
-    /// Two copies of it on one screen would be two things to read and one of them redundant.
+    /// Two copies on one screen would be two things to read, one of them redundant.
     /// </summary>
     public bool IsRailVisible { get => _isRailVisible; private set => Set(ref _isRailVisible, value); }
 
@@ -346,24 +333,24 @@ public sealed class SetupViewModel : Observable
     public bool CanContinue { get => _canContinue; private set => Set(ref _canContinue, value); }
 
     /// <summary>
-    /// Whether the settings can be published as they stand.
+    /// Whether the settings publish as they stand.
     /// Stated by the form rather than ranked here, so the button and the refusal are one answer.
-    /// False while no form has arrived, which is the honest reading of settings nothing has vouched for yet.
+    /// False while no form has arrived, the honest reading of settings nothing has vouched for.
     /// </summary>
     public bool IsPublishable { get => _isPublishable; private set => Set(ref _isPublishable, value); }
 
-    /// <summary>The whole configuration in one line, composed by the backend.</summary>
+    /// <summary>The whole configuration in one line, worded here off the settings the form carried.</summary>
     public string Headline { get => _headline; private set => Set(ref _headline, value); }
 
-    /// <summary>Why no command could be rendered for these settings, empty when one was.</summary>
+    /// <summary>Why these settings render no command, empty where one was rendered.</summary>
     public string CommandError { get => _commandError; private set => Set(ref _commandError, value); }
 
     public bool HasCommandError { get => _hasCommandError; private set => Set(ref _hasCommandError, value); }
 
     /// <summary>
     /// Why the backend could not describe the screen, empty while it can.
-    /// It is the backend's own sentence, shown as it stands: a shell with nothing to talk to says so rather
-    /// than drawing a form it made up (docs/ipc-api.md, "What each side owes").
+    /// The backend's own sentence, shown as it stands: a shell with nothing to talk to says so rather than
+    /// drawing a form it made up (docs/ipc-api.md, "What each side owes").
     /// </summary>
     public string Unavailable { get => _unavailable; private set => Set(ref _unavailable, value); }
 
@@ -371,43 +358,41 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// Why the last write to an applied group could not be stored, empty while they are being stored.
-    /// It is the backend's own sentence, read through from the form session.
+    /// The backend's own sentence, read through from the form session.
     ///
-    /// It sits above the steps beside the unavailable banner rather than in it, because the two are different
-    /// news: a read that cannot be answered leaves the screen showing an older answer and blocks the publish,
-    /// and a write that cannot be stored leaves the screen showing exactly what the reader typed while the
-    /// backend goes on running on the value before it (<see cref="FormSession.Unsaved"/>).
+    /// It sits above the steps beside the unavailable banner rather than inside it, because the two are
+    /// different news: a read that cannot be answered leaves an older answer on screen and blocks the publish,
+    /// and a write that cannot be stored leaves exactly what the reader typed on screen while the backend goes
+    /// on running on the value before it (<see cref="FormSession.Unsaved"/>).
     /// </summary>
     public string Unsaved { get => _unsaved; private set => Set(ref _unsaved, value); }
 
     public bool HasUnsaved { get => _hasUnsaved; private set => Set(ref _hasUnsaved, value); }
 
-    /// <summary>Names the next step rather than saying "Next", so the button says where it goes.</summary>
+    /// <summary>Names the step it goes to rather than saying "Next".</summary>
     public string ContinueLabel { get => _continueLabel; private set => Set(ref _continueLabel, value); }
 
     /// <summary>
     /// The one render function.
-    /// It is synchronous, and it draws the last form the backend answered with rather than waiting for a
-    /// newer one: asking is the form session's <see cref="FormSession.Sync"/>, whose answer arrives on a
-    /// later pass.
+    /// Synchronous, and drawing the last form the backend answered with rather than waiting for a newer one:
+    /// asking is the form session's <see cref="FormSession.Sync"/>, whose answer arrives on a later pass.
     ///
-    /// Safe to run twice: the converge it asks for is skipped when the draft has not moved, and every row it
-    /// produces compares equal to the last one, so an unchanged pass fires no binding.
+    /// Safe to run twice: the converge it asks for is skipped while the draft has not moved, and every row it
+    /// produces compares equal to the last, so an unchanged pass fires no binding.
     /// </summary>
     public void Apply()
     {
-        // Reconciled from the render pass rather than performed by it: the pass states what it wants and the
+        // Reconciled from the render pass rather than performed by it: the pass names what it wants and the
         // converge decides whether anything has to be asked (docs/development-principles.md, "Idempotency").
         _form.Sync();
 
-        // Read through once, so every output below is derived from one form rather than from whatever the
-        // session held at the moment each of them was written.
+        // Read through once, so every output below derives from one form rather than from whatever the session
+        // held at the moment each was written.
         var form = _form.Form;
         var drawn = Drawn(form);
 
-        // A renderer per group this screen draws, then a pass over every renderer this flow holds - including
-        // the ones the newest form dropped, which is what makes them clear rather than go on showing what an
-        // older form said.
+        // A renderer per group this screen draws, then a pass over every renderer held, including the ones the
+        // newest form dropped: that is what clears them rather than leaving an older form's answer on screen.
         foreach (var group in drawn)
         {
             Group(group.Key);
@@ -423,21 +408,22 @@ public sealed class SetupViewModel : Observable
         _steps = SetupSteps.For(drawn);
         var current = Standing(_steps);
 
-        // The rail before the strip: the terminal chip repeats the rail's own summary, so it has to be the
-        // summary of the list the rail is about to draw rather than of the one it drew last pass.
+        // The rail before the strip: the terminal chip repeats the rail's summary, so that summary has to be of
+        // the list the rail is about to draw rather than of the one it drew last pass.
         var checks = PreflightChecks.Of(diagnostics, AnchorIn(_steps, form));
         Rail.Apply(form?.Summary?.Estimate, Uplink(), SetupSteps.Of(_steps, GroupOwning(drawn, RailLayout.UplinkKey)), checks);
 
         IsPublishable = form?.Publishable ?? false;
 
-        // Composed on every pass out of four states nothing here owns: the form's own verdict on the
-        // settings, whether the backend answered at all, whether a stream is already in force, and whether
-        // the relay is there to publish to.
-        // Three of them decide whether the button lights; the stream in force decides what pressing it does,
-        // which is the gate's Commit and is what the label and the sentence under it are read from.
-        // All four are read through rather than cached, so a relay that came back unlocks the button on the
-        // next pass, and a stream that ended puts the word "restart" back to "start sharing", without
-        // anything having had to remember either.
+        // Composed on every pass out of states nothing here owns: the form's verdict on the settings, whether
+        // the backend answered at all, whether a stream is already in force, and whether the relay is there to
+        // publish to.
+        // A stream in force decides what pressing the button does rather than whether it lights, which is the
+        // gate's Commit and what the label and the sentence under it are read from; the rest decide the
+        // lighting.
+        // Every one of them is read through rather than cached, so a relay that came back unlocks the button on
+        // the next pass and a stream that ended puts "restart" back to "start sharing", with nothing having had
+        // to remember either.
         var gate = PublishGate.Of(IsPublishable, _form.Unavailable, _session.Publish, _session.Relay, Starting);
         Review.Apply(gate, _form.Draft?.Publish?.Name ?? "", _refusal, Summaries(drawn, form), checks);
 
@@ -450,25 +436,25 @@ public sealed class SetupViewModel : Observable
         IsRailVisible = content != StepContent.Review;
         CurrentGroup = ShowsFields && current.Length > 0 ? Group(current) : null;
 
-        // The pictures above the source step.
-        // Which screen setting they are about is read out of the form like every other control, and whether
-        // they are drawn at all is the picker's own converge: it opens a screen capture per monitor, so it is
-        // told which step the reader is standing on rather than left to draw whenever the flow renders.
+        // The pictures over the source step.
+        // Which screen setting they are about is read out of the form like every other control, and whether they
+        // are drawn at all is the picker's own converge: it opens a screen capture per monitor, so it is told
+        // which step the reader stands on rather than left to draw whenever the flow renders.
         Screens.Apply(
             FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
             current == SourceLayout.GroupKey);
 
-        // The one-line shorthand for the whole configuration.
-        // Composed here out of the draft the form carried, for the reason each group's is: it picks a
-        // separator, an abbreviation and a length, none of which is visible from the backend.
+        // The whole configuration in one line.
+        // Worded here off the settings the form carried, for the reason each group's shorthand is: it picks a
+        // separator, an abbreviation and a length, none of them visible from the backend.
         Headline = _session.Words.Headline(form?.Settings?.Publish);
         CommandError = form?.Summary?.CommandError ?? "";
         HasCommandError = CommandError.Length > 0;
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;
 
-        // A notice and not the unavailable banner, which blocks the publish: settings that could not be
-        // stored are still settings a stream can be started on.
+        // A notice and not the unavailable banner, which blocks the publish: settings that could not be stored
+        // are still settings a stream starts on.
         Unsaved = _form.Unsaved;
         HasUnsaved = Unsaved.Length > 0;
 
@@ -503,20 +489,20 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// The groups this screen draws: every group the form carries except the ones another destination places.
-    /// Empty for a form that has not arrived, which is what makes an unresolved flow draw an empty strip
-    /// rather than steps it made up.
+    /// Empty for a form that has not arrived, which is what makes an unresolved flow draw an empty strip rather
+    /// than steps it invented.
     /// </summary>
     private static IReadOnlyList<FieldGroup> Drawn(Form? form)
         => form is null ? [] : form.Groups.Where(group => GroupPlacement.InSetup(group.Key)).ToList();
 
     /// <summary>
-    /// Which step the reader is actually standing on: the one they picked while the form still carries it,
-    /// and the first step otherwise.
+    /// The step the reader is standing on: the one picked while the form still carries it, the first step
+    /// otherwise.
     ///
     /// The fallback is not a repair of the input.
-    /// A form can drop the group the reader was on - it is the backend's list and it moves - and rewriting
+    /// A form can drop the group the reader was on, since it is the backend's list and it moves, and rewriting
     /// <see cref="CurrentStep"/> from a render pass would be the render function editing its own input.
-    /// Reading it through instead means the reader lands back where they were if the group returns.
+    /// Reading through instead lands the reader back where they were if the group returns.
     /// </summary>
     private string Standing(IReadOnlyList<SetupStepRow> steps)
     {
@@ -531,24 +517,23 @@ public sealed class SetupViewModel : Observable
     // --- The uplink measurement ------------------------------------------------------
 
     /// <summary>
-    /// Measures the line and writes what it finds into the uplink field, which re-resolves the form and
-    /// reprices everything beside it.
+    /// Measures the line and writes what it finds into the uplink field, which re-resolves the form and reprices
+    /// everything beside it.
     ///
-    /// It is an effect rather than a read: the backend uploads a payload, it takes seconds, and it is refused
-    /// outright while a stream is publishing.
-    /// So it is started by a press and never from a render pass, and the command that starts it is what keeps
-    /// a second press from starting a second upload while the first is still going.
+    /// An effect rather than a read: the backend uploads a payload, it takes seconds, and it is refused outright
+    /// while a stream is publishing.
+    /// So it is started by a press and never from a render pass, and the command that starts it keeps a second
+    /// press from starting a second upload over the first.
     ///
     /// The answer is marshalled back by hand.
-    /// <see cref="PendingCommand"/> marshals its own completion and nothing else, so the continuation here
-    /// runs on whichever thread the transport finished on - and everything below this line writes bound
-    /// properties.
+    /// <see cref="PendingCommand"/> marshals its own completion and nothing else, so the continuation here runs
+    /// on whichever thread the transport finished on, and everything below this line writes bound properties.
     /// </summary>
     private async Task MeasureAsync()
     {
-        // What the last attempt said goes now rather than when this one answers, the same way the commit's
-        // refusal does: it is about an attempt that is over, and leaving it up would put a sentence about the
-        // last measurement beside a spinner about this one.
+        // What the last attempt said goes now rather than when this one answers, as the commit's refusal does:
+        // it is about an attempt that is over, and leaving it up would put a sentence about the last measurement
+        // beside a spinner about this one.
         _measured = "";
         Apply();
 
@@ -559,23 +544,23 @@ public sealed class SetupViewModel : Observable
         }
         catch (BackendUnavailableException e)
         {
-            // Refusing to measure while a stream is live arrives here too, carrying the backend's own
-            // sentence, which is the one worth showing.
+            // A refusal to measure beside a live stream arrives here too, carrying the backend's own sentence,
+            // which is the one worth showing.
             _dispatch(() => MeasureFailed(e.Message));
         }
         catch (OperationCanceledException)
         {
-            // Nothing cancels this call, since it carries no token.
-            // A transport that reports one anyway still has to leave the button pressable rather than locked
-            // forever.
+            // This call carries no token, so nothing cancels it.
+            // A transport reporting one anyway still has to leave the button pressable rather than locked for
+            // good.
             _dispatch(() => MeasureFailed(""));
         }
     }
 
     /// <summary>
     /// Takes the measured figure, on the UI loop.
-    /// It goes in through the same write every control uses, so the measurement is a value the reader could
-    /// have typed rather than a second path into the draft.
+    /// It goes in through the write every control uses, so the measurement is a value the reader could have
+    /// typed rather than a second path into the draft.
     /// </summary>
     private void Measured(double mbps)
     {
@@ -600,14 +585,14 @@ public sealed class SetupViewModel : Observable
     /// Why the measurement cannot be taken now, empty while it can.
     ///
     /// <b>The state is the backend's and the sentence is this side's.</b> Whether a pipeline is in force is
-    /// <c>PublishState.live</c>, read through the one derivation that owns the reading
+    /// <c>PublishState.live</c>, read through the one derivation that owns that reading
     /// (<see cref="PublishGate.CommitFor"/>) rather than looked at again here.
-    /// What the backend would answer is a refusal to a call the button need not make: an upload beside a live
-    /// stream measures the line minus the stream, so the figure would be a property of the moment wearing the
-    /// shape of a property of the machine.
+    /// The backend would refuse a call the button need not make: an upload beside a live stream measures the
+    /// line minus the stream, so the figure would describe the moment while wearing the shape of a property of
+    /// the machine.
     ///
-    /// Read on demand rather than held, so a stream that ended unlocks the button on the next pass with
-    /// nothing here having remembered that it was locked.
+    /// Read on demand rather than held, so a stream that ended unlocks the button on the next pass with nothing
+    /// here having remembered it was locked.
     /// </summary>
     private string MeasureRefusal()
         => PublishGate.CommitFor(_session.Publish) == PublishCommit.Apply
@@ -615,26 +600,25 @@ public sealed class SetupViewModel : Observable
             : "";
 
     /// <summary>
-    /// What the button carries beside it: why it is greyed where it is, and what the last attempt answered
+    /// What the button carries beside it: why it is greyed where it is, what the last attempt answered
     /// otherwise.
-    /// The refusal comes first, because a stream on the air is the state the reader is in rather than news
-    /// about an attempt that is over.
+    /// The refusal wins, because a stream on the air is the state the reader is in rather than news about an
+    /// attempt that is over.
     /// </summary>
     private string MeasureNotice()
         => MeasureRefusal() is { Length: > 0 } refusal ? refusal : _measured;
 
     /// <summary>
-    /// One field write, arriving from whichever control the reader moved.
-    /// It goes to the one owner of the draft, which re-resolves and announces - and this flow re-renders off
-    /// that announcement like any other reader, rather than by knowing it had just written.
+    /// One field write, from whichever control the reader moved.
+    /// It goes to the one owner of the draft, which re-resolves and announces, and this flow re-renders off that
+    /// announcement like any other reader rather than off knowing it had written.
     /// </summary>
     private void Write(string key, FieldValue value) => _form.Write(key, value);
 
-    /// <summary>The group under this key among the ones this screen draws, or null where there is none.</summary>
     /// <summary>
-    /// One control of one group, and null where the form carries neither.
-    /// Null is a real answer and not a gap: a form that has not arrived and a backend that drew this group
-    /// without this control are both states a layout above it has to render.
+    /// One control of one group, null where the form carries neither.
+    /// Null is an answer and not a gap: a form that has not arrived, and a backend that drew this group without
+    /// this control, are both states the layout above has to render.
     /// </summary>
     private static Field? FieldOf(FieldGroup? group, string key)
     {
@@ -668,9 +652,9 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
-    /// The group that carries one field, or empty where none of the drawn ones does.
-    /// It is what lets the rail name the step a figure is edited on without holding a second idea of where
-    /// the backend put it.
+    /// The group carrying one field, empty where none of the drawn ones does.
+    /// It is what lets the rail name the step a figure is edited on without a second idea of where the backend
+    /// put it.
     /// </summary>
     private static string GroupOwning(IReadOnlyList<FieldGroup> groups, string fieldKey)
     {
@@ -689,9 +673,9 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
-    /// The uplink control, wherever the form put it, or null where it offers none.
-    /// Looked up rather than held, because which group carries it is the backend's arrangement and the rail
-    /// reads the same field view model that group's own step draws (Model/RailLayout.cs).
+    /// The uplink control wherever the form put it, null where the form offers none.
+    /// Looked up rather than held: which group carries it is the backend's arrangement, and the rail reads the
+    /// same field view model that group's own step draws (Model/RailLayout.cs).
     /// </summary>
     private FieldViewModel? Uplink()
     {
@@ -708,8 +692,8 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// Each group's key, heading and shorthand, which is what the review reads back.
-    /// Empty before the first form, so the review draws no tiles rather than four invented ones, and it lists
-    /// the groups this screen draws so the review and the strip name the same steps.
+    /// Empty before the first form, so the review draws no tiles rather than invented ones, and it lists the
+    /// groups this screen draws so the review and the strip name the same steps.
     /// </summary>
     private IReadOnlyList<(string Key, string Title, string Summary)> Summaries(
         IReadOnlyList<FieldGroup> groups, Form? form)
@@ -723,14 +707,13 @@ public sealed class SetupViewModel : Observable
                 .ToList();
 
     /// <summary>
-    /// Names the step that owns one field key, for the diagnostics that carry one.
-    /// It is the one thing this flow uses the field-to-group arrangement for, and it is placement: the
-    /// contract says which control a diagnostic is about, and this side is the only one that knows which
-    /// screen that control ended up on.
+    /// Names the step owning one field key, for the diagnostics that carry one.
+    /// The one thing this flow uses the field-to-group arrangement for, and it is placement: the contract says
+    /// which control a diagnostic is about, and this side is the only one that knows which screen that control
+    /// ended up on.
     ///
-    /// A diagnostic about a control another destination draws anchors nowhere and says so by answering empty,
-    /// which is the honest answer: the check is still listed, and it names no step of this wizard because no
-    /// step of this wizard fixes it.
+    /// A diagnostic about a control another destination draws anchors nowhere and answers empty, which is the
+    /// honest answer: the check is still listed, and it names no step here because no step here fixes it.
     /// </summary>
     private static Func<string, string> AnchorIn(IReadOnlyList<SetupStepRow> steps, Form? form)
     {
@@ -758,8 +741,8 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// What a chip says its step settled on.
-    /// A form-driven step repeats its group's own summary; the terminal step repeats the rail's count of what
-    /// is still owed.
+    /// A form-driven step repeats its group's own summary, the terminal step the rail's count of what is still
+    /// owed.
     /// </summary>
     private string ValueOf(SetupStepRow row) => row.IsTerminal ? Rail.ChecksSummary : Group(row.Key).Summary;
 
@@ -772,8 +755,8 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// The renderer for one group key, made on first use and kept.
-    /// Every one of them is handed the same action lookup, so the measurement follows the uplink field to
-    /// whichever group the backend puts it in rather than being nailed to one step.
+    /// All of them are handed the same action lookup, so the measurement follows the uplink field to whichever
+    /// group the backend puts it in rather than being nailed to one step.
     /// </summary>
     private FieldGroupViewModel Group(string key)
     {
@@ -790,20 +773,19 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
-    /// What this screen offers beside a heading: on an applied group, putting it back to what a fresh
-    /// installation holds.
+    /// What this screen offers beside a heading: on an applied group, a reset to what a fresh installation
+    /// holds.
     ///
-    /// <b>Which groups those are is the form's answer rather than a name written here.</b> An applied group
-    /// is one whose fields are the settings themselves, stored as they are typed and read by the backend on a
+    /// <b>Which groups those are is the form's answer rather than a name written here.</b> An applied group is
+    /// one whose fields are the settings themselves, stored as they are typed and read by the backend on a
     /// schedule of its own (<c>form.proto</c>, FieldGroup.applied).
-    /// A staged group is a proposal, so a reader who does not like what they typed walks away from it and
-    /// what this machine is has not moved; an applied one has already become what this machine is, and
-    /// nothing else puts it back.
-    /// Where the relay is, is the group that exists - a reader who changed a port has no other way to the
+    /// A staged group is a proposal, so a reader who dislikes what they typed walks away and what this machine
+    /// is has not moved; an applied one has already become what this machine is, and nothing else puts it back.
+    /// Where the relay is, is the group that exists: a reader who changed a port has no other way back to the
     /// number the relay serves on.
     ///
-    /// The action is composed per pass and the command inside it is the held one, so two passes over one form
-    /// produce actions that compare equal (<see cref="GroupAction"/>).
+    /// The action is composed per pass around the held command, so two passes over one form produce actions
+    /// that compare equal (<see cref="GroupAction"/>).
     /// </summary>
     private GroupAction? GroupActionFor(FieldGroup group) => group.Applied
         ? new GroupAction(
@@ -828,12 +810,11 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// What this screen offers beside one control.
-    /// One field has one: the uplink, which is a figure this machine can measure rather than only a figure to
-    /// type.
+    /// The uplink is the field that has one, being a figure this machine can measure rather than only type.
     ///
-    /// The action is composed here on every pass and the command inside it is the held one, so two passes
-    /// over one state produce actions that compare equal while what the button says still follows the state
-    /// that decides it (<see cref="FieldAction"/>).
+    /// The action is composed on every pass and the command inside it is the held one, so two passes over one
+    /// state produce actions that compare equal while what the button says still follows the state deciding it
+    /// (<see cref="FieldAction"/>).
     /// </summary>
     private FieldAction? ActionFor(string key) => key == RailLayout.UplinkKey
         ? new FieldAction(
@@ -857,7 +838,7 @@ public sealed class SetupViewModel : Observable
         return command;
     }
 
-    /// <summary>The one write that moves the flow. Every chip and every Edit link ends here.</summary>
+    /// <summary>The one write that moves the flow: every chip and every Edit link ends here.</summary>
     private void GoTo(string key) => CurrentStep = key;
 
     private void Back()
@@ -881,43 +862,42 @@ public sealed class SetupViewModel : Observable
     // --- The commit ------------------------------------------------------------------
 
     /// <summary>
-    /// Puts the draft the reader configured on the air: it starts a stream where none is running, and
-    /// restarts the running one on these settings where there is.
+    /// Puts the draft on the air: a stream is started where none runs, and the running one is restarted on
+    /// these settings where one does.
     ///
-    /// <b>Which of the two it is, is read from the running state on this pass rather than remembered.</b> The
-    /// gate the last render composed is not consulted - the stream can start or end between the pass that
-    /// drew the button and the press that took it, and the backend refuses each of the two effects in exactly
-    /// the state the other one is for.
-    /// One derivation answers both sides, so what the label promised and what the press sends cannot come
-    /// apart (<see cref="PublishGate.CommitFor"/>).
+    /// <b>Which of the two is read off the running state on this pass rather than remembered.</b> The gate the
+    /// last render composed is not consulted, since the stream can start or end between the pass that drew the
+    /// button and the press that took it, and the backend refuses each effect in exactly the state the other
+    /// one is for.
+    /// One derivation answers both sides, so what the label promised and what the press sends cannot come apart
+    /// (<see cref="PublishGate.CommitFor"/>).
     ///
-    /// It is an effect and is therefore started by a press and never from a render pass, the same arrangement
+    /// An effect, so it is started by a press and never from a render pass, the arrangement
     /// <see cref="MeasureAsync"/> has.
-    /// What it hands over is a copy: the controls write the draft in place, so passing the live instance
-    /// would let a keystroke change the settings while they are being sent and leave a stream running
-    /// something nobody asked for.
+    /// What it hands over is a copy: the controls write the draft in place, so passing the live instance would
+    /// let a keystroke change the settings mid-send and leave a stream running something nobody asked for.
     ///
-    /// <b>The copy is taken before the first await</b>, which is on the UI loop, so the draft it carries is
-    /// the one that was on screen when the button went down rather than whatever it had become by the time
-    /// the transport got to it.
-    /// The reading of what is publishing is taken there too, and for the same reason.
+    /// <b>The copy is taken before the first await</b>, which is on the UI loop, so the draft it carries is the
+    /// one on screen when the button went down rather than whatever it had become by the time the transport got
+    /// to it.
+    /// The reading of what is publishing is taken there too, for the same reason.
     ///
-    /// Nothing about the running state is written here.
-    /// The reply says nothing and the stream that resulted arrives on the event stream, which is the one path
-    /// into the display - so the window that pressed the button and the window that did not show the same
-    /// thing (<c>docs/ipc-api.md</c>, "Events").
+    /// No running state is written here.
+    /// The reply says nothing and the resulting stream arrives on the event stream, the one path into the
+    /// display, so the window that pressed the button and the window that did not show the same thing
+    /// (docs/ipc-api.md, "Events").
     /// </summary>
     private async Task StartSharingAsync()
     {
-        // The command offers the press only on a gate that says these settings publish, and nothing says that
+        // The command offers the press only on a gate saying these settings publish, and nothing says that
         // before a form has resolved a draft.
         var draft = Assert.NotNull(_form.Draft, "a commit that was offered was drawn from a draft");
         var settings = draft.Clone();
         var commit = PublishGate.CommitFor(_session.Publish);
 
-        // The refusal the last attempt left goes now rather than when this one answers: it is about an
-        // attempt that is over, and leaving it up would put a sentence about the last commit beside a spinner
-        // about this one.
+        // The refusal the last attempt left goes now rather than when this one answers: it is about an attempt
+        // that is over, and leaving it up would put a sentence about the last commit beside a spinner about
+        // this one.
         _refusal = "";
         Apply();
 
@@ -928,16 +908,16 @@ public sealed class SetupViewModel : Observable
         }
         catch (BackendUnavailableException e)
         {
-            // A backend that refused - a combination no engine can build, a stream that ended between this
-            // pass and the call reaching the other side - arrives here carrying its own sentence, which is
-            // the one worth showing.
+            // A refusal, over a combination no engine can build or a stream that ended between this pass and
+            // the call reaching the other side, arrives here carrying the backend's own sentence, which is the
+            // one worth showing.
             _dispatch(() => CommitFailed(e.Message));
         }
         catch (OperationCanceledException)
         {
-            // Nothing cancels this call, since it carries no token.
-            // A transport that reports one anyway still has to leave the button pressable rather than locked
-            // forever.
+            // This call carries no token, so nothing cancels it.
+            // A transport reporting one anyway still has to leave the button pressable rather than locked for
+            // good.
             _dispatch(() => CommitFailed(""));
         }
     }
@@ -945,8 +925,8 @@ public sealed class SetupViewModel : Observable
     /// <summary>
     /// The one effect this commit is, for the state it was pressed in.
     ///
-    /// Exhaustive, so a commit the gate learns to name and this does not fails here rather than quietly
-    /// starting a second stream (<c>docs/development-principles.md</c>, "Contracts").
+    /// Exhaustive, so a commit the gate learns to name and this does not fails here rather than quietly starting
+    /// a second stream (docs/development-principles.md, "Contracts").
     /// </summary>
     private Task CommitAsync(PublishCommit commit, Settings settings) => commit switch
     {
@@ -957,8 +937,8 @@ public sealed class SetupViewModel : Observable
 
     /// <summary>
     /// Takes an accepted commit, on the UI loop.
-    /// The flow is rendered before the news goes out, so a listener that moves the window finds a screen that
-    /// has already unlocked.
+    /// The flow renders before the news goes out, so a listener that moves the window finds a screen already
+    /// unlocked.
     /// </summary>
     private void Committed()
     {

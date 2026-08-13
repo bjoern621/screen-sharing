@@ -12,11 +12,12 @@ import (
 )
 
 // listWayland enumerates monitors under a Wayland session.
-// Wayland has no standard enumeration CLI, so each compositor family needs its own probe;
-// the probes run in order and the first that reports a monitor wins.
+// The protocols the query tools speak are per-family extensions rather than one interface spanning
+// the compositors, so each family needs a probe of its own and the first that reports a monitor
+// wins.
 //
-// It answers nil on a compositor none of them cover, GNOME and KDE among them,
-// leaving the caller to fall back to the X11 (XWayland) enumerator or the placeholder.
+// A compositor no probe covers, GNOME and KDE among them, answers nil and leaves the caller its X11
+// (XWayland) fallback or the placeholder.
 func listWayland() []Monitor {
 	for _, enumerate := range []func() []Monitor{listHyprland, listWlrRandr} {
 		if monitors := enumerate(); len(monitors) > 0 {
@@ -26,9 +27,8 @@ func listWayland() []Monitor {
 	return nil
 }
 
-// listHyprland reads "hyprctl monitors -j", the JSON monitor list Hyprland exposes.
-// It answers nil when hyprctl is absent or the output does not parse, both of which are
-// Umgebungsfehler.
+// listHyprland reads "hyprctl monitors -j", Hyprland's own JSON monitor list.
+// hyprctl missing and output that does not parse are Umgebungsfehler and both answer nil.
 func listHyprland() []Monitor {
 	out, err := exec.Command("hyprctl", "monitors", "-j").Output()
 	if err != nil {
@@ -50,15 +50,14 @@ func listHyprland() []Monitor {
 	monitors := make([]Monitor, len(raw))
 	for i, r := range raw {
 		monitors[i] = Monitor{
-			Index:  i,
-			Width:  r.Width,
-			Height: r.Height,
-			// Hyprland reports the mode's pixel size independent of the fractional scale,
-			// which is what crop-based capture needs.
+			Index: i,
+			// Hyprland's width and height are the mode's pixel count, not the fractionally scaled logical
+			// size, which is the number crop-based capture needs.
+			Width:   r.Width,
+			Height:  r.Height,
 			OffsetX: r.X,
 			OffsetY: r.Y,
-			// Hyprland has no primary-output concept; the focused monitor stands in so one entry carries the
-			// flag.
+			// Hyprland names no primary output, so the focused one stands in and one entry carries the flag.
 			Primary:   r.Focused,
 			RefreshHz: int(r.RefreshRate + 0.5),
 		}
@@ -68,18 +67,20 @@ func listHyprland() []Monitor {
 	return monitors
 }
 
-// wlrModeRe matches a wlr-randr mode line for the active mode, as in "1920x1080 px,
-// 143.981003 Hz (current)".
+// wlrModeRe matches a wlr-randr mode line: "1920x1080 px, 143.981003 Hz (current)".
 var wlrModeRe = regexp.MustCompile(`(\d+)x(\d+) px,\s*([\d.]+) Hz`)
 
-// wlrPositionRe matches a wlr-randr "Position: X,Y" line.
+// wlrPositionRe matches a wlr-randr position line: "Position: 2560,0".
 var wlrPositionRe = regexp.MustCompile(`Position:\s*(\d+),(\d+)`)
 
-// listWlrRandr parses "wlr-randr", covering wlroots compositors, Sway among them.
-// Output headers start at column 0; each output's mode, refresh rate and position follow on
+// listWlrRandr parses "wlr-randr", which covers the wlroots compositors, Sway among them.
+// An output header starts at column 0 and that output's mode, refresh rate and position follow on
 // indented lines.
-// Only outputs with an active mode are kept, then re-indexed so the indices are contiguous.
-// It answers nil when wlr-randr is absent.
+// Only an output with an active mode is kept, and the survivors are renumbered so Index runs
+// contiguously from zero.
+//
+// The listing is nil where wlr-randr is not installed and where the compositor implements none of
+// the output-management protocol it queries, both of them the same absence to a caller.
 func listWlrRandr() []Monitor {
 	out, err := exec.Command("wlr-randr").Output()
 	if err != nil {
@@ -113,8 +114,7 @@ func listWlrRandr() []Monitor {
 		}
 	}
 
-	// Drop outputs with no active mode, whether disabled or an unparsed block,
-	// and renumber the survivors so Index matches list position.
+	// A zero width is an output that reported no active mode: disabled, or a block that did not parse.
 	kept := monitors[:0]
 	for _, m := range monitors {
 		if m.Width > 0 {

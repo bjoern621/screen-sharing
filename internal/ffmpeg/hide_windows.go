@@ -5,13 +5,12 @@ import (
 	"syscall"
 )
 
-// createNoWindow is CREATE_NO_WINDOW: the child runs without allocating a console,
-// so no black window flashes up beside the encoder.
+// createNoWindow is Windows' CREATE_NO_WINDOW: the child allocates no console, so no black window
+// flashes up beside the encoder.
 const createNoWindow = 0x08000000
 
 // setHidden suppresses the child's console window.
-// It must not be used for ffplay, whose video window is a normal top-level window and would vanish
-// too.
+// Never for ffplay: its video window is an ordinary top-level window and would go with it.
 func setHidden(cmd *exec.Cmd, hide bool) {
 	if !hide {
 		return

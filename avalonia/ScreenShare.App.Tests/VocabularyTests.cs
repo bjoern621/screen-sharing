@@ -7,22 +7,19 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// What an entry is called, where its own value does not say enough.
 ///
-/// The defect these lock out is one name printed twice.
-/// The backend identifies an option by its value alone and leaves the naming here, and two families of
-/// entries share everything this side used to name them by: the same screen is read by both publish engines,
-/// and one family of encoders produces one format from several encoders.
-/// Both rendered as two or three identical rows, one of them greyed, with nothing on the row to say which was
-/// which.
+/// The defect locked out is one name printed twice.
+/// The backend identifies an option by its value alone and leaves the naming to the shell, and two families
+/// of entries share everything this side would otherwise name them by: one screen is read by both publish
+/// engines, and one encoder family produces one format from several encoders.
 ///
-/// The separating fact is a column of the catalog in both cases, so the rule is the same: name against the
-/// table rather than off the row.
+/// The separating fact is a column of the catalog in both cases, so the rule is one: name against the table
+/// rather than off the row.
 /// </summary>
 public sealed class VocabularyTests
 {
     /// <summary>
     /// The catalog rows a name is composed from.
-    /// Only the columns the naming reads are set, which is what keeps a test about naming from asserting
-    /// anything about availability.
+    /// Only the columns the naming reads are set, so a test about naming asserts nothing about availability.
     /// </summary>
     private static Vocabulary Words(params object[] rows)
     {
@@ -66,8 +63,7 @@ public sealed class VocabularyTests
 
     /// <summary>
     /// The engine is what a refusal elsewhere tells the reader to change, so it is on every entry rather than
-    /// only on the ones that would otherwise collide: a list where some rows name their engine and some do
-    /// not answers "which of these runs ffmpeg" with a shrug.
+    /// only on the ones that would otherwise collide.
     /// </summary>
     [Fact]
     public void ACaptureBackendNamesItsEngineEvenWhereNothingSharesItsSource()
@@ -94,8 +90,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// The format and the family are the two questions a codec answers, and where they identify the row on
-    /// their own the encoder's name stays out of it.
+    /// Format and family are the two questions a codec answers, and where they identify the row on their own
+    /// the encoder's own name stays out of the name.
     /// </summary>
     [Fact]
     public void AnEncoderNothingSharesAFormatAndFamilyWithKeepsTheShortName()
@@ -108,9 +104,8 @@ public sealed class VocabularyTests
     }
 
     /// <summary>
-    /// The catalog arrives after the first form does, so every entry has to be nameable without it.
-    /// The answer is then what the backend called it, which is a value the reader can still pick, search for
-    /// and report.
+    /// The catalog arrives after the first form does, so an entry is nameable without it.
+    /// What is left is the backend's own value, which a reader can still pick, search for and report.
     /// </summary>
     [Fact]
     public void WithoutTheCatalogAnEntryIsNamedByWhatTheBackendCalledIt()

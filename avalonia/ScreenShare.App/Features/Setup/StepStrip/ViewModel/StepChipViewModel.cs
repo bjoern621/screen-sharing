@@ -7,8 +7,7 @@ namespace ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 
 /// <summary>
 /// How far the flow has got past one chip.
-/// Four states rather than a done flag: the terminal step is neither done nor merely upcoming, and the strip
-/// draws it open-ended so nobody reads it as one more form to fill in.
+/// A walked flag would collapse the terminal step into an upcoming one, and the strip draws that step open-ended so it does not read as another form.
 /// </summary>
 public enum StepChipState
 {
@@ -20,36 +19,34 @@ public enum StepChipState
 
 /// <summary>
 /// One chip of the strip.
-/// A record, so a render pass that changes nothing produces rows that compare equal and the bound collection
-/// is left alone - <see cref="Select"/> holds the owner's own command instance for that step, which is what
-/// keeps two passes over the same step equal rather than merely equivalent.
+/// A record, so an unchanged pass produces rows that compare equal and the bound collection is left alone.
+/// <see cref="Select"/> is the owner's own command instance for that step, which is what makes two passes over one step equal rather than merely equivalent.
 /// </summary>
 public sealed record StepChipViewModel
 {
-    /// <summary>The form group this chip's step draws, or the terminal step's key.</summary>
+    /// <summary>Which form group the step draws, or the terminal step's key, since that one draws none.</summary>
     public required string Key { get; init; }
 
     public required StepChipState State { get; init; }
 
     /// <summary>
     /// The step number.
-    /// A walked step wears a tick instead, and the tick is an icon rather than a character, so the two cannot
-    /// be one string: <see cref="IsDone"/> is what says which of the two the badge is showing.
+    /// Replaced by a tick once the step is walked, and an icon is not a character, so the two cannot be one string.
+    /// <see cref="IsDone"/> says which of them the badge shows.
     /// </summary>
     public required string Badge { get; init; }
 
     public required string Label { get; init; }
 
-    /// <summary>The value this step settled on. The reason the strip is also the summary.</summary>
+    /// <summary>What this step settled on, which is what makes the strip the summary as well.</summary>
     public required string Value { get; init; }
 
-    /// <summary>False on the first chip, which has nothing to its left to join.</summary>
+    /// <summary>False on the leading chip, which joins nothing to its left.</summary>
     public required bool HasConnector { get; init; }
 
     /// <summary>
     /// Whether the connector left of this chip is the bright one.
-    /// Bright up to and including the connector leaving the current step: the line reads as the distance
-    /// already covered.
+    /// Bright through the connector leaving the current step, so the line reads as ground already covered.
     /// </summary>
     public required bool IsConnectorLit { get; init; }
 
@@ -63,9 +60,8 @@ public sealed record StepChipViewModel
 }
 
 /// <summary>
-/// Builds the strip for one set of steps and one current step.
-/// Pure and total: the same inputs always yield the same rows, so a render pass calls it unconditionally and
-/// the reconcile decides whether anything moved.
+/// Builds the strip from one set of steps and the step being stood on.
+/// Pure and total, so a render pass calls it unconditionally and the reconcile decides whether anything moved.
 /// </summary>
 public static class StepChips
 {
@@ -107,8 +103,8 @@ public static class StepChips
     }
 
     /// <summary>
-    /// Current wins over terminal: the last step is drawn open-ended only while the reader has not reached
-    /// it, and a white chip that also looked unreachable would read as a dead end.
+    /// Current wins over terminal: the last step reads open-ended only until the reader stands on it,
+    /// since a lit chip that also looked unreachable would read as a dead end.
     /// </summary>
     private static StepChipState StateOf(SetupStepRow row, int index, int currentIndex)
     {

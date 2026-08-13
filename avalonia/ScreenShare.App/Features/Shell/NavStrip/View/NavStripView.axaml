@@ -6,24 +6,16 @@
              x:Class="ScreenShare.App.Features.Shell.NavStrip.View.NavStripView"
              x:DataType="vm:NavStripViewModel">
 
-  <!--
-    Docked and full-bleed, ruled off from the body below. The 12px inset is the design's
-    strip padding; Design/Metrics.axaml names the same 12 as GapPanel, but a Thickness has
-    no token to point at, so the number is written out here.
-  -->
+  <!-- Inset written out: GapPanel holds the same 12, and a Thickness has no token to name. -->
   <Border Classes="navstrip" Padding="12,0">
     <Grid ColumnDefinitions="Auto,*,Auto">
 
-      <!-- Where a reader may go. -->
       <StackPanel Grid.Column="0"
                   Orientation="Horizontal"
                   Spacing="{StaticResource GapControl}"
                   VerticalAlignment="Center">
 
-        <!--
-          The three destinations. Pinned to the control height so the track lines up with
-          the buttons either side of it whatever the platform face measures a segment at.
-        -->
+        <!-- Height pinned to the control token: a segment sized by its text face measures per platform. -->
         <ListBox Theme="{StaticResource SegmentedControlTheme}"
                  ItemContainerTheme="{StaticResource SegmentItemTheme}"
                  Height="{StaticResource ControlHeight}"
@@ -31,11 +23,7 @@
                  SelectedItem="{Binding SelectedTab, Mode=TwoWay}">
 
           <ListBox.Styles>
-            <!--
-              Unavailable is a disabled segment, and the segment theme turns that into a
-              colour change and nothing else. Bound on the container rather than inside the
-              item, because it is the container the theme's :disabled selector watches.
-            -->
+            <!-- On the container, not inside the item: the theme's :disabled selector watches the container. -->
             <Style Selector="ListBoxItem" x:DataType="shell:DestinationTab">
               <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
             </Style>
@@ -44,9 +32,8 @@
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="shell:DestinationTab">
               <!--
-                Foreground and weight are read back off the container: the app states a
-                Foreground on every TextBlock, so plain inheritance would lose to it and the
-                selected, available and dimmed segments would all come out one colour.
+                Read back off the container: a TextBlock foreground is stated app-wide, so inheritance loses
+                to it and every segment state comes out one colour.
               -->
               <TextBlock Text="{Binding Label}"
                          Foreground="{Binding $parent[ListBoxItem].Foreground}"
@@ -57,9 +44,8 @@
       </StackPanel>
 
       <!--
-        The hint hugs the segments, and takes the room between them and the pill rather than a
-        width of its own. Sized to its text it would push the pill off a narrow window, and the
-        one thing this strip says about the running stream would be the first thing to go.
+        In the star column and wrapping: sized to its own text, the hint pushes the sharing pill off a narrow
+        window.
       -->
       <TextBlock Grid.Column="1"
                  Classes="hint"
@@ -69,7 +55,6 @@
                  Margin="10,0"
                  VerticalAlignment="Center" />
 
-      <!-- Live state. -->
       <StackPanel Grid.Column="2"
                   Orientation="Horizontal"
                   Spacing="{StaticResource GapControl}"

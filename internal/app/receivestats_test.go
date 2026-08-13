@@ -7,13 +7,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/receive"
 )
 
-// The rates are the one thing this file computes rather than carries, so they are what there is to
-// test.
-// Everything else is a field moving from one struct to another, which the compiler already checks.
+// The rates are what this file computes rather than carries, so they are what there is to test.
+// Everything else is a field moving from one struct to another, which the compiler checks.
 
 // TestFirstSampleHasNoRates holds the difference between absent and zero.
-// A decode on its first tick has one reading, and one reading is not a rate:
-// a zero here would say the stream is carrying nothing.
+// A decode on its first tick has one reading, and one reading is not a rate: a zero here would say
+// the stream is carrying nothing.
 func TestFirstSampleHasNoRates(t *testing.T) {
 	key := WatchKey{Name: "desk", Transport: "srt"}
 	now := receive.Stats{Uptime: 3 * time.Second, VideoBytes: 900_000, VideoFrames: 90}
@@ -29,8 +28,7 @@ func TestFirstSampleHasNoRates(t *testing.T) {
 }
 
 // TestRatesAreTakenOverThePipelinesOwnInterval is why the samples carry an uptime.
-// The interval is the difference between two readings of the pipeline's own clock,
-// so a tick the scheduler held back divides a real delta by the interval that really passed.
+// A tick the scheduler held back divides a real delta by the interval that really passed.
 func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 	key := WatchKey{Name: "desk", Transport: "srt"}
 	last := receive.Stats{
@@ -44,7 +42,7 @@ func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 
 	got := receiveStatsOf(key, now, last, true)
 
-	// A megabyte over two seconds is four megabits a second.
+	// 1 MB over 2 s is 4 Mbit/s.
 	if got.VideoMbps == nil || *got.VideoMbps != 4 {
 		t.Errorf("video_mbps = %v, want 4", got.VideoMbps)
 	}
@@ -59,9 +57,9 @@ func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 	}
 }
 
-// TestARebuiltPipelineReportsNoRate is the case a decode reaches by being rebuilt under the same
-// key, which is what turning tone mapping on does: the uptime and every counter restart,
-// and the reading before it describes a pipeline that no longer exists.
+// TestARebuiltPipelineReportsNoRate covers the decode rebuilt under the same key, which is what
+// turning tone mapping on does: the uptime and every counter restart, and the reading before it
+// describes a pipeline that no longer exists.
 func TestARebuiltPipelineReportsNoRate(t *testing.T) {
 	key := WatchKey{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 90 * time.Second, VideoBytes: 50_000_000, VideoFrames: 5400}
@@ -74,10 +72,9 @@ func TestARebuiltPipelineReportsNoRate(t *testing.T) {
 	}
 }
 
-// TestAStalledCounterReportsZero separates a rate that is not measured from one that is measured at
-// nothing.
-// A pipeline whose bytes stopped moving is receiving nothing, and that is a reading a reader has to
-// be able to see.
+// TestAStalledCounterReportsZero separates a rate that is not measured from one measured at nothing.
+// A pipeline whose bytes stopped moving is receiving nothing, and a reader has to be able to see
+// that.
 func TestAStalledCounterReportsZero(t *testing.T) {
 	key := WatchKey{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 10 * time.Second, VideoBytes: 1_000_000, VideoFrames: 600}
@@ -93,8 +90,8 @@ func TestAStalledCounterReportsZero(t *testing.T) {
 	}
 }
 
-// TestUnnegotiatedFiguresStayAbsent covers the three figures a pipeline answers no query for while
-// it is opening.
+// TestUnnegotiatedFiguresStayAbsent covers the figures a pipeline answers no query for while it is
+// opening.
 // Each carries presence, so a shell prints "unknown" rather than a latency window of zero or a
 // stream positioned at its first frame.
 func TestUnnegotiatedFiguresStayAbsent(t *testing.T) {

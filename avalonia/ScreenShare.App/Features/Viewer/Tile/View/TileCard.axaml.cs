@@ -9,11 +9,11 @@ using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// One tile, wherever it is drawn.
+/// A tile's code-behind, for every host that draws one.
 ///
-/// The code-behind is three things the markup cannot state: the meter's bar is a width in pixels rather than
-/// a proportion any panel offers, the volume slider inside the menu has to keep the menu open while it is
-/// dragged, and a gesture is not a binding.
+/// It covers what markup cannot state: the meter's bar is a pixel width rather than a proportion any
+/// panel offers, the volume slider has to survive the menu's own click handling, and a gesture is not a
+/// binding.
 /// </summary>
 public partial class TileCard : UserControl
 {
@@ -21,8 +21,8 @@ public partial class TileCard : UserControl
     {
         InitializeComponent();
 
-        // The bar is sized from the level and from this control's own width, so both are watched.
-        // It is done here rather than with a converter because a converter has one input and this needs two.
+        // Bar width follows the level and this control's width, so both are watched.
+        // A converter takes one input, which is why the arithmetic is here.
         PropertyChanged += (_, change) =>
         {
             if (change.Property == BoundsProperty || change.Property == DataContextProperty)
@@ -35,17 +35,16 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Whether the stream this card names is being drawn in another window, so this card draws the plate
-    /// saying where the picture went rather than the picture.
+    /// Whether this stream's picture is in another window, which is what makes this card draw the plate
+    /// saying so.
     ///
-    /// <b>It is the host's fact and not the tile's.</b> A popped-out stream is drawn by two cards at once -
-    /// the slot it keeps in the grid and the window it went to - and both read one tile.
-    /// A card that took the answer off the tile would therefore put the plate in both of them and the picture
-    /// in neither, which is what the pop-out window opened for.
+    /// The host's answer and not the tile's.
+    /// A popped-out stream is drawn by two cards off one tile, the grid slot it keeps and the window it moved
+    /// to, so a card reading this from the tile would show the plate twice and the picture nowhere.
     ///
-    /// The plate holds no subscription: the style behind it clears the picture's source, and a source that is
-    /// gone ends the channel, gives the pool back and stops the render size being asked for
-    /// (<see cref="StreamTile"/>).
+    /// The plate subscribes to nothing.
+    /// The style behind it clears the picture's source, which ends the channel, gives the pool back and stops
+    /// a render size being asked for (<see cref="StreamTile"/>).
     /// </summary>
     public static readonly StyledProperty<bool> PictureElsewhereProperty =
         AvaloniaProperty.Register<TileCard, bool>(nameof(PictureElsewhere));
@@ -60,17 +59,15 @@ public partial class TileCard : UserControl
     private TopLevel? _root;
 
     /// <summary>
-    /// Listens for the tile's keys on the window this card is drawn in.
+    /// Subscribes to the tile's keys on the window this card sits in.
     ///
-    /// The keys are the tile's rather than the window's, and the pointer is what says which tile a press
-    /// means (<see cref="TileKeys"/>).
-    /// A shortcut hung off the window would have to invent that rule, and each candidate for it (the focused
-    /// tile, the last one touched) is a second arrangement state to keep.
-    /// Answering only while the pointer is over the card costs none, and the reader is already pointing at
-    /// the tile they mean.
+    /// The keys belong to the tile, and the pointer picks which tile a press means
+    /// (<see cref="TileKeys"/>).
+    /// A window-level shortcut would have to invent that rule, and every candidate for it, the focused tile
+    /// or the last one touched, adds arrangement state to maintain.
     ///
-    /// The handler goes on the window because a key reaches whatever holds the keyboard, and a tile holds it
-    /// never: taking focus on hover would take it out of whatever the reader was typing in.
+    /// The handler goes on the window because keys arrive at whatever holds the keyboard, which a tile never
+    /// does: taking focus on hover would steal it from whatever was being typed in.
     /// </summary>
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -82,10 +79,9 @@ public partial class TileCard : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        // The handler sits on the window rather than on this card, so leaving the tree has to take it off.
-        // The window outlives every card in it: a stream that left the grid drops one and so does each end of
-        // fullscreen, and the handlers of cards nobody draws would pile up on the window for as long as it is
-        // open.
+        // The handler lives on the window, so leaving the tree has to take it off again.
+        // A window outlives its cards, and handlers for cards nobody draws would pile up on it for as long as
+        // it is open.
         _root?.RemoveHandler(KeyDownEvent, OnKeyPressed);
         _root = null;
 
@@ -93,11 +89,10 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Follows the view model's notifications so the meter redraws when a level lands.
+    /// Tracks the view model's notifications, so a landed level redraws the meter.
     ///
-    /// The level arrives on its own path at fifteen a second and moves two properties; this redraws one
-    /// border's width from them and touches nothing else on the screen (<c>Backend/Session.cs</c>,
-    /// <c>Metered</c>).
+    /// Levels arrive on a path of their own fifteen times a second and move two properties; this resizes one
+    /// border and touches nothing else on screen (<c>Backend/Session.cs</c>, <c>Metered</c>).
     /// </summary>
     private void Watch()
     {
@@ -123,7 +118,7 @@ public partial class TileCard : UserControl
         }
     }
 
-    /// <summary>Sizes the meter's bar to the level it is showing.</summary>
+    /// <summary>Widens the meter's bar to the level, in pixels of this card.</summary>
     private void Draw()
     {
         if (this.FindControl<Border>("Level") is not { } bar)
@@ -135,22 +130,22 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Lets the volume slider be dragged inside the menu.
+    /// Makes the volume slider draggable inside the menu.
     ///
-    /// A press inside a menu item is a click on that item, and a click closes the flyout - so without this
-    /// the slider would take one press and the drag would land on a menu that was already gone.
-    /// Marking the pointer events handled stops them reaching the item; <c>StaysOpenOnClick</c> in the markup
-    /// is the other half, for the press that does get through.
+    /// A press on a menu item is a click and a click closes the flyout, so untouched the slider takes one
+    /// press and the drag lands on a menu that is already dismissed.
+    /// Handling the pointer events keeps them off the item; <c>StaysOpenOnClick</c> in the markup covers the
+    /// press that still reaches it.
     /// </summary>
     private void OnVolumePressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
 
     /// <summary>
-    /// Fills a screen with this stream, or gives the screen back.
+    /// Gives a screen to this stream, or takes it back.
     ///
-    /// The same state the menu's fullscreen row names, on the gesture every video player answers to: a reader
-    /// who has just double-clicked a picture is asking for the picture, and finding the state only in a
-    /// right-click menu is the reason this is here.
-    /// The command decides which window it means, as it does for the menu
+    /// The state the menu's fullscreen row names, on the gesture every video player answers: somebody who
+    /// double-clicked a picture is asking about the picture, and a right-click menu is a poor only home for
+    /// that.
+    /// Which window is meant is the command's answer, as it is for the menu
     /// (<c>Features/Viewer/Model/TileIntent.cs</c>).
     /// </summary>
     private void OnDoubleTapped(object? sender, TappedEventArgs e)
@@ -165,26 +160,26 @@ public partial class TileCard : UserControl
     }
 
     /// <summary>
-    /// Runs what a key names on the tile the pointer is over.
+    /// Applies what a key names to the tile under the pointer.
     ///
-    /// The same states the menu's rows name, on the keys those rows print beside them, so a reader who has
-    /// read the menu once does not have to open it again.
-    /// Each names a state rather than a transition, which is what makes a second press a round trip rather
-    /// than a second arrangement; the volume keys name the level they want for the same reason.
+    /// The states the menu's rows name, on the keys those rows print beside them, so reading the menu once is
+    /// enough.
+    /// Each key names a state rather than a step, which is what makes a second press a round trip instead of
+    /// a second arrangement; the volume keys name the level they want for the same reason.
     /// </summary>
     private void OnKeyPressed(object? sender, KeyEventArgs e)
     {
-        // The pointer decides which tile, so a press with the pointer elsewhere is not this card's.
-        // One stream can be drawn by two cards at once (a grid slot under the picture filling the window),
-        // and only the one under the pointer is hit-tested as over.
+        // The pointer selects the tile, so a press with it elsewhere belongs to another card.
+        // Two cards can draw one stream, a grid slot beneath a window filled with the picture, and only the
+        // one under the pointer hit-tests as over.
         if (!IsPointerOver || DataContext is not TileViewModel tile)
         {
             return;
         }
 
-        // A letter typed into a text box is text.
-        // The event starts at whatever holds the keyboard, so this is what tells a reader typing in the
-        // settings panel from one watching the tile their pointer happens to rest on.
+        // In a text box a letter is text.
+        // Keys start at whatever holds the keyboard, which is what separates somebody typing in the settings
+        // panel from somebody watching the tile their pointer happens to rest on.
         if (e.Source is TextBox)
         {
             return;
@@ -195,9 +190,9 @@ public partial class TileCard : UserControl
             return;
         }
 
-        // A key is refused wherever the row it names is greyed: a stream with no sound track has no volume
-        // to move and nothing to silence.
-        // The press is left unhandled, because a key this tile cannot answer is not this tile's.
+        // Refused wherever the row the key names is greyed: a stream without a sound track has no level to
+        // move and nothing to silence.
+        // The press stays unhandled, since a key this tile cannot answer is not its own.
         if (!command.CanExecute(null))
         {
             return;

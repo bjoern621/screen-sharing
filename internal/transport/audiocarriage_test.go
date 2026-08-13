@@ -8,10 +8,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 )
 
-// A carriage's audio names are capabilities.AudioCodec.Format values, the vocabulary
-// ValidatePublishAudio matches the configured track against.
-// A name outside it matches no codec, so the transport states an audio format nothing here encodes,
-// and every audio publish over that leg is refused with a list of alternatives the name is not in.
+// ValidatePublishAudio matches the configured track against a carriage's audio names, so those
+// names are capabilities.AudioCodec.Format values.
+// A name outside that vocabulary matches no codec, and every audio publish over the leg stating it
+// is refused with a list of alternatives the name is not on.
 func TestEveryCarriedAudioFormatIsAnAudioCodecFormat(t *testing.T) {
 	formats := make([]string, 0, len(capabilities.AudioCodecs))
 	for _, a := range capabilities.AudioCodecs {
@@ -33,10 +33,9 @@ func TestEveryCarriedAudioFormatIsAnAudioCodecFormat(t *testing.T) {
 	}
 }
 
-// An audio codec is coded on an engine and carried by a transport, and both have to hold for the
-// track to reach the relay.
-// A codec no transport carries on the engine that codes it is a row the settings form offers and
-// every publish over every protocol refuses.
+// A track reaches the relay only where an engine codes it and a transport carries it, so a codec no
+// transport carries on the engine that codes it is a row the settings form offers and every publish
+// over every protocol refuses.
 func TestEveryAudioCodecIsCarriedWhereItIsCoded(t *testing.T) {
 	for _, a := range capabilities.AudioCodecs {
 		for _, engine := range capabilities.Engines {
@@ -53,10 +52,10 @@ func TestEveryAudioCodecIsCarriedWhereItIsCoded(t *testing.T) {
 	}
 }
 
-// WebRTC negotiates Opus and has no SDP form for AAC, on either engine: which audio a session
-// carries is a property of the protocol rather than of the muxer each engine wraps.
-// A publish reaching the relay with an AAC track would have it dropped there,
-// so the refusal is what keeps the stream from arriving silent.
+// WebRTC negotiates Opus and has no SDP form for AAC on either engine, since what a session carries
+// is the protocol's fact rather than the wrapped muxer's.
+// The relay drops an AAC track that arrives anyway, so the refusal is what keeps a stream from
+// publishing silent.
 func TestValidatePublishAudioHoldsWebRTCToOpus(t *testing.T) {
 	for _, engine := range capabilities.Engines {
 		if err := ValidatePublishAudio("webrtc", engine, "opus"); err != nil {
@@ -67,14 +66,12 @@ func TestValidatePublishAudioHoldsWebRTCToOpus(t *testing.T) {
 			t.Errorf("webrtc has no AAC form and must refuse it on the %s engine", engine)
 			continue
 		}
-		// The fix for an audio codec the leg lacks is another audio codec on the same leg,
-		// so the refusal names the one that would have worked.
+		// The fix is another audio codec on the same leg, so the refusal names the one that carries.
 		if !strings.Contains(err.Error(), "opus") {
 			t.Errorf("refusal %q must name the audio codec webrtc does carry", err)
 		}
 	}
-	// A stream with no audio track has nothing to find a mapping for, whatever codec the settings
-	// carry.
+	// No track, no mapping to find, whatever the settings carry.
 	for _, engine := range capabilities.Engines {
 		if err := ValidatePublishAudio("webrtc", engine, capabilities.AudioNone); err != nil {
 			t.Errorf("a stream without audio publishes over webrtc on the %s engine: %v", engine, err)
@@ -82,10 +79,10 @@ func TestValidatePublishAudioHoldsWebRTCToOpus(t *testing.T) {
 	}
 }
 
-// The other three refusals are a codec no row carries, a transport that publishes on the other
-// engine only, and a transport the registry does not know.
-// Each names a different fix, so each is refused here rather than passed to a muxer that would drop
-// the track.
+// The other three refusals: a codec no row carries, a transport publishing on the other engine
+// alone, and a name the registry does not know.
+// Each has its own fix, so each is refused here rather than handed to a muxer that would drop the
+// track.
 func TestValidatePublishAudioRefusesWhatNoLegCarries(t *testing.T) {
 	if err := ValidatePublishAudio("srt", capabilities.EngineFfmpeg, "mp3"); err == nil {
 		t.Error("an audio codec no row carries must be refused")
@@ -96,8 +93,8 @@ func TestValidatePublishAudioRefusesWhatNoLegCarries(t *testing.T) {
 	if err := ValidatePublishAudio("nope", capabilities.EngineFfmpeg, "opus"); err == nil {
 		t.Error("an unknown transport carries no audio track")
 	}
-	// SRT's MPEG-TS registers a stream type for both codecs on both engines, which is what makes it
-	// the leg an AAC refusal elsewhere can point at.
+	// SRT's MPEG-TS registers a stream type for both codecs on both engines, which is what lets an AAC
+	// refusal elsewhere point at it.
 	for _, engine := range capabilities.Engines {
 		for _, audioCodec := range []string{"opus", "aac"} {
 			if err := ValidatePublishAudio("srt", engine, audioCodec); err != nil {

@@ -3,12 +3,9 @@
                     xmlns:controls="using:ScreenShare.App.Controls">
 
   <!--
-    One arc, three quarters of a circle, turning once a second. The gap is what makes the
-    rotation legible: a whole ring turning looks like a ring standing still.
-
-    The stroke takes the inherited Foreground rather than a brush of its own, so the spinner
-    on the red commit is the commit's own foreground and the one on a link button is the
-    link's - which is also why a disabled treatment that moves Foreground moves this with it.
+    Three quarters of a circle, because a whole ring turning reads as a ring standing still.
+    The stroke takes the inherited Foreground, so a disabled treatment that moves Foreground moves
+    the arc with it.
   -->
   <ControlTheme x:Key="{x:Type controls:Spinner}" TargetType="controls:Spinner">
     <Setter Property="Width" Value="{StaticResource SpinnerSize}" />
@@ -33,9 +30,9 @@
     </Setter>
 
     <!--
-      The one piece of motion in the design that runs on its own rather than in answer to a
-      pointer. It is a constant rate and not an eased one: an eased turn reads as progress
-      towards something, and nothing here knows how far along a control call is.
+      Constant rate and not eased.
+      An eased turn reads as progress towards something, and nothing here knows how far along a
+      control call is.
     -->
     <Style Selector="^ /template/ Arc#Ring">
       <Style.Animations>

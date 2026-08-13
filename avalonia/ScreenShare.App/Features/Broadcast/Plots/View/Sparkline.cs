@@ -6,33 +6,32 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Broadcast.Plots.View;
 
 /// <summary>
-/// One or two polylines over a source coordinate space, with an optional area under the first, an optional
-/// gridline and an optional shaded band.
+/// One or two polylines over a source coordinate space, with an optional area under the first, one optional
+/// horizontal rule and one optional shaded band.
 ///
-/// No axes, no ticks, no frame lines: the design has none.
-/// Scale is carried entirely by the annotation text the plot card lays over this control, which is why
-/// nothing here draws a single glyph.
+/// No axes, no ticks, no frame lines and not one glyph: the scale is carried by the annotation text the plot
+/// card lays over this control.
 ///
-/// Samples arrive in the space they were drawn in (<see cref="Extent"/>) and are stretched to the control's
-/// bounds, so the whole window stays on screen at any card width.
-/// How much stream that window covers is the card's to state, since it is the samples' and not this
-/// control's.
+/// Samples arrive in <see cref="Extent"/> coordinates and are stretched to the control's bounds, so the whole
+/// window stays on screen at any card width.
+/// It asks for no size of its own and draws nothing until the bounds it is given have area.
+/// How much stream that window covers is a fact about the samples, so the card states it.
 /// </summary>
 public sealed class Sparkline : Control
 {
-    /// <summary>The primary series, in source coordinates. Drawn last, so it sits on top.</summary>
+    /// <summary>Primary series, in <see cref="Extent"/> coordinates. Drawn last, so it sits on top.</summary>
     public static readonly StyledProperty<IReadOnlyList<Point>?> PointsProperty =
         AvaloniaProperty.Register<Sparkline, IReadOnlyList<Point>?>(nameof(Points));
 
-    /// <summary>The second series, drawn first and thinner so it reads as context.</summary>
+    /// <summary>Second series, drawn first and thinner so it reads as context.</summary>
     public static readonly StyledProperty<IReadOnlyList<Point>?> SecondaryProperty =
         AvaloniaProperty.Register<Sparkline, IReadOnlyList<Point>?>(nameof(Secondary));
 
-    /// <summary>The source coordinate space the samples are expressed in.</summary>
+    /// <summary>Source space the samples are expressed in.</summary>
     public static readonly StyledProperty<Size> ExtentProperty =
         AvaloniaProperty.Register<Sparkline, Size>(nameof(Extent), new Size(480, 104));
 
-    /// <summary>The area under the primary series. Null leaves the line unfilled.</summary>
+    /// <summary>Area under the primary series. Null leaves the line unfilled.</summary>
     public static readonly StyledProperty<IBrush?> FillProperty =
         AvaloniaProperty.Register<Sparkline, IBrush?>(nameof(Fill));
 
@@ -51,7 +50,7 @@ public sealed class Sparkline : Control
     public static readonly StyledProperty<IBrush?> GridlineBrushProperty =
         AvaloniaProperty.Register<Sparkline, IBrush?>(nameof(GridlineBrush));
 
-    /// <summary>Where the one horizontal rule sits, 0 at the top to 1 at the bottom. NaN draws none.</summary>
+    /// <summary>Height of the one horizontal rule, 0 at the top to 1 at the bottom. NaN draws none.</summary>
     public static readonly StyledProperty<double> GridlineFractionProperty =
         AvaloniaProperty.Register<Sparkline, double>(nameof(GridlineFraction), double.NaN);
 
@@ -61,10 +60,11 @@ public sealed class Sparkline : Control
     public static readonly StyledProperty<IBrush?> BandEdgeBrushProperty =
         AvaloniaProperty.Register<Sparkline, IBrush?>(nameof(BandEdgeBrush));
 
-    /// <summary>Left edge of the shaded band as a fraction of the width. NaN draws none.</summary>
+    /// <summary>Left edge of the shaded band, as a fraction of the width. NaN draws none.</summary>
     public static readonly StyledProperty<double> BandStartProperty =
         AvaloniaProperty.Register<Sparkline, double>(nameof(BandStart), double.NaN);
 
+    /// <summary>Band width, as a fraction of the width. 0 draws none, and the band ends inside the plot.</summary>
     public static readonly StyledProperty<double> BandWidthProperty =
         AvaloniaProperty.Register<Sparkline, double>(nameof(BandWidth));
 
@@ -158,11 +158,7 @@ public sealed class Sparkline : Control
         set => SetValue(BandWidthProperty, value);
     }
 
-    /// <summary>
-    /// The one draw pass.
-    /// Back to front: the band names a moment in time, the gridline names a ceiling, and the data goes over
-    /// both - the secondary series first so the primary one reads in front of it.
-    /// </summary>
+    /// <summary>The one draw pass. Back to front, so the data reads in front of what annotates it.</summary>
     public override void Render(DrawingContext context)
     {
         var width = Bounds.Width;
@@ -199,7 +195,7 @@ public sealed class Sparkline : Control
 
         if (fill is not null)
         {
-            // The area is the line plus the floor under it, closed back to where it started.
+            // Line, down to the floor, back along it to where the line started.
             var area = new Point[mapped.Length + 2];
             mapped.CopyTo(area, 0);
             area[^2] = new Point(mapped[^1].X, height);
@@ -249,8 +245,7 @@ public sealed class Sparkline : Control
 
         if (BandEdgeBrush is not null)
         {
-            // The only dashed line in the whole design.
-            // Every data stroke stays solid.
+            // Only dashed line in the design. Every data stroke stays solid.
             var pen = new Pen(BandEdgeBrush, 1, new DashStyle([3, 3], 0));
             context.DrawLine(pen, new Point(left, 0), new Point(left, height));
             context.DrawLine(pen, new Point(right, 0), new Point(right, height));

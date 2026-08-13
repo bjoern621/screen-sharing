@@ -5,7 +5,6 @@
              x:DataType="vm:NudgeViewModel">
 
   <UserControl.Styles>
-    <!-- The two ends of the track. Not labels for a value - they name a direction. -->
     <Style Selector="TextBlock.end">
       <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
       <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
@@ -19,10 +18,8 @@
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" Classes="caption" Text="Live quality nudge" VerticalAlignment="Center" />
         <!--
-          The caveat, and it is bound rather than written here. A sentence spelled into the
-          markup cannot be read beside the one it has to agree with, which is how this line
-          came to promise a live-safe apply while the track below it was inert for the
-          opposite reason.
+          Bound rather than spelled in: the caveat and the track's reason are one table, and a
+          sentence written here cannot be read beside the one it has to agree with.
         -->
         <TextBlock Grid.Column="1"
                    Classes="hint"
@@ -33,11 +30,6 @@
 
       <Grid ColumnDefinitions="Auto,*,Auto">
         <TextBlock Grid.Column="0" Classes="end" Text="Smoother" />
-        <!--
-          Greyed by the view model's own answer. It was drawn live for a while, which made the
-          track a control that took a hand and changed nothing - worse than a disabled one,
-          because a disabled control at least says what it is.
-        -->
         <Slider Grid.Column="1"
                 Minimum="0"
                 Maximum="100"
@@ -50,7 +42,6 @@
 
       <TextBlock Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding Estimate}" />
 
-      <!-- Why the track is inert, on the control the way the settings form carries a blocked knob's reason. -->
       <TextBlock Classes="hint"
                  TextWrapping="Wrap"
                  TextTrimming="None"

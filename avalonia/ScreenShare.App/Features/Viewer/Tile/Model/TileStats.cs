@@ -8,12 +8,11 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Viewer.Tile.Model;
 
 /// <summary>
-/// One row of the stats panel: what the figure is called, what it reads, and what it means.
+/// A row of the stats panel: the figure's name, its reading, and what it means.
 ///
-/// The name and the meaning are fixed and the reading moves, which is the whole reason this is a live object
-/// rather than a record replaced per sample.
-/// A row replaced once a second is a row whose tooltip closes once a second, and the tooltip is what the
-/// panel is for.
+/// The name and the meaning are fixed and only the reading moves, so a row is a live object rather than a
+/// record replaced per sample.
+/// Replacing a row once a second closes its tooltip once a second, and the tooltip is why the panel exists.
 /// </summary>
 public sealed class StatLine : Observable
 {
@@ -28,25 +27,23 @@ public sealed class StatLine : Observable
         _value = value;
     }
 
-    /// <summary>The name of the figure.</summary>
     public string Label { get; }
 
     /// <summary>What a reading of it is evidence of, shown on the row's tooltip.</summary>
     public string Tip { get; }
 
     /// <summary>
-    /// What it reads now, or <see cref="Figure.NoValue"/> where nothing has measured it.
-    /// Never a zero standing in for an absence.
+    /// What it reads, or <see cref="Figure.NoValue"/> where nothing has measured it.
+    /// A zero never stands in for an absence.
     /// </summary>
     public string Value { get => _value; set => Set(ref _value, value); }
 }
 
 /// <summary>
-/// One block of the stats panel: a stage of the pipeline and the figures read off it.
+/// A block of the panel: one stage of the pipeline and the figures read off it.
 ///
-/// The rows are a collection that is converged rather than replaced, for the reason a row's reading is
-/// written rather than rebuilt.
-/// Which rows a block holds changes only when the pipeline negotiates something new.
+/// The rows are converged rather than replaced, for the reason a reading is written rather than rebuilt.
+/// Which rows a block holds moves only when the pipeline negotiates something new.
 /// </summary>
 public sealed class StatSection
 {
@@ -59,41 +56,40 @@ public sealed class StatSection
         Lines = [.. lines];
     }
 
-    /// <summary>What the block is called.</summary>
     public string Heading { get; }
 
     /// <summary>What this stage of the pipeline does, shown on the heading.</summary>
     public string Tip { get; }
 
-    /// <summary>The figures, in the order they are read.</summary>
+    /// <summary>The figures, in the order they are read off the pipeline.</summary>
     public ObservableCollection<StatLine> Lines { get; }
 }
 
 /// <summary>
-/// The stats panel, composed from one sample of a decode and one report from the window drawing it.
+/// The panel, composed from one sample of a decode and the report of the window drawing it.
 ///
-/// <b>It is a function and holds nothing.</b> A panel is the whole of what two readings say, rebuilt on every
-/// pass, so there is no accumulated figure here to disagree with the backend and nothing to reset when a
-/// decode is rebuilt under the same tile.
+/// A function holding nothing: a panel is the whole of what two readings say, rebuilt on every pass, so there
+/// is no accumulated figure here to disagree with the backend and nothing to reset when a decode is rebuilt
+/// under one tile.
 ///
-/// <b>The blocks follow the frames.</b> Arriving, picture, decode, render, timing, then what this window did
-/// with the result - which is the order a reader walks when a tile looks wrong, because the first stage that
-/// reads badly is the one to act on and everything after it is downstream of that.
+/// Blocks run in the order the frames do, which is the order a reader walks when a tile looks wrong: the
+/// first stage that reads badly is the one to act on and everything after it is downstream.
 ///
-/// <b>Nothing is computed here that the backend measured.</b> The rates are the sample's, taken against the
-/// backend's own interval, so two windows on one decode read the same figure
+/// Nothing is computed here that the backend measured.
+/// The rates are the sample's, taken against the backend's own interval, so two windows on one decode read
+/// the same figure, and a rate is absent rather than zero on the first sample of a run
 /// (<c>api/proto/screenshare/v1/events.proto</c>, ReceiveStreamStats).
-/// What this adds is the window's own block, which is the one thing a backend cannot see.
+/// Added here is the window's own block, the one thing a backend cannot see.
 /// </summary>
 public static class TileStats
 {
     /// <summary>
-    /// The panel for one tile.
+    /// One tile's panel.
     ///
-    /// <paramref name="sample"/> is null on a tile whose decode has not been sampled yet and on one drawing
-    /// something that is not a relay decode at all.
-    /// Both leave the panel with the window's own block alone, which is honest: this window's counters are
-    /// true whatever is producing the frames.
+    /// <paramref name="sample"/> is null on a decode nothing has sampled yet and on a tile drawing something
+    /// that is not a relay decode.
+    /// Both leave the panel with the window's own block alone, whose counters are true whatever produces the
+    /// frames.
     /// </summary>
     public static IReadOnlyList<StatSection> Of(ReceiveStreamStats? sample, TileReport report)
     {
@@ -113,8 +109,8 @@ public static class TileStats
         Add(sections, "section.audio", Audio(s));
         Add(sections, "section.window", Window(report));
 
-        // Last, because they are the deepest thing on the panel and the only part of it that depends on which
-        // leg the decode was opened on.
+        // Last, being the deepest figures on the panel and the only ones that depend on the leg the decode
+        // was opened on.
         foreach (var group in s.Groups)
         {
             sections.Add(Transport(group));
@@ -125,18 +121,15 @@ public static class TileStats
     }
 
     /// <summary>
-    /// Converges the panel a tile is holding onto the one its newest readings describe.
+    /// Converges the panel a tile holds onto the one its newest readings describe.
     ///
-    /// <b>It writes readings into the rows that are there rather than replacing them.</b> A row is a name, a
-    /// meaning and a figure, and only the figure moves between two samples of one pipeline; a panel rebuilt
-    /// every second would take the row out from under a pointer that is resting on it, which closes the
-    /// tooltip that row exists to show.
+    /// Readings are written into the rows that are there rather than replacing them: only the figure moves
+    /// between two samples of one pipeline, and a panel rebuilt every second takes the row out from under a
+    /// pointer resting on it, closing the tooltip that row exists to show.
     ///
-    /// The shape is what decides between converging and replacing, and the shape is the headings and the
-    /// labels.
-    /// It changes when a pipeline negotiates something it had not - an audio branch coming up, a transport
-    /// element starting to keep counters - and then the block or the panel is rebuilt once and holds still
-    /// again.
+    /// The shape decides between converging and replacing, and the shape is the headings and the labels.
+    /// It moves when a pipeline negotiates something it had not, an audio branch coming up or a transport
+    /// element starting to keep counters, and the block or the panel is then rebuilt once and holds still.
     /// </summary>
     public static void Merge(ObservableCollection<StatSection> held, IReadOnlyList<StatSection> built)
     {
@@ -182,9 +175,9 @@ public static class TileStats
     }
 
     /// <summary>
-    /// Adds one block, and adds nothing where the stage it describes reported no figure at all.
-    /// A heading over an empty block says a stage exists and refuses to describe it, which is worse than the
-    /// block being absent: the audio block is missing because there is no track.
+    /// Adds one block, and nothing where the stage it describes reported no figure at all.
+    /// A heading over an empty block says a stage exists and refuses to describe it: the audio block is
+    /// absent because there is no track.
     /// </summary>
     private static void Add(List<StatSection> sections, string id, IReadOnlyList<StatLine> lines)
     {
@@ -230,10 +223,9 @@ public static class TileStats
             : ""),
         Line("decode_memory", s.DecodeMemory.Length > 0 ? Words.FrameMemory(s.DecodeMemory) : ""),
 
-        // Stated in both directions rather than only when it is on.
-        // A reader comparing two tiles of one HDR stream is comparing exactly this, and a row that
-        // disappeared when the answer was "no" would leave them unable to tell which tile they are looking
-        // at.
+        // What the pipeline was built with, never what was asked for.
+        // Printed in both directions, since a reader comparing two tiles of one HDR stream is comparing
+        // exactly this and a row that vanished on "off" would leave them unable to tell the tiles apart.
         Line("tone_map", s.ToneMap ? "on" : "off"),
     ];
 
@@ -257,12 +249,11 @@ public static class TileStats
     ];
 
     /// <summary>
-    /// The sound track, and nothing at all where the pipeline built no audio branch.
+    /// The sound track, and no block at all where the pipeline built no audio branch.
     ///
-    /// Emptiness is the test rather than a flag, because it is the same fact: the branch is what fills every
-    /// field here, so a stream published without a track and one whose branch has not come up yet both read
-    /// as no block.
-    /// Which of the two it is belongs to the tile, which draws a meter for the first and none for the second.
+    /// Emptiness is the test rather than a flag, the branch being what fills every field here: a stream
+    /// published without a track and one whose branch has not come up read alike.
+    /// Telling the two apart is the tile's, drawing a meter for the first and none for the second.
     /// </summary>
     private static IReadOnlyList<StatLine> Audio(ReceiveStreamStats s)
     {
@@ -284,9 +275,9 @@ public static class TileStats
     }
 
     /// <summary>
-    /// What this window got and drew.
-    /// It is always drawn, on every kind of tile, because it is true of every kind: these are the frame
-    /// channel's counters and they do not depend on what is producing the pictures.
+    /// What this window got and drew, the counts being totals since the subscription opened.
+    /// Drawn on every kind of tile, these being the frame channel's counters and independent of what produces
+    /// the pictures.
     /// </summary>
     private static IReadOnlyList<StatLine> Window(TileReport report) =>
     [
@@ -295,16 +286,15 @@ public static class TileStats
         Line("window.dropped", Count(report.Dropped)),
     ];
 
-    /// <summary>One element of the transport and the counters it keeps, in the element's order.</summary>
+    /// <summary>One element of the transport and the counters it keeps, in the element's own order.</summary>
     private static StatSection Transport(ReceiveStatGroup group)
     {
         Assert.That(group.Values.Count > 0, "a reported element carries at least one counter", group.Element);
 
         var element = Counters.Element(group.Factory);
 
-        // The element's own name, beside what it is.
-        // It is what tells two jitterbuffers of one muxed stream apart, and it is the name to look for in a
-        // pipeline dump.
+        // The element's own name beside what it is: what tells two jitterbuffers of one muxed stream apart,
+        // and the name to look for in a pipeline dump.
         return new StatSection(
             $"{element.Label} · {group.Element}",
             element.Tip,
@@ -312,10 +302,9 @@ public static class TileStats
     }
 
     /// <summary>
-    /// One row.
-    /// An empty value is what a figure nothing has measured looks like on the way in, and it prints as absent
-    /// rather than as a zero: the pads negotiate after the pipeline is built, so every field here is empty
-    /// for a moment on every decode.
+    /// One figure's row.
+    /// An empty value is a figure nothing has measured, and it prints as absent rather than as a zero: the
+    /// pads negotiate after the pipeline is built, so every field here is empty for a moment on every decode.
     /// </summary>
     private static StatLine Line(string key, string value)
     {
@@ -323,13 +312,13 @@ public static class TileStats
         return new StatLine(counter.Label, value.Length > 0 ? value : Figure.NoValue, counter.Tip);
     }
 
-    /// <summary>One transport counter, whose key is the element's own name for it.</summary>
+    /// <summary>One transport counter, keyed as the element names it.</summary>
     private static StatLine Line(ReceiveStatValue value) => Line(value.Key, Counter(value.Key, value.Value));
 
     /// <summary>
-    /// One of an element's counters.
-    /// The unit follows from the key, because that is where the unit is stated in the first place: an element
-    /// that reports a figure in milliseconds names the field for it.
+    /// One of an element's counters, with the unit read off the key: "-ms" is milliseconds, "-mbps" is Mb/s,
+    /// anything else a plain count.
+    /// That is where the unit is stated in the first place, an element naming the field for what it reports.
     /// </summary>
     private static string Counter(string key, double value)
     {
@@ -346,14 +335,13 @@ public static class TileStats
         return value.ToString("N0");
     }
 
-    /// <summary>A picture size, and nothing before the pads have negotiated one.</summary>
+    /// <summary>A picture size in pixels, and nothing before the pads negotiate one.</summary>
     private static string Pixels(int width, int height) =>
         width > 0 && height > 0 ? $"{width}×{height}" : "";
 
     /// <summary>
-    /// The frame rate the caps declare.
-    /// A denominator of zero is a stream that declares a variable rate, which is a different fact from
-    /// declaring none and is worth saying.
+    /// The frame rate the caps declare, per second, which is a claim rather than a measurement.
+    /// A denominator of zero declares a variable rate, a different fact from declaring none.
     /// </summary>
     private static string Declared(int num, int den)
     {
@@ -366,9 +354,8 @@ public static class TileStats
     }
 
     /// <summary>
-    /// The latency window as one reading, since the two ends of it are only meaningful together.
-    /// A window with no upper end is a pipeline that will hold a frame for as long as it takes, which is
-    /// worth its own word rather than a very large number.
+    /// The latency window in milliseconds as one reading, the two ends being meaningful only together.
+    /// Where no upper end was reported, the lower one stands alone rather than beside an invented bound.
     /// </summary>
     private static string Latency(ReceiveStreamStats s)
     {
@@ -382,17 +369,16 @@ public static class TileStats
             : $"{s.LatencyMinMs:0} ms";
     }
 
-    /// <summary>Two caps fields that read as one answer, with either half possibly absent.</summary>
+    /// <summary>Two caps fields that read as one answer, either half possibly absent.</summary>
     private static string Joined(string first, string second) =>
         string.Join(" ", new[] { first, second }.Where(part => part.Length > 0));
 
-    /// <summary>A count, grouped, because these reach seven digits within the hour.</summary>
+    /// <summary>A running total, grouped, these reaching seven digits within the hour.</summary>
     private static string Count(ulong value) => value.ToString("N0");
 
     /// <summary>
-    /// A byte total at the scale it is worth reading at.
-    /// Decimal rather than binary multiples, because the figure beside it is a bitrate and the two are
-    /// compared.
+    /// A byte total at a scale worth reading.
+    /// Decimal multiples rather than binary, because it is read beside a bitrate.
     /// </summary>
     private static string Bytes(ulong value) => value switch
     {
@@ -404,9 +390,9 @@ public static class TileStats
     };
 
     /// <summary>
-    /// A running time, as a clock reads it. Two of these sit beside each other and are compared
-    /// - a position that has stopped against an uptime that has not - so both are spelled the
-    /// same way rather than one in seconds and one in hours.
+    /// Seconds as a clock reads them.
+    /// Position and uptime sit beside each other and are compared, a position that has stalled against an
+    /// uptime that has not, so both are spelled the same way.
     /// </summary>
     private static string Clock(double seconds)
     {

@@ -50,7 +50,7 @@ func TestSRTPublishArgs(t *testing.T) {
 		"srt://relay.example:8890",
 		"streamid=publish:alice",
 		"pkt_size=1316",
-		"latency=300000", // ms is converted to SRT's microseconds
+		"latency=300000", // ffmpeg's srt protocol counts microseconds
 	} {
 		if !strings.Contains(url, want) {
 			t.Errorf("publish URL %q missing %q", url, want)
@@ -66,7 +66,7 @@ func TestSRTGstSource(t *testing.T) {
 		"uri=srt://relay.example:8890",
 		"mode=caller",
 		"streamid=read:bob",
-		"latency=1200", // srtsrc takes milliseconds, unlike the ffmpeg URL
+		"latency=1200", // srtsrc counts milliseconds, unlike the ffmpeg URL
 	} {
 		if !slices.Contains(src, want) {
 			t.Errorf("GstSource = %v, missing %q", src, want)
@@ -80,7 +80,7 @@ func TestSRTWatchURL(t *testing.T) {
 	for _, want := range []string{
 		"srt://relay.example:8890",
 		"streamid=read:bob",
-		"latency=1200000", // watch latency in microseconds
+		"latency=1200000", // the watch knob in microseconds too
 	} {
 		if !strings.Contains(url, want) {
 			t.Errorf("watch URL %q missing %q", url, want)

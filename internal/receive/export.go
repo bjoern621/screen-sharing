@@ -10,71 +10,64 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 )
 
-// One consumer's subscription to one receiver's frames: the slot bookkeeping, the
-// serials, and the drops. What a slot physically is stays in share.go and the
-// platform files; what is here is whose turn it is to touch one.
+// One consumer's subscription to one receiver's frames: slots, serials and drops.
+// What a slot physically is stays in share.go and the platform files.
 //
-// The protocol is a loan. Every frame handed over takes a slot out of the pool, and
-// the slot comes back only when the consumer says so. A consumer that stops releasing
-// therefore slows to its own rate and never sees a torn picture; it does not stall the
-// decode, which keeps running and drops the frames it has nowhere to put. That is the
-// property the whole design is for: a window that is busy costs frames and never
-// costs the pipeline.
+// A frame is a loan: it takes a slot out of the pool, and the slot comes back only when the
+// consumer releases it.
+// A consumer that stops releasing runs at its own rate and never sees a torn picture, and the
+// decode keeps running and drops the frames it has nowhere to put.
 
-// Frame is one handed-over frame.
 type Frame struct {
 	Generation uint64
 	Slot       int
 	Serial     uint64
-	// Dropped is how many decoded frames were discarded since the last handover
-	// because every slot was still out on loan.
+	// Dropped counts the decoded frames discarded since the last handover, every slot
+	// having been out on loan.
 	Dropped uint64
 }
 
-// Event is one thing a subscription says. Exactly one field is set.
+// Event is what a subscription emits, with exactly one field set.
 type Event struct {
 	Pool  *Pool
 	Frame *Frame
 }
 
-// eventBuffer is how many events a subscription queues for a consumer that is not
-// reading yet.
+// eventBuffer bounds the queue a consumer that is not reading yet builds up.
 //
-// It is bounded by the loan rather than by this number: at most slotCount frames can
-// be outstanding, so the queue is only ever this deep when a pool announcement and a
-// full set of loans coincide. A queue that does fill is a consumer that has stopped
-// reading its own stream, which is not a case to buffer through.
+// The loan is the real bound: at most slotCount frames are outstanding, so the queue reaches
+// this depth only where a pool announcement meets a full set of loans.
+// A queue that fills is a consumer that stopped reading its own stream, which is not a case to
+// buffer through.
 const eventBuffer = slotCount + 4
 
 // Subscription is one consumer's view of one receiver's frames.
 //
-// It is created by Subscribe and lives until Close or until the pipeline ends. Both
-// ends of that are visible on Events: the channel closes, and Err says why.
+// It ends on Close or with the pipeline, and both show on Events: the channel closes, and Err
+// says why.
 type Subscription struct {
 	receiver *Receiver
 	events   chan Event
-	// done is closed with the events channel, so a producer that races a Close does
-	// not send on a closed channel: every send checks it under the same lock.
+	// done closes with the events channel, and every send checks it under mu, so a
+	// producer racing a Close cannot send on a closed channel.
 	done chan struct{}
 
 	mu sync.Mutex
-	// shared is the platform's exporter, opened on the first frame and re-opened
-	// whenever the pipeline renegotiates.
+	// shared opens on the first frame and re-opens on every renegotiation.
 	shared sharer
-	// generation counts the pools handed to this consumer, from one. A release naming
-	// an older one is discarded: the slot numbers start again with each pool, so
-	// honouring it would free a slot of a pool it was never lent from.
+	// generation counts this consumer's pools, from one.
+	// Slot numbers restart with each pool, so a release naming an older one is discarded
+	// rather than freeing a slot of the pool that replaced it.
 	generation uint64
 	serial     uint64
 	dropped    uint64
-	// width and height are the pool's size, kept so a frame that no longer fits is
-	// recognised as a renegotiation rather than written into a slot too small for it.
+	// width and height are the open pool's size. A frame of another size is a
+	// renegotiation, not something to write into a slot too small for it.
 	width, height int
-	// lent is the serial each slot was lent for, and zero for a slot this side may
-	// write into.
+	// lent holds the serial each slot was lent for. Zero: free for this side to write.
 	lent [slotCount]uint64
-	// renderSize is what this consumer asked to be drawn at. The receiver takes the
-	// largest of its consumers' asks.
+	// renderSize is this consumer's ask. The receiver draws at the largest across its
+	// consumers.
 	renderSize renderSize
 	ended      bool
 	err        error
@@ -82,9 +75,9 @@ type Subscription struct {
 
 // Subscribe opens one consumer's view of this receiver's frames.
 //
-// It takes no pool and allocates nothing: what a pool has to match is the memory a
-// frame turned out to be in, and no frame has arrived yet. The first one opens it, and
-// the consumer learns the pool as the subscription's first event.
+// It allocates no pool: a pool matches the memory a frame turned out to be in, and no frame has
+// arrived.
+// The first one opens it, and the consumer learns the pool as the subscription's first event.
 func (r *Receiver) Subscribe() *Subscription {
 	sub := &Subscription{
 		receiver: r,
@@ -101,11 +94,10 @@ func (r *Receiver) Subscribe() *Subscription {
 	return sub
 }
 
-// Events is what the consumer reads. It closes when the subscription ends, from either
-// side, and Err then says why.
+// Events closes when the subscription ends from either side, and Err then says why.
 func (s *Subscription) Events() <-chan Event { return s.events }
 
-// Err is why the subscription ended, and nil while it runs or after an ordinary Close.
+// Err is nil while the subscription runs and after an ordinary Close.
 func (s *Subscription) Err() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -114,10 +106,9 @@ func (s *Subscription) Err() error {
 
 // Release hands one slot back.
 //
-// A release naming a pool that is gone is discarded rather than refused: a pool
-// changes while frames of the old one are still in flight, and the consumer released
-// what it had been handed. A release naming a serial the slot was not lent for is the
-// same case one step finer, and is discarded for the same reason.
+// A release naming a pool that is gone, or a serial the slot was not lent for, is discarded
+// rather than refused: pools change while frames of the old one are in flight, and the consumer
+// released what it had been handed.
 func (s *Subscription) Release(generation uint64, slot int, serial uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -131,12 +122,11 @@ func (s *Subscription) Release(generation uint64, slot int, serial uint64) {
 	s.lent[slot] = 0
 }
 
-// SetRenderSize says how many pixels this consumer will draw the frames at.
+// SetRenderSize says how many pixels this consumer draws the frames at.
 //
-// The receiver renders at the largest of what its consumers asked for, because the
-// pipeline has one scaler and a size is a bound rather than a demand: rendering at the
-// largest ask means the smallest consumer scales a picture down at draw time, where
-// rendering at the smallest would mean the largest one scaling one up.
+// One scaler serves every consumer and a size is a bound rather than a demand, so the receiver
+// renders at the largest ask: the smallest consumer then scales a picture down at draw time,
+// where the smallest ask would have the largest consumer scaling one up.
 func (s *Subscription) SetRenderSize(width, height int) {
 	if width < 0 || height < 0 {
 		return
@@ -154,17 +144,17 @@ func (s *Subscription) SetRenderSize(width, height int) {
 
 // Close ends the subscription from the consumer's side and frees the pool.
 //
-// It is idempotent, and it is what a dropped connection runs: the handles the consumer
-// held name nothing afterwards, which is the property that makes a shell that crashed
-// cost this process nothing.
+// Idempotent, and what a dropped connection runs.
+// Every handle the consumer held names nothing afterwards, so a shell that crashed costs this
+// process nothing.
 func (s *Subscription) Close() {
 	s.receiver.dropSub(s)
 	s.finish(nil)
 }
 
-// finish ends the subscription once, with the reason it ended for. It is endLocked with
-// the lock taken around it, so the two ways a subscription ends are one sequence rather
-// than two that have to be kept in step.
+// finish ends the subscription once, with its reason.
+// It is endLocked with the lock taken around it, so the producer's way of ending and the
+// consumer's are one sequence.
 func (s *Subscription) finish(err error) {
 	s.mu.Lock()
 	ended := s.ended
@@ -177,14 +167,15 @@ func (s *Subscription) finish(err error) {
 		return
 	}
 
-	// Outside the lock: the receiver takes its own, and the render size it recomputes
-	// reads every remaining subscription's.
+	// Outside the lock: the receiver takes its own and reads every remaining
+	// subscription's size under it.
 	s.receiver.applyRenderSize()
 }
 
-// offer hands one decoded frame to this consumer, and is the whole of the producer
-// side. It runs on the sink's streaming thread and never blocks: everything it cannot
-// do now is a dropped frame rather than a wait.
+// offer hands one decoded frame to this consumer, and is the whole producer side.
+//
+// It runs on the sink's streaming thread and never blocks: what it cannot do now is a dropped
+// frame rather than a wait.
 func (s *Subscription) offer(sample *gst.Sample) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -194,9 +185,9 @@ func (s *Subscription) offer(sample *gst.Sample) {
 	}
 
 	if err := s.poolFor(sample); err != nil {
-		// A pool that cannot be opened is not a frame that can be retried: the memory
-		// the chain converts into does not change mid-stream, so the next frame fails
-		// the same way. The subscription ends and the consumer is told why.
+		// The memory the chain converts into does not change mid-stream, so the next
+		// frame fails the same way.
+		// The subscription ends and the consumer is told why, rather than retrying.
 		logger.Warnf("stream %q stopped feeding a consumer: %v", s.receiver.name, err)
 		s.endLocked(err)
 		return
@@ -209,9 +200,8 @@ func (s *Subscription) offer(sample *gst.Sample) {
 	}
 
 	if err := s.shared.write(slot, sample); err != nil {
-		// One frame rather than the stream: a copy can fail on a device that is busy
-		// or on a consumer that is still holding the slot, and the next frame is
-		// offered normally.
+		// One frame rather than the stream: a copy fails on a busy device or on a slot
+		// the consumer is still holding, and the next frame is offered normally.
 		s.dropped++
 		logger.Debugf("stream %q could not fill slot %d: %v", s.receiver.name, slot, err)
 		return
@@ -225,21 +215,19 @@ func (s *Subscription) offer(sample *gst.Sample) {
 	case s.events <- Event{Frame: &frame}:
 		s.dropped = 0
 	default:
-		// The consumer has stopped reading its own stream. The slot goes back rather
-		// than being lent to nobody, and the frame counts as dropped like any other
-		// the consumer had no room for.
+		// The consumer stopped reading its own stream.
+		// The slot goes back rather than being lent to nobody, and the frame counts as
+		// dropped like any other the consumer had no room for.
 		s.lent[slot] = 0
 		s.dropped++
 	}
 }
 
-// poolFor is the pool this frame belongs in, opening a new one where there is none or
-// where the frame no longer fits the one there is.
+// poolFor opens a pool where there is none, and where the frame no longer fits the one there is.
 //
-// A size change is the renegotiation that matters: the source resized, or the tile's
-// own render size moved the scaler's output. Both arrive here as a frame whose caps
-// disagree with the pool, and both are answered the same way, because a slot is
-// allocated at one size and a picture of another size cannot be copied into it.
+// A slot is allocated at one size, so a picture of another size cannot be copied into it.
+// Either renegotiation, a source that resized or a render size that moved the scaler's output,
+// arrives as a frame whose caps disagree with the pool.
 func (s *Subscription) poolFor(sample *gst.Sample) error {
 	width, height := frameSize(sample)
 	if s.generation > 0 && (width == 0 || (width == s.width && height == s.height)) {
@@ -269,7 +257,7 @@ func (s *Subscription) poolFor(sample *gst.Sample) error {
 	return nil
 }
 
-// freeSlot is a slot the consumer is not holding, and -1 when it holds all of them.
+// freeSlot yields -1 where every slot is out on loan.
 func (s *Subscription) freeSlot() int {
 	for i, serial := range s.lent {
 		if serial == 0 {
@@ -279,12 +267,13 @@ func (s *Subscription) freeSlot() int {
 	return -1
 }
 
-// endLocked is the whole of what ending a subscription is - the flags, the pool and both
-// channels - with the lock already held. It is stated once here and wrapped by finish, so
-// the producer's path and the consumer's cannot end a subscription differently.
+// endLocked is the whole of ending a subscription with mu held: the flags, the pool and both
+// channels.
+// Stated once and wrapped by finish, so the producer's path and the consumer's cannot end a
+// subscription differently.
 //
-// The receiver is dropped from outside rather than here, because taking its lock under
-// this one is the order the teardown path takes the other way round.
+// The receiver is dropped from outside: taking its lock under this one inverts the order the
+// teardown path takes them in.
 func (s *Subscription) endLocked(err error) {
 	assert.Assert(!s.ended, "a subscription ends once", s.receiver.name)
 
@@ -295,9 +284,8 @@ func (s *Subscription) endLocked(err error) {
 	close(s.events)
 }
 
-// frameSize is the frame's own size, off the caps the sample carries. Zero where the
-// sample carries none, which leaves an open pool where it is rather than reopening it
-// on a fact nobody stated.
+// frameSize is the size on the sample's caps, and zero where it carries none.
+// Zero leaves an open pool where it is rather than reopening it on a fact nobody stated.
 func frameSize(sample *gst.Sample) (int, int) {
 	caps := sample.GetCaps()
 	if caps == nil || caps.GetSize() == 0 {
@@ -312,11 +300,10 @@ func frameSize(sample *gst.Sample) (int, int) {
 	return int(width), int(height)
 }
 
-// --- The receiver's side --------------------------------------------------------
-
-// fanOut hands one sample to every consumer. It runs on the sink's streaming thread,
-// so what it must not do is wait: each consumer's offer drops rather than blocks, and
-// a consumer whose subscription ended under it is dropped from the list here.
+// fanOut hands one sample to every consumer.
+//
+// It runs on the sink's streaming thread and must not wait: every offer drops rather than
+// blocks.
 func (r *Receiver) fanOut(sample *gst.Sample) {
 	r.mu.Lock()
 	subs := make([]*Subscription, len(r.subs))
@@ -327,12 +314,11 @@ func (r *Receiver) fanOut(sample *gst.Sample) {
 		sub.offer(sample)
 	}
 
-	// A subscription the producer ended is taken off the list on the next frame rather
-	// than from inside offer, which would mean editing the list this loop walks.
+	// A subscription the producer ended goes off the list on the next frame rather than
+	// from inside offer, which would edit the list this loop walks.
 	r.sweepSubs()
 }
 
-// sweepSubs drops the subscriptions that have ended.
 func (r *Receiver) sweepSubs() {
 	r.mu.Lock()
 	kept := r.subs[:0]
@@ -353,7 +339,6 @@ func (r *Receiver) sweepSubs() {
 	}
 }
 
-// dropSub takes one subscription off the receiver.
 func (r *Receiver) dropSub(sub *Subscription) {
 	r.mu.Lock()
 	kept := r.subs[:0]
@@ -366,9 +351,9 @@ func (r *Receiver) dropSub(sub *Subscription) {
 	r.mu.Unlock()
 }
 
-// endSubs tells every consumer the pipeline is over, in the words the pipeline used.
-// It is the same fact ReceiveExit carries on the control stream, said on the call each
-// consumer is actually blocked reading.
+// endSubs tells every consumer the pipeline is over, in the pipeline's own words.
+// ReceiveExit carries the same fact on the control stream; this says it on the call each consumer
+// is blocked reading.
 func (r *Receiver) endSubs(message string) {
 	r.mu.Lock()
 	subs := r.subs
@@ -380,8 +365,8 @@ func (r *Receiver) endSubs(message string) {
 	}
 }
 
-// applyRenderSize writes the largest size any consumer asked for onto the pipeline,
-// and does nothing while none has asked.
+// applyRenderSize writes the largest of the consumers' asks onto the pipeline.
+// With no consumer the ask is zero, which SetRenderSize leaves the pipeline alone for.
 func (r *Receiver) applyRenderSize() {
 	r.mu.Lock()
 	var width, height int

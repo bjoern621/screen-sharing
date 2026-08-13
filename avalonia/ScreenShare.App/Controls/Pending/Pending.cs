@@ -4,19 +4,15 @@ using Avalonia.Controls;
 namespace ScreenShare.App.Controls;
 
 /// <summary>
-/// Says that the control it is set on has asked the backend for something and has not been answered yet.
-/// What that looks like is <c>Design/Pending.axaml</c>; this is only the seam between a view model's fact and
-/// a style's selector.
-///
-/// <b>It is an attached property rather than a control</b> because the fact belongs to every control that
-/// starts an effect - a button, a toggle, a card - and a wait drawn once per call site is a wait that reads
-/// differently in each.
-/// Bound to <see cref="Mvvm.PendingCommand.IsRunning"/>, which is the same field the press is refused off, so
-/// a control that says it is working is a call that is really in flight.
+/// Says the control it is set on has asked the backend for something and has not been answered.
+/// Attached rather than a control of its own, because the fact belongs to every kind that starts an effect,
+/// and what a wait looks like is stated once in <c>Design/Pending.axaml</c>.
+/// Bound to <see cref="Mvvm.PendingCommand.IsRunning"/>, the same field the press is refused off, so a
+/// control that looks busy has a call in flight.
 /// </summary>
 public static class Pending
 {
-    /// <summary>The pseudo-class the design draws the wait from. Set here and named nowhere else.</summary>
+    /// <summary>The pseudo-class <c>Design/Pending.axaml</c> selects the wait on.</summary>
     private const string PseudoClass = ":pending";
 
     public static readonly AttachedProperty<bool> IsActiveProperty =

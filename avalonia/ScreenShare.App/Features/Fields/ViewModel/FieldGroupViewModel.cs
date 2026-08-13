@@ -10,49 +10,45 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// <summary>
 /// One group of the resolved form: a heading and the controls under it, in the order the backend gave them.
 ///
-/// This is what makes the five setup steps one component rather than five.
-/// Capture, encode, transport, network and destination differ in nothing a shell can see - they are runs of
-/// fields with different keys - so a step that hand-wrote its own controls would be five copies of this file,
-/// each with its own chance of disagreeing with the form it renders.
+/// This is what makes a setup step one component instanced per group rather than a view per group.
+/// Capture, encode, transport, network and destination differ in nothing a shell can see, being runs of fields
+/// with different keys, so a step that hand-wrote its controls would be a copy of this file per group, each
+/// with its own chance of disagreeing with the form it renders.
 ///
-/// <b>Outputs</b> only.
-/// The group has no input of its own: every write goes through a <see cref="FieldViewModel"/> to the flow
-/// that owns the draft.
+/// Outputs only.
+/// The group has no input of its own: every write goes through a <see cref="FieldViewModel"/> to the flow that
+/// owns the draft.
 /// </summary>
 public sealed class FieldGroupViewModel : Observable
 {
     private readonly Action<string, FieldValue> _write;
 
     /// <summary>
-    /// What this screen offers beside a control, asked per key on every pass.
-    /// It answers null for almost every field and for every field on a screen that offers nothing, which is
-    /// why it is a lookup rather than a table held here (<see cref="FieldAction"/>).
+    /// Asked per key on every pass, and null for almost every field.
+    /// A lookup rather than a table held here, since most screens offer nothing beside any control
+    /// (<see cref="FieldAction"/>).
     /// </summary>
     private readonly Func<string, FieldAction?> _actionOf;
 
     /// <summary>
     /// One view model per field key, kept across passes.
-    /// Fields are widgets with focus and a caret in them, so they are updated in place; rebuilding them every
-    /// pass would take the caret out of a box while it is being typed in.
+    /// A field is a widget with focus and a caret in it, so it is updated in place; rebuilding every pass would
+    /// take the caret out of a box being typed in.
     /// </summary>
     private readonly Dictionary<string, FieldViewModel> _fields = [];
 
     /// <summary>
-    /// What this screen offers beside the heading, asked on every pass.
-    /// It is handed the group being rendered rather than its key, because what an effect on a whole group is
+    /// Handed the group being rendered rather than its key, because what an effect over a whole group is
     /// offered for is what the contract says the group is (<see cref="GroupAction"/>).
     /// </summary>
     private readonly Func<FieldGroup, GroupAction?> _groupActionOf;
 
     /// <param name="actionOf">
-    /// The effect this screen offers beside one control, or null where it offers none.
-    /// Optional because most screens offer none, and it is asked on every pass rather than once, so a screen
-    /// that withdraws an action turns the button off through the render function.
+    /// The effect this screen offers beside one control, null where it offers none.
+    /// Asked on every pass rather than once, so a screen that withdraws an action turns the button off through
+    /// the render function.
     /// </param>
-    /// <param name="groupActionOf">
-    /// The effect this screen offers beside the heading, or null where it offers none.
-    /// Optional and asked per pass for the reasons the field lookup is.
-    /// </param>
+    /// <param name="groupActionOf">The effect beside the heading, null where none. Asked per pass for the same reason.</param>
     public FieldGroupViewModel(
         Action<string, FieldValue> write,
         Func<string, FieldAction?>? actionOf = null,
@@ -76,7 +72,7 @@ public sealed class FieldGroupViewModel : Observable
     private GroupAction? _action;
     private bool _hasAction;
 
-    /// <summary>The visible controls, in render order. A hidden field is absent rather than collapsed.</summary>
+    /// <summary>Visible controls only, in the form's order. A hidden field is absent rather than collapsed.</summary>
     public ObservableCollection<FieldViewModel> Fields { get; }
 
     public string Title { get => _title; private set => Set(ref _title, value); }
@@ -85,8 +81,8 @@ public sealed class FieldGroupViewModel : Observable
 
     /// <summary>
     /// What this group settled on, as the step strip repeats it.
-    /// Composed here out of the draft the form carried: it is a shorthand, and the separator, the
-    /// abbreviation and the length all belong to the strip it sits in.
+    /// Composed here from the draft the form carried, because the separator, the abbreviation and the length
+    /// belong to the strip it sits in.
     /// </summary>
     public string Summary { get => _summary; private set => Set(ref _summary, value); }
 
@@ -94,15 +90,15 @@ public sealed class FieldGroupViewModel : Observable
 
     /// <summary>
     /// Whether the form carries this group at all.
-    /// False is the honest state for a step the backend has not described yet, and the panel says so rather
-    /// than drawing an empty card.
+    /// False is the honest state for a step no resolve has described, and the panel says so rather than drawing
+    /// an empty card.
     /// </summary>
     public bool IsResolved { get => _isResolved; private set => Set(ref _isResolved, value); }
 
     /// <summary>
     /// What this screen offers beside the heading, null where it offers nothing.
-    /// Null on an unresolved group too: an effect on a group of settings the form has not described is one
-    /// with nothing to act on.
+    /// Null on an unresolved group as well: an effect over settings the form has not described has nothing to
+    /// act on.
     /// </summary>
     public GroupAction? Action { get => _action; private set => Set(ref _action, value); }
 
@@ -111,19 +107,16 @@ public sealed class FieldGroupViewModel : Observable
     /// <summary>
     /// The one render function.
     /// Safe to run twice: field view models are reused by key and each runs its own idempotent pass, so an
-    /// unchanged group produces no notification.
-    ///
-    /// A null group is the branch that turns everything off, which is what a step whose group the form did
-    /// not carry has to render.
+    /// unchanged group raises no notification.
     /// </summary>
+    /// <param name="group">Null renders the branch that turns everything off, for a group the form does not carry.</param>
     public void Apply(FieldGroup? group, Vocabulary words, Settings? settings)
     {
         Assert.NotNull(words, "rendering a group needs the vocabulary that names its entries");
 
         IsResolved = group is not null;
 
-        // The heading and the sentence under it are this side's, looked up by the key the backend named the
-        // group by.
+        // Heading and sentence are this side's words, looked up by the key the backend named the group by.
         var copy = group is null ? null : Copy.Fields.Group(group.Key);
         Title = copy?.Title ?? "";
         Help = copy?.Help ?? "";
@@ -142,10 +135,9 @@ public sealed class FieldGroupViewModel : Observable
     }
 
     /// <summary>
-    /// The visible fields, each rendered by the view model that already owns its key.
-    /// A field the form marks invisible is left out of the list rather than drawn disabled: it is a knob
-    /// whose help text would teach a reader on another selection nothing (docs/field-availability.md, "The
-    /// rule").
+    /// Every field is rendered, and the invisible ones are then left out of the list rather than drawn
+    /// disabled: a hidden knob is one whose help would teach a reader on another selection nothing
+    /// (docs/field-availability.md, "The rule").
     /// </summary>
     private IReadOnlyList<FieldViewModel> Rendered(FieldGroup? group, Vocabulary words)
     {
@@ -170,12 +162,10 @@ public sealed class FieldGroupViewModel : Observable
     }
 
     /// <summary>
-    /// The visible control for one field key, or null where the group carries none.
-    /// Read through on demand and never cached by the caller, which is what lets a step lay a field out
-    /// itself without holding a second copy of what the form said about it.
-    ///
-    /// Only visible fields answer: a step placing a hidden knob would be drawing a control the form said not
-    /// to draw.
+    /// The visible control for one field key, null where the group carries none.
+    /// Read through on demand and never cached by the caller, which is what lets a step lay a field out itself
+    /// without holding a second copy of what the form said about it.
+    /// A hidden field answers null, since placing it would draw a control the form said not to draw.
     /// </summary>
     public FieldViewModel? Visible(string key)
     {

@@ -13,25 +13,13 @@
              x:DataType="vm:SetupViewModel"
              Background="{StaticResource SurfaceBrush}">
 
-  <!--
-    The setup flow: the strip across the top, then a form column and a fixed rail beside it.
-    No title bar and no nav strip - the shell owns the window's chrome, and this view owns
-    only what is inside it.
-
-    Which form the main column draws is the current step's answer. Five of the seven are one
-    component: they are groups of the resolved form, and a shell that hand-wrote a capture
-    screen and an encode screen would be writing down what a capture and an encode are
-    (docs/ipc-api.md).
-  -->
-
   <DockPanel>
     <strip:StepStripView DockPanel.Dock="Top" Margin="12,12,12,0" />
 
     <!--
-      What the backend said when it could not describe the screen, above every step rather
-      than inside one: it is the reason none of them can be drawn from anything newer. A shell
-      with nothing to talk to says so and offers to look again; it does not invent a form to
-      fill the space (docs/ipc-api.md, "What each side owes").
+      What the backend said when it could not describe the screen, which is why no step can be
+      drawn from anything newer.
+      No form is invented in its place (docs/ipc-api.md, "What each side owes").
     -->
     <Border DockPanel.Dock="Top"
             Classes="panel"
@@ -56,12 +44,10 @@
     </Border>
 
     <!--
-      What the backend said when a setting could not be stored. Beside the banner above rather
-      than inside it, because the two are different news and one must not stand in for the
-      other: a read that cannot be answered leaves the screen showing an older answer, and a
-      write that cannot be stored leaves it showing exactly what was typed while the backend
-      goes on running on the value before it. There is nothing to look again at, so there is no
-      button on it (Backend/FormSession.cs).
+      What the backend said when a setting could not be stored, which is separate news from the
+      banner above: a read that failed leaves an older answer on screen, a write that failed
+      leaves what was typed on screen while the backend runs on the value before it.
+      Nothing to look again at, so no button (Backend/FormSession.cs).
     -->
     <Border DockPanel.Dock="Top"
             Classes="panel"
@@ -84,35 +70,28 @@
           </StackPanel>
 
           <!--
-            The form-driven steps. One renderer, one instance per group, and the group it
-            draws decides everything on it.
-
-            What the form said about the settings as a whole used to be a stack of panels
-            under this one, which put it below the fold on every step long enough to scroll
-            and repeated it identically on all of them. It is in the rail now, in the card
-            that already asks what stands between these settings and sharing - which is
-            the same question (CostRail/View/CostRailView.axaml).
+            One renderer instanced per group, and the group decides everything on it.
+            A hand-written capture screen beside a hand-written encode screen would be this shell
+            writing down what a capture and an encode are (docs/ipc-api.md).
+            What the form says about the settings as a whole is in the rail, on the card that
+            already asks what stands between these settings and sharing
+            (CostRail/View/CostRailView.axaml).
           -->
           <StackPanel Spacing="{StaticResource GapControl}" IsVisible="{Binding ShowsFields}">
 
             <!--
-              The screens this machine has, above the controls that configure what is captured
-              off one. It draws itself only on the step that holds the screen setting and only
-              where this machine can show what a single screen holds, so it is placed here
-              unconditionally and decides for itself (Setup/ScreenPicker/ViewModel).
-
-              Above the group rather than inside it: the generic renderer draws whatever the
-              backend put in a group, in the backend's order, and a picture for one field in the
-              middle of that list would be this shell reaching into a rendering it does not own.
+              Placed unconditionally and visible on its own terms: it draws only on the step
+              holding the screen setting, and only where one screen can be read apart from
+              another (Setup/ScreenPicker/ViewModel).
+              Above the group rather than in it, since the renderer draws a group in the backend's
+              own order and a picture wedged mid-list would reach into a rendering this view does
+              not own.
             -->
             <screens:ScreenPickerView DataContext="{Binding Screens}" />
 
             <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
 
-            <!--
-              Why no command could be rendered. It is the same sentence that would refuse the
-              publish, which is what makes the form and the refusal one answer rather than two.
-            -->
+            <!-- Why no command preview could be built, in the sentence that would refuse the publish. -->
             <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasCommandError}">
               <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding CommandError}" />
             </Border>
@@ -121,18 +100,18 @@
       </ScrollViewer>
 
       <!--
-        The review stands outside that scroller and spans both columns: it scrolls its own
-        two columns separately so the commit stays on screen, which a single scroller around
-        the whole step cannot do. The wrapper is load-bearing - IsVisible has to read this
-        view's model, so it cannot sit on the element that hands its DataContext to the child.
+        Outside the scroller and across both columns, because the review scrolls its own columns
+        separately to keep the commit on screen.
+        The wrapper is load-bearing: IsVisible reads this view's model, so it cannot sit on the
+        element that hands its DataContext to the child.
       -->
       <Panel Grid.Column="0" Grid.ColumnSpan="2" IsVisible="{Binding ShowsReview}">
         <review:ReviewStepView DataContext="{Binding Review}" />
       </Panel>
 
       <!--
-        The rail is a fixed 330 because it prices the form beside it: a column that reflowed
-        would move the figure the reader is watching while they change the thing that sets it.
+        Fixed width because the rail prices the form beside it: a column that reflowed would move
+        the figure being watched while the setting behind it changes.
         It stands aside on the review, which carries its own checks and its own commit.
       -->
       <Grid Grid.Column="1"
@@ -142,16 +121,13 @@
             IsVisible="{Binding IsRailVisible}">
 
         <!--
-          The rail scrolls on its own. Its length is the number of checks the settings
-          raise, which the reader does not control, so on a short window the cards would
-          otherwise push the commit buttons off the bottom - the one control that must
-          stay reachable.
+          Scrolls on its own, since the rail runs as long as the settings raise checks and a short
+          window would otherwise push the commit buttons off the bottom.
         -->
         <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
           <rail:CostRailView DataContext="{Binding Rail}" />
         </ScrollViewer>
 
-        <!-- Bottom-aligned with the tallest column, rather than floating in a footer bar. -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Margin="0,10,0,0">
           <Button Grid.Column="0"
                   Theme="{StaticResource FooterButton}"
@@ -159,7 +135,6 @@
                   Command="{Binding BackCommand}"
                   IsVisible="{Binding CanGoBack}" />
 
-          <!-- Names the next step rather than saying "Next", so the button says where it goes. -->
           <Button Grid.Column="1"
                   Theme="{StaticResource PrimaryButton}"
                   Height="{StaticResource FooterButtonHeight}"

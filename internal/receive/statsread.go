@@ -10,11 +10,10 @@ import (
 	"bjoernblessin.de/screenshare/internal/colour"
 )
 
-// Stats reads the running pipeline: the caps on three pads (the decoder's input,
-// the decoded frames leaving it, the format and size the sink takes), the sink's
-// own counters, a latency and a position query, and the counters of the
-// transport's elements. Nothing is cached, so a field stays zero for exactly as
-// long as the pipeline has not learned it.
+// Stats reads the running pipeline: the caps on three pads (the decoder's input, the decoded frames
+// leaving it, what the sink takes), the sink's own counters, a latency and a position query, and
+// the counters of the transport's elements.
+// Nothing is cached, so a field stays zero for exactly as long as the pipeline has not learned it.
 func (r *Receiver) Stats() Stats {
 	s := Stats{
 		Frames: r.frames.Load(),
@@ -32,6 +31,8 @@ func (r *Receiver) Stats() Stats {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
 	}
 
+	// r.mu guards the fields onElement writes and nothing else here, so the handles are copied
+	// under it and the pipeline is queried outside it.
 	r.mu.Lock()
 	videoDec, audioDec := r.video.dec, r.audio.dec
 	s.Decoder, s.Hardware = r.video.factory, r.video.hardware
@@ -54,8 +55,7 @@ func (r *Receiver) Stats() Stats {
 	return s
 }
 
-// readEncoded describes the stream as it arrives, off the video decoder's input
-// caps.
+// readEncoded describes the stream as it arrives, off the video decoder's sink pad.
 func readEncoded(s *Stats, dec gst.Element) {
 	if dec == nil {
 		return
@@ -70,13 +70,13 @@ func readEncoded(s *Stats, dec gst.Element) {
 	s.Level = st.GetString("level")
 }
 
-// readDecoded describes the decoded frames, off the decoder's own output pad.
+// readDecoded describes the decoded frames, off the decoder's source pad.
 // That pad carries what the decoder produced, and everything downstream of it is this side's own
 // doing: the picture size a stream sends is not the size a tile scaled it to.
 //
-// It is the decoder's pad rather than the next element's because every video decoder has one,
-// whichever chain it sits in and whichever bin decodebin built it inside, and because the memory
-// feature on it is where the decoder put the frames rather than where something after it moved them.
+// The decoder's pad rather than the next element's, because every video decoder has one whichever
+// chain it sits in and whichever bin decodebin built it inside, and because its memory feature is
+// where the decoder put the frames rather than where something after it moved them.
 func readDecoded(s *Stats, dec gst.Element) {
 	if dec == nil {
 		return
@@ -105,21 +105,20 @@ func readDecoded(s *Stats, dec gst.Element) {
 	if n, d, ok := st.GetFraction("framerate"); ok {
 		s.FPSNum, s.FPSDen = int(n), int(d)
 	}
-	// A stream nobody decodes is raw on the wire, so the decoded caps name it:
-	// pbutils describes video/x-raw too.
+	// A stream nobody decodes is raw on the wire, and the decoded caps are then the ones that name
+	// it: pbutils describes video/x-raw too.
 	if s.Codec == "" {
 		s.Codec = codecDescription(caps)
 	}
 }
 
-// readRender describes what the sink does with the frames: the memory they are
-// in when they reach it, the format and size it takes, and its own count of what
-// it took and what it threw away for arriving past its deadline, which the pull
-// count cannot tell apart.
+// readRender describes what the sink does with the frames: the memory they are in when they reach
+// it, the format and size it takes, and its own count of what it took and what it threw away for
+// arriving past its deadline, which the pull count cannot tell apart.
 //
-// The size is read whether or not it differs from the decoded one. Whether a scaler
-// took the picture down for a window is a comparison, and a comparison is a reader's
-// to make from two figures rather than this side's to make by leaving one out.
+// The size is read whether or not it differs from the decoded one.
+// Whether a scaler took the picture down for a window is a comparison, and a comparison is a
+// reader's to make from two figures rather than this side's to make by leaving one out.
 func (r *Receiver) readRender(s *Stats) {
 	if caps := padCaps(r.sink, "sink"); caps != nil {
 		s.RenderMemory = memoryOf(caps)
@@ -133,9 +132,8 @@ func (r *Receiver) readRender(s *Stats) {
 			s.RenderHeight = int(h)
 		}
 	}
-	// The counters are the base sink's rather than a property this element invented,
-	// which is why an appsink answers them the same way the native grid's paintable
-	// sink did.
+	// The counters are the base sink's rather than a property this element invented, which is why an
+	// appsink answers them the way the native grid's paintable sink does.
 	st := r.sink.GetStats()
 	if st == nil {
 		return
@@ -148,9 +146,8 @@ func (r *Receiver) readRender(s *Stats) {
 	}
 }
 
-// readTiming answers the two queries a running pipeline carries: the latency
-// window it configured and whether it runs live, and the running time it has
-// reached, which a stall freezes.
+// readTiming answers the two queries a running pipeline carries: the latency window it configured
+// and whether it runs live, and the running time it has reached, which a stall freezes.
 func (r *Receiver) readTiming(s *Stats) {
 	q := gst.NewQueryLatency()
 	if r.pipeline.Query(q) {
@@ -168,8 +165,8 @@ func (r *Receiver) readTiming(s *Stats) {
 	}
 }
 
-// readAudio describes the audio branch: the encoded track off the decoder's
-// input, the raw one off audioconvert's.
+// readAudio describes the audio branch: the encoded track off the decoder's sink pad, the raw one
+// off audioconvert's.
 func readAudio(s *Stats, dec, convert gst.Element) {
 	if dec != nil {
 		if caps := padCaps(dec, "sink"); caps != nil {

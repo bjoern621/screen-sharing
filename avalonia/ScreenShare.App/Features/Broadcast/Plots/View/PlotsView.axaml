@@ -6,7 +6,6 @@
              x:DataType="vm:PlotsViewModel">
 
   <UserControl.Styles>
-    <!-- The plot frame: a recessed surface with the inner radius, and nothing else. -->
     <Style Selector="Border.plot">
       <Setter Property="Background" Value="{StaticResource PanelBrush}" />
       <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
@@ -16,10 +15,8 @@
       <Setter Property="ClipToBounds" Value="True" />
     </Style>
     <!--
-      An in-plot annotation. Without axes it is the only thing that states a scale, so it
-      is set in tabular figures: the ceiling this plot is drawn against is re-rendered as
-      the traffic moves, and a number that changes width drags its own baseline sideways
-      under a line that has not moved.
+      Tabular figures: an annotation re-renders as the traffic moves, and proportional digits
+      would shift the label sideways under a rule that has not moved.
     -->
     <Style Selector="TextBlock.annotation">
       <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
@@ -44,12 +41,6 @@
 
         <Border Classes="plot">
           <Panel>
-            <!--
-              The gridline is the encoder's ceiling, and where it sits is the view model's
-              answer rather than a number here: the curve is scaled to the run's own peak, so
-              a rule at a constant height would mark a ceiling the stream may be nowhere near.
-              NaN draws none, which is what a ceiling off the top of the plot comes out as.
-            -->
             <plots:Sparkline Points="{Binding Egress}"
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
@@ -60,10 +51,6 @@
               </plots:Sparkline.Fill>
             </plots:Sparkline>
 
-            <!--
-              The label states the ceiling whether or not the rule is on screen, so it sits in
-              the corner rather than riding a line that is not always drawn.
-            -->
             <TextBlock Classes="annotation"
                        Text="{Binding Ceiling}"
                        IsVisible="{Binding HasEgress}"
@@ -71,11 +58,6 @@
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top" />
 
-            <!--
-              What stands in for the curve while there is none. The view model has composed it
-              all along and nothing drew it, so an empty plot was an empty rectangle saying
-              neither which of the reasons it was nor that anything was missing.
-            -->
             <TextBlock Classes="hint"
                        Text="{Binding EgressNotice}"
                        IsVisible="{Binding !HasEgress}"
@@ -93,15 +75,8 @@
       <StackPanel Spacing="{StaticResource GapControl}">
         <Grid ColumnDefinitions="*,Auto">
           <!--
-            No window label beside this caption, and that is not an oversight now that the card
-            draws something. Its points are relay snapshots and the card beside it counts encoder
-            samples, and the two are taken on different intervals - so the span the other card
-            states is not this one's, and stating one here would need a period the contract does
-            not carry.
-
-            The caption says whose figures these are. They are the worst viewer's at each moment
-            and not the stream's, which is a distinction the header makes in a word and this one
-            has room to make properly.
+            No span label beside this caption: these points are relay snapshots, and the poll
+            interval they arrive on is not on the contract.
           -->
           <TextBlock Grid.Column="0" Classes="caption" Text="Worst viewer: round trip &amp; loss" VerticalAlignment="Bottom" />
         </Grid>
@@ -109,14 +84,9 @@
         <Border Classes="plot">
           <Panel>
             <!--
-              Loss sits behind round trip: thinner, grey, and drawn first. Round trip is the
-              figure a publisher reads first and loss is the one that explains it, so the reading
-              order and the drawing order are the same.
-
-              The band the design marks a congestion window with states no start and no width,
-              so none is drawn. The relay states its figures as they stand at each poll and marks
-              no interval, so a window shaded here would be a detection this side performed and
-              called the backend's. It comes back with the detection, from the reading.
+              Band brushes and no band: nothing states a congestion interval, so no start and no
+              width are bound and the band stays undrawn. Shading one from this side would be a
+              detection the shell performed.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
                              Secondary="{Binding Loss}"
@@ -139,7 +109,7 @@
                          VerticalAlignment="Top" />
             </Grid>
 
-            <!-- The swatch is the em dash itself, in the series colour. No separate key. -->
+            <!-- The dash in each label is the swatch, so the two foregrounds track the series strokes. -->
             <StackPanel Orientation="Horizontal"
                         Spacing="{StaticResource GapPanel}"
                         Margin="7,0,0,5"
@@ -150,7 +120,6 @@
               <TextBlock Classes="annotation" Text="— loss" />
             </StackPanel>
 
-            <!-- The same stand-in the card beside it draws, for the same reason. -->
             <TextBlock Classes="hint"
                        Text="{Binding LatencyNotice}"
                        IsVisible="{Binding !HasLatency}"

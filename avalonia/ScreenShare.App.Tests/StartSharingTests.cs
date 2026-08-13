@@ -7,24 +7,18 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The commit: when the one red button is pressable, what it sends, what it calls itself, and what it says
-/// when it cannot be pressed.
-///
-/// <b>Four states decide it, and none of them is this module's opinion.</b> The settings publish
-/// (<c>Form.publishable</c>), the backend is answering, and the relay answered (<c>RelayStatus.reachable</c>)
-/// are the three that let it be pressed at all.
-/// The fourth, whether a stream is already on the air (<c>PublishState.live</c>), decides what pressing it
-/// does rather than whether it can be done: with nothing publishing the commit starts a stream, and with one
-/// running it restarts that stream on these settings.
-/// Each is a whole state some other side stated, so these tests state the reading and assert what the button
-/// did with it - never how a rule was evaluated here.
+/// The commit gate, read off four whole states this module does not decide.
+/// <c>Form.publishable</c>, a backend that answers and <c>RelayStatus.reachable</c> say whether it can be
+/// pressed at all.
+/// <c>PublishState.live</c> says what pressing it does: start a stream, or restart the running one on these
+/// settings.
 /// </summary>
 public sealed class StartSharingTests
 {
     /// <summary>
-    /// A flow whose first form has landed and whose session has read the running state once.
-    /// Both fixtures answer from memory and the dispatcher runs inline, so what a test reads afterwards is
-    /// what the render pass wrote.
+    /// Flow with its first form landed and one reading of the running state behind it.
+    /// The fixtures answer from memory and the dispatcher runs inline, so a call returns with the render
+    /// pass done.
     /// </summary>
     private static SetupViewModel Flow(PublishingBackend backend, out Session session)
     {
@@ -39,8 +33,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Reads every running state once and stops before the reconnect delay, so the states a test set are on
-    /// the session and nothing is left polling behind the assertions.
+    /// Reads every running state once and stops before the reconnect delay, so no poll runs behind the
+    /// assertions.
     /// </summary>
     private static void Load(Session session)
     {
@@ -48,7 +42,7 @@ public sealed class StartSharingTests
         session.Stop();
     }
 
-    /// <summary>Re-reads the running state after a test moved it, the way an event would.</summary>
+    /// <summary>Re-reads the running state and renders, as an event would.</summary>
     private static void Reload(Session session, SetupViewModel flow)
     {
         Load(session);
@@ -71,10 +65,7 @@ public sealed class StartSharingTests
         Assert.Equal("", flow.Review.Blocked);
     }
 
-    /// <summary>
-    /// Before the first form there is nothing that says these settings publish, so the button is locked - and
-    /// it says nothing, because nothing has been established to say.
-    /// </summary>
+    /// <summary>Nothing says these settings publish until a form has landed.</summary>
     [Fact]
     public void BeforeTheFirstFormLandsTheCommitIsLocked()
     {
@@ -85,10 +76,7 @@ public sealed class StartSharingTests
         Assert.False(flow.Review.CanStartSharing);
     }
 
-    /// <summary>
-    /// A backend that cannot be reached locks the commit and its own sentence is the one shown.
-    /// It comes first of the three, because nothing else can be established while it holds.
-    /// </summary>
+    /// <summary>First of the three, because nothing else can be established while the backend is silent.</summary>
     [Fact]
     public void ABackendThatCannotBeReachedLocksTheCommitAndSaysSoInItsOwnWords()
     {
@@ -105,8 +93,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// An unreachable relay locks the commit, and the reason is the relay's own rather than one composed here
-    /// - a shell that wrote its own would be describing a failure it did not see.
+    /// The reason is the relay's own: a sentence composed here would describe a failure this side did not
+    /// see.
     /// </summary>
     [Fact]
     public void AnUnreachableRelayLocksTheCommitAndCarriesTheRelaysReason()
@@ -123,10 +111,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A relay that answered nothing at all still locks the commit, and says the one thing that is true: it
-    /// could not be reached.
-    /// The backend's opening snapshot is exactly this - it must not claim reachable before anything has asked
-    /// - so the case is the first seconds of every session rather than an edge.
+    /// The backend's opening snapshot is exactly this, unreachable with no reason, so the case is the first
+    /// seconds of every session rather than an edge.
     /// </summary>
     [Fact]
     public void ARelaySnapshotWithNoReasonStillLocksTheCommit()
@@ -140,10 +126,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A stream already on the air no longer locks the commit.
-    /// It used to, because the only effect the shell could reach was <c>StartPublish</c> and the backend
-    /// refuses that while a pipeline is in force; <c>ApplyToStream</c> is the effect for exactly that state,
-    /// so refusing here would be this module standing in front of a call that would succeed.
+    /// <c>ApplyToStream</c> is the effect for a stream in force, so a lock here would stand in front of a
+    /// call that succeeds.
     /// </summary>
     [Fact]
     public void AStreamAlreadyPublishingLeavesTheCommitPressable()
@@ -162,11 +146,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// What a live stream changes is the commit rather than the lock, and the button says so before it is
-    /// pressed.
-    /// The words come out of one table read off the gate's own answer, so this states that the flow picked
-    /// the right row rather than restating the wording - which would be the sentence written down in a second
-    /// place, free to drift from the first.
+    /// Asserted against <c>CommitCopy</c>'s row rather than the wording, which would be the sentence written
+    /// down a second time and free to drift.
     /// </summary>
     [Fact]
     public void TheCommitsWordsFollowWhatPressingItWillDo()
@@ -189,11 +170,7 @@ public sealed class StartSharingTests
         Assert.NotEqual(start.Label, apply.Label);
     }
 
-    /// <summary>
-    /// The apply wording says the stream restarts, in the copy itself.
-    /// The backend has no live-safe change and never had one, so a reader who presses this expecting a
-    /// seamless swap has been misled by the button - which is the one thing this table exists to prevent.
-    /// </summary>
+    /// <summary>No live-safe change exists, so copy reading as a seamless swap would mislead.</summary>
     [Fact]
     public void TheApplyWordingSaysTheStreamRestarts()
     {
@@ -204,9 +181,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Pressing it while a stream is live applies to that stream rather than asking for a second one.
-    /// Which of the two it is is read off the running state on the pass the press happens on, so the label
-    /// the reader saw and the call that goes out cannot come apart.
+    /// Which effect it is comes off the running state on the press's own pass, so the label read and the
+    /// call sent cannot come apart.
     /// </summary>
     [Fact]
     public void PressingTheCommitWhileAStreamIsLiveAppliesToItRatherThanStartingAnother()
@@ -225,12 +201,7 @@ public sealed class StartSharingTests
         Assert.Equal("", flow.Review.Refusal);
     }
 
-    /// <summary>
-    /// A stream that ended puts the commit back to a start, with nothing here having remembered that it was
-    /// an apply.
-    /// It is the render function's own property applied to the words on the button: every output is written
-    /// on every pass, including the branch that turns one back.
-    /// </summary>
+    /// <summary>Every output is written on every pass, the branch that turns one back included.</summary>
     [Fact]
     public void AStreamThatEndedPutsTheCommitBackToAStart()
     {
@@ -251,9 +222,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Two readings of one running state produce gates that compare equal, which is what lets the review
-    /// render twice over unchanged state and write nothing (docs/development-principles.md, "Idempotency").
-    /// It is a record for exactly this.
+    /// The gate is a record so that two readings compare equal, which is what lets the review render twice
+    /// and write nothing (docs/development-principles.md, "Idempotency").
     /// </summary>
     [Fact]
     public void TwoReadingsOfOneStateProduceTheSameGate()
@@ -266,11 +236,7 @@ public sealed class StartSharingTests
             PublishGate.Of(true, "", publish, relay, starting: false));
     }
 
-    /// <summary>
-    /// A second render pass over unchanged state notifies nothing on the review, which is what makes the
-    /// commit safe to reconcile from a pass that runs on every keystroke.
-    /// The words on the button are the ones this covers that the earlier idempotency tests did not.
-    /// </summary>
+    /// <summary>The pass runs on every keystroke, so an unchanged commit has to notify nothing.</summary>
     [Fact]
     public void ASecondRenderPassOverAnUnchangedCommitNotifiesNothing()
     {
@@ -286,11 +252,6 @@ public sealed class StartSharingTests
         Assert.Empty(moved);
     }
 
-    /// <summary>
-    /// A relay that came back unlocks the button with nothing here having remembered it was locked.
-    /// That is the render function's own property applied to the commit: every output is written on every
-    /// pass, including the branch that turns something back on.
-    /// </summary>
     [Fact]
     public void ARelayThatCameBackUnlocksTheCommit()
     {
@@ -307,11 +268,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// Pressing it starts the publish on the draft that is on screen, and announces that the start went
-    /// through.
-    /// What crosses is a copy of the draft rather than the draft itself: the controls write that instance in
-    /// place, and a keystroke arriving mid-flight would otherwise change the settings the stream is being
-    /// built from.
+    /// A copy of the draft crosses rather than the draft itself, which the controls write in place: a
+    /// keystroke mid-flight would otherwise move the settings the stream is built from.
     /// </summary>
     [Fact]
     public void PressingStartSharingStartsThePublishOnTheDraftOnScreenAndAnnouncesIt()
@@ -333,9 +291,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A locked button starts nothing.
-    /// The command's own guard is what says so, and it is the same fact the view binds - so a press that got
-    /// through anyway would be a press the screen never offered.
+    /// The command's guard is the fact the view binds, so a press that got through would be one the screen
+    /// never offered.
     /// </summary>
     [Fact]
     public void ALockedCommitStartsNothing()
@@ -349,9 +306,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A refusal is the backend's own sentence, shown as it stands, and it leaves the button pressable: the
-    /// reader may well have fixed what it named.
-    /// A start that failed is not a state this flow holds - nothing here says a stream exists.
+    /// A start that failed leaves no state here, so the button stays pressable for a reader who fixed what
+    /// the sentence named.
     /// </summary>
     [Fact]
     public void ARefusedStartShowsTheBackendsSentenceAndLeavesTheButtonPressable()
@@ -371,11 +327,6 @@ public sealed class StartSharingTests
         Assert.Empty(backend.Started);
     }
 
-    /// <summary>
-    /// A start that went through clears the refusal the last one left.
-    /// It is the render function's usual property stated for a string, and the reason the sentence is written
-    /// on every pass rather than only when there is one.
-    /// </summary>
     [Fact]
     public void AStartThatWentThroughClearsTheRefusalBeforeIt()
     {
@@ -394,12 +345,8 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// A start that has been asked for and not answered says so on the button, and takes no second press
-    /// while it is out.
-    ///
-    /// The two are one fact rather than two: what the control draws its wait from is the same field the
-    /// command refuses the second press off, so a button that looks busy is a call that is really in flight
-    /// and a stream cannot be asked for twice.
+    /// One field carries both: the wait the control draws, and the guard the second press is refused off.
+    /// A button that looks busy is therefore a call in flight, and a stream cannot be asked for twice.
     /// </summary>
     [Fact]
     public void AStartThatHasNotBeenAnsweredSaysSoAndTakesNoSecondPress()
@@ -424,10 +371,7 @@ public sealed class StartSharingTests
         Assert.True(flow.Review.CanStartSharing);
     }
 
-    /// <summary>
-    /// What the commit promises is the path a viewer will really ask for: the draft's own name, which moves
-    /// when the destination step's field does.
-    /// </summary>
+    /// <summary>The promised name is the path a viewer asks for, and moves with the destination field.</summary>
     [Fact]
     public void TheCommitNamesTheStreamTheDraftCarries()
     {

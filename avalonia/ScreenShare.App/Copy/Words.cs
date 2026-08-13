@@ -3,32 +3,28 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// What every identifier the backend uses is called on screen.
 ///
-/// The backend names a codec <c>hevc_nvenc</c>, an engine <c>gstreamer</c> and a pixel format <c>yuv420p</c>,
-/// because those are what the encoder, the element registry and libavutil call them.
-/// This file is where each of those becomes something a reader can use: <c>HEVC</c>, <c>GStreamer</c>,
-/// <c>4:2:0</c>.
-/// Nothing here decides what is legal or what exists - that is the backend's, and a value it stops sending
-/// simply stops being looked up (docs/ipc-api.md).
+/// The backend spells a codec <c>hevc_nvenc</c>, an engine <c>gstreamer</c> and a pixel format
+/// <c>yuv420p</c>, since those are the encoder's, the element registry's and libavutil's own names.
+/// Here each becomes something a reader can use: <c>HEVC</c>, <c>GStreamer</c>, <c>4:2:0</c>.
+/// Nothing here decides what is legal or what exists, and a value the backend stops sending stops being
+/// looked up (docs/ipc-api.md).
 ///
 /// Three rules hold across the whole file.
 ///
-/// <b>An unknown identifier answers with itself.</b> A backend newer than this build can name a codec this
-/// table has never heard of, and showing <c>av1_qsv</c> is a screen a reader can still act on where a blank
-/// is one they cannot.
-/// It is a defect and not a failure, which is why it renders rather than asserting.
+/// <b>An unknown identifier answers with itself.</b> A backend newer than this build names codecs this table
+/// has not heard of, and <c>av1_qsv</c> on screen is one a reader can still pick, search for and report.
+/// A missing word is a defect and not a failure, so it renders rather than asserting.
 ///
-/// <b>Short here, long in <see cref="Descriptions"/>.</b> Everything in this file has to fit a dropdown row,
-/// a chip and a step strip, so it is a name and never a sentence.
-/// The paragraph explaining the choice lives beside it in the other file and is shown where there is room.
+/// <b>Short here, long in <see cref="Descriptions"/>.</b> Everything here fits a dropdown row, a chip and a
+/// step strip, so it is a name and never a sentence.
 ///
-/// <b>The identifier is kept wherever the reader will meet it again.</b> A pixel format reads <c>yuv420p ·
-/// 4:2:0</c> and not <c>4:2:0</c> alone, because that string is what the command preview, the run log and
-/// every ffmpeg answer on the internet will call it.
-/// Hiding it would make this app the only place the setting has that name.
+/// <b>The identifier is kept wherever the reader meets it again.</b> A pixel format reads <c>yuv420p ·
+/// 4:2:0</c>, because that string is what the command preview, the run log and every ffmpeg answer elsewhere
+/// call it.
 /// </summary>
 public static class Words
 {
-    /// <summary>The publish engines. Both spellings are the projects' own.</summary>
+    /// <summary>The publish engines. Both spellings, casing included, are the projects' own.</summary>
     private static readonly Dictionary<string, string> Engines = new()
     {
         ["ffmpeg"] = "ffmpeg",
@@ -37,8 +33,8 @@ public static class Words
 
     /// <summary>
     /// The video coding formats, named the way a viewer's decoder settings name them.
-    /// Both halves of the H.26x names are kept: one is the ITU spelling and the other the ISO one, and which
-    /// of the two a reader has met before is not knowable from here.
+    /// Both halves of an H.26x name are kept, the ITU spelling and the ISO one, since which of the two a
+    /// reader has met before is not knowable from here.
     /// </summary>
     private static readonly Dictionary<string, string> Formats = new()
     {
@@ -51,7 +47,7 @@ public static class Words
 
     /// <summary>
     /// The encoder families, named by the hardware or the library a reader would go looking for.
-    /// "vaapi" names a driver; "Intel / AMD GPU" names the thing they either have or do not.
+    /// "vaapi" names a driver, where "Intel / AMD GPU" names the thing they either have or do not.
     /// </summary>
     private static readonly Dictionary<string, string> Families = new()
     {
@@ -67,8 +63,8 @@ public static class Words
 
     /// <summary>
     /// The pixel formats.
-    /// The subsampling ratio is the part that carries the trade, so it leads; the bit depth is called out
-    /// only where it is not eight.
+    /// The subsampling ratio carries the trade, so it leads.
+    /// Bit depth is named only where it is not eight.
     /// </summary>
     private static readonly Dictionary<string, string> Chromas = new()
     {
@@ -81,7 +77,7 @@ public static class Words
 
     /// <summary>
     /// The rate-control modes, named for what the encoder holds steady.
-    /// That is the whole distinction between them, and the acronym alone says none of it.
+    /// That is the whole difference between them, and the acronym says none of it.
     /// </summary>
     private static readonly Dictionary<string, string> Modes = new()
     {
@@ -92,7 +88,7 @@ public static class Words
         ["lossless"] = "Lossless",
     };
 
-    /// <summary>The transports, named by the acronym everything else in the world uses.</summary>
+    /// <summary>The transports, under the acronym every other tool spells them with.</summary>
     private static readonly Dictionary<string, string> Transports = new()
     {
         ["srt"] = "SRT",
@@ -104,8 +100,8 @@ public static class Words
 
     /// <summary>
     /// The capture backends, named by what they read rather than by the element that reads it.
-    /// Two of these sources are read by both engines, so this half of the name repeats; the engine that
-    /// completes it comes from the catalog row (<see cref="Vocabulary"/>).
+    /// Two sources are read by both engines, so this half of the name repeats and does not identify.
+    /// The engine that completes it comes from the catalog row (<see cref="Vocabulary"/>).
     /// </summary>
     private static readonly Dictionary<string, string> Captures = new()
     {
@@ -120,7 +116,6 @@ public static class Words
         ["avfvideosrc"] = "macOS screen",
     };
 
-    /// <summary>Where the frames reach the encoder.</summary>
     private static readonly Dictionary<string, string> Memories = new()
     {
         ["auto"] = "Automatic",
@@ -130,12 +125,11 @@ public static class Words
     };
 
     /// <summary>
-    /// Where a pipeline's frames are held, as the memory feature on its caps names it.
+    /// Where a pipeline's frames are held, in the spelling the memory feature on its caps uses.
     ///
-    /// A different table from <see cref="Memories"/> above, which names the setting that asks for one.
-    /// These are what a running pipeline reported, in GStreamer's own spelling, and the two sets do not
-    /// correspond: a chain asked to stay on the GPU reports the API it ended up using, and one that was asked
-    /// for nothing in particular reports whatever it negotiated.
+    /// Not <see cref="Memories"/> above, which names the setting that asks for one.
+    /// The two sets do not correspond: a chain asked to stay on the GPU reports the API it ended up using,
+    /// and one asked for nothing in particular reports whatever it negotiated.
     /// </summary>
     private static readonly Dictionary<string, string> FrameMemories = new()
     {
@@ -146,7 +140,6 @@ public static class Words
         ["memory:DMABuf"] = "the GPU, dmabuf",
     };
 
-    /// <summary>What the pointer does in the captured frames.</summary>
     private static readonly Dictionary<string, string> Cursors = new()
     {
         ["embedded"] = "Drawn into the picture",
@@ -154,7 +147,7 @@ public static class Words
         ["metadata"] = "Sent beside the picture",
     };
 
-    /// <summary>The kmsgrab download strategies, named by the device that does the mapping.</summary>
+    /// <summary>The kmsgrab download strategies, named by the device that maps.</summary>
     private static readonly Dictionary<string, string> DrmMaps = new()
     {
         ["auto"] = "Match the GPU",
@@ -163,7 +156,6 @@ public static class Words
         ["none"] = "No mapping",
     };
 
-    /// <summary>The second-track sources.</summary>
     private static readonly Dictionary<string, string> AudioSources = new()
     {
         ["none"] = "No audio",
@@ -180,7 +172,7 @@ public static class Words
 
     /// <summary>
     /// The quantization ranges, named by the code values they use.
-    /// The numbers are the whole of the difference and are what a mismatch shows up as.
+    /// The numbers are the whole difference, and what a mismatch shows up as.
     /// </summary>
     private static readonly Dictionary<string, string> ColorRanges = new()
     {
@@ -191,21 +183,20 @@ public static class Words
     /// <summary>
     /// The effort ladders, every encoder's steps in one table.
     ///
-    /// A step is the encoder's own identifier and the backend offers whichever ladder the selected codec
-    /// declares, so the two named ladders sit here together: no codec offers both, and a step of one is never
-    /// a step of the other.
+    /// A step is the encoder's own identifier, and the backend offers whichever ladder the selected codec
+    /// declares, so the named ladders sit together: no codec offers both, and a step of one is never a step of
+    /// the other.
     ///
     /// Only the ends and the defaults carry a word.
-    /// The steps between them are a ladder, and naming each would imply a difference in kind.
+    /// Naming each step between them would imply a difference in kind.
     ///
-    /// The numeric ladders are deliberately absent.
-    /// Their steps are numbers on the encoder's own scale - 0 to 13 on SVT-AV1, 0 to 8 on libaom - and the
-    /// number is the name, so the lookup falls through to the identifier and the dropdown reads as the ladder
-    /// it is.
+    /// The numeric ladders are absent on purpose.
+    /// Their steps are numbers on the encoder's own scale, 0 to 13 on SVT-AV1 and 0 to 8 on libaom, so the
+    /// number is the name and the lookup falls through to the identifier.
     /// </summary>
     private static readonly Dictionary<string, string> Efforts = new()
     {
-        // NVIDIA's ladder, slowest step first as the backend orders every ladder.
+        // NVIDIA's ladder, slowest step first, as the backend orders every ladder.
         ["p7"] = "p7 · smallest",
         ["p6"] = "p6",
         ["p5"] = "p5",
@@ -214,7 +205,7 @@ public static class Words
         ["p2"] = "p2",
         ["p1"] = "p1 · fastest",
 
-        // x264's ladder, which libx265 takes as well.
+        // x264's ladder, taken by libx265 as well.
         ["placebo"] = "Placebo · slowest",
         ["veryslow"] = "Very slow",
         ["slower"] = "Slower",
@@ -226,7 +217,7 @@ public static class Words
         ["superfast"] = "Superfast",
         ["ultrafast"] = "Ultrafast · fastest",
 
-        // AMD's quality scale, which all three of its encoders spell alike.
+        // AMD's quality scale, spelled alike by all three of its encoders.
         // Three steps and no ladder between them, so each carries a word.
         ["quality"] = "Quality",
         ["balanced"] = "Balanced",
@@ -237,8 +228,9 @@ public static class Words
     /// The tune ladders: what an encoder aims at while it spends its effort.
     ///
     /// Two vocabularies meet here, as they do above.
-    /// x264 and x265 name what the picture is or what the decoder needs; the NVIDIA encoders name the delay
-    /// they hold, in the SDK's abbreviations, which is what the backend carries and what a log will show.
+    /// x264 and x265 name what the picture is or what the decoder needs.
+    /// The NVIDIA encoders name the delay they hold, in the SDK's abbreviations, which is what the backend
+    /// carries and what a log shows.
     /// </summary>
     private static readonly Dictionary<string, string> Tunes = new()
     {
@@ -258,9 +250,9 @@ public static class Words
     };
 
     /// <summary>
-    /// The built-in presets, named for what each one puts first.
-    /// A preset is a promise about the picture rather than a set of values, so the name says what is being
-    /// asked for and never which encoder answers - that part is this machine's and differs on the next one
+    /// The built-in presets, named for what each puts first.
+    /// A preset is a promise about the picture rather than a set of values, so a name says what is asked for
+    /// and never which encoder answers, which is this machine's and differs on the next
     /// (<c>docs/presets.md</c>).
     /// </summary>
     private static readonly Dictionary<string, string> Presets = new()
@@ -270,7 +262,7 @@ public static class Words
         ["readability"] = "Text and detail",
     };
 
-    /// <summary>The RTP lower transports an RTSP session runs over.</summary>
+    /// <summary>The lower transport RTP takes inside an RTSP session, not the session's own.</summary>
     private static readonly Dictionary<string, string> RtspProtocols = new()
     {
         ["tcp"] = "TCP, on the RTSP connection",
@@ -279,9 +271,9 @@ public static class Words
 
     /// <summary>
     /// The render chains, named by where the frames are converted and what that says about their colour,
-    /// which are the two things the choice is between.
-    /// The element names the backend builds each from stay behind the seam; a reader picking one is picking a
-    /// place and a promise, not a pipeline.
+    /// which are the two halves of the choice.
+    /// The element names the backend builds each from stay behind the seam: a reader picks a place and a
+    /// promise, not a pipeline.
     /// </summary>
     private static readonly Dictionary<string, string> RenderChains = new()
     {
@@ -295,8 +287,9 @@ public static class Words
     /// <summary>
     /// The decode paths, named by the hardware a viewer would have rather than by the plugin the element
     /// comes from.
-    /// A reader deciding what to publish is deciding whose machine will cope, and "vaapi" is not the name of
-    /// a machine.
+    /// A reader deciding what to publish is deciding whose machine copes, and "vaapi" is not the name of a
+    /// machine.
+    /// The keys are the decoders' own and not <see cref="Families"/>: <c>va</c> here, <c>vaapi</c> there.
     /// </summary>
     private static readonly Dictionary<string, string> DecodeFamilies = new()
     {
@@ -308,12 +301,13 @@ public static class Words
     };
 
     /// <summary>
-    /// The transfer characteristics a decode reports, in the names a reader meets them under rather than in
-    /// the standards' own.
+    /// The transfer characteristics a decode reports, under the names a reader meets them by rather than the
+    /// standards' own.
     ///
-    /// Two of them carry more range than a standard display shows, and those two are the reason this table
-    /// exists: a tile says which curve it is drawing, because what to do about it differs - PQ is absolute
-    /// and mastered for a bright display, HLG is relative and degrades into a standard one on its own.
+    /// Two carry more range than a standard display shows, and they are why the table exists: a tile says
+    /// which curve it is drawing, because what to do about it differs.
+    /// PQ is absolute and mastered for a bright display, HLG relative and degrading into a standard one on its
+    /// own.
     /// </summary>
     private static readonly Dictionary<string, string> Transfers = new()
     {
@@ -345,8 +339,7 @@ public static class Words
 
     /// <summary>
     /// The same two names for the enum a catalog row carries, where a statement carries the identifier.
-    /// An unset engine answers with nothing, which is the one case the caller has to leave out of a name
-    /// rather than print.
+    /// An unset engine answers with an empty string, which the caller leaves out of a name rather than prints.
     /// </summary>
     public static string Engine(Api.V1.Engine engine) => engine switch
     {
@@ -389,8 +382,8 @@ public static class Words
 
     /// <summary>
     /// The name of a built-in preset.
-    /// It is not <see cref="Effort"/>: that one is a step of the NVENC ladder and a settings value, this one
-    /// is a way of publishing that is applied and never stored.
+    /// Not <see cref="Effort"/>, which is what x264 calls a preset: that is a settings value on a ladder,
+    /// where this is a way of publishing that is applied and never stored.
     /// </summary>
     public static string Preset(string id) => Look(Presets, id);
 
@@ -406,8 +399,8 @@ public static class Words
 
     /// <summary>
     /// A list of names as a sentence reads it: "a", "a and b", "a, b or c".
-    /// The joining word is the caller's, because a list of things that all hold and a list of things to
-    /// choose between are the same list read two ways.
+    /// The joining word is the caller's, since a list of things that all hold and a list of things to choose
+    /// between are one list read two ways.
     /// </summary>
     public static string List(IEnumerable<string> names, string last = "or")
     {
@@ -424,9 +417,8 @@ public static class Words
     /// <summary>
     /// The name for an identifier, falling back to the identifier itself.
     ///
-    /// The fallback is the honest answer rather than a guard: a value this build has no word for is still a
-    /// value the backend will accept, and a reader shown the raw identifier can pick it, search for it and
-    /// report it.
+    /// The fallback is an answer rather than a guard: a value this build has no word for is still one the
+    /// backend accepts, and the raw identifier is something a reader can pick, search for and report.
     /// </summary>
     private static string Look(Dictionary<string, string> words, string id) =>
         id.Length > 0 && words.TryGetValue(id, out var word) ? word : id;

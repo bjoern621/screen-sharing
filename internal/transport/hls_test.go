@@ -37,8 +37,8 @@ func TestHLSWatchURL(t *testing.T) {
 	}
 }
 
-// The player page is the same path with no playlist on it: the page fetches the playlist itself,
-// and a player URL handed to a browser would download a file instead of playing it.
+// The page fetches the playlist itself, so its address carries no playlist name.
+// A player URL handed to a browser downloads a file instead of playing it.
 func TestHLSBrowserURL(t *testing.T) {
 	want := "http://relay.example:8888/bob/"
 	got := HLS{}.BrowserURL(hlsTestStream(), "bob")
@@ -47,9 +47,7 @@ func TestHLSBrowserURL(t *testing.T) {
 	}
 }
 
-// HLS is the watch-only leg.
-// Every publish helper has to refuse it, since the relay serves the segments and ingests none of
-// them.
+// The relay serves the segments and ingests none, so every publish helper refuses the leg.
 func TestHLSPublishesNothing(t *testing.T) {
 	s := hlsTestStream()
 	s.Publish.Transport = "hls"

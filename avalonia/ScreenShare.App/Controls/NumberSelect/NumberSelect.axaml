@@ -2,38 +2,21 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    A number that also carries a ladder: the typed box, and a caret beside it that opens the
-    values worth reaching in one move (api/proto/screenshare/v1/form.proto,
-    CONTROL_KIND_NUMBER_SELECT).
-
-    It is two widgets and not one, because the two answer differently: the box takes any
-    value the field's range admits, and the ladder takes one of a few. Gluing them is what
-    says they write the same setting - a spinner with a dropdown standing off to its right
-    reads as two controls, and a reader who saw the ladder would not know the box was the
-    same knob.
-
-    Both halves are the plain themes with their inner corners taken off, which is the whole
-    of the treatment. Neither restates a template: each inherits its type's own and sets the
-    one property that differs, so a change to the number box or the button reaches this pair
-    (Design/Inputs.axaml, Design/Buttons.axaml).
-
-    The menu is the product's own (Design/Menus.axaml), carrying the option row's two extra
-    setters (Controls/Select), because a list of values to pick from is one thing in this
-    product however the closed control beside it is drawn.
+    CONTROL_KIND_NUMBER_SELECT: a typed box, and a caret beside it opening the values worth
+    reaching in one move (api/proto/screenshare/v1/form.proto).
+    Two widgets because the two answer differently: the box takes any value the field's range
+    admits, the ladder one of a few.
+    Glued so the pair reads as one setting rather than as a spinner beside an unrelated dropdown.
   -->
 
-  <!-- The typed half: the design's number box with its trailing corners taken off. -->
   <ControlTheme x:Key="NumberSelectInput" TargetType="NumericUpDown" BasedOn="{StaticResource {x:Type NumericUpDown}}">
     <Setter Property="CornerRadius" Value="{StaticResource RadiusControlLeading}" />
   </ControlTheme>
 
   <!--
-    The ladder half: a caret and nothing else, because the value is already shown in the box
-    to its left. A face repeating it would be the same figure twice, and the two would
-    disagree the moment one was typed into.
-
-    The negative margin is the join. Both halves carry a 1px border, and without it the pair
-    shows a 2px seam where they meet.
+    A caret and no face: the value is already in the box beside it, and a second one would be
+    the same figure twice.
+    The negative margin collapses the two 1px borders that would otherwise meet as a 2px seam.
   -->
   <ControlTheme x:Key="NumberSelectCaret" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="CornerRadius" Value="{StaticResource RadiusControlTrailing}" />

@@ -1,18 +1,23 @@
 // Package portal drives the xdg-desktop-portal ScreenCast interface over D-Bus.
 //
-// The portal is the compositor-agnostic Wayland capture backend: the app never touches a raw
-// framebuffer, it asks the portal, the compositor draws its own picker, and a PipeWire node is
-// handed back on a dedicated remote fd.
-// GNOME, KDE and wlroots compositors all implement it.
+// The portal is the compositor-agnostic Wayland capture backend: nothing here touches a raw
+// framebuffer, the compositor draws its own picker, and a PipeWire node comes back on a dedicated
+// remote fd.
+// GNOME, KDE and wlroots compositors implement it.
 //
-// Every ScreenCast method is asynchronous: the call returns a Request object path and the real
-// result arrives later on that object's Response signal.
-// The handle_token in each options map makes the Request path predictable,
-// so the Response match is in place before the method is called and no signal races.
+// Every ScreenCast method is asynchronous: the call returns a Request object path and the result
+// arrives later on that object's Response signal.
+// The handle_token in each options map makes the Request path predictable, so the Response match is
+// installed before the method is called and no signal races.
 //
-// Every failure here belongs to the compositor or the bus rather than to this code,
-// so all of them are Umgebungsfehler and leave as errors: a portal that is not running,
-// a user who dismissed the picker, a consent that has been revoked.
+// The node the session yields is damage-driven: no frame while the screen is still,
+// and the PipeWire clock stops with it.
+// A consumer therefore paces and re-stamps the frames itself instead of following that clock
+// (publish/gstcapture.go, imagefreeze).
+//
+// Every failure belongs to the compositor or the bus rather than to this code, so all of them are
+// Umgebungsfehler and leave as errors: a portal that is not running, a dismissed picker, a revoked
+// consent.
 package portal
 
 import (
@@ -30,9 +35,9 @@ const (
 	scIface   = "org.freedesktop.portal.ScreenCast"
 )
 
-// CursorMode selects how the pointer appears in the captured stream.
-// The values are the portal's bitmask: hidden, embedded in the frame, or delivered as separate
-// metadata.
+// CursorMode selects how the pointer appears in the captured stream: hidden, embedded in the frame,
+// or delivered as metadata beside it.
+// The values are the portal's own bitmask.
 type CursorMode uint32
 
 const (
@@ -42,7 +47,7 @@ const (
 )
 
 // SourceType selects what the picker offers.
-// The values are the portal's bitmask and may be combined.
+// The values are the portal's own bitmask and combine.
 type SourceType uint32
 
 const (
@@ -53,18 +58,21 @@ const (
 
 // Options requests a capture shape.
 // Types and Cursor default to a whole-monitor capture with the cursor drawn into the frame.
-// RestoreToken, where it is not empty, asks the compositor to skip the picker and reuse a prior
-// consent.
+// A non-empty RestoreToken asks the compositor to skip the picker and reuse a prior consent.
 type Options struct {
 	Types        SourceType
 	Cursor       CursorMode
 	RestoreToken string
 }
 
-// Session is one open ScreenCast stream.
-// Fd is the PipeWire remote the consumer reads NodeID from; it is passed to a child process as an
-// inherited fd.
-// Close releases the fd and tears the portal session down.
+// Session is one open ScreenCast stream and lives as long as the capture reading it.
+// Losing it drops the node and the fd, so the next capture opens a session of its own and pops the
+// picker unless a restore token survived.
+//
+// Fd is the PipeWire remote NodeID lives on, handed to a child process as an inherited fd.
+// Restore is what the compositor issued for this consent, empty where it persisted none, and it is
+// stored as it stands for the next SelectSources (settings.SavePortalToken): a revoked consent and
+// an empty token replacing a spent one both send the next Open through the picker.
 type Session struct {
 	conn    *dbus.Conn
 	handle  dbus.ObjectPath
@@ -73,8 +81,8 @@ type Session struct {
 	Restore string
 }
 
-// Open runs the CreateSession, SelectSources, Start and OpenPipeWireRemote sequence and returns the
-// negotiated stream.
+// Open runs CreateSession, SelectSources, Start and OpenPipeWireRemote, and answers the negotiated
+// stream.
 // Start pops the compositor picker unless a valid RestoreToken is supplied.
 //
 // Every failure past CreateSession tears the session down before returning,
@@ -111,7 +119,7 @@ func Open(opts Options) (*Session, error) {
 		"types":        dbus.MakeVariant(uint32(opts.Types)),
 		"cursor_mode":  dbus.MakeVariant(uint32(opts.Cursor)),
 		"multiple":     dbus.MakeVariant(false),
-		"persist_mode": dbus.MakeVariant(uint32(2)), // persist until revoked, so RestoreToken works
+		"persist_mode": dbus.MakeVariant(uint32(2)), // persist until revoked, which issues a token
 	}
 	if opts.RestoreToken != "" {
 		selectOpts["restore_token"] = dbus.MakeVariant(opts.RestoreToken)
@@ -153,7 +161,7 @@ func Open(opts Options) (*Session, error) {
 }
 
 // Close releases the remote fd and closes both the portal session and the bus connection.
-// It is idempotent: a second call finds both already released and does nothing.
+// Idempotent: a second call finds both released and does nothing.
 func (s *Session) Close() {
 	if s.Fd != nil {
 		s.Fd.Close()

@@ -21,51 +21,51 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// ControlKind is what kind of widget a field is, in terms of behaviour rather than
-// appearance. A shell maps it to whatever its toolkit draws; the design language is
-// the shell's, the behaviour is not.
+// A field's widget, described by behaviour instead of appearance.
+// A shell maps each onto whatever its toolkit draws, because the design language belongs
+// to the shell and the behaviour does not.
 //
-// The messages in this file are named to survive contact with a generated language:
-// Control, Option, Value and Range are all types the .NET base library or Avalonia
-// already owns, and a contract whose every use site needs an alias is a contract
-// that will be aliased inconsistently.
+// Names here are picked to survive generation into another language.
+// Control, Option, Value and Range already belong to the .NET base library or to Avalonia,
+// and a contract needing an alias at every use site gets aliased inconsistently.
 type ControlKind int32
 
 const (
 	ControlKind_CONTROL_KIND_UNSPECIFIED ControlKind = 0
-	// A free-text value.
+	// Free text.
 	ControlKind_CONTROL_KIND_TEXT ControlKind = 1
-	// A whole number within range.
+	// Whole number inside range.
 	ControlKind_CONTROL_KIND_NUMBER ControlKind = 2
-	// A number the user drags, within range. The distinction from CONTROL_KIND_NUMBER
-	// is that the value is expected to be swept rather than typed, which is what
-	// decides whether a control debounces.
+	// Dragged number inside range.
+	// Apart from CONTROL_KIND_NUMBER in that sweeping is expected over typing, which settles
+	// whether a control debounces.
 	ControlKind_CONTROL_KIND_SLIDER ControlKind = 3
 	// On or off.
 	ControlKind_CONTROL_KIND_TOGGLE ControlKind = 4
-	// One of options, where the value identifies the choice well enough for a shell to
-	// name it in one line. A shell may keep the unchosen options behind an interaction.
+	// One of options, the value naming the choice closely enough for a one-line rendering.
+	// Unchosen entries may sit behind an interaction.
 	ControlKind_CONTROL_KIND_SELECT ControlKind = 5
-	// One of options, where the reader needs each option's own paragraph before
-	// choosing - the rate-control mode is the case that exists. The behavioural
-	// requirement is that no option may be hidden behind an interaction; how they are
-	// laid out once visible is the shell's.
+	// One of options, each needing its own paragraph read before a choice, as the
+	// rate-control mode does.
+	// Behaviour required: no entry hidden behind an interaction.
+	// Their arrangement once visible belongs to the shell.
 	ControlKind_CONTROL_KIND_RADIO ControlKind = 6
-	// A read-back figure with no input on it at all. It is not a disabled input: a
-	// disabled select still carries the options it would have offered, and this
-	// carries none because there was never a choice to make. Field.enabled is false
-	// with the reason naming who decided.
+	// A figure read back, carrying no input whatsoever.
+	// Not an input switched off: a select switched off still lists what it would have
+	// offered, and nothing is listed here because no choice ever existed.
+	// Field.enabled comes false, its cause naming the decider.
 	ControlKind_CONTROL_KIND_READONLY ControlKind = 7
-	// A whole number within range that also carries a ladder of values worth
-	// reaching in one move - the frame rate is the case that exists. It fills both
-	// options and range, and the behavioural requirement is that the two write the
-	// same value: an entry is a shortcut, not the set of legal numbers, so a value
-	// off the ladder is typed rather than refused.
+	// Whole number inside range, carrying beside it a ladder of values reachable in one
+	// move, as the frame rate does.
+	// options and range both fill, and behaviour requires the two to write one value: an
+	// entry shortcuts rather than enumerates what is legal, leaving a value off the ladder
+	// typeable instead of refused.
 	//
-	// The distinction from CONTROL_KIND_SELECT is that the ladder is not the domain.
-	// A select over a number offers every value the backend accepts, and typing a
-	// value it did not offer is an error; here the range is what accepts, and the
-	// entries only save the reader from finding the usual answers themselves.
+	// Apart from CONTROL_KIND_SELECT in that the ladder is not the domain.
+	// A select over numbers lists everything the backend takes and rejects anything typed
+	// outside that list.
+	// Acceptance here is the range's, with entries sparing the reader a hunt for the usual
+	// answers.
 	ControlKind_CONTROL_KIND_NUMBER_SELECT ControlKind = 8
 )
 
@@ -122,24 +122,24 @@ func (ControlKind) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_form_proto_rawDescGZIP(), []int{0}
 }
 
-// Unit is what a numeric field's value means.
+// Meaning of a numeric field's value.
 //
-// An enum and not the string "Mbit/s", because how a unit is spelled and where it sits
-// relative to the figure are typography: a shell setting numerals in mono and units in
-// sans has to know which half is which, and a field carrying one string cannot say.
+// An enum rather than the string "Mbit/s", since spelling a unit and placing it against
+// the figure are typography: numerals in mono beside units in sans needs the halves apart,
+// and one string cannot separate them.
 type Unit int32
 
 const (
-	// The field is not a quantity.
+	// Not a quantity.
 	Unit_UNIT_UNSPECIFIED         Unit = 0
 	Unit_UNIT_MEGABITS_PER_SECOND Unit = 1
 	Unit_UNIT_MILLISECONDS        Unit = 2
 	Unit_UNIT_FRAMES_PER_SECOND   Unit = 3
 	Unit_UNIT_FRAMES              Unit = 4
-	// A proportion of what something would be at its own level, where 100 is that
-	// level. It is the unit a gain is set in, and it is percent rather than decibels
-	// because the mixer takes a linear multiplier: a decibel figure would be converted
-	// at every consumer, with each conversion free to round differently.
+	// Share of what something reaches at its own level, 100 being that level.
+	// Gain is set in it, and in percent rather than decibels because a linear multiplier is
+	// what the mixer takes: decibels would convert at each consumer, every conversion free
+	// to round its own way.
 	Unit_UNIT_PERCENT Unit = 5
 )
 
@@ -190,19 +190,18 @@ func (Unit) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_form_proto_rawDescGZIP(), []int{1}
 }
 
-// Severity ranks a diagnostic by what it costs the user to ignore.
+// Ranks a diagnostic by the cost of ignoring it.
 type Severity int32
 
 const (
 	Severity_SEVERITY_UNSPECIFIED Severity = 0
-	// Worth knowing; the stream works.
+	// Worth reading, with the stream working.
 	Severity_SEVERITY_INFO Severity = 1
-	// The stream runs and something about it is likely to disappoint: frames the line
-	// cannot carry, an encoder that cannot keep up, a pixel format most viewers
-	// decode on the CPU.
+	// The stream runs and something is likely to disappoint: more frames than the line
+	// carries, an encoder falling behind, a pixel format most viewers hand to the CPU.
 	Severity_SEVERITY_WARNING Severity = 2
-	// The settings cannot be published as they stand. Form.publishable is false
-	// whenever one of these is present, so a shell need not rank them itself.
+	// As they stand, these settings cannot publish.
+	// Form.publishable goes false while one is present, sparing a shell the ranking.
 	Severity_SEVERITY_ERROR Severity = 3
 )
 
@@ -249,8 +248,8 @@ func (Severity) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_form_proto_rawDescGZIP(), []int{2}
 }
 
-// FieldValue is one settings value in the shape a control edits it. The oneof is
-// what lets a shell bind a field generically instead of switching on the field key.
+// A settings value, shaped the way a control edits it.
+// Binding a field generically instead of switching per key is what the oneof buys.
 type FieldValue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Kind:
@@ -365,14 +364,14 @@ func (*FieldValue_Decimal) isFieldValue_Kind() {}
 
 func (*FieldValue_Flag) isFieldValue_Kind() {}
 
-// NumericRange bounds a numeric field. Absent on a field that takes any number the
-// type allows, which is rare enough that a shell should treat absence as unbounded
-// rather than as zero.
+// Bounds on a numeric field.
+// Absent where any number of the type is accepted, which is rare enough that absence reads
+// as unbounded and never as zero.
 type NumericRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Min   int64                  `protobuf:"varint,1,opt,name=min,proto3" json:"min,omitempty"`
 	Max   int64                  `protobuf:"varint,2,opt,name=max,proto3" json:"max,omitempty"`
-	// step is the granularity a slider moves in, 0 meaning one.
+	// Step a slider moves by, 0 standing for one.
 	Step          int64 `protobuf:"varint,3,opt,name=step,proto3" json:"step,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -429,30 +428,31 @@ func (x *NumericRange) GetStep() int64 {
 	return 0
 }
 
-// FieldOption is one entry of a select or radio field.
+// An entry of a select or radio field.
 //
-// An option that the current combination rules out is kept and greyed rather than
-// removed, whenever a neighbouring combination allows it: the greyed entry plus its
-// reason tells the user what to change, where a missing entry tells them nothing.
-// An option a shell must not show at all simply is not in the list.
+// Ruled out by the current combination and allowed by a neighbouring one, an entry stays
+// and greys instead of vanishing: greyed with a cause it names what to change, missing it
+// teaches nothing.
+// An entry a shell must never show is absent from the list.
 type FieldOption struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// value is what the settings field would carry if this option were picked, and the
-	// whole of this entry's identity. What it is called and how it is described are the
-	// shell's, keyed by this value and the field it belongs to.
+	// Value the settings field takes on if this entry is picked, and the entirety of its
+	// identity.
+	// Naming and describing it fall to the shell, keyed by this value together with the
+	// owning field.
 	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	// note is the annotation that makes the entry honest by naming what it was derived
-	// from or what it depends on: the source size a scaled resolution came from, the
-	// publish engine a capture backend runs, the rate an audio track is coded at. Absent
-	// on an entry that needs none.
+	// Annotation naming where the entry came from or what it hangs on: the source size
+	// behind a scaled resolution, the publish engine under a capture backend, the rate an
+	// audio track codes at.
+	// Absent where an entry needs none.
 	Note *Text `protobuf:"bytes,8,opt,name=note,proto3" json:"note,omitempty"`
-	// enabled is false for an option the current settings rule out, and reason states
-	// why, naming the limit and which side has it.
+	// False where the current settings rule the entry out, with reason giving the limit and
+	// the side holding it.
 	Enabled bool  `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Reason  *Text `protobuf:"bytes,9,opt,name=reason,proto3" json:"reason,omitempty"`
-	// recommended marks the entry a shell may emphasise, which is a hint about this
-	// combination and not a default: the default is whatever Field.value already
-	// holds.
+	// Entry a shell may emphasise: a hint about this combination, never a default.
+	// Field.value carries what is set, and Field.default_value what a fresh installation
+	// carries.
 	Recommended   bool `protobuf:"varint,7,opt,name=recommended,proto3" json:"recommended,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -523,70 +523,66 @@ func (x *FieldOption) GetRecommended() bool {
 	return false
 }
 
-// Field is one control, fully decided.
+// A control, decided down to the last flag.
 type Field struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the settings field this control edits, qualified by the group it belongs
-	// to: "relay.host", "publish.codec", "viewer.render_chain" (settings.proto). It is
-	// the identity a shell keys its widgets by, the identity a Gap names, and the
-	// identity a shell looks its label and its help text up by, which is what lets all
-	// three meet with no mapping in between - and the qualification is what makes it an
-	// address a shell can write through rather than a name it has to search three
-	// messages for.
+	// Settings field under this control, group-qualified: "relay.host", "publish.codec",
+	// "viewer.render_chain" (settings.proto).
+	// Widgets key on it, a Gap names it, and a shell looks up its label and its help text by
+	// it, so all three meet with no mapping in between.
+	// Qualification turns it into an address to write through instead of a name to hunt for
+	// across three messages.
 	Key     string      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Control ControlKind `protobuf:"varint,2,opt,name=control,proto3,enum=screenshare.v1.ControlKind" json:"control,omitempty"`
-	// unit is what the number means, absent on a field that is not a quantity.
+	// Meaning of the number, absent where a field is no quantity.
 	Unit Unit `protobuf:"varint,14,opt,name=unit,proto3,enum=screenshare.v1.Unit" json:"unit,omitempty"`
-	// visible is false for a backend implementation knob that has no meaning outside
-	// one selection - the DRM download strategy away from its capture backend. The
-	// test is whether the help text would teach a user on another backend something
-	// worth knowing: no means hidden, yes means shown and disabled.
+	// False for a backend implementation knob meaningless outside one selection, as the DRM
+	// download strategy is away from its capture backend.
+	// Test: would the help text teach somebody on another backend anything worth knowing.
+	// No hides the field, yes shows it disabled.
 	Visible bool `protobuf:"varint,7,opt,name=visible,proto3" json:"visible,omitempty"`
-	// enabled is false for a general encoding concept the current combination blocks,
-	// and reason is the statement shown in its place. Where two facts block the same
-	// field, the reason names the one the user can act on.
+	// False for a general encoding concept the current combination blocks, with reason the
+	// statement standing in its place.
+	// Two facts blocking one field leaves reason naming the one a user can act on.
 	Enabled bool  `protobuf:"varint,8,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Reason  *Text `protobuf:"bytes,15,opt,name=reason,proto3" json:"reason,omitempty"`
-	// note is carried by a field that stays editable and means something its label does
-	// not describe here, such as a bitrate that becomes a burst ceiling in
-	// constant-quality mode. It is not a third form of unavailability: it exists so a
-	// knob the builder does forward is never greyed.
+	// Carried where a field stays editable and means something its label misses here, as a
+	// bitrate does on becoming a burst ceiling under constant quality.
+	// Not a third kind of unavailability: it exists so that a knob the builder does forward
+	// never greys.
 	Note *Text `protobuf:"bytes,16,opt,name=note,proto3" json:"note,omitempty"`
-	// live is true where changing this field reaches the pipeline that is already
-	// carrying the stream, so applying it costs no viewer a reconnect. False everywhere
-	// else, which is every field whose value is part of the pipeline's shape: the
-	// backend replaces the child for those, and every viewer reconnects across the gap.
+	// True where a change reaches the pipeline already carrying the stream, costing no
+	// viewer a reconnect.
+	// False for the rest, meaning every field whose value shapes the pipeline: those replace
+	// the child, and every viewer reconnects over the gap.
 	//
-	// It is stated per field and per combination rather than as a list a shell holds,
-	// because it is neither fixed nor the shell's: which engine runs the capture backend
-	// decides whether anything is live at all, and which codec and rate-control mode are
-	// selected decide whether the encoder is being sent that value in the first place. A
-	// shell with its own list would keep promising a reconnect-free edit after the
-	// backend stopped being able to deliver one.
+	// Given per field and per combination rather than as a list a shell keeps, being neither
+	// fixed nor the shell's: the engine under the capture backend settles whether anything
+	// is live, and the chosen codec and rate-control mode settle whether the encoder is
+	// handed that value at all.
+	// A shell keeping its own list would go on promising reconnect-free edits after the
+	// backend lost the ability to deliver them.
 	//
-	// What a shell does with it is the shell's. Saying it up front is the point: a
-	// reader deciding whether to touch a control while people are watching wants to know
-	// the cost before the edit, not after the stream has already blinked.
+	// Use is the shell's, and stating it in advance is the point: somebody weighing an edit
+	// while people watch wants the cost beforehand rather than after the stream blinks.
 	Live bool `protobuf:"varint,18,opt,name=live,proto3" json:"live,omitempty"`
-	// value is what the field holds now, which is always a value present in the
-	// settings. Where a dimension has no legal value left, the field keeps the
-	// one it has and stays disabled with its reason, rather than showing a value the
-	// same evaluation would grey.
+	// Value the field carries, always one the settings hold.
+	// A dimension left with no legal value keeps whatever it has and stays disabled with its
+	// cause, in preference to displaying a value the same evaluation would grey.
 	Value *FieldValue `protobuf:"bytes,11,opt,name=value,proto3" json:"value,omitempty"`
-	// default_value is what this field holds on a fresh installation. It does not move
-	// with the draft, and it is stated per field so a shell can offer putting settings
-	// back without holding defaults of its own: what a setting starts as is the same
-	// fact as what it may become, and both are the backend's.
+	// Value a fresh installation carries here.
+	// Fixed against the draft, and given per field so a shell offers a reset without keeping
+	// defaults of its own: what a setting begins as and what it may become are one fact, and
+	// both are the backend's.
 	//
-	// It is what a value is rather than what a value should be. Which entry suits this
-	// combination is FieldOption.recommended, and the two disagree freely: a default is
-	// the value a machine nobody has configured carries.
+	// What a value is, not what it ought to be.
+	// Suitability for this combination is FieldOption.recommended, and the two are free to
+	// disagree: a default is what an unconfigured machine carries.
 	DefaultValue *FieldValue `protobuf:"bytes,17,opt,name=default_value,json=defaultValue,proto3" json:"default_value,omitempty"`
-	// options is filled for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
-	// CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for
-	// CONTROL_KIND_NUMBER_SELECT, which is the one control that carries a ladder and
-	// the ends it may be typed past. Each is empty on the controls it does not apply
-	// to.
+	// options fills for CONTROL_KIND_SELECT and CONTROL_KIND_RADIO, range for
+	// CONTROL_KIND_NUMBER and CONTROL_KIND_SLIDER, and both for CONTROL_KIND_NUMBER_SELECT,
+	// the single control carrying a ladder plus the ends it may be typed past.
+	// Whichever does not apply arrives empty.
 	Options       []*FieldOption `protobuf:"bytes,12,rep,name=options,proto3" json:"options,omitempty"`
 	Range         *NumericRange  `protobuf:"bytes,13,opt,name=range,proto3" json:"range,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -707,38 +703,37 @@ func (x *Field) GetRange() *NumericRange {
 	return nil
 }
 
-// FieldGroup is a run of fields under one heading, in the order a shell renders
-// them. The grouping is the backend's because it follows the domain - what the
-// source is, what the quality is, where it goes - and a shell that regrouped them
-// would be making an argument about the model.
+// Fields under one heading, ordered as a shell draws them.
+// Grouping stays the backend's by following the domain, what the source is, what the
+// quality is, where it goes, and a shell regrouping them would be arguing about the model.
 type FieldGroup struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is a stable identifier for the group: "stream", "source", "quality", "audio",
-	// "transport", "watch", "relay". A shell uses it to decide placement and to look
-	// up the heading it draws; it must not use it to decide contents.
+	// Stable group identifier: "stream", "source", "quality", "audio", "transport", "watch",
+	// "relay".
+	// A shell places by it and looks up the heading it draws by it, and never decides
+	// contents by it.
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Fields []*Field `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty"`
-	// applied is true for a group the backend reads on a schedule of its own rather than
-	// when something is started. Where the relay is, is the case that exists: the poll
-	// behind GetRelayStatus dials that address for as long as the process runs, with
-	// nobody having asked. A write to such a group is persisted as it is made, with
-	// SaveSettings (control.proto).
+	// True where the backend reads the group on a schedule of its own instead of when
+	// something starts, the relay's location being the case that exists: GetRelayStatus's
+	// poll dials that address for the life of the process, unasked.
+	// A write to such a group persists as it is made, through SaveSettings (control.proto).
 	//
-	// False everywhere else, which is every group whose settings are read by an effect
-	// that carries them: a publish is started on the settings StartPublish is given, and
-	// a viewer opens on the ones the shell saved before opening it. Those are staged, so
-	// a reader may configure a stream without the half-configured version of it becoming
-	// what this machine is.
+	// False for the rest, meaning every group an effect reads while carrying it: a publish
+	// starts on the settings handed to StartPublish, and a viewer opens on the ones saved
+	// before it launched.
+	// Staging those lets somebody configure a stream without the half-finished version
+	// becoming what this machine is.
 	//
-	// The distinction is stated here because it follows from what a setting means rather
-	// than from which screen draws it. A shell that decided it per group would be
-	// deciding when a setting takes effect, which is the same class of argument about the
-	// domain that the grouping itself is.
+	// Placed here because it follows from a setting's meaning rather than from the screen
+	// drawing it.
+	// A shell deciding it per group would be deciding when a setting takes hold, the same
+	// argument about the domain that the grouping itself is.
 	//
-	// Without it, a setting the backend reads on its own can only reach the backend
-	// through a publish, and where that setting is the relay's address the publish is
-	// gated on reaching the relay it would change: the address cannot be corrected
-	// because the old one is unreachable.
+	// Lacking it, a setting the backend reads by itself reaches the backend only through a
+	// publish, and where that setting holds the relay's address the publish is gated on
+	// reaching the relay it would replace: correcting the address is impossible while
+	// the old one is unreachable.
 	Applied       bool `protobuf:"varint,6,opt,name=applied,proto3" json:"applied,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -795,20 +790,17 @@ func (x *FieldGroup) GetApplied() bool {
 	return false
 }
 
-// Diagnostic is one thing worth saying about the settings as a whole, as against
-// about one field.
+// Something worth saying about the settings as a whole rather than about one field.
 //
-// It is not called a warning because the severity is the whole point of the message
-// and one of the three values is an error: a "warning" that stops the publish is a
-// name arguing with its own contents.
+// Not named warning, because severity is the point of the message and SEVERITY_ERROR is
+// one of its values: a warning that halts publishing is a name at odds with its contents.
 type Diagnostic struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Severity Severity               `protobuf:"varint,1,opt,name=severity,proto3,enum=screenshare.v1.Severity" json:"severity,omitempty"`
-	// text is the statement to show.
-	Text *Text `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	// field_key names the control the diagnostic is about, empty for one that is about
-	// the combination rather than any single field. A shell may use it to anchor the
-	// diagnostic beside the control.
+	Text     *Text                  `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	// Control the diagnostic concerns, empty where it concerns the combination and no single
+	// field.
+	// Anchoring the diagnostic beside that control is one use for it.
 	FieldKey      string `protobuf:"bytes,3,opt,name=field_key,json=fieldKey,proto3" json:"field_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -865,20 +857,19 @@ func (x *Diagnostic) GetFieldKey() string {
 	return ""
 }
 
-// Estimate is what the settings are predicted to cost, before anything runs.
+// Predicted cost of the settings, ahead of anything running.
 type Estimate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// bitrate_mbps is the predicted encoded rate, from the picture size, the frame
-	// rate, the codec's coding efficiency and the chroma's weight. It is a
-	// prediction and not a promise, which is why it is separate from the measured
-	// figures that arrive on the event stream once a stream is live.
+	// Encoded rate predicted from picture size, frame rate, the codec's coding efficiency
+	// and the chroma's weight.
+	// A prediction and not a promise, which keeps it apart from the measured figures
+	// reaching the event stream once a stream lives.
 	BitrateMbps float64 `protobuf:"fixed64,1,opt,name=bitrate_mbps,json=bitrateMbps,proto3" json:"bitrate_mbps,omitempty"`
-	// raw_mbps is the uncompressed rate the capture produces, which is what makes the
-	// compression ratio legible.
+	// Uncompressed rate off the capture, which makes the compression ratio readable.
 	RawMbps float64 `protobuf:"fixed64,2,opt,name=raw_mbps,json=rawMbps,proto3" json:"raw_mbps,omitempty"`
-	// headroom_mbps is the stated uplink minus the predicted bitrate. Negative means
-	// the line cannot carry the stream, and a diagnostic of matching severity is
-	// present.
+	// Declared uplink less the predicted bitrate.
+	// Below zero the line cannot carry the stream, and a diagnostic of matching severity
+	// accompanies it.
 	HeadroomMbps  float64 `protobuf:"fixed64,3,opt,name=headroom_mbps,json=headroomMbps,proto3" json:"headroom_mbps,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -935,20 +926,20 @@ func (x *Estimate) GetHeadroomMbps() float64 {
 	return 0
 }
 
-// Summary is what the whole form settled on: the command the settings would run, and
-// the derived figures behind the diagnostics.
+// Where the whole form landed: the command these settings would run, plus the derived
+// figures under the diagnostics.
 type Summary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// command is the exact command line or pipeline description the settings would
-	// run. It is shown for transparency and is never parsed: a shell that read a
-	// value back out of it would have two definitions of that value.
+	// Command line or pipeline description these settings would run, exactly.
+	// Displayed for transparency and parsed never: reading a value back out of it would
+	// create a second definition of that value.
 	Command string `protobuf:"bytes,2,opt,name=command,proto3" json:"command,omitempty"`
-	// command_error is why no command could be rendered, empty when one was. It is the
-	// publish builder's own refusal and one of the three raw strings on this contract
-	// (text.proto): the same text crosses as a gRPC status when the publish is
-	// attempted, so it is an operational failure rather than a statement about the
-	// domain. The matching diagnostic carries TEXT_CODE_PUBLISH_REFUSED and a shell
-	// shows this beside it.
+	// Why no command rendered, empty once one did.
+	// The publish builder's own refusal, crossing as a raw string and not as a Text
+	// (text.proto): the identical text arrives as a gRPC status once a publish is attempted,
+	// making it an operational failure instead of a statement about the domain.
+	// TEXT_CODE_PUBLISH_REFUSED rides the matching diagnostic, and a shell places this
+	// alongside it.
 	CommandError  string    `protobuf:"bytes,3,opt,name=command_error,json=commandError,proto3" json:"command_error,omitempty"`
 	Estimate      *Estimate `protobuf:"bytes,4,opt,name=estimate,proto3" json:"estimate,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1006,39 +997,38 @@ func (x *Summary) GetEstimate() *Estimate {
 	return nil
 }
 
-// Form is the resolved answer.
+// The resolved answer.
 //
-// It is a pure function of the draft and the catalog: the same draft resolves to the
-// same form for as long as the catalog behind it has not moved, so a shell may call
-// it on every keystroke and compare, and a shell that re-renders from an unchanged
-// form changes nothing on screen. The catalog does move once - the encoder probe
-// fills in, and codecs this machine cannot run come back greyed - which is why the
-// probe announces itself on the event stream rather than leaving a shell to wonder
-// why one draft resolved two ways.
+// A pure function of draft and catalog: one draft resolves identically for as long as the
+// catalog underneath holds still, so calling on every keystroke and comparing works, and
+// re-rendering an unchanged form moves nothing on screen.
+// The catalog shifts once, as the encoder probe fills in and codecs beyond this machine
+// come back greyed, which is why the probe announces itself on the event stream instead of
+// leaving a shell puzzled by one draft resolving two ways.
 type Form struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// settings is the draft after repair: where the sent draft named a value the
-	// tables forbid, the backend walked to the first legal one and this is what it
-	// reached. A shell adopts it wholesale, which is what keeps a greyed option and
-	// its replacement from disagreeing.
+	// Draft after repair: a value the tables forbid gets walked to the first legal one, and
+	// this is where the walk ended.
+	// Adopting it wholesale is what stops a greyed option and its replacement from
+	// disagreeing.
 	Settings *Settings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
-	// repaired_field_keys lists the fields whose values changed between the request
-	// and settings above, so a shell can say what it moved rather than silently
-	// rewriting what the user typed. They are Field.key values.
+	// Fields whose values differ between the request and the settings above, so a shell can
+	// report the move instead of quietly rewriting what somebody typed.
+	// Field.key values.
 	RepairedFieldKeys []string      `protobuf:"bytes,7,rep,name=repaired_field_keys,json=repairedFieldKeys,proto3" json:"repaired_field_keys,omitempty"`
 	Groups            []*FieldGroup `protobuf:"bytes,3,rep,name=groups,proto3" json:"groups,omitempty"`
 	Diagnostics       []*Diagnostic `protobuf:"bytes,8,rep,name=diagnostics,proto3" json:"diagnostics,omitempty"`
 	Summary           *Summary      `protobuf:"bytes,5,opt,name=summary,proto3" json:"summary,omitempty"`
-	// presets are the built-in ways of publishing, resolved against this machine and
-	// these settings: what applying each one would produce here, or why nothing here
-	// reaches it, and which one the draft already delivers (docs/presets.md). They
-	// ride on the form because all three answers change with the draft, the way a
-	// greying does, and a shell that asked for them separately would be a shell
-	// holding a preset verdict older than the settings beside it.
+	// Built-in ways of publishing, resolved against this machine and these settings: the
+	// outcome of applying each here, or the reason nothing here reaches it, plus which one
+	// the draft delivers already (docs/presets.md).
+	// They ride the form because the draft moves all three answers, as it moves a greying,
+	// and fetching them separately would leave a shell holding a preset verdict older than
+	// the settings beside it.
 	Presets []*BuiltinPreset `protobuf:"bytes,9,rep,name=presets,proto3" json:"presets,omitempty"`
-	// publishable is false when at least one SEVERITY_ERROR diagnostic is present. It
-	// is stated rather than derived so a shell disables its start button without
-	// ranking diagnostics itself.
+	// False while a SEVERITY_ERROR diagnostic is present.
+	// Given rather than derived, so a start button disables without a shell ranking
+	// diagnostics.
 	Publishable   bool `protobuf:"varint,6,opt,name=publishable,proto3" json:"publishable,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1123,43 +1113,42 @@ func (x *Form) GetPublishable() bool {
 	return false
 }
 
-// BuiltinPreset is one of the ways of publishing this app names as a promise about
-// the picture rather than as a stored set of values.
+// A way of publishing this app names as a promise about the picture instead of as stored
+// values.
 //
-// Which encoder, pixel format and capture backend deliver that promise is the
-// machine's answer and differs per machine, so the backend searches for a
-// configuration that reaches it and this carries what the search found
-// (docs/presets.md). That is the whole difference from Preset in settings.proto,
-// which is a snapshot the user saved and is applied exactly as it was stored.
+// Delivering that promise takes an encoder, a pixel format and a capture backend the
+// machine answers for, so the backend searches for a configuration reaching it and this
+// carries the find (docs/presets.md).
+// Preset in settings.proto differs there entirely, being a snapshot somebody saved and
+// applied exactly as stored.
 //
-// The key is the only word on it. What the preset is called, the line saying what it
-// delivers and the sentence for a machine that cannot reach it are the shell's, keyed
-// by this identifier as every other value on this contract is.
+// One word rides here, the key.
+// The preset's name, the line describing what it delivers and the sentence for a machine
+// falling short belong to the shell, keyed by this identifier like every other value on
+// the contract.
 type BuiltinPreset struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key names which preset this is: "lossless", "gaming" or "readability".
+	// "lossless", "gaming" or "readability".
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// settings is the configuration applying this preset produces here, and is absent
-	// exactly when nothing this machine runs delivers the promise. There is no second
-	// flag saying whether it is reachable, because a reachable preset is one there are
-	// settings for and two fields could disagree about that.
+	// Configuration this preset produces here, absent exactly where nothing this machine
+	// runs delivers the promise.
+	// No separate reachability flag exists, since a reachable preset is one with settings
+	// and two fields could contradict each other about it.
 	//
-	// A preset is a PublishSettings and nothing else: applying one replaces that group
-	// of the draft and leaves the relay coordinates and this machine's own watching
-	// where they are.
+	// A preset is PublishSettings and nothing more: applying one swaps that group of the
+	// draft and leaves the relay coordinates and this machine's watching untouched.
 	Settings *PublishSettings `protobuf:"bytes,2,opt,name=settings,proto3" json:"settings,omitempty"`
-	// reason states why nothing here reaches the promise, and is absent exactly when
-	// settings is present. TEXT_CODE_PRESET_UNREACHABLE names the preset and the
-	// publish transport the search worked within, that being the one dimension it does
-	// not move.
+	// Reason nothing here reaches the promise, absent exactly where settings is present.
+	// TEXT_CODE_PRESET_UNREACHABLE carries the preset and the publish transport bounding the
+	// search, transport being the dimension the search holds still.
 	Reason *Text `protobuf:"bytes,3,opt,name=reason,proto3" json:"reason,omitempty"`
-	// selected is whether the settings the form resolved already deliver this preset's
-	// promise. It is derived from them on every resolve rather than remembered from the
-	// call that applied one, so an edit that stays inside the promise keeps the preset
-	// marked and one that leaves it does not, with no stored selection to reconcile.
+	// Whether the resolved settings deliver this promise already.
+	// Derived from them at every resolve instead of remembered from whichever call applied
+	// one, so an edit staying inside the promise keeps the mark and an edit leaving it drops
+	// the mark, with no stored selection to reconcile.
 	//
-	// At most one preset is ever selected: the promises are written to be pairwise
-	// disjoint, which the backend holds its own table to.
+	// Never more than one selected: the promises are written pairwise disjoint, and the
+	// backend keeps a table holding them to it.
 	Selected      bool `protobuf:"varint,4,opt,name=selected,proto3" json:"selected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

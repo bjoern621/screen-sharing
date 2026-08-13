@@ -6,25 +6,20 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The consumer's half of a descriptor pool.
-///
-/// What this locks out is the one thing about it that fails silently: the shape of the kernel's control
-/// message.
-/// A descriptor arrives beside the payload rather than in it, in a header whose fields are pointer-sized and
-/// pointer-aligned, and a reader that lays that out wrong takes a number out of the padding and imports
-/// whatever file it happens to name.
-/// The symptom is a tile drawing noise on one machine and nothing on another, which is why the layout is
-/// asserted here against descriptors of a known size.
-///
-/// The backend that would send them is not needed and is not run: what is under test is the reader, so the
-/// sender is this file, and it writes exactly what <c>internal/receive/descriptors_linux.go</c> writes.
+/// The consumer's half of a descriptor pool, and the one part of it that fails silently: the shape of the
+/// kernel's control message.
+/// A descriptor travels beside the payload, in a header whose fields are pointer-sized and pointer-aligned, so
+/// a reader that lays it out wrong lifts a number out of the padding and imports whatever file that names.
+/// The symptom is a tile drawing noise on one machine and nothing on another, so the layout is asserted
+/// against descriptors of a known size.
+/// The sender is this file rather than the backend, writing what
+/// <c>internal/receive/descriptors_linux.go</c> writes.
 /// </summary>
 public sealed class FrameDescriptorsTests
 {
-    /// <summary>How many slots a lent pool holds, which is what the backend opens one with.</summary>
     private const int Slots = 3;
 
-    /// <summary>The size the sent files are written to, so a received descriptor can be told apart from any other.</summary>
+    /// <summary>A size no other file has, so a received descriptor can be checked by seeking it.</summary>
     private const int FileBytes = 4321;
 
     [Fact]
@@ -32,8 +27,8 @@ public sealed class FrameDescriptorsTests
     {
         if (!OperatingSystem.IsLinux())
         {
-            // Rights over a Unix socket are the Linux handle kind's transport, and no other platform's pool
-            // announces a socket at all.
+            // SCM_RIGHTS over a Unix socket carries the Linux handle kind alone.
+            // No other platform's pool announces a socket.
             return;
         }
 
@@ -62,13 +57,13 @@ public sealed class FrameDescriptorsTests
         using var lent = new LentFiles(Slots - 1, FileBytes);
         await using var sender = Sender.Listening(lent);
 
-        // A pool of three slots whose socket answers with two is a backend that died mid-pool, and a reader
-        // that waited for the third would be a tile that never draws and never says why.
+        // Fewer descriptors than slots is a backend that died mid-pool.
+        // A reader that waited for the missing one would be a tile that never draws and never says why.
         await Assert.ThrowsAsync<BackendUnavailableException>(
             () => FrameDescriptors.ReceiveAsync(sender.Address, Slots, CancellationToken.None));
     }
 
-    /// <summary>The descriptors a test lends: ordinary files of a known size, which a reader can size back.</summary>
+    /// <summary>Plain files standing in for the pool's memory, lent as descriptors.</summary>
     private sealed class LentFiles : IDisposable
     {
         private readonly string _directory;
@@ -101,8 +96,8 @@ public sealed class FrameDescriptorsTests
     }
 
     /// <summary>
-    /// The backend's half: a socket that answers a connection with one message per slot, the slot's index as
-    /// the payload and the slot's descriptor as the right beside it.
+    /// The backend's half: a socket answering a connection with one message per slot, carrying the slot index
+    /// as payload and the slot's descriptor as the right beside it.
     /// </summary>
     private sealed class Sender : IAsyncDisposable
     {
@@ -148,7 +143,7 @@ public sealed class FrameDescriptorsTests
             }
             catch (Exception)
             {
-                // The accept was cancelled by the dispose, which is how a test that never connected ends.
+                // Dispose cancelled the accept, which is how a test that never connected ends.
             }
             Directory.Delete(_directory, recursive: true);
         }

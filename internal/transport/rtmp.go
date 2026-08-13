@@ -9,16 +9,15 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// RTMP streams through the relay's RTMP listener, the protocol broadcast tools speak.
-// It is the interop leg rather than the low-delay one: FLV over a single TCP connection,
-// with neither a retransmit window nor a jitter buffer to tune, so nothing about it is per-stream
-// tunable and it declares no watch knobs.
+// RTMP streams through the relay's RTMP listener, which is the leg broadcast tools already speak.
+// Interop rather than low delay: FLV over one TCP connection, with no retransmit window and no
+// jitter buffer, so it declares no watch knobs.
 //
-// ffmpeg's flv muxer writes the enhanced-RTMP codec tags the relay ingests,
-// so the publish leg reaches past FLV's original H.264.
-// GStreamer has no counterpart: flvmux writes the legacy tags alone, so this transport declares no
-// GStreamer publish form, and a capture backend on that engine says so in the settings form instead
-// of building a pipeline the muxer would reject.
+// ffmpeg's flv muxer writes the enhanced-RTMP codec tags the relay ingests, which takes the publish
+// leg past FLV's original H.264.
+// flvmux writes the legacy tags alone, so this transport declares no GStreamer publish form and a
+// capture backend on that engine is told in the settings form rather than by a muxer refusing the
+// pipeline.
 type RTMP struct{}
 
 func init() {
@@ -27,15 +26,15 @@ func init() {
 
 func (RTMP) Name() string { return "rtmp" }
 
-// Formats: the publish leg is the ffmpeg engine's alone, and its set is what the relay's
-// enhanced-RTMP ingest takes from the flv muxer.
-// VP8 is absent because that muxer has no tag for it, and AAC is the whole audio set because the
-// tag FLV has always carried is the one both ends agree on.
+// Formats states the publish leg on the ffmpeg engine alone, as what the relay's enhanced-RTMP
+// ingest takes from the flv muxer.
+// VP8 is absent for want of a tag in that muxer, and AAC is the whole audio set, being the tag FLV
+// has always carried.
 //
-// Both watch entries read the legacy tags and no more, so each states H.264 and AAC:
-// the players sit on libavformat's FLV demuxer and the grid on rtmp2src.
-// They are two entries carrying the same list rather than one list standing for two viewers,
-// because nothing makes them move together.
+// Both watch entries read the legacy tags and no more, the players through libavformat's FLV
+// demuxer and the grid through rtmp2src.
+// Two entries carrying the same list rather than one shared value, because nothing moves them
+// together.
 func (RTMP) Formats() Formats {
 	return Formats{
 		Publish: map[string]Carriage{capabilities.EngineFfmpeg: {
@@ -49,8 +48,7 @@ func (RTMP) Formats() Formats {
 	}
 }
 
-// PublishArgs returns the ffmpeg output args for this transport.
-// The flv muxer is the FLV container RTMP carries, and the URL names the stream by path.
+// PublishArgs muxes to FLV, the container RTMP carries, and names the stream by URL path.
 func (RTMP) PublishArgs(s settings.Settings) []string {
 	return []string{"-f", "flv", rtmpURL(s, s.Relay.Path(s.Publish.Name))}
 }
@@ -61,21 +59,19 @@ func (RTMP) WatchURL(s settings.Settings, streamName string) string {
 	return rtmpURL(s, streamName)
 }
 
-// GstSource returns the source element a receiving GStreamer pipeline decodes from.
-// rtmp2src is source and demuxer in one for the pipeline's purposes: it yields the FLV stream that
-// decodebin demuxes and decodes.
+// GstSource is one element: rtmp2src yields the FLV stream that decodebin then demuxes and decodes.
 func (RTMP) GstSource(s settings.Settings, streamName string) []string {
 	assert.Assert(streamName != "", "a receive source names the stream it decodes")
 
 	return []string{"rtmp2src", "location=" + rtmpURL(s, streamName)}
 }
 
-// rtmpURL is the address of one path on the relay's RTMP listener.
+// rtmpURL addresses one path on the relay's RTMP listener,
+// "rtmp://relay:1935/<path>?jwt=<token>".
 //
-// Neither the name nor the port is asserted here, unlike at the watch entry points above.
-// This is also the publish leg's builder, where the name comes from the settings rather than from a
-// validated call, and a port of zero is a stored value the migration repairs rather than a broken
-// contract.
+// Neither the name nor the port is asserted, unlike at the watch entry points above: this builder
+// serves the publish leg too, where the name comes off the settings rather than a validated call
+// and a port of zero is a stored value the migration repairs.
 func rtmpURL(s settings.Settings, name string) string {
 	return fmt.Sprintf("rtmp://%s:%d/%s", s.Relay.Host, s.Relay.RtmpPort, name) + credentialQuery(s, "?")
 }

@@ -3,34 +3,37 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Viewer.Tile.Model;
 
 /// <summary>
-/// What a running decode turned out to be, as a tile prints it.
+/// What a decode turned out to be once it ran, as a tile prints it.
 ///
-/// <b>It is reported rather than asked for, which is why it is worth drawing at all.</b> A render chain falls
-/// back on a machine that cannot run its elements and a hardware decoder may download its own frames, so a
-/// tile showing the chain the settings named would be showing a request instead of a result.
+/// Reported rather than asked for: a render chain falls back on a machine that cannot run its elements and a
+/// hardware decoder may download its own frames, so a tile drawing what the settings named would be drawing a
+/// request instead of a result.
 ///
-/// <b>One shape with two producers, because it is one question.</b> A relay decode reports it as
-/// <c>ReceiveStream</c> and the publish's local preview as <c>PublishState.Live.preview</c>, and the two
-/// messages differ only in what owns them: a decode of somebody's stream is keyed by the stream and the leg,
-/// and a preview is part of the publish it previews.
-/// What the pipeline did is the same list of facts either way, and reading it into one shape here is what
-/// lets there be one tile rather than one per screen.
+/// One shape for every producer, because it is one question.
+/// A relay decode reports it on <c>ReceiveStream</c>, the publish's local preview on
+/// <c>PublishState.Live.preview</c> and a screen's on <c>PreviewedMonitor</c>, and the messages differ only in
+/// what owns them.
+/// Reading them into one shape is what lets there be one tile rather than one per screen.
 /// </summary>
-/// <param name="Live">Whether a decoded frame has left the pipeline.
-/// Until it has, the pipeline is connecting or receiving something it cannot decode, and the rest is empty
-/// because nothing has negotiated.</param> <param name="Chain">The render chain the pipeline was built
-/// with.</param> <param name="RenderMemory">The memory feature the sink's input pad carried.</param>
-/// <param name="Decoder">The element the decoder autoplugged, and <paramref name="Hardware"/> whether it ran
-/// on silicon.</param> <param name="HasAudio">Whether the pipeline is carrying a sound track, with
-/// <paramref name="Volume"/> and <paramref name="Muted"/> what it is playing it at.</param>
-/// <param name="Transfer">The transfer characteristic the decoded frames carry, as GStreamer names it, and
-/// <paramref name="Hdr"/> the backend's verdict on it: two of those curves carry more range than a standard
-/// display shows.</param> <param name="ToneMap">Whether the pipeline was built with the rung that rolls that
-/// range down, which is what ran rather than what was asked for.</param> <param name="CanToneMap">Whether
-/// this machine has an element that rolls the range down, with <paramref name="ToneMapMissing"/> the first
-/// one it needs and does not register.
-/// The name is empty where the machine can and where the platform has no such route at all, which
-/// <paramref name="CanToneMap"/> is what tells apart.</param>
+/// <param name="Live">A decoded frame has left the pipeline.
+/// Before that the pipeline is connecting or holding something it cannot decode, and the rest is empty for
+/// want of a negotiation.</param>
+/// <param name="Chain">Render chain the pipeline was built with.</param>
+/// <param name="RenderMemory">Memory feature the sink's input pad carried.</param>
+/// <param name="Decoder">Element the decoder autoplugged, with <paramref name="Hardware"/> whether silicon
+/// ran it.</param>
+/// <param name="HasAudio">The pipeline carries a sound track, with <paramref name="Volume"/> and
+/// <paramref name="Muted"/> what it plays it at.
+/// Volume is linear gain from zero, 1 untouched.</param>
+/// <param name="Transfer">Transfer characteristic of the decoded frames as GStreamer spells it, "smpte2084",
+/// with <paramref name="Hdr"/> the backend's verdict on whether that curve carries more range than a standard
+/// display shows.</param>
+/// <param name="ToneMap">The rung rolling that range down was built into the pipeline, so this is what ran
+/// and not what was asked for.</param>
+/// <param name="CanToneMap">This machine has an element that rolls the range down, with
+/// <paramref name="ToneMapMissing"/> the first one it needs and does not register.
+/// That name is empty both where the machine can and where the platform has no such route at all, which
+/// <paramref name="CanToneMap"/> separates.</param>
 public readonly record struct TilePipeline(
     bool Live,
     string Chain,
@@ -46,7 +49,7 @@ public readonly record struct TilePipeline(
     bool CanToneMap = false,
     string ToneMapMissing = "")
 {
-    /// <summary>The state of one relay decode, and null where nothing is decoding that pair.</summary>
+    /// <summary>State of one relay decode, and null where nothing is decoding that pair.</summary>
     public static TilePipeline? Of(ReceiveStream? decode) => decode is null
         ? null
         : new TilePipeline(
@@ -55,16 +58,15 @@ public readonly record struct TilePipeline(
             decode.Transfer, decode.Hdr, decode.ToneMap, decode.CanToneMap, decode.ToneMapMissing);
 
     /// <summary>
-    /// The state of the publish's local preview, and null where the backend is running none.
-    /// A publish with no preview is a real state - a format with no local carriage, a pipeline that would not
-    /// start - and it reads here exactly as a decode nobody opened does.
+    /// State of the publish's local preview, and null where the backend runs none.
+    /// A publish with no preview is a real state, a format with no local carriage or a pipeline that would
+    /// not start, and it reads here as a decode nobody opened does.
     ///
-    /// <b>A preview carries no sound, and that is the tap rather than an omission here.</b> The publish child
-    /// copies video alone to the loopback port, so there is no track to play, no loudness to meter and
-    /// nothing a volume would apply to - and the effect that would set one is keyed by a <c>WatchKey</c> the
-    /// preview does not have.
-    /// It reports silence the same way a video-only stream off the relay does, so the tile needs no case for
-    /// it.
+    /// A preview carries no sound, which is the tap and not an omission here.
+    /// The publish child copies video alone to the loopback port, so there is no track to play and no
+    /// loudness to meter, and the call that would set a level is keyed by a <c>WatchKey</c> the preview has
+    /// none of.
+    /// It reports silence as a video-only stream off the relay does, so the tile needs no case for it.
     /// </summary>
     public static TilePipeline? Of(PublishState.Types.Preview? preview) => preview is null
         ? null
@@ -73,14 +75,14 @@ public readonly record struct TilePipeline(
             HasAudio: false, Volume: 1, Muted: false);
 
     /// <summary>
-    /// The state of one monitor's preview, and null where the backend is reading no such screen.
+    /// State of one monitor's preview, and null where the backend reads no such screen.
     ///
-    /// <b>It is the shortest of the three, and the empty fields are facts rather than gaps.</b> Nothing
-    /// encoded these frames, so there is no decoder to name and no hardware verdict to give; nothing carried
-    /// them, so there is no leg; and a screen has no sound track.
-    /// What is left is whether a picture has come off the screen yet, which is what separates a preview that
-    /// is opening from one that is drawing.
-    /// The figures strip prints what it is given, so the empty ones simply do not appear.
+    /// The empty fields are facts rather than gaps: nothing encoded these frames, so there is no decoder to
+    /// name and no hardware verdict to give, nothing carried them, so there is no leg, and a screen has no
+    /// sound track.
+    /// What is left is whether a picture has come off the screen, which separates a preview that is opening
+    /// from one that is drawing.
+    /// The figures strip prints what it is given, so the empty ones do not appear.
     /// </summary>
     public static TilePipeline? Of(PreviewedMonitor? screen) => screen is null
         ? null

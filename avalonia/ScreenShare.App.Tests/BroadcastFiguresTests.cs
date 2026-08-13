@@ -12,17 +12,17 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Every figure the live screen shows is a measurement some other side took.
+/// Every figure on the live screen is a measurement some other side took.
 ///
-/// The screen was drawn from the mockups first, and for a while the numbers on it were the mockup's own - a
-/// timer that read the same eight digits whatever was publishing, a window label naming a span the plot did
-/// not cover, a rule marking a ceiling wherever the design had put it.
-/// These tests state a reading and assert that what the screen says came out of it, which is the property a
-/// seed cannot have.
+/// The screen was drawn from the mockups first, and its numbers were the mockup's own: a timer reading the
+/// same eight digits whatever was publishing, a window label naming a span the plot did not cover, a rule
+/// marking a ceiling wherever the design had put it.
+/// Each test states a reading and asserts that the screen's figure came out of it, which a seeded number
+/// cannot do.
 /// </summary>
 public sealed class BroadcastFiguresTests
 {
-    /// <summary>One encoder sample: a rate over the last interval, at a point in the run.</summary>
+    /// <summary>A rate over the last interval, at a point in the run.</summary>
     private static PublishStats Sample(double mbps, double timeSec) => new()
     {
         InstMbps = mbps,
@@ -93,6 +93,7 @@ public sealed class BroadcastFiguresTests
 
         Assert.True(bar.IsSharing);
         Assert.Equal("00:00:12", bar.Elapsed);
+        // Figures[0] is the encoder's rate, Figures[4] the relay's reader count.
         Assert.Equal("4.25", bar.Figures[0].Value);
         Assert.Equal("3", bar.Figures[4].Value);
     }
@@ -105,16 +106,15 @@ public sealed class BroadcastFiguresTests
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4.25, 12), null),
         };
 
-        // Round trip and loss, with no relay snapshot to read a viewer's out of.
-        // They are the relay's figures, so no snapshot is no measurement - and no measurement is an ellipsis.
+        // Figures[2] and Figures[3] are round trip and loss, which only the relay measures.
+        // No snapshot is therefore no measurement, and no measurement is an ellipsis.
         Assert.Equal(Figure.NoValue, bar.Figures[2].Value);
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
     }
 
     /// <summary>
-    /// The axis is a fixed span, so the label names it and does not grow with the run.
-    /// It used to be the span the samples happened to cover, which meant a plot that read <c>3 s</c> a moment
-    /// after sharing started and crept upwards from there.
+    /// The axis is a fixed span, so the label names the axis rather than the span the samples happen to
+    /// cover, which read <c>3 s</c> a moment after sharing started and crept upwards from there.
     /// </summary>
     [Fact]
     public void ThePlotStatesTheWindowItCoversWhateverTheRunHasReached()
@@ -138,10 +138,9 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A moment sits at one place on the card whatever the run has reached: the newest sample is the right
-    /// edge, and how far left a point sits is how long ago it was taken.
-    /// A run younger than the window therefore fills the right of the plot and leaves the rest of it empty
-    /// rather than being stretched across it.
+    /// The newest sample is the right edge, and how far left a point sits is how long ago it was taken.
+    /// A run younger than the window therefore fills the right of the plot and leaves the rest empty rather
+    /// than being stretched across it.
     /// </summary>
     [Fact]
     public void APointIsPlacedByWhenItWasTakenAndNotByHowManyThereAre()
@@ -152,12 +151,13 @@ public sealed class BroadcastFiguresTests
             Samples = [Sample(3, 0), Sample(5, 5), Sample(4, 15)],
         };
 
-        // Fifteen seconds of a sixty-second window: a quarter of the width, hard against the right edge.
+        // 15 s of a 60 s window: the oldest point a quarter of the width in, the newest hard against the
+        // right edge.
         Assert.Equal(3, young.Egress.Count);
         Assert.Equal(PlotSeries.Extent.Width, young.Egress[^1].X, 6);
         Assert.Equal(PlotSeries.Extent.Width * 0.75, young.Egress[0].X, 6);
 
-        // A run past the window keeps the same scale and drops what fell off the back of it.
+        // Past the window the scale holds, and what fell off the back is dropped.
         var running = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 400), null),
@@ -170,10 +170,10 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// A pipeline that dies and comes back leaves the stream live, so its samples are appended to the ones
-    /// before it and its running clock starts again at zero.
-    /// The plot draws the run the newest sample belongs to; laying both over one axis would put the old one
-    /// off the right edge of the card.
+    /// A pipeline that dies and comes back leaves the stream live, so its samples are appended to the earlier
+    /// ones and its clock starts again at zero.
+    /// The plot draws the run the newest sample belongs to, since one axis over both would put the earlier
+    /// run off the right edge of the card.
     /// </summary>
     [Fact]
     public void ARelaunchedPipelineIsNotDrawnOverTheOneBeforeIt()
@@ -203,8 +203,8 @@ public sealed class BroadcastFiguresTests
     [Fact]
     public void TheCeilingRuleSitsWhereTheCeilingFallsOnTheCurve()
     {
-        // A peak of 5 Mb/s against a 4 Mb/s ceiling: the curve's peak is 85% of the way up from the floor, so
-        // the ceiling lands at 68% of it, which is 32% down from the top.
+        // Peak 5 Mb/s against a 4 Mb/s ceiling: the peak sits 85% up from the floor, so the ceiling lands at
+        // 68% of that height, 32% down from the top.
         var plots = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(ceilingMbps: 4), Sample(5, 20), null),
@@ -240,12 +240,9 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The nudge card promised a live-safe apply in its markup while its view model stated, in the same
-    /// breath, that no such effect exists - and the reader saw the promise, because the markup drew the
-    /// promise and bound neither the greying nor the reason.
-    ///
-    /// Both sentences come off one table now, so the test states the property that made the contradiction
-    /// possible: the card's words and the card's behaviour agree.
+    /// The markup promised a live-safe apply while the view model stated that no such effect exists, and the
+    /// reader saw the promise because the markup bound neither the greying nor the reason.
+    /// Both sentences come off one table, so the card's words and the card's behaviour agree.
     /// </summary>
     [Fact]
     public void TheNudgeCardNeverPromisesAnApplyTheBackendHasNoEffectFor()
@@ -263,9 +260,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The configuration card used to divide its settings into ones needing a restart and ones that did not.
-    /// Nothing has ever reached a running pipeline without restarting it, so the second half of that sentence
-    /// described an effect that does not exist.
+    /// Nothing reaches a running pipeline without restarting it, so a card dividing its settings into ones
+    /// needing a restart and ones not needing one describes an effect that does not exist.
     /// </summary>
     [Fact]
     public void TheConfigurationCardSaysEverySettingRestartsTheStream()
@@ -277,10 +273,10 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The broadcast destination cannot be reached unless a stream is live, and stopping one takes the window
-    /// off it.
-    /// So "nothing is publishing" is the one thing an empty card here is never showing - it is showing a form
-    /// resolve that has not answered yet, which is the ordinary first second of every broadcast.
+    /// The broadcast destination is out of reach unless a stream is live, and stopping one takes the window
+    /// off that destination.
+    /// An empty card here is therefore a form resolve that has not answered, the ordinary first second of
+    /// every broadcast, and never nothing publishing.
     /// </summary>
     [Fact]
     public void AnUndescribedConfigurationSaysItIsBeingReadRatherThanThatNothingIsPublishing()

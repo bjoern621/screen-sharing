@@ -4,15 +4,10 @@
                     xmlns:ti="using:TablerIcons">
 
   <!--
-    A pre-publish line. The satisfied mark is grey rather than green on purpose: the palette
-    holds one hue and it is spent on faults, so "done" is carried by the glyph and the
-    filled badge instead of by a colour.
-
-    A grid rather than a horizontal stack, and the text wraps. The line used to be a label
-    that fitted; it now carries the backend's own diagnostic, which is a sentence, and a
-    stack measures its children against infinite width - so every one of them ran off the
-    end of the rail. The badge sits at the top of the run rather than centred on it, because
-    a two-line sentence with a mark floating at its middle reads as two items.
+    Severity is carried by fill and weight, never by hue.
+    AttentionBrush marks Blocking alone, so the palette's one hue keeps meaning "stops the publish".
+    Grid rather than StackPanel: the body is the backend's own sentence and a stack measures its
+    children against infinite width.
   -->
   <ControlTheme x:Key="{x:Type controls:CheckItem}" TargetType="controls:CheckItem">
     <Setter Property="Template">
@@ -43,7 +38,6 @@
                        TextTrimming="None"
                        LineHeight="{StaticResource LineHeightSmall}" />
 
-            <!-- Only a line with a control behind it names a step, so the clause never dangles. -->
             <TextBlock Name="FixIn"
                        Text="{TemplateBinding FixedInStep}"
                        Classes="hint"
@@ -63,10 +57,6 @@
       <Setter Property="Brush" Value="{StaticResource MutedBrush}" />
     </Style>
 
-    <!--
-      A note is the quietest line on the card: an outlined badge and hint-weight prose, so a
-      run of them does not compete with the one warning above it.
-    -->
     <Style Selector="^[State=Note] /template/ Border#Badge">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
@@ -78,10 +68,6 @@
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
 
-    <!--
-      A warning is louder by weight and fill, not by colour. Red is the publish-stopping
-      signal and spending it here would leave the two indistinguishable across a room.
-    -->
     <Style Selector="^[State=Warned] /template/ Border#Badge">
       <Setter Property="Background" Value="{StaticResource ChipBorderBrush}" />
     </Style>

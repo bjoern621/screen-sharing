@@ -3,9 +3,9 @@ using Avalonia.Controls;
 namespace ScreenShare.App.Features.Viewer.WatchSettings.View;
 
 /// <summary>
-/// Markup and nothing else.
-/// Every control writes the one draft through its binding, and the next resolved form decides what the write
-/// became.
+/// Markup only.
+/// A control's binding writes the window's one draft, and what the write became is the next resolved form's
+/// answer.
 /// </summary>
 public sealed partial class WatchSettingsView : UserControl
 {

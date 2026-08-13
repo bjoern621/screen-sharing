@@ -11,8 +11,9 @@ import (
 // The parser takes the cumulative counts off a progress line and ignores every other line
 // gst-launch prints.
 // The first line has no predecessor, so only the cumulative figures are set and every per-interval
-// one is marked unmeasured; the second carries the deltas, measured against the wall clock:
-// 30 frames and 250 kB in half a second is 60 fps at 4 Mbps.
+// one is marked unmeasured.
+// The second carries the deltas, measured against the wall clock: 30 frames and 250 kB in half a
+// second is 60 fps at 4 Mbps.
 // This pipeline carries no rate probe, so the capture rate stays unmeasured throughout rather than
 // reading as a zero rate.
 func TestGstMeterSamples(t *testing.T) {
@@ -30,7 +31,7 @@ func TestGstMeterSamples(t *testing.T) {
 	m.bytes.Store(500_000)
 	m.parse(strings.NewReader(
 		"Setting pipeline to PLAYING ...\n" +
-			"progressreport0 (00:00:02): 60 buffers\n" + // another element's report
+			"progressreport0 (00:00:02): 60 buffers\n" + // a line another element printed
 			"stats (00:00:02): 60 buffers\n"))
 
 	if len(got) != 2 {
@@ -50,7 +51,7 @@ func TestGstMeterSamples(t *testing.T) {
 		Fps:      60,
 		SizeKiB:  500_000.0 / 1024,
 		TimeSec:  2,
-		Speed:    2, // one second of media in half a second of wall clock
+		Speed:    2, // a second of media in half a second of wall clock
 		InstMbps: 4,
 		AvgMbps:  2,
 		Missing:  Missing{CaptureFps: true},
@@ -60,14 +61,15 @@ func TestGstMeterSamples(t *testing.T) {
 	}
 }
 
-// The instrumentation splits the encoded stream between the parser and the muxer,
-// and the displayed command carries none of it.
+// The instrumentation sits between the parser and the muxer, and the displayed command carries none
+// of it.
 func TestGstProgressElementsPlacement(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "portal"
 	s.Publish.Transport = "srt"
-	// The default planar RGB has no encoder element on this engine, which the form repairs to 4:4:4
-	// before a portal publish; this test is about element order.
+	// The default planar RGB has no encoder element on this engine and the form repairs it to 4:4:4
+	// before a portal publish.
+	// Element order is what this test is about.
 	s.Publish.Chroma = "yuv444p"
 
 	capture := []string{"videotestsrc"}
@@ -93,15 +95,15 @@ func TestGstProgressElementsPlacement(t *testing.T) {
 	if !(parser < report && report < meterBranch && meterBranch < sinkBranch && sinkBranch < mux) {
 		t.Errorf("instrumentation out of order between parser and muxer: %s", line)
 	}
-	// gst-launch links no pair of unnamed request pads, which is what the tee and the muxer expose,
+	// The tee and the muxer both expose request pads, and gst-launch links no pair of unnamed ones,
 	// so the sink branch carries a queue even with audio off.
 	if !strings.Contains(line[sinkBranch:mux], "queue") {
 		t.Errorf("no queue between the meter tee and the muxer: %s", line)
 	}
 }
 
-// A pipeline stall leaves the running time behind the wall clock, which is what the speed figure
-// reports.
+// A stalled pipeline leaves its running time behind the wall clock, and the speed figure is what
+// reports that.
 func TestGstMeterSpeedBelowRealtime(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var last Stats
@@ -119,10 +121,9 @@ func TestGstMeterSpeedBelowRealtime(t *testing.T) {
 	}
 }
 
-// The instrumentation is a wire format shared with GStreamer: the element properties gstMeterTap
-// sets have to produce the lines the parser matches, and the tcpclientsink has to reach the meter's
-// listener.
-// Both hold only against a real gst-launch, so this runs one.
+// The instrumentation is a wire format shared with GStreamer: the properties gstMeterTap sets have
+// to produce the lines the parser matches, and the tcpclientsink has to reach the meter's listener.
+// Neither holds against anything but a real gst-launch, so this runs one.
 func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -143,8 +144,8 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	}
 	defer meter.close()
 
-	// videotestsrc stands in for the portal capture, which this pipeline needs none of:
-	// the meter reaches the app over loopback either way.
+	// videotestsrc stands in for the portal capture, which this pipeline needs nothing of: the meter
+	// reaches the app over loopback either way.
 	args := []string{
 		"videotestsrc", "is-live=true",
 		"!", "video/x-raw,format=I420,width=320,height=240,framerate=30/1",
@@ -169,7 +170,7 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	}
 	defer handle.Stop()
 
-	// progressreport prints once a second and needs a second of data first.
+	// progressreport prints once a second, and needs a second of data before the first line.
 	var latest Stats
 	deadline := time.After(15 * time.Second)
 	for latest.InstMbps == 0 {
@@ -191,14 +192,14 @@ func TestGstMeterAgainstGstLaunch(t *testing.T) {
 	}
 }
 
-// The two counters answer different questions, and the sample carries both.
-// A portal capture whose screen changed five times while the encoder emitted sixty frames has to
-// report five, because that is what a viewer sees; reporting the encoder's sixty would hand the
-// pacing target back as a measurement.
+// The two counters answer different questions and the sample carries both.
+// A portal capture whose screen changed five times while the encoder emitted sixty frames reports
+// five, because that is what a viewer sees; reporting the encoder's sixty would hand the pacing
+// target back as a measurement.
 //
-// The capture element prints on its own second, out of step with the encoded one,
-// so a capture line must record rather than sample: two samples a second, one of them with an
-// unchanged count, would halve every rate the card shows.
+// The capture element prints on its own second, out of step with the encoded one, so a capture line
+// records rather than samples: two samples a second, one of them with an unchanged count,
+// would halve every rate the card shows.
 func TestGstMeterCaptureRateIsSeparateFromTheEncodedRate(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var got []Stats
@@ -226,8 +227,8 @@ func TestGstMeterCaptureRateIsSeparateFromTheEncodedRate(t *testing.T) {
 	}
 }
 
-// A pipeline built without the rate probe prints no capture line, and an unmeasured rate reads zero
-// rather than borrowing the encoded one.
+// A pipeline built without the rate probe prints no capture line, and the figure stays at zero
+// rather than borrowing the encoded rate.
 func TestGstMeterCaptureRateIsZeroWithoutTheProbe(t *testing.T) {
 	wall := time.Unix(0, 0)
 	var got []Stats
@@ -247,7 +248,7 @@ func TestGstMeterCaptureRateIsZeroWithoutTheProbe(t *testing.T) {
 // The same divergence against a running pipeline rather than synthetic lines.
 // A source producing five pictures a second behind an imagefreeze paced to thirty is the portal
 // path's shape: the encoder emits thirty, the screen produced five, and only the probe ahead of the
-// pacer can tell the two apart.
+// pacer tells the two apart.
 func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -322,8 +323,8 @@ func TestGstMeterCaptureRateAgainstGstLaunch(t *testing.T) {
 }
 
 // An unmeasured capture rate and a measured zero are different readings.
-// A pipeline with no probe carries no capture line at all, so the figure is marked missing;
-// one whose probe reports no new pictures reports zero, which is the starved capture worth seeing.
+// A pipeline with no probe carries no capture line, so the figure is marked missing.
+// A probe reporting no new pictures reports zero, which is the starved capture worth seeing.
 func TestGstMeterMarksAnUnprobedCaptureRateMissing(t *testing.T) {
 	sampleTwice := func(lines ...string) Stats {
 		wall := time.Unix(0, 0)

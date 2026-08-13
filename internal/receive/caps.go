@@ -5,10 +5,9 @@ package receive
 #include <stdlib.h>
 #include <gst/video/video.h>
 
-// pixel_shape reports the bit depth per component and the chroma subsampling
-// factors of a raw video format name, e.g. "Y444_10LE". A factor of 1 means
-// full chroma resolution on that axis. Returns 0 for a name this GStreamer
-// build does not know.
+// pixel_shape takes a raw video format name, e.g. "Y444_10LE", and fills in bit depth per
+// component and the two chroma subsampling factors. Factor 1 is full chroma resolution on
+// that axis. 0 where this GStreamer build knows no such name.
 static int pixel_shape(const char *name, int *depth, int *h_sub, int *v_sub) {
 	GstVideoFormat fmt = gst_video_format_from_string(name);
 	if (fmt == GST_VIDEO_FORMAT_UNKNOWN) {
@@ -30,8 +29,8 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 )
 
-// padCaps returns the caps negotiated on one of an element's static pads, and nil
-// while the pad or the negotiation is missing.
+// padCaps is what one of an element's static pads negotiated, nil while either the pad or the
+// negotiation is absent.
 func padCaps(e gst.Element, name string) *gst.Caps {
 	pad := e.GetStaticPad(name)
 	if pad == nil {
@@ -44,9 +43,8 @@ func padCaps(e gst.Element, name string) *gst.Caps {
 	return caps
 }
 
-// codecDescription is GStreamer's own human name for caps, e.g. "H.265 (Main
-// 4:4:4 profile)". It falls back to the media type, so a codec pbutils has no
-// description for still names itself.
+// codecDescription is GStreamer's own reading of caps, e.g. "H.265 (Main 4:4:4 profile)".
+// The media type stands in where pbutils describes nothing, leaving such a codec to name itself.
 func codecDescription(caps *gst.Caps) string {
 	if d := pbUtilsCodecDescription(caps); d != "" {
 		return d
@@ -54,9 +52,9 @@ func codecDescription(caps *gst.Caps) string {
 	return caps.GetStructure(0).GetName()
 }
 
-// pixelShape describes a raw video format the way a viewer cares about it: bit
-// depth per component and chroma subsampling. The numbers come from GStreamer's
-// own format table, so a format this build knows needs no entry here.
+// pixelShape is a raw video format on the axes a viewer cares about: bit depth per component, and
+// chroma subsampling. GStreamer's own format table supplies both, so a format this build knows
+// needs no entry here.
 func pixelShape(format string) (depth int, subsampling string) {
 	if format == "" {
 		return 0, ""
@@ -70,9 +68,8 @@ func pixelShape(format string) (depth int, subsampling string) {
 	return int(d), subsamplingLabel(int(h), int(v))
 }
 
-// subsamplingLabel renders chroma subsampling factors in J:a:b notation: four
-// luma samples wide, a chroma samples across them, and b the second row's
-// chroma, which vertical subsampling drops to zero.
+// subsamplingLabel writes chroma subsampling factors as J:a:b: a region four luma samples wide,
+// a chroma samples across it, and b for the second row, which vertical subsampling takes to zero.
 func subsamplingLabel(h, v int) string {
 	if h <= 0 || v <= 0 || 4%h != 0 {
 		return ""

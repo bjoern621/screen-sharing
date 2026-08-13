@@ -2,16 +2,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The one palette. Greyscale everywhere except a single red, which is reserved strictly
-    for "sharing" and "something is wrong" - it is the only hue on screen, and the only one
-    a colour-blind reader still separates from grey reliably.
-
-    Names are roles, not values. A component asks for CardBackgroundBrush; it never names
-    a grey. That is what keeps a light variant a second dictionary rather than a sweep
-    through every view.
+    Greyscale ramp plus one hue.
+    Keys name roles and never values, so a light variant is a second dictionary rather than an edit in every view.
   -->
 
-  <!-- The greyscale ramp, dark to light. Listed once so a role below can be read against it. -->
   <Color x:Key="Grey900">#141414</Color>
   <Color x:Key="Grey850">#181818</Color>
   <Color x:Key="Grey800">#1C1C1C</Color>
@@ -30,15 +24,16 @@
   <Color x:Key="Grey050">#F2F2F2</Color>
   <Color x:Key="White">#FFFFFF</Color>
 
-  <!-- The one hue. Never used for state that is merely on. -->
+  <!--
+    Sharing, and a fault.
+    Never state that is merely on.
+    It is the one hue, and the only one a colour-blind reader still separates from grey.
+  -->
   <Color x:Key="Attention">#E5484D</Color>
 
   <!--
-    Fluent's accent, overridden to the design's one light surface. Every control this design
-    has not restyled - a slider's fill, a focus ring, a text selection - reaches for these
-    keys, and left alone they would put the platform's blue on a screen whose whole argument
-    is that it holds a single hue. Setting them here is cheaper and more complete than
-    restyling each control that happens to use one.
+    Fluent's accent keys, pointed at the one light surface.
+    A slider's fill, a focus ring and a text selection read them, and left alone they paint the platform's blue.
   -->
   <Color x:Key="SystemAccentColor">#F2F2F2</Color>
   <Color x:Key="SystemAccentColorLight1">#FFFFFF</Color>
@@ -50,74 +45,52 @@
 
   <!-- Surfaces  -->
 
-  <!-- The app body, behind everything. -->
   <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource Grey850}" />
-  <!-- Title bar and status bar: the two chrome bands, one shade lighter than the body. -->
   <SolidColorBrush x:Key="ChromeBrush" Color="{StaticResource Grey750}" />
-  <!-- Nav strip, callouts, and the fill a disabled chip drops to. -->
   <SolidColorBrush x:Key="PanelBrush" Color="{StaticResource Grey800}" />
-  <!-- Content panels inside setup and broadcast. -->
   <SolidColorBrush x:Key="CardBrush" Color="{StaticResource Grey750}" />
-  <!-- A raised control: buttons, the segmented track, an enabled chip. -->
   <SolidColorBrush x:Key="ControlBrush" Color="{StaticResource Grey650}" />
   <!--
-    Hover and pressed are this module's decision, not the design's: the mockup declares no
-    hover rule anywhere. Both stay inside the existing ramp so no new value enters the
-    palette, and a pressed control reads darker than the surface it lifts off.
+    Hover and press are this module's decision, not the design's.
+    Both are steps of the ramp above, so no value enters the palette,
+    and a pressed control reads darker than the surface it lifts off.
   -->
   <SolidColorBrush x:Key="ControlHoverBrush" Color="{StaticResource Grey600}" />
   <SolidColorBrush x:Key="ControlPressedBrush" Color="{StaticResource Grey700}" />
-  <!-- The one light surface: a selected segment, an on toggle track, a current step chip. -->
   <SolidColorBrush x:Key="SelectedBrush" Color="{StaticResource Grey050}" />
-  <!-- Video sits on black in both themes; video defines its own background. -->
+  <!-- Black in a light variant too: video defines its own background. -->
   <SolidColorBrush x:Key="TileBrush" Color="{StaticResource Grey900}" />
 
   <!-- Lines  -->
 
-  <!-- Where one band meets the next: the nav strip's rule, a callout's edge. -->
   <SolidColorBrush x:Key="HairlineBrush" Color="{StaticResource Grey700}" />
-  <!-- A panel's edge, and the divider inside a strip or a menu. -->
   <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource Grey600}" />
-  <!-- A raised control's edge. -->
   <SolidColorBrush x:Key="ControlBorderBrush" Color="{StaticResource Grey550}" />
-  <!-- A chip's edge, and the fill of a satisfied check mark. -->
   <SolidColorBrush x:Key="ChipBorderBrush" Color="{StaticResource Grey500}" />
 
   <!-- Text  -->
 
-  <!-- A window title, a promoted figure, text on the sharing pill. -->
   <SolidColorBrush x:Key="ForegroundBrush" Color="{StaticResource White}" />
-  <!-- A control's label: a button, a field, a chip. -->
   <SolidColorBrush x:Key="ControlForegroundBrush" Color="{StaticResource Grey100}" />
-  <!-- Body copy that is not the point of the line. -->
   <SolidColorBrush x:Key="SecondaryBrush" Color="{StaticResource Grey200}" />
-  <!-- A glyph drawn as chrome: a window control. -->
   <SolidColorBrush x:Key="GlyphBrush" Color="{StaticResource Grey150}" />
-  <!-- A breadcrumb, a status-bar figure, an available-but-unselected destination. -->
   <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource Grey300}" />
-  <!-- A hint that explains a control rather than labelling it. -->
   <SolidColorBrush x:Key="HintBrush" Color="{StaticResource Grey400}" />
-  <!-- The whole unavailable treatment: a colour change, and nothing else. -->
+  <!-- The whole unavailable treatment, here and everywhere: a colour change, nothing else. -->
   <SolidColorBrush x:Key="DisabledBrush" Color="{StaticResource Grey450}" />
-  <!-- Text on the one light surface. -->
   <SolidColorBrush x:Key="OnSelectedBrush" Color="{StaticResource Grey900}" />
 
   <!-- The one hue  -->
 
-  <!-- Sharing, and a fault. Nothing else is allowed to reach for it. -->
   <SolidColorBrush x:Key="AttentionBrush" Color="{StaticResource Attention}" />
 
   <!-- Elevation  -->
 
   <!--
-    Only two shadows exist in the whole design, and only one of them is drawn here: a window's
-    is the platform's, cast by the compositor around the frame, so the app states nothing for
-    it. What is left is the surface that floats over the window - a menu, and the tooltip
-    skinned like one.
-
-    A BoxShadows rather than a brush, because that is the type the setter takes. It is stated
-    once here for the same reason a colour is: a surface asks for the role and does not spell
-    out an offset, a blur and an alpha of its own.
+    The one shadow the app draws, for the surface that floats over the window:
+    a menu, and the tooltip skinned like one.
+    A window's is the platform's, cast around the frame by the compositor.
+    BoxShadows rather than a brush, because that is the type the setter takes.
   -->
   <BoxShadows x:Key="MenuShadow">0 10 28 0 #8C000000</BoxShadows>
 

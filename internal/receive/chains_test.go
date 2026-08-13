@@ -5,10 +5,9 @@ import (
 	"testing"
 )
 
-// TestChainsAreWellFormed holds the table's own invariants. Every row is read by
-// name, offered to a picker by label and tip, and built into a launch line, so a
-// row missing any of those renders an unusable offer rather than failing where it
-// is used.
+// TestChainsAreWellFormed holds the table to its own invariants. A row is read by name, offered to
+// a picker by label and tip, and built into a launch line, so one missing any of those becomes an
+// unusable offer instead of failing where it is used.
 func TestChainsAreWellFormed(t *testing.T) {
 	seen := map[string]bool{}
 	for _, c := range chains {
@@ -31,10 +30,9 @@ func TestChainsAreWellFormed(t *testing.T) {
 	}
 }
 
-// TestChainNeedsAreTheElementsItBuilds keeps the availability check from drifting
-// away from the launch line: a factory a row is built from and does not name is a
-// factory resolve never checks for, and the chain then fails at parse time on a
-// machine that does not have it.
+// TestChainNeedsAreTheElementsItBuilds holds the availability check to the launch line: a factory a
+// row builds from and does not name is one resolve never looks for, leaving the chain to fail at
+// parse time on a machine without it.
 func TestChainNeedsAreTheElementsItBuilds(t *testing.T) {
 	for _, c := range chains {
 		for _, need := range c.needs {
@@ -51,9 +49,9 @@ func TestChainNeedsAreTheElementsItBuilds(t *testing.T) {
 	}
 }
 
-// TestChainBoundsWhereItNamesAFilter pins the pair the render size is written
-// through: the row's elements name the filter and the row's caps are what goes into
-// it. One without the other is a size nothing bounds or caps nothing carries.
+// TestChainBoundsWhereItNamesAFilter pins the pair a render size is written through: the row's
+// elements name the filter and the row's caps go into it. Either alone is a size nothing bounds, or
+// caps nothing carries.
 func TestChainBoundsWhereItNamesAFilter(t *testing.T) {
 	for _, c := range chains {
 		names := strings.Contains(strings.Join(c.elements, " ! "), "name="+fitName)
@@ -63,15 +61,14 @@ func TestChainBoundsWhereItNamesAFilter(t *testing.T) {
 	}
 }
 
-// TestDeviceChainsKeepTheirMemoryFeature is the bug this table replaced: a device
-// chain whose size bound names no memory feature downloads every frame the moment a
-// tile reports the size it draws. The feature has to be in the caps the filter is
-// written with, not only in the ones it was parsed with.
+// TestDeviceChainsKeepTheirMemoryFeature pins the defect this table exists against: a device chain
+// whose size bound names no memory feature downloads every frame the moment a tile reports the size
+// it draws. The feature belongs in the caps the filter is written with and not only in the ones it
+// was parsed with.
 //
-// A chain that bounds nothing has no such caps and is held to the element half alone.
-// Not bounding is a device chain's option rather than an oversight: the bound pays for
-// itself where the conversion costs its output pixels, and a chain converting on the
-// GPU can be cheaper converting whole frames than renegotiating for tile-sized ones.
+// A chain bounding nothing has no such caps and answers on the element half alone. Not bounding is
+// a device chain's option and not an oversight: the bound pays where a conversion costs its output
+// pixels, and on the GPU whole frames can beat renegotiating for tile-sized ones.
 func TestDeviceChainsKeepTheirMemoryFeature(t *testing.T) {
 	for _, c := range chains {
 		if c.device == "" {
@@ -87,8 +84,8 @@ func TestDeviceChainsKeepTheirMemoryFeature(t *testing.T) {
 	}
 }
 
-// TestChainFitTakesWidthThenHeight pins the order of the two figures in the
-// template, which a caller cannot see and a swap would silently letterbox.
+// TestChainFitTakesWidthThenHeight pins the order of the template's two figures, which no caller
+// can see and a swap would letterbox in silence.
 func TestChainFitTakesWidthThenHeight(t *testing.T) {
 	for _, c := range chains {
 		caps := c.fit(320, 240)
@@ -107,9 +104,9 @@ func TestChainFitTakesWidthThenHeight(t *testing.T) {
 	}
 }
 
-// TestChainLaunchIsComplete covers what every chain carries whether or not its row
-// says so: the decoder the audio branch hangs off, the queue between the two
-// threads, and the sink the receiver reads back by name.
+// TestChainLaunchIsComplete covers what a chain carries whether or not its row says so: the decoder
+// the audio branch hangs off, the queue between the two threads, and the sink the receiver reads
+// back by name.
 func TestChainLaunchIsComplete(t *testing.T) {
 	for _, c := range chains {
 		line := c.launch(Stream{Source: "videotestsrc"}, toneMapRung{})
@@ -124,8 +121,8 @@ func TestChainLaunchIsComplete(t *testing.T) {
 			}
 		}
 
-		// A raw source is the same line without the decoder: everything the chain
-		// carries is still there, and the one element that has nothing to do is gone.
+		// A raw source gives the same line minus the decoder: all the chain carries remains, and the
+		// one element with nothing to do is gone.
 		raw := c.launch(Stream{Source: "videotestsrc", Raw: true}, toneMapRung{})
 		if strings.Contains(raw, "decodebin") {
 			t.Errorf("the %q raw launch line autoplugs a decoder for frames nothing encoded: %s", c.name, raw)
@@ -143,30 +140,25 @@ func TestChainLaunchIsComplete(t *testing.T) {
 	}
 }
 
-// TestRenderSinkNamesItself pins the one thing the receiver cannot do without: it
-// reads the sink back out of the parsed pipeline by name, so a sink that names
-// itself anything else parses and then cannot be found.
+// TestRenderSinkNamesItself pins what the receiver cannot do without: the sink is read back out of
+// the parsed pipeline by name, so one naming itself anything else parses and is then unfindable.
 func TestRenderSinkNamesItself(t *testing.T) {
 	if !strings.Contains(renderSink, "name="+sinkName) {
 		t.Errorf("the sink %q does not name itself %q", renderSink, sinkName)
 	}
 }
 
-// TestDefaultChainConvertsOnTheDevice is the table's contract with a viewer that
-// never picked a chain, asserted at init and stated here as the reason the table is
-// ordered the way it is.
+// TestDefaultChainConvertsOnTheDevice is the table's contract with a viewer that never picked a
+// chain, asserted at init and restated here.
 //
-// Two claims rather than one, and neither is about which chain is named. It has to
-// convert, because a chain that states no colour at all leaves the window mapping an
-// unknown transfer function to BT.709 and washing out every shadow; and it has to keep
-// its frames on the device, because the frame channel exports a handle to device
-// memory and a default that converted in system memory would make every tile cost a
-// download.
+// Two claims, neither of them about which chain is named. Converting is one: stating no colour
+// leaves the window mapping an unknown transfer function to BT.709 and washing out every shadow.
+// Keeping frames on the device is the other: the frame channel exports a handle to device memory,
+// so a default converting in system memory costs every tile a download.
 //
-// What it does not have to do is state an exact colour, and that is the platform's
-// answer rather than the table's: on Windows the only exportable memory is Direct3D
-// 11's, whose converter may run through a video processor the caps do not describe
-// (DefaultChain).
+// Stating an exact colour is not among them, that being the platform's answer and not the table's:
+// on Windows the only exportable memory is Direct3D 11's, whose converter may run through a video
+// processor the caps do not describe (DefaultChain).
 func TestDefaultChainConvertsOnTheDevice(t *testing.T) {
 	c := chainNamed(DefaultChain)
 	if c.colour == ColourUnstated {
@@ -177,10 +169,9 @@ func TestDefaultChainConvertsOnTheDevice(t *testing.T) {
 	}
 }
 
-// TestUnconvertedChainConvertsNothing is what keeps resolve's rule meaningful: the
-// chain it must never fall back to is the one that hands the frames over as they
-// are. It pins no format and no memory, asks for no element of its own, and cannot
-// be bounded to a tile's size, because every one of those would be a conversion.
+// TestUnconvertedChainConvertsNothing keeps resolve's rule meaningful: the chain it must never fall
+// back to is the one handing frames over as they are. No format and no memory pinned, no element of
+// its own wanted, and no bound to a tile's size, each of which would be a conversion.
 func TestUnconvertedChainConvertsNothing(t *testing.T) {
 	c := chainNamed(unconvertedChain)
 	if c.colour != ColourUnstated {
@@ -197,8 +188,8 @@ func TestUnconvertedChainConvertsNothing(t *testing.T) {
 	}
 }
 
-// TestChainMemoryFeaturesReadAsMemory keeps the features the chains ask for in the
-// spelling memoryOf reads back off a pad, since the receive state compares the two.
+// TestChainMemoryFeaturesReadAsMemory keeps the features a chain asks for in the spelling memoryOf
+// reads back off a pad, the receive state comparing the two.
 func TestChainMemoryFeaturesReadAsMemory(t *testing.T) {
 	for _, c := range chains {
 		if c.device == "" {

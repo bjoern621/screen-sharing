@@ -5,20 +5,18 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Backend;
 
 /// <summary>
-/// The two conversions between a <see cref="FieldValue"/> and the string an option carries.
+/// Conversions between a <see cref="FieldValue"/> and the string an option carries.
 ///
-/// An option value is a string whatever the settings field's type is, because one list has one element type
-/// and a list of four shapes would be a list nothing can bind.
-/// That leaves exactly two places where the string and the typed value have to meet - marking which entry is
-/// picked, and reporting which entry was picked - and both are here rather than restated per control, so a
-/// select over a number cannot mark one entry and write another.
+/// An option value is a string whatever the settings field's type, since one bindable list has one element
+/// type.
+/// Both directions live here rather than per control, so a select over a number cannot mark one entry and
+/// write another.
 /// </summary>
 public static class FieldValues
 {
     /// <summary>
     /// The value as an option carries it.
-    /// Invariant formatting, because the string is compared against option values the backend wrote, not
-    /// shown to anyone.
+    /// Invariant formatting: the string is matched against option values the backend wrote, never shown.
     /// </summary>
     public static string AsText(FieldValue? value) => value?.KindCase switch
     {
@@ -32,11 +30,11 @@ public static class FieldValues
 
     /// <summary>
     /// The option's string back in the shape the field holds it.
-    /// The kind comes from the value the form carried, so the answer matches the settings field's own type
-    /// without this code knowing which field it is.
+    /// The kind comes from the value the form carried, so the answer takes the settings field's own type
+    /// without this code naming the field.
     ///
-    /// A string that will not parse is a broken contract and not a condition to survive: every option value
-    /// was written by the backend, into the list for this field.
+    /// Text that will not parse is an Entwicklungsfehler: the backend wrote every option value into this
+    /// field's own list.
     /// </summary>
     public static FieldValue Of(FieldValue.KindOneofCase kind, string text) => kind switch
     {

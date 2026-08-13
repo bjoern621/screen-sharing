@@ -4,61 +4,52 @@ using ScreenShare.Api.V1;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// The drawing half of a tile: what a lent slot becomes on screen.
+/// A tile's drawing half: one lent slot turned into pixels on screen.
 ///
-/// <b>It is per handle type and not per platform.</b> A pool announces what its slots are - a shared texture,
-/// a dmabuf descriptor - and which of those a machine can open is a property of the renderer rather than of
-/// the operating system, since two graphics backends on one system import different lists.
-/// So the surface is chosen from the pool's own statement (<see cref="TileSurfaces.For"/>), and each
-/// implementation is the whole of one handle type's import.
+/// Keyed on handle type, never on platform.
+/// A pool states what its slots are, a shared texture or a dmabuf descriptor, and opening one is a property of
+/// the renderer rather than of the operating system, since two graphics backends on a machine take different
+/// lists (<see cref="TileSurfaces.For"/>).
+/// An implementation here is one handle type's import, entire.
 ///
-/// <b>The tile owns the subscription and the surface owns the import.</b> Which slot to draw, when to release
-/// it and what to report are the same on every platform and stay in <see cref="StreamTile"/>; how a slot
-/// becomes a picture is the only part that differs, and it is all that is behind this interface.
+/// Slot choice, release and reporting do not vary by machine and stay in <see cref="StreamTile"/>.
 /// </summary>
 internal interface ITileSurface : IAsyncDisposable
 {
     /// <summary>
-    /// The control that draws.
-    /// Both implementations are the control, and it is named separately because they derive from different
-    /// Avalonia bases: one owns a composition surface and the other is an OpenGL control.
+    /// Control doing the drawing.
+    /// Exposed rather than inherited: one implementation owns a composition surface and the other is an
+    /// OpenGL control, so they share no Avalonia base.
     /// </summary>
     Control View { get; }
 
     /// <summary>
-    /// The handle type this surface imports.
-    /// A tile reads it to tell a pool it can keep drawing through the surface it has from one it needs
-    /// another for, which is a question asked of the surface rather than remembered beside it.
+    /// Handle type imported here.
+    /// Consulted when a pool lands, to separate a surface that carries on from one that has to be replaced.
     /// </summary>
     FrameHandleType Handle { get; }
 
     /// <summary>
-    /// Imports one pool's slots, replacing whatever the previous one left.
-    ///
-    /// The answer is what the tile shows instead of a picture, and null is a pool this machine can draw.
-    /// A renderer that cannot open the handle type would fail per frame with the same reason, so it is said
-    /// once, here, beside the tile.
+    /// Takes on one pool's slots and discards the previous pool's.
+    /// Answers with the sentence a tile shows in place of a picture, null where the pool is drawable here.
+    /// A renderer that cannot open this handle type would repeat that verdict per frame, so it is stated once.
     /// </summary>
     Task<string?> ImportAsync(FramePool pool, CancellationToken cancellation);
 
     /// <summary>
-    /// Draws one lent slot.
-    /// The task completes when the slot is free again, which is what makes the release that follows a
-    /// statement rather than a guess.
+    /// Draws a lent slot, resolving once that slot is free again.
+    /// The release behind it therefore reports rather than assumes.
     /// </summary>
     Task DrawAsync(uint slot, CancellationToken cancellation);
 }
 
 /// <summary>
-/// Which surface draws which handle type.
-/// It is the one table that pairs the contract's identifiers with the imports this app has, so a handle type
-/// nothing here opens is a tile that says so rather than a control that fails per frame.
+/// Handle type to import, in one table.
+/// A type absent from it is a tile carrying a sentence, not a control failing once per frame.
 /// </summary>
 internal static class TileSurfaces
 {
-    /// <summary>
-    /// The surface for one handle type, and null for a kind no import here knows about.
-    /// </summary>
+    /// <summary>Surface for a handle type, null where nothing here imports it.</summary>
     public static ITileSurface? For(FrameHandleType type) => type switch
     {
         FrameHandleType.D3D11GlobalShared => new SharedTextureSurface(),

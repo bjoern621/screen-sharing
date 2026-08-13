@@ -10,27 +10,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// The Linux leg's own checks: a decoded frame is copied into a slot, and the slot's
-// descriptor crosses the socket the pool announces and names a buffer big enough to hold
-// the picture.
+// The Linux leg's own checks: a decoded frame is copied into a slot, and the slot's descriptor
+// crosses the socket the pool announces and names a buffer big enough to hold the picture.
 //
-// What is not checked here is the picture itself. Reading it back means importing the
-// descriptor into a second EGL display, which is C, and a test file cannot use cgo; the
-// side that does import it is the shell, and a tile drawing noise is what says so.
+// The picture itself is not checked.
+// Reading it back means importing the descriptor into a second EGL display, which is C, and a
+// test file cannot use cgo; the side that does import it is the shell, and a tile drawing noise
+// is what says so.
 //
-// Every one of them is skipped where the machine has no GL to decode onto, which is a
-// headless build host rather than a failure: the leg is about a GPU, and a machine without
-// one is a machine whose viewer is the native player.
+// Every check skips where the machine has no GL to decode onto, which is a headless build host
+// rather than a failure: the leg is about a GPU, and a machine without one is a machine whose
+// viewer is the native player.
 
-// The size the test frames are decoded at. Small, because what is under test is the export
-// and not the scaler.
+// The size the test frames are decoded at. Small: what is under test is the export and not the
+// scaler.
 const (
 	probeWidth  = 320
 	probeHeight = 240
 )
 
-// TestExportedPoolLendsADescriptorPerSlot is the leg as far as this side of it goes: what
-// the pool announces, and what a consumer connecting to it receives.
 func TestExportedPoolLendsADescriptorPerSlot(t *testing.T) {
 	sample, stop := glSample(t)
 	defer stop()
@@ -89,8 +87,8 @@ func TestExportedPoolLendsADescriptorPerSlot(t *testing.T) {
 	}()
 
 	for i, fd := range descriptors {
-		// A dmabuf answers its own extent, which is what makes this a check that the
-		// descriptor names the picture rather than any file this process happened to hold.
+		// A dmabuf answers its own extent, so a size check says the descriptor names the
+		// picture rather than any file this process happened to hold.
 		size, err := unix.Seek(fd, 0, unix.SEEK_END)
 		if err != nil {
 			t.Fatalf("slot %d's descriptor names nothing that can be sized: %v", i, err)
@@ -102,9 +100,8 @@ func TestExportedPoolLendsADescriptorPerSlot(t *testing.T) {
 	}
 }
 
-// TestClosingAPoolTakesItsSocketWithIt holds the half of the lifetime the descriptors ride
-// on: the pool owns the socket, so a subscription that ended leaves nothing for a consumer
-// to connect to and nothing on disk.
+// The pool owns the socket, so a subscription that ended leaves nothing for a consumer to
+// connect to.
 func TestClosingAPoolTakesItsSocketWithIt(t *testing.T) {
 	sample, stop := glSample(t)
 	defer stop()
@@ -123,9 +120,8 @@ func TestClosingAPoolTakesItsSocketWithIt(t *testing.T) {
 	}
 }
 
-// TestReopeningAPoolReplacesTheOneBeforeIt is the renegotiation path: a subscription opens
-// a pool per size, and the second is a socket and descriptors of its own rather than an
-// addition to the first.
+// The renegotiation path: a subscription opens a pool per size, and the second brings a socket
+// and descriptors of its own rather than adding to the first.
 func TestReopeningAPoolReplacesTheOneBeforeIt(t *testing.T) {
 	sample, stop := glSample(t)
 	defer stop()
@@ -151,12 +147,11 @@ func TestReopeningAPoolReplacesTheOneBeforeIt(t *testing.T) {
 	}
 }
 
-// glSample decodes one test frame onto the GPU and hands it over, with what ends the
-// pipeline.
+// glSample decodes one test frame onto the GPU and hands it over with what ends the pipeline.
 //
-// The launch line is the GL chain's own, written out rather than built through resolve:
-// what is under test is the export and not the table, and a test that resolved would fall
-// back on a machine missing an element instead of saying so.
+// The launch line is the GL chain's own, written out rather than built through resolve: what is
+// under test is the export and not the table, and a resolve would fall back on a machine missing
+// an element instead of saying so.
 func glSample(t *testing.T) (*gst.Sample, func()) {
 	t.Helper()
 	initGStreamer()
@@ -188,8 +183,8 @@ func glSample(t *testing.T) (*gst.Sample, func()) {
 	}
 }
 
-// readDescriptors is the consumer's side of the socket: one descriptor per slot, in index
-// order, each in a message whose payload is the slot it belongs to.
+// readDescriptors is the consumer's side of the socket: one descriptor per slot, in index order,
+// each in a message whose payload is that slot's number.
 func readDescriptors(t *testing.T, path string, slots int) []int {
 	t.Helper()
 

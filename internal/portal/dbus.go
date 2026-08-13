@@ -10,9 +10,9 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// The D-Bus half of the ScreenCast conversation: every method is asynchronous,
-// so each call registers a match for the Response signal of a Request path it makes predictable
-// through a handle_token, then blocks for it.
+// The D-Bus half of the ScreenCast conversation.
+// Every method is asynchronous, so each call registers a match for the Response signal of a Request
+// path it makes predictable through a handle_token, then blocks for it.
 
 type options = map[string]dbus.Variant
 
@@ -21,8 +21,8 @@ type client struct {
 	sender string
 }
 
-// request calls a portal method whose first argument is only the options map (CreateSession) and
-// blocks for its Response.
+// request calls a portal method taking the options map alone, CreateSession, and blocks for its
+// Response.
 func (c *client) request(method string, opts options) (options, error) {
 	return c.await(method, func(reqToken string) *dbus.Call {
 		opts["handle_token"] = dbus.MakeVariant(reqToken)
@@ -30,8 +30,8 @@ func (c *client) request(method string, opts options) (options, error) {
 	})
 }
 
-// requestOn calls a portal method that takes a session handle plus options (SelectSources) and
-// blocks for its Response.
+// requestOn calls a portal method taking a session handle and options, SelectSources,
+// and blocks for its Response.
 func (c *client) requestOn(method string, session dbus.ObjectPath, opts options) (options, error) {
 	assert.Assert(session != "", "a session call names the session it is made on", method)
 
@@ -42,7 +42,7 @@ func (c *client) requestOn(method string, session dbus.ObjectPath, opts options)
 }
 
 // requestStart calls Start, which takes a session handle and a parent-window identifier.
-// The identifier is empty here, which asks the compositor to parent the picker itself.
+// The identifier is empty, which asks the compositor to parent the picker itself.
 func (c *client) requestStart(session dbus.ObjectPath) (options, error) {
 	assert.Assert(session != "", "a start names the session it starts")
 
@@ -52,9 +52,10 @@ func (c *client) requestStart(session dbus.ObjectPath) (options, error) {
 	})
 }
 
-// await installs the Response match for a predictable Request path, invokes the method,
-// and returns the results map once the Response arrives.
-// A non-zero response code, which is a user who cancelled or an error, is reported as an error.
+// await installs the Response match for the Request path a token makes predictable, invokes the
+// method, and answers the results map the Response carries.
+// The match goes in before the invocation, so a Response arriving immediately is still caught.
+// A non-zero response code is a cancelled picker or a portal-side failure, and leaves as an error.
 func (c *client) await(method string, invoke func(reqToken string) *dbus.Call) (options, error) {
 	assert.Assert(method != "", "an awaited call names the portal method it blocks for")
 	assert.IsNotNil(invoke, "an awaited call has a method to invoke", method)
@@ -95,8 +96,7 @@ func (c *client) await(method string, invoke func(reqToken string) *dbus.Call) (
 	return nil, fmt.Errorf("%s: signal channel closed before Response", method)
 }
 
-// openPipeWireRemote returns the dup'd PipeWire remote fd for the session as an *os.File the caller
-// owns.
+// openPipeWireRemote answers the session's PipeWire remote fd as an *os.File the caller owns.
 func (c *client) openPipeWireRemote(session dbus.ObjectPath) (*os.File, error) {
 	assert.Assert(session != "", "a remote is opened on a named session")
 
@@ -106,10 +106,10 @@ func (c *client) openPipeWireRemote(session dbus.ObjectPath) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	// os.NewFile answers nil for a negative descriptor, which is what a portal reporting the failure
-	// in the reply instead of in a D-Bus error leaves here.
-	// The file is inherited by the capture child at a fixed position, so a closed slot has to be
-	// refused before it travels that far.
+	// os.NewFile answers nil for a negative descriptor, which is what a portal that reports its
+	// failure in the reply rather than as a D-Bus error leaves.
+	// The capture child inherits this file at a fixed position,
+	// so a closed slot is refused before it travels that far.
 	f := os.NewFile(uintptr(fd), "pipewire-remote")
 	if f == nil {
 		return nil, fmt.Errorf("invalid file descriptor %d", int(fd))
@@ -122,7 +122,7 @@ func (c *client) closeSession(session dbus.ObjectPath) {
 	c.conn.Close()
 }
 
-// firstNode extracts the PipeWire node id of the first stream in a Start result.
+// firstNode is the PipeWire node id of the first stream in a Start result.
 // The streams field is an array of (node_id, properties) structs.
 func firstNode(results options) (uint32, error) {
 	raw, ok := results["streams"]
@@ -142,8 +142,8 @@ func firstNode(results options) (uint32, error) {
 	return streams[0].Node, nil
 }
 
-// senderToken is the caller's unique bus name reshaped for a Request object path:
-// the leading colon dropped and dots turned into underscores.
+// senderToken is the caller's unique bus name reshaped for a Request object path: leading colon
+// dropped, dots turned into underscores.
 func senderToken(conn *dbus.Conn) string {
 	assert.IsNotNil(conn, "a sender token names a connected bus")
 	assert.Assert(len(conn.Names()) > 0, "a connected bus has a unique name")
@@ -154,9 +154,8 @@ func senderToken(conn *dbus.Conn) string {
 
 var tokenSeq uint64
 
-// newToken returns a per-connection-unique token for a handle_token option.
-// Uniqueness within the process is enough: the sender name already scopes the Request path to this
-// connection.
+// newToken is a handle_token unique within the process, which is as far as uniqueness has to reach:
+// the sender name already scopes a Request path to this connection.
 func newToken() string {
 	tokenSeq++
 	return fmt.Sprintf("screenshare%d", tokenSeq)

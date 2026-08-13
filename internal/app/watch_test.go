@@ -14,18 +14,13 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The relay snapshot is this side's to keep, and these tests hold it to that.
-//
-// It used to be kept by whoever asked: a fetch happened only inside Live(),
-// which the Wails frontend called every two seconds, and the control service answered
-// GetRelayStatus from whatever that had last recorded.
-// With the frontend gone nothing called it, so the snapshot stayed at its opening value -
-// unreachable, no reason given - for as long as the process ran, and a shell drew "the relay could
-// not be reached" beside a relay that was up.
-// The contract had said the backend polls all along (api/proto/screenshare/v1/control.proto).
+// The relay snapshot is this process's to keep, whether or not anything is asking for it
+// (api/proto/screenshare/v1/control.proto).
+// A snapshot kept by whoever asked stays at its opening value once nothing asks, and a shell then
+// draws "the relay could not be reached" beside a relay that is up.
 
-// relayAt serves one path list at a stopped relay's shape, and answers the address it is listening
-// on.
+// relayAt serves one ready path with no readers, in the shape MediaMTX answers in, and reports the
+// address it listens on.
 func relayAt(t *testing.T) (string, int) {
 	t.Helper()
 
@@ -46,8 +41,8 @@ func relayAt(t *testing.T) (string, int) {
 	return host, number
 }
 
-// backendAt is a backend pointed at one relay, with the two fields a poll touches and nothing else:
-// the poll reads the settings for where to ask and announces what it found on the broker.
+// backendAt is a backend pointed at one relay, carrying the fields a poll touches and nothing else:
+// the settings say where to ask and the broker is where the answer is announced.
 func backendAt(host string, port int) *App {
 	return &App{
 		events:    events.New(),
@@ -57,10 +52,10 @@ func backendAt(host string, port int) *App {
 	}
 }
 
-// awaitSnapshot waits for the poll to have recorded a reachable relay, and fails rather than
-// waiting forever.
-// It is a wait on a goroutine's first pass, not a retry of anything: the poll fetches before it
-// waits for its first tick, so this is bounded by one HTTP round trip over the loopback.
+// awaitSnapshot waits for the poll to record a reachable relay, and fails instead of waiting
+// forever.
+// It waits on a goroutine's first pass rather than retrying anything: the poll fetches before its
+// first tick, so one loopback round trip bounds it.
 func awaitSnapshot(t *testing.T, a *App) relay.Status {
 	t.Helper()
 
@@ -76,9 +71,8 @@ func awaitSnapshot(t *testing.T, a *App) relay.Status {
 	}
 }
 
-// TestTheRelayIsPolledWithNobodyAsking: the poll is the process's own. Nothing calls a
-// read, nothing subscribes, and the recorded snapshot still becomes the relay's answer
-// - which is the whole of what the shell's commit gate and viewer roster read.
+// Nothing reads and nothing subscribes here, and the snapshot still becomes the relay's answer,
+// which is what the shell's commit gate and viewer roster read.
 func TestTheRelayIsPolledWithNobodyAsking(t *testing.T) {
 	host, port := relayAt(t)
 
@@ -95,10 +89,9 @@ func TestTheRelayIsPolledWithNobodyAsking(t *testing.T) {
 	}
 }
 
-// TestPollingIsStartedOnceAndStoppedOnce: both ends of the loop are idempotent,
-// the way the control service's are.
-// A second start would ask the relay twice as often and halve the interval the byte deltas are
-// divided by; a second stop would close a closed channel and take the process down.
+// A second start would ask the relay twice as often and halve the interval a byte delta is divided
+// by.
+// A second stop would close a closed channel and take the process down.
 func TestPollingIsStartedOnceAndStoppedOnce(t *testing.T) {
 	host, port := relayAt(t)
 
@@ -112,12 +105,11 @@ func TestPollingIsStartedOnceAndStoppedOnce(t *testing.T) {
 	a.stopRelayPoll()
 }
 
-// TestAnUnreachableRelayIsRecordedAsASnapshot: the poll records the failure rather than leaving the
-// last good answer standing, because "the relay is down" is a thing the screen has to say
-// (docs/ipc-api.md, "Errors").
+// The failure is recorded rather than the last good answer left standing, because "the relay is
+// down" is a thing the screen has to say (docs/ipc-api.md, "Errors").
 func TestAnUnreachableRelayIsRecordedAsASnapshot(t *testing.T) {
-	// A port nothing is listening on, which is what an unreachable relay is.
-	// The listener is opened and closed to be told a port the machine had free.
+	// An unreachable relay is a port nothing listens on.
+	// Opening and closing a listener is how the machine names one it had free.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("no free port to point an unreachable relay at: %v", err)
@@ -147,14 +139,13 @@ func TestAnUnreachableRelayIsRecordedAsASnapshot(t *testing.T) {
 	}
 }
 
-// A leg the stream's format does not cross is refused before an address reaches the desktop,
-// and the sentence names the legs that would have carried it.
+// A leg the stream's format does not cross is refused before an address reaches the desktop, and
+// the refusal names the legs that would have carried it.
+// The relay serves H.265 over HLS and not over WebRTC, so a page opened on the WHEP leg would load,
+// connect and show nothing.
 //
-// It is the browser's half of the check StartWatch runs, asked about a third reader:
-// the relay serves H.265 over HLS and refuses it over WebRTC, so a page opened on the WHEP leg
-// would load, connect and show nothing.
-// Only the refusal is asserted here - the accepting path ends in whatever the machine opens an
-// address with, which is not a thing a test may start.
+// Only the refusal is asserted: the accepting path ends in whatever the machine opens an address
+// with, which is not a thing a test may start.
 func TestABrowserPageIsRefusedOnALegTheFormatDoesNotCross(t *testing.T) {
 	a := &App{events: events.New()}
 	a.relayLast.Store(&relay.Status{

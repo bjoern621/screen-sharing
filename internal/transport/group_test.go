@@ -8,12 +8,12 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// A group is a path prefix, so joining one has to move every leg at once.
-// What these hold is that no transport builds its URL from the stream's bare name:
-// one that did would publish outside the group its own token grants, which the relay refuses and
-// which reads to the user as a stream that will not start.
+// A group is a path prefix, so joining one moves every leg at once.
+// These hold that no transport builds its URL from the stream's bare name: one that did would
+// publish outside the group its own token grants, which the relay refuses and which reaches the
+// user as a stream that will not start.
 
-// grouped is settings publishing under a group, and the key it joined with.
+// grouped is settings publishing under a group, with the key they joined with.
 func grouped(t *testing.T) (settings.Settings, group.Key) {
 	t.Helper()
 	key, err := group.NewKey()
@@ -27,8 +27,8 @@ func grouped(t *testing.T) (settings.Settings, group.Key) {
 	return s, key
 }
 
-// Every URL a transport builds carries the prefix, on both legs: a publisher pushing inside the
-// group and a viewer pulling from inside it are the same path.
+// Both legs carry the prefix: a publisher pushing into the group and a viewer pulling out of it
+// name one path.
 func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 	s, key := grouped(t)
 
@@ -47,9 +47,9 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 	}
 }
 
-// A machine in no group publishes under the bare name, which is what every stream did before groups
-// existed and what a relay with no auth configured serves.
-// The prefix appears because a key was joined with, not because the app invented one.
+// A machine in no group publishes under the bare name, which is what a relay with no auth
+// configured serves.
+// A prefix appears because a key was joined with, never because the app invented one.
 func TestAMachineInNoGroupPublishesUnderTheName(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Name = "standup"
@@ -60,9 +60,8 @@ func TestAMachineInNoGroupPublishesUnderTheName(t *testing.T) {
 	}
 }
 
-// A key the app cannot read leaves the path where it was rather than deriving from nonsense:
-// a prefix computed off a broken key is a path no member is watching, which is worse than the name
-// the user typed.
+// A key the app cannot read leaves the path alone rather than deriving from nonsense: a prefix
+// computed off a broken key is a path no member is watching, which is worse than the typed name.
 func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Name = "standup"
@@ -73,7 +72,7 @@ func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	}
 }
 
-// assertGrouped fails where a rendered leg does not carry the group's prefix.
+// assertGrouped fails on a rendered leg that does not carry the group's prefix.
 func assertGrouped(t *testing.T, leg, rendered string, key group.Key) {
 	t.Helper()
 	if !strings.Contains(rendered, key.Prefix()) {

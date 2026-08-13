@@ -1,27 +1,20 @@
-// Package transport abstracts how encoded video leaves the machine and how a viewer reaches a
-// stream.
+// Package transport states how encoded video leaves the machine and how a viewer reaches a stream.
 //
-// A stream crosses two independent legs, and each names its own protocol: the publish leg
-// (publisher to relay) and the watch leg (relay to viewer).
-// They need not agree, because the relay re-serves every ingested stream on all its listeners,
-// so a stream published over SRT can be watched over RTSP.
-// The publish leg is settings.Settings.Transport, read by the publish-side helpers;
-// the watch leg is passed by name to WatchURL and GstSource, never read off the settings.
-// Any identifier in this package that does not say which leg it means belongs to whichever leg its
-// caller is on.
+// A stream crosses two independent legs, each naming its own protocol: publish (publisher to relay)
+// and watch (relay to viewer).
+// The relay re-serves every ingested stream on all its listeners, so the legs need not agree and a
+// stream published over SRT can be watched over RTSP.
+// The publish leg is settings.Settings.Transport; the watch leg is passed by name to WatchURL and
+// GstSource, never read off the settings.
+// An identifier here that does not name a leg belongs to whichever leg its caller is on.
 //
-// Implementations register themselves in init() (see srt.go).
-// Adding raw UDP or anything else later means adding one file here - no caller changes.
+// Implementations register in init() (srt.go), so a protocol is added as one file here and no
+// caller changes.
 //
-// The base Transport is engine-neutral: it names itself and states what it carries per leg and per
+// The base Transport is engine-neutral, naming itself and stating what it carries per leg and per
 // engine.
-// How a stream is serialized for a given publish or watch engine is a separate capability interface
-// (FFmpegPublisher, GstPublisher, Watcher, GstWatcher).
-// No engine is privileged in the base contract.
-// A transport implements one capability per engine it can drive, and an engine asks for its own
-// serialization through the matching package helper.
-// A transport that carries several engines implements several capabilities;
-// one that carries a single engine implements only that one.
+// Serialization for one engine is a separate capability interface (FFmpegPublisher, GstPublisher,
+// Watcher, BrowserWatcher, GstWatcher), one implemented per engine a transport drives.
 package transport
 
 import (
@@ -35,145 +28,125 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// Carriage is what one engine puts through one leg of one protocol: the video bitstream formats and
-// the audio codecs its serialization there can carry.
-// The video names are capabilities.Codec.Format values ("h264", "hevc", "av1", "vp9",
-// "vp8") and the audio names are capabilities.AudioCodec.Format values ("opus", "aac").
+// Carriage is one engine's set for one leg of one protocol: the video bitstream formats and the
+// audio codecs its serialization there carries.
+// Video names are capabilities.Codec.Format values ("h264", "vp9"), audio names are
+// capabilities.AudioCodec.Format values ("opus", "aac").
 //
-// A format belongs in a set when three things hold together: this engine's muxer or source element
-// handles it, the protocol has a payload mapping for it, and the relay implements that mapping on
-// this listener.
-// All three are properties of the wire and the element, not of the encoder that produced the
+// A format belongs in a set when all three hold: this engine's muxer or source element handles it,
+// the protocol has a payload mapping for it, and the relay implements that mapping on the listener.
+// All three are properties of the wire and the element, never of the encoder that produced the
 // bitstream.
 type Carriage struct {
 	Video []string `json:"video"`
 	Audio []string `json:"audio"`
 }
 
-// Formats is one protocol's carriage, per leg and per engine.
-// The keys are capabilities.Engines values, and an engine absent from a leg has no serialization
-// for it: the matching capability interface is absent with it, and Register holds the two to each
-// other.
+// Formats holds one protocol's carriages, keyed by leg and engine.
+// An engine missing from a leg has no serialization for it, the matching capability interface being
+// missing with it, and Register holds the two to each other.
 //
-// Both axes exist because neither collapses without losing a fact.
-// The two legs differ because a relay listener is not symmetric: HLS serves what it cannot ingest,
-// and WHIP ingest is narrower than the WHEP playback of the same WebRTC entry.
-// The two engines differ because they wrap different muxers: ffmpeg's whip muxer carries H.264
-// alone where whipclientsink payloads what webrtcbin negotiates, and ffmpeg's flv muxer writes
-// enhanced-RTMP tags where flvmux writes only the legacy ones.
+// Neither axis collapses without losing a fact.
+// A relay listener is not symmetric, so the legs differ: HLS serves what it cannot ingest, and WHIP
+// ingest is narrower than the WHEP playback of the same WebRTC entry.
+// The engines wrap different muxers, so they differ too: ffmpeg's whip muxer carries H.264 alone
+// where whipclientsink payloads what webrtcbin negotiates, and ffmpeg's flv muxer writes
+// enhanced-RTMP tags where flvmux writes the legacy ones alone.
+// One list per leg would have to be the narrower of the two engines, and the narrowing costs where
+// it cannot be seen: the engine carrying more is refused a format it serializes correctly, with no
+// reason any form could show.
 //
-// One list per leg for both engines would have to be the narrower of the two,
-// and the narrowing is invisible at the point it costs something: the engine that carries more is
-// refused a format it serializes correctly, with no reason any form could show.
-// So each engine states its own set, and where two engines genuinely carry the same one they name
-// one shared value rather than agreeing by coincidence.
-//
-// On the publish leg the engines are the two publish engines.
-// On the watch leg they are the three readers: capabilities.EngineFfmpeg is the URL-opening players
-// (ffplay and mpv, both on libavformat), capabilities.EngineGst is a receiving GStreamer pipeline,
-// the tile grid's, and EngineBrowser is the machine's default browser on the player page the relay
-// serves.
+// Publish keys are capabilities.Engines, the two publish engines.
+// Watch keys are the three readers: capabilities.EngineFfmpeg the URL-opening players (ffplay and
+// mpv, both on libavformat), capabilities.EngineGst the tile grid's receiving GStreamer pipeline,
+// and EngineBrowser the machine's default browser on the player page the relay serves.
 type Formats struct {
 	Publish map[string]Carriage `json:"publish"`
 	Watch   map[string]Carriage `json:"watch"`
 }
 
-// Transport identifies one protocol, leg-neutral: the same registry entry can carry a stream to the
-// relay and from it.
-// The publish and watch serializations are the capability interfaces below.
+// Transport is one protocol, leg-neutral: the same registry entry carries a stream to the relay and
+// from it.
+// The serializations are the capability interfaces below.
 type Transport interface {
-	// Name is the registry key, shown in the UI transport dropdown.
+	// Name is the registry key, and the value the transport dropdown shows.
 	Name() string
-	// Formats states what this protocol carries, per leg and per engine.
 	Formats() Formats
 }
 
-// FFmpegPublisher is a transport that serializes to ffmpeg output args, e.g.
-// ["-f","mpegts","srt://..."], appended to the ffmpeg encoder command.
+// FFmpegPublisher serializes to ffmpeg output args, ["-f","mpegts","srt://..."], appended to the
+// encoder command.
 type FFmpegPublisher interface {
 	PublishArgs(s settings.Settings) []string
 }
 
-// GstMuxName is the element name every GstPublisher gives its muxer, so a publish pipeline can
-// attach further branches (an audio track) with "mux.".
+// GstMuxName is the name every GstPublisher gives its muxer element, so a publish pipeline attaches
+// further branches (an audio track) with "mux.".
 const GstMuxName = "mux"
 
-// GstPublisher is a transport that serializes to the muxer and sink elements terminating a
-// GStreamer pipeline.
+// GstPublisher serializes to the muxer and sink elements terminating a GStreamer pipeline.
 // The muxer element carries name=GstMuxName.
 type GstPublisher interface {
 	GstSink(s settings.Settings) []string
 }
 
-// PublishValidator is a transport with publish-leg settings of its own, whose legal values only it
-// knows.
-// Both publish engines call ValidatePublishSettings beside ValidatePublish,
-// so a value the protocol does not take stops the publish here rather than in the process that was
-// handed it.
+// PublishValidator is a transport carrying publish-leg settings whose legal values only it knows.
+// Both publish engines call ValidatePublishSettings beside ValidatePublish, so a value the protocol
+// does not take stops here rather than inside the process that was handed it.
 type PublishValidator interface {
 	ValidatePublishSettings(s settings.Settings) error
 }
 
-// Watcher is a transport that yields the input URL a player opens to view a stream.
+// Watcher yields the input URL a player opens.
 type Watcher interface {
 	WatchURL(s settings.Settings, streamName string) string
 }
 
-// EngineBrowser is the third watch engine: the machine's default browser, on the player page the
+// EngineBrowser is the third watch engine, the machine's default browser on the player page the
 // relay serves for a stream.
 //
-// It is named here rather than in capabilities.Engines because that list is the publish engines -
-// what a Gap may name, what an encoder probe runs against, what the catalog's engine rows describe
-// - and a reader that encodes nothing has no place in any of them.
-// Both halves of this package's engine axis are watch-side only for the same reason the browser has
-// no publish carriage: nothing here publishes through a browser.
+// Named here and not in capabilities.Engines, which is the publish engines, what a Gap may name and
+// what an encoder probe runs against, none of which a reader that encodes nothing belongs in.
+// Nothing here publishes through a browser, so the constant is watch-side only.
 const EngineBrowser = "browser"
 
-// WatchEngines lists the readers a watch carriage can be stated for, in the order a table walks
-// them.
-// It is the watch leg's counterpart of capabilities.Engines, and the two are different lists rather
-// than one: the browser reads and never publishes, so a walk over the publish engines would leave
-// the rows it states out of every table built from one.
+// WatchEngines are the readers a watch carriage can be stated for, in the order a table walks them.
+// Counterpart of capabilities.Engines, and a second list rather than that one: the browser reads
+// and never publishes, so a walk over the publish engines would drop every row it states.
 var WatchEngines = []string{capabilities.EngineFfmpeg, capabilities.EngineGst, EngineBrowser}
 
-// BrowserWatcher is a transport the relay serves a player page for, yielding the address that page
-// is at.
-// It is the browser's counterpart of Watcher: both hand back a URL, and they are separate
-// interfaces because the two readers open different things - a player takes the media address,
-// and a browser takes an HTML page that then fetches the media itself.
+// BrowserWatcher is a transport the relay serves a player page for, yielding that page's address.
+// Separate from Watcher because the two readers open different things: a player takes the media
+// address, a browser takes an HTML page that fetches the media itself.
 //
-// The page is the relay's own rather than anything this app serves.
-// What it can play is therefore a property of the relay's listener and of the browser running it,
-// which is what the browser carriage states.
+// The page is the relay's own and not anything this app serves, so what it plays is a property of
+// the relay's listener and of the browser running it, which is what the browser carriage states.
 type BrowserWatcher interface {
 	BrowserURL(s settings.Settings, streamName string) string
 }
 
-// GstWatcher is a transport that serializes to the source elements a receiving GStreamer pipeline
-// decodes from.
-// The fragment ends at the encoded stream; the receiver appends its own decode and sink elements.
-// It is the watch-side counterpart of GstPublisher.
+// GstWatcher serializes to the source elements a receiving GStreamer pipeline decodes from.
+// The fragment ends at the encoded stream, and the receiver appends the decode and sink elements.
 type GstWatcher interface {
 	GstSource(s settings.Settings, streamName string) []string
 }
 
 var registry = map[string]Transport{}
 
-// Register adds a transport to the registry.
-// Registering the same name twice is a programming error.
+// Register adds a transport to the registry, and a name registered twice is an Entwicklungsfehler.
 //
-// A transport's format sets and its serialization capabilities are two statements of the same fact,
-// so each is asserted against the other: an engine that states a carriage has to be able to
-// serialize the leg, and one that can serialize it has to say what it carries.
-// Either half alone is a transport that offers a leg it cannot build, or builds one no caller is
-// allowed to reach.
+// A transport's format sets and its serialization capabilities state one fact twice, so each is
+// asserted against the other: an engine stating a carriage serializes the leg, and an engine that
+// serializes a leg says what it carries.
+// Either half alone is a transport offering a leg it cannot build, or building one no caller may
+// reach.
 func Register(t Transport) {
 	assert.IsNotNil(t, "a registry entry is a transport")
 	assert.Assert(t.Name() != "", "a transport names itself")
 
 	f := t.Formats()
-	// A protocol that carries nothing on either leg is a row no caller can reach:
-	// both serialization sides read the format sets to decide what they offer.
+	// Both serialization sides read the format sets to decide what they offer, so a protocol carrying
+	// nothing on either leg is a row no caller reaches.
 	assert.Assert(len(f.Publish) > 0 || len(f.Watch) > 0, "a transport carries a leg on an engine", t.Name())
 	for leg, carriages := range map[string]map[string]Carriage{"publish": f.Publish, "watch": f.Watch} {
 		for engine, c := range carriages {
@@ -199,8 +172,7 @@ func Register(t Transport) {
 	registry[t.Name()] = t
 }
 
-// assertStated holds one engine's serialization capability and its carriage to each other,
-// in both directions.
+// assertStated fails unless one engine serializes a leg exactly when it states a carriage there.
 func assertStated(t Transport, leg, engine string, serializes bool, carriages map[string]Carriage) {
 	_, stated := carriages[engine]
 	assert.Assert(serializes == stated,
@@ -208,26 +180,24 @@ func assertStated(t Transport, leg, engine string, serializes bool, carriages ma
 		t.Name(), leg, engine)
 }
 
-// knownEngine reports whether engine names a publish or watch engine.
-// Every engine reaching this package is named by the caller rather than read off the settings,
-// so one outside the set is a caller that made it up and the lookups assert it.
+// knownEngine covers the publish engines and the watch readers together.
+// Every engine reaching this package is named by the caller rather than read off the settings, so
+// one outside the set is a caller that made it up, and the lookups assert it.
 //
-// The browser is in the set on both legs, and a browser publish carriage is refused by the Register
-// assert above rather than by this predicate: an engine no transport can name on a leg states
-// nothing there, and Register is where a stated carriage and a serialization capability are held to
-// each other.
+// The browser passes on both legs, and a browser publish carriage is Register's refusal rather than
+// this predicate's: holding a stated carriage and a serialization capability to each other is where
+// that combination has no serialization to be held to.
 func knownEngine(engine string) bool {
 	return slices.Contains(capabilities.Engines, engine) || slices.Contains(WatchEngines, engine)
 }
 
-// Get returns the transport registered under name.
 func Get(name string) (t Transport, ok bool) {
 	t, ok = registry[name]
 	return t, ok
 }
 
-// PublishArgs returns the ffmpeg output args for the configured transport,
-// and false when it cannot publish through ffmpeg.
+// PublishArgs is the ffmpeg output args for the configured publish transport.
+// false where that transport has no ffmpeg publish form.
 func PublishArgs(s settings.Settings) ([]string, bool) {
 	t, ok := Get(s.Publish.Transport)
 	if !ok {
@@ -242,8 +212,8 @@ func PublishArgs(s settings.Settings) ([]string, bool) {
 	return args, true
 }
 
-// GstSink returns the GStreamer muxer and sink elements for the configured transport,
-// and false when it cannot terminate a GStreamer pipeline.
+// GstSink is the muxer and sink elements for the configured publish transport.
+// false where that transport terminates no GStreamer pipeline.
 func GstSink(s settings.Settings) ([]string, bool) {
 	t, ok := Get(s.Publish.Transport)
 	if !ok {
@@ -258,9 +228,8 @@ func GstSink(s settings.Settings) ([]string, bool) {
 	return sink, true
 }
 
-// CanPublish reports whether the named engine can serialize a publish command for the named
-// transport.
-// An unknown transport reports false.
+// CanPublish reports whether the named engine serializes a publish command for the named transport,
+// and false for a name the registry does not know.
 func CanPublish(name, engine string) bool {
 	assert.Assert(knownEngine(engine), "a publish question names an engine", engine)
 
@@ -272,9 +241,9 @@ func CanPublish(name, engine string) bool {
 	return ok
 }
 
-// CanWatch reports whether the named engine can receive over the named transport:
-// a URL for the players, a source fragment for a GStreamer pipeline.
-// An unknown transport reports false.
+// CanWatch reports whether the named engine receives over the named transport: a URL for the
+// players, a source fragment for a GStreamer pipeline, a page address for the browser.
+// false for a name the registry does not know.
 func CanWatch(name, engine string) bool {
 	assert.Assert(knownEngine(engine), "a watch question names an engine", engine)
 
@@ -286,10 +255,10 @@ func CanWatch(name, engine string) bool {
 	return ok
 }
 
-// GstSource returns the GStreamer source elements a receiving pipeline decodes a stream from over
-// the named transport, and false when that transport has no GStreamer watch form.
-// Like WatchURL, the transport is named explicitly rather than read from s.Transport:
-// the receive transport is chosen independently of the publish one.
+// GstSource is the source elements a receiving pipeline decodes a stream from over the named
+// transport.
+// false where that transport has no GStreamer watch form.
+// The transport is named explicitly and never read off s.Transport, for WatchURL's reason.
 func GstSource(name string, s settings.Settings, streamName string) ([]string, bool) {
 	t, ok := Get(name)
 	if !ok {
@@ -299,18 +268,17 @@ func GstSource(name string, s settings.Settings, streamName string) ([]string, b
 	if !ok {
 		return nil, false
 	}
-	// The receiving side asserts that a stream carries a source fragment, so an implementation that
-	// yields none fails here rather than in the grid process.
+	// The receiving side asserts a stream has a source fragment, so an implementation yielding none
+	// fails here instead of in the grid process.
 	src := g.GstSource(s, streamName)
 	assert.Assert(len(src) > 0, "a watching transport yields source elements", name, streamName)
 	return src, true
 }
 
-// WatchURL returns the viewer input URL for the named transport, and false when that transport has
-// no watch form.
-// The transport is named explicitly, not read from s.Transport: a stream is received over a
-// transport chosen independently of the one it was published through, since the relay re-serves
-// every ingested stream on all its listeners.
+// WatchURL is the viewer input URL for the named transport.
+// false where that transport has no player watch form.
+// The transport is named explicitly and never read off s.Transport: the relay re-serves every
+// ingested stream on all its listeners, so a viewer picks its leg independently of the publisher.
 func WatchURL(name string, s settings.Settings, streamName string) (string, bool) {
 	t, ok := Get(name)
 	if !ok {
@@ -325,10 +293,9 @@ func WatchURL(name string, s settings.Settings, streamName string) (string, bool
 	return url, true
 }
 
-// BrowserURL returns the address of the relay's player page for the named transport,
-// and false when the relay serves no page on that leg.
-// The transport is named explicitly for the reason WatchURL's is: which leg a viewer receives over
-// is chosen per viewer.
+// BrowserURL is the address of the relay's player page for the named transport.
+// false where the relay serves no page on that leg.
+// The transport is named explicitly, for WatchURL's reason.
 func BrowserURL(name string, s settings.Settings, streamName string) (string, bool) {
 	t, ok := Get(name)
 	if !ok {
@@ -343,18 +310,16 @@ func BrowserURL(name string, s settings.Settings, streamName string) (string, bo
 	return url, true
 }
 
-// Names lists all registered transports, sorted.
-// The registry is a map, so the list is sorted for a stable order.
-// It spans both legs and both engines: a caller that means one of them asks PublishNames or
-// WatchNames instead.
+// Names is every registered transport, sorted because the registry is a map and iteration order is
+// otherwise arbitrary.
+// It spans both legs and every engine: a caller meaning one asks PublishNames or WatchNames.
 func Names() []string {
 	return namesWhere(func(Transport) bool { return true })
 }
 
-// PublishNames lists the transports this engine can publish a stream over, sorted.
-// A watch-only protocol (HLS, which the relay serves but does not ingest) is in no engine's list,
-// so it never reaches the publish dropdown to be greyed out with a reason no capture backend could
-// lift.
+// PublishNames is the transports this engine publishes a stream over, sorted.
+// A watch-only protocol, HLS, which the relay serves and does not ingest, is on no engine's list,
+// so it never reaches the publish dropdown to be greyed with a reason no capture backend can lift.
 func PublishNames(engine string) []string {
 	assert.Assert(knownEngine(engine), "a publish roster names an engine", engine)
 
@@ -364,14 +329,13 @@ func PublishNames(engine string) []string {
 	})
 }
 
-// WatchNames lists the transports this engine can receive over, sorted.
-// It is independent of the publish transport, so a stream published over one protocol is offered
-// for watching over every protocol the relay re-serves it on.
+// WatchNames is the transports this engine receives over, sorted.
+// Independent of the publish transport, so a stream is offered for watching over every protocol the
+// relay re-serves it on.
 //
-// No two of the three lists are the same, and each difference is a property of the reader:
-// a player needs a URL and WHEP is an exchange rather than an address, nothing on the GStreamer
-// side reads the relay's HLS segments, and the browser reaches only the two legs the relay serves a
-// page for.
+// No two reader lists agree, and each difference is a property of the reader: a player needs a URL
+// and WHEP is an exchange rather than an address, nothing on the GStreamer side reads the relay's
+// HLS segments, and the browser reaches the legs the relay serves a page for.
 func WatchNames(engine string) []string {
 	assert.Assert(knownEngine(engine), "a watch roster names an engine", engine)
 
@@ -392,8 +356,8 @@ func namesWhere(keep func(Transport) bool) []string {
 	return names
 }
 
-// FormatsOf returns what the named transport carries per leg and engine, and false for a name the
-// registry does not know.
+// FormatsOf is what the named transport carries per leg and engine.
+// false for a name the registry does not know.
 func FormatsOf(name string) (Formats, bool) {
 	t, ok := Get(name)
 	if !ok {
@@ -402,8 +366,8 @@ func FormatsOf(name string) (Formats, bool) {
 	return t.Formats(), true
 }
 
-// PublishCarriage returns what the named engine puts through the named transport's publish leg,
-// and false when that engine has no publish form for it.
+// PublishCarriage is what the named engine puts through the named transport's publish leg.
+// false where that engine has no publish form for it.
 func PublishCarriage(name, engine string) (Carriage, bool) {
 	assert.Assert(knownEngine(engine), "a carriage lookup names an engine", engine)
 
@@ -415,8 +379,8 @@ func PublishCarriage(name, engine string) (Carriage, bool) {
 	return c, ok
 }
 
-// WatchCarriage returns what the named engine receives over the named transport's watch leg,
-// and false when that engine has no watch form for it.
+// WatchCarriage is what the named engine receives over the named transport's watch leg.
+// false where that engine has no watch form for it.
 func WatchCarriage(name, engine string) (Carriage, bool) {
 	assert.Assert(knownEngine(engine), "a carriage lookup names an engine", engine)
 
@@ -428,10 +392,9 @@ func WatchCarriage(name, engine string) (Carriage, bool) {
 	return c, ok
 }
 
-// AllFormats maps every registered transport to its carriage, for a UI that needs the whole table
-// at once.
-// The frontend greys a codec the selected transport and engine cannot publish and states which
-// watch legs carry a stream, both off this one table rather than a copy per rule.
+// AllFormats is every registered transport's carriage, for a UI needing the whole table at once.
+// Greying a codec the selected transport and engine cannot publish and naming the watch legs that
+// carry a stream both read this table rather than a copy per rule.
 func AllFormats() map[string]Formats {
 	out := make(map[string]Formats, len(registry))
 	for name, t := range registry {
@@ -440,33 +403,27 @@ func AllFormats() map[string]Formats {
 	return out
 }
 
-// CanPublishFormat reports whether this engine carries a bitstream format to the relay over the
-// named transport.
-// An unknown transport carries nothing.
+// CanPublishFormat asks the publish carriage, so an unknown transport carries nothing.
 func CanPublishFormat(name, engine, format string) bool {
 	c, ok := PublishCarriage(name, engine)
 	return ok && slices.Contains(c.Video, format)
 }
 
-// CanWatchFormat reports whether this engine receives a bitstream format over the named transport.
-// An unknown transport carries nothing.
+// CanWatchFormat asks the watch carriage, so an unknown transport carries nothing.
 func CanWatchFormat(name, engine, format string) bool {
 	c, ok := WatchCarriage(name, engine)
 	return ok && slices.Contains(c.Video, format)
 }
 
-// CanPublishAudio reports whether this engine carries an audio codec to the relay over the named
-// transport.
-// An unknown transport carries nothing.
+// CanPublishAudio asks the publish carriage's audio set, so an unknown transport carries nothing.
 func CanPublishAudio(name, engine, format string) bool {
 	c, ok := PublishCarriage(name, engine)
 	return ok && slices.Contains(c.Audio, format)
 }
 
-// PublishNamesFor lists the transports this engine carries a bitstream format over on the publish
-// leg, sorted.
-// A format the engine has no publish path for at all yields an empty list,
-// which is the settings form's cue that the codec cannot be published from this capture backend.
+// PublishNamesFor is the transports this engine publishes a bitstream format over, sorted.
+// A format with no publish path on the engine yields an empty list, the settings form's cue that
+// the codec cannot leave this capture backend.
 func PublishNamesFor(engine, format string) []string {
 	assert.Assert(knownEngine(engine), "a publish roster names an engine", engine)
 
@@ -475,17 +432,15 @@ func PublishNamesFor(engine, format string) []string {
 	})
 }
 
-// WatchNamesFor lists the transports this engine can receive a bitstream format over:
-// WatchNames narrowed to the ones the relay re-serves that format on.
-// An SRT viewer opened on a VP9 stream connects and receives nothing, since MPEG-TS has no mapping
-// for it, so the choice is offered per format.
+// WatchNamesFor is WatchNames narrowed to the transports the relay re-serves this format on.
+// The narrowing is per format because a leg that carries a stream carries it as a bitstream: an SRT
+// viewer opened on a VP9 stream connects and receives nothing, MPEG-TS having no mapping for it.
 //
-// A format no implemented codec produces narrows nothing.
-// The relay snapshot can be older than the stream, and hiding transports on absent information
-// would hide a choice that would have worked.
+// A format no implemented codec produces narrows nothing, the relay snapshot being able to lag the
+// stream: hiding transports on absent information would hide a choice that would have worked.
 func WatchNamesFor(engine, format string) []string {
 	names := WatchNames(engine)
-	// An empty format is the roster before the relay reported one, which narrows nothing rather than
+	// An empty format is the roster before the relay reported one: it narrows nothing rather than
 	// narrowing to nothing.
 	if !capabilities.HasFormat(format) {
 		return names
@@ -495,12 +450,12 @@ func WatchNamesFor(engine, format string) []string {
 	})
 }
 
-// ValidatePublish rejects a publish leg that cannot carry the codec's bitstream:
-// an unknown transport, one this engine has no publish form for, and a format the engine's muxer or
-// the protocol has no mapping for.
-// Both publish engines call it beside capabilities.Validate under their own name,
-// so a command the relay would refuse to ingest is never built, and the refusal names the
-// transports that would have worked on the engine that is running.
+// ValidatePublish refuses a publish leg that cannot carry the codec's bitstream: an unknown
+// transport, one this engine has no publish form for, and a format the engine's muxer or the
+// protocol has no mapping for.
+// Both publish engines call it beside capabilities.Validate under their own name, so a command the
+// relay would refuse to ingest is never built, and the refusal names the transports that would have
+// worked on the engine that is running.
 func ValidatePublish(name, engine, codec string) error {
 	assert.Assert(knownEngine(engine), "publish validation names an engine", engine)
 
@@ -523,12 +478,12 @@ func ValidatePublish(name, engine, codec string) error {
 	return nil
 }
 
-// ValidatePublishAudio rejects an audio track the publish leg cannot carry.
-// A stream with no audio passes: there is no track to find a mapping for.
+// ValidatePublishAudio refuses an audio track the publish leg cannot carry.
+// A stream with no audio passes: no track, no mapping to find.
 //
-// It is a second refusal rather than a wider ValidatePublish because the two fail for different
-// reasons and the fix differs: a video format the leg lacks is answered by another transport,
-// an audio codec it lacks by another audio codec on the same one.
+// A second refusal rather than a wider ValidatePublish, because the fix differs: a video format the
+// leg lacks is answered by another transport, an audio codec it lacks by another audio codec on the
+// same one.
 func ValidatePublishAudio(name, engine, audioCodec string) error {
 	assert.Assert(knownEngine(engine), "publish validation names an engine", engine)
 
@@ -550,10 +505,10 @@ func ValidatePublishAudio(name, engine, audioCodec string) error {
 	return nil
 }
 
-// ValidatePublishSettings checks the configured transport's own publish-leg settings,
-// the fields its serializations read off s and only it knows the legal values of.
-// A transport declaring none passes, and so does a name the registry does not know:
-// that name is ValidatePublish's refusal, and one wrong setting should not produce two errors.
+// ValidatePublishSettings checks the configured transport's own publish-leg settings, the fields
+// its serializations read off s and whose legal values only it knows.
+// A transport declaring none passes, and so does a name the registry does not know: that name is
+// ValidatePublish's refusal, and one wrong setting owes the user one error.
 func ValidatePublishSettings(s settings.Settings) error {
 	t, ok := Get(s.Publish.Transport)
 	if !ok {
@@ -566,8 +521,8 @@ func ValidatePublishSettings(s settings.Settings) error {
 	return v.ValidatePublishSettings(s)
 }
 
-// orNone renders the alternatives a refusal points at, and says so where there are none rather than
-// trailing off after "use".
+// orNone renders the alternatives a refusal points at, and names the empty case rather than letting
+// a sentence trail off after "use".
 func orNone(names []string) string {
 	if len(names) == 0 {
 		return "nothing this engine carries"

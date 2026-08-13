@@ -12,18 +12,16 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The names PublishStats.missing carries, in the spelling the proto message declares its fields
-// under.
-// They are written out here rather than read from the conversion's own table,
-// because a test that derived them from the thing under test would agree with it however it was
-// spelled.
+// The figures a run can leave unmeasured, in the spelling PublishStats declares its fields under.
+// Written out here rather than read off the conversion, which would agree with itself however it
+// spelled them.
 var missingNames = []string{
 	"fps", "capture_fps", "size_kib", "time_sec", "speed", "inst_mbps", "avg_mbps",
 }
 
 // allMissing is a sample that measured nothing at all: every flag the domain has, set.
-// It is built by reflection so that a figure added to ffmpeg.Missing arrives in this test without
-// anyone remembering to put it here.
+// Built by reflection, so a figure added to ffmpeg.Missing reaches this test without anyone
+// remembering to put it here.
 func allMissing() ffmpeg.Missing {
 	var m ffmpeg.Missing
 	v := reflect.ValueOf(&m).Elem()
@@ -33,8 +31,8 @@ func allMissing() ffmpeg.Missing {
 	return m
 }
 
-// presentFigures reports which of the figures a run can leave unmeasured the sample actually
-// carries, read off the message rather than off a second list.
+// presentFigures reports which of the unmeasurable figures the sample carries, read off the
+// message's own descriptor rather than off a second list.
 func presentFigures(stats *screensharev1.PublishStats) map[protoreflect.Name]bool {
 	m := stats.ProtoReflect()
 	present := map[protoreflect.Name]bool{}
@@ -49,9 +47,9 @@ func presentFigures(stats *screensharev1.PublishStats) map[protoreflect.Name]boo
 }
 
 // A figure with no measurement is not a measured zero: ffmpeg reports nothing until the first
-// packet is muxed, a per-interval figure has no value on the first sample of a run,
-// and each engine instruments only what its own pipeline exposes.
-// The distinction survives the crossing as proto3 presence, so a shell draws the figure as absent
+// packet is muxed, a per-interval figure has none on the first sample of a run, and each engine
+// instruments only what its own pipeline exposes.
+// Proto3 presence is what carries the distinction across, so a shell draws the figure as absent
 // instead of as a stalled encoder.
 func TestAnUnmeasuredFigureIsAbsentRatherThanZeroed(t *testing.T) {
 	present := presentFigures(PublishStats(ffmpeg.Stats{Missing: allMissing()}))
@@ -66,9 +64,8 @@ func TestAnUnmeasuredFigureIsAbsentRatherThanZeroed(t *testing.T) {
 	}
 }
 
-// The zero Missing marks nothing missing, which is what an engine that measured every figure leaves
-// behind.
-// Every figure is then present, including the ones whose measurement happens to be zero - which is
+// The zero Missing is what an engine that measured every figure leaves behind.
+// Every figure is then present, including the ones whose measurement happens to be zero, which is
 // the distinction that would be lost if absence were spelled as a value.
 func TestAMeasuredSampleCarriesEveryFigure(t *testing.T) {
 	present := presentFigures(PublishStats(ffmpeg.Stats{Fps: 60, InstMbps: 12}))
@@ -80,14 +77,13 @@ func TestAMeasuredSampleCarriesEveryFigure(t *testing.T) {
 	}
 }
 
-// Every figure a run can leave unmeasured needs a field that can be absent,
-// or it crosses as a measured zero with nothing to mark it.
+// Every figure a run can leave unmeasured needs a field that can be absent, or it crosses as a
+// measured zero with nothing to mark it.
 //
-// Both halves are read rather than restated: the flags off ffmpeg.Missing,
-// the presence off the generated descriptor.
-// A figure added to the domain without an optional field to carry it fails here rather than in a
-// shell's numbers, and a field that lost its presence fails here rather than by silently reading as
-// zero.
+// Both halves are read rather than restated: the flags off ffmpeg.Missing, the presence off the
+// generated descriptor.
+// A figure added to the domain with no optional field to carry it fails here rather than in a
+// shell's numbers, and a field that lost its presence fails here rather than by reading as zero.
 func TestEveryUnmeasurableFigureHasAFieldThatCanBeAbsent(t *testing.T) {
 	flags := reflect.TypeOf(ffmpeg.Missing{}).NumField()
 	if flags != len(missingNames) {
@@ -116,8 +112,8 @@ func TestEveryUnmeasurableFigureHasAFieldThatCanBeAbsent(t *testing.T) {
 	}
 }
 
-// The contract says a publish state carries a live stream only while one is in force,
-// and that a live one always carries the settings it was built from.
+// A publish state carries a live stream only while one is in force, and a live one always carries
+// the settings it was built from.
 // Both are message presence, so neither is a rule anything has to check: a state with nothing
 // publishing has no arm to put settings in, and one that is publishing cannot omit them.
 func TestNothingPublishingCarriesNoLiveStream(t *testing.T) {
@@ -128,8 +124,8 @@ func TestNothingPublishingCarriesNoLiveStream(t *testing.T) {
 	}
 }
 
-// A pipeline waiting out a backoff is still the stream the user asked for,
-// so it stays live and the retry hangs off it.
+// A pipeline waiting out a backoff is still the stream the user asked for, so it stays live and the
+// retry hangs off it.
 // The attempt and the budget exist only inside that retry, which is what makes "an attempt belongs
 // to a retry" unrepresentable rather than asserted.
 func TestARetryHangsOffTheLiveStream(t *testing.T) {
@@ -166,8 +162,8 @@ func TestARetryHangsOffTheLiveStream(t *testing.T) {
 	}
 }
 
-// An unreachable relay is an environment condition and not a call failure:
-// "the relay is down" is a thing the screen has to say rather than a thing the call failed at.
+// An unreachable relay is an environment condition and not a call failure: "the relay is down" is
+// something the screen has to say rather than something the call failed at.
 // The conversion therefore has no error path, and the reason rides in the snapshot it produces.
 func TestAnUnreachableRelayIsASnapshotRatherThanAFailure(t *testing.T) {
 	status := RelayStatus(relay.Status{Reachable: false, Error: "connection refused"})
@@ -181,14 +177,14 @@ func TestAnUnreachableRelayIsASnapshotRatherThanAFailure(t *testing.T) {
 	if status.GetError() != "connection refused" {
 		t.Errorf("an unreachable relay carries the reason %q, want %q", status.GetError(), "connection refused")
 	}
-	// A relay that never answered reports no paths, which is a snapshot with an empty list and not one
-	// the conversion has to be kept away from.
+	// A relay that never answered reports no paths, which is an empty list rather than a case the
+	// conversion has to be kept away from.
 	if len(status.GetPaths()) != 0 {
 		t.Errorf("an unreachable relay carries %d paths, want none", len(status.GetPaths()))
 	}
 }
 
-// The relay re-serves each stream on all its listeners, so a stream can be watched over several
+// The relay re-serves each stream on all its listeners, so one stream can be watched over several
 // transports at once and the name alone is not an identity.
 // Both halves have to cross, or a viewer that ended would clear every viewer of its stream.
 func TestAViewerIsIdentifiedByBothItsHalves(t *testing.T) {
@@ -208,13 +204,12 @@ func TestAViewerIsIdentifiedByBothItsHalves(t *testing.T) {
 		}
 	}
 
-	// No viewer open is an empty list rather than a nil slice to be guarded against.
+	// No viewer open crosses as an empty list, never a nil slice a caller has to guard against.
 	if got := ViewerState(nil).GetViewers(); len(got) != 0 {
 		t.Errorf("no open viewer converted to %d keys", len(got))
 	}
 
-	// The identity survives a round trip, which is what lets the same key open a viewer and close it:
-	// two spellings of one pair is how a name and a stream_name end up naming one thing.
+	// The identity survives a round trip, which is what lets one key open a viewer and close it.
 	if got := WatchKeyOf(WatchKeyMessage(want[0])); got != want[0] {
 		t.Errorf("a viewer's identity round-tripped to %+v, want %+v", got, want[0])
 	}

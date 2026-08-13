@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// mustPresetsPath resolves the presets file for a test seeding one directly.
+// mustPresetsPath is the presets file, for a test seeding one directly.
 func mustPresetsPath(t *testing.T) string {
 	t.Helper()
 	path, err := presetsPath()
@@ -45,9 +45,9 @@ func TestLoadPresetsMissingFileIsNotAFailure(t *testing.T) {
 	}
 }
 
-// SavePreset and DeletePreset both rewrite the whole file from what LoadPresets returned.
-// A corrupt file that read as an empty list would take every preset in it down with the next save,
-// so the save is refused and the values are kept.
+// SavePreset and DeletePreset rewrite the whole file from what LoadPresets returned.
+// A corrupt file reading as an empty list would take every preset in it down with the next save, so
+// the save is refused and the bytes are kept.
 func TestSavePresetRefusesToWriteOverACorruptFile(t *testing.T) {
 	isolateConfig(t)
 
@@ -83,7 +83,7 @@ func TestDeletePresetRefusesToWriteOverACorruptFile(t *testing.T) {
 	}
 }
 
-// The set-aside leaves no file behind, so the same action repeated writes a fresh one rather than
+// The set-aside leaves no file in place, so the same save repeated writes a fresh one rather than
 // staying refused.
 func TestSavePresetSucceedsAfterTheCorruptFileIsKept(t *testing.T) {
 	isolateConfig(t)

@@ -10,33 +10,32 @@ namespace ScreenShare.App.Features.Viewer.WatchSettings.ViewModel;
 /// How this machine receives: the legs a stream comes back on, the windows a receiver holds packets in, and
 /// the chain a tile converts decoded frames with.
 ///
-/// <b>It is here because this is where those settings do something.</b> They were a step of the setup wizard,
-/// which is the screen for configuring what this machine <i>sends</i> - so a reader setting up a broadcast
-/// walked past a page of receiving settings, and a reader who was only watching had to open the broadcast
-/// wizard to change how their tiles decode.
-/// Worse, the only thing that persisted them was starting to share: the wizard's draft reaches the backend
-/// through <c>StartPublish</c>, so a reader who never published never saved a render chain.
-/// Both are the same misplacement, and moving the group fixes both (<see cref="GroupPlacement"/>).
+/// <b>Drawn beside the tiles it governs, because that is where these settings act.</b> The wizard configures
+/// what this machine <i>sends</i>, so a group placed there sends a reader who only watches into the broadcast
+/// flow to change how their tiles decode.
+/// It would also leave these settings unkept until a publish, the wizard's draft reaching the backend through
+/// <c>StartPublish</c> (<see cref="GroupPlacement"/>).
 ///
-/// <b>The draft is not this class's.</b> It reads <see cref="FormSession"/>, which the window owns and the
-/// setup wizard reads too, so the settings this panel writes and the settings a publish commits are one
-/// message.
-/// A draft of its own would be the second copy that <c>docs/development-principles.md</c> exists to forbid.
+/// <b>The draft belongs to the window.</b> <see cref="FormSession"/> holds it and the wizard reads the same
+/// one, so this panel's writes and a publish commit are writes of one message.
+/// A draft here would be the second copy of a fact that <c>docs/development-principles.md</c> forbids.
 ///
-/// <b>Saving is explicit, and what it reaches is the next decode.</b> Both receive pipelines are built when
-/// they are opened and neither takes a value back afterwards, so a tile already on screen keeps the chain it
-/// started with - the same fact that makes <c>ApplyToStream</c> a separate method on the publish side.
-/// The button says so rather than the panel pretending a slider reaches a running pipeline.
+/// <b>What the commit reaches is the next decode.</b> A receive pipeline is built when it opens and takes no
+/// value back afterwards, so a tile on screen keeps the chain it started with, the same fact that makes
+/// <c>ApplyToStream</c> a method of its own on the publish side.
 ///
-/// <b>Nothing here reaches a decode before the button does.</b> Every knob a receive pipeline reads is read
-/// by the backend out of its own settings as the pipeline is built, and the one value the shell names in the
-/// call - the tile's leg - is read out of those same stored settings
+/// <b>Nothing here reaches a decode before the commit does.</b> The backend reads every knob a receive
+/// pipeline needs out of its own settings as it builds the pipeline, and the one value the shell names in the
+/// call, the tile's leg, is read from those same stored settings
 /// (<c>Features/Viewer/Tile/Model/TileLeg.cs</c>).
-/// Which is why the panel says when what it shows is not yet what is stored: a staged group that looked
-/// identical whether or not it had been kept would give the button nothing to mean.
+/// Hence the panel saying when what it shows is not yet stored: a staged group draws the same controls kept or
+/// not, leaving the button nothing to mean.
+///
+/// Which controls the group holds, which of their entries are reachable and why an unreachable one is greyed
+/// arrive decided on the form (<c>docs/field-availability.md</c>).
 ///
 /// <b>Outputs</b> only, written by <see cref="Apply"/> on every pass.
-/// Every write leaves through the field the reader moved, into the one draft.
+/// A write leaves through the field the reader moved, into the one draft.
 /// </summary>
 public sealed class WatchSettingsViewModel : Observable
 {
@@ -46,17 +45,17 @@ public sealed class WatchSettingsViewModel : Observable
 
     /// <summary>
     /// Shuts the panel.
-    /// It is the holding screen's, because whether a panel is open is part of that screen's arrangement and
-    /// this component draws one column of it (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
+    /// Owned by the holding screen: whether a column is open belongs to that screen's arrangement, and this
+    /// component draws one column of it (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
     /// </summary>
     private readonly Action _close;
 
     /// <param name="dispatch">
     /// Hands work to the UI loop.
-    /// The answer to a save lands on whichever thread the transport completed on, and everything this writes
-    /// is read by a binding that only tolerates being written from one.
+    /// A save answers on whichever thread the transport completed on, and a binding tolerates a write from the
+    /// UI loop alone.
     /// </param>
-    /// <param name="close">Shuts the panel, which a commit and the panel's own button both do.</param>
+    /// <param name="close">Shuts the panel, which a landed commit and the panel's own button both do.</param>
     public WatchSettingsViewModel(
         FormSession form, Session session, Action<Action> dispatch, Action close)
     {
@@ -70,26 +69,24 @@ public sealed class WatchSettingsViewModel : Observable
         _dispatch = dispatch;
         _close = close;
 
-        // The same generic renderer every step of the wizard uses.
-        // What the group contains and which of its entries are reachable is the form's answer, unchanged by
-        // which screen draws it - which is the whole reason moving the group costs no renderer.
+        // The renderer every wizard step goes through.
+        // A group is the same group whichever screen places it, so this one needs no renderer of its own.
         Group = new FieldGroupViewModel(_form.Write);
 
-        // Persisting is an effect: it takes a round trip and the backend can refuse it.
-        // The command holds whether one is in flight, which is both what the button waits on and what refuses
-        // a second press.
+        // An effect: a round trip the backend can refuse.
+        // The command holds whether one is out, which is what the button waits on and what refuses a second
+        // press.
         SaveCommand = new PendingCommand(SaveAsync, dispatch, () => _form.Draft is not null);
         SaveCommand.Changed += Apply;
 
-        // Dismissing takes no round trip and cannot be refused, so it is the plain command.
-        // It keeps nothing: a reader who moved a slider and shut the panel decided against it, and storing on
-        // the way out would be this screen keeping what nobody asked it to.
+        // Plain: dismissal costs no round trip and cannot be refused.
+        // It keeps nothing, a reader who moved a control and shut the panel having decided against it, and
+        // storing on the way out would keep what nobody asked to have kept.
         CloseCommand = new DelegateCommand(_close);
 
-        // Nothing is subscribed to here.
-        // The screen that holds this panel renders it from its own pass, which is the arrangement every other
-        // child component on this shell has: one notification, one render, and no two components rendering
-        // the same change twice.
+        // Nothing subscribed to here.
+        // The screen holding this panel renders it from its own pass, the arrangement every child component on
+        // this shell has: one notification, one render, no change rendered twice.
         Apply();
     }
 
@@ -99,51 +96,49 @@ public sealed class WatchSettingsViewModel : Observable
     private bool _hasNotice;
     private bool _isUnkept;
 
-    /// <summary>The controls, drawn by the one generic renderer the wizard's steps use.</summary>
+    /// <summary>The controls, through the renderer the wizard's steps share.</summary>
     public FieldGroupViewModel Group { get; }
 
-    /// <summary>Keeps these settings for the decodes this machine opens next.</summary>
+    /// <summary>Keeps these settings, for the decodes this machine opens next.</summary>
     public PendingCommand SaveCommand { get; }
 
     /// <summary>Shuts the panel, keeping nothing.</summary>
     public DelegateCommand CloseCommand { get; }
 
-    /// <summary>What the button says it does, which is the half of it a label cannot carry.</summary>
+    /// <summary>The half of what the button does that a label has no room for.</summary>
     public string SaveTip =>
         "Keeps these settings. A tile already on screen keeps the pipeline it was opened with, so a change reaches the next decode rather than the running one.";
 
-    /// <summary>What the close button says it does, since a glyph is not a sentence.</summary>
+    /// <summary>What the close control does, a glyph being no sentence.</summary>
     public string CloseTip => "Closes this panel. Anything not kept is left as it was.";
 
-    /// <summary>What the backend said about the last save, empty otherwise.</summary>
+    /// <summary>The backend's sentence about the last save, empty where there is none.</summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
 
     /// <summary>
-    /// Whether what the panel shows is not what the backend is holding.
+    /// Whether the panel shows something other than what the backend holds.
     ///
-    /// It is the whole difference a staged group makes, and there is no other way to see it: the controls
-    /// draw the draft either way.
-    /// Two things raise it - a field the reader moved and has not kept, and a value the resolve repaired that
-    /// nothing has written back - and both mean the same thing for a decode, which is that it will open on
-    /// the held value and not on the one on screen.
+    /// The only way to see the difference a staged group makes: the controls draw the draft either way.
+    /// Raised by a field the reader moved and has not kept, and by a value the resolve repaired that nothing
+    /// wrote back, which mean the same for a decode: it opens on the held value and not on the one on screen.
     /// </summary>
     public bool IsUnkept { get => _isUnkept; private set => Set(ref _isUnkept, value); }
 
-    /// <summary>What being unkept costs, in the place the reader is looking when it is true.</summary>
+    /// <summary>What being unkept costs, where the reader is looking while it is true.</summary>
     public string UnkeptNotice =>
         "Not kept yet. A decode opens on the settings that were kept last, so these reach one when the button below is pressed.";
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: the converge it asks for is skipped when the draft has not moved, and the group's
-    /// own pass produces fields that compare equal, so an unchanged pass fires no binding.
+    /// Safe to run twice: a draft that has not moved asks for no resolve, and the group's own pass produces
+    /// fields that compare equal, so a repeated pass fires no binding.
     /// </summary>
     public void Apply()
     {
-        // Reconciled from the render pass rather than performed by it, exactly as the wizard does it: the
-        // pass states that it wants a form, and the converge decides whether anything has to be asked
+        // Reconciled from the pass rather than performed by it, as the wizard does it: the pass names the
+        // state it wants, a resolved form, and the converge decides whether anything is asked
         // (docs/development-principles.md, "Idempotency").
         _form.Sync();
 
@@ -151,9 +146,8 @@ public sealed class WatchSettingsViewModel : Observable
         var group = GroupOf(form);
         Group.Apply(group, _session.Words, form?.Settings);
 
-        // The failure the whole window shares, read through rather than kept: this panel and the wizard write
-        // the same settings message down the same queue, so what could not be stored is one sentence and not
-        // one per screen (FormSession.Unsaved).
+        // Read through rather than held: this panel and the wizard write one settings message down one queue,
+        // so what could not be stored is a single sentence and never one per screen (FormSession.Unsaved).
         Notice = _form.Unsaved;
         HasNotice = Notice.Length > 0;
         IsUnkept = Unkept(group, _form.Draft, _form.Stored);
@@ -166,14 +160,14 @@ public sealed class WatchSettingsViewModel : Observable
     }
 
     /// <summary>
-    /// Whether the group's fields hold something other than what the backend is holding.
+    /// Whether the group's fields hold something other than what the backend holds.
     ///
-    /// The keys are the form's own rather than a list written here, so a knob the backend adds to the group
-    /// is compared with nothing to edit - the same property that makes the panel draw it in the first place.
+    /// Compared over the form's own keys rather than a list written here, so a knob the backend adds to the
+    /// group is compared with nothing here to edit.
     ///
-    /// Neither side arriving is not a difference.
-    /// Before the first answer there is nothing on screen to be unkept, and saying so would put a warning
-    /// under a panel with no controls in it.
+    /// A side that has not arrived is no difference.
+    /// Before the first answer nothing is on screen to be unkept, and saying otherwise would put a warning
+    /// under a panel holding no controls.
     /// </summary>
     private static bool Unkept(Api.V1.FieldGroup? group, Api.V1.Settings? draft, Api.V1.Settings? stored)
     {
@@ -194,9 +188,9 @@ public sealed class WatchSettingsViewModel : Observable
     }
 
     /// <summary>
-    /// The watch group of the resolved form, or null where the form carries none.
-    /// Looked up by the key that says which screen draws it, so this panel and the wizard's own filter read
-    /// one table (<see cref="GroupPlacement"/>).
+    /// The watch group of the resolved form, null where the form carries none.
+    /// Found by the key that decides which screen draws a group, so this panel and the wizard's own filter
+    /// read one table (<see cref="GroupPlacement"/>).
     /// </summary>
     private static Api.V1.FieldGroup? GroupOf(Api.V1.Form? form)
     {
@@ -217,41 +211,40 @@ public sealed class WatchSettingsViewModel : Observable
     }
 
     /// <summary>
-    /// Keeps the draft, through the writer the whole window shares.
+    /// Keeps the draft, through the writer the window shares.
     ///
-    /// It does not reach the backend itself, and that is the point.
-    /// The settings travel whole, so this commit and an applied field's keystroke are two writes of one
-    /// message; sent from two places they are two unary calls with no ordering between them, and the older
-    /// snapshot landing last is a stored setting the reader had already changed.
+    /// It reaches no backend itself, which is the point.
+    /// Settings travel whole, so this commit and an applied field's keystroke are writes of one message.
+    /// Sent from two places they are unary calls with no ordering between them, and the older snapshot landing
+    /// last is a stored setting the reader had already moved off.
     /// One queue removes that (<see cref="FormSession.SaveAsync"/>).
     ///
-    /// <b>Safe to press twice.</b> The call names a state - these are the held settings - so a second press
-    /// with nothing changed asks for a state that already holds, which is a success
+    /// <b>Safe to press twice.</b> The call names a state, that these are the held settings, so a second press
+    /// over an unchanged draft asks for a state that holds, which is a success
     /// (<c>docs/development-principles.md</c>, "Effects across a process boundary").
     /// </summary>
     private async Task SaveAsync()
     {
         await _form.SaveAsync().ConfigureAwait(false);
 
-        // Back to the UI loop, where the answer to the write was recorded.
-        // It is queued behind that record rather than racing it: both go through this dispatcher, and the
-        // write's own was handed over before the task this awaited completed.
+        // Queued behind the record of the write's answer rather than racing it: both cross this dispatcher,
+        // and the write handed its own over before the awaited task completed.
         _dispatch(Kept);
     }
 
     /// <summary>
     /// Ends the commit, on the UI loop.
     ///
-    /// <b>A write that landed shuts the panel and one that did not leaves it open.</b> The reader asked for
-    /// these settings to be kept: once they are, there is nothing left on this column to look at, and a panel
-    /// that stayed would be the reader closing it a second time by hand.
-    /// A refusal is the opposite - the sentence explaining it is on this panel, and dismissing the panel
-    /// would take it off the screen with the fields it is about.
+    /// <b>A write that landed shuts the panel, one that did not leaves it open.</b> Once the settings are
+    /// kept, this column holds nothing left to look at, and a panel that stayed would be closed a second time
+    /// by hand.
+    /// A refusal is the opposite: the sentence explaining it sits on this panel, so dismissing takes it off
+    /// screen along with the fields it is about.
     /// </summary>
     private void Kept()
     {
-        // Read through rather than passed in: the write reports its own answer, and a copy carried back
-        // through the commit would be the same sentence held twice.
+        // Read through rather than carried back through the commit, the write reporting its own answer.
+        // A copy would be one sentence held twice.
         if (_form.Unsaved.Length == 0)
         {
             _close();

@@ -10,35 +10,34 @@ using static Avalonia.OpenGL.GlConsts;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// The surface for a handle the compositor does not import: a dmabuf descriptor, imported through EGL by this
-/// control and drawn as a texture.
+/// Import path for a dmabuf descriptor: EGL opens it here and a quad draws the texture.
 ///
-/// <b>Why this one draws where the other one hands over.</b> Avalonia's compositor imports a shared texture
-/// and an opaque descriptor, and it does not import a dmabuf; so on this handle type the import is EGL's -
-/// <c>eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)</c> and <c>glEGLImageTargetTexture2DOES</c> - and what reaches
-/// the compositor is what this control drew rather than the lent memory itself
+/// Avalonia's compositor takes a shared texture or an opaque descriptor and no dmabuf, so nothing hands this
+/// handle type over.
+/// The import is EGL's, <c>eglCreateImageKHR(EGL_LINUX_DMA_BUF_EXT)</c> with
+/// <c>glEGLImageTargetTexture2DOES</c>, and what the compositor receives is this control's drawing
 /// (<c>docs/viewer-architecture.md</c>, "The frame channel").
 ///
-/// <b>It is still a visual among visuals.</b> <see cref="OpenGlControlBase"/> renders into a composition
-/// surface rather than into a window of its own, so a figure or a menu over a tile stays over it - which is
-/// the rule a native child window would break (<c>avalonia/README.md</c>).
+/// <see cref="OpenGlControlBase"/> paints into a composition surface instead of a window of its own, so a
+/// menu or a figure above a tile stays above it, which a native child window would break
+/// (<c>avalonia/README.md</c>).
 ///
-/// <b>Nothing here reads a pixel.</b> The descriptor names memory the backend decoded into, the driver
-/// samples it where it lies, and no frame enters system memory or a message.
-/// What this process spends is one draw of one quad per frame.
+/// No pixel is read.
+/// The descriptor names memory the decoder wrote, the driver samples it in place, and the per-frame cost here
+/// is one quad.
 ///
-/// <b>The renderer has to be an EGL one.</b> A GLX context has no import for a descriptor, so a tile on such
-/// a window says so instead of drawing.
-/// Both halves of the app steer their GL towards EGL for this reason, which is a requirement of the handle
-/// type and not a preference: the backend's is <c>GST_GL_PLATFORM</c> and this side's is
-/// <c>X11RenderingMode</c> (<c>Program.cs</c>).
+/// EGL only.
+/// GLX exposes no import for a descriptor, so a tile on such a window carries a sentence and draws nothing.
+/// Both halves of the app therefore steer their GL to EGL, a requirement of the handle type rather than a
+/// taste: <c>GST_GL_PLATFORM</c> in the backend, EGL ahead of GLX in <c>X11RenderingMode</c>
+/// (<c>Program.cs</c>).
 /// </summary>
 internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
 {
     /// <summary>
-    /// One pool, as this surface needs it: the layout to import with and the descriptors to import.
-    /// It is a record so a pass can tell what it has imported from what it was given by identity alone, which
-    /// is what makes the import happen once per pool.
+    /// A pool as this surface imports it: the layout, and one descriptor per slot.
+    /// Record, so identity alone separates an imported pool from a lent one, which is what holds the import
+    /// to once per pool.
     /// </summary>
     private sealed record Lent(
         int Width,
@@ -50,29 +49,29 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         ulong[] Offsets,
         uint[] Strides);
 
-    /// <summary>What the next pass is to import, and what the last one did. They differ for one pass.</summary>
+    /// <summary>Pool for the next pass, and the one already imported. Apart for exactly one pass.</summary>
     private Lent? _lent;
     private Lent? _imported;
 
     /// <summary>
-    /// The imported slots, by index.
-    /// Each descriptor is imported once and drawn from many times, which is the whole point of the pool: a
-    /// per-frame import would be a per-frame trip through the driver.
+    /// Imports by slot index.
+    /// A descriptor becomes a texture once and is drawn from repeatedly, which is what the pool is for:
+    /// importing per frame would cross the driver per frame.
     /// </summary>
     private readonly List<int> _textures = [];
     private readonly List<IntPtr> _images = [];
 
-    /// <summary>The slot the next pass draws, and none before the first frame.</summary>
+    /// <summary>Which slot the next pass draws. Unset until a frame arrives.</summary>
     private uint? _slot;
 
     /// <summary>
-    /// What the caller is waiting for.
-    /// One pass answers every ask made before it ran, because what a caller wants to know is that the surface
-    /// has drawn since it asked, and one draw satisfies any number of asks.
+    /// Ask outstanding on the renderer.
+    /// A single pass answers every ask that preceded it, since what a caller needs is a draw later than its
+    /// ask.
     /// </summary>
     private TaskCompletionSource<string?>? _pass;
 
-    /// <summary>Why this surface is not drawing, and null while it is.</summary>
+    /// <summary>Sentence a tile shows in place of a picture. null while frames draw.</summary>
     private string? _failure;
 
     private int _program;
@@ -92,8 +91,8 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
 
     public async Task<string?> ImportAsync(FramePool pool, CancellationToken cancellation)
     {
-        // The descriptors are read before the pass rather than inside it: it is a socket round trip with
-        // another process, and a render pass is not a place to wait on one.
+        // Descriptors ahead of the pass, never inside it: reading them is a socket round trip with another
+        // process, and a render pass cannot block on one.
         var descriptors = await FrameDescriptors
             .ReceiveAsync(pool.FdSocket, pool.Slots.Count, cancellation)
             .ConfigureAwait(true);
@@ -120,15 +119,15 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// Asks for a pass and waits for it.
+    /// Requests a pass and waits on it.
     ///
-    /// The wait is what the loan is made of: a slot is free once the draw that read it has finished on the
-    /// device, and this completes there.
+    /// Waiting is what the loan is made of: a slot is free once the draw reading it has completed on the
+    /// device, which is where this resumes.
     ///
-    /// It is bounded, for the one case that would otherwise be silent.
-    /// A renderer that fails to come up at all never calls a pass, and an unbounded wait there is a tile that
-    /// holds a slot and says nothing for the rest of the run.
-    /// Past the bound the surface answers for itself: the slot goes back and the tile shows why it is empty.
+    /// The bound covers the one failure that would otherwise be silent.
+    /// A renderer that never comes up calls no pass, leaving a tile that holds a slot and reports nothing for
+    /// the rest of the run.
+    /// Past it the slot returns and the tile carries a reason.
     /// </summary>
     private async Task<string?> PassAsync(CancellationToken cancellation)
     {
@@ -147,16 +146,16 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// How long a pass is waited for.
-    /// Long enough that a renderer building its first context and shaders is not mistaken for one that
-    /// failed, and short enough that a tile which will never draw says so while the reader is still looking
-    /// at it.
+    /// Ceiling on one pass.
+    /// Above the time a renderer spends building its first context and shaders, below the patience of
+    /// somebody looking at an empty tile.
     /// </summary>
     private static readonly TimeSpan PassBound = TimeSpan.FromSeconds(5);
 
     protected override void OnOpenGlInit(GlInterface gl)
     {
-        // Read while the context is current, which is the only time there is one to read.
+        // Only a current context has a display, so it is captured here and used later.
+        // Zero where libEGL is absent, which the import turns into a notice.
         try
         {
             _display = eglGetCurrentDisplay();
@@ -194,19 +193,18 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
 
         Forget();
 
-        // A caller waiting on a pass that will not come now: a tile is told rather than left holding a slot
-        // it can neither draw nor release.
+        // Whoever is waiting is told, instead of being left with a slot that can be neither drawn nor
+        // released.
         _failure = "This tile's renderer went away.";
         Answer();
     }
 
     /// <summary>
-    /// The context is gone and so is everything that was imported on it.
+    /// Context lost, and with it every import made on it.
     ///
-    /// Nothing is freed here, because freeing a texture takes the context that owned it.
-    /// What is dropped is this side's record of them, so no pass draws from a name that means nothing; the
-    /// descriptors are closed and the pool is forgotten, since re-importing one takes descriptors that have
-    /// already been read.
+    /// No delete is issued: a texture and an image are freed on the context that owned them.
+    /// What goes is the names, so no pass samples one that means nothing, and the pool with them, since a
+    /// second import would want descriptors the first one closed.
     /// </summary>
     protected override void OnOpenGlLost()
     {
@@ -220,11 +218,10 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// Drops the pool this surface holds, closing what was never imported.
+    /// Releases the held pool, closing descriptors no import consumed.
     ///
-    /// The clearing is the half that matters: a surface that kept the pool would skip the import when it was
-    /// handed the same one again, and it has nothing to import it from - a descriptor is closed as soon as it
-    /// has been read.
+    /// Clearing is the half that matters: keeping the pool would skip the import on a repeat of the same
+    /// object, and the descriptors that import would need are closed as soon as they have been read.
     /// </summary>
     private void Forget()
     {
@@ -234,10 +231,9 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// Closes the descriptors of a pool that arrived and was never imported, which is what the import would
-    /// otherwise have done.
-    /// Two pools inside one render pass is the case: a stream that renegotiated twice while the window was
-    /// busy.
+    /// Closes descriptors of a pool no pass ever imported, which the import itself would have closed.
+    /// Reached where two pools land inside one render pass, from a stream that renegotiated twice while the
+    /// window was busy.
     /// </summary>
     private void ReleaseUnimported()
     {
@@ -248,28 +244,24 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// The one render function: it imports what it has been lent, draws the slot it was given, and answers
-    /// whoever asked for the pass.
+    /// The one render function: import what was lent, draw the slot named, answer the ask.
     ///
-    /// Every pass writes the whole surface.
-    /// There is no branch that leaves the last frame on screen, so a pool with nothing drawable in it clears
-    /// to black rather than showing a picture from a pool that is gone.
+    /// A pass writes the whole surface.
+    /// No path preserves the previous frame, so a pool with nothing drawable in it clears to black instead of
+    /// leaving up a picture from a pool that is gone.
     /// </summary>
     protected override void OnOpenGlRender(GlInterface gl, int fb)
     {
         Import(gl);
         Paint(gl);
 
-        // Finished rather than flushed: the slot goes back to the backend as soon as this pass answers, and a
-        // draw still queued would be a read of memory the next frame is being written into.
+        // Finish, not flush: this pass answering returns the slot, and a queued draw would sample memory the
+        // next frame is landing in.
         gl.Finish();
         Answer();
     }
 
-    /// <summary>
-    /// Imports the pool this surface has been lent, and does nothing when the one it holds is already that
-    /// pool.
-    /// </summary>
+    /// <summary>Imports the lent pool. Does nothing where it is already the imported one.</summary>
     private void Import(GlInterface gl)
     {
         if (ReferenceEquals(_lent, _imported))
@@ -306,14 +298,14 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         }
         finally
         {
-            // The descriptors are this process's own and EGL holds its own reference to what they name, so
-            // they are closed as soon as the import has read them - successful or not.
-            // What keeps the memory alive afterwards is the image.
+            // These descriptors belong to this process, and EGL references the memory independently of them,
+            // so they close as soon as the import has read them, whether or not it succeeded.
+            // The image is what holds the memory afterwards.
             FrameDescriptors.Release(lent.Descriptors);
         }
     }
 
-    /// <summary>One slot: a descriptor, the layout it is read with, and the texture it becomes.</summary>
+    /// <summary>One descriptor into one texture, under the layout the pool stated.</summary>
     private unsafe bool Import(GlInterface gl, Lent lent, int slot)
     {
         var attributes = stackalloc int[19];
@@ -332,9 +324,9 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         attributes[i++] = (int)lent.Strides[slot];
         if (lent.Modifier != ImplicitModifier)
         {
-            // Stated only where the driver named one.
-            // An implicit modifier means the exporter let the driver pick the layout, and an import that then
-            // states a modifier is stating a layout nobody chose.
+            // Passed only where the exporter named a layout.
+            // The implicit value means the driver chose, so naming a modifier here would assert a tiling
+            // nobody picked.
             attributes[i++] = EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
             attributes[i++] = (int)(lent.Modifier & 0xffffffff);
             attributes[i++] = EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
@@ -358,9 +350,8 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
             return false;
         }
 
-        // Linear and clamped, because a tile draws the frame at whatever size it was arranged at: the rungs
-        // the render size is rounded onto mean the picture is usually a little larger than the box it goes
-        // in.
+        // Linear and clamped: a tile draws at whatever size it was arranged at, and rounding the render size
+        // onto a rung usually leaves the picture larger than its box.
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -372,7 +363,6 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         return true;
     }
 
-    /// <summary>Draws the slot this surface was given, over a cleared frame.</summary>
     private unsafe void Paint(GlInterface gl)
     {
         var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 1;
@@ -390,9 +380,8 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         gl.ActiveTexture(GL_TEXTURE0);
         gl.BindTexture(GL_TEXTURE_2D, _textures[(int)slot]);
         gl.Uniform1i(_frameUniform, 0);
-        // The flip is read off what the pool stated rather than assumed: a texture holds its first row where
-        // OpenGL puts the bottom of the picture, and a backend whose frames start at the top is the case this
-        // uniform exists for.
+        // Taken from the pool, never assumed: row zero of a texture is where OpenGL puts the bottom of the
+        // picture, and a backend whose frames start at the top is what this uniform answers.
         gl.Uniform1f(_flipUniform, _imported.TopLeftOrigin ? 1 : 0);
 
         gl.BindVertexArray(_vertexArray);
@@ -405,7 +394,6 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         gl.BindVertexArray(0);
     }
 
-    /// <summary>Answers the pass that was asked for, with what this surface can and cannot do.</summary>
     private void Answer()
     {
         var pass = _pass;
@@ -413,7 +401,10 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
         pass?.TrySetResult(_failure);
     }
 
-    /// <summary>Drops the imports of the pool that is no longer current.</summary>
+    /// <summary>
+    /// Deletes the imports of a pool that is no longer current.
+    /// Wants the owning context current, so it runs inside a pass or in init and deinit.
+    /// </summary>
     private void Drop(GlInterface gl)
     {
         foreach (var texture in _textures)
@@ -432,11 +423,10 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// Builds the one program and the one quad this surface draws with.
+    /// Compiles the program and uploads the quad.
     ///
-    /// A shader rather than a blit: <c>glBlitFramebuffer</c> is OpenGL ES 3 and this control runs on whatever
-    /// context the window's renderer made, and a blit cannot flip a picture whose first row is its top
-    /// either.
+    /// Shader instead of a blit: <c>glBlitFramebuffer</c> wants OpenGL ES 3 while this control takes whatever
+    /// context the window's renderer built, and no blit flips a picture that starts at its top row.
     /// </summary>
     private unsafe void Build(GlInterface gl)
     {
@@ -481,9 +471,8 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     }
 
     /// <summary>
-    /// One shader in the dialect the context speaks.
-    /// The two differ in three keywords and in the name of the texture lookup, and the source is written once
-    /// in the older of them.
+    /// The source in the dialect this context speaks.
+    /// Written once in the older dialect; the newer one renames a few keywords and the texture lookup.
     /// </summary>
     private string Shader(string source, bool fragment)
     {
@@ -538,21 +527,20 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
 
     public ValueTask DisposeAsync()
     {
-        // The GL objects go with the control's own deinit, which is the only place there is a context to free
-        // them on.
-        // What is left here is the wait: a tile that dropped this surface is not going to ask again, and a
-        // pass nobody answers would outlive it.
+        // GL objects wait for the control's own deinit, the only place with a context to free them on.
+        // The ask is what has to end here: a tile that let this surface go asks nothing more, and an
+        // unanswered pass would outlive it.
         Forget();
         _slot = null;
         Answer();
         return ValueTask.CompletedTask;
     }
 
-    /// <summary>The DRM format a slot is imported with, which is what the pool's format stands for on this handle kind.</summary>
+    /// <summary>Pool format as the DRM fourcc an import names it by.</summary>
     private static int FourccOf(FrameFormat format) => format switch
     {
-        // A fourcc names the order the channels sit in memory, which is the reverse of the order it is
-        // spelled in: DRM_FORMAT_ABGR8888 is a red byte first.
+        // A fourcc spells the channels in reverse of their order in memory: DRM_FORMAT_ABGR8888 puts red in
+        // the first byte.
         FrameFormat.B8G8R8A8Unorm => 0x34325241, // AR24
         _ => 0x34324241,                         // AB24
     };
@@ -572,9 +560,9 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     private static extern IntPtr eglGetCurrentDisplay();
 
     /// <summary>
-    /// What a driver answers when it has no name for the layout it exported: DRM_FORMAT_MOD_INVALID.
-    /// The frames carry whatever tiling the driver picked, and an import that states nothing resolves it the
-    /// same way the export did.
+    /// DRM_FORMAT_MOD_INVALID, the answer of a driver that named no layout for what it exported.
+    /// Whatever tiling it picked travels with the frames, and an import naming no modifier resolves it the
+    /// way the export did.
     /// </summary>
     private const ulong ImplicitModifier = 0x00ffffffffffffff;
 
@@ -589,6 +577,6 @@ internal sealed class DmaBufSurface : OpenGlControlBase, ITileSurface
     private const int EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT = 0x3443;
     private const int EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT = 0x3444;
 
-    /// <summary>The one drawing mode this surface uses, which <c>GlConsts</c> does not carry.</summary>
+    /// <summary>Drawing mode missing from <c>GlConsts</c>.</summary>
     private const int GL_TRIANGLE_STRIP = 0x0005;
 }

@@ -23,11 +23,11 @@ const (
 
 type HelloRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// client is what the shell calls itself, for the backend's log: "avalonia",
-	// "cli". It carries no behaviour.
+	// What the shell calls itself, for the backend's log: "avalonia", "cli".
+	// It carries no behaviour.
 	Client string `protobuf:"bytes,1,opt,name=client,proto3" json:"client,omitempty"`
-	// protocol_major is the contract version the shell was generated against. The
-	// backend refuses a major it does not implement, with FAILED_PRECONDITION and both
+	// Contract version the shell was generated against.
+	// A major the backend does not implement is refused with FAILED_PRECONDITION and both
 	// versions named.
 	ProtocolMajor uint32 `protobuf:"varint,2,opt,name=protocol_major,json=protocolMajor,proto3" json:"protocol_major,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -80,12 +80,11 @@ func (x *HelloRequest) GetProtocolMajor() uint32 {
 
 type HelloResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// protocol_major is the contract this backend implements, and protocol_minor how
-	// far into it: a shell built against a lower minor works, and one built against a
-	// higher minor may find a method missing.
+	// The contract this backend implements, and how far into it: a shell built against a lower
+	// minor works, and one built against a higher minor may find a method missing.
 	ProtocolMajor uint32 `protobuf:"varint,1,opt,name=protocol_major,json=protocolMajor,proto3" json:"protocol_major,omitempty"`
 	ProtocolMinor uint32 `protobuf:"varint,2,opt,name=protocol_minor,json=protocolMinor,proto3" json:"protocol_minor,omitempty"`
-	// backend_version is the build, for display and for bug reports.
+	// The build, for display and for bug reports.
 	BackendVersion string `protobuf:"bytes,3,opt,name=backend_version,json=backendVersion,proto3" json:"backend_version,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -261,10 +260,9 @@ func (*GetSettingsRequest) Descriptor() ([]byte, []int) {
 type GetSettingsResponse struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Settings *Settings              `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
-	// store_notice states why the persisted settings could not be restored, absent when
-	// they were. The settings above are then the defaults, and the file holding the old
-	// values has been moved aside rather than overwritten, so the notice carries where
-	// they are.
+	// Why the persisted settings could not be restored, absent when they were.
+	// The settings above are then the defaults, and the file holding the old values has been
+	// moved aside rather than overwritten, so the notice carries where they are.
 	StoreNotice   *Text `protobuf:"bytes,3,opt,name=store_notice,json=storeNotice,proto3" json:"store_notice,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -314,8 +312,8 @@ func (x *GetSettingsResponse) GetStoreNotice() *Text {
 	return nil
 }
 
-// ResolveFormRequest carries the draft the user is editing. It is the whole
-// settings message and not a diff, because availability is a function of every
+// Carries the draft the user is editing.
+// The whole settings message and not a diff, because availability is a function of every
 // field at once and a diff would leave the backend guessing what it is against.
 type ResolveFormRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -444,7 +442,7 @@ func (*ListPresetsRequest) Descriptor() ([]byte, []int) {
 type ListPresetsResponse struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Presets []*Preset              `protobuf:"bytes,1,rep,name=presets,proto3" json:"presets,omitempty"`
-	// notice states why the preset store could not be read, absent when it was.
+	// Why the preset store could not be read, absent when it was.
 	Notice        *Text `protobuf:"bytes,3,opt,name=notice,proto3" json:"notice,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -790,10 +788,10 @@ func (*SaveSettingsResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{17}
 }
 
-// SavePresetRequest stores one way of publishing. A preset is a PublishSettings and
-// nothing else: where the relay is belongs to a deployment and how this machine
-// watches belongs to a viewer, and neither is part of what a saved configuration
-// means.
+// Stores one way of publishing.
+// A preset is a PublishSettings and nothing else: where the relay is belongs to a deployment
+// and how this machine watches belongs to a viewer, and neither is part of what a saved
+// configuration means.
 type SavePresetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -962,10 +960,10 @@ func (*DeletePresetResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{21}
 }
 
-// StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than
-// the two groups a pipeline is built from, because both persist the draft they are
-// given: they are how the settings a shell holds reach the backend, and half of them
-// arriving would leave the other half at whatever was stored before.
+// StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than the two
+// groups a pipeline is built from, because both persist the draft they are given: they are
+// how the settings a shell holds reach the backend, and half of them arriving would leave the
+// other half at whatever was stored before.
 type StartPublishRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Settings      *Settings              `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
@@ -1358,9 +1356,10 @@ func (*StopWatchResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{31}
 }
 
-// OpenInBrowserRequest names the stream and the leg the page is served on, the same
-// identity every other viewer method takes. The pair is an identity here rather than a
-// handle: nothing is opened that could later be named by it.
+// Names the stream and the leg the page is served on, the same identity every other viewer
+// method takes.
+// The pair is an identity here rather than a handle: nothing is opened that could later be
+// named by it.
 type OpenInBrowserRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Viewer        *WatchKey              `protobuf:"bytes,1,opt,name=viewer,proto3" json:"viewer,omitempty"`
@@ -1441,39 +1440,37 @@ func (*OpenInBrowserResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{33}
 }
 
-// StartReceiveRequest names the stream and the leg, which together are the identity a
-// receive is keyed by, for the reason WatchKey exists: the relay re-serves each stream
-// on all its listeners, so one stream can be decoded over several legs at once.
+// Names the stream and the leg, which together are the identity a receive is keyed by, for
+// the reason WatchKey exists: the relay re-serves each stream on all its listeners, so one
+// stream can be decoded over several legs at once.
 //
-// The leg is named here rather than read off ViewerSettings.tile_watch_transport,
-// which is the same rule StartWatch follows: the setting is what a shell offers by
-// default, and the call is what was chosen.
+// The leg is named here rather than read off ViewerSettings.tile_watch_transport, which is
+// the rule StartWatch follows too: the setting is what a shell offers by default, and the
+// call is what was chosen.
 //
-// The render chain is not on this message. It is one value for every decode
-// (ViewerSettings), because a chain falls back where a driver cannot run it and that
-// is a property of the machine rather than of a stream.
+// The render chain is not on this message.
+// It is one value for every decode (ViewerSettings), because a chain falls back where a
+// driver cannot run it, which is a property of the machine rather than of a stream.
 //
-// Tone mapping is, for the opposite reason: whether a stream carries more range than a
+// Tone mapping is on it for the opposite reason: whether a stream carries more range than a
 // display shows is a property of that stream, and two tiles watching one stream may want
-// different answers - one reader comparing what it carries against what a display shows,
-// another watching it.
+// different answers.
 type StartReceiveRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Stream *WatchKey              `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// tone_map asks for an HDR stream to be rolled down into the range a standard display
-	// shows. It is a build choice and not a live one - the rung is an element in the
-	// pipeline - so a decode already running with the other answer is rebuilt to reach the
-	// one this call names, which is the same rule every other effect on this contract
-	// follows: a call names the state it wants true, and one that already holds costs
-	// nothing.
+	// Asks for an HDR stream to be rolled down into the range a standard display shows.
+	// A build choice and not a live one, the rung being an element in the pipeline, so a decode
+	// already running with the other answer is rebuilt to reach the one this call names: a call
+	// names the state it wants true, and one that already holds costs nothing.
 	//
-	// It is not stored anywhere. A preference kept per stream path would outlive the stream
-	// it was made about, so a path that stops carrying HDR would carry a choice nobody can
-	// find; this lives exactly as long as the decode does.
+	// It is not stored anywhere.
+	// A preference kept per stream path would outlive the stream it was made about, so a path
+	// that stops carrying HDR would carry a choice nobody can find; this lives exactly as long
+	// as the decode does.
 	//
 	// A machine with no element to roll the range down builds the decode without one and
-	// reports that it did (ReceiveStream), rather than refusing: a stream drawn in the range
-	// it was coded in is a picture, and a refusal is none.
+	// reports that it did (ReceiveStream), rather than refusing: a stream drawn in the range it
+	// was coded in is a picture, and a refusal is none.
 	ToneMap       bool `protobuf:"varint,2,opt,name=tone_map,json=toneMap,proto3" json:"tone_map,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1640,9 +1637,10 @@ func (*StopReceiveResponse) Descriptor() ([]byte, []int) {
 }
 
 // The monitor is the index Catalog.Monitor is enumerated under, which is the same value
-// PublishSettings.monitor holds. One field, because a preview of a screen is a preview
-// of the whole screen: there is no rectangle to crop and no rate to ask for, and a size
-// belongs to the consumer that draws it and travels on the frame channel.
+// PublishSettings.monitor holds.
+// One field, because a preview of a screen is a preview of the whole screen: there is no
+// rectangle to crop and no rate to ask for, and a size belongs to the consumer that draws it
+// and travels on the frame channel.
 type StartMonitorPreviewRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Monitor       int32                  `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
@@ -1803,21 +1801,20 @@ func (*StopMonitorPreviewResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{41}
 }
 
-// SetReceiveAudioRequest names both halves of the loudness at once, rather than a
-// volume method and a mute method.
+// Names both halves of the loudness at once, rather than a volume method and a mute method.
 //
-// One request because they are one state. Sent apart, a shell that muted and then
-// set a volume would have to know whether the second undid the first, and the
-// backend would have to decide the same thing twice.
+// One request because they are one state.
+// Sent apart, a shell that muted and then set a volume would have to know whether the second
+// undid the first, and the backend would have to decide the same thing twice.
 type SetReceiveAudioRequest struct {
 	state  protoimpl.MessageState `protogen:"open.v1"`
 	Stream *WatchKey              `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
-	// volume is a linear gain from zero, where one is the stream unchanged. Values
-	// above one amplify; the backend bounds them rather than letting a slider clip the
+	// Linear gain from zero, where one is the stream unchanged.
+	// Values above one amplify; the backend bounds them rather than letting a slider clip the
 	// output device.
 	Volume float64 `protobuf:"fixed64,2,opt,name=volume,proto3" json:"volume,omitempty"`
-	// muted silences the branch without losing the volume, so unmuting returns to the
-	// level the reader chose.
+	// Silences the branch without losing the volume, so unmuting returns to the level the
+	// reader chose.
 	Muted         bool `protobuf:"varint,3,opt,name=muted,proto3" json:"muted,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1912,9 +1909,9 @@ func (*SetReceiveAudioResponse) Descriptor() ([]byte, []int) {
 
 type StartTestStreamsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// count is how many synthetic publishers to run. Each runs its own software
-	// encoder, so the backend bounds it and refuses a larger number rather than
-	// saturating the machine.
+	// How many synthetic publishers to run.
+	// Each runs its own software encoder, so the backend bounds the number and refuses a larger
+	// one rather than saturating the machine.
 	Count         int32 `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2219,13 +2216,13 @@ func (x *MeasureUplinkResponse) GetMbps() float64 {
 
 type MeasureEncodeRateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// settings decide what is timed, and the picture size comes from the monitor they
-	// name rather than from the caller: it is the same enumeration the capture crops
-	// to and the estimate is priced from.
+	// What is timed.
+	// The picture size comes from the monitor these name rather than from the caller: it is the
+	// same enumeration the capture crops to and the estimate is priced from.
 	//
-	// The whole Settings rather than the publish group alone: what is timed is the
-	// command the same builders would render for a publish, and holding a narrower
-	// message here would mean two shapes reaching one set of builders.
+	// The whole Settings rather than the publish group alone, because what is timed is the
+	// command the same builders would render for a publish, and a narrower message here would
+	// mean two shapes reaching one set of builders.
 	Settings      *Settings `protobuf:"bytes,1,opt,name=settings,proto3" json:"settings,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2386,8 +2383,8 @@ func (*ForgetPortalConsentResponse) Descriptor() ([]byte, []int) {
 
 type OpenLogRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// path is a log path the backend handed out, on an ExitInfo. A shell does not
-	// construct one.
+	// A log path the backend handed out, on an ExitInfo.
+	// A shell does not construct one.
 	Path          string `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2538,16 +2535,15 @@ func (*OpenLogsFolderResponse) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{59}
 }
 
-// SubscribeRequest opens the stream.
 type SubscribeRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// A shell receives every kind by default. Naming kinds here narrows the stream to
-	// those, which exists for a surface that wants the state changes without the
-	// per-second statistics.
+	// Empty receives every kind.
+	// Naming kinds narrows the stream to those, which exists for a surface that wants the state
+	// changes without the per-second statistics.
 	//
-	// EVENT_KIND_UNSPECIFIED is refused rather than ignored, so a shell that sent a
-	// kind this build's enum has no value for learns it on the call it made the
-	// mistake on rather than by waiting forever.
+	// EVENT_KIND_UNSPECIFIED is refused rather than ignored, so a shell that sent a kind this
+	// build's enum has no value for learns it on the call it made the mistake on rather than by
+	// waiting forever.
 	Kinds         []EventKind `protobuf:"varint,2,rep,packed,name=kinds,proto3,enum=screenshare.v1.EventKind" json:"kinds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2590,12 +2586,11 @@ func (x *SubscribeRequest) GetKinds() []EventKind {
 	return nil
 }
 
-// SubscribeAudioLevelsRequest carries nothing.
-//
-// Empty and present rather than absent: the cadence is the backend's, because a
-// shell asking for a rate is asking for a cost it does not pay, and the set of
-// decodes is the backend's too. A message with no fields is what lets either become
-// a request field later without a new method.
+// Empty and present rather than absent: the cadence is the backend's, because a shell asking
+// for a rate is asking for a cost it does not pay, and the set of decodes is the backend's
+// too.
+// A message with no fields is what lets either become a request field later without a new
+// method.
 type SubscribeAudioLevelsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2632,8 +2627,8 @@ func (*SubscribeAudioLevelsRequest) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{61}
 }
 
-// SubscribePointerRequest opens the stream. It names nothing: one publish is in force at
-// a time, so there is one pointer to report and nothing to select between.
+// Names nothing: one publish is in force at a time, so there is one pointer to report and
+// nothing to select between.
 type SubscribePointerRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -2670,29 +2665,27 @@ func (*SubscribePointerRequest) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_control_proto_rawDescGZIP(), []int{62}
 }
 
-// PointerPosition is where the publishing machine's pointer was, and when.
+// Where the publishing machine's pointer was, and when.
 //
-// The coordinates are the captured picture's own, in the pixels the stream carries, with
-// the origin at its top left. That is what makes them drawable without a viewer knowing
-// anything about the publisher's desktop: which screen is being read, how it is scaled and
-// where it sits among the others are all the publisher's facts, and the backend has all
-// three where a viewer has none.
+// The coordinates are the captured picture's own, in the pixels the stream carries, with the
+// origin at its top left.
+// That is what makes them drawable without a viewer knowing anything about the publisher's
+// desktop: which screen is being read, how it is scaled and where it sits among the others
+// are all the publisher's facts.
 type PointerPosition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// x and y are where it is, in the picture's own pixels.
-	X int32 `protobuf:"varint,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y int32 `protobuf:"varint,2,opt,name=y,proto3" json:"y,omitempty"`
-	// captured_at_unix_nanos is when the position was read, on the publishing machine's
-	// clock.
+	X     int32                  `protobuf:"varint,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y     int32                  `protobuf:"varint,2,opt,name=y,proto3" json:"y,omitempty"`
+	// When the position was read, on the publishing machine's clock.
 	//
-	// It is there so a viewer can hold a position back to the frame it belongs to rather
-	// than letting it lead the picture. Whether to is the viewer's, which is why the moment
-	// travels instead of the backend delaying the message: a pointer that leads is what a
-	// viewer with no delay budget wants and what one watching a recording does not.
+	// It travels so a viewer can hold a position back to the frame it belongs to rather than
+	// letting it lead the picture.
+	// Whether to is the viewer's, which is why the moment travels instead of the backend
+	// delaying the message.
 	CapturedAtUnixNanos int64 `protobuf:"varint,3,opt,name=captured_at_unix_nanos,json=capturedAtUnixNanos,proto3" json:"captured_at_unix_nanos,omitempty"`
-	// visible is false where the pointer is not over the captured surface. A pointer that
-	// has left the screen is not at its last position, and drawing it there would leave one
-	// stuck against an edge for as long as it is away.
+	// False where the pointer is not over the captured surface.
+	// A pointer that has left the screen is not at its last position, and drawing it there
+	// would leave one stuck against an edge for as long as it is away.
 	Visible       bool `protobuf:"varint,4,opt,name=visible,proto3" json:"visible,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

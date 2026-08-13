@@ -1,13 +1,13 @@
 # The app as one package: the Go backend, the Avalonia shell, and a desktop entry.
 #
-# The two binaries are one install because the shell starts the backend itself when
-# nothing answers on the control endpoint, looking for that binary beside itself and
-# then on PATH (avalonia/ScreenShare.App/Backend/BackendProcess.cs). Both are wrapped
-# rather than left to the environment: ffmpeg, the GStreamer launcher and the plugin
-# directory live at store paths no login PATH carries.
+# One install for two binaries, because the shell starts the backend when nothing answers
+# on the control endpoint, looking beside itself and then on PATH
+# (avalonia/ScreenShare.App/Backend/BackendProcess.cs).
+# Both are wrapped rather than left to the environment: ffmpeg, the GStreamer launcher and
+# the plugin directory live at store paths no login PATH carries.
 #
-# ffmpeg is a closure dependency rather than a bundled copy, which is the model
-# docs/packaging.md picks for every channel with a package manager behind it.
+# ffmpeg is a closure dependency and not a bundled copy, the model docs/packaging.md picks
+# for every channel with a package manager behind it.
 {
   lib,
   symlinkJoin,
@@ -22,10 +22,11 @@
   pipewire,
   protobuf,
   grpc,
-  # Avalonia resolves these by soname at run time rather than linking them, so they have
-  # to reach LD_LIBRARY_PATH. The list is the dev shell's, and for the same reason: Skia
-  # arrives prebuilt from NuGet and both windowing backends dlopen their way to the
-  # session's libraries (flake.nix, avaloniaRuntimeDeps).
+  # Avalonia dlopens these by soname at run time rather than linking them, so they have to
+  # reach LD_LIBRARY_PATH or the shell fails to open a window.
+  # Skia arrives prebuilt from NuGet and both windowing backends find the session's
+  # libraries the same way, which is why the list matches the dev shell's
+  # (flake.nix, avaloniaRuntimeDeps).
   fontconfig,
   freetype,
   libglvnd,
@@ -46,10 +47,9 @@
 }:
 
 let
-  # The inputs the two builds read, and nothing else. The working tree also holds the
-  # .NET intermediate and output directories and the node_modules of the deleted Wails
-  # frontend, and a source carrying those would be gigabytes and would change on every
-  # local build.
+  # The inputs the two builds read, and nothing else.
+  # A working tree also holds the .NET intermediate and output directories, so a source
+  # carrying those would be gigabytes and would change on every local build.
   src = lib.cleanSourceWith {
     name = "screen-sharing-source";
     src = ../.;
@@ -77,9 +77,10 @@ let
       );
   };
 
-  # Both engines' GStreamer, in one list. A publish spawns gst-launch-1.0 and a receive
-  # pipeline runs in the backend itself, so one plugin set serves both; the reason each
-  # package is here is stated beside the dev shell's copy of the list in flake.nix.
+  # One plugin set for both engines: a publish spawns gst-launch-1.0 and a receive pipeline
+  # runs in the backend itself, and every element either builds comes from here.
+  # What each package supplies is stated beside the dev shell's copy of the list in
+  # flake.nix.
   gstPlugins = with gst_all_1; [
     gstreamer
     gst-plugins-base
@@ -119,21 +120,21 @@ let
     inherit version src;
 
     # The module cache rather than a vendor directory, because `api` is a module of this
-    # repository reached by a filesystem `replace` (go.mod). Vendoring copies it into the
-    # fixed-output derivation the hash below pins, so every edit under api/ invalidates a
-    # hash that names third-party dependencies, and a store already holding that path
-    # builds the old generated code instead: the compiler then reports a symbol the
-    # working tree defines as undefined. A proxy fetch downloads what go.sum lists and
-    # nothing else, so the pin covers third-party code alone and the local module is read
-    # from src at build time.
+    # repository reached by a filesystem `replace` (go.mod).
+    # Vendoring copies it into the fixed-output derivation the hash below pins, so an edit
+    # under api/ invalidates a hash that names third-party dependencies, and a store already
+    # holding that path builds the old generated code: the compiler then reports a symbol
+    # the working tree defines as undefined.
+    # A proxy fetch downloads what go.sum lists and nothing else, so the pin covers
+    # third-party code alone and the local module is read from src at build time.
     proxyVendor = true;
     vendorHash = "sha256-YhwaORkqDclT1JBmo/V+jgICWEdhS6N9w5KQExJilEE=";
 
     subPackages = [ "cmd/backend" ];
 
     # internal/receive is cgo throughout: it builds GStreamer pipelines in-process and
-    # imports the decoded frames through EGL, and pkg-config is how those headers are
-    # found (the module names are in share_linux.go).
+    # imports the decoded frames through EGL, and pkg-config is what finds those headers
+    # (the module names are in share_linux.go).
     nativeBuildInputs = [
       pkg-config
       makeWrapper
@@ -144,9 +145,9 @@ let
       libglvnd
     ];
 
-    # The package name is the directory's, and the binary the rest of the repository
-    # names is not. The rename comes before the wrapper so the wrapper is written
-    # against the final name.
+    # buildGoModule names the binary after its directory, and the rest of the repository
+    # names it screenshare-backend.
+    # The rename comes before the wrapper, so the wrapper is written against the final name.
     postInstall = ''
       mv $out/bin/backend $out/bin/screenshare-backend
 
@@ -174,10 +175,10 @@ let
 
     runtimeDeps = avaloniaRuntimeDeps;
 
-    # Grpc.Tools compiles api/proto during this build with prebuilt binaries from its
-    # NuGet package, which are linked against an interpreter this platform does not have.
-    # Naming the pair in the environment is the whole override, the same way the dev
-    # shell does it (flake.nix).
+    # Grpc.Tools compiles api/proto during this build with prebuilt binaries from its NuGet
+    # package, which are linked against an interpreter this platform does not have.
+    # Naming the two paths in the environment is the whole override, as the dev shell does
+    # it (flake.nix).
     nativeBuildInputs = [
       protobuf
       grpc
@@ -187,10 +188,9 @@ let
       gRPC_PluginFullPath = "${grpc}/bin/grpc_csharp_plugin";
     };
 
-    # The shell starts the backend when nothing answers on the control endpoint, looking
-    # beside its own assembly first and then on PATH. Beside finds nothing here, because
-    # the assemblies live under lib and the binaries under bin, so PATH is the whole of
-    # how the two halves meet in this package.
+    # The shell looks for the backend beside its own assembly first and then on PATH.
+    # Beside finds nothing here, since the assemblies live under lib and the binaries under
+    # bin, so PATH is the whole of how the two halves meet in this package.
     makeWrapperArgs = [
       "--prefix"
       "PATH"
@@ -210,9 +210,10 @@ symlinkJoin {
     shell
   ];
 
-  # Both binaries land in one bin directory, which is the layout the shell's own lookup
-  # expects, and the desktop entry is what a menu launch goes through. The entry is the
-  # one every Linux channel installs, so a menu shows the same app whichever built it.
+  # The join puts both binaries in one bin directory, which is the layout the shell's lookup
+  # expects.
+  # The desktop entry is what a menu launch goes through, and it is the one every Linux
+  # channel installs, so a menu shows the same app whichever built it.
   postBuild = ''
     install -Dm444 ${../packaging/linux/screen-sharing.desktop} \
       $out/share/applications/screen-sharing.desktop
@@ -226,8 +227,8 @@ symlinkJoin {
 
   passthru = {
     inherit backend shell;
-    # `nix run .#screen-sharing.fetch-deps -- nix/deps.json` rewrites the NuGet lock,
-    # which a changed PackageReference needs before this package builds again.
+    # A changed PackageReference needs the NuGet lock rewritten before this package builds
+    # again: `nix run .#screen-sharing.fetch-deps -- nix/deps.json`.
     inherit (shell) fetch-deps;
   };
 
@@ -236,8 +237,9 @@ symlinkJoin {
     homepage = "https://github.com/bjoern621/screen-sharing";
     mainProgram = "screenshare-avalonia";
     platforms = lib.platforms.linux;
-    # The project's own code. ffmpeg and GStreamer reach the wrapper from the closure
-    # under their own terms, which is what a dependency rather than a bundled copy means.
+    # The project's own code alone.
+    # ffmpeg and GStreamer reach the wrapper from the closure under their own terms, which
+    # is what a dependency rather than a bundled copy means.
     license = lib.licenses.asl20;
   };
 }

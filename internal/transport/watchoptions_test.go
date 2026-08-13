@@ -34,8 +34,8 @@ func TestWatchOptionsCarryTheSettingsValues(t *testing.T) {
 	}
 }
 
-// A transport with no watch form of its own declares no knobs, and neither does a name the registry
-// does not know.
+// A transport with nothing tunable on its watch leg declares no knobs, and neither does a name the
+// registry does not know.
 func TestWatchOptionsOfATransportWithout(t *testing.T) {
 	if got := WatchOptions("webrtc", watchSettings()); len(got) != 0 {
 		t.Errorf("webrtc options = %+v, want none", got)
@@ -61,8 +61,8 @@ func TestSetWatchOption(t *testing.T) {
 	}
 }
 
-// A refused value leaves the settings as they were: the caller is told, rather than the knob
-// quietly taking something else.
+// A refused value leaves the settings untouched: the caller is told, rather than the knob quietly
+// taking something else.
 func TestSetWatchOptionRefuses(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -94,8 +94,8 @@ func TestSetWatchOptionRefuses(t *testing.T) {
 	}
 }
 
-// Every option a transport declares can be written back, which is what the viewer does with the
-// values it read.
+// A viewer writes back the values it read, so every declared option round-trips through its own
+// parser.
 func TestEveryDeclaredOptionRoundTrips(t *testing.T) {
 	for _, name := range Names() {
 		s := watchSettings()

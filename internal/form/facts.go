@@ -12,21 +12,21 @@ import (
 // The facts one resolve is evaluated against: every axis the rule vocabulary declares,
 // read off the draft and off what this machine answered.
 //
-// It lives here because this is the layer that holds both, and the rules package holds neither on
-// purpose - it is what every domain package registers into, so it may import none of them.
-// The division is the same one the whole contract makes: the domain states what is true about a
-// combination, and the layer that knows the combination assembles it.
+// Assembled in this layer because it is the one holding both.
+// The rules package holds neither on purpose: it is what every domain package registers into,
+// so it may import none of them.
 //
-// Every declared axis is filled on every pass, including the ones no rule reads yet.
-// A rule that named an axis nobody answered would bind nothing and read on screen as a combination
-// the app allows, which is indistinguishable from one nobody constrained, so the evaluator asserts
-// rather than defaulting and this is the function that has to satisfy it.
+// Every declared axis is filled on every pass, including the ones no rule reads.
+// A rule naming an axis nobody answered would bind nothing,
+// and read on screen as a combination the app allows,
+// indistinguishable from one nobody constrained,
+// so the evaluator asserts rather than defaulting.
 
-// factsOf reads one draft into the vocabulary.
+// factsOf reads one draft into the rule vocabulary.
 //
 // A fact this machine cannot establish arrives empty rather than guessed.
-// An empty reading matches no rule that names a value, so an unstated fact withholds nothing,
-// which is the same answer availability gives for an engine it could not derive.
+// An empty reading matches no rule that names a value, so an unstated fact greys nothing,
+// which is the answer availability gives for an engine it could not derive.
 func factsOf(d Deps, s settings.Settings) rules.Facts {
 	codec, known := capabilities.Get(s.Publish.Codec)
 	family, format := "", ""
@@ -53,9 +53,8 @@ func factsOf(d Deps, s settings.Settings) rules.Facts {
 		rules.AxisCq:         rules.NumberValue(s.Publish.Cq),
 	}
 
-	// The vocabulary is the contract between this function and every rule there is,
-	// so a declared axis nobody filled fails here rather than at whichever resolve first evaluates a
-	// rule that names it.
+	// A declared axis nobody filled fails here,
+	// rather than at whichever resolve first evaluates a rule that names it.
 	for _, axis := range rules.Axes() {
 		_, ok := f[axis.Name]
 		assert.Assert(ok, "the facts answer every declared axis", axis.Name)
@@ -63,13 +62,13 @@ func factsOf(d Deps, s settings.Settings) rules.Facts {
 	return f
 }
 
-// factsEngineOf is the publish engine the selected capture backend runs, and the empty string for a
-// backend this app has no publisher for.
+// factsEngineOf is the publish engine behind the selected capture backend,
+// empty for a backend this app has no publisher for.
 //
-// It differs from optionEngineOf, which answers ffmpeg for an unknown backend so an option list has
-// something to be built against.
-// A fact may not be invented that way: an engine nobody established would bind every rule that
-// names ffmpeg and grey controls on a machine whose backend runs neither engine.
+// A fact may not be invented the way optionEngineOf invents one,
+// answering ffmpeg for an unknown backend so an option list has something to be built against.
+// An engine nobody established would bind every rule that names ffmpeg,
+// and grey controls on a machine whose backend runs neither engine.
 func factsEngineOf(s settings.Settings) string {
 	engine, err := publish.EngineFor(s.Publish.Capture)
 	if err != nil {
@@ -78,9 +77,9 @@ func factsEngineOf(s settings.Settings) string {
 	return engine
 }
 
-// verdictsOf is what the rules say about one draft.
-// It is the one entry point the form reads availability through, so a control's greying,
-// its notes and the ends it is offered between are three readings of one evaluation.
+// verdictsOf is what the rules say about one draft, evaluated per read and never held.
+// It is the one entry point the form reads availability through,
+// so a greying, a note and a numeric control's ends are three readings of one evaluation.
 func verdictsOf(d Deps, s settings.Settings) rules.Verdicts {
 	return rules.Evaluate(factsOf(d, s))
 }

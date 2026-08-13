@@ -8,16 +8,15 @@ import (
 )
 
 // Codes with no meaning beyond being valid.
-// What a rule states is checked by which identifiers ride with it, never by the wording,
-// which lives on the surface.
+// A statement is checked by the identifiers riding with it, never by wording, which lives on the
+// surface.
 const (
 	someReason  = screensharev1.TextCode_TEXT_CODE_CODEC_CANNOT_ENCODE_CHROMA
 	otherReason = screensharev1.TextCode_TEXT_CODE_CODEC_CODES_NO_RGB
 )
 
-// facts is a whole configuration, so a test says what it changes rather than what it carries.
-// Every declared axis is present, which is what the evaluator requires of a caller and what a
-// partial fixture would hide.
+// facts is a whole configuration, so a test states what it changes rather than what it carries.
+// Every declared axis is present, which is what the evaluator requires of a caller.
 func facts(over map[string]Value) Facts {
 	f := Facts{
 		AxisCapture:    TextValue("portal"),
@@ -42,8 +41,7 @@ func facts(over map[string]Value) Facts {
 	return f
 }
 
-// A rule naming one axis binds wherever that axis reads what it asks for, which is the broad end of
-// the range the old Gap could not reach past.
+// The broad end: one axis, and everything else free.
 func TestOneAxisBindsAcrossEverythingElse(t *testing.T) {
 	r := Rule{
 		When:    map[string]Match{AxisFormat: OneOf("vp8")},
@@ -61,16 +59,15 @@ func TestOneAxisBindsAcrossEverythingElse(t *testing.T) {
 		t.Error("a refusal of one value took another with it")
 	}
 
-	// Same rule, another codec of another format: nothing is taken.
+	// Same rule, another format: nothing is taken.
 	other := EvaluateRules(facts(map[string]Value{AxisFormat: TextValue("av1")}), []Rule{r})
 	if !other.ValueEnabled(AxisColorRange, "pc") {
 		t.Error("a rule bound on a format it does not name")
 	}
 }
 
-// The surgical end: a rule may name as many axes as the fact needs, and it binds on that exact
-// combination alone.
-// This is what "only this codec on this capture backend on this engine" is written as.
+// The surgical end: as many axes as the fact needs, binding on that combination alone.
+// "Only this codec on this capture backend on this engine" is written this way.
 func TestEveryNamedAxisHasToBind(t *testing.T) {
 	r := Rule{
 		When: map[string]Match{
@@ -105,7 +102,6 @@ func TestEveryNamedAxisHasToBind(t *testing.T) {
 	}
 }
 
-// A refusal naming no value takes the whole control, which is how a field is greyed.
 func TestRefusingNoValueTakesTheControl(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{{
 		When:    map[string]Match{AxisEngine: OneOf("gstreamer")},
@@ -125,9 +121,7 @@ func TestRefusingNoValueTakesTheControl(t *testing.T) {
 	}
 }
 
-// Every reason crosses.
-// A control two facts block is blocked by two facts, and which one a reader is shown is the shell's
-// judgement rather than a ranking made here.
+// Which of two blocking facts a reader is shown is the shell's judgement, not a ranking made here.
 func TestEveryMatchingReasonIsKept(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{
 		{
@@ -153,8 +147,7 @@ func TestEveryMatchingReasonIsKept(t *testing.T) {
 	}
 }
 
-// A numeric refusal narrows the ends the control is offered between, so the slider and the publish
-// cannot disagree about what the encoder takes.
+// The slider and the publish cannot disagree about what the encoder takes.
 func TestNumericRefusalNarrowsTheOfferedRange(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{{
 		When:    map[string]Match{AxisCodec: OneOf("libvpx")},
@@ -171,14 +164,12 @@ func TestNumericRefusalNarrowsTheOfferedRange(t *testing.T) {
 	if len(v.BoundReasons(AxisBitrateM)) != 1 {
 		t.Error("a narrowed range says why")
 	}
-	// A control nothing narrowed is offered what it was given.
+	// A control no band touched is offered what it was given.
 	if l, h := v.Bounds(AxisCq, 0, 63); l != 0 || h != 63 {
 		t.Errorf("an unconstrained range came back as %d-%d", l, h)
 	}
 }
 
-// Two bands narrow from both ends, which is the case a single ceiling column could not express at
-// all.
 func TestBandsNarrowFromBothEnds(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{
 		{
@@ -196,7 +187,6 @@ func TestBandsNarrowFromBothEnds(t *testing.T) {
 	}
 }
 
-// Notes go either way: about the control, or about one of its entries.
 func TestNotesRideOnControlsAndOnEntries(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{
 		{
@@ -218,7 +208,7 @@ func TestNotesRideOnControlsAndOnEntries(t *testing.T) {
 	if len(v.ValueNotes(AxisChroma, "gbrp")) != 0 {
 		t.Error("a note about one entry landed on another")
 	}
-	// A note never greys what it describes.
+	// A note greys nothing it describes.
 	if !v.Enabled(AxisBitrateM) || !v.ValueEnabled(AxisChroma, "yuv420p") {
 		t.Error("a note made a control inert")
 	}
@@ -237,8 +227,7 @@ func TestHidingTakesTheControlOffTheScreen(t *testing.T) {
 	}
 }
 
-// The reason carries the axes the rule matched on, in vocabulary order, plus the control and the
-// single value the verdict took.
+// The matched axes in vocabulary order, then the control and the single value taken.
 // That is what lets a row state a code alone.
 func TestReasonCarriesTheIdentifiersItIsAbout(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{{
@@ -278,8 +267,7 @@ func TestReasonCarriesTheIdentifiersItIsAbout(t *testing.T) {
 	}
 }
 
-// A rule refusing several entries names none of them in its statement: there is no one value to
-// point at, and which entries went is the control's own answer.
+// No one value to point at, and which entries went is the control's own answer.
 func TestSeveralValuesCarryNoSingleValueArgument(t *testing.T) {
 	v := EvaluateRules(facts(nil), []Rule{{
 		When:    map[string]Match{AxisEngine: OneOf("gstreamer")},
@@ -301,7 +289,6 @@ func TestSeveralValuesCarryNoSingleValueArgument(t *testing.T) {
 	}
 }
 
-// The facts have to carry every axis a rule names.
 // A rule that quietly bound nothing would read on screen as a combination the app allows.
 func TestAnAbsentFactIsABug(t *testing.T) {
 	defer func() {
@@ -402,8 +389,7 @@ func TestRegistrationRefusesAMalformedRule(t *testing.T) {
 	}
 }
 
-// Registering after the registry has been read would change what is legal underneath a form that
-// was already answered.
+// A late registration would change what is legal under a form that was already answered.
 func TestRegistrationClosesOnceEvaluated(t *testing.T) {
 	held := evaluated
 	defer func() {

@@ -6,23 +6,23 @@ using ScreenShare.App.Features.Shell.Model;
 namespace ScreenShare.App.Features.Setup.ScreenPicker.View;
 
 /// <summary>
-/// Markup, and the fact the markup cannot state: whether this grid is being looked at.
+/// Markup, and the one fact the markup cannot state: whether this grid is being looked at.
 ///
-/// <b>What the answer decides here is more than a subscription.</b> The broadcast preview's pictures come off
-/// a pipeline the publish already runs; these come off screen captures the backend opens because this grid
-/// asked for them, one per monitor.
+/// The answer decides more than a subscription here.
+/// These pictures come off screen captures the backend opened because this grid asked, one per monitor, where
+/// the broadcast preview's come off a pipeline the publish already runs.
 /// So a grid nobody is looking at stops reading the screens rather than merely stopping drawing them
 /// (<see cref="ScreenPickerViewModel"/>).
 ///
-/// Nothing here sets a widget property and nothing here reads one.
-/// It writes one input of the view model and lets the render function decide what it means.
+/// Nothing here sets or reads a widget property: it writes one input of the view model and leaves the render
+/// function to decide what that means.
 /// </summary>
 public sealed partial class ScreenPickerView : UserControl
 {
     /// <summary>
     /// Whether the grid is on screen in a window that is in front.
-    /// Both halves are facts only a control and the platform can answer, and neither is this screen's own, so
-    /// the answer is worked out in the shell (<see cref="ShowingWatch"/>).
+    /// Both halves are facts only a control and the platform can answer, so the answer is worked out in the
+    /// shell (<see cref="ShowingWatch"/>).
     /// </summary>
     private readonly ShowingWatch _showing;
 
@@ -55,8 +55,8 @@ public sealed partial class ScreenPickerView : UserControl
 
     /// <summary>
     /// Tells the grid whether it is being looked at.
-    /// Idempotent: the write it makes is idempotent itself, so a data context that changed without the tree
-    /// or the window moving reports the same fact again and converges to the same world.
+    /// Idempotent, the write it makes being idempotent itself, so a data context that changed without the
+    /// tree or the window moving reports the same fact again and converges to the same world.
     /// </summary>
     private void Tell(bool showing)
     {

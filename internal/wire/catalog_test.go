@@ -14,10 +14,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// catalogInput is a machine the tests can describe: one monitor, a platform,
-// and a probe that answered one engine and could not be asked about the other.
-// The fixed tables are the process's own and are not part of it, which is the split CatalogInput
-// exists to make.
+// catalogInput describes a machine: one monitor, a platform, and a probe that answered one engine
+// and could not be asked about the other.
+// The fixed tables are the process's own and stay out of it, which is the split CatalogInput makes.
 func catalogInput() CatalogInput {
 	return CatalogInput{
 		Platform: platform.Info{OS: "linux", Display: "wayland"},
@@ -35,7 +34,7 @@ func catalogInput() CatalogInput {
 	}
 }
 
-// engineSpelling reads a wire engine back to the name the Go tables use, so a test can compare a
+// engineSpelling reads a wire engine back to the name the Go tables use, so a test compares a
 // converted row against the table it came from without restating the mapping.
 func engineSpelling(t *testing.T, e screensharev1.Engine) string {
 	t.Helper()
@@ -48,7 +47,7 @@ func engineSpelling(t *testing.T, e screensharev1.Engine) string {
 	return ""
 }
 
-// legSpelling is the same for a carriage row's leg.
+// legSpelling is that again for a carriage row's leg.
 func legSpelling(t *testing.T, l screensharev1.Leg) string {
 	t.Helper()
 	for name, v := range legs {
@@ -62,8 +61,8 @@ func legSpelling(t *testing.T, l screensharev1.Leg) string {
 
 // The catalog is the reference set a shell explains a decision from, so a codec the table declares
 // and the message omits is a codec no shell can name.
-// Every row crosses, including the ones marked unimplemented: such a row exists so the table can
-// state why the codec is absent, and dropping it here would remove the explanation with it.
+// Every row crosses, the unimplemented ones included: such a row exists so the table can state why
+// the codec is absent, and dropping it here would drop the explanation with it.
 func TestEveryDeclaredCodecReachesTheMessage(t *testing.T) {
 	got := Catalog(catalogInput()).GetCodecs()
 
@@ -90,10 +89,10 @@ func TestEveryDeclaredCodecReachesTheMessage(t *testing.T) {
 		if len(row.GetGaps()) != len(want.Gaps) {
 			t.Errorf("%s crosses with %d gaps, the table declares %d", want.Name, len(row.GetGaps()), len(want.Gaps))
 		}
-		// The two per-engine columns are one row per engine on the wire, so each is looked up by the enum
-		// the row carries rather than by the name that keyed the map.
-		// An engine the table bounds and the row omits reads as an absent limit, which is exactly what
-		// the message means by one, so both halves are checked for presence and not only for value.
+		// The per-engine columns are one row per engine on the wire, so each is looked up by the enum the
+		// row carries rather than by the name that keyed the map.
+		// An engine the table bounds and the row omits reads as an absent limit, which is what the
+		// message means by one, so presence is checked and not only value.
 		for engine, want_ := range want.CqMax {
 			limit := engineLimitOf(row, engineEnum(engine))
 			if limit == nil || limit.GetCqMax() != int32(want_) {
@@ -109,8 +108,7 @@ func TestEveryDeclaredCodecReachesTheMessage(t *testing.T) {
 	}
 }
 
-// engineLimitOf finds one engine's row of numeric ceilings, nil where the codec is bounded by
-// nothing on that engine.
+// engineLimitOf is one engine's row of numeric ceilings, nil where nothing bounds the codec there.
 func engineLimitOf(row *screensharev1.VideoCodec, engine screensharev1.Engine) *screensharev1.EngineLimit {
 	for _, limit := range row.GetLimits() {
 		if limit.GetEngine() == engine {
@@ -122,8 +120,8 @@ func engineLimitOf(row *screensharev1.VideoCodec, engine screensharev1.Engine) *
 
 // A capture backend the registry runs and the catalog omits is a screen source no shell can offer,
 // so every row crosses with the engine that runs it and the publish legs that engine carries.
-// Those two are read through the registry rather than restated, which is what keeps the catalog and
-// the publish path naming the same set.
+// Both are read through the registry rather than restated, which keeps the catalog and the publish
+// path naming one set.
 func TestEveryCaptureBackendReachesTheMessage(t *testing.T) {
 	got := Catalog(catalogInput()).GetCaptures()
 	want := publish.Captures()
@@ -155,8 +153,8 @@ func TestEveryCaptureBackendReachesTheMessage(t *testing.T) {
 }
 
 // One row per (transport, leg, engine) that exists, and none for a leg an engine cannot serialize.
-// A row for an absent leg would offer a shell a combination the registry has no code to build,
-// and a missing row would hide a leg that works.
+// A row for an absent leg offers a shell a combination the registry has no code to build; a missing
+// row hides a leg that works.
 func TestEveryStatedCarriageReachesTheMessage(t *testing.T) {
 	type row struct{ name, leg, engine string }
 
@@ -192,10 +190,10 @@ func TestEveryStatedCarriageReachesTheMessage(t *testing.T) {
 	}
 }
 
-// A gap and the control it greys are the same identifier on both sides of the wire,
-// and the two sides spell one option differently: the capability table names it by the Go JSON tag
-// settings.Settings carries, a form control by the proto field name.
-// The normalization happens once, in this package, so a shell that receives a gap can grey the
+// A gap and the control it greys are the same identifier on both sides of the wire, and the two
+// sides spell one option differently: the capability table by the Go JSON tag settings.Settings
+// carries, a form control by the proto field name.
+// The normalization happens once, in this package, so a shell that receives a gap greys the
 // matching control with no mapping of its own.
 func TestAGapNamesTheControlItGreys(t *testing.T) {
 	declared := 0
@@ -227,7 +225,7 @@ func TestAGapNamesTheControlItGreys(t *testing.T) {
 		t.Errorf("%d colour-range gaps declared, %d arrived as color_range", declared, normalized)
 	}
 
-	// The list and the gaps have to agree, or a shell would hold an option name no gap ever points at.
+	// The list and the gaps have to agree, or a shell holds an option name no gap points at.
 	if !slices.Contains(catalog.GetCapabilityOptions(), "color_range") {
 		t.Errorf("capability_options = %v, want the same spelling the gaps arrive in",
 			catalog.GetCapabilityOptions())
@@ -240,8 +238,8 @@ func TestAGapNamesTheControlItGreys(t *testing.T) {
 
 // A gap naming no engine binds on every one: the format or the library has no such capability,
 // rather than one builder failing to reach it.
-// It crosses as ENGINE_ANY and never as ENGINE_UNSPECIFIED, so that the strongest claim the message
-// can make is a value somebody chose rather than the value a dropped field leaves behind.
+// It crosses as ENGINE_ANY and never as ENGINE_UNSPECIFIED, so the strongest claim the message can
+// make is a value somebody chose rather than the one a dropped field leaves behind.
 func TestAGapOnEveryEngineNamesEveryEngine(t *testing.T) {
 	declared := map[string]int{}
 	for _, c := range capabilities.Codecs {
@@ -269,8 +267,7 @@ func TestAGapOnEveryEngineNamesEveryEngine(t *testing.T) {
 	}
 }
 
-// engineProbeOf finds one engine's probe row, nil where the probe has not reached that engine at
-// all.
+// engineProbeOf is one engine's probe row, nil where the probe has not reached that engine at all.
 func engineProbeOf(got *screensharev1.EncoderAvailability, engine screensharev1.Engine) *screensharev1.EngineProbe {
 	for _, row := range got.GetEngines() {
 		if row.GetEngine() == engine {
@@ -280,13 +277,12 @@ func engineProbeOf(got *screensharev1.EncoderAvailability, engine screensharev1.
 	return nil
 }
 
-// An engine that could not be probed is not an engine with nothing usable,
-// and a form must not present it as one: the first is a missing ffmpeg or a missing GStreamer
-// registry, which no choice of codec repairs, and the second is a machine without the hardware,
-// which another codec may well reach.
+// An engine that could not be probed is not an engine with nothing usable, and a form must not
+// present it as one: the first is a missing ffmpeg or a missing GStreamer registry, which no choice
+// of codec repairs, the second a machine without the hardware, which another codec may well reach.
 //
-// The two are the arms of one oneof rather than two parallel maps, so a row that stated both is no
-// longer a value this test has to rule out - it is a value that cannot be built.
+// The two are arms of one oneof rather than parallel maps, so a row stating both is not a value
+// this test rules out but one that cannot be built.
 // What is left to check is that each engine took the arm its probe result calls for.
 func TestAnUnprobedEngineIsNotAnEmptyOne(t *testing.T) {
 	in := catalogInput()
@@ -325,8 +321,8 @@ func TestAnUnprobedEngineIsNotAnEmptyOne(t *testing.T) {
 // The browser legs are their own roster and cross as their own field.
 // They are not the players': no player opens WHEP, and one list serving both would have to be the
 // narrower of the two, which takes a leg away from the reader that can run it.
-// Every one of them states a browser carriage, which is what holds the list and the rows the shell
-// would explain it with to each other.
+// Every one of them states a browser carriage, which holds the list and the rows a shell would
+// explain it with to each other.
 func TestTheBrowserLegsAreTheOnesWithAPage(t *testing.T) {
 	catalog := Catalog(catalogInput())
 
@@ -348,8 +344,8 @@ func TestTheBrowserLegsAreTheOnesWithAPage(t *testing.T) {
 
 // The relay re-serves a stream on the listeners whose protocol has a mapping for its format and on
 // no others, so the per-format lists narrow the watch roster rather than repeating it.
-// Repeating it would put a viewer in front of a stream its protocol cannot carry,
-// and the failure would read as a broken stream.
+// Repeating it puts a viewer in front of a stream its protocol cannot carry, where the failure
+// reads as a broken stream.
 func TestWatchTransportsNarrowPerFormat(t *testing.T) {
 	catalog := Catalog(catalogInput())
 	all := catalog.GetWatchTransports()
@@ -382,15 +378,14 @@ func TestWatchTransportsNarrowPerFormat(t *testing.T) {
 	}
 }
 
-// The second-track sources cross as what this machine serves, which is the field's whole claim:
-// a shell reading them is reading what the platform has, and a source it has not is not something
-// the machine offers under a flag nobody can see.
+// The second-track sources cross as what this machine serves, which is the field's whole claim: a
+// shell reading them reads what the platform has, not what it offers under a flag nobody can see.
 //
 // The reason a source is out of reach is deliberately absent here and arrives on the form's option
 // instead, so a machine serving fewer sources is a shorter list here and the same list greyed
 // there.
-// Both are read off platform.AudioSources, which is what keeps the two from disagreeing about which
-// sources exist.
+// Both are read off platform.AudioSources, which keeps the two from disagreeing about which sources
+// exist.
 func TestAudioSourcesAreTheOnesThisMachineServes(t *testing.T) {
 	for _, p := range []platform.Info{
 		{OS: "linux", Display: "wayland"}, {OS: "windows"}, {OS: "darwin"}, {OS: "plan9"},
@@ -416,9 +411,9 @@ func TestAudioSourcesAreTheOnesThisMachineServes(t *testing.T) {
 }
 
 // The one source difference the table states, read back off the wire: a Linux session serves what
-// the machine plays and the other two have nothing either publish engine can open,
-// so the field is one entry longer there.
-// A catalog that carried the same list everywhere would be the hardcoded slice this table replaced.
+// the machine plays and the others have nothing either publish engine can open, so the field is one
+// entry longer there.
+// A catalog carrying the same list everywhere would be the hardcoded slice this table replaced.
 func TestAudioSourcesDifferByPlatform(t *testing.T) {
 	linux := catalogInput()
 	linux.Platform = platform.Info{OS: "linux", Display: "wayland"}
@@ -435,7 +430,7 @@ func TestAudioSourcesDifferByPlatform(t *testing.T) {
 	}
 }
 
-// The tables are the process's and a message is the caller's, so a slice that crossed has to be the
+// The tables are the process's and a message is the caller's, so a slice that crossed is the
 // caller's to hold.
 // Handing out the table's own backing array would let a consumer that edits a message edit the
 // domain model with it.

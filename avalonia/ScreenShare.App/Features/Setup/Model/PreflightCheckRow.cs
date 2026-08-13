@@ -5,11 +5,8 @@ using ScreenShare.App.Controls;
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// One line of the pre-publish list as the rail and the review render it.
-/// A record, so a render pass over an unchanged list compares equal and leaves the bound collection alone.
-///
-/// <see cref="FixedInStep"/> is what stops an unresolved line from being a dead end: it names the step that
-/// owns the control at fault instead of leaving the reader to hunt for it.
+/// One line of the pre-publish list, as the rail and the review draw it.
+/// A record, so a pass over an unchanged list compares equal and leaves the bound collection alone.
 /// </summary>
 public sealed record PreflightCheckRow
 {
@@ -17,32 +14,31 @@ public sealed record PreflightCheckRow
 
     public required CheckState State { get; init; }
 
-    /// <summary>The step that owns the control this is about, empty where the form named no field.</summary>
+    /// <summary>
+    /// Step owning the control at fault, so an unresolved line is not a dead end.
+    /// Empty where the form named no field.
+    /// </summary>
     public required string FixedInStep { get; init; }
 
     public bool IsResolved => State == CheckState.Passed;
 }
 
 /// <summary>
-/// The list, built from what the form said about the settings as a whole.
+/// The list, built from the diagnostics the form carried.
+/// Every word comes from <c>Copy/</c>, keyed on the statement code the backend sent.
+/// The ranking is the form's.
 ///
-/// <b>It was two seeded tables and is now neither.</b> The form already answers this question
-/// - a diagnostic is one thing worth saying about the settings, ranked by what it costs to
-/// ignore - and the seeded lists were a second, fictional answer sitting beside the real one
-/// while the real one was printed under the form as loose panels. Both moved here.
-///
-/// The one thing this side decides is where a diagnostic is anchored: the contract carries the field key it
-/// is about, and which step holds that field is placement, which is the shell's (docs/ipc-api.md, "The
-/// rule").
+/// The one thing decided here is where a line is anchored: the contract names the field a diagnostic is
+/// about, and which step holds that field is placement (docs/ipc-api.md, "The rule").
 /// </summary>
 public static class PreflightChecks
 {
     /// <summary>
-    /// The diagnostics as lines, ranked as the form ranked them.
+    /// The diagnostics as lines, in the order the form ranked them.
     /// </summary>
     /// <param name="stepOf">
-    /// Names the step that owns one field key, and answers empty for a key no step holds and for the
-    /// diagnostics that are about the combination rather than any single field.
+    /// Names the step owning one field key.
+    /// Answers empty for a key no step holds, and for a diagnostic about the combination rather than a field.
     /// </param>
     public static IReadOnlyList<PreflightCheckRow> Of(
         IReadOnlyList<Diagnostic> diagnostics, Func<string, string> stepOf)
@@ -67,8 +63,8 @@ public static class PreflightChecks
 
     /// <summary>
     /// What the list says when the form found nothing to say.
-    /// A line rather than an empty panel: "nothing is wrong" is an answer the reader wants, and a card that
-    /// vanishes when the last warning clears reads as a card that broke.
+    /// A line rather than an empty panel: a card that vanishes with the last warning reads as a card that
+    /// broke.
     /// </summary>
     public static readonly PreflightCheckRow Clear = new()
     {
@@ -78,9 +74,8 @@ public static class PreflightChecks
     };
 
     /// <summary>
-    /// The severity as the list draws it.
-    /// Exhaustive, so a severity added to the contract fails here rather than rendering as whatever the
-    /// default happened to be.
+    /// Exhaustive, so a severity added to the contract fails here rather than taking whatever a default arm
+    /// would give it.
     /// </summary>
     private static CheckState StateOf(Severity severity) => severity switch
     {
@@ -91,8 +86,8 @@ public static class PreflightChecks
     };
 
     /// <summary>
-    /// The one line a chip can say about the whole list.
-    /// Derived rather than stored, so the strip cannot claim two things are owed while the list shows none.
+    /// One line about the whole list: "2 blocking", "1 to know about", "nothing to fix".
+    /// Derived rather than stored, so the strip cannot claim something is owed while the list shows none.
     /// </summary>
     public static string SummaryOf(IReadOnlyList<PreflightCheckRow> checks)
     {

@@ -6,10 +6,9 @@
 
 // The screen-sharing control plane, version 1.
 //
-// Everything a shell needs in order to draw the product and to act on it crosses
-// this package. A shell holds no domain knowledge of its own: it draws what these
-// messages describe and calls the methods control.proto declares. See
-// docs/ipc-api.md for the boundary rule and the reasoning behind it.
+// Everything a shell needs to draw the product and to act on it crosses this package.
+// A shell holds no domain knowledge of its own: it draws what these messages describe and
+// calls the methods control.proto declares (docs/ipc-api.md).
 
 package screensharev1
 
@@ -28,21 +27,18 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Settings is every user-controllable aspect of the product, in the three groups it
-// divides into, and it is the only settings shape on the wire: the same message is
-// read back, edited, resolved into a form and saved.
+// Settings is every user-controllable aspect of the product, and the only settings shape on
+// the wire: the same message is read back, edited, resolved into a form and saved.
 //
-// The three are separate messages because they answer to different things and change
-// at different times. Where the relay is is one machine's deployment; what this
-// machine publishes is one publisher's choice; how this machine watches is one
-// viewer's, and a viewer that publishes nothing still has all of it. Flattened into
-// one message, every consumer had to know which of the three a field belonged to and
-// nothing said so.
+// Three groups because they answer to different owners: the relay's address is one machine's
+// deployment, what this machine publishes is one publisher's choice, and how it watches is one
+// viewer's.
 //
-// A shell never constructs one of these from nothing. It receives a draft from
-// GetSettings or from a preset, changes the one field the user moved, and sends the
-// whole message back. Which values each field may take is not encoded here on
-// purpose: it depends on the other fields, and Form is where that answer lives.
+// A shell never constructs one from nothing.
+// It takes a draft from GetSettings or from a preset, changes the field the user moved, and
+// sends the whole message back.
+// Which values a field may take is not encoded here: it depends on the other fields, and Form
+// is where that answer lives.
 type Settings struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Relay         *RelaySettings         `protobuf:"bytes,1,opt,name=relay,proto3" json:"relay,omitempty"`
@@ -105,51 +101,42 @@ func (x *Settings) GetViewer() *ViewerSettings {
 
 // RelaySettings is where the relay is and which of its listeners are on which port.
 //
-// One host and one port per protocol, because the relay serves each on its own. Every
-// port here is a port on the relay, so none of them names the protocol twice.
+// One host and one port per protocol, because the relay serves each on its own.
 type RelaySettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Host  string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
-	// srt_port is the UDP port of the relay's SRT listener.
+	// UDP port of the relay's SRT listener.
 	SrtPort int32 `protobuf:"varint,2,opt,name=srt_port,json=srtPort,proto3" json:"srt_port,omitempty"`
-	// api_port is the TCP port of the relay's HTTP API, which the live snapshot reads.
+	// TCP port of the relay's HTTP API, which the live snapshot reads.
 	ApiPort    int32 `protobuf:"varint,3,opt,name=api_port,json=apiPort,proto3" json:"api_port,omitempty"`
 	RtspPort   int32 `protobuf:"varint,4,opt,name=rtsp_port,json=rtspPort,proto3" json:"rtsp_port,omitempty"`
 	WebrtcPort int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
 	RtmpPort   int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
 	HlsPort    int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
-	// tls says the relay's HTTP legs are reached through a TLS reverse proxy rather than
-	// directly.
+	// The relay's HTTP legs are reached through a TLS reverse proxy rather than directly.
 	//
-	// One flag rather than a scheme per listener, because the proxy is one deployment
-	// decision: it terminates for the relay and for the group service alike, under one name
-	// on the standard port, so the ports above are the direct listeners' and are not part of
-	// any address while this is set.
-	//
-	// It is also what says a group service can be reached at all, since that service answers
-	// on the same name: a relay with no proxy in front of it has nowhere to trade a group key
-	// for a relay token, and the app does not invent a port to look on.
+	// One flag rather than a scheme per listener: the proxy terminates for the relay and for the
+	// group service alike, under one name on the standard port, so the ports above name direct
+	// listeners that are part of no address while this is set.
+	// It is also what says a group service can be reached at all, since a relay with no proxy in
+	// front of it has nowhere to trade a group key for a relay token.
 	Tls bool `protobuf:"varint,10,opt,name=tls,proto3" json:"tls,omitempty"`
-	// group_key is the secret whose possession is membership of a group, as the key
-	// service handed it over. Empty is a machine that has joined none.
+	// The secret whose possession is membership of a group, as the key service handed it over.
+	// Empty is a machine that has joined none.
 	//
-	// A group is a path prefix, so this decides where every stream of this machine lives
-	// on that relay: the relay's own per-path permissions then do the enforcing, and
-	// "which streams may I see" is a string match rather than a query its API cannot
-	// answer.
-	//
-	// It sits with the relay and not with the publish because it is a property of that
-	// deployment rather than of any one stream, which is also what keeps a saved preset
-	// from carrying one: applying a preset must not move a machine between groups.
+	// A group is a path prefix, so this decides where every stream of this machine lives on that
+	// relay, and the relay's own per-path permissions do the enforcing.
+	// It sits with the relay rather than with the publish because it is a property of that
+	// deployment, which is what keeps a preset from carrying one: applying a preset must not move
+	// a machine between groups.
 	GroupKey string `protobuf:"bytes,8,opt,name=group_key,json=groupKey,proto3" json:"group_key,omitempty"`
-	// srt_passphrase keys the relay-wide SRT listener, and is empty for a relay that takes
-	// none.
+	// Keys the relay-wide SRT listener, and empty for a relay that takes none.
 	//
-	// SRT is the one leg no reverse proxy can wrap - it is UDP with no TLS - so what
-	// protects the packets on the wire is a passphrase both ends hold. The relay takes one
-	// value for every path, so this is one setting rather than one per stream, and it
-	// protects a different thing from the key above: that one decides which streams a member
-	// reaches, and this whether the packets are readable at all.
+	// SRT is UDP with no TLS, so no reverse proxy wraps it and what protects the packets on the
+	// wire is a passphrase both ends hold.
+	// The relay takes one value for every path, so this is one setting rather than one per
+	// stream, and it protects a different thing from the key above: that one decides which
+	// streams a member reaches, this whether the packets are readable at all.
 	SrtPassphrase string `protobuf:"bytes,9,opt,name=srt_passphrase,json=srtPassphrase,proto3" json:"srt_passphrase,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -255,123 +242,99 @@ func (x *RelaySettings) GetSrtPassphrase() string {
 	return ""
 }
 
-// PublishSettings is what this machine sends to the relay and how it is encoded. A
-// preset is one of these and nothing else: what a saved configuration means is a way
-// of publishing, and neither where the relay is nor how this machine watches is part
-// of it.
+// PublishSettings is what this machine sends to the relay and how it is encoded.
+// A preset is one of these and nothing else: neither where the relay is nor how this machine
+// watches is part of a saved configuration.
 type PublishSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// name is the stream's path on the relay, which is what a viewer asks for.
+	// The stream's path on the relay, which is what a viewer asks for.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// publish_transport is the publish leg, publisher to relay, keyed as the transport
-	// registry names it ("srt", "rtsp", "rtmp", "webrtc", ...).
+	// The publish leg, publisher to relay, keyed as the transport registry names it: "srt",
+	// "rtsp", "rtmp", "webrtc".
 	PublishTransport string `protobuf:"bytes,10,opt,name=publish_transport,json=publishTransport,proto3" json:"publish_transport,omitempty"`
-	// codec is an encoder name, a row of the codec table in catalog.proto.
+	// An encoder name, a row of the codec table in catalog.proto.
 	Codec string `protobuf:"bytes,11,opt,name=codec,proto3" json:"codec,omitempty"`
-	// mode is the rate control: cbr, vbr, abr, crf or lossless.
+	// Rate control: cbr, vbr, abr, crf or lossless.
 	Mode string `protobuf:"bytes,12,opt,name=mode,proto3" json:"mode,omitempty"`
-	// chroma is the pixel format: gbrp, yuv444p, yuv422p, yuv420p, p010le.
+	// Pixel format: gbrp, yuv444p, yuv422p, yuv420p, p010le.
 	Chroma string `protobuf:"bytes,13,opt,name=chroma,proto3" json:"chroma,omitempty"`
-	// color_range is pc or tv, and is ignored for gbrp, which is full range by
-	// construction.
+	// pc or tv, ignored for gbrp, which is full range by construction.
 	ColorRange string `protobuf:"bytes,14,opt,name=color_range,json=colorRange,proto3" json:"color_range,omitempty"`
 	Fps        int32  `protobuf:"varint,15,opt,name=fps,proto3" json:"fps,omitempty"`
-	// cq is the constant-quality target crf mode aims at. Lower keeps more detail,
-	// and the scale it counts on is the codec's, so the ceiling is a per-codec fact
-	// the catalog carries rather than a constant.
+	// The constant-quality target crf mode aims at.
+	// Lower keeps more detail, and the scale it counts on is the codec's, so the ceiling is a
+	// per-codec fact the catalog carries rather than a constant.
 	Cq int32 `protobuf:"varint,16,opt,name=cq,proto3" json:"cq,omitempty"`
-	// bitrate_mbps is the target the three bitrate modes aim at, maxrate_mbps the
-	// burst ceiling vbr may rise to above it.
+	// bitrate_mbps is the target the three bitrate modes aim at, maxrate_mbps the burst ceiling
+	// vbr may rise to above it.
 	BitrateMbps int32 `protobuf:"varint,17,opt,name=bitrate_mbps,json=bitrateMbps,proto3" json:"bitrate_mbps,omitempty"`
 	MaxrateMbps int32 `protobuf:"varint,18,opt,name=maxrate_mbps,json=maxrateMbps,proto3" json:"maxrate_mbps,omitempty"`
-	// vbv_ms sizes the rate buffer for cbr and vbr. Zero means the encoder's own
-	// default rather than no buffer.
+	// Sizes the rate buffer for cbr and vbr, in milliseconds.
+	// Zero is the encoder's own default rather than no buffer.
 	VbvMs int32 `protobuf:"varint,19,opt,name=vbv_ms,json=vbvMs,proto3" json:"vbv_ms,omitempty"`
-	// gop is the keyframe interval in frames. Zero means auto, which every builder
-	// reads as twice the frame rate.
+	// The keyframe interval in frames.
+	// Zero is auto, which every builder reads as twice the frame rate.
 	Gop int32 `protobuf:"varint,20,opt,name=gop,proto3" json:"gop,omitempty"`
-	// bframes is the reorder depth, lossy modes only. It buys compression with
-	// latency, which is why it is a field and not a preset property.
+	// The reorder depth, lossy modes only.
+	// Buys compression with latency.
 	Bframes int32 `protobuf:"varint,21,opt,name=bframes,proto3" json:"bframes,omitempty"`
-	// effort is the step this encoder works at on its own speed-against-quality ladder,
-	// and tune is what it optimizes for. Both are the encoder's own identifiers - x264's
-	// "slow", SVT-AV1's "9", NVENC's "p7" - rather than a scale normalized across codecs,
-	// because a normalized number would mean a different real setting on every encoder and
-	// would move the user's choice when they change codec.
-	//
-	// They are two fields because they answer two questions. Effort is how hard the
-	// encoder works; tune is what it works towards, and a live encode drops the lookahead
-	// and the reordering a quality one keeps whatever effort it spends. An encoder with no
-	// such ladder greys the control rather than ignoring a value, so a step here always
-	// reached an encoder that read it.
+	// effort is the step this encoder works at on its own speed-against-quality ladder, and tune
+	// what it optimizes for.
+	// Both take the encoder's own identifiers, x264's "slow", SVT-AV1's "9", NVENC's "p7", never
+	// a scale normalized across codecs, which would move the user's choice on a codec change.
+	// Two fields because a live encode drops the lookahead and the reordering a quality one
+	// keeps, whatever effort it spends.
+	// An encoder with no such ladder greys the control rather than ignoring a value.
 	Effort string `protobuf:"bytes,22,opt,name=effort,proto3" json:"effort,omitempty"`
 	Tune   string `protobuf:"bytes,39,opt,name=tune,proto3" json:"tune,omitempty"`
-	// capture is the capture backend, a row of the capture list in catalog.proto. It
-	// decides the publish engine, which is why so many other fields' availability
-	// hangs off it.
+	// The capture backend, a row of the capture list in catalog.proto.
+	// It decides the publish engine, which many other fields' availability hangs off.
 	Capture string `protobuf:"bytes,23,opt,name=capture,proto3" json:"capture,omitempty"`
-	// audio_sources are what the second track is mixed from, in the order a form draws
-	// them. An empty list is a stream with no second track.
+	// What the second track is mixed from, in the order a form draws them.
+	// An empty list is a stream with no second track.
 	//
-	// A list rather than one source because a screen share is normally several: what the
-	// machine is playing, and whoever is talking over it. They mix into one track, which
-	// is carriage rather than preference - RTMP carries one audio track, and the relay
-	// re-serves every ingest on all of its listeners, so a two-track stream would be
-	// unplayable on the narrowest leg while the form said it published.
+	// The entries mix into one track, which is carriage rather than preference: RTMP carries one
+	// audio track and the relay re-serves every ingest on all of its listeners, so a two-track
+	// stream would be unplayable on the narrowest leg while the form said it published.
 	//
-	// Which kinds exist is the platform's question (catalog.proto, audio_sources); which
-	// codec the mixed track is coded in is the engine's and the publish leg's, and is the
-	// field below.
+	// Which kinds exist is the platform's question (catalog.proto, audio_sources); which codec
+	// the mixed track is coded in is audio_codec below.
 	AudioSources []*AudioSource `protobuf:"bytes,40,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
 	AudioCodec   string         `protobuf:"bytes,25,opt,name=audio_codec,json=audioCodec,proto3" json:"audio_codec,omitempty"`
-	// drm_map is the kmsgrab DRM download strategy: auto, vaapi, vulkan or none. It
-	// is a knob of the kmsgrab scanout path and of nothing else, so the form hides it
-	// rather than greying it under every other backend.
+	// The kmsgrab DRM download strategy: auto, vaapi, vulkan or none.
+	// A knob of the kmsgrab scanout path and of nothing else, so the form hides it rather than
+	// greying it under every other backend.
 	DrmMap string `protobuf:"bytes,26,opt,name=drm_map,json=drmMap,proto3" json:"drm_map,omitempty"`
-	// monitor is the display output to capture, as the index the monitor list carries.
+	// The display output to capture, as the index the monitor list carries.
 	Monitor int32 `protobuf:"varint,27,opt,name=monitor,proto3" json:"monitor,omitempty"`
-	// capture_memory is where the frames reach the encoder: auto, gpu,
-	// gpu-encoder-color or system. Which of them a selection may take is decided by
-	// the capture backend and the encoder family together, which is the one
-	// constraint neither end declares alone.
+	// Where the frames reach the encoder: auto, gpu, gpu-encoder-color or system.
+	// Which of them a selection may take is decided by the capture backend and the encoder
+	// family together, which is the one constraint neither end declares alone.
 	CaptureMemory string `protobuf:"bytes,28,opt,name=capture_memory,json=captureMemory,proto3" json:"capture_memory,omitempty"`
-	// srt_publish_latency_ms is this leg's SRT retransmit window. The watch leg has its
-	// own (ViewerSettings), and glass-to-glass delay is the sum of the two plus encode
-	// and decode: the two hops are independent SRT links, each holding packets for its
-	// own window.
+	// This leg's SRT retransmit window.
+	// The watch leg has its own (ViewerSettings), and glass-to-glass delay is the sum of the two
+	// plus encode and decode: the two hops are independent SRT links, each holding packets for
+	// its own window.
 	SrtPublishLatencyMs int32 `protobuf:"varint,29,opt,name=srt_publish_latency_ms,json=srtPublishLatencyMs,proto3" json:"srt_publish_latency_ms,omitempty"`
-	// rtsp_publish_protocol is the RTP lower transport of this leg: "tcp" interleaves
-	// every track over the connection the session already holds, "udp" negotiates a port
-	// pair per track. The watch leg names its own, because the two cross different
-	// networks and it is the network that decides whether a port pair survives.
-	//
-	// Both legs keep the leg in the field name even though the message they sit in now
-	// says it. The pair is read as a pair wherever the two are compared, and a reader
-	// holding "publish.rtsp_protocol" beside "viewer.rtsp_protocol" has to carry the
-	// group along to keep them apart.
+	// The RTP lower transport of this leg: "tcp" interleaves every track over the connection the
+	// session already holds, "udp" negotiates a port pair per track.
+	// The watch leg names its own, because the two cross different networks and it is the network
+	// that decides whether a port pair survives.
 	RtspPublishProtocol string `protobuf:"bytes,31,opt,name=rtsp_publish_protocol,json=rtspPublishProtocol,proto3" json:"rtsp_publish_protocol,omitempty"`
-	// uplink_mbps is the upload capacity the user says this machine has. Nothing is
-	// enforced against it; it is what the warnings in Form.summary are weighed
+	// The upload capacity the user says this machine has.
+	// Nothing is enforced against it: it is what the warnings in Form.summary are weighed
 	// against, and MeasureUplink replaces the guess with a measurement.
 	UplinkMbps int32 `protobuf:"varint,34,opt,name=uplink_mbps,json=uplinkMbps,proto3" json:"uplink_mbps,omitempty"`
-	// output_resolution is the picture the encoder is fed, as "WIDTHxHEIGHT", and the
-	// empty string where the capture's own size reaches the encoder unscaled.
-	//
-	// One compound field rather than a width and a height, because the user picks one
-	// thing: two fields would be two controls that are only ever legal in pairs, and a
-	// form has no way to say that. It is a string for the reason chroma and mode are:
-	// the legal values are a list the backend generates, so the only strings that ever
-	// arrive are ones it wrote.
+	// The picture the encoder is fed, as "1920x1080", and empty where the capture's own size
+	// reaches the encoder unscaled.
+	// One field rather than a width and a height, because the two are only ever legal in pairs,
+	// and a string because the legal values are a list the backend generates.
 	OutputResolution string `protobuf:"bytes,37,opt,name=output_resolution,json=outputResolution,proto3" json:"output_resolution,omitempty"`
-	// cursor is what the pointer does in the captured frames: "embedded" draws it into
-	// the picture, "hidden" leaves it out, "metadata" sends its position beside the
-	// stream for a viewer to draw itself.
-	//
-	// It is one field rather than a boolean because the third value is not more or less
-	// of the first two: an embedded pointer costs bitrate and blurs with the picture,
-	// and a metadata pointer stays sharp at any scale and reaches only a viewer that
-	// draws one. Which values a capture backend serves is the backend's own fact, so the
-	// form greys the rest with what each one is missing.
+	// What the pointer does in the captured frames: "embedded" draws it into the picture,
+	// "hidden" leaves it out, "metadata" sends its position beside the stream for a viewer to
+	// draw itself.
+	// Which values a capture backend serves is the backend's own fact, so the form greys the rest
+	// with what each one is missing.
 	Cursor        string `protobuf:"bytes,38,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -589,37 +552,35 @@ func (x *PublishSettings) GetCursor() string {
 	return ""
 }
 
-// ViewerSettings is how this machine watches, which is independent of what it
-// publishes: the relay re-serves every ingested stream on all its listeners, so a
-// viewer receives over a leg chosen here rather than over the one a stream arrived on.
+// ViewerSettings is how this machine watches, which is independent of what it publishes: the
+// relay re-serves every ingested stream on all its listeners, so a viewer receives over a leg
+// chosen here rather than over the one a stream arrived on.
 //
-// There are two watch legs rather than one because there are two receivers, and they
-// reach different protocol sets (docs/viewer-architecture.md). One field would let
-// each store a leg the other cannot run.
+// Two watch legs rather than one because there are two receivers and they reach different
+// protocol sets (docs/viewer-architecture.md).
+// One field would let each store a leg the other cannot run.
 type ViewerSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// player_watch_transport is the leg an external player opens, narrowed to the
-	// protocols a player reaches by URL.
+	// The leg an external player opens, narrowed to the protocols a player reaches by URL.
 	PlayerWatchTransport string `protobuf:"bytes,1,opt,name=player_watch_transport,json=playerWatchTransport,proto3" json:"player_watch_transport,omitempty"`
-	// tile_watch_transport is the leg a receive pipeline decodes from, which also
-	// reaches WHEP, whose playback is an exchange rather than an address.
+	// The leg a receive pipeline decodes from, which also reaches WHEP, whose playback is an
+	// exchange rather than an address.
 	TileWatchTransport string `protobuf:"bytes,2,opt,name=tile_watch_transport,json=tileWatchTransport,proto3" json:"tile_watch_transport,omitempty"`
-	// rtsp_watch_protocol is the RTP lower transport of the watch leg, "tcp" or "udp".
-	// Both receivers read it: a player passes it to libavformat, a receive pipeline to
-	// rtspsrc.
+	// The RTP lower transport of the watch leg, "tcp" or "udp".
+	// Both receivers read it: a player passes it to libavformat, a receive pipeline to rtspsrc.
 	RtspWatchProtocol string `protobuf:"bytes,3,opt,name=rtsp_watch_protocol,json=rtspWatchProtocol,proto3" json:"rtsp_watch_protocol,omitempty"`
-	// srt_watch_latency_ms is the watch leg's SRT retransmit window, the second half of
-	// the pair PublishSettings holds the first of.
+	// The watch leg's SRT retransmit window, the second half of the pair PublishSettings holds
+	// the first of.
 	SrtWatchLatencyMs int32 `protobuf:"varint,4,opt,name=srt_watch_latency_ms,json=srtWatchLatencyMs,proto3" json:"srt_watch_latency_ms,omitempty"`
-	// rtsp_watch_latency_ms sizes a receive pipeline's jitter buffer in milliseconds and
-	// reaches the tile alone: an external player buffers by reorder queue rather than by
-	// time, which is not the same knob under another name. It was on the flat message
-	// once, left with the GTK grid, and comes back here against a viewer that reads it.
+	// Sizes a receive pipeline's jitter buffer in milliseconds, and reaches the tile alone: an
+	// external player buffers by reorder queue rather than by time, which is not the same knob
+	// under another name.
 	RtspWatchLatencyMs int32 `protobuf:"varint,5,opt,name=rtsp_watch_latency_ms,json=rtspWatchLatencyMs,proto3" json:"rtsp_watch_latency_ms,omitempty"`
-	// render_chain names the elements a receive pipeline converts decoded frames with,
-	// one of the chains the form offers. It is one value for every tile rather than one
-	// per stream: a chain falls back because a driver cannot run it, and that is a
-	// property of the machine (docs/viewer-architecture.md, "The receive package").
+	// The elements a receive pipeline converts decoded frames with, one of the chains the form
+	// offers.
+	// One value for every tile rather than one per stream, because a chain falls back where a
+	// driver cannot run it and that is a property of the machine
+	// (docs/viewer-architecture.md, "The receive package").
 	RenderChain   string `protobuf:"bytes,6,opt,name=render_chain,json=renderChain,proto3" json:"render_chain,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -699,40 +660,31 @@ func (x *ViewerSettings) GetRenderChain() string {
 
 // AudioSource is one thing the second track is mixed from.
 //
-// The kind and what is picked inside it are two fields because they are answered by two
-// different things. A kind is declared - the machine either serves desktop audio or it
-// does not - and what is inside a kind is enumerated, since a microphone and a running
-// application are things a machine has now rather than things a table can list.
+// A kind is declared, since the machine either serves desktop audio or it does not; what is
+// inside a kind is enumerated, since a microphone and a running application are things a
+// machine has rather than things a table can list.
 //
-// It is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
-// entry's gain, which is what lets every control kind the form already has edit a list
-// item and lets a statement land on one entry rather than on the whole control
-// (form.proto).
+// An entry is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
+// entry's gain, so every control kind the form already has edits a list item and a statement
+// lands on one entry rather than on the whole control (form.proto).
 type AudioSource struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// source is the kind, a row of the platform's own source table
-	// (catalog.proto, audio_sources).
+	// The kind, a row of the platform's own source table (catalog.proto, audio_sources).
 	Source string `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	// device is which device or application inside that kind, as the enumeration of the
-	// kind names it, and empty for the kind's own default - the default output's monitor,
-	// the default input.
-	//
-	// A selection the enumeration stops reporting stays on the list and is drawn with a
-	// note, the way a monitor index no enumeration reported is: an application that is not
-	// running now is one that may be running when the stream starts, and dropping the entry
-	// would lose a choice the user made.
+	// Which device or application inside that kind, as the enumeration of the kind names it, and
+	// empty for the kind's own default: the default output's monitor, the default input.
+	// A selection the enumeration stops reporting stays on the list with a note, the way a
+	// monitor index no enumeration reported does, since an application that is not running may be
+	// running when the stream starts.
 	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
-	// gain is what this source contributes, in percent, where 100 is unity. It is applied
-	// to the pipeline that is already running, so moving it costs nobody watching a
+	// What this source contributes, in percent, where 100 is unity.
+	// Applied to the pipeline that is already running, so moving it costs nobody watching a
 	// reconnect (form.proto, Field.live).
-	//
-	// It carries presence because zero is a level and not an absence: a source turned all
-	// the way down is silent, and an entry nobody has set a level on is at unity. Without
-	// presence the two are one value, and the entry a reader creates by picking a kind on
-	// the growing row would arrive silent.
+	// Presence, because zero is a level and not an absence: a source turned all the way down is
+	// silent, and an entry nobody has set a level on is at unity.
 	Gain *int32 `protobuf:"varint,3,opt,name=gain,proto3,oneof" json:"gain,omitempty"`
-	// mute silences this source without taking it off the list, so a source is turned off
-	// and back on without the entry, its device and its gain being lost.
+	// Silences this source without taking it off the list, so a source is turned off and back on
+	// without the entry, its device and its gain being lost.
 	Mute          bool `protobuf:"varint,4,opt,name=mute,proto3" json:"mute,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -796,9 +748,9 @@ func (x *AudioSource) GetMute() bool {
 	return false
 }
 
-// Preset is a named PublishSettings the user saved. The settings travel whole rather
-// than as a diff against the defaults, so applying one is an assignment and not a
-// merge whose result depends on what the form held first.
+// Preset is a named PublishSettings the user saved.
+// The settings travel whole rather than as a diff against the defaults, so applying one is an
+// assignment and not a merge whose result depends on what the form held first.
 type Preset struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`

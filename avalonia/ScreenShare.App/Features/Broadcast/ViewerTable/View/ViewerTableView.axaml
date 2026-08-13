@@ -7,9 +7,9 @@
 
   <UserControl.Styles>
     <!--
-      The escalation ladder, in the order a selector has to win in: normal, then the row's
-      identity and its context, then attention, then alarm. Later styles win, so alarm is
-      last and nothing quieter can take the red back.
+      The escalation ladder, in the order a selector has to win in: normal, the row's identity
+      and context, attention, alarm. A later style wins, so alarm is last and nothing quieter
+      takes the red back.
     -->
     <Style Selector="TextBlock.cell">
       <Setter Property="Margin" Value="13,7" />
@@ -25,19 +25,18 @@
       <Setter Property="FontSize" Value="{StaticResource FontSizeMinor}" />
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
-    <!-- Attention: the metric moved, and the reader should look at it. -->
     <Style Selector="TextBlock.hot">
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     </Style>
     <Style Selector="TextBlock.strong">
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
-    <!-- Alarm: only the metric that is actually out of bounds spends the one red. -->
+    <!-- Only the figure that is out of bounds spends the product's one red. -->
     <Style Selector="TextBlock.alarm">
       <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
-    <!-- The single filled row in the table. Fill is what makes it findable without a glyph. -->
+    <!-- Fill is what makes a row findable without a status glyph column. -->
     <Style Selector="Border.struggling">
       <Setter Property="Background" Value="{StaticResource ControlBrush}" />
     </Style>
@@ -49,21 +48,15 @@
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="13,11">
         <TextBlock Grid.Column="0" Classes="caption" Text="Viewers on this stream" VerticalAlignment="Center" />
         <!--
-          No interval in the sentence. The backend polls the relay and announces each snapshot,
-          and how often it does so is not on the contract - so a period stated here would be a
-          number this side made up, and the one the design carried was already wrong.
+          No interval in the sentence: the backend announces each snapshot it polls, and how
+          often it polls is not on the contract, so a period named here would be made up.
         -->
         <TextBlock Grid.Column="1" Classes="hint" Text="as the backend last polled the relay" VerticalAlignment="Center" />
       </Grid>
 
       <!--
-        Lowercase headers, one step below the cells and in the faintest text role: they are
-        machine field names, not prose, and reading them that way is what stops anyone
-        treating this card as a form.
-      -->
-      <!--
-        What stands in for the rows, and it is drawn instead of the column heads rather than
-        under them: a header rank over nothing names five figures that are not there.
+        What stands in for the rows, drawn instead of the column heads rather than under them:
+        a header rank over nothing names figures that are not there.
       -->
       <TextBlock DockPanel.Dock="Top"
                  Classes="hint"
@@ -78,11 +71,11 @@
               BorderThickness="0,1"
               IsVisible="{Binding HasRows}">
         <!--
-          Two of the design's headers name figures the relay does not have. Buffer fill and the
-          decoder in use are the viewer's own facts and nothing carries them back to a publisher,
-          so the columns carry what the relay does measure at that width instead: what was
-          discarded on the way out, and the leg it went out over. A column printing an ellipsis in
-          every row forever would be a hole where there is in fact a measurement.
+          Two of the design's headers name figures nothing carries back to a publisher, buffer
+          fill and the decoder in use, so those columns carry what the relay does measure at
+          that width: what was discarded on the way out, and the leg it went out over. A column
+          printing an ellipsis in every row forever is a hole where a measurement exists
+          (docs/field-availability.md, "A figure with no measurement").
         -->
         <Grid ColumnDefinitions="196,64,74,74,84,*">
           <TextBlock Grid.Column="0" Classes="ident cell colhead" Text="viewer" />
@@ -98,12 +91,11 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="model:ViewerRow">
             <StackPanel>
-              <!-- No striping. A row is separated from the next by a rule and nothing else. -->
               <Border Classes.struggling="{Binding IsStruggling}">
                 <Grid ColumnDefinitions="196,64,74,74,84,*">
                   <TextBlock Grid.Column="0" Classes="ident cell name" Text="{Binding Name}"
                              Classes.hot="{Binding IsStruggling}" Classes.strong="{Binding IsStruggling}" />
-                  <!-- joined is deliberately never escalated: when a viewer joined is not a fault. -->
+                  <!-- Never escalated: when a viewer joined is not a fault. -->
                   <TextBlock Grid.Column="1" Classes="ident cell" Text="{Binding Joined}" />
                   <TextBlock Grid.Column="2" Classes="ident cell" Text="{Binding Rtt}" TextAlignment="Right"
                              Classes.hot="{Binding IsStruggling}" />

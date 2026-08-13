@@ -1,15 +1,17 @@
 // Package gstbundle locates the GStreamer plugins a bundle ships beside the binary.
 //
-// A bundle carries its own GStreamer, built against a prefix that exists on no machine but the one
-// that built it, so a registry scan reaches no plugin unless it is told where they went
+// A bundle carries its own GStreamer, built against a prefix that exists only on the machine that
+// built it, so a registry scan reaches no plugin unless it is told where they went
 // (docs/packaging.md, "Windows").
-// An installation that is not a bundle has no such directory and finds its plugins the way it
-// always does.
+// What the directory carries is every element a publish or receive pipeline names, one transport's
+// source or sink at a time, and a plugin left out of it fails as `no element "..."` the first time
+// that leg is started rather than at build (docs/packaging.md, "Windows").
+// An installation that is no bundle has no such directory and finds its plugins as it always did.
 //
-// Two callers need that answer for two different processes: internal/receive links GStreamer and
-// sets the path on itself before it initializes the library, and internal/publish spawns
-// gst-launch-1.0 and hands the path to the child.
-// One directory spelled in both is the drift this package exists to prevent.
+// Two callers need the answer in two processes: internal/receive links GStreamer and sets the path
+// on itself before initializing the library, and internal/publish hands it to the gst-launch-1.0
+// child it spawns.
+// One directory spelled in both is the drift this package prevents.
 package gstbundle
 
 import (
@@ -20,23 +22,23 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 )
 
-// Dir is where a bundle keeps its plugins: beside the binary rather than under lib/,
-// which is the layout scripts/bundle-windows.sh writes.
+// Dir is where a bundle keeps its plugins, beside the binary rather than under lib/:
+// the layout scripts/bundle-windows.sh writes.
 const Dir = "gstreamer-1.0"
 
-// PathVar is the plugin path GStreamer scans in addition to its built-in one,
-// which is what makes prepending to it additive rather than a replacement.
+// PathVar is the plugin path GStreamer scans on top of its built-in one, so prepending to it adds
+// rather than replaces.
 const PathVar = "GST_PLUGIN_PATH"
 
 // PluginPath is the value PathVar takes for a process running against the bundle,
 // and false where this installation is not one.
 //
-// The bundle goes in front of whatever the environment already names, so a run uses the GStreamer
-// it shipped with while a value set on purpose still applies.
+// The bundle leads whatever the environment already names, so a run uses the GStreamer it shipped
+// with while a value set on purpose still applies.
 //
-// Neither failure is this app's: a binary whose own path cannot be resolved and a directory that is
-// not there are both Umgebungsfehler, and both answer false rather than panicking,
-// because an ordinary installation takes the second branch every time.
+// A binary whose own path will not resolve and a directory that is not there are both
+// Umgebungsfehler, and both answer false rather than panicking: an ordinary installation takes the
+// second branch every time.
 func PluginPath() (string, bool) {
 	self, err := os.Executable()
 	if err != nil {

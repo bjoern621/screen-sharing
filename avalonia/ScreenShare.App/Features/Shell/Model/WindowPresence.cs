@@ -3,53 +3,39 @@ using Avalonia.Controls;
 namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
-/// Whether a window is in front of the reader, for the screens that stop working when it is not.
+/// Whether a window is in front of the reader, for the screens whose cost runs on while nobody is looking.
+/// A drawn frame costs a GPU copy into a lent slot, a frame-channel message and a draw, and the wizard's
+/// screen picker costs a capture per monitor on top
+/// (<c>Features/Setup/ScreenPicker/View/ScreenPickerView.axaml.cs</c>).
+/// Answers the question and governs nothing.
 ///
-/// <b>What it is for.</b> A picture nobody is looking at still costs what a picture costs - a GPU copy per
-/// frame into a lent slot, a message on the frame channel and a draw - and the wizard's screen picker costs
-/// a screen capture per monitor on top of that, so it reads this and stops while the window is behind
-/// something (<c>Features/Setup/ScreenPicker/View/ScreenPickerView.axaml.cs</c>).
-/// It answers one question and governs nothing: what a reader does with the answer is the reader's.
+/// <b>Why an interface.</b> Each windowing system states presence its own way, and better than the toolkit
+/// does: <c>NSWindowOcclusionState</c> on macOS, a DWM-cloaked window on Windows, <c>_NET_WM_STATE_HIDDEN</c>
+/// on X11, a Wayland compositor withholding frame callbacks.
+/// None of it reaches an Avalonia property, so each is a reader of its own.
 ///
-/// <b>Why it is an interface.</b> "In front" is a fact each windowing system answers differently, and better
-/// than the toolkit does.
-/// macOS reports occlusion outright (<c>NSWindowOcclusionState</c>), Windows reports a cloaked window through
-/// DWM, X11 has <c>_NET_WM_STATE_HIDDEN</c> and a Wayland compositor stops sending frame callbacks to a
-/// surface it is not showing.
-/// None of that reaches an Avalonia property, so each is a reader of its own once it is written, and the seam
-/// is here rather than in the card that reads it.
-///
-/// <b>It is read through, never remembered.</b> <see cref="IsInFront"/> is a question asked of the window on
-/// every pass; <see cref="Changed"/> only says the answer moved, and carries no answer with it.
+/// <b>Read through, never remembered.</b> <see cref="IsInFront"/> is asked of the window on every pass, and
+/// <see cref="Changed"/> carries no answer with it.
 /// </summary>
 internal interface IWindowPresence : IDisposable
 {
-    /// <summary>Whether the window is in front of the reader.</summary>
     bool IsInFront { get; }
 
-    /// <summary>
-    /// Raised when the answer moved.
-    /// A change that leaves it where it was raises nothing, so a listener is not woken to re-derive what it
-    /// already drew.
-    /// </summary>
+    /// <summary>Raised where the answer moved. A window change that leaves it standing raises nothing.</summary>
     event Action? Changed;
 }
 
 /// <summary>
-/// Which reader answers for a window.
-/// It is the one place a platform's own notion of presence is chosen, so a screen that wants the fact names
-/// no system and no toolkit property.
+/// The one place a platform's own notion of presence is picked, so a screen wanting the fact names no system
+/// and no toolkit property.
 /// </summary>
 internal static class WindowPresences
 {
     /// <summary>
-    /// The presence reader for a window.
-    /// One reader per caller, and the caller disposes it: it holds a subscription to the window.
-    ///
-    /// Every platform is answered by <see cref="ToplevelPresence"/> here, because the facts it reads are the
-    /// ones Avalonia normalises across all of them.
-    /// A system whose own answer is better than the toolkit's is a second implementation and a branch in this
-    /// method, and nothing that reads presence changes.
+    /// One reader per caller, disposed by the caller: it holds a subscription to the window.
+    /// <see cref="ToplevelPresence"/> answers every platform, on the facts Avalonia normalises across them.
+    /// A system with a better answer of its own is a second implementation and a branch here, with nothing
+    /// that reads presence changing.
     /// </summary>
     public static IWindowPresence For(Window window) => new ToplevelPresence(window);
 }

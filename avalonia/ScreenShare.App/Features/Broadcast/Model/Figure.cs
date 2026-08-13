@@ -3,20 +3,18 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Broadcast.Model;
 
 /// <summary>
-/// How a measurement reaches the screen.
-/// Two rules the whole broadcast surface obeys, stated once here rather than restated at every render
-/// function: a figure that has no value yet prints an ellipsis, and two figures on one line are joined by a
-/// middle dot (docs/design-language.md, "Wording").
+/// How a measurement reaches the screen, stated once for the whole broadcast surface rather than per render
+/// function: an unmeasured figure prints an ellipsis, and two figures sharing a line are joined by a middle
+/// dot (docs/design-language.md, "Wording").
 ///
 /// Nothing here rounds towards a prettier number.
-/// The format string is the design's, so <c>0.00</c> loss keeps both decimals a publisher is watching for.
+/// The caller's format is the design's, so <c>0.00</c> loss keeps both decimals a publisher watches for.
 /// </summary>
 public static class Figure
 {
     /// <summary>What a figure reads as before its first sample. Never a zero: zero is a measurement.</summary>
     public const string NoValue = "…";
 
-    /// <summary>The separator between two figures that share a line.</summary>
     private const string Separator = " · ";
 
     public static string Of(double? value, string format)
@@ -26,7 +24,7 @@ public static class Figure
         return value is null ? NoValue : value.Value.ToString(format);
     }
 
-    /// <summary>A count. Counts have no decimals, so they need no format from the caller.</summary>
+    /// <summary>A count, which has no decimals and so takes no format from the caller.</summary>
     public static string Of(int? value) => value is null ? NoValue : value.Value.ToString("0");
 
     public static string Join(params string[] parts)

@@ -5,30 +5,29 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Backend;
 
 /// <summary>
-/// The other half of the frame channel on a platform whose handles are file descriptors.
+/// The frame channel's other half on a platform whose handles are file descriptors.
 ///
 /// <b>A descriptor is not a number that can be sent.</b> It indexes one process's own table, so the value
 /// naming a frame in the backend names something else here, or nothing at all.
-/// The kernel's way to move one is <c>SCM_RIGHTS</c> over a Unix socket, which installs a descriptor of this
-/// process's own naming the same memory - which is why a dmabuf pool announces a socket path where a
-/// shared-texture pool announces a number (<c>api/proto/screenshare/v1/frame.proto</c>,
+/// <c>SCM_RIGHTS</c> over a Unix socket is the kernel's way to move one, installing an entry in this process's
+/// own table for the same memory, which is why a dmabuf pool announces a socket path where a shared-texture
+/// pool announces a number (<c>api/proto/screenshare/v1/frame.proto</c>,
 /// <c>FramePool.fd_socket</c>).
 ///
 /// <b>It reads and does not import.</b> What the descriptors become on the GPU belongs to the control that
-/// draws; this is the transport, and it sits beside the channel that named the socket.
+/// draws, and this is the transport, beside the channel that named the socket.
 ///
-/// The backend answers every connection with the same set for as long as the pool lives, so reading is
-/// repeatable: a generation that is re-imported reads the descriptors again rather than depending on a
-/// handshake that happened once.
+/// The backend answers every connection with the same set for as long as the pool lives, so a re-imported
+/// generation reads the descriptors again rather than depending on a handshake that happened once.
 /// </summary>
 internal static class FrameDescriptors
 {
     /// <summary>
-    /// Receives one descriptor per slot, in index order.
+    /// One descriptor per slot, in index order.
     ///
-    /// The read runs off the UI thread because it is a socket round trip with another process, and it is
-    /// bounded by the caller's cancellation: a backend that died mid-pool leaves a socket that accepts and
-    /// never answers, which would otherwise be a tile waiting forever.
+    /// Off the UI thread because it is a socket round trip with another process, and bounded by the caller's
+    /// cancellation: a backend that died mid-pool leaves a socket that accepts and never answers, which is
+    /// otherwise a tile waiting for the rest of the run.
     /// </summary>
     public static Task<int[]> ReceiveAsync(string socketPath, int slots, CancellationToken cancellation)
     {
@@ -61,8 +60,8 @@ internal static class FrameDescriptors
         }
         catch
         {
-            // Every descriptor already received is this process's own, and a caller that never got the set
-            // has nothing to close them with.
+            // Descriptors already received are this process's own, and a caller that never got the array has
+            // nothing to close them with.
             Close(descriptors, received);
             throw;
         }
@@ -70,10 +69,8 @@ internal static class FrameDescriptors
     }
 
     /// <summary>
-    /// One message: the slot's index as the payload and the slot's descriptor as the right that rides with
-    /// it.
-    /// The two travel together so a descriptor cannot be paired with the wrong slot, whatever order the reads
-    /// happen in.
+    /// One message: the slot index as the payload, the slot's descriptor as the right riding with it.
+    /// Paired in one message so no order of reads can attach a descriptor to the wrong slot.
     /// </summary>
     private static unsafe (int Index, int Descriptor) ReceiveOne(Socket socket, CancellationToken cancellation)
     {
@@ -93,8 +90,8 @@ internal static class FrameDescriptors
         while (true)
         {
             cancellation.ThrowIfCancellationRequested();
-            // Polled rather than blocked in: the descriptor arrives on a socket the backend may never answer
-            // on, and a blocking read there is a tile that waits for the rest of the run.
+            // Polled rather than blocked in: the backend may never answer on this socket, and a blocking read
+            // there is a tile that waits for the rest of the run.
             if (!socket.Poll(PollInterval, SelectMode.SelectRead))
             {
                 continue;
@@ -118,8 +115,8 @@ internal static class FrameDescriptors
         }
 
         // One right per message, and it is a descriptor.
-        // Anything else is a backend speaking a protocol this build does not know, which is worth saying
-        // rather than dereferencing.
+        // Anything else is a backend speaking a protocol this build does not know, so it is reported rather
+        // than dereferenced.
         var header = (ControlHeader*)control;
         if ((long)message.ControlLength < ControlSpace || header->Level != SOL_SOCKET ||
             header->Type != SCM_RIGHTS)
@@ -147,9 +144,8 @@ internal static class FrameDescriptors
     }
 
     /// <summary>
-    /// Closes descriptors this process owns.
-    /// Every one that was received is this process's own, so a pool that is dropped without closing them
-    /// leaks a descriptor and pins the memory the backend has already freed.
+    /// Closes the descriptors this process owns.
+    /// A pool dropped without this leaks a descriptor per slot and pins memory the backend has already freed.
     /// </summary>
     public static void Release(IReadOnlyList<int> descriptors)
     {
@@ -159,7 +155,7 @@ internal static class FrameDescriptors
         }
     }
 
-    /// <summary>How long one poll waits before the cancellation is looked at again.</summary>
+    /// <summary>Microseconds one poll waits before the cancellation is looked at again.</summary>
     private const int PollInterval = 100_000;
 
     private const int SOL_SOCKET = 1;
@@ -168,11 +164,11 @@ internal static class FrameDescriptors
     private const int EINTR = 4;
 
     /// <summary>
-    /// The control buffer's shape, which is <c>CMSG_SPACE(sizeof(int))</c> written out.
+    /// The control buffer's shape, <c>CMSG_SPACE(sizeof(int))</c> written out.
     ///
-    /// It is computed from the pointer size rather than pinned at the 64-bit numbers, because the header's
-    /// first field is a <c>size_t</c> and its alignment is the same word: the layout the kernel writes
-    /// differs between a 64-bit and a 32-bit build of this app.
+    /// Computed from the pointer size rather than pinned to the 64-bit numbers: the header's first field is a
+    /// <c>size_t</c> and aligns to the same word, so the layout the kernel writes differs between a 64-bit and
+    /// a 32-bit build of this app.
     /// </summary>
     private static readonly int ControlDataOffset = Align(IntPtr.Size + sizeof(int) + sizeof(int));
     private static readonly int ControlSpace = ControlDataOffset + Align(sizeof(int));

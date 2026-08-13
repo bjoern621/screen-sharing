@@ -6,16 +6,12 @@
              x:DataType="vm:StatusBarViewModel">
 
   <!--
-    The second chrome band, and the quietest row on screen. No top rule and no separators
-    between segments: spacing alone groups them, which is what keeps a line of running
-    figures from reading as a table the reader is meant to study.
+    Grouped by spacing alone, with no rule and no separators, so a run of figures does not read as a table.
 
-    The 12px inset matches the two bands above it. Same story as there - GapPanel states the
-    12, but a Thickness has no token to name.
+    Inset written out: GapPanel holds the same 12, and a Thickness has no token to name.
 
-    The height is a minimum rather than a fixed value, because the sentence on the right wraps.
-    The band is one line at every width the window can be dragged to, and grows by a line where
-    a desktop hands the window less than its minimum.
+    A minimum height rather than a fixed one, because the trailing sentence wraps where a desktop hands the
+    window less than its stated minimum width.
   -->
   <Border Classes="chromeband"
           MinHeight="{StaticResource StatusBarHeight}"
@@ -23,11 +19,6 @@
 
     <Grid ColumnDefinitions="Auto,*">
 
-      <!--
-        Prose and figures share one baseline and one face, and differ in colour: the
-        sentence and the measurements are both the small size, the figures a shade quieter
-        and set in tabular numerals so a run of them stops shuffling as the numbers tick.
-      -->
       <StackPanel Grid.Column="0"
                   Orientation="Horizontal"
                   Spacing="{StaticResource GapSection}"
@@ -37,11 +28,7 @@
                    Text="{Binding Streams}"
                    IsVisible="{Binding ShowsMetrics}" />
 
-        <!--
-          The measurements, however many the destination in front of the band reports. A
-          tighter gap between them than the one that separates them from the sentence: the
-          run of figures is one group, and the spacing is what says so.
-        -->
+        <!-- Tighter spacing inside than the panel's own: the figures read as one group. -->
         <ItemsControl ItemsSource="{Binding Load}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
@@ -61,10 +48,9 @@
       </StackPanel>
 
       <!--
-        The contextual hint, held against the far edge by the column it sits in rather than by
-        a spacer beside it. The column is what is left after the figures, so a window too narrow
-        for both wraps the sentence instead of drawing it past the edge, and the 16px keeps a
-        wrapped line clear of the figures it now sits beside.
+        Held against the far edge by the star column rather than by a spacer: the column is what the figures
+        leave over, so a window too narrow for both wraps the sentence instead of drawing it past the edge.
+        The left margin keeps a wrapped line clear of the figures.
       -->
       <TextBlock Grid.Column="1"
                  Classes="muted"

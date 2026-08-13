@@ -6,16 +6,12 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The third way to watch: the relay's own player page, opened in the machine's browser.
-///
-/// What is asserted here is the seam rather than the page.
-/// Nothing this shell can reach draws what a browser does with an address, so what these tests hold is the
-/// part that is this side's: the legs come off the catalog and not off a list written here, the row asks for
-/// the one that was pressed, and a press is a call every time rather than a state being toggled.
+/// The relay's own player page, opened in the machine's browser.
+/// What a browser does with an address is out of this shell's reach, so what is asserted is the seam: legs
+/// off the catalog, the row asking for the leg pressed, and a call on every press.
 /// </summary>
 public sealed class ViewerBrowserTests
 {
-    /// <summary>A viewer in front of a relay carrying one stream, with the seed behind it.</summary>
     private static (ViewerViewModel Viewer, SeededBackend Backend) Watching(string stream)
     {
         var backend = new SeededBackend("linux")
@@ -33,9 +29,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// The legs are the catalog's, in the order it named them.
-    /// A shell that held its own list would be a shell deciding which protocols the relay serves a page for,
-    /// which is the one thing the contract says it may not do (<c>docs/ipc-api.md</c>).
+    /// A list held here would decide which protocols the relay serves a page for, which the contract
+    /// forbids (<c>docs/ipc-api.md</c>).
     /// </summary>
     [Fact]
     public void TheBrowserLegsAreTheOnesTheBackendNamed()
@@ -47,10 +42,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// The player legs and the browser legs are two rosters and neither contains the other: no player opens
-    /// WHEP, and a browser reaches neither SRT nor RTSP.
-    /// One list serving both menus would have to be the narrower of them, which is a leg taken away from a
-    /// reader that can run it.
+    /// Neither roster contains the other: no player opens WHEP, and a browser reaches neither SRT nor RTSP.
+    /// One list for both menus would be the narrower of them, and a leg taken off a reader who can run it.
     /// </summary>
     [Fact]
     public void ThePlayerLegsAndTheBrowserLegsAreDifferentRosters()
@@ -68,8 +61,7 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// A press asks the backend for the leg it was pressed on, by the pair every viewer method takes.
-    /// The stream and the leg together are the identity, because the relay re-serves one stream on all its
+    /// Stream and leg together are the identity, because the relay re-serves one stream on all its
     /// listeners.
     /// </summary>
     [Fact]
@@ -86,9 +78,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// A second press asks again, and that is the behaviour rather than a defect.
-    /// A tab belongs to the browser that opened it: this side cannot read whether it is still there, so there
-    /// is no state for a second press to find already true and nothing it could toggle off.
+    /// A tab belongs to the browser that opened it and this side cannot read whether it is still there, so
+    /// there is no state a second press could find true.
     /// </summary>
     [Fact]
     public void ASecondPressAsksAgain()
@@ -103,9 +94,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// Opening a page moves nothing on the viewer roster.
-    /// It is what separates this from a watch: <c>StartWatch</c> launches a viewer the backend supervises and
-    /// reports, and this hands an address to a program neither side hears from again.
+    /// <c>StartWatch</c> launches a viewer the backend supervises and reports.
+    /// This hands an address to a program neither side hears from again.
     /// </summary>
     [Fact]
     public void OpeningAPageLeavesTheWatchedSetAlone()
@@ -120,9 +110,8 @@ public sealed class ViewerBrowserTests
     }
 
     /// <summary>
-    /// Two passes over an unchanged relay leave the same rows, commands and all.
-    /// The legs are records so they compare equal, and the command behind one is made once by the row that
-    /// owns it - a command rebuilt per pass would be a menu that loses a press to a poll.
+    /// Legs are records so they compare equal, and the command is made once by the row that owns it.
+    /// A command rebuilt per pass is a menu that loses a press to a poll.
     /// </summary>
     [Fact]
     public void ASecondPassLeavesTheLegsAsTheyWere()

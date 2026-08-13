@@ -11,17 +11,11 @@ import (
 
 // Announcing a change is one act, and this file is where it happens.
 //
-// Every change reaches the shells as the contract's own message on the broker (docs/ipc-api.md,
-// "Events"), whole rather than as a delta, so a shell that acted and a shell that did not learn it
-// the same way and a duplicate is harmless.
-//
-// There used to be a second surface here, a Wails frontend subscribing to runtime events under
-// names of its own, and emit told both.
-// It is gone, and with it the table pairing a contract kind to a runtime name:
-// one announcement path is what the pairing existed to guarantee, and one surface reaches it
-// without a table.
+// A change reaches the shells as the contract's own message on the broker, whole and never as a
+// delta (docs/ipc-api.md, "Events").
+// The shell that acted and the shell that did not are told the same thing, and a duplicate costs a
+// reader nothing.
 
-// emit announces one change to every shell.
 func (a *App) emit(event *screensharev1.Event) {
 	assert.IsNotNil(event, "an announced change is a contract event")
 	assert.IsNotNil(a.events, "an app announces its changes on a broker")
@@ -30,40 +24,39 @@ func (a *App) emit(event *screensharev1.Event) {
 }
 
 // PublishState is what the app reports about the publish in force.
-// It goes out on every change, whoever made it, and a shell that has just connected reads the same
-// shape rather than a second one built for the query.
+// The same shape goes out on every change, whoever made it, and answers a shell that has just
+// connected, so no second shape exists for the query.
 //
-// The control contract's own shape for the same state is wire.PublishSnapshot,
-// and control.go carries one to the other.
+// The contract carries this state as wire.PublishSnapshot, and publishSnapshot in control.go is the
+// one conversion between them.
 type PublishState struct {
 	Publishing bool `json:"publishing"`
-	// Settings are what the running pipeline was built from, null while nothing publishes.
-	// The form reverts to them, so what they describe is the stream the viewers are watching rather
-	// than what the form currently shows.
+	// What the running pipeline was built from, null while nothing publishes.
+	// The form reverts to these, so they describe the stream the viewers are watching and not what the
+	// form shows.
 	Settings *settings.Settings `json:"settings"`
-	// Pending reports that the settings the app holds build a different pipeline than the running one,
-	// so the stream is carrying values the form no longer shows.
+	// The settings the app holds build a different pipeline than the running one, so the stream
+	// carries values the form no longer shows.
 	Pending bool `json:"pending"`
-	// Retrying reports that the pipeline died on its own and the app is waiting out a backoff before
-	// starting it again.
-	// Publishing stays true across that wait, so the three together separate a stream carrying frames
-	// from one between attempts.
+	// The pipeline died on its own and a backoff is running before the next launch.
+	// Publishing stays true across that wait, so this is what tells a stream carrying frames from one
+	// between attempts.
 	Retrying bool `json:"retrying"`
-	// Attempt is which relaunch the pending one is, counting from one, and Budget how many the app
-	// will spend before it gives up.
+	// Attempt is which relaunch is pending, counting from 1, and Budget how many the app spends before
+	// it gives up.
 	// Both are zero while nothing retries.
 	Attempt int `json:"attempt"`
 	Budget  int `json:"budget"`
-	// Preview is what the local preview of this stream turned out to be, null while nothing publishes
-	// and while a publish runs without one.
-	// It is here rather than beside the running decodes because the pipeline behind it belongs to the
-	// publish and is keyed by nothing else (preview.go).
+	// What the local preview of this stream turned out to be, null while nothing publishes and while a
+	// publish runs without one.
+	// Here rather than beside the running decodes, because the pipeline behind it belongs to the
+	// publish and nothing else keys it (preview.go).
 	Preview *wire.PreviewSnapshot `json:"preview"`
 }
 
-// watchExitEvent is the payload of the "watch:exit" event.
-// Name and Transport together identify which viewer exited, so the UI clears the connecting state
-// of the right (stream, transport) rather than every viewer of the stream.
+// watchExitEvent says which viewer exited and why.
+// Name and Transport identify it together, so a reader clears the connecting state of that one leg
+// rather than of every viewer of the stream.
 type watchExitEvent struct {
 	Name      string `json:"name"`
 	Transport string `json:"transport"`

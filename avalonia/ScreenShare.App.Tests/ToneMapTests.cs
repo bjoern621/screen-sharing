@@ -6,26 +6,17 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// A tile drawing a stream that carries more range than the display shows.
-///
-/// <b>The picture is not obviously wrong, which is the whole difficulty.</b> An HDR stream drawn as it
-/// arrives is a picture with the wrong brightness, and a reader with nothing to read blames the stream, the
-/// encoder or their own screen.
-/// So the tile says which curve it is drawing and what it is doing about it, in both states, and the control
-/// that changes it is one press away.
-///
-/// <b>What the tile reports is what the decode was built with.</b> Tone mapping is an element in the
-/// pipeline, so the answer changes by rebuilding the decode, and the tick comes back through the decode's own
-/// state.
-/// A tile that showed the request instead would claim a conversion on a machine that has nothing to perform
-/// it with.
+/// A stream carrying more range than the display shows draws at the wrong brightness, which a reader blames
+/// on the stream or the screen, so the tile states the curve and what it is doing about it in both
+/// directions.
+/// What it states is what the decode was built with: tone mapping is an element in the pipeline, so the tick
+/// comes back through the decode's own state rather than off the request.
 /// </summary>
 public sealed class ToneMapTests
 {
     private static TileViewModel Tile(IBackend backend)
         => new(TileSource.Relay("desk", "rtsp"), backend, static action => action(), static _ => { });
 
-    /// <summary>One decode's state, as the receive state reports it.</summary>
     private static TilePipeline Decode(
         bool hdr, bool toneMap = false, bool canToneMap = true, string missing = "", string transfer = "smpte2084")
         => new(
@@ -49,9 +40,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The badge stays once the conversion is on, because the reader it is written for is the one comparing
-    /// two tiles of one stream: a tile that fell silent would leave them unable to tell which of the two they
-    /// are looking at.
+    /// Two tiles of one stream are told apart by the badge, so a converting tile that fell silent would
+    /// leave them alike.
     /// </summary>
     [Fact]
     public void ATileThatIsRollingTheRangeDownSaysThatToo()
@@ -66,9 +56,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// A stream whose range this display shows says nothing about colour and offers nothing to change: a
-    /// badge over every tile would be noise, and a control that converts nothing is one press to find out it
-    /// does nothing.
+    /// A badge over every tile is noise, and a control that converts nothing costs a press to learn it does
+    /// nothing.
     /// </summary>
     [Fact]
     public void AStandardRangeStreamCarriesNoBadgeAndNoChoice()
@@ -85,9 +74,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// A machine with nothing to convert with names the element, because that is a thing to go and install.
-    /// A greyed control that says nothing teaches nothing, which is the contract every refused option in this
-    /// app keeps.
+    /// The missing element is a thing to go and install, and every refused option in this app names its
+    /// reason.
     /// </summary>
     [Fact]
     public void AMachineThatCannotRollTheRangeDownNamesWhatIsMissing()
@@ -102,8 +90,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// A platform with no such route at all reads differently, and the difference matters: there is nothing
-    /// to install, so a sentence naming an element would send the reader after a package that would not help.
+    /// Nothing is installable here, so naming an element would send the reader after a package that cannot
+    /// help.
     /// </summary>
     [Fact]
     public void APlatformWithNoRouteSaysThatRatherThanNamingAnElement()
@@ -117,8 +105,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The press asks for the other answer on the same decode, which is one decode and not two: the call
-    /// names the state the decode should be in, and the backend rebuilds it.
+    /// The call names the state the decode should be in, so the backend rebuilds one decode rather than
+    /// opening a second.
     /// </summary>
     [Fact]
     public async Task TheControlAsksForTheOtherAnswerOnTheSameDecode()
@@ -136,12 +124,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The tick is the decode's answer and never the request, which is what a machine with no element for it
-    /// makes visible: the press is sent, the decode is built without the rung, and the tile goes on saying
-    /// the stream is drawn as it arrives.
-    ///
-    /// It is the shell's half of the rule the backend keeps on the same call.
-    /// Held the other way round, a viewer would show a conversion that never happened and would ask for it
+    /// The press is sent, the decode is built without the rung, and the tile goes on saying so.
+    /// Read off the request instead, a viewer would show a conversion that never happened and ask for it
     /// again on every pass.
     /// </summary>
     [Fact]
@@ -161,8 +145,8 @@ public sealed class ToneMapTests
     }
 
     /// <summary>
-    /// The publish's own preview is not offered the choice, because it is not opened by the call that carries
-    /// it: the preview belongs to the publish and has neither half of the pair a decode is keyed by.
+    /// The preview belongs to the publish and carries neither half of the stream and leg pair a decode is
+    /// keyed by.
     /// </summary>
     [Fact]
     public void ThePublishPreviewIsOfferedNoChoice()

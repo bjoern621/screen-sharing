@@ -3,51 +3,36 @@
                     xmlns:sys="using:System">
 
   <!--
-    Sizes the design states, named by the thing they measure.
-
-    One conversion runs through all of them: the mockup is CSS with content-box sizing, so
-    a declared height there excludes its border, while an Avalonia Height includes it. Every
-    height below is the Avalonia one - the CSS number plus its borders - and says so where
-    the two differ.
+    Sizes the design states, named by what they measure.
+    A height here is the Avalonia one and includes its borders,
+    where the mockup's CSS content-box number excludes them.
   -->
 
-  <!-- Corner radii. Seven values, each tied to a kind of thing rather than a size step. -->
+  <!-- Radius is keyed on what a thing is, never on how big it is. -->
   <CornerRadius x:Key="RadiusSegment">4</CornerRadius>
   <CornerRadius x:Key="RadiusControl">5</CornerRadius>
   <CornerRadius x:Key="RadiusButton">6</CornerRadius>
   <CornerRadius x:Key="RadiusStrip">7</CornerRadius>
   <CornerRadius x:Key="RadiusPanel">8</CornerRadius>
   <CornerRadius x:Key="RadiusTile">9</CornerRadius>
-  <!-- The one capsule in the design: a stream chip. -->
+  <!-- The one capsule: a stream chip. -->
   <CornerRadius x:Key="RadiusChip">14</CornerRadius>
 
   <!--
-    The two halves of a control built from two widgets glued at a shared edge - the frame
-    rate's typed box and the ladder beside it. They are the control radius with the inner
-    corners taken off, so the pair reads as one box rather than as two that happen to touch.
-    Stated here rather than written as literals at the joint, for the reason every other
-    number in this file is: a radius that moved would move on one side only.
+    Two widgets glued at a shared edge, carrying the control radius with the inner corners taken off.
+    Stated here rather than at the joint, so a radius that moves cannot move on one side only.
   -->
   <CornerRadius x:Key="RadiusControlLeading">5,0,0,5</CornerRadius>
   <CornerRadius x:Key="RadiusControlTrailing">0,5,5,0</CornerRadius>
 
   <!--
-    Chrome bands. Full-bleed, so their heights set the window's fixed rows.
-
-    Every height in this block and the next grew by 2-5px when the type ladder's default
-    went from 13px to 14px (Design/Typography.axaml). A band sized to the old face left a
-    14px line box with one or two pixels of air, and a row that tight is exactly where
-    vertical centring stops looking centred: the rounding that puts a 17px line box inside
-    28px of control has nowhere to go, so the glyphs sit high. The rule is the same one the
-    design already followed - the band is sized from the text it holds, not the other way
-    round.
+    Chrome bands, full bleed, so these heights are the window's fixed rows.
+    A band is sized from the text it holds, so the ladder in Design/Typography.axaml moves them.
   -->
   <sys:Double x:Key="TitleBarHeight">36</sys:Double>
   <!--
-    The caption glyphs, and the line they are drawn with. Both numbers are Windows' own:
-    minimise, maximise, restore and close are a 10px box at a hairline, and these three stand
-    in for the platform's, so they take the platform's measurements rather than a step off
-    this design's icon ladder (docs/design-language.md).
+    Windows' own caption measurements rather than a step off the icon ladder below.
+    A caption button is read against the other windows on the screen (docs/design-language.md).
   -->
   <sys:Double x:Key="CaptionGlyphSize">10</sys:Double>
   <sys:Double x:Key="CaptionStroke">1</sys:Double>
@@ -55,56 +40,32 @@
   <sys:Double x:Key="NavStripHeight">43</sys:Double>
   <sys:Double x:Key="StatusBarHeight">30</sys:Double>
 
-  <!-- Controls. The 20px line box a 14px label draws, plus 4px either side and two borders. -->
+  <!-- The 20px line box a 14px label draws, plus 4px either side and two borders. -->
   <sys:Double x:Key="ControlHeight">30</sys:Double>
-  <!-- The sharing pill carries no border, so it is the same box two pixels shorter. -->
+  <!-- The same box without a border. -->
   <sys:Double x:Key="PillHeight">28</sys:Double>
   <sys:Double x:Key="ChipHeight">30</sys:Double>
-  <!--
-    A read-only row of text: a config key and its value, a cost metric, a log line. It is
-    pinned rather than left to the text because a list of them has to keep one rhythm even
-    where one row's value happens to be taller, and it is one number rather than three
-    because the three lists were 21, 23 and 24 for no reason anyone could state - the kind
-    of near-miss that reads as a wobble down a column.
-  -->
+  <!-- Pinned rather than sized to its text, so a column of rows keeps one rhythm whatever a row holds. -->
   <sys:Double x:Key="TextRowHeight">26</sys:Double>
   <sys:Double x:Key="MenuItemHeight">32</sys:Double>
-  <!-- A live-safe action in the broadcast header. -->
   <sys:Double x:Key="ActionHeight">32</sys:Double>
-  <!-- A wizard footer button, and the start-sharing button that matches it. -->
   <sys:Double x:Key="FooterButtonHeight">38</sys:Double>
   <sys:Double x:Key="RoundButtonSize">40</sys:Double>
-  <!--
-    A button whose whole content is one glyph.
-    It is the control height less the two borders it does not carry, so it sits on the same
-    rhythm as the labelled buttons beside it.
-  -->
+  <!-- The control height less the two borders a glyph-only button does not carry. -->
   <sys:Double x:Key="IconButtonSize">28</sys:Double>
-  <!--
-    One row of a list that acts when it is pressed.
-    Taller than a control, because the row is the target rather than a control at the end of it,
-    and a list is read down its left edge rather than scanned for the box to aim at.
-  -->
+  <!-- Taller than a control: the row is the target, not a control at the end of it. -->
   <sys:Double x:Key="RowButtonHeight">36</sys:Double>
 
-  <!-- Spacing rhythm. The design uses a small set repeatedly rather than a scale. -->
+  <!-- A small set used repeatedly, not a scale. -->
   <sys:Double x:Key="GapTight">7</sys:Double>
   <sys:Double x:Key="GapControl">10</sys:Double>
   <sys:Double x:Key="GapPanel">12</sys:Double>
   <sys:Double x:Key="GapSection">16</sys:Double>
 
   <!--
-    The same four steps, as the inset of a box rather than the gap between two. A gap is a
-    Double and an inset is a Thickness, and a StaticResource converts between neither: a
-    Margin handed the Double compiles and then throws InvalidCastException in the first
-    layout pass, which is how this second set came to be written down.
-
-    Beside the gaps rather than as a literal at each box, so a step that moves moves in one
-    place. The two lines of a step move together, and that is the whole of the duplication.
-
-    Uniform only. A box that needs one edge different - a card with room under it for the
-    next card - writes its four numbers where it needs them, because a key per edge pairing
-    is a ladder no reader could hold.
+    The same four steps as a Thickness, since a StaticResource converts between neither type.
+    A Margin handed the Double above compiles and throws InvalidCastException in the first layout pass.
+    Uniform only: a box needing one edge different writes its four numbers where it needs them.
   -->
   <Thickness x:Key="InsetTight">7</Thickness>
   <Thickness x:Key="InsetControl">10</Thickness>
@@ -112,54 +73,43 @@
   <Thickness x:Key="InsetSection">16</Thickness>
 
   <!--
-    A menu's own inset, and the one step below the ladder above. A menu row is a filled rounded
-    box that has to clear the surface's 1px border on every side, and it is the surface's
-    padding rather than the row's margin that clears it - a margin would leave the row's hit
-    area outside its fill.
+    One step below the ladder above, and the menu surface's padding rather than a row's margin.
+    A row is a filled rounded box that has to clear the surface's 1px border,
+    and a margin would leave its hit area outside its fill.
   -->
   <Thickness x:Key="InsetMenu">5</Thickness>
 
-  <!-- The state dot stays small: it is state, not decoration (docs/design-language.md). -->
+  <!-- Small, because it is state and not decoration (docs/design-language.md). -->
   <sys:Double x:Key="DotSize">7</sys:Double>
 
   <!--
-    The wait. One size for every control that can be waiting, because the spinner replaces a
-    label rather than sitting beside one and a spinner scaled per button would make the same
-    state read as several. It is the control-glyph size, so a button that is working is the
-    same optical weight as one that is not.
+    One size for every control that can be waiting.
+    A spinner scaled per button would make one state read as several.
+    It is the control-glyph size, so a working button carries the weight of one that is not.
   -->
   <sys:Double x:Key="SpinnerSize">14</sys:Double>
   <sys:Double x:Key="SpinnerStroke">1.5</sys:Double>
 
   <!--
-    Icons. Three sizes off the design's 12-22px range, named by where the glyph sits rather
-    than by the number, and one stroke for all of them.
-
-    The stroke is a width rather than a weight baked into the artwork, which is the whole
-    reason the icons are drawn as paths: a 12px badge glyph and a 14px control glyph are the
-    same line, so the two do not read as two different sets (docs/design-language.md).
-
-    The window controls are not on this ladder. They are the platform's glyphs at the
-    platform's size, above.
+    Three sizes off the design's 12-22px range, named by where a glyph sits, and one stroke under all of them.
+    The stroke is a width rather than a weight in the artwork,
+    so a 12px badge glyph and a 14px control glyph are the same line (docs/design-language.md).
+    The window controls are not on this ladder.
   -->
   <sys:Single x:Key="IconStroke">1.2</sys:Single>
   <!-- Inside a badge or a pill, where the surrounding shape is already 15-16px. -->
   <sys:Double x:Key="IconSizeBadge">12</sys:Double>
-  <!-- On a line of text: a select's caret, a menu row's tick. -->
   <sys:Double x:Key="IconSizeControl">14</sys:Double>
   <!--
     Alone in a button, where the glyph is the whole of what the control says.
-    A glyph on a line of text is read beside the words it belongs to; one that stands for the
-    button carries the meaning by itself, and 14px inside a 28px box reads as a box with
-    something small in the middle of it.
+    14px inside a 28px box reads as a box with something small in the middle.
   -->
   <sys:Double x:Key="IconSizeButton">16</sys:Double>
 
   <!--
-    A thumbnail in the film strip under a spotlit stream. The height the two existing viewers
-    already use for it (docs/viewer-architecture.md), and a height alone: the width follows
-    from the shape the grid cuts its cells to, and a short window shrinks the band rather than
-    letting it take the spotlight's room.
+    A thumbnail in the film strip under a spotlit stream, and a height alone.
+    The width follows from the shape the grid cuts its cells to,
+    and a short window shrinks the band rather than taking the spotlight's room.
   -->
   <sys:Double x:Key="StripTileHeight">112</sys:Double>
 

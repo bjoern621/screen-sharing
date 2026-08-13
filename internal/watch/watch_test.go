@@ -26,8 +26,8 @@ func srtStream() settings.Settings {
 	}
 }
 
-// rtspStream picks a watch-leg protocol that is not the default, so a viewer still forcing TCP
-// fails these tests instead of passing them by accident.
+// rtspStream holds a watch-leg protocol other than the default, so a viewer that forces TCP fails
+// these tests rather than passing them by accident.
 func rtspStream() settings.Settings {
 	s := srtStream()
 	s.Publish.Transport = "rtsp"

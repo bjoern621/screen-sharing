@@ -9,16 +9,10 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The keys a tile answers to.
-///
-/// <b>One table serves the press and the menu row that prints the key.</b> A gesture in the markup and a
-/// switch beside it would be two answers to what a letter does, and the menu would go on printing the older
-/// one for as long as nobody compared them - so what is locked here is that each key reaches the command its
-/// row runs.
-///
-/// <b>A volume key names a level rather than a change.</b> It computes its target from what the decode is
-/// playing at, sends that, and reads the answer back off the decode's state, which is what makes a press at
-/// the end of the range a call that changes nothing rather than one that runs off it.
+/// One table serves the press and the menu row that prints the gesture, so neither can name a key the other
+/// does not run.
+/// A volume key names a level rather than a change: the target is computed from what the decode plays at and
+/// read back off the decode's state.
 /// </summary>
 public sealed class TileKeysTests
 {
@@ -28,7 +22,7 @@ public sealed class TileKeysTests
     private static KeyEventArgs Press(Key key, KeyModifiers modifiers = KeyModifiers.None)
         => new() { Key = key, KeyModifiers = modifiers };
 
-    /// <summary>Renders the tile against the decode the fixture is running, as the screen holding it does.</summary>
+    /// <summary>Renders the tile against the decode the fixture is running, as its screen does.</summary>
     private static async Task ApplyAsync(TileViewModel tile, SeededBackend backend)
         => tile.Apply(TilePipeline.Of(Assert.Single(await backend.ReceivingAsync())), sample: null);
 
@@ -46,7 +40,6 @@ public sealed class TileKeysTests
         Assert.Same(tile.Quieter, TileKeys.Command(tile, Press(Key.OemMinus)));
     }
 
-    /// <summary>A key that names none of the rows is nobody's, so the press travels on.</summary>
     [Fact]
     public void AKeyNoRowNamesReachesNothing()
     {
@@ -55,9 +48,7 @@ public sealed class TileKeysTests
         Assert.Null(TileKeys.Command(tile, Press(Key.Q)));
     }
 
-    /// <summary>
-    /// A held modifier is a different gesture: Ctrl+F belongs to whatever else claims it, never to a tile.
-    /// </summary>
+    /// <summary>Ctrl+F belongs to whatever else claims it, never to a tile.</summary>
     [Fact]
     public void AHeldModifierIsADifferentKey()
     {
@@ -66,11 +57,7 @@ public sealed class TileKeysTests
         Assert.Null(TileKeys.Command(tile, Press(Key.F, KeyModifiers.Control)));
     }
 
-    /// <summary>
-    /// Both plus keys raise the volume: the numeric keypad's own operator, and the one a layout puts over =
-    /// and charges a Shift for.
-    /// A reader pressing + is asking for the same thing on either.
-    /// </summary>
+    /// <summary>The keypad operator and the Shift+= one are one request.</summary>
     [Fact]
     public void EveryPlusKeyRaisesTheVolume()
     {
@@ -81,10 +68,7 @@ public sealed class TileKeysTests
         Assert.Same(tile.Quieter, TileKeys.Command(tile, Press(Key.Subtract)));
     }
 
-    /// <summary>
-    /// A press sends the level it wants and the tile draws what came back, so two presses are two steps
-    /// rather than one step reported twice.
-    /// </summary>
+    /// <summary>The tile draws what came back, so two presses are two steps and not one reported twice.</summary>
     [Fact]
     public async Task AVolumeKeyMovesTheDecodeOneStep()
     {
@@ -108,9 +92,8 @@ public sealed class TileKeysTests
     }
 
     /// <summary>
-    /// A press at the top of the range asks for the level it is already at, which the decode is already in:
-    /// the key names a state, so holding it there is a run of calls that change nothing rather than a value
-    /// climbing past one.
+    /// A press at the top asks for the level already in force, so holding the key is a run of calls that
+    /// change nothing.
     /// </summary>
     [Fact]
     public async Task AVolumeKeyStopsAtTheEndOfTheRange()
@@ -129,10 +112,8 @@ public sealed class TileKeysTests
     }
 
     /// <summary>
-    /// A stream with no sound track has nothing to be loud, so the keys that move it are refused where the
-    /// rows they name are greyed.
-    /// The press is left unhandled by the card, which is what keeps a key this tile cannot answer available
-    /// to whatever else wants it.
+    /// A key is refused wherever the row it names is greyed, and the card leaves the press for whatever else
+    /// wants it.
     /// </summary>
     [Fact]
     public async Task AStreamWithNoSoundTrackRefusesTheAudioKeys()

@@ -13,13 +13,11 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// buildPipeline assembles the gst-launch description: the capture backend's source elements,
-// the encoder for the selected codec, and the transport's muxer and sink.
-// capture is the already-built source, so a run and the displayed command differ only in what the
-// backend put in it.
-// meterPort is the loopback port the progress instrumentation writes to, empty to build the
-// pipeline without it, and preview the loopback port the local preview's copy goes to,
-// zero for the same reason.
+// buildPipeline renders the whole gst-launch description: the source it is handed, the encoder the
+// codec resolves to, and the transport's muxer and sink.
+// capture is what the backend built, which is the only thing a run and the displayed command differ
+// in.
+// An empty meterPort and an unwanted preview leave those branches out.
 func buildPipeline(s settings.Settings, capture []string, meterPort string, preview PreviewLeg) ([]string, error) {
 	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
 		return nil, err
@@ -45,11 +43,11 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	if s.Publish.Fps <= 0 {
 		return nil, fmt.Errorf("the GStreamer publish engine needs a positive fps, got %d", s.Publish.Fps)
 	}
-	// The frame memory is resolved here as well as where the source was built,
-	// because the encoder element is one of the things it decides: a family whose plugin ships one
-	// element per memory kind is encoded by a different one on each path.
-	// Both resolutions read the same two tables from the same settings, so the pipeline cannot be
-	// assembled from a source and an encoder that disagree about where the frames are.
+	// Resolved again here rather than carried over from the source, the memory deciding the encoder
+	// element too: a family whose plugin ships one element per memory kind is encoded by a different
+	// one on each path.
+	// Both resolutions read the same tables off the same settings, so source and encoder cannot
+	// disagree about where the frames are.
 	mem, err := gstMemory(s)
 	if err != nil {
 		return nil, err
@@ -68,38 +66,35 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	pipeline := append(append([]string{}, capture...), "!")
 	pipeline = append(pipeline, encoder...)
 	pipeline = append(pipeline, "!")
-	// Most codecs put a parser or a capsfilter between encoder and sink; a codec whose element leaves
-	// nothing for one to do links straight to the sink.
+	// A codec whose element leaves a parser or capsfilter nothing to do links straight to the sink.
 	if len(link) > 0 {
 		pipeline = append(pipeline, link...)
 		pipeline = append(pipeline, "!")
 	}
-	// The counter goes ahead of the tee, so what it counts is the stream rather than one branch of it.
+	// Ahead of the tee, so the count is the stream and not one branch of it.
 	if meterPort != "" {
 		pipeline = append(pipeline, gstProgressElement...)
 		pipeline = append(pipeline, "!")
 	}
-	// Both taps copy the stream the encoder already produced, which is the whole point of teeing it:
-	// neither the meter nor the preview costs a second encode, and the preview leaves this machine
-	// over no network at all.
+	// Both taps copy what the encoder already produced, so neither the meter nor the preview costs a
+	// second encode.
 	var taps [][]string
 	if meterPort != "" {
 		taps = append(taps, gstMeterTap(meterPort))
 	}
 	if preview.Wanted() {
-		// A format with no local carriage publishes without a preview rather than failing to publish,
-		// which is the same answer the ffmpeg engine gives.
+		// A format with no local carriage publishes without a preview rather than not at all, the same
+		// answer the ffmpeg engine gives.
 		if tap, err := gstPreviewTap(s.Publish.Codec, preview); err == nil {
 			taps = append(taps, tap)
 		}
 	}
 	pipeline = append(pipeline, gstTapElements(taps)...)
-	// With audio the muxer waits on two pads, and the queue keeps one pad's stall from blocking the
-	// other branch upstream of the mux.
-	// A tap needs the same queue for a parsing reason: the tee it inserts and every muxer and sink
-	// here expose request pads only, and gst-launch refuses to link two unnamed request pads.
-	// The queue's static sink pad breaks that pair, so the link resolves without pinning a tee pad
-	// number.
+	// With audio the muxer waits on two pads, and the queue keeps a stall on one from blocking the
+	// branch upstream of the other.
+	// A tap needs it for a parsing reason: the tee and every muxer and sink here expose request pads
+	// only, and gst-launch links no two unnamed request pads.
+	// The queue's static sink pad breaks that pair without pinning a tee pad number.
 	if len(audio) > 0 || len(taps) > 0 {
 		pipeline = append(pipeline, "queue", "!")
 	}
@@ -108,10 +103,10 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	return pipeline, nil
 }
 
-// gstGop returns the keyframe interval in frames.
-// A settings value of zero is the form's automatic setting, a keyframe every two seconds.
-// It is the counterpart of the ffmpeg builder's gopFor, and the encoder probe reads it as well,
-// so a probe and the run it predicts code at the same interval.
+// gstGop is the keyframe interval in frames.
+// Zero is the form's automatic setting, a keyframe every two seconds.
+// The encode probe resolves it through here too, so a probe and the run it predicts code at one
+// interval (the ffmpeg builder's gopFor is the counterpart).
 func gstGop(s settings.Settings) int {
 	if s.Publish.Gop > 0 {
 		return s.Publish.Gop
@@ -119,10 +114,10 @@ func gstGop(s settings.Settings) int {
 	return s.Publish.Fps * 2
 }
 
-// gstSourceOptions builds the parts of the source chain that follow from the tables alone:
-// where the frames reach the encoder, the caps stating it, and the element converting into them.
-// What a run adds on top is its instrumentation, and what the engine adds is the check that the
-// machine can hold both ends on one device.
+// gstSourceOptions builds what the source chain takes from the tables alone: where the frames reach
+// the encoder, the caps stating it, and the element converting into them.
+// A run adds its instrumentation on top, and the engine adds the check that this machine holds both
+// ends on one device.
 func gstSourceOptions(s settings.Settings) (gstCaptureOptions, error) {
 	mem, err := gstMemory(s)
 	if err != nil {
@@ -140,22 +135,21 @@ func gstSourceOptions(s settings.Settings) (gstCaptureOptions, error) {
 	}, nil
 }
 
-// gstInputCaps returns the capsfilter each capture backend ends in, and rejects a settings
+// gstInputCaps is the capsfilter every capture backend ends in, and the refusal for a settings
 // combination this engine cannot encode.
-// The engine calls it before it acquires anything, so a combination the table forbids fails without
-// opening a portal session or an X display.
+// The engine calls it before it acquires anything, so a forbidden combination fails without opening
+// a portal session or an X display.
 //
-// The capsfilter pins the encoder input to the configured chroma, the counterpart to ffmpeg's
-// -pix_fmt.
-// Without it the encoder picks its own preferred format (x264enc lands on 4:4:4, often 10-bit),
-// which not every viewer or browser decodes.
-// The colorimetry field pins the quantization range the same way ffmpeg's -color_range does,
-// and the colour space along with it.
+// The filter pins the encoder input to the configured chroma, ffmpeg's -pix_fmt: left free,
+// x264enc negotiates its own preference, 4:4:4 and often 10-bit, which not every viewer or browser
+// decodes.
+// The colorimetry field pins the quantization range and the colour space with it, ffmpeg's
+// -color_range.
 //
-// The memory feature leads the caps because it decides which pads can link at all.
-// Plain video/x-raw means system memory and nothing else, so a capsfilter that omits the feature on
-// the GPU path pins the frames back into the round trip the path exists to avoid,
-// and the negotiation fails against a source that only offers device memory.
+// The memory feature leads the caps because it decides which pads link at all.
+// Plain video/x-raw is system memory, so a filter omitting the feature on the GPU path both fails
+// negotiation against a source offering device memory alone and pins the frames back into the round
+// trip that path exists to avoid.
 func gstInputCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
 		return "", err
@@ -178,13 +172,12 @@ func gstInputCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 	return gstEncoderCaps(s, mem)
 }
 
-// gstEncoderCaps renders the capsfilter itself, without the checks gstInputCaps runs ahead of it.
+// gstEncoderCaps renders the capsfilter alone, without the checks gstInputCaps runs ahead of it.
 //
-// The split is the encoder probe's: it pins the same encoder input to time the encoder,
-// and the transport checks would refuse the measurement over a leg that is no part of what it
-// measures.
-// What the caps depend on is checked here all the same, since both halves come from a table that
-// can be missing the row.
+// The split is the encode probe's: it pins the same encoder input, and a transport check would
+// refuse a measurement over a leg that is no part of what it measures.
+// What the caps themselves depend on is checked here all the same, both mappings coming from tables
+// that can be missing the row.
 func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 	format, err := gstChromaFormat(s.Publish.Codec, s.Publish.Chroma, mem.memory)
 	if err != nil {
@@ -195,11 +188,11 @@ func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 		return "", err
 	}
 
-	// The size is pinned on the encoder input rather than asked of a scaler, which is what GStreamer
-	// negotiation is: the capsfilter states what the encoder is given and the resampler upstream of it
-	// - videoscale on the CPU, the family's post-processor on the device - produces it.
-	// That is the same statement on both paths, so the device path needs no element of its own
-	// (gstgpu.go, gstSystemScale).
+	// The size is pinned on the encoder input rather than asked of a scaler: the resampler upstream
+	// produces what the filter states, videoscale on the CPU and the family's post-processor on the
+	// device.
+	// One statement for both paths, so the device path needs no element of its own (gstgpu.go,
+	// gstSystemScale).
 	size := ""
 	out, scaled, err := s.Publish.OutputSize()
 	if err != nil {
@@ -209,16 +202,14 @@ func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 		size = ",width=" + strconv.Itoa(out.Width) + ",height=" + strconv.Itoa(out.Height)
 	}
 
-	// One structure per colour the encoder input accepts, which is how a capsfilter states
-	// alternatives that a value list cannot: videoconvert fixates a list to its first entry whatever
-	// the frames carry, so a list would convert an HDR surface into the first row and call it
-	// negotiation.
-	// Structures fixate the same way and are what the child can narrow before the negotiation happens
-	// (gstrun, "Narrowing the encoder input").
+	// One structure per colour the encoder input accepts, an alternative a value list cannot state:
+	// videoconvert fixates a list to its first entry whatever the frames carry, so a list would
+	// convert an HDR surface into the first row and call it negotiation.
+	// Structures are what the child narrows before anything negotiates (gstrun, "Narrowing the
+	// encoder input").
 	//
-	// The order is the answer for a run nobody narrows - a rendered command pasted into gst-launch,
-	// and the encode probe - and it leads with the standard-range row, which is what every capture
-	// that states no transfer at all is.
+	// The order is the answer for a run nobody narrows, a pasted command or the encode probe,
+	// and the standard-range row leads because that is what a capture stating no transfer is.
 	caps := make([]string, 0, len(colorimetries))
 	for _, colorimetry := range colorimetries {
 		caps = append(caps, "video/x-raw"+mem.feature+",format="+format+",colorimetry="+colorimetry+size)
@@ -226,22 +217,16 @@ func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 	return strings.Join(caps, ";"), nil
 }
 
-// gstAudioBranch returns the elements that capture desktop audio and attach it to the muxer as a
-// second track, or nil when audio is off.
+// gstAudioBranch is the chain mixing the recorded sources into the muxer's second track,
+// nil where nothing is recorded.
 //
-// pulsesrc records platform.AudioMonitorDevice, the libpulse magic name for the monitor of the
-// default sink: the mixed desktop audio.
-// An attached record stream keeps the monitor source running, so silence flows even while nothing
-// plays and the muxer's audio pad never starves.
-// A backend whose platform serves no such source is refused before the elements are built,
-// on the verdict and in the words publish.AudioAvailable reads off the source table - the same
-// table the form greys the option by, so what a user is told before publishing and what a refused
-// publish says are one sentence.
+// A backend whose platform serves no source is refused before an element is built, in the words
+// publish.AudioAvailable reads off the source table, which is the table the form greys the option
+// by: what a user is told beforehand and what a refused publish says are one sentence.
 //
-// The encoder element, the parser after it and the rate the capsfilter pins all come from the audio
-// table.
-// The capsfilter sits after audioresample because an encoder codes at one rate whatever rate the
-// monitor runs at, and the parser is what puts the framed caps a muxer pad negotiates on the coded
+// Encoder element, parser and coded rate all come from the audio table.
+// The capsfilter sits after audioresample because an encoder codes at one rate whatever rate a
+// device runs at, and the parser is what puts the framed caps a muxer pad negotiates on the coded
 // stream.
 func gstAudioBranch(s settings.Settings) ([]string, error) {
 	recorded := s.Publish.Recorded()
@@ -258,15 +243,13 @@ func gstAudioBranch(s settings.Settings) ([]string, error) {
 	}
 	assert.Assert(enc.Parser != "", "a GStreamer audio encoder states its parser", a.Name)
 
-	// Every source is its own chain into one mixer, and the mixer is what the encoder reads.
 	// One track and not several is carriage rather than preference: RTMP carries one audio track and
 	// the relay re-serves every ingest on all of its listeners, so a two-track stream would be
 	// unplayable on the narrowest leg while the form said it published.
 	//
-	// audiomixer rather than adder because the sources are live and unsynchronised:
-	// adder mixes sample for sample and drifts apart the moment one of them is late,
-	// where the mixer aligns on running time.
-	// It is the same reason the receive side takes one.
+	// audiomixer rather than adder, the sources being live and unsynchronised: adder mixes sample for
+	// sample and drifts the moment one of them is late, where the mixer aligns on running time.
+	// The receive side takes one for the same reason.
 	branch := []string{}
 	for i, source := range recorded {
 		chain, err := gstAudioSource(s, source, i)
@@ -285,31 +268,32 @@ func gstAudioBranch(s settings.Settings) ([]string, error) {
 	), nil
 }
 
-// gstAudioMixName is what the mixer every source feeds is called, so a source chain can name it and
-// the encoder chain can read from it.
+// gstAudioMixName declares the mixer every source feeds, so a source chain can name it and the
+// encoder chain can read from it.
 const gstAudioMixName = "audiomixer name=" + gstAudioMixElement
 
-// gstAudioMixElement is the mixer's element name on its own, which is what a source chain links
-// into and what a property write addresses.
+// gstAudioMixElement is the mixer's element name alone, what a source chain links into.
 const gstAudioMixElement = "amix"
 
-// gstAudioVolumeName is what the volume element of one source is called, indexed by that source's
-// place in the list, so a live gain write can address exactly one of them.
+// gstAudioVolumeName is one source's volume element, indexed by that source's place in the list,
+// so a live gain write reaches exactly one branch.
 func gstAudioVolumeName(i int) string {
 	return fmt.Sprintf("%s%d", gstAudioVolumeElement, i)
 }
 
-// gstAudioVolumeElement leads every volume element's name.
+// gstAudioVolumeElement is the prefix every volume element's name carries.
 const gstAudioVolumeElement = "gain"
 
-// gstAudioSource is one recorded source's own chain, from its device into the mixer.
+// gstAudioSource is one recorded source's chain, from its device into the mixer.
 //
-// The volume element carries the gain and the mute both, because they are one value to an element
-// that multiplies: a muted source is one at zero, which is what keeps unmuting a write to a running
-// pipeline rather than a rebuild of the graph.
+// The volume element carries gain and mute both, one value to an element that multiplies:
+// a muted source is one at zero, which is what keeps unmuting a write to a running pipeline rather
+// than a rebuild of the graph.
 //
-// The queue after the source is what lets the sources run on threads of their own.
+// The queue puts each source on a thread of its own.
 // Without it the mixer pulls them in turn and the slowest device paces every other one.
+// A recording client keeps a monitor source running, so silence flows while nothing plays and the
+// muxer's audio pad never starves.
 func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]string, error) {
 	if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
 		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, a.Source)
@@ -321,10 +305,8 @@ func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]strin
 	if device == "" {
 		return nil, fmt.Errorf("audio source %q names no device to open", a.Source)
 	}
-	// An application is a PipeWire node and not a sound device, so it is opened by the element that
-	// speaks to nodes: PulseAudio has no way to record one program's stream at all,
-	// which is why the kind is this engine's and why the source element differs per kind rather than
-	// the device string alone.
+	// An application is a PipeWire node and not a sound device, and PulseAudio cannot record one
+	// program's stream at all, so the kind picks the element rather than only the device string.
 	source := []string{"pulsesrc", "device=" + device}
 	if a.Source == platform.AudioSourceApplication {
 		source = []string{"pipewiresrc", "target-object=" + device}
@@ -337,14 +319,14 @@ func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]strin
 	}...), nil
 }
 
-// gstChromaFormats maps a settings chroma (the ffmpeg pixel-format name) to the GStreamer
-// video/x-raw format carrying the same subsampling and bit depth.
-// The 10-bit entry is the planar layout, since these elements take no semi-planar input;
-// what the row promises is 10-bit 4:2:0, not p010le's byte order.
+// gstChromaFormats maps a settings chroma, spelled as ffmpeg names the pixel format, to the
+// video/x-raw format of the same subsampling and bit depth.
+// The 10-bit row is the planar layout, these elements negotiating no semi-planar input:
+// what it promises is 10-bit 4:2:0 and not p010le's byte order.
 //
-// gbrp is absent because no encoder element here takes planar RGB: it is declared as a per-engine
-// chroma gap (gstNoPlanarRGB) and refused by capabilities.Validate, so the pipeline never has to
-// decide whether to convert RGB to YUV behind the user's back.
+// gbrp is absent because no encoder element here takes planar RGB.
+// It is a per-engine chroma gap (gstNoPlanarRGB) refused by capabilities.Validate, so nothing here
+// decides whether to convert RGB to YUV behind the user's back.
 var gstChromaFormats = map[string]string{
 	"yuv420p": "I420",
 	"yuv422p": "Y42B",
@@ -354,30 +336,28 @@ var gstChromaFormats = map[string]string{
 
 // gstVaChromaFormats is the same mapping for the va plugin's encoders, which take the semi-planar
 // layouts the VAAPI drivers store surfaces in and negotiate no planar format at all.
-// It is the GStreamer counterpart of vaapiFormats in the ffmpeg builder, and the reason
-// capabilities.Codecs declares no other chroma for the family.
+// It is why capabilities.Codecs declares no other chroma for the family (vaapiFormats is the ffmpeg
+// counterpart).
 //
-// The same layouts on either path: a VA surface holds what these elements read whether vapostproc
-// converted into it or the frames were converted on the CPU and uploaded, so the family's device
-// row names this map as well (gstGpuMemories).
+// One mapping for both paths: a VA surface holds what these elements read whether vapostproc
+// converted into it or CPU-converted frames were uploaded, so the family's device row names this
+// map as well (gstGpuMemories).
 var gstVaChromaFormats = map[string]string{
 	"yuv420p": "NV12",
 	"p010le":  "P010_10LE",
 }
 
-// gstNvChromaFormats is the mapping for the nvcodec plugin's encoders, which negotiate the
-// semi-planar 4:2:0 and 10-bit layouts and the packed 4:4:4 one, and no planar YUV at all:
-// handed I420, Y42B or I420_10LE they refuse to link.
+// gstNvChromaFormats is the mapping for the nvcodec plugin's encoders: the semi-planar 4:2:0 and
+// 10-bit layouts, the packed 4:4:4 one, and no planar YUV at all.
+// Handed I420, Y42B or I420_10LE those elements refuse to link.
 //
-// The 4:4:4 and RGB entries are not every element's.
-// Only the HEVC elements take GBR, and the AV1 one takes neither it nor Y444,
-// which costs nothing here because the chroma a codec may be published at is its own row in
-// capabilities.Codecs and no nvenc row offers a layout its element lacks.
-// This map therefore states the family's union and the rows narrow it, the same division
+// The 4:4:4 and RGB rows are not every element's: only the HEVC elements take GBR, and the AV1 one
+// takes neither it nor Y444.
+// The map states the family's union and capabilities.Codecs narrows it per codec, the same division
 // gstChromaFormats works under.
 //
-// The auto-GPU elements that encode the family's Direct3D 11 surfaces negotiate the same union
-// there, so the device row names this map as well (gstGpuMemories).
+// The auto-GPU elements encoding the family's Direct3D 11 surfaces negotiate the same union there,
+// so the device row names this map as well (gstGpuMemories).
 var gstNvChromaFormats = map[string]string{
 	"yuv420p": "NV12",
 	"yuv444p": "Y444",
@@ -387,16 +367,15 @@ var gstNvChromaFormats = map[string]string{
 
 // gstFamilyChromaFormats is the raw-format mapping per encoder family for frames in system memory,
 // keyed as capabilities.Codecs names the family.
-// Every family with a row in gstCodecs carries an entry, so which layout an element negotiates is
-// stated rather than assumed: a family added there without one is refused,
-// where taking the planar layouts by default would pin caps its elements do not negotiate and the
-// pipeline would fail in negotiation instead of naming the family.
+// Every family with a row in gstCodecs carries an entry, and one added there without an entry is
+// refused: defaulting to the planar layouts would pin caps its elements do not negotiate and fail
+// in negotiation instead of naming the family.
 //
-// The device path reads gstGpuMemories instead, one family's device elements negotiating what they
+// The device path reads gstGpuMemories instead, a family's device elements negotiating what they
 // negotiate rather than what its system ones do (gstRawFormats).
 //
-// The QSV entry is the semi-planar one because the qsv plugin drives oneVPL over VA on Linux and
-// D3D11 on Windows, and both store surfaces in the layouts the VAAPI drivers do.
+// QSV takes the semi-planar mapping because the qsv plugin drives oneVPL over VA on Linux and D3D11
+// on Windows, both storing surfaces in the layouts the VAAPI drivers use.
 var gstFamilyChromaFormats = map[string]map[string]string{
 	capabilities.FamilySoftware: gstChromaFormats,
 	capabilities.FamilyNvenc:    gstNvChromaFormats,
@@ -404,10 +383,10 @@ var gstFamilyChromaFormats = map[string]map[string]string{
 	capabilities.FamilyQsv:      gstVaChromaFormats,
 }
 
-// gstChromaFormat returns the raw format the capture chain pins ahead of the codec's encoder
-// element, for frames reaching it in the resolved memory: a family's device elements can negotiate
-// other layouts than its system ones, and gstRawFormats is where the memory decides which mapping
-// applies.
+// gstChromaFormat is the raw format the capture chain pins ahead of the codec's encoder element,
+// for frames reaching it in the resolved memory.
+// A family's device elements negotiate other layouts than its system ones, and gstRawFormats is
+// where the memory decides which mapping applies.
 func gstChromaFormat(codec, chroma, memory string) (string, error) {
 	c, ok := capabilities.Get(codec)
 	if !ok {
@@ -424,31 +403,30 @@ func gstChromaFormat(codec, chroma, memory string) (string, error) {
 	return format, nil
 }
 
-// The range component of the encoder-input colorimetry, the GstVideoColorRange enum values:
-// 0_255 is 1, 16_235 is 2.
+// The range component of the encoder-input colorimetry, as GstVideoColorRange: 0_255 is 1,
+// 16_235 is 2.
 const (
 	gstRangeFull    = "1"
 	gstRangeLimited = "2"
 )
 
-// The colour spaces the encoder input takes, as the GstVideoColorMatrix, GstVideoTransferFunction
-// and GstVideoColorPrimaries enum values the colorimetry field spells after the range.
+// The colour spaces the encoder input takes, spelled after the range as the GstVideoColorMatrix,
+// GstVideoTransferFunction and GstVideoColorPrimaries enum values.
 const (
-	// gstBt709 is the colour space of every standard-range HD and larger picture,
-	// which is every SDR screen this app captures.
+	// gstBt709 is the colour space of every standard-range HD and larger picture, which is every SDR
+	// screen this app captures.
 	// The encoders write it into the bitstream, so a viewer converts back with the matrix the frames
-	// were made with instead of picking one from the picture size.
+	// were made with rather than one picked off the picture size.
 	gstBt709 = "3:5:1"
-	// The two BT.2100 colour spaces an HDR surface carries: the absolute curve mastered content is
-	// graded on, and the broadcast one.
-	// Both ride the BT.2020 matrix and primaries, which is what makes them one pair of rows rather
-	// than four.
+	// The two BT.2100 curves an HDR surface carries, the absolute one mastered content is graded on
+	// and the broadcast one.
+	// Both ride the BT.2020 matrix and primaries, which is what makes them two rows and not four.
 	gstBt2100Pq  = "6:14:7"
 	gstBt2100Hlg = "6:15:7"
 )
 
-// gstColorimetry is the colour the encoder input takes from a capture that states no transfer of
-// its own, which is every standard-range surface.
+// gstColorimetry is the colour taken from a capture that states no transfer of its own, which is
+// every standard-range surface.
 func gstColorimetry(s settings.Settings) (string, error) {
 	colorimetries, err := gstColorimetries(s)
 	if err != nil {
@@ -457,23 +435,22 @@ func gstColorimetry(s settings.Settings) (string, error) {
 	return colorimetries[0], nil
 }
 
-// gstColorimetries is every colour the encoder input accepts, standard range first,
-// and rejects a colour range this engine has no mapping for.
+// gstColorimetries is every colour the encoder input accepts, standard range first, and the refusal
+// for a colour range this engine has no mapping for.
 //
-// All four components of each are named because a partial colorimetry is not partially applied.
+// All four components are named because a partial colorimetry is not partially applied.
 // Left as "<range>:0:0:0", videoconvert drops the range along with the three unknown components and
-// converts to limited range whatever the range says, so the colour-range setting reaches the caps
-// and changes nothing about the frames: full-range white leaves the capture chain as Y=235 exactly
-// like limited-range white.
+// converts to limited range whatever the range said, so full-range white leaves the capture chain
+// at Y=235 exactly like limited-range white.
 // Spelled out, the range takes effect (Y=254) and the stream signals what it holds.
 //
-// The two HDR colours are offered where the pixel format can hold them and nowhere else.
-// An HDR surface cannot ride in eight bits, so offering the rows on an 8-bit format would be
-// offering a negotiation that produces a stream tagged PQ over eight-bit samples;
-// that combination is refused on the capture's own report instead (gsthdr.go).
+// The HDR rows are offered where the pixel format can hold them and nowhere else.
+// An HDR surface cannot ride in eight bits, so offering them on an 8-bit format would offer a
+// negotiation producing a stream tagged PQ over eight-bit samples.
+// That combination is refused on the capture's own report instead (gsthdr.go).
 //
-// Which of the rows a run ends on is the capture's answer and never a setting:
-// the child narrows them to the one whose transfer the surface carries, before anything negotiates.
+// Which row a run ends on is the capture's answer and never a setting: the child narrows them to
+// the transfer the surface carries, before anything negotiates.
 func gstColorimetries(s settings.Settings) ([]string, error) {
 	r, err := gstColorRange(s)
 	if err != nil {
@@ -487,21 +464,21 @@ func gstColorimetries(s settings.Settings) ([]string, error) {
 }
 
 // gstColorRanges maps a settings colour range to its GstVideoColorRange value.
-// Every chroma this engine encodes is a YUV one, so the range always applies; gbrp,
-// the format that is full range by construction, does not reach this engine (gstNoPlanarRGB).
+// Every chroma this engine encodes is a YUV one, so the range always applies: gbrp, full range by
+// construction, does not reach this engine (gstNoPlanarRGB).
 var gstColorRanges = map[string]string{
 	"pc": gstRangeFull,
 	"tv": gstRangeLimited,
 }
 
-// gstColorRange returns the range the encoder input is pinned to, matching the ffmpeg builder's
+// gstColorRange is the range the encoder input is pinned to, matching the ffmpeg builder's
 // -color_range.
 //
 // A value with no mapping is refused rather than read as limited.
-// The range is carried in the bitstream and decides how every viewer expands the picture,
-// so substituting one would change what the stream looks like without saying so,
-// and the ffmpeg engine passes the same field straight to -color_range, which fails loudly on a
-// value it does not know.
+// The range rides in the bitstream and decides how every viewer expands the picture, so
+// substituting one would change what the stream looks like with nothing said.
+// The ffmpeg engine passes the same field straight to -color_range, which fails loudly on a value
+// it does not know.
 func gstColorRange(s settings.Settings) (string, error) {
 	r, ok := gstColorRanges[s.Publish.ColorRange]
 	if !ok {

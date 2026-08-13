@@ -2,24 +2,14 @@ namespace ScreenShare.App.Copy;
 
 /// <summary>
 /// The paragraph behind one choice: what it is, what it costs, and when to pick it.
+/// Shown under a radio card's title, and in a dropdown entry where there is room (docs/tooltips.md).
 ///
-/// These are what a radio card shows under its title and what a dropdown entry shows when there is room.
-/// They are written for someone sharing a screen with friends who is willing to learn what the encoder is
-/// doing - the form is pedagogical, and this is where it teaches (docs/tooltips.md).
-///
-/// Three rules, and they are what stops a help text from being decoration.
-///
-/// <b>Say the trade, not the definition.</b> "4:2:0 keeps a quarter of the colour" is a definition; "coloured
-/// text and edges smear - the washed-out video-call look" is what the reader will see.
-/// Both belong, in that order.
-///
-/// <b>Name what it needs.</b> A choice that will fail on this machine should say what it wants before it is
-/// picked, not after.
-/// The backend greys what it can prove; this says what it cannot.
-///
-/// <b>An empty answer is allowed.</b> A value whose name already says everything - "No audio" - gets nothing,
-/// and the row draws one line instead of two.
-/// A paragraph that only restates the label costs a reader time and teaches nothing.
+/// Three rules hold every entry.
+/// Say the trade and not the definition: "4:2:0 keeps a quarter of the colour" is the definition, "coloured
+/// text and edges smear" is what the reader will see, and both belong in that order.
+/// Name what a choice needs before it is picked, since the backend greys only what it can prove.
+/// An empty answer is allowed for a value whose name already says everything, and the row then draws one line
+/// instead of two.
 /// </summary>
 public static class Descriptions
 {
@@ -74,8 +64,7 @@ public static class Descriptions
     };
 
     /// <summary>
-    /// What one encoder adds beyond its format, where the format does not identify it.
-    /// Three software encoders produce AV1 and they differ enough to choose between.
+    /// What one encoder adds beyond its format, for the formats more than one encoder here produces.
     /// </summary>
     private static readonly Dictionary<string, string> Encoders = new()
     {
@@ -133,8 +122,7 @@ public static class Descriptions
         ["p7"] = "Most analysis, smallest files. On the dedicated encoder chip even this barely touches the graphics cores.",
 
         // The software ladder.
-        // Only the steps that carry a fact beyond their position say anything: the rest are rungs, and a line
-        // each would be noise on nine dropdowns.
+        // Only a step carrying a fact beyond its position says anything; the rest are rungs.
         ["placebo"] = "Hours of analysis for a fraction of a percent smaller. Named as a joke by x264's own authors, and offered because the encoder offers it.",
         ["medium"] = "x264's own balance of speed and file size.",
         ["veryfast"] = "Where the live modes start: fast enough to keep up with a screen without taking every core.",
@@ -142,9 +130,8 @@ public static class Descriptions
     };
 
     /// <summary>
-    /// What each tune aims at.
-    /// Every line says what the encoder does differently, not whether it is good: which one is right follows
-    /// from the content and the delay budget, and both are the reader's to know.
+    /// What each tune aims at, and never whether it is good: which one is right follows from the content and
+    /// the delay budget, both of which are the reader's.
     /// </summary>
     private static readonly Dictionary<string, string> Tunes = new()
     {
@@ -164,12 +151,10 @@ public static class Descriptions
     };
 
     /// <summary>
-    /// What each built-in preset delivers, in one line.
-    ///
-    /// The line is true of every configuration the preset accepts and of no other, which is what lets it
-    /// stand while the settings underneath it change: the encoder, the pixel format and the capture backend
-    /// are this machine's answer to the promise, and a sentence naming any of them would be wrong on the next
-    /// machine (<c>docs/presets.md</c>).
+    /// What each built-in preset delivers.
+    /// The line holds for every configuration the preset accepts and no other, so it names no encoder, pixel
+    /// format or capture backend: those are this machine's answer to the promise and change with the machine
+    /// (<c>docs/presets.md</c>).
     /// </summary>
     private static readonly Dictionary<string, string> Presets = new()
     {
@@ -194,9 +179,9 @@ public static class Descriptions
     };
 
     /// <summary>
-    /// What each render chain does and what it says about the colour it produces.
-    /// Both halves matter: where the frames are converted decides what the conversion costs, and whether the
-    /// route states its colour decides whether dark content survives it.
+    /// What each render chain does and what it says about colour.
+    /// Where the frames are converted decides the cost, and whether the route states its colour decides
+    /// whether dark content survives it.
     /// </summary>
     private static readonly Dictionary<string, string> RenderChains = new()
     {
@@ -233,7 +218,6 @@ public static class Descriptions
 
     public static string Tune(string id) => Look(Tunes, id);
 
-    /// <summary>What a built-in preset delivers, which is the whole of what picking one says.</summary>
     public static string Preset(string id) => Look(Presets, id);
 
     public static string Transport(string id) => Look(Transports, id);
@@ -244,8 +228,8 @@ public static class Descriptions
 
     /// <summary>
     /// The paragraph for an identifier, and nothing where this build has none.
-    /// Absence is the answer for a value whose name says everything and for one a newer backend invented;
-    /// both draw one line instead of two.
+    /// Absence is the answer both for a value whose name says everything and for one a newer backend
+    /// invented.
     /// </summary>
     private static string Look(Dictionary<string, string> text, string id) =>
         id.Length > 0 && text.TryGetValue(id, out var body) ? body : "";

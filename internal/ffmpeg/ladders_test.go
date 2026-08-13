@@ -9,10 +9,10 @@ import (
 
 // The flag each encoder spells its effort knob with, and the one it spells its tune with.
 //
-// They are stated here rather than derived because they are this engine's spelling of a fact the
-// table holds in the encoder's own vocabulary: ffmpeg says -preset where the GStreamer elements say
-// speed-preset, and the aom family says -cpu-used where rav1e says -speed.
-// What the table declares is the step; which flag carries it is the builder's.
+// Stated rather than derived: they are this engine's spelling of a fact the table holds in the
+// encoder's own vocabulary, ffmpeg saying -preset where the GStreamer elements say speed-preset,
+// and the aom family -cpu-used where rav1e says -speed.
+// The table declares the step; which flag carries it is the builder's.
 var (
 	effortFlags = map[string]string{
 		"libx264":    "-preset",
@@ -25,13 +25,13 @@ var (
 		"hevc_nvenc": "-preset",
 		"h264_nvenc": "-preset",
 		"av1_nvenc":  "-preset",
-		// oneVPL names the seven points of its target-usage scale, so the ladder's numbers reach this
-		// engine through the map that spells them (qsvPresets).
+		// ffmpeg names the seven points of oneVPL's target-usage scale, so the ladder's numbers reach
+		// this engine through the map that spells them (qsvPresets).
 		"h264_qsv": "-preset",
 		"hevc_qsv": "-preset",
 		"av1_qsv":  "-preset",
 		"vp9_qsv":  "-preset",
-		// All three AMF encoders spell the scale alike, so the step reaches them verbatim.
+		// All three AMF encoders spell the scale alike, so a step reaches them verbatim.
 		"h264_amf": "-quality",
 		"hevc_amf": "-quality",
 		"av1_amf":  "-quality",
@@ -48,14 +48,8 @@ var (
 	}
 )
 
-// The ladders state what the builders already spend.
-//
-// It is the test that makes the table worth having before anything reads it:
-// the steps each mode starts on lived as constants inside two switch statements, one per engine,
-// and a speed decision written twice is one that drifts.
-// Pinning them here means the swap to reading the settings can be made without changing what any
-// encode does, and any drift between the table and the builder fails here rather than in a stream
-// nobody can explain.
+// A speed decision the table declares and a builder spends is one written in two places, so any
+// drift between them fails here rather than in a stream nobody can explain.
 func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -78,7 +72,7 @@ func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 				if flag, ok := tuneFlags[c.Name]; ok {
 					step, declared := c.Tune.StepFor(mode)
 					if !declared || step == "none" {
-						// The builder leaves the knob unset in this mode, which is what an absent default means.
+						// An absent default means the builder leaves the knob unset in this mode.
 						if i := slices.Index(args, flag); i >= 0 {
 							t.Errorf("the builder tunes for %q where the table leaves the knob unset", args[i+1])
 						}
@@ -91,8 +85,7 @@ func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 	}
 }
 
-// Every declared default is a step of its own ladder.
-// A default off the ladder would be a control offering one set of values and starting on another.
+// A default off its own ladder is a control offering one set of values and starting on another.
 func TestEveryDefaultIsAStepOfItsLadder(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		for _, ladder := range []struct {
@@ -111,8 +104,8 @@ func TestEveryDefaultIsAStepOfItsLadder(t *testing.T) {
 
 // A codec whose builder spends a step declares a ladder, and one that declares a ladder has a
 // builder that spends it.
-// The two maps above are what the swap will read, so a codec missing from either is a knob that
-// would be offered and dropped.
+// The two maps above are the builders' side of that, so a codec missing from either is a knob the
+// form offers and the command drops.
 func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
 	for _, c := range capabilities.Codecs {
 		if !c.Implemented {
@@ -129,9 +122,9 @@ func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
 	}
 }
 
-// mustEncoderArgs builds one encoder's arguments for one mode, on a draft the codec accepts:
-// the quantizer rides its own scale and the bitrate stays under its ceiling,
-// so what comes back is refused for nothing but the knob under test.
+// mustEncoderArgs builds one encoder's arguments for one mode on a draft the codec accepts: the
+// quantizer rides its own scale and the bitrate stays under its ceiling, so nothing but the knob
+// under test can refuse it.
 func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 	t.Helper()
 
@@ -141,10 +134,10 @@ func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 		t.Skipf("%s codes nothing on this engine", c.Name)
 	}
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[len(chromas)-1]
-	// The two ladder steps come off the codec's own row, which is what a fresh installation,
-	// the migration and the repair all do.
-	// A draft carrying another codec's step is what the repair exists to move,
-	// and it is not what this asks about.
+	// Both steps come off the codec's own row, as a fresh installation, the migration and the repair
+	// leave them.
+	// A draft carrying another codec's step is what the repair exists to move, and not what this asks
+	// about.
 	s.Publish.Effort, _ = c.Effort.StepFor(mode)
 	s.Publish.Tune, _ = c.Tune.StepFor(mode)
 	s.Publish.Cq = c.CqMaxOn(capabilities.EngineFfmpeg) / 2
@@ -159,7 +152,7 @@ func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 	return args
 }
 
-// assertFlagValue holds one flag's value in an argument list to what the table declares.
+// assertFlagValue holds one flag's value in args to what the table declares.
 func assertFlagValue(t *testing.T, args []string, flag, want string) {
 	t.Helper()
 
@@ -178,11 +171,11 @@ func assertFlagValue(t *testing.T, args []string, flag, want string) {
 
 // effortSpelling is how this engine writes one step of a codec's ladder.
 //
-// Almost every ladder reaches ffmpeg as the step itself: the two engines differ in what the option
-// is called and not in what it carries.
-// oneVPL's is the exception, because the scale it defines is a number and ffmpeg names its seven
-// points instead, so the builder's own map is what this reads - a second table here would be a
-// second spelling free to disagree with the one the encoder is actually given.
+// Almost every ladder reaches ffmpeg as the step itself, the two engines differing in what the
+// option is called and not in what it carries.
+// oneVPL is the exception: the scale it defines is a number where ffmpeg names its seven points,
+// so this reads the builder's own map rather than a second one, which would be a second spelling
+// free to disagree with what the encoder is given.
 func effortSpelling(c capabilities.Codec, step string) string {
 	if c.Family != capabilities.FamilyQsv {
 		return step

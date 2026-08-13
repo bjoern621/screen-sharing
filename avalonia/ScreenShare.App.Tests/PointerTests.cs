@@ -7,14 +7,11 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// The pointer the publish sends beside the picture, as the preview draws it.
-///
-/// The position arrives in the picture's own pixels and is drawn in the card's, so the one thing worth
-/// locking is the conversion: a marker placed in the publisher's pixels would sit wherever the card happened
-/// not to be.
+/// A position arrives in the captured screen's pixels and is drawn in the card's, so the conversion is what is
+/// worth locking: a marker placed in the publisher's pixels lands wherever the card is not.
 /// </summary>
 public sealed class PointerTests
 {
-    /// <summary>A card drawn at the given size, with no picture behind it yet.</summary>
     private static PreviewViewModel Card(double width, double height)
     {
         var backend = new SeededBackend("linux");
@@ -26,9 +23,8 @@ public sealed class PointerTests
     }
 
     /// <summary>
-    /// Nothing is drawn while the publish sends no position, which is every cursor mode but the one that
-    /// sends it.
-    /// A marker drawn anyway would be a second pointer over the one the encoder already put in the frames.
+    /// Every cursor mode but one sends no position.
+    /// A marker drawn without one would be a second pointer over the one already coded into the frames.
     /// </summary>
     [Fact]
     public void NoPositionDrawsNoMarker()
@@ -41,8 +37,8 @@ public sealed class PointerTests
     }
 
     /// <summary>
-    /// A pointer that has left the captured screen is not at its last position, so it is not drawn there: a
-    /// marker stuck against an edge for as long as the mouse is away is worse than none.
+    /// A pointer off the captured screen is not where it last was.
+    /// A marker parked at an edge for as long as the mouse is away is worse than none.
     /// </summary>
     [Fact]
     public void APointerOffTheScreenDrawsNoMarker()
@@ -55,9 +51,8 @@ public sealed class PointerTests
     }
 
     /// <summary>
-    /// A card that has not been laid out yet draws nothing, because there is no size to place a position
-    /// against.
-    /// It is the same answer as no position: what is missing is one of the two halves the conversion needs.
+    /// A card before its first layout has no size to place a position against.
+    /// One half of the conversion is missing either way, so the answer is the one a missing position gets.
     /// </summary>
     [Fact]
     public void ACardWithNoSizeDrawsNoMarker()

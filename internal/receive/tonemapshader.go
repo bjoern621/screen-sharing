@@ -2,36 +2,38 @@ package receive
 
 // toneMapShader rolls a PQ picture down into the range a standard display shows.
 //
-// It runs where the frames are still coded as they arrived: glcolorconvert ahead of it
-// applies matrix and range and no transfer function, so what reaches the sampler is
-// non-linear PQ in BT.2020 primaries, which is exactly what the curve below inverts.
+// It runs where the frames are still coded as they arrived: glcolorconvert ahead of it applies
+// matrix and range and no transfer function, so what reaches the sampler is non-linear PQ in
+// BT.2020 primaries, which is exactly what the curve below inverts.
 //
 // Five steps, and the middle one is the whole point.
 //
-//  1. The ST 2084 EOTF turns the signal into light, on the scale the format defines, where
-//     1.0 is ten thousand candela per square metre.
-//  2. Dividing by BT.2408 reference white puts diffuse white at 1.0. That is the alignment
-//     the picture is judged by: a desktop's white is reference white, and a map that left it
-//     anywhere else would be the darkened picture videoconvert's gamma-mode already
-//     produces.
-//  3. Everything above the knee is rolled into what is left below 1.0, on luminance rather
-//     than per channel, so a highlight loses brightness and not its hue.
+//  1. The ST 2084 EOTF turns the signal into light, on the scale the format defines, where 1.0 is
+//     ten thousand candela per square metre.
+//  2. Dividing by BT.2408 reference white, 203 cd/m^2, puts diffuse white at 1.0.
+//     That is the alignment the picture is judged by: a desktop's white is reference white, and a
+//     map that left it anywhere else would be the darkened picture videoconvert's gamma-mode
+//     already produces.
+//  3. Everything above the knee is rolled into what is left below 1.0, on luminance rather than per
+//     channel, so a highlight loses brightness and not its hue.
 //  4. BT.2020 primaries become BT.709.
 //  5. The sRGB curve encodes the result.
 //
-// The shoulder is an exponential rather than the Hermite spline BT.2390 states, and the
-// reason is the range it has to cover. BT.2390 rolls off inside the PQ domain, where the
-// whole range is [0,1] and the slopes either side of the knee are near one. Once reference
-// white is 1.0 the range above it runs to about fifty, and a Hermite segment that leaves the
-// knee at unit slope and has to arrive at 1.0 that far away overshoots and comes back down,
-// which is a curve that makes a brighter input darker. The exponential leaves the knee at
-// unit slope, never exceeds 1.0 and never turns over, so highlights compress into the top of
-// the range in the order they came in.
+// The shoulder is an exponential rather than the Hermite spline BT.2390 states, and the reason is
+// the range it has to cover.
+// BT.2390 rolls off inside the PQ domain, where the whole range is [0,1] and the slopes either side
+// of the knee are near one.
+// Once reference white is 1.0 the range above it runs to about fifty, and a Hermite segment that
+// leaves the knee at unit slope and has to arrive at 1.0 that far away overshoots and comes back
+// down, which is a curve that makes a brighter input darker.
+// The exponential leaves the knee at unit slope, never exceeds 1.0 and never turns over, so
+// highlights compress into the top of the range in the order they came in.
 //
-// What it gives up is the highlights themselves, and that is a property of the display
-// rather than of this curve. A standard display has no room above diffuse white, so specular
-// detail above the knee arrives compressed into a narrow band. Rolling it off smoothly is
-// what separates this from clipping, which is the alternative.
+// What it gives up is the highlights themselves, and that is a property of the display rather than
+// of this curve.
+// A standard display has no room above diffuse white, so specular detail above the knee arrives
+// compressed into a narrow band.
+// Rolling it off smoothly is what separates this from clipping, the alternative.
 const toneMapShader = `
 #ifdef GL_ES
 precision highp float;
@@ -97,22 +99,22 @@ void main() {
 }
 `
 
-// glToneMapRung is the rung every platform carries, and the only one that brings its own
-// conversion rather than asking a driver for one.
+// glToneMapRung is the rung every platform carries, and the only one that brings its own conversion
+// rather than asking a driver for one.
 //
-// It is last in every list because it is the one that always builds: OpenGL is where the
-// default render chain already works on Linux, and a driver rung ahead of it converts on
-// silicon that is built for it.
+// Last in every list because it is the one that always builds: OpenGL is where the default render
+// chain already works on Linux, and a driver rung ahead of it converts on silicon built for it.
 //
-// The fragment ends in gldownload, which is what lets one rung serve every chain. gldownload
-// passes GL memory straight through when what follows accepts it, so the GL chain pays
-// nothing and its own glupload finds the frames already uploaded; a chain that works in
-// system memory or on another device gets the download it needs to take them.
+// The fragment ends in gldownload, which is what lets one rung serve every chain.
+// gldownload passes GL memory straight through when what follows accepts it, so the GL chain pays
+// nothing and its own glupload finds the frames already uploaded, and a chain that works in system
+// memory or on another device gets the download it needs to take them.
 //
-// glcolorconvert ahead of the shader is not optional. glshader samples one RGBA texture, and
-// a decoder hands over planar YUV, so without it there is nothing for the sampler to read.
-// It applies matrix and range and no transfer function, which is what leaves the PQ curve
-// intact for the shader to invert.
+// glcolorconvert ahead of the shader is not optional.
+// glshader samples one RGBA texture and a decoder hands over planar YUV, so without it there is
+// nothing for the sampler to read.
+// It applies matrix and range and no transfer function, which leaves the PQ curve intact for the
+// shader to invert.
 var glToneMapRung = toneMapRung{
 	name:  "gl",
 	needs: []string{"glupload", "glcolorconvert", "glshader", "gldownload"},

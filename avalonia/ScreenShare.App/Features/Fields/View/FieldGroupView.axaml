@@ -8,28 +8,19 @@
 
   <!--
     One group of the resolved form, drawn generically. Which controls appear, what they are
-    called, which are greyed and why all arrive in the message; this file decides only how
-    each control kind looks and where it sits (docs/ipc-api.md).
-
-    That is why there is no capture view, no encode view and no transport view: the five
-    steps differ in nothing this layer can see.
+    called, which are greyed and why all arrive in the message, and this file decides how a
+    control kind looks and where it sits (docs/ipc-api.md).
   -->
 
   <!--
     Nothing is skinned here. The option row is the design's OptionCard and the picked
-    treatment travels with it (Design/Buttons.axaml); the text roles the card's interior
-    plays are in Design/Text.axaml, because a rule that reaches inside a button's content
-    needs a descendant selector and a ControlTheme may not carry one.
+    treatment travels with it (Design/Buttons.axaml). The text roles inside the card are in
+    Design/Text.axaml, because reaching into a button's content needs a descendant selector
+    and a ControlTheme may not carry one.
   -->
 
   <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
     <StackPanel>
-      <!--
-        The heading, and beside it whatever effect this screen offers for the whole group.
-        There is one: putting these settings back to what a fresh installation holds. It sits
-        on the heading rather than on a control because it is about every control under it,
-        and it is absent on the groups that offer nothing (Features/Fields/Model/GroupAction.cs).
-      -->
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Grid.Column="0" Classes="heading" VerticalAlignment="Center" Text="{Binding Title}" />
         <Button Grid.Column="1"
@@ -53,12 +44,6 @@
           <DataTemplate x:DataType="vm:FieldViewModel">
             <StackPanel Spacing="6" Margin="0,0,0,18">
 
-              <!--
-                The label, what a change to it costs a viewer, and the unit its number is in.
-                The middle one is only on the controls the backend marked live: a reader
-                deciding whether to touch a knob while people are watching wants that before
-                the edit, not after the picture has blinked.
-              -->
               <Grid ColumnDefinitions="*,Auto,Auto">
                 <TextBlock Grid.Column="0" Classes="secondary" Text="{Binding Label}" />
                 <TextBlock Grid.Column="1"
@@ -77,31 +62,23 @@
                          Text="{Binding Help}" />
 
               <!--
-                Written when the reader leaves the box rather than on every keystroke. A
-                half-typed value is not a value: it resolves to a form about settings nobody
-                asked for, and where the field belongs to an applied group it would be stored
-                and acted on a character at a time - the relay's address is the case that
-                exists, and the backend would dial each prefix of a hostname in turn.
+                Written on losing focus and not per keystroke. A half-typed value resolves to
+                a form about settings nobody asked for, and in an applied group it is stored
+                and acted on a character at a time: the backend would dial every prefix of the
+                relay's hostname in turn.
               -->
               <TextBox IsVisible="{Binding IsText}"
                        IsEnabled="{Binding IsEnabled}"
                        Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
 
               <!--
-                A typed number, and beside it whatever effect this screen offers for that
-                setting. There is one today: measuring the line and writing what it finds into
-                the uplink box. It is a button rather than a figure that fills itself in
-                because it is an effect - it uploads a real payload, takes seconds, and the
-                backend refuses it outright while a stream is publishing.
+                The effect a screen offers for this setting, absent on every number no screen
+                offered one for (Features/Fields/Model/FieldAction.cs). It is a button and not
+                a figure that fills itself in because it uploads a real payload, takes seconds,
+                and is refused outright while a stream publishes.
 
-                The button is absent on every other number, so the row is a box alone unless a
-                screen said otherwise (Features/Fields/Model/FieldAction.cs).
-
-                Why the press is refused - and what the last attempt answered - sits under the
-                row it is about, in the place a greyed control's own reason sits. It used to sit
-                at the foot of the column, which put the sentence and the button it explains on
-                opposite ends of a screen long enough to scroll. It is written out rather than
-                left to the button's tip, which a disabled control in Avalonia never opens.
+                Why the press is refused stands under the row rather than in the button's tip,
+                which a disabled control in Avalonia never opens.
               -->
               <StackPanel IsVisible="{Binding IsNumber}" Spacing="6">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
@@ -129,13 +106,10 @@
               </StackPanel>
 
               <!--
-                A number that also carries a ladder. The box takes any value the range
-                admits and the caret beside it opens the few worth reaching in one move;
-                both write the same setting, which is what the glued edge says
-                (Controls/NumberSelect).
-
-                The caret carries no value of its own. What is held is in the box to its
-                left, and a face repeating it would be one figure printed twice.
+                Box and ladder write one setting, which is what the glued edge says
+                (Controls/NumberSelect). The caret carries no value of its own: what is held
+                is in the box to its left, and a face repeating it would print one figure
+                twice.
               -->
               <StackPanel Orientation="Horizontal"
                           IsVisible="{Binding IsNumberSelect}"
@@ -175,10 +149,9 @@
               </Grid>
 
               <!--
-                A flag is the switch, the same one the review step and the expert menu
-                draw. A CheckBox stood here and was the only tick-box in the product: one
-                domain concept rendered two ways is the defect the shared control exists
-                to prevent (docs/design-language.md, "Selection").
+                A flag is the switch and never a CheckBox. One domain concept rendered two
+                ways is the defect the shared control exists to prevent
+                (docs/design-language.md, "Selection").
               -->
               <ToggleButton IsVisible="{Binding IsToggle}"
                             Theme="{StaticResource SwitchTheme}"
@@ -190,15 +163,13 @@
                          Text="{Binding Readback}" />
 
               <!--
-                One list for both option kinds. The difference the contract draws between
-                them is whether each entry carries a paragraph, and an entry with none
-                simply renders without one - which is why there is one list here and not
-                two that differed in their spacing.
+                One list for both option kinds: the two differ in whether an entry carries a
+                paragraph, and an entry with none renders without one.
 
-                The card is wrapped, and the wrapper is what carries the refusal. A
-                disabled control in Avalonia takes no pointer events, so a tooltip set on
-                the card itself could only ever open on the entries that do not need one;
-                the enabled border behind it is what the pointer lands on instead.
+                The wrapper is what carries the refusal. A disabled control in Avalonia takes
+                no pointer events, so a tooltip on the card itself would open only on the
+                entries that need none; the enabled border behind it is what the pointer
+                lands on.
               -->
               <ItemsControl IsVisible="{Binding IsChoice}" ItemsSource="{Binding Options}" IsEnabled="{Binding IsEnabled}">
                 <ItemsControl.ItemTemplate>
@@ -226,7 +197,6 @@
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
 
-              <!-- Why the control is inert, in its place rather than in a log line. -->
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"
                          TextTrimming="None"
@@ -234,8 +204,8 @@
                          Text="{Binding Reason}" />
 
               <!--
-                A live field that means something its label does not describe here. Not a
-                third form of unavailability: the knob does reach the encoder.
+                A note, not a third treatment of inapplicability: the field is live and the
+                value does reach the encoder (docs/field-availability.md, "The treatments").
               -->
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"

@@ -2,11 +2,6 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="using:ScreenShare.App.Controls">
 
-  <!--
-    The chip's three skins. Every one of them is set on every state, including the branch
-    that turns the detail figure off, so a chip toggled twice looks exactly like a chip
-    that was never touched.
-  -->
   <ControlTheme x:Key="{x:Type controls:Chip}" TargetType="controls:Chip">
     <Setter Property="Height" Value="{StaticResource ChipHeight}" />
     <Setter Property="Padding" Value="10,0" />
@@ -41,10 +36,7 @@
       </ControlTemplate>
     </Setter>
 
-    <!--
-      Off. The stream is gone and its decoder with it, so there is no figure left to print
-      and the label is struck through rather than merely dimmed.
-    -->
+    <!-- Unchecked: the decode is gone, so there is no figure left to print. -->
     <Style Selector="^:unchecked /template/ Border#Root">
       <Setter Property="Background" Value="{StaticResource PanelBrush}" />
       <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}" />
@@ -58,10 +50,9 @@
     </Style>
 
     <!--
-      A chip has two skins and not three. A stream in trouble says so in its detail figure,
-      which is words, and takes no border and no colour of its own: the fault belongs to the
-      stream and the chip row is the control that drops it, so recolouring the control would
-      make the row read as broken rather than the stream.
+      No fault skin.
+      A struggling stream says so in words in its detail figure, because recolouring the control
+      would read as the row being broken rather than the stream.
     -->
 
     <Style Selector="^:pointerover /template/ Border#Root">

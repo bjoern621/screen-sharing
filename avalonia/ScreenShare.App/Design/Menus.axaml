@@ -3,31 +3,20 @@
                     xmlns:ti="using:TablerIcons">
 
   <!--
-    The menu, as one definition for every menu in the product.
-
-    A right-click menu on a tile, a right-click menu on a rail entry and a dropdown's option
-    list are the same object: a floating surface, a run of rows, and a divider between groups.
-    There were three of them before this - two wearing Fluent, because nothing had ever
-    restyled MenuItem, and one wearing a private copy of the surface in Controls/Select - and
-    the three disagreed about padding, radius, hover, and whether a menu casts a shadow at all.
-
-    The themes are keyed on the types, so a menu wears the design by existing. A view that has
-    to opt in is a view that can forget to, and the two that forgot are how a Fluent menu
-    survived in a product whose design states that it has none.
-
-    The rows read their state from the pseudo-classes MenuItem raises - :icon, :checked, :open -
-    rather than from bindings against the item, which is what lets these themes keep compiled
-    bindings on. The option list is the one menu whose rows bind against an item type, and its
-    two setters stay where that type is known (Controls/Select/Select.axaml).
+    One definition for every menu in the product.
+    A tile's right-click menu, a rail entry's, and a dropdown's option list are one object.
+    The themes are keyed on the types, so a menu wears the design by existing,
+    and a view that has to opt in is a view that can forget to.
+    Rows read the pseudo-classes MenuItem raises (:icon, :checked, :open) and not bindings against the item,
+    which is what lets these themes keep compiled bindings on.
+    The option list is the one menu whose rows bind against an item type, and its two setters stay
+    where that type is known (Controls/Select/Select.axaml).
   -->
 
   <!--
-    The surface. A panel that floats, so it takes the panel radius and the one shadow the
-    design draws.
-
-    The padding is what keeps a hovered row's fill off the border: a row lights up as a filled
-    rounded box, and a box drawn hard against a 1px edge reads as a rendering fault rather than
-    as a highlight.
+    A panel that floats: the panel radius, and the one shadow the design draws.
+    The padding keeps a hovered row's fill off the border,
+    where a filled box drawn hard against a 1px edge reads as a rendering fault.
   -->
   <ControlTheme x:Key="{x:Type MenuFlyoutPresenter}" TargetType="MenuFlyoutPresenter">
     <Setter Property="Background" Value="{StaticResource ChromeBrush}" />
@@ -35,7 +24,7 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="{StaticResource RadiusPanel}" />
     <Setter Property="Padding" Value="{StaticResource InsetMenu}" />
-    <!-- A list long enough to scroll is the option list; a right-click menu never reaches it. -->
+    <!-- Only the option list grows long enough to scroll. A right-click menu never reaches this. -->
     <Setter Property="MaxHeight" Value="360" />
     <Setter Property="Template">
       <ControlTemplate>
@@ -54,24 +43,12 @@
   </ControlTheme>
 
   <!--
-    One row.
-
-    Five columns, and a row draws only the ones it has: a glyph naming the row, the words, the
-    key that does the same thing, the state the row is in, and a submenu's chevron. The glyph
-    column closes on a row that has no glyph rather than reserving an indent nothing fills, so
-    what lines up down a menu is a group of rows that agree about carrying one, and the key
-    column closes the same way.
-
-    The key is printed as a reading rather than as part of the label, in hint weight at the quiet
-    end of the row: it answers a question the reader did not open the menu with. It is display
-    only. Avalonia hands InputGesture to the template and to nothing else, so whatever acts on the
-    key acts on it somewhere the menu is closed (Features/Viewer/Tile/View/TileKeys.cs).
-
-    A row that toggles something keeps its words and shows the state as a tick at the end
-    (docs/design-language.md, "Selection"). Rewriting the label to name the inverse action costs
-    the reader the one cheap answer a menu can give - which of these are on - and it leaves the
-    row unreadable at rest, because "Unmute" on a muted stream and "Mute" on an audible one are
-    the same handful of pixels read in opposite directions.
+    One row, five columns, drawing the ones it has: a glyph, the words, the key, the state, a submenu's chevron.
+    The glyph and key columns close on a row that carries neither rather than reserving an indent nothing fills,
+    so what lines up down a menu is the group of rows that agree about carrying one.
+    The key is display only.
+    Avalonia hands InputGesture to the template and nowhere else, so whatever acts on a key acts on it
+    where the menu is closed (Features/Viewer/Tile/View/TileKeys.cs).
   -->
   <ControlTheme x:Key="{x:Type MenuItem}" TargetType="MenuItem">
     <Setter Property="MinHeight" Value="{StaticResource MenuItemHeight}" />
@@ -90,11 +67,6 @@
                   Padding="{TemplateBinding Padding}">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
 
-              <!--
-                The glyph names the row and holds still while the row's state moves. A glyph
-                that swapped with the state would be a second copy of what the tick already
-                says, and it would change the shape a reader navigates the menu by.
-              -->
               <ContentPresenter Name="Icon"
                                 Grid.Column="0"
                                 Content="{TemplateBinding Icon}"
@@ -103,9 +75,9 @@
                                 IsVisible="False" />
 
               <!--
-                ContentTemplate is what an ItemTemplate travels through. Without it the
-                presenter holds a view model and no template to draw it with, falls back to
-                ToString, and the menu prints the record's field dump.
+                ContentTemplate is what an ItemTemplate travels through.
+                Without it the presenter holds a view model and no template,
+                falls back to ToString, and prints the record's field dump.
               -->
               <ContentPresenter Name="PART_HeaderPresenter"
                                 Grid.Column="1"
@@ -114,9 +86,8 @@
                                 VerticalAlignment="Center" />
 
               <!--
-                The key, on the rows that have one. Hidden rather than empty, because a hidden
-                control is not measured and an empty one would spend its margin on every row in
-                the product that names no key.
+                Hidden rather than empty.
+                A hidden control is not measured, and an empty one spends its margin on every row naming no key.
               -->
               <TextBlock Name="Gesture"
                          Grid.Column="2"
@@ -135,10 +106,9 @@
                              IsVisible="False" />
 
               <!--
-                Drawn by default and taken away by :empty rather than the other way round.
-                HasSubMenu is a plain CLR property with no notification behind it, so a
-                binding on it would be read once and then never again; the pseudo-class is
-                the only form of the fact that moves when a submenu's items arrive.
+                Drawn by default and taken away by :empty.
+                HasSubMenu is a plain CLR property with no notification behind it,
+                so a binding on it would be read once and never again.
               -->
               <ti:TablerIcon Name="Chevron"
                              Grid.Column="4"
@@ -149,10 +119,9 @@
           </Border>
 
           <!--
-            The submenu. Its surface is stated here rather than reached for, because the
-            presenter theme above draws a MenuFlyoutPresenter and a nested menu is an
-            ItemsPresenter in a popup; both name the same four tokens, so neither can drift to
-            a shape the other does not have.
+            The submenu states its own surface: the theme above draws a MenuFlyoutPresenter,
+            and a nested menu is an ItemsPresenter in a popup.
+            Both name the same four tokens, so neither drifts to a shape the other has not got.
           -->
           <Popup Name="PART_Popup"
                  IsOpen="{TemplateBinding IsSubMenuOpen, Mode=TwoWay}"
@@ -184,15 +153,14 @@
       <Setter Property="IsVisible" Value="False" />
     </Style>
 
-    <!-- A checked row states it at the end of the row, and nowhere else. -->
     <Style Selector="^:checked /template/ ti|TablerIcon#Tick">
       <Setter Property="IsVisible" Value="True" />
     </Style>
 
     <!--
-      One fill for the pointer and for the keyboard, so the row under the pointer and the row
-      the arrow keys reached look the same. A row holding its submenu open keeps it, which is
-      what says where an open submenu came from.
+      One fill for the pointer and for the keyboard,
+      so a row under the pointer and a row the arrows reached look alike.
+      A row holding its submenu open keeps that fill, which is what says where the submenu came from.
     -->
     <Style Selector="^:pointerover /template/ Border#Root">
       <Setter Property="Background" Value="{StaticResource ControlBrush}" />
@@ -205,8 +173,7 @@
     </Style>
 
     <!--
-      A refused row keeps its place and greys, because the configuration that would allow it is
-      a neighbouring one and the greyed row plus its reason says what to change
+      A refused row keeps its place and greys, since the configuration that would allow it is a neighbouring one
       (docs/field-availability.md, "One option disabled with a reason").
     -->
     <Style Selector="^:disabled">
@@ -216,21 +183,16 @@
     <Style Selector="^:disabled /template/ ContentPresenter#Icon">
       <Setter Property="Opacity" Value="0.45" />
     </Style>
-    <!-- The key states its own colour, so the greying of the row does not reach it on its own. -->
+    <!-- The key sets its own colour, so a greyed row does not reach it. -->
     <Style Selector="^:disabled /template/ TextBlock#Gesture">
       <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
     </Style>
   </ControlTheme>
 
   <!--
-    A figure printed in a menu: what the relay says a stream is carrying, read where the stream
-    is right-clicked.
-
-    Not a row that refused to do anything, which is what these were - disabled rows wearing the
-    treatment the design reserves for an action a configuration took away, inviting a reader to
-    work out what would bring them back. A figure is a different kind of thing, so it is inert
-    rather than disabled: hint weight, no fill under the pointer, and out of the keyboard's path
-    entirely.
+    A figure printed in a menu, and not a row that refused to act.
+    Greying is reserved for an action a configuration took away,
+    so a reading is inert instead: hint weight, no fill under the pointer, out of the keyboard's path.
   -->
   <ControlTheme x:Key="MenuNote" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
     <Setter Property="Focusable" Value="False" />
@@ -241,10 +203,7 @@
     <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
   </ControlTheme>
 
-  <!--
-    The divider between groups. One of the three line weights, inset so it stops short of the
-    rounded corners rather than running into them.
-  -->
+  <!-- Inset so the rule stops short of the surface's rounded corners rather than running into them. -->
   <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
     <Setter Property="Height" Value="1" />
     <Setter Property="Margin" Value="9,5" />

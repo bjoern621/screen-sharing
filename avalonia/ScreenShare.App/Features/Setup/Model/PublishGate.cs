@@ -4,85 +4,69 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// What pressing the commit will do to the world.
+/// What pressing the commit does to the world.
 ///
-/// It is one control and two effects, not two controls.
-/// The settings the reader configured cross to the backend either way; what differs is whether there is
-/// already a pipeline carrying them, and that is <c>PublishState.live</c> - a whole state the backend stated,
-/// read rather than tracked here (<c>docs/ipc-api.md</c>, "The rule").
+/// One control and two effects, not two controls.
+/// The configured settings cross either way.
+/// What differs is whether a pipeline is already carrying them, which is <c>PublishState.live</c>, a whole
+/// state the backend stated and this side reads rather than tracks (<c>docs/ipc-api.md</c>, "The rule").
 /// </summary>
 public enum PublishCommit
 {
     /// <summary>
-    /// Nothing is on the air, so the commit starts a stream: <c>StartPublish</c>, which persists the settings
-    /// and launches an encoder on them.
+    /// Nothing on the air, so the press starts a stream through <c>StartPublish</c>, which persists the
+    /// settings and launches an encoder on them.
     /// </summary>
     Start,
 
     /// <summary>
-    /// A stream is on the air, so the commit puts these settings onto it: <c>ApplyToStream</c>.
+    /// A stream on the air, so the press puts these settings onto it through <c>ApplyToStream</c>.
     ///
-    /// <b>It restarts the pipeline rather than changing one that keeps running.</b> Both engines run a child
-    /// built from an argv and neither takes a value back afterwards, so there is no live-safe change on this
-    /// contract and never was - which is why the copy beside the button says so instead of leaving a reader
-    /// to discover it at their viewers.
+    /// <b>The pipeline restarts.</b> Both engines run a child built from an argv and neither takes a value
+    /// back afterwards, so there is no live-safe change on this contract, which is what the copy beside the
+    /// button says rather than leaving a reader to discover it at their viewers.
     /// </summary>
     Apply,
 }
 
 /// <summary>
-/// Whether the commit can be pressed, what pressing it will do, and the one sentence saying why it cannot.
+/// Whether the commit can be pressed, which effect pressing it is, and the one sentence saying why it cannot.
 ///
-/// <b>Every condition here is a whole state some other side stated, read rather than evaluated.</b> Whether
-/// the settings themselves publish is <c>Form.publishable</c>, which is the backend's own answer and the same
-/// one that would refuse the call; whether a stream is already in force is the presence of
-/// <c>PublishState.live</c>; whether the relay answered is <c>RelayStatus.reachable</c>, and the reason it
-/// did not is the relay's own error text.
+/// <b>Every condition is a whole state another side stated, read rather than evaluated.</b>
+/// <c>Form.publishable</c> for the settings, the presence of <c>PublishState.live</c> for a pipeline in force,
+/// <c>RelayStatus.reachable</c> for somewhere to send to, and the relay's own error text for why it is not.
 /// None of it is ranked, derived or re-decided here (<c>docs/ipc-api.md</c>, "The rule").
 ///
-/// <b>A live stream is not one of the blockers, and that is the shape of this type rather than a condition
-/// that was dropped.</b> It used to refuse the commit and point at the broadcast screen, because the only
-/// effect the shell could reach was <c>StartPublish</c> and the backend refuses that while a pipeline is in
-/// force.
-/// What a live stream decides now is <see cref="Commit"/> - which of the two effects the press is - so the
-/// gate states it as data rather than leaving each caller to look at the publish state again and reach its
-/// own answer.
+/// <b>A live stream blocks nothing.</b> It decides <see cref="Commit"/> instead, stated as data, so no caller
+/// reads the publish state a second time and reaches its own answer.
 ///
-/// It is a record so that a render pass over unchanged state produces a value that compares equal, which is
-/// what keeps <see cref="ReviewStep.ViewModel.ReviewStepViewModel.Apply"/> idempotent.
+/// A record, so a render pass over unchanged state produces a value that compares equal, which is what keeps
+/// <see cref="ReviewStep.ViewModel.ReviewStepViewModel.Apply"/> idempotent.
 /// </summary>
 public sealed record PublishGate
 {
-    /// <summary>Whether the one red button is pressable.</summary>
     public required bool CanStartSharing { get; init; }
 
     /// <summary>
-    /// Which effect pressing it is, for the running state this gate was read from.
-    ///
-    /// It is stated here rather than derived again by whoever draws the button, so the label, the sentence
-    /// under it and the call the press makes are one answer.
-    /// A caller re-deriving it from the same state would be a second definition of the same fact, and two
-    /// definitions disagree on exactly the pass where the stream started or ended.
+    /// Which effect the press is, for the running state this gate was read from.
+    /// Stated once here, so the label, the sentence under it and the call the press makes cannot disagree on
+    /// the pass a stream started or ended.
     /// </summary>
     public required PublishCommit Commit { get; init; }
 
     /// <summary>
-    /// Why it is not pressable, empty where it is - and also empty where the settings themselves are what
-    /// blocks it, because the preflight list beside the button already carries every one of those in the
-    /// backend's own words.
-    /// A second sentence repeating them would be this module paraphrasing a diagnostic it did not write.
+    /// Why it is not pressable, empty where it is, and empty where the settings themselves block it.
+    /// The preflight list beside the button carries those in the backend's words, and a second sentence would
+    /// be this module paraphrasing a diagnostic it did not write.
     /// </summary>
     public required string Blocked { get; init; }
 
     public bool IsBlocked => Blocked.Length > 0;
 
     /// <summary>
-    /// The gate before anything has been read: nothing is committable, and there is nothing to say about it
-    /// yet.
-    /// It is a state rather than a gap, the same way an unresolved form is.
-    ///
-    /// Its commit is the one an unread running state yields, taken from the same derivation every other
-    /// reading goes through rather than written down a second time here.
+    /// The gate before anything has been read: nothing committable, nothing to say about it.
+    /// A state rather than a gap, as an unresolved form is.
+    /// Its commit comes from <see cref="CommitFor"/> rather than being written down a second time.
     /// </summary>
     public static readonly PublishGate Unread =
         new() { CanStartSharing = false, Commit = CommitFor(null), Blocked = "" };
@@ -90,7 +74,7 @@ public sealed record PublishGate
     /// <summary>
     /// The gate for one reading of everything the commit depends on.
     /// </summary>
-    /// <param name="publishable">The form's own answer about the settings, false before one arrives.</param>
+    /// <param name="publishable">The form's answer about the settings, false before one arrives.</param>
     /// <param name="unreachable">Why the backend could not describe the screen, empty while it can.</param>
     /// <param name="publish">What is publishing, null before the running state has been read.</param>
     /// <param name="relay">The relay snapshot, null before one has been read.</param>
@@ -109,9 +93,8 @@ public sealed record PublishGate
             Blocked = blocked,
         };
 
-        // What the caller is entitled to assume, stated where it is produced rather than where it is relied
-        // on: the review draws its label off this and the flow sends the effect it names, and neither is in a
-        // position to notice the two coming apart.
+        // Stated where it is produced rather than where it is relied on: the review draws the label off this
+        // gate, and the flow sends the effect it names.
         Assert.That(
             (gate.Commit == PublishCommit.Apply) == (publish?.Live is not null),
             "a commit that applies has a stream to apply to", gate.Commit);
@@ -120,31 +103,27 @@ public sealed record PublishGate
     }
 
     /// <summary>
-    /// Which of the two effects the commit is, for one reading of what is publishing.
+    /// Which effect the commit is, for one reading of what is publishing.
     ///
-    /// <b>The rule lives here alone because two sides read it.</b> The render pass draws the label and the
-    /// sentence off the gate this composes, and the press reads what is publishing again and sends
-    /// accordingly - a press that trusted the gate the last pass composed would be acting on a stream that
-    /// may have started or ended since, and the backend refuses each of the two effects in exactly the state
-    /// the other one is for.
+    /// <b>One place, because two sides read it.</b> The render pass draws the label and the sentence off the
+    /// gate this composes, and the press reads what is publishing again before sending.
+    /// A press trusting the last pass would act on a stream that may have started or ended since, and the
+    /// backend refuses each effect in exactly the state the other one is for.
     ///
-    /// Null is a running state nothing has read yet, which is not a live stream: the honest reading of a
-    /// state nobody has established is that no pipeline is in force, and the commit is locked for other
-    /// reasons at that point anyway.
+    /// Null is a running state nothing has read, which is not a live stream: no pipeline is in force until
+    /// something says one is, and the commit is locked for other reasons at that point anyway.
     /// </summary>
     public static PublishCommit CommitFor(PublishState? publish)
         => publish?.Live is not null ? PublishCommit.Apply : PublishCommit.Start;
 
     /// <summary>
-    /// The first condition that stands in the way, in the order the reader can act on them: a backend that
-    /// cannot be reached at all, then a relay with nothing to send to.
-    /// Only one is shown, because a reader fixes them in this order anyway and two sentences would not say
-    /// more than the first.
+    /// The first condition standing in the way, in the order a reader acts on them: a backend that cannot be
+    /// reached at all, then a relay with nothing to send to.
+    /// One sentence only, since a reader fixes them in that order and the second would say no more than the
+    /// first.
     ///
-    /// A stream already on the air used to sit between them and does not any more.
-    /// Refusing the commit for it would now be this module standing in front of a call that would succeed:
-    /// <see cref="PublishCommit.Apply"/> is the effect for precisely that state, and the reader no longer has
-    /// to walk to another screen and stop a stream to change one setting on it.
+    /// A stream on the air is not among them: <see cref="PublishCommit.Apply"/> is the effect for that state,
+    /// so refusing here would stand in front of a call that succeeds.
     /// </summary>
     private static string BlockedBy(string unreachable, RelayStatus? relay)
     {
@@ -153,8 +132,8 @@ public sealed record PublishGate
             return unreachable;
         }
 
-        // Null is not "unreachable": nothing has asked the relay yet, and a shell that read that as a failure
-        // would name a condition nobody has established.
+        // Null is not unreachable: nothing has asked the relay yet, and reading that as a failure would name a
+        // condition nobody established.
         if (relay is null)
         {
             return "Reading what the relay is carrying.";
@@ -163,8 +142,8 @@ public sealed record PublishGate
         if (!relay.Reachable)
         {
             // The relay's own words where it gave any.
-            // The zero snapshot the backend starts on carries none, which is a relay nothing has reached
-            // rather than one that refused.
+            // The zero snapshot the backend opens on carries none: a relay nothing reached,
+            // not one that refused.
             return relay.Error.Length > 0
                 ? relay.Error
                 : "The relay could not be reached, so there is nothing to publish to.";

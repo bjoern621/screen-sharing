@@ -2,11 +2,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    Every surface in the app, as one table. Four fills and three edges cover all of it,
-    and the reason a screen looks calm is that nothing outside this file invents a fifth.
+    Every fill and every edge in the app.
+    Nothing outside this file states one.
   -->
 
-  <!-- A content panel: a setup step's form, a broadcast card, a viewer's chip row host. -->
   <Style Selector="Border.card">
     <Setter Property="Background" Value="{DynamicResource CardBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource DividerBrush}" />
@@ -14,7 +13,6 @@
     <Setter Property="CornerRadius" Value="{DynamicResource RadiusPanel}" />
   </Style>
 
-  <!-- A recessed panel: the nav strip when it floats, a callout, a plot frame. -->
   <Style Selector="Border.panel">
     <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
@@ -22,31 +20,28 @@
     <Setter Property="CornerRadius" Value="{DynamicResource RadiusPanel}" />
   </Style>
 
-  <!-- The title bar and the status bar: one colour, full bleed, no border of their own. -->
   <Style Selector="Border.chromeband">
     <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
   </Style>
 
-  <!-- The nav strip as it ships: docked, square, and ruled off from the body below it. -->
   <Style Selector="Border.navstrip">
     <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,1" />
     <!--
-      A minimum rather than a fixed height: the strip's hint wraps where the window is too
-      narrow to hold it on one line, and a fixed height would cut the second line off.
+      A minimum rather than a fixed height.
+      The strip's hint wraps on a window too narrow to hold it, and a fixed height would cut the second line off.
     -->
     <Setter Property="MinHeight" Value="{DynamicResource NavStripHeight}" />
   </Style>
 
-  <!-- Video, and the black it sits on in either theme. -->
   <Style Selector="Border.tile">
     <Setter Property="Background" Value="{DynamicResource TileBrush}" />
     <Setter Property="CornerRadius" Value="{DynamicResource RadiusTile}" />
     <Setter Property="ClipToBounds" Value="True" />
   </Style>
 
-  <!-- The 1px rule between two regions of one strip. Height is the strip's, not the app's. -->
+  <!-- Between two regions of one strip, so the 18px is the strip's height and not the window's. -->
   <Style Selector="Border.dividerv">
     <Setter Property="Background" Value="{DynamicResource DividerBrush}" />
     <Setter Property="Width" Value="1" />
@@ -58,7 +53,6 @@
     <Setter Property="Height" Value="1" />
   </Style>
 
-  <!-- A row separator inside a table: one shade quieter than a divider. -->
   <Style Selector="Border.rowrule">
     <Setter Property="Background" Value="{DynamicResource HairlineBrush}" />
     <Setter Property="Height" Value="1" />

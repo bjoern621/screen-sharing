@@ -8,15 +8,15 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 
 /// <summary>
-/// The header stat bar: the sharing pill, and the five numbers a publisher actually watches.
-/// Five and no more - the promotion only means something while the list is short enough to read at a glance.
+/// Header stat bar: the sharing pill and the promoted figures.
+/// Promotion is worth something only while the row stays short enough to read at a glance.
 ///
 /// <b>Input</b> is the reading, written from above.
-/// <b>Outputs</b> are owned by <see cref="Apply"/> alone, which sets every one of them on every pass.
+/// <b>Outputs</b> belong to <see cref="Apply"/>, which sets every one of them on every pass.
 /// </summary>
 public sealed class HeaderStatsViewModel : Observable
 {
-    /// <summary>How many figures the design promotes. The count is the design, not a coincidence.</summary>
+    /// <summary>Figures the design promotes, asserted at the foot of <see cref="Apply"/>.</summary>
     private const int PromotedCount = 5;
 
     public HeaderStatsViewModel()
@@ -25,11 +25,10 @@ public sealed class HeaderStatsViewModel : Observable
         Apply();
     }
 
-    // --- Inputs -------------------------------------------------------------------
+    // --- Inputs, written from above -----------------------------------------------
 
     private BroadcastSnapshot _snapshot = BroadcastSnapshot.Unread;
 
-    /// <summary>The reading the bar renders. Writing one re-runs the render function.</summary>
     public BroadcastSnapshot Snapshot
     {
         get => _snapshot;
@@ -44,7 +43,7 @@ public sealed class HeaderStatsViewModel : Observable
         }
     }
 
-    // --- Outputs ------------------------------------------------------------------
+    // --- Outputs, written by Apply alone -------------------------------------------
 
     private string _elapsed = "";
     private bool _isSharing;
@@ -53,31 +52,31 @@ public sealed class HeaderStatsViewModel : Observable
 
     public ObservableCollection<StatFigure> Figures { get; }
 
-    /// <summary>The pill's running timer, zero-padded <c>HH:MM:SS</c>.</summary>
+    /// <summary>Pill's running timer, zero-padded: <c>01:07:44</c>.</summary>
     public string Elapsed { get => _elapsed; private set => Set(ref _elapsed, value); }
 
     /// <summary>
     /// Whether the pill shows at all.
-    /// The design draws no off-air pill, so the honest rendering of a stream that is not live is the pill's
-    /// absence rather than a second label spending the one red on something that is merely idle.
+    /// There is no off-air pill: a stream that is not live reads as the pill's absence, and the one red is
+    /// never spent on an idle state.
     /// </summary>
     public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
     /// <summary>
     /// Which relaunch the backend is waiting out, empty while none is.
-    /// A stream between attempts is still a stream the reader asked for and has not stopped, so the pill
-    /// stays and this says what is happening behind it - without it, a pipeline that died and is coming back
-    /// looks identical to one carrying frames.
+    /// A stream between attempts is one the reader never stopped, so the pill stays up and this says what is
+    /// happening behind it.
+    /// Without it a pipeline that died and is coming back reads as one carrying frames.
     /// </summary>
     public string Retry { get => _retry; private set => Set(ref _retry, value); }
 
     public bool IsRetrying { get => _isRetrying; private set => Set(ref _isRetrying, value); }
 
     /// <summary>
-    /// The one render function.
-    /// Reads the snapshot through on every pass, formats each figure through <see cref="Figure"/> so a
-    /// missing sample prints as an ellipsis rather than as a zero, and rebuilds the row list only when a row
-    /// actually differs.
+    /// One render function.
+    /// Reads the snapshot through on every pass and formats through <see cref="Figure"/>, so a missing sample
+    /// prints an ellipsis and never a zero.
+    /// The row list is rebuilt only where a row differs, so a repeated pass raises no notification.
     /// </summary>
     public void Apply()
     {
@@ -92,10 +91,9 @@ public sealed class HeaderStatsViewModel : Observable
         [
             new StatFigure(Figure.Of(reading.EgressMbps, "0.00"), "Mb/s"),
             new StatFigure(Figure.Of(reading.Fps, "0.0"), "fps"),
-            // The relay measures round trip and loss per viewer, so neither figure has a stream-wide value to
-            // promote and each of these is the worst viewer's.
-            // The label says so: a bare "ms rtt" beside a viewer count reads as the stream's round trip,
-            // which is a figure nobody took (Model/BroadcastSnapshot.cs).
+            // Round trip and loss are measured per viewer, so neither has a stream-wide value to promote.
+            // Both are the worst viewer's, and the unit says so: an unqualified "ms rtt" beside a viewer
+            // count reads as the stream's own, which is a figure nobody took (Model/BroadcastSnapshot.cs).
             new StatFigure(Figure.Of(reading.RttMs), "ms rtt worst", Untimed(reading, reading.RttMs)),
             new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss worst", Untimed(reading, reading.LossPercent)),
             new StatFigure(Figure.Of(reading.Viewers), "viewers"),
@@ -106,17 +104,15 @@ public sealed class HeaderStatsViewModel : Observable
     }
 
     /// <summary>
-    /// Why one of the two latency figures reads as unmeasured, and null where it needs no saying.
+    /// Why one of the two latency figures reads as unmeasured, null where nothing needs saying.
     ///
-    /// It is said only while the relay names a reader on the path, because that is the one state in which the
-    /// ellipsis is worth explaining.
-    /// A stream with viewers and no round trip looks like a broken measurement and is a leg nobody times,
-    /// which is a thing the publisher can act on.
-    /// A stream nobody is watching is already explained by the viewer count beside it, and a stream that is
-    /// not live is explained by the pill that is not there.
+    /// Said only while the relay names a reader on the path, the one state where the ellipsis is worth
+    /// explaining: viewers and no round trip looks like a broken measurement and is a leg nobody times.
+    /// An empty roster is explained by the viewer count beside it, and a stream that is not live by the
+    /// missing pill.
     ///
-    /// The sentence itself is the plot's (<see cref="Cards.Untimed"/>), not a second wording of it: both
-    /// surfaces describe the same roster and a reader moving between them is entitled to one answer.
+    /// The wording is the plot's own (<see cref="Cards.Untimed"/>): both surfaces read one roster, so a
+    /// second phrasing would be a second answer.
     /// </summary>
     private static string? Untimed(BroadcastSnapshot reading, double? figure)
         => figure is null && reading.Viewers > 0 ? Cards.Untimed(reading.Legs) : null;

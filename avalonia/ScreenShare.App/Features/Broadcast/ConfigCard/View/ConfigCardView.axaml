@@ -7,8 +7,8 @@
 
   <UserControl.Styles>
     <!--
-      A config key. Muted at the body size against the value's identifier role: the key is
-      a word a person wrote, the value is what the pipeline answered.
+      A key is a word a person wrote and its value is what the pipeline answered,
+      so the key is muted at the body size against the value's identifier role.
     -->
     <Style Selector="TextBlock.key">
       <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
@@ -20,9 +20,8 @@
     <DockPanel>
 
       <!--
-        The section title takes the row and pushes the link to its right end. That link is
-        the single escape hatch out of a read-only card, and the entire fix for setup and
-        broadcast both owning configuration.
+        The link is the one escape hatch out of a read-only card,
+        and the whole of what keeps setup the owner of configuration (docs/design-language.md, "Ownership").
       -->
       <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,11">
         <TextBlock Grid.Column="0"
@@ -36,7 +35,6 @@
                 Command="{Binding EditInSetupCommand}" />
       </Grid>
 
-      <!-- Why the card is read-only, said once, where the reader is when they wonder. -->
       <Border DockPanel.Dock="Bottom"
               Margin="0,11,0,0"
               Padding="10,9"
@@ -50,7 +48,7 @@
                    Text="{Binding ReadOnly}" />
       </Border>
 
-      <!-- What stands in for the rows while nothing is publishing. Composed all along, drawn now. -->
+      <!-- Stands in until the rows arrive. -->
       <TextBlock DockPanel.Dock="Top"
                  Classes="hint"
                  Text="{Binding Notice}"
@@ -60,7 +58,7 @@
       <ItemsControl ItemsSource="{Binding Rows}" VerticalAlignment="Top">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="model:ConfigRow">
-            <!-- No separators, no striping, no hover: nothing here is a target. -->
+            <!-- No separator, no striping, no hover: no row here is a target. -->
             <Grid ColumnDefinitions="*,Auto" Height="{StaticResource TextRowHeight}">
               <TextBlock Grid.Column="0" Classes="key" Text="{Binding Key}" VerticalAlignment="Center" />
               <TextBlock Grid.Column="1" Classes="ident" Text="{Binding Value}" VerticalAlignment="Center" />

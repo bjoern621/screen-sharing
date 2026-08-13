@@ -4,39 +4,33 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Fields.Model;
 
 /// <summary>
-/// An effect a screen offers beside one control, rather than a value the control holds.
+/// An effect a screen offers beside one control, as against a value the control holds.
+/// Measuring this machine's upload throughput, offered beside the uplink figure it writes, is the shape.
 ///
-/// There is one today: measuring this machine's upload throughput, offered beside the uplink figure it
-/// writes.
-/// The form describes no such thing and could not - an effect is a method on the control plane, and which
-/// control a shell puts the button next to is placement (<c>docs/ipc-api.md</c>, "The rule").
+/// The form describes none of it and could not: an effect is a method on the control plane, and which control
+/// a shell puts the button beside is placement (<c>docs/ipc-api.md</c>, "The rule").
 ///
-/// <b>The button writes nothing itself.</b> What the measurement finds goes into the draft through the same
-/// write every control uses, so a measured figure and a typed one are one value and not two paths into the
-/// settings.
+/// The button writes nothing itself.
+/// What the measurement finds reaches the draft through the write every control uses, so a measured figure and
+/// a typed one are one path into the settings.
 ///
-/// <b>Whether the press is offered is the command's answer, and why it is not is <see cref="Notice"/>.</b> A
-/// screen that refuses the effect - a measurement that would compete with a live stream is the case that
-/// exists - greys the button through the command's own gate and states the reason beside it, in the place the
-/// same screen states why a control is inert (<c>docs/field-availability.md</c>, "A live stream blocks no
-/// field").
+/// Whether the press is offered is <see cref="Command"/>'s own answer, and why it is not is
+/// <see cref="Notice"/>, stated where a greyed control's reason is stated
+/// (<c>docs/field-availability.md</c>, "A live stream blocks no field").
 ///
-/// A record, so a pass over an unchanged state produces an action that compares equal to the last one and the
-/// bound properties are left alone.
-/// It is made per pass, because the notice is read from state that moves; <see cref="Command"/> is held by
-/// whoever offers the action, which is what makes two passes equal rather than merely alike, and it is the
-/// one place the in-flight state lives: it is both what the button spins on and what refuses a second press.
+/// A record, so a pass over unchanged state produces an action that compares equal to the last and the bound
+/// properties are left alone.
+/// Built per pass, since the notice is read from state that moves.
+/// <see cref="Command"/> is held by whoever offers the action, which is what makes two passes equal rather
+/// than merely alike, and it is the one place the in-flight state lives: what the button spins on, and what
+/// refuses a second press.
 /// </summary>
 public sealed record FieldAction
 {
-    /// <param name="label">What the button says.</param> <param name="tip">What it does and when it is
-    /// refused, since the label is one word.</param>
-    /// <param name="notice">
-    /// What stands about the effect now: why the press is refused where it is, and what the last attempt
-    /// answered otherwise.
-    /// Empty where there is nothing to say.
-    /// </param>
-    /// <param name="command">The effect, which holds whether one is already in flight.</param>
+    /// <param name="label">What the button says.</param>
+    /// <param name="tip">What the effect does and when it is refused, since the label is one word.</param>
+    /// <param name="notice">Why the press is refused, or what the last attempt answered. Empty where there is nothing to say.</param>
+    /// <param name="command">The effect, holding whether one is already in flight.</param>
     public FieldAction(string label, string tip, string notice, PendingCommand command)
     {
         Assert.That(label.Length > 0, "an action beside a control says what it does");
@@ -54,10 +48,7 @@ public sealed record FieldAction
 
     public string Tip { get; }
 
-    /// <summary>
-    /// Why the press is refused, or what the last attempt answered.
-    /// Empty where the effect is offered and nothing has been said about it.
-    /// </summary>
+    /// <summary>Empty where the effect is offered and nothing has been said about it.</summary>
     public string Notice { get; }
 
     public PendingCommand Command { get; }

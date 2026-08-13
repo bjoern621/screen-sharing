@@ -7,21 +7,15 @@
              x:DataType="vm:AdvancedDrawerViewModel">
 
   <!--
-    The rest of the quality group, drawered. Every row is a control of the resolved form, so
-    it is edited here rather than printed: the value, the bounds the spinner enforces, the
+    The rest of the quality group, drawered. Every row is a control of the resolved form and
+    is edited here rather than printed: the value, the bounds the spinner enforces, the
     greying and the sentence beside it all arrive in the message (docs/ipc-api.md).
 
-    The fourth column is the point of the table: the note says why anybody would touch the
-    row, which is the question an expert arrives with. It is the form's own help text, not a
-    gloss written here.
+    The last column answers why anybody would touch the row, which is the question an expert
+    arrives with. It is the field's own help, keyed by the field, not a gloss written per row.
 
-    Two columns this table used to have are gone with the mockup that seeded them. There is
-    no default column, because the form reports no defaults, and no changed marking or reset,
-    because nothing says which rows depart from one.
-
-    Setting names take the label role while the values take the identifier one. That is
-    deliberate and not an oversight: the name is the one thing in the row a person reads as
-    words, and it is the colour and the size that say so now rather than a second face.
+    A setting's name takes the label role and its value the identifier one, because the name
+    is the one thing in a row a person reads as words (docs/design-language.md).
   -->
 
   <UserControl.Styles>
@@ -37,11 +31,9 @@
     </Style>
   </UserControl.Styles>
 
-  <!-- A group that left this drawer nothing is not drawn at all. -->
   <Border Classes="card" Padding="0" ClipToBounds="True" IsVisible="{Binding HasRows}">
     <StackPanel>
 
-      <!-- Header. Clicking it is the one write that opens and closes the drawer. -->
       <Border Background="{StaticResource ControlBrush}" Padding="14,7">
         <Grid ColumnDefinitions="Auto,*,Auto">
           <Button Grid.Column="0" Theme="{StaticResource LinkButton}" Command="{Binding ToggleOpenCommand}">
@@ -61,10 +53,7 @@
       </Border>
 
       <StackPanel IsVisible="{Binding IsOpen}">
-        <!--
-          Fixed columns, because a table whose columns move as values change is a table
-          nobody can scan.
-        -->
+        <!-- Fixed widths: columns that moved as values changed would be a table nobody can scan. -->
         <Border Background="{StaticResource PanelBrush}"
                 BorderBrush="{StaticResource DividerBrush}"
                 BorderThickness="0,0,0,1">
@@ -89,15 +78,13 @@
                              Text="{Binding Label}" />
 
                   <!--
-                    One widget per control kind the drawer can be handed, the same ones the
-                    generic renderer draws. A row the form disabled greys rather than
-                    disappearing, and the reason it carries is printed in the note column
-                    beside it.
+                    One widget per control kind the drawer can be handed. A disabled row greys
+                    rather than disappearing, and its reason is printed in the last column.
 
-                    Which kinds arrive here is QualityLayout's partition and not a list kept
-                    here, so a kind the step above places nowhere must be drawable here -
-                    a kind neither of them draws is a setting the backend offered and nobody
-                    can reach.
+                    Which kinds arrive is QualityLayout's partition rather than a list kept
+                    here, so every kind the step above places nowhere has to be drawable here:
+                    one neither of them draws is a setting the backend offered that nobody can
+                    reach.
                   -->
                   <Panel Grid.Column="1" Margin="14,7" HorizontalAlignment="Left">
                     <TextBox IsVisible="{Binding IsText}"
@@ -114,7 +101,7 @@
                                    FormatString="0"
                                    MinWidth="140" />
 
-                    <!-- The typed box and its ladder, glued (Controls/NumberSelect). -->
+                    <!-- Box and ladder write one setting (Controls/NumberSelect). -->
                     <StackPanel Orientation="Horizontal" IsVisible="{Binding IsNumberSelect}">
                       <NumericUpDown Theme="{StaticResource NumberSelectInput}"
                                      IsEnabled="{Binding IsEnabled}"
@@ -175,14 +162,13 @@
                                IsVisible="{Binding HasHelp}"
                                Text="{Binding Help}" />
 
-                    <!-- Why the control is inert, in its place rather than in a log line. -->
                     <TextBlock Classes="hint"
                                TextWrapping="Wrap"
                                TextTrimming="None"
                                IsVisible="{Binding HasReason}"
                                Text="{Binding Reason}" />
 
-                    <!-- A live row that means something here its label does not describe. -->
+                    <!-- A note, not a greying: the row is live and the value reaches the encoder. -->
                     <TextBlock Classes="hint"
                                TextWrapping="Wrap"
                                TextTrimming="None"

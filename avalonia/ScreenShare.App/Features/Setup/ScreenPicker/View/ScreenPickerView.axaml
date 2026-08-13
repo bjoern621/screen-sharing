@@ -7,12 +7,10 @@
              x:DataType="vm:ScreenPickerViewModel">
 
   <!--
-    The screens this machine has, each showing what is on it. Picking one writes the same
-    setting the dropdown below writes, so this is a second way to reach one value rather than
-    a second value.
-
-    The grid is 16:9 at a fixed width, which is the shape a desktop is and the shape the
-    backend scales its previews to. Avalonia has no aspect ratio, so both are stated.
+    Picking a screen writes the setting the dropdown below writes, so this is a second way to
+    one value rather than a second value.
+    Each tile is 216 by 121, the 16:9 a desktop is and the shape the backend scales its
+    previews to: Avalonia has no aspect ratio, so both sides are stated.
   -->
 
   <StackPanel Spacing="{StaticResource GapTight}">
@@ -26,11 +24,6 @@
 
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="model:ScreenChoice">
-          <!--
-            A button and not a card with a click handler: picking a screen is the same act as
-            picking an entry from the list under it, so it carries the same keyboard reach and
-            the same disabled behaviour without either being written here.
-          -->
           <Button Classes="bare"
                   Command="{Binding Select}"
                   IsEnabled="{Binding IsEnabled}"
@@ -42,20 +35,14 @@
               <Panel>
                 <Border Classes="tile" Height="121">
                   <Panel>
-                    <!--
-                      The tile arrives once the backend reports that it is reading this screen,
-                      and not before: it subscribes to frames when it is drawn, and a
-                      subscription naming a screen nothing is reading is refused once and never
-                      retried (Setup/ScreenPicker/Model/ScreenChoice.cs).
-                    -->
                     <tiles:StreamTile Source="{Binding Tile}" IsVisible="{Binding HasTile}" />
 
                     <!--
-                      Why this screen is dark, when it is. Before there is a tile the row says
-                      so - the screen is opening, or the backend refused to read it and said
-                      why - and once there is one, the tile's own three reasons take over: it is
-                      being read and no picture has arrived, the reading ended, or this window
-                      could not draw what it was handed.
+                      Two sentences for a dark tile, from opposite sides. Before there is a
+                      tile the row says why: the screen is opening, or the backend refused to
+                      read it. Once there is one, the tile's own three take over: read with no
+                      picture yet, the reading ended, or this window could not draw what it was
+                      handed.
                     -->
                     <TextBlock Classes="disabled"
                                Text="{Binding Placeholder}"
@@ -77,11 +64,7 @@
                   </Panel>
                 </Border>
 
-                <!--
-                  The chosen screen, marked the way the rest of the app marks a selection. It is
-                  an outline over the picture rather than a colour under it: the picture fills
-                  the tile, and a background nothing can see is not a selection.
-                -->
+                <!-- The selection is an outline over the picture: a fill under a filled tile is invisible. -->
                 <Border BorderBrush="{StaticResource SelectedBrush}"
                         BorderThickness="2"
                         CornerRadius="{StaticResource RadiusTile}"
@@ -97,11 +80,6 @@
       </ItemsControl.ItemTemplate>
     </ItemsControl>
 
-    <!--
-      What the pictures are, or why there are none. One line either way, written in Copy: a grid
-      that is drawing says above all that nothing is being shared yet, and a machine that cannot
-      show a single screen says how its session reaches one instead.
-    -->
     <TextBlock Classes="hint"
                Text="{Binding Notice}"
                IsVisible="{Binding HasNotice}"

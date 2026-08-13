@@ -20,32 +20,23 @@
         Foreground="{StaticResource ControlForegroundBrush}">
 
   <!--
-    Both window hints for the app-drawn caption are switched on from the code-behind, off one
-    fact (Features/Shell/Model/WindowChrome.cs); the band that stands in for the caption reads
-    the same fact through the shell. Where the desktop is left to draw the frame - every Linux
-    desktop - the client area is not extended, this theme is not applied and the band is not
-    drawn, so what appears above the nav strip is whatever that desktop puts there, which on a
-    tiling session is nothing.
+    This theme and the client-area extension are applied together from the code-behind, and only where this app
+    draws the caption (Features/Shell/Model/WindowChrome.cs). Where the desktop draws the frame, on Linux,
+    neither is applied and above the nav strip is whatever that desktop puts there, which on a tiling session
+    is nothing.
 
-    Where the app does draw it, the decorations stay Full and the client area is extended over
-    them, rather than the window asking for BorderOnly. BorderOnly drops the caption from the
-    native frame, and on Win32 the caption is what the compositor animates: without it the
-    window has no open, close, minimise or restore transition, and the top edge widens to the
-    bare resize frame because no caption is drawn over it. Extending keeps the native frame
-    whole and merely paints the app underneath it, so the platform's animations, snap and
-    shadow survive.
+    Decorations stay Full with the client area extended over them, rather than BorderOnly. BorderOnly drops the
+    caption from the native frame, and on Win32 the caption is what the compositor animates: no open, close,
+    minimise or restore transition, and a top edge widened to the bare resize frame. Extending keeps the frame
+    whole and paints underneath it, so the platform's animations, snap and shadow survive.
 
-    What that costs is hit-testing: with the caption present but invisible, every part of the
-    title bar below has to tell the platform which caption element it stands in for. Those
-    are the WindowDecorationProperties.ElementRole marks in TitleBarView, and they are also
-    what puts the Windows 11 snap-layout flyout back under the maximise button.
+    The cost is hit-testing. With the caption present and invisible, every part of the band below has to name
+    the caption element it stands in for, which is what the WindowDecorationProperties.ElementRole marks in
+    TitleBarView do, and what puts the Windows 11 snap-layout flyout back under the maximise button.
 
-    Extending also makes the platform ask the theme for a replacement caption, and the stock
-    one would paint its own title and its own four buttons over the band below. This is the
-    theme it is handed instead, and it draws nothing: an empty decorations content, with the
-    three geometry parts switched off so no frame, shadow or caption strip is reserved either.
-    The band below is then the only chrome, and it is the ElementRole marks rather than a
-    drawn overlay that make it behave like one.
+    Extending also makes the platform ask the theme for a replacement caption, and the stock one paints its own
+    title and buttons over the band below. This theme draws nothing instead: empty decorations content, with
+    the geometry parts zeroed so no frame, shadow or caption strip is reserved either.
   -->
   <Window.Resources>
     <ControlTheme x:Key="EmptyDecorations" TargetType="chrome:WindowDrawnDecorations">
@@ -62,18 +53,16 @@
 
   <Window.KeyBindings>
     <!--
-      Escape gives the window back to its grid. A stream filling the window draws no rail, no band
-      and no menu, so the keyboard is what a reader still has; and it names that state rather than
-      toggling one, so the same key on any other screen changes nothing
+      A filled window draws no rail, no band and no menu, so the keyboard is the way out of it. The command
+      names the state rather than toggling one, so the key changes nothing on any other screen
       (Features/Viewer/Model/TileIntent.cs).
     -->
     <KeyBinding Gesture="Escape" Command="{Binding Viewer.LeaveFullscreen}" />
   </Window.KeyBindings>
 
   <!--
-    How a destination becomes a screen. The shell picks the view model; the template picks
-    the view. Nothing in the shell names a view type, which is what lets the three slices be
-    built and changed without the window knowing.
+    How a destination becomes a screen: the shell picks the view model and the template picks the view, so
+    nothing in the shell names a view type.
   -->
   <Window.DataTemplates>
     <DataTemplate DataType="setupVm:SetupViewModel" x:DataType="setupVm:SetupViewModel">
@@ -88,34 +77,23 @@
   </Window.DataTemplates>
 
   <!--
-    Four rows: two chrome bands, the strip, and everything else. Each band states its own
-    height, so the window states none of them twice. Two of the three state a minimum rather
-    than a fixed height, because their prose wraps where the window is narrower than the
-    sentence, and the row takes whatever the band comes to.
+    Auto rows because each band states its own height, and a band that is not drawn takes none, which is what
+    gives a filled window to the body. The bands whose prose wraps state a minimum rather than a fixed height.
 
-    All three bands come off the window while one stream is filling it, and each is bound to the
-    same fact rather than hidden by whoever moved it: a fullscreen picture under a nav strip is the
-    app filling the screen instead of the stream (Features/Shell/ViewModel/ShellViewModel.cs). A
-    row whose band is not drawn takes no height, so the body has the window.
+    Each band's visibility is bound to a fact the shell owns rather than written by whoever moved it: a picture
+    filling the window under a strip is the app filling the screen instead of the stream
+    (Features/Shell/ViewModel/ShellViewModel.cs).
 
-    Maximised, Windows hangs the frame's resize border off every edge of the work area, and
-    the client area goes with it: unpadded, the title bar's inset and the status bar's last
-    line sit under the screen edge. OffScreenMargin is exactly that overhang, and it is read
-    continuously rather than recomputed per state, so restoring gives the margin back to zero
-    on its own.
+    Maximised, Windows hangs the frame's resize border off every edge of the work area and the client area goes
+    with it, so an unpadded band sits under the screen edge. OffScreenMargin is that overhang, read
+    continuously, so restoring gives it back to zero.
   -->
   <Grid RowDefinitions="Auto,Auto,*,Auto"
         Margin="{Binding $parent[Window].OffScreenMargin}">
 
     <!--
-      The drag region, drawn only where this app is the one drawing the caption. The move
-      gesture is the platform's either way: the band marks itself as the caption's drag area,
-      so no press handler here has to start one.
-    -->
-    <!--
-      Each band's own data context is its view model, so whether it is drawn is read off the
-      window's rather than off the band's: the fact belongs to the shell and none of the three
-      carries a copy of it.
+      A band's own data context is its view model, so visibility is read off the window's instead: the fact is
+      the shell's and no band holds a copy of it.
     -->
     <titlebar:TitleBarView Grid.Row="0"
                            IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasCaption}"
@@ -125,7 +103,6 @@
                            IsVisible="{Binding $parent[Window].((shell:ShellViewModel)DataContext).HasChrome}"
                            DataContext="{Binding Nav}" />
 
-    <!-- Stretched on both axes: a destination owns the whole body, not a centred island. -->
     <ContentControl Grid.Row="2"
                     Content="{Binding Body}"
                     HorizontalContentAlignment="Stretch"

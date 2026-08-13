@@ -17,48 +17,45 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 )
 
-// The Go half of the Windows export leg. Everything about Direct3D 11 is in
-// share_windows.c; what is here is the pool's lifetime and the shape the rest of the
+// The Go half of the Windows export leg: the pool's lifetime and the shape the rest of the
 // package reads it in.
+// Direct3D 11 is share_windows.c's.
 
-// errorBytes is how much room a C failure is given to say what happened. The
-// sentences are one line naming an API and an HRESULT, and a reason too long to fit
-// would be a reason nobody wrote.
+// errorBytes is the room a C failure is given to say what happened.
+// The sentences are one line naming an API and an HRESULT, and a reason too long to fit would be
+// a reason nobody wrote.
 const errorBytes = 256
 
-// dxgiFormatRGBA and dxgiFormatBGRA are the two DXGI formats a converted frame can
-// arrive in, spelled here rather than pulled through cgo because they are the wire's
-// business: the value has to be matched against what the contract carries, and a
-// constant that only exists inside a preamble cannot be.
+// dxgiFormatRGBA and dxgiFormatBGRA are the DXGI formats a converted frame can arrive in, spelled
+// here rather than pulled through cgo because they are the wire's business: the value is matched
+// against what the contract carries, and a constant that exists only inside a preamble cannot be.
 const (
 	dxgiFormatRGBA = 28 // DXGI_FORMAT_R8G8B8A8_UNORM
 	dxgiFormatBGRA = 87 // DXGI_FORMAT_B8G8R8A8_UNORM
 )
 
-// d3d11Sharer is the Windows sharer: a pool of DXGI shared textures on the decoder's
-// own device.
+// d3d11Sharer is a pool of DXGI shared textures on the decoder's own device.
 type d3d11Sharer struct {
 	pool C.screenshare_share_pool
-	// opened is whether pool holds textures. A zeroed pool is safe to close, but a
-	// close on one that was never opened would still unref a device that is not there.
+	// opened is whether pool holds textures.
+	// A zeroed pool is safe to close, but a close on one that was never opened would
+	// still unref a device that is not there.
 	opened bool
 }
 
-// newSharer is the platform's exporter. It holds nothing until a frame opens it,
-// because what a pool has to match is the memory a frame turned out to be in and not
-// the caps a chain asked for.
+// newSharer holds nothing until a frame opens it: a pool matches the memory a frame turned out to
+// be in and not the caps a chain asked for.
 func newSharer() sharer { return &d3d11Sharer{} }
 
-// onSample runs one C export entry point over a sample and turns its answer into an
-// error, which is the whole of what this file's two calls have in common: the fault
-// buffer, the sample's lifetime and the "0 means it wrote a reason" convention.
+// onSample runs one C export entry point over a sample and turns its answer into an error, which
+// is what this file's two calls have in common: the fault buffer, the sample's lifetime and the
+// "0 means it wrote a reason" convention.
 //
-// The lifetime is why it is one function rather than two call sites. The sample is a C
-// object the Go wrapper owns and unrefs from a finalizer, and samplePointer yields a bare
-// address the collector cannot see: without the KeepAlive the wrapper is dead from the
-// moment the argument is evaluated, and a collection during the call frees the buffer
-// whose texture is being allocated from or blitted out of. Held here, no caller can
-// forget it.
+// The lifetime is why it is one function rather than two call sites.
+// The sample is a C object the Go wrapper owns and unrefs from a finalizer, and samplePointer
+// yields a bare address the collector cannot see: without the KeepAlive the wrapper is dead from
+// the moment the argument is evaluated, and a collection during the call frees the buffer whose
+// texture is being allocated from or blitted out of.
 func onSample(sample *gst.Sample, run func(sample unsafe.Pointer, fault *C.char, size C.int) C.int) error {
 	fault := make([]byte, errorBytes)
 	ok := run(samplePointer(sample), (*C.char)(unsafe.Pointer(&fault[0])), C.int(len(fault)))
@@ -92,8 +89,10 @@ func (s *d3d11Sharer) open(sample *gst.Sample, slots int) (Pool, error) {
 		Format: format,
 		Width:  int(s.pool.width),
 		Height: int(s.pool.height),
-		// A DXGI texture describes its own extent, and its rows run downward. Neither
-		// figure is this side's to state, so neither is stated.
+		// A DXGI texture describes its own extent, so MemorySize stays zero, and its
+		// rows run downward from the top.
+		// The keys are the C header's own, so the acquire in share_windows.c and the
+		// release the consumer makes name one constant on both sides of the wire.
 		TopLeftOrigin: true,
 		ProducerKey:   C.SCREENSHARE_PRODUCER_KEY,
 		ConsumerKey:   C.SCREENSHARE_CONSUMER_KEY,
@@ -125,9 +124,9 @@ func (s *d3d11Sharer) close() {
 
 // shareFormat is the contract's name for a DXGI format.
 //
-// A format outside the two is a chain that stopped pinning RGBA at its last filter,
-// and it is refused rather than passed on: a consumer told the wrong layout draws the
-// channels swapped, which looks like a decoder fault and is not one.
+// Anything but the two is a chain that stopped pinning RGBA at its last filter, and it is refused
+// rather than carried: a consumer told the wrong channel order draws swapped colours, which reads
+// as a decoder fault and is not one.
 func shareFormat(format uint32) (ShareFormat, error) {
 	switch format {
 	case dxgiFormatRGBA:
@@ -139,7 +138,7 @@ func shareFormat(format uint32) (ShareFormat, error) {
 	}
 }
 
-// reason is the C string a failure wrote, as a Go one.
+// reason is the C string a failure wrote, up to its terminator.
 func reason(fault []byte) string {
 	for i, b := range fault {
 		if b == 0 {

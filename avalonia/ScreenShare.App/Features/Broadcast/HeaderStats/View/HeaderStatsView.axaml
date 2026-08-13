@@ -6,19 +6,6 @@
              x:Class="ScreenShare.App.Features.Broadcast.HeaderStats.View.HeaderStatsView"
              x:DataType="vm:HeaderStatsViewModel">
 
-  <!--
-    The pill and the five figures, separated by spacing alone. No rules, no dots, no pipes:
-    the design carries the grouping in the gap, and a separator here would make five
-    numbers read as five columns.
-
-    The figures wrap rather than stack. The band hands this control whatever the live actions
-    beside it leave over, and the full row is wider than that leftover once the window is near
-    its smallest size. Stacked, the last figures were laid out past the window's edge with
-    nothing on screen to say they were there.
-
-    The pill is docked rather than wrapped with them: it is one item against the row, and a
-    line of its own for a badge reading "Sharing" costs more of the body than it makes room for.
-  -->
   <DockPanel VerticalAlignment="Center">
 
     <controls:StatusPill DockPanel.Dock="Left"
@@ -27,10 +14,13 @@
                          IsVisible="{Binding IsSharing}"
                          VerticalAlignment="Center" />
 
-    <!-- The extra 6px after the pill: the one place the rhythm widens, so the red stops. -->
     <ItemsControl ItemsSource="{Binding Figures}" Margin="6,0,0,0" VerticalAlignment="Center">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>
+          <!--
+            Wrapped rather than stacked: this control gets whatever width the live actions leave over.
+            The full row is wider than that near the window's smallest size, and stacked figures land off the edge.
+          -->
           <WrapPanel ItemSpacing="{StaticResource GapControl}"
                      LineSpacing="{StaticResource GapTight}" />
         </ItemsPanelTemplate>
@@ -38,14 +28,8 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate x:DataType="model:StatFigure">
           <!--
-            Bottom alignment stands in for the design's baseline alignment, which Avalonia's
-            stack panels do not offer. At a 26px figure against its 13px unit the two read
-            the same, because one face means one descender depth on both.
-          -->
-          <!--
-            The transparent background is what the pointer lands on: a figure whose absence has
-            a reason carries it as a tooltip, and a panel with no fill has nothing between its
-            two words to hit. A figure with no note leaves the tip null and opens nothing.
+            Transparent fill is the pointer target the tip opens from, and a null note opens nothing.
+            Bottom alignment stands in for baseline alignment, which Avalonia's stack panels do not offer.
           -->
           <Border Background="Transparent" ToolTip.Tip="{Binding Note}">
             <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}">

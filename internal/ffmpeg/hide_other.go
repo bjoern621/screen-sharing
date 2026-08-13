@@ -4,5 +4,5 @@ package ffmpeg
 
 import "os/exec"
 
-// setHidden is a no-op off Windows: there is no separate console window to hide.
+// setHidden does nothing off Windows, where a child allocates no console window of its own.
 func setHidden(cmd *exec.Cmd, hide bool) {}

@@ -12,7 +12,7 @@
              Background="{StaticResource SurfaceBrush}">
 
   <UserControl.Styles>
-    <!-- A path the relay knows about but nothing is publishing to reads as absent, not broken. -->
+    <!-- A path nothing is publishing to reads as absent, not broken. -->
     <Style Selector="TextBlock.idle">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
     </Style>
@@ -21,10 +21,6 @@
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!--
-      The live dot: one shape, on or off, rather than a word per entry. Its size is the design's
-      dot rather than a number chosen here.
-    -->
     <Style Selector="Ellipse.live">
       <Setter Property="Width" Value="{StaticResource DotSize}" />
       <Setter Property="Height" Value="{StaticResource DotSize}" />
@@ -36,13 +32,10 @@
     </Style>
 
     <!--
-      One rail entry. The action inside it appears on hover, while the stream is in the grid, and
-      while a press of it is being answered, so a rail of eight streams is eight names rather than
-      eight buttons and the one that is working still says so.
-
-      The wait is the reason the third case is here rather than only the first two: a press makes
-      the row's command unavailable until the backend answers, an unavailable control takes no
-      pointer, and the entry would otherwise hide the spinner the moment it started turning.
+      The action shows on hover, while its stream is in the grid, and while a press is being
+      answered. The third case is not spare: a press makes the row's command unavailable, an
+      unavailable control takes no pointer, and the entry would hide the spinner as it started
+      turning.
     -->
     <Style Selector="Button.entry Button.action">
       <Setter Property="Opacity" Value="0" />
@@ -55,23 +48,13 @@
   </UserControl.Styles>
 
   <!--
-    A rail beside a grid. The rail is what the relay is carrying and what this machine has open on
-    it; the grid is the streams the reader asked to see, drawn from the GPU memory the backend
-    decoded them into (docs/viewer-architecture.md, "The frame channel").
+    A rail of what the relay carries, beside a grid of what the reader asked to see. The
+    arrangement crosses no contract: the backend describes decodes, and a decode is not a tile
+    (docs/ipc-api.md).
 
-    Beside rather than above, which is the whole of the change from the table this replaces: a
-    list stacked over the grid made the two compete for height, and the grid is the thing being
-    watched.
-
-    The arrangement is this shell's whole business and nothing about it crosses the contract: the
-    backend describes decodes, and a decode is not a tile (docs/ipc-api.md).
-
-    No title bar, no nav strip and no status bar - the shell owns all three, and a second copy
-    would be a second definition of where the reader is.
+    No title bar, no nav strip and no status band, because the shell owns all three.
   -->
   <Grid ColumnDefinitions="Auto,*,Auto">
-
-    <!-- === The rail ============================================================== -->
 
     <Border Grid.Column="0"
             Width="{Binding RailWidth}"
@@ -86,8 +69,7 @@
                      IsVisible="{Binding !IsRailCollapsed}" />
 
           <!--
-            The settings that govern how this machine receives, opened beside the tiles they
-            govern rather than buried in the wizard for what it sends
+            Opens the watch group, which this screen draws and the publish wizard does not
             (Features/Fields/Model/GroupPlacement.cs).
           -->
           <Button Grid.Column="1" Theme="{StaticResource IconButton}"
@@ -103,11 +85,10 @@
           </Button>
         </Grid>
 
-        <!-- The backend's own sentence when it refused to open or close something, shown as it stands. -->
+        <!-- The backend's own sentence for a refused open or close, shown as it arrived. -->
         <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Refusal}" TextWrapping="Wrap"
                    IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
 
-        <!-- Why the list is empty, which separates an unread relay from an idle one. -->
         <TextBlock DockPanel.Dock="Top" Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
                    IsVisible="{Binding HasNotice}" Margin="2,0" />
 
@@ -116,59 +97,31 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:StreamRowViewModel">
 
-                <!--
-                  One entry per relay path: the name, whether anything is publishing to it, and
-                  the action that puts it in the grid. Everything else the relay says about it -
-                  tracks, rate, readers - is in the entry's own menu, because those are
-                  diagnostics and this list is navigation.
-
-                  The entry is the button. A press anywhere along it puts the stream in the grid
-                  or takes it out again, so what a reader aims at is a name in a list rather than
-                  a glyph at the end of one, and the row answers a pointer the way every other
-                  control on the surface does.
-                -->
                 <Button Classes="entry" Theme="{StaticResource RowButton}" Margin="0,1"
                         Command="{Binding Show}" ToolTip.Tip="{Binding Detail}">
 
-                  <!--
-                    The entry's own menu: what can be done with this stream, then what the relay
-                    says about it. The same two groups the tile's menu carries, divided the same
-                    way and drawn by the same rows (Design/Menus.axaml).
-
-                    The first group is the two viewers this window does not draw - a player the
-                    backend launches, and the relay's page in a browser - each with the legs its
-                    own reader reaches. Putting the stream in the grid is not among them: that is
-                    what pressing the entry does, and a menu row for it would be a second control
-                    for one action.
-                  -->
                   <Button.ContextFlyout>
                     <MenuFlyout>
                       <!--
-                        One item per leg the backend offered. Whether a leg can carry this stream
-                        is the backend's answer when the viewer is opened, not a greying decided
-                        here: the relay snapshot can be older than the stream, so refusing from a
-                        stale format would block a viewer that would have worked.
+                        One item per leg the backend offered, none of them greyed by a format:
+                        whether a leg carries this stream is answered against the stream when the
+                        viewer opens, and the relay snapshot can be older than the stream.
                       -->
                       <MenuItem Header="Open in player" ItemsSource="{Binding Legs}">
                         <MenuItem.Icon>
                           <ti:TablerIcon Icon="IconPlayerPlay" />
                         </MenuItem.Icon>
                         <!--
-                          The tick is a read of whether the leg is open, not a box the row keeps
-                          for itself: opening a player is a call the backend answers, and a
-                          ToggleType here would let the row report it before it had happened and
-                          then take it back on a refusal.
+                          The tick reads whether the leg is open. A ToggleType would write its own
+                          IsChecked on the click, reporting a call the backend has yet to answer.
                         -->
                         <MenuItem.ItemContainerTheme>
                           <ControlTheme TargetType="MenuItem" x:DataType="vm:WatchLegViewModel"
                                         BasedOn="{StaticResource {x:Type MenuItem}}">
                             <!--
-                              The row is handed the whole leg and drawn by the template below,
-                              because a leg this machine has no player for keeps its place,
-                              greys, and carries the sentence that says why
-                              (docs/field-availability.md, "One option disabled with a reason").
-                              A tip would not do: a disabled row takes no pointer, so the
-                              sentence has to be in the row.
+                              The whole leg as the header, so a leg with no player keeps its place
+                              and carries its reason in the row: a disabled row takes no pointer,
+                              and a tip on it never opens (docs/field-availability.md).
                             -->
                             <Setter Property="Header" Value="{Binding}" />
                             <Setter Property="HeaderTemplate">
@@ -192,15 +145,10 @@
                       </MenuItem>
 
                       <!--
-                        The same stream in the machine's browser, on the page the relay serves
-                        for it. One item per leg the backend named, which is a different roster
-                        from the players' above: no player opens WHEP, and a browser reaches
-                        neither SRT nor RTSP.
-
-                        The rows carry no tick, and that is the fact rather than an omission. A
-                        tab belongs to the browser, so this side can neither read whether it is
-                        still open nor close it - the row names an action, where every other row
-                        on this surface names a state (docs/design-language.md, "Menus").
+                        A roster of its own, since the legs a browser reaches are not the legs a
+                        player does. No tick on these rows: a tab belongs to the browser, so this
+                        side can neither read whether it is open nor close it, and the row names
+                        an action where every other row here names a state.
                       -->
                       <MenuItem Header="Open in browser" ItemsSource="{Binding BrowserLegs}">
                         <MenuItem.Icon>
@@ -218,10 +166,8 @@
                       <Separator />
 
                       <!--
-                        What the relay is carrying, printed rather than offered. These were rows
-                        disabled to stop them being pressed, which said the wrong thing: a greyed
-                        row in this product is an action some configuration took away, and it
-                        sends a reader looking for what would bring it back.
+                        Printed rather than offered. A greyed row in this product is an action
+                        some configuration took away, which is not what these are.
                       -->
                       <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Tracks}" />
                       <MenuItem Theme="{StaticResource MenuNote}" Header="{Binding Detail}" />
@@ -238,20 +184,14 @@
                                Classes.idle="{Binding !IsReady}" Classes.watched="{Binding IsWatched}" />
 
                     <!--
-                      The watch action. One control and not one per leg, because which protocol a
-                      tile receives on is a setting the backend resolves and not a choice this
-                      entry offers (docs/viewer-architecture.md, "Two legs, two protocols").
+                      One control and not one per leg: which protocol a tile receives on is a
+                      setting the backend resolves, not a choice this entry offers.
 
-                      It runs the row's command rather than one of its own: the glyph is what says
-                      which way a press goes, and a reader who aims at it should not have to have
-                      hit it. What it owns alone is the wait, so the arc turns inside this box and
-                      the name beside it stays readable while the decode opens.
+                      It runs the entry's own command, so a press that lands beside the glyph does
+                      the same thing. What it owns alone is the wait.
 
-                      A button rather than a toggle: there is no themed toggle here, and a bare one
-                      arrives wearing Fluent beside controls that wear the design
-                      (avalonia/README.md, "one button and one of every input"). What it is doing
-                      is said by its glyph and by the entry it sits in, which already draws watched
-                      streams differently.
+                      A button rather than a toggle, because a bare toggle arrives wearing Fluent
+                      beside controls that wear the design (avalonia/README.md).
                     -->
                     <Button Grid.Column="2" Classes="action"
                             Classes.on="{Binding IsTiled}"
@@ -272,23 +212,11 @@
       </DockPanel>
     </Border>
 
-    <!-- === The grid ============================================================== -->
-
     <!--
-      No summary and no hint in here. The shell's status band already prints both, off this same
-      view model, and a second copy on the screen the band describes is two places one fact is
-      written (Features/Shell).
+      No summary and no hint here: the shell's status band prints both off this same view model.
     -->
     <DockPanel Grid.Column="1" Margin="{StaticResource InsetPanel}">
 
-      <!--
-        Each tile is a composition surface rather than a native child window, which is what lets
-        the chrome over the picture stay over it: a native window would draw above every Avalonia
-        control (avalonia/README.md, "What is not settled yet").
-
-        The panel arranges; the arrangement itself is computed by a pure solver that is tested
-        without a window (Features/Viewer/Model/TileLayout.cs).
-      -->
       <ScrollViewer Name="GridScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <ItemsControl ItemsSource="{Binding Tiles}">
           <ItemsControl.ItemsPanel>
@@ -299,11 +227,7 @@
           </ItemsControl.ItemsPanel>
           <ItemsControl.ItemContainerTheme>
             <ControlTheme TargetType="ContentPresenter" x:DataType="tile:TileViewModel">
-              <!--
-                The two facts the panel arranges by, declared on the container rather than read
-                out of anybody's data context: the shape of the stream, and whether this is the
-                focused tile.
-              -->
+              <!-- What the panel arranges by. It reads attached values, never a data context. -->
               <Setter Property="view:TileGrid.Aspect" Value="{Binding Aspect}" />
               <Setter Property="view:TileGrid.IsStaged" Value="{Binding IsFocused}" />
             </ControlTheme>
@@ -311,10 +235,9 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="tile:TileViewModel">
               <!--
-                The grid is the one host that draws a plate. A popped-out stream keeps its slot
-                here, at its own shape, and the picture is in the window it went to - which is why
-                which of the two a card draws is the host's to state and not the tile's
-                (Features/Viewer/Tile/View/TileCard.axaml.cs).
+                The one host that draws the plate. A popped-out stream keeps its slot here and its
+                picture is in the window it went to, so which of the two a card draws is the host's
+                to state (Features/Viewer/Tile/View/TileCard.axaml.cs).
               -->
               <tiles:TileCard PictureElsewhere="{Binding IsPoppedOut}" />
             </DataTemplate>
@@ -324,15 +247,10 @@
 
     </DockPanel>
 
-    <!-- === The settings panel ==================================================== -->
-
     <!--
-      How this machine receives, beside the tiles it governs. A fixed width for the reason the
-      setup rail has one: a column that reflowed would move the controls under the reader's hand.
-
-      It is a column of its own rather than a flyout because a reader changes a leg and watches
-      what the next tile does with it, and a panel that closed on every click would make that two
-      motions instead of one.
+      A fixed width, because a column that reflowed would move the controls under the reader's
+      hand; a column rather than a flyout, because a leg is changed while the next tile is watched
+      and a flyout would close on every click.
     -->
     <Border Grid.Column="2"
             Width="330"
@@ -345,14 +263,12 @@
     </Border>
 
     <!--
-      The stream filling this window. It is drawn over every column rather than inside the grid,
-      because fullscreen is a property of this window and not an arrangement of tiles: the rail
-      goes, the grid goes, and the shell takes its three bands off the window as well
-      (Features/Shell/ViewModel/ShellViewModel.cs). What is left is the stream on the monitor.
+      The stream filling this window, over every column rather than inside the grid: fullscreen is
+      a property of the window and not an arrangement of tiles, so the rail and the grid go and the
+      shell takes its bands off the window too (Features/Shell/ViewModel/ShellViewModel.cs).
 
-      The picture keeps its stream's shape and whatever is left over is black. That is what the
-      arrangement already answers for a single tile in a box, so the panel here is the same solver
-      rather than a second definition of a letterbox (Features/Viewer/Model/TileLayout.cs).
+      A TileGrid of one card letterboxes the picture, rather than a second definition of a
+      letterbox living here (Features/Viewer/Model/TileLayout.cs).
     -->
     <Panel Grid.Column="0" Grid.ColumnSpan="3"
            Background="{StaticResource TileBrush}"

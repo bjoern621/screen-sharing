@@ -7,27 +7,20 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The quality step, driven end to end: a backend describing a group, the flow adopting the draft it answers
-/// with, and the controls the step draws from it.
-///
-/// What these lock out is the shell deciding anything.
-/// Every assertion below is made through the properties the markup binds, and none of them names a value this
-/// module wrote: the entries, their labels, their trailing notes and their greying all come out of the
-/// resolved form, so a shell that started inventing a list would fail here rather than on someone's screen
-/// (docs/ipc-api.md, "The rule").
-///
-/// Every test awaits, because the seam is a round trip: a draft change asks the backend for a form and the
-/// answer lands on a later pass.
-/// The stand-in answers from memory and the dispatcher below runs inline, so the wait is over before it
-/// starts - but waiting is what the assertion is entitled to do, and a test that read the controls without it
-/// would be asserting against a timing the real client does not have.
+/// The quality step end to end: a backend describing a group, the flow adopting the draft it answers with, and
+/// the controls drawn from it.
+/// Asserted through the properties the markup binds, and against no value this module wrote: entries, labels,
+/// trailing notes and greying all arrive on the resolved form, so a shell that invented a list fails here
+/// rather than on a screen (docs/ipc-api.md, "The rule").
+/// Every test awaits because the seam is a round trip, and the answer lands on a later pass.
+/// The stand-in answers from memory over an inline dispatcher, so the wait is over before it starts, but a
+/// test that skipped it would assert against a timing the real client does not have.
 /// </summary>
 public sealed class QualityStepTests
 {
     /// <summary>
     /// A flow whose first form has landed.
-    /// The dispatcher runs the answer straight through, so what a test reads afterwards is what the render
-    /// pass wrote.
+    /// The answer is dispatched straight through, so what a test reads next is what the render pass wrote.
     /// </summary>
     private static async Task<SetupViewModel> FlowAsync()
     {
@@ -40,7 +33,6 @@ public sealed class QualityStepTests
     private static FieldViewModel Select(SetupViewModel flow, string key)
         => flow.Quality.Selects.Single(field => field.Key == key);
 
-    /// <summary>Moves one control and waits for the form that answers the move.</summary>
     private static async Task ChooseAsync(SetupViewModel flow, OptionViewModel option)
     {
         option.Choose.Execute(null);
@@ -71,10 +63,7 @@ public sealed class QualityStepTests
         });
     }
 
-    /// <summary>
-    /// The case the screenshot showed: a control that printed a value and opened nothing.
-    /// It opens now, and what it opens onto is the backend's list.
-    /// </summary>
+    /// <summary>Pins the regression where the control printed a value and opened onto nothing.</summary>
     [Fact]
     public async Task TheOutputResolutionOffersTheSourceAndTheScalesBelowIt()
     {
@@ -86,8 +75,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The trailing note is what makes an entry honest: it names what the value was derived from, so the
-    /// reader sees the cost without opening the step that owns the source.
+    /// The note names what the entry was derived from, so the cost is readable without opening the step that
+    /// owns the source.
     /// </summary>
     [Fact]
     public async Task AScaledResolutionSaysWhatItWasScaledFrom()
@@ -114,9 +103,7 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// A select over a number is the case a string-only write gets silently wrong: it would mark one entry
-    /// and store zero.
-    /// The frame rate is that case.
+    /// The frame rate is a select over a number, and a string-only write marks the entry while storing zero.
     /// </summary>
     [Fact]
     public async Task PickingAFramerateStoresTheNumberAndNotAZero()
@@ -132,10 +119,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// A frame rate above the screen's own refresh rate stays offered.
-    /// The capture has no new picture for the frames in between and the encoder codes repeats of the last
-    /// one, which costs bandwidth and buys no motion - but it is a legal thing to ask for, so the form says
-    /// so as a diagnostic rather than taking the entry away.
+    /// Above the screen's refresh rate the encoder codes repeats, which costs bandwidth and buys no motion.
+    /// It is legal to ask for, so the form carries a diagnostic instead of taking the entry away.
     /// </summary>
     [Fact]
     public async Task AFramerateAboveTheSourceIsStillOffered()
@@ -147,8 +132,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The greying the shell renders without knowing that a mode and a quantizer have anything to do with
-    /// each other: the backend says so, and the same control draws both answers.
+    /// Nothing here knows a mode and a quantizer are related: the backend states the greying and one control
+    /// draws either answer.
     /// </summary>
     [Fact]
     public async Task TheQuantizerFollowsTheRateControlMode()
@@ -165,9 +150,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The rate control's grid holds the modes this backend offers with nothing left over.
-    /// The shape is the step's, but the count is the form's, so a backend that offers one more mode is laid
-    /// out by the same rule rather than by an edit here.
+    /// The shape is the step's and the count is the form's, so one more mode from the backend is laid out by
+    /// the same rule rather than by an edit here.
     /// </summary>
     [Fact]
     public async Task TheRateControlCardsFillEveryRowTheyOpen()
@@ -183,9 +167,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// The same rule at the counts the panel gets wrong on its own: asked for neither dimension, a
-    /// UniformGrid squares off both, so five options open a three by three and the row under the cards is a
-    /// card's worth of empty column.
+    /// The counts a UniformGrid gets wrong on its own: given neither dimension it squares off both, so five
+    /// options open a three by three and leave a row of empty columns under the cards.
     /// </summary>
     [Theory]
     [InlineData(0, 1)]
@@ -200,10 +183,7 @@ public sealed class QualityStepTests
         Assert.Equal(columns, QualityLayout.CardColumns(options));
     }
 
-    /// <summary>
-    /// The step's chip repeats what the backend said the group settled on, so a chip and the form cannot name
-    /// different configurations.
-    /// </summary>
+    /// <summary>A chip composed here could name a configuration the form does not.</summary>
     [Fact]
     public async Task TheStepChipRepeatsTheGroupsOwnSummary()
     {
@@ -214,8 +194,8 @@ public sealed class QualityStepTests
     }
 
     /// <summary>
-    /// Rendering twice over an unchanged draft produces the same rows, which is what lets an open menu
-    /// survive a pass (docs/development-principles.md, "Idempotency").
+    /// Equal rows over an unchanged draft are what lets an open menu survive a pass
+    /// (docs/development-principles.md, "Idempotency").
     /// </summary>
     [Fact]
     public async Task ASecondRenderPassLeavesTheEntriesAlone()

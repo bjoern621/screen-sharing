@@ -8,21 +8,11 @@
              x:DataType="vm:CostRailViewModel">
 
   <UserControl.Styles>
-    <!-- Past the marker the fill takes the one hue, because that is the fault this bar shows. -->
+    <!-- Over the limit the whole fill takes the attention hue: MeterBar clamps nothing at the marker. -->
     <Style Selector="view|MeterBar.over">
       <Setter Property="FillBrush" Value="{StaticResource AttentionBrush}" />
     </Style>
   </UserControl.Styles>
-
-  <!--
-    What the current configuration costs, and what stands in its way. Both sit beside the form
-    rather than after it: a price shown on a confirmation screen arrives after the decision,
-    and a check list met at the end is a validation wall.
-
-    Every figure is the backend's prediction for the draft on screen, and the uplink the bar is
-    measured against is a control on this panel - so the reader changes the limit where they
-    read it, and the bar moves under their hand.
-  -->
 
   <StackPanel Spacing="{StaticResource GapControl}">
 
@@ -41,12 +31,6 @@
                      Text="{Binding BitrateCaption}" />
         </Grid>
 
-        <!--
-          The bar and its limit marker, both proportions of the same scale. The fill turns red
-          past the marker rather than being clamped at it: a prediction the line cannot carry
-          is the one thing this panel exists to show, and a bar pinned at full would say the
-          same thing as one that exactly fits.
-        -->
         <view:MeterBar Height="11"
                        Margin="0,0,0,6"
                        Classes.over="{Binding IsOverUplink}"
@@ -64,7 +48,6 @@
 
         <Border Classes="dividerh" Margin="0,12" />
 
-        <!-- What the capture costs before coding, and what the line has left once it is on. -->
         <ItemsControl ItemsSource="{Binding Metrics}">
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:CostMetricRow">
@@ -80,12 +63,6 @@
           </ItemsControl.ItemTemplate>
         </ItemsControl>
 
-        <!--
-          The uplink the bar is measured against, read rather than edited. The control for it
-          is on the step that owns the field - one control per setting - and this says which
-          step that is, so a reader who wants to change the limit knows where it lives without
-          hunting for it (Model/RailLayout.cs).
-        -->
         <StackPanel IsVisible="{Binding HasUplink}">
           <Border Classes="dividerh" Margin="0,12" />
 
@@ -110,12 +87,6 @@
       </StackPanel>
     </Border>
 
-    <!--
-      Everything the form said about the settings as a whole, met early and watched as it
-      resolves. It used to be a stack of panels under the form, repeated identically on every
-      step; here it is the answer to the question the card already asks, and a line with a
-      control behind it names the step that owns it - which is why nobody has to hunt for it.
-    -->
     <Border Classes="card" Padding="{StaticResource InsetPanel}">
       <StackPanel>
         <TextBlock Classes="caption" Text="Checks before sharing" Margin="0,0,0,10" />

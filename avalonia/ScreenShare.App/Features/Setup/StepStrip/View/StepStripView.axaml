@@ -7,43 +7,30 @@
              x:DataType="setup:SetupViewModel">
 
   <!--
-    The strip is navigation, progress and configuration summary at once: each chip carries
-    the value its step settled on, so nobody has to walk the seven in order to find out what
-    is set. Every chip is clickable in every state, which is what makes it non-linear.
-
-    The chip lives here rather than in Controls/ because nothing outside this flow has a
-    step to draw.
+    Every chip is pressable in every state and nothing gates reachability, so the flow is non-linear.
+    Each chip carries the value its step settled on, which is what makes the strip the summary as well.
   -->
 
   <UserControl.Resources>
     <!--
-      A step is the design's card button with the strip's own four states on it. It takes
-      the shape and the skin from Design/Buttons.axaml and states only what a step adds:
-      the shell's card fill, and the walked, current and terminal treatments. The template
-      is not restated - a chip that carried its own copy would stop tracking the button
-      every other surface draws the moment either moved.
+      Inherits CardButton and states only what a step adds.
+      A chip carrying its own copy of the template would stop tracking the button every other surface draws.
     -->
     <ControlTheme x:Key="StepChipTheme" TargetType="Button" BasedOn="{StaticResource CardButton}">
       <Setter Property="Background" Value="{StaticResource CardBrush}" />
       <Setter Property="Padding" Value="12,7" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
 
-      <!-- Walked. Raised, so the covered ground reads as solid. -->
       <Style Selector="^.done /template/ Border#Root">
         <Setter Property="Background" Value="{StaticResource ControlBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
       </Style>
 
-      <!-- Here. The one light surface on the screen, so the eye finds it without a legend. -->
       <Style Selector="^.current /template/ Border#Root">
         <Setter Property="Background" Value="{StaticResource SelectedBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource SelectedBrush}" />
       </Style>
 
-      <!--
-        Terminal. Drawn a shade brighter at the edge than an upcoming step so it reads as
-        the end of the strip rather than as one more form.
-      -->
       <Style Selector="^.terminal /template/ Border#Root">
         <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
       </Style>
@@ -58,7 +45,7 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <!-- The chip's interior. Base is the upcoming state; each other state overrides it. -->
+    <!-- Base is the upcoming state: it wears no class of its own, and the state classes override it. -->
     <Style Selector="Border.chipbadge">
       <Setter Property="Width" Value="16" />
       <Setter Property="Height" Value="16" />
@@ -92,10 +79,7 @@
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     </Style>
 
-    <!--
-      The tick has no state of its own to answer for: it is drawn on the walked chip and
-      nowhere else, so one brush covers it.
-    -->
+    <!-- Only the walked chip draws it, so no state overrides this. -->
     <Style Selector="ti|TablerIcon.chipglyph">
       <Setter Property="Brush" Value="{StaticResource ForegroundBrush}" />
     </Style>
@@ -112,10 +96,7 @@
       <Setter Property="Foreground" Value="{StaticResource OnSelectedBrush}" />
     </Style>
 
-    <!--
-      The value line is a machine value: one step down from the label, in the faintest role,
-      and in tabular figures so a strip of seven chips lines its numbers up down the row.
-    -->
+    <!-- Machine value, so tabular figures: the numbers line up down the row of chips. -->
     <Style Selector="TextBlock.chipvalue">
       <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
       <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
@@ -128,7 +109,6 @@
       <Setter Property="Foreground" Value="{StaticResource ChipBorderBrush}" />
     </Style>
 
-    <!-- Lit up to and including the connector leaving the current step. -->
     <Style Selector="Border.connector">
       <Setter Property="Width" Value="{StaticResource GapSection}" />
       <Setter Property="Height" Value="1" />
@@ -160,13 +140,7 @@
                   Classes.done="{Binding IsDone}"
                   Classes.current="{Binding IsCurrent}"
                   Classes.terminal="{Binding IsTerminal}">
-            <!-- The value sits under the label, not under the badge, so the two lines read as one column. -->
             <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
-              <!--
-                The number, or the tick that replaces it once the step is walked. Two
-                controls rather than one string: the tick is a Tabler icon, and the number
-                is text.
-              -->
               <Border Grid.Row="0" Grid.Column="0" Classes="chipbadge">
                 <Panel>
                   <TextBlock Classes="chipglyph"

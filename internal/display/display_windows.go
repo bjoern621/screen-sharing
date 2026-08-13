@@ -18,11 +18,12 @@ var (
 	procEnumDisplaySettingsW = user32.NewProc("EnumDisplaySettingsW")
 )
 
-// monitorinfofPrimary is the MONITORINFO.dwFlags bit marking the primary output.
+// monitorinfofPrimary is MONITORINFOF_PRIMARY, the MONITORINFO.dwFlags bit on the primary output.
 const monitorinfofPrimary = 0x1
 
-// enumCurrentSettings (ENUM_CURRENT_SETTINGS, -1 as DWORD) asks EnumDisplaySettingsW for the mode
-// the display is running now rather than a mode-table entry.
+// enumCurrentSettings is ENUM_CURRENT_SETTINGS, -1 as a DWORD.
+// EnumDisplaySettingsW then reports the mode the display runs on rather than an entry from its mode
+// table.
 const enumCurrentSettings = 0xFFFFFFFF
 
 const (
@@ -34,9 +35,8 @@ type rect struct {
 	left, top, right, bottom int32
 }
 
-// monitorInfoEx mirrors the Win32 MONITORINFOEX struct.
-// The trailing szDevice names the display, which EnumDisplaySettingsW needs to read its current
-// mode.
+// monitorInfoEx mirrors Win32 MONITORINFOEX.
+// The trailing szDevice is the display name EnumDisplaySettingsW reads a mode off.
 type monitorInfoEx struct {
 	cbSize    uint32
 	rcMonitor rect
@@ -45,9 +45,9 @@ type monitorInfoEx struct {
 	szDevice  [cchDeviceName]uint16
 }
 
-// devModeW mirrors the Win32 DEVMODEW struct for the display union variant.
-// Field order and widths must match exactly so dmDisplayFrequency lands at the offset Windows
-// fills.
+// devModeW mirrors Win32 DEVMODEW in its display-union variant.
+// Field order and widths match it exactly, or dmDisplayFrequency is read off an offset Windows
+// never wrote.
 type devModeW struct {
 	dmDeviceName         [cchDeviceName]uint16
 	dmSpecVersion        uint16
@@ -81,8 +81,8 @@ type devModeW struct {
 	dmPanningHeight      uint32
 }
 
-// refreshHz reads the current refresh rate of the named display.
-// Windows reports 0 or 1 for "hardware default", and both map to zero, the unknown sentinel.
+// refreshHz is the active refresh rate of the named display, in Hz.
+// Windows spells "hardware default" as 0 or 1, and both become zero, the unknown sentinel.
 func refreshHz(device *uint16) int {
 	assert.IsNotNil(device, "a refresh rate is read off a named display")
 
@@ -99,9 +99,10 @@ func refreshHz(device *uint16) int {
 	return int(dm.dmDisplayFrequency)
 }
 
-// List enumerates the display monitors in EnumDisplayMonitors order, each with its pixel size and
-// current refresh rate.
-// It answers an empty slice where enumeration fails, which callers treat as "resolution unknown".
+// List enumerates the monitors through EnumDisplayMonitors, whose order Index counts in.
+// The offsets are rcMonitor, virtual-screen coordinates whose origin is the primary output's
+// top-left corner, so an output placed left of or above it carries negative ones.
+// Enumeration failing answers an empty slice, which a caller reads as an unknown resolution.
 func List() []Monitor {
 	var monitors []Monitor
 
@@ -120,7 +121,7 @@ func List() []Monitor {
 				RefreshHz: refreshHz(&mi.szDevice[0]),
 			})
 		}
-		return 1 // non-zero: continue enumeration
+		return 1 // non-zero continues the enumeration
 	})
 
 	procEnumDisplayMonitors.Call(0, 0, callback, 0)

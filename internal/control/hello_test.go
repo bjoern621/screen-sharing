@@ -26,15 +26,14 @@ import (
 
 // fakeBackend is a backend with no window, no encoder and no relay.
 //
-// It is the property Backend was made an interface for (server.go): the contract can be served in
-// front of something a test can reach entirely.
-// Every read answers with a field and every effect answers with err, which is enough for the tests
-// in this package and is why it is written by hand instead of generated - what these tests need
-// from a backend is one field at a time.
+// It is the property Backend was made an interface for (server.go): the contract serves in front of
+// something a test reaches entirely.
+// Written by hand rather than generated, because what these tests need from a backend is one field
+// at a time.
 type fakeBackend struct {
 	publish wire.PublishSnapshot
-	// err is what every effect answers with, so a test that wants a refusal sets one thing rather than
-	// one thing per method.
+	// err is what every effect answers with, so a test wanting a refusal sets one field rather than
+	// one per method.
 	err error
 }
 
@@ -69,9 +68,9 @@ func (f *fakeBackend) StopReceive(wire.WatchKey)              {}
 
 func (f *fakeBackend) SetReceiveAudio(wire.WatchKey, float64, bool) error { return f.err }
 
-// SubscribeFrames and SubscribePreviewFrames refuse, which is what a backend with no pipeline
-// behind it has to answer: there is no decode here to draw from and nothing is publishing,
-// and a fake stream of handles would be a fake naming GPU memory that does not exist.
+// The frame subscriptions refuse, which is what a backend with no pipeline behind it has to answer:
+// nothing is decoding, publishing or previewing here, and a fake stream of handles would name GPU
+// memory that does not exist.
 func (f *fakeBackend) SubscribeFrames(wire.WatchKey) (FrameStream, error) {
 	return nil, errors.New("nothing is decoding")
 }
@@ -97,11 +96,9 @@ func (f *fakeBackend) OpenLog(string) error              { return f.err }
 func (f *fakeBackend) OpenLogsFolder() error             { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.WatchKey) error { return f.err }
 
-// TestAMismatchedMajorNamesBothVersions: the handshake is the last call a backend and a shell that
-// disagree about the contract can both still understand, so the refusal has to carry the one thing
-// neither of them can work out afterwards - which major each is on.
-// A refusal that named only its own would leave the user reading "this backend is on 1" with no way
-// to know what their shell wanted.
+// The handshake is the last call two sides that disagree about the contract can both understand,
+// so its refusal carries the one thing neither works out afterwards: which major each is on.
+// A refusal naming only the backend's leaves a reader with no way to learn what the shell wanted.
 func TestAMismatchedMajorNamesBothVersions(t *testing.T) {
 	server := New(&fakeBackend{}, events.New(), "test")
 
@@ -124,9 +121,8 @@ func TestAMismatchedMajorNamesBothVersions(t *testing.T) {
 	}
 }
 
-// TestAMatchingMajorIsAnsweredWithThisBuildsNumbers: the answer is what a shell reports in a bug
-// report and what it compares its own minor against, so all three fields have to be this build's
-// rather than an echo of what was asked.
+// The answer is what a shell puts in a bug report and what it compares its own minor against,
+// so every field is this build's rather than an echo of what was asked.
 func TestAMatchingMajorIsAnsweredWithThisBuildsNumbers(t *testing.T) {
 	const version = "v9.9.9-test"
 	server := New(&fakeBackend{}, events.New(), version)
@@ -149,8 +145,8 @@ func TestAMatchingMajorIsAnsweredWithThisBuildsNumbers(t *testing.T) {
 	}
 }
 
-// TestAShellThatNamesNoMajorIsRefused: the field exists so the version is settled explicitly,
-// so a request that left it unset has settled nothing.
+// The field exists so the version is settled explicitly, and a request that left it unset settled
+// nothing.
 // Answering one would let a shell that never looked at the contract version reach every other
 // method.
 func TestAShellThatNamesNoMajorIsRefused(t *testing.T) {

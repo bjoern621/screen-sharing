@@ -9,31 +9,27 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// fieldTable is one row per settings field: what it edits, how it is drawn, what its number means,
+// fieldTable is one row per control: what it edits, how it is drawn, what its number means,
 // and how its value, options and range are read out of a draft.
 //
-// It is a table and not a switch for the reason docs/development-principles.md gives:
-// these are static facts, the same on every resolve, and a rule spread through logic is one that
-// goes stale where a table does not.
-// The order is the order a shell renders in, grouped as groups.go groups them,
-// so reading the table top to bottom is reading the screen top to bottom.
+// A table and not a switch, for the reason docs/development-principles.md gives:
+// these are static facts, the same on every resolve.
+// The order is the order a shell renders in, grouped as groups.go groups them.
 //
-// Every row states its availability nowhere.
-// A field's fixed facts do not change between resolves and its availability changes on every one,
-// which is why the two are two tables (form.go) and why nothing here decides what is greyed.
+// No row states its availability.
+// A row's facts are the same on every resolve and availability changes on every one,
+// which is why the two are two tables (form.go).
 //
-// What a row does NOT state is its name and the paragraph behind it.
-// A control's label and its help text are the surface's, looked up by the key below
-// (api/proto/screenshare/v1/text.proto): they are written for a column width,
-// a tone and a reading level this package cannot see, and a form that shipped them would be
-// deciding all three for every shell at once.
+// No row states its label or its help text either.
+// Both are the surface's, looked up by key (api/proto/screenshare/v1/text.proto),
+// and written for a column width, a tone and a reading level this package cannot see.
 
-// The table describes one screen, so a malformed row is an Entwicklungsfehler and fails at load.
+// A malformed row is an Entwicklungsfehler and fails at load.
 //
-// The render pass asserts the same facts about the row it is drawing (form.go), which catches a
-// broken row only on a draft that reaches it: a control the current combination hides is one nothing
-// would have looked at.
-// Here every row is checked whether or not anything draws it.
+// The render pass asserts the same facts about the row it is drawing (form.go),
+// which catches a broken row only on a draft that reaches it:
+// a control the current combination hides is one nothing would have looked at.
+// Every row is checked here whether or not anything draws it.
 func init() {
 	seen := make(map[string]bool, len(fieldTable))
 	for i := range fieldTable {
@@ -44,8 +40,8 @@ func init() {
 		assert.Assert(!seen[f.key], "a field is declared once", f.key)
 		seen[f.key] = true
 
-		// A row reads its value off the draft or off one entry of the audio list, never both and
-		// never neither: a control with no value is one a shell cannot render.
+		// The draft or one entry of the audio source list, never both and never neither:
+		// a control with no value is one a shell cannot render.
 		assert.Assert((f.value != nil) != (f.itemValue != nil),
 			"a field reads its value from exactly one place", f.key, f.repeat)
 		assert.Assert(f.repeat == (f.itemValue != nil),
@@ -55,53 +51,50 @@ func init() {
 
 // The ends a numeric control is offered between.
 //
-// None of them is a limit anything enforces: the encoder's own ceilings come off the capability
-// table below and everything else here is a sane end for a slider and a guard against a typed digit
-// too many.
-// A value outside a range still resolves - Field.value is whatever the settings hold,
-// and a draft that carries more than the encoder takes is refused by capabilities.Validate with the
-// encoder's own sentence, which is a better message than a control that silently clamps.
+// None of them is a limit anything enforces: an encoder's own ceiling arrives as a rule,
+// and everything here is a sane end for a slider and a guard against a typed digit too many.
+// A value outside a range still resolves, Field.value being whatever the settings hold,
+// and a draft above what the encoder takes is refused by capabilities.Validate,
+// in the encoder's own words rather than clamped in silence.
 const (
 	fieldPortFloor   = 1
 	fieldPortCeiling = 65535
 
-	// fieldFpsCeiling is above every panel this app has met.
-	// The frame rate is not bound to a monitor's refresh: capturing above it is legal and yields
-	// duplicate frames, which is a diagnostic and not a refusal.
+	// fieldFpsCeiling sits past any panel's refresh.
+	// The frame rate is not bound to a monitor's:
+	// capturing above it is legal and yields duplicate frames,
+	// which the form states as a diagnostic rather than as a wall.
 	fieldFpsCeiling = 1000
 
 	// fieldRateCeiling is the end of both megabit fields.
-	// A codec that takes less says so as a rule, which narrows this end for the modes that send the
-	// encoder a target.
+	// A codec that takes less says so as a rule, which narrows it in the modes that send a target.
 	fieldRateCeiling = 10000
-	// fieldUplinkCeiling covers a 100 Gbit/s line, which is past any uplink this is weighed against.
+	// fieldUplinkCeiling is a 100 Gbit/s line, past any uplink a prediction is weighed against.
 	fieldUplinkCeiling = 100000
 
 	fieldVbvCeiling    = 10000
 	fieldGopCeiling    = 6000
 	fieldBframeCeiling = 16
 
-	// The latency windows are swept rather than typed, so they carry a step.
-	// The floor is above zero because settings.Load reads a non-positive latency as unset and replaces
-	// it with the default, so a zero would not survive being written.
+	// The latency windows, in ms.
+	// They are swept rather than typed, so they carry a step.
+	// The floor is above zero because settings.Load reads a non-positive latency as unset,
+	// and replaces it with the default.
 	fieldLatencyFloor   = 20
 	fieldLatencyCeiling = 8000
 	fieldLatencyStep    = 10
 
-	// fieldGainStep is what a swept gain moves by, in the percent the setting counts in.
+	// fieldGainStep is in percent, which is the unit the gain setting counts in.
 	fieldGainStep = 5
 
-	// fieldAnchorCq is the 51-point scale every quantizer figure stated codec-independently counts on:
-	// the H.26x encoders' own.
-	// It is the range a codec declaring no scale on this engine is offered within,
-	// since pricing an unknown scale on some other one would clamp a 255-point target to a fifth of
-	// its range.
+	// fieldAnchorCq is the H.26x encoders' quantizer scale,
+	// which every codec-independent quantizer figure counts on.
 	fieldAnchorCq = 51
 )
 
 var fieldTable = []field{
 	// The stream: the one field that depends on nothing else, and the only setting other people see.
-	// Where it is carried is the relay's group, at the far end of the table.
+	// Which relay carries it is the group at the far end of the table.
 	{
 		key:     KeyName,
 		group:   GroupStream,
@@ -109,7 +102,7 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Name) },
 	},
 
-	// The capture: what is grabbed, how much of it, and how it reaches the encoder.
+	// The capture: what is grabbed, how much of it, and how the frames reach the encoder.
 	{
 		key:     KeyCapture,
 		group:   GroupSource,
@@ -125,13 +118,7 @@ var fieldTable = []field{
 		options: optionMonitors,
 	},
 	{
-		// The row the contract led.
-		// It was declared here with no settings field behind it, disabled with the reason that the
-		// pipeline had no scaling stage; the stage landed and the row is now an ordinary one.
-		// The ladder it offers did not change in the move, which was the claim the contract-first order
-		// was making.
-		//
-		// What can still refuse a scaled value is the frame path rather than the field:
+		// What refuses a scaled value is the frame path rather than this field:
 		// an encoder reading captured surfaces with no filter between has nothing on it that resizes,
 		// and availability greys the scaled entries there (availability.go).
 		key:     KeyOutputResolution,
@@ -141,10 +128,9 @@ var fieldTable = []field{
 		options: optionOutputResolutions,
 	},
 	{
-		// The one control that is both.
-		// The rate is a number the whole range accepts, and it is also a short list of answers - a
-		// film's, a game's, each panel's - that a reader should not have to remember to type,
-		// so the row carries a ladder and the ends it may be typed past.
+		// Both controls at once: the rate takes any number in the range,
+		// and the answers worth remembering (a film's, a game's, a panel's) sit beside it as a ladder,
+		// so the row carries options and bounds together.
 		key:     KeyFps,
 		group:   GroupSource,
 		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER_SELECT,
@@ -161,10 +147,9 @@ var fieldTable = []field{
 		options: optionCaptureMemories,
 	},
 	{
-		// The pointer.
-		// It sits with the capture rather than with the encode because what it can do follows from the
-		// backend and from nothing else: the same three values are offered everywhere and greyed per
-		// backend with what that backend is missing.
+		// The pointer sits with the capture rather than with the encode,
+		// because what it can do follows from the capture backend alone:
+		// every value is offered everywhere and greyed per backend with what that backend is missing.
 		key:     KeyCursor,
 		group:   GroupSource,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
@@ -172,10 +157,10 @@ var fieldTable = []field{
 		options: optionCursors,
 	},
 	{
-		// The hidden case of docs/field-availability.md: a backend implementation knob whose help
-		// describes a mechanism a user on any other capture backend has no reason to read.
-		// It is a row here all the same, because hiding is availability's verdict and a control the table
-		// never named is one no verdict can reach.
+		// The hidden treatment of docs/field-availability.md: a knob of the kmsgrab scanout path,
+		// whose help describes a mechanism no user on another capture backend has reason to read.
+		// It is a row here all the same, hiding being availability's verdict,
+		// and a control this table never named being one no verdict can reach.
 		key:     KeyDrmMap,
 		group:   GroupSource,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
@@ -183,7 +168,7 @@ var fieldTable = []field{
 		options: optionDrmMaps,
 	},
 
-	// The encode: which encoder, in which format, and how it spends bits over time.
+	// The encode: which encoder, which format, and how the bits are spent over time.
 	{
 		key:     KeyCodec,
 		group:   GroupQuality,
@@ -213,10 +198,10 @@ var fieldTable = []field{
 		options: optionEfforts,
 	},
 	{
-		// Beside the effort step, because the two are one decision read twice: how hard the encoder
-		// works, and what it works towards.
-		// A ladder the codec does not declare greys the control naming that codec,
-		// the same answer the step gets.
+		// Beside the effort step, the two being one decision read twice: how hard the encoder works,
+		// and what it works towards.
+		// A ladder the codec declares none of greys the control naming that codec,
+		// which is the answer the step gets too.
 		key:     KeyTune,
 		group:   GroupQuality,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
@@ -224,8 +209,7 @@ var fieldTable = []field{
 		options: optionTunes,
 	},
 	{
-		// The one radio: five choices carrying a paragraph each, which is what CONTROL_KIND_RADIO is
-		// reserved for.
+		// The one radio, CONTROL_KIND_RADIO being for a closed set whose entries carry a paragraph each.
 		// Every other closed set here is a select.
 		key:     KeyMode,
 		group:   GroupQuality,
@@ -283,11 +267,11 @@ var fieldTable = []field{
 
 	// The second track: what it is mixed from, and what codes it.
 	//
-	// The four controls of one entry are drawn once per entry, plus once more for the row a reader
-	// grows the list by.
-	// That trailing row is what makes adding a source an ordinary settings write through an ordinary
-	// control: picking a kind on it writes an entry the list did not have, and setting a kind back to
-	// none is what takes one off.
+	// The controls of one entry are drawn once per entry,
+	// plus once for the row a reader grows the list by.
+	// That trailing row makes adding a source an ordinary settings write through an ordinary control:
+	// picking a kind on it writes an entry the list did not have,
+	// and setting a kind back to none is what takes one off.
 	// Neither needs an effect on the contract, and neither lets a shell decide anything.
 	{
 		key:         KeyAudioSource,
@@ -329,7 +313,7 @@ var fieldTable = []field{
 		options: optionAudioCodecs,
 	},
 
-	// The publish leg: how the stream leaves this machine, and what the line can carry.
+	// The publish leg: how the stream leaves this machine, and what the line carries.
 	{
 		key:     KeyTransport,
 		group:   GroupTransport,
@@ -361,7 +345,7 @@ var fieldTable = []field{
 		bounds:  fieldUplinkBounds,
 	},
 
-	// The watch leg: how a stream comes back, once per viewer that can reach it.
+	// The watch leg: how a stream comes back, per receiver that can reach it.
 	{
 		key:     KeyPlayerWatchTransport,
 		group:   GroupWatch,
@@ -384,10 +368,11 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Viewer.RtspWatchProtocol) },
 		options: optionRtspProtocols,
 	},
-	// The tile receiver's own three.
-	// The leg is a field of its own because a receive pipeline reaches protocols no player URL
-	// expresses, and the other two are knobs of a receiving pipeline that no external player has:
-	// one buffers by reorder queue rather than by time, and neither builds a chain of elements at all.
+	// The tile receiver's own controls.
+	// Its leg is a field of its own because a receive pipeline reaches protocols no player URL
+	// expresses, and the rest are knobs of a receiving pipeline alone:
+	// an external player buffers by reorder queue rather than by time,
+	// and none of them builds a chain of elements at all.
 	{
 		key:     KeyTileWatchTransport,
 		group:   GroupWatch,
@@ -411,16 +396,16 @@ var fieldTable = []field{
 		options: optionRenderChains,
 	},
 
-	// The relay: which machine carries the stream, then one number per listener it serves it on.
-	// The address leads because the ports are that machine's - a port answered against no host is a
-	// number about nothing - and which of them is read follows from a leg chosen further up rather
-	// than from anything here.
+	// The relay: which machine carries the stream, then one port per listener it serves on.
+	// The address leads the ports because they are that machine's,
+	// a port answered against no host being a number about nothing,
+	// and which port is read follows from the leg chosen further up.
 	{
-		// The group, which is where every stream of this machine lives on the relay.
+		// The group is where every stream of this machine lives on the relay.
 		//
-		// Text because it is a secret somebody was handed: the key service draws it,
-		// whatever distributes it hands it over, and nothing here offers a list to pick from - there is
-		// no enumeration of groups by design, since possession of the key is the whole of membership
+		// Text and not a list, the key being a secret somebody was handed: the key service draws it,
+		// whatever distributes it hands it over, and groups are not enumerable by design,
+		// possession of the key being the whole of membership
 		// (docs/plan.md, "Groups, auth and encryption").
 		key:     KeyGroupKey,
 		group:   GroupRelay,
@@ -428,21 +413,22 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.GroupKey) },
 	},
 	{
-		// Whether the relay's HTTP legs are reached through a TLS proxy, which is one fact about the
-		// deployment rather than one per listener: the proxy terminates for the relay and the group
-		// service alike, under one name on the standard port.
+		// Whether the relay's HTTP legs are reached through a TLS proxy,
+		// which is one fact about the deployment rather than one per listener:
+		// the proxy terminates for the relay and the group service alike,
+		// under one name on the standard port.
 		//
-		// A toggle and not a scheme dropdown, because there are two deployments and no third: a relay
-		// on the internet has a proxy in front of every HTTP leg, and one on a trusted network has
-		// none.
+		// A toggle and not a scheme dropdown, there being two deployments and no third:
+		// a relay on the internet has a proxy in front of every HTTP leg,
+		// and one on a trusted network has none.
 		key:     KeyRelayTls,
 		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.Tls) },
 	},
 	{
-		// The passphrase the relay keys its SRT listener with, which is the one leg no proxy can wrap:
-		// it is UDP with no TLS, so what protects the packets is a value both ends hold.
+		// The passphrase the relay keys its SRT listener with, that leg being the one no proxy wraps:
+		// UDP with no TLS, so what protects the packets is a value both ends hold.
 		// Empty is a relay that takes none, which is every relay on a trusted network.
 		key:     KeySrtPassphrase,
 		group:   GroupRelay,
@@ -500,91 +486,80 @@ var fieldTable = []field{
 }
 
 // The range builders.
-// A row states one where its control takes a range, which is every number and every slider and
-// nothing else.
+// A row carries one where its control takes a range, which is every number and every slider.
 
-// fieldPortBounds is every port a listener can bind.
+// fieldPortBounds spans every port a listener can bind.
 func fieldPortBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(fieldPortFloor, fieldPortCeiling, 1)
 }
 
-// fieldFpsBounds is one frame per second up to past any panel.
-// It is deliberately not bound to the monitors' refresh rates: capturing above them is legal and
-// produces duplicate frames, which the form says as a diagnostic rather than as a wall.
 func fieldFpsBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(1, fieldFpsCeiling, 1)
 }
 
-// fieldCqBounds is the quantizer scale the selected codec counts on with the engine behind the
-// selected capture backend.
+// fieldCqBounds is the quantizer scale the selected codec counts on,
+// under the engine behind the selected capture backend.
 //
-// It moves with the selection because the scales differ: the H.26x encoders reach 51,
-// libvpx and the software AV1 ones 63, and an encoder taking a raw quantizer index counts to 127 or
-// 255. The control is offered within the widest scale the table declares and narrowed from there by
-// the rules, so the number a slider stops at and the number a publish refuses above are one answer
-// rather than two derived from one column.
-//
+// The control is offered within the widest scale the table declares and narrowed by the rules,
+// so the number a slider stops at and the number a publish refuses above are one answer.
 // A codec the table declares no scale for narrows nothing and keeps the widest,
-// which is what the table means by declaring none: the unwired families count on whatever their
-// builder will set, and pricing them on some other encoder's scale would clamp a target to a fifth
-// of its range.
+// which is what declaring none means: an unwired family counts on whatever its builder sets,
+// and pricing it on another encoder's scale would clamp a target to a fifth of its range.
 func fieldCqBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
 	low, high := verdictsOf(d, s).Bounds(KeyCq, 0, capabilities.WidestCqScale())
 	return bounded(low, high, 1)
 }
 
-// fieldBitrateBounds narrows to the codec's own ceiling where the rules state one.
-// An encoder with a ceiling refuses the encode rather than clamping, so a target above it is a
-// publish that dies at launch and the range is where that is cheapest to say.
+// fieldBitrateBounds narrows to the codec's own ceiling where a rule states one.
+// An encoder with a ceiling refuses the encode rather than clamping,
+// so a target above it is a publish that dies at launch,
+// and the range is where that is cheapest to say.
 //
-// The ceiling binds in the modes that aim at a bitrate and nowhere else, which is a fact the column
-// could not carry: it was read on every resolve, so the control narrowed even in the two modes that
-// send no target at all.
+// The rule binds in the modes that send the encoder a target and nowhere else.
 func fieldBitrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
 	low, high := verdictsOf(d, s).Bounds(KeyBitrateM, 0, fieldRateCeiling)
 	return bounded(low, high, 1)
 }
 
 // fieldMaxrateBounds takes no codec ceiling.
-// The capability table's limit is a ceiling on the target the encoder is given,
-// not on the burst the user allows above it, so applying it here would refuse a headroom the
-// encoder never sees as a target.
+// A codec's limit bounds the target the encoder is given and not the burst allowed above it,
+// so narrowing here would refuse headroom the encoder never sees as a target.
 func fieldMaxrateBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(0, fieldRateCeiling, 1)
 }
 
-// fieldVbvBounds starts at zero because zero is a value and not an absence:
+// fieldVbvBounds starts at zero, which is a value and not an absence:
 // it leaves the encoder's own buffer default standing.
 func fieldVbvBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(0, fieldVbvCeiling, 1)
 }
 
-// fieldGopBounds starts at zero for the same reason: zero selects auto, which every builder reads
-// as twice the frame rate.
+// fieldGopBounds starts at zero for the same reason:
+// zero selects auto, which every builder reads as twice the frame rate.
 func fieldGopBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(0, fieldGopCeiling, 1)
 }
 
 // fieldBframeBounds ends where the codecs do: no encoder here takes a longer reorder chain,
-// and a live stream pays for every frame of it in delay.
+// and a live stream pays for every frame of one in delay.
 func fieldBframeBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(0, fieldBframeCeiling, 1)
 }
 
 // fieldLatencyBounds sizes every retransmit window and jitter buffer, on either leg.
-// One builder for all three because they are one quantity - how long a receiver holds packets
-// before giving up on the ones that have not arrived - and a range that differed per leg would be a
-// claim about the legs the transports never made.
+// One builder for all of them, because they are one quantity:
+// how long a receiver holds packets before giving up on the ones that have not arrived.
+// A range that differed per leg would be a claim about the legs the transports never made.
 func fieldLatencyBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(fieldLatencyFloor, fieldLatencyCeiling, fieldLatencyStep)
 }
 
-// fieldUplinkBounds is one megabit up to past any line this is weighed against.
+// fieldUplinkBounds runs from one megabit up past any line a prediction is weighed against.
 func fieldUplinkBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(1, fieldUplinkCeiling, 1)
 }
 
-// fieldGainBounds is silence up to the amplification a quiet microphone needs.
+// fieldGainBounds runs from silence up to the amplification a quiet microphone needs.
 //
 // The ceiling is above unity because a source that needs turning up is the case a gain exists for,
 // and it is a ceiling because an unbounded multiplier clips every other source out of the mix.

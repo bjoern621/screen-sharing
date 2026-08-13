@@ -2,14 +2,9 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The switch. On is the one light surface with a near-black knob; off is a raised control
-    with a grey one. Both knobs are drawn at the same 11px here - the source has them at
-    12 and 11, which reads as an oversight rather than as intent, and a knob that changes
-    size mid-travel is the kind of detail a first sweep should not inherit.
-
-    Built on ToggleButton rather than ToggleSwitch: ToggleSwitch demands a set of named
-    template parts for its own knob animation, and inheriting that machinery to then hide
-    it costs more than drawing the two states outright.
+    The switch, which is what a flag wears here: never a CheckBox.
+    Built on ToggleButton and not ToggleSwitch, whose knob animation demands a set of named template
+    parts that this theme would then have to hide.
   -->
   <ControlTheme x:Key="SwitchTheme" TargetType="ToggleButton">
     <Setter Property="Cursor" Value="Hand" />

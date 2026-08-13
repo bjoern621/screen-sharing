@@ -15,7 +15,7 @@ import (
 )
 
 func TestBuildTestStreamArgs(t *testing.T) {
-	// Transport srt on purpose: test streams must publish over RTSP anyway.
+	// srt deliberately: a test stream leaves over RTSP whatever the settings name.
 	s := settings.Settings{
 		Relay: settings.Relay{
 			Host:     "relay.example",
@@ -46,9 +46,9 @@ func TestBuildTestStreamArgs(t *testing.T) {
 	}
 }
 
-// The surfaces are handed out round-robin so that simultaneous test streams are told apart on
-// screen, and every row states the whole surface: a row that named a pattern and left the format or
-// the colour to the source would publish a stream whose colour depends on the frame size.
+// Round-robin is what keeps simultaneous test streams apart on screen, and a whole surface per row
+// is what keeps the colour off the frame size: a row naming only a pattern would leave format and
+// colour to the source's own defaults.
 func TestTestSurfacesCycleAndStateTheirSurface(t *testing.T) {
 	if TestSurfaceOf(0) != TestSurfaceOf(len(testSurfaces)) {
 		t.Error("the surfaces must wrap around")
@@ -69,14 +69,12 @@ func TestTestSurfacesCycleAndStateTheirSurface(t *testing.T) {
 	}
 }
 
-// The set carries one HDR stream, and it is inside the set this process brings up with itself
-// rather than behind a count nobody asks for.
-// A viewer's HDR path is not exercised by a grid of standard-range streams,
-// and that path is the one with no other way to be reached on a machine whose screens are all
-// standard range.
+// One HDR stream, and inside the starting set rather than behind a count nobody asks for.
+// Standard range throughout exercises no viewer's HDR path, and on a machine whose screens are all
+// standard range there is nothing else that reaches it.
 //
-// The HDR row is also the ten-bit one, which is the rule the publish path enforces on a real
-// capture: an HDR surface cannot ride in eight bits.
+// Ten bits go with that row, the rule a real capture is held to as well: eight cannot carry an HDR
+// surface.
 func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	const bootSet = 3
 
@@ -99,13 +97,12 @@ func TestTheSetCarriesAnHdrStreamItBringsUpWithItself(t *testing.T) {
 	}
 }
 
-// The set carries one sounding stream, and it too is inside the set this process brings up with
-// itself: the per-stream volume, the level meter beside it and two streams playing at once are
-// reached by a stream that has a track and by nothing else.
+// One sounding stream, and inside the starting set for the same reason: nothing but a stream with a
+// track reaches the per-stream volume, the meter beside it, or two streams sounding at once.
 //
-// One row and not all of them, so a silent tile stays there to compare against.
-// Its codec is coded by this engine and carried by RTSP, which is the leg every test stream
-// publishes over, so the row is a stream the relay ingests rather than a refusal at launch.
+// One row rather than every row, which leaves a silent tile to compare against.
+// This engine codes its codec and RTSP carries it, RTSP being every test stream's leg, so the row
+// is something the relay ingests instead of a refusal at launch.
 func TestTheSetCarriesASoundingStreamItBringsUpWithItself(t *testing.T) {
 	const bootSet = 3
 
@@ -134,9 +131,8 @@ func TestTheSetCarriesASoundingStreamItBringsUpWithItself(t *testing.T) {
 	}
 }
 
-// A silent row publishes what it always did.
-// The audio branch is the sounding row's alone, and a row that names no codec builds none of it:
-// the queue included, which is there for a second pad and for nothing else.
+// The branch belongs to the sounding row alone, so naming no codec builds none of it.
+// The queue goes with it: a second pad is the only thing it is there for.
 func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
@@ -157,10 +153,10 @@ func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 	}
 }
 
-// The sounding row's branch is the audio table's, element for element, rather than a second set of
-// names beside it: a codec whose encoder or rate changes there changes here with it.
-// The branch attaches to the sink's mux pad, which is what makes the track a second RTP stream of
-// the session the picture travels in.
+// Element for element, the branch is the audio table's rather than a second set of names beside it,
+// so an encoder or a rate edited there is edited here.
+// Attaching to the sink's mux pad is what makes the track a second RTP stream inside the session
+// the picture travels in.
 func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
 	s := settings.Settings{
 		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
@@ -201,12 +197,12 @@ func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
 	}
 }
 
-// The whole point of the row, measured rather than assumed: a stream published from the sounding
-// surface carries a track that decodes.
+// The row's whole point, measured rather than assumed: a stream off the sounding surface carries a
+// track that decodes.
 //
-// It is the argv the app launches, with the relay's sink replaced by a file's muxer, and it is read
-// back the way a viewer reads it - through a decoder, off the raw caps that reached the sink.
-// Both sources are bounded, which is the only edit a run of a live pipeline needs to end on its own.
+// The argv is the app's, with a file's muxer standing in for the relay's sink, read back as a
+// viewer reads it: through a decoder, off the raw caps that arrived at the sink.
+// Bounding both sources is the one edit a live pipeline needs to end its own run.
 func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -227,9 +223,9 @@ func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The sink is cut by its own length and the branch behind it by the branch's,
-	// because the transport states how many arguments the one is and the audio table the other:
-	// what is left between them is the argv the app launches.
+	// Sink and branch are cut by their own lengths, the transport stating how many arguments the one
+	// runs to and the audio table the other.
+	// Between the two cuts is the argv the app launches.
 	sink, ok := transport.GstSink(s)
 	if !ok {
 		t.Fatal("the rtsp transport has no GStreamer sink, so there is nothing to cut")
@@ -270,9 +266,9 @@ func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 	}
 }
 
-// soundingSurface is the row the set publishes a track from, and fails the case that asks for it
-// when the table holds none: every audio case is about that row, and a table without one is the
-// silence they exist to catch.
+// soundingSurface is the row a track is published from, and fails its caller where the table holds
+// no such row: every audio case here is about that row, and its absence is the silence they exist
+// to catch.
 func soundingSurface(t *testing.T) TestSurface {
 	t.Helper()
 
@@ -285,13 +281,13 @@ func soundingSurface(t *testing.T) TestSurface {
 	return TestSurface{}
 }
 
-// The whole point of the row, measured rather than assumed: a stream published from the HDR surface
-// arrives carrying HDR.
+// The row's whole point, measured rather than assumed: a stream off the HDR surface arrives
+// carrying HDR.
 //
-// It is the argv the app launches, not a pipeline written for the test, and it is read back the way
-// a viewer reads it - off the caps the decoder produces.
-// The relay is the one thing left out: what it re-serves is bytes, and what this asserts is that
-// the bytes leave the encoder with the colour the surface was drawn in.
+// The argv is the app's rather than a pipeline written for the case, read back as a viewer reads
+// it: off the caps the decoder produces.
+// Only the relay is left out, since bytes are all it re-serves, and what is asserted here is that
+// the bytes leave the encoder in the colour the surface was drawn in.
 func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 	if _, err := exec.LookPath(GstExe); err != nil {
 		t.Skipf("%s not installed", GstExe)
@@ -311,12 +307,12 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The relay's sink is replaced by a file and the run is bounded, so everything between the source
-	// and the handover is the argv the app launches.
-	// The sink is cut by its own length rather than searched for, because the transport is what states
-	// how many arguments it is.
-	// Byte-stream because that is what a parser reads back out of a bare file,
-	// where the sink would have carried the framing itself.
+	// A file stands in for the relay's sink and the run is bounded, leaving the argv the app launches
+	// between the source and the handover.
+	// Cutting the sink by its own length rather than searching for it works because the transport
+	// states how many arguments it runs to.
+	// Byte-stream, since a bare file gives a parser no framing of its own where the sink would have
+	// carried it.
 	sink, ok := transport.GstSink(s)
 	if !ok {
 		t.Fatal("the rtsp transport has no GStreamer sink, so there is nothing to cut")
@@ -336,8 +332,8 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 		t.Fatalf("decoding the HDR test stream: %v\n%s", err, out)
 	}
 
-	// Read as a viewer reads it: the transfer characteristic decides the verdict,
-	// and the verdict is what a tile offers a choice on.
+	// A viewer's reading: the transfer characteristic settles the verdict, and the verdict is what a
+	// tile offers its choice on.
 	decoded, stated := decodedColorimetry(out)
 	if !stated {
 		t.Fatalf("the HDR test stream decodes stating no colour at all:\n%s", out)

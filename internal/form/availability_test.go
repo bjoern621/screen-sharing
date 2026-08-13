@@ -17,11 +17,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// availabilityAllKeys is every field the form declares, spelled from keys.go.
-//
-// It is a second list of what keys.go already states, and deliberately so:
-// the point of the test that reads it is that the availability table and the key list cover each
-// other, which a test deriving one from the other could not check.
+// availabilityAllKeys is every field the form declares, spelled out a second time on purpose: the
+// test reading it checks that the availability table and keys.go cover each other, which a list
+// derived from either could not.
 var availabilityAllKeys = []string{
 	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort,
@@ -36,18 +34,16 @@ var availabilityAllKeys = []string{
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
 }
 
-// The value spaces the option tests walk.
-// They are stated here rather than read off an option builder because the point of walking them is
-// to reach every value the settings can hold, including one a builder might one day stop offering:
-// a greying rule that stopped producing a sentence for such a value would still be reached by a
-// stored settings file.
+// The value spaces the option tests walk, stated here rather than read off an option builder: the
+// walk has to reach every value the settings can hold, including one no builder offers, since a
+// stored settings file still reaches the greying rule for it.
 var (
 	availabilityChromas     = []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"}
 	availabilityColorRanges = []string{"pc", "tv"}
 )
 
-// availabilityDraft is settings a test can state a fact about: the defaults with the machine's own
-// answers replaced by fixed ones, so a test reads the same on every platform the suite runs on.
+// availabilityDraft is the defaults with the machine's own answers replaced by fixed ones, so a case
+// reads the same on every platform the suite runs on.
 // settings.Defaults picks its capture backend off runtime.GOOS, which would otherwise make half of
 // these tests describe the developer.
 func availabilityDraft(capture, codec, chroma, transportName string) settings.Settings {
@@ -61,25 +57,24 @@ func availabilityDraft(capture, codec, chroma, transportName string) settings.Se
 	s.Publish.ColorRange = "tv"
 	s.Viewer.PlayerWatchTransport = "srt"
 	s.Publish.CaptureMemory = gpupath.MemoryAuto
-	// The two ladder steps follow the codec this draft names, exactly as the defaults,
-	// the migration and the repair all set them.
-	// Carrying the default codec's step onto another encoder would make every draft here one the
-	// repair has to move, which is a different thing from the combination each case is about.
+	// The two ladder steps follow the codec this draft names, as the defaults, the migration and the
+	// repair all set them.
+	// Carrying the default codec's step onto another encoder would make every draft one the repair has
+	// to move, which is not the combination a case is about.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(codec, s.Publish.Mode)
 	return s
 }
 
-// availabilityCase is one machine and one draft, named for what it is there to reach.
+// availabilityCase is one machine and one draft, named for what it reaches.
 type availabilityCase struct {
 	name string
 	deps Deps
 	s    settings.Settings
 }
 
-// availabilityCases spread wide enough that every greying path in the table is taken by at least
-// one of them: both engines, both colour verdicts of the pair table, a machine whose probe never
-// ran, one whose engine has no tooling at all, and a settings file naming a capture backend this
-// app has no publisher for.
+// availabilityCases spread wide enough that every greying path in the table is taken by one of them:
+// both engines, both colour verdicts of the pair table, a machine whose probe never ran, one whose
+// engine has no tooling, and a settings file naming a capture backend this app has no publisher for.
 func availabilityCases() []availabilityCase {
 	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
@@ -130,8 +125,8 @@ func availabilityCases() []availabilityCase {
 	}
 }
 
-// The contract form.go asserts on every field it renders: a control the user cannot touch says why,
-// because a greyed field with no sentence teaches nothing and is indistinguishable from a bug.
+// The contract form.go asserts on every field it renders: a greyed field with no sentence teaches
+// nothing and reads as a bug.
 func TestAGreyedFieldAlwaysCarriesAReason(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, key := range availabilityAllKeys {
@@ -149,8 +144,8 @@ func TestAGreyedFieldAlwaysCarriesAReason(t *testing.T) {
 	}
 }
 
-// The same contract on the option half: a greyed entry names the limit and which side has it,
-// so it tells the user what to change rather than only that the option is gone.
+// The same contract on the option half: a greyed entry names the limit and which side has it, rather
+// than saying only that the option is gone.
 func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 	values := map[string][]string{
 		KeyCapture:    publish.Captures(),
@@ -159,14 +154,13 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 		KeyChroma:     availabilityChromas,
 		KeyMode:       capabilities.Modes,
 		KeyColorRange: availabilityColorRanges,
-		// Every declared source, which is the list on every platform: the table answers for all of them
-		// everywhere and marks the ones a session here does not serve, so which Info this is asked with
-		// changes the verdicts below and not the roster.
+		// Every declared source, which is the list on every platform: the table marks the ones a session
+		// here does not serve, so the Info this is asked with changes the verdicts and not the roster.
 		KeyAudioSource:   platform.AudioSourceIDs(platform.Info{}),
 		KeyAudioCodec:    capabilities.AudioNames(),
 		KeyCaptureMemory: gpupath.Memories,
-		// Both watch legs are offered from the roster the receiver can reach, which is what an option
-		// list is built from and what the reasons are stated against.
+		// A watch leg is offered from the roster its receiver can reach, which is what the option list is
+		// built from and what the reasons are stated against.
 		KeyPlayerWatchTransport: transport.WatchNames(capabilities.EngineFfmpeg),
 	}
 	for _, tc := range availabilityCases() {
@@ -185,8 +179,8 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 	}
 }
 
-// A control the key list declares and the table forgets would render as a plain enabled widget that
-// no rule governs and no repair moves, so the two lists cover each other.
+// A control the key list declares and the table forgets would render as a plain enabled widget no
+// rule governs and no repair moves.
 func TestEveryFieldTheFormDeclaresHasAnAvailabilityRule(t *testing.T) {
 	for _, key := range availabilityAllKeys {
 		if _, ok := availabilityRules[key]; !ok {
@@ -206,10 +200,9 @@ func TestEveryFieldTheFormDeclaresHasAnAvailabilityRule(t *testing.T) {
 }
 
 // The first treatment.
-// A backend implementation knob with no meaning outside one selection is not rendered at all:
-// the DRM download strategy is a knob of the kmsgrab scanout path and of nothing else,
-// and its tooltip would teach a user on any other backend nothing (docs/field-availability.md,
-// "The rule").
+// A backend implementation knob with no meaning outside one selection is not rendered at all: the
+// DRM download strategy belongs to the kmsgrab scanout path, and its tooltip would teach a user on
+// any other backend nothing (docs/field-availability.md).
 func TestABackendKnobIsHiddenAwayFromItsCaptureBackend(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
@@ -224,9 +217,9 @@ func TestABackendKnobIsHiddenAwayFromItsCaptureBackend(t *testing.T) {
 	}
 }
 
-// The same field is greyed rather than hidden a second time where the run downloads nothing.
-// It is already gated on the capture backend, and a second gate would make it appear and vanish
-// while the user changes codecs.
+// The same field greys rather than hiding a second time where the run downloads nothing: it is
+// already gated on the capture backend, and a second gate would make it appear and vanish while the
+// user changes codecs.
 func TestTheDrmDownloadStrategyIsGreyedWhereNothingIsDownloaded(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("kmsgrab", "hevc_vaapi", "yuv420p", "rtsp")
@@ -241,14 +234,14 @@ func TestTheDrmDownloadStrategyIsGreyedWhereNothingIsDownloaded(t *testing.T) {
 	}
 }
 
-// The third treatment on a value the machine rather than the settings rules out:
-// a source no session here serves stays in the dropdown and greys with what the machine is missing.
+// The third treatment on a value the machine rather than the settings rules out: a source no session
+// here serves stays in the dropdown and greys with what the machine is missing.
 //
-// The second track is a general concept rather than one platform's implementation knob,
-// so a user on Windows reads why the machine cannot hand them what it is playing instead of finding
-// a one-entry control (docs/field-availability.md, "The rule").
-// The sentence is the platform table's and is not written here, which is what stops the form
-// greying a source the catalog offered.
+// The second track is a general concept rather than one platform's implementation knob, so a user on
+// Windows reads why the machine cannot hand them what it is playing instead of finding a one-entry
+// control (docs/field-availability.md).
+// The sentence is the platform table's rather than written here, which is what stops the form greying
+// a source the catalog offered.
 func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testing.T) {
 	for _, info := range []platform.Info{{OS: "windows"}, {OS: "darwin"}} {
 		deps := Deps{Platform: info}
@@ -274,8 +267,8 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 		}
 	}
 
-	// The same entry on the platform that serves it, so the greying is a fact about the machine and
-	// not a control that is always dead.
+	// The same entry on the platform that serves it, so the greying is a fact about the machine rather
+	// than a control that is always dead.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
 	if enabled, reason := optionState(deps, s, KeyAudioSource, platform.AudioSourceDesktop, 0); !enabled {
@@ -284,13 +277,12 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 }
 
 // The second treatment.
-// A general encoding concept the combination blocks stays rendered and greys,
-// so a user hunting for the effort ladder under a VAAPI encoder reads why it is absent instead of
-// finding a blank.
+// A general encoding concept the combination blocks stays rendered and greys, so a user hunting for
+// the effort ladder under a VAAPI encoder reads why it is absent instead of finding a blank.
 //
-// The reason names the codec rather than a set of families, because the ladder is the codec's own:
-// two codecs of one family can declare different ones, and one of them declaring none says nothing
-// about the other.
+// The reason names the codec rather than a set of families, the ladder being the codec's own: two
+// codecs of one family can declare different ones, and one declaring none says nothing about the
+// other.
 func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "h264_vaapi", "yuv420p", "srt")
@@ -311,10 +303,9 @@ func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	}
 }
 
-// The other half of the same rule, and the one the swap is for: a codec that declares a ladder
-// offers it, on the engine whose builder spends it.
-// A control greyed for a codec whose encoder takes the step would be the form withholding a knob
-// that reaches the encoder, which is what docs/field-availability.md rules out.
+// The other half of the same rule: a control greyed for a codec whose encoder takes the step would
+// be the form withholding a knob that reaches the encoder, which docs/field-availability.md rules
+// out.
 func TestTheEffortStepIsLiveWhereTheCodecDeclaresALadder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
@@ -326,9 +317,8 @@ func TestTheEffortStepIsLiveWhereTheCodecDeclaresALadder(t *testing.T) {
 	}
 }
 
-// The two ladders are asked about separately, because a codec can declare either without the other:
-// libvpx takes an effort step and tunes for nothing, so its effort control is live while its tune
-// control greys naming the codec.
+// A codec can declare either ladder without the other: libvpx takes an effort step and tunes for
+// nothing, so its effort control is live while its tune control greys naming the codec.
 func TestTheTwoLaddersAreAskedAboutSeparately(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libvpx-vp9", "yuv420p", "srt")
@@ -353,9 +343,8 @@ func TestTheTwoLaddersAreAskedAboutSeparately(t *testing.T) {
 	}
 }
 
-// Both engines forward both steps, so neither control is greyed for the engine alone.
-// A knob one builder drops is what the engine rules are for, and the effort step stopped being one
-// of them when the nvcodec elements turned out to take the same p1-p7 ladder.
+// Both engines forward both steps, so neither control greys for the engine alone: the nvcodec
+// elements take the same p1-p7 ladder ffmpeg spends, so no engine rule withholds a step.
 func TestBothLaddersReachBothEngines(t *testing.T) {
 	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
@@ -373,8 +362,8 @@ func TestBothLaddersReachBothEngines(t *testing.T) {
 }
 
 // A mode that pins the step greys the control and names the step in force.
-// Both the greying and the encode read the codec's row, so the sentence cannot name a step the
-// encoder is not running (ffmpeg.TestNvencCbrPinsTheDeclaredStep).
+// The greying and the encode read one row, so the sentence cannot name a step the encoder is not
+// running (ffmpeg.TestNvencCbrPinsTheDeclaredStep).
 func TestTheEffortStepGreysWhereTheModePinsIt(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")
@@ -398,9 +387,9 @@ func TestTheEffortStepGreysWhereTheModePinsIt(t *testing.T) {
 	}
 }
 
-// The B-frame count is the case docs/field-availability.md names outright:
-// under software x264 in VBR the mode does use B-frames and the family has no property for them,
-// so the reason has to be the family's and not the mode sentence, which would be a lie there.
+// The case docs/field-availability.md names outright: under software x264 in VBR the mode does use
+// B-frames and the family has no property for them, so the reason is the family's and not the mode
+// sentence, which would be a lie there.
 func TestTheBframeCountNamesTheFamilyRatherThanTheMode(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
@@ -424,9 +413,8 @@ func TestTheBframeCountNamesTheFamilyRatherThanTheMode(t *testing.T) {
 // The third treatment.
 // A field that stays editable and means something its label does not describe gains a sentence and
 // no greying.
-// The pixel format's note is about somebody else's machine - every format has a software decoder,
-// so a format no GPU takes is a viewer spending cores, which is a trade the publisher is entitled
-// to make once it is stated.
+// The pixel format's note is about somebody else's machine: every format has a software decoder, so
+// a format no GPU takes is a viewer spending cores.
 func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 
@@ -438,9 +426,8 @@ func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 		t.Errorf("4:2:0 H.264 carries %v, which does not say viewers decode it on a GPU", codeOf(hardware.note))
 	}
 
-	// 4:4:4 H.264 is the case the decode table exists to state: no vendor ever put High 4:4:4
-	// Predictive in silicon, so every viewer decodes it on the CPU - and the control still does not
-	// grey for it.
+	// 4:4:4 H.264 is the case the decode table exists to state: no vendor put High 4:4:4 Predictive in
+	// silicon, so every viewer decodes it on the CPU, and the control still does not grey.
 	software := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv444p", "srt"), KeyChroma, noEntry)
 	if !software.enabled {
 		t.Fatalf("4:4:4 H.264 greys the pixel format: %+v", software)
@@ -450,8 +437,8 @@ func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 	}
 }
 
-// A forwarded knob is the other half of the note's purpose: it exists so a value the builder does
-// send is never greyed, which would leave the encoder using a number the form refused to show.
+// The other half of the note's purpose: a value the builder does send is never greyed, which would
+// leave the encoder using a number the form refused to show.
 func TestAForwardedKnobCarriesANoteRatherThanAGreying(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
@@ -467,9 +454,9 @@ func TestAForwardedKnobCarriesANoteRatherThanAGreying(t *testing.T) {
 }
 
 // The fourth treatment.
-// A dropdown keeps the value a neighbouring combination allows and greys that entry alone:
-// planar RGB is greyed where no encoder element takes it and selectable on the capture backends
-// that run ffmpeg, which codes it.
+// A dropdown keeps the value a neighbouring combination allows and greys that entry alone: planar
+// RGB greys where no encoder element takes it and stays selectable on the capture backends that run
+// ffmpeg, which codes it.
 func TestPlanarRGBIsOneOptionGreyedOnTheEngineThatCannotCodeIt(t *testing.T) {
 	linuxX11 := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	linuxWayland := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
@@ -491,9 +478,9 @@ func TestPlanarRGBIsOneOptionGreyedOnTheEngineThatCannotCodeIt(t *testing.T) {
 }
 
 // A machine whose probe never ran is not a machine with nothing usable.
-// The zero Availability is the state a form resolves in before Detect answers,
-// and it has to leave the codec list exactly as the tables describe it: greying there would offer a
-// roster that shrinks and comes back while the app starts.
+// The zero Availability is the state a form resolves in before Detect answers, so it leaves the
+// codec list as the tables describe it: greying there would offer a roster that shrinks and comes
+// back while the app starts.
 func TestAnUnprobedMachineGreysNoCodec(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
@@ -514,10 +501,9 @@ func TestAnUnprobedMachineGreysNoCodec(t *testing.T) {
 	}
 }
 
-// An engine whose own tooling is missing is the opposite case and the reason the probe records it
-// separately: no codec on such an engine was tested and none of them can run there,
-// the two encoders no probe is spent on included.
-// Without this a missing ffmpeg would read as a machine with no encoder hardware.
+// The opposite case, and why the probe records it separately: no codec on such an engine was tested
+// and none can run there, the encoders no probe is spent on included.
+// Without it a missing ffmpeg would read as a machine with no encoder hardware.
 func TestAnEngineWithNoToolingGreysEveryCodecWithItsOwnReason(t *testing.T) {
 	const missing = "ffmpeg not found on PATH"
 	deps := Deps{
@@ -543,9 +529,9 @@ func TestAnEngineWithNoToolingGreysEveryCodecWithItsOwnReason(t *testing.T) {
 	}
 }
 
-// A probe that ran and failed names what the user would have to change, and which half is missing
-// follows the family rather than the engine: a device family's encoder is absent because the
-// hardware or its driver is, a software one's because nobody compiled it in.
+// Which half a failed probe names follows the family rather than the engine: a device family's
+// encoder is absent because the hardware or its driver is, a software one's because nobody compiled
+// it in.
 func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 	deps := Deps{
 		Platform: platform.Info{OS: "linux", Display: "x11"},
@@ -572,9 +558,8 @@ func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 	}
 }
 
-// A capture backend behind a privilege stays selectable by hand: the process either has the
-// privilege or the capture dies at launch, and no probe tells which in advance,
-// so greying it would refuse a choice this app cannot know is wrong.
+// The process either holds the privilege or the capture dies at launch, and no probe tells which in
+// advance, so greying the backend would refuse a choice this app cannot know is wrong.
 func TestACaptureBackendBehindAPrivilegeStaysSelectable(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
@@ -587,8 +572,8 @@ func TestACaptureBackendBehindAPrivilegeStaysSelectable(t *testing.T) {
 	}
 }
 
-// The sentence a shell shows for an unavailable capture backend is publish's own,
-// not a second one written here: the catalog shows the same list and has to give the same answer.
+// The sentence for an unavailable capture backend is publish's own rather than a second one written
+// here: the catalog shows the same list and has to give the same answer.
 func TestAnUnavailableCaptureBackendCarriesPublishsOwnSentence(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
 	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
@@ -605,9 +590,8 @@ func TestAnUnavailableCaptureBackendCarriesPublishsOwnSentence(t *testing.T) {
 	}
 }
 
-// The frame memory is never greyed as a whole, whatever the pair: auto answers with whichever path
-// the pair has and the system copy is the path every pair has, so a combination with no row leaves
-// a working control rather than a dead one.
+// Auto answers with whichever path the pair has and the system copy is the path every pair has, so a
+// combination with no row leaves a working control rather than a dead one.
 func TestAutoAndTheSystemCopyAreNeverGreyed(t *testing.T) {
 	for _, tc := range availabilityCases() {
 		for _, memory := range []string{gpupath.MemoryAuto, gpupath.MemorySystem} {
@@ -618,10 +602,10 @@ func TestAutoAndTheSystemCopyAreNeverGreyed(t *testing.T) {
 	}
 }
 
-// A pair whose device path converts nothing greys the value that demands the colour too,
-// and names the capture backend that reaches both.
-// That last half is the useful one, since the same screen is often reachable on the other engine
-// where the conversion does state its colour.
+// A pair whose device path converts nothing greys the value demanding the colour too, and names the
+// capture backend that reaches both.
+// That last half is the useful one, the same screen often being reachable on the other engine where
+// the conversion does state its colour.
 func TestTheDirectPathThatTradesColourNamesTheWayToTheExactOne(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
@@ -639,8 +623,8 @@ func TestTheDirectPathThatTradesColourNamesTheWayToTheExactOne(t *testing.T) {
 	}
 }
 
-// Under that trade the two colour fields no longer reach the stream, so both grey with the row's
-// cost rather than showing a value the run discards.
+// Under that trade neither colour field reaches the stream, so both grey with the row's cost rather
+// than showing a value the run discards.
 func TestTheColourFieldsGreyWhereTheEncoderConvertsOnItsOwnTerms(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
@@ -658,10 +642,8 @@ func TestTheColourFieldsGreyWhereTheEncoderConvertsOnItsOwnTerms(t *testing.T) {
 	}
 }
 
-// The output resolution was the control the contract led: declared before the pipeline could answer
-// it, greyed with that as its reason.
-// The scaler landed, so the field is an ordinary live one and nothing about the shell that draws it
-// changed (docs/ipc-api.md, "Fields the contract leads").
+// The output resolution is an ordinary live field on a path with a filter that resizes, and greys
+// only where the frames never reach one.
 func TestTheOutputResolutionIsLiveOnAPathThatCanScale(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	st := fieldState(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"), KeyOutputResolution, noEntry)
@@ -674,10 +656,10 @@ func TestTheOutputResolutionIsLiveOnAPathThatCanScale(t *testing.T) {
 	}
 }
 
-// What can refuse a scaled picture is the frame path rather than the control:
-// an encoder reading captured surfaces with no filter between has nothing on it that resizes.
-// The entries grey and the source size stays, so the reader is told which pair to change instead of
-// finding a dead field.
+// What refuses a scaled picture is the frame path rather than the control: an encoder reading
+// captured surfaces with no filter between has nothing that resizes.
+// The scaled entries grey and the source size stays, so the reader is told which pair to change
+// instead of finding a dead field.
 func TestAScaledResolutionGreysWhereTheDevicePathHasNoFilter(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
@@ -696,11 +678,11 @@ func TestAScaledResolutionGreysWhereTheDevicePathHasNoFilter(t *testing.T) {
 	}
 }
 
-// The same pair scales as soon as the run is not on that path.
+// The same pair scales as soon as the run leaves that path.
 // The greying offers the system copy as the way across, so on a run that already downloads every
-// frame the sentence would name a fix the user has applied and refuse a scale the CPU filter there
-// can perform - and auto is such a run, since it takes the round trip on exactly the rows this
-// greys for.
+// frame the sentence would name a fix already applied and refuse a scale that path's CPU filter can
+// perform.
+// Auto is such a run, taking the round trip on exactly the rows this greys for.
 func TestAScaledResolutionIsOfferedOnceTheRunLeavesTheDevicePath(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "windows"}}
 
@@ -715,8 +697,7 @@ func TestAScaledResolutionIsOfferedOnceTheRunLeavesTheDevicePath(t *testing.T) {
 	}
 }
 
-// A family with no row reaches no verdict of its own and would be greyed under the engine's name
-// instead, so every family the capability table declares states what its encoders take.
+// A family with no row reaches no verdict of its own and would grey under the engine's name instead.
 func TestEveryEncoderFamilyStatesWhatItsEncodersTake(t *testing.T) {
 	for _, family := range capabilities.Families {
 		if _, ok := availabilityFamilies[family]; !ok {
@@ -730,8 +711,8 @@ func TestEveryEncoderFamilyStatesWhatItsEncodersTake(t *testing.T) {
 	}
 }
 
-// A per-protocol knob gated on a name the registry does not carry would be gated on a protocol
-// nothing publishes, and would never appear.
+// A per-protocol knob gated on a name the registry does not carry is gated on a protocol nothing
+// publishes, and never appears.
 func TestEveryGatedTransportIsRegistered(t *testing.T) {
 	for _, name := range []string{
 		availabilitySrt, availabilityRtsp, availabilityWebrtc, availabilityRtmp, availabilityHls,
@@ -742,10 +723,9 @@ func TestEveryGatedTransportIsRegistered(t *testing.T) {
 	}
 }
 
-// Every engine a capture backend runs is one the capability table declares,
-// since that is the identifier a statement about an engine carries and the one a surface looks its
-// spelling up by.
-// An engine the table has never heard of would cross as a name nothing on the other side can name.
+// The capability table's engine name is the identifier a statement carries and the one a surface
+// looks its spelling up by, so an engine the table does not declare would cross as a name nothing on
+// the other side can spell.
 func TestEveryPublishEngineIsDeclared(t *testing.T) {
 	for _, engine := range publish.Engines() {
 		if !slices.Contains(capabilities.Engines, engine) {
@@ -756,30 +736,28 @@ func TestEveryPublishEngineIsDeclared(t *testing.T) {
 
 // A knob a receiver reads is on the screen, whatever the legs are set to.
 //
-// The defect this locks out was a hidden control that was still in force.
+// The defect this locks out was a hidden control still in force.
 // The two link knobs followed both leg settings, but PlayerWatchTransport does not decide which
-// players run: a surface opens one per press, on whichever leg the reader picked from the ones this
-// machine can open.
-// So a player opened over RTSP while both settings said SRT read RtspWatchProtocol,
-// and the control holding that value was on no screen - a setting in force that nobody could reach.
+// players run: one is opened per press, on whichever leg the reader picked.
+// A player opened over RTSP while both settings said SRT read RtspWatchProtocol, and the control
+// holding that value was on no screen.
 //
-// Hidden and greyed are both answers about a knob that does nothing here
-// (docs/field-availability.md).
-// One that does something is shown.
+// Hidden and greyed are both answers about a knob that does nothing here.
+// One that does something is shown (docs/field-availability.md).
 func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
 	s.Viewer.PlayerWatchTransport = availabilitySrt
 	s.Viewer.TileWatchTransport = availabilitySrt
 
-	// Both link knobs, against legs neither setting names.
-	// A player can be opened on either protocol from this machine, and each reads its own.
+	// Both link knobs, against legs neither setting names: a player can be opened on either protocol
+	// from this machine, and each reads its own.
 	for _, key := range []string{KeySrtWatchLatencyMs, KeyRtspWatchProtocol} {
 		if st := fieldState(fieldTestDeps(), s, key, noEntry); !st.visible {
 			t.Errorf("%s is hidden while a player can be opened on the leg that reads it", key)
 		}
 	}
 
-	// The tile's own knob is the other half of the rule and must not move with it.
+	// The tile's own knob is the other half of the rule and does not move with it.
 	// A tile receives over the leg its setting names and over no other, so a reorder window for a
 	// protocol no tile is on is a control that genuinely does nothing here.
 	if st := fieldState(fieldTestDeps(), s, KeyRtspWatchLatencyMs, noEntry); st.visible {
@@ -792,8 +770,8 @@ func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	}
 }
 
-// availabilityCodecNames lists the codec table's names, which is what a codec dropdown offers:
-// every row, greyed where this combination rules it out.
+// availabilityCodecNames is what a codec dropdown offers: every row of the table, greyed where this
+// combination rules it out.
 func availabilityCodecNames() []string {
 	out := make([]string, 0, len(capabilities.Codecs))
 	for _, c := range capabilities.Codecs {

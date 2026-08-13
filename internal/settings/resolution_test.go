@@ -2,9 +2,8 @@ package settings
 
 import "testing"
 
-// The empty setting is the capture's own size reaching the encoder unscaled.
-// It is a value and not an absence, and the two answers are separated so a caller cannot mistake
-// "no scaling" for a zero size and build a scaler around it.
+// Empty is a value and not an absence, which is what the second answer keeps a caller from
+// mistaking for a zero size to build a scaler around.
 func TestAnEmptyOutputResolutionIsTheCapturesOwnSize(t *testing.T) {
 	s := Publish{}
 
@@ -35,9 +34,9 @@ func TestASetOutputResolutionParsesToItsTwoFigures(t *testing.T) {
 	}
 }
 
-// A size crosses the wire as a string and comes back through the same spelling,
-// so the two directions have to be each other's inverse: a value the option list wrote and the
-// parser then refused would be a control offering what the publish rejects.
+// Writing and reading are each other's inverse.
+// A value the option list wrote and the parser refused would be a control offering what the publish
+// rejects.
 func TestASizeSurvivesFormattingAndParsing(t *testing.T) {
 	for _, want := range []Size{{Width: 1920, Height: 1080}, {Width: 640, Height: 360}, {Width: 2560, Height: 1440}} {
 		got, err := ParseSize(want.String())
@@ -51,18 +50,14 @@ func TestASizeSurvivesFormattingAndParsing(t *testing.T) {
 	}
 }
 
-// FormatSize is what an option list builds an entry's value with, and it has to write the same
-// spelling the parser reads.
+// An option list builds every entry's value with FormatSize.
 func TestFormatSizeWritesTheSpellingParseSizeReads(t *testing.T) {
 	if got, want := FormatSize(1280, 720), "1280x720"; got != want {
 		t.Errorf("FormatSize(1280, 720) = %q, want %q", got, want)
 	}
 }
 
-// Every value that reaches the parser was written by this side, so a malformed one is a caller that
-// made it up.
-// Each refusal names which part failed, because the caller that made it up is the one reading the
-// message.
+// Each refusal names which part failed, whoever has to repair the value being the one reading it.
 func TestAMalformedOutputResolutionIsRefused(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -73,8 +68,8 @@ func TestAMalformedOutputResolutionIsRefused(t *testing.T) {
 		{"no height", "1920x"},
 		{"not a number", "wide x tall"},
 		{"below the floor", "8x8"},
-		// Every chroma subsampling this app encodes in needs an even picture, so an odd side is refused
-		// rather than rounded: a size the run silently changed is a size no form can show back.
+		// An odd side is refused rather than rounded, every chroma subsampling here needing an even
+		// picture.
 		{"odd width", "1921x1080"},
 		{"odd height", "1920x1081"},
 	}
@@ -85,8 +80,8 @@ func TestAMalformedOutputResolutionIsRefused(t *testing.T) {
 	}
 }
 
-// A stored settings file carrying a size nothing can parse is an environment condition rather than
-// a bug, so it travels as an error and the run refuses with it named.
+// A size a stored file carries and nothing can parse is an Umgebungsfehler, so it reaches the
+// caller as an error rather than an assert.
 func TestAMalformedStoredResolutionReachesTheCallerAsAnError(t *testing.T) {
 	s := Publish{OutputResolution: "not-a-size"}
 

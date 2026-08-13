@@ -9,47 +9,48 @@ using ScreenShare.App.Features.Viewer.Tile.Model;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// One decoded stream, drawn from the GPU memory it was decoded into.
+/// One decoded stream, drawn out of the GPU memory it was decoded into.
 ///
-/// <b>Nothing here reads a pixel.</b> The backend decodes into shared GPU memory, names it on the frame
-/// channel, and a surface imports that name and draws it.
-/// No frame crosses a message, no frame enters system memory, and no frame is copied by this process at all
+/// No pixel is read.
+/// The decoder writes shared GPU memory, the frame channel carries its name, a surface imports that name:
+/// nothing in a message, nothing in system memory, nothing copied by this process
 /// (<c>docs/viewer-architecture.md</c>, "The frame channel").
 ///
-/// <b>What is here is the subscription and the loan.</b> Opening the channel, asking for a render size,
-/// deciding which slot is drawn next, handing slots back and saying what this tile is doing are the same on
-/// every machine.
-/// How a slot becomes a picture is not, and it is the surface's whole job (<see cref="ITileSurface"/>): the
-/// pool says what its handles are and the tile puts the matching surface in front of itself.
+/// What lives here is the subscription and the loan: opening the channel, asking for a render size, picking
+/// the slot to draw, giving slots back, and reporting.
+/// Turning a slot into a picture is <see cref="ITileSurface"/>'s job, and the pool names which one does it.
 ///
-/// <b>Each frame is a loan.</b> A slot is the consumer's until it is handed back, and it is handed back only
-/// once the surface says the draw has finished.
-/// A tile that is slow therefore costs frames the backend drops, and never a half-written picture and never a
-/// stalled pipeline.
+/// Every frame is a loan.
+/// A slot belongs to the consumer until it goes back, and it goes back only once the surface reports the draw
+/// complete, so a slow tile pays in frames the backend drops rather than in a torn picture or a stalled
+/// pipeline.
 /// </summary>
 public sealed class StreamTile : Decorator
 {
     /// <summary>
-    /// Where the frames come from and where this tile reports what it drew.
-    /// A tile with no source draws nothing and says nothing, which is the state of one whose row has not been
-    /// asked for yet.
+    /// Origin of the frames, and sink for what this tile reports.
+    /// null neither draws nor reports: the grid slot of a stream popped out into its own window, and a row
+    /// nothing has asked for.
     /// </summary>
     public static readonly StyledProperty<IFrameSource?> SourceProperty =
         AvaloniaProperty.Register<StreamTile, IFrameSource?>(nameof(Source));
 
-    /// <summary>Whether this tile is in a visual tree, so a source swap knows whether to restart.</summary>
+    /// <summary>Presence in a visual tree. A source swap restarts only while it holds.</summary>
     private bool _attached;
 
-    /// <summary>The pool the surface imported, so a frame of an older one is not drawn from a newer slot.</summary>
+    /// <summary>
+    /// Generation of the imported pool, zero while none is.
+    /// A frame from any other generation is not drawn.
+    /// </summary>
     private ulong _generation;
 
-    /// <summary>The running subscription, cancelled on detach.</summary>
+    /// <summary>Cancellation of the live subscription. Non-null exactly while one runs.</summary>
     private CancellationTokenSource? _cancel;
 
-    /// <summary>What has been reported, so a report that changed nothing raises no pass.</summary>
+    /// <summary>Report last handed to the source, so an identical one raises no pass.</summary>
     private TileReport _reported = TileReport.Nothing;
 
-    /// <summary>The size last sent to the backend, in device pixels, so an unchanged size renegotiates nothing.</summary>
+    /// <summary>Size the backend already has, in device pixels. Repeating it renegotiates nothing.</summary>
     private PixelSize _asked;
 
     public IFrameSource? Source
@@ -78,8 +79,8 @@ public sealed class StreamTile : Decorator
 
         if (change.Property == SourceProperty && _attached)
         {
-            // A tile whose row was replaced is a tile drawing a different stream, so the subscription is not
-            // reused: the pool belongs to the decode it was lent by.
+            // A new row is a different stream, and a pool belongs to the decode that lent it, so the
+            // subscription is torn down instead of reused.
             Stop();
             Start();
         }
@@ -93,49 +94,40 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// The heights a tile ever asks for.
+    /// Heights this control will ever ask for.
     ///
-    /// <b>A ladder rather than the exact size, because a size that moved re-announces a pool.</b> The backend
-    /// allocates its slots at the size it was asked for, so every distinct ask costs three allocations and a
-    /// renegotiation of the branch.
-    /// A grid that rearranges - a window dragged, a tile focused, a stream joining - moves every tile's exact
-    /// size; rounded onto a ladder, most of those moves ask for the size that was already in force and cost
-    /// nothing at all.
+    /// Rungs instead of exact sizes, because a moved size re-announces a pool: the backend allocates its
+    /// slots at the size it was given, so each distinct ask costs an allocation and a renegotiated branch.
+    /// Rearrangement moves every tile's exact size, whether a window was dragged, a tile focused or a stream
+    /// joined, and rounding up lands most of those moves on the size already in force.
     ///
-    /// What is lost is a scaler fixating exactly on the tile: a tile between two rungs is handed frames a
-    /// little larger than it draws and scales them down at draw time, which is a resample the GPU was doing
-    /// anyway.
+    /// The price is a scaler that stops short of the tile's exact size: between two rungs the frames arrive
+    /// slightly large and are scaled at draw time, a resample the GPU performs regardless.
     /// </summary>
     private static readonly int[] Ladder = [360, 540, 720, 900, 1080, 1440, 2160];
 
     /// <summary>
-    /// How long the size has to hold still before it is sent.
-    ///
-    /// A window being dragged produces an arrange pass per frame, and each one that crossed a rung would
-    /// re-announce a pool.
-    /// Waiting for the drag to settle turns a resize into one renegotiation rather than one per rung crossed
-    /// on the way.
+    /// Quiet period a size waits out before it is sent.
+    /// A dragged window arranges once per frame, and each rung crossed on the way would re-announce a pool.
     /// </summary>
     private static readonly TimeSpan SettleDelay = TimeSpan.FromMilliseconds(250);
 
-    /// <summary>The timer that sends the size once it has stopped moving.</summary>
     private DispatcherTimer? _settle;
 
-    /// <summary>The size the settle timer will send, in device pixels.</summary>
+    /// <summary>Size awaiting the settle timer, in device pixels.</summary>
     private PixelSize _pending;
 
     /// <summary>
-    /// Tells the backend how many pixels this tile needs.
+    /// States how many pixels this tile needs.
     ///
-    /// The size sent is in device pixels rather than in layout units, because it is a count of pixels the
-    /// scaler fixates against and a 200-unit tile on a 200% display needs 400 of them.
-    /// It is rounded up onto the ladder and sent once the size has settled, and only when it differs from the
-    /// one in force: all three exist because writing the pipeline's filter renegotiates the branch and
-    /// re-announces the pool behind it.
+    /// Device pixels rather than layout units: the scaler fixates against a pixel count, and a 200-unit tile
+    /// on a 200% display wants 400 of them.
+    /// Rounded onto a rung, held until the size settles, and skipped where it matches the size in force,
+    /// because writing the pipeline's filter renegotiates the branch and re-announces its pool.
     ///
-    /// Nothing here sizes what is drawn.
-    /// The surface is this control's child and the layout gives it the whole tile, so the picture follows the
-    /// arrangement exactly while what the backend is asked for lags behind it.
+    /// Nothing here sizes the picture.
+    /// The surface is a child and layout hands it the whole tile, so the drawing tracks the arrangement while
+    /// the ask trails it.
     /// </summary>
     private void Fit(Size size)
     {
@@ -148,9 +140,8 @@ public sealed class StreamTile : Decorator
             return;
         }
 
-        // The rung is chosen on the height and the width follows the tile's own shape, so two tiles of one
-        // height and different aspect ratios ask for the sizes they actually draw rather than both being
-        // padded to a square.
+        // Height picks the rung and width follows the tile's own shape, so two tiles of equal height and
+        // different ratios ask for what each draws instead of both being padded square.
         var height = Rung(wanted.Height);
         var pixels = new PixelSize(
             Math.Max(1, (int)Math.Round(height * ((double)wanted.Width / wanted.Height))),
@@ -169,7 +160,6 @@ public sealed class StreamTile : Decorator
         _settle.Start();
     }
 
-    /// <summary>Sends the size the tile settled at, once it has stopped moving.</summary>
     private void OnSettled(object? sender, EventArgs e)
     {
         _settle?.Stop();
@@ -183,10 +173,7 @@ public sealed class StreamTile : Decorator
         _ = _channel?.RenderSizeAsync(_asked.Width, _asked.Height);
     }
 
-    /// <summary>
-    /// The rung a height is asked for at: the first one that covers it, or the top rung for a tile larger
-    /// than the ladder goes.
-    /// </summary>
+    /// <summary>Lowest rung covering the height, and the topmost rung for anything above the ladder.</summary>
     private static int Rung(int height)
     {
         foreach (var rung in Ladder)
@@ -200,15 +187,13 @@ public sealed class StreamTile : Decorator
         return Ladder[^1];
     }
 
-    /// <summary>The open subscription, held so the arrange pass can report a size on it.</summary>
+    /// <summary>Live subscription, kept so an arrange pass has somewhere to send a size.</summary>
     private FrameChannel? _channel;
 
     /// <summary>
-    /// Starts the subscription.
-    ///
-    /// Everything after the first line is asynchronous and is allowed to be: the tile is a control that draws
-    /// nothing until frames arrive, so a subscription that takes a moment to open is a tile that is briefly
-    /// empty rather than a window that waits.
+    /// Opens the subscription.
+    /// Asynchronous after the first line, which costs nothing: a tile paints nothing until frames land, so a
+    /// slow open is a briefly blank tile rather than a stalled window.
     /// </summary>
     private void Start()
     {
@@ -223,17 +208,15 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// Ends the subscription and drops everything it imported.
-    ///
-    /// The order matters and is the one place this control has to be careful: the surface is dropped before
-    /// the channel closes, because the backend frees the pool as the call ends and an import outliving it
-    /// would name memory that is gone.
+    /// Ends the subscription.
+    /// The run unwinds its own channel and surface, leaving this to the state the control keeps alongside
+    /// them.
     /// </summary>
     private void Stop()
     {
-        // The settle timer goes first.
-        // It would otherwise fire against a channel that is being closed, and a size sent onto a subscription
-        // that has ended is a call into a pool the backend has already freed.
+        // Timer first.
+        // Left running it fires at a closing channel, and a size on a finished subscription reaches a pool
+        // the backend has freed.
         _settle?.Stop();
         _asked = default;
         _pending = default;
@@ -243,24 +226,21 @@ public sealed class StreamTile : Decorator
         _cancel = null;
 
         _generation = 0;
-        // Back to what the field was constructed with rather than to the struct's default: a tile is stopped
-        // and started again whenever its row is replaced, and a default here would put the null notice back
-        // that TileReport.Nothing exists to keep out.
+        // TileReport.Nothing, not the struct's default: a replaced row stops and starts this control, and
+        // that default carries the null notice the constant exists to keep out.
         _reported = TileReport.Nothing;
     }
 
     /// <summary>
-    /// The subscription, from opening it to the stream ending.
+    /// The subscription's whole life, from the open to the end of the stream.
     ///
-    /// It runs on the UI loop by construction - it is started from there and every await returns to it -
-    /// which is what makes the imports and the reports safe to make from inside it without marshalling each
-    /// one.
+    /// It sits on the UI loop by construction, launched from there with every await resuming there, which is
+    /// what lets it import and report inline instead of marshalling each one.
     /// </summary>
     private async Task RunAsync(IFrameSource source, CancellationToken cancellation)
     {
-        // Both belong to this run rather than to the control, and that is what makes a tile whose row was
-        // replaced safe: the subscription that is ending tears down what it opened, while the one that
-        // started in its place holds its own.
+        // Owned by the run rather than by the control, which is what makes a replaced row safe: the ending
+        // subscription tears down what it opened while its successor holds its own.
         FrameChannel? channel = null;
         ITileSurface? surface = null;
 
@@ -269,8 +249,8 @@ public sealed class StreamTile : Decorator
             channel = await source.OpenAsync(cancellation).ConfigureAwait(true);
             _channel = channel;
 
-            // The size is sent before the first frame, so the pipeline scales to this tile rather than
-            // converting a whole desktop and having it thrown away at draw time.
+            // Ahead of the first frame, so the pipeline converts at this tile's size instead of producing a
+            // whole desktop to be thrown away at draw time.
             _asked = default;
             Fit(Bounds.Size);
 
@@ -292,8 +272,8 @@ public sealed class StreamTile : Decorator
         }
         catch (OperationCanceledException)
         {
-            // The tile was detached.
-            // Nothing to report: the control is on its way off screen.
+            // Detached.
+            // Nothing to say: the control is leaving the screen.
         }
         catch (BackendUnavailableException e)
         {
@@ -301,17 +281,16 @@ public sealed class StreamTile : Decorator
         }
         catch (Exception e)
         {
-            // A failure to import is the one case worth showing as it stands: it names a driver or a handle
-            // type, and it is the difference between a tile that is empty because nothing is publishing and
-            // one that is empty because this machine cannot open what the backend lent it.
+            // A failed import is shown as it stands: it names a driver or a handle type, which separates a
+            // tile blank because nobody is publishing from one blank because this machine cannot open what
+            // was lent to it.
             Report(_reported with { Notice = e.Message });
         }
         finally
         {
             _channel = null;
-            // The surface goes before the channel.
-            // The backend frees the pool as the call ends, and an import outliving it would name memory that
-            // is gone.
+            // Surface ahead of channel.
+            // Closing the call frees the pool, so an import outliving it would name memory that is gone.
             await ReleaseAsync(surface).ConfigureAwait(true);
             if (channel is not null)
             {
@@ -321,11 +300,11 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// Imports one pool, on a surface that can open the kind of handle it lends.
+    /// Takes on one pool, through a surface that opens its kind of handle.
     ///
-    /// The surface is made from the pool rather than from the platform, and it is remade when a pool arrives
-    /// that needs another kind: which handle types a machine opens is a property of its renderer, and the
-    /// pool is where the backend says what it made.
+    /// The surface follows the pool rather than the platform and is rebuilt when a pool wants another kind:
+    /// what a machine can open is its renderer's property, and the pool is where the backend states what it
+    /// allocated.
     /// </summary>
     private async Task<ITileSurface?> ImportAsync(
         ITileSurface? surface,
@@ -362,12 +341,11 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// The surface for this kind of handle: the one already in front of the tile where it draws this kind,
-    /// and a new one where it does not.
-    /// Null is a handle type nothing here opens.
+    /// Surface for a handle type: the one on screen where it already draws that kind, a fresh one otherwise,
+    /// null where nothing imports it.
     ///
-    /// A pool is re-announced on every renegotiation, so the reuse is what keeps a resize from building a
-    /// renderer's context and shaders again for the same kind of frame.
+    /// Every renegotiation re-announces the pool, so the reuse is what stops a resize rebuilding a renderer's
+    /// context and shaders for the same kind of frame.
     /// </summary>
     private async Task<ITileSurface?> SurfaceFor(ITileSurface? surface, FrameHandleType type)
     {
@@ -387,16 +365,15 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// Draws one lent slot and hands it back.
+    /// Draws one lent slot and gives it back.
     ///
-    /// The await is the flow control.
-    /// It completes when the surface has finished with the slot, which is when the slot is genuinely free, so
-    /// the release that follows is a statement rather than a guess - and a tile whose renderer is slow stops
-    /// asking for frames instead of drawing one it is still reading.
+    /// Flow control lives in that await.
+    /// It resolves when the surface has finished with the slot, so the release behind it reports rather than
+    /// assumes, and a tile with a slow renderer stops asking for frames instead of drawing over one it is
+    /// reading.
     ///
-    /// A frame naming a pool that has been replaced is dropped.
-    /// Its slot is released all the same, because the backend recognises the stale generation and discards
-    /// it, and not releasing would be this side deciding to keep something it cannot draw.
+    /// A frame from a replaced pool is dropped, its slot released regardless: the backend spots the stale
+    /// generation and discards the release, and withholding it would mean keeping something undrawable.
     /// </summary>
     private async Task DrawAsync(
         ITileSurface? surface,
@@ -414,11 +391,10 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// Drops the surface and everything it imported.
+    /// Discards the surface and its imports.
     ///
-    /// The dispose is awaited rather than fired off, because an import is released on the render thread and
-    /// the backend frees the memory behind it as soon as the call ends: a release still in flight when that
-    /// happens is a release against memory that is gone.
+    /// Awaited, not fired off: the release runs on the render thread while the backend frees the memory as
+    /// the call ends, and one still in flight would land on memory that is gone.
     /// </summary>
     private async Task ReleaseAsync(ITileSurface? surface)
     {
@@ -428,9 +404,8 @@ public sealed class StreamTile : Decorator
             return;
         }
 
-        // Only where this is still the surface on screen.
-        // A run that is ending after its replacement started would otherwise take the new one's picture with
-        // it.
+        // Only while this is still the surface on screen.
+        // A run ending after its successor started would otherwise take the new picture away.
         if (ReferenceEquals(Child, surface.View))
         {
             Child = null;
@@ -439,10 +414,10 @@ public sealed class StreamTile : Decorator
     }
 
     /// <summary>
-    /// Tells the source what this tile is drawing, and only when it moved.
+    /// Reports what this tile is drawing, and only on a change.
     ///
-    /// Idempotent by construction: the report is a record, so two passes over one state compare equal and the
-    /// second raises nothing (<c>docs/development-principles.md</c>).
+    /// Idempotent by construction: a report is a record, so a second pass over one state compares equal and
+    /// raises nothing (<c>docs/development-principles.md</c>).
     /// </summary>
     private void Report(TileReport report)
     {

@@ -11,14 +11,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// Every live property is one the pipeline is already carrying, spelled the way that element spells
-// it.
-//
-// It is the claim the whole mechanism rests on: a write that named the wrong property,
-// or counted kbit where the element counts bits per second, would set a rate nobody chose on a
-// stream that is running.
-// So each row is held to what the codec's own mapping writes - the same shape as the ladder tests,
-// and for the same reason.
+// A write naming a property the pipeline does not carry, or counting kbit where the element counts
+// bits per second, sets a rate nobody chose on a stream that is running.
+// So every row is held to what that codec's own mapping spends.
 func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 	for name := range gstCodecs {
 		c, ok := capabilities.Get(name)
@@ -40,7 +35,7 @@ func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 			}
 		}
 		if mode == "" {
-			continue // A codec with no rate-targeting mode on this engine sends no rate.
+			continue // A codec with no rate-targeting mode on this engine is sent no rate.
 		}
 
 		t.Run(name, func(t *testing.T) {
@@ -48,8 +43,8 @@ func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 			chromas := c.EngineChromas(capabilities.EngineGst)
 			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = name, mode, chromas[len(chromas)-1]
 			s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(name, mode)
-			// Under every element's own property range, including the two qsv elements whose bitrate stops
-			// at an unsigned 16-bit kbit figure (qsvShortRateLimits).
+			// Under every element's own property range, the qsv ones stopping at an unsigned 16-bit kbit
+			// figure (qsvShortRateLimits).
 			s.Publish.BitrateM = 20
 			if limit := c.BitrateLimitOn(capabilities.EngineGst); limit > 0 && s.Publish.BitrateM > limit {
 				s.Publish.BitrateM = limit
@@ -70,12 +65,10 @@ func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 	}
 }
 
-// The state is what the settings say, and empty where they say nothing a running pipeline can take:
-// a mode that sends the encoder no rate has none to send it again.
+// A mode that sends the encoder no rate has none to send it again.
 func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 	s := baseStream()
-	// A capture backend this engine runs, because the live table is gated on the engine and the
-	// default settings name one the other engine drives.
+	// The live table is gated on the engine, and the default backend is the other engine's.
 	s.Publish.Capture = "ximagesrc"
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
 	s.Publish.BitrateM = 12
@@ -95,8 +88,8 @@ func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 	}
 }
 
-// The bits-per-second elements are the ones a unit mistake would break silently:
-// a write of 12000 where the element counts bits is twelve kilobits a second, not twelve megabits.
+// A unit mistake breaks silently: 12000 written where the element counts bits is twelve kilobits a
+// second, not twelve megabits.
 func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "ximagesrc"
@@ -113,10 +106,10 @@ func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	}
 }
 
-// The ffmpeg engine takes nothing back once it is running: neither the process nor the command line
-// it was given accepts a value, so a change there is a relaunch whatever it touched.
+// Neither ffmpeg nor the command line it was given takes a value back once running, so a change
+// there is a relaunch whatever it touched.
 // The engine is the only difference between the two configurations here, which is what says the
-// table is gated on it and not on the codec that happens to be selected.
+// table is gated on it and not on the selected codec.
 func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
 	s := baseStream()
 	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
@@ -139,9 +132,8 @@ func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
 	}
 }
 
-// A configuration no publisher runs is answered as not live rather than guessed at:
-// a capture backend with no engine behind it names one, and an apply decided on a guess would leave
-// a stream on values the child never took.
+// A capture backend with no engine behind it is answered as not live rather than guessed at:
+// an apply decided on a guess leaves a stream on values the child never took.
 func TestAnUnknownCaptureBackendIsNotLive(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "no-such-backend"
@@ -150,8 +142,8 @@ func TestAnUnknownCaptureBackendIsNotLive(t *testing.T) {
 	}
 }
 
-// A bitrate change is an apply and everything else is a relaunch, which is what decides whether
-// viewers keep watching or reconnect.
+// A bitrate change is an apply and everything else a relaunch, which decides whether viewers keep
+// watching or reconnect.
 func TestOnlyTheLiveSubsetAvoidsARelaunch(t *testing.T) {
 	running := baseStream()
 	running.Publish.Codec, running.Publish.Mode, running.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
@@ -172,8 +164,8 @@ func TestOnlyTheLiveSubsetAvoidsARelaunch(t *testing.T) {
 	for _, change := range []func(*settings.Settings){
 		func(s *settings.Settings) { s.Publish.Fps = 30 },
 		func(s *settings.Settings) { s.Publish.Chroma = "yuv444p" },
-		// 300 rather than 120: the keyframe interval resolves to twice the frame rate when it is left at
-		// zero, so 120 at 60 fps is the pipeline this is already running.
+		// 300 rather than 120: a zero keyframe interval resolves to twice the frame rate, so 120 at
+		// 60 fps is the pipeline already running.
 		func(s *settings.Settings) { s.Publish.Gop = 300 },
 	} {
 		other := running

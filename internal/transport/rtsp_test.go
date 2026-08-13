@@ -7,8 +7,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// rtspStream carries knobs on both legs that differ from the defaults, so a serialization that
-// ignores them shows up as the default rather than passing.
+// rtspStream sets every knob away from its default on both legs, so a serialization ignoring one
+// renders the default rather than passing.
 func rtspStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
@@ -76,10 +76,10 @@ func TestRTSPGstSource(t *testing.T) {
 	}
 }
 
-// The source hands out a pad per track, and a launch line's decoder has room for one of them.
-// The picture is the one it must be given: pinned by caps rather than left to the announcement
-// order, a session whose audio track was announced first decodes the sound into the render chain
-// and leaves the picture unlinked, which is a tile that draws nothing.
+// The source hands out a pad per track and a launch line's decoder has room for one, so the picture
+// is pinned by caps rather than left to the announcement order.
+// A session announcing audio first would otherwise decode the sound into the render chain and leave
+// the picture unlinked, which is a tile that draws nothing.
 func TestRTSPGstSourcePinsTheDecoderToThePicture(t *testing.T) {
 	src := RTSP{}.GstSource(rtspStream(), "bob")
 
@@ -91,8 +91,8 @@ func TestRTSPGstSourcePinsTheDecoderToThePicture(t *testing.T) {
 	}
 }
 
-// A stream whose legs disagree is what separates the two fields: a serialization reading the other
-// leg's protocol passes every test where they happen to agree.
+// Legs set to different protocols are what separates the two fields: a serialization reading the
+// other leg's passes wherever the two agree.
 func TestRTSPProtocolPerLeg(t *testing.T) {
 	s := rtspStream()
 	s.Publish.RtspPublishProtocol = "tcp"
@@ -118,8 +118,8 @@ func TestRTSPValidatePublishSettings(t *testing.T) {
 		}
 	}
 
-	// The empty value is a settings file written before the field existed and migration missed;
-	// neither serialization has anything to write for it.
+	// The empty value is a settings file the migration missed, and neither serialization has anything
+	// to write for it.
 	for _, protocol := range []string{"", "sctp", "TCP"} {
 		s := rtspStream()
 		s.Publish.RtspPublishProtocol = protocol
@@ -129,8 +129,8 @@ func TestRTSPValidatePublishSettings(t *testing.T) {
 	}
 }
 
-// The package-level entry point is what the publish engines call, so it has to reach the
-// transport's own answer rather than pass everything through.
+// The publish engines call the package-level entry point, so it reaches the transport's own answer
+// rather than passing everything through.
 func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 	s := rtspStream()
 	s.Publish.RtspPublishProtocol = "sctp"
@@ -138,8 +138,8 @@ func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 		t.Error("ValidatePublishSettings = nil, want the rtsp refusal")
 	}
 
-	// SRT declares no publish-leg settings of its own, and an unknown transport is ValidatePublish's
-	// refusal rather than this one's.
+	// SRT declares no protocol field, and an unknown transport is ValidatePublish's refusal rather
+	// than this one's.
 	for _, name := range []string{"srt", "nope"} {
 		s := rtspStream()
 		s.Publish.Transport = name

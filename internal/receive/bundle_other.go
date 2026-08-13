@@ -2,8 +2,7 @@
 
 package receive
 
-// useBundledPlugins does nothing off Windows. Every other channel installs
-// GStreamer as a dependency rather than bundling it (docs/packaging.md), so the
-// plugins are already on the path the library scans, and a build that wants
-// another set says so in the environment.
+// useBundledPlugins has nothing to do off Windows. GStreamer arrives as a dependency on every other
+// channel rather than bundled (docs/packaging.md), so its plugins already sit on the path the
+// library scans, and a build wanting a different set states that in the environment.
 func useBundledPlugins() {}

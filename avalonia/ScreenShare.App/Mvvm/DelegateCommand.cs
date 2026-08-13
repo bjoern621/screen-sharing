@@ -4,8 +4,8 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Mvvm;
 
 /// <summary>
-/// An <see cref="ICommand"/> over a delegate, so a button binds to a view-model method instead of a
-/// code-behind handler reaching into widgets.
+/// <see cref="ICommand"/> over a delegate,
+/// so a button binds to a view-model method rather than to a code-behind handler reaching into widgets.
 /// </summary>
 public sealed class DelegateCommand : ICommand
 {
@@ -26,6 +26,6 @@ public sealed class DelegateCommand : ICommand
 
     public void Execute(object? parameter) => _run();
 
-    /// <summary>Re-asks <c>canRun</c>. Called from the render function, like every other view update.</summary>
+    /// <summary>Re-asks <c>canRun</c>, from the render function like every other write to the view.</summary>
     public void Refresh() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
 }

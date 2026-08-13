@@ -4,13 +4,12 @@
              RequestedThemeVariant="Dark">
 
   <!--
-    The design system, merged once. Order matters and is not cosmetic: the token
-    dictionaries define the values every theme below them asks for, so they come first and
-    the control themes come after.
+    Order is load-bearing: the token dictionaries define the values every theme below them
+    asks for, so the control themes come after them.
 
-    Nothing outside Design/ states a colour, a size or a font. A component names the role
-    it wants, which is what keeps a light variant a second Palette rather than a sweep
-    through every view (docs/design-language.md).
+    Nothing outside Design/ states a colour, a size or a font.
+    A component names the role it wants, which keeps a light variant a second Palette rather
+    than a sweep through every view (docs/design-language.md).
   -->
   <Application.Resources>
     <ResourceDictionary>
@@ -31,10 +30,9 @@
         <ResourceInclude Source="/Controls/NumberSelect/NumberSelect.axaml" />
         <ResourceInclude Source="/Controls/Toggle/Toggle.axaml" />
         <!--
-          Not design. It is the form's option row, and it is merged here because the three
-          views that list options reach it from inside a DataTemplate: a resource a template
-          instantiates against has to sit above every view that instantiates it, and the one
-          scope above all three is this one.
+          The form's option row rather than design.
+          A resource a DataTemplate instantiates against has to sit above every view that
+          instantiates it, and this is the one scope above all three views that list options.
         -->
         <ResourceInclude Source="/Features/Fields/View/SelectEntry.axaml" />
       </ResourceDictionary.MergedDictionaries>
@@ -44,15 +42,16 @@
   <Application.Styles>
     <!--
       Fluent underneath, so a control this design has not restyled still behaves and still
-      looks like it belongs. Everything the design does state overrides it below.
+      looks like it belongs.
+      Everything the design states overrides it below.
     -->
     <FluentTheme />
     <StyleInclude Source="/Design/Text.axaml" />
     <StyleInclude Source="/Design/Surfaces.axaml" />
     <StyleInclude Source="/Design/Icons.axaml" />
     <!--
-      Last of the design styles, because it is the one that overrides a control's own content
-      while a call it started is in flight (Controls/Pending/Pending.cs).
+      Last of the design styles: it overrides a control's own content while a call that
+      control started is in flight (Controls/Pending/Pending.cs).
     -->
     <StyleInclude Source="/Design/Pending.axaml" />
   </Application.Styles>

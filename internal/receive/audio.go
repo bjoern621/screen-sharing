@@ -13,48 +13,42 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 )
 
-// audioChain is the branch an audio pad feeds:
+// audioChain is what an audio pad is fed into:
 //
 //	queue ! audioconvert ! level ! audioresample ! volume ! autoaudiosink
 //
-// The queue decouples audio from the decode thread like the video branch's does.
-// Two of the elements are kept: volume drives SetAudio, and audioconvert's input
-// caps are the raw audio the receive state reports, the counterpart of what the
-// video branch reads off videoconvert.
+// The queue holds audio off the decode thread, as the video branch's does.
+// Two elements are held onto: SetAudio drives volume, and audioconvert's input caps are the raw
+// audio the receive state reports, answering to what the video branch reads off videoconvert.
 //
-// level sits before volume and not after it, which is the whole reason its position
-// is worth stating. Measured after the volume element, a muted stream would meter as
-// silent, and a reader who muted one stream could not see that it had started making
-// noise again - which is the question a meter beside a mute button exists to answer.
-// What it measures is therefore what the stream is carrying, never what the speakers
-// were given.
+// level ahead of volume rather than behind it is what makes the order worth stating. Behind, a
+// muted stream would meter silent, leaving a reader who muted one unable to see it start making
+// noise again, which is the question a meter beside a mute button answers.
+// So the measurement is of what the stream carries, never of what the speakers were handed.
 //
-// The branch ends in a sink of its own rather than travelling to the shell.
-// Audio is small enough to play where it is decoded, and the backend runs on the
-// machine the shell is on (docs/ipc-api.md), so a second channel would carry the
-// samples across a process boundary to reach the same output device.
+// A sink of its own ends the branch instead of a trip to the shell.
+// Audio is small enough to play where it decodes, and shell and backend share a machine
+// (docs/ipc-api.md), so a second channel would cross a process boundary to arrive at the same
+// output device.
 var audioChain = []string{"queue", "audioconvert", "level", "audioresample", "volume", "autoaudiosink"}
 
-// audioCaps is the media type prefix of a pad the audio branch is built for.
+// audioCaps prefixes the media type of a pad this branch is built for.
 const audioCaps = "audio/"
 
-// LevelInterval is how often the level element posts a measurement, and so how fast
-// a meter can move.
+// LevelInterval is the level element's posting period, and so the fastest a meter moves.
 //
-// One constant rather than two, because the control service ticks its level stream at
-// the same rate it is posted at (docs/ipc-api.md). A cadence faster than this would
-// send the same measurement twice and a slower one would drop measurements that were
-// taken, and neither is a thing a meter should be made of.
+// One constant and not two: the control service ticks its level stream at the rate the element
+// posts at (docs/ipc-api.md). A faster tick would resend one measurement and a slower one would
+// drop measurements already taken, and a meter is built from neither.
 const LevelInterval = time.Second / 15
 
-// levelMessage is the name the level element posts its measurements under.
+// levelMessage names the messages the level element posts under.
 const levelMessage = "level"
 
-// onDecodePad builds the audio branch when the decoder exposes an audio pad.
-// Elements are added to the already-playing pipeline and synced to its state
-// before the pad links, the standard dynamic-pad dance. A failure only costs the
-// sound: the video branch is untouched, so it is logged rather than failing the
-// stream.
+// onDecodePad builds the audio branch where a decoder exposes an audio pad.
+// The elements join an already-playing pipeline and sync to its state ahead of the link, the usual
+// dynamic-pad order. Sound is all a failure costs, the video branch being untouched, so it is
+// logged rather than failing the stream.
 func (r *Receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 	if !isAudioPad(pad) {
 		return
@@ -63,8 +57,8 @@ func (r *Receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 	already := r.volume != nil
 	r.mu.Unlock()
 	if already {
-		// decodebin exposes one pad per elementary stream, and only the first
-		// audio track is played: a second one would mix into the first.
+		// decodebin exposes a pad per elementary stream, and the first audio track is the one played:
+		// a second would mix into it.
 		logger.Debugf("stream %q already has an audio branch", r.name)
 		return
 	}
@@ -84,11 +78,10 @@ func (r *Receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 	r.mu.Unlock()
 	assert.IsNotNil(r.volume, "the audio chain carries a volume element")
 
-	// The loudness a caller asked for before this branch existed is written now.
-	// SetAudio holds what it was asked for whether or not there is anything to write
-	// it onto, so that a volume set on a decode that had not yet exposed an audio pad
-	// is not silently lost - an effect whose result depends on when it arrived is not
-	// one a caller can repeat.
+	// Whatever loudness was asked for before this branch existed lands here.
+	// SetAudio keeps its argument with or without somewhere to write it, so a volume set on a decode
+	// that had exposed no audio pad yet is not quietly dropped: an effect whose outcome turns on when
+	// it arrived is not one a caller can repeat.
 	r.applyAudio()
 
 	logger.Infof("stream %q carries audio", r.name)
@@ -97,19 +90,18 @@ func (r *Receiver) onDecodePad(pad gst.Pad, onAudio func()) {
 	}
 }
 
-// onSourcePad decodes a track the launch line left unlinked, into a decoder of its own.
+// onSourcePad gives a track the launch line left unlinked a decoder of its own.
 //
-// The pads that reach here are the ones a source with a pad per track offers beyond the first: the
-// picture is placed by the line and this is what the audio track of an RTSP session would otherwise
-// be, received and dropped at the source. What the new decoder exposes goes through onDecodePad,
-// so an audio pad becomes the branch whatever decoder produced it, and the state of the pipeline it
-// is added to is what it is synced to.
+// What arrives here is what a source with a pad per track offers past the first, the line having
+// placed the picture: an RTSP session's audio track would otherwise be received at the source and
+// dropped there. The new decoder's own pads run through onDecodePad, so an audio pad becomes the
+// branch whichever decoder produced it, syncing to the state of the pipeline it joins.
 //
-// A pad the line did link is left alone, which is what makes this safe to run for every pad the
-// source exposes.
+// Pads the line did link are left alone, which is what makes running this for every pad a source
+// exposes safe.
 //
-// A failure costs the track and nothing else: the picture is already decoding through a decoder
-// this one never touches, so it is logged rather than failing the stream.
+// The track is all a failure costs: the picture already decodes through a decoder this never
+// touches, so it is logged rather than failing the stream.
 func (r *Receiver) onSourcePad(pad gst.Pad, onAudio func()) {
 	if pad.IsLinked() {
 		return
@@ -131,16 +123,15 @@ func (r *Receiver) onSourcePad(pad gst.Pad, onAudio func()) {
 	}
 }
 
-// SetAudio sets how loud the stream plays and whether it plays at all.
+// SetAudio names how loud the stream plays and whether it plays at all.
 //
-// What it asks for is held here whether or not the audio branch exists yet, and
-// written onto the branch the moment one is built. That is what makes it safe to
-// repeat and safe to send early: the same call on a decode that has not negotiated
-// its audio, on one that has, and on one that is already at that loudness all leave
-// the same state behind.
+// The request is held here with or without an audio branch, and written onto one the moment it is
+// built. Repeating it and sending it early are equally safe: on a decode that has not negotiated
+// its audio, on one that has, and on one already at that loudness, the state left behind is the
+// same.
 //
-// Mute is separate from a volume of zero because unmuting has to return to the level
-// the reader chose. Two fields rather than one is the only way to remember it.
+// Mute is not a volume of zero, because unmuting returns to the level the reader chose. Two fields
+// are what remember it.
 func (r *Receiver) SetAudio(volume float64, muted bool) {
 	assert.Assert(volume >= 0 && volume <= 1, "volume is a fraction", volume)
 
@@ -151,12 +142,11 @@ func (r *Receiver) SetAudio(volume float64, muted bool) {
 	r.applyAudio()
 }
 
-// Audio is the loudness in force and whether there is a branch to apply it to.
+// Audio is the loudness in force, and whether a branch exists to apply it to.
 //
-// The loudness is what was asked for rather than what the element reports, and the
-// two cannot disagree: applyAudio is the only writer, and it writes exactly this.
-// Reading the element back would answer nothing while the branch does not exist,
-// which is precisely when a shell still has to be able to draw the slider it moved.
+// It answers the request rather than the element, and the two cannot part company: applyAudio is
+// the sole writer and writes this. An element read back answers nothing while there is no branch,
+// which is exactly when a shell still has a slider to draw.
 func (r *Receiver) Audio() (volume float64, muted bool, has bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -164,8 +154,8 @@ func (r *Receiver) Audio() (volume float64, muted bool, has bool) {
 	return r.wantVolume, r.wantMuted, r.volume != nil
 }
 
-// applyAudio writes the held loudness onto the branch, and does nothing while there
-// is no branch. Safe to run twice: it writes values rather than toggling anything.
+// applyAudio writes the held loudness onto the branch, and does nothing until there is one.
+// Repeatable: values are written, nothing is toggled.
 func (r *Receiver) applyAudio() {
 	r.mu.Lock()
 	vol, volume, muted := r.volume, r.wantVolume, r.wantMuted
@@ -178,12 +168,11 @@ func (r *Receiver) applyAudio() {
 	vol.SetObjectProperty("mute", muted)
 }
 
-// Level is the loudest sample and the power average of the last interval the level
-// element posted, in decibels relative to full scale, and false while the stream
-// carries no audio or has posted nothing yet.
+// Level is the loudest sample and the power average over the level element's last posted interval,
+// in dBFS, and false while the stream carries no audio or has posted nothing.
 //
-// False and a silent reading are different facts and stay different all the way to
-// the tile: one draws no meter, the other draws an empty one.
+// False and a silent reading are two facts, and they stay two all the way to the tile: no meter
+// against an empty one.
 func (r *Receiver) Level() (peakDB, rmsDB float64, ok bool) {
 	if !r.hasLevel.Load() {
 		return 0, 0, false
@@ -191,11 +180,10 @@ func (r *Receiver) Level() (peakDB, rmsDB float64, ok bool) {
 	return math.Float64frombits(r.peakDB.Load()), math.Float64frombits(r.rmsDB.Load()), true
 }
 
-// onLevelMessage records one posting of the level element.
+// onLevelMessage takes in one posting from the level element.
 //
-// A posting that cannot be read is dropped rather than stored as a zero: zero dBFS
-// is full scale, so a failed parse written through would draw as the loudest signal
-// the format can carry.
+// An unreadable posting is dropped instead of stored as zero: zero dBFS is full scale, so a failed
+// parse written through would draw as the loudest signal the format carries.
 func (r *Receiver) onLevelMessage(msg *gst.Message) {
 	st := msg.GetStructure()
 	if st == nil {
@@ -215,12 +203,11 @@ func (r *Receiver) onLevelMessage(msg *gst.Message) {
 	r.hasLevel.Store(true)
 }
 
-// loudest is the maximum over the channels of one of the level element's arrays.
+// loudest is the maximum across the channels of one of the level element's arrays.
 //
-// One figure per stream rather than one per channel, because a meter is one bar and
-// which side of a stereo pair was louder is not a thing a tile asks. The maximum
-// rather than the average of the two, so a signal on one channel alone still reads
-// as sound.
+// A figure per stream and not per channel, a meter being one bar and which side of a stereo pair
+// led being nothing a tile asks. The maximum and not the mean, so a signal carried on one channel
+// alone still reads as sound.
 func loudest(st *gst.Structure, field string) (float64, bool) {
 	values, ok := st.GetValue(field).(gobject.ValueArray)
 	if !ok || len(values) == 0 {
@@ -238,8 +225,7 @@ func loudest(st *gst.Structure, field string) (float64, bool) {
 	return out, true
 }
 
-// isAudioPad reports whether a pad carries audio, off the caps it exposes. A pad
-// that has not negotiated yet is not one.
+// isAudioPad reads the answer off the pad's caps. An unnegotiated pad carries nothing.
 func isAudioPad(pad gst.Pad) bool {
 	caps := pad.GetCurrentCaps()
 	if caps == nil || caps.GetSize() == 0 {
@@ -248,9 +234,9 @@ func isAudioPad(pad gst.Pad) bool {
 	return strings.HasPrefix(caps.GetStructure(0).GetName(), audioCaps)
 }
 
-// buildAudioChain makes, adds and links the audio elements, and reports false
-// when the build failed at any step. Every element is named after its factory
-// with an "a" prefix, so an audio queue is told apart from the video branch's.
+// buildAudioChain makes, adds and links the audio elements, and is false where any step failed.
+// Each element takes its factory's name behind an "a", which separates the audio queue from the
+// video branch's.
 func (r *Receiver) buildAudioChain() ([]gst.Element, bool) {
 	branch := make([]gst.Element, 0, len(audioChain))
 	for _, factory := range audioChain {
@@ -261,9 +247,9 @@ func (r *Receiver) buildAudioChain() ([]gst.Element, bool) {
 		}
 		branch = append(branch, e)
 	}
-	// The level element is told to post and how often before the branch plays, so the
-	// first measurement arrives one interval after the audio does rather than after
-	// something else has got around to configuring it.
+	// Posting and its period are set on the level element before the branch plays, which puts the
+	// first measurement one interval behind the audio rather than behind whenever something else got
+	// round to configuring it.
 	lvl := branch[slices.Index(audioChain, levelMessage)]
 	lvl.SetObjectProperty("post-messages", true)
 	lvl.SetObjectProperty("interval", uint64(LevelInterval.Nanoseconds()))

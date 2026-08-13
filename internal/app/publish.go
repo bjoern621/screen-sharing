@@ -13,33 +13,33 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// publishRun is one publish session: the settings its pipeline was built from and the handle
+// publishRun is one publish session: the settings its pipeline was built from, and the handle
 // supervising the child that runs it.
 //
-// A run is replaced whole rather than mutated, which is what lets a callback say whether it still
+// A run is replaced whole rather than mutated, which is what lets a callback tell whether it still
 // describes the publish the app holds.
-// Applying a settings change to a live stream kills a child whose last progress sample and whose
-// exit arrive after the replacement is already running, and reporting either would take the UI back
-// to a stream that is gone.
+// A settings change kills a child whose last progress sample and whose exit arrive after the
+// replacement is already running, and reporting either would take a shell back to a stream that is
+// gone.
 type publishRun struct {
 	settings settings.Settings
 	handle   publish.Handle
-	// startedAt dates the launch, and attempts counts the retries that preceded it.
-	// The exit is weighed against both: how long the pipeline lasted says whether the settings run on
-	// this machine, and what the failure has already cost says how much budget is left for it
-	// (app_publish_retry.go).
+	// startedAt dates the launch and attempts counts the retries before it.
+	// The exit is weighed against both: how long the pipeline lasted says whether these settings run
+	// on this machine, and what the failure has cost says how much budget is left (publish_retry.go).
 	startedAt time.Time
 	attempts  int
 }
 
-// PublishCommand returns the exact command line the given settings would run, without running it.
-// Shown in the UI for transparency.
-// The engine that owns the selected capture backend renders it (ffmpeg command or gst pipeline).
+// PublishCommand is the command line s would run, without running it.
+// The engine owning the selected capture backend renders it: an ffmpeg command or a gst pipeline.
 func (a *App) PublishCommand(s settings.Settings) (string, error) {
 	return publish.Command(s)
 }
 
-// StartPublish validates s, persists it and starts the encoder child.
+// StartPublish persists s and starts the encoder child on it.
+// Persisting is best effort: a store that cannot be written is an Umgebungsfehler and does not cost
+// the stream.
 func (a *App) StartPublish(s settings.Settings) error {
 	a.settingsMu.Lock()
 	a.settings = s
@@ -51,9 +51,8 @@ func (a *App) StartPublish(s settings.Settings) error {
 	return a.startPublish(s)
 }
 
-// startPublishHeld publishes on the settings the app holds, for a caller that has none of its own
-// to pass: the native grid's publish button acts on what the form last wrote,
-// and moves no setting by pressing it.
+// startPublishHeld publishes on the settings the app holds, for a caller carrying none of its own.
+// It moves no setting, so what runs is what was last written.
 func (a *App) startPublishHeld() error {
 	a.settingsMu.Lock()
 	s := a.settings
@@ -62,12 +61,10 @@ func (a *App) startPublishHeld() error {
 	return a.startPublish(s)
 }
 
-// startPublish starts the encoder child on s.
-// The settings it runs on are the caller's business: this is the one place a publish begins,
-// whether the form or the grid asked for it.
+// startPublish is the one place a publish begins, whichever caller chose the settings.
 func (a *App) startPublish(s settings.Settings) error {
-	// Attached here and not in the two callers, so a publish from the form and one from the grid carry
-	// the same credential.
+	// Attached here rather than in the callers, so every publish carries the same credential
+	// (groups.go).
 	s, err := a.settingsForCommand(s)
 	if err != nil {
 		return err
@@ -77,24 +74,21 @@ func (a *App) startPublish(s settings.Settings) error {
 	err = a.startPublishLocked(s)
 	a.procMu.Unlock()
 
-	// Announced after the lock is released: reading the state takes both mutexes in the order app.go
-	// fixes, and holding one of them here would invert it.
+	// Announced with the lock released: reading the state takes both mutexes in the order app.go
+	// fixes, and holding one here would invert it.
 	a.emitPublishState()
 	return err
 }
 
 // startPublishLocked is the decision itself, with procMu held.
 //
-// A start naming the pipeline that is already publishing is a request for a state that already
-// holds, and a state that already holds is a success (docs/development-principles.md,
-// "Effects across a process boundary"): it is what lets a shell whose answer went missing ask again
-// rather than wait for one that is not coming.
-// What it is not is a licence to run two encoders on one relay path - a start naming a different
-// pipeline is still refused, which is the whole of what that refusal was ever for.
+// A start naming the pipeline already publishing asks for a state that already holds, so it succeeds
+// and starts nothing (docs/development-principles.md, "Effects across a process boundary"): a shell
+// whose answer went missing can ask again rather than wait for one that is not coming.
+// A start naming a different pipeline is still refused, which keeps two encoders off one relay path.
 //
-// Same is decided by publish.SamePipeline, which is where "these two settings are one stream" is
-// defined for the pending flag as well.
-// Two definitions of that would be two answers to whether a repeat is a repeat.
+// publish.SamePipeline decides sameness, and decides it for the pending flag too.
+// A second definition would be a second answer to whether a repeat is a repeat.
 func (a *App) startPublishLocked(s settings.Settings) error {
 	live, _ := a.livePublishLocked()
 	if live == nil {
@@ -103,8 +97,8 @@ func (a *App) startPublishLocked(s settings.Settings) error {
 
 	same, err := publish.SamePipeline(*live, s)
 	if err != nil {
-		// One of the two names a pipeline that cannot be built, so whether this start is a repeat cannot
-		// be told.
+		// One of the two names a pipeline that cannot be built, so whether this start is a repeat is
+		// unanswerable.
 		// Refusing is the answer that cannot start a second encoder.
 		logger.Warnf("cannot tell whether the running publish carries the settings this start asks for: %v", err)
 		return fmt.Errorf("already publishing")
@@ -117,19 +111,17 @@ func (a *App) startPublishLocked(s settings.Settings) error {
 	return nil
 }
 
-// livePublishLocked is the publish in force: the settings its pipeline was built from and the
+// livePublishLocked is the publish in force: the settings its pipeline was built from, and the
 // relaunch pending on it.
-// Both are nil with nothing in force, and the second alone is nil while the pipeline is carrying
-// frames.
+// Both nil with nothing in force, the second alone nil while the pipeline carries frames.
 // procMu is held by the caller.
 //
-// It is one function because "what is publishing" is one fact.
-// A start deciding whether it is a repeat and a state read deciding what to report are the two
-// consumers, and two spellings of this would let them disagree about whether anything is publishing
-// at all.
+// One function because "what is publishing" is one fact.
+// Its consumers are a start deciding whether it is a repeat and a state read deciding what to
+// report, and two spellings would let them disagree about whether anything publishes at all.
 //
-// A publish waiting out its backoff is in force: it is one the user asked for and has not stopped,
-// it will come back on its own, and the one call that ends a running pipeline ends it too.
+// A publish waiting out its backoff is in force: the user asked for it and has not stopped it, it
+// comes back on its own, and the call that ends a running pipeline ends it too.
 func (a *App) livePublishLocked() (*settings.Settings, *publishRetry) {
 	if a.run != nil && a.run.handle.Running() {
 		s := a.run.settings
@@ -142,16 +134,15 @@ func (a *App) livePublishLocked() (*settings.Settings, *publishRetry) {
 	return nil, nil
 }
 
-// Republish validates s, persists it and puts the running publish on it.
-// Where the running pipeline takes the change, it is written to the child and every viewer keeps
-// watching; where it does not, the child is replaced.
+// Republish persists s and puts the running publish on it.
+// A change the running pipeline takes is written to the child and every viewer keeps watching; one
+// it does not take replaces the child.
 //
-// The settings come from the caller for the reason StartPublish's do: the form writes them on a
-// debounce, and a restart on the settings the app happens to hold by then would restart the stream
-// onto the edit before the one that was applied.
+// The settings come from the caller, as StartPublish's do: the form writes them on a debounce, and a
+// restart on whatever the app happens to hold by then would run the edit before the applied one.
 //
-// A launch that fails after the teardown leaves nothing publishing: the pipeline that was carrying
-// the stream is gone by then, and there is no earlier one to return to.
+// A launch that fails after the teardown leaves nothing publishing, because the pipeline carrying
+// the stream is already gone and there is no earlier one to return to.
 func (a *App) Republish(s settings.Settings) error {
 	a.settingsMu.Lock()
 	a.settings = s
@@ -166,25 +157,24 @@ func (a *App) Republish(s settings.Settings) error {
 	return err
 }
 
-// applyLiveLocked writes s to the running child where the change is one it takes,
-// and reports whether it did.
+// applyLiveLocked writes s to the running child where the change is one it takes, and reports
+// whether it did.
 // procMu is held by the caller.
 //
-// Two questions decide it, and neither is a list of field names: whether this engine's child
-// accepts values while it plays (publish.Live), and whether this change touches nothing outside
-// what such a child takes (publish.LiveOnly).
+// Two questions decide it, neither of them a list of field names: whether this engine's child takes
+// values while it plays (publish.Live), and whether the change touches nothing outside what such a
+// child takes (publish.LiveOnly).
 // Both answers come off the one live table, so a form marking a control live and an apply that
 // avoids the relaunch cannot disagree.
 //
-// The run keeps its handle, its start time and its attempts, because the child never restarted:
-// what moved is the values it is holding.
-// Mutating the run in place is what says so, and it is what keeps the outgoing child's callbacks
-// pointing at the run they belong to.
+// The run keeps its handle, its start time and its attempts, because the child never restarted: what
+// moved is the values it holds.
+// Mutating the run in place says so, and keeps the child's callbacks pointing at the run they belong
+// to.
 //
-// A write that fails leaves the caller to relaunch.
-// The socket is the only way to reach a child that is already playing, so a failed write is a child
-// that cannot be told anything, and reporting the apply as done would leave the stream on values
-// nobody chose.
+// A failed write leaves the caller to relaunch.
+// The socket is the only way to reach a playing child, so a write that failed is a child that cannot
+// be told anything, and reporting the apply as done would leave the stream on values nobody chose.
 func (a *App) applyLiveLocked(s settings.Settings) bool {
 	applier, live := publish.Live(a.run.handle)
 	if !live {
@@ -204,28 +194,24 @@ func (a *App) applyLiveLocked(s settings.Settings) bool {
 	return true
 }
 
-// restartPublish puts the running pipeline on s, by writing to it where it takes the change and by
-// replacing it where it does not.
+// restartPublish puts the running pipeline on s: a write where the child takes the change, a
+// replacement where it does not.
 //
-// The write is tried first and the teardown is what it avoids: a stream a viewer is watching
-// survives a bitrate edit, where the same edit used to cost every one of them a reconnect.
-// Everything below this line describes the replacement, which is what happens for every change the
-// child cannot be told about.
+// The write is tried first and what it saves is the teardown, so a stream a viewer is watching
+// survives a bitrate edit instead of costing every viewer a reconnect.
 //
-// The command is rendered before anything is torn down, so a combination no engine can build
-// refuses the restart and leaves the stream running what it has.
+// The command is rendered before anything is torn down, so a combination no engine can build refuses
+// the restart and leaves the stream running what it has.
 //
-// procMu is held across the teardown and the launch, so nothing reads the window with no run in it
+// procMu is held across the teardown and the launch, so nothing reads the window with no run in it,
 // and the outgoing child's callbacks find the run that replaced them.
 //
 // The outgoing child is killed and not waited for.
-// The relay closes the publisher it holds when a new one connects to the same path,
-// so the successor does not have to arrive after the old socket is gone, and viewers reconnect
-// across the gap either way.
+// The relay drops the publisher it holds when a new one connects to the same path, so the successor
+// need not arrive after the old socket is gone, and viewers reconnect across the gap either way.
 //
-// A publish waiting out its backoff is restarted the same way, and the settings that were failing
-// take their attempts with them: the pipeline the user just named is not the one those attempts
-// were spent on.
+// A publish waiting out its backoff restarts the same way, and the failing settings take their
+// attempts with them: the pipeline just named is not the one those attempts were spent on.
 func (a *App) restartPublish(s settings.Settings) error {
 	if _, err := publish.Command(s); err != nil {
 		return err
@@ -247,7 +233,7 @@ func (a *App) restartPublish(s settings.Settings) error {
 	}
 	a.cancelRetryLocked()
 	// The successor is another child on another port, so the preview goes with the pipeline it was
-	// previewing rather than being handed over to one that will not be sending to it.
+	// reading rather than being handed to one that will not send to it.
 	a.stopPreviewLocked()
 
 	logger.Infof("restarting the publish of '%s' on the settings the form holds", s.Publish.Name)
@@ -255,12 +241,11 @@ func (a *App) restartPublish(s settings.Settings) error {
 }
 
 // launchLocked starts the encoder child on s and takes the run it produced.
-// attempts is how many retries the app has already spent reaching this launch,
-// zero for one the user asked for.
+// attempts is how many retries reaching this launch has cost, zero for one the user asked for.
 //
-// procMu is held by the caller, and the run is in place before the child can report anything:
-// a callback that fires first blocks on that lock, so it finds the run it belongs to rather than a
-// window with none in it.
+// procMu is held by the caller, and the run is in place before the child can report anything: a
+// callback that fires first blocks on that lock and finds the run it belongs to rather than a window
+// with none.
 func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	assert.Assert(a.run == nil || !a.run.handle.Running(), "a publish starts with no other one running", s.Publish.Name)
 	assert.Assert(a.retry == nil, "a publish starts with no relaunch pending", s.Publish.Name)
@@ -271,9 +256,9 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		return err
 	}
 
-	// The preview comes up before the child, because the child is told the port it binds.
-	// It is the publish that owns it, which is the whole of its lifecycle: no effect on the contract
-	// opens one, and every path that ends this child takes it down again (preview.go).
+	// The preview comes up first, because the child is told the port it bound.
+	// The publish owns its whole lifecycle: no effect on the contract opens one, and every path that
+	// ends this child takes it down (preview.go).
 	preview := a.startPreviewLocked(s)
 
 	run := &publishRun{settings: s, startedAt: time.Now(), attempts: attempts}
@@ -288,8 +273,8 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		OnExit: func(err error, stderrTail string, logPath string) {
 			a.publishEnded(run, err, stderrTail, logPath)
 		},
-		// The position is kept for the run that read it and dropped when that run stops being the one in
-		// force, so a pointer never outlives the capture it was over.
+		// The position belongs to the run that read it, so it is dropped once that run is not the one in
+		// force and a pointer never outlives the capture it was over.
 		OnPointer: func(p pointer.Position) {
 			if !a.isCurrentRun(run) {
 				return
@@ -299,8 +284,8 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	})
 	if err != nil {
 		a.run = nil
-		// Nothing is going to send to the port that was just bound, and a preview left running would be a
-		// pipeline waiting on a child that never started.
+		// Nothing will send to the port just bound, and a preview left up is a pipeline waiting on a
+		// child that never started.
 		a.stopPreviewLocked()
 		return err
 	}
@@ -310,16 +295,16 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	return nil
 }
 
-// isCurrentRun reports whether run is still the publish the app holds.
 func (a *App) isCurrentRun(run *publishRun) bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 	return a.run == run
 }
 
-// StopPublish ends the publish, whether it is running or waiting out a backoff.
-// A stop is the one answer the retry budget does not get a say in: the user asked for no stream,
-// and a relaunch arriving seconds later would be one they did not ask for.
+// StopPublish ends the publish, running or waiting out a backoff, and succeeds where neither is in
+// force.
+// The retry budget gets no say: the user asked for no stream, and a relaunch seconds later is one
+// nobody asked for.
 func (a *App) StopPublish() {
 	a.procMu.Lock()
 	if a.run != nil || a.retry != nil {
@@ -329,13 +314,12 @@ func (a *App) StopPublish() {
 		}
 		a.cancelRetryLocked()
 		logger.Infof("publishing stopped")
-		// The position belonged to the capture that has just ended, so it goes with it:
-		// a pointer held past the stream would be drawn over a picture that has stopped.
+		// The position belonged to the capture that just ended, so it goes with it: one held past the
+		// stream is drawn over a picture that has stopped.
 		a.pointerAt.clear()
 	}
-	// Outside the branch above, and idempotent for the same reason the stop itself is:
-	// a preview with no publish behind it is the one state this method exists to remove,
-	// and it is removed whether or not anything was running to remove it from.
+	// Outside the branch, so a preview with no publish behind it goes whether or not anything was
+	// running to take it from.
 	a.stopPreviewLocked()
 	a.procMu.Unlock()
 
@@ -343,17 +327,16 @@ func (a *App) StopPublish() {
 }
 
 // GetPublishState reports whether a publish is in force, the settings its pipeline was built from,
-// and whether the settings the app now holds build a different one.
+// and whether the settings the app holds build a different one.
 //
-// It is what a window reads when it mounts and what every change announces,
-// so a fresh window and a running one cannot be told different things.
-// The two mutexes are taken in the order app.go fixes and neither is held for the comparison,
+// A shell reads it on mount and every change announces it, so a fresh shell and a running one cannot
+// be told different things.
+// The two mutexes are taken in the order app.go fixes, and neither is held across the comparison,
 // which renders both pipelines.
 //
-// A publish waiting out its backoff reports the settings it will come back on.
-// It is still the publish the user asked for and the only one they can stop,
-// so it answers as publishing, with Retrying separating the stream that is carrying frames from the
-// one that is between attempts.
+// A publish waiting out its backoff reports the settings it will come back on and answers as
+// publishing, since it is the one the user asked for and the only one they can stop.
+// Retrying is what separates a stream carrying frames from one between attempts.
 func (a *App) GetPublishState() PublishState {
 	a.settingsMu.Lock()
 	held := a.settings
@@ -363,22 +346,21 @@ func (a *App) GetPublishState() PublishState {
 
 	a.procMu.Lock()
 	live, retry := a.livePublishLocked()
-	// Read under the same lock as the publish it belongs to, so a state cannot report a preview beside
-	// a stream that had already stopped when the preview was read.
+	// Read under the same lock as the publish it belongs to, so no state reports a preview beside a
+	// stream that had already stopped when the preview was read.
 	state.Preview = a.previewSnapshotLocked()
 	if retry != nil {
 		state.Retrying = true
-		// The budget is set with the attempt because the two are one fact: "attempt 2 of 3" is the whole
-		// of what either number says, and a budget reported beside a stream that is carrying frames would
-		// name attempts nothing is spending.
-		// Both are zero while nothing retries, which is what this shape promises the frontend and what
-		// the contract asserts of it (wire.PublishState).
+		// The budget is set with the attempt because the two are one fact, "attempt 2 of 3", and a budget
+		// beside a stream carrying frames would name attempts nothing is spending.
+		// Both stay zero while nothing retries, which is what the contract asserts of the snapshot this
+		// becomes (wire.PublishState).
 		state.Attempt = retry.attempts
 		state.Budget = len(publishBackoff)
 	}
-	// Asserted here because this is the one place both halves are in hand.
-	// The preview is brought up by a launch and taken down by every path that ends the child,
-	// so one standing beside nothing would be a path that forgot the second half (preview.go).
+	// The one place both halves are in hand.
+	// A launch brings the preview up and every path that ends the child takes it down, so a preview
+	// standing beside nothing is a path that forgot the second half (preview.go).
 	assert.Assert(state.Preview == nil || live != nil, "a local preview belongs to a publish")
 	a.procMu.Unlock()
 
@@ -391,40 +373,36 @@ func (a *App) GetPublishState() PublishState {
 	if same, err := publish.SamePipeline(*live, held); err != nil {
 		// One of the two names a pipeline that cannot be built, so what the stream carries cannot be held
 		// against what the form shows.
-		// What the form shows is then not what is publishing, which is what pending says,
-		// and the reason is already in front of the user: the command preview renders through the same
-		// call and displays this error.
+		// Pending says exactly that, and the reason is already on screen: the command preview renders
+		// through the same call and shows this error.
 		logger.Warnf("cannot tell whether the running publish carries the settings the form holds: %v", err)
 		state.Pending = true
 	} else {
 		state.Pending = !same
 	}
 
-	// Stated here because this is where the pair is set, and because it is what both consumers go on
-	// to assume: the contract asserts it of the snapshot this becomes (wire.PublishState),
-	// and the frontend renders "attempt n of m" off it.
-	// A state that broke it should fail where it was built rather than at the far end of a conversion
-	// that only copied it.
+	// Stated where the pair is set, because it is what its consumers assume: the contract asserts it
+	// of the snapshot this becomes (wire.PublishState), and a shell draws "attempt n of m" off it.
+	// A state that broke it fails where it was built rather than at the far end of a conversion that
+	// only copied it.
 	assert.Assert(state.Retrying || (state.Attempt == 0 && state.Budget == 0),
 		"an attempt and a budget belong to a retry", state.Attempt, state.Budget)
 	return state
 }
 
-// emitPublishState tells both surfaces what the publish state became.
-// The form's own toggle knows what it asked for; this carries the changes it did not make,
-// so the native grid's publish button cannot leave the form showing a stopped stream,
-// and an edit cannot leave it claiming the live stream carries it.
+// emitPublishState announces what the publish state became, including the changes the shell reading
+// it did not make: a stop from elsewhere cannot leave a form showing a running stream, and an edit
+// cannot leave it claiming the live stream carries that edit.
 //
-// The state is read once and announced twice, rather than read per surface:
-// two reads of a state that moved between them would tell the two surfaces different things,
-// which is the whole failure this function exists to prevent.
+// The state is read once and announced once, so no two readers are told what two reads of a state
+// that moved between them would have said.
 func (a *App) emitPublishState() {
 	state := a.GetPublishState()
 	a.emit(wire.PublishStateEvent(publishSnapshot(state)))
 }
 
 // Publishing reports whether a publish is in force, which a pipeline waiting out its backoff still
-// is: the tray and the native grid offer to stop it, and a start while one is pending is refused.
+// is: it can be stopped, and a start naming a different pipeline while one is pending is refused.
 func (a *App) Publishing() bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()

@@ -13,18 +13,18 @@ import (
 )
 
 // The machine every draft below is judged against: one 1080p output at 60 Hz,
-// which is what makes a 120 fps target a statement about the monitor rather than about an
-// enumeration that failed.
+// which is what makes a 120 fps target a statement about the panel,
+// not about an enumeration that failed.
 func diagnosticTestDeps() Deps {
 	return Deps{Monitors: []display.Monitor{
 		{Index: 0, Width: 1920, Height: 1080, Primary: true, RefreshHz: 60},
 	}}
 }
 
-// diagnosticTestStream is a stream the publish path builds a command for on any machine:
-// the software H.264 encoder over SRT at a bitrate target, on the one capture backend whose command
-// asks nothing of the host it is rendered on, so a healthy configuration stays healthy on every
-// platform this test runs on.
+// diagnosticTestStream is a draft the publish path builds a command for on any machine:
+// software H.264 over SRT at a bitrate target,
+// on the capture backend whose command asks nothing of the host rendering it,
+// so a healthy configuration stays healthy wherever these tests run.
 func diagnosticTestStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "gdigrab"
@@ -36,17 +36,14 @@ func diagnosticTestStream() settings.Settings {
 	s.Publish.Fps = 60
 	s.Publish.Monitor = 0
 	s.Publish.UplinkMbps = 100
-	// The two ladder steps this codec declares for this mode, which is what a draft naming it holds
-	// after the migration or the repair.
-	// The defaults carry the default codec's, and the builder refuses a step off the ladder,
-	// which would make this stream one the publish path cannot build for a reason no case here is
-	// about.
+	// The ladder steps this codec declares for this mode,
+	// which the defaults carry for the default codec instead.
+	// A builder refuses a step off the ladder,
+	// which would make this draft unbuildable for a reason no case below is about.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
 	return s
 }
 
-// diagnosticTestOfRank returns the diagnostics of one rank, so a case can say how many of them it
-// expects rather than filtering at each site.
 func diagnosticTestOfRank(diags []*screensharev1.Diagnostic, rank screensharev1.Severity) []*screensharev1.Diagnostic {
 	var out []*screensharev1.Diagnostic
 	for _, w := range diags {
@@ -58,8 +55,7 @@ func diagnosticTestOfRank(diags []*screensharev1.Diagnostic, rank screensharev1.
 }
 
 // diagnosticTestDrafts is the spread every whole-list property below is held against.
-// Each one reaches a different diagnostic, so a rule that fires on one of them is a rule the
-// invariants have seen.
+// Each draft reaches a different diagnostic, so every rule that fires is one an invariant has seen.
 func diagnosticTestDrafts() map[string]settings.Settings {
 	drafts := map[string]settings.Settings{}
 
@@ -70,8 +66,8 @@ func diagnosticTestDrafts() map[string]settings.Settings {
 	drafts["a pixel format the codec cannot encode"] = unencodable
 
 	// VP8 is absent from the FLV muxer's tag set, so the bitstream has no RTMP form.
-	// The colour range moves with it because libvpx codes tv range alone, and a gap on that axis would
-	// refuse the command before the leg was ever asked about.
+	// The colour range moves with the codec because libvpx codes tv range alone,
+	// and a gap on that axis would refuse the command before the leg was ever asked about.
 	uncarriable := diagnosticTestStream()
 	uncarriable.Publish.Codec = "libvpx"
 	uncarriable.Publish.ColorRange = "tv"
@@ -112,16 +108,14 @@ func diagnosticTestDrafts() map[string]settings.Settings {
 	return drafts
 }
 
-// A combination no engine can build is refused once, and the sentence that refuses it is the
-// sentence the summary shows.
-// Two answers to one question is the fork the whole contract exists to remove:
-// a form that says one thing and a start button that fails with another leaves the user with
-// nothing to act on.
+// Refused once, and by the sentence the summary shows.
+// Two answers to one question is the fork the contract exists to remove: a form saying one thing
+// and a start button failing with another leaves the user nothing to act on.
 func TestAnUnbuildableCombinationRefusesAndSaysWhy(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
-	// x264 codes no planar RGB: the format is absent from this codec's chroma list,
-	// so the combination is one no engine can build rather than one a machine cannot run.
+	// Planar RGB is absent from x264's chroma list,
+	// so this is a combination no engine can build rather than one a machine cannot run.
 	s.Publish.Chroma = "gbrp"
 
 	est := estimate(d, s)
@@ -137,9 +131,8 @@ func TestAnUnbuildableCombinationRefusesAndSaysWhy(t *testing.T) {
 		t.Error("an error diagnostic is what turns publishable false")
 	}
 
-	// The diagnostic states that the publish was refused and the summary carries the refusal itself,
-	// which is the one raw string on this contract a diagnostic points at rather than repeating
-	// (api/proto/screenshare/v1/text.proto).
+	// The refusal itself is prose on Summary.command_error,
+	// which the diagnostic points at rather than repeats.
 	sum := summarize(d, s, est)
 	if codeOf(errors[0].GetText()) != publishRefused {
 		t.Errorf("the error diagnostic reads %v, want the statement that the publish was refused",
@@ -153,8 +146,6 @@ func TestAnUnbuildableCombinationRefusesAndSaysWhy(t *testing.T) {
 	}
 }
 
-// The healthy case is the one worth stating explicitly: nothing in the settings refuses the
-// publish, so the start button is live and the summary carries the line it would run.
 func TestAHealthyConfigurationRefusesNothing(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
@@ -177,10 +168,8 @@ func TestAHealthyConfigurationRefusesNothing(t *testing.T) {
 	}
 }
 
-// A diagnostic anchors beside a control or beside nothing, and a key no shell has a widget for
-// would render the diagnostic nowhere at all.
-// The failure is silent, which is why the whole spread is held against the declared set rather than
-// each rule against its own.
+// An anchor no shell has a widget for renders the diagnostic nowhere, and the failure is silent.
+// The whole spread is held against the declared set, rather than each rule against its own.
 func TestEveryDiagnosticAnchorsOnADeclaredKey(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
@@ -198,9 +187,8 @@ func TestEveryDiagnosticAnchorsOnADeclaredKey(t *testing.T) {
 	}
 }
 
-// Every diagnostic is ranked and says something.
-// An unranked one sorts as though it were the least important and reads as though the backend had
-// no opinion, and an empty one occupies a line in the form to say nothing.
+// An unranked diagnostic sorts last and reads as though the backend had no opinion;
+// one that states no code occupies a line in the form to say nothing.
 func TestEveryDiagnosticIsRankedAndSaysSomething(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
@@ -217,9 +205,9 @@ func TestEveryDiagnosticIsRankedAndSaysSomething(t *testing.T) {
 	}
 }
 
-// The list is ranked so a shell renders it in the order it is given.
-// A shell that had to sort it would be ranking diagnostics itself, which is the judgement the
-// backend is here to make.
+// The list arrives ranked so a shell renders it in the order it is given.
+// A shell that had to sort would be ranking diagnostics itself,
+// which is the judgement the backend is here to make.
 func TestTheListIsRankedByWhatIgnoringItCosts(t *testing.T) {
 	d := diagnosticTestDeps()
 	for name, s := range diagnosticTestDrafts() {
@@ -235,9 +223,9 @@ func TestTheListIsRankedByWhatIgnoringItCosts(t *testing.T) {
 	}
 }
 
-// A line under the prediction is the failure that announces itself least: nothing slows down,
-// the transport drops what it cannot ship, and the viewer sees a stall.
-// It is a diagnostic and not a refusal, since the stream does run.
+// A line under the prediction announces itself least:
+// nothing slows down, the transport drops what it cannot ship, and the viewer sees a stall.
+// It is a diagnostic and not a refusal, the stream being one that runs.
 func TestALineUnderThePredictionWarnsWithoutRefusing(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
@@ -258,13 +246,13 @@ func TestALineUnderThePredictionWarnsWithoutRefusing(t *testing.T) {
 	}
 }
 
-// A pixel format no GPU decodes costs every viewer a software decode and nothing else:
-// every format has a CPU decoder, so it is never a reason to refuse the publish.
+// Every format has a CPU decoder, so a format no GPU decodes costs a viewer cores,
+// and is never a reason to refuse the publish.
 func TestAPixelFormatNoGpuDecodesCostsRatherThanRefuses(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
-	// No vendor put H.264's High 4:4:4 Predictive profile in silicon, so this pair has no hardware
-	// decoder anywhere.
+	// No vendor put H.264's High 4:4:4 Predictive profile in silicon,
+	// so this pair has no hardware decoder anywhere.
 	s.Publish.Chroma = "yuv444p"
 
 	diags := diagnostics(d, s, estimate(d, s))
@@ -282,9 +270,9 @@ func TestAPixelFormatNoGpuDecodesCostsRatherThanRefuses(t *testing.T) {
 	}
 }
 
-// The estimate the summary shows is the one the diagnostics were ranked against.
-// Computing it a second time would be a second answer, and the two would part the first time either
-// side of the model moved.
+// The summary shows the estimate the diagnostics were ranked against.
+// A second computation is a second answer,
+// and the two would part the first time either side of the model moved.
 func TestTheSummaryCarriesTheEstimateItWasHanded(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
@@ -296,10 +284,7 @@ func TestTheSummaryCarriesTheEstimateItWasHanded(t *testing.T) {
 	}
 }
 
-// The summary carries a command or the reason there is none, and never both or neither.
-// It is the whole of what it states now: the shorthand for the configuration and the one per group
-// used to be composed here, and both were screen copy - a separator, an abbreviation and a length,
-// chosen where none of the three is visible.
+// Exactly one of the two, never both and never neither.
 func TestTheSummaryCarriesACommandOrTheReasonThereIsNone(t *testing.T) {
 	d := diagnosticTestDeps()
 	s := diagnosticTestStream()
@@ -311,8 +296,8 @@ func TestTheSummaryCarriesACommandOrTheReasonThereIsNone(t *testing.T) {
 	}
 }
 
-// Resolve runs on every keystroke, so a diagnostic list that moved between two identical drafts
-// would reorder the form under a user who changed nothing.
+// Resolve runs on every keystroke,
+// so a list that moved between two identical drafts would reorder a form nobody changed.
 func TestTheSameDraftWarnsTheSameWayTwice(t *testing.T) {
 	d, s := diagnosticTestDeps(), diagnosticTestStream()
 	est := estimate(d, s)

@@ -6,19 +6,17 @@ using ScreenShare.App.Features.Viewer.ViewModel;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// How a held call is answered so that everything the answer sets off - the awaiting call resuming, the
-/// dispatch, the adoption and the render pass - has happened by the time the answer returns.
-/// A test then asserts against a finished state rather than against a race it hopes to win.
+/// Answering a held call so that everything it sets off, the awaiting call resuming, the dispatch, the
+/// adoption and the render pass, has happened by the time the answer returns.
+/// A test then asserts against a settled state rather than against a race.
 /// </summary>
 internal static class Answers
 {
     /// <summary>
     /// Completes a held call with the test framework's synchronization context off the thread.
-    ///
-    /// The runtime declines to resume an awaiting continuation inline on a thread carrying a context and
-    /// queues the resumption to the thread pool instead - so the view model would render on one thread while
-    /// the test read its properties on another, and no amount of awaiting afterwards would put an order on
-    /// the two.
+    /// The runtime refuses to resume an awaiting continuation inline on a thread carrying a context and
+    /// queues it to the thread pool, which leaves the view model rendering on one thread while the test reads
+    /// its properties on another, in no order awaiting can fix.
     /// With the context off, the resumption runs here.
     /// </summary>
     public static void Now(Action complete)
@@ -37,20 +35,17 @@ internal static class Answers
 }
 
 /// <summary>
-/// A backend whose resolves are answered by hand, which is the only way to write down the timing the real one
-/// has: a socket lets two drafts be in flight at once and puts no order on their answers, and the stand-in
-/// that answers from memory can never produce that.
-///
-/// It holds every resolve it is asked for and hands back the seeded form on request, in whichever order the
-/// test chooses.
-/// The token each call was given is kept as well, so a test can state that superseding a draft asked the
-/// older call to stop rather than merely ignoring what it returned.
+/// A backend whose resolves are answered by hand, which is the only way to write down the real one's timing: a
+/// socket lets two drafts be in flight at once and puts no order on their answers.
+/// Every resolve is held and answered from the seeded form on request, in whichever order a test chooses.
+/// The token each call was given is kept too, so a test can state that superseding a draft asked the older
+/// call to stop rather than merely ignoring its answer.
 /// </summary>
 internal sealed class DeferredBackend : IBackend
 {
     private sealed record Held(Settings Draft, TaskCompletionSource<Form> Answer, CancellationToken Cancellation);
 
-    /// <summary>The sentence an absent backend's reads fail with, as the client would write it.</summary>
+    /// <summary>The sentence a read fails with when nothing is listening, worded as the client words it.</summary>
     private const string Absent = "The backend is not running: nothing is listening on the control socket.";
 
     private readonly SeededBackend _seed = new("linux");
@@ -61,21 +56,20 @@ internal sealed class DeferredBackend : IBackend
     /// <summary>
     /// Stands in for the encoder probe landing, which is what the real backend raises this for.
     /// Raised by hand, so a test can state that news of a moved answer makes the flow read again rather than
-    /// merely redraw what it has.
+    /// redraw what it holds.
     /// </summary>
     public event Action? Changed;
 
     /// <summary>
-    /// Whether the backend is absent, in which case every read fails rather than being held: there is no call
-    /// to answer later, which is the state a window that opened before its backend did finds itself in.
-    /// Set back to false for a backend that has since come up.
+    /// Whether reads fail outright instead of being held: no call to answer later, which is the state a
+    /// window that opened before its backend is in.
+    /// False again for a backend that has come up.
     /// </summary>
     public bool IsAbsent { get; set; }
 
-    /// <summary>How many resolves have been asked for, which is what an idempotent pass does not raise.</summary>
+    /// <summary>Resolves asked for, which is the count an idempotent pass leaves alone.</summary>
     public int Resolves => _held.Count;
 
-    /// <summary>Announces that what the backend would answer has moved.</summary>
     public void Announce() => Changed?.Invoke();
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
@@ -96,10 +90,8 @@ internal sealed class DeferredBackend : IBackend
         return held.Answer.Task;
     }
 
-    // The rest of the seam is the seed's.
-    // This stand-in exists to control the timing of one method, so everything it does not hold up is
-    // forwarded rather than answered twice - a second set of answers here would be a second fixture to keep
-    // in step with the first.
+    // Only one method's timing is this stand-in's business, so the rest of the seam forwards to the seed.
+    // Two sets of answers would be two fixtures to keep in step.
 
     public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PublishStateAsync(cancellation);
@@ -119,7 +111,7 @@ internal sealed class DeferredBackend : IBackend
     /// <summary>
     /// A write, answered at once unless <see cref="DefersSaves"/> is set, in which case it is held like a
     /// resolve and for the same reason: a socket lets a second write be asked for while the first is
-    /// unanswered, and a stand-in that answers from memory can never produce that.
+    /// unanswered.
     /// What was handed over is recorded either way.
     /// </summary>
     public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
@@ -131,9 +123,8 @@ internal sealed class DeferredBackend : IBackend
 
         Saved.Add(settings.Clone());
 
-        // Whoever was waiting for a write to be asked for has had one.
-        // The next waiter gets a fresh one, so waiting is always for a write still to come rather than for
-        // one already sent.
+        // Whoever waited for a write has had one, and the next waiter gets a fresh source, so a wait is
+        // always for a write still to come.
         var asked = _saveAsked;
         _saveAsked = new TaskCompletionSource();
         asked.SetResult();
@@ -149,23 +140,20 @@ internal sealed class DeferredBackend : IBackend
     }
 
     /// <summary>
-    /// Completes when the next write is asked for.
-    /// It is what lets a test wait for a write that something else will send, rather than sleeping and
-    /// hoping: the continuation behind a held write runs on whichever thread completed it, so the count alone
-    /// says nothing about whether it has run yet.
+    /// Completes when the next write is asked for, which is what a test waits on instead of sleeping.
+    /// A held write's continuation runs on whichever thread completed it, so the count alone says nothing
+    /// about whether it has run.
     /// </summary>
     public Task NextSaveAsked => _saveAsked.Task;
 
-    /// <summary>Whether writes are held for the test to answer rather than answered at once.</summary>
     public bool DefersSaves { get; set; }
 
-    /// <summary>The settings each write was given, oldest first.</summary>
+    /// <summary>Settings each write was given, oldest first.</summary>
     public List<Settings> Saved { get; } = [];
 
-    /// <summary>How many writes are waiting to be answered.</summary>
     public int HeldSaves => _heldSaves.Count(answer => !answer.Task.IsCompleted);
 
-    /// <summary>Answers the oldest unanswered write, as the backend having stored it.</summary>
+    /// <summary>Answers the oldest unanswered write, as a backend that stored it.</summary>
     public void AnswerSave()
     {
         var answer = _heldSaves.First(held => !held.Task.IsCompleted);
@@ -243,16 +231,15 @@ internal sealed class DeferredBackend : IBackend
     public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default)
         => _seed.SubscribePointerAsync(cancellation);
 
-    /// <summary>The draft one held resolve was asked about.</summary>
+    /// <summary>The draft one held resolve was asked about, indexed in the order the resolves arrived.</summary>
     public Settings Draft(int resolve) => _held[resolve].Draft;
 
-    /// <summary>Whether one held resolve has been asked to stop.</summary>
+    /// <summary>Whether one held resolve was asked to stop.</summary>
     public bool IsCancelled(int resolve) => _held[resolve].Cancellation.IsCancellationRequested;
 
     /// <summary>
     /// Answers one held resolve with the form its own draft resolves to.
-    /// Everything the answer sets off has happened by the time this returns, for the reason
-    /// <see cref="Answers.Now"/> states.
+    /// Everything the answer sets off has happened on return, for the reason <see cref="Answers.Now"/> states.
     /// </summary>
     public async Task AnswerAsync(int resolve)
     {
@@ -263,23 +250,20 @@ internal sealed class DeferredBackend : IBackend
     }
 
     /// <summary>
-    /// Refuses one held resolve the way an absent backend does, with the sentence the screen would show.
-    /// Everything it sets off has happened by the time this returns, for the reason <see cref="Answers.Now"/>
-    /// states.
+    /// Refuses one held resolve as an absent backend does, with the sentence the screen shows.
+    /// Everything it sets off has happened on return, for the reason <see cref="Answers.Now"/> states.
     /// </summary>
     public void Fail(int resolve, string reason)
         => Answers.Now(() => _held[resolve].Answer.SetException(new BackendUnavailableException(reason)));
 }
 
 /// <summary>
-/// A backend whose running state a test sets: what the relay answered, what is publishing, and whether a
-/// start is accepted or refused.
-///
-/// It exists because the commit depends on states <see cref="SeededBackend"/> deliberately does not seed -
-/// there is no relay behind that fixture and no pipeline - and every condition that locks the commit is one
-/// of them, as is the one that decides which effect pressing it is.
-/// What it does not do is answer a form: the resolve is the seed's, so the settings half of the gate stays
-/// the one real fixture rather than a second copy of the domain.
+/// A backend whose running state a test writes: what the relay answered, what is publishing, and whether a
+/// commit is accepted or refused.
+/// <see cref="SeededBackend"/> seeds no relay and no pipeline, and those are what every commit condition
+/// reads, down to the one deciding which effect the press is.
+/// A form is not answered here: the resolve stays the seed's, so the settings half of the gate has one fixture
+/// behind it rather than a second copy of the domain.
 /// </summary>
 internal sealed class PublishingBackend : IBackend
 {
@@ -291,42 +275,39 @@ internal sealed class PublishingBackend : IBackend
         remove { }
     }
 
-    /// <summary>What the relay snapshot says. Reachable by default, so a test states the failure it wants.</summary>
+    /// <summary>The relay snapshot. Reachable until a test writes the failure it is about.</summary>
     public RelayStatus Relay { get; set; } = new() { Reachable = true };
 
-    /// <summary>What is publishing. Nothing by default, which the absent <c>Live</c> is what says.</summary>
+    /// <summary>What is publishing. Nothing until a test writes one, which the absent <c>Live</c> says.</summary>
     public PublishState Publish { get; set; } = new();
 
-    /// <summary>Why a commit is refused, empty while one is accepted.</summary>
+    /// <summary>The refusal every commit meets, empty while commits go through.</summary>
     public string Refusal { get; set; } = "";
 
-    /// <summary>The settings every accepted start was asked for, in order.</summary>
+    /// <summary>Settings each accepted start was given, oldest first.</summary>
     public List<Settings> Started { get; } = [];
 
     /// <summary>
-    /// The settings every accepted apply was asked for, in order.
-    /// Kept apart from <see cref="Started"/> because which of the two lists a commit lands in is the whole
-    /// question: the backend refuses each of them in the state the other one is for.
+    /// Settings each accepted apply was given, oldest first.
+    /// Kept apart from <see cref="Started"/> because which list a commit lands in is the whole question: the
+    /// backend refuses each effect in the state the other one is for.
     /// </summary>
     public List<Settings> Applied { get; } = [];
 
     /// <summary>
-    /// A commit that has been asked for and not answered, held open by a test.
-    ///
-    /// It is what makes the round trip an interval a test can read the screen in the middle of.
-    /// Every other answer here is immediate, which is the honest default - it keeps the tests about what the
-    /// screen says rather than about timing - but the whole point of a control that reports it is waiting is
-    /// what it looks like while the backend has not replied.
+    /// A commit asked for and not answered, which turns the round trip into an interval a test can read the
+    /// screen in the middle of.
+    /// Every other answer here is immediate, so the rest of the tests are about what the screen says rather
+    /// than about timing.
     /// </summary>
     private TaskCompletionSource? _held;
 
-    /// <summary>Holds every commit open from here on, so one can be read while it is in flight.</summary>
+    /// <summary>Holds every commit from here on, so one can be read while it is in flight.</summary>
     public void HoldStarts() => _held = new TaskCompletionSource();
 
     /// <summary>
     /// Answers the held commit.
-    /// Everything it sets off has happened by the time this returns, for the reason <see cref="Answers.Now"/>
-    /// states.
+    /// Everything it sets off has happened on return, for the reason <see cref="Answers.Now"/> states.
     /// </summary>
     public void AnswerStarts()
     {
@@ -345,22 +326,20 @@ internal sealed class PublishingBackend : IBackend
     public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
         => Commit(Saved, settings);
 
-    /// <summary>The settings handed to SaveSettings, oldest first.</summary>
+    /// <summary>Settings each write was given, oldest first.</summary>
     public List<Settings> Saved { get; } = [];
 
     /// <summary>
-    /// One commit, recorded where a test will look for it.
-    ///
-    /// The two effects differ in nothing this fixture does - both carry the whole draft, both answer with
-    /// nothing, and both are refused or held on the same terms - so the one thing a test reads off it is
-    /// which list the settings landed in.
+    /// One commit, recorded where a test looks for it.
+    /// Both effects carry the whole draft, answer with nothing and are refused or held on the same terms, so
+    /// which list the settings landed in is all there is to read.
     /// </summary>
     private Task Commit(List<Settings> into, Settings settings)
     {
         if (Refusal.Length > 0)
         {
-            // Faulted rather than thrown, so the caller's await is what raises it - which is the path the
-            // gRPC client puts it on.
+            // Faulted rather than thrown, so the caller's await raises it, which is the path the gRPC client
+            // puts a refusal on.
             return Task.FromException(new BackendUnavailableException(Refusal));
         }
 
@@ -374,8 +353,8 @@ internal sealed class PublishingBackend : IBackend
     public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
         => Task.FromResult(Relay);
 
-    // The rest is the seed's, for the reason DeferredBackend forwards: a second set of answers here would be
-    // a second fixture to keep in step with the first.
+    // Everything past this point forwards, as DeferredBackend does: two sets of answers would be two fixtures
+    // to keep in step.
 
     public Task<Catalog> CatalogAsync(CancellationToken cancellation = default)
         => _seed.CatalogAsync(cancellation);
@@ -462,17 +441,15 @@ internal sealed class PublishingBackend : IBackend
 }
 
 /// <summary>
-/// The two destinations that read the window's one settings draft, built the way the window builds them: one
+/// The two destinations that read the window's one settings draft, built as the window builds them: one
 /// <see cref="Session"/> and one <see cref="FormSession"/> behind both.
-///
-/// It exists so a test cannot accidentally give a flow a draft of its own.
-/// The window holds one for the whole app - the setup wizard writes what this machine sends and the viewer
-/// writes how it receives, into the same message - and a fixture that handed each of them their own would be
-/// testing an arrangement the app does not have.
+/// The window holds one draft for the whole app, the wizard writing what this machine sends and the viewer how
+/// it receives, into the same message, so a fixture handing each its own would test an arrangement the app
+/// does not have.
 /// </summary>
 internal static class Flows
 {
-    /// <summary>The dispatcher every fixture here uses: inline, so a render pass is over when the call is.</summary>
+    /// <summary>Inline, so a render pass is over when the call is.</summary>
     private static readonly Action<Action> Inline = action => action();
 
     public static SetupViewModel Setup(IBackend backend, Session session)

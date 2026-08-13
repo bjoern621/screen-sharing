@@ -9,13 +9,13 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 )
 
-// The export leg of a platform whose handle type is not built yet.
+// The export leg of a platform whose handle type is not built.
 //
-// It refuses rather than falling back to a download. A tile fed from system memory would be
-// a tile that works and costs gigabytes a second, and the whole reason the frame channel
-// exists is that this is the copy nobody can afford (docs/viewer-architecture.md, "The
-// frame channel"). A refusal names the platform, and the viewer it points at is the native
-// player, which needs no frame channel at all.
+// It refuses rather than falling back to a download.
+// A tile fed from system memory would work and cost gigabytes a second, which is the copy the
+// frame channel exists to avoid (docs/viewer-architecture.md, "The frame channel").
+// The refusal names the platform, and the viewer it points at is the native player, which needs
+// no frame channel at all.
 //
 // macOS is the leg that is left, and it is IOSurface out of VideoToolbox.
 

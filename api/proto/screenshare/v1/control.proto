@@ -12,332 +12,319 @@ import "screenshare/v1/text.proto";
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
 
-// ControlService is the whole surface a shell may reach. There is no second way in:
-// no shared file the shell parses, no relay endpoint it calls directly, no
-// environment variable it reads to learn a port. Everything it knows, it learned
-// from a method here.
+// The whole surface a shell may reach.
+// There is no second way in: no shared file the shell parses, no relay endpoint it calls
+// directly, no environment variable it reads to learn a port.
 //
 // The methods divide into three kinds, and the division is the boundary rule
 // (docs/ipc-api.md):
 //
-//   Reads    hand the shell something to draw. They compute; they change nothing,
-//            and they are cheap enough to call on a keystroke or a mount.
-//   Effects  do the one thing the user asked for. They are the only methods that
-//            change the world, and the measurements are among them: probing the
-//            uplink, timing the encoder and running the encoder probe all start real
-//            work, take seconds, and leave something behind that a later read sees.
-//   Stream   is the one server-streaming method, which carries what changed.
+//   Reads    hand the shell something to draw. They compute, they change nothing, and
+//            they are cheap enough to call on a keystroke or a mount.
+//   Effects  do the one thing the user asked for, and are the only methods that change
+//            the world. The measurements are among them: probing the uplink, timing the
+//            encoder and running the encoder probe each start real work, take seconds,
+//            and leave behind something a later read sees.
+//   Streams  carry what changed, for as long as the shell holds the call.
 //
-// A method that is neither a read nor one of the listed effects does not belong
-// here, and a shell that wants one is a shell about to hold state the backend owns.
+// A method that is neither a read nor one of the listed effects does not belong here, and a
+// shell that wants one is a shell about to hold state the backend owns.
 service ControlService {
   // --- Handshake ---------------------------------------------------------------
 
-  // Hello is the first call on a connection. It settles which contract version both
-  // sides are on before any other method is reached, so a mismatch is a sentence
-  // rather than a field that silently arrives empty.
+  // First call on a connection.
+  // It settles which contract version both sides are on before any other method is reached,
+  // so a mismatch is stated rather than arriving as a field that is silently empty.
   rpc Hello(HelloRequest) returns (HelloResponse);
 
   // --- Reads -------------------------------------------------------------------
 
-  // GetCatalog returns every fixed fact about this machine and the encoding model,
-  // as it is known now. It changes nothing and is answered immediately: the encoder
-  // probe is ProbeEncoders below, and what it finds arrives here on the next call
-  // and on the event stream for every shell, including the ones that did not ask.
+  // Every fixed fact about this machine and the encoding model, as known now.
+  // It probes nothing: ProbeEncoders does that, and what it finds arrives here on the next
+  // call and on the event stream for every shell, including the ones that did not ask.
   rpc GetCatalog(GetCatalogRequest) returns (GetCatalogResponse);
 
-  // GetSettings returns the settings the backend holds. They are the starting draft
-  // for a form and the values a fresh shell opens on.
+  // The settings the backend holds: the starting draft for a form, and the values a fresh
+  // shell opens on.
   rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
 
-  // ResolveForm turns a settings draft into the complete description of the screen:
-  // every field, every option, every greying and its reason, the diagnostics and the
-  // derived figures. It is the method that makes a shell a display.
+  // Turns a settings draft into the complete description of the screen: every field, every
+  // option, every greying and its reason, the diagnostics and the derived figures.
   //
-  // It has no side effect and is safe to call on every keystroke. It reads what has
-  // been probed rather than probing, and it does not save: a form is resolved far
-  // more often than a value is committed, and a resolve that wrote would make every
-  // intermediate keystroke a persisted setting.
+  // No side effect, and safe to call on every keystroke.
+  // It reads what has been probed rather than probing, and it saves nothing: a resolve that
+  // wrote would make every intermediate keystroke a persisted setting.
   rpc ResolveForm(ResolveFormRequest) returns (ResolveFormResponse);
 
-  // ListPresets returns the user's saved configurations. The notice states why the
-  // store could not be read, in which case the list is empty because nothing
-  // readable remained rather than because nothing was saved, and the difference is
-  // the user's to see.
+  // The user's saved configurations.
+  // The notice states why the store could not be read, in which case the empty list means
+  // nothing readable remained rather than nothing saved, and the difference is the user's to
+  // see.
   rpc ListPresets(ListPresetsRequest) returns (ListPresetsResponse);
 
-  // GetPublishState reports whether a stream is in force and whether the held
-  // settings have moved off it. A shell reads it when it mounts and receives the
-  // same message on the event stream thereafter.
+  // Whether a stream is in force, and whether the held settings have moved off it.
+  // A shell reads it when it mounts and receives the same message on the event stream
+  // thereafter.
   rpc GetPublishState(GetPublishStateRequest) returns (PublishState);
 
-  // GetRelayStatus returns the current relay snapshot. The backend polls the relay
-  // on its own interval and this returns the latest, so several shells reading it
-  // do not multiply the polling and the byte-delta bitrates stay computed against
-  // one steady interval.
+  // The latest relay snapshot.
+  // The backend polls the relay on its own interval, so several shells reading do not
+  // multiply the polling and the byte-delta bitrates stay computed against one steady
+  // interval.
   rpc GetRelayStatus(GetRelayStatusRequest) returns (RelayStatus);
 
-  // GetViewerState returns the external viewers currently open.
   rpc GetViewerState(GetViewerStateRequest) returns (ViewerState);
 
-  // GetTestStreamState reports how many synthetic publishers are alive.
   rpc GetTestStreamState(GetTestStreamStateRequest) returns (TestStreamState);
 
-  // GetReceiveState returns the streams the backend is decoding.
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
-  // GetMonitorPreviewState returns the monitors the backend is reading.
-  //
-  // It is what a shell that has just connected converges against. A preview outlives
-  // the window that asked for it, exactly as a decode does, so a shell that crashed
-  // with screens being read leaves them running - and the next one closes what nothing
-  // is drawing. Without this read it would have to wait for something else to change
-  // before the event stream told it, and a screen nobody is looking at would go on
-  // being captured.
+  // What a shell that has just connected converges against.
+  // A preview outlives the window that asked for it, exactly as a decode does, so a shell
+  // that crashed with screens being read leaves them running, and the next one closes what
+  // nothing is drawing.
   rpc GetMonitorPreviewState(GetMonitorPreviewStateRequest) returns (MonitorPreviewState);
 
   // --- Effects -----------------------------------------------------------------
 
-  // SaveSettings persists the settings the shell holds. It does not touch a running
-  // stream: what reaches a live pipeline is asked for separately, by ApplyToStream,
-  // because both engines run a child built from an argv and neither takes a value
-  // back afterwards.
+  // Persists the settings the shell holds.
+  // It does not touch a running stream: what reaches a live pipeline is asked for
+  // separately, by ApplyToStream, because both engines run a child built from an argv and
+  // neither takes a value back afterwards.
   rpc SaveSettings(SaveSettingsRequest) returns (SaveSettingsResponse);
 
-  // SavePreset stores the settings under a name, replacing a same-named preset.
+  // Replaces a same-named preset.
   rpc SavePreset(SavePresetRequest) returns (SavePresetResponse);
 
-  // DeletePreset removes a named preset.
   rpc DeletePreset(DeletePresetRequest) returns (DeletePresetResponse);
 
-  // StartPublish persists the settings and starts the encoder on them. It is
-  // refused while a stream is already in force, a retry backoff included, because
-  // that is a stream the user asked for and has not stopped.
+  // Persists the settings and starts the encoder on them.
+  // Refused while a stream is already in force, a retry backoff included, because that is a
+  // stream the user asked for and has not stopped.
   rpc StartPublish(StartPublishRequest) returns (StartPublishResponse);
 
-  // ApplyToStream restarts the running stream on new settings. It is how an edit
-  // reaches a live pipeline, and it is a separate method from SaveSettings because
-  // the user's two intentions are different: keep this for next time, and put this
-  // on the air now.
+  // Restarts the running stream on new settings, which is how an edit reaches a live
+  // pipeline.
+  // A separate method from SaveSettings because the user's two intentions differ: keep this
+  // for next time, and put this on the air now.
   //
-  // The command is rendered before anything is torn down, so a combination no engine
-  // can build refuses the call and leaves the stream running what it has. A launch
-  // that fails after the teardown leaves nothing publishing: the pipeline carrying
+  // The command is rendered before anything is torn down, so a combination no engine can
+  // build refuses the call and leaves the stream running what it has.
+  // A launch that fails after the teardown leaves nothing publishing: the pipeline carrying
   // the stream is gone by then, and there is no earlier one to return to.
   rpc ApplyToStream(ApplyToStreamRequest) returns (ApplyToStreamResponse);
 
-  // StopPublish ends the stream, whether it is running or waiting out a backoff. A
-  // stop is the one answer the retry budget has no say in.
+  // Ends the stream, whether it is running or waiting out a backoff.
+  // A stop is the one answer the retry budget has no say in.
   rpc StopPublish(StopPublishRequest) returns (StopPublishResponse);
 
-  // StartWatch opens an external viewer for one stream over one transport. The
-  // transport is per viewer and independent of the publish leg, so the same stream
-  // can be watched over any leg the relay serves it on. A leg that cannot carry the
-  // stream's format is refused with the format named, rather than opening a viewer
-  // that connects and receives nothing.
+  // Opens an external viewer for one stream over one transport.
+  // The transport is per viewer and independent of the publish leg, so one stream can be
+  // watched over any leg the relay serves it on.
+  // A leg that cannot carry the stream's format is refused with the format named, rather
+  // than opening a viewer that connects and receives nothing.
   rpc StartWatch(StartWatchRequest) returns (StartWatchResponse);
 
-  // StopWatch closes one open viewer.
   rpc StopWatch(StopWatchRequest) returns (StopWatchResponse);
 
-  // OpenInBrowser opens the relay's own player page for one stream in the machine's
-  // default browser, over one of the legs the relay serves a page for
-  // (Catalog.browser_watch_transports). A leg that cannot carry the stream's format
-  // is refused the same way StartWatch refuses one.
+  // Opens the relay's own player page for one stream in the machine's default browser, over
+  // one of the legs the relay serves a page for (Catalog.browser_watch_transports).
+  // A leg that cannot carry the stream's format is refused the way StartWatch refuses one.
   //
-  // It opens a page and does not start a viewer this process owns, which is the whole
-  // difference from StartWatch: no viewer state grows a member, nothing appears in
-  // ViewerState, and there is no stop. A tab belongs to the browser that owns it, and
-  // this backend can neither read whether it is still open nor close it - so it says
-  // nothing about either, rather than reporting a state it would have to guess.
+  // It opens a page and starts no viewer this process owns, which is the whole difference
+  // from StartWatch: nothing appears in ViewerState, and there is no stop.
+  // A tab belongs to the browser that owns it, and this backend can neither read whether it
+  // is still open nor close it, so it says nothing about either.
   //
-  // Repeating the call opens the page again, and that is a departure from the
-  // idempotency the rest of this contract holds to (docs/development-principles.md).
-  // OpenLog and OpenLogsFolder depart the same way for the same reason: the effect
-  // lands in a program this one does not own, and there is no state to read back that
-  // would let a second call decide it had already happened.
+  // Repeating the call opens the page again, a departure from the idempotency the rest of
+  // this contract holds to (docs/development-principles.md).
+  // OpenLog and OpenLogsFolder depart the same way for the same reason: the effect lands in
+  // a program this one does not own, and there is no state to read back that would let a
+  // second call decide it had already happened.
   rpc OpenInBrowser(OpenInBrowserRequest) returns (OpenInBrowserResponse);
 
-  // StartReceive opens a decode for one stream on one leg, inside the backend. It is
-  // the tile path's counterpart of StartWatch, and the difference between the two is
-  // where the frames end up: a watch opens a player window the backend does not draw
-  // in, and a receive decodes into this process, from where the frame channel hands
-  // the frames to the shell (docs/viewer-architecture.md).
-  //
-  // What it opens is a decode and not a tile. Nothing here says where the frames are
-  // drawn, how large, beside which others or in what order: that is the shell's whole
-  // job, and it is why the grid this replaces was the wrong surface.
-  //
-  // A leg that cannot carry the stream's format is refused with the format named,
-  // rather than opening a pipeline that connects and decodes nothing.
-  rpc StartReceive(StartReceiveRequest) returns (StartReceiveResponse);
-
-  // StopReceive closes one running decode.
-  rpc StopReceive(StopReceiveRequest) returns (StopReceiveResponse);
-
-  // StartMonitorPreview reads one of this machine's monitors into a picture the frame
-  // channel can hand over, so a screen is chosen by looking at it instead of by its
-  // number. Nothing is encoded and nothing is sent anywhere: the capture element feeds
-  // the render chain inside the backend and the handles go to the shell.
-  //
-  // It is an effect and not a flag on a read, by the test every method here is put to:
-  // it opens a screen capture that goes on running until something closes it, and what
-  // is running reaches every shell as MonitorPreviewState. The frame channel opens none
-  // of it, for the reason it opens no relay decode.
-  //
-  // Idempotent. A monitor already being previewed is the state this asks for, so a
-  // second call changes nothing and succeeds. A monitor no output is enumerated under is
-  // INVALID_ARGUMENT, and a machine whose session has no way to read one screen apart
-  // from another is FAILED_PRECONDITION - which a shell reads off
-  // Catalog.no_monitor_preview instead of discovering by asking.
-  rpc StartMonitorPreview(StartMonitorPreviewRequest) returns (StartMonitorPreviewResponse);
-
-  // StopMonitorPreview closes one monitor's preview. A monitor nothing is previewing
-  // succeeds and does nothing: the state it names already holds.
-  rpc StopMonitorPreview(StopMonitorPreviewRequest) returns (StopMonitorPreviewResponse);
-
-  // SetReceiveAudio sets how loud one decode plays, and whether it plays at all.
-  //
-  // It is an effect on the receiver rather than anything the frame channel carries.
-  // The audio branch ends in a sink of its own inside this process, because the
-  // backend runs on the machine the shell is on and carrying samples across the
-  // process boundary would only be a longer way to the same output device
+  // Opens a decode for one stream on one leg, inside the backend.
+  // The tile path's counterpart of StartWatch, and the difference is where the frames end
+  // up: a watch opens a player window the backend does not draw in, a receive decodes into
+  // this process, from where the frame channel hands the frames to the shell
   // (docs/viewer-architecture.md).
   //
-  // The volume is a property of the decode and not of a window drawing it. Two
-  // windows on one decode share one audio branch, so a per-window volume would be
-  // two controls over one element, each showing a value the other had overwritten.
+  // What it opens is a decode and not a tile.
+  // Where the frames are drawn, how large, beside which others and in what order is the
+  // shell's whole job.
   //
-  // Idempotent in both directions: a request for the loudness a decode already has
-  // succeeds and does nothing, and a volume set before the decoder has exposed an
-  // audio pad is held and applied when it does. A decode that does not exist is
-  // NOT_FOUND with the pair named - that is a request about something absent rather
-  // than a state that already holds.
+  // A leg that cannot carry the stream's format is refused with the format named, rather
+  // than opening a pipeline that connects and decodes nothing.
+  rpc StartReceive(StartReceiveRequest) returns (StartReceiveResponse);
+
+  // A pair nothing is decoding succeeds and does nothing: the state it names already holds.
+  rpc StopReceive(StopReceiveRequest) returns (StopReceiveResponse);
+
+  // Reads one of this machine's monitors into a picture the frame channel can hand over, so
+  // a screen is chosen by looking at it instead of by its number.
+  // Nothing is encoded and nothing is sent anywhere: the capture element feeds the render
+  // chain inside the backend, and the handles go to the shell.
+  //
+  // An effect and not a flag on a read, by the test every method here is put to: it opens a
+  // screen capture that goes on running until something closes it, and what is running
+  // reaches every shell as MonitorPreviewState.
+  // The frame channel opens none of it, for the reason it opens no relay decode.
+  //
+  // Idempotent.
+  // A monitor already being previewed is the state this asks for, so a second call changes
+  // nothing and succeeds.
+  // A monitor no output is enumerated under is INVALID_ARGUMENT, and a machine whose session
+  // has no way to read one screen apart from another is FAILED_PRECONDITION, which a shell
+  // reads off Catalog.no_monitor_preview instead of discovering by asking.
+  rpc StartMonitorPreview(StartMonitorPreviewRequest) returns (StartMonitorPreviewResponse);
+
+  // A monitor nothing is previewing succeeds and does nothing: the state it names already
+  // holds.
+  rpc StopMonitorPreview(StopMonitorPreviewRequest) returns (StopMonitorPreviewResponse);
+
+  // Sets how loud one decode plays, and whether it plays at all.
+  //
+  // An effect on the receiver rather than anything the frame channel carries.
+  // The audio branch ends in a sink of its own inside this process, because the backend runs
+  // on the machine the shell is on and carrying samples across the process boundary would be
+  // a longer way to the same output device (docs/viewer-architecture.md).
+  //
+  // The volume is a property of the decode and not of a window drawing it.
+  // Two windows on one decode share one audio branch, so a per-window volume would be two
+  // controls over one element, each showing a value the other had overwritten.
+  //
+  // Idempotent in both directions: a request for the loudness a decode already has succeeds
+  // and does nothing, and a volume set before the decoder has exposed an audio pad is held
+  // and applied when it does.
+  // A decode that does not exist is NOT_FOUND with the pair named, that being a request
+  // about something absent rather than a state that already holds.
   rpc SetReceiveAudio(SetReceiveAudioRequest) returns (SetReceiveAudioResponse);
 
-  // StartTestStreams launches synthetic publishers, which exercise the viewing
-  // paths without a screen capture. A running set is replaced.
+  // Launches synthetic publishers, which exercise the viewing paths without a screen
+  // capture.
+  // A running set is replaced.
   rpc StartTestStreams(StartTestStreamsRequest) returns (StartTestStreamsResponse);
 
-  // StopTestStreams stops every synthetic publisher.
   rpc StopTestStreams(StopTestStreamsRequest) returns (StopTestStreamsResponse);
 
-  // ProbeEncoders test-encodes on every engine and records what this machine can
-  // really run, so a form can grey NVENC on a machine with no NVIDIA GPU.
+  // Test-encodes on every engine and records what this machine can really run, so a form can
+  // grey NVENC on a machine with no NVIDIA GPU.
   //
-  // It is an effect and not a flag on GetCatalog, which is what it used to be. It
-  // costs seconds on its first call and nothing afterwards, it replaces the result
-  // that ResolveForm answers from, and the answer it lands reaches every shell on
-  // the event stream. A read carrying it meant one shell's request changed what a
-  // different shell's next resolve said, with nothing on the wire to announce it.
+  // An effect and not a flag on GetCatalog: it costs seconds on its first call and nothing
+  // afterwards, it replaces the result ResolveForm answers from, and the answer it lands
+  // reaches every shell on the event stream.
+  // A read carrying it meant one shell's request changed what a different shell's next
+  // resolve said, with nothing on the wire to announce it.
   rpc ProbeEncoders(ProbeEncodersRequest) returns (ProbeEncodersResponse);
 
-  // MeasureUplink probes this machine's real upload throughput, so a shell can
-  // replace the user's guessed uplink figure with a measured one.
+  // Probes this machine's real upload throughput, so a shell can replace the user's guessed
+  // uplink figure with a measured one.
   //
-  // It and MeasureEncodeRate both run the real thing, take seconds, and are refused
-  // while a stream is publishing: one would compete with the stream for the line and
-  // the other with the encoder for the silicon. The refusal is FAILED_PRECONDITION
-  // with that as the reason, and the form carries it on the button rather than
-  // greying the figure.
+  // It and MeasureEncodeRate both run the real thing, take seconds, and are refused while a
+  // stream is publishing: one would compete with the stream for the line and the other with
+  // the encoder for the silicon.
+  // The refusal is FAILED_PRECONDITION with that as the reason.
   rpc MeasureUplink(MeasureUplinkRequest) returns (MeasureUplinkResponse);
 
-  // MeasureEncodeRate times the configured encoder on generated frames of the
-  // captured monitor's size, so a shell can say whether the target frame rate is
-  // above what this machine encodes at these settings.
+  // Times the configured encoder on generated frames of the captured monitor's size, so a
+  // shell can say whether the target frame rate is above what this machine encodes at these
+  // settings.
   rpc MeasureEncodeRate(MeasureEncodeRateRequest) returns (MeasureEncodeRateResponse);
 
-  // ForgetPortalConsent drops the stored screen-capture consent, so the next
-  // capture asks the compositor to pick again. It is how a share aimed at the wrong
-  // window or monitor is corrected.
+  // Drops the stored screen-capture consent, so the next capture asks the compositor to pick
+  // again.
+  // It is how a share aimed at the wrong window or monitor is corrected.
   rpc ForgetPortalConsent(ForgetPortalConsentRequest) returns (ForgetPortalConsentResponse);
 
-  // OpenLog opens one run log in the machine's default application, and
-  // OpenLogsFolder the directory holding them. They are backend methods because the
-  // files are the backend's: it writes them, it rotates them, and it is the only
-  // side that knows which of them still exist under the name it handed out.
+  // OpenLog opens one run log in the machine's default application, OpenLogsFolder the
+  // directory holding them.
+  // They are backend methods because the files are the backend's: it writes them, it rotates
+  // them, and it is the only side that knows which of them still exist under the name it
+  // handed out.
   rpc OpenLog(OpenLogRequest) returns (OpenLogResponse);
   rpc OpenLogsFolder(OpenLogsFolderRequest) returns (OpenLogsFolderResponse);
 
   // --- Stream ------------------------------------------------------------------
 
-  // Subscribe delivers what changed, for as long as the shell holds the call. See
-  // events.proto for why every event carries a whole state and why a shell that
-  // acted still waits for the event.
+  // Delivers what changed, for as long as the shell holds the call.
+  // events.proto states why every event carries a whole state, and why a shell that acted
+  // still waits for the event.
   rpc Subscribe(SubscribeRequest) returns (stream Event);
 
-  // SubscribeAudioLevels delivers how loud every decode is, on a fixed cadence, for
-  // as long as the shell holds the call.
+  // Delivers how loud every decode is, on a fixed cadence, for as long as the shell holds
+  // the call.
   //
   // A stream of its own rather than an event kind, and the difference is cadence.
-  // Subscribe carries whole states when something changed, and a level changes
-  // continuously: folding it in would push the receive state at metering rate and
-  // make every consumer of that state re-render for a number none of them read.
+  // Subscribe carries whole states when something changed, and a level changes continuously:
+  // folding it in would push the receive state at metering rate and make every consumer of
+  // that state re-render for a number none of them read.
   //
   // A read and not an effect, so it belongs on this service rather than on the frame
-  // channel. That channel carries frames alone, and a level is not one; being
-  // frequent is not what put it there.
+  // channel.
+  // That channel carries frames alone, and a level is not one; being frequent is not what
+  // put it there.
   //
-  // One call covers every decode, so a tile appearing needs no second subscription
-  // and a tile leaving needs no cancellation. Each tick is the whole set: a decode
-  // with no audio track has no entry, and one that is silent has an entry reading
-  // negative infinity. The backend coalesces to the newest tick, so a reader that
-  // fell behind receives the present rather than a queue of the past.
+  // One call covers every decode, so a tile appearing needs no second subscription and a
+  // tile leaving needs no cancellation.
+  // Each tick is the whole set: a decode with no audio track has no entry, and one that is
+  // silent has an entry reading negative infinity.
+  // The backend coalesces to the newest tick, so a reader that fell behind receives the
+  // present rather than a queue of the past.
   rpc SubscribeAudioLevels(SubscribeAudioLevelsRequest) returns (stream AudioLevels);
 
-  // SubscribePointer delivers where the publishing machine's pointer is, for as long
-  // as the shell holds the call.
+  // Delivers where the publishing machine's pointer is, for as long as the shell holds the
+  // call.
   //
-  // A stream of its own for the reason the levels are one, and one degree more so: the
-  // whole point of sending a position instead of drawing it into the picture is that it
-  // costs no frame, so it moves at its own rate rather than the stream's. A 240 Hz
-  // pointer over a 30 fps stream is the win, and folding it into Subscribe would push
-  // the publish state at that rate for a figure nothing else reads.
+  // A stream of its own for the reason the levels are one, and one degree more so: the whole
+  // point of sending a position instead of drawing it into the picture is that it costs no
+  // frame, so it moves at its own rate rather than the stream's.
+  // A 240 Hz pointer over a 30 fps stream is the win, and folding it into Subscribe would
+  // push the publish state at that rate for a figure nothing else reads.
   //
-  // Each message carries the moment it was read, so a viewer can hold it back to the
-  // frame it belongs to. Whether to is the viewer's: a pointer that leads the picture
-  // is what a viewer with no delay budget wants and what one watching a recording does
-  // not.
+  // Each message carries the moment it was read, so a viewer can hold it back to the frame
+  // it belongs to.
+  // Whether to is the viewer's: a pointer that leads the picture is what a viewer with no
+  // delay budget wants and what one watching a recording does not.
   //
   // It carries positions only while a publish whose cursor mode is metadata is running.
-  // Any other mode draws the pointer into the frames or leaves it out, and the stream
-  // stays open and silent rather than being refused - a shell subscribes once and the
-  // mode may change under it.
+  // Any other mode draws the pointer into the frames or leaves it out, and the stream stays
+  // open and silent rather than being refused, since a shell subscribes once and the mode
+  // may change under it.
   rpc SubscribePointer(SubscribePointerRequest) returns (stream PointerPosition);
 }
 
 // --- Handshake ------------------------------------------------------------------
 
 message HelloRequest {
-  // client is what the shell calls itself, for the backend's log: "avalonia",
-  // "cli". It carries no behaviour.
+  // What the shell calls itself, for the backend's log: "avalonia", "cli".
+  // It carries no behaviour.
   string client = 1;
-  // protocol_major is the contract version the shell was generated against. The
-  // backend refuses a major it does not implement, with FAILED_PRECONDITION and both
+  // Contract version the shell was generated against.
+  // A major the backend does not implement is refused with FAILED_PRECONDITION and both
   // versions named.
   uint32 protocol_major = 2;
 }
 
 message HelloResponse {
-  // protocol_major is the contract this backend implements, and protocol_minor how
-  // far into it: a shell built against a lower minor works, and one built against a
-  // higher minor may find a method missing.
+  // The contract this backend implements, and how far into it: a shell built against a lower
+  // minor works, and one built against a higher minor may find a method missing.
   uint32 protocol_major = 1;
   uint32 protocol_minor = 2;
-  // backend_version is the build, for display and for bug reports.
+  // The build, for display and for bug reports.
   string backend_version = 3;
 }
 
 // --- Read requests and responses --------------------------------------------------
 //
-// A read whose state also travels on the event stream answers with that state's own
-// message and not with a wrapper, because two shapes for one state is the drift this
-// contract exists to end. The rest are wrapped, so that a response can grow a field
-// the state itself has no business carrying.
+// A read whose state also travels on the event stream answers with that state's own message
+// and not with a wrapper, because two shapes for one state is the drift this contract exists
+// to end.
+// The rest are wrapped, so that a response can grow a field the state itself has no business
+// carrying.
 
 message GetCatalogRequest {
-  // 1 was probe_encoders, which made this read start the probe. It is the
-  // ProbeEncoders effect now.
+  // 1: probe_encoders, which made this read start the probe.
+  // It is the ProbeEncoders effect now.
   reserved 1;
   reserved "probe_encoders";
 }
@@ -350,18 +337,17 @@ message GetSettingsRequest {}
 
 message GetSettingsResponse {
   Settings settings = 1;
-  // store_notice states why the persisted settings could not be restored, absent when
-  // they were. The settings above are then the defaults, and the file holding the old
-  // values has been moved aside rather than overwritten, so the notice carries where
-  // they are.
+  // Why the persisted settings could not be restored, absent when they were.
+  // The settings above are then the defaults, and the file holding the old values has been
+  // moved aside rather than overwritten, so the notice carries where they are.
   Text store_notice = 3;
 
-  // 2 was store_notice as prose.
+  // 2: store_notice as prose.
   reserved 2;
 }
 
-// ResolveFormRequest carries the draft the user is editing. It is the whole
-// settings message and not a diff, because availability is a function of every
+// Carries the draft the user is editing.
+// The whole settings message and not a diff, because availability is a function of every
 // field at once and a diff would leave the backend guessing what it is against.
 message ResolveFormRequest {
   Settings settings = 1;
@@ -375,10 +361,10 @@ message ListPresetsRequest {}
 
 message ListPresetsResponse {
   repeated Preset presets = 1;
-  // notice states why the preset store could not be read, absent when it was.
+  // Why the preset store could not be read, absent when it was.
   Text notice = 3;
 
-  // 2 was notice as prose.
+  // 2: notice as prose.
   reserved 2;
 }
 
@@ -396,11 +382,12 @@ message GetMonitorPreviewStateRequest {}
 
 // --- Effect requests and responses ------------------------------------------------
 //
-// Every effect answers with an empty message rather than with the new state, except
-// the two measurements, whose figure is the answer and belongs to the caller that
-// paid the seconds for it. What the state became arrives on the event stream, which
-// is the one path into the display: a shell that read the answer here and a shell
-// that only listened would otherwise be two ways of learning one fact.
+// Every effect answers with an empty message rather than with the new state, except the two
+// measurements, whose figure is the answer and belongs to the caller that paid the seconds
+// for it.
+// What the state became arrives on the event stream, which is the one path into the display:
+// a shell that read the answer here and a shell that only listened would otherwise be two
+// ways of learning one fact.
 
 message SaveSettingsRequest {
   Settings settings = 1;
@@ -408,10 +395,10 @@ message SaveSettingsRequest {
 
 message SaveSettingsResponse {}
 
-// SavePresetRequest stores one way of publishing. A preset is a PublishSettings and
-// nothing else: where the relay is belongs to a deployment and how this machine
-// watches belongs to a viewer, and neither is part of what a saved configuration
-// means.
+// Stores one way of publishing.
+// A preset is a PublishSettings and nothing else: where the relay is belongs to a deployment
+// and how this machine watches belongs to a viewer, and neither is part of what a saved
+// configuration means.
 message SavePresetRequest {
   string name = 1;
   PublishSettings settings = 2;
@@ -425,10 +412,10 @@ message DeletePresetRequest {
 
 message DeletePresetResponse {}
 
-// StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than
-// the two groups a pipeline is built from, because both persist the draft they are
-// given: they are how the settings a shell holds reach the backend, and half of them
-// arriving would leave the other half at whatever was stored before.
+// StartPublishRequest and ApplyToStreamRequest carry the whole Settings rather than the two
+// groups a pipeline is built from, because both persist the draft they are given: they are
+// how the settings a shell holds reach the backend, and half of them arriving would leave the
+// other half at whatever was stored before.
 message StartPublishRequest {
   Settings settings = 1;
 }
@@ -448,7 +435,7 @@ message StopPublishResponse {}
 message StartWatchRequest {
   WatchKey viewer = 3;
 
-  // 1 and 2 were stream_name and transport, the pair WatchKey exists to be.
+  // 1 and 2: stream_name and transport, the pair WatchKey exists to be.
   reserved 1, 2;
   reserved "stream_name", "transport";
 }
@@ -464,47 +451,46 @@ message StopWatchRequest {
 
 message StopWatchResponse {}
 
-// OpenInBrowserRequest names the stream and the leg the page is served on, the same
-// identity every other viewer method takes. The pair is an identity here rather than a
-// handle: nothing is opened that could later be named by it.
+// Names the stream and the leg the page is served on, the same identity every other viewer
+// method takes.
+// The pair is an identity here rather than a handle: nothing is opened that could later be
+// named by it.
 message OpenInBrowserRequest {
   WatchKey viewer = 1;
 }
 
 message OpenInBrowserResponse {}
 
-// StartReceiveRequest names the stream and the leg, which together are the identity a
-// receive is keyed by, for the reason WatchKey exists: the relay re-serves each stream
-// on all its listeners, so one stream can be decoded over several legs at once.
+// Names the stream and the leg, which together are the identity a receive is keyed by, for
+// the reason WatchKey exists: the relay re-serves each stream on all its listeners, so one
+// stream can be decoded over several legs at once.
 //
-// The leg is named here rather than read off ViewerSettings.tile_watch_transport,
-// which is the same rule StartWatch follows: the setting is what a shell offers by
-// default, and the call is what was chosen.
+// The leg is named here rather than read off ViewerSettings.tile_watch_transport, which is
+// the rule StartWatch follows too: the setting is what a shell offers by default, and the
+// call is what was chosen.
 //
-// The render chain is not on this message. It is one value for every decode
-// (ViewerSettings), because a chain falls back where a driver cannot run it and that
-// is a property of the machine rather than of a stream.
+// The render chain is not on this message.
+// It is one value for every decode (ViewerSettings), because a chain falls back where a
+// driver cannot run it, which is a property of the machine rather than of a stream.
 //
-// Tone mapping is, for the opposite reason: whether a stream carries more range than a
+// Tone mapping is on it for the opposite reason: whether a stream carries more range than a
 // display shows is a property of that stream, and two tiles watching one stream may want
-// different answers - one reader comparing what it carries against what a display shows,
-// another watching it.
+// different answers.
 message StartReceiveRequest {
   WatchKey stream = 1;
-  // tone_map asks for an HDR stream to be rolled down into the range a standard display
-  // shows. It is a build choice and not a live one - the rung is an element in the
-  // pipeline - so a decode already running with the other answer is rebuilt to reach the
-  // one this call names, which is the same rule every other effect on this contract
-  // follows: a call names the state it wants true, and one that already holds costs
-  // nothing.
+  // Asks for an HDR stream to be rolled down into the range a standard display shows.
+  // A build choice and not a live one, the rung being an element in the pipeline, so a decode
+  // already running with the other answer is rebuilt to reach the one this call names: a call
+  // names the state it wants true, and one that already holds costs nothing.
   //
-  // It is not stored anywhere. A preference kept per stream path would outlive the stream
-  // it was made about, so a path that stops carrying HDR would carry a choice nobody can
-  // find; this lives exactly as long as the decode does.
+  // It is not stored anywhere.
+  // A preference kept per stream path would outlive the stream it was made about, so a path
+  // that stops carrying HDR would carry a choice nobody can find; this lives exactly as long
+  // as the decode does.
   //
   // A machine with no element to roll the range down builds the decode without one and
-  // reports that it did (ReceiveStream), rather than refusing: a stream drawn in the range
-  // it was coded in is a picture, and a refusal is none.
+  // reports that it did (ReceiveStream), rather than refusing: a stream drawn in the range it
+  // was coded in is a picture, and a refusal is none.
   bool tone_map = 2;
 }
 
@@ -517,9 +503,10 @@ message StopReceiveRequest {
 message StopReceiveResponse {}
 
 // The monitor is the index Catalog.Monitor is enumerated under, which is the same value
-// PublishSettings.monitor holds. One field, because a preview of a screen is a preview
-// of the whole screen: there is no rectangle to crop and no rate to ask for, and a size
-// belongs to the consumer that draws it and travels on the frame channel.
+// PublishSettings.monitor holds.
+// One field, because a preview of a screen is a preview of the whole screen: there is no
+// rectangle to crop and no rate to ask for, and a size belongs to the consumer that draws it
+// and travels on the frame channel.
 message StartMonitorPreviewRequest {
   int32 monitor = 1;
 }
@@ -532,29 +519,28 @@ message StopMonitorPreviewRequest {
 
 message StopMonitorPreviewResponse {}
 
-// SetReceiveAudioRequest names both halves of the loudness at once, rather than a
-// volume method and a mute method.
+// Names both halves of the loudness at once, rather than a volume method and a mute method.
 //
-// One request because they are one state. Sent apart, a shell that muted and then
-// set a volume would have to know whether the second undid the first, and the
-// backend would have to decide the same thing twice.
+// One request because they are one state.
+// Sent apart, a shell that muted and then set a volume would have to know whether the second
+// undid the first, and the backend would have to decide the same thing twice.
 message SetReceiveAudioRequest {
   WatchKey stream = 1;
-  // volume is a linear gain from zero, where one is the stream unchanged. Values
-  // above one amplify; the backend bounds them rather than letting a slider clip the
+  // Linear gain from zero, where one is the stream unchanged.
+  // Values above one amplify; the backend bounds them rather than letting a slider clip the
   // output device.
   double volume = 2;
-  // muted silences the branch without losing the volume, so unmuting returns to the
-  // level the reader chose.
+  // Silences the branch without losing the volume, so unmuting returns to the level the
+  // reader chose.
   bool muted = 3;
 }
 
 message SetReceiveAudioResponse {}
 
 message StartTestStreamsRequest {
-  // count is how many synthetic publishers to run. Each runs its own software
-  // encoder, so the backend bounds it and refuses a larger number rather than
-  // saturating the machine.
+  // How many synthetic publishers to run.
+  // Each runs its own software encoder, so the backend bounds the number and refuses a larger
+  // one rather than saturating the machine.
   int32 count = 1;
 }
 
@@ -575,13 +561,13 @@ message MeasureUplinkResponse {
 }
 
 message MeasureEncodeRateRequest {
-  // settings decide what is timed, and the picture size comes from the monitor they
-  // name rather than from the caller: it is the same enumeration the capture crops
-  // to and the estimate is priced from.
+  // What is timed.
+  // The picture size comes from the monitor these name rather than from the caller: it is the
+  // same enumeration the capture crops to and the estimate is priced from.
   //
-  // The whole Settings rather than the publish group alone: what is timed is the
-  // command the same builders would render for a publish, and holding a narrower
-  // message here would mean two shapes reaching one set of builders.
+  // The whole Settings rather than the publish group alone, because what is timed is the
+  // command the same builders would render for a publish, and a narrower message here would
+  // mean two shapes reaching one set of builders.
   Settings settings = 1;
 }
 
@@ -594,8 +580,8 @@ message ForgetPortalConsentRequest {}
 message ForgetPortalConsentResponse {}
 
 message OpenLogRequest {
-  // path is a log path the backend handed out, on an ExitInfo. A shell does not
-  // construct one.
+  // A log path the backend handed out, on an ExitInfo.
+  // A shell does not construct one.
   string path = 1;
 }
 
@@ -607,54 +593,50 @@ message OpenLogsFolderResponse {}
 
 // --- Stream requests --------------------------------------------------------------
 
-// SubscribeRequest opens the stream.
 message SubscribeRequest {
-  // A shell receives every kind by default. Naming kinds here narrows the stream to
-  // those, which exists for a surface that wants the state changes without the
-  // per-second statistics.
+  // Empty receives every kind.
+  // Naming kinds narrows the stream to those, which exists for a surface that wants the state
+  // changes without the per-second statistics.
   //
-  // EVENT_KIND_UNSPECIFIED is refused rather than ignored, so a shell that sent a
-  // kind this build's enum has no value for learns it on the call it made the
-  // mistake on rather than by waiting forever.
+  // EVENT_KIND_UNSPECIFIED is refused rather than ignored, so a shell that sent a kind this
+  // build's enum has no value for learns it on the call it made the mistake on rather than by
+  // waiting forever.
   repeated EventKind kinds = 2;
 
-  // 1 was kinds as strings naming this message's own oneof fields.
+  // 1: kinds as strings naming this message's own oneof fields.
   reserved 1;
 }
 
-// SubscribeAudioLevelsRequest carries nothing.
-//
-// Empty and present rather than absent: the cadence is the backend's, because a
-// shell asking for a rate is asking for a cost it does not pay, and the set of
-// decodes is the backend's too. A message with no fields is what lets either become
-// a request field later without a new method.
+// Empty and present rather than absent: the cadence is the backend's, because a shell asking
+// for a rate is asking for a cost it does not pay, and the set of decodes is the backend's
+// too.
+// A message with no fields is what lets either become a request field later without a new
+// method.
 message SubscribeAudioLevelsRequest {}
 
-// SubscribePointerRequest opens the stream. It names nothing: one publish is in force at
-// a time, so there is one pointer to report and nothing to select between.
+// Names nothing: one publish is in force at a time, so there is one pointer to report and
+// nothing to select between.
 message SubscribePointerRequest {}
 
-// PointerPosition is where the publishing machine's pointer was, and when.
+// Where the publishing machine's pointer was, and when.
 //
-// The coordinates are the captured picture's own, in the pixels the stream carries, with
-// the origin at its top left. That is what makes them drawable without a viewer knowing
-// anything about the publisher's desktop: which screen is being read, how it is scaled and
-// where it sits among the others are all the publisher's facts, and the backend has all
-// three where a viewer has none.
+// The coordinates are the captured picture's own, in the pixels the stream carries, with the
+// origin at its top left.
+// That is what makes them drawable without a viewer knowing anything about the publisher's
+// desktop: which screen is being read, how it is scaled and where it sits among the others
+// are all the publisher's facts.
 message PointerPosition {
-  // x and y are where it is, in the picture's own pixels.
   int32 x = 1;
   int32 y = 2;
-  // captured_at_unix_nanos is when the position was read, on the publishing machine's
-  // clock.
+  // When the position was read, on the publishing machine's clock.
   //
-  // It is there so a viewer can hold a position back to the frame it belongs to rather
-  // than letting it lead the picture. Whether to is the viewer's, which is why the moment
-  // travels instead of the backend delaying the message: a pointer that leads is what a
-  // viewer with no delay budget wants and what one watching a recording does not.
+  // It travels so a viewer can hold a position back to the frame it belongs to rather than
+  // letting it lead the picture.
+  // Whether to is the viewer's, which is why the moment travels instead of the backend
+  // delaying the message.
   int64 captured_at_unix_nanos = 3;
-  // visible is false where the pointer is not over the captured surface. A pointer that
-  // has left the screen is not at its last position, and drawing it there would leave one
-  // stuck against an edge for as long as it is away.
+  // False where the pointer is not over the captured surface.
+  // A pointer that has left the screen is not at its last position, and drawing it there
+  // would leave one stuck against an edge for as long as it is away.
   bool visible = 4;
 }

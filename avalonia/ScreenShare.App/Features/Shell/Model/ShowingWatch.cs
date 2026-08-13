@@ -5,57 +5,53 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
-/// Whether a control is being looked at: it stands in a visual tree, in a window that is in front of the
-/// reader.
+/// Whether a control is being looked at: standing in a visual tree, in a window in front of the reader.
 ///
-/// <b>It is for a surface whose drawing makes the backend spend something it otherwise would not.</b> The
-/// wizard's screen picker is one: its pictures come off a screen capture per monitor that the backend opens
-/// because the grid asked for it.
-/// The shell renders every destination on every pass, so a grid that drew whenever anything was available
-/// would charge a reader who never opened the screen, and one that drew for as long as the screen was open
-/// would charge a reader whose window has been behind a terminal for an hour.
+/// <b>For a surface whose drawing costs the backend something.</b> The wizard's screen picker is one: its
+/// pictures come off a screen capture per monitor the backend opens because the grid asked for it.
+/// The shell renders every destination on every pass, so a grid drawing whenever anything is available charges
+/// a reader who never opened the screen, and one drawing for as long as the screen is open charges a reader
+/// whose window has been behind a terminal for an hour.
 ///
-/// <b>It is not the rule for every picture, and the broadcast preview is the counter-case.</b> That card
-/// draws what the reader asked it to draw and follows no window, because a publisher's window stands behind
-/// the thing being shared for most of a session
+/// <b>Not the rule for every picture.</b> The broadcast preview draws what the reader asked it to and follows
+/// no window, because a publisher's window stands behind the thing being shared for most of a session
 /// (<c>Features/Broadcast/Preview/ViewModel/PreviewViewModel.cs</c>).
-/// What decides is whether a window going behind means the reader stopped wanting the picture.
+/// The test is whether a window going behind means the reader stopped wanting the picture.
 ///
-/// <b>Neither half is a fact a view model can read.</b> Whether a control is in a visual tree is the
-/// control's own, and whether the window is in front is the platform's (<see cref="IWindowPresence"/>).
-/// So a control owns one of these and reports what it says.
+/// <b>Neither half is a fact a view model can read.</b> Standing in a visual tree is the control's own, and
+/// being in front is the platform's (<see cref="IWindowPresence"/>), so a control owns one of these and reports
+/// what it says.
 ///
-/// Coming forward is immediate and leaving is delayed, and the asymmetry is deliberate: a reader who raised
-/// the window is looking now, and a reader who clicked into a terminal for a moment should not pay for a
-/// teardown and a fresh start each time.
+/// Coming forward is immediate and leaving is delayed: a reader who raised the window is looking now, and one
+/// who clicked into a terminal for a moment should not pay a teardown and a fresh start each time.
 /// </summary>
 internal sealed class ShowingWatch : IDisposable
 {
     /// <summary>
-    /// How long the window has to stay out of the foreground before the answer turns false.
+    /// Time out of the foreground before the answer turns false.
     ///
-    /// Leaving costs whatever the consumer had open: a frame subscription closes and the pool behind it is
-    /// freed, and coming back re-announces the pool and imports it again.
-    /// A notification that takes focus and gives it back would otherwise pay for that round trip every time.
+    /// Leaving costs what the consumer had open: the frame subscription closes and the pool behind it is freed,
+    /// and coming back re-announces that pool and imports it again.
+    /// A notification that takes focus and gives it straight back would otherwise pay that round trip each
+    /// time.
     /// </summary>
     private static readonly TimeSpan LeaveDelay = TimeSpan.FromSeconds(1);
 
     private readonly Control _control;
 
-    /// <summary>Told whenever the answer moves, and told the answer rather than asked for it.</summary>
+    /// <summary>Told when the answer moves, and told the answer rather than asked for it.</summary>
     private readonly Action<bool> _report;
 
-    /// <summary>Whether the control is in a visual tree, which is half of the answer.</summary>
+    /// <summary>Half the answer, and the half the control owns.</summary>
     private bool _attached;
 
     /// <summary>
-    /// The window's own answer to whether it is in front, held while the control is attached and dropped with
-    /// the tree.
-    /// It is the reader rather than a copy of what it said, so the state stays the window's.
+    /// The window's own answer to being in front, held while the control is attached and dropped with the tree.
+    /// The reader itself rather than a copy of what it said, so the state stays the window's.
     /// </summary>
     private IWindowPresence? _presence;
 
-    /// <summary>The timer that ends the wait after the window has stayed away.</summary>
+    /// <summary>Ends the wait once the window has stayed away.</summary>
     private DispatcherTimer? _leaving;
 
     public ShowingWatch(Control control, Action<bool> report)
@@ -67,14 +63,10 @@ internal sealed class ShowingWatch : IDisposable
         _report = report;
     }
 
-    /// <summary>Whether the control is being looked at, as of now.</summary>
+    /// <summary>Derived on read, never held.</summary>
     public bool Showing => _attached && _presence is { IsInFront: true };
 
-    /// <summary>
-    /// The control entered a visual tree.
-    /// It finds the window it is in from the control itself, because that is the only side that knows where
-    /// it was put.
-    /// </summary>
+    /// <summary>The window comes from the control, the only side that knows where it was put.</summary>
     public void Attached()
     {
         _attached = true;
@@ -82,7 +74,7 @@ internal sealed class ShowingWatch : IDisposable
         Report();
     }
 
-    /// <summary>The control left the visual tree. There is nothing left to draw in and nothing to wait for.</summary>
+    /// <summary>The control left the visual tree. Nothing to draw in, and nothing to wait for.</summary>
     public void Detached()
     {
         _attached = false;
@@ -91,9 +83,9 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Says the answer again without anything having moved.
-    /// It exists for the one caller that has news this class cannot see: a control handed a different view
-    /// model has to report to the new one, and the answer is the same.
+    /// Says the answer again with nothing having moved.
+    /// For the one caller carrying news this class cannot see: a control handed a different view model reports
+    /// to the new one.
     /// </summary>
     public void Repeat() => Report();
 
@@ -105,9 +97,9 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Reads presence off one window, or off none.
-    /// Idempotent, and the only writer of <see cref="_presence"/>: whatever was being read is dropped first,
-    /// so a control moved between windows holds one subscription rather than two.
+    /// Points the presence reading at one window, or at none.
+    /// The only writer of <see cref="_presence"/>, and idempotent: what was being read is dropped first, so a
+    /// control moved between windows holds one subscription.
     /// </summary>
     private void Watch(Window? window)
     {
@@ -128,10 +120,10 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Reports the answer, immediately where it is certain and after the wait where it is not.
+    /// Reports at once where the answer is certain, after the wait where it is not.
     ///
-    /// Both certain answers are given at once: the control is being looked at, so whatever it draws is wanted
-    /// now, or it has left the tree, so there is nothing left to draw it with and nothing to wait for.
+    /// Certain both ways: a control being looked at wants what it draws now, and one out of the tree has
+    /// nothing to draw it with and nothing to wait for.
     /// </summary>
     private void Report()
     {
@@ -146,8 +138,8 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Starts the wait, and lets one already running finish rather than restarting it: the window going
-    /// further behind is not a reason to keep drawing longer.
+    /// Starts the wait, leaving one already running to finish: a window going further behind is no reason to
+    /// draw longer.
     /// </summary>
     private void Wait()
     {
@@ -167,9 +159,9 @@ internal sealed class ShowingWatch : IDisposable
     }
 
     /// <summary>
-    /// Reports the end of the wait.
-    /// The fact is read again rather than assumed: a window raised while the timer was in flight is a control
-    /// that goes on drawing.
+    /// Ends the wait.
+    /// The fact is read again rather than assumed: a window raised while the timer was in flight goes on
+    /// drawing.
     /// </summary>
     private void Left()
     {

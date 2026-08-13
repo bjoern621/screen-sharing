@@ -4,12 +4,11 @@ namespace ScreenShare.App.Features.Broadcast.Preview.Model;
 
 /// <summary>
 /// One segment of the preview's route toggle.
-/// It carries the route it stands for rather than an index, so a selection is a value the card can act on and
-/// no markup has to know that end-to-end is the second one.
+/// It carries the route rather than an index, so a selection is a value the card acts on and no markup has to
+/// know which segment end-to-end is.
 ///
-/// The same shape the destination strip's segment has, and for the same reason: the segmented control is a
-/// <c>ListBox</c>, a <c>ListBox</c> selects items, and an item that is the value is what keeps the two-way
-/// binding free of a converter.
+/// The segmented control is a <c>ListBox</c> and a <c>ListBox</c> selects items, so an item that is the value
+/// keeps the two-way binding free of a converter.
 /// </summary>
 public sealed class PreviewRouteTab
 {
@@ -21,9 +20,8 @@ public sealed class PreviewRouteTab
         Assert.That(Label.Length > 0, "a segment carries the label its route is named by", (int)value);
     }
 
-    /// <summary>The route this segment selects. Fixed for the tab's life.</summary>
     public PreviewRoute Value { get; }
 
-    /// <summary>Verbatim, from the route table. Fixed for the tab's life.</summary>
+    /// <summary>Taken from the route table, verbatim.</summary>
     public string Label { get; }
 }

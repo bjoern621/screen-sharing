@@ -10,31 +10,14 @@
         MinWidth="240" MinHeight="160"
         Background="{StaticResource TileBrush}">
 
-  <!--
-    One stream in a window of its own.
-
-    It draws the same tile the grid does, chrome and menu and all, so what a stream affords does
-    not depend on which window it is in. Its fullscreen is its own: this window going fullscreen
-    is a fact about this window, which is why several popped-out streams can each fill a different
-    monitor at the same time (docs/viewer-architecture.md is about decodes, and none of this
-    crosses that contract).
-
-    The grid keeps the slot this stream came from and draws a plate in it. That tile holds no
-    subscription while this window is open, so the decode has exactly one consumer either way.
-
-    The picture keeps its stream's shape whatever shape this window is dragged to, and whatever is
-    left over is black. The panel is the grid's own arrangement holding one tile, which is what
-    that solver answers for a single tile in a box (Features/Viewer/Model/TileLayout.cs).
-  -->
   <Window.KeyBindings>
-    <!--
-      Escape gives this window back to a windowed one. It names that state rather than toggling it,
-      so a press on a window that is not filling a screen changes nothing
-      (Features/Viewer/Model/TileIntent.cs).
-    -->
     <KeyBinding Gesture="Escape" Command="{Binding LeaveFullscreen}" />
   </Window.KeyBindings>
 
+  <!--
+    One tile through the grid's own solver, which letterboxes it at its stream's shape in whatever
+    shape this window is dragged to (Features/Viewer/Model/TileLayout.cs).
+  -->
   <view:TileGrid>
     <tiles:TileCard view:TileGrid.Aspect="{Binding Aspect}" />
   </view:TileGrid>

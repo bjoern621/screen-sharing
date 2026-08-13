@@ -11,47 +11,45 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// publishBackoff is the wait before each relaunch of a publish that ended on its own,
-// and its length the attempt budget.
-// It backs off because the usual reason a publish pipeline dies by itself is the relay restarting
-// or a capture source going away, which takes seconds rather than milliseconds.
-// It ends because a pipeline this machine cannot run fails the same way every time,
-// and an encoder that takes the GPU down with it does so once per attempt.
+// publishBackoff is the wait before each relaunch of a publish that ended on its own, one entry per
+// attempt, so its length is the budget.
+// It grows because a publish pipeline usually dies by itself over a relay restart or a capture source
+// going away, which take seconds rather than milliseconds.
+// It ends because a pipeline this machine cannot run fails the same way every time, and an encoder
+// that takes the GPU down with it does so once per attempt.
 var publishBackoff = []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 
-// publishHealthy is how long a pipeline has to have run for the settings behind it to count as
-// viable on this machine.
+// publishHealthy is how long a pipeline has to have run for its settings to count as viable on this
+// machine.
 //
-// It is the discriminator the exit alone cannot give.
-// A relay that is not up yet and an encoder that hangs the GPU both leave a child dead within
-// seconds, under the same signal and the same status, so what separates them is how far the
-// pipeline got.
-// A publish that reaches this bound and dies later met something that moved underneath it,
-// and the next outage starts from a full budget.
-// One that does not is failing at launch, and the attempts it spends are the whole of what the app
-// will try.
+// The discriminator the exit alone cannot give: a relay that is not up and an encoder that hangs the
+// GPU both leave a child dead within seconds, under the same signal and the same status, so how far
+// the pipeline got is what separates them.
+// A publish that reaches this bound and dies later met something that moved underneath it, and meets
+// the next outage on a full budget.
+// One that does not is failing at launch, and its attempts are the whole of what the app will try.
 const publishHealthy = 30 * time.Second
 
-// publishRetry is a relaunch waiting to happen: the settings it will run, the attempts the failure
-// has cost so far, and the timer that will fire it.
+// publishRetry is a relaunch waiting to happen: the settings it will run, the attempts spent
+// reaching it, and the timer that fires it.
 //
-// It stands in for the run while it waits.
-// A publish between attempts is still a publish the user asked for, so the state it reports is
-// publishing rather than stopped, and a stop reaches the timer instead of finding nothing to stop.
+// It stands in for the run while it waits, because a publish between attempts is still one the user
+// asked for: the state reports publishing rather than stopped, and a stop reaches the timer rather
+// than finding nothing to stop.
 type publishRetry struct {
 	settings settings.Settings
 	attempts int
 	timer    *time.Timer
 }
 
-// publishRetryAfter is the whole retry policy: given an exit, it reports how much of the budget the
-// failure has spent, how long to wait before the relaunch, and whether there is one at all.
+// publishRetryAfter is the whole retry policy: how much of the budget the failure has spent, how
+// long to wait before the relaunch, and whether there is one.
 //
-// err is the exit, nil for a pipeline that ended without failing.
-// ran is how long that pipeline lasted, and attempts how many retries preceded it.
+// err is the exit, nil for a pipeline that ended without failing and is therefore not retried.
+// ran is how long that pipeline lasted, attempts how many retries preceded it.
 //
 // A pipeline that reached publishHealthy resets the count it inherited, so a working stream meets
-// every outage with a full budget while one failing at launch walks the backoff once and stops.
+// every outage on a full budget while one failing at launch walks the backoff once and stops.
 func publishRetryAfter(err error, ran time.Duration, attempts int) (spent int, wait time.Duration, retry bool) {
 	assert.Assert(attempts >= 0, "an exit carries the retries that preceded it", attempts)
 
@@ -69,11 +67,11 @@ func publishRetryAfter(err error, ran time.Duration, attempts int) (spent int, w
 }
 
 // publishEnded takes the exit of run: it releases the run, decides whether the failure has another
-// attempt coming, and reports whichever of the two states the app lands in.
+// attempt coming, and announces whichever state the app lands in.
 //
 // Only an exit nobody asked for reaches a retry.
-// A stop and a settings change both kill the child themselves and replace what the app holds,
-// so the run they ended is no longer the app's by the time this reads it.
+// A stop and a settings change kill the child themselves and replace what the app holds, so the run
+// they ended is no longer the app's by the time this reads it.
 func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPath string) {
 	assert.IsNotNil(run, "an exit belongs to the run that produced it")
 
@@ -93,18 +91,16 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 
 	a.procMu.Lock()
 	if a.run != run {
-		// The exit reports a run the app has already moved off.
-		// A stop was asked for, or a settings change replaced the pipeline with one that is already
-		// running, so either report would carry an exit the user has no reason to be shown and a log path
-		// for a pipeline they moved off.
+		// The exit names a run the app has already moved off: a stop was asked for, or a settings change
+		// replaced the pipeline with one that is already running.
+		// Reporting it would carry an exit and a log path for a pipeline the user left behind.
 		a.procMu.Unlock()
 		return
 	}
 	a.run = nil
-	// The child that was copying to it is gone, so the preview goes with it - including across a
-	// retry, whose relaunch binds a port of its own.
-	// What a reader sees in the meantime is a publish with no preview, which is what a publish between
-	// attempts is.
+	// The child copying to it is gone, so the preview goes too, across a retry as well: the relaunch
+	// binds a port of its own.
+	// A publish between attempts therefore reports no preview.
 	a.stopPreviewLocked()
 
 	spent, wait, retrying := publishRetryAfter(err, time.Since(run.startedAt), run.attempts)
@@ -138,9 +134,9 @@ func (a *App) scheduleRetryLocked(s settings.Settings, spent int, wait time.Dura
 	logger.Infof("retry %d of %d for the publish of '%s' in %s", r.attempts, len(publishBackoff), s.Publish.Name, wait)
 }
 
-// firePublishRetry relaunches the publish the retry holds, unless the app has moved off it.
-// A retry that fires after a stop, a settings change or a manual start lands nowhere:
-// each of those clears what it is held against.
+// firePublishRetry relaunches the publish r holds, unless the app has moved off it.
+// A retry firing after a stop, a settings change or a manual start lands nowhere, because each of
+// those clears what it is held against.
 func (a *App) firePublishRetry(r *publishRetry) {
 	assert.IsNotNil(r, "a fired retry is the relaunch that armed it")
 
@@ -155,20 +151,20 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	a.procMu.Unlock()
 
 	if err != nil {
-		// The child never started, so no exit is coming to carry this one further.
-		// The attempt chain ends here rather than on a budget nothing is spending.
+		// The child never started, so no exit is coming to carry the chain further, and it ends here
+		// rather than on a budget nothing is spending.
 		logger.Warnf("retry %d of the publish of '%s' did not start: %v", r.attempts, r.settings.Publish.Name, err)
 		a.emit(wire.PublishExitEvent(err.Error(), ""))
 	}
 	a.emitPublishState()
 }
 
-// cancelRetryLocked drops a pending relaunch, if there is one.
+// cancelRetryLocked drops a pending relaunch, and succeeds where none is pending.
 // procMu is held by the caller.
 //
-// Stopping the timer is not what makes this safe: a fire already past its guard is blocked on
-// procMu and finds the retry cleared here, which is what turns it into a no-op.
-// The stop only keeps a timer that has not fired from firing at all.
+// Stopping the timer is not what makes it safe: a fire already past its guard is blocked on procMu
+// and finds the retry cleared here, which is what turns it into a no-op.
+// The stop only keeps a timer that has not fired from firing.
 func (a *App) cancelRetryLocked() {
 	if a.retry == nil {
 		return

@@ -2,18 +2,10 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The tooltip, which this design now leans on rather than tolerates.
-
-    A refused option keeps its place in the list and greys, and the sentence saying why is
-    the whole value of keeping it there (docs/field-availability.md). Where that sentence
-    does not fit beside the control it belongs to, the tooltip is where it goes - so a
-    tooltip here carries a full sentence rather than a repeated label, and it is sized for
-    prose: a width to wrap against, and the wrap itself, which Fluent's does not do.
-
-    It is skinned like the context menu rather than like a control, because that is what it
-    is: a surface that floats above the window. It takes the same shadow for the same reason,
-    and it is the same one the menu draws (Design/Palette.axaml) rather than a second value -
-    a tooltip opening over a video tile has nothing else to separate it from the picture.
+    A tooltip carries the sentence a refused option has no room for beside it (docs/field-availability.md),
+    so it is sized for prose rather than for a label.
+    Skinned like the menu and taking the same shadow,
+    since a tooltip opening over a video tile has nothing else separating it from the picture.
   -->
 
   <ControlTheme x:Key="{x:Type ToolTip}" TargetType="ToolTip">
@@ -24,7 +16,7 @@
     <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
     <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
     <Setter Property="Padding" Value="10,7" />
-    <!-- Wide enough for a clause, narrow enough that the eye does not have to travel back. -->
+    <!-- Wide enough to hold a clause, short enough that the eye does not track back. -->
     <Setter Property="MaxWidth" Value="320" />
     <Setter Property="HorizontalContentAlignment" Value="Left" />
     <Setter Property="VerticalContentAlignment" Value="Top" />
@@ -45,9 +37,9 @@
     </Setter>
 
     <!--
-      The wrap is not here. A tooltip's string content is drawn by a TextBlock the content
-      presenter builds, reaching it needs a descendant selector, and a ControlTheme may not
-      carry one - Avalonia throws when the theme is built. Design/Text.axaml states it.
+      The wrap is in Design/Text.axaml.
+      A tooltip's string content is drawn by a TextBlock the content presenter builds,
+      and a ControlTheme carrying the descendant selector that reaches it throws when the theme is built.
     -->
   </ControlTheme>
 

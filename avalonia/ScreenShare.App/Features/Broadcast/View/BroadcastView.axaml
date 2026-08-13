@@ -14,22 +14,11 @@
 
   <DockPanel>
 
-    <!--
-      The header band. The five figures on the left, the live-safe actions on the right,
-      and nothing between them that could be mistaken for configuration. Stop is the only
-      red button on the screen; the sharing pill is the only other red at all.
-    -->
     <Border DockPanel.Dock="Top"
             Background="{StaticResource PanelBrush}"
             BorderBrush="{StaticResource HairlineBrush}"
             BorderThickness="0,0,0,1"
             Padding="12,11">
-      <!--
-        The figures take what the actions leave, rather than both taking what they measure and
-        the row running off the edge. Stop sharing is the one control on this screen that ends
-        the stream, so the actions are the side that never yields; the figures are read rather
-        than pressed, and they wrap into as many lines as the leftover needs.
-      -->
       <Grid ColumnDefinitions="*,Auto">
         <header:HeaderStatsView Grid.Column="0" DataContext="{Binding Stats}" />
         <StackPanel Grid.Column="1"
@@ -47,18 +36,12 @@
       </Grid>
     </Border>
 
-    <!--
-      Two columns: a fixed one for what this stream is, and an elastic one for what it is
-      doing. The fixed width is what keeps the preview at 16:9 and the config values from
-      reflowing every time the window changes size.
-    -->
+    <!-- Fixed left column: it keeps the preview at 16:9 and the config values from reflowing on resize. -->
     <Grid ColumnDefinitions="396,*" Margin="{StaticResource InsetPanel}">
 
       <!--
-        Every card here takes its natural height and the column scrolls if the window is
-        shorter than they are. Handing the config card the leftover instead would clip its
-        last rows in silence, and a configuration list that quietly stops at "Transport" is
-        worse than one the reader has to scroll.
+        Auto rows and a scroll, so every card takes its natural height.
+        Handed the column's leftover instead, the config card clips its last rows in silence.
       -->
       <ScrollViewer Grid.Column="0"
                     HorizontalScrollBarVisibility="Disabled"

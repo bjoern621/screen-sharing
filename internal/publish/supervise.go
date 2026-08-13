@@ -18,14 +18,14 @@ import (
 )
 
 // superviseConfig launches one child process for an engine that is not ffmpeg.
-// extraFiles are inherited by the child starting at fd 3, in order; the portal PipeWire remote fd
-// is passed this way, and nothing is passed this way on Windows, which inherits no descriptors.
-// onCleanup runs after the child exits, releasing engine-owned resources (the portal session).
-// parseStdout, when set, consumes the child's stdout, which is where an engine prints its progress;
-// the stream is teed into the run log on the way, so the log holds everything the child said either
-// way.
+// extraFiles are inherited by the child starting at fd 3, in order: the portal PipeWire remote fd
+// travels this way, and nothing does on Windows, which inherits no descriptors.
+// onCleanup runs after the child exits, releasing engine-owned resources like the portal session.
+// parseStdout, when set, consumes the child's stdout, where an engine prints its progress.
+// That stream is teed into the run log on the way,
+// so the log holds everything the child said either way.
 // env adds to this process's environment rather than replacing it, so a child keeps everything the
-// app was started with (GstChildEnv is what fills it).
+// app was started with (GstChildEnv fills it).
 type superviseConfig struct {
 	exe         string
 	env         []string
@@ -37,21 +37,23 @@ type superviseConfig struct {
 	onCleanup   func()
 }
 
-// supervise starts and watches the child, mirroring ffmpeg.Start's behaviour for engines that speak
-// no ffmpeg -progress stream: stderr is teed to a per-run log and a bounded tail,
-// and onExit fires once with the tail and log path.
+// supervise starts and watches the child, mirroring ffmpeg.Start for engines that speak no ffmpeg
+// -progress stream: stderr is teed to a per-run log and a bounded tail, and onExit fires once with
+// the tail and the log path.
+// A log directory, a pipe or a child the machine will not give is an environment failure and comes
+// back as an error; the asserts below state this package's own contract.
 func supervise(cfg superviseConfig) (Handle, error) {
 	assert.Assert(cfg.exe != "", "a supervised child names the executable to run", cfg.tag)
 	assert.Assert(cfg.tag != "", "a supervised child names its run log", cfg.exe)
-	// The descriptors are handed to the child by position, so a closed slot would shift every later fd
-	// and land the pipeline on the wrong one.
+	// The descriptors reach the child by position,
+	// so a closed slot shifts every later fd and lands the pipeline on the wrong one.
 	for i, f := range cfg.extraFiles {
 		assert.IsNotNil(f, "an inherited descriptor is an open file", cfg.tag, i)
 	}
-	// Windows inherits none at all: os/exec supports ExtraFiles on Unix alone,
-	// and a child handed one there does not start, failing with "fork/exec <exe>:
-	// not supported by windows" rather than anything naming a descriptor.
-	// Asserting it here states which caller was wrong; the exec error names only the launcher.
+	// Windows inherits none at all: os/exec supports ExtraFiles on Unix alone, and a child handed one
+	// there does not start, failing with "fork/exec <exe>: not supported by windows" rather than
+	// anything naming a descriptor.
+	// Asserting here states which caller was wrong, where the exec error names only the launcher.
 	assert.Assert(runtime.GOOS != "windows" || len(cfg.extraFiles) == 0,
 		"a Windows child is passed no descriptors to inherit", cfg.tag, len(cfg.extraFiles))
 
@@ -66,8 +68,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	}
 	fmt.Fprintf(logFile, "%s %s\n\n", cfg.exe, strings.Join(cfg.args, " "))
 
-	// The stderr copier and the stdout tee both write the one log, so the writes are serialized to
-	// keep either from landing inside the other's line.
+	// The stderr copier and the stdout tee write the one log, so the writes are serialized to keep
+	// either from landing inside the other's line.
 	log := &syncWriter{w: logFile}
 
 	cmd := exec.Command(cfg.exe, cfg.args...)
@@ -98,7 +100,7 @@ func supervise(cfg superviseConfig) (Handle, error) {
 		logFile.Close()
 		return nil, fmt.Errorf("cannot start %s: %w", cfg.exe, err)
 	}
-	// Before the goroutine that waits on the child, for the reason KillOnAppExit documents.
+	// Registered before the goroutine that waits on the child, for the reason KillOnAppExit documents.
 	// A GStreamer pipeline orphans exactly like an ffmpeg one.
 	ffmpeg.KillOnAppExit(cmd)
 
@@ -119,6 +121,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 		}()
 	}
 
+	// Both readers drain before the wait, so the tail and the log hold everything the child wrote by
+	// the time onExit carries them.
 	go func() {
 		readers.Wait()
 		waitErr := cmd.Wait()
@@ -140,8 +144,8 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	return proc, nil
 }
 
-// child is a supervised non-ffmpeg process.
-// Its methods are safe to call from multiple goroutines.
+// child is a supervised non-ffmpeg process, and its methods are safe to call from any goroutine.
+// stopped is what keeps a kill this process asked for out of the exit error.
 type child struct {
 	cmd     *exec.Cmd
 	running atomic.Bool
@@ -160,8 +164,8 @@ func (c *child) Stop() {
 	}
 }
 
-// tailBuffer keeps the last max bytes written to it, so the end of stderr can be surfaced in an
-// exit message without holding the whole log in memory.
+// tailBuffer keeps the last max bytes written to it, so an exit message can carry the end of stderr
+// without the whole log being held in memory.
 type tailBuffer struct {
 	mu  sync.Mutex
 	buf []byte
@@ -185,7 +189,7 @@ func (t *tailBuffer) String() string {
 	return string(t.buf)
 }
 
-// syncWriter serializes concurrent writes onto one underlying writer.
+// syncWriter serializes concurrent writes onto one writer.
 type syncWriter struct {
 	mu sync.Mutex
 	w  io.Writer
@@ -197,7 +201,7 @@ func (s *syncWriter) Write(p []byte) (int, error) {
 	return s.w.Write(p)
 }
 
-// sanitize makes tag safe to use in a filename.
+// sanitize makes tag safe to spell in a filename.
 func sanitize(tag string) string {
 	return strings.Map(func(r rune) rune {
 		switch {

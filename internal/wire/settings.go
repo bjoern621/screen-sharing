@@ -12,22 +12,19 @@ import (
 
 // Settings carries a settings.Settings out onto the contract, group by group.
 //
-// The assignments are written in the order both sides declare their fields,
-// because the only defect these functions can have is a field that quietly never crosses,
-// and a list in the schema's own order is one a reader can walk against settings.proto line for
-// line.
-// The spellings diverge wherever the two sides named the same value differently - BitrateM against
-// bitrate_mbps, MaxrateM against maxrate_mbps, VbvMs against vbv_ms - and each of those pairs is a
-// place where the wrong twin reads as perfectly plausible code while changing what the user's
-// encoder is told.
-// The round-trip test is what actually holds the twins together; the ordering is only what makes
-// the mistake visible to a person.
+// The assignments follow the order both sides declare their fields in, so a reader can walk them
+// against settings.proto line for line.
+// The only defect these functions can have is a field that quietly never crosses, or one written
+// into its twin: BitrateM against bitrate_mbps, MaxrateM against maxrate_mbps, VbvMs against
+// vbv_ms, each pair a place where the wrong half reads as plausible code and changes what the
+// user's encoder is told.
+// The round-trip test is what holds the twins together; the ordering only makes the mistake visible
+// to a person.
 //
-// The numbers narrow from int to int32 here and nothing asserts their range on the way.
-// Every one of them is a port, a frame rate, a megabit figure or a millisecond window,
-// all bounded by what the form offers; a value big enough to lose bits reached this struct through
-// a hand-edited settings file, which is an environment condition the app survives rather than a
-// broken internal contract worth panicking on.
+// The numbers narrow from int to int32 and nothing asserts their range on the way.
+// Each is a port, a frame rate, a megabit figure or a millisecond window, all bounded by what the
+// form offers, so a value big enough to lose bits arrived through a hand-edited settings file:
+// an Umgebungsfehler the app survives rather than a broken internal contract worth panicking on.
 func Settings(s settings.Settings) *screensharev1.Settings {
 	return &screensharev1.Settings{
 		Relay:   RelaySettings(s.Relay),
@@ -36,7 +33,6 @@ func Settings(s settings.Settings) *screensharev1.Settings {
 	}
 }
 
-// RelaySettings carries the relay's address and listeners out.
 func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	return &screensharev1.RelaySettings{
 		Host:          r.Host,
@@ -52,7 +48,7 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 	}
 }
 
-// PublishSettings carries one way of publishing out, which is also what a preset is.
+// PublishSettings carries one way of publishing out, which is the whole of what a preset holds.
 func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 	return &screensharev1.PublishSettings{
 		Name: p.Name,
@@ -89,7 +85,6 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 	}
 }
 
-// ViewerSettings carries how this machine watches out.
 func ViewerSettings(v settings.Viewer) *screensharev1.ViewerSettings {
 	return &screensharev1.ViewerSettings{
 		PlayerWatchTransport: v.PlayerWatchTransport,
@@ -105,19 +100,16 @@ func ViewerSettings(v settings.Viewer) *screensharev1.ViewerSettings {
 
 // ToSettings reads a draft back off the contract.
 //
-// Every value is read through a generated GetX accessor rather than off the field,
-// which is what makes a nil message convert to the zero settings.Settings instead of panicking.
-// That case is not a curiosity worth guarding against for its own sake: a request that arrives with
-// no settings set was written by another process, so it is an environment condition,
-// and answering it is the caller's job - the control service rejects it with INVALID_ARGUMENT.
-// An assert here would instead turn every malformed request into a crash of the process holding the
+// Every value goes through a generated GetX accessor rather than off the field, so a nil message
+// reads as the zero settings.Settings instead of panicking.
+// A request that arrives with no settings set was written by another process, which makes it an
+// Umgebungsfehler and the caller's to answer: the control service rejects it with
+// INVALID_ARGUMENT.
+// An assert here would turn every malformed request into a crash of the process holding the
 // encoder, which is the one thing the error model forbids (docs/ipc-api.md, "Errors").
 //
-// The contract carries every settings field now, so a draft read off it is whole.
-// That was not always so: two knobs of the obsolete GTK4 grid had no message to arrive on,
-// and an inbound draft had to be merged onto what the backend held so a shell that could not see
-// them did not clear them.
-// Both are ViewerSettings fields now, and the merge went with the window.
+// The contract carries every settings field, so a draft read off it is whole and nothing is merged
+// onto what the backend already held.
 func ToSettings(m *screensharev1.Settings) settings.Settings {
 	return settings.Settings{
 		Relay:   ToRelay(m.GetRelay()),
@@ -126,7 +118,6 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 	}
 }
 
-// ToRelay reads the relay group back off the contract.
 func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
 		Host:          m.GetHost(),
@@ -179,7 +170,6 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 	}
 }
 
-// ToViewer reads the viewer group back off the contract.
 func ToViewer(m *screensharev1.ViewerSettings) settings.Viewer {
 	return settings.Viewer{
 		PlayerWatchTransport: m.GetPlayerWatchTransport(),
@@ -195,13 +185,12 @@ func ToViewer(m *screensharev1.ViewerSettings) settings.Viewer {
 
 // Preset carries one saved preset across, name and settings whole.
 //
-// The name is asserted rather than tolerated because it is this process's own.
-// Presets reach here from settings.LoadPresets, and every row of that store was written by
-// SavePreset under a name the user typed; the wire has no inbound direction for a Preset at all,
-// so nothing another process wrote ever arrives at this parameter.
-// A nameless row is therefore a store that lost the identity a shell selects and deletes by,
-// and here is where that should be found out rather than in the shell drawing a blank entry it can
-// never act on again.
+// The name is asserted rather than tolerated because it is this process's own: presets reach here
+// from settings.LoadPresets, every row of that store was written by SavePreset under a name the
+// user typed, and the wire has no inbound direction for a Preset, so nothing another process wrote
+// arrives at this parameter.
+// A nameless row is a store that lost the identity a shell selects and deletes by, and this is
+// where that is found out rather than in a shell drawing a blank entry it can never act on again.
 func Preset(p settings.Preset) *screensharev1.Preset {
 	assert.Assert(p.Name != "", "a stored preset carries the name it is selected by")
 
@@ -214,9 +203,9 @@ func Preset(p settings.Preset) *screensharev1.Preset {
 // Presets carries the whole store across in the order it holds them, which is the order the user
 // saved them in and the order a shell lists them in.
 //
-// The result is an empty slice and not nil where nothing is saved.
-// Both encode to the same absent repeated field, so this buys nothing on the wire;
-// it is for the Go side, where nil is the value a reader most easily reads as "not loaded yet".
+// Nothing saved is an empty slice and not nil.
+// Both encode to the same absent repeated field, so this buys nothing on the wire: it is for the Go
+// side, where nil is what a reader most easily takes for "not loaded yet".
 func Presets(ps []settings.Preset) []*screensharev1.Preset {
 	out := make([]*screensharev1.Preset, 0, len(ps))
 	for _, p := range ps {
@@ -227,13 +216,12 @@ func Presets(ps []settings.Preset) []*screensharev1.Preset {
 	return out
 }
 
-// audioSources carries the list the second track is mixed from onto the contract,
-// and toAudioSources reads it back.
-// Both keep the order, because it is the order a form draws the entries in and the order the
-// indexed keys address them by.
+// audioSources carries the list the second track is mixed from onto the contract, and
+// toAudioSources reads it back.
+// Both keep the order, which is the order a form draws the entries in and the order the indexed
+// keys ("publish.audio_sources[2].gain") address them by.
 //
-// An empty list crosses as an empty list rather than as an absent field, which is the same
-// statement either way: a stream with no second track.
+// An empty list and an absent field are one statement here: a stream with no second track.
 func audioSources(sources []settings.AudioSource) []*screensharev1.AudioSource {
 	if len(sources) == 0 {
 		return nil
@@ -254,10 +242,9 @@ func audioSources(sources []settings.AudioSource) []*screensharev1.AudioSource {
 
 func toAudioSources(sources []*screensharev1.AudioSource) []settings.AudioSource {
 	if len(sources) == 0 {
-		// An empty list reads back as no list rather than as an empty one, because that is what a
-		// settings object with no second track holds and what a repair has to leave untouched:
-		// a draft that came back with an empty slice where it sent none would be a draft the repair
-		// changed without naming a field.
+		// No list rather than an empty one, because that is what a settings object with no second
+		// track holds and what a repair has to leave untouched: a draft coming back with an empty
+		// slice where it sent none is a draft the repair changed without naming a field.
 		return nil
 	}
 	out := make([]settings.AudioSource, 0, len(sources))
@@ -276,10 +263,10 @@ func toAudioSources(sources []*screensharev1.AudioSource) []settings.AudioSource
 
 // audioGain is the level one entry contributes, and unity for an entry nobody has set one on.
 //
-// Zero is a level rather than an absence - a source turned all the way down is silent - so the
-// field carries presence and this is what reads it.
-// An entry a reader creates by picking a kind on the growing row arrives with no gain at all,
-// and arriving silent is the one answer it must not have.
+// Zero is a level and not an absence, since a source turned all the way down is silent, so the
+// field carries presence and this reads it.
+// An entry a reader creates by picking a kind on the growing row arrives with no gain at all, and
+// arriving silent is the one answer it must not have.
 func audioGain(a *screensharev1.AudioSource) int {
 	if a.Gain == nil {
 		return settings.GainUnity

@@ -10,20 +10,13 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The viewer table is a row per reader the relay named, and every cell in it is a figure the relay stated
-/// about that reader.
-///
-/// It used to be a count and a sentence saying that the relay reported how many were connected and not who
-/// they were.
-/// That was true of what the backend read rather than of the relay: the path list carries a reader array, and
-/// the per-protocol connection lists carry the figures.
-/// These tests state a roster and assert that the rows came out of it - and, just as hard, that a figure the
-/// relay did not state comes out absent rather than as a zero, because a viewer nobody timed and a viewer
-/// with a perfect link are the two things this table may never confuse.
+/// A row per reader the relay named, and a cell per figure it stated about that reader.
+/// A figure the relay did not state reads as absent and never as a zero: a viewer nobody timed and a viewer
+/// with a perfect link are the two this table may not confuse.
 /// </summary>
 public sealed class ViewerRosterTests
 {
-    /// <summary>An SRT reader: the one leg the relay times a round trip and states a loss rate on.</summary>
+    /// <summary>SRT reader: the one leg the relay times and states a loss rate on.</summary>
     private static RelayReader Srt(string address, double rttMs, double lossPercent, ulong dropped = 0) => new()
     {
         Type = "srtConn",
@@ -40,7 +33,7 @@ public sealed class ViewerRosterTests
         FramesDiscarded = 0,
     };
 
-    /// <summary>An RTMP reader: bytes and the relay's own discards, and nothing about the line.</summary>
+    /// <summary>RTMP reader: bytes and the relay's own discards, nothing about the line.</summary>
     private static RelayReader Rtmp(string address, ulong discarded = 0) => new()
     {
         Type = "rtmpConn",
@@ -53,8 +46,8 @@ public sealed class ViewerRosterTests
     };
 
     /// <summary>
-    /// One snapshot as the session holds it: what the relay answered, and when this shell got it.
-    /// The second is the only clock a departure has, so a test that states one states a time.
+    /// One snapshot as the session holds it: the relay's answer, and when this shell took it.
+    /// The stamp is the only clock a departure has.
     /// </summary>
     private static RelayReading Reading(RelayStatus status, int second = 0)
         => new(status, new DateTimeOffset(2026, 8, 9, 22, 2, 0, TimeSpan.Zero).AddSeconds(second));
@@ -109,11 +102,11 @@ public sealed class ViewerRosterTests
 
         var row = Assert.Single(table.Rows);
 
-        // Nothing times an RTMP reader and nothing states its loss, so both read as unmeasured.
+        // Nothing times an RTMP reader and nothing states its loss.
         Assert.Equal(Figure.NoValue, row.Rtt);
         Assert.Equal(Figure.NoValue, row.Loss);
 
-        // What it does count is a measurement, and a measured zero prints as one.
+        // A measured zero is a measurement, and prints as one.
         Assert.Equal("0", row.Dropped);
         Assert.Equal("rtmp", row.Via);
         Assert.False(row.IsStruggling);
@@ -122,8 +115,7 @@ public sealed class ViewerRosterTests
     [Fact]
     public void AReaderTheRelayDescribedNowhereIsStillNamed()
     {
-        // Every figure absent: the path named this reader and the per-protocol list did not answer, which is
-        // what a relay with that listener switched off produces.
+        // The path named this reader and no per-protocol list answered: a relay with that listener off.
         var unmeasured = new RelayReader { Type = "moqSession", Id = "5c1f", Transport = "moq" };
 
         var table = Table(Serving(unmeasured));
@@ -139,8 +131,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A relay that named a reader nothing at all is an environment condition, not a bug in this code.
-    /// The row renders as an unnameable viewer, which still says somebody is connected.
+    /// A relay that named a reader nothing is an Umgebungsfehler, so the row renders unnameable rather than
+    /// asserting: somebody is connected either way.
     /// </summary>
     [Fact]
     public void AReaderTheRelayNamedNothingStillRenders()
@@ -159,10 +151,10 @@ public sealed class ViewerRosterTests
     {
         var table = Table(Serving(
             Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0.1),      // healthy
-            Srt("10.0.0.2:2", rttMs: 20, lossPercent: 7.5),      // loss over its limit
-            Srt("10.0.0.3:3", rttMs: 480, lossPercent: 0),       // round trip over its limit
-            Srt("10.0.0.4:4", rttMs: 20, lossPercent: 0, 12),    // dropped anything at all
-            Rtmp("10.0.0.5:5")));                                // untimed, and so never struggling
+            Srt("10.0.0.2:2", rttMs: 20, lossPercent: 7.5),      // loss past its limit
+            Srt("10.0.0.3:3", rttMs: 480, lossPercent: 0),       // round trip past its limit
+            Srt("10.0.0.4:4", rttMs: 20, lossPercent: 0, 12),    // dropped at all
+            Rtmp("10.0.0.5:5")));                                // untimed, so never struggling
 
         Assert.Equal(5, table.Rows.Count);
         Assert.Equal(3, table.StrugglingCount);
@@ -185,9 +177,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The property the whole table hangs on: a roster pushed again unchanged does not repaint.
-    /// The relay is polled while the reader has the pointer over the card, and a clear-and-fill on every poll
-    /// would reset the scroll position of a table nothing had happened to.
+    /// The relay is polled while the pointer is over the card, and a clear-and-fill on every poll would reset
+    /// the scroll position of a table nothing happened to.
     /// </summary>
     [Fact]
     public void AnUnchangedRosterRenderedAgainTouchesNothing()
@@ -198,7 +189,7 @@ public sealed class ViewerRosterTests
         var changes = 0;
         ((INotifyCollectionChanged)table.Rows).CollectionChanged += (_, _) => changes++;
 
-        // The same roster read a second time, through the same path the render pass reads it by.
+        // The same roster again, through the path the render pass reads it by.
         table.Reported = BroadcastSnapshot.PathOf(relay, "desk")!.ReaderRoster.Select(ViewerRow.Of).ToList();
         table.Apply();
         table.Apply();
@@ -220,8 +211,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The header's round trip and loss are one viewer's and the worst one's.
-    /// A mean would be a figure nobody is experiencing, and would average a single struggling viewer away.
+    /// The header's round trip and loss are the worst viewer's own.
+    /// A mean is a figure nobody is experiencing, and averages a single struggling viewer away.
     /// </summary>
     [Fact]
     public void TheHeaderPromotesTheWorstViewersFigures()
@@ -245,9 +236,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A stream whose viewers are all on legs the relay does not time has viewers and no latency.
-    /// That is not the same as a stream nobody is watching, and the header says so by showing a viewer count
-    /// beside two absences.
+    /// Viewers on legs nothing times are not a stream nobody is watching, and the header says which by
+    /// showing a viewer count beside two absences.
     /// </summary>
     [Fact]
     public void ViewersOnAnUntimedLegLeaveTheLatencyFiguresAbsent()
@@ -260,11 +250,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// Which legs a stream is watched over is one fact, read off the roster where every other relay figure on
-    /// this screen is read.
-    /// Distinct and in the order the roster names them, because what it is for is being read as prose; and a
-    /// reader the relay named no protocol for takes no part, so the sentence naming the legs has no gap in
-    /// it.
+    /// Distinct and in the order the roster names them, since the value is read as prose.
+    /// A reader the relay named no protocol for takes no part, so the sentence has no gap in it.
     /// </summary>
     [Fact]
     public void TheLegsAreTheDistinctTransportsOnTheRoster()
@@ -282,10 +269,10 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A promoted figure that reads as unmeasured carries why, where the reason is one the publisher can act
-    /// on: viewers, and none of them on a leg the relay times.
-    /// A measured figure carries none, and neither does a stream nobody is watching - the viewer count beside
-    /// it has already said that.
+    /// An unmeasured promoted figure carries why, where the reason is one a publisher can act on: viewers,
+    /// none of them on a leg the relay times.
+    /// A measured figure carries none.
+    /// Neither does a stream nobody is watching, where the viewer count beside it has said that.
     /// </summary>
     [Fact]
     public void AnAbsentLatencyFigureCarriesTheReasonItIsAbsent()
@@ -299,9 +286,8 @@ public sealed class ViewerRosterTests
         Assert.EndsWith("watched over rtmp", untimed.Figures[2].Note);
         Assert.EndsWith("watched over rtmp", untimed.Figures[3].Note);
 
-        // Only the two figures the reason is about.
-        // A note on the throughput beside them would be a sentence about a leg that has nothing to do with
-        // it.
+        // Only the two figures the reason is about: a note on the throughput would be about a leg it does not
+        // concern.
         Assert.Null(untimed.Figures[0].Note);
         Assert.Null(untimed.Figures[1].Note);
         Assert.Null(untimed.Figures[4].Note);
@@ -319,11 +305,7 @@ public sealed class ViewerRosterTests
         Assert.Null(unwatched.Figures[3].Note);
     }
 
-    /// <summary>
-    /// The latency plot is the relay snapshots' own shape, the same way the egress plot is the encoder
-    /// samples'.
-    /// Two snapshots make a curve; one is a reading and not a shape.
-    /// </summary>
+    /// <summary>Two snapshots make a curve; one is a reading and not a shape.</summary>
     [Fact]
     public void TheLatencyCurvesAreDrawnFromTheRelaySnapshots()
     {
@@ -345,7 +327,7 @@ public sealed class ViewerRosterTests
         Assert.Equal(3, plots.Loss.Count);
         Assert.Equal("", plots.LatencyNotice);
 
-        // Y grows downward, so the highest round trip is the smallest Y of the three.
+        // Y grows downward, so the highest round trip has the smallest Y.
         Assert.True(plots.Rtt[1].Y < plots.Rtt[0].Y);
         Assert.True(plots.Rtt[1].Y < plots.Rtt[2].Y);
     }
@@ -365,9 +347,8 @@ public sealed class ViewerRosterTests
         Assert.False(unwatched.HasLatency);
         Assert.Equal("nobody is watching yet", unwatched.LatencyNotice);
 
-        // Viewers, and none of them on the one leg the relay times.
-        // The sentence names the legs they are actually on: "no viewer is on a leg the relay times" is true
-        // and leaves a publisher with nothing to change.
+        // Viewers, none of them on a timed leg.
+        // The sentence names the legs they are on, which is the half a publisher can act on.
         var untimed = new PlotsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
@@ -377,9 +358,8 @@ public sealed class ViewerRosterTests
         Assert.Contains("srt", untimed.LatencyNotice);
         Assert.EndsWith("watched over rtmp", untimed.LatencyNotice);
 
-        // Timed once.
-        // There is a measurement and no shape yet, and saying that nobody is timed here would contradict the
-        // figure the header is showing from the same snapshot.
+        // Timed once: a measurement and no shape yet.
+        // "Nobody is timed" would contradict the figure the header shows off the same snapshot.
         var once = Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0));
         var starting = new PlotsViewModel
         {
@@ -392,10 +372,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// The latency axis ends at the newest snapshot rather than at the newest one that timed somebody, so
-    /// readings that fell out of the window leave the plot.
-    /// Without that, a stream whose SRT viewer left an hour ago would go on drawing that viewer's round trip
-    /// beside a header saying nobody is timed.
+    /// The axis ends at the newest snapshot rather than at the newest one that timed somebody, so a reading
+    /// out of the window leaves the plot instead of being drawn beside a header saying nobody is timed.
     /// </summary>
     [Fact]
     public void ACurveOfReadingsOlderThanTheWindowLeavesThePlot()
@@ -421,9 +399,8 @@ public sealed class ViewerRosterTests
 
     /// <summary>
     /// Nothing announces a viewer.
-    /// The relay reports who is connected at each poll, so who arrived and who left is the difference between
-    /// two of those answers and exists nowhere else - which is why the session log derives it from the series
-    /// rather than being told.
+    /// The relay reports who is connected at each poll, so who arrived and who left exists only as the
+    /// difference between two of those answers.
     /// </summary>
     [Fact]
     public void ArrivingAndLeavingAreTheDifferenceBetweenTwoRosters()
@@ -441,8 +418,7 @@ public sealed class ViewerRosterTests
 
         Assert.Equal(3, changes.Count);
 
-        // The first roster's readers are arrivals: they are watching, and the join time they carry is the
-        // relay's own rather than the poll that found them.
+        // The first roster's readers are arrivals, stamped with the relay's join time rather than the poll's.
         Assert.True(changes[0].Arrived);
         Assert.Equal("10.0.0.1:1", changes[0].Name);
         Assert.Equal("srt", changes[0].Via);
@@ -451,8 +427,7 @@ public sealed class ViewerRosterTests
         Assert.True(changes[1].Arrived);
         Assert.Equal("10.0.0.2:2", changes[1].Name);
 
-        // A departure has no stamp of its own anywhere, so it is dated by the poll that first did not name
-        // the reader.
+        // A departure has no stamp anywhere, so it is dated by the poll that first did not name the reader.
         Assert.False(changes[2].Arrived);
         Assert.Equal("10.0.0.1:1", changes[2].Name);
         Assert.Equal("srt", changes[2].Via);
@@ -466,8 +441,8 @@ public sealed class ViewerRosterTests
 
     /// <summary>
     /// A poll that named no path for this stream says nothing about who is watching.
-    /// Reading it as an empty roster would put a departure in the log for every viewer each time the relay
-    /// was unreachable, and an arrival for every one of them on the poll after.
+    /// Read as an empty roster it would log a departure for every viewer each time the relay was unreachable,
+    /// and an arrival for every one of them on the poll after.
     /// </summary>
     [Fact]
     public void APollThatSawNoPathIsNotEverybodyLeaving()
@@ -487,8 +462,8 @@ public sealed class ViewerRosterTests
     }
 
     /// <summary>
-    /// A stream nothing is publishing has no path to read a roster off, so it produces no lines at all -
-    /// rather than every reader of a path that happens to carry the empty name.
+    /// A stream nothing is publishing has no path to read a roster off, so it produces no lines rather than
+    /// the readers of a path that happens to carry the empty name.
     /// </summary>
     [Fact]
     public void AStreamWithNoNameHasNoAudience()

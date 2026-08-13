@@ -8,50 +8,41 @@ using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 namespace ScreenShare.App.Features.Viewer.Tile.View;
 
 /// <summary>
-/// The keys a tile answers to, as the one table the menu row and the press both read.
+/// Keys a tile answers, as the one table a menu row and a press both read.
 ///
-/// A gesture written into the markup and a switch over <see cref="Key"/> beside it would be two answers to
-/// what F does, and the menu would go on printing the older one for as long as nobody compared them.
-/// The row takes its gesture from here and so does the press that acts on it.
+/// A gesture in the markup with a switch over <see cref="Key"/> beside it would be two answers to what F
+/// does, and the menu would keep printing the stale one until somebody compared them.
 ///
-/// Every row of the menu carries a key but one: the three arrangements, the mute, the stats overlay, and the
-/// pair that moves the volume.
-/// Tone mapping is the exception, because it rebuilds the decode and the tile goes dark for as long as that
-/// takes, which is not something a resting pointer should be able to do with one letter.
+/// Each key names a state, so pressing it twice is a round trip.
+/// The tone-map row carries none: it rebuilds the decode and blanks the tile for as long as that takes, which
+/// is too much for one letter under a resting pointer.
 /// </summary>
 public static class TileKeys
 {
-    /// <summary>Focuses the tile, or gives up focus when it already has it.</summary>
     public static KeyGesture Focus { get; } = new(Key.O);
 
-    /// <summary>Draws the stream in a window of its own, or returns it to the grid.</summary>
     public static KeyGesture PopOut { get; } = new(Key.P);
 
-    /// <summary>Fills a screen with the stream, or gives the screen back.</summary>
     public static KeyGesture Fullscreen { get; } = new(Key.F);
 
-    /// <summary>Silences the decode, or unsilences it at the volume that was chosen.</summary>
     public static KeyGesture Mute { get; } = new(Key.M);
 
-    /// <summary>Draws the figures over the tile, or stops.</summary>
     public static KeyGesture Stats { get; } = new(Key.S);
 
     /// <summary>
-    /// Plays the decode one step louder.
-    /// A gesture resolves the numeric keypad's own operator onto this key, so both plus keys land here.
+    /// One step up.
+    /// The gesture folds the numeric keypad's own operator onto this key, so either plus arrives here.
     /// </summary>
     public static KeyGesture Louder { get; } = new(Key.OemPlus);
 
-    /// <summary>Plays it one step quieter.</summary>
     public static KeyGesture Quieter { get; } = new(Key.OemMinus);
 
     /// <summary>
-    /// The same key on a layout that prints + over =, where the character costs a Shift.
+    /// The same key where the layout prints + above =, so the character costs a Shift.
     ///
-    /// A gesture carries its modifiers, so a shifted press is a different gesture rather than the same one
-    /// held differently, and without this entry + would raise the volume on a German keyboard and do nothing
-    /// on an American one.
-    /// It is not printed anywhere: the menu names the key, and the key is the one <see cref="Louder"/> names.
+    /// Modifiers are part of a gesture, making a shifted press a different gesture rather than the same one
+    /// held differently: without this entry + works on a German keyboard and does nothing on an American one.
+    /// Printed nowhere, since the menu shows the key <see cref="Louder"/> names.
     /// </summary>
     private static readonly KeyGesture ShiftedLouder = new(Key.OemPlus, KeyModifiers.Shift);
 
@@ -68,11 +59,11 @@ public static class TileKeys
     ];
 
     /// <summary>
-    /// What a press asks of this tile, and null for a key that is none of these.
+    /// The command a press asks for, null for a key none of these name.
     ///
-    /// The gesture decides, so a held modifier is a different gesture and matches nothing here beyond the one
-    /// entry that states its own: Ctrl+F belongs to whatever else claims it and never to a tile.
-    /// Whether the tile can answer is the command's own question, asked where the press is acted on.
+    /// Matching is by gesture, so a held modifier is a different gesture and misses everything but the entry
+    /// carrying its own: Ctrl+F goes to whoever else claims it and never to a tile.
+    /// Whether the tile can answer is the command's question, asked where the press is acted on.
     /// </summary>
     public static ICommand? Command(TileViewModel tile, KeyEventArgs press)
     {

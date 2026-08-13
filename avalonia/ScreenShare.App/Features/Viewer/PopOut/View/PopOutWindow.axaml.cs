@@ -8,14 +8,13 @@ using ScreenShare.App.Features.Viewer.Tile.ViewModel;
 namespace ScreenShare.App.Features.Viewer.PopOut.View;
 
 /// <summary>
-/// The window one popped-out stream is drawn in.
+/// One stream, in a window of its own.
 ///
-/// <b>Its fullscreen is its own.</b> The main window's fullscreen names a stream; this window's is a property
-/// of the window, so a reader can put one stream on one monitor and another on a second and fill both.
-/// That is the whole reason fullscreen is not a member of the layout mode.
+/// Fullscreen here is a property of this window, where the main window's fullscreen names a stream, so one
+/// stream fills one monitor while another fills a second.
+/// That is why fullscreen is no member of <c>LayoutMode</c>.
 ///
-/// Closing it returns the stream to its slot in the grid and never stops the decode.
-/// Stopping is the rail's toggle and means something a reader would have to undo differently.
+/// Closing returns the stream to its slot in the grid and stops no decode: stopping is the rail's toggle.
 /// </summary>
 public partial class PopOutWindow : Window
 {
@@ -32,18 +31,18 @@ public partial class PopOutWindow : Window
         DataContext = tile;
         _tile = tile;
 
-        // The window opens at the stream's own shape rather than at a fixed rectangle, so a 21:9 capture does
-        // not arrive letterboxed into a 16:9 window nobody asked for.
+        // Opened at the stream's own shape, so a 21:9 capture does not arrive letterboxed into a 16:9 window
+        // nobody asked for.
         Height = Math.Round(Width / tile.Aspect) + 1;
     }
 
     private readonly TileViewModel? _tile;
 
     /// <summary>
-    /// Takes this window out of the captures this machine produces, on the same terms as the main one
+    /// Keeps this window out of the captures this machine takes, on the main window's terms
     /// (<c>Features/Shell/Model/CaptureExclusion.cs</c>).
-    /// A popped-out stream is a window drawing a capture of the screen it is on, which is where the picture
-    /// would otherwise nest a copy of itself on every round trip.
+    /// A window drawing a decode of the screen it sits on otherwise nests one more copy of itself in the
+    /// picture on every round trip.
     /// </summary>
     protected override void OnOpened(EventArgs e)
     {
@@ -53,23 +52,20 @@ public partial class PopOutWindow : Window
     }
 
     /// <summary>
-    /// The state this window is to be given back when it stops filling a screen, and none while nothing has
-    /// filled it.
+    /// State to give this window back when it stops filling a screen, and null while nothing has filled it.
     ///
-    /// It is remembered rather than assumed, because a window that was maximised before the stream filled it
-    /// would otherwise come back as a normal one - a state the reader never asked for.
-    /// It is also what leaves a fullscreen alone that this app did not ask for: a desktop can fill a window
-    /// itself, and a pass that read the window state as its own would take that back.
+    /// Remembered rather than assumed, so a window that was maximised does not come back as a normal one.
+    /// Null is also what leaves a fullscreen this app did not ask for alone: a desktop can fill a window
+    /// itself, and a pass reading the window state as its own would take that back.
     /// </summary>
     private WindowState? _restore;
 
     /// <summary>
-    /// Puts this window fullscreen, or gives it back the state it was in.
+    /// Fills a screen with this window, or gives it back the state it was in.
     ///
-    /// Written by the pass that reconciles windows against the arrangement, and idempotent like the rest of
-    /// it: asking for the state the window is already in changes nothing.
-    /// Which monitor it fills is not decided here - a fullscreen window fills the screen it is already on, so
-    /// the reader places the window and fullscreen follows.
+    /// Called by the pass reconciling windows against the arrangement, and idempotent like the rest of it:
+    /// asking for the state the window is already in changes nothing.
+    /// Which monitor is filled is not decided here, a fullscreen window filling the screen it is already on.
     /// </summary>
     public void SetFullscreen(bool fullscreen)
     {
@@ -94,7 +90,8 @@ public partial class PopOutWindow : Window
         WindowState = restore;
     }
 
-    /// <summary>The stream this window draws, so a reconciling pass can tell its windows apart.</summary>
+    /// <summary>Stream this window draws, and empty on the parameterless constructor the XAML loader
+    /// uses.</summary>
     public string Stream => _tile?.Name ?? "";
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);

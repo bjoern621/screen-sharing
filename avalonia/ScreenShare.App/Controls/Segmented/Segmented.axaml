@@ -2,16 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The segmented control. Used for the three destinations in the nav strip, and again for
-    any short closed set where every option should stay on screen.
-
-    It is a ListBox theme rather than a control of its own because selection, keyboard
-    traversal and item recycling are exactly what a ListBox already is. What the design
-    changes is only the skin.
-
-    The unavailable state is a disabled item, and the whole treatment is a colour change:
-    no opacity, no strike, no badge. Dimming rather than hiding is deliberate - an expert
-    tool should teach its own shape, and a missing destination reads as a bug.
+    A ListBox theme and not a control of its own: selection, keyboard traversal and item recycling
+    are what a ListBox already is, and the design changes only the skin.
   -->
 
   <ControlTheme x:Key="SegmentedControlTheme" TargetType="ListBox">
@@ -45,10 +37,9 @@
     <Setter Property="FontSize" Value="{StaticResource FontSizeBody}" />
     <Setter Property="FontWeight" Value="Medium" />
     <!--
-      Horizontal padding only. The segment is as tall as the track it sits in minus the
-      track's own 2px inset, and the label is centred in whatever that leaves; a vertical
-      pad on top of that is a second, competing statement about where the text sits, and
-      when the two disagree the label rides high inside its pill.
+      Horizontal only.
+      A vertical pad is a second statement about where the label sits, against the centring the
+      track's 2px inset already fixes, and the label rides high in its pill when the two disagree.
     -->
     <Setter Property="Padding" Value="12,0" />
     <Setter Property="CornerRadius" Value="{StaticResource RadiusSegment}" />
@@ -71,7 +62,6 @@
       <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
     </Style>
 
-    <!-- The one light surface in the strip. -->
     <Style Selector="^:selected /template/ Border#Root">
       <Setter Property="Background" Value="{StaticResource SelectedBrush}" />
     </Style>
@@ -80,7 +70,7 @@
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!-- Unavailable. A colour change, and nothing else. -->
+    <!-- Unavailable dims rather than disappears: a missing destination reads as a bug. -->
     <Style Selector="^:disabled">
       <Setter Property="Foreground" Value="{StaticResource DisabledBrush}" />
       <Setter Property="Cursor" Value="Arrow" />

@@ -1,42 +1,27 @@
 namespace ScreenShare.App.Copy;
 
 /// <summary>
-/// One figure of the stats panel: what it is called, and what a reader is meant to do with it.
-///
-/// A label with no tip is a number nobody can act on, so both are one entry and neither is written without
-/// the other.
+/// One figure of the stats panel.
+/// A label with no tip is a number nobody can act on, so the two are one entry and neither is written alone.
 /// </summary>
-/// <param name="Label">The name of the figure, as the row prints it.</param> <param name="Tip">What the
-/// figure means and what a reading of it is evidence of.
-/// It never restates the unit already printed beside it (<c>docs/tooltips.md</c>).</param>
+/// <param name="Label">The name of the figure, as the row prints it.</param>
+/// <param name="Tip">
+/// What a reading of the figure is evidence of, never a restatement of the unit printed beside it
+/// (<c>docs/tooltips.md</c>).
+/// </param>
 public readonly record struct Counter(string Label, string Tip);
 
 /// <summary>
 /// Every word of the stats panel: its headings, its rows, and the counters the transport's own elements keep.
 ///
-/// <b>It is keyed on the identifiers the two sides share.</b> The backend sends a decode's sample under the
-/// contract's field names and an element's counters under the element's own, and neither of them is a word
-/// for a reader (<c>api/proto/screenshare/v1/text.proto</c>).
-/// This is the table that turns them into one, in the same shape and for the same reason <see cref="Words"/>
-/// turns a codec identifier into a name.
-///
-/// <b>An entry that is missing renders as the key.</b> That is the fallback every table here takes, and it is
-/// what gets the entry written: a counter this build has no words for is still a counter the backend will
-/// send, and a reader shown "rtx-success-count" can search for it, where a reader shown nothing has lost the
-/// row.
-///
-/// The transport rows are the ones worth reading twice.
-/// Which of them a decode reports follows from the leg it was opened on - SRT counts a link, RTSP counts a
-/// jitterbuffer per track - so a reader comparing two legs of one stream is comparing two different sets of
-/// evidence about the same question.
+/// Keyed on the identifiers the two sides share: the contract's field names for a decode's sample, and an
+/// element's own names for its counters (<c>api/proto/screenshare/v1/text.proto</c>).
+/// Which transport rows a decode reports follows from the leg it was opened on, SRT counting a link and RTSP
+/// a jitter buffer per track, so two legs of one stream carry two different sets of evidence.
 /// </summary>
 public static class Counters
 {
-    /// <summary>
-    /// The panel's headings.
-    /// Each names a stage of the pipeline in the order the frames pass through it, because the panel is read
-    /// top to bottom when a stream looks wrong and the first stage that reads badly is the one to act on.
-    /// </summary>
+    /// <summary>The panel's headings, in the order frames pass through the stages they name.</summary>
     private static readonly Dictionary<string, Counter> Headings = new()
     {
         ["section.stream"] = new(
@@ -63,9 +48,8 @@ public static class Counters
     };
 
     /// <summary>
-    /// What each element of the transport is, for the heading of its block.
-    /// An element's pipeline name is not a description of it, and the counters underneath mean different
-    /// things depending on which of these is keeping them.
+    /// What each element of the transport is, keyed on its factory name.
+    /// The counters under a block mean different things depending on which element keeps them.
     /// </summary>
     private static readonly Dictionary<string, Counter> Elements = new()
     {
@@ -78,12 +62,12 @@ public static class Counters
     };
 
     /// <summary>
-    /// Every row of the panel, keyed by the contract field it prints or, for the transport blocks, by the
-    /// element's own name for the counter.
+    /// Every row, keyed on the contract field it prints or, in a transport block, on the element's own name
+    /// for the counter.
     /// </summary>
     private static readonly Dictionary<string, Counter> Fields = new()
     {
-        // What arrives.
+        // section.stream
         ["codec_description"] = new(
             "Codec",
             "The coding format the publisher encoded in, as the decoder identifies it. It is what the stream is, not what this machine asked for: the publisher chooses it and every viewer receives the same one."),
@@ -112,7 +96,7 @@ public static class Counters
             "Video received",
             "Everything this decode has taken in since it opened. It is the running total behind the bitrate, and the figure a data cap is measured against."),
 
-        // The decoded picture.
+        // section.picture
         ["picture_size"] = new(
             "Size",
             "The picture as the publisher encoded it. It is the stream's own size rather than the tile's: what this window draws is further down, under Render."),
@@ -141,7 +125,7 @@ public static class Counters
             "Interlacing",
             "Whether the picture arrives as whole frames or as fields. A screen capture is progressive; anything else here came from a camera or a broadcast chain."),
 
-        // Decode.
+        // section.decode
         ["decoder"] = new(
             "Decoder",
             "The element that decoded this stream, picked by the pipeline rather than chosen here. Which one is picked follows from what this machine registers, so two machines watching one stream can be running different decoders."),
@@ -152,7 +136,7 @@ public static class Counters
             "Tone mapping",
             "Whether this decode was built with the step that rolls an HDR stream down into the range this display shows. It is what ran rather than what was asked for: a machine with no element for it builds the pipeline without one."),
 
-        // Render.
+        // section.render
         ["chain"] = new(
             "Render chain",
             "The elements between the decoder and this window, and what they promise about colour. A chain states its colour or leaves it to the driver, and one that leaves it is why two machines can draw one stream at different brightness."),
@@ -175,7 +159,7 @@ public static class Counters
             "Dropped by the sink",
             "Frames the sink threw away for arriving after their play time. This is the pipeline being late rather than the network losing anything, and it climbs on a machine that cannot decode the stream in real time."),
 
-        // Timing.
+        // section.timing
         ["live"] = new(
             "Live pipeline",
             "Whether the pipeline is running against a clock it cannot pause. Every relay leg is: what it cannot decode in time it drops, rather than falling behind and catching up later."),
@@ -189,7 +173,7 @@ public static class Counters
             "Uptime",
             "How long this decode has been running. It restarts whenever the pipeline is rebuilt, which turning tone mapping on does."),
 
-        // Audio.
+        // section.audio
         ["audio_codec_description"] = new(
             "Codec",
             "The coding format the sound track is in, as the decoder identifies it."),
@@ -212,7 +196,7 @@ public static class Counters
             "Audio received",
             "Everything the sound track has taken in since this decode opened."),
 
-        // This window's own.
+        // section.window
         ["window.size"] = new(
             "Handed over at",
             "The size of the frames this window is being given. It is the sink's output as the window sees it, and it is what a marker drawn over the picture is positioned against."),
@@ -223,7 +207,7 @@ public static class Counters
             "Dropped waiting for this window",
             "Frames the backend discarded because this window was holding every slot of the pool it lends. It is the evidence that the drawing side is the slow half, and it is the one figure on this panel the backend cannot measure."),
 
-        // The SRT link.
+        // srtsrc
         ["packets-received"] = new(
             "Packets",
             "Everything that arrived on the link, retransmits included. It is the denominator the three counters under it are read against."),
@@ -249,7 +233,7 @@ public static class Counters
             "Buffer",
             "The delay the two ends agreed to hold packets for, which is how long SRT has to notice a gap and fill it. The relay enforces a floor on this, so asking for less than the floor changes nothing."),
 
-        // The RTP jitter buffer.
+        // rtpjitterbuffer
         ["num-pushed"] = new(
             "Pushed",
             "Packets handed on to the decoder in the right order, which is the buffer doing its job."),
@@ -270,21 +254,16 @@ public static class Counters
             "How many of those requests arrived in time to be used. The difference between this and the count above is the recovery that did not make it."),
     };
 
-    /// <summary>The heading of one block of the panel.</summary>
     public static Counter Heading(string id) => Look(Headings, id);
 
-    /// <summary>What one element of the transport is, for the heading of its block.</summary>
     public static Counter Element(string factory) => Look(Elements, factory);
 
-    /// <summary>What one row of the panel is called and what it means.</summary>
     public static Counter Field(string key) => Look(Fields, key);
 
     /// <summary>
     /// The entry for an identifier, falling back to the identifier itself with nothing said about it.
-    ///
-    /// The fallback is the honest answer rather than a guard, for the reason <see cref="Words"/> takes the
-    /// same one: a counter this build has no words for is still a counter the backend sends, and a row
-    /// printing its raw key is one a reader can search for and report.
+    /// A counter this build has no words for is still one the backend sends, and a row printing its raw key
+    /// is one a reader can search for and report.
     /// </summary>
     private static Counter Look(Dictionary<string, Counter> table, string id) =>
         id.Length > 0 && table.TryGetValue(id, out var entry) ? entry : new Counter(id, "");

@@ -9,9 +9,8 @@
 
   <UserControl.Styles>
     <!--
-      Preview overlay text. Every part of it is a machine's answer and most of it counts,
-      so it takes tabular figures; the resolution and the frame rate then hold still over
-      moving video instead of jittering with each redraw.
+      Tabular figures: the resolution and the frame rate then hold still over moving video
+      instead of shifting width with each redraw.
     -->
     <Style Selector="TextBlock.overlay">
       <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
@@ -27,27 +26,12 @@
 
   <StackPanel Spacing="7">
 
-    <!-- 16:9 at the left column's fixed 396px. Avalonia has no aspect ratio, so it is stated. -->
+    <!-- 16:9 at the left column's fixed 396px. Avalonia carries no aspect ratio, so it is stated. -->
     <Border Classes="tile" Height="223">
       <Panel>
 
-        <!--
-          The picture, drawn from the GPU memory the backend decoded this machine's own stream
-          into - from a copy the publish child makes on loopback, so no part of it crossed the
-          relay. A composition surface rather than a native child window, which is what lets the
-          badge and the figure strip stay over it: a native window would draw above every
-          Avalonia control (avalonia/README.md, "What is not settled yet").
-
-          It is the viewer's tile control and not a second one. A tile is a source, a
-          subscription and what the window did with it, and this card is one of those.
-        -->
         <tiles:StreamTile Source="{Binding Tile}" />
 
-        <!--
-          Why the tile is dark, when it is. The sentence names which of the states it is -
-          nothing publishing, no leg named, the relay not carrying the path yet, the decode
-          asked for, or the tile's own reason once there is one.
-        -->
         <TextBlock Classes="disabled"
                    FontSize="{StaticResource FontSizeBody}"
                    Text="{Binding Placeholder}"
@@ -58,15 +42,6 @@
                    VerticalAlignment="Center"
                    Margin="24" />
 
-        <!--
-          The inset red edge and the badge both say the same thing: this picture is going out
-          right now. They carry the same red and the same word as the pill in the header, which
-          is the whole of the vocabulary this product has for the state
-          (docs/design-language.md, "Status language").
-
-          The badge said "Program" before, and then "On air". Both are what a control room calls
-          the feed going out, and a reader of a screen-sharing app has no reason to know either.
-        -->
         <Border BorderBrush="{StaticResource AttentionBrush}"
                 BorderThickness="2"
                 CornerRadius="{StaticResource RadiusTile}"
@@ -83,13 +58,9 @@
         </Border>
 
         <!--
-          Where the pointer is, drawn rather than encoded. The publish sends the position beside
-          the picture instead of into it, so this is the one place the publisher can see what a
-          viewer would draw once a leg carries it (docs/capture-architecture.md, "The pointer").
-
-          A Canvas because the position is a fraction of the picture and the picture fills this
-          panel: the two offsets are computed against the rendered size, which is what makes the
-          marker land where the mouse is at any tile size.
+          The pointer travels beside the picture rather than in it, so no route's frames carry one
+          and the marker is drawn here (docs/capture-architecture.md, "The pointer"). The offsets
+          are in this card's own pixels.
         -->
         <Canvas IsVisible="{Binding HasPointer}" ClipToBounds="True">
           <Ellipse Width="14" Height="14"
@@ -101,17 +72,9 @@
         </Canvas>
 
         <!--
-          Stop the picture, or start it again. Opposite the sharing badge: the badge says what
-          the stream is doing and this says what the card is doing, and a reader must not read
-          one for the other - which is also why the control carries no red.
-
-          Over the picture rather than under the route toggle, because it acts on the picture
-          and because it has to stay reachable on a card that is drawing nothing: a stopped
-          preview is a dark tile with a sentence in the middle of it, and the way back has to be
-          in the same place it was pressed.
-
-          The plate behind it is the figure strip's, for the same reason: a glyph alone sits on
-          whatever the stream happens to be showing.
+          Over the picture, so the way back stays where it was pressed on a card drawing nothing.
+          No red on it: the badge opposite says what the stream is doing, and this says what the
+          card is doing.
         -->
         <Panel Margin="8" HorizontalAlignment="Right" VerticalAlignment="Top">
           <Border Background="{StaticResource TileBrush}"
@@ -125,25 +88,18 @@
         </Panel>
 
         <Panel Margin="8" VerticalAlignment="Bottom">
-          <!-- Opacity on a bare fill, so the text over it keeps its own contrast. -->
           <Border Background="{StaticResource TileBrush}"
                   Opacity="0.62"
                   CornerRadius="{StaticResource RadiusControl}" />
           <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="9,5">
             <TextBlock Grid.Column="0" Classes="overlay" Text="{Binding Encoded}" />
             <TextBlock Grid.Column="1" Classes="overlay" Text="{Binding Quality}" Margin="9,0,0,0" />
-            <!--
-              The protocol the picture crossed, on the route that crossed one. It belongs over
-              the picture rather than in the sentence below because it is a machine's answer
-              about this frame - the leg the decode was actually opened on - and the sentence
-              states what the route is.
-            -->
             <TextBlock Grid.Column="2"
                        Classes="overlay"
                        Text="{Binding Leg}"
                        IsVisible="{Binding HasLeg}"
                        Margin="9,0,0,0" />
-            <!-- A level meter, not a chart: five bars that say the encoder is moving. -->
+            <!-- Fixed heights. Decoration in the shape of a meter, with no reading behind it. -->
             <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
               <Rectangle Classes="meter" Height="3.85" Fill="{StaticResource MutedBrush}" />
               <Rectangle Classes="meter" Height="6.6" Fill="{StaticResource SecondaryBrush}" />
@@ -157,16 +113,6 @@
       </Panel>
     </Border>
 
-    <!--
-      Which of the two pictures of this stream to draw. The line beside the track says what the
-      choice is, because two labels on their own teach nothing, and the sentence under it says
-      what the selected one costs.
-
-      The segmented control is the app's, unchanged: a short closed set where both options stay
-      on screen (Controls/Segmented/Segmented.axaml). Both segments are always live - a route
-      with nothing behind it draws its own reason rather than being taken away, which is the
-      treatment every refused option in this app gets.
-    -->
     <Grid ColumnDefinitions="*,Auto">
       <TextBlock Grid.Column="0"
                  Classes="hint"
@@ -184,9 +130,8 @@
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="model:PreviewRouteTab">
             <!--
-              Foreground and weight are read back off the container, for the reason the nav
-              strip's template reads them: the app states a Foreground on every TextBlock, so
-              plain inheritance would lose to it and both segments would come out one colour.
+              Read back off the container: the app states a Foreground on every TextBlock, so
+              plain inheritance loses to it and both segments come out one colour.
             -->
             <TextBlock Text="{Binding Label}"
                        Foreground="{Binding $parent[ListBoxItem].Foreground}"
@@ -196,12 +141,6 @@
       </ListBox>
     </Grid>
 
-    <!--
-      What the selected picture is and is not: where it was taken, what it costs, and the
-      question it cannot answer. It moves with the toggle, because the two routes make opposite
-      claims about the relay. The sentences are written in Copy/Cards.cs, like every other word
-      on screen.
-    -->
     <TextBlock Classes="hint" Text="{Binding Cost}" TextWrapping="Wrap" />
 
   </StackPanel>

@@ -16,20 +16,19 @@ import (
 
 // listing is the index request for one key.
 //
-// The key is escaped rather than pasted in, because a key is standard base64 and a '+' in a query
-// string decodes to a space: a little over half of all keys carry one, so an unescaped key reaches
-// the service corrupted and is refused about as often as not.
+// The key is escaped rather than pasted in: a key is standard base64 and a '+' in a query string
+// decodes to a space, so an unescaped key carrying one reaches the service corrupted.
 func listing(key group.Key) string {
 	return "/streams?group=" + url.QueryEscape(key.String())
 }
 
-// The service is three derivations and a bound, so what these hold is that each derivation answers
-// what the other side will compute, and that the one thing the service decides - who may see which
-// streams - is decided here rather than left to a caller to filter.
+// The service is three derivations and a bound.
+// These hold that each derivation answers what the other side computes, and that the one decision
+// the service makes, who may see which streams, is made here and not left to a caller to filter.
 
 // paths is a relay carrying these streams.
-// Every one of them is ready, since what an index answers about a path that is not is the same
-// question as what it answers about one of another group, and that one has its own tests.
+// All ready, because what an index answers about a path that is not is the same question as what it
+// answers about another group's, and that has its own test.
 type paths []string
 
 func (p paths) Paths() []Stream {
@@ -40,7 +39,7 @@ func (p paths) Paths() []Stream {
 	return out
 }
 
-// service is a service over a fresh signing key, with the relay carrying these streams.
+// service signs with a fresh key and reads a relay carrying these streams.
 func service(t *testing.T, streams ...string) *Service {
 	t.Helper()
 	signer, err := token.NewSigner()
@@ -50,7 +49,7 @@ func service(t *testing.T, streams ...string) *Service {
 	return New(signer, paths(streams))
 }
 
-// call makes one request and returns its status and body.
+// call makes one request and returns its status and decoded body.
 func call(t *testing.T, s *Service, method, target, body string) (int, map[string]any) {
 	t.Helper()
 	r := httptest.NewRequest(method, target, strings.NewReader(body))
@@ -65,8 +64,8 @@ func call(t *testing.T, s *Service, method, target, body string) (int, map[strin
 	return w.Code, answer
 }
 
-// A group is created by drawing a key, and the key is what the client keeps:
-// the id beside it is the prefix that key derives, so a client can check the two agree without
+// Creating a group draws a key, and the key is what the client keeps.
+// The id beside it is the prefix that key derives, so a client can check the two agree without
 // deriving anything itself.
 func TestCreatingAGroupHandsBackAKeyAndThePrefixItDerives(t *testing.T) {
 	s := service(t)
@@ -84,17 +83,16 @@ func TestCreatingAGroupHandsBackAKeyAndThePrefixItDerives(t *testing.T) {
 		t.Errorf("the service says the group is %v, where the key derives %s", body["id"], key.ID())
 	}
 
-	// Two creations are two groups.
-	// A service handing out one key would be one group everybody is in.
+	// Two creations are two groups: a service handing out one key is one group everybody is in.
 	_, second := call(t, s, "POST", "/groups", "")
 	if second["key"] == body["key"] {
 		t.Error("two creations handed back one key")
 	}
 }
 
-// A key is traded for a token granting that key's prefix and nothing else.
-// Nothing is looked up on the way: a caller holding a well-formed key is a member,
-// which is the whole model.
+// A key buys a token granting that key's prefix and nothing else.
+// Nothing is looked up on the way: a caller holding a well-formed key is a member, and that is the
+// whole model.
 func TestAKeyBuysATokenForItsOwnPrefix(t *testing.T) {
 	s := service(t)
 	key, err := group.NewKey()
@@ -114,14 +112,14 @@ func TestAKeyBuysATokenForItsOwnPrefix(t *testing.T) {
 	if strings.Count(signed, ".") != 2 {
 		t.Fatalf("the token is %q, which is not a JWT", signed)
 	}
-	// The grant reaches this group's prefix and is anchored at it, which is what keeps one group's
-	// token off every group whose id merely contains it.
+	// The grant is anchored at this group's prefix, which keeps the token off every group whose id
+	// merely contains it.
 	if !strings.Contains(claims(t, signed), "~^"+key.ID()) {
 		t.Errorf("the token grants %s, which does not name this group's prefix", claims(t, signed))
 	}
 }
 
-// claims is the token's payload as text, for an assertion about what it grants.
+// claims is a token's payload as text, for an assertion about what it grants.
 func claims(t *testing.T, signed string) string {
 	t.Helper()
 	parts := strings.Split(signed, ".")
@@ -136,8 +134,8 @@ func claims(t *testing.T, signed string) string {
 }
 
 // A key nothing produced buys nothing.
-// Deriving a prefix from it anyway would grant a token for a path nobody is publishing to,
-// which reads to the caller as a group that exists.
+// A prefix derived from one grants a token for a path nobody publishes to, which reads as a group
+// that exists.
 func TestAKeyTheServiceCannotReadBuysNothing(t *testing.T) {
 	s := service(t)
 	for _, body := range []string{``, `{}`, `{"key":"nonsense"}`, `{"key":"c2hvcnQ="}`} {
@@ -147,8 +145,8 @@ func TestAKeyTheServiceCannotReadBuysNothing(t *testing.T) {
 	}
 }
 
-// The index enforces the split rather than leaving a shell to filter: a caller with a key sees
-// their group, a caller without sees the public streams, and neither sees the other's.
+// The index enforces the split rather than leaving a shell to filter: a key sees its own group,
+// no key sees the public streams, and neither sees the other's.
 func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	mine, err := group.NewKey()
 	if err != nil {
@@ -170,7 +168,7 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 		t.Errorf("a member sees %v, want their own group's one stream", got)
 	}
 
-	// Without a key: the public streams, and neither group's.
+	// Without a key: the public streams and neither group's.
 	// A group's listing hides the public ones for the same reason it hides another group's.
 	_, public := call(t, s, "GET", "/streams", "")
 	if got := names(public); len(got) != 1 || got[0] != "demo" {
@@ -178,9 +176,9 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 	}
 }
 
-// names is the stream list off one answer.
-// A listing row carries what a viewer opens the stream with beside the name, so the name is read
-// out of the row rather than being the row.
+// names is the stream names off one answer.
+// A row carries what a viewer opens the stream with beside the name, so the name is read out of the
+// row rather than being it.
 func names(body map[string]any) []string {
 	var out []string
 	for _, v := range body["streams"].([]any) {
@@ -189,8 +187,8 @@ func names(body map[string]any) []string {
 	return out
 }
 
-// A path with no group belongs to no listing, and neither does one nested a segment deeper than a
-// group's own grant reaches.
+// A path with no group is in no listing, and neither is one nested a segment deeper than a group's
+// own grant reaches.
 func TestAPathOutsideAGroupIsInNoListing(t *testing.T) {
 	key, err := group.NewKey()
 	if err != nil {
@@ -204,7 +202,7 @@ func TestAPathOutsideAGroupIsInNoListing(t *testing.T) {
 	}
 }
 
-// Creation is open, so it is bounded: a script filling the relay with prefixes meets the bound
+// Creation is open, so it is bounded: a script filling the relay with prefixes meets the bound,
 // where a person creating groups all afternoon does not.
 func TestCreationIsBounded(t *testing.T) {
 	s := service(t)
@@ -217,7 +215,7 @@ func TestCreationIsBounded(t *testing.T) {
 		t.Errorf("creation past the bound answered %d, want a refusal", status)
 	}
 
-	// An hour later the bound has aged out, which is what makes it a rate and not a total.
+	// The bound ages out an hour on, which is what makes it a rate and not a total.
 	at := time.Now().Add(2 * time.Hour)
 	s.now = func() time.Time { return at }
 	if status, _ := call(t, s, "POST", "/groups", ""); status != http.StatusOK {
@@ -225,9 +223,9 @@ func TestCreationIsBounded(t *testing.T) {
 	}
 }
 
-// The relay fetches the key once and verifies every connection with it locally,
-// so nothing here is called per stream.
-// What it fetches is what signs the tokens.
+// The relay fetches the key once and verifies every connection locally, so nothing here runs per
+// stream.
+// What it fetches has to be what signs the tokens.
 func TestTheServicePublishesTheKeyItsTokensAreVerifiedWith(t *testing.T) {
 	s := service(t)
 
@@ -246,5 +244,5 @@ func TestTheServicePublishesTheKeyItsTokensAreVerifiedWith(t *testing.T) {
 	}
 }
 
-// base64Raw is how every segment of a token is spelled, for the test that reads one back.
+// base64Raw is how every token segment is spelled, for the test that reads one back.
 var base64Raw = base64.RawURLEncoding

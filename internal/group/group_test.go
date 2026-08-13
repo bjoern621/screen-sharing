@@ -5,13 +5,12 @@ import (
 	"testing"
 )
 
-// The derivation runs on both sides of the wire: a client computes the prefix it publishes under
-// and the service computes the prefix it grants a token for.
-// What these hold is that the two can only ever agree, and that what the derivation publishes says
-// nothing about the secret behind it.
+// Both sides of the wire run this derivation, the client for the prefix it publishes under and the
+// service for the prefix it grants a token on.
+// These hold that the two can only agree, and that what the derivation publishes says nothing about
+// the secret behind it.
 
-// mustKey draws a key and fails the test on the reason rather than carrying it into an assertion
-// about paths.
+// mustKey fails the test on a drawing failure rather than carrying it into a path assertion.
 func mustKey(t *testing.T) Key {
 	t.Helper()
 	key, err := NewKey()
@@ -21,17 +20,17 @@ func mustKey(t *testing.T) Key {
 	return key
 }
 
-// One key, one prefix, every time.
-// It is the whole contract between the two sides: a derivation that answered differently on two
-// calls would issue a member a token for a path nobody is publishing to.
+// One key, one prefix, every time: the whole contract between the two sides.
+// A derivation answering differently on two calls issues a member a token for a path nobody
+// publishes to.
 func TestOneKeyDerivesOnePrefix(t *testing.T) {
 	key := mustKey(t)
 	if key.ID() != key.ID() {
 		t.Error("one key derived two ids")
 	}
 
-	// The same key read back off its encoding derives the same prefix, which is the path the
-	// derivation actually takes: the client stores the encoding and the service is handed it.
+	// Through the encoding is the path the derivation takes in practice: the client stores it,
+	// the service is handed it.
 	same, err := ParseKey(key.String())
 	if err != nil {
 		t.Fatalf("reading back a key this package wrote: %v", err)
@@ -41,8 +40,7 @@ func TestOneKeyDerivesOnePrefix(t *testing.T) {
 	}
 }
 
-// Two keys are two groups.
-// Membership is possession, so two secrets landing on one prefix would be two groups watching each
+// Membership is possession, so two secrets landing on one prefix are two groups watching each
 // other's streams.
 func TestTwoKeysAreTwoGroups(t *testing.T) {
 	first, second := mustKey(t), mustKey(t)
@@ -51,9 +49,9 @@ func TestTwoKeysAreTwoGroups(t *testing.T) {
 	}
 }
 
-// The id is public - it is in every URL a member pastes - so it must say nothing about the key.
-// A digest of the key alone would make the two one value under a hash anyone can compute;
-// the keyed derivation under a label is what separates them.
+// The id is public, in every URL a member pastes, so it must say nothing about the key.
+// A digest of the key alone makes the two one value under a hash anyone can compute,
+// where the keyed derivation under a label separates them.
 func TestTheIdCarriesNothingOfTheKey(t *testing.T) {
 	key := mustKey(t)
 	id := key.ID()
@@ -61,8 +59,8 @@ func TestTheIdCarriesNothingOfTheKey(t *testing.T) {
 	if strings.Contains(key.String(), id) {
 		t.Error("the id appears inside the key's own encoding")
 	}
-	// Every character of the id is one the encoding produces, so a path carrying it needs no escaping
-	// and a member reading one aloud has no case to get wrong.
+	// The encoding's own alphabet, so a path carrying an id needs no escaping and a member reading one
+	// aloud has no case to get wrong.
 	for _, c := range id {
 		if !strings.ContainsRune("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", c) {
 			t.Errorf("the id carries %q, which is outside the alphabet a path takes unescaped", c)
@@ -73,10 +71,9 @@ func TestTheIdCarriesNothingOfTheKey(t *testing.T) {
 	}
 }
 
-// A path is the group's id, a slash and the stream's own name, and it reads back into exactly those
-// two.
-// The relay's permissions match on the prefix, so the separator is what makes one group's grant
-// stop at its own streams.
+// A path is id, slash and the stream's own name, and reads back into those two.
+// Relay permissions match on the prefix, so the separator stops one group's grant at its own
+// streams.
 func TestAPathIsTheGroupAndTheStream(t *testing.T) {
 	key := mustKey(t)
 
@@ -100,16 +97,16 @@ func TestAPathIsTheGroupAndTheStream(t *testing.T) {
 	}
 }
 
-// Publishing always requires a group, so a stream with no key is refused rather than published
-// under its bare name: that name is a path every other group can see.
+// Publishing always takes a group, so a stream with no key is refused rather than published under
+// its bare name, which is a path every other group can see.
 func TestAStreamWithNoGroupIsRefused(t *testing.T) {
 	if _, err := Key(nil).Path("standup"); err != ErrNoGroup {
 		t.Errorf("a stream with no group yielded %v, want %v", err, ErrNoGroup)
 	}
 }
 
-// A name carrying a separator would put a stream one segment deeper than its group's permission
-// covers, which is a stream inside a group that the group's own grant does not reach.
+// A name carrying a separator lands a segment deeper than the group's permission covers,
+// which is a stream inside a group its own grant does not reach.
 func TestANameIsOneSegment(t *testing.T) {
 	key := mustKey(t)
 	if _, err := key.Path("team/standup"); err == nil {
@@ -120,9 +117,8 @@ func TestANameIsOneSegment(t *testing.T) {
 	}
 }
 
-// A path with no separator belongs to no group.
-// It is what a stream published by something else entirely looks like, and reporting it as a group
-// of its own would let a listing match on a stream's name.
+// A path with no separator belongs to no group: a stream published outside the group model.
+// Reporting it as a group of its own would let a listing match on a stream name.
 func TestAPathWithNoGroupBelongsToNone(t *testing.T) {
 	for _, path := range []string{"standup", "", "/standup", "standup/"} {
 		if id, name, ok := Split(path); ok {
@@ -134,8 +130,8 @@ func TestAPathWithNoGroupBelongsToNone(t *testing.T) {
 	}
 }
 
-// A key the wrong length is not a key this app produced, and deriving a prefix from it anyway would
-// put a stream somewhere no member is looking.
+// This app did not produce a key of the wrong length, and a prefix derived from one would put a
+// stream where no member is looking.
 func TestAKeyOfTheWrongLengthIsRefused(t *testing.T) {
 	for _, encoded := range []string{"", "not base64 at all", "c2hvcnQ="} {
 		if _, err := ParseKey(encoded); err == nil {

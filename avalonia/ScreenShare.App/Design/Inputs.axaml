@@ -2,30 +2,19 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The controls a person types into or drags, as one table, keyed on the type so a view
-    that writes a bare TextBox or Slider gets the design rather than Fluent. Nothing here
-    is opt-in: a field that had to name a theme is a field that can forget to.
-
-    Everything Fluent draws for these controls - its own accent, its own corner, its own
-    hover - is replaced rather than dressed, for the reason Buttons.axaml gives: a Fluent
-    template paints its states from inside itself and wins over any setter layered on top.
-
-    The toggle is not here. A flag is a switch (Controls/Toggle), which is the same control
-    the broadcast surfaces and the advanced table already draw, so there is no CheckBox in
-    the product and no CheckBox theme to write.
+    The controls a person types into or drags, keyed on the type so a bare TextBox or Slider gets the design.
+    A field that has to name a theme is a field that can forget to.
+    Fluent's template is replaced rather than dressed, for the reason Design/Buttons.axaml gives.
+    No CheckBox theme: a flag is the switch in Controls/Toggle, so the product holds no CheckBox.
   -->
 
   <!-- Text  -->
 
   <!--
-    A typed value takes the app's one face at the default size, with tabular figures on: a
-    field someone types a bitrate or a port into is read digit by digit, and proportional
-    numerals move the text under the caret as it is typed (docs/design-language.md,
-    "Typography").
-
-    The placeholder is drawn here rather than left to Fluent, and it is a hint rather than a
-    dimmed value: it is prose the field's author wrote about what belongs in the box, so it
-    takes the hint colour and the proportional numerals prose is set in.
+    Tabular figures: a bitrate or a port is read digit by digit,
+    and proportional numerals move the text under the caret as it is typed.
+    The placeholder is prose about what belongs in the box rather than a dimmed value,
+    so it takes the hint colour and the proportional numerals prose is set in.
   -->
   <ControlTheme x:Key="{x:Type TextBox}" TargetType="TextBox">
     <Setter Property="Background" Value="{StaticResource ControlBrush}" />
@@ -82,7 +71,7 @@
       <Setter Property="Background" Value="{StaticResource ControlHoverBrush}" />
     </Style>
 
-    <!-- Focus is the edge, not a fill: the box the caret sits in must not move under it. -->
+    <!-- The edge and not a fill, since the box a caret sits in must not shift under it. -->
     <Style Selector="^:focus /template/ Border#Root">
       <Setter Property="Background" Value="{StaticResource ControlBrush}" />
       <Setter Property="BorderBrush" Value="{StaticResource ForegroundBrush}" />
@@ -98,16 +87,13 @@
   </ControlTheme>
 
   <!--
-    A number is the same box. The spinner is dropped rather than restyled: the design states
-    no stepper anywhere, and the control keeps its minimum, its maximum and its increment
-    whether or not two arrows are drawn - a value typed past either end is still clamped.
+    The same box, with the stepper dropped rather than restyled.
+    The design states no stepper, and minimum, maximum and increment hold whether or not arrows are drawn.
     A field whose steps are worth dragging is offered as a slider by the form instead.
   -->
   <!--
-    The corner is a property the box reads rather than a value the template fixes, so a
-    number glued to a control beside it states the difference and inherits everything else
-    (Controls/NumberSelect). A variant that restated this template would be a second number
-    box, and two of them drift.
+    CornerRadius stays a property the box reads rather than a value the template fixes,
+    so a number glued to a control beside it states that corner and inherits the rest (Controls/NumberSelect).
   -->
   <ControlTheme x:Key="{x:Type NumericUpDown}" TargetType="NumericUpDown">
     <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -127,7 +113,7 @@
 
   <!-- Slider  -->
 
-  <!-- The 3px ring is the surface behind it, which is what punches the thumb out of the track. -->
+  <!-- The 3px ring is the card fill behind the track, which is what punches the thumb out of it. -->
   <ControlTheme x:Key="SliderThumb" TargetType="Thumb">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">
@@ -147,7 +133,6 @@
     </Style>
   </ControlTheme>
 
-  <!-- The travelled part of the track: the one light surface, as far as the thumb has come. -->
   <ControlTheme x:Key="SliderTrackFill" TargetType="RepeatButton">
     <Setter Property="Focusable" Value="False" />
     <Setter Property="Cursor" Value="Hand" />
@@ -170,10 +155,9 @@
   </ControlTheme>
 
   <!--
-    A half of the track that paints nothing: the part still ahead of the thumb on a plain
-    slider, and both halves of the quantizer, whose zones are drawn by the form behind it.
-    Transparent rather than absent, because the half is still the click target that moves
-    the thumb a page.
+    A half of the track that paints nothing: ahead of the thumb on a plain slider,
+    and both halves of the quantizer, whose zones the form behind it draws.
+    Transparent rather than absent, since the half is still the target that pages the thumb.
   -->
   <ControlTheme x:Key="SliderTrackBlank" TargetType="RepeatButton">
     <Setter Property="Focusable" Value="False" />
@@ -186,8 +170,8 @@
   </ControlTheme>
 
   <!--
-    Horizontal only. Every slider in the product runs left to right, and a vertical arm the
-    design never states is an arm nobody would notice had rotted.
+    Horizontal only.
+    A vertical arm the design never states is one nobody would notice had rotted.
   -->
   <ControlTheme x:Key="{x:Type Slider}" TargetType="Slider">
     <Setter Property="Background" Value="{StaticResource DividerBrush}" />

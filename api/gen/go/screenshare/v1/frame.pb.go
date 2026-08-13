@@ -21,21 +21,20 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// FrameHandleType names what a slot's handle is. It is an identifier and not a
-// platform: a consumer matches it against what its own compositor imports, which is a
-// list that differs between two backends on one operating system.
+// FrameHandleType names what a slot's handle is.
+// An identifier and not a platform: a consumer matches it against what its own compositor
+// imports, which is a list that differs between two backends on one operating system.
 type FrameHandleType int32
 
 const (
 	FrameHandleType_FRAME_HANDLE_TYPE_UNSPECIFIED FrameHandleType = 0
-	// A DXGI global shared handle, from IDXGIResource::GetSharedHandle on a texture
-	// created with D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX. It is valid in every process on
-	// the machine without being duplicated into one, which is why it is the Windows form
-	// rather than the NT handle: an NT handle would need this backend to open the
-	// consumer's process, and the two are halves of one application on one box.
+	// A DXGI global shared handle, from IDXGIResource::GetSharedHandle on a texture created with
+	// D3D11_RESOURCE_MISC_SHARED_KEYEDMUTEX.
+	// Valid in every process on the machine without being duplicated into one.
 	FrameHandleType_FRAME_HANDLE_TYPE_D3D11_GLOBAL_SHARED FrameHandleType = 1
-	// A Linux dmabuf file descriptor, passed over fd_socket. The modifier and the planes
-	// travel with it because a descriptor says nothing about the tiling of what it names.
+	// A Linux dmabuf file descriptor, passed over fd_socket.
+	// The modifier and the planes travel with it, since a descriptor says nothing about the
+	// tiling of what it names.
 	FrameHandleType_FRAME_HANDLE_TYPE_DMABUF_FD FrameHandleType = 2
 )
 
@@ -80,7 +79,6 @@ func (FrameHandleType) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_frame_proto_rawDescGZIP(), []int{0}
 }
 
-// FrameFormat is the pixel layout of a slot.
 type FrameFormat int32
 
 const (
@@ -130,8 +128,8 @@ func (FrameFormat) EnumDescriptor() ([]byte, []int) {
 	return file_screenshare_v1_frame_proto_rawDescGZIP(), []int{1}
 }
 
-// FramesRequest is everything the consumer says. Subscribe is first and is said once;
-// the other two may be said at any time after it.
+// FramesRequest carries subscribe first and once.
+// The other two may follow at any time after it.
 type FramesRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Request:
@@ -232,22 +230,9 @@ func (*FramesRequest_RenderSize) isFramesRequest_Request() {}
 
 // FrameSubscribe names the picture this call draws from.
 //
-// There are three kinds and each is identified by what actually tells one of its own
-// apart. A relay decode takes the stream name and the leg together, for the reason
-// WatchKey exists: the relay re-serves each ingested stream on all its listeners, so
-// one stream can be decoded over several protocols at once and each of those decodes
-// is its own pipeline. The running publish's local preview takes nothing at all,
-// because there is at most one publish and the preview is part of it. A monitor preview
-// takes the monitor index, because a machine has as many as it has outputs and the
-// index is what the catalog enumerates them under.
-//
-// It is a oneof rather than three legs added to the transport table. Two of the three
-// crossed no protocol at all: the publish child copies its already-encoded video to a
-// loopback port and the backend decodes it there (docs/viewer-architecture.md, "What the
-// broadcast preview draws"), and a monitor preview is read straight off this machine's
-// screen and never encoded. A synthetic entry in the transport table would state that
-// some protocol carries them, which every consumer of that table reads and none of them
-// could act on.
+// A relay decode takes the stream name and the leg together, because the relay re-serves
+// each ingest on all its listeners and one stream can be decoded over several protocols at
+// once, each decode its own pipeline.
 type FrameSubscribe struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Source:
@@ -348,16 +333,13 @@ func (*FrameSubscribe_MonitorPreview) isFrameSubscribe_Source() {}
 
 // PublishPreview names the running publish's local preview decode.
 //
-// It carries no fields and needs none. PublishState.live is singular, so "the publish
-// that is running" is already a complete identity, and a name or a port on this
-// message would be the consumer restating something it read from the state - which is
-// the second copy of a fact this contract exists to prevent. What the port turned out
-// to be is reported on PublishState.Preview, for a reader that wants to see it.
+// PublishState.live is singular, so the identity is complete with no field on this message.
+// The port the preview landed on is reported on PublishState.Live.preview.
 //
-// The call fails FAILED_PRECONDITION when nothing is publishing, or when a publish is
-// running with no preview behind it. This service opens nothing either way: the
-// preview pipeline goes up with the publish child and down with it, which is the same
-// division StartReceive draws for a relay decode (docs/ipc-api.md).
+// FAILED_PRECONDITION where nothing is publishing, or where a publish runs with no preview
+// behind it.
+// The preview pipeline goes up with the publish child and down with it, and this service
+// opens neither (docs/ipc-api.md).
 type PublishPreview struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -394,24 +376,17 @@ func (*PublishPreview) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_frame_proto_rawDescGZIP(), []int{2}
 }
 
-// MonitorPreview names the live picture of one of this machine's monitors, which the
-// setup wizard draws so a screen is chosen by looking at it rather than by its number.
+// MonitorPreview names the live picture of one of this machine's monitors.
 //
-// The index is the whole identity. It is the value PublishSettings.monitor holds and the
-// one Catalog.Monitor is enumerated under, so a size, a position or a name on this
-// message would be the consumer sending back what it read out of the catalog.
-//
-// The frames are raw. Nothing encodes a monitor preview and nothing transports one: the
-// capture element hands its pictures to the render chain inside the backend, and what
+// The frames are raw: nothing encodes a monitor preview and nothing transports one, and what
 // leaves is the same handle every other subscription gets.
 //
-// The call fails FAILED_PRECONDITION where nothing is previewing that monitor.
-// StartMonitorPreview is what opens one, for the reason StartReceive opens a relay
-// decode: this service finds a picture or is refused, and starts no screen capture of
-// its own.
+// FAILED_PRECONDITION where nothing is previewing that monitor.
+// StartMonitorPreview opens one, and this service starts no screen capture of its own.
 type MonitorPreview struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Monitor       int32                  `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The index PublishSettings.monitor holds and Catalog.Monitor is enumerated under.
+	Monitor       int32 `protobuf:"varint,1,opt,name=monitor,proto3" json:"monitor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -455,22 +430,18 @@ func (x *MonitorPreview) GetMonitor() int32 {
 
 // FrameRelease hands one slot back, and is the whole of the flow control.
 //
-// Until it arrives the backend treats the slot as the consumer's and writes no frame
-// into it. A consumer that stops releasing therefore slows to the rate it releases at
-// and never sees a torn picture; it does not stall the decode, which goes on running
-// and drops the frames it has nowhere to put (FrameEvent.dropped says how many).
-//
-// The serial is echoed rather than trusted as a counter: it names the frame the slot
-// was lent for, so a release that crossed a pool change on the wire is recognised as
-// belonging to a pool that no longer exists and is discarded instead of freeing a slot
-// of the new one.
+// Until it arrives the slot is the consumer's and no frame is written into it.
+// A consumer that stops releasing slows to its own release rate and never sees a torn picture.
+// It does not stall the decode, which runs on and drops the frames it has nowhere to put
+// (FrameReady.dropped).
 type FrameRelease struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// generation is the pool the slot belongs to, echoed from FramePool. A release that
-	// crossed a pool change on the wire names one that is gone, and is discarded rather
-	// than freeing a slot of the pool that replaced it.
-	Generation    uint64 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
-	Slot          uint32 `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	// Echoed from FramePool.
+	// A release that crossed a pool change on the wire names a pool that is gone, and is
+	// discarded rather than freeing a slot of the pool that replaced it.
+	Generation uint64 `protobuf:"varint,3,opt,name=generation,proto3" json:"generation,omitempty"`
+	Slot       uint32 `protobuf:"varint,1,opt,name=slot,proto3" json:"slot,omitempty"`
+	// Echoed from FrameReady, and names the frame the slot was lent for.
 	Serial        uint64 `protobuf:"varint,2,opt,name=serial,proto3" json:"serial,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -529,16 +500,13 @@ func (x *FrameRelease) GetSerial() uint64 {
 
 // FrameRenderSize is how many pixels the consumer will draw the frames at.
 //
-// It is a bound and not a size. The receive pipeline's scaler fixates inside it and
-// corrects the pixel aspect ratio, so a consumer drawing a 199-pixel-wide strip of a
-// 1920-wide capture has the conversion done at its own size instead of the source's,
-// and a consumer larger than the stream gets the stream's own size rather than an
-// upscale nobody asked for.
+// A bound rather than a size.
+// The receive pipeline's scaler fixates inside it and corrects the pixel aspect ratio, so a
+// consumer smaller than the stream has the conversion done at its own size and a consumer
+// larger than the stream gets the stream's own size rather than an upscale.
 //
-// Zero in either dimension is a consumer that has not been measured yet and leaves the
-// pipeline where it is. What the size means to the pipeline depends on the render chain
-// the decode was built with, and a chain that names no filter to write it into renders
-// at the size the source sends.
+// Zero in either dimension leaves the pipeline where it is.
+// A render chain that names no filter to write the size into renders at the source's size.
 type FrameRenderSize struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Width         int32                  `protobuf:"varint,1,opt,name=width,proto3" json:"width,omitempty"`
@@ -591,7 +559,6 @@ func (x *FrameRenderSize) GetHeight() int32 {
 	return 0
 }
 
-// FrameEvent is everything the backend says.
 type FrameEvent struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Event:
@@ -690,59 +657,50 @@ func (*FrameEvent_Ready) isFrameEvent_Event() {}
 
 func (*FrameEvent_End) isFrameEvent_Event() {}
 
-// FramePool is the shared memory the frames will arrive in, announced before any of
-// them do.
+// FramePool is the shared memory the frames will arrive in, announced before any of them do.
 //
-// The backend owns the pool. It allocates the slots, it keeps them alive for as long as
-// the subscription lives, and it frees them when the call ends - which is what makes a
-// consumer that died a consumer whose memory is reclaimed rather than leaked. The
-// handles do not carry a reference to the memory on either platform, so a consumer
-// holding one after the call ended holds a name for something that is gone.
+// The backend allocates the slots and frees them when the call ends.
+// The handles carry no reference to the memory on either platform,
+// so one held after the call ended names something that is gone.
 //
-// A pool arrives more than once when the stream renegotiates: a source that changed
-// size, or a render size that moved the scaler's output. Each announcement replaces the
-// one before it. The consumer drops its imports of the previous generation, and the
-// backend discards releases that name it, because the slot numbers start again.
+// A pool arrives more than once when the stream renegotiates, on a source that changed size
+// or a render size that moved the scaler's output.
+// Each announcement replaces the one before it: the consumer drops its imports of the
+// previous generation, and the slot numbers start again.
 type FramePool struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// generation counts the pools of this subscription, from one. It is what a release
-	// is checked against, and what lets a consumer tell a re-announcement from a repeat.
-	Generation uint64 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
-	// handle_type says what the slots' handles are and therefore how they are opened.
+	// Counts this subscription's pools, from one.
+	// A release is checked against it, and it is what tells a re-announcement from a repeat.
+	Generation uint64          `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
 	HandleType FrameHandleType `protobuf:"varint,2,opt,name=handle_type,json=handleType,proto3,enum=screenshare.v1.FrameHandleType" json:"handle_type,omitempty"`
-	// format is the pixel layout every slot carries. The render chains convert to RGBA
-	// before the sink, so this is what the chain produced and not what the stream was
-	// encoded in.
+	// The pixel layout every slot carries, which is what the render chain produced rather than
+	// what the stream was encoded in.
 	Format FrameFormat `protobuf:"varint,3,opt,name=format,proto3,enum=screenshare.v1.FrameFormat" json:"format,omitempty"`
-	// width and height are the slots' pixel dimensions, which are what the pipeline
-	// negotiated rather than what the consumer asked for.
+	// The slots' pixel dimensions, negotiated by the pipeline rather than set by the render size.
 	Width  uint32 `protobuf:"varint,4,opt,name=width,proto3" json:"width,omitempty"`
 	Height uint32 `protobuf:"varint,5,opt,name=height,proto3" json:"height,omitempty"`
-	// memory_size is the allocation's size in bytes where the import needs one, and zero
-	// where the handle describes its own extent.
+	// The allocation's size in bytes where the import needs one, and zero where the handle
+	// describes its own extent.
 	MemorySize uint64 `protobuf:"varint,6,opt,name=memory_size,json=memorySize,proto3" json:"memory_size,omitempty"`
-	// top_left_origin is whether row zero is the top row. A consumer that flips on this
-	// rather than assuming is a consumer that survives a backend whose decoder does not
-	// agree with its window.
+	// False means row zero is the bottom row and the consumer flips.
 	TopLeftOrigin bool `protobuf:"varint,7,opt,name=top_left_origin,json=topLeftOrigin,proto3" json:"top_left_origin,omitempty"`
-	// slots are the lent buffers, in index order and never renumbered within a
-	// generation. There are at least two: one the consumer is drawing from and one the
-	// backend is writing into.
+	// The lent buffers, in index order and never renumbered within a generation.
+	// There are at least two: one the consumer draws from and one the backend writes into.
 	Slots []*FrameSlot `protobuf:"bytes,8,rep,name=slots,proto3" json:"slots,omitempty"`
-	// The keyed-mutex protocol, for a handle type that carries one. Each side acquires
-	// with its own key and releases with the other's, so neither hardcodes a number the
-	// other chose. Both are zero on a handle type synchronized some other way.
+	// The keyed-mutex protocol, for a handle type that carries one.
+	// Each side acquires with its own key and releases with the other's,
+	// so neither hardcodes a number the other chose.
+	// Both are zero on a handle type synchronized some other way.
 	ProducerKey uint32 `protobuf:"varint,9,opt,name=producer_key,json=producerKey,proto3" json:"producer_key,omitempty"`
 	ConsumerKey uint32 `protobuf:"varint,10,opt,name=consumer_key,json=consumerKey,proto3" json:"consumer_key,omitempty"`
-	// fd_socket is the path of a Unix socket the file descriptors are passed over, for a
-	// handle type that is a descriptor. A descriptor is not a number another process can
-	// use, so it cannot cross in a message: the consumer connects to this socket once per
-	// generation and reads one descriptor per slot, in index order, over SCM_RIGHTS.
+	// Path of a Unix socket the file descriptors are passed over, for a descriptor handle type.
 	// Empty for every handle type that is not a descriptor.
+	// A descriptor is not a number another process can use,
+	// so the consumer connects once per generation and reads one descriptor per slot, in index
+	// order, over SCM_RIGHTS.
 	FdSocket string `protobuf:"bytes,11,opt,name=fd_socket,json=fdSocket,proto3" json:"fd_socket,omitempty"`
-	// modifier is the format modifier the frames are tiled with, for a descriptor handle
-	// type. It travels because an import that guesses it reads a linear image out of a
-	// tiled one and draws garbage.
+	// The format modifier the frames are tiled with, for a descriptor handle type.
+	// An import that guesses it reads a linear image out of a tiled one.
 	Modifier      uint64 `protobuf:"varint,12,opt,name=modifier,proto3" json:"modifier,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -862,15 +820,14 @@ func (x *FramePool) GetModifier() uint64 {
 	return 0
 }
 
-// FrameSlot is one lent buffer.
 type FrameSlot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Index uint32                 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
-	// handle is the value that names the memory in the consumer's process, and zero for a
-	// handle type whose descriptors travel over fd_socket instead.
+	// Names the memory in the consumer's process.
+	// Zero for a handle type whose descriptors travel over fd_socket instead.
 	Handle uint64 `protobuf:"varint,2,opt,name=handle,proto3" json:"handle,omitempty"`
-	// planes describe the layout inside the allocation, for a handle type that does not
-	// carry it. Empty where the handle describes itself.
+	// The layout inside the allocation, for a handle type that does not carry it.
+	// Empty where the handle describes itself.
 	Planes        []*FramePlane `protobuf:"bytes,3,rep,name=planes,proto3" json:"planes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -927,11 +884,12 @@ func (x *FrameSlot) GetPlanes() []*FramePlane {
 	return nil
 }
 
-// FramePlane is one plane's placement inside a slot's allocation.
 type FramePlane struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Offset        uint64                 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
-	Stride        uint32                 `protobuf:"varint,2,opt,name=stride,proto3" json:"stride,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Bytes into the slot's allocation.
+	Offset uint64 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Bytes per row.
+	Stride        uint32 `protobuf:"varint,2,opt,name=stride,proto3" json:"stride,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -980,19 +938,16 @@ func (x *FramePlane) GetStride() uint32 {
 	return 0
 }
 
-// FrameReady says one slot now holds a frame and is the consumer's until it is
-// released.
+// FrameReady says one slot now holds a frame and is the consumer's until it is released.
 type FrameReady struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	Generation uint64                 `protobuf:"varint,1,opt,name=generation,proto3" json:"generation,omitempty"`
 	Slot       uint32                 `protobuf:"varint,2,opt,name=slot,proto3" json:"slot,omitempty"`
-	// serial counts the frames handed over on this subscription, from one. It is echoed
-	// in the release and is what a stale release is recognised by.
+	// Counts the frames handed over on this subscription, from one.
+	// Echoed in the release, and what a stale release is recognised by.
 	Serial uint64 `protobuf:"varint,3,opt,name=serial,proto3" json:"serial,omitempty"`
-	// dropped is how many decoded frames were discarded since the last one handed over,
-	// because every slot was still out on loan. It is the consumer's evidence that it is
-	// the slow half, and it is reported rather than hidden because a tile drawing 30 of
-	// 60 frames should be able to say so.
+	// Decoded frames discarded since the last one handed over,
+	// because every slot was still out on loan.
 	Dropped       uint64 `protobuf:"varint,4,opt,name=dropped,proto3" json:"dropped,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1056,10 +1011,10 @@ func (x *FrameReady) GetDropped() uint64 {
 	return 0
 }
 
-// FrameEnd says the subscription is over and why, in the words of whatever ended it.
-// It is the same fact ReceiveExit carries on the control stream, said on the call that
-// was consuming the frames, because a consumer blocked on a read learns nothing from an
-// event it is not the one reading.
+// FrameEnd says the subscription is over and why.
+// The same fact ReceiveExit carries on the control stream, repeated on the call that was
+// consuming the frames, because a consumer blocked on this read learns nothing from an event
+// it is not the one reading.
 type FrameEnd struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`

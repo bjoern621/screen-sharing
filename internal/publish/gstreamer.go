@@ -12,20 +12,16 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
-// GstExe is the GStreamer pipeline launcher.
-// It is supervised as a child process exactly like ffmpeg, so it reuses the same lifecycle above
-// the seam.
-// The encode probe runs its pipelines through the same launcher, which is why the name is exported
-// rather than spelled a second time there.
+// GstExe is the launcher the measuring pipelines are played by, resolved through FindGstExe.
+// A publish plays in a process of this app's own instead (FindGstRunner).
 const GstExe = "gst-launch-1.0"
 
-// gstEngine runs one GStreamer capture backend: the backend produces raw frames,
-// this graph encodes and ships them, all in one process, so this engine owns the whole pipeline for
-// the backends it is instantiated with.
+// gstEngine runs one GStreamer capture backend: capture, encode and transport in one pipeline and
+// one process.
 //
-// The backend is a field rather than a branch inside the engine, so the two are separate axes:
-// which framework runs a capture is a row in captureBackends, and a source that only one framework
-// has an element for is a backend only that engine is instantiated with.
+// The backend is a field rather than a branch, which keeps framework and source on separate axes:
+// a source only one framework has an element for is a backend only that engine is instantiated
+// with.
 type gstEngine struct {
 	capture gstCapture
 }
@@ -35,18 +31,16 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// The empty meter port, the empty rate probe and the absent preview leg leave a run's own branches
-	// out, the counterpart to the ffmpeg engine appending -progress only for a run.
-	// Each of them carries a port the kernel handed out for one launch, so a rendered command that
-	// showed them would be a different string every time it was rendered - and whether two settings
-	// build one pipeline is decided by comparing exactly that string (SamePipeline).
+	// A run's own branches, the meter and the preview, are left out.
+	// Each carries a port the kernel handed out for one launch, so a rendered command showing them
+	// would differ between two renderings of one pipeline, and whether two settings build one pipeline
+	// is decided by comparing exactly that string (SamePipeline).
 	pipeline, err := buildPipeline(s, g.capture.Describe(s, opts), "", PreviewLeg{})
 	if err != nil {
 		return "", err
 	}
-	// The runner and its subcommand lead the line because they are what runs.
-	// The rest of it is the pipeline gst-launch-1.0 would take unchanged, so a reader who wants to see
-	// the same graph outside the app pastes everything after the subcommand into that launcher.
+	// Runner and subcommand lead the line, and everything after the subcommand is the pipeline
+	// gst-launch-1.0 takes unchanged.
 	exe, err := FindGstRunner()
 	if err != nil {
 		return "", err
@@ -54,14 +48,12 @@ func (g gstEngine) Command(s settings.Settings) (string, error) {
 	return exe + " " + GstSubcommand + " " + strings.Join(pipeline, " "), nil
 }
 
-// captureOptions builds the source chain's run-independent parts and holds them against the
+// captureOptions builds the run-independent parts of the source chain and holds them against this
 // machine.
 //
-// The device check runs here rather than at Start so that the rendered command is refused for the
-// same reason a publish is.
-// A machine whose capture and encode ends are not one GPU cannot run the pipeline this would
-// display, and displaying it anyway would put a command in front of the user that the button beside
-// it rejects.
+// The device check runs here rather than at Start, so a rendered command is refused for the same
+// reason a publish is: a machine whose capture and encode ends are not one GPU would otherwise be
+// shown a command the button beside it rejects.
 func (g gstEngine) captureOptions(s settings.Settings) (gstCaptureOptions, error) {
 	opts, err := gstSourceOptions(s)
 	if err != nil {
@@ -79,36 +71,32 @@ func (gstEngine) Engine() string {
 	return EngineGst
 }
 
-// Carries reports whether the transport can terminate a GStreamer pipeline.
+// Carries reports whether the transport terminates a GStreamer publish pipeline.
 func (gstEngine) Carries(transportName string) bool {
 	return transport.CanPublish(transportName, EngineGst)
 }
 
 func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error) {
-	// Validating first means a settings combination this engine cannot encode,
-	// and a machine whose two ends are not one GPU, never pop the compositor's picker.
+	// Validated before anything is acquired, so a combination this engine cannot encode and a machine
+	// whose two ends are not one GPU never pop the compositor's picker.
 	opts, err := g.captureOptions(s)
 	if err != nil {
 		return nil, err
 	}
 
-	// The runner is this executable, so there is nothing to find on the machine and nothing to answer
-	// for before the picker: a build that starts at all carries the GStreamer it links,
-	// and which elements that installation registers is the encoder probe's question rather than the
-	// launcher's.
+	// The runner is this executable, so nothing is looked up on the machine ahead of the picker.
+	// Which elements the linked GStreamer registers is the encoder probe's question.
 	exe, err := FindGstRunner()
 	if err != nil {
 		return nil, err
 	}
 
-	// The instrumentation exists only for a caller that wants progress; without OnStats the pipeline
-	// runs as the displayed command reads.
-	// The rate probe is part of it, so the source the backend builds differs between a run that
-	// reports progress and one that does not, exactly as the encode path does.
-	// The meter's socket is open from here on, and the port it landed on is what the pipeline's meter
-	// branch is pointed at.
-	// It owes nothing to what the capture backend passes the child: a connection back to this process
-	// is the one mechanism Windows carries, where a child inherits no descriptors at all.
+	// Instrumentation belongs to a run and not to the pipeline: without OnStats the child runs what
+	// the displayed command reads, rate probe included.
+	// The meter's socket is open from here on, and the port it landed on is what the meter branch is
+	// pointed at.
+	// A connection back to this process rather than an inherited descriptor, since a Windows child
+	// inherits none.
 	var meter *gstMeter
 	meterArg := ""
 	if cb.OnStats != nil {
@@ -133,15 +121,12 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		return nil, err
 	}
 
-	// The child's standard output carries two kinds of line now: the meter's progress and the caps the
-	// capture negotiated.
-	// Both are read here, and the caps are what decides whether this publish may continue at all.
+	// The child's standard output carries the meter's progress and the caps the capture negotiated,
+	// and the caps decide whether this publish may continue at all.
 	//
-	// A handle the refusal can stop does not exist until supervise returns, so it is held for the
-	// reader that starts the moment the process does.
-	// A capture whose caps arrive before that reads a nil handle and stops nothing,
-	// which cannot happen in practice (the caps follow the pipeline reaching PLAYING) and is a stopped
-	// publish rather than a wrong one if it ever did.
+	// The reader starts the moment the process does and the handle exists only once supervise
+	// returns, so caps arriving before that find it nil and stop nothing.
+	// The caps follow the pipeline reaching PLAYING, so they do not arrive before it.
 	var handle Handle
 	stopped := false
 	parseStdout := func(r io.Reader) {
@@ -161,17 +146,17 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		}, cb.OnPointer)
 	}
 
-	// One socket per run, which the child opens before its pipeline plays and removes with itself.
-	// A run nobody can talk to is a stream that has to be relaunched to change,
-	// which is what every publish was until the pipeline moved into this app's own process.
+	// One socket per run, opened by the child before its pipeline plays and removed with it.
+	// A run nobody can talk to is a stream that has to be relaunched to change, which costs every
+	// viewer a reconnect.
 	socket := gstControlSocket(tag)
 
 	handle, err = supervise(superviseConfig{
 		exe: exe,
 		env: GstChildEnv(),
-		// The subcommand leads, which is what makes this executable play a pipeline instead of opening a
-		// second control socket (cmd/backend), and the control flag follows it so the pipeline itself
-		// starts at the same word gst-launch would.
+		// The subcommand leads, which is what makes this executable play a pipeline rather than start a
+		// second backend (cmd/backend).
+		// The control flag follows it, so the pipeline starts at the word gst-launch would start at.
 		args:        append(append([]string{GstSubcommand}, gstChildArgs(s, socket)...), pipeline...),
 		tag:         tag,
 		extraFiles:  files,

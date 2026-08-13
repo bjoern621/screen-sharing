@@ -1,16 +1,16 @@
 namespace ScreenShare.App.Features.Setup.CostRail.ViewModel;
 
 /// <summary>
-/// One priced dimension of the current choice.
-/// The rail carries three - bitrate, latency and GPU load - because those are the three things a quality
-/// setting spends, and a form that shows only the first teaches the reader that the other two are free.
-///
-/// A record, so an unchanged pass leaves the bound list alone.
+/// One figure of the estimate, under the headline rate.
+/// A record, so a pass over an unchanged estimate leaves the bound list alone.
 /// </summary>
 public sealed record CostMetricRow
 {
     public required string Label { get; init; }
 
-    /// <summary>The figure, approximate where the estimate is.</summary>
+    /// <summary>
+    /// Formatted, unit included: "1619 Mb/s".
+    /// A prediction, never a measurement.
+    /// </summary>
     public required string Value { get; init; }
 }

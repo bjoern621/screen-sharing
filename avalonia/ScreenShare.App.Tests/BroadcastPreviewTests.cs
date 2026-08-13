@@ -9,35 +9,28 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The broadcast preview draws one of two pictures of the stream this machine is sending, and the reader
-/// picks which.
-///
-/// <b>What these state is which route pays the relay.</b> The local route is a copy the publish child writes
-/// to a loopback port, so the relay is not a party to it: no decode is opened, none is closed, and no reader
-/// slot is taken - which is what keeps the viewer figures beside the card describing viewers rather than the
-/// publisher watching itself.
-/// The end-to-end route is the opposite by design: it is a decode of this machine's own stream off the relay,
-/// and it is asserted against the calls the seam received rather than against what the card drew, because a
-/// receive effect on the wrong route is invisible on screen.
-///
-/// <b>The rest is the lifecycle</b>, which is the other part that can go wrong invisibly: a converge that
-/// rebuilds the tile on every render pass restarts a frame subscription a second and nothing says so, and one
-/// that lets go of a decode without closing it leaves a reader on the relay for the life of the window.
-/// The reader's stop is part of that lifecycle and not a way of blanking the tile: it is what gives the relay
-/// slot back, so it is asserted against the calls the seam received as well.
+/// Two pictures of the stream this machine is sending, and which of the two pays the relay.
+/// The local route is a copy the publish child writes to a loopback port, so no decode is opened, none is
+/// closed and no reader slot is taken, which keeps the viewer figures beside the card about viewers.
+/// The end-to-end route is a decode of this machine's own stream off the relay, asserted against the calls the
+/// seam received rather than against the picture, because a receive effect on the wrong route is invisible on
+/// screen.
+/// The lifecycle fails invisibly on the same terms: a converge that rebuilds the tile per pass restarts a
+/// frame subscription a second, and one that lets go of a decode without closing it leaves a reader on the
+/// relay for the life of the window.
+/// A reader's stop belongs to that lifecycle rather than to blanking the tile, since it is what gives the
+/// relay slot back.
 /// </summary>
 public sealed class BroadcastPreviewTests
 {
     private const string Stream = "desk";
 
     /// <summary>
-    /// A backend whose running state a test writes: what is publishing and whether the backend is previewing
-    /// it.
-    /// It records every receive effect and every frame subscription it is asked for, which is the whole of
-    /// what the converge is judged on.
-    ///
-    /// It forwards everything else to <see cref="SeededBackend"/>, for the reason the other stand-ins here
-    /// forward: a second set of answers would be a second fixture to keep in step with the first.
+    /// A backend whose running state a test writes: what is publishing, and whether it is being previewed.
+    /// Every receive effect and every frame subscription asked for is recorded, which is what the converge is
+    /// judged on.
+    /// The rest forwards to <see cref="SeededBackend"/>: two sets of answers would be two fixtures to keep in
+    /// step.
     /// </summary>
     private sealed class PreviewBackend : IBackend
     {
@@ -49,13 +42,13 @@ public sealed class BroadcastPreviewTests
             remove { }
         }
 
-        /// <summary>What is publishing. Nothing by default, which the absent <c>Live</c> is what says.</summary>
+        /// <summary>What is publishing. Nothing until a test writes one, which the absent <c>Live</c> says.</summary>
         public PublishState Publish { get; set; } = new();
 
         /// <summary>
-        /// Every relay decode a start or a stop was asked for, in the order it was asked.
-        /// The local route must never add to either, and the end-to-end route is judged on exactly which
-        /// pairs it opened and closed.
+        /// Every relay decode a start or a stop named, oldest first.
+        /// The local route adds to neither; the end-to-end route is judged on which pairs it opened and
+        /// closed.
         /// </summary>
         public List<WatchKey> Started { get; } = [];
 
@@ -63,20 +56,19 @@ public sealed class BroadcastPreviewTests
 
         /// <summary>
         /// Why the next start is refused, empty while none is.
-        /// It is the leg that cannot carry this stream's format, which is the refusal the end-to-end route
-        /// actually meets.
+        /// Stands for a leg that cannot carry this stream's format, which is the refusal the end-to-end route
+        /// meets.
         /// </summary>
         public string StartRefusal { get; set; } = "";
 
-        /// <summary>How many frame subscriptions were opened, per kind.</summary>
         public int PreviewSubscriptions { get; private set; }
 
         public int RelaySubscriptions { get; private set; }
 
         /// <summary>
-        /// Opens one decode, and records it.
-        /// The seed is what holds the open set, so what <see cref="ReceivingAsync"/> answers with is the
-        /// effect this call had rather than a second list kept here.
+        /// Opens one decode and records it.
+        /// The seed holds the open set, so <see cref="ReceivingAsync"/> answers with this call's effect rather
+        /// than with a second list kept here.
         /// </summary>
         public Task StartReceiveAsync(
             string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
@@ -94,9 +86,8 @@ public sealed class BroadcastPreviewTests
             return _seed.StopReceiveAsync(streamName, transport, cancellation);
         }
 
-        // A fixture has no GPU and no pipeline, so what is recorded is the ask.
-        // Refusing after that is the honest answer: a fake stream of handles would name GPU memory that does
-        // not exist.
+        // No GPU and no pipeline behind a fixture, so the ask is recorded and then refused.
+        // A made-up stream of handles would name GPU memory that does not exist.
         public Task<FrameChannel> OpenPreviewFramesAsync(CancellationToken cancellation = default)
         {
             PreviewSubscriptions++;
@@ -109,9 +100,8 @@ public sealed class BroadcastPreviewTests
             throw new BackendUnavailableException("this fixture lends no frames");
         }
 
-        // The wizard's screen pictures are a different screen's business.
-        // This fixture is the broadcast card's, so the three calls are here to satisfy the seam and do
-        // nothing.
+        // Screen pictures belong to the wizard's picker rather than to the broadcast card.
+        // Present to satisfy the seam.
         public Task StartMonitorPreviewAsync(int monitor, CancellationToken cancellation = default)
             => Task.CompletedTask;
 
@@ -125,9 +115,8 @@ public sealed class BroadcastPreviewTests
             => Task.FromResult<IReadOnlyList<PreviewedMonitor>>([]);
 
         /// <summary>
-        /// The preview carries no sound, so neither effect has anything to do here.
-        /// They are answered rather than refused: a refusal is a state a test could mistake for the card's
-        /// own, and what this fixture is about is which subscriptions were opened.
+        /// The preview carries no sound, so neither effect has anything to do.
+        /// Answered rather than refused: a refusal is a state a test could read as the card's own.
         /// </summary>
         public Task SetReceiveAudioAsync(
             string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
@@ -208,8 +197,8 @@ public sealed class BroadcastPreviewTests
             => _seed.OpenLogsFolderAsync(cancellation);
 
         /// <summary>
-        /// A stream that ends at once, so the session's first read lands and nothing arrives after it.
-        /// What the running state is, is written on this fixture and re-read.
+        /// A stream that ends at once, so nothing arrives after the session's first read.
+        /// Running state is written on this fixture and read again.
         /// </summary>
         public async IAsyncEnumerable<Event> SubscribeAsync(
             [EnumeratorCancellation] CancellationToken cancellation = default)
@@ -219,7 +208,7 @@ public sealed class BroadcastPreviewTests
         }
     }
 
-    /// <summary>A stream in force under the name this suite uses, with a local preview behind it.</summary>
+    /// <summary>A stream in force under this suite's name, with a local preview behind it.</summary>
     private static PublishState Live(bool previewed = true)
     {
         var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = Stream } };
@@ -231,7 +220,7 @@ public sealed class BroadcastPreviewTests
         return new PublishState { Live = live };
     }
 
-    /// <summary>The preview as the backend reports it once a frame has left the pipeline.</summary>
+    /// <summary>A previewed publish whose preview pipeline has, or has not, put out a frame.</summary>
     private static PublishState Decoding(bool live)
     {
         var state = Live();
@@ -239,20 +228,16 @@ public sealed class BroadcastPreviewTests
         return state;
     }
 
-    /// <summary>
-    /// The leg the fixture's stored settings name for a viewer's tile, which is the one the end-to-end route
-    /// receives over.
-    /// </summary>
+    /// <summary>The leg the fixture's stored settings name for a tile, and so the end-to-end route's.</summary>
     private const string Leg = "srt";
 
-    /// <summary>A card on the route it opens on.</summary>
     private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend)
         => Card(backend, PreviewRoute.Local);
 
     /// <summary>
     /// A card on one route, over a session that has read the fixture once.
-    /// The session is started rather than written to, because its fields are its own: every state a screen
-    /// reads is one the backend answered with.
+    /// The session is started rather than written to: every state a screen reads is one the backend answered
+    /// with.
     /// </summary>
     private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend, PreviewRoute route)
     {
@@ -266,9 +251,8 @@ public sealed class BroadcastPreviewTests
 
     /// <summary>
     /// Lets the card see what its own effects did.
-    /// What is decoding is the backend's answer and it moves when a decode is opened or closed; the app
-    /// learns that off the event stream, and this fixture's event stream ends at once, so reading again is
-    /// what stands in for it.
+    /// What is decoding moves when a decode opens or closes, and the app learns it off the event stream, which
+    /// this fixture ends at once, so a second read stands in for it.
     /// </summary>
     private static void Settle(PreviewViewModel preview, Session session)
     {
@@ -276,17 +260,13 @@ public sealed class BroadcastPreviewTests
         preview.Apply();
     }
 
-    /// <summary>
-    /// Selects one route the way the toggle does: by handing the card the segment that stands for it, rather
-    /// than by a setter of its own.
-    /// </summary>
+    /// <summary>Picks a route as the toggle does, by handing over the segment that stands for it.</summary>
     private static void Choose(PreviewViewModel preview, PreviewRoute route)
         => preview.SelectedRoute = preview.Routes.Single(tab => tab.Value == route);
 
     /// <summary>
     /// A session that has read the fixture.
-    /// Every answer is already completed and the dispatcher is straight through, so the read has landed by
-    /// the time this returns.
+    /// Every answer is completed and the dispatcher is straight through, so the read has landed on return.
     /// </summary>
     private static Session Read(PreviewBackend backend)
     {
@@ -296,9 +276,9 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// The settings the backend is holding, read the same way the window reads them.
-    /// The card takes one value out of them - the leg its end-to-end route receives on - and the seeded
-    /// answer names <see cref="Leg"/>.
+    /// The backend's stored settings, read as the window reads them.
+    /// One value out of them is the card's, the end-to-end route's leg, and the seeded answer names
+    /// <see cref="Leg"/>.
     /// </summary>
     private static FormSession Settings(PreviewBackend backend, Session session)
         => new(backend, session, static action => action());
@@ -330,7 +310,7 @@ public sealed class BroadcastPreviewTests
         preview.Apply();
         preview.SetPlaying(true);
 
-        // The same tile and not an equal one: a tile is a running frame subscription, so a rebuilt tile is a
+        // The same tile, not an equal one: a tile is a running frame subscription, so a rebuilt one is a
         // restarted subscription however alike the two look.
         Assert.Same(tile, preview.Tile);
         Assert.Empty(backend.Started);
@@ -338,9 +318,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A card that has just been built is drawing.
-    /// It is the default the whole control exists around: the picture a publisher wants is the one they are
-    /// sending, so a card that had to be started first would be a card that looked broken.
+    /// The picture a publisher wants is the one being sent, so a card that had to be started first would read
+    /// as broken.
     /// </summary>
     [Fact]
     public void TheCardOpensPlaying()
@@ -356,9 +335,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// Stopping ends the subscription and says so, and it says it before every state of the machine: the card
-    /// is dark because it was asked to be, and a sentence about the stream would send a reader after a
-    /// problem nobody has.
+    /// The stopped sentence outranks every state of the machine: the card is dark because it was asked to be,
+    /// and a sentence about the stream would send a reader after a problem nobody has.
     /// </summary>
     [Fact]
     public void StoppingEndsTheSubscription()
@@ -375,10 +353,7 @@ public sealed class BroadcastPreviewTests
         Assert.Equal(Cards.PreviewStopped, preview.Placeholder);
     }
 
-    /// <summary>
-    /// The control the reader presses is a flip over the named write, and what it flips is the card's own
-    /// state rather than anything on the backend.
-    /// </summary>
+    /// <summary>The flip is over the card's own state and reaches nothing on the backend.</summary>
     [Fact]
     public void TheControlStopsAndStartsAndSaysWhichWayItGoes()
     {
@@ -399,10 +374,7 @@ public sealed class BroadcastPreviewTests
         Assert.NotNull(preview.Tile);
     }
 
-    /// <summary>
-    /// Stopping a card that is already stopped changes nothing, which is what makes the write safe to repeat
-    /// from a render pass.
-    /// </summary>
+    /// <summary>Repeating the write is what makes it safe to call from a render pass.</summary>
     [Fact]
     public void StoppingTwiceIsTheSameAsStoppingOnce()
     {
@@ -423,8 +395,7 @@ public sealed class BroadcastPreviewTests
         var (preview, session) = Card(backend);
         Assert.NotNull(preview.Tile);
 
-        // The stream ended, and the session learns it the way it learns everything: by reading the backend
-        // again.
+        // The session learns the stream ended the way it learns everything, by reading again.
         backend.Publish = new PublishState();
         session.Start();
         preview.Apply();
@@ -460,9 +431,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A stream on the air that the backend is not previewing is its own state, and it is a real one: a
-    /// format with no local carriage, or a preview pipeline that would not start.
-    /// The publish is untouched either way, which is the whole point of the leg being a copy.
+    /// A real state, reached by a format with no local carriage or a preview pipeline that would not start.
+    /// The publish is untouched either way, which is what the leg being a copy buys.
     /// </summary>
     [Fact]
     public void APublishWithNoPreviewIsItsOwnSentence()
@@ -494,8 +464,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// The tile's own states are reached through the preview the backend reports, not through a decode list:
-    /// the preview is part of the publish, so its pipeline's state travels with it.
+    /// The preview is part of the publish, so its pipeline's state travels on the publish state rather than
+    /// through a decode list.
     /// </summary>
     [Fact]
     public void ATileWithNoFrameYetSaysWhichStateItIsIn()
@@ -514,8 +484,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// The sentence on the card carries the one thing a reader must not discover the hard way: this is what
-    /// is being sent, and it says nothing about what viewers receive.
+    /// The one thing a reader must not discover the hard way: the picture is what is being sent, and says
+    /// nothing about what viewers receive.
     /// </summary>
     [Fact]
     public void TheCardStatesWhatThePictureIsAndIsNot()
@@ -531,9 +501,8 @@ public sealed class BroadcastPreviewTests
 
     // --- The route toggle -----------------------------------------------------------
     //
-    // The card draws two pictures of one stream and the reader picks which.
-    // What is asserted here is the half that is invisible on screen: which route asks the relay for a decode,
-    // which one asks it for nothing, and that a switch between them leaves exactly one open.
+    // The half that is invisible on screen: which route asks the relay for a decode, which asks it for
+    // nothing, and that a switch between them leaves exactly one open.
 
     [Fact]
     public void TheToggleOffersEveryRouteAndOpensOnTheLocalOne()
@@ -549,8 +518,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// The end-to-end route is a viewer of this machine's own stream, so it opens a decode exactly as the
-    /// grid does: on the stream that is publishing, over the leg the stored settings name a tile receives on.
+    /// A viewer of this machine's own stream opens a decode as the grid does: the publishing stream, over the
+    /// leg the stored settings name for a tile.
     /// </summary>
     [Fact]
     public void TheEndToEndRouteReceivesThisMachinesOwnStream()
@@ -570,8 +539,7 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// Each route makes its own claim about the relay, and the two are opposite.
-    /// A single sentence for both would be false under one of them.
+    /// The two claims about the relay are opposite, so one sentence for both would be false under one of them.
     /// </summary>
     [Fact]
     public void EachRouteStatesItsOwnCost()
@@ -589,9 +557,7 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// The whole of what the toggle costs, asserted where it can be: switching to the local route closes the
-    /// decode the other one opened, and switching back opens it again.
-    /// A route that let go of the ask without closing would leave a reader slot on the relay for the life of
+    /// A route that let go of its ask without closing would leave a reader slot on the relay for the life of
     /// the window.
     /// </summary>
     [Fact]
@@ -617,11 +583,7 @@ public sealed class BroadcastPreviewTests
         Assert.Single(backend.Stopped);
     }
 
-    /// <summary>
-    /// The local route asks the relay for nothing, which is the property the loopback leg exists for: no
-    /// decode is opened, none is closed, and no relay frame subscription is made, so the relay serves no
-    /// reader for that picture and counts none.
-    /// </summary>
+    /// <summary>What the loopback leg exists for: the relay serves no reader for that picture and counts none.</summary>
     [Fact]
     public async Task TheLocalRouteAsksTheRelayForNothing()
     {
@@ -640,9 +602,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A render pass on the end-to-end route asks for nothing it has already asked for.
     /// The pass runs on every event the session reports, so a converge that re-asked would spend a round trip
-    /// a second on a decode that is already open.
+    /// a second on a decode that is open.
     /// </summary>
     [Fact]
     public void ASecondPassOnTheEndToEndRouteAsksForNothing()
@@ -663,9 +624,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// Stopping closes the decode, and not only the subscription.
-    /// The reader slot is what the end-to-end route costs the relay, so a stop that left one open would give
-    /// a reader back the picture and none of what it was paying for.
+    /// The reader slot is what this route costs the relay, so a stop that closed only the subscription would
+    /// give back the picture and none of what it was paying for.
     /// </summary>
     [Fact]
     public void StoppingClosesTheEndToEndDecode()
@@ -680,9 +640,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A decode the viewer's grid is also drawing is left running.
     /// One pipeline serves both windows, so a stop from this card would take the picture out of a tile the
-    /// reader is looking at on the other screen.
+    /// reader is watching on the other screen.
     /// </summary>
     [Fact]
     public void ADecodeTheGridIsDrawingIsLeftOpen()
@@ -698,10 +657,8 @@ public sealed class BroadcastPreviewTests
     }
 
     /// <summary>
-    /// A refused start is shown as the backend wrote it.
-    /// A leg that cannot carry this stream's format names the format and the protocols that would have
-    /// carried it, which is the whole of what makes the refusal actionable - and is nothing this side could
-    /// compose.
+    /// A leg that cannot carry the stream's format names the format and the protocols that would have carried
+    /// it, which is nothing this side could compose.
     /// </summary>
     [Fact]
     public void ARefusedDecodeSaysWhyInTheBackendsWords()
@@ -715,18 +672,16 @@ public sealed class BroadcastPreviewTests
         Assert.True(preview.HasPlaceholder);
         Assert.Null(preview.Tile);
 
-        // Asked once and not again.
-        // A refusal is a fact about the key rather than a moment, so re-asking every pass would be a round
-        // trip a second against a leg that has answered.
+        // A refusal is a fact about the key rather than a moment, so re-asking per pass would be a round trip
+        // a second against a leg that has answered.
         preview.Apply();
         preview.Apply();
         Assert.Single(backend.Started);
     }
 
     /// <summary>
-    /// Switching off a refused route clears its sentence.
-    /// Held across the switch, it would stand under the other route's picture describing a leg that route
-    /// never uses.
+    /// Held across the switch, the sentence would stand under the other route's picture describing a leg that
+    /// route never uses.
     /// </summary>
     [Fact]
     public void LeavingARefusedRouteClearsItsSentence()

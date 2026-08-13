@@ -10,8 +10,8 @@ import (
 
 // TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on, so there is no attempt at
 // which it stops being wanted.
-// What the ladder buys is that a relay which is down for an hour is asked once every thirty seconds
-// rather than a hundred times in the first minute.
+// What the ladder buys is a relay that is down for an hour being asked at the last delay rather than
+// as fast as a child dies.
 func TestTheLadderIsWalkedOnceAndThenHeld(t *testing.T) {
 	for attempts := range len(testStreamBackoff) {
 		if wait := testStreamWait(attempts); wait != testStreamBackoff[attempts] {
@@ -27,8 +27,8 @@ func TestTheLadderIsWalkedOnceAndThenHeld(t *testing.T) {
 	}
 }
 
-// TestTheBackoffGrows: the usual reason a synthetic publisher dies is the relay not being up yet,
-// which takes seconds.
+// TestTheTestStreamBackoffGrows: the usual reason a synthetic publisher dies is the relay not being
+// up yet, which takes seconds.
 // A flat retry would spend the whole outage relaunching into the same refusal.
 func TestTheTestStreamBackoffGrows(t *testing.T) {
 	for i := 1; i < len(testStreamBackoff); i++ {
@@ -38,8 +38,8 @@ func TestTheTestStreamBackoffGrows(t *testing.T) {
 	}
 }
 
-// TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount: the roster is meant to carry streams
-// on a machine publishing nothing, and the cost of that is three encoders.
+// TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount: the roster is meant to carry streams on
+// a machine publishing nothing, and the cost of that is an encoder per slot.
 // The environment is where a run says it wants another number of them, or none.
 func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
 	t.Setenv(EnvTestStreams, "")
@@ -60,7 +60,7 @@ func TestTheBootSetIsTheDefaultUnlessTheEnvironmentNamesACount(t *testing.T) {
 
 // TestACountOutsideTheBoundTakesTheDefault: this is a development knob, so a typo in it leaves the
 // app running the set it would have run anyway rather than refusing to start or saturating the
-// machine with nine encoders it did not mean to ask for.
+// machine with encoders it did not mean to ask for.
 func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 	for _, set := range []string{"three", "-1", strconv.Itoa(maxTestStreams + 1)} {
 		t.Setenv(EnvTestStreams, set)
@@ -73,8 +73,8 @@ func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 // TestASlotNamesTheStreamItPublishes: the slot is the stream's identity, so a relaunch has to come
 // back on the row the roster already shows rather than beside it.
 //
-// The slot number leads, and the surface's own label follows it where it has one: two slots that
-// arrived at one name would be one row of the roster and two publishers pushing to it.
+// The slot number leads and the surface's own label follows it where it has one: two slots arriving
+// at one name would be one row of the roster and two publishers pushing to it.
 func TestASlotNamesTheStreamItPublishes(t *testing.T) {
 	seen := map[string]bool{}
 	for slot := range maxTestStreams {

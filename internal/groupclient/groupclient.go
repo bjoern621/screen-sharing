@@ -1,15 +1,17 @@
 // Package groupclient is this app's side of the key, token and index service (internal/groupsvc).
 //
-// Three answers a member needs, and nothing held besides: the relay token a group key is worth, the
-// streams that key can see, a new key where there is none.
+// Three answers a member needs: the relay token a group key is worth, the streams that key can see,
+// a fresh key where there is none.
 //
-// Every call goes to a service on another machine, so every failure is an Umgebungsfehler and
-// leaves as an error. Unreachable, refused, malformed: all conditions a user can act on, none of
-// them this app's contract breaking.
+// Every call reaches a service on another machine, so every failure is an Umgebungsfehler and
+// leaves as an error.
+// Unreachable, refused, malformed: conditions a user can act on, none of them this app's contract
+// breaking.
 //
-// The token is the one thing kept between calls - the alternative is a round trip before every
-// connection a viewer opens. Kept with what it was minted from, so a changed key mints again rather
-// than reusing a credential for a group this app has left.
+// The token is the one fact kept between calls, the alternative being a round trip before every
+// connection a viewer opens.
+// It is kept beside what it was minted from, so a changed key mints again rather than reusing a
+// credential for a group this app has left.
 package groupclient
 
 import (
@@ -24,22 +26,24 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// How long before expiry a held token stops being handed out.
-// Covers the gap between reading one and the relay checking it: the request, the process starting,
-// the handshake.
-// The relay checks at the handshake and not again, so a token surviving that moment carries the
+// Refresh is how long before expiry a held token stops being handed out.
+//
+// It covers the gap between reading a token and the relay checking it: request, process start,
+// handshake.
+// The relay checks at the handshake and not again, so a token that survives that moment carries the
 // whole connection (docs/plan.md).
 const Refresh = 45 * time.Second
 
-// Bounds every call.
-// Short: each sits in front of something the user asked for, a publish starting or a list
+// Timeout bounds every call.
+//
+// Short: each call sits in front of something a user asked for, a publish starting or a list
 // refreshing, and a service that is not answering should say so rather than hold the app.
 const Timeout = 5 * time.Second
 
-// One entry of the index: what the relay carries under the caller's prefix.
+// Stream is one index entry: what the relay carries under the caller's prefix.
 //
-// Name is the stream's own inside the group, not the whole relay path: what a member picked when
-// they published.
+// Name is the stream's own inside the group, what a member picked when publishing,
+// rather than the whole relay path.
 // Format is the video track in the vocabulary the codec table keys on, which decides the transports
 // a viewer may open it over.
 type Stream struct {
@@ -49,13 +53,13 @@ type Stream struct {
 	Format string `json:"format"`
 }
 
-// Calls the service, holds the token it last minted.
+// Client calls the service and holds the token it last minted.
 // Safe for concurrent use: a poll and a publish start at once.
 type Client struct {
 	http *http.Client
 
 	mu sync.Mutex
-	// Token last minted, and what it was minted from.
+	// Token last minted, and what it was minted from, guarded by mu.
 	// Not a keyed map: one group key is configured at a time, and a map would keep a token for every
 	// group this app was ever pointed at.
 	held    string
@@ -63,7 +67,7 @@ type Client struct {
 	from    origin
 }
 
-// What a held token was minted from, compared against a later caller.
+// origin is what a held token was minted from, compared against a later caller.
 type origin struct {
 	base string
 	key  string
@@ -73,11 +77,11 @@ func New() *Client {
 	return &Client{http: &http.Client{Timeout: Timeout}}
 }
 
-// Trades a group key for a relay token, handing back the held one while it has long enough left to
-// open a connection with.
+// Token trades a group key for a relay token, handing back the held one while it has long enough
+// left to open a connection with.
 //
-// The window is the service's to decide and this asks for none. What a client may do is stop using
-// a token before it expires, which is Refresh.
+// The window is the service's and this asks for none.
+// What a client decides is when to stop using a token before it expires, which is Refresh.
 func (c *Client) Token(base, key string) (string, error) {
 	assert.IsNotNil(c.http, "a client calls through a transport")
 
@@ -118,17 +122,16 @@ func (c *Client) Token(base, key string) (string, error) {
 	return answer.Token, nil
 }
 
-// Drops the held token, for a caller whose connection the relay refused.
-// Without it a refused credential would be handed out until it expired on its own.
+// Forget drops the held token, for a caller whose connection the relay refused.
+// Without it a refused credential is handed out until it expires on its own.
 func (c *Client) Forget() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.held, c.expires, c.from = "", time.Time{}, origin{}
 }
 
-// What the relay carries under this key's prefix, or the public streams without a key.
-// The narrowing is the service's: a listing filtered here would have arrived carrying every
-// group's streams.
+// Streams is what the relay carries under this key's prefix, or the public streams without a key.
+// The narrowing is the service's: a listing filtered here arrived carrying every group's streams.
 func (c *Client) Streams(base, key string) ([]Stream, error) {
 	assert.IsNotNil(c.http, "a client calls through a transport")
 
@@ -151,8 +154,8 @@ func (c *Client) Streams(base, key string) ([]Stream, error) {
 	return answer.Streams, nil
 }
 
-// Draws a group key, which is the whole of creating a group: nothing is stored.
-// Back comes the secret itself and the id its streams live under.
+// CreateKey draws a group key, which is the whole of creating a group: nothing is stored.
+// Back comes the secret and the id its streams live under.
 func (c *Client) CreateKey(base string) (key, id string, err error) {
 	assert.IsNotNil(c.http, "a client calls through a transport")
 
@@ -195,9 +198,9 @@ func (c *Client) get(address string, into any) error {
 	return read(address, resp, into)
 }
 
-// One answer into a value, or into the reason there is none.
-// A refusal carries the service's own sentence and it is passed through: restating it here would
-// be guessing at why.
+// read decodes one answer into a value, or into the reason there is none.
+// A refusal carries the service's own sentence and it passes through: restating it here is guessing
+// at why.
 func read(address string, resp *http.Response, into any) error {
 	if resp.StatusCode >= 400 {
 		var refusal struct {
@@ -218,7 +221,7 @@ func unreachable(address string, err error) error {
 	return fmt.Errorf("the group service at %s cannot be reached: %v", address, err)
 }
 
-// Which half of a token request is absent, so the message says what to set.
+// missing names which half of a token request is absent, so the message says what to set.
 func missing(base, key string) string {
 	switch {
 	case base == "" && key == "":

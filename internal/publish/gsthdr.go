@@ -12,16 +12,16 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// gstReadChild splits the publish child's standard output between the two readers of it: the meter,
-// which counts frames off the progress lines, and onCaps, which is handed what the capture
-// negotiated.
+// gstReadChild splits the publish child's standard output between its readers: the meter counting
+// frames off the progress lines, onCaps handed what the capture negotiated,
+// and onPointer handed the cursor positions.
 //
-// One stream rather than a second pipe or socket, because the child is already spawned with one and
-// the two kinds of line cannot be confused: the caps carry a prefix nothing else writes,
-// and the meter skips every line its own pattern does not match.
+// One stream rather than a second pipe or socket, the child being spawned with this one already and
+// the kinds of line telling themselves apart: the caps and the pointer carry prefixes nothing else
+// writes, and the meter skips every line its own pattern does not match.
 //
-// A nil meter is a run nobody asked for progress from, which still reports its caps:
-// what the capture turned out to be is not instrumentation.
+// A nil meter is a run nobody asked progress from, and a nil onPointer one that tracks no cursor.
+// Either still reports its caps: what the capture turned out to be is not instrumentation.
 func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPointer func(p pointer.Position)) {
 	pr, pw := io.Pipe()
 	done := make(chan struct{})
@@ -55,28 +55,27 @@ func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPoin
 	<-done
 }
 
-// Whether a capture is HDR is a property of the surface and never a value the user picks.
+// Whether a capture is HDR is the surface's property and never a value a user picks.
 //
-// What decides it is the transfer characteristic the capture negotiated, which is why this reads
-// the caps the pipeline reports rather than a settings field: a monitor cannot be asked on Linux
-// today - not through xrandr, not through the wlr protocols, not through the portal - and a field
-// would be a claim the app has no way to check.
+// The transfer characteristic the capture negotiated decides it, which is why the verdict is read
+// off the caps the pipeline reports rather than off a settings field: no Linux interface answers
+// what a monitor is driving, neither xrandr nor the wlr protocols nor the portal,
+// so a field would be a claim nothing can check.
 //
-// Which transfer characteristics are HDR is internal/colour's, because a viewer reads the same
-// verdict off the stream this publish sends.
+// Which transfer characteristics are HDR is internal/colour's, since a viewer takes that verdict
+// off the stream this publish sends.
 
-// tenBitChroma is the one pixel format this app encodes that carries more than eight bits per
-// component.
-// Every other format the codec table declares is 8-bit, so an HDR surface has exactly one way
-// through.
+// tenBitChroma is the one pixel format this app encodes at more than eight bits per component,
+// every other format the codec table declares being 8-bit,
+// so an HDR surface has exactly one way through.
 const tenBitChroma = "p010le"
 
-// captureTransfer is the transfer characteristic in a caps string, and the empty string where the
-// caps name none.
+// captureTransfer is the transfer characteristic a caps string carries, and empty where it names
+// none.
 //
-// Reading which part of the colorimetry is the transfer is the child's, because the child narrows
-// the encoder input by the same answer: two spellings of it would let the parent call a surface HDR
-// while the pipeline coded it as something else.
+// Which part of the colorimetry that is comes from internal/colour, the answer the child narrows
+// the encoder input by: two readings of it would let the parent call a surface HDR while the
+// pipeline coded it as something else.
 func captureTransfer(caps string) string {
 	value, ok := capsField(caps, "colorimetry")
 	if !ok {
@@ -85,8 +84,7 @@ func captureTransfer(caps string) string {
 	return colour.TransferOfColorimetry(value)
 }
 
-// capsField is one field's value out of a caps string, and false where the caps carry no such
-// field.
+// capsField is one field's value out of a caps string, false where the caps carry no such field.
 // GStreamer prints them as `name=(type)value`, comma separated.
 func capsField(caps, name string) (string, bool) {
 	for _, field := range strings.Split(caps, ",") {
@@ -95,7 +93,7 @@ func capsField(caps, name string) (string, bool) {
 		if !ok {
 			continue
 		}
-		// The type in parentheses is GStreamer's; what a reader of this wants is the value.
+		// The parenthesised type is GStreamer's; the value is what a caller reads.
 		if i := strings.Index(rest, ")"); strings.HasPrefix(rest, "(") && i > 0 {
 			rest = rest[i+1:]
 		}
@@ -104,21 +102,18 @@ func capsField(caps, name string) (string, bool) {
 	return "", false
 }
 
-// hdrCapture reports whether caps describe an HDR surface.
 func hdrCapture(caps string) bool {
 	return colour.IsHDR(captureTransfer(caps))
 }
 
-// hdrRefusal is why this publish must not continue, and nil where the capture and the pixel format
+// hdrRefusal is why the publish must not continue, and nil where the capture and the pixel format
 // agree.
 //
-// An HDR capture cannot ride in eight bits.
-// The two ways to continue anyway are both silent failures: tone-mapping down without being asked
-// is a fallback that changes the picture nobody said to change, and coding the surface into an
-// 8-bit format with the tag dropped sends wrong colour with nothing saying so.
-// So the publish stops, and the message names both ends - what the capture turned out to carry,
-// and what the settings asked to code it as - because either one is a way out and the user picks
-// which.
+// An HDR capture cannot ride in eight bits, and continuing anyway is silent either way:
+// tone-mapping down changes a picture nobody asked to change,
+// and coding the surface as 8-bit with the tag dropped sends wrong colour with nothing saying so.
+// The message names both ends, what the capture turned out to carry and what the settings asked to
+// code it as, because either one is a way out and the choice is the user's.
 func hdrRefusal(s settings.Settings, caps string) error {
 	if !hdrCapture(caps) || s.Publish.Chroma == tenBitChroma {
 		return nil

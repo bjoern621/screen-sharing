@@ -13,13 +13,13 @@ import (
 
 const presetsFileName = "presets.json"
 
-// Preset is a named way of publishing the user saved for reuse.
-// It is a Publish group and nothing else: where the relay is belongs to a deployment and how this
+// Preset is a named way of publishing, saved for reuse.
+// A Publish group and nothing else: where the relay sits belongs to a deployment and how this
 // machine watches belongs to a viewer, and neither is part of what a saved configuration means.
 //
-// Presets are independent of the last-used settings that Load and Save persist.
-// Deleting a preset never touches the working settings, and the working settings restored on launch
-// need not correspond to any preset.
+// Presets stand apart from the working settings Load and Save persist.
+// A delete never touches the working settings, and the settings restored on launch answer to no
+// preset.
 type Preset struct {
 	Name     string  `json:"name"`
 	Settings Publish `json:"settings"`
@@ -33,11 +33,12 @@ func presetsPath() (string, error) {
 	return filepath.Join(dir, presetsFileName), nil
 }
 
-// LoadPresets reads the saved presets in the order they were stored, and answers with none and the
-// reason when the file cannot be used.
-// A missing file is not a failure: nothing has been saved yet.
+// LoadPresets reads the saved presets in the order they were stored, and answers none and a reason
+// where the file cannot be used.
+// A missing file is no failure: nothing has been saved yet.
 //
-// An unusable file is moved aside (setAside) for the reason SavePreset and DeletePreset name.
+// An unusable file is an Umgebungsfehler and is moved aside (setAside), for the reason SavePreset
+// and DeletePreset name.
 // Both rewrite the whole file from what this returns, so answering an unreadable file with an empty
 // list would let the next save replace every preset in it.
 func LoadPresets() ([]Preset, error) {
@@ -59,8 +60,8 @@ func LoadPresets() ([]Preset, error) {
 		return nil, setAside(path, fmt.Errorf("presets file %s is corrupt: %w", path, err))
 	}
 
-	// Presets saved by an older build carry the old mode names and lack the fields added since.
-	// Each is upgraded the way Load upgrades the working set.
+	// A preset saved by an older build carries the old mode names and lacks the keys added since.
+	// Each is upgraded the way Load upgrades the working settings.
 	for i := range presets {
 		presets[i].Settings = migratePublish(presets[i].Settings, Defaults().Publish)
 	}
@@ -78,9 +79,9 @@ func savePresets(presets []Preset) error {
 	return os.WriteFile(path, data, storeFileMode)
 }
 
-// SavePreset stores s under name, replacing any existing preset with that name.
+// SavePreset stores s under name, replacing any preset already saved under it.
 //
-// A presets file that could not be read is reported instead of written over.
+// A presets file that could not be read is reported rather than written over.
 // The whole file is rewritten from what LoadPresets returned, so saving into a file that read as
 // empty would replace every preset in it with this one entry.
 // The unreadable file has been moved aside by then, so the same save repeated writes a fresh file
@@ -103,9 +104,9 @@ func SavePreset(name string, s Publish) error {
 	return savePresets(append(presets, Preset{Name: name, Settings: s}))
 }
 
-// DeletePreset removes the preset named name.
-// A missing name is not an error, which is what makes a repeated delete succeed;
-// an unreadable file is, for the reason SavePreset gives.
+// DeletePreset removes the preset saved under name.
+// A name no preset carries is a success, which is what makes a repeated delete one too.
+// An unreadable file is an error, for the reason SavePreset gives.
 func DeletePreset(name string) error {
 	assert.Assert(name != "", "a deleted preset is named")
 

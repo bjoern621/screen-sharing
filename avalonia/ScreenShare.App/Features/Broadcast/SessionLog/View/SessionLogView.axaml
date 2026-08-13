@@ -7,11 +7,7 @@
              x:DataType="vm:SessionLogViewModel">
 
   <UserControl.Styles>
-    <!--
-      Three tiers on one line: when it happened is dimmest, what happened carries the
-      words, and the level brightens only when it is worth interrupting a reader for.
-      Warning is declared last so it wins over the level's resting colour.
-    -->
+    <!-- Warning last: it matches .level at equal specificity, so declaration order decides. -->
     <Style Selector="TextBlock.stamp">
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
@@ -38,11 +34,6 @@
                 controls:Pending.IsActive="{Binding OpenFullLogCommand.IsRunning}" />
       </Grid>
 
-      <!--
-        What stands in for the lines while there are none. It was composed all along and
-        nothing drew it, so a session that had reported nothing yet was a card with a heading
-        and an empty body, saying neither that the log was empty nor where the rest of it is.
-      -->
       <TextBlock DockPanel.Dock="Top"
                  Classes="hint"
                  Text="{Binding Notice}"

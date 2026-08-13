@@ -4,7 +4,7 @@ namespace ScreenShare.App.Features.Shell.StatusBar.View;
 
 /// <summary>
 /// Markup and nothing else.
-/// The band reports; it affords nothing, so there is nothing here for a handler to do.
+/// The band reports and affords nothing, so no handler has anything to do here.
 /// </summary>
 public sealed partial class StatusBarView : UserControl
 {

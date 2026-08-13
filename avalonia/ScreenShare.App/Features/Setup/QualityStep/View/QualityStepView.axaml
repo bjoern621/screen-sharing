@@ -6,17 +6,6 @@
              x:Class="ScreenShare.App.Features.Setup.QualityStep.View.QualityStepView"
              x:DataType="vm:QualityStepViewModel">
 
-  <!--
-    The quality form. Two controls the reader moves - the rate-control card and the quantizer
-    - and the read-back row beneath them.
-
-    Every string on this screen arrives in the resolved form. The layout is this file's: cards
-    for the choice whose options carry a paragraph each, a banded track for the scale with
-    named ends, and a row of dropdowns for the values read back from the source. Which fields
-    those are is not written down here - the row draws whatever the group offers as a select
-    (docs/ipc-api.md, "The rule").
-  -->
-
   <UserControl.Resources>
     <ResourceDictionary>
       <ResourceDictionary.MergedDictionaries>
@@ -27,7 +16,6 @@
   </UserControl.Resources>
 
   <UserControl.Styles>
-    <!-- The radio glyph is a ring that thickens into a dot; there is no second colour in it. -->
     <Style Selector="Ellipse.radiodot">
       <Setter Property="Width" Value="13" />
       <Setter Property="Height" Value="13" />
@@ -41,9 +29,9 @@
     </Style>
 
     <!--
-      The closed dropdown's two columns. Stated here rather than in the face's theme because
-      the caller supplies them: a ControlTheme may not carry a descendant selector, so the
-      only place a rule can reach this text is the file that writes it.
+      The closed dropdown's two columns, and their disabled treatment, stated by the caller
+      rather than in the face's theme: a ControlTheme carries no descendant selector, so the
+      only rule that reaches this text is in the file that writes it.
     -->
     <Style Selector="TextBlock.facevalue">
       <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
@@ -52,7 +40,6 @@
       <Setter Property="Brush" Value="{DynamicResource MutedBrush}" />
     </Style>
 
-    <!-- The unavailable treatment, on the face's own text: a colour change and nothing else. -->
     <Style Selector="Button:disabled TextBlock.facevalue">
       <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
     </Style>
@@ -62,10 +49,9 @@
   </UserControl.Styles>
 
   <!--
-    Nothing is drawn before the first resolve, or for a backend that does not describe this
-    step. The unreachable backend already says so once, above the column, and a card saying
-    it a second time in its own words is the same news twice - the five generic steps hide
-    on the same binding (Fields/View/FieldGroupView.axaml).
+    Nothing before the first resolve, and nothing for a backend that does not describe this
+    step: the unreachable backend already says so once above the column, and a card is not
+    drawn empty to repeat it.
   -->
   <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
     <StackPanel>
@@ -76,23 +62,6 @@
                  Margin="0,3,0,16"
                  Text="{Binding Help}" />
 
-      <!--
-        Rate control. Cards, because each option carries a paragraph the reader compares.
-
-        The grid is as wide as its count is square rather than standing in one row. Five
-        modes across a single row gave each paragraph about a sixth of the column, and a
-        three-sentence explanation set thirty characters wide is a paragraph nobody
-        compares - it is read as a column of fragments. Squared off, five modes are three
-        across and two below, and each card is wide enough to set prose in.
-
-        The columns come from the step rather than from the panel, which squares off both
-        dimensions and hangs a card's worth of empty column under an uneven count
-        (Setup/Model/QualityLayout.cs).
-
-        The card is wrapped, and the wrapper carries the refusal: a disabled control takes
-        no pointer events, so a tooltip on the card itself would open on every entry except
-        the ones that have something to say.
-      -->
       <ItemsControl IsVisible="{Binding HasMode}"
                     IsEnabled="{Binding Mode.IsEnabled}"
                     ItemsSource="{Binding Mode.Options}"
@@ -104,6 +73,11 @@
         </ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="fields:OptionViewModel">
+            <!--
+              The refusal rides on the wrapper: a disabled control takes no pointer events, so
+              a tip on the card would open on every entry except the ones with something to
+              say.
+            -->
             <Border Background="Transparent" Margin="5,0,5,10" ToolTip.Tip="{Binding Refusal}">
               <Button Theme="{StaticResource OptionCard}"
                       Classes.picked="{Binding IsSelected}"
@@ -111,10 +85,9 @@
                       Command="{Binding Choose}">
                 <StackPanel>
                   <!--
-                    A grid rather than a horizontal stack, because a stack measures its
-                    children against infinite width: the title neither wrapped nor trimmed
-                    and simply ran past the card's edge, which is what cut "bit-exact" off
-                    mid-word. The starred column is what gives it a width to wrap into.
+                    A grid and not a horizontal stack: a stack measures its children against
+                    infinite width, so the title neither wraps nor trims and runs past the
+                    card's edge. The starred column is the width it wraps into.
                   -->
                   <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
                     <Ellipse Grid.Column="0" Classes="radiodot" />
@@ -126,11 +99,7 @@
                                TextTrimming="None"
                                VerticalAlignment="Center" />
                   </Grid>
-                  <!--
-                    Why the option is refused, then what it is. The gap between the two
-                    rides on the first, so a card carrying only the description carries no
-                    gap: set flush, a refusal and the paragraph under it read as one block.
-                  -->
+                  <!-- The gap rides on the refusal, so a card carrying only the description carries none. -->
                   <TextBlock Classes="cardbody"
                              Margin="0,0,0,6"
                              IsVisible="{Binding HasReason}"
@@ -145,7 +114,6 @@
         </ItemsControl.ItemTemplate>
       </ItemsControl>
 
-      <!-- Quantizer. The figure is promoted because it is the number the reader is moving. -->
       <StackPanel IsVisible="{Binding HasQuantizer}">
         <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,16,0,0">
           <TextBlock Grid.Column="0" Classes="heading" Text="{Binding Quantizer.Label}" VerticalAlignment="Bottom" />
@@ -154,9 +122,9 @@
         </Grid>
 
         <!--
-          The track is three zones and one deliberate gap: below the band, the band itself,
-          bare track, then the tail where the picture stops being usable. The slider paints no
-          track of its own, so the zones show through under the thumb.
+          Three zones and one deliberate gap, drawn behind the slider: below the recommended
+          band, the band, bare track, then the tail where the picture stops being usable. The
+          theme paints no track of its own, so the zones show through under the thumb.
         -->
         <Panel Height="14" Margin="0,9,0,0" IsEnabled="{Binding Quantizer.IsEnabled}">
           <Border Height="6"
@@ -178,13 +146,9 @@
         </Panel>
 
         <!--
-          The zones, named. The columns are the track's own, so each label stands at the
-          head of the band it names and the last one ends where the track ends.
-
-          The ratios are repeated rather than a column given to each label because a starred
-          column is a share of the whole row and not a share of what is left over: a lone `*`
-          beside the first band's 29 is a thirtieth of the width, which trimmed the one label
-          of the three that says what to do to "1...".
+          The track's own ratios, repeated rather than one column per label, because a starred
+          column is a share of the whole row and not of what is left over: a lone `*` beside
+          the first band's 29 is a thirtieth of the width.
         -->
         <Grid ColumnDefinitions="29*,12*,22*,37*" Margin="0,6,0,0">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0 — visually lossless, huge" />
@@ -192,7 +156,6 @@
           <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="51 — unusable" />
         </Grid>
 
-        <!-- Why the control is inert, in its place rather than in a log line. -->
         <TextBlock Classes="hint"
                    TextWrapping="Wrap"
                    TextTrimming="None"
@@ -201,20 +164,9 @@
                    Text="{Binding Quantizer.Reason}" />
       </StackPanel>
 
-      <!--
-        The values read back from the source. Each opens: the entries, their trailing
-        provenance and the greying of the ones this configuration rules out all arrive in the
-        form, so the control offers exactly what the backend would accept.
-      -->
       <ItemsControl ItemsSource="{Binding Selects}" Margin="-5,16,-5,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
-            <!--
-              Two across rather than however many the group happens to carry. A label like
-              "Colour quantization range" and a value like "HEVC / H.265 (NVIDIA NVENC)"
-              both need most of half the column; four of them abreast trimmed every one of
-              them to an ellipsis.
-            -->
             <UniformGrid Columns="2" />
           </ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
@@ -227,10 +179,9 @@
                       IsEnabled="{Binding IsEnabled}"
                       ToolTip.Tip="{Binding Help}">
                 <!--
-                  The held value takes the starred column so it trims inside the face. It
-                  used to sit in an Auto column beside the caret, which measures against
-                  infinite width: a long codec name pushed the caret out of the button
-                  instead of ending in an ellipsis.
+                  The held value takes the starred column so it trims inside the face. An Auto
+                  column measures against infinite width, which pushes the caret out of the
+                  button on a long codec name.
                 -->
                 <Grid ColumnDefinitions="*,Auto,Auto">
                   <TextBlock Grid.Column="0"
@@ -253,12 +204,10 @@
 
                 <Button.Flyout>
                   <!--
-                    The entry, and why it is out where it is out. The row is shared
-                    (Features/Fields/View/SelectEntry.axaml): the refusal is a line in it rather than
-                    a tooltip on it, because the row is a disabled MenuItem wherever there is
-                    something to explain, a disabled control takes no pointer events, and a
-                    tooltip that can only open on the entries with nothing to say is worse
-                    than none.
+                    The shared entry row (Features/Fields/View/SelectEntry.axaml) carries a
+                    refused entry's reason as a line rather than a tip: the row is a disabled
+                    MenuItem wherever there is something to explain, and a disabled control
+                    takes no pointer events.
                   -->
                   <MenuFlyout ItemsSource="{Binding Options}"
                               ItemTemplate="{StaticResource SelectEntry}"
@@ -267,7 +216,6 @@
                 </Button.Flyout>
               </Button>
 
-              <!-- Why the control is inert, and what a live one means here that its label does not say. -->
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"
                          TextTrimming="None"

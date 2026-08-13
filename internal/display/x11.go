@@ -11,23 +11,23 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
-// x11ConnectedRe matches an xrandr output header for a connected monitor with an active mode:
-// the output name, an optional "primary" flag, and the WxH+X+Y geometry.
-// A connected output with no active mode, one that is turned off, omits the geometry and does not
-// match, so it is left out of the listing.
+// x11ConnectedRe matches an xrandr output header for a connected output with an active mode:
+// "HDMI-A-1 connected primary 1920x1080+2560+0 (normal left inverted right x axis y axis)".
+// A connected output that is turned off carries no geometry, so it does not match and stays out of
+// the listing.
 var x11ConnectedRe = regexp.MustCompile(`^(\S+) connected (primary )?(\d+)x(\d+)\+(\d+)\+(\d+)`)
 
 // x11CurrentModeRe pulls the refresh rate off an indented mode line.
-// xrandr flags the active mode with '*', as in "1920x1080 143.98*+".
+// xrandr flags the active mode with '*': "1920x1080 143.98*+".
 var x11CurrentModeRe = regexp.MustCompile(`([\d.]+)\s*\*`)
 
-// listX11 enumerates monitors from "xrandr --query".
-// Each connected output with an active mode becomes one entry, indexed in xrandr's listing order
-// and carrying its virtual-desktop offset for crop-based x11grab capture.
+// listX11 enumerates monitors from "xrandr --query", the RandR view of the X screen.
+// A connected output with an active mode becomes one entry, indexed in xrandr's listing order and
+// carrying its offset within the X screen, which is the origin crop-based capture starts its
+// rectangle at.
 //
-// It answers nil where xrandr is absent or reports no active output, so the caller falls back to
-// the next provider or the placeholder.
-// Both are Umgebungsfehler, which is why neither is asserted on.
+// xrandr missing and xrandr reporting no active output are Umgebungsfehler, so neither asserts:
+// both answer nil and the caller falls through to the next provider or to the placeholder.
 func listX11() []Monitor {
 	out, err := exec.Command("xrandr", "--query").Output()
 	if err != nil {
@@ -47,7 +47,7 @@ func listX11() []Monitor {
 			})
 			continue
 		}
-		// Mode lines are indented under their output header; the flagged current mode sets that output's
+		// A mode line is indented under its output header, and the flagged one carries that output's
 		// refresh rate.
 		if len(monitors) > 0 && indented(line) {
 			if r := x11CurrentModeRe.FindStringSubmatch(line); r != nil {
@@ -71,8 +71,8 @@ func atoi(s string) int {
 	return n
 }
 
-// roundHz parses a decimal refresh rate and rounds it to the nearest integer.
-// Unparseable input yields zero, the "unknown refresh" sentinel, since the text came out of another
+// roundHz rounds a decimal refresh rate to the nearest whole Hz.
+// Text that does not parse yields zero, the unknown-refresh sentinel: it came out of another
 // program and is not this app's to guarantee.
 func roundHz(s string) int {
 	hz, err := strconv.ParseFloat(s, 64)

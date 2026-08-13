@@ -4,13 +4,18 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Mvvm;
 
 /// <summary>
-/// Converges a bound collection onto the rows a render function just derived.
+/// Converges a bound collection onto the rows a render function derived.
 ///
-/// Clear-then-fill rather than an incremental patch: the lists on this screen are small, and clear-then-fill
-/// is idempotent by construction.
-/// The guard in front of it is what makes that safe to run every pass - rows are records, so an unchanged
-/// reading compares equal and the collection is left alone, which is what keeps a per-second refresh from
-/// resetting scroll position (docs/development-principles.md, "Idempotency").
+/// Clear-then-fill rather than an incremental patch: these lists are short, and a rebuild leaks no handler and
+/// repeats without effect (<c>docs/development-principles.md</c>, "Idempotency").
+///
+/// The guard in front of it is what makes that safe on every pass.
+/// Identity is a row's value at its position, rows being records, so an unchanged reading compares equal and
+/// the collection is left untouched.
+/// A row that moved therefore rebuilds the list exactly as a row that changed does.
+///
+/// The guard is correctness and not economy: a rebuild replaces every container, so a per-second pass would
+/// reset scroll position, drop a selection, and close a tooltip open under a resting pointer.
 /// </summary>
 public static class Reconcile
 {

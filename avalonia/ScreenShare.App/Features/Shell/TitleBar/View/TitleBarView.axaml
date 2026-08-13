@@ -6,17 +6,13 @@
              x:DataType="vm:TitleBarViewModel">
 
   <!--
-    The four caption shapes, as Windows draws them, in a 10x10 box that Design/Icons.axaml
-    maps one-to-one onto pixels.
+    The caption shapes as Windows draws them, in the 10x10 box Design/Icons.axaml maps onto pixels one to one.
 
-    Every coordinate is a half: a 1px stroke is centred on the line it is given, so x.5 puts
-    it across whole pixel column x and an integer would split it over two at half strength.
-    That is the difference between a crisp hairline and the grey smear a naive 0..10 square
-    renders as.
+    Coordinates land on halves because a 1px stroke centres on the line it is given: x.5 fills pixel column x,
+    an integer splits over two columns at half strength.
 
-    Restore is the two-window shape and not a second square: the front is the 8x8 the window
-    would return to, and the back is the part of the maximised one it no longer covers - up
-    the left edge to the top, across, down the right, and back to where the front hides it.
+    Restore is the two-window shape: an 8x8 front for the size the window returns to, and behind it the part
+    of the maximised one that front no longer covers.
   -->
   <UserControl.Resources>
     <StreamGeometry x:Key="CaptionMinimise">M0,5.5 H10</StreamGeometry>
@@ -26,17 +22,10 @@
   </UserControl.Resources>
 
   <!--
-    One of the two chrome bands. No rule under it: the nav strip below draws the only line
-    in this region, and a second one would fence the title off from the app rather than
-    joining it to it.
+    Left inset written out: GapPanel holds the same 12, and a Thickness has no token to name.
 
-    The 12px left padding is the design's strip inset. Design/Metrics.axaml states it as the
-    GapPanel spacing token, but there is no Thickness token to name here, so the number is
-    written out.
-
-    The band stands in for the native caption the window extended itself over, so it claims
-    the TitleBar role: drag, double-click to maximise and the right-click window menu are
-    then the platform's, not a handler's.
+    The band stands in for the native caption the window extended itself over, so it claims the TitleBar role:
+    drag, double-click to maximise and the right-click window menu stay the platform's rather than a handler's.
   -->
   <Border Classes="chromeband"
           Height="{StaticResource TitleBarHeight}"
@@ -51,10 +40,8 @@
                   VerticalAlignment="Center">
 
         <!--
-          The app mark, and the live indicator, in one 12px rounded square. It carries the
-          one red in the palette, which is what lets a glance at the taskbar say the machine
-          is sending. 12px has no metric token of its own; the radius takes the smallest one
-          the design states.
+          The app mark, in the palette's one red.
+          Its 12px has no metric token, so the radius takes the smallest one the design states.
         -->
         <Border Width="12"
                 Height="12"
@@ -68,19 +55,15 @@
       </StackPanel>
 
       <!--
-        Minimise, maximise, close. The glyphs are the platform's shapes rather than this
-        app's icons: these buttons replace the ones Windows hid when the client area was
-        extended over the caption, and a caption button is read against every other window
-        on the screen.
+        The platform's caption shapes rather than the app's icon set: these stand in for the buttons Windows
+        hid when the client area was extended over the caption, and a reader compares them with every other
+        window on the screen.
 
-        The stroke is read off the button rather than named here, so the glyph follows
-        whatever state the button's theme puts it in.
+        Stroke read off the button, because Path.caption's own brush would not follow the button's state.
 
-        Each one names the caption button it stands in for. On Win32 that role is the
-        HTMINBUTTON/HTMAXBUTTON/HTCLOSE the platform expects, which is what restores the
-        system's own minimise and restore animations and the snap-layout flyout that hovering
-        maximise opens. Elsewhere the role is inert and the command below does the work, so
-        both paths stay wired.
+        Each role names the caption button it stands in for. On Win32 that is HTMINBUTTON, HTMAXBUTTON and
+        HTCLOSE, which restore the system's minimise and restore animations and the snap-layout flyout under
+        maximise. Elsewhere the role is inert and the command does the work.
       -->
       <StackPanel Grid.Column="2" Orientation="Horizontal">
 
@@ -94,10 +77,8 @@
         </Button>
 
         <!--
-          One button with two glyphs, because that is one button on Windows: maximise while
-          the window is normal, restore while it is maximised. Both are always present and
-          the state picks which is shown, rather than a handler writing the shape, so the
-          glyph cannot disagree with the window it names.
+          One button and two glyphs, as Windows has it: maximise while the window is normal, restore while it
+          is maximised. Both are present and the bound state picks, so no handler writes the shape.
         -->
         <Button Theme="{StaticResource WindowControlButton}"
                 Command="{Binding MaximiseCommand}"

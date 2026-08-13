@@ -11,15 +11,9 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// Where the wizard's steps come from, which is the form and not this module.
-///
-/// The case these lock out is the one that shipped: the flow held a table of seven steps, each naming the
-/// group key it drew, and three of those keys named groups the backend does not answer with - so three steps
-/// drew an empty column, and the groups the table did not name were unreachable.
-/// Nothing on screen said so, and every test passed, because the fixture had been written against the same
-/// table.
-/// Asserting the strip against whatever the form happens to carry is what makes that impossible rather than
-/// unlikely.
+/// The strip is the resolved form's groups, never a table held here.
+/// Pins the defect a step table shipped with: keys naming groups no backend answers with drew empty columns,
+/// the groups it missed were unreachable, and the fixture was written from the same table.
 /// </summary>
 public sealed class SetupStepsTests
 {
@@ -31,10 +25,6 @@ public sealed class SetupStepsTests
         return flow;
     }
 
-    /// <summary>
-    /// A chip per group the form carried, in the form's own order, and one more to commit on.
-    /// Nothing here knows how many that is.
-    /// </summary>
     [Fact]
     public async Task TheStripIsTheFormsGroupsAndOneMore()
     {
@@ -42,29 +32,24 @@ public sealed class SetupStepsTests
         var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
         var flow = await FlowAsync();
 
-        // Every group except the ones another destination draws.
-        // The list is the form's and the placement is this shell's, which is the whole of what this side
-        // decides.
+        // The form names the groups and this shell places them.
         var sent = form.Groups.Where(group => GroupPlacement.InSetup(group.Key)).ToList();
 
         Assert.Equal(sent.Count + 1, flow.Steps.Count);
         Assert.Equal(
             sent.Select(group => group.Key).Append(SetupSteps.ShareKey),
             flow.Steps.Select(step => step.Key));
-        // The chip's name is this side's, looked up by the key the form named the group by: what fits on a
-        // chip is a decision about this strip, and the contract cannot see how wide it is.
+        // Chip titles are this shell's, keyed by the form's group key.
+        // What fits on a chip is this strip's decision, and the contract cannot see how wide one is.
         Assert.Equal(
             sent.Select(group => Fields.Group(group.Key).Title),
             flow.Steps.Take(sent.Count).Select(step => step.Label));
     }
 
     /// <summary>
-    /// The wizard configures what this machine sends, so the group about how it receives is not one of its
-    /// steps - not as a chip, not as a review tile, and not as a group it renders.
-    ///
-    /// The case this locks out is the one that shipped: a page of watching settings inside the sending
-    /// wizard, which a reader had to walk past to reach the commit and which only persisted if they went
-    /// live.
+    /// The wizard configures what this machine sends.
+    /// Pins the defect that shipped: a page of watching settings inside the sending wizard, which persisted
+    /// only if the reader went live.
     /// </summary>
     [Fact]
     public async Task TheWatchingGroupIsNoStepOfTheSendingWizard()
@@ -73,8 +58,7 @@ public sealed class SetupStepsTests
         var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
         var flow = await FlowAsync();
 
-        // The fixture carries one, so the assertions below are about a filter that ran rather than about a
-        // form that never had the group.
+        // The fixture carries one, so what follows tests a filter and not a form that lacked the group.
         Assert.Contains(form.Groups, group => GroupPlacement.InViewer(group.Key));
 
         Assert.DoesNotContain(flow.Steps, step => GroupPlacement.InViewer(step.Key));
@@ -86,7 +70,6 @@ public sealed class SetupStepsTests
         Assert.Equal(flow.Steps[0].Key, flow.Steps.Single(step => step.IsCurrent).Key);
     }
 
-    /// <summary>Every step draws something: the group it names, or the review on the terminal one.</summary>
     [Fact]
     public async Task EveryStepInTheStripDrawsAForm()
     {
@@ -116,10 +99,6 @@ public sealed class SetupStepsTests
         }
     }
 
-    /// <summary>
-    /// The flow opens on the first step the form describes rather than on a key held here, and walking
-    /// forward reaches the terminal step.
-    /// </summary>
     [Fact]
     public async Task TheFlowOpensOnTheFirstGroupAndWalksToTheEnd()
     {
@@ -138,9 +117,8 @@ public sealed class SetupStepsTests
     }
 
     /// <summary>
-    /// A step the reader picked and a newer form no longer carries is not a dead screen: the render pass
-    /// falls back to the first step.
-    /// It is read through rather than written back, so a group that returns puts the reader where they were.
+    /// The fallback is read through rather than written back, so a group that returns puts the reader back
+    /// on it.
     /// </summary>
     [Fact]
     public async Task AStepTheFormDoesNotCarryFallsBackToTheFirst()
@@ -153,10 +131,7 @@ public sealed class SetupStepsTests
         Assert.True(flow.ShowsFields);
     }
 
-    /// <summary>
-    /// The review reads back the groups' own shorthands, which is the same sentence the strip repeats - so
-    /// the two cannot name different configurations.
-    /// </summary>
+    /// <summary>One shorthand per group feeds both, so strip and review cannot name two configurations.</summary>
     [Fact]
     public async Task TheReviewReadsBackWhatTheStripSays()
     {
@@ -169,9 +144,7 @@ public sealed class SetupStepsTests
     }
 }
 
-/// <summary>
-/// The rail: what the form predicts the settings cost, and everything it said about them.
-/// </summary>
+/// <summary>Every figure on the rail is the form's own estimate, never a number composed here.</summary>
 public sealed class CostRailTests
 {
     private static async Task<SetupViewModel> FlowAsync(SeededBackend backend)
@@ -181,11 +154,6 @@ public sealed class CostRailTests
         return flow;
     }
 
-    /// <summary>
-    /// Every figure on the panel is the form's estimate.
-    /// It used to be the mockup's own numbers, which meant the panel read the same rate whatever the encoder
-    /// was set to.
-    /// </summary>
     [Fact]
     public async Task TheHeadlineFigureIsTheFormsPrediction()
     {
@@ -204,9 +172,7 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// The uplink is read on the panel it is the limit of and edited on the step that owns the control, and
-    /// the panel says which step that is.
-    /// One control per setting: the rail used to carry a second spinner over the same field.
+    /// One control per setting: the rail names the step that edits the uplink and carries no second spinner.
     /// </summary>
     [Fact]
     public async Task TheRailReadsTheUplinkAndNamesTheStepThatEditsIt()
@@ -221,9 +187,8 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// The measurement is offered beside the figure it writes, on the step that owns the field.
-    /// It is the screen's own placement and not something the form described, which is why it rides on the
-    /// field rather than on the panel.
+    /// Placement is this shell's and the form describes none, so the measurement rides on the field it
+    /// writes.
     /// </summary>
     [Fact]
     public async Task TheMeasurementIsOfferedBesideTheControlItWrites()
@@ -239,23 +204,19 @@ public sealed class CostRailTests
         }
     }
 
-    /// <summary>The uplink control, on the step the fixture's form puts it on.</summary>
+    /// <summary>Uplink control, reached by moving the flow to the step the fixture's form puts it on.</summary>
     private static FieldViewModel Uplink(SetupViewModel flow)
     {
         flow.CurrentStep = "network";
         return flow.CurrentGroup!.Fields.Single(field => field.Key == RailLayout.UplinkKey);
     }
 
-    /// <summary>
-    /// A diagnostic is a line on the rail's list, ranked by its severity and anchored to the step that owns
-    /// the control it is about - which is what stops it being a dead end.
-    /// </summary>
     [Fact]
     public async Task ADiagnosticBecomesALineNamingTheStepThatOwnsIt()
     {
         var flow = await FlowAsync(new SeededBackend("linux"));
 
-        // Under the predicted rate, which is what the fixture warns about.
+        // Under the predicted rate, which is what the fixture warns on.
         Uplink(flow).Number = 4;
         await flow.Settled;
 
@@ -268,7 +229,6 @@ public sealed class CostRailTests
         Assert.Equal(flow.Rail.ChecksSummary, flow.Steps.Single(step => step.IsTerminal).Value);
     }
 
-    /// <summary>Nothing to say is a line saying so, not a card that empties out.</summary>
     [Fact]
     public async Task AFormWithNoDiagnosticsStillDrawsALine()
     {
@@ -278,10 +238,7 @@ public sealed class CostRailTests
         Assert.Equal("nothing to fix", flow.Rail.ChecksSummary);
     }
 
-    /// <summary>
-    /// Measuring writes the figure in through the same path a typed one takes, so a measured uplink and a
-    /// typed one are one value and one re-resolve.
-    /// </summary>
+    /// <summary>A measured figure takes the path a typed one takes: one value, one re-resolve.</summary>
     [Fact]
     public async Task MeasuringTheUplinkWritesTheFigureIntoTheDraft()
     {
@@ -296,13 +253,9 @@ public sealed class CostRailTests
     }
 
     /// <summary>
-    /// A stream on the air greys the button and states why beside it, rather than leaving it pressable into a
-    /// refusal the backend would send back.
-    /// The figure itself stays editable: a live stream blocks the measurement and no field
-    /// (<c>docs/field-availability.md</c>).
-    ///
-    /// The lock is read through from the running state on every pass, so a stream that ended puts the button
-    /// back with nothing here having remembered that it was locked.
+    /// A live stream blocks the measurement and no field (<c>docs/field-availability.md</c>), so the figure
+    /// stays editable.
+    /// The lock is read through on every pass, so a stream that ended puts the button back.
     /// </summary>
     [Fact]
     public void AStreamOnTheAirGreysTheMeasurementAndSaysWhyBesideIt()
@@ -331,10 +284,7 @@ public sealed class CostRailTests
         Live = new PublishState.Types.Live { Publish = new PublishSettings { Name = name } },
     };
 
-    /// <summary>
-    /// Reads the running state once and stops before the reconnect delay, then renders - so what a test reads
-    /// afterwards is what the render pass made of the state it set.
-    /// </summary>
+    /// <summary>Reads the running state once, stops before the reconnect delay, then renders.</summary>
     private static void Read(Session session, SetupViewModel flow)
     {
         session.Start();

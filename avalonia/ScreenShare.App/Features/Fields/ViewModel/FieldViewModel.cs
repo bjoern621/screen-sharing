@@ -12,27 +12,25 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// <summary>
 /// One control of the resolved form, as the screen draws it.
 ///
-/// This is the shell's whole understanding of a setting: a key, a control kind it maps to a widget, and a
-/// handful of statements the backend made about it.
-/// It evaluates no rule and invents no value - which entries exist, which are reachable and why not all
+/// The shell's whole understanding of a setting: a key, a control kind mapped to a widget, and the statements
+/// the backend made about it.
+/// No rule is evaluated and no value invented here; which entries exist, which are reachable and why not
 /// arrive already decided (docs/ipc-api.md, "The rule").
 ///
-/// What it does own is every word.
-/// The heading, the paragraph behind it, what each entry is called and the sentence in place of a greyed one
-/// are all written on this side and looked up by <see cref="Key"/> and by the entry's value
-/// (ScreenShare.App.Copy).
+/// Every word is this side's.
+/// The heading, the paragraph behind it, what an entry is called and the sentence standing in for a greyed one
+/// are looked up by <see cref="Key"/> and by the entry's value (ScreenShare.App.Copy).
 /// The backend sends <c>hevc_nvenc</c>; this is where that becomes something to read.
 ///
-/// <b>Inputs</b> are <see cref="Text"/>, <see cref="Number"/>, <see cref="Slide"/> and <see cref="Flag"/>,
-/// the four shapes a widget writes back.
-/// Each setter reports the change to whoever owns the draft and nothing else; it does not decide whether the
-/// change was legal, because the next resolved form is the answer to that.
+/// Inputs are <see cref="Text"/>, <see cref="Number"/>, <see cref="Slide"/> and <see cref="Flag"/>, the four
+/// shapes a widget writes back.
+/// A setter reports the change to whoever owns the draft and nothing else, since the next resolved form is the
+/// answer to whether the change was legal.
 ///
-/// <b>Outputs</b> are written by <see cref="Apply"/> on every pass, including the branches that turn a
-/// control off.
-/// The one departure from the usual split is deliberate: the value is an output as well, since the backend
-/// may repair a draft and a shell adopts the repaired one wholesale.
-/// The echo guard is what keeps that from being read back as a fresh edit.
+/// Outputs are written by <see cref="Apply"/> on every pass, including the branches that turn a control off.
+/// The value departs from that split and is both: the backend may repair a draft and a shell adopts the
+/// repaired one wholesale, so <see cref="Apply"/> assigns the inputs too.
+/// The echo guard is what keeps an adopted value from reading back as a fresh edit.
 /// </summary>
 public sealed class FieldViewModel : Observable
 {
@@ -40,23 +38,22 @@ public sealed class FieldViewModel : Observable
     private readonly Dictionary<string, DelegateCommand> _choose = [];
 
     /// <summary>
-    /// Which shape this field's value has, as the last resolved form carried it.
-    /// An option value is a string whatever the field is, so this is what turns a pick back into the type the
-    /// settings field holds - without which a select over a number would mark one entry and write zero.
+    /// The shape of this field's value, as the last resolved form carried it.
+    /// An option value crosses as a string whatever the field is, so this is what turns a pick back into the
+    /// type the settings field holds; without it a select over a number would mark an entry and write zero.
     /// </summary>
     private FieldValue.KindOneofCase _kind = FieldValue.KindOneofCase.Text;
 
     /// <summary>
     /// True while <see cref="Apply"/> is assigning the inputs.
-    /// A widget's setter checks it and reports nothing, so adopting a repaired value does not read as the
-    /// user typing.
+    /// A widget's setter checks it and reports nothing, so adopting a repaired value does not read as typing.
     /// </summary>
     private bool _adopting;
 
     /// <summary>
     /// How this field's entries are named, as the last pass was given it.
-    /// It is held rather than passed down because the entries are rebuilt inside the same pass that sets it,
-    /// and a naming that lagged one pass behind would label a fresh list from a stale catalog.
+    /// Held rather than passed down because the entries are rebuilt inside the same pass that sets it, and a
+    /// naming one pass behind would label a fresh list from a stale catalog.
     /// </summary>
     private Vocabulary _words = Vocabulary.Empty;
 
@@ -70,7 +67,7 @@ public sealed class FieldViewModel : Observable
         Options = [];
     }
 
-    /// <summary>The settings field this control edits. Carried, never parsed.</summary>
+    /// <summary>The settings field this control edits, as <c>publish.codec</c>. Carried, never parsed.</summary>
     public string Key { get; }
 
     // --- Inputs -------------------------------------------------------------------
@@ -80,7 +77,7 @@ public sealed class FieldViewModel : Observable
     private double _slide;
     private bool _flag;
 
-    /// <summary>A free-text value, as a text box holds it.</summary>
+    /// <summary>A free-text value, in the type a text box binds.</summary>
     public string Text
     {
         get => _text;
@@ -93,7 +90,7 @@ public sealed class FieldViewModel : Observable
         }
     }
 
-    /// <summary>A typed number, as a spinner holds it. Null while the box is empty, which reports nothing.</summary>
+    /// <summary>A typed number, in the type a spinner binds. Null while the box is empty, and an empty box reports nothing.</summary>
     public decimal? Number
     {
         get => _number;
@@ -106,7 +103,7 @@ public sealed class FieldViewModel : Observable
         }
     }
 
-    /// <summary>A swept number, as a slider holds it. The same settings value as <see cref="Number"/>, in the type a slider binds.</summary>
+    /// <summary>The same settings value as <see cref="Number"/>, in the type a slider binds.</summary>
     public double Slide
     {
         get => _slide;
@@ -171,13 +168,13 @@ public sealed class FieldViewModel : Observable
     private string _actionNotice = "";
     private bool _hasActionNotice;
 
-    /// <summary>The entries of a select or radio, empty on every other kind.</summary>
+    /// <summary>The entries of a select, a radio or a number carrying a ladder. Empty on every other kind.</summary>
     public ObservableCollection<OptionViewModel> Options { get; }
 
     /// <summary>
     /// The effect offered beside this control, null where the screen offers none.
-    /// It is the screen's own placement rather than anything the form described, and it writes this field
-    /// through the same path a keystroke does (<see cref="FieldAction"/>).
+    /// The screen's own placement rather than anything the form described, and it writes this field through the
+    /// path a keystroke takes (<see cref="FieldAction"/>).
     /// </summary>
     public FieldAction? Action { get => _action; private set => Set(ref _action, value); }
 
@@ -185,11 +182,9 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>
     /// Why the effect beside this control is refused, or what its last attempt answered.
-    /// Empty where there is no effect or nothing to say about it.
-    ///
-    /// It is lifted off the action rather than bound through it, because a control that offers none has no
-    /// action to bind through - and a binding down a null path draws the sentence's absence as an empty line
-    /// instead of no line.
+    /// Empty where there is no effect, or nothing to say about one.
+    /// Lifted off the action rather than bound through it: a control offering none has no action to bind
+    /// through, and a binding down a null path draws the absent sentence as an empty line instead of no line.
     /// </summary>
     public string ActionNotice { get => _actionNotice; private set => Set(ref _actionNotice, value); }
 
@@ -197,27 +192,27 @@ public sealed class FieldViewModel : Observable
 
     public string Label { get => _label; private set => Set(ref _label, value); }
 
-    /// <summary>The prose behind the control. The form is pedagogical, and this is where it teaches.</summary>
+    /// <summary>The paragraph behind the control. The form is pedagogical, and this is where it teaches.</summary>
     public string Help { get => _help; private set => Set(ref _help, value); }
 
-    /// <summary>The reference article for the concept, empty where this control has none.</summary>
+    /// <summary>The reference article for the concept, empty where the control has none.</summary>
     public string Doc { get => _doc; private set => Set(ref _doc, value); }
 
     public string Unit { get => _unit; private set => Set(ref _unit, value); }
 
-    /// <summary>Why the control is inert, shown in its place. Empty while it is live.</summary>
+    /// <summary>Why the control is inert, drawn in its place. Empty while it is live.</summary>
     public string Reason { get => _reason; private set => Set(ref _reason, value); }
 
-    /// <summary>What the field means here that its label does not say. Carried by a live field.</summary>
+    /// <summary>What the field means here that its label does not say. The control stays editable, so a note takes nothing away.</summary>
     public string Note { get => _note; private set => Set(ref _note, value); }
 
     /// <summary>The value as a read-back prints it, for a field with no input on it.</summary>
     public string Readback { get => _readback; private set => Set(ref _readback, value); }
 
     /// <summary>
-    /// The picked entry's label, which is what a closed dropdown shows.
-    /// It falls back to the raw value for the case the contract allows: a backend may answer with a legal
-    /// value that is not one of the entries it offered.
+    /// The picked entry's label, drawn on a closed dropdown.
+    /// Falls back to the raw value for the case the contract allows: a legal value that is none of the entries
+    /// offered.
     /// </summary>
     public string PickedLabel { get => _pickedLabel; private set => Set(ref _pickedLabel, value); }
 
@@ -230,20 +225,19 @@ public sealed class FieldViewModel : Observable
     public bool IsVisible { get => _isVisible; private set => Set(ref _isVisible, value); }
 
     /// <summary>
-    /// True where changing this control reaches the pipeline that is already carrying the stream, so applying
-    /// it costs nobody watching a reconnect.
-    /// False on every control whose value is part of that pipeline's shape, where the backend replaces the
-    /// encoder child and every viewer reconnects across the gap.
+    /// True where the value is written to the pipeline already carrying the stream, so an edit costs nobody
+    /// watching a reconnect.
+    /// False where applying it replaces the encoder child and every viewer reconnects across the gap.
     ///
-    /// It is the backend's answer per combination rather than a list held here: which engine runs the capture
-    /// backend decides whether anything applies live at all, and the codec and rate-control mode decide
-    /// whether the encoder is being sent that value.
-    /// A list on this side would keep promising a reconnect-free edit after the backend stopped being able to
-    /// deliver one.
+    /// The backend's answer per combination rather than a list held here: the engine behind the capture backend
+    /// decides whether anything is live at all, and the codec and rate-control mode decide whether the encoder
+    /// is being sent that value.
+    /// A list on this side would go on promising a reconnect-free edit after the backend stopped delivering one
+    /// (docs/field-availability.md, "A live stream blocks no field").
     /// </summary>
     public bool AppliesLive { get => _appliesLive; private set => Set(ref _appliesLive, value); }
 
-    /// <summary>What a control marked <see cref="AppliesLive"/> costs to change, in the width the chip beside a label has.</summary>
+    /// <summary>What changing an <see cref="AppliesLive"/> control costs, in the width a chip beside a label has.</summary>
     public string LiveNotice => Copy.Fields.LiveNotice;
 
     public bool IsEnabled { get => _isEnabled; private set => Set(ref _isEnabled, value); }
@@ -264,8 +258,8 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>
     /// A number that also carries a ladder, drawn as the typed box and the ladder glued into one control.
-    /// It is not <see cref="IsNumber"/>: the two write the same setting, so a renderer that drew both would
-    /// put two boxes on the screen for one knob.
+    /// Not <see cref="IsNumber"/> as well: both write the one setting, so a renderer drawing both would put two
+    /// boxes on screen for one knob.
     /// </summary>
     public bool IsNumberSelect { get => _isNumberSelect; private set => Set(ref _isNumberSelect, value); }
 
@@ -279,16 +273,15 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>
     /// Either of the two kinds whose whole control is its options.
-    /// The generic renderer draws one list for both, so it asks this rather than binding two lists that
-    /// differed in nothing.
-    /// A number carrying a ladder is not one of them: its options sit behind a caret beside a box, which is a
-    /// different control and not a differently spaced list.
+    /// The generic renderer draws one list for both rather than two lists differing in nothing.
+    /// A number carrying a ladder is neither: its options sit behind a caret beside a box, which is a different
+    /// control and not a differently spaced list.
     /// </summary>
     public bool IsChoice { get => _isChoice; private set => Set(ref _isChoice, value); }
 
     public bool IsReadonly { get => _isReadonly; private set => Set(ref _isReadonly, value); }
 
-    /// <summary>The slider's bounds, in the type a slider binds.</summary>
+    /// <summary>The range the form stated, in the type a slider binds. Widest the widget holds where the form stated none.</summary>
     public double Minimum { get => _minimum; private set => Set(ref _minimum, value); }
 
     public double Maximum { get => _maximum; private set => Set(ref _maximum, value); }
@@ -297,7 +290,7 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>
     /// The same bounds in the type a spinner binds.
-    /// Stated twice rather than converted at the binding, because a compiled binding that has to convert is
+    /// Stated twice rather than converted at the binding site, since a compiled binding that has to convert is
     /// one the compiler cannot check.
     /// </summary>
     public decimal NumberMinimum { get => _numberMinimum; private set => Set(ref _numberMinimum, value); }
@@ -308,14 +301,14 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: every output is read out of the message, the options compare equal across two
-    /// passes over one field, and the inputs are assigned under the echo guard so an unchanged form reports
-    /// nothing back.
+    /// Safe to run twice: every output is read out of the message, the options compare equal across two passes
+    /// over one field, and the inputs are assigned under the echo guard, so an unchanged form reports nothing
+    /// back.
     /// </summary>
     /// <param name="action">
     /// The effect this screen offers beside the control, null where it offers none.
-    /// Passed on every pass rather than held, so a screen that stops offering it turns the button off through
-    /// the same render function that turned it on.
+    /// Passed per pass rather than held, so a screen that stops offering it turns the button off through the
+    /// render function that turned it on.
     /// </param>
     public void Apply(Field field, Vocabulary words, FieldAction? action = null)
     {
@@ -330,8 +323,8 @@ public sealed class FieldViewModel : Observable
         ActionNotice = action?.Notice ?? "";
         HasActionNotice = ActionNotice.Length > 0;
 
-        // The heading and the paragraph are this side's, keyed by the field the backend named; the reason and
-        // the note are statements it made, turned into sentences here.
+        // Heading and paragraph are keyed by the field the backend named; the reason and the note are codes it
+        // sent, turned into sentences here.
         var copy = Copy.Fields.Of(Key);
         Label = copy.Label;
         Help = copy.Help;
@@ -358,8 +351,8 @@ public sealed class FieldViewModel : Observable
         IsChoice = IsSelect || IsRadio;
         IsReadonly = field.Control == ControlKind.Readonly;
 
-        // Absence of a range means unbounded rather than zero, so a field with none is given the widest
-        // bounds the widget can hold instead of being pinned at nothing.
+        // No range means unbounded, not zero, so a field carrying none takes the widest bounds the widget holds
+        // instead of being pinned at nothing.
         Minimum = field.Range?.Min ?? int.MinValue;
         Maximum = field.Range?.Max ?? int.MaxValue;
         Step = field.Range is { Step: > 0 } range ? range.Step : 1;
@@ -371,8 +364,8 @@ public sealed class FieldViewModel : Observable
         Adopt(field.Value);
         Reconcile.Onto(Options, OptionRows(field));
 
-        // The closed dropdown's face, set on every pass including the branch where nothing is picked, so a
-        // field that lost its entry cannot go on showing the last one it had.
+        // The closed dropdown's face, written on every pass including the branch where nothing is picked, so a
+        // field whose entry went away cannot go on showing the last one it had.
         var picked = Options.FirstOrDefault(option => option.IsSelected);
         PickedLabel = picked?.Label ?? Readback;
         PickedNote = picked?.Note ?? "";
@@ -387,10 +380,9 @@ public sealed class FieldViewModel : Observable
     }
 
     /// <summary>
-    /// Takes the value the form carries.
-    /// It is the backend's answer including any repair, so it is assigned rather than compared against what
-    /// the widget held: adopting the whole draft is what keeps a greyed option and its replacement from
-    /// disagreeing.
+    /// Takes the value the form carries, repairs included.
+    /// Assigned rather than compared against what the widget held, because adopting the whole draft is what
+    /// keeps a greyed option and its replacement from disagreeing.
     /// </summary>
     private void Adopt(FieldValue value)
     {
@@ -432,6 +424,8 @@ public sealed class FieldViewModel : Observable
     /// The entries, with the picked one marked.
     /// The command per value is made once and reused, which is what lets an unchanged pass produce rows that
     /// compare equal.
+    /// A greyed entry keeps its place: the backend already sank it to the bottom of the list
+    /// (docs/field-availability.md, "Where a greyed entry sits").
     /// </summary>
     private IReadOnlyList<OptionViewModel> OptionRows(Field field)
     {
@@ -458,8 +452,8 @@ public sealed class FieldViewModel : Observable
             return command;
         }
 
-        // The kind is read when the command runs rather than captured now, so a command made on one pass
-        // still writes the type the field carries on the next.
+        // The kind is read when the command runs rather than captured here, so a command made on one pass still
+        // writes the type the field carries on the next.
         command = new DelegateCommand(() => _write(Key, FieldValues.Of(_kind, value)));
         _choose[value] = command;
         return command;

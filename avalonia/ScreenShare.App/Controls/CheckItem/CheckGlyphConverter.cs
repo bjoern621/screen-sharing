@@ -5,9 +5,8 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Controls;
 
 /// <summary>
-/// Reads a <see cref="CheckState"/> as the glyph it wears.
-/// The table lives on <see cref="CheckItem.GlyphOf"/>; this only carries it into a binding, so the template
-/// and any future consumer read the same one table rather than restating the rule.
+/// Binding adapter over <see cref="CheckItem.GlyphOf"/>.
+/// Carries the glyph table into a template rather than restating it, so markup and code read one table.
 /// </summary>
 public sealed class CheckGlyphConverter : IValueConverter
 {

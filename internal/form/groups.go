@@ -1,60 +1,45 @@
 package form
 
-// groups is the headings a shell draws, in the order it draws them.
-// The fields under each one are whichever rows of fieldTable name it, in that table's order.
+// groups is every heading a shell draws, in draw order.
+// The fields under a heading are the rows of fieldTable naming it, in that table's order.
 //
-// A group is a key and nothing else.
-// What the heading reads as, and the paragraph under it, are the surface's,
-// looked up by that key (api/proto/screenshare/v1/form.proto): the order and the membership are
-// arguments about the domain, and the wording is an argument about a screen.
+// A group carries a key and nothing else.
+// The heading and the paragraph under it are the surface's, looked up by that key
+// (api/proto/screenshare/v1/form.proto): the order and the membership are arguments about the
+// domain, and the wording is an argument about a screen.
+// A shell that regrouped or reordered them would be arguing about the model rather than the layout.
 //
-// The order is the domain's rather than the screen's.
-// A stream is named, then the picture is chosen, then how that picture is coded,
-// then what rides beside it, then how it leaves this machine, then how it comes back,
-// and last where the relay carrying all of it sits.
-// Each step is answerable with the ones before it settled and none of the ones after it,
-// which is what lets a shell walk the groups as a wizard without the backend having said so.
+// The order follows the domain and not the screen.
+// A stream is named, then the picture is chosen, then how that picture is coded, then what rides
+// beside it, then how it leaves this machine, then how it comes back, and last where the relay
+// carrying all of it sits.
+// Each step is answerable with the ones before it settled and none of the ones after it, which is
+// what lets a shell walk the groups as a wizard without the backend having said so.
 //
-// The two ends are where the ordering is doing work.
-// The name comes first because it depends on no other field and is the one setting other people
-// see: a stream not yet named is not yet anything, and every greying further down is a consequence
-// of a choice made after it.
-// The relay comes last because it is one question - which machine carries the stream,
-// and on which of its listeners - and every part of it is answered by a default that holds for the
-// relay this repository ships: the address is the machine running it, and each port's relevance was
-// already decided by a leg chosen further up, the publish leg picking which ingest port is read and
-// the watch leg which serving one.
-// A reader on those defaults therefore never has to meet the group.
+// The name leads because it depends on no other field, and every greying further down follows a
+// choice made after it.
+// The relay trails because it is one question, which machine carries the stream and on which of its
+// listeners, answered throughout by defaults that hold for the relay this repository ships,
+// so a reader on those defaults never has to meet the group.
+// The address sits with the ports rather than beside the name: where the relay is and how it is
+// reached are one decision made once against one machine.
 //
-// The address sits with the ports rather than beside the name for the same reason.
-// Where the relay is and how it is reached are one decision made once against one machine,
-// and splitting them put the first half in front of a reader who had no relay to name yet and the
-// second half seven groups behind it.
+// Capture precedes encode because the capture backend fixes the publish engine, and the engine
+// decides which codecs, pixel formats and rate-control knobs the encode group can offer at all
+// (docs/glossary.md, "Publish engine").
+// Audio is its own group rather than two more fields under encode because the source and the codec
+// answer to different tables, the platform's and the publish leg's, and the track is a second
+// stream rather than a property of the first (docs/domain-model.md).
+// The two legs are two groups for the reason settings.proto keeps two fields: the publish leg is
+// chosen once for the stream this machine sends and the watch leg per viewer.
 //
-// Capture precedes encode because the capture backend fixes the publish engine,
-// and the engine is what decides which codecs, pixel formats and rate-control knobs the encode
-// group can offer at all (docs/glossary.md, "Publish engine").
-// Reversing them would put a codec dropdown in front of the choice that says which of its entries
-// are real.
-//
-// Audio is its own group rather than two more fields under encode, because the source and the codec
-// answer to different tables - the platform's and the publish leg's - and a heading is the cheapest
-// way to say that the track is a second stream rather than a property of the first
-// (docs/domain-model.md).
-//
-// The two legs are two groups for the reason settings.proto keeps two fields:
-// the publish leg is chosen once for the stream this machine sends and the watch leg per viewer,
-// and one heading over both would read as one decision.
-//
-// The grouping is stated here and not left to a shell for the reason form.proto gives:
-// it follows the domain, so a shell that regrouped it would be making an argument about the model
-// rather than about layout.
-// One of them is applied rather than staged, which form.proto states in full.
-// The line is which settings the backend reads without being handed them: the relay poll dials the
-// address for as long as the process runs, and every other group here is read by an effect that
-// carries its own settings - a publish is started on what StartPublish is given,
-// a viewer opens on what was saved before it.
-// Only the group nobody hands over has to be written as it is edited.
+// A group the backend reads without being handed it is applied rather than staged, which form.proto
+// states in full.
+// The relay poll dials the address for as long as the process runs.
+// Every other group here is read by an effect carrying its own settings, a publish on what
+// StartPublish is given and a viewer on what was saved before it.
+// Such a group is written as it is edited, or a corrected address reaches the backend only through
+// a publish that is refused for not reaching the relay it would replace.
 var groups = []group{
 	{key: GroupStream},
 	{key: GroupSource},
