@@ -85,7 +85,7 @@ public sealed class HeaderStatsViewModel : Observable
         IsSharing = reading.IsLive;
         Elapsed = reading.Elapsed;
         IsRetrying = reading.IsRetrying;
-        Retry = IsRetrying ? $"reconnecting — attempt {reading.Attempt} of {reading.Budget}" : "";
+        Retry = IsRetrying ? Cards.RetryAttempt(reading.Attempt, reading.Budget) : "";
 
         Reconcile.Onto(Figures,
         [

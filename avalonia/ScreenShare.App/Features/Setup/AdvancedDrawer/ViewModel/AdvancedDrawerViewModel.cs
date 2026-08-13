@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Mvvm;
@@ -77,6 +78,21 @@ public sealed class AdvancedDrawerViewModel : Observable
     /// Derived from the rows rather than stored, so the header cannot claim a count the table does not show.
     /// </summary>
     public string CountLabel { get => _countLabel; private set => Set(ref _countLabel, value); }
+
+    /// <summary>
+    /// The drawer's own heading and the four column heads, from the one place the on-screen words live
+    /// (<c>avalonia/README.md</c>, "Layout").
+    /// Fixed words: what the rows say is the form's answer, what the table is called is not.
+    /// </summary>
+    public static string Title => Cards.AdvancedDrawerTitle;
+
+    public static string SettingColumn => Cards.AdvancedSettingColumn;
+
+    public static string ValueColumn => Cards.AdvancedValueColumn;
+
+    public static string UnitColumn => Cards.AdvancedUnitColumn;
+
+    public static string NoteColumn => Cards.AdvancedNoteColumn;
 
     /// <summary>
     /// Whether the group left this drawer anything.

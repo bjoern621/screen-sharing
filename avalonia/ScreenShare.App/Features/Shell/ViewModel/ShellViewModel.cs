@@ -166,12 +166,6 @@ public sealed class ShellViewModel : Observable
 
     // --- Outputs -------------------------------------------------------------------
 
-    /// <summary>Where the window stands. Written by <see cref="Show"/> and by nothing else.</summary>
-    public Destination Current => _current;
-
-    /// <summary>Whether broadcast can be reached. Written by <see cref="SetBroadcastAvailable"/>.</summary>
-    public bool IsBroadcastAvailable => _broadcastAvailable;
-
     /// <summary>
     /// The showing destination's own view model.
     /// Typed as object because the destinations share nothing but the data template that draws them, and a
@@ -212,7 +206,9 @@ public sealed class ShellViewModel : Observable
         Assert.That(Destinations.LabelOf(destination).Length > 0, "a window shows a destination the table names", (int)destination);
         Assert.That(destination != Destination.Broadcast || _broadcastAvailable, "a window shows broadcast only while broadcast can be reached", (int)destination);
 
-        Set(ref _current, destination, nameof(Current));
+        // The field and not a notification: where the window stands reaches the screen through the segments
+        // and the body Apply writes, and nothing binds the destination itself.
+        _current = destination;
         Apply();
     }
 
@@ -224,11 +220,11 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     public void SetBroadcastAvailable(bool available)
     {
-        Set(ref _broadcastAvailable, available, nameof(IsBroadcastAvailable));
+        _broadcastAvailable = available;
 
         if (!_broadcastAvailable && _current == Destination.Broadcast)
         {
-            Set(ref _current, Destination.Setup, nameof(Current));
+            _current = Destination.Setup;
         }
 
         Apply();

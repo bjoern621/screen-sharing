@@ -480,15 +480,6 @@ var amfHevcProfiles = map[string]string{
 // older ones.
 const amfUsage = "transcoding"
 
-// The two points on AMF's speed/quality scale, spelled as all three encoders spell them; the numbers
-// behind the names differ per codec.
-// cbr sits at the speed end, trading quality for the encoder keeping up with a live capture, where
-// the NVENC preset ladder does the same at the same point.
-const (
-	amfLivePreset    = "speed"
-	amfQualityPreset = "quality"
-)
-
 // amfAbrPeak is where the abr mapping places its peak ceiling, as a multiple of the bitrate target,
 // ffmpeg's own derivation for a hardware VBR encode given none.
 const amfAbrPeak = 2

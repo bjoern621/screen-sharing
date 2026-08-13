@@ -80,6 +80,11 @@ type App struct {
 	receiveStatsStopOnce sync.Once
 	receiveStatsStop     chan struct{}
 
+	// testStreamsOnce guards the boot set, so a second Start does not launch a second one.
+	// The count is a desired number of slots, and a second launch would ask for that number again on
+	// top of the set already running (teststreams.go).
+	testStreamsOnce sync.Once
+
 	// Runs the probe once per process: the caller that asks for the answer waits for it, and every
 	// caller after that does not.
 	encodersOnce sync.Once
@@ -206,8 +211,8 @@ func (a *App) StoreNotice() *screensharev1.Text {
 // Nothing here is waited for: the control service opens its socket on a goroutine of its own
 // (control.go) and each poll runs on one of its own, so the process comes up at its own speed
 // rather than at the socket's.
-// The control service and both polls are guarded by a sync.Once, so a second Start opens no second
-// socket and runs no second loop.
+// Idempotent: the control service, both polls and the boot set are each guarded by a sync.Once, so a
+// second Start opens no second socket, runs no second loop and launches no second synthetic set.
 //
 // The relay poll starts here rather than when a shell asks, because the contract makes the snapshot
 // this side's to keep: a poll that ran only while somebody watched would answer GetRelayStatus with
@@ -221,7 +226,7 @@ func (a *App) Start() {
 	a.startControl()
 	a.startRelayPoll()
 	a.startReceiveStatsPoll()
-	go a.startTestStreamsAtBoot()
+	a.testStreamsOnce.Do(func() { go a.startTestStreamsAtBoot() })
 }
 
 // Stop takes every child down, so no orphan ffmpeg keeps encoding after the process ends.

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	"github.com/godbus/dbus/v5"
 
@@ -152,11 +153,12 @@ func senderToken(conn *dbus.Conn) string {
 	return strings.ReplaceAll(name, ".", "_")
 }
 
-var tokenSeq uint64
+var tokenSeq atomic.Uint64
 
 // newToken is a handle_token unique within the process, which is as far as uniqueness has to reach:
 // the sender name already scopes a Request path to this connection.
+// Two concurrent Opens draw from this counter, and a number handed out twice puts both of them on
+// one Request object path.
 func newToken() string {
-	tokenSeq++
-	return fmt.Sprintf("screenshare%d", tokenSeq)
+	return fmt.Sprintf("screenshare%d", tokenSeq.Add(1))
 }

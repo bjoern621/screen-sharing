@@ -18,7 +18,29 @@ const configFileName = "settings.json"
 const configDirMode = 0o755
 
 // Mode the settings and preset files are written with.
-const storeFileMode = 0o644
+// Owner-only, because the settings carry Relay.GroupKey, possession of which is membership of a
+// group, and Relay.SrtPassphrase, which decides whether the packets are readable at all.
+// cmd/groupd writes its signing key the same way.
+const storeFileMode = 0o600
+
+// writeStore writes a store file and holds it at storeFileMode.
+//
+// os.WriteFile applies the mode on creation alone, so a file a build with a wider mode already
+// wrote keeps that mode through every later write.
+// The chmod is what takes an existing file down to owner-only, and repeating it changes nothing.
+func writeStore(path string, data []byte) error {
+	assert.Assert(path != "", "a written store file is named")
+
+	if err := os.WriteFile(path, data, storeFileMode); err != nil {
+		return err
+	}
+	// An Umgebungsfehler, and reported rather than swallowed: the bytes are on disk either way, but a
+	// file the mode could not be taken off is a secret readable by every local user.
+	if err := os.Chmod(path, storeFileMode); err != nil {
+		return fmt.Errorf("cannot restrict %s to its owner: %w", path, err)
+	}
+	return nil
+}
 
 // configDir is the directory holding the settings and preset files, created where it is absent.
 //
@@ -142,5 +164,5 @@ func Save(s Settings) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, storeFileMode)
+	return writeStore(path, data)
 }

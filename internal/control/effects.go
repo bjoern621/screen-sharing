@@ -251,11 +251,11 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 		// The backend's sentence names the format and the legs that do carry it, so the reason reaches
 		// the user intact.
 		//
-		// A transport this build has no viewer for is INVALID_ARGUMENT under the contract's table and
-		// arrives under this code instead: the backend answers both with an untyped error, and telling
-		// them apart would mean matching on its text, the guess fromBackend exists not to make.
-		// A typed refusal on Backend would fix it; the two empty-argument cases above are what this side
-		// sees for itself.
+		// A transport this build has no viewer for is INVALID_ARGUMENT under the contract's table, and
+		// the backend says which of the two it is by returning a Refused for it.
+		if refused(err) {
+			return nil, invalidArgument("cannot watch '%s' over %s: %v", name, leg, err)
+		}
 		return nil, failedPrecondition("cannot watch '%s' over %s: %v", name, leg, err)
 	}
 	return &screensharev1.StartWatchResponse{}, nil
@@ -359,11 +359,16 @@ func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceive
 // An empty stream name shows as a hole from the message alone.
 // Every integer is a monitor index somewhere, and whether it is one of this machine's is a fact
 // about the machine.
-// The backend answers that, and its refusal travels as FAILED_PRECONDITION.
+// The backend answers that, and a Refused is what separates the index naming no output of this
+// machine (INVALID_ARGUMENT) from a session that cannot read one screen apart from another
+// (FAILED_PRECONDITION).
 func (s *Server) StartMonitorPreview(ctx context.Context, req *screensharev1.StartMonitorPreviewRequest) (*screensharev1.StartMonitorPreviewResponse, error) {
 	monitor := int(req.GetMonitor())
 
 	if err := s.backend.StartMonitorPreview(monitor); err != nil {
+		if refused(err) {
+			return nil, invalidArgument("cannot preview monitor %d: %v", monitor, err)
+		}
 		return nil, failedPrecondition("cannot preview monitor %d: %v", monitor, err)
 	}
 	return &screensharev1.StartMonitorPreviewResponse{}, nil

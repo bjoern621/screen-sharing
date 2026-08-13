@@ -7,18 +7,24 @@ import (
 	"testing"
 )
 
-// audioTestPlatforms are the machines the table is asked about: every operating system it answers
-// for, plus ones it never heard of.
-// The unnamed ones are the case worth covering, since a table asked only about what it declares
-// never shows what it does with anything else.
-var audioTestPlatforms = []Info{
+// audioNamedPlatforms are the operating systems the table is written for.
+var audioNamedPlatforms = []Info{
 	{OS: "windows"},
 	{OS: "linux", Display: "wayland"},
 	{OS: "linux", Display: "x11"},
 	{OS: "darwin"},
+}
+
+// audioUnnamedPlatforms are machines no row mentions.
+// They are the case worth covering, since a table asked only about what it declares never shows
+// what it does with anything else.
+var audioUnnamedPlatforms = []Info{
 	{OS: "plan9"},
 	{},
 }
+
+// audioTestPlatforms is every machine the table is asked about.
+var audioTestPlatforms = slices.Concat(audioNamedPlatforms, audioUnnamedPlatforms)
 
 // The contract every consumer depends on, checked here rather than at each of them: a greyed entry
 // with no sentence teaches nothing, and a sentence beside a live entry is a reason for a refusal
@@ -160,14 +166,42 @@ func TestTheDeclaredSourcesAreTheNamedOnes(t *testing.T) {
 	}
 }
 
-// The absent source names nothing as serving it, on any platform.
-// The name is the note a form puts beside an entry, and a stream capturing nothing reads from
-// nowhere.
+// On a platform the table names, a source names what serves it exactly where that platform serves
+// it, which is the note a form puts beside the entry.
+// A name beside an entry the machine cannot open describes a machine the user is not sitting at,
+// and a served entry with no name leaves the note empty on the one row it is for.
+//
+// The absent source is the exception: it is offered everywhere and read from nowhere, so it names
+// nothing however available it is.
 func TestAServedSourceNamesWhatServesIt(t *testing.T) {
-	for _, info := range audioTestPlatforms {
+	for _, info := range audioNamedPlatforms {
 		for _, s := range AudioSources(info) {
-			if s.ID == AudioSourceNone && s.Server != nil {
-				t.Errorf("%s names %v as what serves the absent source", info.OS, s.Server)
+			switch {
+			case s.ID == AudioSourceNone:
+				if s.Server != nil {
+					t.Errorf("%s names %v as what serves the absent source", info.OS, s.Server)
+				}
+			case s.Available:
+				if s.Server == nil {
+					t.Errorf("%s serves %q and names nothing as what serves it", info.OS, s.ID)
+				}
+			default:
+				if s.Server != nil {
+					t.Errorf("%s does not serve %q and names %v as what does", info.OS, s.ID, s.Server)
+				}
+			}
+		}
+	}
+}
+
+// An operating system no row mentions is refused nothing and is told nothing about what would serve
+// it: the mechanism is per platform, so naming one here would name a monitor source or a loopback
+// device nobody established exists on that machine.
+func TestAnUnnamedPlatformNamesNoServer(t *testing.T) {
+	for _, info := range audioUnnamedPlatforms {
+		for _, s := range AudioSources(info) {
+			if s.Server != nil {
+				t.Errorf("%q names %v as what serves %q", info.OS, s.Server, s.ID)
 			}
 		}
 	}

@@ -2,7 +2,6 @@ package form
 
 import (
 	"math"
-	"strconv"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -230,14 +229,4 @@ func estimateMonitor(d Deps, s settings.Settings) (display.Monitor, bool) {
 		}
 	}
 	return display.Monitor{}, false
-}
-
-// estimateFigure renders a rate in Mbit/s: tenths under ten, whole numbers above,
-// so a slow combination keeps the digit that distinguishes it,
-// and a fast one is not given a precision the model does not have.
-func estimateFigure(mbps float64) string {
-	if mbps >= 10 {
-		return strconv.Itoa(int(math.Round(mbps)))
-	}
-	return strconv.FormatFloat(mbps, 'f', 1, 64)
 }

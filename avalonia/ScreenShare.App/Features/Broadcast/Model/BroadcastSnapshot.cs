@@ -93,6 +93,8 @@ public sealed record BroadcastSnapshot
 
     /// <summary>
     /// Never filled: the relay marks no interval, so no congestion window has a start to name.
+    /// Nothing draws it either, a caption placed over a band the plot cannot shade being a window the shell
+    /// would be naming on its own (<c>Plots/View/PlotsView.axaml</c>).
     /// </summary>
     public string CongestionAt { get; init; } = "";
 

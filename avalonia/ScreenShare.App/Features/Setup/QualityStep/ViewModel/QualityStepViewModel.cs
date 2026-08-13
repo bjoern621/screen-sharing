@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Mvvm;
@@ -45,6 +46,9 @@ public sealed class QualityStepViewModel : Observable
     private int _modeColumns = 1;
     private FieldViewModel? _mode;
     private FieldViewModel? _quantizer;
+    private string _quantizerFloorLabel = "";
+    private string _quantizerBandLabel = "";
+    private string _quantizerCeilingLabel = "";
 
     public QualityStepViewModel(FieldGroupViewModel group)
     {
@@ -90,6 +94,19 @@ public sealed class QualityStepViewModel : Observable
     public bool HasQuantizer { get => _hasQuantizer; private set => Set(ref _hasQuantizer, value); }
 
     /// <summary>
+    /// The three labels under the banded track, each naming the number on this control's scale it stands
+    /// over.
+    /// The scale arrives with the field and differs per codec and engine, so the numbers are read off the
+    /// range the slider is bound to rather than written into the markup
+    /// (<see cref="QualityLayout.QuantizerBandStart"/>).
+    /// </summary>
+    public string QuantizerFloorLabel { get => _quantizerFloorLabel; private set => Set(ref _quantizerFloorLabel, value); }
+
+    public string QuantizerBandLabel { get => _quantizerBandLabel; private set => Set(ref _quantizerBandLabel, value); }
+
+    public string QuantizerCeilingLabel { get => _quantizerCeilingLabel; private set => Set(ref _quantizerCeilingLabel, value); }
+
+    /// <summary>
     /// How many rate-control cards sit across the step, for the mode count this form offers.
     /// A shape rather than a control: the panel divides the same options into rows from it
     /// (<see cref="QualityLayout.CardColumns"/>).
@@ -113,11 +130,35 @@ public sealed class QualityStepViewModel : Observable
         HasMode = Mode is not null;
         HasQuantizer = Quantizer is not null;
         ModeColumns = QualityLayout.CardColumns(Mode?.Options.Count ?? 0);
+        ApplyQuantizerLabels();
 
         Reconcile.Onto(Selects, Placed());
 
         Assert.That(IsResolved || Selects.Count == 0, "a step the form did not describe draws no controls", Selects.Count);
         Assert.That(HasMode == (Mode is not null), "the mode flag and the mode agree", HasMode);
+    }
+
+    /// <summary>
+    /// The labels under the track, off the range the control was offered on.
+    /// A group carrying no quantizer clears them, so nothing left over from the codec before is drawn beside
+    /// the next one.
+    /// </summary>
+    private void ApplyQuantizerLabels()
+    {
+        if (Quantizer is not { } q)
+        {
+            QuantizerFloorLabel = "";
+            QuantizerBandLabel = "";
+            QuantizerCeilingLabel = "";
+            return;
+        }
+
+        var from = QualityLayout.QuantizerAt(q.Minimum, q.Maximum, QualityLayout.QuantizerBandStart);
+        var to = QualityLayout.QuantizerAt(q.Minimum, q.Maximum, QualityLayout.QuantizerBandEnd);
+
+        QuantizerFloorLabel = Cards.QuantizerFloor((int)q.Minimum);
+        QuantizerBandLabel = Cards.QuantizerBand(from, to);
+        QuantizerCeilingLabel = Cards.QuantizerCeiling((int)q.Maximum);
     }
 
     /// <summary>

@@ -43,6 +43,8 @@ const audioCaps = "audio/"
 const LevelInterval = time.Second / 15
 
 // levelMessage names the messages the level element posts under.
+// The bus name alone: the element is found in audioChain by its factory name, as volume and
+// audioconvert are, so renaming one of the two cannot silently move the other.
 const levelMessage = "level"
 
 // onDecodePad builds the audio branch where a decoder exposes an audio pad.
@@ -250,7 +252,7 @@ func (r *Receiver) buildAudioChain() ([]gst.Element, bool) {
 	// Posting and its period are set on the level element before the branch plays, which puts the
 	// first measurement one interval behind the audio rather than behind whenever something else got
 	// round to configuring it.
-	lvl := branch[slices.Index(audioChain, levelMessage)]
+	lvl := branch[slices.Index(audioChain, "level")]
 	lvl.SetObjectProperty("post-messages", true)
 	lvl.SetObjectProperty("interval", uint64(LevelInterval.Nanoseconds()))
 

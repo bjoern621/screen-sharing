@@ -90,9 +90,5 @@ public partial class PopOutWindow : Window
         WindowState = restore;
     }
 
-    /// <summary>Stream this window draws, and empty on the parameterless constructor the XAML loader
-    /// uses.</summary>
-    public string Stream => _tile?.Name ?? "";
-
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 }

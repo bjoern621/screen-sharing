@@ -154,10 +154,6 @@ public sealed class ViewerViewModel : Observable
     /// </summary>
     public ObservableCollection<TileViewModel> Tiles { get; }
 
-    private bool _hasTiles;
-
-    public bool HasTiles { get => _hasTiles; private set => Set(ref _hasTiles, value); }
-
     private LayoutMode _mode;
     private string _focused = "";
     private string _fullscreen = "";
@@ -399,8 +395,6 @@ public sealed class ViewerViewModel : Observable
                 ? _poppedFullscreen.Contains(tile.Name)
                 : Fullscreen == tile.Name;
         }
-
-        HasTiles = Tiles.Count > 0;
 
         HasStreams = Streams.Count > 0;
         Notice = HasStreams ? "" : NoticeFor(relay);

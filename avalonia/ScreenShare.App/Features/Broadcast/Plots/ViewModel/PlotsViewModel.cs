@@ -87,7 +87,6 @@ public sealed class PlotsViewModel : Observable
     private string _ceiling = "";
     private double _ceilingFraction = double.NaN;
     private string _window = "";
-    private string _band = "";
     private bool _hasEgress;
     private bool _hasLatency;
     private string _egressNotice = "";
@@ -126,8 +125,13 @@ public sealed class PlotsViewModel : Observable
     /// </summary>
     public string Window { get => _window; private set => Set(ref _window, value); }
 
-    /// <summary>Label over the shaded band. Empty while nothing states a congestion interval.</summary>
-    public string Band { get => _band; private set => Set(ref _band, value); }
+    /// <summary>
+    /// The latency plot's legend, beside the rule drawn in each series' stroke.
+    /// Fixed words, from the one place the on-screen words live (<c>avalonia/README.md</c>, "Layout").
+    /// </summary>
+    public static string RoundTripLegend => Cards.PlotRoundTripLegend;
+
+    public static string LossLegend => Cards.PlotLossLegend;
 
     /// <summary>Whether the egress curve has a shape. False until a run has two samples.</summary>
     public bool HasEgress { get => _hasEgress; private set => Set(ref _hasEgress, value); }
@@ -177,10 +181,8 @@ public sealed class PlotsViewModel : Observable
         // Read off the constant the points are placed by, so the label and the axis cannot disagree.
         Window = HasEgress ? $"{PlotSeries.WindowSeconds:0} s" : "";
 
-        // The band label carries the word alone, since nothing states when the congestion it marks happened.
         Ceiling = $"vbv ceiling {Figure.Of(reading.VbvCeilingMbps, "0")} Mb/s";
         CeilingFraction = PlotSeries.CeilingFraction(Samples, reading.VbvCeilingMbps);
-        Band = reading.CongestionAt.Length > 0 ? $"congestion {reading.CongestionAt}" : "";
 
         Assert.That(Extent.Width > 0 && Extent.Height > 0,
             "a plot maps from a source space with area", Extent.Width, Extent.Height);

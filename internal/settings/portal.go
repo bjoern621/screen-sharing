@@ -72,7 +72,7 @@ func SavePortalToken(token string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, storeFileMode)
+	return writeStore(path, data)
 }
 
 // ForgetPortalToken drops the stored consent, so the next capture pops the picker.

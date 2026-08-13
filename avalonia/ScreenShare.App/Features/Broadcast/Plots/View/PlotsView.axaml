@@ -23,6 +23,12 @@
       <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
     </Style>
+    <!-- The legend's rule, in the width a stroke reads as at this size. -->
+    <Style Selector="Rectangle.swatch">
+      <Setter Property="Width" Value="9" />
+      <Setter Property="Height" Value="2" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
     <Style Selector="TextBlock.range">
       <Setter Property="FontSize" Value="{StaticResource FontSizeSmall}" />
       <Setter Property="FontFeatures" Value="{StaticResource FigureFeatures}" />
@@ -87,6 +93,8 @@
               Band brushes and no band: nothing states a congestion interval, so no start and no
               width are bound and the band stays undrawn. Shading one from this side would be a
               detection the shell performed.
+              Nothing labels it either, for the same reason: a caption over an interval nobody
+              measured names a window that was never detected.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
                              Secondary="{Binding Loss}"
@@ -99,25 +107,24 @@
               </plots:Sparkline.BandBrush>
             </plots:Sparkline>
 
-            <Grid ColumnDefinitions="27*,73*">
-              <TextBlock Grid.Column="1"
-                         Classes="annotation"
-                         Foreground="{StaticResource AttentionBrush}"
-                         Text="{Binding Band}"
-                         Margin="0,6,0,0"
-                         HorizontalAlignment="Left"
-                         VerticalAlignment="Top" />
-            </Grid>
-
-            <!-- The dash in each label is the swatch, so the two foregrounds track the series strokes. -->
+            <!--
+              The swatch is a rule in the series' own stroke, drawn rather than typed: a dash standing in
+              for one is a glyph whose weight and length the font decides.
+            -->
             <StackPanel Orientation="Horizontal"
                         Spacing="{StaticResource GapPanel}"
                         Margin="7,0,0,5"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Bottom"
                         IsVisible="{Binding HasLatency}">
-              <TextBlock Classes="annotation" Foreground="{StaticResource ForegroundBrush}" Text="— rtt" />
-              <TextBlock Classes="annotation" Text="— loss" />
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}">
+                <Rectangle Classes="swatch" Fill="{StaticResource ForegroundBrush}" />
+                <TextBlock Classes="annotation" Foreground="{StaticResource ForegroundBrush}" Text="{Binding RoundTripLegend}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}">
+                <Rectangle Classes="swatch" Fill="{StaticResource MutedBrush}" />
+                <TextBlock Classes="annotation" Text="{Binding LossLegend}" />
+              </StackPanel>
             </StackPanel>
 
             <TextBlock Classes="hint"

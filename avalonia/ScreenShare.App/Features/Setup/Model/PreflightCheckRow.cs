@@ -62,13 +62,12 @@ public static class PreflightChecks
     }
 
     /// <summary>
-    /// What the list says when the form found nothing to say.
-    /// A line rather than an empty panel: a card that vanishes with the last warning reads as a card that
-    /// broke.
+    /// What the list says when the form found nothing to say, in the sentence
+    /// <see cref="Copy.Cards.PreflightClear"/> holds.
     /// </summary>
     public static readonly PreflightCheckRow Clear = new()
     {
-        Text = "Nothing to fix — these settings publish as they stand.",
+        Text = Copy.Cards.PreflightClear,
         State = CheckState.Passed,
         FixedInStep = "",
     };

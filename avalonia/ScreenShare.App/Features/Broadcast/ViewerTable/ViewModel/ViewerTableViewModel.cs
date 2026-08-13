@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.Model;
 using ScreenShare.App.Mvvm;
 
@@ -109,11 +110,9 @@ public sealed class ViewerTableViewModel : Observable
         // This card is the roster and the header pill above it is the count, because one figure written by two
         // render functions ends with two screens disagreeing.
 
-        // Two absences, two sentences: they leave a publisher with different things to do next, wait for the
-        // relay to be asked or send somebody the link.
         Notice = HasRows ? ""
-            : Readers is null ? "The relay has not been asked yet, so there is nobody to list."
-            : "Nobody is connected to this stream yet.";
+            : Readers is null ? Cards.ViewersUnasked
+            : Cards.ViewersNone;
 
         Assert.That(Rows.Count == reported.Count, "a row per reported viewer", Rows.Count, reported.Count);
         Assert.That(Rows.Count(row => row.IsLast) == (Rows.Count == 0 ? 0 : 1),

@@ -70,8 +70,10 @@ func listHyprland() []Monitor {
 // wlrModeRe matches a wlr-randr mode line: "1920x1080 px, 143.981003 Hz (current)".
 var wlrModeRe = regexp.MustCompile(`(\d+)x(\d+) px,\s*([\d.]+) Hz`)
 
-// wlrPositionRe matches a wlr-randr position line: "Position: 2560,0".
-var wlrPositionRe = regexp.MustCompile(`Position:\s*(\d+),(\d+)`)
+// wlrPositionRe matches a wlr-randr position line: "Position: -1920,0".
+// An output left of or above the layout origin sits at a negative coordinate, and a pattern
+// refusing the sign leaves that output at 0,0 for crop-based capture to grab the wrong rectangle.
+var wlrPositionRe = regexp.MustCompile(`Position:\s*(-?\d+),(-?\d+)`)
 
 // listWlrRandr parses "wlr-randr", which covers the wlroots compositors, Sway among them.
 // An output header starts at column 0 and that output's mode, refresh rate and position follow on

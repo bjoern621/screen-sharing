@@ -76,7 +76,7 @@ func savePresets(presets []Preset) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, storeFileMode)
+	return writeStore(path, data)
 }
 
 // SavePreset stores s under name, replacing any preset already saved under it.

@@ -98,13 +98,13 @@ public sealed class TitleBarViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// The design names a title for the viewer window alone, so the pattern (destination, spaced em dash,
+    /// The design names a title for the viewer window alone, so the pattern (destination, middle dot,
     /// session) is this module's reading of that one, applied to every destination.
     /// </summary>
     public void Apply()
     {
         var label = Destinations.LabelOf(_current);
-        Title = _session.Length == 0 ? label : $"{label} — {_session}";
+        Title = _session.Length == 0 ? label : $"{label} · {_session}";
 
         IsMaximised = _maximised;
         MaximiseLabel = _maximised ? "Restore" : "Maximise";

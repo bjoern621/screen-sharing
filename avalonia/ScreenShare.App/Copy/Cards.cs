@@ -141,6 +141,64 @@ public static class Cards
         + "are rather than to what you send.";
 
     /// <summary>
+    /// What the viewer table says in place of rows.
+    /// Two absences and two sentences, because they leave a publisher with different things to do next: wait
+    /// for the relay to be asked, or send somebody the link.
+    /// </summary>
+    public const string ViewersUnasked = "The relay has not been asked yet, so there is nobody to list.";
+
+    public const string ViewersNone = "Nobody is connected to this stream yet.";
+
+    /// <summary>
+    /// What the preflight list says when the form found nothing to say.
+    /// A line rather than an empty panel: a card that vanishes with the last warning reads as a card that
+    /// broke.
+    /// </summary>
+    public const string PreflightClear = "Nothing to fix: these settings publish as they stand.";
+
+    /// <summary>
+    /// The advanced drawer's own heading and its four column heads.
+    /// Lower case, as the column heads of the tables beside them are.
+    /// </summary>
+    public const string AdvancedDrawerTitle = "Advanced";
+
+    public const string AdvancedSettingColumn = "setting";
+
+    public const string AdvancedValueColumn = "value";
+
+    public const string AdvancedUnitColumn = "unit";
+
+    public const string AdvancedNoteColumn = "note, why you would touch it";
+
+    /// <summary>
+    /// The latency plot's two series, named beside the rule drawn in each one's stroke.
+    /// Short because they sit inside the plot: the card's own caption says whose figures these are.
+    /// </summary>
+    public const string PlotRoundTripLegend = "rtt";
+
+    public const string PlotLossLegend = "loss";
+
+    /// <summary>
+    /// What a stream waiting out a relaunch says beside the pill.
+    /// The pill stays up through a backoff, the reader having stopped nothing, so this is the whole of what
+    /// separates a stream carrying frames from one coming back.
+    /// </summary>
+    public static string RetryAttempt(int attempt, int budget) => $"reconnecting, attempt {attempt} of {budget}";
+
+    /// <summary>
+    /// The quantizer track's three labels, each carrying the number on the track it sits over.
+    ///
+    /// The numbers are formatted and not written, because the scale is the codec's and the encoder's: 51 is
+    /// where the H.26x scale ends, and a reader on libvpx or on an encoder exposing a raw quantizer index
+    /// would be shown somebody else's ceiling (<see cref="Features.Setup.Model.QualityLayout"/>).
+    /// </summary>
+    public static string QuantizerFloor(int at) => $"{at}: visually lossless, huge";
+
+    public static string QuantizerCeiling(int at) => $"{at}: unusable";
+
+    public static string QuantizerBand(int from, int to) => $"{from}–{to} recommended for screen content";
+
+    /// <summary>
     /// An empty store, which is not <see cref="Statements"/>' unreadable-store notice: that one is the store
     /// failing, this one a reader who has saved nothing.
     /// </summary>

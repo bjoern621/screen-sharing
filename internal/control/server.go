@@ -104,6 +104,8 @@ type Backend interface {
 	// StopPublish ends the stream, running or waiting out a backoff.
 	StopPublish()
 	// StartWatch opens an external viewer for one stream over one transport.
+	// A leg this build has no viewer for comes back as a Refused, which is what carries it across as
+	// INVALID_ARGUMENT rather than as the machine's state (refusal.go).
 	StartWatch(key wire.WatchKey) error
 	StopWatch(key wire.WatchKey)
 	// StartReceive opens a decode for one stream on one leg inside the backend, and StopReceive closes
@@ -149,6 +151,7 @@ type Backend interface {
 	// hand over, and StopMonitorPreview closes one.
 	// The wizard's counterpart of the receive pair, and what they open is a screen capture and never a
 	// tile.
+	// An index no output is enumerated under comes back as a Refused, as StartWatch's missing leg does.
 	StartMonitorPreview(monitor int) error
 	StopMonitorPreview(monitor int)
 	// MonitorPreviewState is every monitor being previewed, read off the running pipelines rather than

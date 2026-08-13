@@ -404,9 +404,13 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 // keeps the value it has, which is the case a colour range on planar RGB is in, and a candidate
 // dropped for that would report a preset unreachable for a field the repair would have left alone.
 func presetStrands(d Deps, candidate settings.Settings) bool {
+	// One evaluation for every field asked about: the candidate does not move between them, and the
+	// search runs this over a few hundred candidates on every keystroke.
+	av := availabilityOf(d, candidate)
+
 	for _, key := range presetSearchedKeys {
 		f := presetField(key)
-		if _, walked := legalOption(d, candidate, f, optionValue(f.value(candidate)), noEntry); walked {
+		if _, walked := legalOption(av, d, candidate, f, optionValue(f.value(candidate)), noEntry); walked {
 			return true
 		}
 	}

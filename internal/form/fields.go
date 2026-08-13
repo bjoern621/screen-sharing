@@ -86,10 +86,6 @@ const (
 
 	// fieldGainStep is in percent, which is the unit the gain setting counts in.
 	fieldGainStep = 5
-
-	// fieldAnchorCq is the H.26x encoders' quantizer scale,
-	// which every codec-independent quantizer figure counts on.
-	fieldAnchorCq = 51
 )
 
 var fieldTable = []field{

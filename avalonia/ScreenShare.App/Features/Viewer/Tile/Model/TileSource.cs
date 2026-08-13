@@ -75,8 +75,6 @@ public sealed record TileSource
     /// <summary>Output index, meaningful on <see cref="TileSourceKind.MonitorPreview"/> alone.</summary>
     public int Monitor { get; }
 
-    public bool IsPreview => Kind == TileSourceKind.PublishPreview;
-
     /// <summary>
     /// A relay decode, the one kind with a leg to name and the one kind an audio branch belongs to.
     /// </summary>

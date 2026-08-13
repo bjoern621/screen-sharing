@@ -135,10 +135,16 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 	// and Defaults asks the machine for its hostname.
 	fresh := settings.Defaults()
 
+	// The rules are evaluated once for the whole render and handed down.
+	// Every control and every option of every control asks the same question of the same draft, and
+	// availabilityOf walks the entire registry, so asking per control priced a resolve in hundreds of
+	// milliseconds where a shell resolves on a keystroke.
+	av := availabilityOf(d, s)
+
 	form := &screensharev1.Form{
 		Settings:          wire.Settings(s),
 		RepairedFieldKeys: repaired,
-		Groups:            resolveGroups(d, s, fresh),
+		Groups:            resolveGroups(av, d, s, fresh),
 		Diagnostics:       diags,
 		Summary:           summarize(d, s, est),
 		Presets:           resolvePresets(d, s),
@@ -156,7 +162,7 @@ func Resolve(d Deps, draft settings.Settings) *screensharev1.Form {
 // A group no row names is dropped rather than drawn as a heading with nothing under it.
 // A field availability hid is not: it is rendered with its visible flag false, which is how a shell
 // is told about a control it is not to draw.
-func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGroup {
+func resolveGroups(av availability, d Deps, s, fresh settings.Settings) []*screensharev1.FieldGroup {
 	out := make([]*screensharev1.FieldGroup, 0, len(groups))
 	for _, g := range groups {
 		fields := make([]*screensharev1.Field, 0, len(fieldTable))
@@ -167,7 +173,7 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 				continue
 			}
 			if !f.repeat {
-				fields = append(fields, resolveField(d, s, fresh, f, noEntry))
+				fields = append(fields, resolveField(av, d, s, fresh, f, noEntry))
 				continue
 			}
 			// One entry's controls are drawn together rather than every entry's kind followed by every
@@ -178,7 +184,7 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 				continue
 			}
 			drawn = true
-			fields = append(fields, resolveEntries(d, s, fresh, g.key)...)
+			fields = append(fields, resolveEntries(av, d, s, fresh, g.key)...)
 		}
 		if len(fields) == 0 {
 			continue
@@ -195,7 +201,7 @@ func resolveGroups(d Deps, s, fresh settings.Settings) []*screensharev1.FieldGro
 // Its key names one index past the end, so picking a kind on it is the write that appends
 // (keys.go, listField).
 // A kind set back to none takes an entry off again, on the repair's next pass.
-func resolveEntries(d Deps, s, fresh settings.Settings, group string) []*screensharev1.Field {
+func resolveEntries(av availability, d Deps, s, fresh settings.Settings, group string) []*screensharev1.Field {
 	var out []*screensharev1.Field
 	for entry := range len(s.Publish.AudioSources) + 1 {
 		for i := range fieldTable {
@@ -203,7 +209,7 @@ func resolveEntries(d Deps, s, fresh settings.Settings, group string) []*screens
 			if f.group != group || !f.repeat {
 				continue
 			}
-			out = append(out, resolveField(d, s, fresh, f, entry))
+			out = append(out, resolveField(av, d, s, fresh, f, entry))
 		}
 	}
 	return out
@@ -220,7 +226,7 @@ const noEntry = -1
 // column of the table.
 // One reader for both keeps the value a shell writes back and the value it puts back the same
 // shape, and a row added to the table carries a default with nothing else to fill in.
-func resolveField(d Deps, s, fresh settings.Settings, f *field, entry int) *screensharev1.Field {
+func resolveField(av availability, d Deps, s, fresh settings.Settings, f *field, entry int) *screensharev1.Field {
 	assert.IsNotNil(f, "a resolved field belongs to a row of the field table")
 	assert.Assert(f.repeat == (entry != noEntry), "a repeated control is drawn for an entry", f.key, entry)
 
@@ -228,7 +234,7 @@ func resolveField(d Deps, s, fresh settings.Settings, f *field, entry int) *scre
 	if f.repeat {
 		key = indexedKey(f.key, entry)
 	}
-	st := fieldState(d, s, f.key, entry)
+	st := fieldStateOf(av, f.key, entry)
 
 	out := &screensharev1.Field{
 		Key:     key,
@@ -240,13 +246,13 @@ func resolveField(d Deps, s, fresh settings.Settings, f *field, entry int) *scre
 		Note:    st.note,
 		// Liveness is what an edit to this control would cost, so a greyed or hidden one promises
 		// nothing about an edit nobody can make.
-		Live:         st.enabled && st.visible && verdictsOf(d, s).Live(f.key),
+		Live:         st.enabled && st.visible && av.verdicts.Live(f.key),
 		Value:        fieldValue(f, s, entry),
 		DefaultValue: fieldValue(f, fresh, entry),
 	}
 
 	if f.options != nil || f.itemOptions != nil {
-		out.Options = resolveOptions(d, s, f, entry)
+		out.Options = resolveOptions(av, d, s, f, entry)
 	}
 	if f.bounds != nil {
 		out.Range = f.bounds(d, s)
@@ -298,7 +304,7 @@ func audioEntry(s settings.Settings, entry int) settings.AudioSource {
 // A shell re-sorting on it would be a second place deciding what the list looks like, one a second
 // shell could disagree with and one the repair walking a stranded value to the first legal entry
 // cannot see (repair.go, docs/ipc-api.md, "The rule").
-func resolveOptions(d Deps, s settings.Settings, f *field, entry int) []*screensharev1.FieldOption {
+func resolveOptions(av availability, d Deps, s settings.Settings, f *field, entry int) []*screensharev1.FieldOption {
 	var built []*screensharev1.FieldOption
 	if f.repeat {
 		assert.IsNotNil(f.itemOptions, "an ordered option list belongs to a control that offers entries", f.key)
@@ -311,7 +317,7 @@ func resolveOptions(d Deps, s settings.Settings, f *field, entry int) []*screens
 	var ruledOut []*screensharev1.FieldOption
 
 	for _, o := range built {
-		enabled, reason := optionState(d, s, f.key, o.GetValue(), entry)
+		enabled, reason := optionStateOf(av, f.key, o.GetValue(), entry)
 		o.Enabled = enabled
 		o.Reason = reason
 

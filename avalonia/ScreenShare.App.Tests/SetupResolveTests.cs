@@ -47,7 +47,6 @@ public sealed class SetupResolveTests
 
         Assert.False(flow.Quality.IsResolved);
         Assert.False(flow.IsPublishable);
-        Assert.Equal("", flow.Headline);
         Assert.Empty(flow.Steps);
         Assert.False(flow.Settled.IsCompleted);
     }
@@ -63,7 +62,6 @@ public sealed class SetupResolveTests
         Assert.True(flow.Settled.IsCompleted);
         Assert.True(flow.Quality.IsResolved);
         Assert.True(flow.IsPublishable);
-        Assert.NotEmpty(flow.Headline);
     }
 
     /// <summary>

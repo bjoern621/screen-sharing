@@ -15,6 +15,8 @@ import (
 	"unsafe"
 
 	"github.com/go-gst/go-gst/pkg/gst"
+
+	"bjoernblessin.de/go-utils/util/assert"
 )
 
 // The Go half of the Windows export leg: the pool's lifetime and the shape the rest of the
@@ -68,6 +70,8 @@ func onSample(sample *gst.Sample, run func(sample unsafe.Pointer, fault *C.char,
 }
 
 func (s *d3d11Sharer) open(sample *gst.Sample, slots int) (Pool, error) {
+	assert.Assert(slots > 0, "a pool is opened for at least one slot", slots)
+
 	s.close()
 
 	err := onSample(sample, func(frame unsafe.Pointer, fault *C.char, size C.int) C.int {

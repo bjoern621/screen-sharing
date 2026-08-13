@@ -63,12 +63,13 @@ func (a *App) Pointer() (pointer.Position, bool) {
 
 	a.procMu.Lock()
 	live, _ := a.livePublishLocked()
+	monitor, known := a.publishMonitorLocked()
 	a.procMu.Unlock()
 	if live == nil || live.Publish.Cursor != cursor.Metadata {
 		return pointer.Position{}, false
 	}
 
-	return a.pointerInPicture(*live, at), true
+	return a.pointerInPicture(*live, monitor, known, at), true
 }
 
 // pointerInPicture turns a position in the display server's pixels into one in the picture the
@@ -80,11 +81,14 @@ func (a *App) Pointer() (pointer.Position, bool) {
 // The settings' scale goes on second, because the stream carries the scaled picture and a viewer's
 // pixels are its pixels.
 //
-// A monitor the enumeration does not report leaves the position untouched, the answer the bitrate
-// prediction gives for an unpriced monitor: inventing an origin would place the pointer somewhere
-// nothing measured.
-func (a *App) pointerInPicture(s settings.Settings, at pointer.Position) pointer.Position {
-	monitor, known := display.At(s.Publish.Monitor)
+// monitor is the rectangle the running pipeline was built to crop, taken at launch rather than read
+// here: the child's crop is fixed in its argv, so an origin read fresh would place the pointer
+// against a layout the frames do not carry.
+// It also keeps a 250 Hz stream (pointer.Interval) off one monitor-enumerating subprocess per tick.
+//
+// known false leaves the position untouched, the answer the bitrate prediction gives for an unpriced
+// monitor: inventing an origin would place the pointer somewhere nothing measured.
+func (a *App) pointerInPicture(s settings.Settings, monitor display.Monitor, known bool, at pointer.Position) pointer.Position {
 	if known {
 		at.X -= monitor.OffsetX
 		at.Y -= monitor.OffsetY

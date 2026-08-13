@@ -202,16 +202,15 @@ func argRefreshHz(v int) *screensharev1.TextArg {
 	return text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_REFRESH_HZ, int64(v))
 }
 
+// One constructor per substitution name, so a surface reading this argument meets one value shape.
+// A whole number of Mbit/s crosses as a Decimal too: a reader keyed on the case would otherwise find
+// a Number here and a Decimal in the next sentence, under one name.
 func argBitrateMbps(v float64) *screensharev1.TextArg {
 	return text.Dec(screensharev1.TextArgName_TEXT_ARG_NAME_BITRATE_MBPS, v)
 }
 
 func argMaxrateMbps(v int) *screensharev1.TextArg {
 	return text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_MAXRATE_MBPS, int64(v))
-}
-
-func argBitrateTarget(v int) *screensharev1.TextArg {
-	return text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_BITRATE_MBPS, int64(v))
 }
 
 func argUplinkMbps(v int) *screensharev1.TextArg {

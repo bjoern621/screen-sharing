@@ -181,7 +181,7 @@ func PreviewSource(p platform.Info, index int) (string, error) {
 // endx and endy are inclusive: the last captured column is the offset plus the width minus one.
 func ximageHead(index int, pointer bool) []string {
 	head := []string{XImage, "use-damage=false", "show-pointer=" + boolProperty(pointer)}
-	m, ok := monitorAt(index)
+	m, ok := display.At(index)
 	if !ok || m.Width <= 0 || m.Height <= 0 {
 		return head
 	}
@@ -208,15 +208,4 @@ func boolProperty(on bool) string {
 		return "true"
 	}
 	return "false"
-}
-
-// monitorAt is the enumerated output carrying this index, false where the enumeration carries none:
-// a screen unplugged since the setting was stored, or a session whose outputs could not be read.
-func monitorAt(index int) (display.Monitor, bool) {
-	for _, m := range display.List() {
-		if m.Index == index {
-			return m, true
-		}
-	}
-	return display.Monitor{}, false
 }

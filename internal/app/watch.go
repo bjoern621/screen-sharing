@@ -10,6 +10,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -204,7 +205,11 @@ func (a *App) StartWatch(streamName, transportName string) error {
 
 	engine, err := watch.Select(transportName)
 	if err != nil {
-		return err
+		// A leg no transport row carries and one no viewer implements are both the request naming
+		// something this build does not have, which the contract states as INVALID_ARGUMENT.
+		// The carriage check above is the other kind: every half of that request exists and the stream's
+		// present format is what stands in the way (control/refusal.go).
+		return control.Refuse("%v", err)
 	}
 	args, env, err := engine.Command(s, streamName, transportName)
 	if err != nil {

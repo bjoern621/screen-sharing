@@ -40,13 +40,16 @@
                   VerticalAlignment="Center">
 
         <!--
-          The app mark, in the palette's one red.
+          The app mark, and identity is all it carries: the red is spent on this machine sharing and on
+          something having broken (docs/design-language.md), and a mark that is red whatever the app is
+          doing spends it on neither.
+          Whether this machine is sharing is the pill's to say, in the chrome and in the header.
           Its 12px has no metric token, so the radius takes the smallest one the design states.
         -->
         <Border Width="12"
                 Height="12"
                 CornerRadius="{StaticResource RadiusSegment}"
-                Background="{StaticResource AttentionBrush}"
+                Background="{StaticResource ForegroundBrush}"
                 VerticalAlignment="Center" />
 
         <TextBlock Classes="title"

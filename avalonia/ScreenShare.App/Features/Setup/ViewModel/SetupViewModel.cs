@@ -263,7 +263,6 @@ public sealed class SetupViewModel : Observable
     private bool _canContinue;
     private bool _isPublishable;
     private string _continueLabel = "";
-    private string _headline = "";
     private string _commandError = "";
     private bool _hasCommandError;
     private string _unavailable = "";
@@ -338,9 +337,6 @@ public sealed class SetupViewModel : Observable
     /// False while no form has arrived, the honest reading of settings nothing has vouched for.
     /// </summary>
     public bool IsPublishable { get => _isPublishable; private set => Set(ref _isPublishable, value); }
-
-    /// <summary>The whole configuration in one line, worded here off the settings the form carried.</summary>
-    public string Headline { get => _headline; private set => Set(ref _headline, value); }
 
     /// <summary>Why these settings render no command, empty where one was rendered.</summary>
     public string CommandError { get => _commandError; private set => Set(ref _commandError, value); }
@@ -444,10 +440,6 @@ public sealed class SetupViewModel : Observable
             FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
             current == SourceLayout.GroupKey);
 
-        // The whole configuration in one line.
-        // Worded here off the settings the form carried, for the reason each group's shorthand is: it picks a
-        // separator, an abbreviation and a length, none of them visible from the backend.
-        Headline = _session.Words.Headline(form?.Settings?.Publish);
         CommandError = form?.Summary?.CommandError ?? "";
         HasCommandError = CommandError.Length > 0;
         Unavailable = _form.Unavailable;

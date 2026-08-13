@@ -98,6 +98,9 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 		return
 	}
 	a.run = nil
+	// The position was read over the capture that just ended, and the rectangle it was mapped against
+	// went with that child: holding it across a backoff would draw a pointer over a stopped stream.
+	a.pointerAt.clear()
 	// The child copying to it is gone, so the preview goes too, across a retry as well: the relaunch
 	// binds a port of its own.
 	// A publish between attempts therefore reports no preview.

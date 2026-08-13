@@ -191,6 +191,24 @@ func TestTheGpuPathReadsNoDrmDownloadStrategy(t *testing.T) {
 	}
 }
 
+// The downloading path is where the strategy is read, so it is where a name no row carries has to be
+// refused: drmMapFor answering the same on its own says nothing about the command reaching it.
+// A capture that fell through to the driver's guess would run the setting as its own opposite.
+func TestADownloadingCaptureRefusesAStrategyNoRowCarries(t *testing.T) {
+	s := gpuStream("kmsgrab", "h264_vaapi")
+	s.Publish.CaptureMemory = gpupath.MemorySystem
+	s.Publish.DrmMap = "vaapi-with-a-typo"
+
+	_, err := BuildPublishArgs(s, nil)
+	if err == nil {
+		t.Fatal("a DRM download strategy no row carries built a command")
+	}
+	// A machine with no DRM node refuses first and for its own reason, which is not what this covers.
+	if !strings.Contains(err.Error(), "vaapi-with-a-typo") {
+		t.Skipf("this machine refuses kmsgrab before the strategy is read: %v", err)
+	}
+}
+
 // firstCodecOfFamily returns an implemented codec of family, false where the capability table
 // carries none.
 func firstCodecOfFamily(family string) (string, bool) {

@@ -43,10 +43,19 @@ import (
 // The key is the row's own, which for a repeated control is the template rather than one entry's,
 // since the statement is about the control.
 func fieldState(d Deps, s settings.Settings, key string, entry int) state {
+	return fieldStateOf(availabilityOf(d, s), key, entry)
+}
+
+// fieldStateOf answers the same question against an evaluation the caller already holds.
+//
+// A resolve asks it of every control and of every option of every control, and availabilityOf walks
+// the whole rule registry, so the evaluation is made once where the draft it describes is fixed and
+// handed down (form.go, repair.go).
+func fieldStateOf(av availability, key string, entry int) state {
 	rule, ok := availabilityRules[key]
 	assert.Assert(ok, "an availability question names a field the form declares", key)
 
-	st := rule(availabilityOf(d, s).forEntry(entry))
+	st := rule(av.forEntry(entry))
 
 	assert.Assert(st.enabled || st.reason != nil, "a disabled control says why", key)
 	assert.Assert(st.enabled || st.note == nil, "a note rides on a control that is still editable", key)
@@ -58,6 +67,12 @@ func fieldState(d Deps, s settings.Settings, key string, entry int) state {
 // A field with no option-level rule leaves every entry enabled: whole-control greying is
 // fieldState's, and repeating it per entry would grey a dropdown twice over.
 func optionState(d Deps, s settings.Settings, key, value string, entry int) (enabled bool, reason *screensharev1.Text) {
+	return optionStateOf(availabilityOf(d, s), key, value, entry)
+}
+
+// optionStateOf answers the same question against an evaluation the caller already holds, for the
+// reason fieldStateOf takes one.
+func optionStateOf(av availability, key, value string, entry int) (enabled bool, reason *screensharev1.Text) {
 	_, declared := availabilityRules[key]
 	assert.Assert(declared, "an option question names a field the form declares", key)
 
@@ -65,7 +80,7 @@ func optionState(d Deps, s settings.Settings, key, value string, entry int) (ena
 	if !ok {
 		return true, nil
 	}
-	reason = rule(availabilityOf(d, s).forEntry(entry), value)
+	reason = rule(av.forEntry(entry), value)
 	return reason == nil, reason
 }
 
@@ -894,7 +909,7 @@ func (av availability) vaapiCeilingNote() *screensharev1.Text {
 	if av.s.Publish.BitrateM <= 0 || av.s.Publish.MaxrateM <= av.s.Publish.BitrateM*2 {
 		return nil
 	}
-	return say(vaapiCeilingBound, argMaxrateMbps(av.s.Publish.BitrateM*2), argBitrateTarget(av.s.Publish.BitrateM))
+	return say(vaapiCeilingBound, argMaxrateMbps(av.s.Publish.BitrateM*2), argBitrateMbps(float64(av.s.Publish.BitrateM)))
 }
 
 // staysOnDevice reports whether this run hands the encoder the frames the capture produced, without

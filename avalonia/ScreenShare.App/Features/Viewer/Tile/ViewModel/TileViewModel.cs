@@ -96,7 +96,6 @@ public sealed class TileViewModel : Observable, IFrameSource
     private string _title = "";
     private string _notice = "";
     private bool _hasNotice;
-    private bool _isLive;
     private bool _isFocused;
     private bool _isPoppedOut;
     private bool _isFullscreen;
@@ -194,9 +193,6 @@ public sealed class TileViewModel : Observable, IFrameSource
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
-
-    /// <summary>Whether a frame has been drawn, which separates a live tile from a connecting one.</summary>
-    public bool IsLive { get => _isLive; private set => Set(ref _isLive, value); }
 
     // --- Audio -----------------------------------------------------------------------
     //
@@ -377,8 +373,6 @@ public sealed class TileViewModel : Observable, IFrameSource
     {
         // Only a relay decode crossed a protocol, so only a relay decode has a leg to name beside the stream.
         Title = _source.IsRelay ? $"{Name} · {Words.Transport(Transport)}" : Name;
-        IsLive = _report.Live;
-
         Notice = NoticeFor(pipeline);
         HasNotice = Notice.Length > 0;
         Aspect = AspectOf();

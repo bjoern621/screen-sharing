@@ -12,6 +12,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -83,7 +84,7 @@ func Repair(d Deps, draft settings.Settings) (settings.Settings, []string) {
 				}
 				held := optionValue(fieldValue(f, s, entry))
 
-				next, walked := legalOption(d, s, f, held, entry)
+				next, walked := legalOption(availabilityOf(d, s), d, s, f, held, entry)
 				if !walked {
 					continue
 				}
@@ -299,22 +300,36 @@ var repairCaptureOrder = []string{
 	"kmsgrab",
 }
 
+// The render chain a repair reaches for first: the one a stream renders through where nothing chose
+// a chain.
+//
+// A row of its own because the offer order is the picker's, cheapest conversion first, and the
+// default sits inside that list rather than at its head (receive.Chains).
+// The walk below reaches for the first legal entry, so without this a chain that lost its elements
+// would land on whatever the table happens to open with instead of on what the package answers with
+// when asked for nothing.
+var repairRenderChainOrder = []string{receive.DefaultChain}
+
 // repairOrders is the walk order of the fields that state one.
 // A field with no row here walks in the order its option list offers.
 var repairOrders = map[string][]string{
-	KeyCapture:    repairCaptureOrder,
-	KeyChroma:     repairChromaOrder,
-	KeyColorRange: repairColorRangeOrder,
+	KeyCapture:     repairCaptureOrder,
+	KeyChroma:      repairChromaOrder,
+	KeyColorRange:  repairColorRangeOrder,
+	KeyRenderChain: repairRenderChainOrder,
 }
 
 // legalOption answers what this field holds instead of held, and whether that is a change.
+//
+// av is the evaluation of s, taken by the caller: the walk asks it of every candidate, and a caller
+// weighing several fields of one draft (presetStrands) asks it of every field too.
 //
 // A held value that is offered and not greyed stands, whatever else the list carries.
 // Only an absent or greyed value walks, and it walks to the first entry the same evaluation leaves
 // enabled.
 // First rather than nearest: an option list is written in the order a reader should reach for it,
 // recommended entry leading, so first is nearest by the only measure this package has.
-func legalOption(d Deps, s settings.Settings, f *field, held string, entry int) (string, bool) {
+func legalOption(av availability, d Deps, s settings.Settings, f *field, held string, entry int) (string, bool) {
 	var options []*screensharev1.FieldOption
 	if f.repeat {
 		options = f.itemOptions(d, s, audioEntry(s, entry))
@@ -330,7 +345,7 @@ func legalOption(d Deps, s settings.Settings, f *field, held string, entry int) 
 
 	first := ""
 	for _, value := range repairWalk(f.key, options) {
-		enabled, _ := optionState(d, s, f.key, value, entry)
+		enabled, _ := optionStateOf(av, f.key, value, entry)
 		if value == held && enabled {
 			return held, false
 		}

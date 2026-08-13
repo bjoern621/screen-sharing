@@ -4,6 +4,7 @@ using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Broadcast.Preview.Model;
 using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
+using ScreenShare.App.Features.Viewer.Tile.Model;
 using Xunit;
 
 namespace ScreenShare.App.Tests;
@@ -293,7 +294,7 @@ public sealed class BroadcastPreviewTests
         Assert.NotNull(preview.Tile);
         Assert.True(preview.HasTile);
         Assert.Equal(Stream, preview.Tile.Name);
-        Assert.True(preview.Tile.Source.IsPreview);
+        Assert.Equal(TileSourceKind.PublishPreview, preview.Tile.Source.Kind);
         Assert.Equal("", preview.Tile.Transport);
     }
 
@@ -415,7 +416,7 @@ public sealed class BroadcastPreviewTests
         preview.SetPlaying(true);
 
         Assert.NotNull(preview.Tile);
-        Assert.True(preview.Tile.Source.IsPreview);
+        Assert.Equal(TileSourceKind.PublishPreview, preview.Tile.Source.Kind);
     }
 
     [Fact]
@@ -574,7 +575,7 @@ public sealed class BroadcastPreviewTests
         var closed = Assert.Single(backend.Stopped);
         Assert.Equal(Stream, closed.StreamName);
         Assert.Equal(Leg, closed.Transport);
-        Assert.True(preview.Tile?.Source.IsPreview);
+        Assert.Equal(TileSourceKind.PublishPreview, preview.Tile?.Source.Kind);
 
         Settle(preview, session);
         Choose(preview, PreviewRoute.EndToEnd);
@@ -698,6 +699,6 @@ public sealed class BroadcastPreviewTests
 
         Assert.Equal("", preview.Placeholder);
         Assert.False(preview.HasPlaceholder);
-        Assert.True(preview.Tile?.Source.IsPreview);
+        Assert.Equal(TileSourceKind.PublishPreview, preview.Tile?.Source.Kind);
     }
 }

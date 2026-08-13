@@ -63,11 +63,15 @@ func testStreamName(i int) string {
 	return name
 }
 
-// StartTestStreams launches count synthetic test-pattern publishers named test-1..test-<count>,
+// StartTestStreams holds the synthetic set at count publishers, named test-1..test-<count> and
 // pushing to the relay over RTSP.
 // They exercise the viewing paths without a screen capture: the viewer roster, the per-stream
 // viewers, the receive pipelines.
-// A running set is replaced, so this call names a count rather than the state of one slot.
+//
+// The count is the state the set converges on and not a transition: slots at or above it go, slots
+// below it that hold nothing are launched, and a slot already holding a publisher is left running.
+// A second call with the same count therefore starts nothing and stops nothing, where replacing the
+// set would cost every viewer of it a reconnect for a state that already held.
 //
 // The set is kept alive rather than only started: a publisher that dies on its own is relaunched
 // into the slot it held (teststreams_retry.go), which is what makes the boot set survive a relay
@@ -89,18 +93,56 @@ func (a *App) StartTestStreams(count int) error {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	a.stopTestStreamsLocked()
+	// The wanted count moves first, so an exit that fires while the surplus is being killed reads the
+	// count this call asked for rather than the one it replaced (teststreams_retry.go).
 	a.testStreamsWanted = count
+	a.dropTestStreamsAboveLocked(count)
 
+	launched := 0
 	for i := range count {
+		if a.testStreams[i] != nil {
+			continue
+		}
 		if err := a.launchTestStreamLocked(i, 0, s, exe, env); err != nil {
 			a.stopTestStreamsLocked()
 			return err
 		}
+		launched++
 	}
 
-	logger.Infof("started %d test streams", count)
+	assert.Assert(len(a.testStreams) == count, "the set holds a slot per wanted stream", len(a.testStreams), count)
+	if launched > 0 {
+		logger.Infof("test streams: %d of %d slots launched, the rest were already up", launched, count)
+	}
 	return nil
+}
+
+// dropTestStreamsAboveLocked takes every slot from count upward off the set, killing a child and
+// dropping a pending relaunch alike.
+// The caller holds procMu and has already written the wanted count.
+//
+// The entry goes before the child's exit can arrive, so that exit finds a slot the app has moved off
+// and lands nowhere rather than arming a relaunch into a set that no longer holds it.
+func (a *App) dropTestStreamsAboveLocked(count int) {
+	assert.Assert(count >= 0, "a set is held at a count of slots", count)
+
+	stopped := 0
+	for i, slot := range a.testStreams {
+		if i < count {
+			continue
+		}
+		if slot.timer != nil {
+			slot.timer.Stop()
+		}
+		if slot.proc != nil {
+			slot.proc.Stop()
+			stopped++
+		}
+		delete(a.testStreams, i)
+	}
+	if stopped > 0 {
+		logger.Infof("stopped %d test streams above slot %d", stopped, count)
+	}
 }
 
 // StopTestStreams stops every synthetic publisher, and the set stays off until it is asked for

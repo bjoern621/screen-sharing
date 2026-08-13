@@ -295,9 +295,10 @@ message Monitor {
   int32 index = 1;
   int32 width = 2;
   int32 height = 3;
-  // Top-left corner in the virtual desktop.
-  // Absent on a platform that selects an output by index and reports no virtual-desktop
-  // origin.
+  // Top-left corner in the virtual desktop, zero on a platform that selects an output by index and
+  // reports no such origin.
+  // Zero and not absent, unlike refresh_hz below: the origin is where a crop starts, and a platform
+  // that composes no virtual desktop starts every crop at 0,0, so the two answers are one.
   int32 offset_x = 4;
   int32 offset_y = 5;
   bool primary = 6;

@@ -114,13 +114,6 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// The whole configuration in one line: the quality it holds, then the picture it holds it on.
-    /// The picture comes second because it is the half a reader can see for themselves.
-    /// </summary>
-    public string Headline(PublishSettings? settings) =>
-        settings is null ? "" : Join(Quality(settings), Picture(settings));
-
-    /// <summary>
     /// What the rate control settled on, with the number each mode is holding.
     /// The mode's name alone is not the answer: "20 Mbit/s" is what a reader checks against their connection.
     /// </summary>

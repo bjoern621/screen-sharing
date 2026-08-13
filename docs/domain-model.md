@@ -70,7 +70,7 @@ A step the row does not declare is refused rather than forwarded, so a settings 
 
 A row that declares no ladder is an encoder with no such knob, which greys the control naming that codec.
 Either ladder can be absent on its own: the Vulkan rows tune and take no effort step, the libvpx ones take a step and tune for nothing, so each control asks about its own ladder.
-The QSV and AMF rows declare neither: both builders still spend a constant on those families' scales, because a ladder has to be read off the encoder rather than declared from memory.
+The QSV and AMF rows declare an effort ladder and no tune: oneVPL counts target usages from the quality end to the speed one and AMD names three quality presets, and neither family exposes a tuning knob for a row to declare.
 
 Audio is two settings against two tables, because the source and the codec answer different questions.
 Which sources exist is the platform's answer and is the `Audio` field, a row of `platform.AudioSources`.

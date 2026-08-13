@@ -53,13 +53,3 @@ type PublishState struct {
 	// publish and nothing else keys it (preview.go).
 	Preview *wire.PreviewSnapshot `json:"preview"`
 }
-
-// watchExitEvent says which viewer exited and why.
-// Name and Transport identify it together, so a reader clears the connecting state of that one leg
-// rather than of every viewer of the stream.
-type watchExitEvent struct {
-	Name      string `json:"name"`
-	Transport string `json:"transport"`
-	Message   string `json:"message"`
-	LogPath   string `json:"logPath"`
-}

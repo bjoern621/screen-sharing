@@ -257,7 +257,3 @@ message EncodeRate {
   bool low_bounded = 3;
   bool high_bounded = 4;
 }
-
-// No Media-over-QUIC certificate fingerprint crosses this package.
-// Pinning one is a browser WebTransport session's business, and a native MoQ watcher is a
-// transport entry against a receive pipeline (docs/viewer-architecture.md).

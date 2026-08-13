@@ -102,6 +102,8 @@ public sealed class MeterBar : Control
     /// </summary>
     public override void Render(DrawingContext context)
     {
+        Assert.That(TrackHeight > 0, "a bar has a track to draw", TrackHeight);
+
         var width = Bounds.Width;
         var height = Bounds.Height;
         if (width <= 0 || height <= 0)
@@ -133,7 +135,5 @@ public sealed class MeterBar : Control
         {
             context.FillRectangle(marker, new Rect(Math.Min(width * limit, width - 1), 0, 1, height));
         }
-
-        Assert.That(thickness > 0, "a bar has a track to draw", thickness, height);
     }
 }

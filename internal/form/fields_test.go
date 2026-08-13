@@ -152,7 +152,8 @@ func TestEveryFieldStatesWhatAFreshInstallationHolds(t *testing.T) {
 	draft.Relay.Host = "elsewhere.example"
 	draft.Relay.SrtPort = 9001
 
-	for _, g := range resolveGroups(fieldTestDeps(), draft, fresh) {
+	deps := fieldTestDeps()
+	for _, g := range resolveGroups(availabilityOf(deps, draft), deps, draft, fresh) {
 		for _, f := range g.GetFields() {
 			if f.GetDefaultValue().GetKind() == nil {
 				t.Errorf("%s states no default", f.GetKey())
@@ -261,7 +262,8 @@ func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 
 	// A shell reads the flag off the rendered group and not off this table, so it has to survive the
 	// render.
-	for _, g := range resolveGroups(fieldTestDeps(), settings.Defaults(), settings.Defaults()) {
+	deps, draft := fieldTestDeps(), settings.Defaults()
+	for _, g := range resolveGroups(availabilityOf(deps, draft), deps, draft, settings.Defaults()) {
 		if want := applied[g.GetKey()]; g.GetApplied() != want {
 			t.Errorf("resolved group %q is applied=%v, want %v", g.GetKey(), g.GetApplied(), want)
 		}
@@ -941,7 +943,7 @@ func TestOrderingTheEntriesDropsNoneAndReordersNeither(t *testing.T) {
 			}
 
 			var reachable, ruledOut, offered []string
-			for _, o := range resolveOptions(tc.deps, tc.s, f, entry) {
+			for _, o := range resolveOptions(availabilityOf(tc.deps, tc.s), tc.deps, tc.s, f, entry) {
 				offered = append(offered, o.GetValue())
 				if o.GetEnabled() {
 					reachable = append(reachable, o.GetValue())

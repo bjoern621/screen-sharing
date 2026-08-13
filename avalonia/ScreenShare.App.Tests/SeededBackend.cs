@@ -173,19 +173,19 @@ internal sealed class SeededBackend : IBackend
         ["avfvideosrc"] = "gstreamer",
     };
 
-    /// <summary>Operating system each capture backend needs, with the prose form of the refusal.</summary>
-    private static readonly IReadOnlyDictionary<string, (string Os, string WrongOs)> PlatformOf =
-        new Dictionary<string, (string Os, string WrongOs)>
+    /// <summary>Operating system each capture backend needs. The refusal crosses as a code, not as prose.</summary>
+    private static readonly IReadOnlyDictionary<string, string> PlatformOf =
+        new Dictionary<string, string>
         {
-            ["ddagrab"] = ("windows", "DXGI Desktop Duplication is Windows-only"),
-            ["gdigrab"] = ("windows", "GDI capture is Windows-only"),
-            ["d3d11screencapturesrc"] = ("windows", "Direct3D 11 screen capture is Windows-only"),
-            ["x11grab"] = ("linux", "X11 capture is Linux-only"),
-            ["ximagesrc"] = ("linux", "X11 capture is Linux-only"),
-            ["kmsgrab"] = ("linux", "DRM/KMS capture is Linux-only"),
-            ["portal"] = ("linux", "PipeWire ScreenCast is Linux-only"),
-            ["avfoundation"] = ("darwin", "AVFoundation screen capture is macOS-only"),
-            ["avfvideosrc"] = ("darwin", "AVFoundation screen capture is macOS-only"),
+            ["ddagrab"] = "windows",
+            ["gdigrab"] = "windows",
+            ["d3d11screencapturesrc"] = "windows",
+            ["x11grab"] = "linux",
+            ["ximagesrc"] = "linux",
+            ["kmsgrab"] = "linux",
+            ["portal"] = "linux",
+            ["avfoundation"] = "darwin",
+            ["avfvideosrc"] = "darwin",
         };
 
     /// <summary>Encoder family behind each codec, for the greyings keyed on family.</summary>
@@ -955,11 +955,11 @@ internal sealed class SeededBackend : IBackend
         switch (key)
         {
             case "publish.capture":
-                if (!PlatformOf.TryGetValue(value, out var platform) || platform.Os == _os)
+                if (!PlatformOf.TryGetValue(value, out var needs) || needs == _os)
                 {
                     return null;
                 }
-                return Say(TextCode.CaptureWrongOs, Id(TextArgName.Capture, value), Id(TextArgName.Os, platform.Os));
+                return Say(TextCode.CaptureWrongOs, Id(TextArgName.Capture, value), Id(TextArgName.Os, needs));
 
             case "publish.audio_sources[0].source":
                 return value == "desktop" && _os != "linux"

@@ -27,8 +27,8 @@ The methods a shell may call divide into three kinds, and the division is the ru
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. They compute; they change nothing, and they are cheap enough to call on a keystroke or a mount. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `OpenInBrowser` |
-| Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `OpenInBrowser` |
+| Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
 A method that is neither a read nor one of the listed effects does not belong on this service, and a shell that wants one is a shell about to hold state the backend owns.
 

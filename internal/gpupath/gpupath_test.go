@@ -223,11 +223,10 @@ func TestAnUnknownMemoryIsRefused(t *testing.T) {
 	}
 }
 
-// Both device refusals name the memory that gets the user publishing again, neither being something
-// the machine can be talked out of.
+// A device refusal names the memory that gets the user publishing again, the machine's GPU count
+// not being something it can be talked out of.
 func TestTheDeviceRefusalsNameTheWayOut(t *testing.T) {
 	for _, err := range []error{
-		Mismatch("/dev/dri/renderD128", "/dev/dri/renderD129"),
 		Undetermined("the portal does not name the GPU it captures on",
 			[]string{"/dev/dri/renderD128", "/dev/dri/renderD129"}),
 	} {

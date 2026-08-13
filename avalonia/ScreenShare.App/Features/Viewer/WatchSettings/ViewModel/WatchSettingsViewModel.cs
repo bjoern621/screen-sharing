@@ -50,6 +50,13 @@ public sealed class WatchSettingsViewModel : Observable
     /// </summary>
     private readonly Action _close;
 
+    /// <param name="form">
+    /// The draft this window holds, and where a write leaves through.
+    /// The panel keeps no copy of it: the group renders whatever the session answers with on each pass.
+    /// </param>
+    /// <param name="session">
+    /// Names the entries the group offers, the vocabulary being the backend's and the words this side's.
+    /// </param>
     /// <param name="dispatch">
     /// Hands work to the UI loop.
     /// A save answers on whichever thread the transport completed on, and a binding tolerates a write from the

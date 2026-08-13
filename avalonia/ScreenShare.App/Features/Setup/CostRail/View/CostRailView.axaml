@@ -8,6 +8,11 @@
              x:DataType="vm:CostRailViewModel">
 
   <UserControl.Styles>
+    <!-- The ordinary fill hue is set here and not on the element: an inline value is a LocalValue,
+         which outranks every style setter, so the overrun below would never paint. -->
+    <Style Selector="view|MeterBar">
+      <Setter Property="FillBrush" Value="{StaticResource ForegroundBrush}" />
+    </Style>
     <!-- Over the limit the whole fill takes the attention hue: MeterBar clamps nothing at the marker. -->
     <Style Selector="view|MeterBar.over">
       <Setter Property="FillBrush" Value="{StaticResource AttentionBrush}" />
@@ -38,7 +43,6 @@
                        Limit="{Binding UplinkShare}"
                        TrackHeight="5"
                        TrackBrush="{StaticResource DividerBrush}"
-                       FillBrush="{StaticResource ForegroundBrush}"
                        LimitBrush="{StaticResource AttentionBrush}" />
 
         <Grid ColumnDefinitions="*,Auto">

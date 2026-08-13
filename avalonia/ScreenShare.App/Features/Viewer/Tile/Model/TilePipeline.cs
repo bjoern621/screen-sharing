@@ -18,10 +18,6 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <param name="Live">A decoded frame has left the pipeline.
 /// Before that the pipeline is connecting or holding something it cannot decode, and the rest is empty for
 /// want of a negotiation.</param>
-/// <param name="Chain">Render chain the pipeline was built with.</param>
-/// <param name="RenderMemory">Memory feature the sink's input pad carried.</param>
-/// <param name="Decoder">Element the decoder autoplugged, with <paramref name="Hardware"/> whether silicon
-/// ran it.</param>
 /// <param name="HasAudio">The pipeline carries a sound track, with <paramref name="Volume"/> and
 /// <paramref name="Muted"/> what it plays it at.
 /// Volume is linear gain from zero, 1 untouched.</param>
@@ -36,10 +32,6 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <paramref name="CanToneMap"/> separates.</param>
 public readonly record struct TilePipeline(
     bool Live,
-    string Chain,
-    string RenderMemory,
-    string Decoder,
-    bool Hardware,
     bool HasAudio,
     double Volume,
     bool Muted,
@@ -53,7 +45,7 @@ public readonly record struct TilePipeline(
     public static TilePipeline? Of(ReceiveStream? decode) => decode is null
         ? null
         : new TilePipeline(
-            decode.Live, decode.Chain, decode.RenderMemory, decode.Decoder, decode.Hardware,
+            decode.Live,
             decode.HasAudio, decode.Volume, decode.Muted,
             decode.Transfer, decode.Hdr, decode.ToneMap, decode.CanToneMap, decode.ToneMapMissing);
 
@@ -71,7 +63,7 @@ public readonly record struct TilePipeline(
     public static TilePipeline? Of(PublishState.Types.Preview? preview) => preview is null
         ? null
         : new TilePipeline(
-            preview.Live, preview.Chain, preview.RenderMemory, preview.Decoder, preview.Hardware,
+            preview.Live,
             HasAudio: false, Volume: 1, Muted: false);
 
     /// <summary>
@@ -87,6 +79,6 @@ public readonly record struct TilePipeline(
     public static TilePipeline? Of(PreviewedMonitor? screen) => screen is null
         ? null
         : new TilePipeline(
-            screen.Live, Chain: "", RenderMemory: "", Decoder: "", Hardware: false,
+            screen.Live,
             HasAudio: false, Volume: 1, Muted: false);
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	"bjoernblessin.de/go-utils/util/logger"
 
@@ -127,6 +128,11 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	// The reader starts the moment the process does and the handle exists only once supervise
 	// returns, so caps arriving before that find it nil and stop nothing.
 	// The caps follow the pipeline reaching PLAYING, so they do not arrive before it.
+	//
+	// That is an argument about timing, not about the memory model: the handle is written here and
+	// read on the reader goroutine, so the mutex is what makes the write visible to that read.
+	// stopped needs none, being written and read inside this callback alone, which is one goroutine.
+	var handleMu sync.Mutex
 	var handle Handle
 	stopped := false
 	parseStdout := func(r io.Reader) {
@@ -140,8 +146,11 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 			}
 			stopped = true
 			logger.Warnf("stopping the publish: %v", refusal)
-			if handle != nil {
-				handle.Stop()
+			handleMu.Lock()
+			running := handle
+			handleMu.Unlock()
+			if running != nil {
+				running.Stop()
 			}
 		}, cb.OnPointer)
 	}
@@ -151,7 +160,7 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 	// viewer a reconnect.
 	socket := gstControlSocket(tag)
 
-	handle, err = supervise(superviseConfig{
+	started, err := supervise(superviseConfig{
 		exe: exe,
 		env: GstChildEnv(),
 		// The subcommand leads, which is what makes this executable play a pipeline rather than start a
@@ -172,5 +181,10 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		closeSource()
 		return nil, err
 	}
-	return &gstHandle{Handle: handle, socket: socket}, nil
+
+	handleMu.Lock()
+	handle = started
+	handleMu.Unlock()
+
+	return &gstHandle{Handle: started, socket: socket}, nil
 }

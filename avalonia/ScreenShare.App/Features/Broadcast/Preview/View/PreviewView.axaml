@@ -18,10 +18,6 @@
       <Setter Property="Foreground" Value="{StaticResource ControlForegroundBrush}" />
       <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
-    <Style Selector="Rectangle.meter">
-      <Setter Property="Width" Value="3" />
-      <Setter Property="VerticalAlignment" Value="Bottom" />
-    </Style>
   </UserControl.Styles>
 
   <StackPanel Spacing="7">
@@ -91,7 +87,12 @@
           <Border Background="{StaticResource TileBrush}"
                   Opacity="0.62"
                   CornerRadius="{StaticResource RadiusControl}" />
-          <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="9,5">
+          <!--
+            No level meter beside the figures: the five bars here were fixed heights, a meter's shape with no
+            reading behind it, and the mockup numbers that read as measurements went with the seeds
+            (avalonia/README.md).
+          -->
+          <Grid ColumnDefinitions="Auto,Auto,Auto,*" Margin="9,5">
             <TextBlock Grid.Column="0" Classes="overlay" Text="{Binding Encoded}" />
             <TextBlock Grid.Column="1" Classes="overlay" Text="{Binding Quality}" Margin="9,0,0,0" />
             <TextBlock Grid.Column="2"
@@ -99,14 +100,6 @@
                        Text="{Binding Leg}"
                        IsVisible="{Binding HasLeg}"
                        Margin="9,0,0,0" />
-            <!-- Fixed heights. Decoration in the shape of a meter, with no reading behind it. -->
-            <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="2" Height="11" VerticalAlignment="Center">
-              <Rectangle Classes="meter" Height="3.85" Fill="{StaticResource MutedBrush}" />
-              <Rectangle Classes="meter" Height="6.6" Fill="{StaticResource SecondaryBrush}" />
-              <Rectangle Classes="meter" Height="9.35" Fill="{StaticResource ForegroundBrush}" />
-              <Rectangle Classes="meter" Height="5.5" Fill="{StaticResource SecondaryBrush}" />
-              <Rectangle Classes="meter" Height="2.75" Fill="{StaticResource MutedBrush}" />
-            </StackPanel>
           </Grid>
         </Panel>
 

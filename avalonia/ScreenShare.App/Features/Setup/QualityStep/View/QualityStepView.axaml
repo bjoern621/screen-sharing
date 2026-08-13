@@ -132,7 +132,12 @@
                   ClipToBounds="True"
                   VerticalAlignment="Center"
                   Background="{StaticResource DividerBrush}">
-            <Grid ColumnDefinitions="29*,12*,22*,37*">
+            <!--
+              Shares of the scale and not of the H.26x numbers: the track's ends are the codec's, and the
+              band sits at the same fraction of every one of them (Setup/Model/QualityLayout.cs, which
+              states the same two edges for the labels below).
+            -->
+            <Grid ColumnDefinitions="35*,12*,16*,37*">
               <Border Grid.Column="0" Background="{StaticResource ChipBorderBrush}" />
               <Border Grid.Column="1" Background="{StaticResource ForegroundBrush}" />
               <Border Grid.Column="3" Background="{StaticResource AttentionBrush}" Opacity="0.25" />
@@ -150,10 +155,10 @@
           column is a share of the whole row and not of what is left over: a lone `*` beside
           the first band's 29 is a thirtieth of the width.
         -->
-        <Grid ColumnDefinitions="29*,12*,22*,37*" Margin="0,6,0,0">
-          <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0 — visually lossless, huge" />
-          <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="18–24 recommended for screen content" />
-          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="51 — unusable" />
+        <Grid ColumnDefinitions="35*,12*,16*,37*" Margin="0,6,0,0">
+          <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding QuantizerFloorLabel}" />
+          <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="{Binding QuantizerBandLabel}" />
+          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="{Binding QuantizerCeilingLabel}" />
         </Grid>
 
         <TextBlock Classes="hint"

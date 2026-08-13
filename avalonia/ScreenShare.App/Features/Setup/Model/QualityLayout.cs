@@ -76,4 +76,32 @@ public static class QualityLayout
 
         return columns;
     }
+
+    /// <summary>
+    /// Where the recommended band starts and ends, as shares of the quantizer scale.
+    ///
+    /// Shares and not numbers, because the scale is the codec's on the engine driving it: 0..51 for the H.26x
+    /// encoders, 0..63 for libvpx and software AV1, further for one exposing a raw quantizer index.
+    /// A quantizer moves between two scales by proportion, which is the rule the backend converts a preset's
+    /// target by (<c>internal/form/presets.go</c>, <c>presetCq</c>), so one share names the same picture on
+    /// every scale.
+    /// On the H.26x scale these two read as 18 and 24.
+    ///
+    /// The track's own colours are four star columns in <c>QualityStepView.axaml</c> holding the same four
+    /// shares, a grid column being no element and having no data context to bind through.
+    /// </summary>
+    public const double QuantizerBandStart = 0.35;
+
+    public const double QuantizerBandEnd = 0.47;
+
+    /// <summary>
+    /// The number a share of one control's scale lands on, rounded to what the control can hold.
+    /// </summary>
+    public static int QuantizerAt(double minimum, double maximum, double share)
+    {
+        Assert.That(share >= 0 && share <= 1, "a band edge is a share of the scale", share);
+        Assert.That(maximum >= minimum, "a quantizer scale runs upward", minimum, maximum);
+
+        return (int)Math.Round(minimum + (maximum - minimum) * share);
+    }
 }

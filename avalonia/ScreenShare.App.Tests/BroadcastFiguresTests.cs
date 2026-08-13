@@ -228,15 +228,16 @@ public sealed class BroadcastFiguresTests
         Assert.Equal("vbv ceiling 20 Mb/s", plots.Ceiling);
     }
 
+    /// <summary>
+    /// The relay marks no congestion interval, so the plot shades none and nothing names one: a caption
+    /// would be placed over a band the plot cannot draw, at a fraction of the width this side chose.
+    /// </summary>
     [Fact]
     public void NothingDetectsCongestionSoNoBandIsNamed()
     {
-        var plots = new PlotsViewModel
-        {
-            Snapshot = BroadcastSnapshot.Of(Live(), Sample(4, 12), null),
-        };
+        var reading = BroadcastSnapshot.Of(Live(), Sample(4, 12), null);
 
-        Assert.Equal("", plots.Band);
+        Assert.Equal("", reading.CongestionAt);
     }
 
     /// <summary>

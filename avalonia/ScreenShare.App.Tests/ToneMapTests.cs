@@ -20,7 +20,7 @@ public sealed class ToneMapTests
     private static TilePipeline Decode(
         bool hdr, bool toneMap = false, bool canToneMap = true, string missing = "", string transfer = "smpte2084")
         => new(
-            Live: true, Chain: "gl", RenderMemory: "memory:GLMemory", Decoder: "avdec_h265", Hardware: false,
+            Live: true,
             HasAudio: false, Volume: 1, Muted: false,
             Transfer: hdr ? transfer : "bt709", Hdr: hdr,
             ToneMap: toneMap, CanToneMap: canToneMap, ToneMapMissing: missing);

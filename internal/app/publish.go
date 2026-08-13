@@ -7,6 +7,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -24,6 +25,12 @@ import (
 type publishRun struct {
 	settings settings.Settings
 	handle   publish.Handle
+	// monitor is the output the pipeline crops to, enumerated once at launch.
+	// The crop is fixed in the child's argv, so this is what the frames carry however the outputs are
+	// arranged afterwards, and it is what a pointer position is mapped against (pointer.go).
+	// monitorKnown is false where the enumeration named no output at that index.
+	monitor      display.Monitor
+	monitorKnown bool
 	// startedAt dates the launch and attempts counts the retries before it.
 	// The exit is weighed against both: how long the pipeline lasted says whether these settings run
 	// on this machine, and what the failure has cost says how much budget is left (publish_retry.go).
@@ -48,16 +55,6 @@ func (a *App) StartPublish(s settings.Settings) error {
 	if err := settings.Save(s); err != nil {
 		logger.Warnf("Cannot persist settings: %v", err)
 	}
-	return a.startPublish(s)
-}
-
-// startPublishHeld publishes on the settings the app holds, for a caller carrying none of its own.
-// It moves no setting, so what runs is what was last written.
-func (a *App) startPublishHeld() error {
-	a.settingsMu.Lock()
-	s := a.settings
-	a.settingsMu.Unlock()
-
 	return a.startPublish(s)
 }
 
@@ -261,7 +258,11 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	// ends this child takes it down (preview.go).
 	preview := a.startPreviewLocked(s)
 
-	run := &publishRun{settings: s, startedAt: time.Now(), attempts: attempts}
+	monitor, monitorKnown := display.At(s.Publish.Monitor)
+	run := &publishRun{
+		settings: s, startedAt: time.Now(), attempts: attempts,
+		monitor: monitor, monitorKnown: monitorKnown,
+	}
 	a.run = run
 	handle, err := pub.Start(s, "publish", preview, publish.Callbacks{
 		OnStats: func(stats publish.Stats) {
@@ -293,6 +294,18 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 
 	logger.Infof("publishing '%s' via %s (%s, %s, %d fps)", s.Publish.Name, s.Publish.Transport, s.Publish.Mode, s.Publish.Chroma, s.Publish.Fps)
 	return nil
+}
+
+// publishMonitorLocked is the output the running pipeline crops to, and false where no pipeline runs
+// or the enumeration named none at that index.
+// A publish waiting out its backoff has no pipeline, so it reports false: the rectangle belongs to a
+// child, not to the settings it will be relaunched on.
+// procMu is held by the caller.
+func (a *App) publishMonitorLocked() (display.Monitor, bool) {
+	if a.run == nil || !a.run.handle.Running() {
+		return display.Monitor{}, false
+	}
+	return a.run.monitor, a.run.monitorKnown
 }
 
 func (a *App) isCurrentRun(run *publishRun) bool {
@@ -399,12 +412,4 @@ func (a *App) GetPublishState() PublishState {
 func (a *App) emitPublishState() {
 	state := a.GetPublishState()
 	a.emit(wire.PublishStateEvent(publishSnapshot(state)))
-}
-
-// Publishing reports whether a publish is in force, which a pipeline waiting out its backoff still
-// is: it can be stopped, and a start naming a different pipeline while one is pending is refused.
-func (a *App) Publishing() bool {
-	a.procMu.Lock()
-	defer a.procMu.Unlock()
-	return (a.run != nil && a.run.handle.Running()) || a.retry != nil
 }

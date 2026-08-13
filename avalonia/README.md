@@ -124,11 +124,13 @@ Greyscale everywhere except a single red, `#E5484D`, reserved strictly for "shar
 reader still separates from grey reliably, so spending it on state that is merely on would
 cost the app its one unmistakable signal.
 
-Two families and two weights carry everything: Inter, which is bundled with the app rather
-than named and hoped for, and IBM Plex Mono. The rule holds without exception: anything
-machine-generated or numeric is mono - identifiers, timers, throughput, resolutions, the enum
-values the backend spells - and anything a person wrote is sans. A line that mixes both
-switches family mid-run. Sizes are seven whole pixels; the half-pixel steps the mockups were
+One family and two weights carry everything: Inter, bundled with the app rather than named
+and hoped for. What a second family would have bought is column alignment in a run of
+digits, and that is a font feature rather than a face: anything that ticks, counts or sits
+in a column is set in tabular figures (`FigureFeatures`, Inter's `tnum`), so a line that
+mixes prose and figures no longer changes shape halfway through. What is machine-generated
+is said by role instead, one step quieter and one step smaller than the prose beside it
+(`docs/design-language.md`). Sizes are whole pixels; the half-pixel steps the mockups were
 written in are gone, because 11.5px and 11px land on the same pixel grid.
 
 There is **one button and one of every input**, and both tables are keyed on the type rather

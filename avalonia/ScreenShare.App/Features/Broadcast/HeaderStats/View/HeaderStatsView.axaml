@@ -14,6 +14,19 @@
                          IsVisible="{Binding IsSharing}"
                          VerticalAlignment="Center" />
 
+    <!--
+      A stream between attempts keeps the pill, so this is what tells it apart from one carrying frames.
+      In the attention hue, the one docs/design-language.md reserves for sharing and for failure, a relaunch
+      being the second on its way back.
+    -->
+    <TextBlock DockPanel.Dock="Left"
+               Classes="figure"
+               Foreground="{StaticResource AttentionBrush}"
+               Margin="8,0,0,0"
+               VerticalAlignment="Center"
+               IsVisible="{Binding IsRetrying}"
+               Text="{Binding Retry}" />
+
     <ItemsControl ItemsSource="{Binding Figures}" Margin="6,0,0,0" VerticalAlignment="Center">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate>

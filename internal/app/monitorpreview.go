@@ -6,6 +6,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/receive"
@@ -56,7 +57,10 @@ func (a *App) StartMonitorPreview(monitor int) error {
 	}
 
 	if _, enumerated := display.At(monitor); !enumerated {
-		return fmt.Errorf("monitor %d is not one of this machine's outputs", monitor)
+		// Typed, because the index naming no output of this machine is what the contract calls
+		// INVALID_ARGUMENT, against a session that cannot read one screen apart from another
+		// (control/refusal.go).
+		return control.Refuse("monitor %d is not one of this machine's outputs", monitor)
 	}
 
 	source, err := screensrc.PreviewSource(platform.Detect(), monitor)

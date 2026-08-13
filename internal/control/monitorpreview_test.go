@@ -15,9 +15,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
-// A start the backend refuses is FAILED_PRECONDITION and never INVALID_ARGUMENT: the request is
-// well formed, every integer being a monitor index somewhere, and what refuses it is a fact about
-// this machine.
+// A start the backend refuses with a plain error is FAILED_PRECONDITION: the request is well formed,
+// every integer being a monitor index somewhere, and what refuses it is a fact about this machine.
 // That is the line docs/ipc-api.md draws between the two codes.
 // The sentence stays the backend's, so the reason travels instead of being replaced.
 func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
@@ -39,6 +38,45 @@ func TestARefusedMonitorPreviewIsAPrecondition(t *testing.T) {
 	}
 	if !strings.Contains(message, "2") {
 		t.Errorf("refusal %q does not name the screen it is about", message)
+	}
+}
+
+// An index no output is enumerated under is INVALID_ARGUMENT, which the contract states and which
+// only a typed refusal can carry: both cases arrive as an error from one method, and a code read off
+// the sentence would be the contract deriving itself from prose (refusal.go).
+func TestAPreviewOfAScreenThatDoesNotExistIsARequestFault(t *testing.T) {
+	server := New(&fakeBackend{err: Refuse("monitor 9 is not one of this machine's outputs")},
+		events.New(), "test")
+
+	_, err := server.StartMonitorPreview(context.Background(),
+		&screensharev1.StartMonitorPreviewRequest{Monitor: 9})
+	if err == nil {
+		t.Fatal("a screen this machine does not have was previewed")
+	}
+	if got := status.Code(err); got != codes.InvalidArgument {
+		t.Errorf("code = %s, want %s", got, codes.InvalidArgument)
+	}
+	if message := status.Convert(err).Message(); !strings.Contains(message, "not one of this machine's outputs") {
+		t.Errorf("refusal %q drops the backend's own reason", message)
+	}
+}
+
+// The same line on the watch pair: a leg this build has no viewer for is the request naming
+// something that does not exist, while a leg that cannot carry the stream's present format is the
+// world not being ready.
+func TestAWatchOverALegThisBuildHasNoViewerForIsARequestFault(t *testing.T) {
+	viewer := &screensharev1.WatchKey{StreamName: "desk", Transport: "moq"}
+
+	refused := New(&fakeBackend{err: Refuse("no viewer implements transport %q", "moq")}, events.New(), "test")
+	_, err := refused.StartWatch(context.Background(), &screensharev1.StartWatchRequest{Viewer: viewer})
+	if got := status.Code(err); got != codes.InvalidArgument {
+		t.Errorf("a leg with no viewer answered %s, want %s", got, codes.InvalidArgument)
+	}
+
+	unready := New(&fakeBackend{err: errors.New("desk is av1, which srt cannot carry")}, events.New(), "test")
+	_, err = unready.StartWatch(context.Background(), &screensharev1.StartWatchRequest{Viewer: viewer})
+	if got := status.Code(err); got != codes.FailedPrecondition {
+		t.Errorf("a leg that cannot carry the format answered %s, want %s", got, codes.FailedPrecondition)
 	}
 }
 

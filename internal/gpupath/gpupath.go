@@ -14,8 +14,8 @@
 //
 // The table answers the pair question and nothing else.
 // Whether the machine captures and encodes on the same GPU is a second precondition, checked by the
-// engine that can name its devices, and a mismatch is a refusal rather than a demotion (Mismatch,
-// Undetermined).
+// engine that can name its devices, and a machine that cannot be held to one is refused rather than
+// demoted (Undetermined).
 package gpupath
 
 import (
@@ -261,20 +261,6 @@ func OnDevice(memory string) bool {
 		assert.Never("a resolved frame memory is one of the two device values or system memory", memory)
 		return false
 	}
-}
-
-// Mismatch is the refusal for a machine capturing on one GPU and encoding on another.
-// The import needs one device holding both ends, so the frames would reach the encoder through
-// system memory, which is a path the setting names rather than one this takes on its own.
-//
-// It refuses under MemoryAuto too.
-// Auto answers whether the pair has a device path, which this pair has; a second GPU is a property
-// of the machine, and demoting for it hands back the round trip the setting avoids without saying
-// so.
-func Mismatch(captureDevice, encodeDevice string) error {
-	return fmt.Errorf(
-		"capture runs on %s and the encoder on %s: frames cannot be imported across two GPUs, so pick frame memory %q to download them, or move both ends onto one device",
-		captureDevice, encodeDevice, MemorySystem)
 }
 
 // Undetermined is the refusal for a machine where which GPU captures can be read off nothing.
