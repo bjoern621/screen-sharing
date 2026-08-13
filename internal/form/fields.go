@@ -428,6 +428,19 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.GroupKey) },
 	},
 	{
+		// Whether the relay's HTTP legs are reached through a TLS proxy, which is one fact about the
+		// deployment rather than one per listener: the proxy terminates for the relay and the group
+		// service alike, under one name on the standard port.
+		//
+		// A toggle and not a scheme dropdown, because there are two deployments and no third: a relay
+		// on the internet has a proxy in front of every HTTP leg, and one on a trusted network has
+		// none.
+		key:     KeyRelayTls,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.Tls) },
+	},
+	{
 		// The passphrase the relay keys its SRT listener with, which is the one leg no proxy can wrap:
 		// it is UDP with no TLS, so what protects the packets is a value both ends hold.
 		// Empty is a relay that takes none, which is every relay on a trusted network.

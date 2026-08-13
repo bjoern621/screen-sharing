@@ -3,8 +3,6 @@ package transport
 import (
 	"bjoernblessin.de/go-utils/util/assert"
 
-	"fmt"
-
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -72,8 +70,14 @@ func (WebRTC) Formats() Formats {
 	}
 }
 
+// Credential as a muxer option, not part of the endpoint: the WHIP exchange is HTTP, and the relay
+// reads a bearer token there (credential.go).
 func (WebRTC) PublishArgs(s settings.Settings) []string {
-	return []string{"-f", "whip", whipURL(s, s.Relay.Path(s.Publish.Name))}
+	args := []string{"-f", "whip"}
+	if token, ok := credentialToken(s); ok {
+		args = append(args, "-authorization", token)
+	}
+	return append(args, whipURL(s, s.Relay.Path(s.Publish.Name)))
 }
 
 // GstSink returns the sink terminating a GStreamer pipeline for this transport.
@@ -85,11 +89,17 @@ func (WebRTC) PublishArgs(s settings.Settings) []string {
 //
 // The endpoint is a property of the element's signaller object rather than of the element,
 // so it is set through the child-property syntax.
+// The credential is the signaller's for the reason the endpoint is: the HTTP exchange carries it,
+// not the media that follows.
 func (WebRTC) GstSink(s settings.Settings) []string {
-	return []string{
+	sink := []string{
 		"whipclientsink", "name=" + GstMuxName,
 		"signaller::whip-endpoint=" + whipURL(s, s.Relay.Path(s.Publish.Name)),
 	}
+	if token, ok := credentialToken(s); ok {
+		sink = append(sink, "signaller::auth-token="+token)
+	}
+	return sink
 }
 
 // GstSource returns the source element a receiving GStreamer pipeline decodes from.
@@ -105,11 +115,15 @@ func (WebRTC) GstSink(s settings.Settings) []string {
 func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 	assert.Assert(streamName != "", "a receive source names the stream it decodes")
 
-	return []string{
+	source := []string{
 		"whepsrc",
 		"whep-endpoint=" + whepURL(s, streamName),
 		"audio-caps=EMPTY",
 	}
+	if token, ok := credentialToken(s); ok {
+		source = append(source, "auth-token="+token)
+	}
+	return source
 }
 
 // BrowserURL returns the relay's WHEP player page for the stream.
@@ -119,13 +133,21 @@ func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 func (WebRTC) BrowserURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a player page names the stream it opens")
 
-	return fmt.Sprintf("http://%s:%d/%s/", s.Relay.Host, s.Relay.WebrtcPort, streamName)
+	return webrtcOrigin(s) + "/" + streamName + "/" + credentialQuery(s, "?")
 }
 
+// Neither endpoint carries a credential in the address: both are HTTP, where the relay reads a
+// token from a header the caller sets (credential.go).
 func whipURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("http://%s:%d/%s/whip", s.Relay.Host, s.Relay.WebrtcPort, name)
+	return webrtcOrigin(s) + "/" + name + "/whip"
 }
 
 func whepURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("http://%s:%d/%s/whep", s.Relay.Host, s.Relay.WebrtcPort, name)
+	return webrtcOrigin(s) + "/" + name + "/whep"
+}
+
+// Where signalling answers: the relay's listener, or the proxy in front of it.
+// Only the exchange travels there; the media leg negotiates its own path and meets neither.
+func webrtcOrigin(s settings.Settings) string {
+	return s.Relay.HTTPOrigin(s.Relay.WebrtcPort)
 }

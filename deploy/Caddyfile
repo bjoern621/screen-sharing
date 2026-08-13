@@ -9,41 +9,48 @@
 # implied here, because a reader looking for "where is SRT encrypted" should find the answer
 # beside the listener and not by noticing an absence in this file.
 #
-# Replace the name. Everything else follows from it: Caddy asks Let's Encrypt for a
-# certificate on first start and renews it on its own, which is the whole of the certificate
-# story for this deployment.
-relay.example.com {
+# It does not front the relay's HTTP API either. A token this deployment issues grants
+# publishing and reading under one group and nothing else, so an API reachable from outside
+# would be an endpoint every caller is refused at, and the relay binds it to loopback.
+#
+# The name and the upstreams are environment variables because two deployments run this one
+# file: compose reaches the other containers by service name, and a NixOS host runs all three
+# on loopback (modules/screenshare-proxy.nix in the nixos-config repository). The defaults are
+# the loopback ones, so the file is valid on its own and `caddy validate` needs no environment.
+# One routing table, because two would drift.
+
+{$SCREENSHARE_DOMAIN:localhost} {
 	# The group service: keys, tokens and the index. It is the only thing here a client
 	# talks to before it publishes, and the only one holding a secret of its own.
 	handle /groups* {
-		reverse_proxy groupd:9443
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 	handle /tokens* {
-		reverse_proxy groupd:9443
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 	handle /streams* {
-		reverse_proxy groupd:9443
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
 	# The key every token is verified against. The relay fetches it, not a browser, and it
 	# is public by construction: it is what verifies a signature and cannot make one.
 	handle /jwks.json {
-		reverse_proxy groupd:9443
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
 	# The browser viewer and the WebRTC signalling behind it. Both are HTTP, so both are the
 	# same certificate and the same name.
 	handle /whip* {
-		reverse_proxy mediamtx:8889
+		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
 	}
 	handle /whep* {
-		reverse_proxy mediamtx:8889
+		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
 	}
 
 	# HLS, which is what a browser with no WebRTC support falls back to. It is segments over
 	# HTTP, so it needs nothing beyond the proxy either.
 	handle {
-		reverse_proxy mediamtx:8888
+		reverse_proxy {$SCREENSHARE_RELAY_HLS:127.0.0.1:8888}
 	}
 }
 

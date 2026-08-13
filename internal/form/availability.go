@@ -101,6 +101,7 @@ var availabilityRules = map[string]func(availability) state{
 	// "The rule"): a user on SRT has no reason to read what the RTMP listener's port means.
 	KeyName:          func(availability) state { return availabilityLive() },
 	KeyRelayHost:     func(availability) state { return availabilityLive() },
+	KeyRelayTls:      func(availability) state { return availabilityLive() },
 	KeyGroupKey:      func(availability) state { return availabilityLive() },
 	KeySrtPassphrase: func(availability) state { return availabilityLive() },
 	KeyAPIPort:       func(availability) state { return availabilityLive() },

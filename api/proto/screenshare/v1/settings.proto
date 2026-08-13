@@ -57,6 +57,18 @@ message RelaySettings {
   int32 webrtc_port = 5;
   int32 rtmp_port = 6;
   int32 hls_port = 7;
+  // tls says the relay's HTTP legs are reached through a TLS reverse proxy rather than
+  // directly.
+  //
+  // One flag rather than a scheme per listener, because the proxy is one deployment
+  // decision: it terminates for the relay and for the group service alike, under one name
+  // on the standard port, so the ports above are the direct listeners' and are not part of
+  // any address while this is set.
+  //
+  // It is also what says a group service can be reached at all, since that service answers
+  // on the same name: a relay with no proxy in front of it has nowhere to trade a group key
+  // for a relay token, and the app does not invent a port to look on.
+  bool tls = 10;
   // group_key is the secret whose possession is membership of a group, as the key
   // service handed it over. Empty is a machine that has joined none.
   //

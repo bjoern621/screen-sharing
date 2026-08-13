@@ -25,6 +25,11 @@ import (
 type Client struct {
 	mu   sync.Mutex
 	prev map[string]byteSample
+	// Renders the credential every request carries. nil for a relay that answers its API to anyone.
+	//
+	// A function, not a value: the relay checks the token's window too, so what a caller holds is the
+	// means to sign one. A stored string would stop working partway through a process's life.
+	authorize func() string
 }
 
 type byteSample struct {
@@ -84,6 +89,13 @@ type Status struct {
 	Reachable bool   `json:"reachable"`
 	Error     string `json:"error,omitempty"`
 	Paths     []Path `json:"paths"`
+	// Snapshot came from the group service's index, not the relay's own API, which is what a member
+	// gets on a relay that authenticates it (internal/app, groups.go).
+	//
+	// The two sources answer different amounts, not different truths: an index row names a stream and
+	// what it carries, and knows nothing of readers or rate. Those fields are zero here, and a reader
+	// that did not know would show "no viewers" for "not answered here".
+	FromIndex bool `json:"fromIndex,omitempty"`
 }
 
 // apiPathList mirrors the subset of GET /v3/paths/list this consumes.
@@ -109,6 +121,44 @@ func New() *Client {
 	return &Client{prev: map[string]byteSample{}}
 }
 
+// Client that authenticates every call.
+// For the one caller reading an API the relay answers to nobody anonymous: the group service, whose
+// credential is one it signs itself (cmd/groupd).
+func NewAuthorized(authorize func() string) *Client {
+	assert.IsNotNil(authorize, "an authorized client can render its credential")
+
+	return &Client{prev: map[string]byteSample{}, authorize: authorize}
+}
+
+// Client one fetch runs on, carrying the credential where there is one.
+//
+// The round tripper adds the header, not each call site: a fetch is the path list plus a reader
+// list per protocol (readers.go), and a per-site credential is one a later endpoint forgets.
+func (c *Client) httpClient() *http.Client {
+	client := &http.Client{Timeout: 3 * time.Second}
+	if c.authorize != nil {
+		client.Transport = authorizing{authorize: c.authorize}
+	}
+	return client
+}
+
+// Adds the credential to every request through it.
+type authorizing struct {
+	authorize func() string
+}
+
+func (a authorizing) RoundTrip(r *http.Request) (*http.Response, error) {
+	assert.IsNotNil(a.authorize, "an authorizing round tripper renders a credential")
+
+	// Cloned, not written to: net/http documents that a RoundTripper must not modify the request it
+	// is handed.
+	authorized := r.Clone(r.Context())
+	if credential := a.authorize(); credential != "" {
+		authorized.Header.Set("Authorization", "Bearer "+credential)
+	}
+	return http.DefaultTransport.RoundTrip(authorized)
+}
+
 // Fetch queries the relay once and returns the snapshot.
 //
 // An unreachable relay is an Umgebungsfehler rather than an error return: it is reported inside the
@@ -117,7 +167,7 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 	assert.Assert(apiPort > 0, "apiPort comes from validated settings", apiPort)
 
 	url := fmt.Sprintf("http://%s:%d/v3/paths/list", host, apiPort)
-	httpClient := http.Client{Timeout: 3 * time.Second}
+	httpClient := c.httpClient()
 
 	resp, err := httpClient.Get(url)
 	if err != nil {
@@ -140,7 +190,7 @@ func (c *Client) Fetch(host string, apiPort int) Status {
 	for _, item := range list.Items {
 		named = append(named, item.Readers...)
 	}
-	conns := fetchConnLists(&httpClient, host, apiPort, named)
+	conns := fetchConnLists(httpClient, host, apiPort, named)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -1,8 +1,8 @@
 package token
 
 import (
-	"crypto"
-	"crypto/rsa"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/sha256"
 	"encoding/json"
 	"math/big"
@@ -44,19 +44,24 @@ func TestATokenVerifiesAgainstTheKeyItPublishes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reading the signature: %v", err)
 	}
+	if len(signature) != 2*CoordinateBytes {
+		t.Fatalf("the signature is %d bytes, want two %d-byte numbers", len(signature), CoordinateBytes)
+	}
 	digest := sha256.Sum256([]byte(parts[0] + "." + parts[1]))
-	if err := rsa.VerifyPKCS1v15(publishedKey(t, s), crypto.SHA256, digest[:], signature); err != nil {
-		t.Errorf("a token does not verify against the key its own JWKS publishes: %v", err)
+	r := new(big.Int).SetBytes(signature[:CoordinateBytes])
+	v := new(big.Int).SetBytes(signature[CoordinateBytes:])
+	if !ecdsa.Verify(publishedKey(t, s), digest[:], r, v) {
+		t.Error("a token does not verify against the key its own JWKS publishes")
 	}
 }
 
 // publishedKey rebuilds the public key out of the JWKS, which is the only way a relay ever sees it.
 // Reading the signer's own key instead would verify a token against something no verifier holds.
-func publishedKey(t *testing.T, s *Signer) *rsa.PublicKey {
+func publishedKey(t *testing.T, s *Signer) *ecdsa.PublicKey {
 	t.Helper()
 	var document struct {
 		Keys []struct {
-			Kty, Alg, Use, Kid, N, E string
+			Kty, Crv, Alg, Use, Kid, X, Y string
 		} `json:"keys"`
 	}
 	if err := json.Unmarshal(s.JWKS(), &document); err != nil {
@@ -66,22 +71,47 @@ func publishedKey(t *testing.T, s *Signer) *rsa.PublicKey {
 		t.Fatalf("the JWKS carries %d keys, want one", len(document.Keys))
 	}
 	key := document.Keys[0]
-	if key.Kty != "RSA" || key.Alg != Algorithm || key.Use != "sig" {
-		t.Errorf("the JWKS describes a %s/%s/%s key, want an RSA %s signing key", key.Kty, key.Alg, key.Use, Algorithm)
+	if key.Kty != "EC" || key.Crv != Curve || key.Alg != Algorithm || key.Use != "sig" {
+		t.Errorf("the JWKS describes a %s/%s/%s/%s key, want an EC %s %s signing key",
+			key.Kty, key.Crv, key.Alg, key.Use, Curve, Algorithm)
 	}
 	if key.Kid != s.KeyID() {
 		t.Errorf("the JWKS names the key %q where its tokens name it %q", key.Kid, s.KeyID())
 	}
 
-	n, err := raw.DecodeString(key.N)
+	x, err := raw.DecodeString(key.X)
 	if err != nil {
-		t.Fatalf("reading the modulus: %v", err)
+		t.Fatalf("reading the x coordinate: %v", err)
 	}
-	e, err := raw.DecodeString(key.E)
+	y, err := raw.DecodeString(key.Y)
 	if err != nil {
-		t.Fatalf("reading the exponent: %v", err)
+		t.Fatalf("reading the y coordinate: %v", err)
 	}
-	return &rsa.PublicKey{N: new(big.Int).SetBytes(n), E: int(new(big.Int).SetBytes(e).Int64())}
+	if len(x) != CoordinateBytes || len(y) != CoordinateBytes {
+		t.Errorf("the JWKS publishes a %d and a %d byte coordinate, want %d each", len(x), len(y), CoordinateBytes)
+	}
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     new(big.Int).SetBytes(x),
+		Y:     new(big.Int).SetBytes(y),
+	}
+}
+
+// A token has to fit the SRT stream id it travels in, which is the whole reason the algorithm is
+// ES256 rather than RS256.
+// The bound is measured against a real group's prefix and the longest stream name the app builds a
+// path from, because that is the token that has to fit rather than the shortest one.
+func TestATokenFitsTheStreamIdThatCarriesIt(t *testing.T) {
+	s := mustSigner(t)
+	prefix := strings.Repeat("A", 26) + "/"
+
+	signed, err := s.Sign(strings.Repeat("A", 26), GroupPermissions(prefix), time.Now(), time.Minute)
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if len(signed) > MaxTokenBytes {
+		t.Errorf("a token is %d bytes, over the %d an SRT stream id leaves for one", len(signed), MaxTokenBytes)
+	}
 }
 
 // The claims are what the relay reads: the window it checks the connection against,
@@ -141,12 +171,12 @@ func TestTheHeaderNamesTheOneAlgorithm(t *testing.T) {
 		t.Fatalf("reading the header: %v", err)
 	}
 
-	var read struct{ Alg, Typ, Kid string }
+	var read struct{ Alg, Kid string }
 	if err := json.Unmarshal(header, &read); err != nil {
 		t.Fatalf("reading the header: %v", err)
 	}
-	if read.Alg != Algorithm || read.Typ != "JWT" {
-		t.Errorf("the header says %s/%s, want %s/JWT", read.Alg, read.Typ, Algorithm)
+	if read.Alg != Algorithm {
+		t.Errorf("the header says %s, want %s", read.Alg, Algorithm)
 	}
 	if read.Kid != s.KeyID() {
 		t.Errorf("the header names key %q, where the JWKS publishes %q", read.Kid, s.KeyID())

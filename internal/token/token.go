@@ -11,22 +11,22 @@
 // again, so revocation lands at the next connection, which is what group rotation is for
 // (docs/plan.md, "Groups, auth and encryption").
 //
-// It is written against crypto/rsa and encoding/json rather than a JWT library,
-// because what is needed is one algorithm, one claim set and one key: RS256 is a base64 header,
-// a base64 payload and a PKCS#1 v1.5 signature over the two, and a JWKS is four fields of JSON.
+// It is written against crypto/ecdsa and encoding/json rather than a JWT library,
+// because what is needed is one algorithm, one claim set and one key: ES256 is a base64 header,
+// a base64 payload and a signature over the two, and a JWKS is five fields of JSON.
 // A dependency would carry the other twenty algorithms, including the ones whose presence is the
 // vulnerability.
 package token
 
 import (
-	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -40,12 +40,27 @@ import (
 // algorithm out of the token it is verifying is one an attacker can point at "none" or at a
 // symmetric algorithm keyed with the public key.
 // The relay is told this one in its configuration, and this package produces nothing else.
-const Algorithm = "RS256"
+//
+// Which one is SRT's decision.
+// A token travels inside the SRT stream id, capped at 512 bytes by every implementation.
+// An RS256 signature is 342 characters on its own and does not fit, so the transport carrying most
+// of this app's streams could not carry its own credential; an ES256 one is 86 (MaxTokenBytes).
+const Algorithm = "ES256"
 
-// KeyBits is the size of the signing key.
-// 2048 because it is what every JWKS consumer takes and what the relay's own library expects;
-// the tokens live for minutes, so a longer key would buy nothing this threat model can spend.
-const KeyBits = 2048
+// Curve, as a JWKS names it. Fixed by the algorithm, not chosen: ES256 means P-256.
+const Curve = "P-256"
+
+// Width each half of a P-256 signature and each public coordinate is written in.
+// Fixed width, not shortest form: JWS reads two numbers of exactly this length, so a leading zero
+// byte stays.
+const CoordinateBytes = 32
+
+// What a token has to fit in, which SRT decides.
+// Cap is 512 and SRT truncates rather than refusing, so an over-long token reaches the relay as a
+// signature error instead of a length one here.
+// Beside it travel "publish:", a 27-character prefix, a bounded stream name and two separators:
+// 512 - 80.
+const MaxTokenBytes = 432
 
 // PermissionClaim is the claim the relay reads its permissions out of, as MediaMTX's
 // authJWTClaimKey names it by default.
@@ -55,9 +70,12 @@ const PermissionClaim = "mediamtx_permissions"
 
 // The actions a permission may grant, as the relay names them.
 // A stream needs two: one to push it and one to pull it.
+// The third is the relay's own API, which no member is granted (GroupPermissions) and which the
+// index reads through (APIPermissions).
 const (
 	ActionPublish = "publish"
 	ActionRead    = "read"
+	ActionAPI     = "api"
 )
 
 // Permission is one thing a token allows: an action, and the path it is allowed on.
@@ -92,6 +110,18 @@ func GroupPermissions(prefix string) []Permission {
 	return out
 }
 
+// What reading the relay's own state takes, granted to nobody but the service that signs it.
+//
+// The index has to read which streams exist, and a relay that authenticates its API answers only a
+// caller it trusts. Holding the signing key is what makes the service one, so no second credential
+// is configured and no member reaches the API: a group's token names publish and read under one
+// prefix and nothing here (GroupPermissions).
+//
+// No path: the API is not one, and a permission naming a path would match nothing.
+func APIPermissions() []Permission {
+	return []Permission{{Action: ActionAPI}}
+}
+
 // regexpQuote escapes the characters a relay path may carry that a regular expression would
 // otherwise read as syntax.
 //
@@ -115,7 +145,7 @@ func regexpQuote(s string) string {
 
 // Signer issues tokens and publishes the key they are verified with.
 type Signer struct {
-	key *rsa.PrivateKey
+	key *ecdsa.PrivateKey
 	// id names this key in the JWKS and in every token's header, so a relay holding two keys during a
 	// rotation knows which one verified a token.
 	// It is derived from the key rather than drawn, so the same key always publishes under the same
@@ -128,7 +158,7 @@ type Signer struct {
 // A random source that cannot answer is an Umgebungsfehler and leaves as an error:
 // a key drawn from something weaker would sign tokens that look exactly like real ones.
 func NewSigner() (*Signer, error) {
-	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, fmt.Errorf("drawing a signing key: %w", err)
 	}
@@ -137,8 +167,10 @@ func NewSigner() (*Signer, error) {
 
 // SignerFor is a signer over a key from somewhere else, which is what an operator restarting the
 // service with the key it had before hands it.
-func SignerFor(key *rsa.PrivateKey) *Signer {
+func SignerFor(key *ecdsa.PrivateKey) *Signer {
 	assert.IsNotNil(key, "a signer carries the key it signs with")
+	assert.Assert(key.Curve == elliptic.P256(),
+		"a signer's key is on the curve its algorithm names", Curve)
 
 	s := &Signer{key: key, id: keyID(&key.PublicKey)}
 	assert.Assert(s.id != "", "a signer's key is named")
@@ -160,7 +192,9 @@ func (s *Signer) Sign(subject string, permissions []Permission, now time.Time, w
 	assert.Assert(window > 0, "a token is valid for some length of time", window.String())
 	assert.Assert(len(permissions) > 0, "a token grants something", subject)
 
-	header := map[string]string{"alg": Algorithm, "typ": "JWT", "kid": s.id}
+	// No "typ": optional, and every header byte is one the stream id does not have (MaxTokenBytes).
+	// A verifier acts on the algorithm and the key id.
+	header := map[string]string{"alg": Algorithm, "kid": s.id}
 	claims := map[string]any{
 		"sub":           subject,
 		"iat":           now.Unix(),
@@ -179,14 +213,29 @@ func (s *Signer) Sign(subject string, permissions []Permission, now time.Time, w
 	signing += "." + payload
 
 	digest := sha256.Sum256([]byte(signing))
-	signature, err := rsa.SignPKCS1v15(rand.Reader, s.key, crypto.SHA256, digest[:])
+	r, v, err := ecdsa.Sign(rand.Reader, s.key, digest[:])
 	if err != nil {
 		return "", fmt.Errorf("signing a token: %w", err)
 	}
 
+	// JWS signature: the two numbers back to back, each in the curve's width.
+	// Not the ASN.1 form crypto/ecdsa also offers - a verifier fed that reads the DER header as half
+	// a coordinate.
+	signature := append(coordinate(r), coordinate(v)...)
+
 	token := signing + "." + raw.EncodeToString(signature)
 	assert.Assert(strings.Count(token, ".") == 2, "a signed token is a header, a payload and a signature")
+	assert.Assert(len(token) <= MaxTokenBytes, "a signed token fits the stream id that carries it", len(token))
 	return token, nil
+}
+
+// One number of a signature or public key, in the fixed width JWS reads.
+func coordinate(n *big.Int) []byte {
+	assert.IsNotNil(n, "a written coordinate is a number")
+
+	out := make([]byte, CoordinateBytes)
+	n.FillBytes(out)
+	return out
 }
 
 // JWKS is the document the relay fetches to verify tokens with: this signer's public key,
@@ -201,12 +250,13 @@ func (s *Signer) JWKS() []byte {
 
 	pub := s.key.PublicKey
 	document := map[string]any{"keys": []map[string]string{{
-		"kty": "RSA",
+		"kty": "EC",
+		"crv": Curve,
 		"alg": Algorithm,
 		"use": "sig",
 		"kid": s.id,
-		"n":   raw.EncodeToString(pub.N.Bytes()),
-		"e":   raw.EncodeToString(exponent(pub.E)),
+		"x":   raw.EncodeToString(coordinate(pub.X)),
+		"y":   raw.EncodeToString(coordinate(pub.Y)),
 	}}}
 	out, err := json.Marshal(document)
 	assert.IsNil(err, "a JWKS built from a key renders")
@@ -226,25 +276,12 @@ func segment(v any) (string, error) {
 	return raw.EncodeToString(out), nil
 }
 
-// exponent is the public exponent in the shortest big-endian form, which is what a JWKS carries:
-// leading zero bytes are not part of the number and a verifier reading them would compute against a
-// different key.
-func exponent(e int) []byte {
-	out := binary.BigEndian.AppendUint32(nil, uint32(e))
-	for len(out) > 1 && out[0] == 0 {
-		out = out[1:]
-	}
-
-	assert.Assert(len(out) > 0 && out[0] != 0, "a rendered exponent carries no leading zero byte", out)
-	return out
-}
-
 // keyID names a key by a digest of what it publishes, so the same key is always called the same
 // thing and two keys are never called one.
-func keyID(pub *rsa.PublicKey) string {
+func keyID(pub *ecdsa.PublicKey) string {
 	assert.IsNotNil(pub, "a key is named after the key it is")
 
-	digest := sha256.Sum256(append(pub.N.Bytes(), exponent(pub.E)...))
+	digest := sha256.Sum256(append(coordinate(pub.X), coordinate(pub.Y)...))
 	return raw.EncodeToString(digest[:8])
 }
 
@@ -254,4 +291,4 @@ func keyID(pub *rsa.PublicKey) string {
 // It is the one thing here that hands the secret out, and the caller that asks is the one that drew
 // it.
 // A key readable by anything else is every group's streams.
-func (s *Signer) PrivateKey() *rsa.PrivateKey { return s.key }
+func (s *Signer) PrivateKey() *ecdsa.PrivateKey { return s.key }

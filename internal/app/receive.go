@@ -86,6 +86,11 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	s := a.settings
 	a.settingsMu.Unlock()
 
+	s, err := a.settingsForCommand(s)
+	if err != nil {
+		return err
+	}
+
 	if err := a.carriesStream(streamName, transportName, capabilities.EngineGst); err != nil {
 		return err
 	}

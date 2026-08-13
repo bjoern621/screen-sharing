@@ -14,6 +14,7 @@
 package settings
 
 import (
+	"fmt"
 	"os"
 	"runtime"
 
@@ -62,6 +63,15 @@ type Relay struct {
 	WebrtcPort int    `json:"webrtcPort"` // TCP port of the relay's WebRTC/WHIP+WHEP HTTP listener
 	RtmpPort   int    `json:"rtmpPort"`   // TCP port of the relay's RTMP listener
 	HlsPort    int    `json:"hlsPort"`    // TCP port of the relay's HLS HTTP listener
+	// Relay's HTTP legs are behind a TLS reverse proxy rather than reached directly.
+	//
+	// One flag, not a scheme per listener: the proxy is one deployment decision, terminating for the
+	// relay and the group service alike under one name on the standard port. The ports above are the
+	// direct listeners' and are no part of an address while this is set (deploy/Caddyfile).
+	//
+	// Also what says a group service is reachable: it answers on that same name, and a relay with no
+	// proxy has nowhere to ask for a token. No port is invented to look on.
+	Tls bool `json:"tls,omitempty"`
 	// GroupKey is the secret whose possession is membership of a group, as the key service handed it
 	// over (internal/group).
 	// Empty is a machine that has joined none.
@@ -79,6 +89,44 @@ type Relay struct {
 	// that one decides which streams a member reaches, and this whether the packets are readable at
 	// all.
 	SrtPassphrase string `json:"srtPassphrase,omitempty"`
+	// Relay credential the leg being built carries. Not a setting.
+	//
+	// A short-lived JWT the group service signed in exchange for GroupKey, so it belongs to that
+	// service: the json tag keeps it out of the store, the control contract has no field for it, and
+	// one place writes it (internal/app, settingsForCommand).
+	// It rides in the snapshot rather than as a parameter because every serialization already reads
+	// the whole snapshot; threading it separately would be four more signatures for one field.
+	//
+	// Empty is a relay that authenticates nothing, which is what a LAN relay does.
+	Token string `json:"-"`
+}
+
+// Where one of the relay's HTTP listeners answers: "https://relay.example.com", or
+// "http://192.168.1.9:8888".
+//
+// The caller names the port because the relay serves each protocol on one of its own. Behind the
+// proxy there is no such choice - one name, the standard port - so the direct port is dropped
+// rather than carried into a URL nothing listens on.
+// Not asserted, as the transports' own builders do not assert it: a stored value the migration
+// repairs, not a contract between two functions here.
+func (r Relay) HTTPOrigin(directPort int) string {
+	if r.Tls {
+		return "https://" + r.Host
+	}
+	return fmt.Sprintf("http://%s:%d", r.Host, directPort)
+}
+
+// Where keys, tokens and the stream index are answered. ok=false where the deployment has none.
+//
+// The proxy's own name: one certificate covers relay and service, and the service's routes are
+// paths under it (deploy/Caddyfile).
+// A relay reached directly has no proxy and so no service. False rather than a guessed port, which
+// would be a token request hanging on every publish.
+func (r Relay) GroupService() (base string, ok bool) {
+	if !r.Tls || r.Host == "" {
+		return "", false
+	}
+	return "https://" + r.Host, true
 }
 
 // Path is where a stream of this name lives on the relay, which every transport builds its URL

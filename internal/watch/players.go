@@ -31,6 +31,12 @@ func isRTSP(url string) bool {
 	return strings.HasPrefix(url, "rtsp://")
 }
 
+// Player fetches this over HTTP, the leg whose credential is a header rather than part of the
+// address (internal/transport, credential.go).
+func isHTTP(url string) bool {
+	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+}
+
 // ffplay is the default viewer.
 type ffplay struct{}
 
@@ -63,6 +69,11 @@ func (ffplay) Command(s settings.Settings, streamName, transportName string) (ar
 	// It cannot ride in the URL, unlike SRT's options.
 	if isRTSP(url) {
 		args = append(args, "-rtsp_transport", s.Viewer.RtspWatchProtocol)
+	}
+	// libavformat sends these on every request the demuxer makes, which is what a playlist and its
+	// segments need.
+	if name, value, ok := transport.CredentialHeader(s); ok && isHTTP(url) {
+		args = append(args, "-headers", name+": "+value+"\r\n")
 	}
 	args = append(args, url)
 
@@ -104,6 +115,10 @@ func (mpv) Command(s settings.Settings, streamName, transportName string) (args,
 	// See the ffplay counterpart for where the RTP lower transport comes from.
 	if isRTSP(url) {
 		args = append(args, "--rtsp-transport="+s.Viewer.RtspWatchProtocol)
+	}
+	// See the ffplay counterpart.
+	if name, value, ok := transport.CredentialHeader(s); ok && isHTTP(url) {
+		args = append(args, "--http-header-fields="+name+": "+value)
 	}
 	args = append(args, url)
 

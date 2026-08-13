@@ -28,9 +28,17 @@ func listing(key group.Key) string {
 // streams - is decided here rather than left to a caller to filter.
 
 // paths is a relay carrying these streams.
+// Every one of them is ready, since what an index answers about a path that is not is the same
+// question as what it answers about one of another group, and that one has its own tests.
 type paths []string
 
-func (p paths) Paths() []string { return p }
+func (p paths) Paths() []Stream {
+	out := make([]Stream, 0, len(p))
+	for _, path := range p {
+		out = append(out, Stream{Path: path, Ready: true, Format: "h264"})
+	}
+	return out
+}
 
 // service is a service over a fresh signing key, with the relay carrying these streams.
 func service(t *testing.T, streams ...string) *Service {
@@ -171,10 +179,12 @@ func TestTheIndexAnswersOneGroupAndNeverAnother(t *testing.T) {
 }
 
 // names is the stream list off one answer.
+// A listing row carries what a viewer opens the stream with beside the name, so the name is read
+// out of the row rather than being the row.
 func names(body map[string]any) []string {
 	var out []string
 	for _, v := range body["streams"].([]any) {
-		out = append(out, v.(string))
+		out = append(out, v.(map[string]any)["name"].(string))
 	}
 	return out
 }

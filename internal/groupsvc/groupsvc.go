@@ -63,14 +63,27 @@ const CreationsPerHour = 60
 // cannot include it and a public stream cannot be published by holding a key.
 const PublicPrefix = "public/"
 
-// Streams is what the index reads: the paths the relay is carrying.
+// One path the relay carries, as far as a member is told about it.
 //
-// An interface rather than the relay client itself, because what the index needs is a list of names
-// and the client answers with bitrates, rosters and readiness.
-// It is also what lets the index be tested without a relay, which is the only way it can be tested
-// at all.
+// Enough to open it and no more: the name, whether it carries anything yet, and the video track,
+// which decides the protocols a viewer may receive it over.
+// Not who else is reading, nor at what rate: that is the relay's operational state rather than the
+// group's (docs/plan.md).
+type Stream struct {
+	Path   string `json:"-"`
+	Name   string `json:"name"`
+	Ready  bool   `json:"ready"`
+	Tracks string `json:"tracks,omitempty"`
+	Format string `json:"format,omitempty"`
+}
+
+// What the index reads: what the relay is carrying.
+//
+// An interface and not the relay client, because the index needs the rows above where the client
+// answers with bitrates and rosters beside them.
+// It is also the only way the index can be tested without a relay.
 type Streams interface {
-	Paths() []string
+	Paths() []Stream
 }
 
 // Service answers the three questions.
@@ -184,17 +197,20 @@ func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
 		prefix = key.Prefix()
 	}
 
-	names := []string{}
+	streams := []Stream{}
 	if s.streams != nil {
-		for _, path := range s.streams.Paths() {
-			if name, ok := strings.CutPrefix(path, prefix); ok && name != "" && !strings.Contains(name, "/") {
-				names = append(names, name)
+		for _, stream := range s.streams.Paths() {
+			name, ok := strings.CutPrefix(stream.Path, prefix)
+			if !ok || name == "" || strings.Contains(name, "/") {
+				continue
 			}
+			stream.Name = name
+			streams = append(streams, stream)
 		}
 	}
 
 	assert.Assert(prefix != "", "a listing names the prefix it answered for")
-	answer(w, map[string]any{"prefix": prefix, "streams": names})
+	answer(w, map[string]any{"prefix": prefix, "streams": streams})
 }
 
 // jwks publishes the key every token is verified against.

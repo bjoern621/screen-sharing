@@ -77,5 +77,5 @@ func (RTMP) GstSource(s settings.Settings, streamName string) []string {
 // validated call, and a port of zero is a stored value the migration repairs rather than a broken
 // contract.
 func rtmpURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("rtmp://%s:%d/%s", s.Relay.Host, s.Relay.RtmpPort, name)
+	return fmt.Sprintf("rtmp://%s:%d/%s", s.Relay.Host, s.Relay.RtmpPort, name) + credentialQuery(s, "?")
 }

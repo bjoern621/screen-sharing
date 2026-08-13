@@ -29,8 +29,13 @@ writeQueueSize: 16384
 # and there is no list of groups: a token grants a path expression anchored at the prefix its
 # key derived, so a member reaches their own group's streams and no others
 # (internal/token, GroupPermissions).
+#
+# Every address here is loopback, which is the shape of a host running the relay, the group
+# service and the proxy together. A deployment that splits them across containers overrides
+# the addresses through MediaMTX's own environment variables (MTX_AUTHJWTJWKS and friends in
+# docker-compose.yml), so this file states one topology rather than carrying both.
 authMethod: jwt
-authJWTJWKS: http://groupd:9443/jwks.json
+authJWTJWKS: http://127.0.0.1:9443/jwks.json
 authJWTClaimKey: mediamtx_permissions
 
 # The API, the metrics and the playback endpoints are not for members. A token this service

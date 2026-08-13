@@ -12,7 +12,7 @@
 package main
 
 import (
-	"crypto/rsa"
+	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
 	"flag"
@@ -46,7 +46,15 @@ func main() {
 	}
 	assert.IsNotNil(signer, "a serving instance holds the key it signs with")
 
-	service := groupsvc.New(signer, &relayStreams{host: *relayHost, apiPort: *relayAPIPort, client: relay.New()})
+	reader := &relayStreams{
+		host:    *relayHost,
+		apiPort: *relayAPIPort,
+		// The relay checks its API the way it checks a stream, so this reads through with a token of its
+		// own: signed here, granting the API action alone, handed to nobody.
+		// Per call rather than held: a stored one expires while this process runs.
+		client: relay.NewAuthorized(func() string { return apiToken(signer) }),
+	}
+	service := groupsvc.New(signer, reader)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
 	// Loopback by default and no TLS of its own: every leg is encrypted by the reverse proxy that
@@ -56,6 +64,26 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		logger.Errorf("serving: %v", err)
 	}
+}
+
+// Validity of the credential the index reads through.
+// Short: signed for one request, reaching nothing but the relay beside this process.
+// Not shorter: the relay checks the window against its own clock, and two clocks agree to within
+// seconds rather than exactly.
+const apiWindow = time.Minute
+
+// Signs the credential one read of the relay's API carries.
+//
+// A failed signature leaves an empty credential rather than stopping the process: the relay refuses
+// the request, the index answers an empty listing, and keys and tokens go on being handed out -
+// the half that does not depend on the relay being readable.
+func apiToken(signer *token.Signer) string {
+	signed, err := signer.Sign("index", token.APIPermissions(), time.Now(), apiWindow)
+	if err != nil {
+		logger.Warnf("cannot sign the credential the stream index reads through: %v", err)
+		return ""
+	}
+	return signed
 }
 
 // signerFrom reads the signing key, drawing one and storing it where the file is not there yet.
@@ -80,11 +108,11 @@ func signerFrom(path string) (*token.Signer, error) {
 		if err != nil {
 			return nil, fmt.Errorf("reading the signing key %s: %v", path, err)
 		}
-		rsaKey, ok := key.(*rsa.PrivateKey)
+		signing, ok := key.(*ecdsa.PrivateKey)
 		if !ok {
-			return nil, fmt.Errorf("the signing key %s is a %T, and tokens are signed with RSA", path, key)
+			return nil, fmt.Errorf("the signing key %s is a %T, and tokens are signed with %s", path, key, token.Algorithm)
 		}
-		return token.SignerFor(rsaKey), nil
+		return token.SignerFor(signing), nil
 	}
 	if !os.IsNotExist(err) {
 		return nil, fmt.Errorf("reading the signing key %s: %v", path, err)
@@ -127,15 +155,18 @@ type relayStreams struct {
 	client  *relay.Client
 }
 
-func (r *relayStreams) Paths() []string {
+// Narrowed to what a member is told: the relay answers readers and byte counters beside each path,
+// and the index is where that stops (internal/groupsvc, Stream).
+func (r *relayStreams) Paths() []groupsvc.Stream {
 	assert.IsNotNil(r.client, "a relay reader holds a client to read through")
 
 	status := r.client.Fetch(r.host, r.apiPort)
-	out := make([]string, 0, len(status.Paths))
+	out := make([]groupsvc.Stream, 0, len(status.Paths))
 	for _, p := range status.Paths {
-		if p.Ready {
-			out = append(out, p.Name)
+		if !p.Ready {
+			continue
 		}
+		out = append(out, groupsvc.Stream{Path: p.Name, Ready: p.Ready, Tracks: p.Tracks, Format: p.Format})
 	}
 	return out
 }

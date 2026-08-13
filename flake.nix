@@ -1,9 +1,20 @@
 {
   description = "screen-sharing: high-quality group screen sharing (MediaMTX relay + Go backend + Avalonia shell)";
 
+  # Both inputs name a revision rather than a branch, so which package set a checkout
+  # builds against is a property of this file instead of the day someone last ran
+  # `nix flake update`. A branch ref moves the whole set at once, which is how a tree
+  # acquires a different ffmpeg or GStreamer without a commit that says so, and those two
+  # are what every codec verdict in internal/capabilities is measured against.
+  #
+  # The revision tracks nixos-unstable rather than a release channel because a release
+  # channel trails GStreamer by a minor series, and the plugin set is the thing under test.
+  #
+  # Updating is an edit rather than a command: docs/packaging.md ("Version pinning") states
+  # the procedure and what to re-measure afterwards.
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/2fcb964de67fcf60b43471c55d5d99e61a9ccb5a";
+    flake-utils.url = "github:numtide/flake-utils/11707dc2f618dd54ca8739b309ec4fc024de578b";
   };
 
   outputs =
@@ -89,7 +100,7 @@
             ];
           overlays = [
             mediamtxOverlay
-            (final: prev: {
+            (_: prev: {
               # Two plugins of gst-plugins-bad that the cached build does not carry.
               #
               # The GStreamer publish engine's only Vulkan Video path is the vulkan
@@ -132,39 +143,6 @@
                   '';
                 });
               };
-
-              # AMF talks to the hardware encoder through Vulkan. Releases up to
-              # 1.4.34 request the pre-standard VK_AMD_video_encode_queue and
-              # VK_AMD_video_encode_h265 device extensions, which only AMD's
-              # proprietary Vulkan driver ever exposed. AMD deprecated that driver
-              # in favour of Mesa RADV, and RADV implements the ratified
-              # VK_KHR_video_encode_* set instead, so AMF resolves the AMD entry
-              # points to null and calls one anyway: ffmpeg dies with SIGSEGV
-              # inside AMFDeviceVulkanImpl::CreateDeviceAndFindQueues.
-              #
-              # 1.4.37 drops the VK_AMD_video_encode_* requirement and drives the
-              # encoder through libamdenc64, so the *_amf encoders work against
-              # RADV. It ships in the amdgpu 6.4.4 repository, one release train
-              # ahead of the nixpkgs pin, and needs the matching amdenc from the
-              # same build (2203192).
-              amdenc = prev.amdenc.overrideAttrs (
-                finalAttrs: _: {
-                  version = "25.10-2203192";
-                  src = prev.fetchurl {
-                    url = "https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/liba/libamdenc-amdgpu-pro/libamdenc-amdgpu-pro_${finalAttrs.version}.24.04_amd64.deb";
-                    hash = "sha256-jEvHZxTzN8TzZJuouYaOGw9xaRINA/zEg+56s/13ruw=";
-                  };
-                }
-              );
-              amf = (prev.amf.override { inherit (final) amdenc; }).overrideAttrs (
-                finalAttrs: _: {
-                  version = "1.4.37-2203192";
-                  src = prev.fetchurl {
-                    url = "https://repo.radeon.com/amdgpu/6.4.4/ubuntu/pool/proprietary/a/amf-amdgpu-pro/amf-amdgpu-pro_${finalAttrs.version}.24.04_amd64.deb";
-                    hash = "sha256-pklpKaWLrcClRRaY9jJhFZLbyFXPUY9H5UpmARrgFPU=";
-                  };
-                }
-              );
             })
           ];
         };
@@ -237,6 +215,21 @@
         # ffmpeg backend sees these encoders. AMD ships the runtime for x86_64
         # alone. The encoders remain 4:2:0: yuv420p and p010le, with RGB and
         # 4:4:4 input converted on the way in.
+        #
+        # A Mesa RADV host needs AMF 1.4.37 or newer, which is what the package set
+        # carries. Releases up to 1.4.34 request the pre-standard
+        # VK_AMD_video_encode_queue and VK_AMD_video_encode_h265 device extensions that
+        # only AMD's proprietary Vulkan driver ever exposed. RADV implements the
+        # ratified VK_KHR_video_encode_* set instead, so AMF resolves those entry points
+        # to null and calls one anyway: ffmpeg dies with SIGSEGV inside
+        # AMFDeviceVulkanImpl::CreateDeviceAndFindQueues. 1.4.37 drops the requirement
+        # and drives the encoder through libamdenc64.
+        #
+        # The variable below is how the shell's processes find the runtime, and it
+        # reaches an unprivileged ffmpeg alone. A capability-bearing binary runs in
+        # glibc's secure-execution mode, where LD_LIBRARY_PATH is ignored, so the
+        # kmsgrab wrapper takes the runtime on libavutil's RUNPATH instead
+        # (nix/screen-share.nix, the amf option).
         amfRuntime = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [ pkgs.amf ];
         # Intel's oneVPL runtime, the implementation behind every QSV encoder and
         # decoder. Both engines reach it through a dispatcher that loads the runtime by
@@ -313,6 +306,10 @@
         #   environment.systemPackages = [ screen-sharing.packages.${system}.default ];
         packages.screen-sharing = pkgs.callPackage ./nix/package.nix { };
         packages.default = self.packages.${system}.screen-sharing;
+
+        # The service that runs beside the relay rather than on a desktop
+        # (nix/groupd.nix). The overlay below is how a NixOS host installs it.
+        packages.groupd = pkgs.callPackage ./nix/groupd.nix { };
 
         apps.default = {
           type = "app";
@@ -446,6 +443,20 @@
       # The dev shell applies the same overlay, so `task relay` and a deployed relay
       # are one version.
       overlays.mediamtx = mediamtxOverlay;
-      overlays.default = self.overlays.mediamtx;
+
+      # The group service, for the same host: it runs beside the relay because that is
+      # where the signing key lives and where the relay fetches it from.
+      #   nixpkgs.overlays = [ screen-sharing.overlays.groupd ];
+      #   systemd.services.groupd.serviceConfig.ExecStart = lib.getExe pkgs.screenshare-groupd;
+      overlays.groupd = final: _: {
+        screenshare-groupd = final.callPackage ./nix/groupd.nix { };
+      };
+
+      # A relay host wants both halves, so the default is the pair rather than one of
+      # them: a host that took only the relay would serve tokens nobody signs.
+      overlays.default = nixpkgs.lib.composeManyExtensions [
+        self.overlays.mediamtx
+        self.overlays.groupd
+      ];
     };
 }

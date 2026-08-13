@@ -57,6 +57,45 @@ as it does on a machine with no AMD card.
 The dev shell puts the package on `LD_LIBRARY_PATH` for the same reason a
 packaged build has to.
 
+That variable reaches an unprivileged `ffmpeg` alone.
+The kmsgrab wrapper carries file capabilities, which puts it in glibc's
+secure-execution mode, and there `LD_LIBRARY_PATH` is ignored, so a runtime delivered
+through the environment never reaches its loader.
+Untreated that is a wrong answer rather than a missing encoder: `encoders.Detect` probes
+the unprivileged binary, finds the runtime, and the settings form offers a family that
+dies at launch under kmsgrab.
+The `amf` option of `nix/screen-share.nix` records the runtime on `libavutil`'s `RUNPATH`
+instead, which the loader does honour.
+Ordinary variables survive, so the oneVPL runtime behind QSV, located through
+`ONEVPL_SEARCH_PATH`, is unaffected.
+
+## Version pinning
+
+Every dependency this repository resolves is pinned, so which toolchain a build uses is
+decided by the tree rather than by the day it runs.
+
+| What | Pinned by | Moved by |
+|------|-----------|----------|
+| Nix package set: ffmpeg, GStreamer, the .NET SDK, Go, AMF, MediaMTX | input revisions in `flake.nix`, recorded in `flake.lock` | editing the revision, then `nix flake lock` |
+| Go modules | `go.sum` | `go get`, then `go mod tidy` |
+| NuGet packages | exact versions in each `.csproj`, hashed in `nix/deps.json` | editing the version, then regenerating `nix/deps.json` |
+| CI actions | commit SHAs in `.github/workflows` | replacing the SHA and the version comment beside it |
+| Container images | tag and digest in `deploy/docker-compose.yml` | replacing the digest |
+
+The Nix inputs name revisions rather than branches, which is what leaves `nix flake
+update` with nothing to do.
+A branch ref moves the whole package set at once, and ffmpeg and GStreamer are what every
+row of `internal/capabilities` is measured against, so that move is a change to the
+app's declared capabilities with no commit behind it.
+
+The revision tracks nixos-unstable rather than a release channel because a release
+channel trails GStreamer by a minor series, and the plugin set is the thing under test.
+
+Moving it is followed by re-measuring rather than by assuming.
+A package set that moved can change which codecs probe usable, which elements a receive
+pipeline autoplugs, and which pixel formats an element accepts.
+The commands in "Verifying a build" answer the first two.
+
 ## How the app locates the programs it spawns
 
 `FindExe` in the `ffmpeg` package resolves the executable name (`ffmpeg`,

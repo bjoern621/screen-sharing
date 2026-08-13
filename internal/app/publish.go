@@ -66,8 +66,15 @@ func (a *App) startPublishHeld() error {
 // The settings it runs on are the caller's business: this is the one place a publish begins,
 // whether the form or the grid asked for it.
 func (a *App) startPublish(s settings.Settings) error {
+	// Attached here and not in the two callers, so a publish from the form and one from the grid carry
+	// the same credential.
+	s, err := a.settingsForCommand(s)
+	if err != nil {
+		return err
+	}
+
 	a.procMu.Lock()
-	err := a.startPublishLocked(s)
+	err = a.startPublishLocked(s)
 	a.procMu.Unlock()
 
 	// Announced after the lock is released: reading the state takes both mutexes in the order app.go

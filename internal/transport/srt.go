@@ -65,8 +65,9 @@ func (SRT) PublishArgs(s settings.Settings) []string {
 	// ffmpeg's srt protocol: latency in MICROSECONDS, and ffmpeg's own buffer option names
 	// (pkt_size/sndbuf/ffs).
 	url := fmt.Sprintf(
-		"srt://%s:%d?streamid=publish:%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, s.Relay.Path(s.Publish.Name), s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
+		"srt://%s:%d?streamid=%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
+		s.Relay.Host, s.Relay.SrtPort, srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
+		s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 
 	return []string{"-f", "mpegts", url}
 }
@@ -84,7 +85,7 @@ func (SRT) GstSink(s settings.Settings) []string {
 		"!", "srtsink",
 		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
 		"mode=caller",
-		"streamid=publish:" + s.Relay.Path(s.Publish.Name),
+		"streamid=" + srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
 		fmt.Sprintf("latency=%d", s.Publish.SrtPublishLatencyMs),
 		"wait-for-connection=false",
 	}, srtPassphraseProperty(s)...)
@@ -94,8 +95,9 @@ func (SRT) WatchURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a watch URL names the stream it opens")
 
 	return fmt.Sprintf(
-		"srt://%s:%d?streamid=read:%s&latency=%d&rcvbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, streamName, s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
+		"srt://%s:%d?streamid=%s&latency=%d&rcvbuf=%d&ffs=%d",
+		s.Relay.Host, s.Relay.SrtPort, srtStreamID(s, "read", streamName),
+		s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 }
 
 // GstSource returns the source elements a receiving GStreamer pipeline decodes from.
@@ -108,7 +110,7 @@ func (SRT) GstSource(s settings.Settings, streamName string) []string {
 		"srtsrc",
 		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
 		"mode=caller",
-		"streamid=read:" + streamName,
+		"streamid=" + srtStreamID(s, "read", streamName),
 		fmt.Sprintf("latency=%d", s.Viewer.SrtWatchLatencyMs),
 	}, srtPassphraseProperty(s)...)
 }
@@ -125,6 +127,19 @@ var srtWatchKnobs = []watchKnob{
 }
 
 func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(srtWatchKnobs, s) }
+
+// Refuses a stream whose id would not survive the wire.
+// The id carries the path and the token, SRT truncates at 512 rather than refusing, and a cut
+// token reaches the relay as a signature error naming nothing a user can act on.
+// A settings problem with a settings fix, so it is caught here and says which one.
+func (SRT) ValidatePublishSettings(s settings.Settings) error {
+	id := srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name))
+	if !srtStreamIDFits(id) {
+		return fmt.Errorf("the SRT stream id is %d bytes and the protocol carries %d: shorten the stream name by %d characters",
+			len(id), srtStreamIDBytes, len(id)-srtStreamIDBytes)
+	}
+	return nil
+}
 
 func (t SRT) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), srtWatchKnobs, s, key, value)

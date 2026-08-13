@@ -26,6 +26,7 @@ import (
 // (avalonia/ScreenShare.App/Backend/SettingsDraft.cs).
 const (
 	KeyRelayHost     = "relay.host"
+	KeyRelayTls      = "relay.tls"
 	KeyGroupKey      = "relay.group_key"
 	KeySrtPassphrase = "relay.srt_passphrase"
 	KeySrtPort       = "relay.srt_port"

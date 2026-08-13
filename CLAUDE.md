@@ -44,20 +44,68 @@ A failure a user or an operator can fix is an Umgebungsfehler.
 A failure only an edit to this repo can fix is an Entwicklungsfehler.
 Getting it wrong costs in both directions: asserting an Umgebungsfehler kills the app over a network hiccup, and returning an error for an Entwicklungsfehler hands the caller a value this code cannot honour.
 
-# Comments
+## Comments
 
 A comment states the constraint the code cannot show, and nothing else.
-Terse wins over complete. Fragments are fine, and a comment that restates the code is deleted rather than shortened.
-The same applies to doc comments (`///`, `/** */`) and to `//` inside a function.
+A comment that restates the code is deleted rather than shortened.
+This governs `//`, `#`, `///`, `/** */`, XML doc comments and docstrings.
+Markdown docs, READMEs and commit messages are prose and are not governed here.
+
+**Whether a comment is needed at all is decided first.**
+A name that already says it takes no comment: `getPlayerGuid`, `isEmpty`, `maxRetries`.
+Written down is only what the name cannot carry: a unit, a range, an invariant, a reason for an odd choice, an obligation on the caller.
+The language rule below fixes the shape of a comment that exists, it does not call for one, so a doc comment with nothing but the name in it is not written.
+- Bad: `// GetPlayerGuid returns the player GUID.`
+- Good: no comment.
+- Good: `// Zero until the roster push lands.`
+
+**A comment is written clipped, not in prose.**
+Articles, copulas and self-reference go: "a", "an", "the", "is the", "which is", "this function", "this method".
+A noun phrase is a whole comment, and a fragment needs no trailing period.
+- Bad: `// This function returns the negotiated codec for the given transport, or nil if the transport does not carry video.`
+- Good: `// Negotiated codec. nil if transport carries no video.`
+
+**Shortest form that keeps every fact wins.**
+A comment that shrinks and still answers the "why" got better; one that shrinks by dropping a constraint got worse.
+If a word can go without a fact going with it, the comment is not finished.
+
+**A format, a value or a range is shown by example, not described by a rule.**
+A sample value fixes the shape in fewer characters than a sentence about it, and it cannot contradict itself.
+- Bad: `// The key is the transport name in lowercase, a slash, then the codec name in uppercase.`
+- Good: `// Key: "rtsp/H264".`
+- Bad: `// Accepts a duration in milliseconds between one and sixty thousand.`
+- Good: `// ms, 1..60000.`
+
+**The language's own comment convention comes first.**
+Clipping happens inside that shape and never replaces it.
+Where the convention demands a word the rules above would cut, the convention wins.
+- Go: a doc comment starts with the identifier it documents. `// StartReceive opens decode for stream. Already open is success.`
+- C#: XML doc comments, `<summary>`, `<param>`, `<returns>`, one clipped line each.
+- TypeScript and JavaScript: JSDoc, with `@param` and `@returns` carrying the facts instead of a prose paragraph.
+- Python: a docstring in the style the file already uses.
+- Rust: `///` on the item, `//!` on the module.
 
 **Wrap at a sentence end, never mid-sentence.**
 A source line holds one sentence, however short that leaves the line.
-A sentence too long for the file's width wraps at a clause boundary, and a continuation line never starts a new sentence.
+A sentence too long for the file's width breaks after a comma or before a conjunction ("and", "or", "but", "so"), never mid-clause, and a continuation line never starts a new sentence.
 A diff then shows the sentence that changed rather than a reflowed block, and a sentence that ran away shows up as a line that ran away.
 
 **A touched comment is rewritten in the same change.**
 Editing the code under a comment means re-reading that comment and bringing it to this style, whether or not the edit made it false.
 A stale comment that survived an edit is a defect on the same terms as a cached field nobody refreshed.
+
+**Every comment gets a second pass.**
+The first draft states the thought, the review pass makes it worth reading.
+Re-read each comment before moving on and rewrite it, every time, not only when it looks bad.
+"It already reads fine" is not an outcome of the pass, so find the cut.
+
+Ask, in order:
+- Does this state a constraint the code cannot show? If it restates the code, delete it.
+- Which words carry no fact? Cut them.
+- Does the reader need every sentence, or only the "why"? Keep the "why".
+- Can it be shorter without losing a fact? Then it is not finished.
+
+Cutting words is free. Cutting facts is not.
 
 # Never drive the GUI
 
@@ -99,4 +147,4 @@ Stop: "stop caveman" or "normal mode"
 
 Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
 
-Boundaries: code/commits/PRs written normal.
+Boundaries: commits, PRs and Markdown docs written normal. Code comments follow "Comments" above, which is clipped too.

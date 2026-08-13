@@ -80,7 +80,7 @@ func (a *App) fetchRelay() relay.Status {
 	s := a.settings
 	a.settingsMu.Unlock()
 
-	status := a.relay.Fetch(s.Relay.Host, s.Relay.ApiPort)
+	status := a.relayStatusFor(s)
 	a.relayLast.Store(&status)
 	a.emit(wire.RelayStatusEvent(status))
 	return status
@@ -209,6 +209,11 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	s := a.settings
 	a.settingsMu.Unlock()
 
+	s, err := a.settingsForCommand(s)
+	if err != nil {
+		return err
+	}
+
 	if err := a.carriesStream(streamName, transportName, capabilities.EngineFfmpeg); err != nil {
 		return err
 	}
@@ -290,6 +295,13 @@ func (a *App) OpenInBrowser(streamName, transportName string) error {
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
+
+	// The page fetches the stream itself, from the browser, so it carries the same credential a viewer
+	// here would.
+	s, err := a.settingsForCommand(s)
+	if err != nil {
+		return err
+	}
 
 	if err := a.carriesStream(streamName, transportName, transport.EngineBrowser); err != nil {
 		return err

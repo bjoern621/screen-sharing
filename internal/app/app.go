@@ -13,6 +13,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
+	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -52,6 +53,11 @@ type App struct {
 	storeNotice *screensharev1.Text
 
 	relay *relay.Client
+	// groups is this app's side of the key, token and index service, and holds the token it last
+	// minted (groups.go).
+	// One client for the process, because the token is one credential: a second would trade the same
+	// key for a second token and double the requests the service sees per publish.
+	groups *groupclient.Client
 	// relayLast is the snapshot the last fetch produced, nil until one has been taken.
 	// Every fetch writes it and the control service reads it, so several shells asking what is live do
 	// not multiply the requests the relay sees (watch.go).
@@ -163,6 +169,7 @@ func New(version string) *App {
 		settings:         s,
 		storeNotice:      notice,
 		relay:            relay.New(),
+		groups:           groupclient.New(),
 		relayStop:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),
 		fatal:            make(chan error, 1),

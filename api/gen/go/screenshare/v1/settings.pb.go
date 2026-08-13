@@ -118,6 +118,18 @@ type RelaySettings struct {
 	WebrtcPort int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
 	RtmpPort   int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
 	HlsPort    int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
+	// tls says the relay's HTTP legs are reached through a TLS reverse proxy rather than
+	// directly.
+	//
+	// One flag rather than a scheme per listener, because the proxy is one deployment
+	// decision: it terminates for the relay and for the group service alike, under one name
+	// on the standard port, so the ports above are the direct listeners' and are not part of
+	// any address while this is set.
+	//
+	// It is also what says a group service can be reached at all, since that service answers
+	// on the same name: a relay with no proxy in front of it has nowhere to trade a group key
+	// for a relay token, and the app does not invent a port to look on.
+	Tls bool `protobuf:"varint,10,opt,name=tls,proto3" json:"tls,omitempty"`
 	// group_key is the secret whose possession is membership of a group, as the key
 	// service handed it over. Empty is a machine that has joined none.
 	//
@@ -220,6 +232,13 @@ func (x *RelaySettings) GetHlsPort() int32 {
 		return x.HlsPort
 	}
 	return 0
+}
+
+func (x *RelaySettings) GetTls() bool {
+	if x != nil {
+		return x.Tls
+	}
+	return false
 }
 
 func (x *RelaySettings) GetGroupKey() string {
@@ -840,7 +859,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\x93\x02\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xa5\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -849,7 +868,9 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
 	"\trtmp_port\x18\x06 \x01(\x05R\brtmpPort\x12\x19\n" +
-	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x1b\n" +
+	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x10\n" +
+	"\x03tls\x18\n" +
+	" \x01(\bR\x03tls\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12%\n" +
 	"\x0esrt_passphrase\x18\t \x01(\tR\rsrtPassphrase\"\xb6\b\n" +
 	"\x0fPublishSettings\x12\x12\n" +

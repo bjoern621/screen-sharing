@@ -168,6 +168,12 @@ func (a *App) testStreamLaunch() (settings.Settings, string, []string, error) {
 	s := a.settings
 	a.settingsMu.Unlock()
 
+	// A synthetic stream publishes to the same relay as a real one, and is refused alike.
+	s, err := a.settingsForCommand(s)
+	if err != nil {
+		return s, "", nil, err
+	}
+
 	exe, err := publish.FindGstExe()
 	if err != nil {
 		return s, "", nil, err

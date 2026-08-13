@@ -1,8 +1,6 @@
 package transport
 
 import (
-	"fmt"
-
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -62,7 +60,9 @@ func (HLS) Formats() Formats {
 func (HLS) WatchURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a watch URL names the stream it opens")
 
-	return fmt.Sprintf("http://%s:%d/%s/index.m3u8", s.Relay.Host, s.Relay.HlsPort, streamName)
+	// No credential in the address: this URL is opened by a player, and the relay's HTTP servers take
+	// a token in a header (credential.go). The player is given one beside the URL (internal/watch).
+	return s.Relay.HTTPOrigin(s.Relay.HlsPort) + "/" + streamName + "/index.m3u8"
 }
 
 // BrowserURL returns the relay's player page for the stream, which is the same path with no
@@ -71,5 +71,5 @@ func (HLS) WatchURL(s settings.Settings, streamName string) string {
 func (HLS) BrowserURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a player page names the stream it opens")
 
-	return fmt.Sprintf("http://%s:%d/%s/", s.Relay.Host, s.Relay.HlsPort, streamName)
+	return s.Relay.HTTPOrigin(s.Relay.HlsPort) + "/" + streamName + "/" + credentialQuery(s, "?")
 }

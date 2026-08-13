@@ -142,7 +142,16 @@ The key, token and index service lives in this repository under `cmd/`, because 
 **Built: the service** (`cmd/groupd`, `internal/groupsvc`, `internal/token`).
 It holds a signing key and nothing else: a group is created by drawing a key, a key is traded for a short relay token granting that key's prefix, and the index answers a caller's group or the public streams by reading the relay's own path list.
 There is no membership store because there is nothing to store - possession of the key is membership, and the prefix is the key's own digest - which is also what makes rotation drawing a second key and using it.
-The token is RS256 against `crypto/rsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
+The token is ES256 against `crypto/ecdsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
+
+Which algorithm is SRT's decision and not a preference.
+A token reaches the relay inside the SRT stream id, every SRT implementation caps that field at 512 bytes, and an RS256 signature is 342 characters on its own: the transport carrying most of this app's streams could not carry its own credential.
+An ES256 token measures 418 bytes with a group's prefix and a stream name beside it, which is what `token.MaxTokenBytes` bounds and what `internal/group`'s name limit leaves room for.
+
+How a token travels is the relay's answer per protocol, measured against MediaMTX 1.20:
+SRT takes it as the password field of the stream id, `publish:<path>:any:<token>`;
+RTSP, HLS, WHIP and WHEP take it as a `jwt` query parameter, and the HTTP ones also as a bearer header.
+The relay's own API takes one too, and refuses every token this service issues, since a group's grant covers publishing and reading under one prefix and names no API action.
 
 **Built: the deployment and the app's half.** `deploy/` carries the relay configured for groups - `authJWTJWKS` pointed at the service, the SRT passphrase in `pathDefaults`, every other listener on loopback - the reverse proxy that terminates TLS and renews the certificate for all of them, and the compose file that runs the three together.
 They are second files rather than edits to the ones at the root, because both deployments are real: that one is a relay on a trusted network where anybody may publish, and turning it into this one in place would refuse every existing publisher on the next pull.
@@ -150,7 +159,15 @@ They are second files rather than edits to the ones at the root, because both de
 The app publishes under its group: the key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
 What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix, so a machine with no key still publishes under the bare name - which is what a relay with no auth serves and what every LAN stream does.
 
-**What is left.** Getting a key without leaving the app: creating one, pasting one and rotating one are three calls to a service the app does not speak to yet, so today the key arrives however its group distributes it and is pasted into the field.
+**Built: the app's credential.** `internal/groupclient` trades the group key for a relay token and holds the one it minted until it is close to expiring; `internal/app` attaches it to the settings snapshot every command is built from, and to nothing else.
+Each leg carries it the way its protocol takes one, and the relay's own API is no longer read at all where a group service answers: the live-stream list comes from the index, which is what a member's token reaches.
+`Relay.Tls` is what says a proxy fronts the HTTP legs, so those addresses become one name on 443 and the group service is reachable at the same one.
+
+A relay with no proxy in front of it is unchanged: no group service, no token, every command as it was before groups existed, which is what a LAN stream runs against.
+
+**What is left.** Drawing a key without leaving the app.
+The service answers `POST /groups` and the settings field takes what it hands back, so a group is joined by pasting; a control that draws one needs a contract call and a widget to press, and neither exists.
+The snapshot that comes from the index carries no reader roster and no ingest bitrate, since the index does not answer them, and the grid shows those columns empty rather than blank-because-zero (`relay.Status.FromIndex`).
 
 ## The pointer channel
 

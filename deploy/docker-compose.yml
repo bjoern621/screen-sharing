@@ -9,9 +9,21 @@
 
 services:
   caddy:
-    image: caddy:2
+    # Pinned by digest for the reason the relay below is pinned by version: `caddy:2` is a
+    # moving tag, so a `docker compose pull` is a version change nothing in this repository
+    # records. The digest is what the tag names, and the tag is kept beside it to stay
+    # readable.
+    image: caddy:2.11.4@sha256:98eb57d882ccd5213d1688764db10c1ca2c58a1ca3a6717a3411ad798f7a423a
     container_name: screenshare-proxy
     restart: unless-stopped
+    environment:
+      # The name the certificate is for, and where each route goes. The Caddyfile defaults
+      # to loopback, which is a single host rather than this arrangement, so every upstream
+      # is named here as the container it is.
+      SCREENSHARE_DOMAIN: relay.example.com
+      SCREENSHARE_GROUPD: groupd:9443
+      SCREENSHARE_RELAY_WEBRTC: mediamtx:8889
+      SCREENSHARE_RELAY_HLS: mediamtx:8888
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # The certificate and the account survive a restart. Without this, every restart asks
@@ -29,6 +41,15 @@ services:
     image: bluenviron/mediamtx:1.20.0
     container_name: screenshare-relay
     restart: unless-stopped
+    environment:
+      # The config file binds these to loopback, which on a single host is what keeps them
+      # behind the proxy. A container's loopback is its own, so left alone the proxy and the
+      # group service would reach a closed port; the compose network is the isolation here,
+      # and none of the three is published to the host below.
+      MTX_HLSADDRESS: ":8888"
+      MTX_WEBRTCADDRESS: ":8889"
+      MTX_APIADDRESS: ":9997"
+      MTX_AUTHJWTJWKS: http://groupd:9443/jwks.json
     volumes:
       - ./mediamtx-groups.yml:/mediamtx.yml:ro
     ports:

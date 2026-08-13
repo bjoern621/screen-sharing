@@ -60,6 +60,10 @@ public static class Fields
             "Stream name",
             "The name your viewers open. It becomes the last part of the address you send them, so keep it short and free of spaces."),
 
+        ["relay.tls"] = new(
+            "Relay uses TLS",
+            "Turn this on for a relay on the internet, where a proxy holds the certificate and answers everything on one address. It is also what lets this machine ask that relay for the pass its group key is worth. Leave it off for a relay on your own network, which is reached directly on the ports below."),
+
         ["relay.group_key"] = new(
             "Group key",
             "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way you would send a meeting link - and change it when somebody should stop seeing them. Leave it empty on a relay you trust everyone on."),

@@ -168,6 +168,7 @@ func (t RTSP) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), rtspWatchKnobs, s, key, value)
 }
 
+// Credential as a query, not a userinfo password: that is where MediaMTX reads a JWT for RTSP.
 func rtspURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("rtsp://%s:%d/%s", s.Relay.Host, s.Relay.RtspPort, name)
+	return fmt.Sprintf("rtsp://%s:%d/%s", s.Relay.Host, s.Relay.RtspPort, name) + credentialQuery(s, "?")
 }

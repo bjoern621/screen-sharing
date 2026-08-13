@@ -28,6 +28,7 @@ func populatedSettings() settings.Settings {
 			WebrtcPort:    1004,
 			RtmpPort:      1005,
 			HlsPort:       1006,
+			Tls:           true,
 			GroupKey:      "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 			SrtPassphrase: "fixture-passphrase",
 		},
@@ -94,12 +95,19 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 
 // offContract are the settings fields this conversion deliberately does not carry.
 //
-// One is, and it is a migration's own working room rather than a setting: the old key a file
-// written before the audio list carried is read once, turned into the list and cleared,
-// so a draft crossing to a shell and back has nothing to say about it and a fixture that gave it a
-// value would be asserting that the contract carries a field it has no reason to
-// (settings/migrate.go).
-var offContract = map[string]bool{"Publish.LegacyAudio": true}
+// One is a migration's own working room rather than a setting: the old key a file written before
+// the audio list carried is read once, turned into the list and cleared, so a draft crossing to a
+// shell and back has nothing to say about it and a fixture that gave it a value would be asserting
+// that the contract carries a field it has no reason to (settings/migrate.go).
+//
+// The other is a credential rather than a setting: the relay token is minted per command from the
+// group key beside it, lives for minutes and is written by one function in the backend, so a shell
+// has nothing to edit about it and a contract carrying it would be handing every shell a secret it
+// has no use for (internal/app, settingsForCommand).
+var offContract = map[string]bool{
+	"Publish.LegacyAudio": true,
+	"Relay.Token":         true,
+}
 
 // A settings draft crosses to a shell and comes back edited on every keystroke,
 // so a field that loses its value on the way is a setting the user cannot change and a setting that

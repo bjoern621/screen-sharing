@@ -150,6 +150,12 @@ func Command(s settings.Settings) (string, error) {
 // Identical settings are answered without a render, since they build one pipeline whether or not
 // that pipeline is buildable.
 func SamePipeline(before, after settings.Settings) (bool, error) {
+	// The one field a builder reads that is not part of what the pipeline is.
+	// Minted per start and good for minutes, so comparing it would make every repeat a different
+	// pipeline: a start naming the running stream would relaunch it, and a shell could no longer
+	// repeat a request whose answer went missing.
+	before.Relay.Token, after.Relay.Token = "", ""
+
 	if reflect.DeepEqual(before, after) {
 		return true, nil
 	}
