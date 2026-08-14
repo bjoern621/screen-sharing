@@ -105,7 +105,7 @@ MediaMTX's per-path permissions then do the enforcement, and "which streams may 
 **Built: the derivation** (`backend/internal/group`), which is the piece both sides run.
 The client computes the prefix it publishes under and the service computes the prefix it grants a token for, so two implementations of one hash would be a member issued a token for a path nobody is publishing to.
 The id is a keyed digest under its own label rather than a hash of the key, because the id is public - it is in every URL a member pastes - and must say nothing about the secret behind it; a key with a second use derives that one under a second label, so what one use publishes cannot be replayed as another's input.
-A stream with no key is refused rather than published under its bare name, which is the "publishing always requires a group" rule where it can actually be enforced.
+A stream with no key is published under the public prefix rather than under its bare name, which is where "every stream lives under a prefix somebody was granted" can actually be enforced: the bare name is granted by no token, so a relay that authenticates refuses it.
 
 Nothing reads it yet, and that is deliberate: wiring the prefix into the transports before the service exists would be an app that cannot publish, since there would be no way to obtain a key.
 
@@ -120,9 +120,13 @@ Creation is open and rate limited.
 **One group at a time**, on the mental model of a voice channel.
 Switching groups moves the stream's path, so it stops the publish; switching while live is out of scope, and the failure that must not happen is a user moving channels and broadcasting to the old one.
 
-**Public means watchable and discoverable.** Publishing always requires a group.
+**Public means watchable and discoverable.** Publishing always requires a token, and never a group.
+A publisher holding no key trades for one granting the public prefix, so the connection is authenticated and encrypted like every other and what "public" drops is who may watch.
 The index takes credentials and returns that group's streams, or public streams without them, and it enforces the split rather than leaving a shell to filter.
 A group listing hides public streams.
+
+An unreadable key is not a keyless publisher.
+A field nobody filled in is a stream nobody restricted, and a key that came back damaged is a stream somebody meant to restrict, so the second falls to the bare name the relay refuses rather than to the prefix everyone can read.
 
 **Relay auth is JWT** through `authJWTJWKS`, so the relay makes no call per connection.
 Tokens are short and validated at connect, and a live connection survives expiry; revocation lands at the next connection, which is what rotation is for.

@@ -173,6 +173,11 @@ public sealed class BroadcastPreviewTests
         public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
             => _seed.MeasureUplinkAsync(cancellation);
 
+
+
+        public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
+            => _seed.CreateGroupAsync(relay, cancellation);
+
         public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
             => _seed.PresetsAsync(cancellation);
 

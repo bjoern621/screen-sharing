@@ -516,6 +516,18 @@ internal sealed class SeededBackend : IBackend
     /// <summary>What <see cref="MeasureUplinkAsync"/> answers.</summary>
     public const double MeasuredUplinkMbps = 87;
 
+    /// <summary>
+    /// A key nothing drew, fixed so a test can assert the field it landed in.
+    /// </summary>
+    public Task<(string Key, string Id)> CreateGroupAsync(
+        RelaySettings relay, CancellationToken cancellation = default)
+        => Task.FromResult((DrawnGroupKey, DrawnGroupId));
+
+    /// <summary>What <see cref="CreateGroupAsync"/> answers.</summary>
+    public const string DrawnGroupKey = "Zm9ydHktZm91ci1jaGFyYWN0ZXJzLW9mLWJhc2U2NC1rZXk=";
+
+    public const string DrawnGroupId = "AAAAAAAAAAAAAAAAAAAAAAAAAA";
+
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => Task.CompletedTask;
 

@@ -420,7 +420,7 @@ var fieldTable = []field{
 		key:     KeyRelayTls,
 		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_TOGGLE,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.Tls) },
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return flag(s.Relay.Tls()) },
 	},
 	{
 		// The passphrase the relay keys its SRT listener with, that leg being the one no proxy wraps:

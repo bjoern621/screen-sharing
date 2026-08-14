@@ -31,12 +31,10 @@
           </Border>
 
           <StackPanel Grid.Column="1" Margin="8,0,0,0" Spacing="2">
-            <TextBlock Name="Body"
-                       Text="{TemplateBinding Text}"
-                       Classes="muted"
-                       TextWrapping="Wrap"
-                       TextTrimming="None"
-                       LineHeight="{StaticResource LineHeightSmall}" />
+            <SelectableTextBlock Name="Body"
+                                 Text="{TemplateBinding Text}"
+                                 Classes="muted"
+                                 LineHeight="{StaticResource LineHeightSmall}" />
 
             <TextBlock Name="FixIn"
                        Text="{TemplateBinding FixedInStep}"
@@ -64,21 +62,21 @@
     <Style Selector="^[State=Note] /template/ ti|TablerIcon#Glyph">
       <Setter Property="Brush" Value="{StaticResource HintBrush}" />
     </Style>
-    <Style Selector="^[State=Note] /template/ TextBlock#Body">
+    <Style Selector="^[State=Note] /template/ SelectableTextBlock#Body">
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
 
     <Style Selector="^[State=Warned] /template/ Border#Badge">
       <Setter Property="Background" Value="{StaticResource ChipBorderBrush}" />
     </Style>
-    <Style Selector="^[State=Warned] /template/ TextBlock#Body">
+    <Style Selector="^[State=Warned] /template/ SelectableTextBlock#Body">
       <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
     </Style>
 
     <Style Selector="^[State=Blocking] /template/ Border#Badge">
       <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
     </Style>
-    <Style Selector="^[State=Blocking] /template/ TextBlock#Body">
+    <Style Selector="^[State=Blocking] /template/ SelectableTextBlock#Body">
       <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
     </Style>
   </ControlTheme>

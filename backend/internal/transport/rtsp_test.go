@@ -12,7 +12,7 @@ import (
 func rtspStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:     "relay.example",
+			Host:     "10.0.0.5",
 			RtspPort: 8554,
 		},
 		Publish: settings.Publish{
@@ -40,7 +40,7 @@ func TestRTSPRegistered(t *testing.T) {
 func TestRTSPPublishArgs(t *testing.T) {
 	args := RTSP{}.PublishArgs(rtspStream())
 
-	want := []string{"-f", "rtsp", "-rtsp_transport", "udp", "rtsp://relay.example:8554/alice"}
+	want := []string{"-f", "rtsp", "-rtsp_transport", "udp", "rtsp://10.0.0.5:8554/alice"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -53,7 +53,7 @@ func TestRTSPGstSink(t *testing.T) {
 		"rtspclientsink",
 		"name=" + GstMuxName,
 		"protocols=udp",
-		"location=rtsp://relay.example:8554/alice",
+		"location=rtsp://10.0.0.5:8554/alice",
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)
@@ -66,7 +66,7 @@ func TestRTSPGstSource(t *testing.T) {
 
 	for _, want := range []string{
 		"rtspsrc",
-		"location=rtsp://relay.example:8554/bob",
+		"location=rtsp://10.0.0.5:8554/bob",
 		"protocols=udp",
 		"latency=350",
 	} {
@@ -153,7 +153,7 @@ func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 func TestRTSPWatchURL(t *testing.T) {
 	url := RTSP{}.WatchURL(rtspStream(), "bob")
 
-	if url != "rtsp://relay.example:8554/bob" {
-		t.Errorf("WatchURL = %q, want rtsp://relay.example:8554/bob", url)
+	if url != "rtsp://10.0.0.5:8554/bob" {
+		t.Errorf("WatchURL = %q, want rtsp://10.0.0.5:8554/bob", url)
 	}
 }

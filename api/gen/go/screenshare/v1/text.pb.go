@@ -596,6 +596,22 @@ const (
 	// What the capture produces, and what the encode is predicted to leave of it.
 	// TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
 	TextCode_TEXT_CODE_COMPRESSION_RATIO TextCode = 137
+	// No group key is set, so the stream is published where anybody who reaches the relay may
+	// watch it. Not a refusal: publishing without a group is a choice this app carries out.
+	// No arguments.
+	TextCode_TEXT_CODE_STREAM_IS_PUBLIC TextCode = 138
+	// Whether the connection is encrypted follows the relay's address and is stored nowhere, so
+	// the control saying so is a reading rather than a setting.
+	// No arguments.
+	TextCode_TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS TextCode = 139
+	// An encrypted RTSP session carries its RTP inside the TLS connection, so the lower
+	// transport is fixed: UDP would put the media on the wire beside it in the clear.
+	// No arguments.
+	TextCode_TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP TextCode = 141
+	// SRT is UDP and has no TLS, so the relay's passphrase is what encrypts it, and this relay
+	// is reached over TLS with no passphrase set.
+	// No arguments.
+	TextCode_TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION TextCode = 142
 	// No configuration this machine runs delivers what the preset promises, so nothing is
 	// applied and nothing is approximated.
 	// TEXT_ARG_NAME_PRESET names the preset, TEXT_ARG_NAME_TRANSPORT the publish leg the
@@ -718,6 +734,10 @@ var (
 		135: "TEXT_CODE_MONITOR_NOT_PRICED",
 		136: "TEXT_CODE_NO_PICTURE_TO_PRICE",
 		137: "TEXT_CODE_COMPRESSION_RATIO",
+		138: "TEXT_CODE_STREAM_IS_PUBLIC",
+		139: "TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS",
+		141: "TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP",
+		142: "TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION",
 		140: "TEXT_CODE_PRESET_UNREACHABLE",
 		150: "TEXT_CODE_SETTINGS_STORE_UNREADABLE",
 		151: "TEXT_CODE_PRESET_STORE_UNREADABLE",
@@ -827,6 +847,10 @@ var (
 		"TEXT_CODE_MONITOR_NOT_PRICED":                   135,
 		"TEXT_CODE_NO_PICTURE_TO_PRICE":                  136,
 		"TEXT_CODE_COMPRESSION_RATIO":                    137,
+		"TEXT_CODE_STREAM_IS_PUBLIC":                     138,
+		"TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS":       139,
+		"TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP":       141,
+		"TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION":     142,
 		"TEXT_CODE_PRESET_UNREACHABLE":                   140,
 		"TEXT_CODE_SETTINGS_STORE_UNREADABLE":            150,
 		"TEXT_CODE_PRESET_STORE_UNREADABLE":              151,
@@ -1178,7 +1202,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\x94\"\n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\xc4#\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1284,7 +1308,11 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1bTEXT_CODE_FPS_ABOVE_REFRESH\x10\x86\x01\x12!\n" +
 	"\x1cTEXT_CODE_MONITOR_NOT_PRICED\x10\x87\x01\x12\"\n" +
 	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12 \n" +
-	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12!\n" +
+	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12\x1f\n" +
+	"\x1aTEXT_CODE_STREAM_IS_PUBLIC\x10\x8a\x01\x12-\n" +
+	"(TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS\x10\x8b\x01\x12-\n" +
+	"(TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP\x10\x8d\x01\x12/\n" +
+	"*TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION\x10\x8e\x01\x12!\n" +
 	"\x1cTEXT_CODE_PRESET_UNREACHABLE\x10\x8c\x01\x12(\n" +
 	"#TEXT_CODE_SETTINGS_STORE_UNREADABLE\x10\x96\x01\x12&\n" +
 	"!TEXT_CODE_PRESET_STORE_UNREADABLE\x10\x97\x01\"\x04\bB\x10B\"\x04\bP\x10P*!TEXT_CODE_PRESET_ONLY_ON_FAMILIES*\x1fTEXT_CODE_PRESET_PINNED_BY_MODE*\x1eTEXT_CODE_GST_NO_PRESET_LADDERB[ZDbjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1\xaa\x02\x12ScreenShare.Api.V1b\x06proto3"

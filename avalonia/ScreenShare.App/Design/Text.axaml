@@ -7,6 +7,11 @@
     Two weights, Medium and SemiBold.
     Regular is unused, because Inter at 400 on this palette's dark surfaces reads thin enough
     to start losing muted grey copy.
+
+    Every role matches on :is(TextBlock) rather than on the bare type.
+    A type selector in Avalonia matches that type and nothing derived from it, and error text is a
+    SelectableTextBlock: with an exact-type selector every failure sentence in the product would silently
+    drop its size and its colour on the day it became copyable.
   -->
 
   <!--
@@ -42,73 +47,90 @@
     <Setter Property="LineHeight" Value="{DynamicResource LineHeightSmall}" />
   </Style>
 
-  <Style Selector="TextBlock.title">
+  <!--
+    The control every error text in the product is drawn with, whatever role it also carries.
+    What it says about the face is what the rule above says, minus the trimming: an ellipsis eats the relay
+    address, the pipeline description or the unknown text code the reader opened the app to copy.
+    The selection is the pair a TextBox selects with (Design/Inputs.axaml), so one drag looks the same
+    wherever it happens.
+  -->
+  <Style Selector="SelectableTextBlock">
+    <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="SelectionBrush" Value="{DynamicResource SelectedBrush}" />
+    <Setter Property="SelectionForegroundBrush" Value="{DynamicResource OnSelectedBrush}" />
+  </Style>
+
+  <Style Selector=":is(TextBlock).title">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.heading">
+  <Style Selector=":is(TextBlock).heading">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeHeading}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.caption">
+  <Style Selector=":is(TextBlock).caption">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.label">
+  <Style Selector=":is(TextBlock).label">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.secondary">
+  <Style Selector=":is(TextBlock).secondary">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.muted">
+  <Style Selector=":is(TextBlock).muted">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.hint">
+  <Style Selector=":is(TextBlock).hint">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.disabled">
+  <Style Selector=":is(TextBlock).disabled">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.danger">
+  <Style Selector=":is(TextBlock).danger">
     <Setter Property="Foreground" Value="{DynamicResource AttentionBrush}" />
   </Style>
 
   <!-- An identifier the backend spells: hevc_nvenc, gbrp. Said by colour and position, no second face. -->
-  <Style Selector="TextBlock.ident">
+  <Style Selector=":is(TextBlock).ident">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
     <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.figure">
+  <Style Selector=":is(TextBlock).figure">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.promoted">
+  <Style Selector=":is(TextBlock).promoted">
     <Setter Property="FontSize" Value="{DynamicResource FontSizePromoted}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
     <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.unit">
+  <Style Selector=":is(TextBlock).unit">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
   </Style>
@@ -119,20 +141,20 @@
     and a ControlTheme carrying one throws when the theme is built.
     The option title takes tabular figures, since an option is sometimes named by its identifier.
   -->
-  <Style Selector="TextBlock.optiontitle">
+  <Style Selector=":is(TextBlock).optiontitle">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
     <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.cardtitle">
+  <Style Selector=":is(TextBlock).cardtitle">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
   </Style>
 
-  <Style Selector="TextBlock.cardbody">
+  <Style Selector=":is(TextBlock).cardbody">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
     <Setter Property="TextWrapping" Value="Wrap" />
@@ -141,13 +163,13 @@
   </Style>
 
   <!-- Picked. The card's fill has already moved, so its text comes up a step to meet it. -->
-  <Style Selector="Button.picked TextBlock.optiontitle">
+  <Style Selector="Button.picked :is(TextBlock).optiontitle">
     <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
   </Style>
-  <Style Selector="Button.picked TextBlock.cardtitle">
+  <Style Selector="Button.picked :is(TextBlock).cardtitle">
     <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
   </Style>
-  <Style Selector="Button.picked TextBlock.cardbody">
+  <Style Selector="Button.picked :is(TextBlock).cardbody">
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
   </Style>
 
@@ -157,20 +179,20 @@
     App level rather than beside the dropdown: a flyout is hosted in a popup root,
     out of reach of a style on the view that opened it.
   -->
-  <Style Selector="MenuItem:disabled TextBlock.ident">
+  <Style Selector="MenuItem:disabled :is(TextBlock).ident">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
-  <Style Selector="MenuItem:disabled TextBlock.cardbody">
+  <Style Selector="MenuItem:disabled :is(TextBlock).cardbody">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
 
-  <Style Selector="Button:disabled TextBlock.optiontitle">
+  <Style Selector="Button:disabled :is(TextBlock).optiontitle">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
-  <Style Selector="Button:disabled TextBlock.cardtitle">
+  <Style Selector="Button:disabled :is(TextBlock).cardtitle">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
-  <Style Selector="Button:disabled TextBlock.cardbody">
+  <Style Selector="Button:disabled :is(TextBlock).cardbody">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
 

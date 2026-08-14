@@ -86,11 +86,12 @@
         </Grid>
 
         <!-- The backend's own sentence for a refused open or close, shown as it arrived. -->
-        <TextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Refusal}" TextWrapping="Wrap"
-                   IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
+        <SelectableTextBlock DockPanel.Dock="Bottom" Classes="hint" Text="{Binding Refusal}"
+                             IsVisible="{Binding HasRefusal}" Margin="2,10,2,0" />
 
-        <TextBlock DockPanel.Dock="Top" Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
-                   IsVisible="{Binding HasNotice}" Margin="2,0" />
+        <!-- What the relay answered, which is the reader's only account of an unreachable one. -->
+        <SelectableTextBlock DockPanel.Dock="Top" Classes="hint" Text="{Binding Notice}"
+                             IsVisible="{Binding HasNotice}" Margin="2,0" />
 
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
           <ItemsControl ItemsSource="{Binding Streams}">

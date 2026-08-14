@@ -32,6 +32,9 @@ const encodeTimeout = 20 * time.Second
 // so each codec here encodes at the step its row names for the mode under test.
 func baseStream() settings.Settings {
 	s := settings.Defaults()
+	// The default relay is the one on the internet, so its SRT leg is refused without the passphrase
+	// that encrypts it, and a refused publish builds no pipeline for these tests to read.
+	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Effort, s.Publish.Tune = "", ""
 	return s
 }

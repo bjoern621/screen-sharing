@@ -138,9 +138,31 @@ func claims(t *testing.T, signed string) string {
 // that exists.
 func TestAKeyTheServiceCannotReadBuysNothing(t *testing.T) {
 	s := service(t)
-	for _, body := range []string{``, `{}`, `{"key":"nonsense"}`, `{"key":"c2hvcnQ="}`} {
+	for _, body := range []string{`{"key":"nonsense"}`, `{"key":"c2hvcnQ="}`} {
 		if status, _ := call(t, s, "POST", "/tokens", body); status != http.StatusBadRequest {
 			t.Errorf("%q was answered %d, want a refusal", body, status)
+		}
+	}
+}
+
+// A caller naming no key is asking for the public prefix, which is a request this service answers.
+// Refusing it instead leaves a publisher who chose no group with nothing to present at the relay,
+// and the relay refusing them says nothing about why.
+func TestNoKeyBuysThePublicPrefix(t *testing.T) {
+	s := service(t)
+	for _, body := range []string{``, `{}`, `{"key":""}`, `{"key":"  "}`} {
+		status, answered := call(t, s, "POST", "/tokens", body)
+		if status != http.StatusOK {
+			t.Errorf("%q was answered %d, want a public token", body, status)
+			continue
+		}
+		if answered["prefix"] != PublicPrefix {
+			t.Errorf("%q bought a token for %v, want the public prefix", body, answered["prefix"])
+		}
+
+		signed, _ := answered["token"].(string)
+		if !strings.Contains(claims(t, signed), "~^"+PublicSubject) {
+			t.Errorf("%q bought %s, which does not name the public prefix", body, claims(t, signed))
 		}
 	}
 }

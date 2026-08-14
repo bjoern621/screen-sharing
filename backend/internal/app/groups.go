@@ -19,14 +19,18 @@ import (
 // settingsForCommand returns s carrying the token this relay connection needs.
 // The one site that attaches one, so it reaches neither the held settings nor the store.
 //
+// A relay with a group service is asked for a token whether or not there is a group key, an empty
+// key being a request for the public prefix (internal/groupclient).
+// Without that, a publisher who set no key would build a command with no credential and meet a
+// refusal at the handshake with nothing naming the cause.
+//
 // An unreachable service leaves as an error rather than as a credential-less command: that command
 // dies at the relay's handshake, and "the group service cannot be reached" is the reason a user can
 // act on.
 func (a *App) settingsForCommand(s settings.Settings) (settings.Settings, error) {
 	base, ok := s.Relay.GroupService()
-	if !ok || s.Relay.GroupKey == "" {
-		// Nothing to trade, or nowhere to trade it.
-		// Whether a credential is needed at all is the relay's answer.
+	if !ok {
+		// Nowhere to trade. Whether a credential is needed at all is the relay's answer.
 		return s, nil
 	}
 
@@ -82,7 +86,21 @@ func (a *App) relayStatusFor(s settings.Settings) relay.Status {
 	return a.relay.Fetch(s.Relay.Host, s.Relay.ApiPort)
 }
 
-// Drawing a group key is not here.
-// The service draws one over HTTP and the settings field takes it, so a group is joined by pasting
-// what its members were handed.
-// A method for it would need a control-contract call and a control to press it from (docs/plan.md).
+// CreateGroup draws a group key at this relay's service and hands it back with the prefix it
+// derives.
+//
+// Nothing is stored and nothing is applied. Possession of the key is membership, so a key this app
+// adopted on its own would move the machine into a group nobody else can reach and say so only
+// after the first stream went somewhere nobody was looking.
+// The caller writes it to the group key field, which is the one write that changes a machine's
+// group and is a settings write like any other.
+//
+// A relay with no group service is one where there are no groups to draw from, which is the LAN
+// shape, and its message says so rather than naming a service that would be asked.
+func (a *App) CreateGroup(relay settings.Relay) (key, id string, err error) {
+	base, ok := relay.GroupService()
+	if !ok {
+		return "", "", fmt.Errorf("a group key is drawn by a group service, and a relay reached without a TLS proxy has none")
+	}
+	return a.groups.CreateKey(base)
+}

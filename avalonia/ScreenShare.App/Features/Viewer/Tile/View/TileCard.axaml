@@ -227,10 +227,10 @@
       <tiles:StreamTile />
 
       <!-- Why the tile is dark: nothing decoding, connecting, or a handle this renderer cannot open. -->
-      <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
-                 IsVisible="{Binding HasNotice}"
-                 HorizontalAlignment="Center" VerticalAlignment="Center"
-                 TextAlignment="Center" Margin="{StaticResource InsetSection}" />
+      <SelectableTextBlock Classes="hint" Text="{Binding Notice}"
+                           IsVisible="{Binding HasNotice}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           TextAlignment="Center" Margin="{StaticResource InsetSection}" />
 
       <!-- The plate. The slot holds its place at this stream's shape, so nothing reflows. -->
       <Border Classes="plate" Background="{StaticResource SurfaceBrush}">

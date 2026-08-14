@@ -533,6 +533,25 @@ enum TextCode {
   // TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
   TEXT_CODE_COMPRESSION_RATIO = 137;
 
+  // --- The audience and the wire -------------------------------------------------
+
+  // No group key is set, so the stream is published where anybody who reaches the relay may
+  // watch it. Not a refusal: publishing without a group is a choice this app carries out.
+  // No arguments.
+  TEXT_CODE_STREAM_IS_PUBLIC = 138;
+  // Whether the connection is encrypted follows the relay's address and is stored nowhere, so
+  // the control saying so is a reading rather than a setting.
+  // No arguments.
+  TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS = 139;
+  // An encrypted RTSP session carries its RTP inside the TLS connection, so the lower
+  // transport is fixed: UDP would put the media on the wire beside it in the clear.
+  // No arguments.
+  TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP = 141;
+  // SRT is UDP and has no TLS, so the relay's passphrase is what encrypts it, and this relay
+  // is reached over TLS with no passphrase set.
+  // No arguments.
+  TEXT_CODE_SRT_PASSPHRASE_IS_THE_ENCRYPTION = 142;
+
   // --- Presets -------------------------------------------------------------------
 
   // No configuration this machine runs delivers what the preset promises, so nothing is

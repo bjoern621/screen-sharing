@@ -191,6 +191,17 @@ button:
 
 The dot stays small (7px): it is state, not decoration.
 
+**The reason in words is selectable wherever it lands**: a banner over a step, a hint under a
+field, a preflight row, a session log line, the sentence a dark tile carries.
+It is the one string that has to leave the app for a bug report, a search box or a message to
+somebody else, and a caps negotiation or a relay address is not something anyone retypes off a
+screen.
+Selectable text is a `SelectableTextBlock` carrying the same role as the prose beside it, and
+it draws its selection in the pair "Selection" states.
+It wraps and never trims, because an ellipsis eats the tail of the address the reader came for.
+What decides is whether the string reports a failure, not how it is styled: a hint that says
+what a relay answered is error text, and a hint that explains what a control does is not.
+
 Two states are close enough in English to be worth separating by name.
 A stream is **live** when it is connected and frames are moving, which is true of every tile
 in the viewer and says nothing about this machine.

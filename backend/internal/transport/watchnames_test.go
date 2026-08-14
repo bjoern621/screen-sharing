@@ -48,12 +48,12 @@ func TestBrowserWatchNamesAreTheLegsWithAPage(t *testing.T) {
 		t.Errorf("WatchNames(browser) = %v, want %v", browser, want)
 	}
 	for _, name := range browser {
-		if _, ok := BrowserURL(name, settings.Settings{Relay: settings.Relay{Host: "relay.example"}}, "bob"); !ok {
+		if _, ok := BrowserURL(name, settings.Settings{Relay: settings.Relay{Host: "10.0.0.5"}}, "bob"); !ok {
 			t.Errorf("%s states a browser carriage and yields no page address", name)
 		}
 	}
 	for _, name := range Names() {
-		_, page := BrowserURL(name, settings.Settings{Relay: settings.Relay{Host: "relay.example"}}, "bob")
+		_, page := BrowserURL(name, settings.Settings{Relay: settings.Relay{Host: "10.0.0.5"}}, "bob")
 		if page != slices.Contains(browser, name) {
 			t.Errorf("%s: a page address and a browser carriage disagree", name)
 		}

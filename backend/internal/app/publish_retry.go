@@ -110,6 +110,9 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 	if retrying {
 		a.scheduleRetryLocked(run.settings, spent, wait)
 	}
+	// The relaunch is the one thing the held screen source is held for, so it survives a scheduled
+	// retry and goes with an exit that ends the stream.
+	a.releaseSourcesLocked()
 	a.procMu.Unlock()
 
 	if !retrying {

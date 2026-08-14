@@ -107,21 +107,17 @@
             stream already on the air changes what the commit does rather than whether it can
             be done.
           -->
-          <TextBlock Classes="hint danger"
-                     TextWrapping="Wrap"
-                     TextTrimming="None"
-                     LineHeight="{StaticResource LineHeightSmall}"
-                     Margin="0,0,0,11"
-                     IsVisible="{Binding IsBlocked}"
-                     Text="{Binding Blocked}" />
+          <SelectableTextBlock Classes="hint danger"
+                               LineHeight="{StaticResource LineHeightSmall}"
+                               Margin="0,0,0,11"
+                               IsVisible="{Binding IsBlocked}"
+                               Text="{Binding Blocked}" />
 
-          <TextBlock Classes="hint danger"
-                     TextWrapping="Wrap"
-                     TextTrimming="None"
-                     LineHeight="{StaticResource LineHeightSmall}"
-                     Margin="0,0,0,11"
-                     IsVisible="{Binding HasRefusal}"
-                     Text="{Binding Refusal}" />
+          <SelectableTextBlock Classes="hint danger"
+                               LineHeight="{StaticResource LineHeightSmall}"
+                               Margin="0,0,0,11"
+                               IsVisible="{Binding HasRefusal}"
+                               Text="{Binding Refusal}" />
 
           <Grid ColumnDefinitions="Auto,*">
             <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />

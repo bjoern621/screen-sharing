@@ -260,6 +260,18 @@ public sealed class ControlBackend : IBackend
             cancellation);
 
     /// <inheritdoc />
+    public Task<(string Key, string Id)> CreateGroupAsync(
+        RelaySettings relay, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(relay, "a group key is drawn at the relay the draft names");
+
+        return ReadAsync(
+            c => c.CreateGroupAsync(new CreateGroupRequest { Relay = relay }, cancellationToken: cancellation),
+            r => (r.Key, r.Id),
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "opening a viewer",
             (c, key) => c.StartWatchAsync(new StartWatchRequest { Viewer = key }, cancellationToken: cancellation),

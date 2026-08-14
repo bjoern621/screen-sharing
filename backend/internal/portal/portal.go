@@ -65,35 +65,42 @@ type Options struct {
 	RestoreToken string
 }
 
-// Session is one open ScreenCast stream and lives as long as the capture reading it.
-// Losing it drops the node and the fd, so the next capture opens a session of its own and pops the
-// picker unless a restore token survived.
+// normalized fills the defaults Open applies.
+// Two option sets asking for one source therefore compare equal whether or not either spelled them,
+// which is what a Hold decides reuse on.
+func (o Options) normalized() Options {
+	if o.Types == 0 {
+		o.Types = SourceMonitor
+	}
+	if o.Cursor == 0 {
+		o.Cursor = CursorEmbedded
+	}
+	return o
+}
+
+// Session is one granted ScreenCast consent: the node the compositor shares and the bus connection
+// that keeps it alive.
+// Closing it drops the node, so the next Open pops the picker unless a restore token survived.
 //
-// Fd is the PipeWire remote NodeID lives on, handed to a child process as an inherited fd.
+// A session outlives the captures that read it, which is why the PipeWire remote is no field here.
 // Restore is what the compositor issued for this consent, empty where it persisted none, and it is
 // stored as it stands for the next SelectSources (settings.SavePortalToken): a revoked consent and
 // an empty token replacing a spent one both send the next Open through the picker.
 type Session struct {
-	conn    *dbus.Conn
+	client  *client
 	handle  dbus.ObjectPath
 	NodeID  uint32
-	Fd      *os.File
 	Restore string
 }
 
-// Open runs CreateSession, SelectSources, Start and OpenPipeWireRemote, and answers the negotiated
-// stream.
+// Open runs CreateSession, SelectSources and Start, and answers the consent they granted.
 // Start pops the compositor picker unless a valid RestoreToken is supplied.
+// The frames are read over a remote the caller opens on the answer (Session.Remote).
 //
 // Every failure past CreateSession tears the session down before returning,
 // so a refused Open leaves nothing open on the compositor's side.
 func Open(opts Options) (*Session, error) {
-	if opts.Types == 0 {
-		opts.Types = SourceMonitor
-	}
-	if opts.Cursor == 0 {
-		opts.Cursor = CursorEmbedded
-	}
+	opts = opts.normalized()
 
 	conn, err := dbus.ConnectSessionBus()
 	if err != nil {
@@ -140,36 +147,44 @@ func Open(opts Options) (*Session, error) {
 		return nil, err
 	}
 
-	fd, err := c.openPipeWireRemote(session)
-	if err != nil {
-		c.closeSession(session)
-		return nil, fmt.Errorf("OpenPipeWireRemote: %w", err)
-	}
-
 	restore, _ := started["restore_token"].Value().(string)
 	open := &Session{
-		conn:    conn,
+		client:  c,
 		handle:  session,
 		NodeID:  node,
-		Fd:      fd,
 		Restore: restore,
 	}
 
-	assert.IsNotNil(open.Fd, "an open session carries the PipeWire remote it was opened on")
 	assert.Assert(open.handle != "", "an open session names the portal session it holds")
 	return open, nil
 }
 
-// Close releases the remote fd and closes both the portal session and the bus connection.
+// Remote opens a PipeWire connection on the session and answers the descriptor it lives on, which a
+// child inherits and reads NodeID from.
+// The caller owns the file and closes it when the child that inherited it is gone.
+//
+// A connection of its own per child rather than one shared between them: the descriptor carries the
+// PipeWire protocol, an exited child already spoke it there, and a second one writing a hello into
+// that conversation is not a client the daemon can serve.
+func (s *Session) Remote() (*os.File, error) {
+	assert.IsNotNil(s.client, "a remote is opened on a session that is still open")
+
+	f, err := s.client.openPipeWireRemote(s.handle)
+	if err != nil {
+		return nil, fmt.Errorf("OpenPipeWireRemote: %w", err)
+	}
+	return f, nil
+}
+
+// Close ends the portal session and the bus connection carrying it.
 // Idempotent: a second call finds both released and does nothing.
+//
+// The remotes opened on it are the caller's, and a child still reading one loses its frames here:
+// the node goes with the session.
 func (s *Session) Close() {
-	if s.Fd != nil {
-		s.Fd.Close()
-		s.Fd = nil
+	if s.client == nil {
+		return
 	}
-	if s.conn != nil {
-		s.conn.Object(service, s.handle).Call("org.freedesktop.portal.Session.Close", 0)
-		s.conn.Close()
-		s.conn = nil
-	}
+	s.client.closeSession(s.handle)
+	s.client = nil
 }

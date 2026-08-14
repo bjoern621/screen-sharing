@@ -109,6 +109,12 @@ public sealed class SetupViewModel : Observable
     /// </summary>
     private readonly PendingCommand _measure;
 
+    /// <summary>
+    /// Drawing a group key, on the same terms as <see cref="_measure"/>: a round trip to a service on another
+    /// machine, so the button waits on it rather than sitting still.
+    /// </summary>
+    private readonly PendingCommand _createGroup;
+
     // --- What the screen is drawn from ---------------------------------------------
 
     /// <summary>
@@ -134,6 +140,14 @@ public sealed class SetupViewModel : Observable
     /// a panel at the foot of the column (<see cref="MeasureNotice"/>).
     /// </summary>
     private string _measured = "";
+
+    /// <summary>
+    /// What the last attempt to draw a group key answered: the id of the group that was made, or the backend's
+    /// sentence for why none was.
+    /// The key itself is not here. It goes into the field the reader can already see, so what is shown beside
+    /// the button is news about the attempt rather than a second copy of the secret.
+    /// </summary>
+    private string _groupDrawn = "";
 
     /// <summary>
     /// The steps the last pass rendered.
@@ -177,6 +191,13 @@ public sealed class SetupViewModel : Observable
         // state the backend refuses rather than pressable into a refusal.
         _measure = new PendingCommand(
             MeasureAsync, dispatch, () => _form.Draft is not null && MeasureRefusal().Length == 0);
+
+        // Drawing a key is an effect too, and one nothing else can do on the reader's behalf: a key this app
+        // adopted by itself would put the stream in a group nobody else holds.
+        // Pressable only where there is a service to draw from, which is a relay behind a TLS proxy.
+        _createGroup = new PendingCommand(
+            CreateGroupAsync, dispatch, () => _form.Draft is not null && _form.Draft.Relay is not null
+                && _form.Draft.Relay.Tls && _form.Draft.Relay.Host.Length > 0);
 
         // News that the draft, or the form behind it, moved: the one thing this flow draws from.
         // Raised on the UI loop by the form session, so there is nothing to marshal here.
@@ -550,6 +571,74 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
+    /// Draws a group key and writes it to the field, on the terms <see cref="MeasureAsync"/> runs on.
+    ///
+    /// The key goes in through the write every control uses, so joining a group is a settings change the reader
+    /// can see, undo and hand on, rather than something that happened to the machine.
+    /// </summary>
+    private async Task CreateGroupAsync()
+    {
+        _groupDrawn = "";
+        Apply();
+
+        var relay = _form.Draft?.Relay;
+        if (relay is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var group = await _backend.CreateGroupAsync(relay).ConfigureAwait(false);
+            _dispatch(() => GroupDrawn(group.Key, group.Id));
+        }
+        catch (BackendUnavailableException e)
+        {
+            _dispatch(() => GroupFailed(e.Message));
+        }
+        catch (OperationCanceledException)
+        {
+            _dispatch(() => GroupFailed(""));
+        }
+    }
+
+    /// <summary>Takes the drawn key, on the UI loop.</summary>
+    private void GroupDrawn(string key, string id)
+    {
+        if (_form.Draft is null)
+        {
+            _groupDrawn = "";
+            Apply();
+            return;
+        }
+
+        _groupDrawn = $"Group {id} created. Everyone you give this key to can watch, and nobody else can.";
+        Write(RelayLayout.GroupKeyKey, new FieldValue { Text = key });
+    }
+
+    private void GroupFailed(string reason)
+    {
+        _groupDrawn = reason;
+        Apply();
+    }
+
+    /// <summary>
+    /// Why no group can be drawn now, empty while one can.
+    /// A relay reached without a TLS proxy runs no group service, so there is nothing to ask.
+    /// </summary>
+    private string GroupRefusal()
+        => _form.Draft?.Relay is { Tls: true, Host.Length: > 0 }
+            ? ""
+            : "Groups are drawn by the relay's own service, which a relay reached without a TLS proxy does not run.";
+
+    /// <summary>
+    /// What the group button carries beside it: why it is greyed where it is, what the last attempt answered
+    /// otherwise.
+    /// </summary>
+    private string GroupNotice()
+        => GroupRefusal() is { Length: > 0 } refusal ? refusal : _groupDrawn;
+
+    /// <summary>
     /// Takes the measured figure, on the UI loop.
     /// It goes in through the write every control uses, so the measurement is a value the reader could have
     /// typed rather than a second path into the draft.
@@ -808,13 +897,20 @@ public sealed class SetupViewModel : Observable
     /// state produce actions that compare equal while what the button says still follows the state deciding it
     /// (<see cref="FieldAction"/>).
     /// </summary>
-    private FieldAction? ActionFor(string key) => key == RailLayout.UplinkKey
-        ? new FieldAction(
+    private FieldAction? ActionFor(string key) => key switch
+    {
+        RailLayout.UplinkKey => new FieldAction(
             "Measure",
             "Uploads a short payload to measure this machine's real upload throughput, and puts the result in the box. Refused while a stream is live.",
             MeasureNotice(),
-            _measure)
-        : null;
+            _measure),
+        RelayLayout.GroupKeyKey => new FieldAction(
+            "Create group",
+            "Draws a new group key at the relay and puts it in the box. Hand the key to the people who should be able to watch. Leaving the box empty publishes where anyone can watch.",
+            GroupNotice(),
+            _createGroup),
+        _ => null,
+    };
 
     private DelegateCommand SelectCommandOf(string key)
     {

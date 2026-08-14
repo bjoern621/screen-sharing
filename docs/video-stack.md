@@ -140,7 +140,8 @@ A backend that emits nothing while nothing moves is also the one that stalls a c
 **Permission.**
 X11 and KMS grant capture by access to the server or the device node.
 Wayland grants it per session through a portal, which returns a PipeWire node identifier the capture then opens.
-The portal handshake is a separate protocol from the media path, and a restore token is what lets a second run skip the picker.
+The portal handshake is a separate protocol from the media path.
+A second run skips the picker where the session it reads is still held, and where a compositor issued a restore token for the consent that ended (`capture-architecture.md`).
 
 **What comes out.**
 A desktop is composited in full-range RGB.

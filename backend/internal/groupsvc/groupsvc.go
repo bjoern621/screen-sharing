@@ -23,6 +23,8 @@ package groupsvc
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -54,13 +56,20 @@ const TokenWindow = 5 * time.Minute
 // filling the relay with prefixes does.
 const CreationsPerHour = 60
 
-// PublicPrefix is where a stream anybody may watch lives.
+// PublicPrefix is where a stream anybody may watch lives, as internal/group derives every path
+// from.
 //
-// Watchable and discoverable both follow from the prefix: the relay grants reading on it to
-// everyone, and the index answers it to a caller with no key.
-// It has a group id's shape without being one, since no key derives it, so a group's own listing
-// cannot include it and holding a key cannot publish into it.
-const PublicPrefix = "public/"
+// Named through rather than restated: the publisher builds its path from that constant and this
+// service grants a token on it, and two spellings of one prefix issue a token for a path nobody
+// publishes to.
+const PublicPrefix = group.PublicPrefix
+
+// PublicSubject is what a public token is issued to.
+//
+// A group token's subject is the group id, which is what the relay logs a connection under.
+// There is no id here, no key having derived this prefix, so the prefix's own name stands in and a
+// log line still says which audience a connection belonged to.
+const PublicSubject = "public"
 
 // Stream is one path the relay carries, as far as a member is told about it.
 //
@@ -142,36 +151,51 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 	answer(w, map[string]string{"key": key.String(), "id": key.ID()})
 }
 
-// issueToken trades a group key for a relay token.
+// issueToken trades a group key for a relay token, and a request carrying no key for a public one.
 //
 // Deriving from the key is the whole verification, there being no membership list to check it
 // against: a caller holding a well-formed key is a member, and one holding a key nobody else has is
 // a group of one.
 // Minted per call and never stored: the signature derives from the key like every other answer
 // here, so a held token would be a second copy of a fact the key already carries.
+//
+// A keyless request is answered rather than refused, and answering it grants nothing a refusal
+// would have withheld: the public prefix is one anybody may ask for a token on, so the token says
+// who the audience is and never who the caller is.
+// The relay still authenticates the connection and still encrypts it.
+// Only a malformed key is a refusal, an empty one being a request for the public prefix and a
+// truncated one being a group the caller cannot reach.
 func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Key string `json:"key"`
 	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyLimit)).Decode(&body); err != nil {
-		refuse(w, http.StatusBadRequest, "the request carries no group key")
-		return
-	}
-	key, err := group.ParseKey(body.Key)
-	if err != nil {
-		refuse(w, http.StatusBadRequest, err.Error())
+	// An empty body is a request for the public prefix, the same as a body naming an empty key.
+	// Anything else that will not decode is malformed rather than keyless, and a caller who meant to
+	// send a key is better told than quietly given somebody else's audience.
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyLimit)).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		refuse(w, http.StatusBadRequest, "the request carries no group key this service can read")
 		return
 	}
 
+	subject, prefix := PublicSubject, PublicPrefix
+	if strings.TrimSpace(body.Key) != "" {
+		key, err := group.ParseKey(body.Key)
+		if err != nil {
+			refuse(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		subject, prefix = key.ID(), key.Prefix()
+	}
+
 	now := s.now()
-	signed, err := s.signer.Sign(key.ID(), token.GroupPermissions(key.Prefix()), now, TokenWindow)
+	signed, err := s.signer.Sign(subject, token.GroupPermissions(prefix), now, TokenWindow)
 	if err != nil {
 		refuse(w, http.StatusInternalServerError, "no token could be signed")
 		return
 	}
 	answer(w, map[string]any{
 		"token":   signed,
-		"prefix":  key.Prefix(),
+		"prefix":  prefix,
 		"expires": now.Add(TokenWindow).UTC().Format(time.RFC3339),
 	})
 }

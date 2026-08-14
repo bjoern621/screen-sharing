@@ -94,14 +94,27 @@ var availabilityRules = map[string]func(availability) state{
 	// The connection group.
 	// A listener port is a knob of one protocol and hides with it, the hidden treatment's own case: a
 	// user on SRT has no reason to read what the RTMP listener's port means.
-	KeyName:          func(availability) state { return availabilityLive() },
-	KeyRelayHost:     func(availability) state { return availabilityLive() },
-	KeyRelayTls:      func(availability) state { return availabilityLive() },
-	KeyGroupKey:      func(availability) state { return availabilityLive() },
-	KeySrtPassphrase: func(availability) state { return availabilityLive() },
-	KeyAPIPort:       func(availability) state { return availabilityLive() },
-	KeySrtPort:       func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilitySrt) },
-	KeyRtspPort:      func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp) },
+	KeyName:      func(availability) state { return availabilityLive() },
+	KeyRelayHost: func(availability) state { return availabilityLive() },
+	// A reading and never a control. Encryption follows the relay's address and is stored nowhere
+	// (settings.Relay.Tls), so there is nothing here to set: the box says what the connection does,
+	// and the field above it is what changes the answer.
+	KeyRelayTls: func(availability) state {
+		return availabilityDisabled(say(encryptionFollowsTheAddress))
+	},
+	KeyGroupKey: func(availability) state { return availabilityLive() },
+	// Noted while it is empty on an encrypted relay, that being the one combination where the field
+	// decides whether the stream is encrypted at all rather than merely which key it uses: SRT is UDP
+	// and carries no TLS, so nothing else on this screen makes that leg private.
+	KeySrtPassphrase: func(av availability) state {
+		if av.s.Relay.Tls() && av.s.Relay.SrtPassphrase == "" {
+			return availabilityNoted(say(srtPassphraseIsEncryption))
+		}
+		return availabilityLive()
+	},
+	KeyAPIPort:  func(availability) state { return availabilityLive() },
+	KeySrtPort:  func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilitySrt) },
+	KeyRtspPort: func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp) },
 	KeyWebrtcPort: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityWebrtc)
 	},
@@ -285,6 +298,9 @@ var availabilityRules = map[string]func(availability) state{
 	KeySrtPublishLatencyMs: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilitySrt)
 	},
+	// Greyed per entry on an encrypted relay rather than as a control, so the value that works stays
+	// selectable: a disabled dropdown still showing "udp" would name the refusal and offer no way out
+	// of it (rtspPublishProtocolReason).
 	KeyRtspPublishProtocol: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp)
 	},
@@ -331,6 +347,9 @@ var availabilityOptionRules = map[string]func(availability, string) *screenshare
 	KeyCaptureMemory:     availability.frameMemoryReason,
 	KeyCursor:            availability.cursorReason,
 	KeyOutputResolution:  availability.outputResolutionReason,
+	// The publish leg alone. A viewer reading over RTSPS negotiates its own lower transport with the
+	// relay, and this control is the one this machine's publish uses.
+	KeyRtspPublishProtocol: availability.rtspPublishProtocolReason,
 	// The two watch legs read the same carriage table under different receivers: an external player
 	// opens a URL through libavformat and a tile decodes through a GStreamer pipeline, so the two
 	// reach different protocol sets.
@@ -774,6 +793,19 @@ func (av availability) outputResolutionReason(value string) *screensharev1.Text 
 	}
 	return say(devicePathHasNoScaler,
 		argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec), argMemory(gpupath.MemorySystem))
+}
+
+// rtspPublishProtocolReason states why an encrypted relay carries RTP one way only.
+//
+// RTSPS encrypts the control connection, and RTP over UDP is a second flow beside it that no part
+// of that handshake covers.
+// Interleaving puts the media inside the TLS connection, so it is the encrypted session's only
+// lower transport rather than its faster one (internal/transport, EncryptedRtspProtocol).
+func (av availability) rtspPublishProtocolReason(value string) *screensharev1.Text {
+	if !av.s.Relay.Tls() || value == transport.EncryptedRtspProtocol {
+		return nil
+	}
+	return say(encryptedRtspInterleavesRtp)
 }
 
 // watchLegReason states why a viewer on this engine cannot receive the stream over a transport.

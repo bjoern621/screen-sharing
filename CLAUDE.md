@@ -107,6 +107,16 @@ Ask, in order:
 
 Cutting words is free. Cutting facts is not.
 
+# Every error message is selectable and copyable
+
+An error is the one string a user has to get out of the app and into a bug report, a search box or a message to someone else.
+Retyping a caps negotiation failure or a relay URL off the screen is not a way to do that, so every error text the UI shows can be selected with the mouse and copied.
+This holds wherever the text lands: a status bar line, an inline hint under a field, a panel, a dialog, a log view.
+
+In Avalonia that means `SelectableTextBlock` instead of `TextBlock` for any control bound to error text, and a copy button on anything carrying a stack trace, a full command line or a pipeline description.
+Trimming cuts away the characters the reader came for, so error text wraps instead of setting `TextTrimming`.
+Styling something as a hint does not exempt it; what decides is whether the string reports a failure.
+
 # Never branch, never use a worktree
 
 Work happens in this checkout, on the branch that is already checked out.

@@ -113,7 +113,11 @@ type gstCapture interface {
 
 // portalCapture is the xdg-desktop-portal ScreenCast backend: the compositor's own picker chooses
 // what is shared and the frames arrive over PipeWire.
-type portalCapture struct{}
+//
+// hold carries the granted consent from one child to the next, so the picker is answered once per
+// stream rather than once per launch (portal.Hold).
+// The registry supplies it, and Describe needs none: rendering a command acquires nothing.
+type portalCapture struct{ hold *portal.Hold }
 
 func (portalCapture) Name() string { return "portal" }
 
@@ -122,7 +126,9 @@ func (portalCapture) Describe(s settings.Settings, opts gstCaptureOptions) []str
 }
 
 func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
-	session, err := portal.Open(portal.Options{
+	assert.IsNotNil(p.hold, "a portal capture opens against the hold the registry gave it")
+
+	session, err := p.hold.Session(portal.Options{
 		// Both kinds are offered and the picker answers which one is shared, rather than a setting here:
 		// the compositor owns the choice and is the only side that knows which windows exist.
 		Types:        portal.SourceMonitor | portal.SourceWindow,
@@ -133,14 +139,32 @@ func (p portalCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]stri
 		return nil, nil, nil, fmt.Errorf("portal ScreenCast: %w", err)
 	}
 	// The token is the compositor's receipt for this consent, stored off the session that produced it
-	// and reused by the next one, which keeps the picker from popping on every publish.
+	// and reused by the next stream, which keeps the picker from popping on every publish where the
+	// compositor persists consents at all.
 	// A store that fails costs a picker and nothing else, so it is warned about rather than failing
 	// the publish it was acquired for: this stream runs, and the next one asks again.
 	if err := settings.SavePortalToken(session.Restore); err != nil {
 		logger.Warnf("portal consent not stored, the next capture will ask again: %v", err)
 	}
+
+	remote, err := session.Remote()
+	if err != nil {
+		// The consent stands and the connection to it does not, which is a session this app can no longer
+		// hand a child.
+		// Dropping it sends the relaunch to a session that can carry one instead of to the same failure.
+		p.hold.Release()
+		return nil, nil, nil, fmt.Errorf("portal ScreenCast: %w", err)
+	}
 	elements := portalElements(s, strconv.Itoa(childFdBase), strconv.FormatUint(uint64(session.NodeID), 10), opts)
-	return elements, []*os.File{session.Fd}, session.Close, nil
+	// The remote alone, since the session belongs to the stream rather than to this child.
+	return elements, []*os.File{remote}, func() { remote.Close() }, nil
+}
+
+// Release drops the held consent, so the next capture pops the compositor's picker.
+func (p portalCapture) Release() {
+	assert.IsNotNil(p.hold, "a portal capture releases the hold the registry gave it")
+
+	p.hold.Release()
 }
 
 // HoldsOneDevice refuses a machine with more than one render node.

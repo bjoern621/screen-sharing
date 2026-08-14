@@ -27,7 +27,6 @@ func populatedSettings() settings.Settings {
 			WebrtcPort:    1004,
 			RtmpPort:      1005,
 			HlsPort:       1006,
-			Tls:           true,
 			GroupKey:      "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 			SrtPassphrase: "fixture-passphrase",
 		},

@@ -27,12 +27,10 @@
             Margin="12,10,12,0"
             IsVisible="{Binding IsUnavailable}">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Grid.Column="0"
-                   Classes="hint danger"
-                   VerticalAlignment="Center"
-                   TextWrapping="Wrap"
-                   TextTrimming="None"
-                   Text="{Binding Unavailable}" />
+        <SelectableTextBlock Grid.Column="0"
+                             Classes="hint danger"
+                             VerticalAlignment="Center"
+                             Text="{Binding Unavailable}" />
 
         <Button Grid.Column="1"
                 Margin="12,0,0,0"
@@ -54,10 +52,7 @@
             Padding="12,10"
             Margin="12,10,12,0"
             IsVisible="{Binding HasUnsaved}">
-      <TextBlock Classes="hint danger"
-                 TextWrapping="Wrap"
-                 TextTrimming="None"
-                 Text="{Binding Unsaved}" />
+      <SelectableTextBlock Classes="hint danger" Text="{Binding Unsaved}" />
     </Border>
 
     <Grid Margin="{StaticResource InsetPanel}" ColumnDefinitions="*,Auto">
@@ -93,7 +88,7 @@
 
             <!-- Why no command preview could be built, in the sentence that would refuse the publish. -->
             <Border Classes="panel" Padding="12,10" IsVisible="{Binding HasCommandError}">
-              <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding CommandError}" />
+              <SelectableTextBlock Classes="hint" Text="{Binding CommandError}" />
             </Border>
           </StackPanel>
         </Panel>

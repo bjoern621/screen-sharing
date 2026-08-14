@@ -169,8 +169,13 @@ func (b controlBackend) StartTestStreams(count int) error { return b.app.StartTe
 func (b controlBackend) StopTestStreams()                 { b.app.StopTestStreams() }
 
 func (b controlBackend) ForgetPortalConsent() error { return b.app.ForgetPortalConsent() }
-func (b controlBackend) OpenLog(path string) error  { return b.app.OpenLog(path) }
-func (b controlBackend) OpenLogsFolder() error      { return b.app.OpenLogsFolder() }
+
+func (b controlBackend) CreateGroup(relay settings.Relay) (key, id string, err error) {
+	return b.app.CreateGroup(relay)
+}
+
+func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }
+func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder() }
 
 // publishSnapshot carries the publish state from this package's flat shape to the contract's nested
 // one.

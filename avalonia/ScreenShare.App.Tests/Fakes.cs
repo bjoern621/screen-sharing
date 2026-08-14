@@ -166,6 +166,11 @@ internal sealed class DeferredBackend : IBackend
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => _seed.MeasureUplinkAsync(cancellation);
 
+
+
+    public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
+        => _seed.CreateGroupAsync(relay, cancellation);
+
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PresetsAsync(cancellation);
 
@@ -373,6 +378,11 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<double> MeasureUplinkAsync(CancellationToken cancellation = default)
         => _seed.MeasureUplinkAsync(cancellation);
+
+
+
+    public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
+        => _seed.CreateGroupAsync(relay, cancellation);
 
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => _seed.PresetsAsync(cancellation);

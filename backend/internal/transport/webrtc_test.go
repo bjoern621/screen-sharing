@@ -21,7 +21,7 @@ func TestWebRTCRegistered(t *testing.T) {
 func TestWebRTCPublishArgs(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
-			Host:       "relay.example",
+			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
 		Publish: settings.Publish{
@@ -30,7 +30,7 @@ func TestWebRTCPublishArgs(t *testing.T) {
 	}
 	args := WebRTC{}.PublishArgs(s)
 
-	want := []string{"-f", "whip", "http://relay.example:8889/alice/whip"}
+	want := []string{"-f", "whip", "http://10.0.0.5:8889/alice/whip"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -39,7 +39,7 @@ func TestWebRTCPublishArgs(t *testing.T) {
 func TestWebRTCGstSink(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
-			Host:       "relay.example",
+			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
 		Publish: settings.Publish{
@@ -53,7 +53,7 @@ func TestWebRTCGstSink(t *testing.T) {
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
-		"signaller::whip-endpoint=http://relay.example:8889/alice/whip",
+		"signaller::whip-endpoint=http://10.0.0.5:8889/alice/whip",
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)
@@ -64,7 +64,7 @@ func TestWebRTCGstSink(t *testing.T) {
 func TestWebRTCGstSource(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
-			Host:       "relay.example",
+			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
 		Publish: settings.Publish{
@@ -77,7 +77,7 @@ func TestWebRTCGstSource(t *testing.T) {
 	// caps are what stops the relay refusing the offer.
 	for _, want := range []string{
 		"whepsrc",
-		"whep-endpoint=http://relay.example:8889/bob/whep",
+		"whep-endpoint=http://10.0.0.5:8889/bob/whep",
 		"audio-caps=EMPTY",
 	} {
 		if !slices.Contains(src, want) {
@@ -92,7 +92,7 @@ func TestWebRTCGstSource(t *testing.T) {
 func TestWebRTCCapabilities(t *testing.T) {
 	s := settings.Settings{
 		Relay: settings.Relay{
-			Host:       "relay.example",
+			Host:       "10.0.0.5",
 			WebrtcPort: 8889,
 		},
 		Publish: settings.Publish{
@@ -138,7 +138,7 @@ func TestWebRTCCapabilities(t *testing.T) {
 	if !ok {
 		t.Fatal("BrowserURL must report true for webrtc")
 	}
-	if want := "http://relay.example:8889/bob/"; page != want {
+	if want := "http://10.0.0.5:8889/bob/"; page != want {
 		t.Errorf("BrowserURL = %q, want %q", page, want)
 	}
 	if !CanWatch("webrtc", EngineBrowser) {

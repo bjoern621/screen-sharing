@@ -8,16 +8,16 @@
 
   <UserControl.Styles>
     <!-- Warning last: it matches .level at equal specificity, so declaration order decides. -->
-    <Style Selector="TextBlock.stamp">
+    <Style Selector=":is(TextBlock).stamp">
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
-    <Style Selector="TextBlock.level">
+    <Style Selector=":is(TextBlock).level">
       <Setter Property="Foreground" Value="{StaticResource HintBrush}" />
     </Style>
-    <Style Selector="TextBlock.message">
+    <Style Selector=":is(TextBlock).message">
       <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
     </Style>
-    <Style Selector="TextBlock.warn">
+    <Style Selector=":is(TextBlock).warn">
       <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
     </Style>
   </UserControl.Styles>
@@ -43,14 +43,25 @@
       <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="model:LogLine">
-            <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" Height="{StaticResource TextRowHeight}">
-              <TextBlock Classes="ident stamp" Text="{Binding Time}" VerticalAlignment="Center" />
-              <TextBlock Classes="ident level"
+            <!--
+              A grid and not a horizontal stack, and a floor rather than a height: what a line carries
+              is a failure as prose, and a stack measures against infinite width, so the sentence
+              would run off the card's edge instead of wrapping into the row.
+            -->
+            <Grid ColumnDefinitions="Auto,Auto,*"
+                  ColumnSpacing="{StaticResource GapTight}"
+                  MinHeight="{StaticResource TextRowHeight}">
+              <TextBlock Grid.Column="0" Classes="ident stamp" Text="{Binding Time}" VerticalAlignment="Center" />
+              <TextBlock Grid.Column="1"
+                         Classes="ident level"
                          Classes.warn="{Binding IsWarning}"
                          Text="{Binding Level}"
                          VerticalAlignment="Center" />
-              <TextBlock Classes="ident message" Text="{Binding Message}" VerticalAlignment="Center" />
-            </StackPanel>
+              <SelectableTextBlock Grid.Column="2"
+                                   Classes="ident message"
+                                   Text="{Binding Message}"
+                                   VerticalAlignment="Center" />
+            </Grid>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

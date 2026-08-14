@@ -248,6 +248,9 @@ func (a *App) Stop() {
 	// The preview is a receive pipeline like the ones below and is stopped apart from them because it
 	// is not in that map: it goes with the publish it belongs to (preview.go).
 	a.stopPreviewLocked()
+	// Handing the consent back before the process ends, rather than leaving the compositor to notice
+	// the bus connection go.
+	a.releaseSourcesLocked()
 	for _, watcher := range a.watchers {
 		watcher.Stop()
 	}

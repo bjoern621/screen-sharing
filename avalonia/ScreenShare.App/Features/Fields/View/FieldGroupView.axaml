@@ -98,11 +98,9 @@
                           ToolTip.Tip="{Binding Action.Tip}" />
                 </StackPanel>
 
-                <TextBlock Classes="hint"
-                           TextWrapping="Wrap"
-                           TextTrimming="None"
-                           IsVisible="{Binding HasActionNotice}"
-                           Text="{Binding ActionNotice}" />
+                <SelectableTextBlock Classes="hint"
+                                     IsVisible="{Binding HasActionNotice}"
+                                     Text="{Binding ActionNotice}" />
               </StackPanel>
 
               <!--

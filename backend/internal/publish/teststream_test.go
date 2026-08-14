@@ -18,7 +18,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 	// srt deliberately: a test stream leaves over RTSP whatever the settings name.
 	s := settings.Settings{
 		Relay: settings.Relay{
-			Host:     "relay.example",
+			Host:     "10.0.0.5",
 			RtspPort: 8554,
 		},
 		Publish: settings.Publish{
@@ -38,7 +38,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 		"pattern=smpte",
 		"x264enc",
 		"protocols=tcp",
-		"location=rtsp://relay.example:8554/test-1",
+		"location=rtsp://10.0.0.5:8554/test-1",
 	} {
 		if !slices.Contains(args, want) {
 			t.Errorf("missing %q in %v", want, args)
@@ -135,7 +135,7 @@ func TestTheSetCarriesASoundingStreamItBringsUpWithItself(t *testing.T) {
 // The queue goes with it: a second pad is the only thing it is there for.
 func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 	s := settings.Settings{
-		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
 		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 
@@ -159,7 +159,7 @@ func TestASilentTestSurfacePublishesNoAudio(t *testing.T) {
 // the picture travels in.
 func TestASoundingTestSurfacePublishesTheAudioTablesElements(t *testing.T) {
 	s := settings.Settings{
-		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
 		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 
@@ -215,7 +215,7 @@ func TestTheSoundingTestStreamIsPublishedWithItsTrack(t *testing.T) {
 	}
 
 	s := settings.Settings{
-		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
 		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 	args, err := BuildTestStreamArgs(s, "test-3-audio", surface)
@@ -299,7 +299,7 @@ func TestTheHdrTestStreamIsPublishedInHdr(t *testing.T) {
 	}
 
 	s := settings.Settings{
-		Relay:   settings.Relay{Host: "relay.example", RtspPort: 8554},
+		Relay:   settings.Relay{Host: "10.0.0.5", RtspPort: 8554},
 		Publish: settings.Publish{Name: "nixos", Transport: "rtsp", RtspPublishProtocol: "tcp"},
 	}
 	args, err := BuildTestStreamArgs(s, "test-2-hdr", surface)

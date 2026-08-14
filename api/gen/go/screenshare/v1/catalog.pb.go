@@ -1172,9 +1172,10 @@ type Monitor struct {
 	Index  int32 `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	Width  int32 `protobuf:"varint,2,opt,name=width,proto3" json:"width,omitempty"`
 	Height int32 `protobuf:"varint,3,opt,name=height,proto3" json:"height,omitempty"`
-	// Top-left corner in the virtual desktop.
-	// Absent on a platform that selects an output by index and reports no virtual-desktop
-	// origin.
+	// Top-left corner in the virtual desktop, zero on a platform that selects an output by index and
+	// reports no such origin.
+	// Zero and not absent, unlike refresh_hz below: the origin is where a crop starts, and a platform
+	// that composes no virtual desktop starts every crop at 0,0, so the two answers are one.
 	OffsetX int32 `protobuf:"varint,4,opt,name=offset_x,json=offsetX,proto3" json:"offset_x,omitempty"`
 	OffsetY int32 `protobuf:"varint,5,opt,name=offset_y,json=offsetY,proto3" json:"offset_y,omitempty"`
 	Primary bool  `protobuf:"varint,6,opt,name=primary,proto3" json:"primary,omitempty"`

@@ -66,12 +66,21 @@ func (RTMP) GstSource(s settings.Settings, streamName string) []string {
 	return []string{"rtmp2src", "location=" + rtmpURL(s, streamName)}
 }
 
+// RtmpsPort is where a relay's encrypted RTMP listener answers: MediaMTX's own default, and no
+// setting, for the reason RtspsPort is none.
+const RtmpsPort = 1936
+
 // rtmpURL addresses one path on the relay's RTMP listener,
-// "rtmp://relay:1935/<path>?jwt=<token>".
+// "rtmps://relay:1936/<path>?jwt=<token>" where the relay is encrypted and
+// "rtmp://relay:1935/<path>?jwt=<token>" where it is not.
 //
 // Neither the name nor the port is asserted, unlike at the watch entry points above: this builder
 // serves the publish leg too, where the name comes off the settings rather than a validated call
 // and a port of zero is a stored value the migration repairs.
 func rtmpURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("rtmp://%s:%d/%s", s.Relay.Host, s.Relay.RtmpPort, name) + credentialQuery(s, "?")
+	scheme, port := "rtmp", s.Relay.RtmpPort
+	if s.Relay.Tls() {
+		scheme, port = "rtmps", RtmpsPort
+	}
+	return fmt.Sprintf("%s://%s:%d/%s", scheme, s.Relay.Host, port, name) + credentialQuery(s, "?")
 }

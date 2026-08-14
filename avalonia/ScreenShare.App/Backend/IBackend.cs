@@ -234,6 +234,15 @@ public interface IBackend
     Task<double> MeasureUplinkAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// Draws a group key at the relay's group service and answers it with the prefix it derives.
+    ///
+    /// Stores nothing and joins nothing: possession of the key is membership, so what moves this machine
+    /// into the group is the caller writing the key to the settings field, like a value that was pasted.
+    /// A relay with no group service is refused with the backend's own sentence.
+    /// </summary>
+    Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default);
+
+    /// <summary>
     /// Opens an external viewer for one stream over one transport.
     /// A leg that cannot carry the stream's format is refused with the format named, rather than opening a
     /// viewer that connects and receives nothing.

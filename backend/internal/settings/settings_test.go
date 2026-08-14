@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"encoding/json"
 	"os"
 	"reflect"
 	"strings"
@@ -404,5 +405,56 @@ func TestLoadKeepsTheFirstCorruptCopy(t *testing.T) {
 	}
 	if string(kept) != first {
 		t.Errorf("kept copy = %q, want the first failure's bytes", kept)
+	}
+}
+
+// Encryption is derived from the address, so nothing about it is kept.
+//
+// A stored flag is a second copy of a fact the host already carries, and the two disagree the
+// moment a host is edited: a "no" left beside a public name would send the picture in the clear on
+// the strength of a file, and reset-to-defaults would write that "no" itself.
+func TestEncryptionIsDerivedAndNeverStored(t *testing.T) {
+	encoded, err := json.Marshal(Defaults())
+	if err != nil {
+		t.Fatalf("rendering the settings: %v", err)
+	}
+	if strings.Contains(string(encoded), "tls") {
+		t.Errorf("the stored settings carry a tls key: %s", encoded)
+	}
+
+	// A file written by an older build still has one, and it is read as the noise it now is.
+	var restored Settings
+	stored := `{"relay":{"host":"streamrelay.bjoernblessin.de","tls":false}}`
+	if err := json.Unmarshal([]byte(stored), &restored); err != nil {
+		t.Fatalf("reading settings an older build wrote: %v", err)
+	}
+	if !restored.Relay.Tls() {
+		t.Error("a stored tls:false turned encryption off for a relay across the internet")
+	}
+
+	if Defaults().Relay.Tls() != true {
+		t.Error("the defaults reach their relay unencrypted")
+	}
+}
+
+// Which relays are reached in the clear, which is the whole of the question above.
+// A name is encrypted whatever it resolves to: resolving it is a question this cannot ask, and the
+// wrong guess is a stream on the wire for anyone to read.
+func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
+	for host, want := range map[string]bool{
+		"192.168.1.9":                  false,
+		"10.0.0.5":                     false,
+		"172.16.4.1":                   false,
+		"127.0.0.1":                    false,
+		"localhost":                    false,
+		"169.254.7.7":                  false,
+		"streamrelay.bjoernblessin.de": true,
+		"relay.example":                true,
+		"93.184.216.34":                true,
+		"":                             false,
+	} {
+		if got := (Relay{Host: host}).Tls(); got != want {
+			t.Errorf("relay %q is encrypted = %v, want %v", host, got, want)
+		}
 	}
 }

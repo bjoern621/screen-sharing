@@ -16,6 +16,7 @@ package groupclient
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -80,14 +81,19 @@ func New() *Client {
 // Token trades a group key for a relay token, handing back the held one while it has long enough
 // left to open a connection with.
 //
+// An empty key is a request for the public prefix rather than a missing argument, so it is sent
+// like any other: the service answers a token granting the streams anybody may watch, and a
+// publisher with no group gets one instead of a refusal it could not act on.
+// Only the service's address is required, and a relay that names none has nowhere to ask.
+//
 // The window is the service's and this asks for none.
 // What a client decides is when to stop using a token before it expires, which is Refresh.
 func (c *Client) Token(base, key string) (string, error) {
 	assert.IsNotNil(c.http, "a client calls through a transport")
 
-	if base == "" || key == "" {
-		return "", fmt.Errorf("a relay token is traded for a group key at a group service, and this relay has %s",
-			missing(base, key))
+	if base == "" {
+		return "", errors.New("a relay token is issued by a group service, and this relay names none, " +
+			"which is what a relay reached without a TLS proxy has")
 	}
 
 	now := time.Now()
@@ -219,16 +225,4 @@ func read(address string, resp *http.Response, into any) error {
 
 func unreachable(address string, err error) error {
 	return fmt.Errorf("the group service at %s cannot be reached: %v", address, err)
-}
-
-// missing names which half of a token request is absent, so the message says what to set.
-func missing(base, key string) string {
-	switch {
-	case base == "" && key == "":
-		return "neither a group service nor a group key"
-	case base == "":
-		return "no group service, which is what a relay behind a TLS proxy has"
-	default:
-		return "no group key"
-	}
 }

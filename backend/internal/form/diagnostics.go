@@ -58,6 +58,7 @@ func diagnostics(d Deps, s settings.Settings, est *screensharev1.Estimate) []*sc
 	if _, reason := formCommand(s); reason != "" {
 		out = append(out, diagnosticFor(screensharev1.Severity_SEVERITY_ERROR, "", say(publishRefused)))
 	}
+	out = append(out, diagnosticsAboutTheAudience(s)...)
 	out = append(out, diagnosticsAboutTheLine(s, est)...)
 	out = append(out, diagnosticsAboutTheCapture(d, s)...)
 	out = append(out, diagnosticsAboutTheViewer(s)...)
@@ -94,6 +95,24 @@ var warningPeaks = map[string]string{
 	capabilities.ModeCrf:      KeyCq,
 	capabilities.ModeLossless: KeyMode,
 	capabilities.ModeVbr:      KeyMaxrateM,
+}
+
+// diagnosticsAboutTheAudience says who will be able to watch, where that is more than the people
+// the user handed a key to.
+//
+// A warning and never a refusal: publishing without a group is a choice this app carries out, and
+// the stream is authenticated and encrypted either way (docs/network-architecture.md).
+// What it is not is private, and that is the one thing nothing else on the screen says.
+//
+// Only on a relay that has a group service. A LAN relay has no groups at all, so "this is public"
+// there names a restriction that does not exist on that deployment.
+func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
+	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.GroupKey != "" {
+		return nil
+	}
+	return []*screensharev1.Diagnostic{
+		diagnosticFor(screensharev1.Severity_SEVERITY_WARNING, KeyGroupKey, say(streamIsPublic)),
+	}
 }
 
 // diagnosticsAboutTheLine holds the prediction against the uplink the user stated, both Mbit/s.

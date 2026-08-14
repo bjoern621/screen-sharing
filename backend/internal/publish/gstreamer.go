@@ -72,6 +72,14 @@ func (gstEngine) Engine() string {
 	return EngineGst
 }
 
+// Release drops what the capture backend holds between launches, and does nothing for one that
+// holds nothing.
+func (g gstEngine) Release() {
+	if holder, ok := g.capture.(sourceHolder); ok {
+		holder.Release()
+	}
+}
+
 // Carries reports whether the transport terminates a GStreamer publish pipeline.
 func (gstEngine) Carries(transportName string) bool {
 	return transport.CanPublish(transportName, EngineGst)

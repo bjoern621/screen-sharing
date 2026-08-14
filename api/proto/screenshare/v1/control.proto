@@ -236,6 +236,15 @@ service ControlService {
   // It is how a share aimed at the wrong window or monitor is corrected.
   rpc ForgetPortalConsent(ForgetPortalConsentRequest) returns (ForgetPortalConsentResponse);
 
+  // Draws a group key at the relay's group service and answers it, without storing it.
+  //
+  // A call and not a side effect of publishing: possession of the key is membership, so a key
+  // this app minted on its own would put a stream in a group nobody else can reach and say so
+  // only afterwards.
+  // The shell shows what came back and writes it to the settings field like any other value,
+  // which keeps the one write that changes a machine's group in the same place as every other.
+  rpc CreateGroup(CreateGroupRequest) returns (CreateGroupResponse);
+
   // OpenLog opens one run log in the machine's default application, OpenLogsFolder the
   // directory holding them.
   // They are backend methods because the files are the backend's: it writes them, it rotates
@@ -578,6 +587,22 @@ message MeasureEncodeRateResponse {
 message ForgetPortalConsentRequest {}
 
 message ForgetPortalConsentResponse {}
+
+message CreateGroupRequest {
+  // The relay the group is drawn at, since a key belongs to the service that will trade it for
+  // a token. Taken from the draft rather than from the stored settings, so a key is drawn at
+  // the relay the user is looking at.
+  RelaySettings relay = 1;
+}
+
+message CreateGroupResponse {
+  // The secret, as it goes into the group key field and as it is handed to whoever should be
+  // able to watch.
+  string key = 1;
+  // The path prefix the key derives, which is what appears in every URL of the group.
+  // Not a secret, and shown so a member can tell one group's streams from another's.
+  string id = 2;
+}
 
 message OpenLogRequest {
   // A log path the backend handed out, on an ExitInfo.

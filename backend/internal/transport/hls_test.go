@@ -10,7 +10,7 @@ import (
 func hlsTestStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:    "relay.example",
+			Host:    "10.0.0.5",
 			HlsPort: 8888,
 		},
 		Publish: settings.Publish{
@@ -30,7 +30,7 @@ func TestHLSRegistered(t *testing.T) {
 }
 
 func TestHLSWatchURL(t *testing.T) {
-	want := "http://relay.example:8888/bob/index.m3u8"
+	want := "http://10.0.0.5:8888/bob/index.m3u8"
 	got := HLS{}.WatchURL(hlsTestStream(), "bob")
 	if got != want {
 		t.Errorf("WatchURL = %q, want %q", got, want)
@@ -40,7 +40,7 @@ func TestHLSWatchURL(t *testing.T) {
 // The page fetches the playlist itself, so its address carries no playlist name.
 // A player URL handed to a browser downloads a file instead of playing it.
 func TestHLSBrowserURL(t *testing.T) {
-	want := "http://relay.example:8888/bob/"
+	want := "http://10.0.0.5:8888/bob/"
 	got := HLS{}.BrowserURL(hlsTestStream(), "bob")
 	if got != want {
 		t.Errorf("BrowserURL = %q, want %q", got, want)

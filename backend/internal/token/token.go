@@ -90,8 +90,12 @@ type Permission struct {
 	Path   string `json:"path"`
 }
 
-// GroupPermissions is what a member of one group may do: publish and read every stream under that
-// group's prefix, and nothing outside it.
+// GroupPermissions is what a holder of one prefix may do: publish and read every stream under it,
+// and nothing outside it.
+//
+// One builder for a group's prefix and for the public one, because the grant is the same shape and
+// only the audience differs: what a public token drops is the secret that was needed to ask for it,
+// never a permission this states.
 //
 // The expression is anchored at the start of the prefix, an unanchored one granting every group
 // whose id merely contains this one's.

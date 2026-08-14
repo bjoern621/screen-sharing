@@ -11,7 +11,7 @@ import (
 func srtStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:    "relay.example",
+			Host:    "10.0.0.5",
 			SrtPort: 8890,
 		},
 		Publish: settings.Publish{

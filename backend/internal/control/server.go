@@ -173,6 +173,9 @@ type Backend interface {
 	OpenInBrowser(key wire.WatchKey) error
 	// ForgetPortalConsent drops the stored screen-capture consent.
 	ForgetPortalConsent() error
+	// CreateGroup draws a group key at the relay's group service and answers it beside the prefix it
+	// derives, storing neither: what a machine's group is remains a settings write like any other.
+	CreateGroup(relay settings.Relay) (key, id string, err error)
 	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
 	// holding them.
 	OpenLog(path string) error

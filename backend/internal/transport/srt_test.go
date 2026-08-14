@@ -11,7 +11,7 @@ import (
 func testStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:    "relay.example",
+			Host:    "10.0.0.5",
 			SrtPort: 8890,
 		},
 		Publish: settings.Publish{
@@ -47,7 +47,7 @@ func TestSRTPublishArgs(t *testing.T) {
 
 	url := args[2]
 	for _, want := range []string{
-		"srt://relay.example:8890",
+		"srt://10.0.0.5:8890",
 		"streamid=publish:alice",
 		"pkt_size=1316",
 		"latency=300000", // ffmpeg's srt protocol counts microseconds
@@ -63,7 +63,7 @@ func TestSRTGstSource(t *testing.T) {
 
 	for _, want := range []string{
 		"srtsrc",
-		"uri=srt://relay.example:8890",
+		"uri=srt://10.0.0.5:8890",
 		"mode=caller",
 		"streamid=read:bob",
 		"latency=1200", // srtsrc counts milliseconds, unlike the ffmpeg URL
@@ -78,7 +78,7 @@ func TestSRTWatchURL(t *testing.T) {
 	url := SRT{}.WatchURL(testStream(), "bob")
 
 	for _, want := range []string{
-		"srt://relay.example:8890",
+		"srt://10.0.0.5:8890",
 		"streamid=read:bob",
 		"latency=1200000", // the watch knob in microseconds too
 	} {

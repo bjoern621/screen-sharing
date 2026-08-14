@@ -89,10 +89,13 @@ func (f *fakeBackend) StopMonitorPreview(int) {}
 
 func (f *fakeBackend) MonitorPreviewState() []wire.PreviewedMonitor { return nil }
 
-func (f *fakeBackend) StartTestStreams(int) error        { return f.err }
-func (f *fakeBackend) StopTestStreams()                  {}
-func (f *fakeBackend) ForgetPortalConsent() error        { return f.err }
-func (f *fakeBackend) OpenLog(string) error              { return f.err }
+func (f *fakeBackend) StartTestStreams(int) error { return f.err }
+func (f *fakeBackend) StopTestStreams()           {}
+func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
+func (f *fakeBackend) OpenLog(string) error       { return f.err }
+func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
+	return "", "", f.err
+}
 func (f *fakeBackend) OpenLogsFolder() error             { return f.err }
 func (f *fakeBackend) OpenInBrowser(wire.WatchKey) error { return f.err }
 

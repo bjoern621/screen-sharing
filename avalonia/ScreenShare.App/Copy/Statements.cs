@@ -429,6 +429,26 @@ public static class Statements
             TextCode.PublishRefused =>
                 "These settings cannot be published as they stand.",
 
+            // The audience and the wire.
+
+            TextCode.StreamIsPublic =>
+                "No group key is set, so this stream goes out where anyone who knows the relay address can watch it. "
+                + "It is still encrypted on the way there. Create a group and hand the key to the people who should "
+                + "see it, or leave this as it is if the stream is meant to be open.",
+
+            TextCode.EncryptionFollowsTheAddress =>
+                "Whether the connection is encrypted follows the relay address above and is not a setting, so this "
+                + "box is a reading rather than a switch. A relay on this machine or your own network is reached "
+                + "directly; anything else is encrypted, with no way to turn that off.",
+
+            TextCode.EncryptedRtspInterleavesRtp =>
+                "An encrypted RTSP session carries the video inside its TLS connection. Sending it over UDP would put "
+                + "the picture on the wire beside that connection unencrypted, so TCP is the only choice here.",
+
+            TextCode.SrtPassphraseIsTheEncryption =>
+                "SRT has no TLS of its own, so this passphrase is what encrypts it. Without one the stream crosses the "
+                + "internet readable by anyone on the way. It is the same value the relay is configured with.",
+
             TextCode.NoUplinkStated =>
                 "No upload speed is set, so nothing checks the stream against your connection. Measure it or type it "
                 + "in, and a configuration this line cannot carry will say so here instead of at your viewers.",

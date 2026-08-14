@@ -47,11 +47,13 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 	}
 }
 
-// A machine in no group publishes under the bare name, which is what a relay with no auth
-// configured serves.
-// A prefix appears because a key was joined with, never because the app invented one.
+// A machine in no group publishes under the bare name on a relay that runs no group service, which
+// is what a relay with no auth configured serves.
+// A prefix appears because a key was joined with or because the relay has a public one, never
+// because the app invented one.
 func TestAMachineInNoGroupPublishesUnderTheName(t *testing.T) {
 	s := settings.Defaults()
+	s.Relay.Host = "10.0.0.5"
 	s.Publish.Name = "standup"
 	s.Relay.GroupKey = ""
 
@@ -69,6 +71,33 @@ func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 
 	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
 		t.Errorf("an unreadable key publishes to %q, want the bare name", got)
+	}
+}
+
+// A relay with a group service and no key publishes where anybody may watch, which is a stream the
+// user chose to leave open rather than one that failed to find its group.
+func TestNoGroupOnAGroupRelayPublishesPublicly(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+	s.Publish.Name = "standup"
+	s.Relay.GroupKey = ""
+
+	if got := s.Relay.Path(s.Publish.Name); got != group.PublicPrefix+"standup" {
+		t.Errorf("a keyless publish goes to %q, want the public prefix", got)
+	}
+}
+
+// The audience is never widened on the strength of a key that came back damaged.
+// Somebody who set a key meant to restrict who watches, so a broken one publishes where the relay
+// refuses it rather than where everybody can see it.
+func TestABrokenKeyNeverFallsToThePublicPrefix(t *testing.T) {
+	s := settings.Defaults()
+	s.Relay.Host = "relay.example"
+	s.Publish.Name = "standup"
+	s.Relay.GroupKey = "not a key"
+
+	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
+		t.Errorf("a broken key publishes to %q, want the bare name and never the public prefix", got)
 	}
 }
 

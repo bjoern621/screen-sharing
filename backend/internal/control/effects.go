@@ -473,6 +473,21 @@ func (s *Server) ForgetPortalConsent(ctx context.Context, req *screensharev1.For
 	return &screensharev1.ForgetPortalConsentResponse{}, nil
 }
 
+// CreateGroup draws a group key at the relay named in the request and answers it.
+//
+// Nothing is stored: the key goes back to the shell, which writes it to the group key field like a
+// value the user typed, so the one write that moves a machine between groups stays where every
+// other settings write is.
+// A relay with no group service and an unreachable one are both the caller's to fix, so each leaves
+// as the backend's own sentence rather than as a key drawn nowhere.
+func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroupRequest) (*screensharev1.CreateGroupResponse, error) {
+	key, id, err := s.backend.CreateGroup(wire.ToRelay(req.GetRelay()))
+	if err != nil {
+		return nil, fromBackend("cannot draw a group key", err)
+	}
+	return &screensharev1.CreateGroupResponse{Key: key, Id: id}, nil
+}
+
 // OpenLog opens one run log in the machine's default application.
 //
 // The path comes off an ExitInfo the backend handed out and a shell constructs none, so an empty

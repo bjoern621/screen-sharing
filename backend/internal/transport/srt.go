@@ -3,6 +3,7 @@ package transport
 import (
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -123,15 +124,25 @@ var srtWatchKnobs = []watchKnob{
 
 func (SRT) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(srtWatchKnobs, s) }
 
-// ValidatePublishSettings refuses a stream id that would not survive the wire.
+// ValidatePublishSettings refuses a stream id that would not survive the wire, and a stream that
+// would leave this machine unencrypted.
+//
 // The id carries the path and the token, and SRT truncates at srtStreamIDBytes rather than
 // refusing, so a cut token reaches the relay as a signature error naming nothing a user can act on.
 // A settings problem with a settings fix, caught here and named as one.
+//
+// The passphrase is what encrypts SRT, there being no TLS on it: it is UDP, and the reverse proxy
+// that wraps every HTTP leg of an encrypted relay never sees this one.
+// So a relay reached over TLS and an empty passphrase is a stream that crosses the internet in the
+// clear, which is refused here rather than sent.
 func (SRT) ValidatePublishSettings(s settings.Settings) error {
 	id := srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name))
 	if !srtStreamIDFits(id) {
 		return fmt.Errorf("the SRT stream id is %d bytes and the protocol carries %d: shorten the stream name by %d characters",
 			len(id), srtStreamIDBytes, len(id)-srtStreamIDBytes)
+	}
+	if s.Relay.Tls() && s.Relay.SrtPassphrase == "" {
+		return errors.New("SRT is UDP and carries no TLS, so the relay's SRT passphrase is what encrypts it, and this relay has none set")
 	}
 	return nil
 }

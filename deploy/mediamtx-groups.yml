@@ -7,10 +7,14 @@
 # into the second in place would make every existing setup refuse every existing publisher on
 # the next pull.
 #
-# What enforces a group is here and not in the app. The app puts its streams under the prefix
-# its key derives (backend/internal/group) and the relay refuses anything else, which is what makes
-# "publishing always requires a group" a fact rather than a convention: a client that skipped
-# the prefix is refused by the machine serving the stream.
+# What enforces a prefix is here and not in the app. The app puts its streams under the prefix
+# its key derives, or under the public one where it holds no key (backend/internal/group), and
+# the relay refuses anything else: a client that skipped the prefix is refused by the machine
+# serving the stream rather than by a convention it could ignore.
+#
+# Publishing without a group is still publishing with a token. A caller holding no key trades
+# for one granting the public prefix, so every connection here is authenticated and encrypted
+# whoever opened it, and what "public" drops is who may watch and nothing else.
 
 logLevel: info
 
@@ -60,18 +64,30 @@ pathDefaults:
 
 # --- The listeners the proxy fronts ----------------------------------------------
 #
-# Every one of them binds loopback. TLS, the certificate and its renewal live in the reverse
-# proxy in front of them (deploy/Caddyfile), which is where ACME is because MediaMTX has none
-# of its own, and a second terminator behind it would be a second certificate to renew.
+# HLS and WebRTC bind loopback. TLS, the certificate and its renewal live in the reverse proxy
+# in front of them (deploy/Caddyfile), which is where ACME is.
 #
-# The encryption asymmetry is the relay's own and is not hidden: RTSP and RTMP have TLS
-# listeners of their own on separate ports, where HLS and WebRTC flip the same one. A
-# configuration that pretended otherwise would ask an operator for a port nothing binds.
+# RTSP and RTMP are not HTTP, so no proxy can carry them and each terminates TLS itself, on a
+# listener of its own. The certificate is the proxy's, handed over by the deployment: the paths
+# below are placeholders and every real deployment overrides them from the environment, the way
+# the SRT passphrase above is set (modules/mediamtx-relay.nix in the nixos-config repository).
+#
+# `strict` on both, so the cleartext listener is not merely unexposed but absent: a relay that
+# still bound 8554 would carry a stream in the clear for anyone who reached it, and a firewall
+# is the wrong place for that decision to live.
+# The cleartext ports are what a LAN relay uses, and that is the mediamtx.yml at this
+# repository's root rather than a weaker setting on this file.
 rtsp: yes
-rtspAddress: 127.0.0.1:8554
+rtspEncryption: strict
+rtspsAddress: :8322
+rtspServerCert: /var/lib/screenshare-tls/cert.pem
+rtspServerKey: /var/lib/screenshare-tls/key.pem
 
 rtmp: yes
-rtmpAddress: 127.0.0.1:1935
+rtmpEncryption: strict
+rtmpsAddress: :1936
+rtmpServerCert: /var/lib/screenshare-tls/cert.pem
+rtmpServerKey: /var/lib/screenshare-tls/key.pem
 
 hls: yes
 hlsAddress: 127.0.0.1:8888

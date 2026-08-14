@@ -11,7 +11,7 @@ import (
 func rtmpTestStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
-			Host:     "relay.example",
+			Host:     "10.0.0.5",
 			RtmpPort: 1935,
 		},
 		Publish: settings.Publish{
@@ -33,7 +33,7 @@ func TestRTMPRegistered(t *testing.T) {
 func TestRTMPPublishArgs(t *testing.T) {
 	args := RTMP{}.PublishArgs(rtmpTestStream())
 
-	want := []string{"-f", "flv", "rtmp://relay.example:1935/alice"}
+	want := []string{"-f", "flv", "rtmp://10.0.0.5:1935/alice"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -43,7 +43,7 @@ func TestRTMPPublishArgs(t *testing.T) {
 // someone else's stream, over a transport it picks per window.
 func TestRTMPWatchURL(t *testing.T) {
 	got := RTMP{}.WatchURL(rtmpTestStream(), "bob")
-	if got != "rtmp://relay.example:1935/bob" {
+	if got != "rtmp://10.0.0.5:1935/bob" {
 		t.Errorf("WatchURL = %q, want the URL of the watched stream", got)
 	}
 }
@@ -51,7 +51,7 @@ func TestRTMPWatchURL(t *testing.T) {
 func TestRTMPGstSource(t *testing.T) {
 	src := RTMP{}.GstSource(rtmpTestStream(), "bob")
 
-	want := []string{"rtmp2src", "location=rtmp://relay.example:1935/bob"}
+	want := []string{"rtmp2src", "location=rtmp://10.0.0.5:1935/bob"}
 	if !slices.Equal(src, want) {
 		t.Errorf("GstSource = %v, want %v", src, want)
 	}

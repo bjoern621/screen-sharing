@@ -61,6 +61,15 @@ var idEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
 // Adding a second use then changes nothing about what the first produces.
 const idLabel = "screenshare/group-id/v1"
 
+// PublicPrefix leads every stream nobody restricted the audience of.
+//
+// It has an id's shape and is not one: no key derives it, so a group's prefix can never collide
+// with it and holding a key cannot publish into it.
+// The relay still authenticates a publisher and a viewer here, and still carries them over an
+// encrypted transport.
+// What "public" drops is who may watch, and nothing else.
+const PublicPrefix = "public" + separator
+
 // separator divides a group's id from a stream's own name.
 //
 // A slash, because MediaMTX matches path permissions on prefixes and treats a slash as the segment
@@ -133,28 +142,56 @@ func (k Key) ID() string {
 	return id
 }
 
-// ErrNoGroup is what a path operation answers for a key nobody gave.
+// ErrNoGroup is what a Key operation answers for a key nobody gave.
 //
-// Publishing always takes a group.
-// A stream with no key is one nobody has said who may watch, and answering with its bare name
-// publishes it where every other group can see it.
-var ErrNoGroup = errors.New("a stream is published under a group, and no group key was given")
+// A group's path is derived from its key, so there is none to derive without one.
+// Where a stream lives when no key was given is PublicPath, which is a different question and has
+// no Key to ask it of.
+var ErrNoGroup = errors.New("a group's path is derived from its key, and no group key was given")
 
 // Path is where a stream of this group lives on the relay: id, slash, the stream's own name.
 func (k Key) Path(name string) (string, error) {
 	if len(k) == 0 {
 		return "", ErrNoGroup
 	}
-	if name == "" {
-		return "", errors.New("a stream has a name of its own inside its group")
-	}
-	if strings.Contains(name, separator) {
-		return "", fmt.Errorf("a stream name is one path segment, and %q is more than one", name)
+	if err := checkStreamName(name); err != nil {
+		return "", err
 	}
 
 	path := k.ID() + separator + name
 	assert.Assert(strings.HasPrefix(path, k.Prefix()), "a stream's path starts with its group's prefix", path)
 	return path, nil
+}
+
+// PublicPath is where a stream nobody restricted the audience of lives.
+//
+// The counterpart of Key.Path for a publisher holding no key, and a whole answer rather than a
+// fallback: a stream published here is one anybody may watch, which is a choice the publisher made
+// and not a group that went missing.
+func PublicPath(name string) (string, error) {
+	if err := checkStreamName(name); err != nil {
+		return "", err
+	}
+
+	path := PublicPrefix + name
+	assert.Assert(strings.HasPrefix(path, PublicPrefix), "a public stream's path starts with the public prefix", path)
+	return path, nil
+}
+
+// checkStreamName holds a name against what one path segment may be.
+//
+// The name comes from a settings file the user owns, so a bad one is an Umgebungsfehler and leaves
+// as an error.
+// A name carrying a separator would publish into a prefix nobody granted, which is why it is
+// refused rather than escaped.
+func checkStreamName(name string) error {
+	if name == "" {
+		return errors.New("a stream has a name of its own inside its group")
+	}
+	if strings.Contains(name, separator) {
+		return fmt.Errorf("a stream name is one path segment, and %q is more than one", name)
+	}
+	return nil
 }
 
 // Prefix leads every path of this group: what a relay permission is written against and what a

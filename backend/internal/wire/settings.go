@@ -42,7 +42,7 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		WebrtcPort:    int32(r.WebrtcPort),
 		RtmpPort:      int32(r.RtmpPort),
 		HlsPort:       int32(r.HlsPort),
-		Tls:           r.Tls,
+		Tls:           r.Tls(),
 		GroupKey:      r.GroupKey,
 		SrtPassphrase: r.SrtPassphrase,
 	}
@@ -118,6 +118,12 @@ func ToSettings(m *screensharev1.Settings) settings.Settings {
 	}
 }
 
+// ToRelay reads the relay group back off the contract.
+//
+// RelaySettings.tls is not read. Encryption is derived from the address on this side
+// (settings.Relay.Tls), so the field crosses outward as a reading and a value coming back in is a
+// shell's copy of an answer this side already has.
+// Taking it would let a stale draft turn encryption off.
 func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 	return settings.Relay{
 		Host:          m.GetHost(),
@@ -127,7 +133,6 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		WebrtcPort:    int(m.GetWebrtcPort()),
 		RtmpPort:      int(m.GetRtmpPort()),
 		HlsPort:       int(m.GetHlsPort()),
-		Tls:           m.GetTls(),
 		GroupKey:      m.GetGroupKey(),
 		SrtPassphrase: m.GetSrtPassphrase(),
 	}

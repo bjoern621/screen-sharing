@@ -90,11 +90,11 @@ func (serializationNoCarriage) Formats() Formats {
 }
 
 func (serializationNoCarriage) PublishArgs(settings.Settings) []string {
-	return []string{"-f", "mpegts", "srt://relay.example:8890"}
+	return []string{"-f", "mpegts", "srt://10.0.0.5:8890"}
 }
 
 func (serializationNoCarriage) GstSource(settings.Settings, string) []string {
-	return []string{"srtsrc", "uri=srt://relay.example:8890"}
+	return []string{"srtsrc", "uri=srt://10.0.0.5:8890"}
 }
 
 // Register holds the two halves to each other, so a transport stating one without the other stays

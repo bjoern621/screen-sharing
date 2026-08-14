@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/pointer"
+	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -95,15 +96,56 @@ const (
 // ffmpeg has no PipeWire input device, so the portal is GStreamer's alone; GStreamer has no capture
 // element for DRM/KMS scanout buffers, so kmsgrab is ffmpeg's.
 var captureBackends = map[string]Publisher{
-	"ddagrab":               ffmpegEngine{},
-	"gdigrab":               ffmpegEngine{},
-	"x11grab":               ffmpegEngine{},
-	"kmsgrab":               ffmpegEngine{},
-	"avfoundation":          ffmpegEngine{},
-	"portal":                gstEngine{capture: portalCapture{}},
+	"ddagrab":      ffmpegEngine{},
+	"gdigrab":      ffmpegEngine{},
+	"x11grab":      ffmpegEngine{},
+	"kmsgrab":      ffmpegEngine{},
+	"avfoundation": ffmpegEngine{},
+	// The one row whose backend acquires something, and the hold is where what it acquired lives
+	// between the launches of one stream (ReleaseSources).
+	"portal":                gstEngine{capture: portalCapture{hold: &portal.Hold{}}},
 	"ximagesrc":             gstEngine{capture: ximageCapture{}},
 	"avfvideosrc":           gstEngine{capture: avfCapture{}},
 	"d3d11screencapturesrc": gstEngine{capture: d3d11Capture{}},
+}
+
+// sourceHolder is a backend keeping an acquired screen source between the launches of one stream.
+//
+// A capability discovered by assertion rather than a method on Publisher, the way a child taking
+// values while it plays is (live.go).
+// Acquiring anything at all is the portal's alone: every other backend opens its source from the
+// element or the input device and holds nothing between runs, and a Release on each of them would be
+// four methods that do nothing.
+type sourceHolder interface {
+	// Release drops the held source, and succeeds where nothing is held.
+	Release()
+}
+
+// ReleaseSources drops the screen source a backend holds between the launches of one stream.
+//
+// Called where no publish is in force, which is the whole of a hold's life: a relaunch and a retry
+// both pass through a point with the stream still in force and must find the source still held,
+// while a source kept past the last child leaves the compositor sharing a screen nobody receives.
+// Idempotent, and a backend that acquires nothing has nothing to drop.
+func ReleaseSources() {
+	ReleaseSourcesExcept("")
+}
+
+// ReleaseSourcesExcept drops what every backend but the named one holds.
+//
+// Called at a launch, which is where the stream can move to another capture backend: the one it
+// moved off would otherwise keep a source no child reads, and for the portal that is a screen the
+// compositor goes on sharing for the rest of the stream.
+// A backend named here that holds nothing, and a name no row carries, both release nothing.
+func ReleaseSourcesExcept(capture string) {
+	for name, p := range captureBackends {
+		if name == capture {
+			continue
+		}
+		if holder, ok := p.(sourceHolder); ok {
+			holder.Release()
+		}
+	}
 }
 
 func For(capture string) (Publisher, error) {

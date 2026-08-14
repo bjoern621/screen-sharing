@@ -131,6 +131,24 @@ func (a *App) livePublishLocked() (*settings.Settings, *publishRetry) {
 	return nil, nil
 }
 
+// publish.ReleaseSources, counted instead of performed by a test.
+var releaseSources = publish.ReleaseSources
+
+// releaseSourcesLocked drops the screen source a capture backend holds between launches, where no
+// publish is left in force to hold it for.
+// procMu is held by the caller.
+//
+// The guard is what lets every path that ends a child call it.
+// A relaunch and a retry both pass through such a path with the stream still in force, and a source
+// dropped there pops the compositor's picker on the launch that follows, which is the whole of what
+// holding it avoids (publish.ReleaseSources).
+func (a *App) releaseSourcesLocked() {
+	if live, _ := a.livePublishLocked(); live != nil {
+		return
+	}
+	releaseSources()
+}
+
 // Republish persists s and puts the running publish on it.
 // A change the running pipeline takes is written to the child and every viewer keeps watching; one
 // it does not take replaces the child.
@@ -252,6 +270,9 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 	if err != nil {
 		return err
 	}
+	// At most one backend holds a source, and it is the one the publish in force captures with: a
+	// stream that moved to another backend leaves the one it moved off holding a screen no child reads.
+	publish.ReleaseSourcesExcept(s.Publish.Capture)
 
 	// The preview comes up first, because the child is told the port it bound.
 	// The publish owns its whole lifecycle: no effect on the contract opens one, and every path that
@@ -288,6 +309,7 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 		// Nothing will send to the port just bound, and a preview left up is a pipeline waiting on a
 		// child that never started.
 		a.stopPreviewLocked()
+		a.releaseSourcesLocked()
 		return err
 	}
 	run.handle = handle
@@ -334,6 +356,8 @@ func (a *App) StopPublish() {
 	// Outside the branch, so a preview with no publish behind it goes whether or not anything was
 	// running to take it from.
 	a.stopPreviewLocked()
+	// The user asked for no stream, so the consent the compositor granted for one is given back.
+	a.releaseSourcesLocked()
 	a.procMu.Unlock()
 
 	a.emitPublishState()

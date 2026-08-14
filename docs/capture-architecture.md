@@ -117,7 +117,7 @@ The outgoing child is killed and not waited for: MediaMTX closes the publisher i
 A launch that fails after the teardown leaves nothing publishing: the pipeline that was carrying the stream is gone by then, and there is nothing to return to.
 The reason is the failed launch's own error, or the new child's exit where it started and then died.
 
-Each launch opens a portal session of its own, and the stored restore token is what keeps the compositor's picker from popping on a relaunch (see "The portal handshake").
+A relaunch reads the screen source the stream already holds, so nothing between the two puts the compositor's picker back on screen (see "The portal handshake").
 
 ## A pipeline that dies on its own
 
@@ -133,6 +133,7 @@ The bound is what keeps a settings combination this machine cannot run from bein
 
 **A publish between attempts is still a publish.**
 `App.retry` holds the pending relaunch, and `App.run` is nil for as long as it does; the two are never both set.
+The screen source is held across that wait for the same reason ("One consent per stream").
 `GetPublishState` answers `publishing` across that wait, with `retrying` and the attempt count separating a stream carrying frames from one waiting to come back.
 The form therefore keeps showing the settings the stream will return on rather than reverting, the button keeps offering the stop, and a start is refused the way it is against a running stream.
 `publish:exit` fires once the app stops retrying, so the reason reaches the user when publishing has actually ended rather than once per attempt.
@@ -315,22 +316,40 @@ A line's capacity is a property of the line and survives a restart; an encode ra
 - `publish.Handle`: `Running()` and `Stop()`, the lifecycle the app drives.
 - `publish.Callbacks`: `OnStats` (best-effort progress) and `OnExit` (terminal result with the stderr tail and log path).
 - `transport.Transport` (engine-neutral identity and carriage) plus the peer capability interfaces `FFmpegPublisher`, `GstPublisher`, `Watcher` and `GstWatcher`: each engine's serialization of one leg.
-- `portal.Open(Options) (*Session, error)`: the ScreenCast handshake; `Session` carries `NodeID`, the remote `Fd`, a `Restore` token, and `Close`.
+- `portal.Open(Options) (*Session, error)`: the ScreenCast handshake; `Session` carries `NodeID`, a `Restore` token, `Remote` for a descriptor to read frames on, and `Close`. `portal.Hold` keeps one session across the launches of one stream.
+- `publish.ReleaseSources()`: drops what a backend holds between those launches, called where no publish is in force.
 
 ## The portal handshake
 
 Every ScreenCast method is asynchronous: the call returns a Request object path and the result arrives on that object's `Response` signal.
 `portal.Open` makes each Request path predictable through a `handle_token`, installs the signal match before invoking the method, and blocks for the response.
-The sequence is `CreateSession`, `SelectSources`, `Start` (which pops the compositor picker unless a restore token is supplied), then `OpenPipeWireRemote` for the fd.
-The fd is inherited by the GStreamer child as descriptor 3, and `pipewiresrc fd=3 path=<node>` reads the stream from it.
+The sequence is `CreateSession`, `SelectSources` and `Start`, which pops the compositor picker unless a restore token is supplied.
+`Session.Remote` then calls `OpenPipeWireRemote` for a descriptor, the GStreamer child inherits it as descriptor 3, and `pipewiresrc fd=3 path=<node>` reads the stream from it.
 
 `SelectSources` names both monitor and window as source kinds, and which one is shared is the picker's answer rather than a setting here.
 The compositor owns that choice and is the only side that knows which windows exist, which is also why the monitor index is inapplicable on this backend.
 
+### One consent per stream
+
+A consent outlives the child that reads it.
+`portal.Hold` keeps the session, `portalCapture.Open` asks the hold for one instead of opening its own, and each launch takes a PipeWire remote of its own on whatever session comes back.
+A remote per child rather than one handed on: the descriptor carries the PipeWire protocol, and a child writing a hello into a conversation an exited one already had is not a client the daemon can serve.
+
+The alternative is a picker per launch.
+Answering it in advance is what a restore token is for, and only the compositor issues one: where `Start` answers an empty token, as xdg-desktop-portal-hyprland does, the next `SelectSources` prompts again whatever the app stored.
+A publish that a relay refuses walks `publishBackoff`, and without the hold each attempt would put the picker back on screen.
+
+The hold lasts exactly as long as a publish is in force.
+`App.releaseSourcesLocked` is the one place it ends, guarded by the same `livePublishLocked` that answers what is publishing: a retry and a settings relaunch keep the session, and a stop, a spent budget or a launch that never came up give it back.
+Held past the last child it would leave the compositor sharing a screen nobody receives, with whatever indicator it shows for that lit.
+
+Options naming a different source reopen instead of reusing, since the source kinds and the cursor mode are fixed at `SelectSources` and no method moves them.
+A cursor-mode edit therefore pops the picker where a bitrate edit does not.
+
 `Start` returns a restore token for the consent it granted, and `SelectSources` takes one back to skip the picker.
 The token is machine- and consent-local, so it is stored on its own (`settings.PortalToken`) rather than as a field of the stream: a preset carries what the user chose about a stream, and one copied to another machine would carry a token no compositor there issued.
 What the compositor returned is stored as it stands, an empty token included, since an empty one means the consent was not persisted and the token already on disk is spent.
-`App.ForgetPortalConsent` drops it, which is how a share aimed at the wrong window is corrected.
+`App.ForgetPortalConsent` drops it, which is how a share aimed at the wrong window is corrected, and it takes effect on the next stream: the running one captures on a session held until it ends.
 Storing it is best effort: a failure costs a picker on the next publish and nothing else, so it is reported and the running stream is not failed over it.
 
 ## Adding a capture backend
@@ -341,6 +360,7 @@ A backend that produces GPU frames adds a row per encoder family it can hand the
 A row without its engine half is asserted rather than approximated, since the alternative is picking a memory the elements do not negotiate, so a backend whose engine states no half for any family it could pair with carries no row and captures into system memory.
 An ffmpeg backend refuses settings naming something it cannot capture, a monitor this machine has no output for or a DRM download strategy no table row carries, rather than capturing whatever it can: a command that captures a different source than the form shows selected is the one failure no field can state.
 A GStreamer backend that takes a monitor index builds its head from `screensrc` rather than spelling the element itself, which is what keeps the wizard's picture of a screen and the stream of that screen the same rectangle.
+A backend that acquires something a child cannot reacquire cheaply implements `Release`, which is what `publish.ReleaseSources` finds and the app calls where no publish is in force; one that opens its source from the element alone implements nothing and holds nothing.
 An engine is one type satisfying `publish.Publisher`, and a new one is needed only for a framework neither covers.
 The backend's platform applicability (which OS and session it runs on) is its column in `publish.captureNeeds`, with the other capture-gating facts beside it in `form/availability.go`; its label and tooltip are the shell's, keyed by the identifier the row already carries (`ipc-api.md`).
 It also states what it does with the pointer, in `publish.cursorServes`, which the package asserts against the registry: a backend that forgot the row would offer every mode and pass a flag nothing reads.

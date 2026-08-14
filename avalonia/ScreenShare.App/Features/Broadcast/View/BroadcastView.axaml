@@ -36,6 +36,19 @@
       </Grid>
     </Border>
 
+    <!--
+      What the backend refused one of the four actions with, in its own words.
+      Under the row that asked rather than in a tip on the button: the refusal outlives the press,
+      and the four share one sentence because only the last press has anything to say.
+    -->
+    <Border DockPanel.Dock="Top"
+            Classes="panel"
+            Padding="12,10"
+            Margin="12,10,12,0"
+            IsVisible="{Binding HasRefusal}">
+      <SelectableTextBlock Classes="hint danger" Text="{Binding Refusal}" />
+    </Border>
+
     <!-- Fixed left column: it keeps the preview at 16:9 and the config values from reflowing on resize. -->
     <Grid ColumnDefinitions="396,*" Margin="{StaticResource InsetPanel}">
 

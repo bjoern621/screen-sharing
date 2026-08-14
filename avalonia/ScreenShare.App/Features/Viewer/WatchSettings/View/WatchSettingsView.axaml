@@ -51,11 +51,9 @@
                  Text="{Binding UnkeptNotice}" />
 
       <!-- The backend's own sentence about the last save, unrewritten. -->
-      <TextBlock Classes="hint"
-                 TextWrapping="Wrap"
-                 TextTrimming="None"
-                 IsVisible="{Binding HasNotice}"
-                 Text="{Binding Notice}" />
+      <SelectableTextBlock Classes="hint"
+                           IsVisible="{Binding HasNotice}"
+                           Text="{Binding Notice}" />
 
       <Button Theme="{StaticResource PrimaryButton}"
               Height="{StaticResource FooterButtonHeight}"
