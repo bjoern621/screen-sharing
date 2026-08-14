@@ -238,6 +238,50 @@ public sealed class CostRailTests
         Assert.Equal("nothing to fix", flow.Rail.ChecksSummary);
     }
 
+    /// <summary>
+    /// One column, drawn the same on every step.
+    /// Pins the arrangement this replaced: the checks and the presets were the terminal step's own column, so
+    /// the rail disappeared on the one step that read the settings back, and a preset could be reached only by
+    /// walking to the end of the flow.
+    /// </summary>
+    [Fact]
+    public async Task TheRailIsTheSameColumnOnEveryStep()
+    {
+        var flow = await FlowAsync(new SeededBackend("linux"));
+        await flow.Rail.Presets.Settled;
+
+        var checks = flow.Rail.Checks.ToList();
+        var presets = flow.Rail.Presets.Builtin.Select(row => row.Key).ToList();
+
+        Assert.NotEmpty(checks);
+        Assert.NotEmpty(presets);
+
+        foreach (var step in flow.Steps.ToList())
+        {
+            flow.CurrentStep = step.Key;
+
+            Assert.Equal(checks, flow.Rail.Checks);
+            Assert.Equal(presets, flow.Rail.Presets.Builtin.Select(row => row.Key));
+            Assert.True(flow.Rail.IsResolved);
+        }
+    }
+
+    /// <summary>
+    /// The refusal stands with the checks rather than under the form being edited: one place says what is
+    /// owed, and it is the same place on every step.
+    /// </summary>
+    [Fact]
+    public async Task TheRailCarriesWhyNoPipelineBuilds()
+    {
+        var backend = new SeededBackend("linux");
+        var form = await backend.ResolveFormAsync(await backend.SettingsAsync());
+        var flow = await FlowAsync(backend);
+
+        Assert.NotEqual("", form.Summary.CommandError);
+        Assert.True(flow.Rail.HasRefusal);
+        Assert.Equal(form.Summary.CommandError, flow.Rail.Refusal);
+    }
+
     /// <summary>A measured figure takes the path a typed one takes: one value, one re-resolve.</summary>
     [Fact]
     public async Task MeasuringTheUplinkWritesTheFigureIntoTheDraft()

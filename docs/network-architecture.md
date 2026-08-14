@@ -77,6 +77,7 @@ A publisher holding no key trades for a token on the public prefix instead of be
 That stream is authenticated at the relay and encrypted on the wire like any other, and what it lacks is a restriction on who may watch it, which is the one thing the app says out loud before the stream starts.
 
 Where the token rides is the protocol's answer rather than a choice: a query for RTSP and RTMP, the stream id for SRT, and an `Authorization` header for HLS and WebRTC.
+The GStreamer RTSP reader is the one exception, taking it as the session's password instead, because it addresses each track at the SDP's control attribute and loses a query on the way.
 `backend/internal/transport/credential.go` states each, and `docs/plan.md` covers the group model in full.
 
 A relay with no proxy in front of it has no group service, no token and no prefix.

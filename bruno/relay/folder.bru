@@ -28,11 +28,12 @@ docs {
   A relay that authenticates grants its API to nothing a group token carries, so reading it takes an operator's own credential and a way in:
 
   ```bash
-  ssh -f -N -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 <relay host>
+  task relay:tunnel
   sh scripts/relay-api-token.sh <relay host> 2h
   ```
 
   The tunnel is because the API binds loopback and the proxy does not front it.
+  The task opens it against the deployment `Production` points at, `RELAY_HOST=<relay host>` names another one, and a tunnel that is already open is left alone.
   The script prints a token granting the API for the window given and nothing else, signed on the relay host because that key signs every group's tokens too.
   The token is what `relayApiToken` takes, without the scheme word, the header above carrying that.
 

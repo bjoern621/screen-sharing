@@ -48,6 +48,25 @@ public sealed class ConfigCardViewModel : Observable
         }
     }
 
+    private bool _isLive;
+
+    /// <summary>
+    /// Whether a stream is in force.
+    /// The card is drawn on a destination that is reachable with nothing publishing, so which absence
+    /// <see cref="Notice"/> reports is not something an empty row set answers.
+    /// </summary>
+    public bool IsLive
+    {
+        get => _isLive;
+        set
+        {
+            if (Set(ref _isLive, value))
+            {
+                Apply();
+            }
+        }
+    }
+
     // --- Outputs ------------------------------------------------------------------
 
     private string _notice = "";
@@ -58,13 +77,13 @@ public sealed class ConfigCardViewModel : Observable
     public DelegateCommand EditInSetupCommand { get; }
 
     /// <summary>
-    /// What stands in for the rows, and there is one state it can stand in for.
+    /// What stands in for the rows, and there are two states it can stand in for.
     ///
-    /// Not "nothing is publishing": the broadcast destination exists only while a stream is live, and stopping
-    /// one navigates the window off it (<c>Features/Shell/ViewModel/ShellViewModel.cs</c>,
-    /// <c>SetBroadcastAvailable</c>).
-    /// An empty row set means the rows have not arrived: the screen resolves a form for the settings the
-    /// running pipeline was built from, and every broadcast's first passes happen before that answer lands.
+    /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form for
+    /// the settings the running pipeline was built from, and every broadcast's first passes happen before that
+    /// answer lands.
+    /// With nothing publishing there is no pipeline to describe at all, and a card saying it is reading one
+    /// would wait on an answer nothing has been asked for.
     /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
@@ -83,7 +102,9 @@ public sealed class ConfigCardViewModel : Observable
         EditInSetupCommand.Refresh();
 
         HasRows = Rows.Count > 0;
-        Notice = HasRows ? "" : Copy.Cards.ConfigUndescribed;
+        Notice = HasRows ? ""
+            : IsLive ? Copy.Cards.ConfigUndescribed
+            : Copy.Cards.ConfigIdle;
 
         Assert.That(Rows.Count == Reported.Count, "a row per reported setting", Rows.Count, Reported.Count);
         Assert.That(HasRows == (Notice.Length == 0), "rows and the sentence standing in for them are never both on screen", HasRows);

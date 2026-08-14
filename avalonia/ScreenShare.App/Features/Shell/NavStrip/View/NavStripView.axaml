@@ -22,13 +22,6 @@
                  ItemsSource="{Binding Tabs}"
                  SelectedItem="{Binding SelectedTab, Mode=TwoWay}">
 
-          <ListBox.Styles>
-            <!-- On the container, not inside the item: the theme's :disabled selector watches the container. -->
-            <Style Selector="ListBoxItem" x:DataType="shell:DestinationTab">
-              <Setter Property="IsEnabled" Value="{Binding IsAvailable}" />
-            </Style>
-          </ListBox.Styles>
-
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="shell:DestinationTab">
               <!--
@@ -42,18 +35,6 @@
           </ListBox.ItemTemplate>
         </ListBox>
       </StackPanel>
-
-      <!--
-        In the star column and wrapping: sized to its own text, the hint pushes the sharing pill off a narrow
-        window.
-      -->
-      <TextBlock Grid.Column="1"
-                 Classes="hint"
-                 Text="{Binding Hint}"
-                 IsVisible="{Binding ShowsHint}"
-                 TextWrapping="Wrap"
-                 Margin="10,0"
-                 VerticalAlignment="Center" />
 
       <StackPanel Grid.Column="2"
                   Orientation="Horizontal"

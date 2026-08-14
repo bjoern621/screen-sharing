@@ -8,7 +8,8 @@ import (
 
 // Where a relay token rides is per protocol, and every difference is MediaMTX's answer, measured:
 //
-//   - RTSP, RTMP: query, "?jwt=<token>". Both engines pass a URL query through untouched.
+//   - RTSP: query, "?jwt=<token>", except for rtspsrc, which takes the pair rtspCredential builds.
+//   - RTMP: query, "?jwt=<token>". Both engines pass a URL query through untouched.
 //   - SRT: stream id, "publish:<path>:<user>:<token>". No query, no header.
 //   - HLS, WebRTC: "Authorization: Bearer <token>". Their query form is a browser's, answered with
 //     a cookie and a redirect, and a client that kept no cookie is refused.
@@ -47,6 +48,29 @@ func credentialQuery(s settings.Settings, separator string) string {
 	}
 	return separator + "jwt=" + url.QueryEscape(s.Relay.Token)
 }
+
+// rtspCredential is the token as an RTSP session's user and password, ok=false without one.
+//
+// rtspsrc alone: it sets up a track at the SDP's control attribute joined onto the session URL, and
+// that join keeps neither the query nor the last path segment, so ".../public/desk?jwt=<token>" is
+// set up as ".../public/trackID=0" and the relay answers 401 Unauthorized on a path nothing serves.
+// A credential the element holds as properties is sent with every request instead, SETUP included.
+// ffmpeg's reader and rtspclientsink join the same pair losing neither half, which is why the query
+// form stays on the legs they drive.
+//
+// MediaMTX reads the token out of the password and never the user beside it, the way it reads the
+// SRT stream id.
+func rtspCredential(s settings.Settings) (user, password string, ok bool) {
+	token, ok := credentialToken(s)
+	if !ok {
+		return "", "", false
+	}
+	return rtspAuthUser, token, true
+}
+
+// rtspAuthUser fills the user half of that pair.
+// Empty is not a value it takes: rtspsrc sends no credential at all unless both halves are set.
+const rtspAuthUser = "jwt"
 
 // srtStreamID is the whole stream id: "publish:<path>" without a token,
 // "publish:<path>:jwt:<token>" with one.

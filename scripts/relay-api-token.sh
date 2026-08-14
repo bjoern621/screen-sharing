@@ -16,7 +16,7 @@
 # The API also binds loopback and is not behind the reverse proxy, so a caller wanting to
 # read it wants a tunnel beside this token:
 #
-#   ssh -f -N -L 9997:127.0.0.1:9997 <relay host>
+#   task relay:tunnel
 #
 # The binary is read off the running unit because a NixOS deployment installs the service
 # without putting it on any shell's path (modules/screenshare-groupd.nix in nixos-config).

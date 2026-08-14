@@ -124,11 +124,16 @@ public static class Cards
         + "which is what setup's commit does.";
 
     /// <summary>
-    /// A resolve that has not answered, which is what an empty configuration card is showing.
-    /// "Nothing is publishing" is the one state it cannot be in, the destination it sits on being unreachable
-    /// unless a stream is live.
+    /// A resolve that has not answered, which is what an empty configuration card shows while a stream runs.
     /// </summary>
     public const string ConfigUndescribed = "Reading what the running stream was built from.";
+
+    /// <summary>
+    /// The other empty configuration card: nothing to describe rather than nothing back yet.
+    /// It names setup, this card describing a pipeline that was built and setup holding what the next one
+    /// would be built from.
+    /// </summary>
+    public const string ConfigIdle = "Nothing is publishing. Setup holds what a stream would be built from.";
 
     /// <summary>
     /// What a preset covers, said where the reader is about to make one.
@@ -142,9 +147,11 @@ public static class Cards
 
     /// <summary>
     /// What the viewer table says in place of rows.
-    /// Two absences and two sentences, because they leave a publisher with different things to do next: wait
-    /// for the relay to be asked, or send somebody the link.
+    /// Three absences and three sentences, because they leave a publisher with different things to do next:
+    /// start a stream, wait for the relay to be asked, or send somebody the link.
     /// </summary>
+    public const string ViewersIdle = "Nothing is publishing, so nobody can be watching this machine.";
+
     public const string ViewersUnasked = "The relay has not been asked yet, so there is nobody to list.";
 
     public const string ViewersNone = "Nobody is connected to this stream yet.";

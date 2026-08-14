@@ -48,7 +48,7 @@
                    Text="{Binding ReadOnly}" />
       </Border>
 
-      <!-- Stands in until the rows arrive. -->
+      <!-- Stands in for the rows: waiting on them, or nothing publishing to describe. -->
       <TextBlock DockPanel.Dock="Top"
                  Classes="hint"
                  Text="{Binding Notice}"

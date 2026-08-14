@@ -74,6 +74,7 @@ public sealed class ViewerRosterTests
         {
             Reported = path is null ? [] : path.ReaderRoster.Select(ViewerRow.Of).ToList(),
             Readers = path?.Readers,
+            IsLive = true,
         };
 
         return table;
@@ -208,6 +209,11 @@ public sealed class ViewerRosterTests
         var watched = Table(Serving());
         Assert.False(watched.HasRows);
         Assert.Contains("Nobody is connected", watched.Notice);
+
+        // The card is drawn with nothing publishing too, where an empty roster is neither of the above.
+        var idle = new ViewerTableViewModel();
+        Assert.False(idle.HasRows);
+        Assert.Contains("Nothing is publishing", idle.Notice);
     }
 
     /// <summary>

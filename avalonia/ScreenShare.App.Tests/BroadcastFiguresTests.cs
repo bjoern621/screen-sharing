@@ -29,6 +29,12 @@ public sealed class BroadcastFiguresTests
         TimeSec = timeSec,
     };
 
+    /// <summary>A sample from a run that has been timed and not yet measured a rate.</summary>
+    private static PublishStats Timed(double timeSec) => new()
+    {
+        TimeSec = timeSec,
+    };
+
     private static PublishState Live(int? ceilingMbps = null)
     {
         var settings = new PublishSettings { Name = "desk" };
@@ -62,7 +68,7 @@ public sealed class BroadcastFiguresTests
     {
         var strip = new NavStripViewModel(static _ => { });
 
-        strip.Show(Destination.Setup, broadcastAvailable: true, "00:00:07");
+        strip.Show(Destination.Setup, sharing: true, "00:00:07");
 
         Assert.True(strip.ShowsSharing);
         Assert.Equal("00:00:07", strip.SharingTimer);
@@ -73,11 +79,27 @@ public sealed class BroadcastFiguresTests
     {
         var strip = new NavStripViewModel(static _ => { });
 
-        strip.Show(Destination.Setup, broadcastAvailable: true, "00:00:07");
-        strip.Show(Destination.Setup, broadcastAvailable: false, Figure.NoValue);
+        strip.Show(Destination.Setup, sharing: true, "00:00:07");
+        strip.Show(Destination.Setup, sharing: false, Figure.NoValue);
 
         Assert.False(strip.ShowsSharing);
         Assert.Equal("", strip.SharingTimer);
+    }
+
+    /// <summary>
+    /// The screen reports the stream that has ended as well as the running one, so the segment that opens it
+    /// is not a control the running state takes away.
+    /// </summary>
+    [Fact]
+    public void TheStripReachesBroadcastWithNothingPublishing()
+    {
+        var asked = new List<Destination>();
+        var strip = new NavStripViewModel(asked.Add);
+
+        strip.Show(Destination.Setup, sharing: false, Figure.NoValue);
+        strip.SelectedTab = strip.Tabs.Single(tab => tab.Value == Destination.Broadcast);
+
+        Assert.Equal(Destination.Broadcast, Assert.Single(asked));
     }
 
     [Fact]
@@ -188,6 +210,26 @@ public sealed class BroadcastFiguresTests
         Assert.Equal(PlotSeries.Extent.Width, plots.Egress[^1].X, 6);
     }
 
+    /// <summary>
+    /// A rate is measured over the last interval, so the first sample of a run carries a time and no rate.
+    /// The axis is then on the new run's clock while every rate in the buffer is on the old one's, and the
+    /// card waits for the new run to have a shape rather than placing the old one against a clock that never
+    /// counted it.
+    /// </summary>
+    [Fact]
+    public void ARunThatHasBeenTimedAndNotYetMeasuredDrawsNothing()
+    {
+        var plots = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Timed(0), null),
+            Samples = [Sample(3, 100), Sample(5, 101), Timed(0)],
+        };
+
+        Assert.Empty(plots.Egress);
+        Assert.False(plots.HasEgress);
+        Assert.True(double.IsNaN(plots.CeilingFraction));
+    }
+
     [Fact]
     public void APlotWithNoCurveStatesNoWindow()
     {
@@ -274,18 +316,21 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The broadcast destination is out of reach unless a stream is live, and stopping one takes the window
-    /// off that destination.
-    /// An empty card here is therefore a form resolve that has not answered, the ordinary first second of
-    /// every broadcast, and never nothing publishing.
+    /// The card is empty for two different reasons, and the destination is reachable in both.
+    /// A resolve that has not answered is the ordinary first second of every broadcast, and a card saying it
+    /// is reading a pipeline with nothing publishing would wait on an answer nothing asked for.
     /// </summary>
     [Fact]
-    public void AnUndescribedConfigurationSaysItIsBeingReadRatherThanThatNothingIsPublishing()
+    public void AnUndescribedConfigurationSaysWhichAbsenceItIs()
     {
-        var card = new ConfigCardViewModel();
+        var live = new ConfigCardViewModel { IsLive = true };
 
-        Assert.False(card.HasRows);
-        Assert.DoesNotContain("Nothing is publishing", card.Notice);
-        Assert.Contains("Reading what the running stream", card.Notice);
+        Assert.False(live.HasRows);
+        Assert.Contains("Reading what the running stream", live.Notice);
+
+        var idle = new ConfigCardViewModel();
+
+        Assert.False(idle.HasRows);
+        Assert.Contains("Nothing is publishing", idle.Notice);
     }
 }

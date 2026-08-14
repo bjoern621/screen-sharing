@@ -140,26 +140,6 @@ public partial class TileCard : UserControl
     private void OnVolumePressed(object? sender, PointerPressedEventArgs e) => e.Handled = true;
 
     /// <summary>
-    /// Gives a screen to this stream, or takes it back.
-    ///
-    /// The state the menu's fullscreen row names, on the gesture every video player answers: somebody who
-    /// double-clicked a picture is asking about the picture, and a right-click menu is a poor only home for
-    /// that.
-    /// Which window is meant is the command's answer, as it is for the menu
-    /// (<c>Features/Viewer/Model/TileIntent.cs</c>).
-    /// </summary>
-    private void OnDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (DataContext is not TileViewModel tile)
-        {
-            return;
-        }
-
-        tile.ToggleFullscreen.Execute(null);
-        e.Handled = true;
-    }
-
-    /// <summary>
     /// Applies what a key names to the tile under the pointer.
     ///
     /// The states the menu's rows name, on the keys those rows print beside them, so reading the menu once is

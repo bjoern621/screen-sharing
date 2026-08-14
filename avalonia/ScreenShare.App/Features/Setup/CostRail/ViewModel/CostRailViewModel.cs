@@ -4,13 +4,18 @@ using ScreenShare.Api.V1;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Setup.CostRail.ViewModel;
 
 /// <summary>
-/// What the draft costs, and what stands between it and going live.
+/// What the draft costs, what stands between it and going live, and the saved ways of publishing.
 /// Beside the form rather than after it, so a choice is priced while it is being made.
+///
+/// <b>The same column on every step.</b> A rail that changed panels per step would make the reader find the
+/// checks again on each one, and a preset is the whole way of publishing rather than a property of the step
+/// standing on it.
 ///
 /// <b>Every figure is the backend's.</b> The rate, the raw rate and the headroom come off
 /// <c>Summary.estimate</c>, and the limit the bar is measured against is the same form's
@@ -40,14 +45,26 @@ public sealed class CostRailViewModel : Observable
     private string _uplinkLabel = "";
     private string _uplinkFigure = "";
     private string _uplinkHint = "";
+    private string _refusal = "";
+    private bool _hasRefusal;
 
-    public CostRailViewModel()
+    /// <param name="presets">
+    /// The saved ways of publishing, drawn in this column.
+    /// Composed rather than owned: it reads the store and writes the draft through seams of its own, and the
+    /// rail decides only where it sits and renders it on every pass.
+    /// </param>
+    public CostRailViewModel(PresetsViewModel presets)
     {
+        Assert.NotNull(presets, "the rail draws the saved ways of publishing beside the one being edited");
+
+        Presets = presets;
         Metrics = [];
         Checks = [];
 
-        Apply(null, null, null, []);
+        Apply(null, null, null, [], "");
     }
+
+    public PresetsViewModel Presets { get; }
 
     /// <summary>The estimate's figures under the headline, rebuilt from it on every pass.</summary>
     public ObservableCollection<CostMetricRow> Metrics { get; }
@@ -100,6 +117,16 @@ public sealed class CostRailViewModel : Observable
     public bool IsResolved { get => _isResolved; private set => Set(ref _isResolved, value); }
 
     /// <summary>
+    /// Why no pipeline can be built from the draft, in the backend's own words, empty while one can.
+    /// It sits under the checks rather than at the foot of the form column: the list already carries the line
+    /// saying these settings do not publish, and this is that line's reason
+    /// (<c>backend/internal/form/diagnostics.go</c>).
+    /// </summary>
+    public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
+
+    public bool HasRefusal { get => _hasRefusal; private set => Set(ref _hasRefusal, value); }
+
+    /// <summary>
     /// The one line the terminal chip says about this list.
     /// Derived here rather than restated on the chip, so the strip and the rail cannot disagree about how much
     /// is owed.
@@ -115,13 +142,16 @@ public sealed class CostRailViewModel : Observable
     /// <param name="uplink">The uplink field, null where the form carries none.</param>
     /// <param name="editedOn">The step drawing that field, null where no step of this flow does.</param>
     /// <param name="checks">The form's diagnostics, already ranked.</param>
+    /// <param name="refusal">Why no pipeline builds from the draft, empty while one does.</param>
     public void Apply(
         Estimate? estimate,
         FieldViewModel? uplink,
         SetupStepRow? editedOn,
-        IReadOnlyList<PreflightCheckRow> checks)
+        IReadOnlyList<PreflightCheckRow> checks,
+        string refusal)
     {
         Assert.NotNull(checks, "the rail draws the list the form's diagnostics became");
+        Assert.NotNull(refusal, "the rail draws the refusal the summary carried, empty where there is none");
 
         IsResolved = estimate is not null;
 
@@ -156,11 +186,19 @@ public sealed class CostRailViewModel : Observable
         Reconcile.Onto(Checks, checks);
         ChecksSummary = PreflightChecks.SummaryOf(checks);
 
+        Refusal = refusal;
+        HasRefusal = Refusal.Length > 0;
+
+        // Rendered rather than fed: the card draws from the draft and the store, neither of which the rail
+        // holds, and both have moved by the time this pass runs.
+        Presets.Apply();
+
         Assert.That(FillShare is >= 0 and <= 1, "the bar's fill is a share of it", FillShare);
         Assert.That(UplinkShare is >= 0 and <= 1, "the uplink marker stands on the bar", UplinkShare);
         Assert.That(IsResolved || Metrics.Count == 0, "nothing is priced before a form arrives", Metrics.Count);
         Assert.That(ChecksSummary.Length > 0, "the terminal chip is told how much is owed", ChecksSummary);
         Assert.That(HasUplink || UplinkLabel.Length == 0, "an uplink reading names a field the form carries", UplinkLabel);
+        Assert.That(HasRefusal == (Refusal.Length > 0), "the refusal and its sentence agree", HasRefusal);
     }
 
     /// <summary>

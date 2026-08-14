@@ -6,21 +6,21 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 
 /// <summary>
-/// The strip: which destination is showing, which others can be reached, and whether this machine is sharing.
+/// The strip: which destination is showing, and whether this machine is sharing.
 ///
-/// It owns none of that.
-/// The shell owns all of it and pushes it through <see cref="Show"/>, and the fields behind it are what
+/// It owns neither.
+/// The shell owns both and pushes them through <see cref="Show"/>, and the fields behind them are what
 /// <see cref="Apply"/> refills on every pass rather than a second copy that can drift
 /// (docs/development-principles.md, "State is written explicitly and read continuously").
 /// The elapsed time is the encoder's, so no clock ticks here.
+///
+/// Every segment is reachable at all times, sharing or not: what a destination has to say about a stream
+/// that has ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
 ///
 /// The reader's click is the one thing the strip owns, so <see cref="SelectedTab"/> is its only public setter.
 /// </summary>
 public sealed class NavStripViewModel : Observable
 {
-    /// <summary>Design copy for an unreachable destination, verbatim.</summary>
-    private const string BroadcastHint = "Broadcast opens once you start sharing";
-
     private const string SharingText = "Sharing";
 
     private readonly Action<Destination> _select;
@@ -41,12 +41,12 @@ public sealed class NavStripViewModel : Observable
     // --- What the shell says -------------------------------------------------------
 
     private Destination _current = Destination.Setup;
-    private bool _broadcastAvailable;
+    private bool _sharing;
     private string _elapsed = "";
 
     /// <summary>
-    /// The strip's whole input, written in one go so its parts cannot disagree: a segment dimmed and selected
-    /// at once has no rendering, and neither has a pill saying sharing with nothing publishing.
+    /// The strip's whole input, written in one go so its parts cannot disagree: a pill saying sharing with
+    /// nothing publishing has no rendering.
     /// Idempotent.
     /// </summary>
     /// <param name="elapsed">
@@ -54,16 +54,12 @@ public sealed class NavStripViewModel : Observable
     /// Handed in rather than counted here: a clock in this strip could not agree with the encoder's, and the
     /// pill beside the header figures reads the same field.
     /// </param>
-    public void Show(Destination current, bool broadcastAvailable, string elapsed)
+    public void Show(Destination current, bool sharing, string elapsed)
     {
-        Assert.That(
-            current != Destination.Broadcast || broadcastAvailable,
-            "a strip shows broadcast only while broadcast can be reached",
-            (int)current);
         Assert.NotNull(elapsed, "a strip is told how long the stream it reports has been running");
 
         _current = current;
-        _broadcastAvailable = broadcastAvailable;
+        _sharing = sharing;
         _elapsed = elapsed;
         Apply();
     }
@@ -87,10 +83,9 @@ public sealed class NavStripViewModel : Observable
                 return;
             }
 
-            // A dimmed segment is still an item a list box lands on by keyboard.
-            // Refusing here lets the shell assert availability rather than defend against its own strip, and
-            // Apply below puts the selection back.
-            if (value is { IsAvailable: true })
+            // A list box clearing its selection is not a reader asking for anywhere, and Apply below puts the
+            // showing destination back.
+            if (value is not null)
             {
                 _select(value.Value);
             }
@@ -101,15 +96,9 @@ public sealed class NavStripViewModel : Observable
 
     // --- Outputs -------------------------------------------------------------------
 
-    private string _hint = "";
-    private bool _showsHint;
     private string _onAirLabel = "";
     private string _onAirTimer = "";
     private bool _showsSharing;
-
-    public string Hint { get => _hint; private set => Set(ref _hint, value); }
-
-    public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
 
     public string SharingLabel { get => _onAirLabel; private set => Set(ref _onAirLabel, value); }
 
@@ -124,29 +113,16 @@ public sealed class NavStripViewModel : Observable
     /// </summary>
     public void Apply()
     {
-        foreach (var tab in Tabs)
-        {
-            tab.SetAvailable(tab.Value != Destination.Broadcast || _broadcastAvailable);
-        }
-
         // Through the field, not the property: the setter would send the shell's own answer back to it as a
         // click.
-        var selected = TabFor(_current);
-        Set<DestinationTab?>(ref _selectedTab, selected, nameof(SelectedTab));
-
-        ShowsHint = _current == Destination.Setup;
-        Hint = ShowsHint ? BroadcastHint : "";
+        Set<DestinationTab?>(ref _selectedTab, TabFor(_current), nameof(SelectedTab));
 
         // The pill says whether this machine is sharing, never which destination is showing
         // (docs/design-language.md, "Status language").
-        // Broadcast is reachable exactly while something publishes, so that flag is the same fact and the
-        // strip keeps no second copy of it.
-        ShowsSharing = _broadcastAvailable;
+        ShowsSharing = _sharing;
         SharingLabel = ShowsSharing ? SharingText : "";
         SharingTimer = ShowsSharing ? _elapsed : "";
 
-        Assert.That(selected.IsAvailable, "the destination a strip stands in is one it can reach", (int)selected.Value);
-        Assert.That(ShowsHint == (Hint.Length > 0), "the setup hint and its text agree", ShowsHint, Hint);
         Assert.That(ShowsSharing == (SharingLabel.Length > 0), "the sharing pill and its text agree", ShowsSharing, SharingLabel);
     }
 

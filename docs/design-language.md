@@ -133,9 +133,10 @@ The nav strip is the first row of the window there, and it is the same strip.
 The strip carries no breadcrumb: the lit segment already says where you are, and a second
 label saying it again is noise in the one row that must stay scannable.
 The destinations never move, so the strip becomes muscle memory.
-An unavailable destination **dims rather than disappears**, and the whole treatment is a
-colour change: no opacity, no strike-through, no badge.
-An expert tool should teach its own shape, and a missing tab reads as a bug.
+Every one of them is **reachable at all times**, broadcast included: that screen reports the
+stream that has ended as well as the one running, and what a publisher goes looking for after a
+stream drops is exactly what a live-only tab would have taken away.
+An expert tool should teach its own shape, and a tab that comes and goes reads as a bug.
 
 ## Video surfaces
 
@@ -146,8 +147,8 @@ Tile chrome is a 9px radius, a name plate in the lower left, and figures in the 
 
 A stream filling a screen is the stream and nothing else: no app chrome, no rail, no radius.
 The aspect rule is the cell's, so the picture keeps its shape and the surround is black.
-A double click is the way in and out and Escape is always a way out, because a screen that
-draws no controls still has to be one a reader can leave.
+The way in is the tile's menu row and the key printed beside it, and Escape is always a way
+out, because a screen that draws no controls still has to be one a reader can leave.
 
 A grid of tiles is equal cells, and the arrangement is derived rather than configured: the
 one with the largest fitted picture wins, and a short last row centres itself.

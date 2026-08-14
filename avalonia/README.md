@@ -100,7 +100,7 @@ design system and the controls, and neither of those has ever heard of a feature
 | `Features/Shell/` | the window, the title bar, the shared nav strip, the status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client that answers it over the local socket, and the settings write that goes through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. It is not under a feature because two of them draw form groups |
-| `Features/Setup/` | the publish wizard, one step per group of the resolved form that is about sending, plus a terminal one: the step strip, the screen picker, the Quality form, the raw-property drawer, the cost rail, the review, and the saved presets beside it |
+| `Features/Setup/` | the publish wizard, one step per group of the resolved form that is about sending, plus a terminal one: the step strip, the screen picker, the Quality form, the raw-property drawer, the review, and the rail every step draws beside them, carrying the cost, the checks and the saved presets |
 | `Features/Broadcast/` | the live overview: the promoted figures, the live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and the rail beside it: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding the settings that govern how this machine receives |
 
@@ -304,7 +304,7 @@ side stated: `Form.publishable` for the settings, the backend's own sentence whe
 describe them at all, `RelayStatus.reachable` for somewhere to send to, and the presence of
 `PublishState.live` for a stream already on the air. None of them is ranked or re-decided here,
 and only one sentence is shown - a reader fixes them in that order anyway. A settings problem
-gets no sentence of its own at all, because the preflight card beside the button already carries
+gets no sentence of its own at all, because the checks card above the button already carries
 every one of them in the backend's words; paraphrasing a diagnostic would be this module writing
 a rule down twice.
 
@@ -341,10 +341,10 @@ said the backend polls all along. The lesson is not "poll harder" - a second pol
 would have hidden it - it is that the side the contract names as the owner has to actually do the
 owning, and the honest opening value is what makes the difference visible rather than plausible.
 
-Where the window goes afterwards is the window's. The flow raises `WentLive`, the shell records
-that it owes the reader the broadcast screen, and it moves on the pass where the stream is
-actually in force - a start that was accepted is not yet a stream, and navigating on the reply
-would be the window claiming a state the backend has not reported.
+Where the window goes afterwards is the window's. The flow raises `WentLive` and the shell moves
+to the broadcast screen at once. That screen is reachable whether or not anything is publishing,
+so the move claims no state the backend has not reported: it draws its idle reading and fills in
+as the live state lands on the event stream.
 Every start earns the move: a stream this window started is what the window then shows, so the
 destination a commit leads to is not a setting the review asks about.
 
@@ -445,7 +445,7 @@ route says it is what a viewer receives and that it is paying for it as a viewer
 who took a perfect local preview for a healthy stream would be reading it exactly wrong, which
 is why the sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
-**The review carries the preset card, and it draws two different things under one heading.**
+**The rail carries the preset card, and it draws two different things under one heading.**
 Above are the built-in presets, which are promises about the picture: what "gaming" is on this
 machine is a search the backend ran over its own capability tables, so a row can be unreachable
 and what applying it writes differs from machine to machine (`docs/presets.md`).
@@ -455,8 +455,9 @@ preset is kept, replaced and deleted by the name it is under, so the control was
 have stayed inert whatever it was wired to.
 The card is therefore a row per promise, a row per saved preset, and a name box
 (`Features/Setup/Presets/`).
-It sits on the review because a preset is the whole way of publishing and the review is where the
-whole way of publishing is read back - the steps each own a fraction of it.
+It sits in the rail because a preset is the whole way of publishing, which no step owns a fraction
+of, and the rail is the one column every step draws: reaching for a saved configuration takes no
+walk to the end of the flow first.
 
 Two things about it follow from the contract rather than from the layout.
 
@@ -659,9 +660,8 @@ field two meanings.
 everything else comes off it: the rail, the grid, the settings panel, and the shell's three bands,
 which are bound to the same fact the viewer holds (`ShellViewModel.HasChrome`). What is left is one
 picture at its stream's own shape on black, letterboxed by the same solver that arranges a single
-tile in a cell, so nothing is stretched to the shape of a monitor. Escape and a double click both
-end it, since a filled window draws no menu to reach for, and the window returns to the state it
-was in rather than to a normal one - a maximised window that came back restored would have lost a
+tile in a cell, so nothing is stretched to the shape of a monitor. Escape ends it, and the window
+returns to the state it was in rather than to a normal one - a maximised window that came back restored would have lost a
 state the reader chose. A fullscreen the desktop put the window in is left alone: the pass only
 gives back what it took.
 

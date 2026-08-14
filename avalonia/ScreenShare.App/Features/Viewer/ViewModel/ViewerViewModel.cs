@@ -309,7 +309,7 @@ public sealed class ViewerViewModel : Observable
     /// Printed by the status band rather than over the grid.
     /// The gestures it names are the tile's own (<c>Features/Viewer/Tile/View/TileKeys.cs</c>).
     /// </summary>
-    public string Hint => "Right-click a tile for focus, pop-out and volume; double-click one to fill the screen, Escape to leave";
+    public string Hint => "Right-click a tile for fullscreen, focus, pop-out and volume; Escape to leave fullscreen";
 
     /// <summary>Heading over the rail's list.</summary>
     public string ShowingLabel => "On the relay";

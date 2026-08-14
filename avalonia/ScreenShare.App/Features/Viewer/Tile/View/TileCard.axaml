@@ -6,8 +6,7 @@
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Viewer.Tile.View.TileCard"
              x:DataType="tile:TileViewModel"
-             Classes.filling="{Binding IsFullscreen}"
-             DoubleTapped="OnDoubleTapped">
+             Classes.filling="{Binding IsFullscreen}">
 
   <!--
     One tile for every host that draws one: a grid cell, the stage of the focus arrangement, a window

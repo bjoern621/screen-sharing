@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Setup.Model;
-using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
@@ -9,15 +8,15 @@ namespace ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
 /// <summary>
 /// The last step: everything resolved, read back in one place, and the one control that changes the world.
 ///
-/// It composes the preset card (<see cref="Presets"/>), the one thing on this screen that is neither a
-/// reading of the settings nor the commit.
-/// A preset is the whole way of publishing, and this is the screen where the whole way of publishing is read
-/// back, so naming one and picking one belong here rather than on a step that owns a fraction of it.
+/// The tiles draw in the step column and the commit at the foot of the rail, where every other step's Back
+/// and Continue sit (<c>Setup/View/SetupView.axaml</c>).
+/// What the settings owe and what has been saved are the rail's, on every step alike
+/// (<c>Setup/CostRail/ViewModel/CostRailViewModel.cs</c>).
 ///
 /// Outputs are written by <see cref="Apply"/> alone, and each comes off a state some other side stated: the
-/// tiles are the groups' own shorthands, the list is the form's diagnostics, the name is the draft's, and
-/// whether the button lights is the <see cref="PublishGate"/>, which reads <c>Form.publishable</c>, what is
-/// publishing and what the relay said.
+/// tiles are the groups' own shorthands, the name is the draft's, and whether the button lights is the
+/// <see cref="PublishGate"/>, which reads <c>Form.publishable</c>, what is publishing and what the relay
+/// said.
 ///
 /// The word on the button is that same gate's answer (<see cref="PublishGate.Commit"/>), because a stream
 /// already on the air decides which effect the press is rather than blocking it.
@@ -36,25 +35,20 @@ public sealed class ReviewStepViewModel : Observable
     /// Owned above this view model: there is no publisher here, and starting one is an effect on the control
     /// plane this step has no seam to.
     /// </param>
-    /// <param name="presets">The saved ways of publishing, drawn in this step's own column.</param>
     /// <param name="dispatch">The UI loop the commit's answer is marshalled back to.</param>
     public ReviewStepViewModel(
         Func<string, DelegateCommand> edit,
         Action back,
         Func<Task> goLive,
-        PresetsViewModel presets,
         Action<Action> dispatch)
     {
         Assert.NotNull(edit, "the review hands editing back to the step that owns it");
         Assert.NotNull(back, "the review needs the flow's own way back");
         Assert.NotNull(goLive, "the review hands the commit to whoever owns publishing");
-        Assert.NotNull(presets, "the review draws the saved ways of publishing beside the one being reviewed");
         Assert.NotNull(dispatch, "the review needs a UI loop to marshal the commit's answer back to");
 
         _edit = edit;
-        Presets = presets;
         Tiles = [];
-        Checks = [];
 
         // A start crosses to the backend, which persists the settings and launches an encoder on them, so the
         // button waits rather than going inert: the round trip is long enough for a second press, and the
@@ -62,7 +56,7 @@ public sealed class ReviewStepViewModel : Observable
         StartSharingCommand = new PendingCommand(goLive, dispatch, () => CanStartSharing);
         BackCommand = new DelegateCommand(back);
 
-        Apply(PublishGate.Unread, streamName: "", refusal: "", [], []);
+        Apply(PublishGate.Unread, streamName: "", refusal: "", []);
     }
 
     // --- Outputs ------------------------------------------------------------------
@@ -79,16 +73,6 @@ public sealed class ReviewStepViewModel : Observable
     private bool _hasStreamName;
 
     public ObservableCollection<ReviewTile> Tiles { get; }
-
-    /// <summary>The same list the rail carries, which is the form's diagnostics.</summary>
-    public ObservableCollection<PreflightCheckRow> Checks { get; }
-
-    /// <summary>
-    /// The saved ways of publishing.
-    /// Composed rather than owned: it reads the store and writes the draft through seams of its own, and this
-    /// step decides only where it sits and renders it on every pass.
-    /// </summary>
-    public PresetsViewModel Presets { get; }
 
     /// <summary>
     /// The commit.
@@ -124,7 +108,7 @@ public sealed class ReviewStepViewModel : Observable
 
     /// <summary>
     /// Why the button is locked, empty while it is not.
-    /// Never this step's own prose about a setting: a setting's own blocker is in <see cref="Checks"/>, in the
+    /// Never this step's own prose about a setting: a setting's own blocker is in the rail's checks, in the
     /// words the backend wrote it in.
     /// </summary>
     public string Blocked { get => _blocked; private set => Set(ref _blocked, value); }
@@ -157,15 +141,12 @@ public sealed class ReviewStepViewModel : Observable
         PublishGate gate,
         string streamName,
         string refusal,
-        IReadOnlyList<(string Key, string Title, string Summary)> groups,
-        IReadOnlyList<PreflightCheckRow> checks)
+        IReadOnlyList<(string Key, string Title, string Summary)> groups)
     {
         Assert.NotNull(gate, "the review draws the gate the flow composed");
         Assert.NotNull(groups, "the review draws the groups the form carried");
-        Assert.NotNull(checks, "the review draws the list the form's diagnostics became");
 
         Reconcile.Onto(Tiles, ReviewTiles.Of(groups, _edit));
-        Reconcile.Onto(Checks, checks);
 
         // Read out of the one table on every pass, including the branch that puts the label back to a start:
         // a stream that ended takes the word "restart" off the button with it, and a property written only in
@@ -186,10 +167,6 @@ public sealed class ReviewStepViewModel : Observable
         HasStreamName = StreamName.Length > 0;
 
         StartSharingCommand.Refresh();
-
-        // Rendered rather than fed: the card draws from the draft and the store, neither of which this step
-        // holds, and both have moved by the time this pass runs.
-        Presets.Apply();
 
         Assert.That(Tiles.Count == groups.Count, "a tile per group of the form", Tiles.Count, groups.Count);
         Assert.That(CommitLabel.Length > 0, "the commit says what pressing it will do", gate.Commit);

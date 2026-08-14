@@ -1,152 +1,51 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="using:ScreenShare.App.Controls"
-             xmlns:model="using:ScreenShare.App.Features.Setup.Model"
-             xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:vm="using:ScreenShare.App.Features.Setup.ReviewStep.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.ReviewStep.View.ReviewStepView"
              x:DataType="vm:ReviewStepViewModel">
 
-  <Grid ColumnDefinitions="*,Auto">
+  <!--
+    The terminal step's own column, and only that: the checks, the presets and the commit stand in the rail
+    every step draws (Setup/View/SetupView.axaml).
+  -->
 
-    <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
-      <Border Classes="card" Padding="16,14" VerticalAlignment="Top">
-        <StackPanel>
-          <TextBlock Classes="heading" Text="Review" />
-          <TextBlock Classes="secondary"
-                     Margin="0,3,0,15"
-                     TextWrapping="Wrap"
-                     TextTrimming="None"
-                     Text="Everything resolved. Click any row to jump back to the step that owns it." />
+  <Border Classes="card" Padding="16,14" VerticalAlignment="Top">
+    <StackPanel>
+      <TextBlock Classes="heading" Text="Review" />
+      <TextBlock Classes="secondary"
+                 Margin="0,3,0,15"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Text="Everything resolved. Click any row to jump back to the step that owns it." />
 
-          <ItemsControl ItemsSource="{Binding Tiles}" Margin="-5">
-            <ItemsControl.ItemsPanel>
-              <ItemsPanelTemplate>
-                <UniformGrid Columns="2" />
-              </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:ReviewTile">
-                <Border Classes="panel"
-                        BorderBrush="{StaticResource DividerBrush}"
-                        CornerRadius="{StaticResource RadiusStrip}"
-                        Padding="{StaticResource InsetPanel}"
-                        Margin="5">
-                  <StackPanel>
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                      <TextBlock Grid.Column="0" Classes="caption" Text="{Binding Heading}" />
-                      <Button Grid.Column="1" Theme="{StaticResource LinkButton}" Content="Edit" Command="{Binding Edit}" />
-                    </Grid>
-                    <TextBlock Classes="ident"
-                               LineHeight="{StaticResource LineHeightBody}"
-                               TextTrimming="None"
-                               Text="{Binding Lines}" />
-                  </StackPanel>
-                </Border>
-              </DataTemplate>
-            </ItemsControl.ItemTemplate>
-          </ItemsControl>
-        </StackPanel>
-      </Border>
-    </ScrollViewer>
-
-    <Grid Grid.Column="1" Width="330" Margin="10,0,0,0" RowDefinitions="*,Auto">
-
-      <!--
-        The preflight list is as long as the settings make it, so everything above the commit
-        scrolls and the commit keeps its own row at the foot of the column.
-      -->
-      <ScrollViewer Grid.Row="0" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel VerticalAlignment="Top">
-
-          <presets:PresetsView DataContext="{Binding Presets}" Margin="0,0,0,10" />
-
-          <Border Classes="card" Padding="{StaticResource InsetPanel}" Margin="0,0,0,10">
-            <StackPanel>
-              <TextBlock Classes="caption" Text="Preflight" Margin="0,0,0,10" />
-              <ItemsControl ItemsSource="{Binding Checks}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="model:PreflightCheckRow">
-                    <controls:CheckItem Margin="0,0,0,8"
-                                        Text="{Binding Text}"
-                                        State="{Binding State}"
-                                        FixedInStep="{Binding FixedInStep}" />
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </Border>
-
-        </StackPanel>
-      </ScrollViewer>
-
-      <Border Grid.Row="1" Classes="card" Padding="{StaticResource InsetPanel}">
-        <StackPanel>
-          <!--
-            Three runs, because the stream name sits inside the sentence at full strength and
-            the sentence itself moves with what the press will do (Model/CommitCopy.cs): a
-            literal here would be one of the two wordings, written where the other cannot
-            reach it.
-          -->
-          <TextBlock Classes="hint"
-                     TextWrapping="Wrap"
-                     TextTrimming="None"
-                     LineHeight="{StaticResource LineHeightSmall}"
-                     Margin="0,0,0,11"
-                     IsVisible="{Binding HasStreamName}">
-            <Run Text="{Binding PromiseLead}" />
-            <Run Text="{Binding StreamName}"
-                 FontWeight="SemiBold"
-                 Foreground="{StaticResource ForegroundBrush}" />
-            <Run Text="{Binding PromiseTail}" />
-          </TextBlock>
-
-          <!--
-            Why the button is locked, which only ever names the backend or the relay. A
-            settings problem is in the preflight card above in the backend's own words, and a
-            stream already on the air changes what the commit does rather than whether it can
-            be done.
-          -->
-          <SelectableTextBlock Classes="hint danger"
-                               LineHeight="{StaticResource LineHeightSmall}"
-                               Margin="0,0,0,11"
-                               IsVisible="{Binding IsBlocked}"
-                               Text="{Binding Blocked}" />
-
-          <SelectableTextBlock Classes="hint danger"
-                               LineHeight="{StaticResource LineHeightSmall}"
-                               Margin="0,0,0,11"
-                               IsVisible="{Binding HasRefusal}"
-                               Text="{Binding Refusal}" />
-
-          <Grid ColumnDefinitions="Auto,*">
-            <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
-
-            <!--
-              The dot takes the button's own Foreground, which is what the disabled treatment
-              moves: content naming a brush of its own would stay bright on a locked button.
-            -->
-            <Button Grid.Column="1"
-                    Theme="{StaticResource DangerButton}"
-                    Height="{StaticResource FooterButtonHeight}"
-                    Margin="8,0,0,0"
-                    Command="{Binding StartSharingCommand}"
-                    controls:Pending.IsActive="{Binding StartSharingCommand.IsRunning}">
-              <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
-                <Ellipse Width="{StaticResource DotSize}"
-                         Height="{StaticResource DotSize}"
-                         Fill="{Binding $parent[Button].Foreground}"
-                         VerticalAlignment="Center" />
-                <TextBlock Text="{Binding CommitLabel}"
-                           FontSize="{StaticResource FontSizeHeading}"
-                           FontWeight="SemiBold" />
+      <ItemsControl ItemsSource="{Binding Tiles}" Margin="-5">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <UniformGrid Columns="2" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ReviewTile">
+            <Border Classes="panel"
+                    BorderBrush="{StaticResource DividerBrush}"
+                    CornerRadius="{StaticResource RadiusStrip}"
+                    Padding="{StaticResource InsetPanel}"
+                    Margin="5">
+              <StackPanel>
+                <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+                  <TextBlock Grid.Column="0" Classes="caption" Text="{Binding Heading}" />
+                  <Button Grid.Column="1" Theme="{StaticResource LinkButton}" Content="Edit" Command="{Binding Edit}" />
+                </Grid>
+                <TextBlock Classes="ident"
+                           LineHeight="{StaticResource LineHeightBody}"
+                           TextTrimming="None"
+                           Text="{Binding Lines}" />
               </StackPanel>
-            </Button>
-          </Grid>
-        </StackPanel>
-      </Border>
-
-    </Grid>
-  </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </Border>
 
 </UserControl>

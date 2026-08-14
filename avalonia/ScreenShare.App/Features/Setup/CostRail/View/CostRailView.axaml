@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:model="using:ScreenShare.App.Features.Setup.Model"
+             xmlns:presets="using:ScreenShare.App.Features.Setup.Presets.View"
              xmlns:view="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:vm="using:ScreenShare.App.Features.Setup.CostRail.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.CostRail.View.CostRailView"
@@ -19,7 +20,12 @@
     </Style>
   </UserControl.Styles>
 
-  <StackPanel Spacing="{StaticResource GapControl}">
+  <!--
+    One gap for every seam in this column, and the same one the page is inset by, so the cards keep a rhythm
+    with the edge they stand against.
+    The panel between the cards is what the footer under the rail is set off by too (Setup/View/SetupView.axaml).
+  -->
+  <StackPanel Spacing="{StaticResource GapPanel}">
 
     <Border Classes="card" Padding="{StaticResource InsetPanel}" IsVisible="{Binding IsResolved}">
       <StackPanel>
@@ -104,8 +110,24 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <!--
+          Why no pipeline builds, under the line that says one does not.
+          It is the backend's own sentence and the string a reader has to get into a bug report, so it is
+          selectable and wraps rather than trimming (CLAUDE.md, "Every error message is selectable and
+          copyable").
+        -->
+        <SelectableTextBlock Classes="hint danger"
+                             TextWrapping="Wrap"
+                             TextTrimming="None"
+                             LineHeight="{StaticResource LineHeightSmall}"
+                             Margin="0,3,0,0"
+                             IsVisible="{Binding HasRefusal}"
+                             Text="{Binding Refusal}" />
       </StackPanel>
     </Border>
+
+    <presets:PresetsView DataContext="{Binding Presets}" />
 
   </StackPanel>
 

@@ -18,6 +18,11 @@ namespace ScreenShare.App.Features.Broadcast.ViewModel;
 /// <summary>
 /// The broadcast screen: the live overview, and read-only about everything else.
 ///
+/// Reachable whether or not a stream is running.
+/// The session log outlives the stream it records, and why the last pipeline exited is what a publisher goes
+/// looking for once it has, so every card here states its idle reading rather than being kept off screen
+/// until there is a stream to describe.
+///
 /// A control appears in exactly one window, so this owns only actions that are safe while a stream runs and
 /// hands configuration to a card that shows it and cannot write it.
 /// The one way out is <see cref="BroadcastAction.EditInSetup"/>, which navigates rather than editing here.
@@ -211,8 +216,10 @@ public sealed class BroadcastViewModel : Observable
         Plots.RelaySamples = _session.RelaySamples;
 
         Config.Reported = Rows(_form, _session.Words);
+        Config.IsLive = reading.IsLive;
         Viewers.Reported = Watching(_session.Relay, reading.Stream);
         Viewers.Readers = reading.Viewers;
+        Viewers.IsLive = reading.IsLive;
         Log.Recorded = Recorded(_session.Exits, Audience.Of(_session.RelaySamples, reading.Stream));
 
         Config.Apply();

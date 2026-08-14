@@ -108,16 +108,23 @@ func (RTSP) WatchURL(s settings.Settings, streamName string) string {
 // sound and leave the picture nowhere to go.
 // The track left unlinked here is decoded beside the picture (internal/receive), so an audio track
 // reaches the branch that plays it.
+//
+// The credential rides beside the address rather than in it, which is rtspsrc's doing and is stated
+// with the pair it builds (credential.go).
 func (RTSP) GstSource(s settings.Settings, streamName string) []string {
 	assert.Assert(streamName != "", "a receive source names the stream it decodes")
 
-	return []string{
+	source := []string{
 		"rtspsrc",
-		"location=" + rtspURL(s, streamName),
+		"location=" + rtspAddress(s, streamName),
 		"protocols=" + s.Viewer.RtspWatchProtocol,
 		fmt.Sprintf("latency=%d", s.Viewer.RtspWatchLatencyMs),
-		"!", "application/x-rtp,media=video",
 	}
+	if user, password, ok := rtspCredential(s); ok {
+		source = append(source, "user-id="+user, "user-pw="+password)
+	}
+	// Last, the receiver linking the fragment's tail to its decoder.
+	return append(source, "!", "application/x-rtp,media=video")
 }
 
 // RtspProtocols are the RTP lower transports this protocol offers, the values RtspPublishProtocol
@@ -185,16 +192,23 @@ func (t RTSP) SetWatchOption(s *settings.Settings, key, value string) error {
 // cleartext one a LAN relay answers on.
 const RtspsPort = 8322
 
-// rtspURL addresses one path on the relay's RTSP listener,
+// rtspURL addresses one path on the relay's RTSP listener and carries the credential,
 // "rtsps://relay:8322/<path>?jwt=<token>" where the relay is encrypted and
 // "rtsp://relay:8554/<path>?jwt=<token>" where it is not.
 //
 // The credential rides as a query and not as a userinfo password, which is where MediaMTX reads a
 // JWT for RTSP.
+// ffmpeg and rtspclientsink both keep it there for every request of the session, and rtspsrc does
+// not, which is what rtspCredential covers.
 func rtspURL(s settings.Settings, name string) string {
+	return rtspAddress(s, name) + credentialQuery(s, "?")
+}
+
+// rtspAddress is that address with no credential on it, for the reader that takes one separately.
+func rtspAddress(s settings.Settings, name string) string {
 	scheme, port := "rtsp", s.Relay.RtspPort
 	if s.Relay.Tls() {
 		scheme, port = "rtsps", RtspsPort
 	}
-	return fmt.Sprintf("%s://%s:%d/%s", scheme, s.Relay.Host, port, name) + credentialQuery(s, "?")
+	return fmt.Sprintf("%s://%s:%d/%s", scheme, s.Relay.Host, port, name)
 }

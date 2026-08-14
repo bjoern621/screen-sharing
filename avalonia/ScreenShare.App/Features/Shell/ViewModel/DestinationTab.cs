@@ -1,6 +1,5 @@
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Shell.Model;
-using ScreenShare.App.Mvvm;
 
 namespace ScreenShare.App.Features.Shell.ViewModel;
 
@@ -9,14 +8,12 @@ namespace ScreenShare.App.Features.Shell.ViewModel;
 /// It carries the destination rather than an index, so a selection is a value the shell acts on directly and
 /// no screen holds a position in the strip.
 ///
-/// <see cref="IsAvailable"/> is the whole of the unavailable treatment.
-/// The design dims an unreachable destination and does nothing else to it, no strike, no badge and no hiding,
-/// because a destination that disappears reads as a bug while a dimmed one teaches the app's shape.
+/// Nothing here says whether the segment can be pressed: every destination is reachable at all times, and a
+/// flag that is true for the tab's whole life is a fact no widget has to be told
+/// (docs/design-language.md, "Surfaces and shape").
 /// </summary>
-public sealed class DestinationTab : Observable
+public sealed class DestinationTab
 {
-    private bool _isAvailable = true;
-
     public DestinationTab(Destination value)
     {
         Value = value;
@@ -30,17 +27,4 @@ public sealed class DestinationTab : Observable
 
     /// <summary>Verbatim from the destination table. Fixed for the tab's life.</summary>
     public string Label { get; }
-
-    /// <summary>
-    /// Whether the destination can be reached.
-    /// Written by <see cref="SetAvailable"/> alone, which the strip's render function calls on every pass.
-    /// </summary>
-    public bool IsAvailable { get => _isAvailable; private set => Set(ref _isAvailable, value); }
-
-    /// <summary>
-    /// The one write.
-    /// Idempotent: the availability the tab already holds notifies nothing, so a pass over an unchanged strip
-    /// moves no pixels.
-    /// </summary>
-    public void SetAvailable(bool available) => IsAvailable = available;
 }

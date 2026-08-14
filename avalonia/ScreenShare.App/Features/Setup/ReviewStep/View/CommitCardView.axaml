@@ -1,0 +1,81 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.ReviewStep.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.ReviewStep.View.CommitCardView"
+             x:DataType="vm:ReviewStepViewModel">
+
+  <!--
+    The commit, at the foot of the rail on the terminal step, where the Back and Continue buttons of every
+    other step sit (Setup/View/SetupView.axaml).
+  -->
+
+  <Border Classes="card" Padding="{StaticResource InsetPanel}">
+    <StackPanel>
+      <!--
+        Three runs, because the stream name sits inside the sentence at full strength and the sentence itself
+        moves with what the press will do (Model/CommitCopy.cs): a literal here would be one of the two
+        wordings, written where the other cannot reach it.
+      -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 LineHeight="{StaticResource LineHeightSmall}"
+                 Margin="0,0,0,11"
+                 IsVisible="{Binding HasStreamName}">
+        <Run Text="{Binding PromiseLead}" />
+        <Run Text="{Binding StreamName}"
+             FontWeight="SemiBold"
+             Foreground="{StaticResource ForegroundBrush}" />
+        <Run Text="{Binding PromiseTail}" />
+      </TextBlock>
+
+      <!--
+        Why the button is locked, which only ever names the backend or the relay. A settings problem is in the
+        checks card above in the backend's own words, and a stream already on the air changes what the commit
+        does rather than whether it can be done.
+      -->
+      <SelectableTextBlock Classes="hint danger"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           LineHeight="{StaticResource LineHeightSmall}"
+                           Margin="0,0,0,11"
+                           IsVisible="{Binding IsBlocked}"
+                           Text="{Binding Blocked}" />
+
+      <SelectableTextBlock Classes="hint danger"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           LineHeight="{StaticResource LineHeightSmall}"
+                           Margin="0,0,0,11"
+                           IsVisible="{Binding HasRefusal}"
+                           Text="{Binding Refusal}" />
+
+      <Grid ColumnDefinitions="Auto,*">
+        <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
+
+        <!--
+          The dot takes the button's own Foreground, which is what the disabled treatment moves: content
+          naming a brush of its own would stay bright on a locked button.
+        -->
+        <Button Grid.Column="1"
+                Theme="{StaticResource DangerButton}"
+                Height="{StaticResource FooterButtonHeight}"
+                Margin="8,0,0,0"
+                Command="{Binding StartSharingCommand}"
+                controls:Pending.IsActive="{Binding StartSharingCommand.IsRunning}">
+          <StackPanel Orientation="Horizontal" Spacing="{StaticResource GapTight}" VerticalAlignment="Center">
+            <Ellipse Width="{StaticResource DotSize}"
+                     Height="{StaticResource DotSize}"
+                     Fill="{Binding $parent[Button].Foreground}"
+                     VerticalAlignment="Center" />
+            <TextBlock Text="{Binding CommitLabel}"
+                       FontSize="{StaticResource FontSizeHeading}"
+                       FontWeight="SemiBold" />
+          </StackPanel>
+        </Button>
+      </Grid>
+    </StackPanel>
+  </Border>
+
+</UserControl>

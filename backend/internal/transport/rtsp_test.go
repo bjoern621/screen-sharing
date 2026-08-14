@@ -2,6 +2,7 @@ package transport
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -88,6 +89,45 @@ func TestRTSPGstSourcePinsTheDecoderToThePicture(t *testing.T) {
 	}
 	if at := slices.Index(src, "!"); at < 0 || at != len(src)-2 {
 		t.Errorf("GstSource = %v, want the capsfilter as the last element of the fragment", src)
+	}
+}
+
+// A token written into the location never reaches SETUP: rtspsrc addresses a track at the SDP's
+// control attribute joined onto the session URL, and that join keeps neither the query nor the last
+// path segment, so the relay answers 401 for a path nothing serves and the tile draws nothing.
+func TestRTSPGstSourceCarriesTheTokenBesideTheAddress(t *testing.T) {
+	s := rtspStream()
+	s.Relay.Token = "a-token"
+
+	src := RTSP{}.GstSource(s, "bob")
+
+	for _, want := range []string{
+		"location=rtsp://10.0.0.5:8554/bob",
+		"user-id=jwt",
+		"user-pw=a-token",
+	} {
+		if !slices.Contains(src, want) {
+			t.Errorf("GstSource = %v, missing %q", src, want)
+		}
+	}
+	for _, arg := range src {
+		if strings.Contains(arg, "jwt=a-token") {
+			t.Errorf("GstSource = %v, which writes the token into %q, where SETUP loses it", src, arg)
+		}
+	}
+}
+
+// The publish legs keep the query, ffmpeg and rtspclientsink carrying it through every request of
+// the session.
+func TestRTSPPublishLegsKeepTheTokenInTheAddress(t *testing.T) {
+	s := rtspStream()
+	s.Relay.Token = "a-token"
+
+	if args := (RTSP{}).PublishArgs(s); !slices.Contains(args, "rtsp://10.0.0.5:8554/alice?jwt=a-token") {
+		t.Errorf("PublishArgs = %v, want the token in the address", args)
+	}
+	if sink := (RTSP{}).GstSink(s); !slices.Contains(sink, "location=rtsp://10.0.0.5:8554/alice?jwt=a-token") {
+		t.Errorf("GstSink = %v, want the token in the address", sink)
 	}
 }
 

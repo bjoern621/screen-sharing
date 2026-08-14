@@ -180,8 +180,9 @@ public static class PlotSeries
 
     /// <summary>
     /// Readings the window covers, oldest first: none older than <see cref="WindowSeconds"/> before
-    /// <paramref name="now"/>, and all on the same clock as the newest of them.
-    /// Empty where the series ended before the window began.
+    /// <paramref name="now"/>, none after it, and all on the same clock as <paramref name="now"/>.
+    /// Empty where the series ended before the window began, and where it belongs to a run the anchor does
+    /// not.
     ///
     /// Walks back from the newest rather than filtering the series, to cut at the one discontinuity a series
     /// carries.
@@ -189,10 +190,17 @@ public static class PlotSeries
     /// and its running clock starts again at zero.
     /// The walk stops where time goes backwards, so the plot draws the run the newest reading belongs to
     /// instead of two runs laid over each other.
+    ///
+    /// A newest reading past the anchor is that same relaunch seen from the other side: the anchor is on the
+    /// new run's clock and every reading is on the old one's, since the run that just started has been
+    /// measured a time but not yet a rate.
+    /// Those readings draw nothing until the new run has a shape of its own, rather than being placed against
+    /// a clock that never counted them.
     /// </summary>
     private static List<Reading> Windowed(IReadOnlyList<Reading> readings, double? now)
     {
-        if (readings.Count == 0 || now is not { } anchor || anchor - readings[^1].At > WindowSeconds)
+        if (readings.Count == 0 || now is not { } anchor
+            || anchor - readings[^1].At is < 0 or > WindowSeconds)
         {
             return [];
         }
@@ -211,6 +219,9 @@ public static class PlotSeries
             drawn.Add(readings[i]);
         }
 
+        // Ends only: the walk keeps the range ascending, so the oldest and the newest bound the rest.
+        Assert.That(anchor - drawn[0].At <= WindowSeconds && drawn[^1].At <= anchor,
+            "a windowed reading was taken inside the window it is drawn in", anchor, drawn[0].At, drawn[^1].At);
         return drawn;
     }
 

@@ -26,6 +26,7 @@ public sealed class ViewerTableViewModel : Observable
 
     private IReadOnlyList<ViewerRow> _reported = [];
     private int? _readers;
+    private bool _isLive;
 
     /// <summary>
     /// The roster as the relay last reported it, in its order.
@@ -39,6 +40,23 @@ public sealed class ViewerTableViewModel : Observable
             Assert.NotNull(value, "a viewer table renders a reported roster");
 
             if (Set(ref _reported, value))
+            {
+                Apply();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether a stream is in force.
+    /// The card is drawn on a destination that is reachable with nothing publishing, and an empty roster with
+    /// no stream behind it is a different absence from a stream nobody has joined.
+    /// </summary>
+    public bool IsLive
+    {
+        get => _isLive;
+        set
+        {
+            if (Set(ref _isLive, value))
             {
                 Apply();
             }
@@ -84,6 +102,7 @@ public sealed class ViewerTableViewModel : Observable
     /// Why there are no rows, empty while there are some.
     /// It says an empty roster and never a missing measurement: the relay names its readers, so a viewer that
     /// connects gets a row and an empty table is an empty path.
+    /// The three absences are asked in the order they stop being true as a stream comes up.
     /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 
@@ -111,6 +130,7 @@ public sealed class ViewerTableViewModel : Observable
         // render functions ends with two screens disagreeing.
 
         Notice = HasRows ? ""
+            : !IsLive ? Cards.ViewersIdle
             : Readers is null ? Cards.ViewersUnasked
             : Cards.ViewersNone;
 

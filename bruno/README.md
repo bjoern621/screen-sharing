@@ -26,9 +26,12 @@ That name is the proxy's `SCREENSHARE_DOMAIN`, so another deployment is this env
 The proxy does not front the relay's API and the relay binds it to loopback, so the `Relay` folder wants a tunnel and a credential of its own against a deployment:
 
 ```bash
-ssh -f -N -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 <relay host>
+task relay:tunnel
 sh scripts/relay-api-token.sh <relay host> 2h
 ```
+
+The task forwards the API port off the deployment `Production` points at, and `task relay:tunnel RELAY_HOST=<relay host>` names another one.
+Opening a tunnel that is already open is a no-op, and `task relay:tunnel:stop` closes it.
 
 A stale tunnel keeps listening while it forwards nothing, so a request that hangs instead of refusing is one to restart it for.
 

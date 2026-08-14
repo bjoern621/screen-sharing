@@ -14,12 +14,15 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.ViewModel;
 
 /// <summary>
-/// The window's own state, and the sole owner of the two facts the rest of the screen turns on: which
-/// destination is showing, and whether broadcast can be reached.
-/// A band holds no destination of its own and is told one on every render pass, so a dimmed segment cannot
+/// The window's own state, and the sole owner of the one fact the rest of the screen turns on: which
+/// destination is showing.
+/// A band holds no destination of its own and is told one on every render pass, so a lit segment cannot
 /// disagree with the body.
 ///
-/// <see cref="Show"/> and <see cref="SetBroadcastAvailable"/> are the named writes.
+/// Every destination is reachable at all times, broadcast included: what it reports about the stream that has
+/// just ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
+///
+/// <see cref="Show"/> is the named write.
 /// <see cref="Apply"/> is the one render function: it pushes the state into every child and picks the body on
 /// every pass, off branches included (docs/development-principles.md, "One render function per component").
 /// </summary>
@@ -43,20 +46,6 @@ public sealed class ShellViewModel : Observable
     /// destinations that edit settings.
     /// </summary>
     private readonly FormSession _form;
-
-    private bool _broadcastAvailable;
-
-    /// <summary>
-    /// Whether the reader is owed the broadcast screen: a start this window made was accepted and the stream
-    /// has not landed yet.
-    /// Every start earns it, since the destination a start leads to is not a setting.
-    ///
-    /// A flag rather than a navigation, because an accepted start is not yet a stream in force: the reply
-    /// carries nothing and the live state arrives on the event stream a moment later.
-    /// Moving on the reply would claim a state the backend has not reported, which <see cref="Show"/>
-    /// refuses.
-    /// </summary>
-    private bool _opensBroadcast;
 
     private object _body;
 
@@ -103,9 +92,10 @@ public sealed class ShellViewModel : Observable
         // broadcast screen is built.
         Broadcast.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
 
-        // Every destination re-renders on any change, because the chrome reads them all: the strip dims
-        // broadcast while nothing publishes, and the band prints the viewer's figures from any destination.
-        _session.Changed += OnSessionChanged;
+        // Every destination re-renders on any change, because the chrome reads them all: the strip's pill
+        // says whether this machine is sharing, and the band prints the viewer's figures from any
+        // destination.
+        _session.Changed += Apply;
 
         // Levels have their own notification and reach the viewer alone.
         // A level moves fifteen times a second, and the change notification re-renders every destination
@@ -136,8 +126,10 @@ public sealed class ShellViewModel : Observable
         Broadcast.ActionRequested += OnBroadcastRequested;
 
         // Setup owns the commit and performs it. Where the window goes afterwards is the window's.
-        // A request rather than a navigation, because the stream is not in force until the backend says so.
-        Setup.WentLive += OnWentLive;
+        // Moved on the accepted reply rather than on the live state landing: the destination is reachable
+        // either way, so the screen the start leads to comes up at once and fills in as the event stream
+        // reports what the stream became.
+        Setup.WentLive += () => Show(Destination.Broadcast);
 
         // Rendered before anything is read, so the window paints a complete view model whether or not the
         // backend is reachable, and the first state lands on a later pass.
@@ -204,69 +196,11 @@ public sealed class ShellViewModel : Observable
         // Read through the table, so a destination it does not name fails here rather than in a body lookup
         // three layers down.
         Assert.That(Destinations.LabelOf(destination).Length > 0, "a window shows a destination the table names", (int)destination);
-        Assert.That(destination != Destination.Broadcast || _broadcastAvailable, "a window shows broadcast only while broadcast can be reached", (int)destination);
 
         // The field and not a notification: where the window stands reaches the screen through the segments
         // and the body Apply writes, and nothing binds the destination itself.
         _current = destination;
         Apply();
-    }
-
-    /// <summary>
-    /// Says whether broadcast can be reached.
-    /// A publish pipeline can die under the reader standing on that screen, so the window steps back to setup
-    /// rather than leaving a segment dimmed and selected at once.
-    /// Idempotent.
-    /// </summary>
-    public void SetBroadcastAvailable(bool available)
-    {
-        _broadcastAvailable = available;
-
-        if (!_broadcastAvailable && _current == Destination.Broadcast)
-        {
-            _current = Destination.Setup;
-        }
-
-        Apply();
-    }
-
-    /// <summary>
-    /// Re-renders on any change to the running state, and derives broadcast's reachability from the fact that
-    /// decides it: whether anything is publishing.
-    /// Read off the session rather than told to the shell, so a pipeline that died takes the reader back to
-    /// setup on its own.
-    /// </summary>
-    private void OnSessionChanged()
-    {
-        SetBroadcastAvailable(_session.Publish?.Live is not null);
-        OpenBroadcastIfAsked();
-    }
-
-    /// <summary>
-    /// Records that the window is owed the live screen, a start setup asked for having been accepted.
-    /// The move is attempted at once, because the live state can arrive on the event stream before the reply
-    /// does.
-    /// </summary>
-    private void OnWentLive()
-    {
-        _opensBroadcast = true;
-        OpenBroadcastIfAsked();
-    }
-
-    /// <summary>
-    /// Moves to broadcast once the stream the reader started is in force.
-    /// Idempotent, and it consumes the request: a later stream somebody else started is no reason to take
-    /// this window off what it is showing.
-    /// </summary>
-    private void OpenBroadcastIfAsked()
-    {
-        if (!_opensBroadcast || !_broadcastAvailable)
-        {
-            return;
-        }
-
-        _opensBroadcast = false;
-        Show(Destination.Broadcast);
     }
 
     /// <summary>
@@ -292,15 +226,14 @@ public sealed class ShellViewModel : Observable
         // After the bodies, so the strip's pill and the band's figures are what the destinations derived on
         // this pass rather than what they held before it.
         //
-        // The timer is read back off the broadcast screen instead of being composed again, so the pill in the
-        // chrome and the pill in the header cannot disagree.
-        Nav.Show(_current, _broadcastAvailable, Broadcast.Snapshot.Elapsed);
+        // Both facts are read back off the broadcast screen's reading instead of being composed again, so the
+        // pill in the chrome and the pill in the header cannot disagree.
+        Nav.Show(_current, Broadcast.Snapshot.IsLive, Broadcast.Snapshot.Elapsed);
         RenderStatusBar();
         RenderChrome();
 
         Body = BodyFor(_current);
 
-        Assert.That(_current != Destination.Broadcast || _broadcastAvailable, "a window shows broadcast only while broadcast can be reached", _broadcastAvailable);
         Assert.That(Nav.SelectedTab?.Value == _current, "the strip and the body stand in one destination", (int)_current);
         Assert.That(!HasCaption || HasChrome, "the title band is one of the bands the window either draws or does not", HasCaption, HasChrome);
     }

@@ -219,14 +219,14 @@ public sealed class SetupViewModel : Observable
             backend, session, dispatch,
             monitor => Write(SourceLayout.MonitorKey, new FieldValue { Number = monitor }));
 
-        Rail = new CostRailViewModel();
+        // The rail, and the saved ways of publishing in it, handed the seams this flow reads and nothing of
+        // this flow's own: the store is the backend's and the draft is the window's, so a card routed through
+        // here would be one more hop between a press and the state it changes.
+        // The rail draws on every step, so a preset is offered wherever the reader is standing
+        // (CostRail/ViewModel/CostRailViewModel.cs).
+        Rail = new CostRailViewModel(new PresetsViewModel(backend, form, dispatch));
 
-        // The saved ways of publishing, handed the seams this flow reads and nothing of this flow's own: the
-        // store is the backend's and the draft is the window's, so a card routed through here would be one more
-        // hop between a press and the state it changes.
-        // Which screen draws it is the review's own answer (ReviewStepViewModel).
-        Review = new ReviewStepViewModel(
-            SelectCommandOf, Back, StartSharingAsync, new PresetsViewModel(backend, form, dispatch), dispatch);
+        Review = new ReviewStepViewModel(SelectCommandOf, Back, StartSharingAsync, dispatch);
 
         // Both edges of an effect this flow renders: a start locks the commit and a measurement greys the button
         // that asked for it, and neither is a state anything else here would notice moving.
@@ -279,13 +279,10 @@ public sealed class SetupViewModel : Observable
     private bool _showsFields;
     private bool _showsQuality;
     private bool _showsReview;
-    private bool _isRailVisible;
     private bool _canGoBack;
     private bool _canContinue;
     private bool _isPublishable;
     private string _continueLabel = "";
-    private string _commandError = "";
-    private bool _hasCommandError;
     private string _unavailable = "";
     private bool _isUnavailable;
     private string _unsaved = "";
@@ -340,13 +337,11 @@ public sealed class SetupViewModel : Observable
 
     public bool ShowsQuality { get => _showsQuality; private set => Set(ref _showsQuality, value); }
 
-    public bool ShowsReview { get => _showsReview; private set => Set(ref _showsReview, value); }
-
     /// <summary>
-    /// The rail steps aside on the review, which carries the same list beside its own commit.
-    /// Two copies on one screen would be two things to read, one of them redundant.
+    /// The terminal step, which draws its read-back in the step column and its commit at the foot of the rail
+    /// where the other steps' Back and Continue sit.
     /// </summary>
-    public bool IsRailVisible { get => _isRailVisible; private set => Set(ref _isRailVisible, value); }
+    public bool ShowsReview { get => _showsReview; private set => Set(ref _showsReview, value); }
 
     public bool CanGoBack { get => _canGoBack; private set => Set(ref _canGoBack, value); }
 
@@ -358,11 +353,6 @@ public sealed class SetupViewModel : Observable
     /// False while no form has arrived, the honest reading of settings nothing has vouched for.
     /// </summary>
     public bool IsPublishable { get => _isPublishable; private set => Set(ref _isPublishable, value); }
-
-    /// <summary>Why these settings render no command, empty where one was rendered.</summary>
-    public string CommandError { get => _commandError; private set => Set(ref _commandError, value); }
-
-    public bool HasCommandError { get => _hasCommandError; private set => Set(ref _hasCommandError, value); }
 
     /// <summary>
     /// Why the backend could not describe the screen, empty while it can.
@@ -428,7 +418,12 @@ public sealed class SetupViewModel : Observable
         // The rail before the strip: the terminal chip repeats the rail's summary, so that summary has to be of
         // the list the rail is about to draw rather than of the one it drew last pass.
         var checks = PreflightChecks.Of(diagnostics, AnchorIn(_steps, form));
-        Rail.Apply(form?.Summary?.Estimate, Uplink(), SetupSteps.Of(_steps, GroupOwning(drawn, RailLayout.UplinkKey)), checks);
+        Rail.Apply(
+            form?.Summary?.Estimate,
+            Uplink(),
+            SetupSteps.Of(_steps, GroupOwning(drawn, RailLayout.UplinkKey)),
+            checks,
+            form?.Summary?.CommandError ?? "");
 
         IsPublishable = form?.Publishable ?? false;
 
@@ -442,7 +437,7 @@ public sealed class SetupViewModel : Observable
         // the next pass and a stream that ended puts "restart" back to "start sharing", with nothing having had
         // to remember either.
         var gate = PublishGate.Of(IsPublishable, _form.Unavailable, _session.Publish, _session.Relay, Starting);
-        Review.Apply(gate, _form.Draft?.Publish?.Name ?? "", _refusal, Summaries(drawn, form), checks);
+        Review.Apply(gate, _form.Draft?.Publish?.Name ?? "", _refusal, Summaries(drawn, form));
 
         Reconcile.Onto(Steps, StepChips.For(_steps, current, ValueOf, SelectCommandOf));
 
@@ -450,7 +445,6 @@ public sealed class SetupViewModel : Observable
         ShowsFields = content == StepContent.Fields;
         ShowsQuality = content == StepContent.Quality;
         ShowsReview = content == StepContent.Review;
-        IsRailVisible = content != StepContent.Review;
         CurrentGroup = ShowsFields && current.Length > 0 ? Group(current) : null;
 
         // The pictures over the source step.
@@ -461,8 +455,6 @@ public sealed class SetupViewModel : Observable
             FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
             current == SourceLayout.GroupKey);
 
-        CommandError = form?.Summary?.CommandError ?? "";
-        HasCommandError = CommandError.Length > 0;
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;
 
