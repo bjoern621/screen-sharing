@@ -361,6 +361,14 @@
             export GST_PLUGIN_SYSTEM_PATH_1_0="${
               pkgs.lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstDeps
             }"
+
+            # GLib carries no TLS of its own and takes it from a GIO module, so without
+            # glib-networking every rtsps:// and https:// leg fails at the connect and
+            # nothing on the way names TLS: rtspclientsink reports "Failed to connect.
+            # (Generic error)" and the relay logs a connection that opened and closed.
+            # A prefix rather than a replacement, since the session's own value carries the
+            # desktop's modules.
+            export GIO_EXTRA_MODULES="${pkgs.glib-networking}/lib/gio/modules''${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
           ''
           + pkgs.lib.optionalString (pkgs.stdenv.isLinux && vplRuntime != [ ]) ''
             # The oneVPL dispatcher searches the distro library paths for the runtime,

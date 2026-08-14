@@ -18,6 +18,7 @@
   pkg-config,
   ffmpeg-full,
   gst_all_1,
+  glib-networking,
   libnice,
   pipewire,
   protobuf,
@@ -151,6 +152,12 @@ let
     # buildGoModule names the binary after its directory, and the rest of the repository
     # names it screenshare-backend.
     # The rename comes before the wrapper, so the wrapper is written against the final name.
+    #
+    # GLib carries no TLS of its own and takes it from a GIO module, so without
+    # glib-networking every rtsps:// and https:// leg fails at the connect. What
+    # rtspclientsink reports there is "Failed to connect. (Generic error)", which names
+    # neither TLS nor the missing module. A prefix rather than a set, since the session's
+    # own value carries the desktop's modules.
     postInstall = ''
       mv $out/bin/backend $out/bin/screenshare-backend
 
@@ -161,7 +168,8 @@ let
             gst_all_1.gstreamer
           ]
         } \
-        --set-default GST_PLUGIN_SYSTEM_PATH_1_0 "${gstPluginPath}"
+        --set-default GST_PLUGIN_SYSTEM_PATH_1_0 "${gstPluginPath}" \
+        --prefix GIO_EXTRA_MODULES : "${glib-networking}/lib/gio/modules"
     '';
 
     meta.mainProgram = "screenshare-backend";
