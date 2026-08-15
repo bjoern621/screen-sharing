@@ -41,6 +41,7 @@ The group service that signs its tokens can mint one for any group.
                     │   /groups /tokens /streams /jwks.json │───MoQ────────► browser
                     │        ──► groupd, loopback           │   HTTP/3, not
                     │   */whip */whep ──► MediaMTX WebRTC   │   through Caddy
+                    │   /webrtc/* ──► its page, prefix cut  │
                     │   everything else ──► MediaMTX HLS    │
                     │                                       │
                     │ MediaMTX API, loopback, operator only │
@@ -62,6 +63,10 @@ A publish to an encrypted relay with no passphrase set is refused rather than se
 
 WebRTC media negotiates a direct UDP path to the viewer, which is the point of it, so it never meets the proxy either.
 It is DTLS-SRTP by construction.
+
+Its signalling and its player page do go through the proxy, both being ordinary HTTP.
+The page answers under `/webrtc/`, the prefix being what tells it from the HLS page: the two are the same path on the same name once 443 has replaced the listener's port.
+The proxy strips it again, so the relay serves the path it knows and nothing there is aware of the prefix.
 
 Media over QUIC is HTTP and still not proxied.
 Its session is a CONNECT over HTTP/3, which a proxy listening on TCP 443 never sees, so the relay answers 8892 itself.

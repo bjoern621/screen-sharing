@@ -60,6 +60,30 @@ func TestBrowserWatchNamesAreTheLegsWithAPage(t *testing.T) {
 	}
 }
 
+// Two pages on one address is one leg opened where the other was asked for.
+// The proxied deployment is where that happens: HTTPOrigin drops the port under Tls, so a page told
+// from its neighbour by nothing but a listener number collapses onto it.
+func TestBrowserPageAddressesStayDistinct(t *testing.T) {
+	for _, host := range []string{"10.0.0.5", "relay.example.com"} {
+		s := settings.Settings{Relay: settings.Relay{
+			Host: host, WebrtcPort: 8889, HlsPort: 8888, MoqPort: 8892,
+		}}
+
+		opens := map[string]string{}
+		for _, name := range WatchNames(EngineBrowser) {
+			page, ok := BrowserURL(name, s, "public/bob")
+			if !ok {
+				t.Fatalf("%s states a browser carriage and yields no page address", name)
+			}
+			if other, taken := opens[page]; taken {
+				t.Errorf("%s and %s both open %q on %s, so one of them plays the other's leg",
+					other, name, page, host)
+			}
+			opens[page] = name
+		}
+	}
+}
+
 // PublishNames fills the publish dropdown, per engine.
 // A protocol the relay serves and does not ingest has no publish form on either engine and stays
 // off both lists, rather than appearing greyed with a reason no capture backend could lift.

@@ -146,6 +146,22 @@ func TestWebRTCCapabilities(t *testing.T) {
 	}
 }
 
+// The port carries the page on a LAN relay and is gone behind the proxy, one name on 443 answering
+// every HTTP listener there.
+// What tells the page from the HLS one instead is the prefix the proxy strips again, and the
+// address without it is the HLS page (deploy/Caddyfile).
+func TestWebRTCPageTakesAPrefixBehindTheProxy(t *testing.T) {
+	s := settings.Settings{Relay: settings.Relay{Host: "relay.example.com", WebrtcPort: 8889, HlsPort: 8888}}
+
+	page, ok := BrowserURL("webrtc", s, "public/bob")
+	if !ok {
+		t.Fatal("BrowserURL must report true for webrtc")
+	}
+	if want := "https://relay.example.com/webrtc/public/bob/"; page != want {
+		t.Errorf("BrowserURL = %q, want %q", page, want)
+	}
+}
+
 // The two engines negotiate different video sets over one WHIP endpoint: ffmpeg's whip muxer has a
 // single H.264 payloader, whipclientsink payloads whatever webrtcbin offers.
 // One list for both would have to be the narrower of them, refusing the GStreamer engine two

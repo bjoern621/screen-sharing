@@ -38,6 +38,23 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
+	# The WebRTC player page, served at the stream's own path and so at the address the HLS
+	# page answers on. The port that told the two apart is gone behind one name on 443, so
+	# the page takes a prefix and this strips it again before the relay, which knows of no
+	# such prefix, sees the request.
+	#
+	# Before the signalling below, because the page fetches its own /whep relative to itself
+	# and the suffix matcher there would proxy that one with the prefix still on it. A session
+	# resource addressed from the root falls into that matcher instead and reaches the same
+	# listener.
+	#
+	# No stream is shadowed: a path starts with its group's prefix, "public" or a digest.
+	@webrtcpage path /webrtc/*
+	handle @webrtcpage {
+		uri strip_prefix /webrtc
+		reverse_proxy {$SCREENSHARE_RELAY_WEBRTC:127.0.0.1:8889}
+	}
+
 	# WebRTC signalling, which is HTTP and so is the same certificate and the same name.
 	#
 	# An endpoint is the stream's own path with /whip or /whep after it, and the exchange it

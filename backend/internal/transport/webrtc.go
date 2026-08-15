@@ -124,7 +124,20 @@ func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 func (WebRTC) BrowserURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a player page names the stream it opens")
 
-	return httpPageOrigin(s, s.Relay.WebrtcPort) + "/" + streamName + "/"
+	return httpPageOrigin(s, s.Relay.WebrtcPort) + webrtcPageRoot(s) + "/" + streamName + "/"
+}
+
+// webrtcPageRoot is what the page hangs under: the listener's root, and "/webrtc" behind the proxy,
+// which strips it again (deploy/Caddyfile).
+//
+// The prefix is what tells this page from the HLS one there.
+// HTTPOrigin drops the port under Tls and both pages are "/<stream>/" under one name,
+// so without it the WHEP leg opens the HLS page.
+func webrtcPageRoot(s settings.Settings) string {
+	if s.Relay.Tls() {
+		return "/webrtc"
+	}
+	return ""
 }
 
 // Neither endpoint carries the credential in the address: both are HTTP, where the relay reads a
