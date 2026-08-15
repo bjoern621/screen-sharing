@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:copy="using:ScreenShare.App.Copy"
              xmlns:ti="using:TablerIcons"
              xmlns:vm="using:ScreenShare.App.Features.Setup.Presets.ViewModel"
              x:Class="ScreenShare.App.Features.Setup.Presets.View.PresetsView"
@@ -54,16 +55,9 @@
                         Command="{Binding Apply}" />
               </Grid>
 
-              <TextBlock Classes="hint"
-                         TextWrapping="Wrap"
-                         TextTrimming="None"
-                         LineHeight="{StaticResource LineHeightSmall}"
-                         Text="{Binding Promise}" />
-
               <!-- In the row and not a tip: a disabled control takes no pointer, so a tip on it never opens. -->
               <SelectableTextBlock Classes="hint"
                                    LineHeight="{StaticResource LineHeightSmall}"
-                                   Margin="0,4,0,0"
                                    IsVisible="{Binding !IsReachable}"
                                    Text="{Binding Reason}" />
             </StackPanel>
@@ -127,6 +121,19 @@
                            Margin="0,6,0,0"
                            IsVisible="{Binding HasRefusal}"
                            Text="{Binding Refusal}" />
+
+      <!--
+        That the window is still dialling, under the refusal saying it could not be reached.
+        Under and left-aligned rather than beside: the card is a rail's width and the sentence wraps over it.
+        The transparent fill is the pointer target the tip opens from, the arc itself taking none.
+      -->
+      <Border Background="Transparent"
+              HorizontalAlignment="Left"
+              Margin="0,6,0,0"
+              IsVisible="{Binding IsDialling}"
+              ToolTip.Tip="{x:Static copy:Cards.Redialling}">
+        <controls:Spinner Foreground="{StaticResource AttentionBrush}" />
+      </Border>
 
       <Grid ColumnDefinitions="*,Auto" Margin="0,10,0,0">
         <TextBox Grid.Column="0"

@@ -297,6 +297,7 @@ internal sealed class SeededBackend : IBackend
             WebrtcPort = 8889,
             RtmpPort = 1935,
             HlsPort = 8888,
+            MoqPort = 8892,
         },
         Publish = new PublishSettings
         {
@@ -736,10 +737,18 @@ internal sealed class SeededBackend : IBackend
         yield break;
     }
 
+    /// <summary>
+    /// Relay behind a TLS proxy, which is what decides there is a group service to draw a key from.
+    /// Derived from the address and stored nowhere by the backend (<c>backend/internal/settings</c>, Relay.Tls),
+    /// so a test names the deployment instead of an address this fixture would have to classify.
+    /// </summary>
+    public bool RelayTls { get; set; }
+
     /// <summary>The whole resolve, with no wire in front of it.</summary>
     private Form Resolve(Settings draft)
     {
         var settings = draft.Clone();
+        settings.Relay.Tls = RelayTls;
         var form = new Form { Settings = settings, Publishable = true };
 
         foreach (var group in Groups())
@@ -1497,6 +1506,7 @@ internal sealed class SeededBackend : IBackend
             Fields =
             [
                 new() { Key = "relay.host", Control = ControlKind.Text },
+                new() { Key = "relay.group_key", Control = ControlKind.Text },
                 new() { Key = "relay.srt_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.rtsp_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },
                 new() { Key = "relay.webrtc_port", Control = ControlKind.Number, Range = Bounded(1, 65535) },

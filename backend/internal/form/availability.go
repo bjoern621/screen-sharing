@@ -112,18 +112,17 @@ var availabilityRules = map[string]func(availability) state{
 		}
 		return availabilityLive()
 	},
-	KeyAPIPort:  func(availability) state { return availabilityLive() },
-	KeySrtPort:  func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilitySrt) },
-	KeyRtspPort: func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp) },
-	KeyWebrtcPort: func(av availability) state {
-		return availabilityShownFor(av.s.Publish.Transport == availabilityWebrtc)
-	},
-	KeyRtmpPort: func(av availability) state { return availabilityShownFor(av.s.Publish.Transport == availabilityRtmp) },
-	// HLS follows the watch leg: the relay serves it and ingests nothing over it, so the publish
-	// dropdown never names it.
-	KeyHlsPort: func(av availability) state {
-		return availabilityShownFor(av.s.Viewer.PlayerWatchTransport == availabilityHls)
-	},
+	KeyAPIPort: func(availability) state { return availabilityLive() },
+	// Every listener port follows both legs, because the relay serves one listener per protocol in
+	// both directions and the number here is what each of them is addressed on (reachesOver).
+	// HLS reaches the same rule from the other side: the relay serves it and ingests nothing over it,
+	// so the publish half of the question is never the one that answers.
+	KeySrtPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilitySrt)) },
+	KeyRtspPort:   func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityRtsp)) },
+	KeyWebrtcPort: func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityWebrtc)) },
+	KeyRtmpPort:   func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityRtmp)) },
+	KeyHlsPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityHls)) },
+	KeyMoqPort:    func(av availability) state { return availabilityShownFor(av.reachesOver(availabilityMoq)) },
 
 	// Greyed per entry rather than per control: a greyed entry and its reason name the thing to change.
 	KeyTransport: func(availability) state { return availabilityLive() },
@@ -866,11 +865,28 @@ func (av availability) renderChainReason(name string) *screensharev1.Text {
 // leg a surface offers first and decides nothing about which players run.
 // Asking it here hid knobs that were in force: a player opened over RTSP reads RtspWatchProtocol
 // whatever that setting says, and with both legs on SRT the control holding it was on no screen.
+// The browser is the same press and stores no leg at all, so every leg the relay serves a page for
+// is one an address gets built on: MoQ reaches this machine through that reader and no other.
 //
 // Hidden and greyed are both answers about a knob that does nothing here.
 // One that does something is shown (docs/field-availability.md).
 func (av availability) watchesOver(name string) bool {
-	return av.s.Viewer.TileWatchTransport == name || transport.CanWatch(name, capabilities.EngineFfmpeg)
+	return av.s.Viewer.TileWatchTransport == name ||
+		transport.CanWatch(name, capabilities.EngineFfmpeg) ||
+		transport.CanWatch(name, transport.EngineBrowser)
+}
+
+// reachesOver reports whether anything on this machine builds an address on the relay's listener for
+// the named transport, publishing or watching.
+//
+// The relay serves one listener per protocol and both directions are addressed on it, so the port
+// belongs to neither leg alone: SRT.WatchURL and rtspAddress read the same setting the publish leg
+// does (internal/transport).
+// Asked of the publish leg by itself, the number a viewer still dials disappears from the screen the
+// moment publishing moves elsewhere, which leaves a setting in force that nothing shows and nothing
+// can change (docs/field-availability.md, "The rule").
+func (av availability) reachesOver(name string) bool {
+	return av.s.Publish.Transport == name || av.watchesOver(name)
 }
 
 // knob weighs the three facts that decide a rate-control control: the mode's concept uses it, the
@@ -1044,6 +1060,7 @@ const (
 	availabilityWebrtc = "webrtc"
 	availabilityRtmp   = "rtmp"
 	availabilityHls    = "hls"
+	availabilityMoq    = "moq"
 )
 
 // availabilityMonitorless is the capture backends that take no monitor index.

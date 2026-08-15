@@ -71,37 +71,15 @@
                        IsEnabled="{Binding IsEnabled}"
                        Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
 
-              <!--
-                The effect a screen offers for this setting, absent on every number no screen
-                offered one for (Features/Fields/Model/FieldAction.cs). It is a button and not
-                a figure that fills itself in because it uploads a real payload, takes seconds,
-                and is refused outright while a stream publishes.
-
-                Why the press is refused stands under the row rather than in the button's tip,
-                which a disabled control in Avalonia never opens.
-              -->
-              <StackPanel IsVisible="{Binding IsNumber}" Spacing="6">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                  <NumericUpDown IsEnabled="{Binding IsEnabled}"
-                                 Value="{Binding Number, Mode=TwoWay}"
-                                 Minimum="{Binding NumberMinimum}"
-                                 Maximum="{Binding NumberMaximum}"
-                                 Increment="{Binding NumberStep}"
-                                 FormatString="0"
-                                 MinWidth="160" />
-
-                  <Button Margin="8,0,0,0"
-                          IsVisible="{Binding HasAction}"
-                          Content="{Binding Action.Label}"
-                          Command="{Binding Action.Command}"
-                          controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
-                          ToolTip.Tip="{Binding Action.Tip}" />
-                </StackPanel>
-
-                <SelectableTextBlock Classes="hint"
-                                     IsVisible="{Binding HasActionNotice}"
-                                     Text="{Binding ActionNotice}" />
-              </StackPanel>
+              <NumericUpDown IsVisible="{Binding IsNumber}"
+                             IsEnabled="{Binding IsEnabled}"
+                             Value="{Binding Number, Mode=TwoWay}"
+                             Minimum="{Binding NumberMinimum}"
+                             Maximum="{Binding NumberMaximum}"
+                             Increment="{Binding NumberStep}"
+                             FormatString="0"
+                             MinWidth="160"
+                             HorizontalAlignment="Left" />
 
               <!--
                 Box and ladder write one setting, which is what the glued edge says
@@ -124,7 +102,7 @@
                         IsEnabled="{Binding IsEnabled}">
                   <ti:TablerIcon Icon="IconChevronDown" Brush="{StaticResource MutedBrush}" />
                   <Button.Flyout>
-                    <MenuFlyout ItemsSource="{Binding Options}"
+                    <MenuFlyout ItemsSource="{Binding MenuRows}"
                                 ItemTemplate="{StaticResource SelectEntry}"
                                 ItemContainerTheme="{StaticResource SelectMenuItem}"
                                 Placement="BottomEdgeAlignedRight" />
@@ -169,31 +147,71 @@
                 entries that need none; the enabled border behind it is what the pointer
                 lands on.
               -->
-              <ItemsControl IsVisible="{Binding IsChoice}" ItemsSource="{Binding Options}" IsEnabled="{Binding IsEnabled}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="vm:OptionViewModel">
-                    <Border Background="Transparent" Margin="0,0,0,4" ToolTip.Tip="{Binding Refusal}">
-                      <Button Theme="{StaticResource OptionCard}"
-                              Classes.picked="{Binding IsSelected}"
-                              IsEnabled="{Binding IsEnabled}"
-                              Command="{Binding Choose}">
-                        <StackPanel Spacing="4">
-                          <Grid ColumnDefinitions="*,Auto">
-                            <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
-                            <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
-                          </Grid>
-                          <TextBlock Classes="cardbody"
-                                     IsVisible="{Binding HasReason}"
-                                     Text="{Binding Reason}" />
-                          <TextBlock Classes="cardbody"
-                                     IsVisible="{Binding HasDetail}"
-                                     Text="{Binding Detail}" />
-                        </StackPanel>
-                      </Button>
-                    </Border>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
+              <StackPanel IsVisible="{Binding IsChoice}">
+                <ItemsControl ItemsSource="{Binding Shown}" IsEnabled="{Binding IsEnabled}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:OptionViewModel">
+                      <Border Background="Transparent" Margin="0,0,0,4" ToolTip.Tip="{Binding Refusal}">
+                        <Button Theme="{StaticResource OptionCard}"
+                                Classes.picked="{Binding IsSelected}"
+                                IsEnabled="{Binding IsEnabled}"
+                                Command="{Binding Choose}">
+                          <StackPanel Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                              <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
+                              <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+                            </Grid>
+                            <TextBlock Classes="cardbody"
+                                       IsVisible="{Binding HasReason}"
+                                       Text="{Binding Reason}" />
+                            <TextBlock Classes="cardbody"
+                                       IsVisible="{Binding HasDetail}"
+                                       Text="{Binding Detail}" />
+                          </StackPanel>
+                        </Button>
+                      </Border>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!--
+                  Outside the list's greying: an inert control is still one a reader arrives at looking
+                  for what is missing, and reading is not picking.
+                -->
+                <Button Theme="{StaticResource LinkButton}"
+                        HorizontalAlignment="Left"
+                        Margin="0,2,0,0"
+                        IsVisible="{Binding HasRefused}"
+                        Command="{Binding RevealCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ti:TablerIcon Icon="{Binding RefusedGlyph}"
+                                   Brush="{StaticResource MutedBrush}"
+                                   VerticalAlignment="Center" />
+                    <TextBlock Classes="secondary" Text="{Binding RefusedTitle}" VerticalAlignment="Center" />
+                    <TextBlock Classes="hint" Text="{Binding RefusedCount}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+
+              <!--
+                The effect a screen offers for this setting, drawn under whichever control kind holds
+                it rather than inside one kind's branch (Features/Fields/Model/FieldAction.cs).
+                A button and not a figure that fills itself in, because it reaches another machine,
+                takes seconds, and is refused outright in the states the backend names.
+              -->
+              <StackPanel IsVisible="{Binding HasAction}" Spacing="6">
+                <Button HorizontalAlignment="Left"
+                        Content="{Binding Action.Label}"
+                        Command="{Binding Action.Command}"
+                        controls:Pending.IsActive="{Binding Action.Command.IsRunning}"
+                        ToolTip.Tip="{Binding Action.Tip}" />
+
+                <SelectableTextBlock Classes="hint"
+                                     TextWrapping="Wrap"
+                                     TextTrimming="None"
+                                     IsVisible="{Binding HasActionNotice}"
+                                     Text="{Binding ActionNotice}" />
+              </StackPanel>
 
               <TextBlock Classes="hint"
                          TextWrapping="Wrap"

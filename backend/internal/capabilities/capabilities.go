@@ -61,9 +61,9 @@ const (
 var Engines = []string{EngineFfmpeg, EngineGst}
 
 // The encoder families a codec's backend belongs to.
-// A family is the axis every per-backend fact keys off: a surface offers the family and the format
-// as two separate choices, and each builder dispatches its family-wide behaviour off a table keyed
-// this way rather than off a per-family flag or a name suffix.
+// A family is the axis every per-backend fact keys off: a surface names the family and the format to
+// tell one catalog row from another, and each builder dispatches its family-wide behaviour off a
+// table keyed this way rather than off a per-family flag or a name suffix.
 const (
 	FamilySoftware = "software"
 	FamilyNvenc    = "nvenc"
@@ -310,8 +310,8 @@ type Codec struct {
 	// Name is the ffmpeg encoder name: "hevc_nvenc".
 	Name string `json:"name"`
 	// Family is the backend the codecs in it share, one of Families.
-	// A surface offers the family and the format as two separate choices, and each builder binds what
-	// a backend does once per family rather than once per codec.
+	// A surface names the family and the format to tell one row from another, and each builder binds
+	// what a backend does once per family rather than once per codec.
 	Family string `json:"family"`
 	// Format is the coding format independent of the backend: "h264", "hevc", "av1", "vp9", "vp8".
 	// Facts that follow the format rather than the backend, coding efficiency and decodability among

@@ -315,6 +315,60 @@ message ReceiveStreamStats {
   // The leg picks them: SRT reports its link, RTSP a jitterbuffer per track.
   // A leg counting nothing contributes no group at all, never an empty one.
   repeated ReceiveStatGroup groups = 49;
+
+  // --- What the path costs a frame
+
+  // The stages between a screen somewhere and this window, as far as this machine can
+  // measure them.
+  // Always set, since a decode always measures its own pipeline; which stages inside it
+  // carry a figure is DelayBudget's own answer.
+  DelayBudget delay = 50;
+}
+
+// What each stage of the path between a screen and a window costs a frame, in milliseconds.
+//
+// Every stage carries presence, because which of them are measurable depends on where the
+// machine reading them sits rather than on the moment: a viewer measures its own leg and
+// its own pipeline, sees the publishing side only where it is the publisher too, and never
+// sees what the relay spent.
+// An absent stage is one nothing measured, never a stage that cost nothing.
+//
+// One stage the path has and this message does not: the relay terminates the publishing
+// protocol and re-muxes for each reader, and neither end can time that. Its API states no
+// per-path delay, and no leg carries a relay timestamp a receiver could subtract, so the
+// figure would have to be invented. total_ms is therefore a floor and not a sum of the
+// whole path.
+message DelayBudget {
+  // Capture to the encoded stream leaving the publishing pipeline: converting, encoding and
+  // parsing, measured against that pipeline's own clock.
+  //
+  // Present only on a stream this machine is itself publishing.
+  // It is measured on the pipeline that captures the screen, and nothing carries it over
+  // the relay, so a viewer watching somebody else's stream has no way to know it.
+  optional double publish_ms = 1;
+  // The delivery window the publishing leg settled on with the relay: the delay every
+  // packet is held for so a lost one has room to arrive again.
+  // Carries publish_ms's restriction, and is absent on a publishing transport that states
+  // no window.
+  optional double publish_link_ms = 2;
+  // The same window on this reading leg, held by the transport before the pipeline is
+  // handed a packet at all.
+  // SRT is the leg that states one; a leg that buffers inside the pipeline instead reports
+  // that buffering under present_ms, where the pipeline's own latency query answers for it.
+  optional double watch_link_ms = 3;
+  // The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
+  // and the queues between them, measured.
+  optional double receive_ms = 4;
+  // What the sink still holds a frame for after it arrives, so that it is drawn at the
+  // moment the pipeline's latency window puts it.
+  // Work and wait together are that window, which is why a receive_ms rising to meet it is
+  // a decode about to start dropping frames.
+  optional double present_ms = 5;
+  // The stages above that carry a figure, added up.
+  // A floor and not a total: the relay's own share is in the path and in no measurement, and
+  // a publisher on another machine takes the first two stages out of reach as well.
+  // Absent where no stage was measured at all.
+  optional double total_ms = 6;
 }
 
 // One sample across every decode.

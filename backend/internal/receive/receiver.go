@@ -12,6 +12,8 @@ import (
 
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
+
+	"bjoernblessin.de/screenshare/internal/pipedelay"
 )
 
 // stopTimeout bounds one attempt at taking a pipeline to NULL, and stopAttempts is how many an
@@ -124,11 +126,16 @@ type Receiver struct {
 	toneMap  bool
 	pipeline gst.Pipeline
 	sink     gstapp.AppSink
-	fit      gst.Element // capsfilter bounding what the chain's scaler produces
-	cancel   context.CancelFunc
-	started  time.Time
-	live     atomic.Bool
-	frames   atomic.Uint64
+	// delay measures the work between the leg's source stamping a frame and the sink
+	// taking it, at the sink's pad rather than where the samples arrive: the sink holds
+	// each frame until its presentation time, so a reading taken in the sample handler
+	// reports the configured latency and never the work.
+	delay   *pipedelay.Probe
+	fit     gst.Element // capsfilter bounding what the chain's scaler produces
+	cancel  context.CancelFunc
+	started time.Time
+	live    atomic.Bool
+	frames  atomic.Uint64
 	// renderSize is the size SetRenderSize last wrote, width packed over height.
 	// A caller repeating a size it already reported renegotiates nothing.
 	renderSize atomic.Uint64
@@ -207,6 +214,7 @@ func New(st Stream, open Open, ev Events) (*Receiver, error) {
 		toneMap:  open.ToneMap,
 		pipeline: pipeline,
 		sink:     sink,
+		delay:    pipedelay.Watch(sink, "sink"),
 		fit:      pipeline.GetByName(fitName),
 		cancel:   cancel,
 		started:  time.Now(),

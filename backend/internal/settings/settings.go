@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -57,6 +58,13 @@ type Relay struct {
 	WebrtcPort int    `json:"webrtcPort"` // relay's WHIP+WHEP HTTP listener, TCP
 	RtmpPort   int    `json:"rtmpPort"`   // relay's RTMP listener, TCP
 	HlsPort    int    `json:"hlsPort"`    // relay's HLS HTTP listener, TCP
+	// MoqPort is the relay's Media-over-QUIC listener, TCP and UDP on the one number: the player page
+	// over HTTP/2, the WebTransport session over HTTP/3.
+	//
+	// Addressed on this port under Tls too, where the others are not.
+	// No reverse proxy carries WebTransport, so the relay terminates that leg itself wherever it runs
+	// (transport.MoQ).
+	MoqPort int `json:"moqPort"`
 	// GroupKey is the secret whose possession is membership of a group, as the key service handed it
 	// over (internal/group).
 	// Empty is a machine in no group.
@@ -194,6 +202,22 @@ func (r Relay) Path(name string) string {
 		return name
 	}
 	return path
+}
+
+// Prefix leads every path this machine reaches, and is empty where Path answers a bare name.
+//
+// Read back off Path rather than restating the choice Path makes between a group's prefix, the
+// public one and none.
+// Two statements of that rule drift, and the wrong one would be the one a viewer's list prints.
+func (r Relay) Prefix() string {
+	// One path segment, the shape Path puts a prefix in front of: what comes back ahead of it is
+	// that prefix.
+	const segment = "s"
+
+	path := r.Path(segment)
+	assert.Assert(strings.HasSuffix(path, segment),
+		"a path is its prefix and the stream's own name, so it ends in the name it was built for", path)
+	return strings.TrimSuffix(path, segment)
 }
 
 // Publish is what this machine sends to the relay and how it is encoded.
@@ -360,7 +384,7 @@ func Defaults() Settings {
 	d := Settings{
 		Relay: Relay{
 			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890, ApiPort: 9997,
-			RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888,
+			RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{
 			Name: host, Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",

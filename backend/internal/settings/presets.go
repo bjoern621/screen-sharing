@@ -7,11 +7,21 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"bjoernblessin.de/go-utils/util/assert"
 )
 
 const presetsFileName = "presets.json"
+
+// presetsMu serializes the read-modify-write that saving and deleting both are.
+//
+// Each reads the whole file, changes one entry and writes all of it back, so two running at once
+// lose an edit: the second read happens before the first write and the second write then carries a
+// list that never saw the first change.
+// Reachable rather than theoretical, since every call arrives on a goroutine of its own and more
+// than one shell can be connected at a time.
+var presetsMu sync.Mutex
 
 // Preset is a named way of publishing, saved for reuse.
 // A Publish group and nothing else: where the relay sits belongs to a deployment and how this
@@ -89,6 +99,9 @@ func savePresets(presets []Preset) error {
 func SavePreset(name string, s Publish) error {
 	assert.Assert(name != "", "a saved preset is saved under a name")
 
+	presetsMu.Lock()
+	defer presetsMu.Unlock()
+
 	presets, err := LoadPresets()
 	if err != nil {
 		return err
@@ -109,6 +122,9 @@ func SavePreset(name string, s Publish) error {
 // An unreadable file is an error, for the reason SavePreset gives.
 func DeletePreset(name string) error {
 	assert.Assert(name != "", "a deleted preset is named")
+
+	presetsMu.Lock()
+	defer presetsMu.Unlock()
 
 	presets, err := LoadPresets()
 	if err != nil {

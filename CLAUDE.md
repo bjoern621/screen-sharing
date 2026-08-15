@@ -2,6 +2,7 @@
 
 `docs/` is the source of truth for architecture, the domain model, terminology and style.
 Read the relevant page before guessing.
+"Docs are short" below is the shape every page under it takes.
 
 `docs/development-principles.md` governs the shape of every change: explicit state writes and continuous reads, one render function per component, idempotent apply paths, and preconditions, postconditions and invariants asserted with `bjoernblessin.de/go-utils/util/assert`.
 It outranks brevity and convenience. Read it before writing code, not after.
@@ -49,7 +50,7 @@ Getting it wrong costs in both directions: asserting an Umgebungsfehler kills th
 A comment states the constraint the code cannot show, and nothing else.
 A comment that restates the code is deleted rather than shortened.
 This governs `//`, `#`, `///`, `/** */`, XML doc comments and docstrings.
-Markdown docs, READMEs and commit messages are prose and are not governed here.
+Commit messages are prose and are not governed here, and Markdown pages take "Docs are short" instead.
 
 **Whether a comment is needed at all is decided first.**
 A name that already says it takes no comment: `getPlayerGuid`, `isEmpty`, `maxRetries`.
@@ -94,6 +95,11 @@ A diff then shows the sentence that changed rather than a reflowed block, and a 
 Editing the code under a comment means re-reading that comment and bringing it to this style, whether or not the edit made it false.
 A stale comment that survived an edit is a defect on the same terms as a cached field nobody refreshed.
 
+**A change sweeps every comment it puts a reader in front of, not only the ones it touched.**
+Each one is asked whether it can be shorter, whether it can be sharper, and whether it can go.
+A fact stated in two places is kept in one, at the site that owns it: two copies drift, and the reader then trusts whichever is wrong.
+Volume is itself the defect being cut, a file carrying more explanation than code being one nobody edits without reading it twice.
+
 **Every comment gets a second pass.**
 The first draft states the thought, the review pass makes it worth reading.
 Re-read each comment before moving on and rewrite it, every time, not only when it looks bad.
@@ -101,11 +107,59 @@ Re-read each comment before moving on and rewrite it, every time, not only when 
 
 Ask, in order:
 - Does this state a constraint the code cannot show? If it restates the code, delete it.
+- Is this fact already stated at a site that owns it better? Then delete it here.
 - Which words carry no fact? Cut them.
 - Does the reader need every sentence, or only the "why"? Keep the "why".
 - Can it be shorter without losing a fact? Then it is not finished.
 
 Cutting words is free. Cutting facts is not.
+
+# Docs are short
+
+`docs/auth-flow.md` is the shape every Markdown page in this repository takes.
+A page is read once, by somebody meeting the thing for the first time, and it is written for that reading.
+
+**Lead with the fact that orients.**
+Two or three lines before the first heading, saying what the thing is and what the reader has to hold on to.
+Not a preview of the sections below.
+
+**A diagram replaces a paragraph.**
+Mermaid in a fenced block: `sequenceDiagram` for an exchange between parts, `flowchart` for the path something takes.
+Anything enumerable is a table.
+Prose is what neither of those could carry.
+
+**One sentence per line, and the sentence is short.**
+A line that runs to three clauses is two sentences that have not been separated yet.
+
+**A page is written clipped, not in prose.**
+The register is "Comments" above, applied to a whole page: articles, copulas and self-reference go, and a fragment is a whole line.
+"The seam is the `publish.Publisher` interface" is "Seam: `publish.Publisher`".
+"which is what keeps a stream's look off the capture backend" is "so a stream's look stays off the capture backend".
+What never goes is the fact under the words, so a line that lost a constraint on the way to being shorter is reverted rather than kept.
+
+**One telling, not two.**
+A reason stated when the rule is introduced is not restated when the rule is used.
+A sentence that begins "That is why", "which is the reason" or "the same fact that" is pointing at something the reader has already read, and it goes.
+
+**A section is one screen.**
+Longer than that is either two sections or a page holding something another page owns.
+
+**Point at the code rather than restating it.**
+Name a file, a symbol or a config key and let it answer "what is set".
+The page answers "why it is shaped that way".
+
+**Every fact stays.**
+Volume is the defect, never detail.
+What goes is the second telling, the transition sentence, the recap, the adjective, the "Overview" that previews the page.
+A page that got shorter by dropping a constraint got worse.
+
+**A page states no fact that rots.**
+No counts, no dates, no "currently", no status snapshot, no version the repository does not itself pin.
+State the invariant that produces the fact instead.
+
+**Every page gets a second pass.**
+Re-read it and find the cut, every time, not only when it reads badly.
+"It already reads fine" is not an outcome of the pass.
 
 # Every error message is selectable and copyable
 
@@ -131,14 +185,22 @@ A task that looks like it wants isolation is one to say so about, not to isolate
 
 Never move the mouse, click, type into windows, or otherwise control the desktop/app UI. No `computer` tool, no automation scripts (AutoHotkey, PowerShell SendKeys, xdotool, nircmd), no browser-pane clicking to operate the app.
 
-When manual UI interaction is needed, hand the user a checklist instead:
+A screenshot is asked for only where the work cannot go on without seeing the screen: a bug that reproduces on screen and nowhere else, a layout whose next edit depends on how the last one landed, a state no log or test reports.
+It is a debugging instrument, not a closing ritual.
+
+A finished change is reported as finished.
+What it does, what was built and tested, and what a reader would notice in the app if they look.
+One thing to look at is one thing the user can look at unprompted, so a change with a visible result gets a sentence saying what changed on screen and no instructions for producing a picture of it.
+Asking for a screenshot to confirm work that is already verified spends the user's hands on the agent's reassurance.
+
+Where a screenshot is genuinely needed, ask for exactly one and say why it is needed:
 
 1. Numbered steps, one action per step. Name the exact control: window, tab, button label, field name.
 2. Keep each step one short line. No prose paragraphs.
 3. End with a **Screenshot:** line naming exactly what to capture: which window/region, which state it must be in, and what must be visible in frame.
-4. Say what you will look for in the screenshot, so the user knows whether the capture is usable.
+4. Say what will be read out of it, so the user knows whether the capture is usable and what it settles.
 
-Example:
+Example, in a debugging session where the pipeline reports a running encoder and the picture is black:
 
 1. Open app, Settings tab.
 2. Set Encoder to `NVENC`.
@@ -167,4 +229,4 @@ Stop: "stop caveman" or "normal mode"
 
 Auto-Clarity: drop caveman for security warnings, irreversible actions, user confused. Resume after.
 
-Boundaries: commits, PRs and Markdown docs written normal. Code comments follow "Comments" above, which is clipped too.
+Boundaries: commits and PRs written normal. Markdown pages follow "Docs are short", and code comments follow "Comments", both of which are clipped too.

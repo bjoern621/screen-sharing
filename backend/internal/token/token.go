@@ -60,8 +60,11 @@ const CoordinateBytes = 32
 // What a token has to fit in, which SRT decides.
 // The cap is 512 and SRT truncates rather than refusing, so an over-long token reaches the relay as
 // a signature error instead of a length one here.
-// Beside the token travel "publish:", a 27-character prefix, a bounded stream name and two
-// separators: 512 - 80.
+// Beside the token travel "publish:", a 27-character prefix, the stream name and two separators:
+// 512 - 80.
+// The name is not bounded anywhere, so the 80 is a budget rather than a guarantee, and what holds it
+// is the publish leg measuring the assembled id and refusing one that overflows
+// (internal/transport, srtStreamIDFits).
 const MaxTokenBytes = 432
 
 // PermissionClaim is the claim the relay reads its permissions out of, as MediaMTX's

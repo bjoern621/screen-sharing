@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"bjoernblessin.de/screenshare/internal/gstrun"
 )
 
 // The parser takes the cumulative counts off a progress line and ignores every other line
@@ -41,7 +43,10 @@ func TestGstMeterSamples(t *testing.T) {
 	first, second := got[0], got[1]
 	wantFirst := Stats{
 		Frame: 30, SizeKiB: 250_000.0 / 1024, TimeSec: 1, AvgMbps: 2,
-		Missing: Missing{Fps: true, InstMbps: true, Speed: true, CaptureFps: true},
+		Missing: Missing{
+			Fps: true, InstMbps: true, Speed: true, CaptureFps: true,
+			TransitMs: true, LinkMs: true, RttMs: true,
+		},
 	}
 	if first != wantFirst {
 		t.Errorf("first sample = %+v, want %+v", first, wantFirst)
@@ -54,7 +59,7 @@ func TestGstMeterSamples(t *testing.T) {
 		Speed:    2, // a second of media in half a second of wall clock
 		InstMbps: 4,
 		AvgMbps:  2,
-		Missing:  Missing{CaptureFps: true},
+		Missing:  Missing{CaptureFps: true, TransitMs: true, LinkMs: true, RttMs: true},
 	}
 	if second != wantSecond {
 		t.Errorf("second sample = %+v, want %+v", second, wantSecond)
@@ -352,5 +357,67 @@ func TestGstMeterMarksAnUnprobedCaptureRateMissing(t *testing.T) {
 	}
 	if starved.CaptureFps != 0 {
 		t.Errorf("capture rate = %v, want 0: the screen produced nothing in that second", starved.CaptureFps)
+	}
+}
+
+// The transit is a mean over the interval between two readings, not over the run.
+// A pipeline that was fast for a minute and then slowed down shows the slowdown in the next sample
+// rather than having it averaged away by the minute before it.
+func TestGstMeterTransitIsPerInterval(t *testing.T) {
+	wall := time.Unix(0, 0)
+	var got []Stats
+	m := &gstMeter{
+		onStats: func(s Stats) { got = append(got, s) },
+		now:     func() time.Time { return wall },
+	}
+
+	window := 300.0
+	m.takeDelay(gstrun.Delay{TransitNs: 300_000_000, Frames: 60, LinkMs: &window})
+	m.parse(strings.NewReader("stats (00:00:01): 60 buffers\n"))
+
+	wall = wall.Add(time.Second)
+	m.takeDelay(gstrun.Delay{TransitNs: 900_000_000, Frames: 90, LinkMs: &window})
+	m.parse(strings.NewReader("stats (00:00:02): 90 buffers\n"))
+
+	if len(got) != 2 {
+		t.Fatalf("got %d samples, want 2", len(got))
+	}
+
+	// The first reading has none before it, so there is nothing to divide.
+	if !got[0].Missing.TransitMs {
+		t.Errorf("the first sample times %v ms, want it unmeasured", got[0].TransitMs)
+	}
+	// 600 ms across 30 frames, and never the run's 900 across 90.
+	if got[1].Missing.TransitMs || math.Abs(got[1].TransitMs-20) > 0.001 {
+		t.Errorf("transit = %v ms (missing %v), want 20 over the interval",
+			got[1].TransitMs, got[1].Missing.TransitMs)
+	}
+
+	// The window is the reading as it stands, and the round trip this leg never stated stays absent.
+	if got[1].Missing.LinkMs || got[1].LinkMs != window {
+		t.Errorf("window = %v ms (missing %v), want %v", got[1].LinkMs, got[1].Missing.LinkMs, window)
+	}
+	if !got[1].Missing.RttMs {
+		t.Errorf("a leg stating no round trip reports %v ms, want it unmeasured", got[1].RttMs)
+	}
+}
+
+// A run whose child reports no delay at all leaves all three unmeasured, which is every ffmpeg run
+// and every GStreamer run before the first report lands.
+func TestGstMeterWithoutADelayReportTimesNothing(t *testing.T) {
+	wall := time.Unix(0, 0)
+	var got []Stats
+	m := &gstMeter{
+		onStats: func(s Stats) { got = append(got, s) },
+		now:     func() time.Time { return wall },
+	}
+
+	m.parse(strings.NewReader("stats (00:00:01): 30 buffers\n"))
+
+	if len(got) != 1 {
+		t.Fatalf("got %d samples, want 1", len(got))
+	}
+	if !got[0].Missing.TransitMs || !got[0].Missing.LinkMs || !got[0].Missing.RttMs {
+		t.Errorf("a run reporting no delay measured %+v, want all three unmeasured", got[0].Missing)
 	}
 }

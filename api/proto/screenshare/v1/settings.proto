@@ -46,6 +46,14 @@ message RelaySettings {
   int32 webrtc_port = 5;
   int32 rtmp_port = 6;
   int32 hls_port = 7;
+  // TCP and UDP port of the relay's Media-over-QUIC listener, which serves the player page over
+  // HTTP/2 and the WebTransport session over HTTP/3 on the same number.
+  //
+  // Kept even where `tls` is set, unlike the ports above.
+  // WebTransport refuses a plaintext listener and no reverse proxy carries it, so the relay
+  // terminates this leg itself on a port of its own in every deployment
+  // (docs/network-architecture.md).
+  int32 moq_port = 11;
   // Every leg to this relay is encrypted, and its HTTP ones are reached through a TLS reverse
   // proxy rather than directly.
   //

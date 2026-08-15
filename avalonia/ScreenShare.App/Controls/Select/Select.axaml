@@ -35,18 +35,22 @@
   </ControlTheme>
 
   <!--
-    A menu row plus the two facts that make it an option: what picking it does, and whether it can
-    be picked.
+    A menu row plus the three facts that make it an option: what picking it does, whether it can be
+    picked, and whether picking it is what closes the menu.
     Everything else is the menu's, stated once in Design/Menus.axaml.
     A refused entry greys and keeps its place, and its reason is drawn by the caller's item template:
     a disabled Avalonia control is not hit-testable, so a tooltip on this row never opens
     (docs/field-availability.md).
     The menu's height is a minimum for the same reason, an entry carrying a reason being two lines
     tall.
+
+    The disclosure row stays open on the press: it lists the refused entries into the menu the reader
+    is standing in, and closing would make reading a reason a second trip (OptionViewModel.cs).
   -->
   <ControlTheme x:Key="SelectMenuItem" TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
     <Setter Property="Command" Value="{Binding Choose}" />
     <Setter Property="IsEnabled" Value="{Binding IsEnabled}" />
+    <Setter Property="StaysOpenOnClick" Value="{Binding IsReveal}" />
   </ControlTheme>
 
 </ResourceDictionary>

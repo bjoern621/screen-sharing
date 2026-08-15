@@ -77,9 +77,9 @@ func runPipeline(elements []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// What this run does beside playing: the control socket the parent writes to, and whether to
-	// report the pointer position.
-	// Both lead the arguments, so everything after them is the pipeline.
+	// What this run does beside playing: the control socket the parent writes to, whether to report
+	// the pointer position, and where to measure a frame's delay.
+	// All of them lead the arguments, so everything after them is the pipeline.
 	var options gstrun.Options
 	for len(elements) > 0 {
 		if path, ok := strings.CutPrefix(elements[0], publish.ControlFlag); ok {
@@ -88,6 +88,10 @@ func runPipeline(elements []string) int {
 		}
 		if elements[0] == gstrun.PointerFlag {
 			options.Pointer, elements = true, elements[1:]
+			continue
+		}
+		if element, ok := strings.CutPrefix(elements[0], gstrun.DelayFlag); ok {
+			options.Delay, elements = element, elements[1:]
 			continue
 		}
 		break

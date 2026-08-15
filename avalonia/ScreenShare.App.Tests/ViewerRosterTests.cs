@@ -54,7 +54,7 @@ public sealed class ViewerRosterTests
 
     private static RelayStatus Serving(params RelayReader[] readers)
     {
-        var path = new RelayPath { Name = "desk", Ready = true, Readers = readers.Length };
+        var path = new RelayPath { Name = "desk", OwnName = "desk", Ready = true, Readers = readers.Length };
         path.ReaderRoster.AddRange(readers);
 
         var relay = new RelayStatus { Reachable = true };
@@ -235,10 +235,10 @@ public sealed class ViewerRosterTests
         Assert.Equal(3, reading.Viewers);
 
         var bar = new HeaderStatsViewModel { Snapshot = reading };
-        Assert.Equal("240", bar.Figures[2].Value);
-        Assert.Equal("4.50", bar.Figures[3].Value);
-        Assert.Contains("worst", bar.Figures[2].Unit);
+        Assert.Equal("240", bar.Figures[3].Value);
+        Assert.Equal("4.50", bar.Figures[4].Value);
         Assert.Contains("worst", bar.Figures[3].Unit);
+        Assert.Contains("worst", bar.Figures[4].Unit);
     }
 
     /// <summary>
@@ -288,27 +288,27 @@ public sealed class ViewerRosterTests
             Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Rtmp("10.0.0.3:3"))),
         };
 
-        Assert.Equal(Figure.NoValue, untimed.Figures[2].Value);
-        Assert.EndsWith("watched over rtmp", untimed.Figures[2].Note);
+        Assert.Equal(Figure.NoValue, untimed.Figures[3].Value);
         Assert.EndsWith("watched over rtmp", untimed.Figures[3].Note);
+        Assert.EndsWith("watched over rtmp", untimed.Figures[4].Note);
 
         // Only the two figures the reason is about: a note on the throughput would be about a leg it does not
         // concern.
         Assert.Null(untimed.Figures[0].Note);
         Assert.Null(untimed.Figures[1].Note);
-        Assert.Null(untimed.Figures[4].Note);
+        Assert.Null(untimed.Figures[5].Note);
 
         var timed = new HeaderStatsViewModel
         {
             Snapshot = BroadcastSnapshot.Of(Live(), null, Serving(Srt("10.0.0.1:1", rttMs: 20, lossPercent: 0))),
         };
 
-        Assert.Null(timed.Figures[2].Note);
         Assert.Null(timed.Figures[3].Note);
+        Assert.Null(timed.Figures[4].Note);
 
         var unwatched = new HeaderStatsViewModel { Snapshot = BroadcastSnapshot.Of(Live(), null, Serving()) };
-        Assert.Null(unwatched.Figures[2].Note);
         Assert.Null(unwatched.Figures[3].Note);
+        Assert.Null(unwatched.Figures[4].Note);
     }
 
     /// <summary>Two snapshots make a curve; one is a reading and not a shape.</summary>

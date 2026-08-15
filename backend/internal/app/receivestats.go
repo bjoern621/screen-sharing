@@ -97,12 +97,24 @@ func (a *App) sampleReceiveStats(previous map[WatchKey]receive.Stats) []wire.Rec
 		}
 	}
 
+	// The publishing stages of a budget are this machine's own leg, and they belong to a decode only
+	// where that decode is of the stream this machine sends.
+	// Read once for the whole sample: a.run is the same run for every decode in it.
+	published, publishing := a.publishedPathLocked()
+
 	out := make([]wire.ReceiveStreamStats, 0, len(a.receivers))
 	for key, receiver := range a.receivers {
 		stats := receiver.Stats()
 		last, seen := previous[key]
 		previous[key] = stats
-		out = append(out, receiveStatsOf(key, stats, last, seen))
+
+		sample := receiveStatsOf(key, stats, last, seen)
+		own := publishDelay{}
+		if published != "" && key.Name == published {
+			own = publishing
+		}
+		sample.Delay = receiveDelayOf(stats, last, seen, own)
+		out = append(out, sample)
 	}
 
 	assert.Assert(len(out) == len(a.receivers), "a sample per running decode", len(out), len(a.receivers))

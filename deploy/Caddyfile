@@ -62,3 +62,7 @@
 # listeners of its own for both, on ports of their own, and pointing them at a certificate is
 # the relay's configuration rather than this one. The asymmetry is the relay's and is left
 # visible - a proxy stanza that claimed to carry them would be one nothing routes.
+#
+# Media over QUIC is HTTP and is not fronted either. Its session is a CONNECT over HTTP/3, which
+# a listener on TCP 443 never sees, and its certificate answers to rules this one's does not
+# (deploy/mediamtx-groups.yml). It is exposed on the relay's own port for both reasons.

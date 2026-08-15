@@ -147,13 +147,41 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	assert.IsNotNil(r, "a fired retry is the relaunch that armed it")
 
 	a.procMu.Lock()
+	stale := a.retry != r
+	a.procMu.Unlock()
+	if stale {
+		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name)
+		return
+	}
+
+	// The credential is traded again rather than carried over from the launch that died.
+	// A token is minted for minutes and a stream that ran for longer has already outlived the one its
+	// first launch was built with, so a chain that reuses it meets the same refusal at every attempt
+	// and the stream never comes back without somebody pressing start.
+	// Forgotten first because the held one is handed back until it expires on a clock this app does
+	// not read, and a publish that died is the one sign it is spent.
+	//
+	// Outside procMu, since the trade is a network round trip to the group service and every reader
+	// of the publish state waits on that lock.
+	a.forgetRelayToken()
+	s, err := a.settingsForCommand(r.settings)
+	if err != nil {
+		logger.Warnf("retry %d of the publish of '%s' has no relay token: %v", r.attempts, r.settings.Publish.Name, err)
+		a.emit(wire.PublishExitEvent(err.Error(), ""))
+		a.emitPublishState()
+		return
+	}
+
+	a.procMu.Lock()
+	// Asked again: the trade above ran with the lock down, which is long enough for a stop or a manual
+	// start to have moved the app off this retry.
 	if a.retry != r {
 		a.procMu.Unlock()
 		logger.Debugf("dropped a stale publish retry for '%s'", r.settings.Publish.Name)
 		return
 	}
 	a.retry = nil
-	err := a.launchLocked(r.settings, r.attempts)
+	err = a.launchLocked(s, r.attempts)
 	a.procMu.Unlock()
 
 	if err != nil {

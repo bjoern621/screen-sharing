@@ -35,6 +35,13 @@ depends=(
   # libEGL and libGL, which the shell's render path resolves by soname rather than
   # links, and which the frame channel imports decoded frames through.
   'libglvnd'
+  # The monitor enumerators the backend spawns, one per session type
+  # (backend/internal/display, listX11 and listWlrRandr).
+  # Without them the enumeration answers one placeholder carrying no geometry, and the
+  # setup screen offers a single nameless screen while every monitor past the first is
+  # refused. Both are named because either session can be the one running.
+  'xorg-xrandr'
+  'wlr-randr'
 )
 # The development files are in the same packages as the runtime, so what the cgo build
 # compiles against comes from depends. Only the two toolchains are build-only.

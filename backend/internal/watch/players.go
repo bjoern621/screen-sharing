@@ -26,8 +26,11 @@ func watchURL(s settings.Settings, streamName, transportName string) (string, er
 
 // isRTSP marks the leg whose lower-transport option cannot ride in the URL and is passed as a
 // player argument instead.
+// Both schemes, because a relay reached over TLS is addressed as "rtsps" and is the default one:
+// matching the cleartext spelling alone drops the setting on exactly the relay most viewers use,
+// while the tile grid goes on honouring it (transport/rtsp.go, rtspAddress).
 func isRTSP(url string) bool {
-	return strings.HasPrefix(url, "rtsp://")
+	return strings.HasPrefix(url, "rtsp://") || strings.HasPrefix(url, "rtsps://")
 }
 
 // isHTTP marks the legs whose credential is a header rather than part of the address

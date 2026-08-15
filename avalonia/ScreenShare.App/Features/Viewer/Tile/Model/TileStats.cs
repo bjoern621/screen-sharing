@@ -106,6 +106,7 @@ public static class TileStats
         Add(sections, "section.decode", Decode(s));
         Add(sections, "section.render", Render(s));
         Add(sections, "section.timing", Timing(s));
+        Add(sections, "section.delay", Delay(s));
         Add(sections, "section.audio", Audio(s));
         Add(sections, "section.window", Window(report));
 
@@ -247,6 +248,51 @@ public static class TileStats
         Line("position_sec", s.HasPositionSec ? Clock(s.PositionSec) : ""),
         Line("uptime_sec", Clock(s.UptimeSec)),
     ];
+
+    /// <summary>
+    /// The path a frame took, stage by stage, in the order it crossed them.
+    ///
+    /// Which stages carry a figure is the backend's answer and not this side's: a viewer measures its own leg
+    /// and its own pipeline, sees the publishing side only where it is the publisher too, and never sees what
+    /// the relay spent (<c>api/proto/screenshare/v1/events.proto</c>, DelayBudget).
+    ///
+    /// The relay's row is the one this side draws without a figure behind it, because there is no figure to
+    /// have. Leaving the stage out instead would present the total as the whole path, and the total is short
+    /// by exactly this row.
+    /// </summary>
+    private static IReadOnlyList<StatLine> Delay(ReceiveStreamStats s)
+    {
+        if (s.Delay is not { } d)
+        {
+            return [];
+        }
+
+        return
+        [
+            Line("delay.publish", Ms(d.HasPublishMs, d.PublishMs)),
+            Line("delay.publish_link", Ms(d.HasPublishLinkMs, d.PublishLinkMs)),
+            Line("delay.relay", ""),
+            Line("delay.watch_link", Ms(d.HasWatchLinkMs, d.WatchLinkMs)),
+            Line("delay.receive", Ms(d.HasReceiveMs, d.ReceiveMs)),
+            Line("delay.present", Ms(d.HasPresentMs, d.PresentMs)),
+            Line("delay.total", Ms(d.HasTotalMs, d.TotalMs)),
+        ];
+    }
+
+    /// <summary>
+    /// One stage of the path in milliseconds, and nothing at all where nothing measured it.
+    /// Whole milliseconds under ten and one decimal above nothing: a stage of a fifth of a millisecond and one
+    /// of half a second sit in one column, and a reader compares them rather than reading either alone.
+    /// </summary>
+    private static string Ms(bool measured, double value)
+    {
+        if (!measured)
+        {
+            return "";
+        }
+
+        return value < 10 ? $"{value:0.0} ms" : $"{value:0} ms";
+    }
 
     /// <summary>
     /// The sound track, and no block at all where the pipeline built no audio branch.

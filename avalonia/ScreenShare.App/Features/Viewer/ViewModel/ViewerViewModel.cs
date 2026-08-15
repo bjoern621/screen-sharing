@@ -140,6 +140,7 @@ public sealed class ViewerViewModel : Observable
     private string _shownSummary = "";
     private string _notice = "";
     private bool _hasNotice;
+    private bool _isDialling;
     private string _refusal = "";
     private bool _hasRefusal;
     private bool _hasStreams;
@@ -298,6 +299,13 @@ public sealed class ViewerViewModel : Observable
 
     public bool HasNotice { get => _hasNotice; private set => Set(ref _hasNotice, value); }
 
+    /// <summary>
+    /// Whether the window is still dialling behind the notice. False where the notice is not about the backend.
+    /// The window opens on this screen, so it is what a shell launched before its backend draws, and a sentence
+    /// that never moves is what makes one still dialling look stuck.
+    /// </summary>
+    public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
+
     /// <summary>The backend's own sentence when it refused to open or close something, empty otherwise.</summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
 
@@ -396,9 +404,15 @@ public sealed class ViewerViewModel : Observable
                 : Fullscreen == tile.Name;
         }
 
+        // An absent backend is why there is no relay reading at all, so it answers before the relay's own states
+        // and is the one notice the dialling belongs under.
+        var absent = relay is null && _session.Unavailable.Length > 0;
+
         HasStreams = Streams.Count > 0;
-        Notice = HasStreams ? "" : NoticeFor(relay);
+        Notice = HasStreams ? "" : absent ? _session.Unavailable : NoticeFor(relay);
         HasNotice = Notice.Length > 0;
+
+        IsDialling = HasNotice && absent;
 
         var watched = rows.Count(row => row.IsWatched);
         ShownSummary = HasStreams ? $"{watched} of {rows.Count} streams watched" : "";
@@ -430,6 +444,7 @@ public sealed class ViewerViewModel : Observable
         Assert.That(_tiles.Count == Tiles.Count, "one tile per stream in the grid", _tiles.Count, Tiles.Count);
         Assert.That(HasStreams == (Notice.Length == 0), "a list and the sentence standing in for it are never both on screen", HasStreams);
         Assert.That(HasNotice == (Notice.Length > 0), "the notice and its text agree", HasNotice);
+        Assert.That(!IsDialling || HasNotice, "the wait appears under the notice it belongs to", IsDialling, HasNotice);
         Assert.That(HasRefusal == (Refusal.Length > 0), "a refusal and its sentence agree", HasRefusal);
     }
 
@@ -460,6 +475,10 @@ public sealed class ViewerViewModel : Observable
             rows.Add(new StreamRow
             {
                 Name = path.Name,
+
+                // A snapshot naming no own name came from a backend older than the field, and the
+                // whole path is a name where a blank row is nothing at all.
+                OwnName = path.OwnName.Length > 0 ? path.OwnName : path.Name,
                 IsReady = path.Ready,
                 Tracks = path.Tracks,
                 Format = path.Format,
@@ -473,17 +492,16 @@ public sealed class ViewerViewModel : Observable
     }
 
     /// <summary>
-    /// Why there is nothing to list.
+    /// Why there is nothing to list, for every reason but an absent backend, which the render pass answers
+    /// first.
     /// An unread relay, an unreachable one and an idle one are states a reader has to tell apart, and an
     /// unreachable one says why in the relay's own words.
     /// </summary>
-    private string NoticeFor(RelayStatus? relay)
+    private static string NoticeFor(RelayStatus? relay)
     {
         if (relay is null)
         {
-            return _session.Unavailable.Length > 0
-                ? _session.Unavailable
-                : "Reading what the relay is carrying.";
+            return "Reading what the relay is carrying.";
         }
 
         if (!relay.Reachable)

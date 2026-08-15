@@ -18,6 +18,13 @@ public sealed record StreamRow
     public required string Name { get; init; }
 
     /// <summary>
+    /// The name to print: the path with the prefix this machine reaches under taken off, which the backend
+    /// derives because the prefix is a group key's digest.
+    /// Equal to <see cref="Name"/> where there is no prefix, so a list prints this one and never chooses.
+    /// </summary>
+    public required string OwnName { get; init; }
+
+    /// <summary>
     /// A publisher is connected and the path is being served.
     /// A path the relay knows about is not yet a path with a stream on it.
     /// </summary>

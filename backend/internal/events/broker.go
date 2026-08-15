@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"bjoernblessin.de/go-utils/util/assert"
+	"bjoernblessin.de/go-utils/util/logger"
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
@@ -80,7 +81,9 @@ type subscriber struct {
 	// A shared counter skips a number for every event a filter drops, leaving a subscriber that named
 	// kinds a permanent gap it cannot tell from falling behind.
 	sequence uint64
-	// dropped counts what this subscriber fell behind by, for the log.
+	// dropped counts what this subscriber fell behind by.
+	// Written and read under the broker's lock, warned about at the first loss and totalled where the
+	// subscription ends.
 	dropped uint64
 }
 
@@ -133,10 +136,19 @@ func (b *Broker) Subscribe(kinds []screensharev1.EventKind) (<-chan *screenshare
 		once.Do(func() {
 			b.mu.Lock()
 			delete(b.subscribers, id)
+			// Read under the lock, which is the only place Publish writes it.
+			dropped := sub.dropped
 			b.mu.Unlock()
 			// Out of the map before the close, so no Publish can still be sending on the channel, and
 			// the receiver's range ends.
 			close(sub.out)
+
+			// What the subscription cost, once, where the number is final.
+			// A reader that lost events saw a state it never caught up on, and the gap in the sequence
+			// numbers it did receive is the only other trace.
+			if dropped > 0 {
+				logger.Warnf("event subscriber %d ended having lost %d events", id, dropped)
+			}
 		})
 	}
 
@@ -162,7 +174,7 @@ func (b *Broker) Publish(e *screensharev1.Event) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, sub := range b.subscribers {
+	for id, sub := range b.subscribers {
 		if sub.kinds != nil && !sub.kinds[kind] {
 			continue
 		}
@@ -177,6 +189,7 @@ func (b *Broker) Publish(e *screensharev1.Event) {
 		default:
 			// Full, so the oldest goes to make room for this one.
 			// The receive cannot block: this is the only sender and the buffer is known full.
+			before := sub.dropped
 			select {
 			case <-sub.out:
 				sub.dropped++
@@ -186,6 +199,14 @@ func (b *Broker) Publish(e *screensharev1.Event) {
 			case sub.out <- event:
 			default:
 				sub.dropped++
+			}
+			// Once per subscriber, at the first loss.
+			// A consumer that falls behind stays behind, so a line per dropped event would bury the
+			// subscription that is actually stuck under the one that is merely busy, and the fact worth
+			// having is that this subscriber lost anything at all.
+			// The total goes out where the subscription ends.
+			if before == 0 && sub.dropped > 0 {
+				logger.Warnf("event subscriber %d fell behind and is losing events", id)
 			}
 		}
 	}

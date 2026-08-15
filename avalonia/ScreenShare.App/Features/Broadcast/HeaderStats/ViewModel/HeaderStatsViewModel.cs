@@ -17,7 +17,7 @@ namespace ScreenShare.App.Features.Broadcast.HeaderStats.ViewModel;
 public sealed class HeaderStatsViewModel : Observable
 {
     /// <summary>Figures the design promotes, asserted at the foot of <see cref="Apply"/>.</summary>
-    private const int PromotedCount = 5;
+    private const int PromotedCount = 6;
 
     public HeaderStatsViewModel()
     {
@@ -91,6 +91,10 @@ public sealed class HeaderStatsViewModel : Observable
         [
             new StatFigure(Figure.Of(reading.EgressMbps, "0.00"), "Mb/s"),
             new StatFigure(Figure.Of(reading.Fps, "0.0"), "fps"),
+            // The unit names the stage, because the delay to a viewer has several and this is the one this
+            // machine causes: capture to encoded, and not the windows the transports hold packets for.
+            // The whole path is a viewer's panel to show, this being the end that cannot see the other.
+            new StatFigure(Figure.Of(reading.EncodeMs, "0.0"), "ms encode"),
             // Round trip and loss are measured per viewer, so neither has a stream-wide value to promote.
             // Both are the worst viewer's, and the unit says so: an unqualified "ms rtt" beside a viewer
             // count reads as the stream's own, which is a figure nobody took (Model/BroadcastSnapshot.cs).

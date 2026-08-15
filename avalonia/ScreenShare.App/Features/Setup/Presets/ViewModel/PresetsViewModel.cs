@@ -37,6 +37,13 @@ public sealed class PresetsViewModel : Observable
     /// </summary>
     private readonly FormSession _form;
 
+    /// <summary>
+    /// The running state the window owns, read through for one fact: whether the backend is being dialled.
+    /// A refusal on this card is one call's, and whether another is coming is the session's
+    /// (<c>Backend/Session.cs</c>).
+    /// </summary>
+    private readonly Session _session;
+
     private readonly Action<Action> _dispatch;
 
     /// <summary>
@@ -73,14 +80,16 @@ public sealed class PresetsViewModel : Observable
     /// Injected rather than reached for, so a test passes a synchronous one: an answer lands on whichever
     /// thread the transport completed on, and every property below is read by a binding.
     /// </param>
-    public PresetsViewModel(IBackend backend, FormSession form, Action<Action> dispatch)
+    public PresetsViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
         Assert.NotNull(backend, "a preset card reads and writes the store the backend keeps");
         Assert.NotNull(form, "a preset card saves the draft the window is holding");
+        Assert.NotNull(session, "a preset card reads whether the backend is being dialled");
         Assert.NotNull(dispatch, "a preset card needs a UI loop to marshal an answer back to");
 
         _backend = backend;
         _form = form;
+        _session = session;
         _dispatch = dispatch;
 
         Rows = [];
@@ -124,6 +133,7 @@ public sealed class PresetsViewModel : Observable
     private string _notice = "";
     private bool _hasNotice;
     private bool _isEmpty;
+    private bool _isDialling;
 
     /// <summary>One row per saved preset, in the store's order.</summary>
     public ObservableCollection<PresetRow> Rows { get; }
@@ -194,6 +204,14 @@ public sealed class PresetsViewModel : Observable
     public bool HasRefusal => Refusal.Length > 0;
 
     /// <summary>
+    /// Whether the window is still dialling behind that refusal.
+    /// The refusal names one call the backend could not answer and stands until something answers, so without
+    /// this the card reads the same whether the window is dialling or has stopped.
+    /// False for a refusal the backend served, that one having reached a backend that is up.
+    /// </summary>
+    public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
+
+    /// <summary>
     /// The one render function.
     /// Idempotent: every row is rebuilt from the store's last answer and the draft, and two passes over an
     /// unchanged pair produce rows that compare equal.
@@ -228,7 +246,12 @@ public sealed class PresetsViewModel : Observable
 
         OnPropertyChanged(nameof(HasRefusal));
 
+        // Read off the session's verdict and not off the sentence on the card: a refusal the backend served is
+        // one it was up to answer, and nothing is being dialled after it.
+        IsDialling = HasRefusal && _session.Unavailable.Length > 0;
+
         Assert.That(Rows.Count == saved.Count, "a row per saved preset", Rows.Count, saved.Count);
+        Assert.That(!IsDialling || HasRefusal, "the wait appears under the refusal it belongs to", IsDialling, Refusal);
         Assert.That(
             Builtin.Count(row => row.IsCurrent) <= 1,
             "a draft delivers at most one built-in preset's promise", Builtin.Count(row => row.IsCurrent));
@@ -265,7 +288,6 @@ public sealed class PresetsViewModel : Observable
             {
                 Key = preset.Key,
                 Name = Words.Preset(preset.Key),
-                Promise = Descriptions.Preset(preset.Key),
                 IsCurrent = preset.Selected,
                 IsReachable = preset.Settings is not null,
                 Reason = Statements.Of(preset.Reason),

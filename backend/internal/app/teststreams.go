@@ -12,6 +12,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -245,7 +246,10 @@ func (a *App) launchTestStreamLocked(i int, attempts int, s settings.Settings, e
 	proc, err := ffmpeg.Start(exe, args, true, false, "teststream-"+name, env, nil, nil,
 		func(err error, stderrTail string, logPath string) {
 			a.testStreamEnded(i, slot, err, stderrTail, logPath)
-		})
+		},
+		// A test stream publishes to the relay like any other, so its command line carries the same
+		// credentials.
+		ffmpeg.WithRedactor(func(text string) string { return transport.Redact(s, text) }))
 	if err != nil {
 		delete(a.testStreams, i)
 		return err

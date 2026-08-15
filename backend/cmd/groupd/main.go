@@ -14,6 +14,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -43,6 +44,13 @@ func main() {
 	operatorWindow := flag.Duration("api-token", 0, "print a token granting the relay's API for this long and exit, for an operator reading that API directly")
 	flag.Parse()
 
+	// Checked before the key is read, because reading it is what would draw one.
+	if *operatorWindow > 0 {
+		if err := operatorKeyPresent(*keyPath); err != nil {
+			logger.Errorf("%v", err)
+		}
+	}
+
 	signer, err := signerFrom(*keyPath)
 	if err != nil {
 		logger.Errorf("%v", err)
@@ -68,7 +76,21 @@ func main() {
 	// Loopback by default and no TLS of its own: the reverse proxy in front encrypts every leg to
 	// this, to the relay and to the player page, and a second terminator behind it would be a second
 	// certificate to renew (docs/plan.md).
-	server := &http.Server{Addr: *listen, Handler: service.Handler(), ReadHeaderTimeout: 5 * time.Second}
+	//
+	// Every phase is bounded, not the headers alone.
+	// The routes are small JSON over a local hop, so a request that has not finished in this long is
+	// a caller that stopped rather than a slow one, and an unbounded phase holds a connection and a
+	// goroutine for as long as it cares to.
+	// The write bound is the loosest of the three because GET /streams reads the relay's API first,
+	// and that read carries a timeout of its own.
+	server := &http.Server{
+		Addr:              *listen,
+		Handler:           service.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      45 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
 	if err := server.ListenAndServe(); err != nil {
 		logger.Errorf("serving: %v", err)
 	}
@@ -115,6 +137,23 @@ func printOperatorToken(signer *token.Signer, window time.Duration) {
 		logger.Errorf("cannot sign a token for the relay's API: %v", err)
 	}
 	fmt.Println(signed)
+}
+
+// operatorKeyPresent refuses to print a token where the signing key is not already on disk.
+//
+// The relay authenticates against the public half of whichever key this service publishes, so a
+// token signed with one drawn for this run is refused there with a 401 naming nothing, and the run
+// leaves a second private key beside whichever one is real.
+// The serving path draws on purpose, a first start having nothing to read; this one cannot, because
+// what it prints is worth something only against a key the relay already trusts.
+func operatorKeyPresent(path string) error {
+	if path == "" {
+		return errors.New("an operator token is signed with the key the relay publishes, so -api-token needs -key naming the file holding it")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return fmt.Errorf("no signing key at %s, and an operator token is signed with the key the relay already publishes rather than one drawn now", path)
+	}
+	return nil
 }
 
 // signerFrom reads the signing key, drawing one and storing it where the file is absent.
@@ -191,12 +230,15 @@ type relayStreams struct {
 func (r *relayStreams) Paths() []groupsvc.Stream {
 	assert.IsNotNil(r.client, "a relay reader holds a client to read through")
 
+	// A path that carries nothing yet crosses too, with Ready false.
+	// Dropping it here would leave the field with one value it could ever hold, and a viewer waiting
+	// on a publisher that has connected but not established a track would see the row vanish from the
+	// index while a relay read directly shows it starting.
+	// The relay configures one wildcard path, so a path it lists at all is one something connected to
+	// rather than one an operator wrote down (deploy/mediamtx-groups.yml).
 	status := r.client.Fetch(r.host, r.apiPort)
 	out := make([]groupsvc.Stream, 0, len(status.Paths))
 	for _, p := range status.Paths {
-		if !p.Ready {
-			continue
-		}
 		out = append(out, groupsvc.Stream{Path: p.Name, Ready: p.Ready, Tracks: p.Tracks, Format: p.Format})
 	}
 	return out

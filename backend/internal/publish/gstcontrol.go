@@ -121,15 +121,22 @@ func Live(h Handle) (LiveApplier, bool) {
 }
 
 // gstChildArgs are what this run asks its child for beside playing the pipeline: the control
-// socket, and whether to report where the pointer is.
+// socket, whether to report where the pointer is, and where to measure a frame's delay.
 //
 // They lead the arguments, so everything after them is the pipeline itself.
 // That is what the child's own parsing relies on, and what keeps a rendered command reading as a
 // pipeline from the first word after the subcommand.
-func gstChildArgs(s settings.Settings, socket string) []string {
+//
+// metered is whether this run's pipeline carries the encoded-frame counter, which is the element a
+// delay is measured at: the two are one piece of instrumentation, so a run that counts no frames
+// times none either and the displayed command still reads as the command that ran.
+func gstChildArgs(s settings.Settings, socket string, metered bool) []string {
 	args := gstLiveArgs(socket)
 	if s.Publish.Cursor == cursor.Metadata {
 		args = append(args, gstrun.PointerFlag)
+	}
+	if metered {
+		args = append(args, gstrun.DelayFlag+gstStatsName)
 	}
 	return args
 }

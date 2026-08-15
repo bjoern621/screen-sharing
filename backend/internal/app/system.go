@@ -88,14 +88,29 @@ func (a *App) Decoders() []capabilities.Decoder {
 // It runs the probe under ctx, or waits out the one already running.
 // Seconds on a fresh process and nothing after that.
 func (a *App) probeEncoders(ctx context.Context) encoders.Availability {
-	a.encodersOnce.Do(func() {
-		probed := encoders.Detect(ctx)
-		a.encoders.Store(&probed)
-	})
+	a.encodersMu.Lock()
+	defer a.encodersMu.Unlock()
 
-	available := a.encoders.Load()
-	assert.IsNotNil(available, "a finished probe leaves an availability to read")
-	return *available
+	if available := a.encoders.Load(); available != nil {
+		return *available
+	}
+
+	probed := encoders.Detect(ctx)
+
+	// A cancelled sweep is thrown away rather than kept.
+	// Every probe is a child process run under this context, so cancelling it fails all of them at
+	// once, and a failed probe is recorded as a codec that does not run here rather than as one
+	// nothing asked about. Stored, that verdict would be the answer for the life of the process:
+	// the shell greys every codec on every engine with "probe failed", and asking again, which is the
+	// documented recovery, would find the answer already there and re-publish it.
+	// The engine an install cannot reach is a different fact and travels in Unprobed, which is what
+	// keeps this from throwing away a real answer about a machine.
+	if ctx.Err() != nil {
+		return probed
+	}
+
+	a.encoders.Store(&probed)
+	return probed
 }
 
 // cachedEncoders is the probe result where one has been taken, and the zero value where none has.

@@ -27,6 +27,8 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/internal/pipedelay"
 )
 
 // CapsPrefix leads the line the capture's negotiated caps are reported on.
@@ -67,6 +69,9 @@ type Options struct {
 	// Pointer reports where the pointer is, for a publish whose cursor mode sends the position instead
 	// of drawing it (pointer.go).
 	Pointer bool
+	// Delay names the element a frame's delay through this pipeline is measured at, and the empty
+	// name measures none (delay.go).
+	Delay string
 }
 
 // RunWithOptions is Run with whatever this run does beside playing.
@@ -78,6 +83,9 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 	assert.IsNotNil(ctx, "a run runs under a context")
 	assert.IsNotNil(out, "a run reports what it negotiated to a writer")
 	assert.Assert(strings.TrimSpace(description) != "", "a run names a pipeline to play")
+
+	// Wrapped once, before any goroutine below is handed it (syncwriter.go).
+	out = &syncWriter{w: out}
 
 	gst.Init()
 
@@ -115,8 +123,19 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 		go reportPointer(ctx, out)
 	}
 
+	// The probe goes on before PLAYING and the reporting after it, on a clock of its own like the
+	// pointer's: a delay is a reading taken while the pipeline runs rather than something a frame
+	// carries out of it.
+	var delay *pipedelay.Probe
+	if options.Delay != "" {
+		delay = watchDelay(pipeline, options.Delay)
+	}
+
 	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
 		return fmt.Errorf("the pipeline refused to play")
+	}
+	if delay != nil {
+		go reportDelay(ctx, pipeline, delay, out)
 	}
 
 	reported := false

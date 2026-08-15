@@ -121,6 +121,23 @@ message PublishStats {
   optional double inst_mbps = 9;
   optional double avg_mbps = 10;
 
+  // What this leg costs a frame on its way out, which is the publishing half of the delay
+  // between a screen and a viewer's window.
+  //
+  // transit_ms is the mean wall clock one frame spent between the capture stamping it and
+  // the encoded stream leaving the pipeline, over the last interval: converting, encoding
+  // and parsing, measured rather than configured.
+  // link_ms is the delivery window this leg settled on with the relay, the delay every
+  // packet is held for so a lost one has room to arrive again, and rtt_ms the round trip
+  // that says whether the window has room for that.
+  //
+  // Absent where nothing measured them: an engine that runs no pipeline of this app's own
+  // reports none of the three, and a transport keeping no link counters reports the first
+  // alone.
+  optional double transit_ms = 15;
+  optional double link_ms = 16;
+  optional double rtt_ms = 17;
+
   // 11 was "missing", a hand-written list of the field names that carried no measurement, which
   // proto3 presence states with the spelling guaranteed.
   // 1, 7 and 8 were frame, duplicated and dropped, renamed above to say what they count.
@@ -177,6 +194,14 @@ message RelayReader {
 // RelayPath is one stream the relay is carrying.
 message RelayPath {
   string name = 1;
+  // The stream's own name inside the prefix this machine reaches under, which is what a list
+  // of that prefix's streams shows: a group is a path prefix, so the prefix leads every row
+  // and tells a reader nothing about any of them.
+  // Equal to name where nothing was taken off, a relay that authenticates nobody carrying
+  // bare names and an operator's own view carrying several prefixes at once.
+  // name stays the identity every viewer method takes, so a screen prints this and opens
+  // that.
+  string own_name = 8;
   // Whether a publisher is connected and the path is being served.
   // A path the relay knows about is not necessarily a path with a stream on it.
   bool ready = 2;

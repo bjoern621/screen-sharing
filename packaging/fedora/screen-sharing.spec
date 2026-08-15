@@ -71,10 +71,20 @@ Requires:       libnice
 # reads what a binary links and cannot see either, so both are named here.
 Requires:       libglvnd-egl
 Requires:       libglvnd-glx
+# The monitor enumerators the backend spawns, one per session type
+# (backend/internal/display, listX11 and listWlrRandr). Without one the enumeration answers a
+# single placeholder carrying no geometry, so the setup screen offers one nameless screen and
+# every monitor past the first is refused.
+# By file name, as ffmpeg is above: what matters is the program being on PATH.
+Requires:       /usr/bin/xrandr
 
 # RPM Fusion, for the encoders Fedora's own packages leave out.
 Recommends:     gstreamer1-plugins-ugly
 Recommends:     gstreamer1-plugins-bad-freeworld
+# Recommended rather than required, because it is the wlroots half of the pair above and a
+# session running X11 or GNOME never calls it. A hard requirement would also make the package
+# uninstallable wherever it is not carried.
+Recommends:     /usr/bin/wlr-randr
 
 %description
 Group screen sharing for a self-hosted MediaMTX relay, with no accounts and no remote

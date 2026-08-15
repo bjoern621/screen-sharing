@@ -37,6 +37,13 @@ public sealed class QualityStepViewModel : Observable
 
     private readonly FieldGroupViewModel _group;
 
+    /// <summary>
+    /// Mode control whose drawn list this step is following, null while the group carries none.
+    /// Held so a later form handing back another control under the same key moves the subscription instead of
+    /// adding a second one.
+    /// </summary>
+    private FieldViewModel? _listening;
+
     private string _title = "";
     private string _help = "";
     private string _summary = "";
@@ -107,9 +114,13 @@ public sealed class QualityStepViewModel : Observable
     public string QuantizerCeilingLabel { get => _quantizerCeilingLabel; private set => Set(ref _quantizerCeilingLabel, value); }
 
     /// <summary>
-    /// How many rate-control cards sit across the step, for the mode count this form offers.
-    /// A shape rather than a control: the panel divides the same options into rows from it
+    /// How many rate-control cards sit across the step, for the entries the grid is about to draw.
+    /// A shape rather than a control: the panel divides the same entries into rows from it
     /// (<see cref="QualityLayout.CardColumns"/>).
+    ///
+    /// Counted off <see cref="FieldViewModel.Shown"/> and not <see cref="FieldViewModel.Options"/>, the two
+    /// parting company as soon as the availability pass refuses an entry: a count including the hidden ones
+    /// opens a column the last row has no card for, which is the empty row <c>CardColumns</c> asserts against.
     /// </summary>
     public int ModeColumns { get => _modeColumns; private set => Set(ref _modeColumns, value); }
 
@@ -129,7 +140,8 @@ public sealed class QualityStepViewModel : Observable
         Quantizer = _group.Visible(QuantizerKey);
         HasMode = Mode is not null;
         HasQuantizer = Quantizer is not null;
-        ModeColumns = QualityLayout.CardColumns(Mode?.Options.Count ?? 0);
+        Listen(Mode);
+        ModeColumns = QualityLayout.CardColumns(Mode?.Shown.Count ?? 0);
         ApplyQuantizerLabels();
 
         Reconcile.Onto(Selects, Placed());
@@ -137,6 +149,38 @@ public sealed class QualityStepViewModel : Observable
         Assert.That(IsResolved || Selects.Count == 0, "a step the form did not describe draws no controls", Selects.Count);
         Assert.That(HasMode == (Mode is not null), "the mode flag and the mode agree", HasMode);
     }
+
+    /// <summary>
+    /// Follows the mode control's drawn list.
+    ///
+    /// The two subscriptions the constructor takes do not cover this one path: pressing the control's own
+    /// reveal writes <see cref="FieldViewModel.RefusedShown"/>, which rebuilds
+    /// <see cref="FieldViewModel.Shown"/> without the group's properties or its field list moving, so nothing
+    /// would call the render function and the column count would be left over from the list before the press.
+    /// The collection is what is listened to rather than the flag beside it, the flag being announced before
+    /// the list it rebuilds.
+    /// </summary>
+    private void Listen(FieldViewModel? field)
+    {
+        if (ReferenceEquals(_listening, field))
+        {
+            return;
+        }
+
+        if (_listening is not null)
+        {
+            ((INotifyCollectionChanged)_listening.Shown).CollectionChanged -= OnShownChanged;
+        }
+
+        _listening = field;
+
+        if (field is not null)
+        {
+            ((INotifyCollectionChanged)field.Shown).CollectionChanged += OnShownChanged;
+        }
+    }
+
+    private void OnShownChanged(object? sender, NotifyCollectionChangedEventArgs e) => Apply();
 
     /// <summary>
     /// The labels under the track, off the range the control was offered on.

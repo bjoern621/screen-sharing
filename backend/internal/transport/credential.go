@@ -2,6 +2,9 @@ package transport
 
 import (
 	"net/url"
+	"strings"
+
+	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -11,12 +14,41 @@ import (
 //   - RTSP: query, "?jwt=<token>", except for rtspsrc, which takes the pair rtspCredential builds.
 //   - RTMP: query, "?jwt=<token>". Both engines pass a URL query through untouched.
 //   - SRT: stream id, "publish:<path>:<user>:<token>". No query, no header.
-//   - HLS, WebRTC: "Authorization: Bearer <token>". Their query form is a browser's, answered with
-//     a cookie and a redirect, and a client that kept no cookie is refused.
+//   - HLS, WebRTC, MoQ: "Authorization: Bearer <token>", and nothing else. The HTTP servers read
+//     no query at all, measured against v1.20.0: the same address with "?jwt=" is answered 401.
+//     A browser cannot set a header on an address it is handed, which is what credentialUserinfo
+//     covers.
 //
 // Every form is empty without a token, which is what a LAN relay takes.
 // Whether that suffices is the relay's answer, and refusing to build the address would decide a
 // policy this side cannot see.
+
+// Redacted is what stands in a log where a secret was.
+const Redacted = "<redacted>"
+
+// Redact replaces every secret s carries wherever it appears in text.
+//
+// Keyed on the value and never on the spelling around it: the token and the passphrase reach a child
+// as a query parameter, as an element property and as a field of an SRT stream id, so a redaction
+// written per form misses whichever form is added next.
+// Both spellings of the same bytes are covered, since a query carries the value percent-encoded.
+//
+// What a reader wants a run log for survives it: the relay, the path, the element that failed and
+// its own wording are all still there, and only the two values that are worth stealing are not.
+// The passphrase in particular is relay-wide and outlives every token, so a log offered to whoever
+// is helping is exactly how it leaves.
+func Redact(s settings.Settings, text string) string {
+	for _, secret := range []string{s.Relay.Token, s.Relay.SrtPassphrase} {
+		if secret == "" {
+			continue
+		}
+		text = strings.ReplaceAll(text, secret, Redacted)
+		if escaped := url.QueryEscape(secret); escaped != secret {
+			text = strings.ReplaceAll(text, escaped, Redacted)
+		}
+	}
+	return text
+}
 
 // CredentialHeader is the token as the HTTP legs take it, ok=false without one.
 // Handed out rather than written into a URL, because the caller carries it as a player option or an
@@ -39,9 +71,54 @@ func credentialToken(s settings.Settings) (string, bool) {
 	return s.Relay.Token, true
 }
 
+// credentialUserinfo is the token as the userinfo of a player-page address, "jwt:<token>@", empty
+// without one.
+//
+// The one credential form a browser carries on an address it is handed.
+// The relay's HTTP servers read a token off a header and out of no query, and a page opened by the
+// desktop is a plain navigation that sets none, so it rides where the browser builds the header
+// itself: MediaMTX reads a JWT as the password of a Basic pair under any user, the way it reads the
+// SRT stream id.
+//
+// Without it an authenticated relay answers the page 401, and the dialog the browser then shows
+// asks a person to type a JWT.
+func credentialUserinfo(s settings.Settings) string {
+	token, ok := credentialToken(s)
+	if !ok {
+		return ""
+	}
+	return url.UserPassword(browserAuthUser, token).String() + "@"
+}
+
+// browserAuthUser fills the user half of that pair, MediaMTX reading the password beside it.
+const browserAuthUser = "jwt"
+
+// withCredential splices the userinfo into an origin, "http://relay:8888" becoming
+// "http://jwt:<token>@relay:8888", and hands back an origin with no token unchanged.
+//
+// One splice for every player page, so a leg cannot carry the credential in a shape of its own: the
+// three pages differ in scheme and port and in nothing else that a credential touches.
+func withCredential(s settings.Settings, origin string) string {
+	assert.Assert(origin != "", "a player page is built on an origin")
+
+	userinfo := credentialUserinfo(s)
+	if userinfo == "" {
+		return origin
+	}
+	scheme, host, ok := strings.Cut(origin, "://")
+	assert.Assert(ok, "a player page origin names its scheme", origin)
+	return scheme + "://" + userinfo + host
+}
+
+// httpPageOrigin is where the relay answers a player page on one of its HTTP listeners, credential
+// included.
+func httpPageOrigin(s settings.Settings, directPort int) string {
+	return withCredential(s, s.Relay.HTTPOrigin(directPort))
+}
+
 // credentialQuery is the token as a query, joined with the separator the caller's URL needs ("?",
 // "&").
-// Read by RTSP, RTMP, and the relay's player page, which runs in a browser and answers the cookie.
+// RTSP and RTMP alone: the HTTP legs read no query, and their form is credentialUserinfo.
 func credentialQuery(s settings.Settings, separator string) string {
 	if s.Relay.Token == "" {
 		return ""
@@ -94,8 +171,13 @@ func srtStreamID(s settings.Settings, mode, path string) string {
 const srtIDUser = "jwt"
 
 // srtStreamIDFits reports whether an assembled id survives the wire.
-// A question rather than an assert, because the watch leg builds an id from a path the relay named,
-// and an over-long one there is that relay's doing.
+//
+// A question rather than an assert, because what overflows is a stream name and a token, and both
+// are values a deployment supplies rather than anything this code computes.
+// ValidatePublishSettings is the one caller, so the bound is stated where a publish is refused with
+// a reason and nowhere else: the watch leg builds its id from a path the relay named and has no
+// error to answer with, which leaves an over-long one truncating on the wire and reaching the relay
+// as a signature error.
 func srtStreamIDFits(id string) bool {
 	return len(id) <= srtStreamIDBytes
 }

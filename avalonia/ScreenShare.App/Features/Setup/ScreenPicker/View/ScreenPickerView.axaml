@@ -44,23 +44,21 @@
                       picture yet, the reading ended, or this window could not draw what it was
                       handed.
                     -->
-                    <TextBlock Classes="disabled"
-                               Text="{Binding Placeholder}"
-                               IsVisible="{Binding HasPlaceholder}"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Margin="12" />
+                    <SelectableTextBlock Classes="hint"
+                                         Text="{Binding Placeholder}"
+                                         IsVisible="{Binding HasPlaceholder}"
+                                         TextAlignment="Center"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Margin="12" />
 
-                    <TextBlock Classes="disabled"
-                               Text="{Binding Tile.Notice}"
-                               IsVisible="{Binding Tile.HasNotice, FallbackValue=False}"
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               Margin="12" />
+                    <SelectableTextBlock Classes="hint"
+                                         Text="{Binding Tile.Notice}"
+                                         IsVisible="{Binding Tile.HasNotice, FallbackValue=False}"
+                                         TextAlignment="Center"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"
+                                         Margin="12" />
                   </Panel>
                 </Border>
 

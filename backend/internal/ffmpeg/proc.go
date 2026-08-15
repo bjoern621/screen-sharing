@@ -48,7 +48,23 @@ type Stats struct {
 	// target whatever the screen does, and a starved capture or a still screen shows up here alone.
 	// A pipeline built with no rate probe marks it missing rather than reporting a zero rate.
 	CaptureFps float64
-	Missing    Missing
+
+	// What the publish leg costs a frame, and the stages a machine sending a stream can measure.
+	//
+	// TransitMs is the mean wall clock one frame spent between the capture stamping it and the
+	// encoded stream leaving the pipeline, over the last interval: converting, encoding and parsing.
+	// LinkMs is the delivery window the leg settled on with the relay, the delay every packet is held
+	// for so a lost one has room to arrive again, and RttMs the round trip that says whether the
+	// window has room for that.
+	//
+	// All three are an engine's to measure or to mark missing.
+	// Only a pipeline this app runs itself can answer them, so the ffmpeg engine marks all three, and
+	// a leg whose transport keeps no link counters marks the last two.
+	TransitMs float64
+	LinkMs    float64
+	RttMs     float64
+
+	Missing Missing
 }
 
 // Missing is the set of Stats figures a sample carries no measurement for.
@@ -64,6 +80,9 @@ type Missing struct {
 	Speed      bool
 	InstMbps   bool
 	AvgMbps    bool
+	TransitMs  bool
+	LinkMs     bool
+	RttMs      bool
 }
 
 // MarshalJSON writes every figure Missing marks as null, which keeps an unmeasured figure out of the
@@ -87,6 +106,9 @@ func (s Stats) MarshalJSON() ([]byte, error) {
 		Drop       int      `json:"drop"`
 		InstMbps   *float64 `json:"instMbps"`
 		AvgMbps    *float64 `json:"avgMbps"`
+		TransitMs  *float64 `json:"transitMs"`
+		LinkMs     *float64 `json:"linkMs"`
+		RttMs      *float64 `json:"rttMs"`
 	}{
 		Frame:      s.Frame,
 		Fps:        measured(s.Fps, s.Missing.Fps),
@@ -98,6 +120,9 @@ func (s Stats) MarshalJSON() ([]byte, error) {
 		Drop:       s.Drop,
 		InstMbps:   measured(s.InstMbps, s.Missing.InstMbps),
 		AvgMbps:    measured(s.AvgMbps, s.Missing.AvgMbps),
+		TransitMs:  measured(s.TransitMs, s.Missing.TransitMs),
+		LinkMs:     measured(s.LinkMs, s.Missing.LinkMs),
+		RttMs:      measured(s.RttMs, s.Missing.RttMs),
 	})
 }
 
@@ -164,6 +189,7 @@ func Start(
 	onStats func(Stats),
 	onLine func(string),
 	onExit func(err error, stderrTail string, logPath string),
+	opts ...Option,
 ) (*Proc, error) {
 	assert.Assert(onStats == nil || onLine == nil, "one reader of the child's stdout", tag)
 	assert.Assert(exe != "", "a child is launched from a resolved binary", tag)
@@ -185,7 +211,16 @@ func Start(
 		// UI shows stays the plain encoder line.
 		full = append(append([]string{}, args...), "-progress", "pipe:1")
 	}
-	fmt.Fprintf(logFile, "%s %s\n\n", exe, strings.Join(full, " "))
+
+	var cfg options
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	commandLine := fmt.Sprintf("%s %s", exe, strings.Join(full, " "))
+	if cfg.redact != nil {
+		commandLine = cfg.redact(commandLine)
+	}
+	fmt.Fprintf(logFile, "%s\n\n", commandLine)
 
 	tail := &tailBuffer{max: 4096}
 	cmd := exec.Command(exe, full...)

@@ -16,7 +16,7 @@ $url = "http://${Relay}:${ApiPort}/v3/paths/list"
 try {
   $data = Invoke-RestMethod -Uri $url -TimeoutSec 5
 } catch {
-  Write-Error "Cannot reach relay API at $url . Is MediaMTX up? (docker compose up -d)"
+  Write-Error "Cannot reach relay API at $url . Is MediaMTX up? (task relay)"
   exit 1
 }
 

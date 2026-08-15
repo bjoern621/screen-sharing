@@ -193,6 +193,13 @@ public static class Cards
     public static string RetryAttempt(int attempt, int budget) => $"reconnecting, attempt {attempt} of {budget}";
 
     /// <summary>
+    /// What the turning arc beside an unreachable backend means: waiting is enough, nothing has to be restarted.
+    /// Shared by every screen that draws the arc, so it names no button only one of them offers.
+    /// </summary>
+    public const string Redialling =
+        "This window is dialling the backend, and goes on doing so until it answers or the window closes.";
+
+    /// <summary>
     /// The quantizer track's three labels, each carrying the number on the track it sits over.
     ///
     /// The numbers are formatted and not written, because the scale is the codec's and the encoder's: 51 is

@@ -152,10 +152,11 @@ func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.WebrtcPort, d.WebrtcPort)
 	fillNum(&r.RtmpPort, d.RtmpPort)
 	fillNum(&r.HlsPort, d.HlsPort)
+	fillNum(&r.MoqPort, d.MoqPort)
 
-	assert.Assert(r.SrtPort > 0 && r.ApiPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0,
+	assert.Assert(r.SrtPort > 0 && r.ApiPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0 && r.MoqPort > 0,
 		"an upgraded relay names a port for every listener",
-		r.SrtPort, r.ApiPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort)
+		r.SrtPort, r.ApiPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort, r.MoqPort)
 	return r
 }
 
@@ -167,6 +168,9 @@ func migratePublish(p, d Publish) Publish {
 	case "quality":
 		p.Mode = "crf"
 	}
+	// A rate at or below zero prices nothing and encodes nothing, and the file is the user's to edit,
+	// so the stored value is repaired here rather than carried into the form.
+	fillNum(&p.BitrateM, d.BitrateM)
 	// A zero ceiling leaves VBR no room above the target, so it is defaulted.
 	// A VbvMs of zero is a legal value, the encoder's own buffer default, and is left standing.
 	fillNum(&p.MaxrateM, d.MaxrateM)

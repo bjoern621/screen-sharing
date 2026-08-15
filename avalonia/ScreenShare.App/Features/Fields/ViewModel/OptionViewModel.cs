@@ -4,6 +4,7 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 
 /// <summary>
 /// One entry of a select or radio field, as the form described it and the screen draws it.
+/// A dropdown carries one row that is not an entry: the disclosure over the refused ones (<see cref="IsReveal"/>).
 ///
 /// Every string here is written on this side: the name and the paragraph are looked up by field and
 /// <see cref="Value"/>, the note and the refusal are composed from the codes the backend sent.
@@ -38,6 +39,13 @@ public sealed record OptionViewModel
 
     /// <summary>Whether the backend marked the entry worth emphasising for this combination.</summary>
     public required bool IsRecommended { get; init; }
+
+    /// <summary>
+    /// The disclosure row rather than an entry: no value, <see cref="Choose"/> lists the refused ones instead of
+    /// picking, <see cref="IsSelected"/> reads whether they are listed.
+    /// It is also what keeps the menu open on the press (<c>Controls/Select/Select.axaml</c>).
+    /// </summary>
+    public required bool IsReveal { get; init; }
 
     public required DelegateCommand Choose { get; init; }
 

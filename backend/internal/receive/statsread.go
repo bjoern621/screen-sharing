@@ -30,6 +30,8 @@ func (r *Receiver) Stats() Stats {
 	if ns := r.video.lastKey.Load(); ns > 0 {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
 	}
+	transit := r.delay.Read()
+	s.Transit, s.TransitFrames = transit.Total, transit.Frames
 
 	// r.mu guards the fields onElement writes and nothing else here, so the handles are copied
 	// under it and the pipeline is queried outside it.

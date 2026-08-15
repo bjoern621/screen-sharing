@@ -39,12 +39,12 @@ func TestWatchNamesArePerEngine(t *testing.T) {
 }
 
 // The browser's list is neither of the other two: it is the legs the relay serves a page for.
-// WHEP is on it and no player opens it, and SRT is off it although both other readers take it, a
-// browser reaching a relay listener over HTTP and nothing else.
+// WHEP and MoQ are on it and no player opens either, and SRT is off it although both other readers
+// take it, a browser reaching a relay listener over HTTP and nothing else.
 func TestBrowserWatchNamesAreTheLegsWithAPage(t *testing.T) {
 	browser := WatchNames(EngineBrowser)
 
-	if want := []string{"hls", "webrtc"}; !slices.Equal(browser, want) {
+	if want := []string{"hls", "moq", "webrtc"}; !slices.Equal(browser, want) {
 		t.Errorf("WatchNames(browser) = %v, want %v", browser, want)
 	}
 	for _, name := range browser {

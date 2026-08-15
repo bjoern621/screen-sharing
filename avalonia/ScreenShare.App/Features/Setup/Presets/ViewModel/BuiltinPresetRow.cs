@@ -3,8 +3,8 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.Presets.ViewModel;
 
 /// <summary>
-/// One built-in preset as the card draws it: the promise, whether the draft delivers it, and whether this
-/// machine reaches it.
+/// One built-in preset as the card draws it: its name, whether the draft delivers its promise, and whether
+/// this machine reaches it.
 ///
 /// The other kind of preset entirely (<see cref="PresetRow"/>).
 /// A saved preset is a snapshot of every field, selected while the draft equals it.
@@ -21,9 +21,6 @@ public sealed record BuiltinPresetRow
 
     /// <summary>Written here rather than sent (<c>Copy/Words.cs</c>).</summary>
     public required string Name { get; init; }
-
-    /// <summary>What it delivers, in one line (<c>Copy/Descriptions.cs</c>).</summary>
-    public required string Promise { get; init; }
 
     /// <summary>
     /// Whether the draft already delivers the promise, as the backend derives it on every resolve.

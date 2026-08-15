@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Setup.ViewModel"
              xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:copy="using:ScreenShare.App.Copy"
              xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.View"
              xmlns:quality="using:ScreenShare.App.Features.Setup.QualityStep.View"
              xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
@@ -26,13 +27,29 @@
             Padding="12,10"
             Margin="12,12,12,0"
             IsVisible="{Binding IsUnavailable}">
-      <Grid ColumnDefinitions="*,Auto">
+      <Grid ColumnDefinitions="*,Auto,Auto">
         <SelectableTextBlock Grid.Column="0"
                              Classes="hint danger"
                              VerticalAlignment="Center"
                              Text="{Binding Unavailable}" />
 
-        <Button Grid.Column="1"
+        <!--
+          The same turning arc a pressed control wears: connecting speaks one vocabulary across this app
+          (docs/design-language.md, "Status language").
+          The transparent fill is the pointer target the tip opens from, the arc itself taking none.
+          Foreground stated and not inherited: an arc outside a templated control has none to inherit, and the
+          hue is the sentence's own.
+        -->
+        <Border Grid.Column="1"
+                Background="Transparent"
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                IsVisible="{Binding IsDialling}"
+                ToolTip.Tip="{x:Static copy:Cards.Redialling}">
+          <controls:Spinner Foreground="{StaticResource AttentionBrush}" />
+        </Border>
+
+        <Button Grid.Column="2"
                 Margin="12,0,0,0"
                 VerticalAlignment="Center"
                 Content="Look again"
@@ -94,7 +111,14 @@
             -->
             <screens:ScreenPickerView DataContext="{Binding Screens}" />
 
-            <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
+            <!--
+              No group, no card: a form that never arrived leaves the step column empty rather than
+              drawing a frame around nothing.
+              The wrapper is load-bearing, as on the review step above.
+            -->
+            <Panel IsVisible="{Binding CurrentGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
+              <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
+            </Panel>
           </StackPanel>
         </Panel>
       </ScrollViewer>

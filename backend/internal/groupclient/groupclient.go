@@ -204,6 +204,20 @@ func (c *Client) get(address string, into any) error {
 	return read(address, resp, into)
 }
 
+// spoken is address with its query dropped, for a sentence a reader sees.
+//
+// The group key rides the index read as a query parameter, and it is the whole of membership.
+// Every error text this app shows is selectable so a reader can carry it into a bug report, which
+// is exactly what would carry the key out with it, so the query is cut before the address is
+// named rather than at each site that names one.
+// The path survives, which is what tells one route from another.
+func spoken(address string) string {
+	if cut := strings.IndexByte(address, '?'); cut >= 0 {
+		return address[:cut]
+	}
+	return address
+}
+
 // read decodes one answer into a value, or into the reason there is none.
 // A refusal carries the service's own sentence and it passes through: restating it here is guessing
 // at why.
@@ -215,14 +229,14 @@ func read(address string, resp *http.Response, into any) error {
 		if json.NewDecoder(resp.Body).Decode(&refusal) == nil && refusal.Error != "" {
 			return fmt.Errorf("the group service refused: %s", refusal.Error)
 		}
-		return fmt.Errorf("the group service at %s answered %s", address, resp.Status)
+		return fmt.Errorf("the group service at %s answered %s", spoken(address), resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(into); err != nil {
-		return fmt.Errorf("the group service at %s answered something this app cannot read: %v", address, err)
+		return fmt.Errorf("the group service at %s answered something this app cannot read: %v", spoken(address), err)
 	}
 	return nil
 }
 
 func unreachable(address string, err error) error {
-	return fmt.Errorf("the group service at %s cannot be reached: %v", address, err)
+	return fmt.Errorf("the group service at %s cannot be reached: %v", spoken(address), err)
 }

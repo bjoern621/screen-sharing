@@ -43,14 +43,26 @@ hlsVariant: lowLatency
 webrtc: yes
 webrtcAddress: :8889
 
-# --- Media over QUIC (watch only here: no publish engine speaks it) ---
-# The relay re-serves every ingested stream over MoQ, and a browser reads it with
-# WebTransport + WebCodecs. It is the only web-grid leg carrying all five formats.
+# --- Media over QUIC (watch only: no publish engine here speaks it) ---
+# The relay re-serves every ingested stream over MoQ and a browser reads it with
+# WebTransport + WebCodecs, which is the one leg carrying every format this app
+# encodes. Only a browser reaches it: no player opens the address and no receive
+# pipeline subscribes (docs/viewer-architecture.md).
 #
-# TLS is not optional: WebTransport refuses a plain listener. auto.crt/auto.key
-# make MediaMTX generate a self-signed pair on first start, which the web grid
-# pins by SHA-256 fingerprint rather than by a CA (see viewer-architecture.md,
-# "Reading Media over QUIC"). Point these at a real certificate to drop the pin.
+# TLS is not optional: WebTransport refuses a plain listener, so this leg is
+# encrypted on a LAN relay too.
+#
+# The pair below is the page's alone, ordinary TLS a browser validates against a CA.
+# auto.crt/auto.key make MediaMTX draw a self-signed one on first start, which every
+# browser answers with an interstitial: fine on a LAN, and a relay with a real name
+# points these at its certificate instead.
+#
+# The WebTransport session is not this pair and takes no configuration. MediaMTX
+# generates that certificate itself and the page pins its SHA-256 off /fingerprint,
+# a hash-pinned certificate being one no CA vouches for. The rules that come with
+# pinning are the reason it is generated rather than configured: it may not be RSA
+# and may not outlive 14 days, so MediaMTX draws ECDSA P-256 and rotates it
+# (docs/network-architecture.md).
 #
 # MediaMTX rejects an unknown key outright, so these have to be the keys of the
 # pinned version, not of whatever main has. moqQUICAddress arrived in v1.20.0; a
@@ -58,8 +70,8 @@ webrtcAddress: :8889
 # that release: the mediamtx override in flake.nix, and scripts/relay.ps1 for the
 # Windows download.
 moq: yes
-moqHTTP2Address: :8892 # TCP: the fingerprint endpoint and the relay's own page
-moqHTTP3Address: :8892 # UDP: the WebTransport endpoint the web grid subscribes on
+moqHTTP2Address: :8892 # TCP: the player page, the fingerprint and the credential mirror
+moqHTTP3Address: :8892 # UDP: the WebTransport session the page subscribes on
 moqQUICAddress: :8893 # UDP: native MoQ-over-QUIC, for a client that is not a browser
 moqServerCert: auto.crt
 moqServerKey: auto.key

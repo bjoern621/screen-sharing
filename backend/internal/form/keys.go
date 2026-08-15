@@ -33,6 +33,7 @@ const (
 	KeyWebrtcPort    = "relay.webrtc_port"
 	KeyRtmpPort      = "relay.rtmp_port"
 	KeyHlsPort       = "relay.hls_port"
+	KeyMoqPort       = "relay.moq_port"
 
 	KeyName = "publish.name"
 

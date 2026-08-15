@@ -41,9 +41,14 @@ type byteSample struct {
 
 // Path is one stream the relay is carrying, as a viewer's list shows it.
 type Path struct {
-	Name   string `json:"name"`
-	Ready  bool   `json:"ready"`
-	Tracks string `json:"tracks"`
+	Name string `json:"name"`
+	// OwnName is Name with the prefix this machine reaches under taken off, and Name where none
+	// was.
+	// Nothing here derives it: which prefix that is comes off the settings, so the poll fills it in
+	// (internal/app, groups.go).
+	OwnName string `json:"ownName"`
+	Ready   bool   `json:"ready"`
+	Tracks  string `json:"tracks"`
 	// Format is the video track's bitstream format in the vocabulary the codec table keys on, and
 	// empty for a path whose tracks name none.
 	// It decides which protocols can carry the stream, so the viewer's refusal and the watch dropdown

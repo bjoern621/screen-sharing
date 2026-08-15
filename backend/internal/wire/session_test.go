@@ -17,6 +17,7 @@ import (
 // spelled them.
 var missingNames = []string{
 	"fps", "capture_fps", "size_kib", "time_sec", "speed", "inst_mbps", "avg_mbps",
+	"transit_ms", "link_ms", "rtt_ms",
 }
 
 // allMissing is a sample that measured nothing at all: every flag the domain has, set.

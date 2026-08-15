@@ -81,7 +81,8 @@ func (ffmpegEngine) Start(s settings.Settings, tag string, preview PreviewLeg, c
 	if err != nil {
 		return nil, err
 	}
-	proc, err := ffmpeg.Start(exe, args, true, false, tag, nil, cb.OnStats, nil, cb.OnExit)
+	proc, err := ffmpeg.Start(exe, args, true, false, tag, nil, cb.OnStats, nil, cb.OnExit,
+		ffmpeg.WithRedactor(func(text string) string { return transport.Redact(s, text) }))
 	if err != nil {
 		return nil, err
 	}

@@ -35,9 +35,9 @@ writeQueueSize: 16384
 # (backend/internal/token, GroupPermissions).
 #
 # Every address here is loopback, which is the shape of a host running the relay, the group
-# service and the proxy together. A deployment that splits them across containers overrides
-# the addresses through MediaMTX's own environment variables (MTX_AUTHJWTJWKS and friends in
-# docker-compose.yml), so this file states one topology rather than carrying both.
+# service and the proxy together. A deployment that splits them across machines overrides the
+# addresses through MediaMTX's own environment variables (MTX_AUTHJWTJWKS and friends), so
+# this file states one topology rather than carrying both.
 authMethod: jwt
 authJWTJWKS: http://127.0.0.1:9443/jwks.json
 authJWTClaimKey: mediamtx_permissions
@@ -99,6 +99,41 @@ webrtcLocalUDPAddress: :8189
 
 api: yes
 apiAddress: 127.0.0.1:9997
+
+# --- Media over QUIC, which no proxy can front either --------------------------------
+#
+# Named here whichever way it is set, because MediaMTX starts it by default: a file that leaves
+# the key out exposes a listener on 8892 and 8893 under a certificate the relay drew for itself,
+# and that is a decision, not an omission.
+#
+# It is a watch leg and a browser's alone. The page the relay serves subscribes over WebTransport,
+# which is HTTP/3 over UDP: Caddy terminates HTTP/1.1 and HTTP/2 on 443 and carries no CONNECT of
+# that kind, so this listener is exposed directly and holds a certificate of its own, the shape
+# RTSPS and RTMPS have.
+#
+# Two certificates, and only one of them is named here.
+#
+# The pair below serves the page over TCP, ordinary TLS a browser validates like any other site, so
+# a deployment with a real name wants its ACME certificate here and gets an interstitial otherwise.
+# It is overridden per deployment rather than written in: this file is shared with every other
+# relay built from this repository, and MTX_MOQSERVERCERT and MTX_MOQSERVERKEY are where a host
+# points it at the certificate it already has (modules/mediamtx-relay.nix in nixos-config).
+#
+# The WebTransport session over UDP carries a certificate MediaMTX generates in memory and rotates,
+# ECDSA P-256 with a fortnight's validity, which the page pins by SHA-256 off /fingerprint. Nothing
+# configures it and nothing should: those two properties are what the pinning rules demand
+# (docs/network-architecture.md).
+#
+# The names stay relative so a deployment that overrides neither still starts: MediaMTX draws the
+# pair on first start where it may write, which is the unit's state directory. An absolute path to
+# a file nothing creates is a listener that fails to come up, and MediaMTX exits on that rather
+# than serving the other legs without it.
+moq: yes
+moqHTTP2Address: :8892
+moqHTTP3Address: :8892
+moqQUICAddress: :8893
+moqServerCert: auto.crt
+moqServerKey: auto.key
 
 # --- Which paths exist -----------------------------------------------------------
 #

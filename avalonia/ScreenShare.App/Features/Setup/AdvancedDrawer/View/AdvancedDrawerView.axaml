@@ -115,7 +115,7 @@
                               IsEnabled="{Binding IsEnabled}">
                         <ti:TablerIcon Icon="IconChevronDown" Brush="{StaticResource MutedBrush}" />
                         <Button.Flyout>
-                          <MenuFlyout ItemsSource="{Binding Options}"
+                          <MenuFlyout ItemsSource="{Binding MenuRows}"
                                       ItemTemplate="{StaticResource SelectEntry}"
                                       ItemContainerTheme="{StaticResource SelectMenuItem}"
                                       Placement="BottomEdgeAlignedRight" />

@@ -96,6 +96,7 @@ public static class Words
         ["webrtc"] = "WebRTC",
         ["rtmp"] = "RTMP",
         ["hls"] = "HLS",
+        ["moq"] = "MoQ",
     };
 
     /// <summary>

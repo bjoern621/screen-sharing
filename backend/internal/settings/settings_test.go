@@ -9,6 +9,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/group"
 	"bjoernblessin.de/screenshare/internal/platform"
 )
 
@@ -456,5 +457,36 @@ func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
 		if got := (Relay{Host: host}).Tls(); got != want {
 			t.Errorf("relay %q is encrypted = %v, want %v", host, got, want)
 		}
+	}
+}
+
+// The prefix a list shortens a name by and the prefix a path is published under are one string.
+// Two derivations of it would let a viewer's list print a name the relay has no path for, which
+// reads as a stream that will not open.
+func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
+	key, err := group.NewKey()
+	if err != nil {
+		t.Fatalf("drawing a group key: %v", err)
+	}
+
+	for deployment, relay := range map[string]Relay{
+		"a group":       {Host: "relay.example", GroupKey: key.String()},
+		"no key":        {Host: "relay.example"},
+		"a LAN relay":   {Host: "192.168.1.9"},
+		"a damaged key": {Host: "relay.example", GroupKey: "not a key"},
+	} {
+		if got, want := relay.Path("standup"), relay.Prefix()+"standup"; got != want {
+			t.Errorf("%s publishes to %q, and its prefix builds %q", deployment, got, want)
+		}
+	}
+
+	if got := (Relay{Host: "relay.example", GroupKey: key.String()}).Prefix(); got != key.Prefix() {
+		t.Errorf("a member reaches under %q, want the group's own %q", got, key.Prefix())
+	}
+	if got := (Relay{Host: "relay.example"}).Prefix(); got != group.PublicPrefix {
+		t.Errorf("a keyless machine reaches under %q, want the public prefix", got)
+	}
+	if got := (Relay{Host: "192.168.1.9"}).Prefix(); got != "" {
+		t.Errorf("a relay that authenticates nobody derives the prefix %q, want none", got)
 	}
 }

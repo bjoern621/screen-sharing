@@ -150,19 +150,6 @@ public static class Descriptions
         ["lossless"] = "Codes the frame exactly, with nothing thrown away and no rate control at all.",
     };
 
-    /// <summary>
-    /// What each built-in preset delivers.
-    /// The line holds for every configuration the preset accepts and no other, so it names no encoder, pixel
-    /// format or capture backend: those are this machine's answer to the promise and change with the machine
-    /// (<c>docs/presets.md</c>).
-    /// </summary>
-    private static readonly Dictionary<string, string> Presets = new()
-    {
-        ["lossless"] = "Bit-exact pixels: the encoder quantizes nothing, no colour detail is thrown away, and the desktop's own code values reach the viewer untouched. Bursts to hundreds of Mbit/s on motion, so LAN and localhost only.",
-        ["gaming"] = "Motion first: 60 frames a second, no reorder delay, a short retransmit window, and a bitrate held constant so a busy scene costs no extra delay.",
-        ["readability"] = "Text first: constant quality at a screen-share frame rate, so a still page of text gets the bits that motion would otherwise take.",
-    };
-
     private static readonly Dictionary<string, string> Transports = new()
     {
         ["srt"] = "UDP that asks for lost packets again, within a delay window you set. One connection carries everything in both directions, so it asks no more of a home router than any other outgoing connection.",
@@ -170,6 +157,7 @@ public static class Descriptions
         ["webrtc"] = "What a browser speaks. It tests the path before sending anything, which is what opens the way through a home router - the one protocol here that establishes its route rather than assuming it. No external player opens it by address.",
         ["rtmp"] = "One TCP connection, the protocol broadcast tools speak. Nothing about it is tunable: no retransmit window, no buffer, and the delay is whatever TCP and the relay make it.",
         ["hls"] = "Files and a playlist over ordinary HTTP, which gets through proxies and firewalls that block everything else. A viewer cannot start until a segment exists, so it is by far the slowest way to watch.",
+        ["moq"] = "Tracks pushed over QUIC, which a browser subscribes to and decodes itself. It is the only way to watch that carries every codec this app encodes, and it is a browser's alone: no player and no tile opens it. It needs both the TCP and the UDP side of its port to reach the relay.",
     };
 
     private static readonly Dictionary<string, string> RtspProtocols = new()
@@ -217,8 +205,6 @@ public static class Descriptions
     public static string Effort(string id) => Look(Efforts, id);
 
     public static string Tune(string id) => Look(Tunes, id);
-
-    public static string Preset(string id) => Look(Presets, id);
 
     public static string Transport(string id) => Look(Transports, id);
 

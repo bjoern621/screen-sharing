@@ -57,16 +57,13 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 		return nil
 	}
 
-	// A decode running with the other answer is not the state this call names, so it is taken down
-	// and built again.
-	// Again rather than adjusted: the rung is an element of the pipeline and there is no property to
-	// write, so the tile goes dark for as long as one decode takes to open.
-	if replaced := a.replacedReceiver(key, wanted); replaced != nil {
-		logger.Infof("rebuilding the decode of '%s' over %s %s tone mapping",
-			streamName, transportName, withOrWithout(wanted))
-		replaced.Stop()
-	}
-
+	// Everything that can refuse runs before anything is taken down.
+	// The read above is what keeps a repeat safe, and this is what keeps a refusal from costing the
+	// decode that was already running: each of the three below is an Umgebungsfehler that a working
+	// tile can meet, a group service that went away for a moment being the ordinary one, and a
+	// teardown placed first turns "this call could not be honoured" into "and the picture is gone".
+	// There is nothing to roll back to once the pipeline is stopped, which is why the order carries
+	// the guarantee rather than a recovery path.
 	a.settingsMu.Lock()
 	s := a.settings
 	a.settingsMu.Unlock()
@@ -83,6 +80,16 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	source, ok := transport.GstSource(transportName, s, streamName)
 	if !ok {
 		return fmt.Errorf("transport %q has no GStreamer watch form, so no pipeline can receive over it", transportName)
+	}
+
+	// A decode running with the other answer is not the state this call names, so it is taken down
+	// and built again.
+	// Again rather than adjusted: the rung is an element of the pipeline and there is no property to
+	// write, so the tile goes dark for as long as one decode takes to open.
+	if replaced := a.replacedReceiver(key, wanted); replaced != nil {
+		logger.Infof("rebuilding the decode of '%s' over %s %s tone mapping",
+			streamName, transportName, withOrWithout(wanted))
+		replaced.Stop()
 	}
 
 	a.procMu.Lock()

@@ -1,34 +1,37 @@
 # Development principles
 
 Everything else in `docs/` describes what the app does.
-This page describes how its code is allowed to be shaped.
+This page describes how its code may be shaped.
 
 ## The two paradigms
 
 **Idempotent** and **stateless** outrank every other rule on this page, and the rules below are how they are held to.
-Where a design decision is open, the one that keeps these two is the one taken, and neither is traded for brevity, for a round trip, or for a shorter diff.
+Where a design decision is open, the one that keeps these two is the one taken.
+Neither is traded for brevity, for a round trip, or for a shorter diff.
 
 **Idempotent** means an operation is safe to run twice.
 Applying, syncing, reconciling and asking the backend for something are all repeatable: the second run with unchanged input changes nothing, creates nothing and restarts nothing.
-A call names the state it wants to be true, not the transition it wants performed, and that is what makes the second call mean nothing rather than mean it again.
-What this buys is a caller that never has to know what has already happened.
-A step that cannot be repeated forces every caller to track whether it ran, and a caller whose answer went missing then has nothing left to do but wait.
+A call names the state it wants true, not the transition it wants performed, so a second call means nothing rather than meaning it again.
+The caller then never has to know what has already happened.
+A step that cannot be repeated forces every caller to track whether it ran, and a caller whose answer went missing has nothing left to do but wait.
 
 **Stateless** means nothing keeps a copy of a fact.
-One owner holds each piece of state and everything else derives what it needs from that owner at the moment it needs it: a render function writes the whole component from the model, a consumer reads the one table rather than restating the rule at its own site, an effect answers empty and the state arrives read back off the thing that owns it.
-What this buys is one definition of each fact.
-A second copy - cached at construction, restated per site, or remembered from what a caller believed it had just done - drifts from the first, and the two then disagree without either being wrong.
+One owner holds each piece of state, and everything else derives what it needs from that owner at the moment it needs it.
+A render function writes the whole component from the model, a consumer reads the one table rather than restating the rule at its own site, an effect answers empty and the state arrives read back off the thing that owns it.
+Each fact then has one definition.
+A second copy (cached at construction, restated per site, or remembered from what a caller believed it had just done) drifts from the first, and the two disagree without either being wrong.
 
 The two hold each other up.
-An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it, and an operation that is idempotent can be called from a render pass, which is what lets that pass keep nothing of its own between runs.
+An operation that names a state is idempotent by construction, because a state that already holds needs nothing done to it.
+An operation that is idempotent can be called from a render pass, which lets that pass keep nothing of its own between runs.
 
-The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts that are stated once, files that hold one idea, and contracts that fail loudly.
+The rules below are ordered by what they protect: state that cannot drift, work that can be repeated, facts stated once, files that hold one idea, and contracts that fail loudly.
 
 ## State is written explicitly and read continuously
 
 One piece of state has one owner, and the owner is a plain struct.
 A write is a named method on that owner, and nothing outside it assigns the field.
-A reader never keeps a copy: it reads through on demand, or it re-reads the owner on every change notification.
+A reader never keeps a copy: it reads through on demand, or re-reads the owner on every change notification.
 
 The failure this removes is two copies of one fact drifting apart.
 A view that caches `stream.Transport` at construction and never refreshes it keeps naming the old transport after a leg change, and nothing in the type system says so.
@@ -36,7 +39,7 @@ A view that caches `stream.Transport` at construction and never refreshes it kee
 Rules:
 
 - A field on a view that mirrors a model field is a defect, unless it is a widget handle or a cache the render function refills on every pass.
-- A model exposes accessors, not its slice. `Session.Stream(i)` is read through; a view that stores the result must refresh it from the same accessor when the model says it changed.
+- A model exposes accessors, not its slice. `Session.Stream(i)` is read through. A view that stores the result must refresh it from the same accessor when the model says it changed.
 - State that must survive a restart is written through a store, not reconstructed from widgets.
 - An observer that ignores a change kind is silently stale. Handle every kind or assert on the ones that cannot occur.
 
@@ -47,15 +50,16 @@ The house names are `apply`, `draw` and `sync`.
 
 Event handlers change the model and call the render function.
 They do not reach into widgets themselves.
-A handler that sets a label directly means the render function alone can no longer restore a correct view, and the component has two definitions of what it looks like.
+A handler that sets a label directly means the render function alone can no longer restore a correct view.
+The component then has two definitions of what it looks like.
 
 The render function sets everything the component can show on every pass, including the branch that turns something off.
-A property set only in the "on" branch is a property that sticks after the state that justified it is gone.
+A property set only in the "on" branch sticks after the state that justified it is gone.
 
 ## Idempotency
 
 Every apply, sync and reconcile is safe to run twice.
-Running it a second time with unchanged input produces no visible change, no new widgets, no new signal handlers and no restarted work.
+A second run with unchanged input produces no visible change, no new widgets, no new signal handlers and no restarted work.
 
 Naming carries the contract:
 
@@ -64,7 +68,7 @@ Naming carries the contract:
 
 A reconcile takes desired state and converges to it.
 It does not take a diff, unless the diff is genuinely the input the process receives.
-Where a subtree is small, clear-then-fill is preferred over an incremental patch: it is idempotent by construction and cannot leak a handler.
+Where a subtree is small, clear-then-fill beats an incremental patch: it is idempotent by construction and cannot leak a handler.
 
 Where an operation is expensive, the guard belongs inside it.
 `Attach(p)` with the player already attached returns without renegotiating, rather than asking every caller to check first.
@@ -72,45 +76,51 @@ Where an operation is expensive, the guard belongs inside it.
 ### Effects across a process boundary
 
 An effect on the control contract names the state it wants, and a request for a state that already holds succeeds.
-`StartReceive` on a decode that is already open is not a second decode and is not an error; `StopReceive` on one that is already closed is not a failure.
+`StartReceive` on a decode that is already open is not a second decode and is not an error.
+`StopReceive` on one that is already closed is not a failure.
 `StartPublish` naming the pipeline that is already publishing is the same case, backoff and all.
 Each of them is the state the caller asked for, and it is true.
 
 The state is read before the request is validated, and the order is not an economy.
-A precondition moves under a state that already holds - the relay reports a format the running decode's leg stopped carrying, the settings the viewer was opened on changed - and a validation placed first would refuse a repeat on behalf of a state it was never asked to establish.
+A precondition moves under a state that already holds: the relay reports a format the running decode's leg stopped carrying, or the settings the viewer was opened on changed.
+A validation placed first would refuse a repeat on behalf of a state it was never asked to establish.
 
 The reason is the answer, not the effect.
 A shell that sent a call and did not hear back cannot tell "not done" from "done, answer lost", and the only move that resolves it is asking again.
-A method that refuses a repeat takes that move away and leaves the caller waiting on an answer that is not coming, which is a control that never comes back rather than one that failed.
+A method that refuses a repeat takes that move away and leaves the caller waiting on an answer that is not coming, a control that never comes back rather than one that failed.
 
 What a repeat is not is a second, different request.
-`StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path; `ApplyToStream` names a transition on purpose and a second one is a second restart.
+`StartPublish` naming a *different* pipeline while one is publishing is still refused, because that would put two encoders on one relay path.
+`ApplyToStream` names a transition on purpose, and a second one is a second restart.
 
 The third departure is the handful of effects that end in a program this process does not own: `OpenLog`, `OpenLogsFolder` and `OpenInBrowser` hand a path or an address to the desktop.
-A second call opens a second window, because there is no state to read back that would let it decide the first one is still there - the browser owns the tab and the file manager owns its window, and neither reports.
-An effect of this kind states no state and is offered as an action rather than as something with a tick beside it, which is what keeps the departure visible in the interface instead of only in the code.
+A second call opens a second window, because there is no state to read back that would say the first one is still there: the browser owns the tab, the file manager owns its window, and neither reports.
+An effect of this kind states no state and is offered as an action rather than as something with a tick beside it, so the departure stays visible in the interface instead of only in the code.
 
-Those are the departures, they are written down where they happen, and the sentence a timed-out call shows is worded against them.
+Those are the departures, and each is written down where it happens.
+The sentence a timed-out call shows is worded against them.
 
 Every call over the socket is bounded.
-An unbounded call turns a lost answer into a permanent wait, and on a local socket "no answer" means the other side died, wedged or lost the connection - all facts worth showing rather than waiting through.
+An unbounded call turns a lost answer into a permanent wait, and on a local socket "no answer" means the other side died, wedged or lost the connection, all facts worth showing rather than waiting through.
 The bound belongs on the channel, in one place, and not at each call site: a rule applied per call site holds only where somebody remembered it.
 
 A failure that says the backend went quiet says what is and is not known about the attempt, and says that anything naming a state is safe to ask for again.
-That sentence is only truthful because those effects are idempotent, which is the paradigm paying for itself - and it says "naming a state" rather than "every call" because of the departures above.
+That sentence is truthful only because those effects are idempotent, and it says "naming a state" rather than "every call" because of the departures above.
 
 ## Stateless
 
-Three shapes carry the paradigm, and each is stated in full elsewhere on this page.
-They are collected here because they are one idea wearing three costumes.
+Three shapes carry the paradigm, one idea in three costumes, each stated in full elsewhere on this page.
 
 **A pass keeps nothing between runs.**
-A render function writes every property the component can show, including the off branch, so the pass by itself defines the view and is free to run at any time; a reconcile takes desired state and converges to it.
-Neither works from a diff it was handed, unless the diff is genuinely what the process received - a diff is a fact somebody had to keep between two moments, and the pass that needs one has state in it.
+A render function writes every property the component can show, including the off branch, so the pass by itself defines the view and is free to run at any time.
+A reconcile takes desired state and converges to it.
+Neither works from a diff it was handed, unless the diff is genuinely what the process received.
+A diff is a fact somebody had to keep between two moments, and the pass that needs one has state in it.
 
 **A fact lives in one table.**
-Static knowledge - which transports carry which formats, which chain a platform renders through, what a row shows - is a table every consumer reads, never a `switch` restated at each site.
-`docs/domain-model.md` covers the codec and transport tables; the render chains in `backend/internal/receive/chains.go` are the same shape.
+Static knowledge (which transports carry which formats, which chain a platform renders through, what a row shows) is a table every consumer reads, never a `switch` restated at each site.
+`docs/domain-model.md` covers the codec and transport tables.
+The render chains in `backend/internal/receive/chains.go` are the same shape.
 
 **A reader reads through.**
 Nothing here reports what a caller believed it had just done.
@@ -140,14 +150,14 @@ A file that does all four is the shape this rule exists to break up.
 
 Static facts belong in a table, not in a `switch` spread through the logic.
 `platform.AudioSources` is the pattern: one row per capture source, read by the form, the repair and both publish engines instead of each restating what a machine can capture.
-`docs/domain-model.md` covers the same principle for the codec and transport tables.
 
 ## Contracts
 
 `bjoernblessin.de/go-utils/util/assert` is always on and panics.
 It states internal contracts, which are bugs in this code ("Entwicklungsfehler").
 An error value states an environment failure, which is a condition the app must survive ("Umgebungsfehler").
-A malformed roster push from another process is an error; an index a widget computed wrong is an assert.
+A malformed roster push from another process is an error.
+An index a widget computed wrong is an assert.
 
 `logger.Errorf` ends the process through `log.Fatalf`, and `logger.Panicf` panics.
 Both are hard stops, and neither reports a failure the app continues past: the code after such a call is unreachable, including the code that would have carried the reason to the user.

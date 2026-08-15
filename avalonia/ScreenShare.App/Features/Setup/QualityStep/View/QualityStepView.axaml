@@ -64,7 +64,7 @@
 
       <ItemsControl IsVisible="{Binding HasMode}"
                     IsEnabled="{Binding Mode.IsEnabled}"
-                    ItemsSource="{Binding Mode.Options}"
+                    ItemsSource="{Binding Mode.Shown}"
                     Margin="-5,0">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate>
@@ -113,6 +113,19 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+
+      <Button Theme="{StaticResource LinkButton}"
+              HorizontalAlignment="Left"
+              IsVisible="{Binding Mode.HasRefused}"
+              Command="{Binding Mode.RevealCommand}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ti:TablerIcon Icon="{Binding Mode.RefusedGlyph}"
+                         Brush="{StaticResource MutedBrush}"
+                         VerticalAlignment="Center" />
+          <TextBlock Classes="secondary" Text="{Binding Mode.RefusedTitle}" VerticalAlignment="Center" />
+          <TextBlock Classes="hint" Text="{Binding Mode.RefusedCount}" VerticalAlignment="Center" />
+        </StackPanel>
+      </Button>
 
       <StackPanel IsVisible="{Binding HasQuantizer}">
         <Grid ColumnDefinitions="Auto,Auto,*,Auto" Margin="0,16,0,0">
@@ -214,7 +227,7 @@
                     MenuItem wherever there is something to explain, and a disabled control
                     takes no pointer events.
                   -->
-                  <MenuFlyout ItemsSource="{Binding Options}"
+                  <MenuFlyout ItemsSource="{Binding MenuRows}"
                               ItemTemplate="{StaticResource SelectEntry}"
                               ItemContainerTheme="{StaticResource SelectMenuItem}"
                               Placement="BottomEdgeAlignedLeft" />

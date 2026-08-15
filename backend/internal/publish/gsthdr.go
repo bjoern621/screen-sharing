@@ -13,12 +13,12 @@ import (
 )
 
 // gstReadChild splits the publish child's standard output between its readers: the meter counting
-// frames off the progress lines, onCaps handed what the capture negotiated,
-// and onPointer handed the cursor positions.
+// frames off the progress lines and timing them off the delay lines, onCaps handed what the capture
+// negotiated, and onPointer handed the cursor positions.
 //
 // One stream rather than a second pipe or socket, the child being spawned with this one already and
-// the kinds of line telling themselves apart: the caps and the pointer carry prefixes nothing else
-// writes, and the meter skips every line its own pattern does not match.
+// the kinds of line telling themselves apart: the caps, the pointer and the delay carry prefixes
+// nothing else writes, and the meter skips every line its own pattern does not match.
 //
 // A nil meter is a run nobody asked progress from, and a nil onPointer one that tracks no cursor.
 // Either still reports its caps: what the capture turned out to be is not instrumentation.
@@ -44,6 +44,15 @@ func gstReadChild(r io.Reader, meter *gstMeter, onCaps func(caps string), onPoin
 		if p, ok := gstrun.ParsePointer(line); ok {
 			if onPointer != nil {
 				onPointer(p)
+			}
+			continue
+		}
+		// Recorded rather than sampled, as a capture progress line is: the delay report and the encoded
+		// counter run on clocks of their own, and emitting on either would give two samples a second
+		// with one half of each unchanged.
+		if d, ok := gstrun.ParseDelay(line); ok {
+			if meter != nil {
+				meter.takeDelay(d)
 			}
 			continue
 		}

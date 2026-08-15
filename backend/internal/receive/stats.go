@@ -100,6 +100,18 @@ type Stats struct {
 	Position   time.Duration // running time reached, which a stall freezes
 	Uptime     time.Duration // wall clock since the pipeline started
 
+	// Transit is the wall clock spent between the leg's source stamping a frame and the sink taking
+	// it, summed over TransitFrames frames: depacketizing, decoding and the queues between them
+	// (internal/pipedelay).
+	// A sum and a count rather than an average, so the average a reader shows is taken over the
+	// reader's own interval instead of over the whole run.
+	//
+	// It is the work done inside the window LatencyMin schedules and not a delay beside it.
+	// A pipeline whose transit reaches its latency drops the next frame that runs long, which is what
+	// the two figures read together say and neither says alone.
+	Transit       time.Duration
+	TransitFrames uint64
+
 	// Audio, zero until an audio pad turns up and the branch is built.
 	AudioCodec    string
 	AudioDecoder  string

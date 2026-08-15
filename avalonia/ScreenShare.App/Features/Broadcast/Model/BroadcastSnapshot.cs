@@ -51,6 +51,16 @@ public sealed record BroadcastSnapshot
     public double? Fps { get; init; }
 
     /// <summary>
+    /// Milliseconds this machine holds a frame between reading it off the screen and having it encoded and
+    /// ready to send, measured on the running pipeline over the last interval.
+    ///
+    /// The one stage of the delay to a viewer this side both causes and can shorten, which is why it is the
+    /// figure the publish screen promotes and not the windows the transports hold packets for.
+    /// Absent on an engine that measures none, and on the first sample of a run.
+    /// </summary>
+    public double? EncodeMs { get; init; }
+
+    /// <summary>
     /// Worst round trip in ms among the viewers the relay times, absent while it times none.
     /// Names that one viewer, never the stream.
     /// </summary>
@@ -131,6 +141,7 @@ public sealed record BroadcastSnapshot
             Elapsed = Clock(stats),
             EgressMbps = Measured(stats, sample => sample.HasInstMbps, sample => sample.InstMbps),
             Fps = Measured(stats, sample => sample.HasFps, sample => sample.Fps),
+            EncodeMs = Measured(stats, sample => sample.HasTransitMs, sample => sample.TransitMs),
             RttMs = WorstRttMs(path) is { } rtt ? (int)Math.Round(rtt) : null,
             LossPercent = WorstLossPercent(path),
             Viewers = path?.Readers,
@@ -235,9 +246,19 @@ public sealed record BroadcastSnapshot
         => stats is null || !has(stats) ? null : read(stats);
 
     /// <summary>Encoder's running time as the pill's zero-padded timer, the ellipsis before the first sample.</summary>
+    /// <remarks>
+    /// Hours are totalled rather than formatted.
+    /// The hh specifier is the hours component of a span, 0 to 23, and drops the days beside it, so a share
+    /// left running over a day would read 01:00:00 at the 25-hour mark and start the clock again.
+    /// </remarks>
     private static string Clock(PublishStats? stats)
     {
         var seconds = Measured(stats, sample => sample.HasTimeSec, sample => sample.TimeSec);
-        return seconds is null ? Figure.NoValue : TimeSpan.FromSeconds(seconds.Value).ToString(@"hh\:mm\:ss");
+        if (seconds is null)
+        {
+            return Figure.NoValue;
+        }
+        var elapsed = TimeSpan.FromSeconds(seconds.Value);
+        return $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
     }
 }

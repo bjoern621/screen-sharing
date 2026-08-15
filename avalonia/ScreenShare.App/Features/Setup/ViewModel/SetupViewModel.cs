@@ -224,7 +224,7 @@ public sealed class SetupViewModel : Observable
         // here would be one more hop between a press and the state it changes.
         // The rail draws on every step, so a preset is offered wherever the reader is standing
         // (CostRail/ViewModel/CostRailViewModel.cs).
-        Rail = new CostRailViewModel(new PresetsViewModel(backend, form, dispatch));
+        Rail = new CostRailViewModel(new PresetsViewModel(backend, form, session, dispatch));
 
         Review = new ReviewStepViewModel(SelectCommandOf, Back, StartSharingAsync, dispatch);
 
@@ -285,6 +285,7 @@ public sealed class SetupViewModel : Observable
     private string _continueLabel = "";
     private string _unavailable = "";
     private bool _isUnavailable;
+    private bool _isDialling;
     private string _unsaved = "";
     private bool _hasUnsaved;
     private FieldGroupViewModel? _currentGroup;
@@ -362,6 +363,14 @@ public sealed class SetupViewModel : Observable
     public string Unavailable { get => _unavailable; private set => Set(ref _unavailable, value); }
 
     public bool IsUnavailable { get => _isUnavailable; private set => Set(ref _isUnavailable, value); }
+
+    /// <summary>
+    /// Whether the window is still dialling behind the banner.
+    /// Drawn as motion and not a countdown: a second counted down is a number nobody acts on.
+    /// Beside the retry button rather than instead of it, the button being the reader asking for the attempt now
+    /// (<c>Features/Setup/View/SetupView.axaml</c>).
+    /// </summary>
+    public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
 
     /// <summary>
     /// Why the last write to an applied group could not be stored, empty while they are being stored.
@@ -458,6 +467,10 @@ public sealed class SetupViewModel : Observable
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;
 
+        // Read off the session's verdict and not the banner's sentence: a refusal the backend served is a read
+        // that failed with the socket up and nothing being dialled after it.
+        IsDialling = IsUnavailable && _session.Unavailable.Length > 0;
+
         // A notice and not the unavailable banner, which blocks the publish: settings that could not be stored
         // are still settings a stream starts on.
         Unsaved = _form.Unsaved;
@@ -471,6 +484,7 @@ public sealed class SetupViewModel : Observable
         ContinueCommand.Refresh();
         RetryCommand.Refresh();
         _measure.Refresh();
+        _createGroup.Refresh();
 
         var forms = (ShowsFields ? 1 : 0) + (ShowsQuality ? 1 : 0) + (ShowsReview ? 1 : 0);
 
@@ -480,6 +494,7 @@ public sealed class SetupViewModel : Observable
             !ShowsFields || CurrentGroup is not null || _steps.Count == 0,
             "a fields step on a resolved form has a group to draw", current);
         Assert.That(CanContinue == (ContinueLabel.Length > 0), "the continue button and its label agree", CanContinue, ContinueLabel);
+        Assert.That(!IsDialling || IsUnavailable, "the wait appears beside the banner it belongs to", IsDialling, IsUnavailable);
         Assert.That(
             form is not null || _groups.Values.All(group => !group.IsResolved),
             "a flow with no form draws no group", _groups.Count);

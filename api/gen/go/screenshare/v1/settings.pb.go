@@ -113,13 +113,28 @@ type RelaySettings struct {
 	WebrtcPort int32 `protobuf:"varint,5,opt,name=webrtc_port,json=webrtcPort,proto3" json:"webrtc_port,omitempty"`
 	RtmpPort   int32 `protobuf:"varint,6,opt,name=rtmp_port,json=rtmpPort,proto3" json:"rtmp_port,omitempty"`
 	HlsPort    int32 `protobuf:"varint,7,opt,name=hls_port,json=hlsPort,proto3" json:"hls_port,omitempty"`
-	// The relay's HTTP legs are reached through a TLS reverse proxy rather than directly.
+	// TCP and UDP port of the relay's Media-over-QUIC listener, which serves the player page over
+	// HTTP/2 and the WebTransport session over HTTP/3 on the same number.
+	//
+	// Kept even where `tls` is set, unlike the ports above.
+	// WebTransport refuses a plaintext listener and no reverse proxy carries it, so the relay
+	// terminates this leg itself on a port of its own in every deployment
+	// (docs/network-architecture.md).
+	MoqPort int32 `protobuf:"varint,11,opt,name=moq_port,json=moqPort,proto3" json:"moq_port,omitempty"`
+	// Every leg to this relay is encrypted, and its HTTP ones are reached through a TLS reverse
+	// proxy rather than directly.
 	//
 	// One flag rather than a scheme per listener: the proxy terminates for the relay and for the
 	// group service alike, under one name on the standard port, so the ports above name direct
 	// listeners that are part of no address while this is set.
 	// It is also what says a group service can be reached at all, since a relay with no proxy in
 	// front of it has nowhere to trade a group key for a relay token.
+	//
+	// <b>A reading and not a setting.</b> The backend derives it from `host` and stores it nowhere,
+	// so it crosses outward to be shown and is ignored coming back: a relay reached across a network
+	// somebody else operates is encrypted, and one on this machine or this network is not.
+	// A shell that sent a value here would be answering a question this side already answered, and
+	// the two would disagree the moment the host was edited.
 	Tls bool `protobuf:"varint,10,opt,name=tls,proto3" json:"tls,omitempty"`
 	// The secret whose possession is membership of a group, as the key service handed it over.
 	// Empty is a machine that has joined none.
@@ -217,6 +232,13 @@ func (x *RelaySettings) GetRtmpPort() int32 {
 func (x *RelaySettings) GetHlsPort() int32 {
 	if x != nil {
 		return x.HlsPort
+	}
+	return 0
+}
+
+func (x *RelaySettings) GetMoqPort() int32 {
+	if x != nil {
+		return x.MoqPort
 	}
 	return 0
 }
@@ -811,7 +833,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xa5\x02\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xc0\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -820,7 +842,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\vwebrtc_port\x18\x05 \x01(\x05R\n" +
 	"webrtcPort\x12\x1b\n" +
 	"\trtmp_port\x18\x06 \x01(\x05R\brtmpPort\x12\x19\n" +
-	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x10\n" +
+	"\bhls_port\x18\a \x01(\x05R\ahlsPort\x12\x19\n" +
+	"\bmoq_port\x18\v \x01(\x05R\amoqPort\x12\x10\n" +
 	"\x03tls\x18\n" +
 	" \x01(\bR\x03tls\x12\x1b\n" +
 	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12%\n" +

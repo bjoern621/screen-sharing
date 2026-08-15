@@ -61,8 +61,10 @@ func (HLS) WatchURL(s settings.Settings, streamName string) string {
 // BrowserURL is the relay's player page, "http://relay:8888/<stream>/": the same path with no
 // playlist name, the page fetching the playlist itself.
 // The trailing slash saves a redirect, that address being where the relay would send the browser.
+//
+// The credential is the address's userinfo, the one form a browser carries (credential.go).
 func (HLS) BrowserURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a player page names the stream it opens")
 
-	return s.Relay.HTTPOrigin(s.Relay.HlsPort) + "/" + streamName + "/" + credentialQuery(s, "?")
+	return httpPageOrigin(s, s.Relay.HlsPort) + "/" + streamName + "/"
 }

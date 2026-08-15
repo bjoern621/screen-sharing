@@ -22,8 +22,10 @@ func (a *App) GetSettings() settings.Settings {
 // So the publish state is announced from here too, because what the form shows and what the viewers
 // are watching have just moved apart, and App.Republish is what closes the gap.
 //
-// This is the one place the held settings are written, so it is the one place that can say they
-// moved: a shell that did not make the change reads it here rather than by asking again on a timer.
+// A shell that did not make the change reads the move here rather than by asking again on a timer.
+// StartPublish and Republish write the held settings too, each taking the draft the form handed it,
+// and each announces the same way: a write that moved them and said nothing leaves the other shell
+// with a stale draft to overwrite this one with.
 // The announcement carries no settings, since a shell re-reads the state an event names, which is
 // what keeps the persisted copy and the announced one from being two answers.
 func (a *App) SaveSettings(s settings.Settings) error {

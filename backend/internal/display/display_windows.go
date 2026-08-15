@@ -3,6 +3,7 @@
 package display
 
 import (
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -99,32 +100,52 @@ func refreshHz(device *uint16) int {
 	return int(dm.dmDisplayFrequency)
 }
 
+// enumMu guards enumTarget across one enumeration.
+// EnumDisplayMonitors runs the callback on the calling thread before it returns, so the lock spans
+// the call and no reading of one enumeration reaches another.
+var (
+	enumMu     sync.Mutex
+	enumTarget []Monitor
+)
+
+// enumMonitorProc collects one output per call into enumTarget.
+//
+// Registered once for the process, and it has to be: the runtime keeps every callback it is handed
+// for the life of the program and dedups on the closure it was given, so a closure built per call
+// matches none of the ones before it and takes a slot of its own.
+// The table holds 2000 and passing it is a runtime throw rather than an error, which a form resolve
+// reading the monitor list on every keystroke reaches well inside one session.
+// Writing through a package variable is what leaves nothing per call to capture.
+var enumMonitorProc = syscall.NewCallback(func(hMonitor, _, _, _ uintptr) uintptr {
+	var mi monitorInfoEx
+	mi.cbSize = uint32(unsafe.Sizeof(mi))
+	ret, _, _ := procGetMonitorInfoW.Call(hMonitor, uintptr(unsafe.Pointer(&mi)))
+	if ret != 0 {
+		enumTarget = append(enumTarget, Monitor{
+			Index:     len(enumTarget),
+			Width:     int(mi.rcMonitor.right - mi.rcMonitor.left),
+			Height:    int(mi.rcMonitor.bottom - mi.rcMonitor.top),
+			OffsetX:   int(mi.rcMonitor.left),
+			OffsetY:   int(mi.rcMonitor.top),
+			Primary:   mi.dwFlags&monitorinfofPrimary != 0,
+			RefreshHz: refreshHz(&mi.szDevice[0]),
+		})
+	}
+	return 1 // non-zero continues the enumeration
+})
+
 // List enumerates the monitors through EnumDisplayMonitors, whose order Index counts in.
 // The offsets are rcMonitor, virtual-screen coordinates whose origin is the primary output's
 // top-left corner, so an output placed left of or above it carries negative ones.
 // Enumeration failing answers an empty slice, which a caller reads as an unknown resolution.
 func List() []Monitor {
-	var monitors []Monitor
+	enumMu.Lock()
+	defer enumMu.Unlock()
 
-	callback := syscall.NewCallback(func(hMonitor, _, _, _ uintptr) uintptr {
-		var mi monitorInfoEx
-		mi.cbSize = uint32(unsafe.Sizeof(mi))
-		ret, _, _ := procGetMonitorInfoW.Call(hMonitor, uintptr(unsafe.Pointer(&mi)))
-		if ret != 0 {
-			monitors = append(monitors, Monitor{
-				Index:     len(monitors),
-				Width:     int(mi.rcMonitor.right - mi.rcMonitor.left),
-				Height:    int(mi.rcMonitor.bottom - mi.rcMonitor.top),
-				OffsetX:   int(mi.rcMonitor.left),
-				OffsetY:   int(mi.rcMonitor.top),
-				Primary:   mi.dwFlags&monitorinfofPrimary != 0,
-				RefreshHz: refreshHz(&mi.szDevice[0]),
-			})
-		}
-		return 1 // non-zero continues the enumeration
-	})
-
-	procEnumDisplayMonitors.Call(0, 0, callback, 0)
+	enumTarget = nil
+	procEnumDisplayMonitors.Call(0, 0, enumMonitorProc, 0)
+	monitors := enumTarget
+	enumTarget = nil
 
 	for i, m := range monitors {
 		assert.Assert(m.Index == i, "an enumerated output is indexed in enumeration order", m.Index, i)

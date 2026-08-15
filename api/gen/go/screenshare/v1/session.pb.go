@@ -99,8 +99,24 @@ type PublishStats struct {
 	DuplicatedFrames int64 `protobuf:"varint,13,opt,name=duplicated_frames,json=duplicatedFrames,proto3" json:"duplicated_frames,omitempty"`
 	DroppedFrames    int64 `protobuf:"varint,14,opt,name=dropped_frames,json=droppedFrames,proto3" json:"dropped_frames,omitempty"`
 	// inst_mbps is the rate over the last interval, avg_mbps over the run.
-	InstMbps      *float64 `protobuf:"fixed64,9,opt,name=inst_mbps,json=instMbps,proto3,oneof" json:"inst_mbps,omitempty"`
-	AvgMbps       *float64 `protobuf:"fixed64,10,opt,name=avg_mbps,json=avgMbps,proto3,oneof" json:"avg_mbps,omitempty"`
+	InstMbps *float64 `protobuf:"fixed64,9,opt,name=inst_mbps,json=instMbps,proto3,oneof" json:"inst_mbps,omitempty"`
+	AvgMbps  *float64 `protobuf:"fixed64,10,opt,name=avg_mbps,json=avgMbps,proto3,oneof" json:"avg_mbps,omitempty"`
+	// What this leg costs a frame on its way out, which is the publishing half of the delay
+	// between a screen and a viewer's window.
+	//
+	// transit_ms is the mean wall clock one frame spent between the capture stamping it and
+	// the encoded stream leaving the pipeline, over the last interval: converting, encoding
+	// and parsing, measured rather than configured.
+	// link_ms is the delivery window this leg settled on with the relay, the delay every
+	// packet is held for so a lost one has room to arrive again, and rtt_ms the round trip
+	// that says whether the window has room for that.
+	//
+	// Absent where nothing measured them: an engine that runs no pipeline of this app's own
+	// reports none of the three, and a transport keeping no link counters reports the first
+	// alone.
+	TransitMs     *float64 `protobuf:"fixed64,15,opt,name=transit_ms,json=transitMs,proto3,oneof" json:"transit_ms,omitempty"`
+	LinkMs        *float64 `protobuf:"fixed64,16,opt,name=link_ms,json=linkMs,proto3,oneof" json:"link_ms,omitempty"`
+	RttMs         *float64 `protobuf:"fixed64,17,opt,name=rtt_ms,json=rttMs,proto3,oneof" json:"rtt_ms,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -201,6 +217,27 @@ func (x *PublishStats) GetInstMbps() float64 {
 func (x *PublishStats) GetAvgMbps() float64 {
 	if x != nil && x.AvgMbps != nil {
 		return *x.AvgMbps
+	}
+	return 0
+}
+
+func (x *PublishStats) GetTransitMs() float64 {
+	if x != nil && x.TransitMs != nil {
+		return *x.TransitMs
+	}
+	return 0
+}
+
+func (x *PublishStats) GetLinkMs() float64 {
+	if x != nil && x.LinkMs != nil {
+		return *x.LinkMs
+	}
+	return 0
+}
+
+func (x *PublishStats) GetRttMs() float64 {
+	if x != nil && x.RttMs != nil {
+		return *x.RttMs
 	}
 	return 0
 }
@@ -369,6 +406,14 @@ func (x *RelayReader) GetFramesDiscarded() uint64 {
 type RelayPath struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// The stream's own name inside the prefix this machine reaches under, which is what a list
+	// of that prefix's streams shows: a group is a path prefix, so the prefix leads every row
+	// and tells a reader nothing about any of them.
+	// Equal to name where nothing was taken off, a relay that authenticates nobody carrying
+	// bare names and an operator's own view carrying several prefixes at once.
+	// name stays the identity every viewer method takes, so a screen prints this and opens
+	// that.
+	OwnName string `protobuf:"bytes,8,opt,name=own_name,json=ownName,proto3" json:"own_name,omitempty"`
 	// Whether a publisher is connected and the path is being served.
 	// A path the relay knows about is not necessarily a path with a stream on it.
 	Ready bool `protobuf:"varint,2,opt,name=ready,proto3" json:"ready,omitempty"`
@@ -425,6 +470,13 @@ func (*RelayPath) Descriptor() ([]byte, []int) {
 func (x *RelayPath) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *RelayPath) GetOwnName() string {
+	if x != nil {
+		return x.OwnName
 	}
 	return ""
 }
@@ -1062,7 +1114,7 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\apending\x18\x02 \x01(\bR\apending\x128\n" +
 	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retry\x12>\n" +
 	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreviewR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
-	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf1\x03\n" +
+	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf5\x04\n" +
 	"\fPublishStats\x12\x1f\n" +
 	"\vframe_count\x18\f \x01(\x03R\n" +
 	"frameCount\x12\x15\n" +
@@ -1076,7 +1128,11 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\x0edropped_frames\x18\x0e \x01(\x03R\rdroppedFrames\x12 \n" +
 	"\tinst_mbps\x18\t \x01(\x01H\x05R\binstMbps\x88\x01\x01\x12\x1e\n" +
 	"\bavg_mbps\x18\n" +
-	" \x01(\x01H\x06R\aavgMbps\x88\x01\x01B\x06\n" +
+	" \x01(\x01H\x06R\aavgMbps\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"transit_ms\x18\x0f \x01(\x01H\aR\ttransitMs\x88\x01\x01\x12\x1c\n" +
+	"\alink_ms\x18\x10 \x01(\x01H\bR\x06linkMs\x88\x01\x01\x12\x1a\n" +
+	"\x06rtt_ms\x18\x11 \x01(\x01H\tR\x05rttMs\x88\x01\x01B\x06\n" +
 	"\x04_fpsB\x0e\n" +
 	"\f_capture_fpsB\v\n" +
 	"\t_size_kibB\v\n" +
@@ -1084,7 +1140,11 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\x06_speedB\f\n" +
 	"\n" +
 	"_inst_mbpsB\v\n" +
-	"\t_avg_mbpsJ\x04\b\x01\x10\x02J\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\x05frameR\n" +
+	"\t_avg_mbpsB\r\n" +
+	"\v_transit_msB\n" +
+	"\n" +
+	"\b_link_msB\t\n" +
+	"\a_rtt_msJ\x04\b\x01\x10\x02J\x04\b\a\x10\bJ\x04\b\b\x10\tJ\x04\b\v\x10\fR\x05frameR\n" +
 	"duplicatedR\adroppedR\amissing\"\xb9\x04\n" +
 	"\vRelayReader\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x0e\n" +
@@ -1110,9 +1170,10 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\r_packets_sentB\x0f\n" +
 	"\r_packets_lostB\x12\n" +
 	"\x10_packets_droppedB\x13\n" +
-	"\x11_frames_discarded\"\xda\x01\n" +
+	"\x11_frames_discarded\"\xf5\x01\n" +
 	"\tRelayPath\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x19\n" +
+	"\bown_name\x18\b \x01(\tR\aownName\x12\x14\n" +
 	"\x05ready\x18\x02 \x01(\bR\x05ready\x12\x16\n" +
 	"\x06tracks\x18\x03 \x01(\tR\x06tracks\x12\x16\n" +
 	"\x06format\x18\x04 \x01(\tR\x06format\x12\x18\n" +

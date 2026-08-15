@@ -85,12 +85,14 @@ type App struct {
 	// top of the set already running (teststreams.go).
 	testStreamsOnce sync.Once
 
-	// Runs the probe once per process: the caller that asks for the answer waits for it, and every
-	// caller after that does not.
-	encodersOnce sync.Once
-	// Probe result, nil until the probe has finished.
+	// Serializes the probe: the caller that asks for the answer runs it, and one asking while it runs
+	// waits rather than starting a second sweep.
+	// A mutex and not a sync.Once, because a sweep that was cancelled has to be forgotten and a Once
+	// keeps whatever its first run produced (system.go).
+	encodersMu sync.Mutex
+	// Probe result, nil until a probe has finished without being cancelled.
 	// A pointer read atomically because the readers want different things: a caller that needs the
-	// answer waits through encodersOnce, and a form resolve takes what is there and never waits
+	// answer waits behind encodersMu, and a form resolve takes what is there and never waits
 	// (system.go).
 	encoders atomic.Pointer[encoders.Availability]
 

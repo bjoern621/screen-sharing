@@ -25,21 +25,40 @@ const storeFileMode = 0o600
 
 // writeStore writes a store file and holds it at storeFileMode.
 //
-// os.WriteFile applies the mode on creation alone, so a file a build with a wider mode already
-// wrote keeps that mode through every later write.
-// The chmod is what takes an existing file down to owner-only, and repeating it changes nothing.
+// Written beside the target and renamed onto it rather than truncated in place.
+// A rename inside one directory replaces the file in a single step, so a reader finds the whole old
+// file or the whole new one: a truncating write leaves the head of one and the tail of the other
+// wherever it is interrupted, and what these files carry is a settings store that then reads as
+// corrupt and is moved aside.
+// The temporary file is created in the same directory because a rename across filesystems is not
+// one operation and would fail.
+//
+// The mode is set on the temporary file, before it is the one anything reads under this name.
+// A rename brings its own mode with it, so a file an earlier build wrote wider does not keep that
+// mode the way it would through a write in place.
 func writeStore(path string, data []byte) error {
 	assert.Assert(path != "", "a written store file is named")
 
-	if err := os.WriteFile(path, data, storeFileMode); err != nil {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*")
+	if err != nil {
 		return err
 	}
-	// An Umgebungsfehler, and reported rather than swallowed: the bytes are on disk either way, but a
-	// file the mode could not be taken off is a secret readable by every local user.
-	if err := os.Chmod(path, storeFileMode); err != nil {
+	// Cleans up every path that did not reach the rename, and finds nothing on the one that did.
+	defer os.Remove(tmp.Name())
+
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	// An Umgebungsfehler, and reported rather than swallowed: a file the mode could not be taken off
+	// is a secret readable by every local user, so it is not renamed into place at all.
+	if err := os.Chmod(tmp.Name(), storeFileMode); err != nil {
 		return fmt.Errorf("cannot restrict %s to its owner: %w", path, err)
 	}
-	return nil
+	return os.Rename(tmp.Name(), path)
 }
 
 // configDir is the directory holding the settings and preset files, created where it is absent.

@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/internal/gstrun"
 )
 
 // gstStatsName names the progressreport element counting encoded frames, gstCaptureName the one
@@ -130,6 +132,13 @@ type gstMeter struct {
 	ln     net.Listener
 	conn   net.Conn
 	closed bool
+	// delayMu guards the newest delay reading and whether one has arrived at all.
+	// A mutex rather than the atomics beside it, because a reading is a struct whose halves are read
+	// together: the line reader writes it and the parse goroutine reads it, which are two goroutines
+	// (gsthdr.go).
+	delayMu   sync.Mutex
+	delay     gstrun.Delay
+	haveDelay bool
 	// now reads the wall clock the per-second figures are measured against.
 	now func() time.Time
 
@@ -142,6 +151,11 @@ type gstMeter struct {
 	startRun     float64
 	startWall    time.Time
 	havePrev     bool
+	// The delay reading the previous sample was taken against, and whether there was one.
+	// A mean transit is one interval's summed delay over that interval's frames, so it needs the
+	// reading before it as much as a rate does.
+	prevDelay     gstrun.Delay
+	havePrevDelay bool
 }
 
 // newGstMeter opens the loopback socket the child's tcpclientsink connects to and starts counting
@@ -238,6 +252,58 @@ func (m *gstMeter) parse(r io.Reader) {
 	}
 }
 
+// timing fills in what the child measured about the delay through its pipeline, and marks each
+// figure missing where nothing measured it.
+//
+// The transit is a mean over the interval between two readings rather than over the run, the split
+// every rate here is taken under: an encoder that slows down halfway shows it in the next sample
+// instead of being averaged out by the minutes before it.
+// A reading with none before it yields no mean, and neither does one whose counters went backwards,
+// which is a child relaunched under one meter.
+func (m *gstMeter) timing(stats *Stats) {
+	delay, reported := m.readDelay()
+	if !reported {
+		stats.Missing.TransitMs, stats.Missing.LinkMs, stats.Missing.RttMs = true, true, true
+		return
+	}
+
+	if delay.LinkMs != nil {
+		stats.LinkMs = *delay.LinkMs
+	} else {
+		stats.Missing.LinkMs = true
+	}
+	if delay.RttMs != nil {
+		stats.RttMs = *delay.RttMs
+	} else {
+		stats.Missing.RttMs = true
+	}
+
+	prev, havePrev := m.prevDelay, m.havePrevDelay
+	m.prevDelay, m.havePrevDelay = delay, true
+
+	// No frames across the interval is nothing to time rather than a frame that took no time, so it
+	// reads as absent like the other two.
+	if !havePrev || delay.Frames <= prev.Frames || delay.TransitNs < prev.TransitNs {
+		stats.Missing.TransitMs = true
+		return
+	}
+	stats.TransitMs = float64(delay.TransitNs-prev.TransitNs) / float64(delay.Frames-prev.Frames) / 1e6
+}
+
+// takeDelay records the newest reading the child reported, for the next sample to measure against.
+func (m *gstMeter) takeDelay(d gstrun.Delay) {
+	m.delayMu.Lock()
+	defer m.delayMu.Unlock()
+	m.delay, m.haveDelay = d, true
+}
+
+// readDelay is the newest reading and whether one has arrived.
+func (m *gstMeter) readDelay() (gstrun.Delay, bool) {
+	m.delayMu.Lock()
+	defer m.delayMu.Unlock()
+	return m.delay, m.haveDelay
+}
+
 // sample derives one Stats from a progress line's cumulative counts and the byte counter,
 // against the previous line.
 func (m *gstMeter) sample(frames int, runSec float64) {
@@ -250,6 +316,7 @@ func (m *gstMeter) sample(frames int, runSec float64) {
 		SizeKiB: float64(total) / 1024,
 		TimeSec: runSec,
 	}
+	m.timing(&stats)
 	// A per-interval figure has no value on the first line of a run, and this engine measures no
 	// capture rate at all unless the backend placed the probe.
 	// Both are unmeasured rather than zero, since zero is the reading that marks a stalled encoder.

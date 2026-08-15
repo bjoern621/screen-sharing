@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # bundle-windows.sh - put the GStreamer runtime the backend links, and the
-# gst-launch-1.0.exe it spawns, next to the built binaries, so both run on a
+# command-line tools it spawns, next to the built binaries, so both run on a
 # machine without MSYS2.
 #
 # Run from the MSYS2 MINGW64 shell, whose ldd resolves the mingw DLLs:
@@ -32,7 +32,14 @@ bin=$(cygpath -u "$bin")
 prefix=$(cygpath -m "$prefix")
 
 backend="$bin/screenshare-backend.exe"
-launcher=gst-launch-1.0.exe
+
+# Both tools, and the inspector is not optional. The launcher runs a pipeline, and the
+# inspector is what the encoder probe asks whether an element exists at all: its absence
+# is read as this install carrying no GStreamer tooling, which greys the whole GStreamer
+# engine, every codec on it and the Desktop Duplication capture backend with it
+# (backend/internal/encoders, gstAvailable).
+# So a zip with the launcher alone ships a GStreamer runtime the app refuses to use.
+tools=(gst-launch-1.0.exe gst-inspect-1.0.exe)
 
 if [ ! -f "$backend" ]; then
     echo "$backend does not exist: build it with 'task build:windows' first" >&2
@@ -42,19 +49,23 @@ if [ ! -d "$prefix/lib/gstreamer-1.0" ]; then
     echo "$prefix/lib/gstreamer-1.0 does not exist: install the MSYS2 gstreamer packages first" >&2
     exit 1
 fi
-if [ ! -f "$prefix/bin/$launcher" ]; then
-    echo "$prefix/bin/$launcher does not exist: install the MSYS2 gstreamer packages first" >&2
-    exit 1
-fi
+for tool in "${tools[@]}"; do
+    if [ ! -f "$prefix/bin/$tool" ]; then
+        echo "$prefix/bin/$tool does not exist: install the MSYS2 gstreamer packages first" >&2
+        exit 1
+    fi
+done
 
 # Both sides of the app's GStreamer use ship here. The backend links the library for
 # the receive pipelines (backend/internal/receive), and it spawns the launcher for a GStreamer
 # publish, for the encode probe and for the test streams (backend/internal/publish, GstExe).
-# The program goes beside the binaries because that is where the app looks first
+# The programs go beside the binaries because that is where the app looks first
 # (ffmpeg.FindExe), and the plugins both sides load are named to them by
 # GST_PLUGIN_PATH: backend/internal/gstbundle answers where they went, for this process and
 # for the children.
-cp -f "$prefix/bin/$launcher" "$bin/"
+for tool in "${tools[@]}"; do
+    cp -f "$prefix/bin/$tool" "$bin/"
+done
 
 # Every installed plugin rather than a chosen subset. Which ones a run needs
 # follows from the transport and the codec of whatever is being published or
@@ -71,7 +82,10 @@ cp -f "$prefix"/lib/gstreamer-1.0/*.dll "$bin/gstreamer-1.0/"
 # process and for anything the process loads later, plugins included.
 declare -A seen
 copied=0
-queue=("$backend" "$bin/$launcher")
+queue=("$backend")
+for tool in "${tools[@]}"; do
+    queue+=("$bin/$tool")
+done
 for plugin in "$bin"/gstreamer-1.0/*.dll; do
     queue+=("$plugin")
 done
@@ -101,4 +115,4 @@ if [ "$copied" -eq 0 ]; then
     exit 1
 fi
 
-echo "bundled $copied libraries, $launcher and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"
+echo "bundled $copied libraries, ${tools[*]} and $(find "$bin/gstreamer-1.0" -name '*.dll' | wc -l) GStreamer plugins into $bin"

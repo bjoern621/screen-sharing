@@ -238,9 +238,14 @@ func repairCeilings(d Deps, m *screensharev1.Settings) []string {
 			s.Publish.BitrateM = ceiling
 			moved = append(moved, KeyBitrateM)
 		}
-		// The burst ceiling takes the same limit, which its control's range deliberately does not:
-		// a ceiling is not a target, so the form deliberately offers it past the encoder's limit.
-		// A maxrate above the limit is still a draft the publish refuses.
+		// The burst ceiling comes down with the target, which its control's range deliberately does not
+		// do: fieldMaxrateBounds offers the full scale, because a codec's limit bounds the target the
+		// encoder is given rather than the headroom above it.
+		// So the two disagree on purpose, and this is the side that keeps the pair reachable: a ceiling
+		// left where the target cannot follow is headroom nothing can ever use.
+		// Not a refusal being anticipated, though: no rule bands this key and capabilities.Validate
+		// weighs the target alone, so a maxrate above the limit is a draft nothing rejects.
+		// The move is named in the repaired keys, which is what keeps it from being a silent narrowing.
 		if s.Publish.MaxrateM > ceiling {
 			s.Publish.MaxrateM = ceiling
 			moved = append(moved, KeyMaxrateM)
@@ -343,18 +348,24 @@ func legalOption(av availability, d Deps, s settings.Settings, f *field, held st
 		return held, false
 	}
 
-	first := ""
+	// Whether one was found is a flag of its own and not the empty string standing in for "none".
+	// The empty value is a real option: it is what the unscaled entry of the output-resolution ladder
+	// carries, and it leads that list as the recommended one (options.go, optionOutputResolutions).
+	// Read as a sentinel it costs both directions at once, leaving a greyed value stranded where the
+	// unscaled entry is the only legal one, and walking past the recommended entry to whatever comes
+	// after it where a smaller monitor greys the rest.
+	first, found := "", false
 	for _, value := range repairWalk(f.key, options) {
 		enabled, _ := optionStateOf(av, f.key, value, entry)
 		if value == held && enabled {
 			return held, false
 		}
-		if enabled && first == "" && value != held {
-			first = value
+		if enabled && !found && value != held {
+			first, found = value, true
 		}
 	}
 
-	if first == "" {
+	if !found {
 		// Every entry greyed.
 		// The value stands with the field's reason, the one case the contract allows a control to show a
 		// value its own evaluation refuses.

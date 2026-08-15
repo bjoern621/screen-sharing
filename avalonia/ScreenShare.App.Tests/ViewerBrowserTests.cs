@@ -16,7 +16,7 @@ public sealed class ViewerBrowserTests
     {
         var backend = new SeededBackend("linux")
         {
-            Relay = new RelayStatus { Reachable = true, Paths = { new RelayPath { Name = stream, Ready = true } } },
+            Relay = new RelayStatus { Reachable = true, Paths = { new RelayPath { Name = stream, OwnName = stream, Ready = true } } },
         };
 
         var session = new Session(backend, static action => action());

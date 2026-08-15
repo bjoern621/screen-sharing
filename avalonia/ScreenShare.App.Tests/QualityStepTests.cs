@@ -1,6 +1,9 @@
+using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
+using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
+using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
 using Xunit;
 
@@ -32,6 +35,41 @@ public sealed class QualityStepTests
 
     private static FieldViewModel Select(SetupViewModel flow, string key)
         => flow.Quality.Selects.Single(field => field.Key == key);
+
+    /// <summary>
+    /// A step over a mode control offering the entries named, the ones prefixed with a dash being the refused
+    /// ones.
+    /// Stated here rather than seeded because the fixture's backend refuses no mode, and what a refusal does to
+    /// the layout only shows where <see cref="FieldViewModel.Shown"/> and <see cref="FieldViewModel.Options"/>
+    /// part company (RefusedEntriesTests, which seeds a select the same way).
+    /// </summary>
+    private static QualityStepViewModel StepOver(params string[] modes)
+    {
+        var field = new Field
+        {
+            Key = "publish.mode",
+            Control = ControlKind.Radio,
+            Visible = true,
+            Enabled = true,
+            Value = new FieldValue { Text = modes[0].TrimStart('-') },
+        };
+
+        foreach (var mode in modes)
+        {
+            field.Options.Add(new FieldOption
+            {
+                Value = mode.TrimStart('-'),
+                Enabled = !mode.StartsWith('-'),
+                Reason = mode.StartsWith('-') ? new Text { Code = TextCode.CodecNotImplemented } : null,
+            });
+        }
+
+        var group = new FieldGroupViewModel((_, _) => { });
+        group.Apply(
+            new FieldGroup { Key = QualityLayout.GroupKey, Fields = { field } }, Vocabulary.Empty, null);
+
+        return new QualityStepViewModel(group);
+    }
 
     private static async Task ChooseAsync(SetupViewModel flow, OptionViewModel option)
     {
@@ -152,18 +190,48 @@ public sealed class QualityStepTests
     /// <summary>
     /// The shape is the step's and the count is the form's, so one more mode from the backend is laid out by
     /// the same rule rather than by an edit here.
+    /// Measured against the list the grid is given, which is the drawn one: a shape derived from the entries
+    /// the form offered would open a column for a card the refusals took away.
     /// </summary>
     [Fact]
     public async Task TheRateControlCardsFillEveryRowTheyOpen()
     {
         var flow = await FlowAsync();
-        var modes = flow.Quality.Mode!.Options.Count;
+        var modes = flow.Quality.Mode!.Shown.Count;
         var columns = flow.Quality.ModeColumns;
         var rows = (modes + columns - 1) / columns;
 
         Assert.True(modes > 0);
         Assert.True(rows * columns >= modes, "the grid holds every mode");
         Assert.True((rows - 1) * columns < modes, "the last row of the grid carries a card");
+    }
+
+    /// <summary>
+    /// Five modes with one refused draw four cards, and four across three columns leave the second row holding
+    /// one card beside two empty cells.
+    /// </summary>
+    [Fact]
+    public void TheGridIsShapedForTheCardsARefusalLeavesStanding()
+    {
+        var step = StepOver("crf", "vbr", "cbr", "abr", "-lossless");
+
+        Assert.Equal(4, step.Mode!.Shown.Count);
+        Assert.Equal(2, step.ModeColumns);
+    }
+
+    /// <summary>
+    /// Revealing the refused entries is the one input a field carries that no group notices, so a step reading
+    /// its shape off the group alone would go on drawing the narrower grid over the longer list.
+    /// </summary>
+    [Fact]
+    public void RevealingARefusedModeReshapesTheGridAroundIt()
+    {
+        var step = StepOver("crf", "vbr", "cbr", "abr", "-lossless");
+
+        step.Mode!.RevealCommand.Execute(null);
+
+        Assert.Equal(5, step.Mode.Shown.Count);
+        Assert.Equal(3, step.ModeColumns);
     }
 
     /// <summary>

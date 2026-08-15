@@ -89,8 +89,9 @@ func init() {
 //
 // The index is the display enumeration's, which is what PublishSettings.monitor carries.
 // Where the enumeration holds no such output the head is built without a selection: X11 then
-// captures the whole screen rather than a guessed rectangle, the answer x11grab gives, and Windows
-// is handed the index whatever the enumeration knows, the index being that enumeration's own.
+// captures the whole screen rather than a guessed rectangle, and Windows is handed the index
+// whatever the enumeration knows, the index being that enumeration's own.
+// x11grab does not do the same and refuses an index no output answers to (ximageHead).
 //
 // pointer draws the mouse pointer into the frames.
 // A publish passes what the settings hold, a preview passes true, a preview showing the screen as
@@ -177,6 +178,13 @@ func PreviewSource(p platform.Info, index int) (string, error) {
 // ximageHead reads the X screen, cropped to the selected monitor where its geometry is known.
 // An enumeration that reports no geometry leaves the crop off, capturing the whole X screen rather
 // than a guessed rectangle.
+//
+// The two absences reaching one answer here is not this function deciding they are the same.
+// An enumeration with no geometry is a machine that cannot measure its outputs, and the whole screen
+// is the honest answer to it.
+// An index no output answers to is a settings file naming a monitor that was unplugged, and that one
+// is refused before a head is ever built, where the capture has an error to answer with
+// (publish/gstcapture.go, ximageCapture.Open; internal/ffmpeg, x11grabArgs).
 //
 // endx and endy are inclusive: the last captured column is the offset plus the width minus one.
 func ximageHead(index int, pointer bool) []string {

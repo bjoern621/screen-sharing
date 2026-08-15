@@ -248,7 +248,9 @@ func (a *App) StartWatch(streamName, transportName string) error {
 			// announced here as well as at the two calls that change it.
 			a.emit(wire.ViewerExitEvent(wire.WatchKey{StreamName: streamName, Transport: transportName}, message, logPath))
 			a.emitViewerState()
-		})
+		},
+		// The watch address carries the relay token, and the SRT leg its passphrase beside it.
+		ffmpeg.WithRedactor(func(text string) string { return transport.Redact(s, text) }))
 	if err != nil {
 		return err
 	}
@@ -302,7 +304,10 @@ func (a *App) OpenInBrowser(streamName, transportName string) error {
 			transportName, streamName, strings.Join(transport.WatchNames(transport.EngineBrowser), " or "))
 	}
 
-	logger.Infof("opening '%s' over %s in the browser: %s", streamName, transportName, url)
+	// The address carries the relay token as its userinfo, and the log is a file the app offers to open
+	// and a user forwards, so what is written is the address without it.
+	logger.Infof("opening '%s' over %s in the browser: %s",
+		streamName, transportName, transport.Redact(s, url))
 	return openInShell(url)
 }
 

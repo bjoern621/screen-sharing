@@ -39,6 +39,9 @@ public static class Counters
         ["section.timing"] = new(
             "Timing",
             "How the pipeline is paced. A live pipeline cannot slow down to catch up, so anything it cannot decode in time it drops."),
+        ["section.delay"] = new(
+            "Delay",
+            "What each stage of the path costs a frame, from the publisher's screen to this window. One stage is missing from it: the relay terminates the incoming protocol and re-muxes for every viewer, and neither end can time that, so the total is a floor rather than the whole journey. The publishing stages are here only while this machine is the one publishing the stream, because nothing carries them over the relay."),
         ["section.audio"] = new(
             "Audio",
             "The sound track this decode is carrying. Absent on a stream published without one."),
@@ -172,6 +175,29 @@ public static class Counters
         ["uptime_sec"] = new(
             "Uptime",
             "How long this decode has been running. It restarts whenever the pipeline is rebuilt, which turning tone mapping on does."),
+
+        // section.delay
+        ["delay.publish"] = new(
+            "Capture and encode",
+            "How long the publishing machine held a frame between reading it off the screen and having it encoded and ready to send. It is the one stage a faster encoder preset or a shorter lookahead shortens, and it is measured on the publishing pipeline rather than inferred from a setting."),
+        ["delay.publish_link"] = new(
+            "Publisher to relay",
+            "The delivery window the publisher's leg settled on with the relay: every packet is held for this long so a lost one has room to arrive again. It is paid on every frame whether or not anything is lost, which is what makes it the largest stage on a healthy path."),
+        ["delay.relay"] = new(
+            "Through the relay",
+            "What the relay spends terminating the incoming protocol and re-muxing the stream for this viewer. Never a figure: the relay states no per-path delay and no leg carries a relay timestamp to subtract, so the only honest reading is that it is unmeasured and that the total below is short by it."),
+        ["delay.watch_link"] = new(
+            "Relay to here",
+            "The same delivery window on this leg, held by the transport before the pipeline is handed a packet at all. Only SRT states one; a leg that buffers inside the pipeline instead pays it under the two rows below."),
+        ["delay.receive"] = new(
+            "Decode",
+            "How long this machine held a frame between the leg's source stamping it and the sink taking it: depacketizing, decoding and the queues in between. Rising to meet the latency window is a decode about to start dropping frames."),
+        ["delay.present"] = new(
+            "Waiting at the sink",
+            "How long the sink still held each frame after it arrived, so that it was drawn at the moment the latency window puts it. It shrinks as the decode above grows, the two together being that window."),
+        ["delay.total"] = new(
+            "At least, end to end",
+            "The stages above that were measured, added up. A floor and never the whole delay: the relay's own share is missing from it, and so are the publishing stages whenever the stream comes from another machine."),
 
         // section.audio
         ["audio_codec_description"] = new(

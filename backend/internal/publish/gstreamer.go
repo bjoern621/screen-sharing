@@ -174,8 +174,11 @@ func (g gstEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb
 		// The subcommand leads, which is what makes this executable play a pipeline rather than start a
 		// second backend (cmd/backend).
 		// The control flag follows it, so the pipeline starts at the word gst-launch would start at.
-		args:        append(append([]string{GstSubcommand}, gstChildArgs(s, socket)...), pipeline...),
-		tag:         tag,
+		args: append(append([]string{GstSubcommand}, gstChildArgs(s, socket, meterArg != "")...), pipeline...),
+		tag:  tag,
+		// The pipeline spells the relay token and the SRT passphrase out in full, and the log is a file
+		// the app offers to open and a reader forwards.
+		redact:      func(text string) string { return transport.Redact(s, text) },
 		extraFiles:  files,
 		parseStdout: parseStdout,
 		onExit:      cb.OnExit,

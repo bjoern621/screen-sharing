@@ -204,8 +204,11 @@ var vp9Profiles = map[string]string{
 // libvpx is the one software encoder here whose lossless mode is a dedicated flag rather than a
 // quantizer of zero.
 func vp9Args(s settings.Settings, r rates, l capabilities.Steps) []string {
+	profile, known := vp9Profiles[s.Publish.Chroma]
+	assert.Assert(known, "a VP9 chroma names the profile it encodes in", s.Publish.Chroma)
+
 	base := []string{
-		"-c:v", "libvpx-vp9", "-profile:v", vp9Profiles[s.Publish.Chroma],
+		"-c:v", "libvpx-vp9", "-profile:v", profile,
 		"-deadline", "realtime", "-row-mt", "1", "-cpu-used", l.Effort,
 		"-tune-content", "screen",
 	}

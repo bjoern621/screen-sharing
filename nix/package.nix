@@ -23,6 +23,17 @@
   pipewire,
   protobuf,
   grpc,
+  # The backend spawns these to enumerate monitors, one per session type
+  # (backend/internal/display, listX11 and listWlrRandr).
+  # Without them the enumeration answers a single placeholder with no geometry, which leaves
+  # the setup screen offering one nameless screen and refuses every monitor but the first.
+  xrandr,
+  wlr-randr,
+  # The hardware encoder runtimes ffmpeg loads by name rather than links, each reached through
+  # an environment variable and neither able to find a store path on its own.
+  # flake.nix states what each one is and why the dev shell sets the same two.
+  amf,
+  vpl-gpu-rt,
   # Avalonia dlopens these by soname at run time rather than linking them, so they have to
   # reach LD_LIBRARY_PATH or the shell fails to open a window.
   # Skia arrives prebuilt from NuGet and both windowing backends find the session's
@@ -94,6 +105,30 @@ let
 
   gstPluginPath = lib.makeSearchPathOutput "lib" "lib/gstreamer-1.0" gstPlugins;
 
+  # The monitor enumerators, which are Linux session tools and have no counterpart elsewhere.
+  displayTools = lib.optionals stdenv.hostPlatform.isLinux [
+    xrandr
+    wlr-randr
+  ];
+
+  # AMD and Intel ship these runtimes for x86_64 alone, so the wrapper names neither anywhere
+  # else and the encoders they back are simply absent there.
+  amfRuntime = lib.optionals stdenv.hostPlatform.isx86_64 [ amf ];
+  vplRuntime = lib.optionals stdenv.hostPlatform.isx86_64 [ vpl-gpu-rt ];
+
+  # A packaged build has to hand these over the same way the dev shell does, or an encoder that
+  # works inside `nix develop` is greyed out under `nix run` on the same machine: ffmpeg dlopens
+  # libamfrt64.so.1 by soname, and the oneVPL dispatcher loads its runtime by filename, and
+  # neither carries a store path (docs/packaging.md, flake.nix).
+  hardwareRuntimeArgs = lib.concatStringsSep " " (
+    lib.optional (
+      vplRuntime != [ ]
+    ) ''--set-default ONEVPL_SEARCH_PATH "${lib.makeLibraryPath vplRuntime}"''
+    ++ lib.optional (
+      amfRuntime != [ ]
+    ) ''--prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath amfRuntime}"''
+  );
+
   avaloniaRuntimeDeps = [
     fontconfig
     freetype
@@ -163,13 +198,17 @@ let
 
       wrapProgram $out/bin/screenshare-backend \
         --prefix PATH : ${
-          lib.makeBinPath [
-            ffmpeg-full
-            gst_all_1.gstreamer
-          ]
+          lib.makeBinPath (
+            [
+              ffmpeg-full
+              gst_all_1.gstreamer
+            ]
+            ++ displayTools
+          )
         } \
         --set-default GST_PLUGIN_SYSTEM_PATH_1_0 "${gstPluginPath}" \
-        --prefix GIO_EXTRA_MODULES : "${glib-networking}/lib/gio/modules"
+        --prefix GIO_EXTRA_MODULES : "${glib-networking}/lib/gio/modules" \
+        ${hardwareRuntimeArgs}
     '';
 
     meta.mainProgram = "screenshare-backend";

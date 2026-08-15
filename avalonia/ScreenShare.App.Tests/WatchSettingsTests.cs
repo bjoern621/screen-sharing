@@ -180,7 +180,7 @@ public sealed class WatchSettingsTests
     {
         var backend = new SeededBackend("linux");
         var relay = new RelayStatus { Reachable = true };
-        relay.Paths.Add(new RelayPath { Name = path, Ready = true });
+        relay.Paths.Add(new RelayPath { Name = path, OwnName = path, Ready = true });
         backend.Relay = relay;
         return backend;
     }

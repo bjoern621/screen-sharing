@@ -63,6 +63,7 @@ public sealed class StreamRowViewModel : Observable
 
     // --- Outputs ------------------------------------------------------------------
 
+    private string _label = "";
     private string _detail = "";
     private string _tracks = "";
     private string _readers = "";
@@ -80,6 +81,13 @@ public sealed class StreamRowViewModel : Observable
     /// are different sets, and neither contains the other.
     /// </summary>
     public ObservableCollection<BrowserLegViewModel> BrowserLegs { get; }
+
+    /// <summary>
+    /// The word the entry carries: the stream's own name, with the prefix every row of one group shares taken
+    /// off by the backend.
+    /// <see cref="Name"/> is the whole path and stays what the commands open.
+    /// </summary>
+    public string Label { get => _label; private set => Set(ref _label, value); }
 
     /// <summary>Ingest rate while the stream runs, and what the path is doing otherwise.</summary>
     public string Detail { get => _detail; private set => Set(ref _detail, value); }
@@ -147,6 +155,7 @@ public sealed class StreamRowViewModel : Observable
         WatchLabel = tiled ? "Take out of the grid" : "Watch in the grid";
         WatchGlyph = tiled ? Icons.IconX : Icons.IconPlayerPlay;
 
+        Label = row.OwnName;
         Detail = row.Detail;
         Tracks = row.Tracks;
         Readers = row.Readers == 1 ? "1 reader" : $"{row.Readers} readers";
@@ -178,8 +187,12 @@ public sealed class StreamRowViewModel : Observable
         Assert.That(Legs.Count == legs.Count, "a control per offered leg", Legs.Count, legs.Count);
         Assert.That(BrowserLegs.Count == browserLegs.Count,
             "a control per offered browser leg", BrowserLegs.Count, browserLegs.Count);
-        Assert.That(IsWatched == Legs.Any(leg => leg.IsOpen) || row.WatchedOn.Count > 0,
-            "a watched stream has a leg to close", Name, row.WatchedOn.Count);
+        // Gated on legs being offered at all, and not as an economy: a pass that runs before the form
+        // resolves offers none (ViewerViewModel.LegsOf answers empty for a form that is not there), while a
+        // stream the backend is already supervising arrives watched on that same pass.
+        // The invariant is what a drawn leg list means, so a row with nothing drawn yet states nothing.
+        Assert.That(Legs.Count == 0 || !IsWatched || Legs.Any(leg => leg.IsOpen),
+            "a watched stream offering legs has one to close", Name, row.WatchedOn.Count);
     }
 
     /// <summary>

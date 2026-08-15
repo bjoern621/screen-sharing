@@ -67,8 +67,23 @@ func listHyprland() []Monitor {
 	return monitors
 }
 
-// wlrModeRe matches a wlr-randr mode line: "1920x1080 px, 143.981003 Hz (current)".
-var wlrModeRe = regexp.MustCompile(`(\d+)x(\d+) px,\s*([\d.]+) Hz`)
+// wlrModeRe matches a wlr-randr mode line, capturing the flag list it may end with.
+// Forms: "1920x1080 px, 143.981003 Hz", "... Hz (current)", "... Hz (preferred, current)".
+var wlrModeRe = regexp.MustCompile(`(\d+)x(\d+) px,\s*([\d.]+) Hz(?:\s*\(([^)]*)\))?`)
+
+// wlrModeHasFlag reports whether flags, the list a mode line ends with, carries name.
+//
+// Split rather than matched whole: wlr-randr prints one parenthesised group per mode and puts both
+// flags in it, so a mode that is preferred and active reads "(preferred, current)" and a pattern
+// looking for "(current)" misses the active mode of every output sitting on its preferred one.
+func wlrModeHasFlag(flags, name string) bool {
+	for _, flag := range strings.Split(flags, ",") {
+		if strings.TrimSpace(flag) == name {
+			return true
+		}
+	}
+	return false
+}
 
 // wlrPositionRe matches a wlr-randr position line: "Position: -1920,0".
 // An output left of or above the layout origin sits at a negative coordinate, and a pattern
@@ -102,8 +117,8 @@ func listWlrRandr() []Monitor {
 			continue
 		}
 		cur := &monitors[len(monitors)-1]
-		if strings.Contains(line, "(current)") {
-			if m := wlrModeRe.FindStringSubmatch(line); m != nil {
+		if m := wlrModeRe.FindStringSubmatch(line); m != nil {
+			if wlrModeHasFlag(m[4], "current") {
 				cur.Width = atoi(m[1])
 				cur.Height = atoi(m[2])
 				cur.RefreshHz = roundHz(m[3])

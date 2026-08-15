@@ -74,6 +74,18 @@ public sealed class TileStatsTests
         AudioChannels = 2,
         AudioBytes = 27_000_000,
         AudioKbps = 96,
+
+        // A tile on the machine that is publishing this stream, which is the one place every stage but the
+        // relay's carries a figure.
+        Delay = new DelayBudget
+        {
+            PublishMs = 8.4,
+            PublishLinkMs = 300,
+            WatchLinkMs = 120,
+            ReceiveMs = 6.2,
+            PresentMs = 13.8,
+            TotalMs = 448.4,
+        },
     };
 
     private static TileReport Report() => new(1280, 720, Frames: 215_390, Dropped: 3, Notice: "");
@@ -90,8 +102,51 @@ public sealed class TileStatsTests
         var panel = TileStats.Of(Sample(), Report());
 
         Assert.Equal(
-            ["Arriving", "Picture", "Decode", "Render", "Timing", "Audio", "This window"],
+            ["Arriving", "Picture", "Decode", "Render", "Timing", "Delay", "Audio", "This window"],
             panel.Select(section => section.Heading));
+    }
+
+    /// <summary>
+    /// The delay block is the whole path in the order a frame crosses it, and it keeps the relay's stage even
+    /// though nothing measures it.
+    /// Dropping that row would present the total as the whole journey, and the total is short by exactly it.
+    /// </summary>
+    [Fact]
+    public void TheDelayBlockNamesEveryStageOfThePath()
+    {
+        var panel = TileStats.Of(Sample(), Report());
+
+        Assert.Equal(
+            [
+                "Capture and encode", "Publisher to relay", "Through the relay", "Relay to here", "Decode",
+                "Waiting at the sink", "At least, end to end",
+            ],
+            Section(panel, "Delay").Lines.Select(line => line.Label));
+
+        Assert.Equal("8.4 ms", Value(panel, "Delay", "Capture and encode"));
+        Assert.Equal("300 ms", Value(panel, "Delay", "Publisher to relay"));
+        Assert.Equal("448 ms", Value(panel, "Delay", "At least, end to end"));
+
+        // The one row with no figure behind it, and the reason the total is a floor.
+        Assert.Equal("…", Value(panel, "Delay", "Through the relay"));
+    }
+
+    /// <summary>
+    /// A viewer watching somebody else's stream cannot see the publishing side at all: nothing carries those
+    /// stages over the relay, and inventing them would put a number on the one part of the path this machine
+    /// has no reading of.
+    /// </summary>
+    [Fact]
+    public void AStreamFromAnotherMachineShowsNoPublishingStages()
+    {
+        var remote = Sample();
+        remote.Delay = new DelayBudget { WatchLinkMs = 120, ReceiveMs = 6.2, PresentMs = 13.8, TotalMs = 140 };
+
+        var panel = TileStats.Of(remote, Report());
+
+        Assert.Equal("…", Value(panel, "Delay", "Capture and encode"));
+        Assert.Equal("…", Value(panel, "Delay", "Publisher to relay"));
+        Assert.Equal("140 ms", Value(panel, "Delay", "At least, end to end"));
     }
 
     /// <summary>

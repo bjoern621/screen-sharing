@@ -129,12 +129,15 @@ func (s *FrameServer) Frames(stream screensharev1.FrameService_FramesServer) err
 // A single method taking a key would need a key the previews do not have.
 func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
 	switch source.Kind {
+	case wire.FrameSourceRelay:
+		return s.backend.SubscribeFrames(source.Stream)
 	case wire.FrameSourcePublishPreview:
 		return s.backend.SubscribePreviewFrames()
 	case wire.FrameSourceMonitorPreview:
 		return s.backend.SubscribeMonitorFrames(source.Monitor)
 	default:
-		return s.backend.SubscribeFrames(source.Stream)
+		assert.Never("unexpected frame source kind", int(source.Kind))
+		return nil, nil
 	}
 }
 
@@ -143,12 +146,15 @@ func (s *FrameServer) subscribe(source wire.FrameSource) (FrameStream, error) {
 // Written once because both read it, and because the previews have no pair to print.
 func describe(source wire.FrameSource) string {
 	switch source.Kind {
+	case wire.FrameSourceRelay:
+		return fmt.Sprintf("'%s' over %s", source.Stream.StreamName, source.Stream.Transport)
 	case wire.FrameSourcePublishPreview:
 		return "the local preview of the running stream"
 	case wire.FrameSourceMonitorPreview:
 		return fmt.Sprintf("monitor %d", source.Monitor)
 	default:
-		return fmt.Sprintf("'%s' over %s", source.Stream.StreamName, source.Stream.Transport)
+		assert.Never("unexpected frame source kind", int(source.Kind))
+		return ""
 	}
 }
 

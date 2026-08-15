@@ -3,9 +3,9 @@
 #   task package:windows
 #
 # Windows has no dependency manager an installer can lean on, so this artifact carries
-# everything: the backend, the shell, ffmpeg and ffplay, the GStreamer launcher and the
-# plugin set (docs/packaging.md). One directory holds all of it, which is both what the
-# Windows loader searches first for a DLL and where the app's own lookups start - the
+# everything: the backend, the shell, ffmpeg and ffplay, the GStreamer command-line tools
+# and the plugin set (docs/packaging.md). One directory holds all of it, which is both what
+# the Windows loader searches first for a DLL and where the app's own lookups start - the
 # shell finds the backend beside itself, and the backend finds ffmpeg and gst-launch-1.0
 # the same way (backend/internal/ffmpeg/exe.go).
 #
@@ -25,11 +25,16 @@ $zip = Join-Path $dist "$name.zip"
 # Each of these is produced by a task this one depends on, and each is a program the app
 # spawns or loads at run time. Checking them here names the missing piece; a zip shipped
 # without one fails at the user's end, where the same absence reads as a broken app.
+# The inspector is checked beside the launcher because its absence is the quiet one: a zip
+# missing it starts and runs, and greys the whole GStreamer engine instead, the probe reading
+# one missing program as an install with no GStreamer tooling at all
+# (backend/internal/encoders, gstAvailable).
 $required = @(
     'screenshare-backend.exe',
     'ffmpeg.exe',
     'ffplay.exe',
-    'gst-launch-1.0.exe'
+    'gst-launch-1.0.exe',
+    'gst-inspect-1.0.exe'
 )
 foreach ($file in $required) {
     $path = Join-Path $bin $file

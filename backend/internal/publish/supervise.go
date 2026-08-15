@@ -26,12 +26,17 @@ import (
 // so the log holds everything the child said either way.
 // env adds to this process's environment rather than replacing it, so a child keeps everything the
 // app was started with (GstChildEnv fills it).
+// redact hides the run's secrets in whatever is written to the log, and nil hides nothing.
+// The command line is the first thing the log carries and it spells the relay token and the SRT
+// passphrase out in full, so a log offered to whoever is helping carries both out with it
+// (transport.Redact builds the function).
 type superviseConfig struct {
 	exe         string
 	env         []string
 	args        []string
 	tag         string
 	extraFiles  []*os.File
+	redact      func(string) string
 	parseStdout func(io.Reader)
 	onExit      func(err error, stderrTail string, logPath string)
 	onCleanup   func()
@@ -66,7 +71,11 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot create run log: %w", err)
 	}
-	fmt.Fprintf(logFile, "%s %s\n\n", cfg.exe, strings.Join(cfg.args, " "))
+	commandLine := fmt.Sprintf("%s %s", cfg.exe, strings.Join(cfg.args, " "))
+	if cfg.redact != nil {
+		commandLine = cfg.redact(commandLine)
+	}
+	fmt.Fprintf(logFile, "%s\n\n", commandLine)
 
 	// The stderr copier and the stdout tee write the one log, so the writes are serialized to keep
 	// either from landing inside the other's line.

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -80,10 +81,30 @@ func (a *App) groupIndexStatus(s settings.Settings, base string) relay.Status {
 // The deployment decides: a relay behind the proxy answers its API to nobody, and one without a
 // proxy has no index to ask.
 func (a *App) relayStatusFor(s settings.Settings) relay.Status {
+	prefix := s.Relay.Prefix()
 	if base, ok := s.Relay.GroupService(); ok {
-		return a.groupIndexStatus(s, base)
+		return ownNames(a.groupIndexStatus(s, base), prefix)
 	}
-	return a.relay.Fetch(s.Relay.Host, s.Relay.ApiPort)
+	return ownNames(a.relay.Fetch(s.Relay.Host, s.Relay.ApiPort), prefix)
+}
+
+// ownNames fills in each path's name inside prefix, where the snapshot's source stops mattering:
+// the index answers names inside the group and the relay's API answers whole paths.
+// A group is a path prefix, so every row of a member's list carries the same one and it separates
+// none of them, while Name keeps the whole path a viewer is opened with.
+//
+// Trimmed rather than cut at the first separator: a path under somebody else's prefix, which only
+// an operator reading the relay's own API sees, would otherwise print under a name of this group's.
+func ownNames(status relay.Status, prefix string) relay.Status {
+	for i, path := range status.Paths {
+		own := strings.TrimPrefix(path.Name, prefix)
+		if own == "" {
+			// Nothing but the prefix names no stream, so there is nothing to shorten to.
+			own = path.Name
+		}
+		status.Paths[i].OwnName = own
+	}
+	return status
 }
 
 // CreateGroup draws a group key at this relay's service and hands it back with the prefix it

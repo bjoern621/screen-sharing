@@ -27,6 +27,7 @@ func populatedSettings() settings.Settings {
 			WebrtcPort:    1004,
 			RtmpPort:      1005,
 			HlsPort:       1006,
+			MoqPort:       1007,
 			GroupKey:      "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
 			SrtPassphrase: "fixture-passphrase",
 		},

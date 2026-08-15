@@ -912,7 +912,12 @@ type ReceiveStreamStats struct {
 	// An entry per element of this pipeline whose counters are worth reading.
 	// The leg picks them: SRT reports its link, RTSP a jitterbuffer per track.
 	// A leg counting nothing contributes no group at all, never an empty one.
-	Groups        []*ReceiveStatGroup `protobuf:"bytes,49,rep,name=groups,proto3" json:"groups,omitempty"`
+	Groups []*ReceiveStatGroup `protobuf:"bytes,49,rep,name=groups,proto3" json:"groups,omitempty"`
+	// The stages between a screen somewhere and this window, as far as this machine can
+	// measure them.
+	// Always set, since a decode always measures its own pipeline; which stages inside it
+	// carry a figure is DelayBudget's own answer.
+	Delay         *DelayBudget `protobuf:"bytes,50,opt,name=delay,proto3" json:"delay,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1290,6 +1295,134 @@ func (x *ReceiveStreamStats) GetGroups() []*ReceiveStatGroup {
 	return nil
 }
 
+func (x *ReceiveStreamStats) GetDelay() *DelayBudget {
+	if x != nil {
+		return x.Delay
+	}
+	return nil
+}
+
+// What each stage of the path between a screen and a window costs a frame, in milliseconds.
+//
+// Every stage carries presence, because which of them are measurable depends on where the
+// machine reading them sits rather than on the moment: a viewer measures its own leg and
+// its own pipeline, sees the publishing side only where it is the publisher too, and never
+// sees what the relay spent.
+// An absent stage is one nothing measured, never a stage that cost nothing.
+//
+// One stage the path has and this message does not: the relay terminates the publishing
+// protocol and re-muxes for each reader, and neither end can time that. Its API states no
+// per-path delay, and no leg carries a relay timestamp a receiver could subtract, so the
+// figure would have to be invented. total_ms is therefore a floor and not a sum of the
+// whole path.
+type DelayBudget struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Capture to the encoded stream leaving the publishing pipeline: converting, encoding and
+	// parsing, measured against that pipeline's own clock.
+	//
+	// Present only on a stream this machine is itself publishing.
+	// It is measured on the pipeline that captures the screen, and nothing carries it over
+	// the relay, so a viewer watching somebody else's stream has no way to know it.
+	PublishMs *float64 `protobuf:"fixed64,1,opt,name=publish_ms,json=publishMs,proto3,oneof" json:"publish_ms,omitempty"`
+	// The delivery window the publishing leg settled on with the relay: the delay every
+	// packet is held for so a lost one has room to arrive again.
+	// Carries publish_ms's restriction, and is absent on a publishing transport that states
+	// no window.
+	PublishLinkMs *float64 `protobuf:"fixed64,2,opt,name=publish_link_ms,json=publishLinkMs,proto3,oneof" json:"publish_link_ms,omitempty"`
+	// The same window on this reading leg, held by the transport before the pipeline is
+	// handed a packet at all.
+	// SRT is the leg that states one; a leg that buffers inside the pipeline instead reports
+	// that buffering under present_ms, where the pipeline's own latency query answers for it.
+	WatchLinkMs *float64 `protobuf:"fixed64,3,opt,name=watch_link_ms,json=watchLinkMs,proto3,oneof" json:"watch_link_ms,omitempty"`
+	// The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
+	// and the queues between them, measured.
+	ReceiveMs *float64 `protobuf:"fixed64,4,opt,name=receive_ms,json=receiveMs,proto3,oneof" json:"receive_ms,omitempty"`
+	// What the sink still holds a frame for after it arrives, so that it is drawn at the
+	// moment the pipeline's latency window puts it.
+	// Work and wait together are that window, which is why a receive_ms rising to meet it is
+	// a decode about to start dropping frames.
+	PresentMs *float64 `protobuf:"fixed64,5,opt,name=present_ms,json=presentMs,proto3,oneof" json:"present_ms,omitempty"`
+	// The stages above that carry a figure, added up.
+	// A floor and not a total: the relay's own share is in the path and in no measurement, and
+	// a publisher on another machine takes the first two stages out of reach as well.
+	// Absent where no stage was measured at all.
+	TotalMs       *float64 `protobuf:"fixed64,6,opt,name=total_ms,json=totalMs,proto3,oneof" json:"total_ms,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DelayBudget) Reset() {
+	*x = DelayBudget{}
+	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DelayBudget) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DelayBudget) ProtoMessage() {}
+
+func (x *DelayBudget) ProtoReflect() protoreflect.Message {
+	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DelayBudget.ProtoReflect.Descriptor instead.
+func (*DelayBudget) Descriptor() ([]byte, []int) {
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *DelayBudget) GetPublishMs() float64 {
+	if x != nil && x.PublishMs != nil {
+		return *x.PublishMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetPublishLinkMs() float64 {
+	if x != nil && x.PublishLinkMs != nil {
+		return *x.PublishLinkMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetWatchLinkMs() float64 {
+	if x != nil && x.WatchLinkMs != nil {
+		return *x.WatchLinkMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetReceiveMs() float64 {
+	if x != nil && x.ReceiveMs != nil {
+		return *x.ReceiveMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetPresentMs() float64 {
+	if x != nil && x.PresentMs != nil {
+		return *x.PresentMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetTotalMs() float64 {
+	if x != nil && x.TotalMs != nil {
+		return *x.TotalMs
+	}
+	return 0
+}
+
 // One sample across every decode.
 //
 // Whole per tick, like every state here, so an ended decode drops out by not appearing.
@@ -1304,7 +1437,7 @@ type ReceiveStats struct {
 
 func (x *ReceiveStats) Reset() {
 	*x = ReceiveStats{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	mi := &file_screenshare_v1_events_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1316,7 +1449,7 @@ func (x *ReceiveStats) String() string {
 func (*ReceiveStats) ProtoMessage() {}
 
 func (x *ReceiveStats) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[11]
+	mi := &file_screenshare_v1_events_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1329,7 +1462,7 @@ func (x *ReceiveStats) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReceiveStats.ProtoReflect.Descriptor instead.
 func (*ReceiveStats) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{11}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ReceiveStats) GetStreams() []*ReceiveStreamStats {
@@ -1358,7 +1491,7 @@ type PreviewedMonitor struct {
 
 func (x *PreviewedMonitor) Reset() {
 	*x = PreviewedMonitor{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[12]
+	mi := &file_screenshare_v1_events_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1370,7 +1503,7 @@ func (x *PreviewedMonitor) String() string {
 func (*PreviewedMonitor) ProtoMessage() {}
 
 func (x *PreviewedMonitor) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[12]
+	mi := &file_screenshare_v1_events_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1383,7 +1516,7 @@ func (x *PreviewedMonitor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewedMonitor.ProtoReflect.Descriptor instead.
 func (*PreviewedMonitor) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{12}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PreviewedMonitor) GetMonitor() int32 {
@@ -1416,7 +1549,7 @@ type MonitorPreviewState struct {
 
 func (x *MonitorPreviewState) Reset() {
 	*x = MonitorPreviewState{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[13]
+	mi := &file_screenshare_v1_events_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1428,7 +1561,7 @@ func (x *MonitorPreviewState) String() string {
 func (*MonitorPreviewState) ProtoMessage() {}
 
 func (x *MonitorPreviewState) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[13]
+	mi := &file_screenshare_v1_events_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1441,7 +1574,7 @@ func (x *MonitorPreviewState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MonitorPreviewState.ProtoReflect.Descriptor instead.
 func (*MonitorPreviewState) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{13}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MonitorPreviewState) GetMonitors() []*PreviewedMonitor {
@@ -1483,7 +1616,7 @@ type Event struct {
 
 func (x *Event) Reset() {
 	*x = Event{}
-	mi := &file_screenshare_v1_events_proto_msgTypes[14]
+	mi := &file_screenshare_v1_events_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1495,7 +1628,7 @@ func (x *Event) String() string {
 func (*Event) ProtoMessage() {}
 
 func (x *Event) ProtoReflect() protoreflect.Message {
-	mi := &file_screenshare_v1_events_proto_msgTypes[14]
+	mi := &file_screenshare_v1_events_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1508,7 +1641,7 @@ func (x *Event) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Event.ProtoReflect.Descriptor instead.
 func (*Event) Descriptor() ([]byte, []int) {
-	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{14}
+	return file_screenshare_v1_events_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Event) GetSequence() uint64 {
@@ -1821,7 +1954,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x10ReceiveStatGroup\x12\x18\n" +
 	"\afactory\x18\x01 \x01(\tR\afactory\x12\x18\n" +
 	"\aelement\x18\x02 \x01(\tR\aelement\x128\n" +
-	"\x06values\x18\x03 \x03(\v2 .screenshare.v1.ReceiveStatValueR\x06values\"\x97\x0e\n" +
+	"\x06values\x18\x03 \x03(\v2 .screenshare.v1.ReceiveStatValueR\x06values\"\xca\x0e\n" +
 	"\x12ReceiveStreamStats\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12+\n" +
 	"\x11codec_description\x18\x02 \x01(\tR\x10codecDescription\x12\x18\n" +
@@ -1880,7 +2013,8 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"audioBytes\x12\"\n" +
 	"\n" +
 	"audio_kbps\x180 \x01(\x01H\aR\taudioKbps\x88\x01\x01\x128\n" +
-	"\x06groups\x181 \x03(\v2 .screenshare.v1.ReceiveStatGroupR\x06groupsB\x15\n" +
+	"\x06groups\x181 \x03(\v2 .screenshare.v1.ReceiveStatGroupR\x06groups\x121\n" +
+	"\x05delay\x182 \x01(\v2\x1b.screenshare.v1.DelayBudgetR\x05delayB\x15\n" +
 	"\x13_since_keyframe_secB\r\n" +
 	"\v_video_mbpsB\f\n" +
 	"\n" +
@@ -1889,7 +2023,23 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x0f_latency_min_msB\x11\n" +
 	"\x0f_latency_max_msB\x0f\n" +
 	"\r_position_secB\r\n" +
-	"\v_audio_kbps\"L\n" +
+	"\v_audio_kbps\"\xcf\x02\n" +
+	"\vDelayBudget\x12\"\n" +
+	"\n" +
+	"publish_ms\x18\x01 \x01(\x01H\x00R\tpublishMs\x88\x01\x01\x12+\n" +
+	"\x0fpublish_link_ms\x18\x02 \x01(\x01H\x01R\rpublishLinkMs\x88\x01\x01\x12'\n" +
+	"\rwatch_link_ms\x18\x03 \x01(\x01H\x02R\vwatchLinkMs\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"receive_ms\x18\x04 \x01(\x01H\x03R\treceiveMs\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"present_ms\x18\x05 \x01(\x01H\x04R\tpresentMs\x88\x01\x01\x12\x1e\n" +
+	"\btotal_ms\x18\x06 \x01(\x01H\x05R\atotalMs\x88\x01\x01B\r\n" +
+	"\v_publish_msB\x12\n" +
+	"\x10_publish_link_msB\x10\n" +
+	"\x0e_watch_link_msB\r\n" +
+	"\v_receive_msB\r\n" +
+	"\v_present_msB\v\n" +
+	"\t_total_ms\"L\n" +
 	"\fReceiveStats\x12<\n" +
 	"\astreams\x18\x01 \x03(\v2\".screenshare.v1.ReceiveStreamStatsR\astreams\"@\n" +
 	"\x10PreviewedMonitor\x12\x18\n" +
@@ -1948,7 +2098,7 @@ func file_screenshare_v1_events_proto_rawDescGZIP() []byte {
 }
 
 var file_screenshare_v1_events_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_screenshare_v1_events_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_screenshare_v1_events_proto_goTypes = []any{
 	(EventKind)(0),              // 0: screenshare.v1.EventKind
 	(*ExitInfo)(nil),            // 1: screenshare.v1.ExitInfo
@@ -1962,47 +2112,49 @@ var file_screenshare_v1_events_proto_goTypes = []any{
 	(*ReceiveStatValue)(nil),    // 9: screenshare.v1.ReceiveStatValue
 	(*ReceiveStatGroup)(nil),    // 10: screenshare.v1.ReceiveStatGroup
 	(*ReceiveStreamStats)(nil),  // 11: screenshare.v1.ReceiveStreamStats
-	(*ReceiveStats)(nil),        // 12: screenshare.v1.ReceiveStats
-	(*PreviewedMonitor)(nil),    // 13: screenshare.v1.PreviewedMonitor
-	(*MonitorPreviewState)(nil), // 14: screenshare.v1.MonitorPreviewState
-	(*Event)(nil),               // 15: screenshare.v1.Event
-	(*WatchKey)(nil),            // 16: screenshare.v1.WatchKey
-	(*PublishState)(nil),        // 17: screenshare.v1.PublishState
-	(*PublishStats)(nil),        // 18: screenshare.v1.PublishStats
-	(*RelayStatus)(nil),         // 19: screenshare.v1.RelayStatus
-	(*Catalog)(nil),             // 20: screenshare.v1.Catalog
+	(*DelayBudget)(nil),         // 12: screenshare.v1.DelayBudget
+	(*ReceiveStats)(nil),        // 13: screenshare.v1.ReceiveStats
+	(*PreviewedMonitor)(nil),    // 14: screenshare.v1.PreviewedMonitor
+	(*MonitorPreviewState)(nil), // 15: screenshare.v1.MonitorPreviewState
+	(*Event)(nil),               // 16: screenshare.v1.Event
+	(*WatchKey)(nil),            // 17: screenshare.v1.WatchKey
+	(*PublishState)(nil),        // 18: screenshare.v1.PublishState
+	(*PublishStats)(nil),        // 19: screenshare.v1.PublishStats
+	(*RelayStatus)(nil),         // 20: screenshare.v1.RelayStatus
+	(*Catalog)(nil),             // 21: screenshare.v1.Catalog
 }
 var file_screenshare_v1_events_proto_depIdxs = []int32{
-	16, // 0: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.WatchKey
+	17, // 0: screenshare.v1.ViewerExit.viewer:type_name -> screenshare.v1.WatchKey
 	1,  // 1: screenshare.v1.ViewerExit.exit:type_name -> screenshare.v1.ExitInfo
-	16, // 2: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.WatchKey
-	16, // 3: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.WatchKey
-	16, // 4: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.WatchKey
+	17, // 2: screenshare.v1.ViewerState.viewers:type_name -> screenshare.v1.WatchKey
+	17, // 3: screenshare.v1.ReceiveExit.stream:type_name -> screenshare.v1.WatchKey
+	17, // 4: screenshare.v1.ReceiveStream.stream:type_name -> screenshare.v1.WatchKey
 	7,  // 5: screenshare.v1.ReceiveState.streams:type_name -> screenshare.v1.ReceiveStream
 	9,  // 6: screenshare.v1.ReceiveStatGroup.values:type_name -> screenshare.v1.ReceiveStatValue
-	16, // 7: screenshare.v1.ReceiveStreamStats.stream:type_name -> screenshare.v1.WatchKey
+	17, // 7: screenshare.v1.ReceiveStreamStats.stream:type_name -> screenshare.v1.WatchKey
 	10, // 8: screenshare.v1.ReceiveStreamStats.groups:type_name -> screenshare.v1.ReceiveStatGroup
-	11, // 9: screenshare.v1.ReceiveStats.streams:type_name -> screenshare.v1.ReceiveStreamStats
-	13, // 10: screenshare.v1.MonitorPreviewState.monitors:type_name -> screenshare.v1.PreviewedMonitor
-	17, // 11: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
-	18, // 12: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
-	1,  // 13: screenshare.v1.Event.publish_exit:type_name -> screenshare.v1.ExitInfo
-	19, // 14: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
-	3,  // 15: screenshare.v1.Event.viewer_state:type_name -> screenshare.v1.ViewerState
-	2,  // 16: screenshare.v1.Event.viewer_exit:type_name -> screenshare.v1.ViewerExit
-	8,  // 17: screenshare.v1.Event.receive_state:type_name -> screenshare.v1.ReceiveState
-	6,  // 18: screenshare.v1.Event.receive_exit:type_name -> screenshare.v1.ReceiveExit
-	12, // 19: screenshare.v1.Event.receive_stats:type_name -> screenshare.v1.ReceiveStats
-	14, // 20: screenshare.v1.Event.monitor_preview_state:type_name -> screenshare.v1.MonitorPreviewState
-	4,  // 21: screenshare.v1.Event.test_stream_state:type_name -> screenshare.v1.TestStreamState
-	1,  // 22: screenshare.v1.Event.test_stream_exit:type_name -> screenshare.v1.ExitInfo
-	20, // 23: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
-	5,  // 24: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	12, // 9: screenshare.v1.ReceiveStreamStats.delay:type_name -> screenshare.v1.DelayBudget
+	11, // 10: screenshare.v1.ReceiveStats.streams:type_name -> screenshare.v1.ReceiveStreamStats
+	14, // 11: screenshare.v1.MonitorPreviewState.monitors:type_name -> screenshare.v1.PreviewedMonitor
+	18, // 12: screenshare.v1.Event.publish_state:type_name -> screenshare.v1.PublishState
+	19, // 13: screenshare.v1.Event.publish_stats:type_name -> screenshare.v1.PublishStats
+	1,  // 14: screenshare.v1.Event.publish_exit:type_name -> screenshare.v1.ExitInfo
+	20, // 15: screenshare.v1.Event.relay_status:type_name -> screenshare.v1.RelayStatus
+	3,  // 16: screenshare.v1.Event.viewer_state:type_name -> screenshare.v1.ViewerState
+	2,  // 17: screenshare.v1.Event.viewer_exit:type_name -> screenshare.v1.ViewerExit
+	8,  // 18: screenshare.v1.Event.receive_state:type_name -> screenshare.v1.ReceiveState
+	6,  // 19: screenshare.v1.Event.receive_exit:type_name -> screenshare.v1.ReceiveExit
+	13, // 20: screenshare.v1.Event.receive_stats:type_name -> screenshare.v1.ReceiveStats
+	15, // 21: screenshare.v1.Event.monitor_preview_state:type_name -> screenshare.v1.MonitorPreviewState
+	4,  // 22: screenshare.v1.Event.test_stream_state:type_name -> screenshare.v1.TestStreamState
+	1,  // 23: screenshare.v1.Event.test_stream_exit:type_name -> screenshare.v1.ExitInfo
+	21, // 24: screenshare.v1.Event.catalog:type_name -> screenshare.v1.Catalog
+	5,  // 25: screenshare.v1.Event.settings_changed:type_name -> screenshare.v1.SettingsChanged
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_events_proto_init() }
@@ -2013,7 +2165,8 @@ func file_screenshare_v1_events_proto_init() {
 	file_screenshare_v1_catalog_proto_init()
 	file_screenshare_v1_session_proto_init()
 	file_screenshare_v1_events_proto_msgTypes[10].OneofWrappers = []any{}
-	file_screenshare_v1_events_proto_msgTypes[14].OneofWrappers = []any{
+	file_screenshare_v1_events_proto_msgTypes[11].OneofWrappers = []any{}
+	file_screenshare_v1_events_proto_msgTypes[15].OneofWrappers = []any{
 		(*Event_PublishState)(nil),
 		(*Event_PublishStats)(nil),
 		(*Event_PublishExit)(nil),
@@ -2035,7 +2188,7 @@ func file_screenshare_v1_events_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_screenshare_v1_events_proto_rawDesc), len(file_screenshare_v1_events_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

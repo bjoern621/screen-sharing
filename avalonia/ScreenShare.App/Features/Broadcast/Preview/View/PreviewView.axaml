@@ -28,15 +28,18 @@
 
         <tiles:StreamTile Source="{Binding Tile}" />
 
-        <TextBlock Classes="disabled"
-                   FontSize="{StaticResource FontSizeBody}"
-                   Text="{Binding Placeholder}"
-                   IsVisible="{Binding HasPlaceholder}"
-                   TextWrapping="Wrap"
-                   TextAlignment="Center"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   Margin="24" />
+        <!-- Selectable, because this carries the backend's own refusal for the end-to-end preview,
+             naming the stream's format and the protocols that would have carried it. A reader gets
+             that sentence out of the app by selecting it, and the style wraps rather than trims so
+             the characters they came for are still there. -->
+        <SelectableTextBlock Classes="hint"
+                             FontSize="{StaticResource FontSizeBody}"
+                             Text="{Binding Placeholder}"
+                             IsVisible="{Binding HasPlaceholder}"
+                             TextAlignment="Center"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             Margin="24" />
 
         <Border BorderBrush="{StaticResource AttentionBrush}"
                 BorderThickness="2"

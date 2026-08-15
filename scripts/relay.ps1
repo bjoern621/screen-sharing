@@ -1,11 +1,11 @@
 <#
   relay.ps1 - run the MediaMTX relay natively on Windows.
 
-  Why native and not Docker on Windows:
-    Docker Desktop's UDP port-proxy rewrites the source port and breaks SRT's
-    handshake, so host->container SRT fails with "I/O error". A native binary
-    binds :8890 directly on the host - no NAT, SRT just works.
-    (On a Linux relay box/VPS, `docker compose up -d` is fine - UDP forwards there.)
+  Why this exists: Linux and macOS take the mediamtx binary from the flake's dev
+  shell, which Windows has none of, so this fetches the same version instead.
+  Anything that puts a NAT between the host and the relay is worth avoiding here:
+  a UDP proxy that rewrites the source port breaks SRT's handshake with "I/O
+  error", where a native binary binds :8890 on the host and SRT just works.
 
   Downloads mediamtx.exe into ./bin on first run, then launches it with our
   mediamtx.yml. Runs in the foreground; Ctrl+C to stop.
@@ -41,6 +41,7 @@ Write-Host "Relay starting on this host." -ForegroundColor Cyan
 Write-Host "  SRT   udp  :8890   (publish/watch)"       -ForegroundColor DarkGray
 Write-Host "  API   tcp  :9997   (whoislive discovery)" -ForegroundColor DarkGray
 Write-Host "  HLS   tcp  :8888   (browser watch)"       -ForegroundColor DarkGray
+Write-Host "  MoQ   both :8892   (browser watch)"       -ForegroundColor DarkGray
 Write-Host "Friends point their -Relay at this machine's IP." -ForegroundColor DarkGray
 
 if ($Background) {

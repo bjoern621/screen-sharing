@@ -106,7 +106,7 @@ public sealed class BroadcastFiguresTests
     public void TheHeaderFiguresAreTheSamplesAndTheRelays()
     {
         var relay = new RelayStatus { Reachable = true };
-        relay.Paths.Add(new RelayPath { Name = "desk", Readers = 3 });
+        relay.Paths.Add(new RelayPath { Name = "desk", OwnName = "desk", Readers = 3 });
 
         var bar = new HeaderStatsViewModel
         {
@@ -115,9 +115,9 @@ public sealed class BroadcastFiguresTests
 
         Assert.True(bar.IsSharing);
         Assert.Equal("00:00:12", bar.Elapsed);
-        // Figures[0] is the encoder's rate, Figures[4] the relay's reader count.
+        // Figures[0] is the encoder's rate, Figures[5] the relay's reader count.
         Assert.Equal("4.25", bar.Figures[0].Value);
-        Assert.Equal("3", bar.Figures[4].Value);
+        Assert.Equal("3", bar.Figures[5].Value);
     }
 
     [Fact]
@@ -128,10 +128,10 @@ public sealed class BroadcastFiguresTests
             Snapshot = BroadcastSnapshot.Of(Live(), Sample(4.25, 12), null),
         };
 
-        // Figures[2] and Figures[3] are round trip and loss, which only the relay measures.
+        // Figures[3] and Figures[4] are round trip and loss, which only the relay measures.
         // No snapshot is therefore no measurement, and no measurement is an ellipsis.
-        Assert.Equal(Figure.NoValue, bar.Figures[2].Value);
         Assert.Equal(Figure.NoValue, bar.Figures[3].Value);
+        Assert.Equal(Figure.NoValue, bar.Figures[4].Value);
     }
 
     /// <summary>

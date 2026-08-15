@@ -153,7 +153,32 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// Both cards read this one tile, so the host that templates a card states that
     /// (<c>Features/Viewer/Tile/View/TileCard.axaml.cs</c>).
     /// </summary>
-    public bool IsPoppedOut { get => _isPoppedOut; set => Set(ref _isPoppedOut, value); }
+    public bool IsPoppedOut
+    {
+        get => _isPoppedOut;
+        set
+        {
+            if (Set(ref _isPoppedOut, value))
+            {
+                OnPropertyChanged(nameof(PictureElsewhere));
+            }
+        }
+    }
+
+    /// <summary>Whether this tile's picture is drawn somewhere other than the grid's own card.</summary>
+    /// <remarks>
+    /// Two hosts template one tile: the grid's card, and whichever window took the picture, a popped-out
+    /// one or the fullscreen panel drawn over the grid.
+    /// A card that draws while another one is drawing the same tile opens a second frame subscription on
+    /// one decode, which pays for the pool import and the textures twice and leaves the stats overlay
+    /// alternating between two per-subscription frame and drop counters
+    /// (<c>backend/internal/receive</c>, <c>export.go</c>).
+    ///
+    /// Derived rather than written, so the grid cannot be told one thing while the windows do another.
+    /// Fullscreen counts here for the same reason popping out does, which the grid's binding read for a
+    /// while as popping out alone.
+    /// </remarks>
+    public bool PictureElsewhere => IsPoppedOut || IsFullscreen;
 
     /// <summary>
     /// Whether the window drawing this stream fills a screen with it.
@@ -163,7 +188,17 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// Carried here so the menu's fullscreen row can show it in force, which a reader inside a filled screen
     /// cannot see otherwise.
     /// </summary>
-    public bool IsFullscreen { get => _isFullscreen; set => Set(ref _isFullscreen, value); }
+    public bool IsFullscreen
+    {
+        get => _isFullscreen;
+        set
+        {
+            if (Set(ref _isFullscreen, value))
+            {
+                OnPropertyChanged(nameof(PictureElsewhere));
+            }
+        }
+    }
 
     /// <summary>
     /// Whether the stats panel is up over this tile.

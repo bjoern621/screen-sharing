@@ -123,6 +123,15 @@ func estimate(d Deps, s settings.Settings) *screensharev1.Estimate {
 	if !priced {
 		return nil
 	}
+	// A rate below zero is refused rather than asserted.
+	// The number is the draft's own, and a draft arrives either from a file the user owns or from
+	// another process on the contract, so a negative one is an Umgebungsfehler on both paths: the
+	// stored copy is repaired on read (settings.migratePublish) and this is what covers the rest.
+	// Answering no estimate is what the rest of this function already does for an input it cannot
+	// price, and the summary reads the same either way.
+	if coded < 0 {
+		return nil
+	}
 
 	est := &screensharev1.Estimate{
 		BitrateMbps:  coded,

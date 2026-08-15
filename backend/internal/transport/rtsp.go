@@ -132,6 +132,10 @@ func (RTSP) GstSource(s settings.Settings, streamName string) []string {
 // One list for both legs: which transports carry RTP is a fact of RTSP and not of a direction.
 var RtspProtocols = []string{"tcp", "udp"}
 
+// rtspWatchProtocolKey is the watch knob naming the RTP lower transport, spelled once because both
+// the knob table and the rule guarding it name it.
+const rtspWatchProtocolKey = "rtspWatchProtocol"
+
 // EncryptedRtspProtocol is the one lower transport an encrypted RTSP session carries media on.
 //
 // RTSPS encrypts the control connection and nothing else: RTP over UDP travels beside it in the
@@ -171,7 +175,7 @@ var rtspWatchKnobs = []watchKnob{
 			"It is display delay, so it belongs just above the link's jitter: 200 ms suits a LAN, a lossy remote link wants more.",
 		minWatchLatencyMs,
 		func(s *settings.Settings) *int { return &s.Viewer.RtspWatchLatencyMs }),
-	choiceKnob("rtspWatchProtocol", "RTSP transport",
+	choiceKnob(rtspWatchProtocolKey, "RTSP transport",
 		"How RTP reaches the viewer inside the RTSP session. UDP takes a port pair per track and trades retransmission for delay, "+
 			"but the media travels toward the viewer on it, so nothing arrives until the viewer's own probe packets have opened "+
 			"the mapping through its NAT and the relay answers where they came from. "+
@@ -183,6 +187,16 @@ var rtspWatchKnobs = []watchKnob{
 func (RTSP) WatchOptions(s settings.Settings) []WatchOption { return knobOptions(rtspWatchKnobs, s) }
 
 func (t RTSP) SetWatchOption(s *settings.Settings, key, value string) error {
+	// The rule EncryptedRtspProtocol states holds on both legs, and this is the watch leg's half.
+	// RTSPS encrypts the control connection alone, so a session that negotiates its RTP over UDP puts
+	// the picture on the wire in the clear whatever the scheme in the address says.
+	// Refused rather than corrected, for the reason ValidatePublishSettings refuses the same value:
+	// interleaving a session the reader asked to carry over UDP answers a question nobody asked, and
+	// the control would go on reading "udp" while the stream did something else.
+	if key == rtspWatchProtocolKey && s.Relay.Tls() && value != EncryptedRtspProtocol {
+		return fmt.Errorf("an encrypted relay carries RTP inside the RTSP connection, so the watch transport is %s and not %q",
+			EncryptedRtspProtocol, value)
+	}
 	return knobSet(t.Name(), rtspWatchKnobs, s, key, value)
 }
 

@@ -153,6 +153,9 @@ func PublishStats(s ffmpeg.Stats) *screensharev1.PublishStats {
 	measured(&out.Speed, s.Speed, s.Missing.Speed)
 	measured(&out.InstMbps, s.InstMbps, s.Missing.InstMbps)
 	measured(&out.AvgMbps, s.AvgMbps, s.Missing.AvgMbps)
+	measured(&out.TransitMs, s.TransitMs, s.Missing.TransitMs)
+	measured(&out.LinkMs, s.LinkMs, s.Missing.LinkMs)
+	measured(&out.RttMs, s.RttMs, s.Missing.RttMs)
 	return out
 }
 
@@ -198,6 +201,7 @@ func RelayPath(p relay.Path) *screensharev1.RelayPath {
 
 	return &screensharev1.RelayPath{
 		Name:         p.Name,
+		OwnName:      p.OwnName,
 		Ready:        p.Ready,
 		Tracks:       p.Tracks,
 		Format:       p.Format,
@@ -465,6 +469,26 @@ type ReceiveStreamStats struct {
 	AudioKbps     *float64
 
 	Groups []ReceiveStatGroup
+
+	// What the path costs a frame, stage by stage.
+	Delay DelayBudget
+}
+
+// DelayBudget is what each stage of the path between a screen and a window costs a frame, in
+// milliseconds.
+//
+// A stage nothing measured is absent, and every field is therefore a pointer for the reason the
+// figures above are: an unmeasured stage and a stage that cost nothing are the two readings this
+// may never confuse.
+// Which stages a machine can measure follows from where it sits (api/proto/screenshare/v1/
+// events.proto, DelayBudget).
+type DelayBudget struct {
+	Publish     *float64
+	PublishLink *float64
+	WatchLink   *float64
+	Receive     *float64
+	Present     *float64
+	Total       *float64
 }
 
 // ReceiveStats carries one sample of every running decode across.
@@ -525,6 +549,15 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 			AudioBytes:            s.AudioBytes,
 
 			Groups: receiveStatGroups(s.Groups),
+
+			Delay: &screensharev1.DelayBudget{
+				PublishMs:     s.Delay.Publish,
+				PublishLinkMs: s.Delay.PublishLink,
+				WatchLinkMs:   s.Delay.WatchLink,
+				ReceiveMs:     s.Delay.Receive,
+				PresentMs:     s.Delay.Present,
+				TotalMs:       s.Delay.Total,
+			},
 		}
 
 		msg.SinceKeyframeSec = s.SinceKeyframe

@@ -1,35 +1,32 @@
-# Build Directory
+# Build directory
 
-The build directory is used to house all the build files and assets for your application. 
+Where a build lands, plus the Windows pieces a build needs that are not source.
 
-The structure is:
+`Taskfile.yml` drives the build: `go build` for the backend, `dotnet publish` for the shell.
+`docs/packaging.md` covers what the app needs at run time and how each channel provides it.
 
-* bin - Output directory
-* darwin - macOS specific files
-* windows - Windows specific files
+## Layout
 
-## Mac
+| Path | Holds |
+| --- | --- |
+| `bin/` | build output, rebuilt from scratch |
+| `dist/` | release archives, written by `scripts/package-windows.ps1` and `scripts/package-linux.sh` |
+| `windows/redist/` | ffmpeg and ffplay, fetched once per machine and kept |
+| `appicon.png` | the source image the platform icons derive from |
 
-The `darwin` directory holds files specific to Mac builds.
-These may be customised and used as part of the build. To return these files to the default state, simply delete them
-and
-build with `wails build`.
+`bin/` and `dist/` are outputs and carry nothing worth keeping.
+`windows/redist/` is fetched rather than built, which is why it lives here instead of being downloaded on every build.
+`scripts/get-ffmpeg.ps1` fills it.
+`task build:windows` copies the pair into `bin/` beside the backend, where the app's own lookup finds them (`backend/internal/ffmpeg`, `FindExe`).
 
-The directory contains the following files:
+## Windows packaging
 
-- `Info.plist` - the main plist file used for Mac builds. It is used when building using `wails build`.
-- `Info.dev.plist` - same as the main plist file but used when building using `wails dev`.
+`scripts/bundle-windows.sh` puts the GStreamer runtime and its command-line tools into `bin/` first.
+`scripts/package-windows.ps1` then produces the release zip: checks every program the app spawns is present, publishes the shell into the same directory as the backend, archives the result.
 
-## Windows
+One directory holds all of it: what the Windows loader searches first for a DLL is also where the app's own lookups start.
 
-The `windows` directory contains the manifest and rc files used when building with `wails build`.
-These may be customised for your application. To return these files to the default state, simply delete them and
-build with `wails build`.
+## Leftovers
 
-- `icon.ico` - The icon used for the application. This is used when building using `wails build`. If you wish to
-  use a different icon, simply replace this file with your own. If it is missing, a new `icon.ico` file
-  will be created using the `appicon.png` file in the build directory.
-- `installer/*` - The files used to create the Windows installer. These are used when building using `wails build`.
-- `info.json` - Application details used for Windows builds. The data here will be used by the Windows installer,
-  as well as the application itself (right click the exe -> properties -> details)
-- `wails.exe.manifest` - The main application manifest file.
+`darwin/`, `windows/installer/`, `windows/wails.exe.manifest`, `windows/info.json` and `windows/icon.ico` come from an earlier Wails build.
+No recipe in the tree reads them.

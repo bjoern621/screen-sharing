@@ -10,6 +10,7 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/cursor"
+	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/portal"
 	"bjoernblessin.de/screenshare/internal/screensrc"
@@ -274,6 +275,16 @@ func (x ximageCapture) Describe(s settings.Settings, opts gstCaptureOptions) []s
 func (x ximageCapture) Open(s settings.Settings, opts gstCaptureOptions) ([]string, []*os.File, func(), error) {
 	if os.Getenv("DISPLAY") == "" {
 		return nil, nil, nil, fmt.Errorf("ximagesrc capture needs an X display: DISPLAY is unset")
+	}
+	// An index no output answers to is refused, as x11grab refuses it (internal/ffmpeg, x11grabArgs).
+	// The crop comes off the enumeration, and a head built without one captures the whole X screen: a
+	// machine that cannot measure its outputs has that as its only honest answer, but a settings file
+	// naming a monitor that was unplugged does not, and publishing every remaining screen to whoever is
+	// watching is the wrong way to be wrong about it.
+	// The form keeps such a selection on the list on purpose, so this is the leg that has to say no
+	// (internal/form, optionMonitors).
+	if _, ok := display.At(s.Publish.Monitor); !ok {
+		return nil, nil, nil, fmt.Errorf("monitor %d is not one of this machine's outputs", s.Publish.Monitor)
 	}
 	return x.elements(s, opts), nil, func() {}, nil
 }

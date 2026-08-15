@@ -24,6 +24,15 @@ public static class Fields
     public const string LiveNotice = "applies without reconnecting";
 
     /// <summary>
+    /// Names where a choice control's ruled-out entries are rather than what pressing the disclosure does, like
+    /// every other row carrying a state (<c>docs/design-language.md</c>, "Menus").
+    /// </summary>
+    public const string RefusedTitle = "Unavailable options";
+
+    /// <summary>Entries held back, beside the disclosure: the figure says whether opening it is worth the trip.</summary>
+    public static string RefusedCount(int count) => count == 1 ? "1 option" : $"{count} options";
+
+    /// <summary>
     /// One control's copy.
     /// <c>Doc</c> is the article for the concept, where one exists.
     /// </summary>
@@ -228,6 +237,7 @@ public static class Fields
         ["relay.webrtc_port"] = new("WebRTC port", "The relay's WebRTC port, which serves both sending and watching. The default is 8889."),
         ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. The default is 1935."),
         ["relay.hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. It is a watching port only: nothing is ever sent this way."),
+        ["relay.moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, TCP and UDP on the same number. The default is 8892. It is a watching port only, and only a browser reaches it. It stays part of the address on an encrypted relay, where the other ports drop out: this leg cannot go through the proxy, so the relay answers it directly wherever it runs."),
         ["relay.api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),
     };
 

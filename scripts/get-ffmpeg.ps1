@@ -1,12 +1,17 @@
 <#
-  get-ffmpeg.ps1 - download ffmpeg/ffplay into app/build/bin/bin so the built
-  app.exe finds them next to itself (FindExe checks .\bin first, PATH second).
+  get-ffmpeg.ps1 - download ffmpeg/ffplay into build/windows/redist, which is where
+  `task build:windows` copies them from on its way to build/bin.
+
+  Not straight into build/bin: that directory is a build output and is rebuilt, while
+  the redistributables are fetched once per machine and kept (see that directory's
+  README). The app itself looks for the pair beside its own executable and then on
+  PATH (backend/internal/ffmpeg, FindExe), which is what the copy into build/bin serves.
 
   Run once per machine:
     .\get-ffmpeg.ps1
 #>
 param(
-  [string]$Dest = (Join-Path (Split-Path $PSScriptRoot -Parent) "app\build\bin\bin")
+  [string]$Dest = (Join-Path (Split-Path $PSScriptRoot -Parent) "build\windows\redist")
 )
 
 $ErrorActionPreference = "Stop"

@@ -119,10 +119,12 @@ func (WebRTC) GstSource(s settings.Settings, streamName string) []string {
 // browser's own RTCPeerConnection.
 // It is served on the WebRTC listener, at the stream's path with the trailing slash the relay would
 // otherwise redirect to.
+//
+// The credential is the address's userinfo, the one form a browser carries (credential.go).
 func (WebRTC) BrowserURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a player page names the stream it opens")
 
-	return webrtcOrigin(s) + "/" + streamName + "/" + credentialQuery(s, "?")
+	return httpPageOrigin(s, s.Relay.WebrtcPort) + "/" + streamName + "/"
 }
 
 // Neither endpoint carries the credential in the address: both are HTTP, where the relay reads a

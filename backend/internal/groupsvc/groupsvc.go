@@ -25,6 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -276,8 +277,11 @@ func (s *Service) allowCreation(caller string) bool {
 // Behind a reverse proxy this is the proxy's address, which leaves the real bound to the proxy and
 // makes this one a backstop.
 func caller(r *http.Request) string {
-	host, _, ok := strings.Cut(r.RemoteAddr, ":")
-	if !ok {
+	// SplitHostPort rather than a cut at the first colon: an IPv6 address carries colons of its own and
+	// is bracketed, so "[2001:db8::1]:53321" cut that way yields "[2001" and buckets every IPv6 caller
+	// under the same key.
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
 		return r.RemoteAddr
 	}
 	return host

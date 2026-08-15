@@ -32,18 +32,11 @@ tasks:
     cmds:
       # The flake's dev shell carries the mediamtx binary. Windows has no such shell, so
       # the relay comes from scripts/relay.ps1 instead, which fetches mediamtx.exe into
-      # bin/ on first run and launches it against this same config. Docker is not the
-      # Windows substitute: its UDP proxy rewrites the source port and breaks SRT's
-      # handshake, which is what that script's header explains.
+      # bin/ on first run and launches it against this same config.
       - platforms: [linux, darwin]
         cmd: mediamtx mediamtx.yml
       - platforms: [windows]
         cmd: powershell -NoProfile -File scripts/relay.ps1
-
-  relay:docker:
-    desc: Run the relay in Docker (Linux relay box / VPS)
-    cmds:
-      - docker compose up
 
   relay:tunnel:
     desc: Forward a deployment's relay API to loopback 9997 for the Bruno collection

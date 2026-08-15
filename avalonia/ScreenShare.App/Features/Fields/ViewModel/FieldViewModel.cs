@@ -6,6 +6,7 @@ using ScreenShare.App.Contracts;
 using ScreenShare.App.Copy;
 using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Mvvm;
+using TablerIcons;
 
 namespace ScreenShare.App.Features.Fields.ViewModel;
 
@@ -26,6 +27,8 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// shapes a widget writes back.
 /// A setter reports the change to whoever owns the draft and nothing else, since the next resolved form is the
 /// answer to whether the change was legal.
+/// <see cref="RefusedShown"/> is the one input reporting nothing: which entries a reader looks at changes no
+/// setting, so it re-renders here and goes no further.
 ///
 /// Outputs are written by <see cref="Apply"/> on every pass, including the branches that turn a control off.
 /// The value departs from that split and is both: the backend may repair a draft and a shell adopts the
@@ -57,6 +60,12 @@ public sealed class FieldViewModel : Observable
     /// </summary>
     private Vocabulary _words = Vocabulary.Empty;
 
+    /// <summary>
+    /// Last field a pass was given, so revealing the refused entries renders from what the backend said rather
+    /// than from what the widgets hold.
+    /// </summary>
+    private Field? _field;
+
     public FieldViewModel(string key, Action<string, FieldValue> write)
     {
         Assert.That(key.Length > 0, "a field is identified by the settings field it edits");
@@ -65,6 +74,9 @@ public sealed class FieldViewModel : Observable
         Key = key;
         _write = write;
         Options = [];
+        Shown = [];
+        MenuRows = [];
+        RevealCommand = new DelegateCommand(ToggleRefused);
     }
 
     /// <summary>The settings field this control edits, as <c>publish.codec</c>. Carried, never parsed.</summary>
@@ -128,6 +140,24 @@ public sealed class FieldViewModel : Observable
         }
     }
 
+    private bool _refusedShown;
+
+    /// <summary>
+    /// Held here and not in the view: a list the reader opened is state the reader set, and the same answer has
+    /// to reach a card list and a dropdown's rows alike.
+    /// </summary>
+    public bool RefusedShown
+    {
+        get => _refusedShown;
+        set
+        {
+            if (Set(ref _refusedShown, value) && _field is not null)
+            {
+                Apply(_field, _words, Action);
+            }
+        }
+    }
+
     // --- Outputs ------------------------------------------------------------------
 
     private string _label = "";
@@ -167,9 +197,31 @@ public sealed class FieldViewModel : Observable
     private bool _hasAction;
     private string _actionNotice = "";
     private bool _hasActionNotice;
+    private bool _hasRefused;
+    private string _refusedCount = "";
+    private Icons _refusedGlyph = Icons.IconChevronRight;
 
-    /// <summary>The entries of a select, a radio or a number carrying a ladder. Empty on every other kind.</summary>
+    /// <summary>
+    /// The entries of a select, a radio or a number carrying a ladder. Empty on every other kind.
+    /// Every one of them, refused included, in the order the form gave them; what a surface draws is
+    /// <see cref="Shown"/> or <see cref="MenuRows"/>.
+    /// </summary>
     public ObservableCollection<OptionViewModel> Options { get; }
+
+    /// <summary>
+    /// What a list of cards draws: the allowed entries, and the refused ones once asked for.
+    /// The disclosure sits under the list, so what it reveals arrives above the control that revealed it.
+    /// </summary>
+    public ObservableCollection<OptionViewModel> Shown { get; }
+
+    /// <summary>
+    /// What an opened dropdown lists: <see cref="Shown"/> with the disclosure last.
+    /// One collection because a flyout takes one item source, with nowhere beside the rows for a control to sit.
+    /// </summary>
+    public ObservableCollection<OptionViewModel> MenuRows { get; }
+
+    /// <summary>Lists the refused entries, and hides them again.</summary>
+    public DelegateCommand RevealCommand { get; }
 
     /// <summary>
     /// The effect offered beside this control, null where the screen offers none.
@@ -239,6 +291,16 @@ public sealed class FieldViewModel : Observable
 
     /// <summary>What changing an <see cref="AppliesLive"/> control costs, in the width a chip beside a label has.</summary>
     public string LiveNotice => Copy.Fields.LiveNotice;
+
+    public string RefusedTitle => Copy.Fields.RefusedTitle;
+
+    /// <summary>False where nothing is ruled out, so the list is all of it.</summary>
+    public bool HasRefused { get => _hasRefused; private set => Set(ref _hasRefused, value); }
+
+    /// <summary>Entries the disclosure covers. Empty where it covers none.</summary>
+    public string RefusedCount { get => _refusedCount; private set => Set(ref _refusedCount, value); }
+
+    public Icons RefusedGlyph { get => _refusedGlyph; private set => Set(ref _refusedGlyph, value); }
 
     public bool IsEnabled { get => _isEnabled; private set => Set(ref _isEnabled, value); }
 
@@ -316,6 +378,7 @@ public sealed class FieldViewModel : Observable
         Assert.NotNull(words, "naming a field's entries needs the vocabulary that names them");
         Assert.That(field.Key == Key, "a field renders the settings field it was made for", Key, field.Key);
 
+        _field = field;
         _words = words;
 
         Action = action;
@@ -364,6 +427,15 @@ public sealed class FieldViewModel : Observable
         Adopt(field.Value);
         Reconcile.Onto(Options, OptionRows(field));
 
+        // Written on every pass, so a control whose last refused entry became reachable stops drawing a
+        // disclosure over nothing.
+        var refused = Options.Count(option => !option.IsEnabled);
+        HasRefused = refused > 0;
+        RefusedCount = refused > 0 ? Copy.Fields.RefusedCount(refused) : "";
+        RefusedGlyph = RefusedShown ? Icons.IconChevronDown : Icons.IconChevronRight;
+        Reconcile.Onto(Shown, ShownRows());
+        Reconcile.Onto(MenuRows, MenuRowsOf());
+
         // The closed dropdown's face, written on every pass including the branch where nothing is picked, so a
         // field whose entry went away cannot go on showing the last one it had.
         var picked = Options.FirstOrDefault(option => option.IsSelected);
@@ -377,6 +449,13 @@ public sealed class FieldViewModel : Observable
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
         Assert.That(HasAction == (Action is not null), "the action and the flag that draws it agree", Key);
         Assert.That(!HasActionNotice || HasAction, "a sentence about an effect has an effect to be about", Key);
+        Assert.That(HasRefused == (RefusedCount.Length > 0), "a disclosure counts what it covers", Key, RefusedCount);
+        Assert.That(
+            Shown.Count == (RefusedShown ? Options.Count : Options.Count - refused),
+            "a list draws every entry it is not hiding", Key, Shown.Count, Options.Count, refused);
+        Assert.That(
+            MenuRows.Count == Shown.Count + (HasRefused ? 1 : 0),
+            "a dropdown adds the disclosure to what a list draws", Key, MenuRows.Count, Shown.Count);
     }
 
     /// <summary>
@@ -441,9 +520,53 @@ public sealed class FieldViewModel : Observable
             IsEnabled = option.Enabled,
             Reason = Statements.Of(option.Reason),
             IsRecommended = option.Recommended,
+            IsReveal = false,
             Choose = ChooseCommand(option.Value),
         }).ToList();
     }
+
+    /// <summary>The entries a list draws: the reachable ones, and the rest below them once the reader has asked.</summary>
+    private IReadOnlyList<OptionViewModel> ShownRows()
+    {
+        var offered = Options.Where(option => option.IsEnabled).ToList();
+        if (!RefusedShown)
+        {
+            return offered;
+        }
+
+        offered.AddRange(Options.Where(option => !option.IsEnabled));
+        return offered;
+    }
+
+    /// <summary><see cref="Shown"/> with the disclosure last, for the surfaces whose list is a popup.</summary>
+    private IReadOnlyList<OptionViewModel> MenuRowsOf()
+    {
+        if (!HasRefused)
+        {
+            return Shown;
+        }
+
+        var rows = new List<OptionViewModel>(Shown.Count + 1);
+        rows.AddRange(Shown);
+        rows.Add(new OptionViewModel
+        {
+            Value = "",
+            Label = RefusedTitle,
+            Note = RefusedCount,
+            Detail = "",
+            IsSelected = RefusedShown,
+            IsEnabled = true,
+            Reason = "",
+            IsRecommended = false,
+            IsReveal = true,
+            Choose = RevealCommand,
+        });
+
+        return rows;
+    }
+
+    /// <summary>The one departure from idempotency here, and the verb says so: two presses are two states.</summary>
+    private void ToggleRefused() => RefusedShown = !RefusedShown;
 
     private DelegateCommand ChooseCommand(string value)
     {

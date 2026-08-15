@@ -36,6 +36,25 @@ type publishRun struct {
 	// on this machine, and what the failure has cost says how much budget is left (publish_retry.go).
 	startedAt time.Time
 	attempts  int
+	// delay is what the newest sample measured about this leg's own share of the path between a
+	// screen and a window, held under procMu like the rest of the run.
+	//
+	// A departure from deriving on demand, and the reason is that there is nothing to derive from:
+	// the child pushes a sample once a second and answers no question in between, so the alternative
+	// to holding the newest reading is a budget that has the publishing stages only on the ticks the
+	// two clocks happen to land on together.
+	// The one consumer is the budget of a decode of this same stream (receivestats.go); the sample
+	// itself goes out on the event stream unchanged and is nobody's copy.
+	delay publishDelay
+}
+
+// publishDelay is the publishing side's share of the path, in milliseconds, as the newest sample
+// measured it.
+// Both are absent on an engine that measures neither, and Link alone is absent on a transport that
+// states no delivery window (internal/ffmpeg, Stats).
+type publishDelay struct {
+	Transit *float64
+	Link    *float64
 }
 
 // PublishCommand is the command line s would run, without running it.
@@ -55,6 +74,10 @@ func (a *App) StartPublish(s settings.Settings) error {
 	if err := settings.Save(s); err != nil {
 		logger.Warnf("Cannot persist settings: %v", err)
 	}
+	// The held settings moved, so every shell is told, not just the one that pressed the button.
+	// A shell that hears nothing keeps the draft it was showing and writes it back over this one on its
+	// next save (settings.go, SaveSettings).
+	a.emit(wire.SettingsChangedEvent())
 	return a.startPublish(s)
 }
 
@@ -166,6 +189,8 @@ func (a *App) Republish(s settings.Settings) error {
 	if err := settings.Save(s); err != nil {
 		logger.Warnf("Cannot persist settings: %v", err)
 	}
+	// Announced for the reason StartPublish announces it.
+	a.emit(wire.SettingsChangedEvent())
 
 	err := a.restartPublish(s)
 	a.emitPublishState()
@@ -290,6 +315,7 @@ func (a *App) launchLocked(s settings.Settings, attempts int) error {
 			if !a.isCurrentRun(run) {
 				return
 			}
+			a.takePublishDelay(run, stats)
 			a.emit(wire.PublishStatsEvent(stats))
 		},
 		OnExit: func(err error, stderrTail string, logPath string) {
@@ -334,6 +360,35 @@ func (a *App) isCurrentRun(run *publishRun) bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 	return a.run == run
+}
+
+// takePublishDelay records what one sample measured about the publish leg.
+//
+// Dropped for a run that is no longer the one in force, as a pointer position is: a reading belongs
+// to the pipeline that took it, and a stale one would describe a stream that is no longer being
+// sent.
+// A sample measuring nothing writes nothing measured, so a run whose engine reports no delay leaves
+// the budget's publishing stages absent rather than frozen on the last engine's figures.
+func (a *App) takePublishDelay(run *publishRun, stats publish.Stats) {
+	assert.IsNotNil(run, "a delay reading belongs to a run")
+
+	a.procMu.Lock()
+	defer a.procMu.Unlock()
+	if a.run != run {
+		return
+	}
+	run.delay = publishDelay{
+		Transit: measuredMs(stats.TransitMs, stats.Missing.TransitMs),
+		Link:    measuredMs(stats.LinkMs, stats.Missing.LinkMs),
+	}
+}
+
+// measuredMs is one figure of a sample, and nil where the sample carries no measurement of it.
+func measuredMs(value float64, missing bool) *float64 {
+	if missing {
+		return nil
+	}
+	return &value
 }
 
 // StopPublish ends the publish, running or waiting out a backoff, and succeeds where neither is in

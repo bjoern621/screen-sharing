@@ -363,7 +363,6 @@ public sealed class PresetsTests
 
         Assert.Equal(["lossless", "gaming", "readability"], card.Presets.Builtin.Select(row => row.Key));
         Assert.Equal("Gaming", Builtin(card, "gaming").Name);
-        Assert.NotEqual("", Builtin(card, "gaming").Promise);
     }
 
     [Fact]

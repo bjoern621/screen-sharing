@@ -108,8 +108,14 @@ func (b controlBackend) StartWatch(key wire.WatchKey) error {
 	return b.app.StartWatch(key.StreamName, key.Transport)
 }
 
+// SubscribeFrames rebuilds the interface value for the reason SubscribePreviewFrames does, and this
+// is the arm that refuses most often: nothing is decoding the pair a key names until a tile opens.
 func (b controlBackend) SubscribeFrames(key wire.WatchKey) (control.FrameStream, error) {
-	return b.app.SubscribeFrames(key.StreamName, key.Transport)
+	frames, err := b.app.SubscribeFrames(key.StreamName, key.Transport)
+	if err != nil {
+		return nil, err
+	}
+	return frames, nil
 }
 
 // SubscribePreviewFrames rebuilds the interface value instead of handing the concrete subscription
