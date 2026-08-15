@@ -72,7 +72,8 @@ That listener carries two certificates, and a deployment configures one of them.
 
 The page over TCP is ordinary TLS, validated against a CA like any other site.
 It takes the proxy's certificate, handed over the way RTSPS and RTMPS take it, and shows an interstitial without one.
-`moqServerCert` and `moqServerKey` name it, overridden per host rather than written into the config shared with every deployment.
+`moqServerCert` and `moqServerKey` name it, and a host points them at the pair it already has through `MTX_MOQSERVERCERT` and `MTX_MOQSERVERKEY`.
+The override is what keeps the path out of a config file every deployment reads, the way the SRT passphrase stays out of it.
 
 The session over UDP is pinned instead: the page reads the listener's SHA-256 off `/fingerprint` and passes it in `serverCertificateHashes`, which is how a browser accepts a certificate no CA vouches for.
 Pinning bounds what that certificate may be, since nothing can revoke one: no RSA key, and no validity longer than 14 days.

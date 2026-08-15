@@ -112,7 +112,7 @@ The binary comes from the flake's dev shell on Linux and macOS.
 Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and launches it against the same config.
 
 A relay on the internet is a different configuration: `deploy/mediamtx-groups.yml` binds every HTTP listener on loopback behind a reverse proxy and takes a token for publishing and reading, where `mediamtx.yml` lets anybody on the network publish.
-MoQ is the exception it names out loud, exposed on its own port under a certificate of its own, no proxy carrying an HTTP/3 session.
+MoQ is the exception it names out loud: the relay answers that port directly, so a watcher's network has to pass both sides of it.
 `docs/network-architecture.md` covers the split.
 
 ## Capturing a Wayland desktop

@@ -595,6 +595,10 @@ mpv renders 4:4:4 and a native Wayland window, which is what `SCREENSHARE_VIEWER
 No viewer program to find, no pipeline to build, nothing to supervise: MediaMTX serves a page per listener, and the page runs the WHEP exchange, fetches the playlist, or subscribes over WebTransport itself.
 The legs are `transport.BrowserWatcher`'s implementers, WebRTC, HLS and MoQ, and the roster crosses as `Catalog.browser_watch_transports`.
 
+MoQ is the one leg with a demand on the watcher's own network.
+Its page arrives over TCP and its media over HTTP/3 on the same port, so a network passing the first and dropping the second loads a player that never plays.
+The other two pages fetch their media over the connection they were served on.
+
 **It is the viewer with no dependency of its own**, the reason it exists beside two that work.
 A player needs ffmpeg or mpv on the machine and a tile needs the frame channel, unbuilt on macOS.
 A page needs a browser.

@@ -224,7 +224,7 @@ A figure keeps one name across surfaces: `transport`, `resolution`, `codec`, `bi
 A name is retired rather than reused when nothing reports it: a viewer's own buffer fill reaches no publisher, so that column states what the relay discarded on the way out (`field-availability.md`, "A figure with no measurement").
 A surface with more to report adds rows instead of renaming the shared ones.
 Stat rows spell their words out, join two figures with ` · `, and print `…` where there is no value yet.
-Transport names stay lowercase, as the settings offer them: `hls`, `rtmp`, `rtsp`, `srt`, `webrtc`.
+Transport names stay lowercase, as the settings offer them: `hls`, `moq`, `rtmp`, `rtsp`, `srt`, `webrtc`.
 On a viewer surface a bare `transport` means the watch leg.
 A label for the publisher-to-relay leg says "publish".
 
