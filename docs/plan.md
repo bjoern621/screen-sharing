@@ -208,7 +208,7 @@ A relay with no proxy in front of it is unchanged: no group service, no token, e
 What comes back is written through the path a pasted key takes, so joining a group is a settings change a reader can see, undo and hand on rather than something that happened to the machine.
 The button is offered only where a group service answers, which is a relay behind a TLS proxy, and states that reason where it is not.
 
-**Built: removing a member** (`backend/internal/roster`, `PUT /roster` and `POST /reconcile`).
+**Built: removing a member** (`backend/internal/roster`, `PUT /roster` and `POST /reconcile`, drawn in `docs/membership.md`).
 Rotation is not what removes somebody, and neither is expiry.
 Both leave a live connection alone, so what a member who left keeps is exactly what they already hold, and closing it is the only thing that takes it away.
 

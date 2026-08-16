@@ -6,7 +6,7 @@ meta {
 docs {
   # Roster
 
-  Who a group's members are, and what the relay does about anybody else.
+  Who a group's members are, and what the relay does about anybody else. `docs/membership.md` draws the whole exchange.
 
   These routes answer on loopback and the reverse proxy does not front them, which is why they address `{{groupAdmin}}` where the rest of the collection addresses `{{groupService}}`.
   `/reconcile` takes no credential and belongs to the relay's own read hook; `/roster` takes the group key and has no caller outside the relay host.

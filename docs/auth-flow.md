@@ -84,51 +84,8 @@ Publishing under it still takes a token.
 A token cannot be taken back.
 The relay reads one at the handshake and not again, so a connection outlives its token and a client that is closed opens another with the same one.
 
-Membership is therefore enforced by closing connections.
-
-```mermaid
-sequenceDiagram
-    participant D as Whatever serves the channel
-    participant G as groupd
-    participant M as MediaMTX
-
-    D->>G: PUT /roster, the key and who is in it now
-    G->>M: list every connection
-    M-->>G: id, path and token subject each
-    G->>M: kick the ones no member holds
-    G-->>D: what it closed
-
-    Note over M: a read starts
-    M->>G: POST /reconcile, the path
-    G->>M: kick again, where the holder is on no roster
-```
-
-A member's token names that member.
-`POST /tokens` takes a `member` beside the key, and the subject becomes a keyed digest of that name under the group's key.
-The relay lists and logs a connection under its subject, so a roster tells one member's connections from another's, and the name never reaches the relay.
-The grant does not move with the subject: membership decides who connects, never what they reach.
-
-The roster is stated whole and never as a departure, since two callers racing on "who left" can leave a member the last one did not name.
-Stating the same roster twice closes nothing.
-
-A group nobody stated a roster for is not enforced, which is not the same as a group whose roster is empty.
-The first is membership this service was never told, and the second is a channel nobody is in.
-
-Kicking is not revoking.
-The member who left holds a token until it expires, so a second attempt is closed by the relay's read hook running the roster again (`deploy/reconcile-on-read.sh`), and keeping them out for good belongs to whatever issues tokens.
-
-Streams under `public/` are outside all of it.
-No key derives that prefix, so no roster can name it, and a run there is refused rather than answered: anybody may watch, so there is nobody to remove.
-
-`GET /roster` and `GET /streams` ask different things of the same relay and neither keeps a copy.
-The index is what a member may open, and the roster is who is connected.
-Both name a stream the same way, by its name inside the group, so the two join without a caller deriving the prefix rule again.
-Neither answers the relay's own session ids or the addresses connections came from: a group key is membership, not an operator's credential.
-
-The proxy fronts neither `/roster` nor `/reconcile` (`deploy/Caddyfile`).
-`/reconcile` takes no credential, being the relay's read hook on loopback, and `/roster` takes the group key and has no caller outside this host yet.
-
-`backend/internal/roster` holds the rosters and `backend/internal/relay` sweeps and kicks, `readerKinds` naming the per-protocol lists that take one.
+Membership is therefore enforced by closing connections, against a roster the same service holds.
+`membership.md` covers who states one, what a run closes and what it leaves alone.
 
 ## What each door takes
 
