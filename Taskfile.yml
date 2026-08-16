@@ -39,11 +39,19 @@ tasks:
         cmd: powershell -NoProfile -File scripts/relay.ps1
 
   relay:tunnel:
-    desc: Forward a deployment's relay API to loopback 9997 for the Bruno collection
-    # The relay binds its API to loopback and the reverse proxy does not front it, so the
-    # collection's `Relay` folder reaches a deployment through this and nothing else. The
-    # credential that goes with it comes from scripts/relay-api-token.sh, and
-    # bruno/README.md covers the pair. RELAY_HOST names another deployment's SSH host.
+    desc: Forward a deployment's loopback-only endpoints to this machine for the Bruno collection
+    # Two things on that host answer only on loopback, and the collection reaches both through
+    # this and nothing else.
+    #
+    # 9997 is the relay's API, which the reverse proxy does not front. The credential that goes
+    # with it comes from scripts/relay-api-token.sh, and bruno/README.md covers the pair.
+    #
+    # 9443 is the group service. Four of its routes are fronted by the proxy and reached at the
+    # deployment's own name; /roster and /reconcile are not, so the `Roster` folder addresses
+    # this instead. Sent to the public name they reach the HLS listener, which answers
+    # "authentication error" for a path it carries no stream at.
+    #
+    # RELAY_HOST names another deployment's SSH host.
     #
     # The tunnel is a multiplexing master so that a second run finds the first instead of
     # failing on the bound port: the status check asks that master whether it is still
@@ -68,13 +76,13 @@ tasks:
         cmd: >-
           ssh -f -N -M -S "{{.TUNNEL_SOCKET}}"
           -o ExitOnForwardFailure=yes -o ServerAliveInterval=30
-          -L 9997:127.0.0.1:9997 {{.RELAY_HOST}}
+          -L 9997:127.0.0.1:9997 -L 9443:127.0.0.1:9443 {{.RELAY_HOST}}
       # Windows OpenSSH carries no connection multiplexing, so neither the check nor the
       # second run's no-op holds there and the tunnel is opened by hand.
       - platforms: [windows]
         cmd: >-
           echo 'Windows OpenSSH does not multiplex, so this task cannot manage the tunnel there. Open it with:
-          ssh -f -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 {{.RELAY_HOST}}' >&2 && exit 1
+          ssh -f -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 9997:127.0.0.1:9997 -L 9443:127.0.0.1:9443 {{.RELAY_HOST}}' >&2 && exit 1
 
   relay:tunnel:stop:
     desc: Close the tunnel `task relay:tunnel` opened

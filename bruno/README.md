@@ -26,15 +26,21 @@ Pick an environment first.
 
 That name is the proxy's `SCREENSHARE_DOMAIN`, so another deployment is this environment with its own domain in both fields.
 
-`relayApi` stays on loopback in both.
-The proxy does not front the relay's API and the relay binds it to loopback, so the `Relay` folder needs a tunnel and a credential of its own:
+`relayApi` and `groupAdmin` stay on loopback in both.
+
+The relay's API is not fronted at all, and two of the group service's routes are not either: `/roster` and `/reconcile` answer on 9443 and the proxy carries neither.
+So `Roster` addresses `groupAdmin` while the rest of the collection addresses `groupService`, and against a deployment both need the tunnel below.
+Sent to the deployment's public name they reach the HLS listener instead, which answers `{"status":"error","error":"authentication error"}`.
+That shape is MediaMTX's, so a refusal carrying it is a request that never arrived here.
+
+The `Relay` folder needs a credential of its own beside the tunnel:
 
 ```bash
 task relay:tunnel
 sh scripts/relay-api-token.sh <relay host> 2h
 ```
 
-The task forwards the API port off the deployment `Production` names, and `task relay:tunnel RELAY_HOST=<relay host>` names another.
+The task forwards both loopback ports off the deployment `Production` names, and `task relay:tunnel RELAY_HOST=<relay host>` names another.
 Opening an open tunnel is a no-op. `task relay:tunnel:stop` closes it.
 A stale tunnel keeps listening while forwarding nothing, so a request that hangs rather than refuses is one to restart it for.
 

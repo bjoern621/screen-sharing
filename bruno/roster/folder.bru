@@ -8,6 +8,17 @@ docs {
 
   Who a group's members are, and what the relay does about anybody else.
 
+  These routes answer on loopback and the reverse proxy does not front them, which is why they address `{{groupAdmin}}` where the rest of the collection addresses `{{groupService}}`.
+  `/reconcile` takes no credential and belongs to the relay's own read hook; `/roster` takes the group key and has no caller outside the relay host.
+  Against a deployment that means the tunnel, the same one the `Relay` folder needs:
+
+  ```bash
+  task relay:tunnel
+  ```
+
+  Sent to the deployment's public name instead, these fall through to the HLS listener, which answers `{"status":"error","error":"authentication error"}` for a path it carries no stream at.
+  That message is MediaMTX's and not this service's, so a refusal shaped like it is a request that never reached the group service.
+
   A token cannot enforce membership. The relay reads one at the handshake and not again, measured against v1.20.0: a session outlives its token on every leg, and a client that is closed opens another with the same one.
   So removal is two things at once. Whatever distributes keys stops issuing tokens to the member who left, and the roster closes what they already hold.
 
