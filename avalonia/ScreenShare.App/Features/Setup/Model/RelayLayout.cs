@@ -11,6 +11,9 @@ namespace ScreenShare.App.Features.Setup.Model;
 /// </summary>
 public static class RelayLayout
 {
+    /// <summary>The group as the form names it: the relay's address, its listeners and the group key.</summary>
+    public const string GroupKey = "relay";
+
     /// <summary>Secret whose possession is membership of a group.</summary>
     public const string GroupKeyKey = "relay.group_key";
 }

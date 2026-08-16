@@ -115,6 +115,17 @@ public static class Words
     };
 
     /// <summary>
+    /// The two legs of a relay check no transport carries.
+    /// Every other leg is a transport and is named by <see cref="Transports"/>, which is why this table holds
+    /// two rows rather than eight.
+    /// </summary>
+    private static readonly Dictionary<string, string> RelayLegs = new()
+    {
+        ["groups"] = "Group service",
+        ["api"] = "Relay API",
+    };
+
+    /// <summary>
     /// Capture backends, named by what they read rather than by the element that reads it.
     /// Two sources are read by both engines, so this half of the name repeats and does not identify.
     /// The engine that completes it comes from the catalog row (<see cref="Vocabulary"/>).
@@ -381,6 +392,14 @@ public static class Words
     public static string Mode(string id) => Look(Modes, id);
 
     public static string Transport(string id) => Look(Transports, id);
+
+    /// <summary>
+    /// One leg of a relay check: a transport, or one of the two services beside them.
+    /// The transports fall through to <see cref="Transport"/>, so a leg is spelled the same here as in the
+    /// dropdown a reader picked it from.
+    /// </summary>
+    public static string RelayLeg(string id) =>
+        RelayLegs.TryGetValue(id, out var word) ? word : Transport(id);
 
     public static string Capture(string id) => Look(Captures, id);
 

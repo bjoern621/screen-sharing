@@ -11,6 +11,7 @@ using ScreenShare.App.Features.Setup.Model;
 using ScreenShare.App.Features.Setup.Presets.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ReviewStep.ViewModel;
+using ScreenShare.App.Features.Setup.RelayCheck.ViewModel;
 using ScreenShare.App.Features.Setup.ScreenPicker.ViewModel;
 using ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 using ScreenShare.App.Mvvm;
@@ -229,6 +230,11 @@ public sealed class SetupViewModel : Observable
             backend, session, dispatch,
             monitor => Write(SourceLayout.MonitorKey, new FieldValue { Number = monitor }));
 
+        // What answers on the relay, under the address and the ports it is read off.
+        // The draft goes in as a function rather than a value: it is dialled at the press, and the reader may
+        // have typed another address since the pass that drew the button (Setup/RelayCheck).
+        RelayCheck = new RelayCheckViewModel(backend, () => _form.Draft, dispatch);
+
         // The rail, and the saved ways of publishing in it, handed the seams this flow reads and nothing of this
         // flow's own: the store is the backend's and the draft is the window's, so a card routed through here
         // would be one more hop between a press and the state it changes.
@@ -312,6 +318,11 @@ public sealed class SetupViewModel : Observable
     /// screen holds.
     /// </summary>
     public ScreenPickerViewModel Screens { get; }
+
+    /// <summary>
+    /// What answers on the relay, under the connection step's controls and nowhere else.
+    /// </summary>
+    public RelayCheckViewModel RelayCheck { get; }
 
     public CostRailViewModel Rail { get; }
 
@@ -473,6 +484,10 @@ public sealed class SetupViewModel : Observable
         Screens.Apply(
             FieldOf(GroupOf(drawn, SourceLayout.GroupKey), SourceLayout.MonitorKey),
             current == SourceLayout.GroupKey);
+
+        // The relay check, on the step holding the relay's own settings. What it last found is its own to hold:
+        // a check is a reading of the moment it was asked for, and this pass may be a keystroke later.
+        RelayCheck.Apply(current == RelayLayout.GroupKey);
 
         Unavailable = _form.Unavailable;
         IsUnavailable = Unavailable.Length > 0;

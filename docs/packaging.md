@@ -169,8 +169,9 @@ Go is not in that list, and the omission is the point: it comes from a Windows i
 Building needs no particular shell.
 The build and bundle tasks reach the toolchain, `MINGW_PREFIX` and MSYS2's own `sh` by path, from `MSYS2_ROOT` in `Taskfile.yml`, so they behave the same from Git Bash, PowerShell or cmd.
 Set `MSYS2_ROOT` for an install other than `C:/msys64`.
-What that variable absorbs is the prefix on `PATH`: cgo looks `gcc` and `pkg-config` up by name, and the GStreamer the built binary loads is in the same directory.
-The prefix is appended, as in `task dev`, and appending still finds `gcc` and `pkg-config`, which nothing else on a Windows `PATH` provides.
+What that variable absorbs is the prefix on `PATH`, where the GStreamer the built binary loads sits, and the `CC` and `PKG_CONFIG` cgo compiles through.
+Both are named by path rather than looked up: the prefix is appended, as in `task dev`, so a machine carrying another `gcc` and `pkg-config` ahead of it would decide the toolchain instead.
+Strawberry Perl ships that pair, and its `pkg-config` resolves against a prefix holding no GStreamer, which is what a `Can't find gobject-2.0.pc` reports.
 
 Reaching MSYS2 by path rather than through the shell is what makes Git for Windows' Git Bash safe to build from.
 The trap otherwise: Git Bash is built on MSYS2, reports `MSYSTEM=MINGW64` and prints the same prompt, but its `/mingw64` is Git's own prefix and carries neither the toolchain nor GStreamer.

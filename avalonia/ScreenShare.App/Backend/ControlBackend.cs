@@ -267,6 +267,18 @@ public sealed class ControlBackend : IBackend
             cancellation);
 
     /// <inheritdoc />
+    public Task<IReadOnlyList<RelayLeg>> CheckRelayAsync(
+        Settings settings, CancellationToken cancellation = default)
+    {
+        Assert.NotNull(settings, "a check names the relay it dials");
+
+        return ReadAsync(
+            c => c.CheckRelayAsync(new CheckRelayRequest { Settings = settings }, cancellationToken: cancellation),
+            r => (IReadOnlyList<RelayLeg>)r.Legs,
+            cancellation);
+    }
+
+    /// <inheritdoc />
     public Task<(string Key, string Id)> CreateGroupAsync(
         RelaySettings relay, CancellationToken cancellation = default)
     {

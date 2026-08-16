@@ -240,6 +240,25 @@ public static class Cards
     /// </summary>
     public const string PreflightClear = "Nothing to fix: these settings publish as they stand.";
 
+    /// <summary>
+    /// The relay check: its heading, the button that runs it, what the button does, and the line standing where
+    /// the results go before one has run.
+    ///
+    /// The heading says what is being reached rather than what is being run, the reader having come to this card
+    /// from the address and the ports above it.
+    /// The line about a relay nobody has checked is a line and not an empty card, for the reason
+    /// <see cref="PreflightClear"/> is one.
+    /// </summary>
+    public const string RelayCheckTitle = "What answers on this relay";
+
+    public const string RelayCheckAction = "Check";
+
+    public const string RelayCheckHint =
+        "Opens a connection on every way this machine reaches the relay, and says which of them answered. "
+        + "Sends no stream and changes nothing.";
+
+    public const string RelayCheckUnrun = "No check has run on this relay.";
+
     /// <summary>Heading over the quality group's raw knobs, the one word on that card the form does not supply.</summary>
     public const string AdvancedTitle = "Advanced";
 

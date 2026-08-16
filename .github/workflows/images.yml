@@ -3,17 +3,18 @@
 # Separate from build.yml because these are the only artifacts built through Nix, and because
 # they are the only ones that need write access to a registry.
 #
-# A push builds both to prove they still build. A tag pushes them, so an image tag names a
-# release and never moves: the cluster repository pins an exact tag and Renovate bumps it, and
-# a tag rewritten on every commit to main would make that pin a lie.
+# A push builds both to prove they still build. A published release pushes them, so an image
+# tag names a release and never moves: the cluster repository pins an exact tag and Renovate
+# bumps it, and a tag rewritten on every commit to main would make that pin a lie.
 
 name: images
 
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -41,12 +42,14 @@ jobs:
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
 
       - id: build
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           version=$(cat VERSION)
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME}" != "v$version" ]; then
-            echo "tag ${GITHUB_REF_NAME} does not match VERSION ($version)" >&2
+          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
+            echo "release $TAG does not match VERSION ($version)" >&2
             exit 1
           fi
 
@@ -54,7 +57,7 @@ jobs:
 
       # The Nix builder writes a docker-archive tarball, which is the format `docker load`
       # reads, so the runner's own docker is the whole publishing toolchain.
-      - if: github.ref_type == 'tag'
+      - if: github.event_name == 'release'
         env:
           REGISTRY: ghcr.io/${{ github.repository_owner }}
           VERSION: ${{ steps.build.outputs.version }}

@@ -570,6 +570,16 @@ public static class Statements
                 ? $"The saved presets could not be read, so none are listed. The old file was kept as {a.Path}."
                 : "The saved presets could not be read, so none are listed.",
 
+            // Legs of a relay check nothing was asked of.
+            // Each says what is so rather than what is missing: a reader who has never heard of these listeners
+            // gets a fact about their relay, not a capability taken away.
+
+            TextCode.RelayLegNoRelay =>
+                "No relay is set, so there is no address to reach this on.",
+
+            TextCode.RelayLegLoopbackOnly =>
+                "This one answers on the relay's own machine only, so it is not reached from here.",
+
             // A backend newer than this build.
             // The code is printed so it can be searched for and reported.
             _ => text.Code.ToString(),

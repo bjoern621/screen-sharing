@@ -69,7 +69,8 @@ The portal path needs nothing.
 
 ## Debian, Ubuntu and other distributions
 
-The tarball carries both binaries and its own .NET runtime, and takes ffmpeg and GStreamer from the distribution:
+The tarball carries both binaries and its own .NET runtime, and takes ffmpeg and GStreamer from the distribution.
+GStreamer has to be 1.26 or newer, the backend linking symbols that release introduced:
 
 ```sh
 sudo apt install ffmpeg gstreamer1.0-tools \

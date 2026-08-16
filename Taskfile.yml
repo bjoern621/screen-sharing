@@ -199,9 +199,11 @@ tasks:
         cmd: powershell -NoProfile -File '{{.ROOT_DIR}}/scripts/dev-stop.ps1'
       - platforms: [linux, darwin]
         cmd: go run ./cmd/backend
+      # gcc and pkg-config by path, for the reason build:windows states.
       - platforms: [windows]
         cmd: >-
           PATH="$(echo "$PATH" | sed -E 's#[^;]*[gG]it[\\/]+mingw64[\\/]+bin;?##g');{{.MSYS2_MINGW}}/bin"
+          CC='{{.MSYS2_MINGW}}/bin/gcc.exe' PKG_CONFIG='{{.MSYS2_MINGW}}/bin/pkg-config.exe'
           go run ./cmd/backend
 
   dev:stop:
@@ -233,6 +235,11 @@ tasks:
     dir: backend
     env:
       CGO_ENABLED: "1"
+      # cgo would look both up on PATH, where the MSYS2 prefix is appended, so any other
+      # pair ahead of it decides the toolchain. Strawberry Perl ships one, and its
+      # pkg-config resolves against a prefix holding no GStreamer.
+      CC: '{{.MSYS2_MINGW}}/bin/gcc.exe'
+      PKG_CONFIG: '{{.MSYS2_MINGW}}/bin/pkg-config.exe'
     cmds:
       - cmd: >-
           PATH="$PATH;{{.MSYS2_MINGW}}/bin"

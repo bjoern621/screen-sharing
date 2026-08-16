@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.RelayCheck.ViewModel"
+             xmlns:model="using:ScreenShare.App.Features.Setup.RelayCheck.Model"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:copy="using:ScreenShare.App.Copy"
+             x:Class="ScreenShare.App.Features.Setup.RelayCheck.View.RelayCheckView"
+             x:DataType="vm:RelayCheckViewModel"
+             IsVisible="{Binding IsVisible}">
+
+  <!--
+    Under the address and the ports, since that is where a leg that answered nothing is corrected.
+    The rows are the preflight list's control: one vocabulary for "how far did this get" across the app
+    (docs/design-language.md, "Status language").
+  -->
+  <Border Classes="card" Padding="{StaticResource InsetPanel}">
+    <StackPanel Spacing="10">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Spacing="2">
+          <TextBlock Classes="caption" Text="{x:Static copy:Cards.RelayCheckTitle}" />
+          <TextBlock Classes="hint"
+                     TextWrapping="Wrap"
+                     LineHeight="{StaticResource LineHeightSmall}"
+                     Text="{x:Static copy:Cards.RelayCheckHint}" />
+        </StackPanel>
+
+        <Button Grid.Column="1"
+                Margin="12,0,0,0"
+                VerticalAlignment="Top"
+                Content="{x:Static copy:Cards.RelayCheckAction}"
+                Command="{Binding CheckCommand}"
+                controls:Pending.IsActive="{Binding CheckCommand.IsRunning}" />
+      </Grid>
+
+      <!--
+        A line rather than an empty card before the first press, and one about the relay as a whole after it.
+      -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 Text="{x:Static copy:Cards.RelayCheckUnrun}"
+                 IsVisible="{Binding !HasLegs}" />
+
+      <TextBlock Classes="caption"
+                 Text="{Binding Summary}"
+                 IsVisible="{Binding HasLegs}" />
+
+      <ItemsControl ItemsSource="{Binding Legs}" IsVisible="{Binding HasLegs}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="model:RelayLegRow">
+            <controls:CheckItem Margin="0,0,0,9" Text="{Binding Text}" State="{Binding State}" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <!--
+        Why the check itself could not be made, which is not a relay that answered nothing: that arrives as rows.
+        The backend's own sentence and a string a reader has to get into a bug report, so it is selectable and
+        wraps rather than trimming (CLAUDE.md, "Every error message is selectable and copyable").
+      -->
+      <SelectableTextBlock Classes="hint danger"
+                           TextWrapping="Wrap"
+                           TextTrimming="None"
+                           LineHeight="{StaticResource LineHeightSmall}"
+                           IsVisible="{Binding HasRefusal}"
+                           Text="{Binding Refusal}" />
+    </StackPanel>
+  </Border>
+
+</UserControl>

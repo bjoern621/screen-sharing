@@ -250,6 +250,16 @@ public interface IBackend
     Task<double> MeasureUplinkAsync(CancellationToken cancellation = default);
 
     /// <summary>
+    /// Dials every leg of the relay the given settings name and answers what each listener said.
+    ///
+    /// A row per leg whatever the network did, so a relay that answers nothing comes back as rows saying so
+    /// rather than as a failed call. Takes seconds against a listener that is not there.
+    /// Refused for a draft that is empty, as <see cref="BackendUnavailableException"/>: which relay is being
+    /// asked about is the draft's to say.
+    /// </summary>
+    Task<IReadOnlyList<RelayLeg>> CheckRelayAsync(Settings settings, CancellationToken cancellation = default);
+
+    /// <summary>
     /// Draws a group key at the relay's group service and answers it with the prefix it derives.
     ///
     /// Stores nothing and joins nothing: possession of the key is membership, so what moves this machine into

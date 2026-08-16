@@ -97,7 +97,8 @@ This page is the reason they are shaped that way.
 
 ## Checking a relay
 
-`backend check-relay` dials every leg the stored settings address and prints what each one answered.
+A check dials every leg the settings address and reports what each one answered.
+The app draws it under the connection step's controls, on the settings on screen; `backend check-relay` runs the same check over the stored ones and prints them.
 
 ```
 ✓  groups  https://relay.example/jwks.json  200 OK                                    64ms
@@ -113,7 +114,9 @@ Each is asked in its own protocol, an open socket proving nothing on its own.
 RTSP answers `OPTIONS`, SRT answers the induction handshake that precedes any stream id or passphrase, an HTTP leg answers a request with any status at all, and RTMPS is the TLS handshake and the certificate behind it.
 
 A dash is a leg this deployment addresses nowhere, and is no failure: the relay binds its API to loopback, so it is dialled on the relay's own machine and reported unasked anywhere else.
-The exit status is 1 where a leg that was dialled did not answer.
+The command's exit status is 1 where a leg that was dialled did not answer.
+
+A relay that answers on nothing is a response and never a failed call: every leg comes back with its own verdict, which is what `CheckRelay` carries (`docs/ipc-api.md`, "Errors").
 
 ## Who holds what
 

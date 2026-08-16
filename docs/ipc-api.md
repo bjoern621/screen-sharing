@@ -31,7 +31,7 @@ Three kinds of method, the rule in executable form:
 | Kind | What it does | Examples |
 | --- | --- | --- |
 | Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `OpenInBrowser`, `CreateGroup`, `JoinGroup`, `LeaveGroup` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `CheckRelay`, `OpenInBrowser`, `CreateGroup`, `JoinGroup`, `LeaveGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
 Samples, not the whole surface.
@@ -43,6 +43,9 @@ Measurements are effects, by the test rather than by category.
 `ProbeEncoders`, `MeasureUplink` and `MeasureEncodeRate` each start real work, take seconds, and leave a result a later read answers from.
 The probe most of all: what it finds is what every subsequent `ResolveForm` greys codecs against.
 A read that replaces the answer another shell's next resolve would give, with nothing on the wire announcing it, is what this test catches.
+
+`CheckRelay` is an effect on the first half of that test and not the second: it opens a connection on every leg of the relay and waits out the ones with nothing behind them, so no shell may ask on a keystroke.
+What it answers is a reading of the moment, held by whoever asked rather than by a state a later read serves.
 
 **Membership is two effects and a read.**
 `JoinGroup` draws this machine's identity in the group the settings name and states its first presence, `LeaveGroup` releases that presence and drops the identity, and `GetMembersState` answers the group as the backend last read it.

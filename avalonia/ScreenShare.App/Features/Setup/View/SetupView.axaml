@@ -10,6 +10,7 @@
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
              xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
+             xmlns:relaycheck="using:ScreenShare.App.Features.Setup.RelayCheck.View"
              xmlns:fields="using:ScreenShare.App.Features.Fields.View"
              x:Class="ScreenShare.App.Features.Setup.View.SetupView"
              x:DataType="vm:SetupViewModel"
@@ -135,6 +136,14 @@
             <Panel IsVisible="{Binding CurrentGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
               <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
             </Panel>
+
+            <!--
+              What answers on the relay, placed unconditionally and visible on its own terms like the picker
+              above: it draws on the step holding the relay's address and ports, which is where a leg nothing
+              reaches is corrected (Setup/RelayCheck).
+              Below the group rather than above it, the check being about the values on the card.
+            -->
+            <relaycheck:RelayCheckView DataContext="{Binding RelayCheck}" />
           </controls:CardColumn>
         </controls:CardColumn>
       </ScrollViewer>

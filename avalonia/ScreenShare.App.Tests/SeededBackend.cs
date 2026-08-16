@@ -549,6 +549,41 @@ internal sealed class SeededBackend : IBackend
     public const double MeasuredUplinkMbps = 87;
 
     /// <summary>
+    /// A relay nothing dialled, carrying one leg of each verdict so a test reaches all three marks.
+    /// Seeded rather than empty: an empty answer is a relay with no listeners at all, which no deployment is.
+    /// </summary>
+    public Task<IReadOnlyList<RelayLeg>> CheckRelayAsync(
+        Settings settings, CancellationToken cancellation = default)
+        => Task.FromResult(CheckedLegs);
+
+    /// <summary>What <see cref="CheckRelayAsync"/> answers.</summary>
+    public static readonly IReadOnlyList<RelayLeg> CheckedLegs =
+    [
+        new()
+        {
+            Leg = "rtsp",
+            Address = "rtsps://relay.test:8322",
+            Verdict = RelayLegVerdict.Reachable,
+            Detail = "RTSP/1.0 200 OK",
+            WaitedMs = 41,
+        },
+        new()
+        {
+            Leg = "srt",
+            Address = "srt://relay.test:8890",
+            Verdict = RelayLegVerdict.Unreachable,
+            Detail = "i/o timeout",
+            WaitedMs = 5001,
+        },
+        new()
+        {
+            Leg = "api",
+            Verdict = RelayLegVerdict.Unaddressed,
+            Unaddressed = new Text { Code = TextCode.RelayLegLoopbackOnly },
+        },
+    ];
+
+    /// <summary>
     /// A key nothing drew, fixed so a test can assert the field it landed in.
     /// </summary>
     public Task<(string Key, string Id)> CreateGroupAsync(
