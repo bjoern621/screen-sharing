@@ -296,14 +296,9 @@ type Publish struct {
 // The relay re-serves every ingested stream on all of its listeners, so a viewer receives over a
 // leg chosen here rather than over the one the stream arrived on.
 type Viewer struct {
-	// PlayerWatchTransport is the leg an external player opens, narrowed to the protocols a player
-	// reaches by URL.
-	PlayerWatchTransport string `json:"playerWatchTransport"`
 	// TileWatchTransport is the leg a receive pipeline decodes from, WHEP included.
-	// Its own field rather than the player's, the two receivers reaching different protocol sets:
-	// a receive pipeline reaches WHEP, which no player URL expresses, and a player opens the relay's
-	// HLS, which nothing here decodes.
-	// One field would leave each viewer able to store a leg the other cannot run.
+	// The only stored leg: an external player and a browser page are opened per press on a leg the
+	// call names, so neither has a value to keep.
 	TileWatchTransport string `json:"tileWatchTransport"`
 	// RtspWatchProtocol is the watch leg's RTP lower transport, "tcp" or "udp".
 	// Both receivers read it: a player passes it to libavformat, a receive pipeline to rtspsrc.
@@ -365,6 +360,7 @@ func (p Publish) CapabilityOptions() map[string]string {
 		capabilities.OptionChroma:     p.Chroma,
 		capabilities.OptionMode:       p.Mode,
 		capabilities.OptionColorRange: p.ColorRange,
+		capabilities.OptionTune:       p.Tune,
 	}
 }
 
@@ -407,10 +403,9 @@ func Defaults() Settings {
 			UplinkMbps:          50,
 		},
 		Viewer: Viewer{
-			PlayerWatchTransport: "srt",
-			TileWatchTransport:   "srt",
-			RtspWatchProtocol:    "tcp",
-			SrtWatchLatencyMs:    1200,
+			TileWatchTransport: "srt",
+			RtspWatchProtocol:  "tcp",
+			SrtWatchLatencyMs:  1200,
 			// rtspsrc's own default is 2000 ms, seconds of display delay above what a LAN needs.
 			RtspWatchLatencyMs: 200,
 			RenderChain:        receive.DefaultChain,

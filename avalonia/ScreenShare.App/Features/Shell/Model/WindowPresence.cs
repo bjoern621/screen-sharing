@@ -4,8 +4,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
 /// Whether a window is in front of the reader, for the screens whose cost runs on while nobody is looking.
-/// A drawn frame costs a GPU copy into a lent slot, a frame-channel message and a draw, and the wizard's
-/// screen picker costs a capture per monitor on top
+/// A drawn frame costs a GPU copy into a lent slot, a frame-channel message and a draw, and the wizard's screen
+/// picker costs a capture per monitor on top
 /// (<c>Features/Setup/ScreenPicker/View/ScreenPickerView.axaml.cs</c>).
 /// Answers the question and governs nothing.
 ///
@@ -26,16 +26,16 @@ internal interface IWindowPresence : IDisposable
 }
 
 /// <summary>
-/// The one place a platform's own notion of presence is picked, so a screen wanting the fact names no system
-/// and no toolkit property.
+/// One place a platform's own notion of presence is picked, so a screen wanting the fact names no system and no
+/// toolkit property.
 /// </summary>
 internal static class WindowPresences
 {
     /// <summary>
     /// One reader per caller, disposed by the caller: it holds a subscription to the window.
     /// <see cref="ToplevelPresence"/> answers every platform, on the facts Avalonia normalises across them.
-    /// A system with a better answer of its own is a second implementation and a branch here, with nothing
-    /// that reads presence changing.
+    /// A system with a better answer of its own is a second implementation and a branch here, with nothing that
+    /// reads presence changing.
     /// </summary>
     public static IWindowPresence For(Window window) => new ToplevelPresence(window);
 }

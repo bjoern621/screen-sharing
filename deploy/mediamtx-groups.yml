@@ -42,6 +42,20 @@ authMethod: jwt
 authJWTJWKS: http://127.0.0.1:9443/jwks.json
 authJWTClaimKey: mediamtx_permissions
 
+# Reading under the public prefix takes no token.
+# The prefix is what a caller holding no key trades for, so a token on it proves nothing.
+# What requiring one costs is the browser: an address opened by hand carries no header,
+# and the 401 that follows asks a person to type a JWT.
+#
+# Read alone, so publishing under the prefix still names a token.
+#
+# The expression is anchored and a group prefix is base32, so no group is reachable through it.
+# An exclusion names an action and a path and no protocol, so an RTSP or RTMP reader of a public
+# stream is unauthenticated on the same terms, and SRT keeps the passphrase in pathDefaults.
+authJWTExclude:
+  - action: read
+    path: ~^public/
+
 # The API, the metrics and the playback endpoints are not for members. A token this service
 # issues grants publishing and reading and nothing else, so those three are refused for
 # everyone until an operator's own token grants them.

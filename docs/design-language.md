@@ -6,7 +6,7 @@ This page states the rules.
 
 ## Palette
 
-Greyscale everywhere except a single red.
+Greyscale, and three hues that each answer one question about a stream.
 
 Ramp: `#141414` `#181818` `#1C1C1C` `#212121` `#262626` `#2A2A2A` `#303030` `#3A3A3A` `#4A4A4A` `#565656` `#6E6E6E` `#9A9A9A` `#C8C8C8` `#D0D0D0` `#E6E6E6` `#F2F2F2` `#FFFFFF`.
 Listed once and never named again: a component asks for the role it wants and the palette decides, so a light variant is a second dictionary rather than a sweep through every view.
@@ -17,17 +17,29 @@ Text on it is near-black.
 Lines are three weights: a hairline where one band meets the next, a divider inside a strip or menu, a raised control's edge.
 Text is five steps from white down through control label, secondary copy, muted figures and faint hints, ending at the disabled grey.
 
-One hue, `#E5484D`, reserved strictly for **sharing** and **something is wrong**.
-The two facts a reader must never miss: that this machine's screen is going out to other people right now, and that something has broken.
-It is the only colour on any screen, which makes either unmistakable across a room, and the only one a colour-blind reader still separates from grey reliably.
-Spending it on state that is merely on costs the app its single unambiguous signal.
-So red appears at most a few times per screen, and exactly once on the control that changes the world: `Start sharing`, `Stop sharing`.
+| Hue | Says | Spent on |
+| --- | --- | --- |
+| red `#E5484D` | broken, or on air | a check that blocks, a failure sentence, the sharing pill and badge, `Stop sharing` |
+| amber `#FFB224` | it runs, and something about it disappoints | a check that warns, a figure out of bounds, an estimate over the measured line, why a control is inert |
+| green `#30A46C` | the way is clear | a check that passed, `Start sharing` |
 
-Everything else merely notable is carried by weight, fill or inversion.
-A satisfied check is a filled grey badge with a white tick, not a green one.
+Red is the one that has to carry across a room, so it stays scarce.
+A screen with three red things on it says which one broke; a screen with thirty says nothing.
+Amber always has a stream still running behind it, and states what that stream costs rather than asking for a press.
+Green marks the way in and never the state at the end of it: `Start sharing` is green, and the machine that is sharing wears red.
+
+A hue never says merely on, and never says selected, which is inversion ("Selection").
+None of the three carries a fact alone: what is coloured also says itself in words, a glyph or weight, so a reader who separates none of them loses nothing.
+A hue as a fill takes the label its contrast affords, white on red and green, near-black on amber.
+
+**Why a control is inert is read before anything else on it.**
+The reason takes the amber and the emphasis weight, so it stands above the paragraph teaching what the control would have done, and above the copy of a card that has greyed around it (`field-availability.md`).
+A reader who has met a greyed control came for that line.
+
+Everything a hue does not answer for is carried by weight, fill or inversion.
 
 Hover, pressed and focus are **not** specified by the design.
-The module's choice is recorded in `Design/Palette.axaml`, so no new value enters the palette: one step up the ramp on hover, one down on press, the red held at reduced opacity rather than lightened.
+The module's choice is recorded in `Design/Palette.axaml`, so no new value enters the palette: one step up the ramp on hover, one down on press, a hue held at reduced opacity rather than lightened.
 
 The design states no text field, number field or slider either.
 The module's choice is recorded in `Design/Inputs.axaml` and again spends nothing new.
@@ -38,16 +50,23 @@ A flag is the switch, never a tick box: one domain concept, one control.
 
 ## Typography
 
-**One family: Inter.** Two weights, 500 and 600, nothing else.
+**One family for everything the product says: Inter.** Two weights, 500 and 600, nothing else.
 
 Bundled rather than asked for by name and hoped for.
 Naming the platform sans first renders Segoe UI on Windows, San Francisco on macOS and whatever fontconfig picks on Linux: three faces at three apparent sizes, the opposite of one product.
 The module ships the family (`Avalonia.Fonts.Inter`, registered in `Program`), so the name resolves to one face everywhere and the platform sans is a fallback that should never run.
 
-No second family, and nothing is mono.
-What a mono column buys is digit alignment, and that is a font feature rather than a face: **numbers that tick, count or sit in a column are set in tabular figures** (`FigureFeatures`, Inter's `tnum`), one advance width per digit without changing the face.
+**One family for what another program said: JetBrains Mono.** Bundled the same way, out of `Assets/Fonts`.
+
+A single role spends it, the **transcript**: a line reproduced from another process rather than composed here, which is the session log and what lands in it.
+Such a line is an error nobody here wrote, wrapping over several rows of element names, socket addresses and codes, and the reader's next move is to copy a piece of it into a search box or a bug report.
+Mono is what that reading needs: the columns hold under the wrap, and `0` stays unmistakable against `O`.
+The cut bundled is the ligature-free one (`JetBrains Mono NL`), because `->` or `//` drawn as a single glyph is a string the reader can no longer match against the text the backend printed.
+
+Nothing else crosses over.
+An identifier this product names for itself, `hevc_nvenc` or `gbrp`, sits inline in prose where a change of face would read as a change of subject, so it keeps Inter and is marked by the identifier role instead, one step quieter and one smaller than the copy beside it.
+Digit alignment likewise stays a font feature rather than a face: **numbers that tick, count or sit in a column are set in tabular figures** (`FigureFeatures`, Inter's `tnum`), one advance width per digit without changing the face.
 A timer, a throughput reading, a table cell and a plot annotation hold still as they update, and a line mixing prose and figures no longer changes shape halfway through.
-What is machine-generated is said by role instead: the identifier and figure roles are one step quieter and one smaller than the prose beside them.
 
 Weight is where the dark palette is paid for.
 400 on `#141414`–`#262626` reads thin enough that muted grey copy starts to disappear, so body weight is **500** and emphasis **600**.
@@ -108,9 +127,9 @@ A stream that starts speaking, starts being shared or begins dropping frames the
 One struggling stream never becomes the loudest thing on a screen someone is scanning.
 
 What a stream is doing is said on its face, over the picture and at no cost to layout: a name plate with a small presence dot lower left, a status badge upper right, the figure lower right.
-The badge is neutral except on this machine's own outgoing stream, the one filled red badge.
+The badge is neutral except on this machine's own outgoing stream, which wears the filled red one.
 A struggling stream wears the same neutral badge, names itself in words, and prints its drop count at a heavier weight.
-Weight, never a second colour: a fault on a video surface is read, not spotted.
+The hues stay off the picture: a colour over arbitrary video is a colour against an unknown background, so a fault on a video surface is read rather than spotted.
 
 Hiding a stream is a performance control, not a preference: it tears the decoder down, so the surface offering the toggle also reports the bandwidth and decode load that frees.
 
@@ -123,7 +142,8 @@ One vocabulary everywhere, on a chip, a tile, the status bar and a button:
   Where the transport reports connect phases, tiles add them as a step bar with a plain-words label.
   Otherwise the tile names the one thing it waits for.
 - Live: the same small dot, and on the publishing surface the sharing pill: a solid white dot, the word `Sharing`, an elapsed timer in tabular figures.
-- Failed or degraded: the one red, the reason in words, and a retry the surface already offers. Video tiles and the chips that drop them carry the reason in words alone and spend no colour on it ("Video surfaces").
+- Degraded: the amber, the figure that is out of bounds, and the stream still running.
+- Failed: the red, the reason in words, and a retry the surface already offers. Video tiles and the chips that drop them carry the reason in words alone and spend no colour on it ("Video surfaces").
 
 The dot stays small (7px): state, not decoration.
 
@@ -219,6 +239,7 @@ The wizard's terminal step is `Share`.
 
 A tooltip is prose: opens with a capital, closes with a full stop, and explains the control or figure instead of naming it again.
 An icon button whose tooltip repeats its glyph teaches nothing, so the tooltip says what pressing it does and what it leaves alone.
+A tip carries what the screen does not: a sentence already standing beside the control, an error or the reason it is inert, is read where it stands and gets no tip repeating it.
 
 A figure keeps one name across surfaces: `transport`, `resolution`, `codec`, `bitrate`, `decoder`, `fps`, `frames`, `latency`, `rtt`, `loss`, `dropped`, `via`, and `n watching` for the number of open tiles.
 A name is retired rather than reused when nothing reports it: a viewer's own buffer fill reaches no publisher, so that column states what the relay discarded on the way out (`field-availability.md`, "A figure with no measurement").

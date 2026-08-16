@@ -6,7 +6,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The setup flow against a backend that holds its answers instead of answering out of a dictionary.
+/// Setup flow against a backend that holds its answers instead of answering out of a dictionary.
 /// <see cref="SeededBackend"/> answers before the call returns, so every resolve through it is trivially the
 /// latest and the ordering guards never trip.
 /// </summary>
@@ -114,9 +114,14 @@ public sealed class SetupResolveTests
         Assert.Equal("30", PickedValue(flow, "publish.fps"));
     }
 
-    /// <summary>A superseded resolve is asked to stop rather than left to finish unwatched.</summary>
+    /// <summary>
+    /// Writes made while a resolve is out cost one round trip between them, not one each.
+    /// A slider dragged across its range writes a step per pointer move, and an answer about a step the reader
+    /// has already passed is dropped on arrival, so asking per step buys the reader nothing and keeps a socket
+    /// and a backend busy for the length of the drag.
+    /// </summary>
     [Fact]
-    public async Task SupersedingADraftCancelsTheResolveItReplaced()
+    public async Task WritesDuringAResolveAreAskedAboutOnceWhenItLands()
     {
         var backend = new DeferredBackend();
         var flow = Flow(backend);
@@ -125,34 +130,54 @@ public sealed class SetupResolveTests
         Choose(flow, "publish.fps", "30");
         Choose(flow, "publish.fps", "24");
 
-        Assert.True(backend.IsCancelled(1));
-        Assert.False(backend.IsCancelled(2));
+        Assert.Equal(2, backend.Resolves);
+        Assert.Equal(30, backend.Draft(1).Publish.Fps);
+
+        // The answer describes a draft the reader has left, so what it carries is drawn and the run asks once
+        // more, about what they are holding now.
+        await backend.AnswerAsync(1);
+
+        Assert.Equal(3, backend.Resolves);
+        Assert.Equal(24, backend.Draft(2).Publish.Fps);
+        Assert.False(flow.Settled.IsCompleted);
+
+        await backend.AnswerAsync(2);
+
+        Assert.Equal("24", PickedValue(flow, "publish.fps"));
+        Assert.Equal(3, backend.Resolves);
+        Assert.True(flow.Settled.IsCompleted);
     }
 
     /// <summary>
     /// Why the token alone is not enough: cancellation is cooperative, so a superseded call can already hold
     /// its answer and deliver it after the newer one.
     /// The request number is what drops it.
+    ///
+    /// The retry is where two reads are out at once: every other path waits for the answer in flight, and this
+    /// one is the reader saying the call it is waiting on is not coming back.
     /// </summary>
     [Fact]
     public async Task AStaleAnswerArrivingLastDoesNotOverwriteTheNewerForm()
     {
         var backend = new DeferredBackend();
-        var flow = Flow(backend);
-        await backend.AnswerAsync(0);
+        var session = new Session(backend, action => action());
+        var form = new FormSession(backend, session, action => action());
 
-        Choose(flow, "publish.fps", "30");
-        Choose(flow, "publish.fps", "24");
-        Assert.Equal(3, backend.Resolves);
+        // The opening read is still out, and the retry supersedes it.
+        form.Retry();
 
-        // Answer for the newer draft first, then for the one it superseded.
-        await backend.AnswerAsync(2);
-        Assert.Equal("24", PickedValue(flow, "publish.fps"));
+        Assert.Equal(2, backend.Resolves);
+        Assert.True(backend.IsCancelled(0));
+        Assert.False(backend.IsCancelled(1));
 
         await backend.AnswerAsync(1);
+        var settled = form.Draft;
 
-        Assert.Equal("24", PickedValue(flow, "publish.fps"));
-        Assert.Equal(3, backend.Resolves);
+        // The superseded call delivering late leaves the newer answer standing.
+        await backend.AnswerAsync(0);
+
+        Assert.Equal(settled, form.Draft);
+        Assert.Equal(2, backend.Resolves);
     }
 
     /// <summary>

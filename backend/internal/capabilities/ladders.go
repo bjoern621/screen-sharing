@@ -16,10 +16,20 @@ import (
 // They live here because a speed decision written into two switch statements drifts between the
 // engines.
 //
-// VAAPI declares no ladder, and the absence is stated rather than implied: neither engine's VAAPI
-// path has such a knob, so the form greys the control and names the codec.
-// The QSV and AMF ladders are the ranges those two APIs document rather than a reading taken off
-// silicon that is not here, and the ladder tests hold both builders to them.
+// The VAAPI rows declare neither ladder, and each absence has its own reason.
+// No VA profile carries a tuning hint, so there is nothing to aim at on either engine.
+// The effort knob does exist on both, and its scale is not one number: the va elements take
+// target-usage over 1..7 where ffmpeg's -quality runs over the range the driver reports, measured as
+// 0..32 on Mesa's radeonsi against oneVPL's 1..7 on Intel's.
+// One ladder over two scales would spend a different step per engine and per card, which is the
+// stream's look following the capture backend, so the control is greyed and names the codec.
+//
+// The AMF rows declare an effort ladder and no tune, though the API has a usage hint: this app pins
+// it, a low-latency usage dropping the IDR period and leaving a late subscriber no recovery point
+// (ffmpeg/encoders.go, amfUsage).
+// The QSV, AMF and NVENC ladders are the ranges those APIs document, read off the shipped encoder's
+// own option table rather than off silicon that is not here, and the ladder tests hold both builders
+// to them.
 
 // x264Presets is the ladder libx264 and libx265 share, most effort first.
 // ffmpeg spells the knob -preset and the GStreamer elements speed-preset, with x264's own values on
@@ -47,6 +57,95 @@ var x264Tunes = []string{
 
 // x265Tunes is the same knob on libx265, which has no film and no stillimage tune.
 var x265Tunes = []string{TuneNone, "psnr", "ssim", "grain", "fastdecode", "animation", "zerolatency"}
+
+// vpxTunes is the metric libvpx aims at, on both its VP8 and its VP9 encoder.
+// ffmpeg spells the knob -tune and vp8enc and vp9enc spell it tuning, with libvpx's own two values
+// on both.
+//
+// Content tuning is not on this ladder.
+// It is a claim about the picture rather than about what to aim at, this app's picture is a desktop
+// either way, and the two engines do not both carry it: the vpx elements expose no such property
+// where ffmpeg takes -tune-content and -screen-content-mode, so the builders pin it on where they
+// can (ffmpeg/encoders.go) rather than offering a step one engine drops.
+var vpxTunes = []string{TuneNone, "psnr", "ssim"}
+
+// aomTunes is the metric libaom aims at.
+// The ffmpeg engine's alone: av1enc exposes no tune property at all, which the row gaps step by step
+// so the untuned one is left standing.
+var aomTunes = []string{TuneNone, "psnr", "ssim"}
+
+// svtav1Tunes are SVT-AV1's tuning modes, named as the library's own log prints them.
+// svtav1TuneValues carries the numbers the two engines pass, both through a parameter string.
+//
+// vq weighs what the eye sees, psnr, ssim and ms-ssim each aim at their metric, and iq is the
+// library's image-quality mode, which overrides the sharpness, quantization-matrix and screen-content
+// settings around it and says so on its own warning line.
+var svtav1Tunes = []string{TuneNone, "vq", "psnr", "ssim", "iq", "ms-ssim"}
+
+// svtav1TuneValues is the number SVT-AV1 takes for each named step.
+//
+// The library's numbering rather than either engine's, since both hand it the same parameter string,
+// and a step outside 0..4 is refused by the library rather than clamped.
+// Named steps and not the bare numbers, so a settings file states what it asked for and a shell
+// names the metric once for every codec that aims at it.
+var svtav1TuneValues = map[string]string{
+	"vq": "0", "psnr": "1", "ssim": "2", "iq": "3", "ms-ssim": "4",
+}
+
+// Svtav1TuneValue is the number one named step travels as, and false for the untuned step, which
+// both builders answer by passing no tune at all.
+// A named step with no number would reach the library as a word it refuses, so the pair is held
+// together at load.
+func Svtav1TuneValue(step string) (string, bool) {
+	value, named := svtav1TuneValues[step]
+	return value, named
+}
+
+func init() {
+	assert.Assert(len(svtav1TuneValues) == len(svtav1Tunes)-1,
+		"every SVT-AV1 tune step but the untuned one carries the library's number",
+		len(svtav1TuneValues), len(svtav1Tunes))
+	for _, step := range svtav1Tunes {
+		if step == TuneNone {
+			continue
+		}
+		_, named := svtav1TuneValues[step]
+		assert.Assert(named, "an SVT-AV1 tune step carries the number the library takes", step)
+	}
+}
+
+// rav1eTunes are rav1e's two tuning modes, its own spelling on both engines: ffmpeg takes them in
+// -rav1e-params and the rav1enc element on its tune property.
+var rav1eTunes = []string{TuneNone, "psnr", "psychovisual"}
+
+// qsvScenarios is oneVPL's scenario hint, which tells the encoder what the session is for and lets
+// it weigh its decisions accordingly.
+// displayremoting is what a screen share is, and the rest are the scenarios the same knob declares.
+//
+// The ffmpeg engine's alone: the qsv plugin's encoders expose target-usage and low-latency and no
+// scenario, which the rows gap step by step.
+// It reaches the H.264 and HEVC encoders, the two ffmpeg puts the option on.
+var qsvScenarios = []string{
+	TuneNone, "displayremoting", "videoconference", "archive", "livestreaming",
+	"cameracapture", "videosurveillance", "gamestreaming", "remotegaming",
+}
+
+// metricTuneDefaults leaves the knob untuned in every mode, the default for a ladder whose steps
+// aim at a measurement rather than at what a viewer sees.
+// A metric target is a choice about how the encode is judged, and nothing about a screen share
+// answers it, so no mode picks one on the reader's behalf.
+var metricTuneDefaults = everyMode(TuneNone)
+
+// svtav1TuneDefaults picks the library's visual mode, its own default and the one a picture watched
+// by a person is coded for.
+var svtav1TuneDefaults = everyMode("vq")
+
+// rav1eTuneDefaults picks the psychovisual mode, the element's own default.
+var rav1eTuneDefaults = everyMode("psychovisual")
+
+// qsvScenarioDefaults declares the scenario this app is: a desktop coded for somebody watching it
+// elsewhere.
+var qsvScenarioDefaults = everyMode("displayremoting")
 
 // h26xTuneDefaults is the tune each mode starts on for the two software H.26x encoders.
 //
@@ -133,13 +232,16 @@ var (
 	rav1eDefault = everyMode("10")
 )
 
-// qsvTargetUsages is oneVPL's target-usage scale, 1 at the quality end and 7 at the speed one.
-// Stated as the numbers because the numbers are oneVPL's own and the names are one engine's
+// targetUsages is the target-usage scale, 1 at the quality end and 7 at the speed one.
+//
+// One ladder for QSV and VAAPI, the two APIs counting the same way: oneVPL defines the scale and
+// the va elements take the same seven points on a property of the same name.
+// Stated as the numbers because the numbers are the scale's own and the names are one engine's
 // spelling: the GStreamer elements take the figure on their target-usage property,
-// and the ffmpeg builder maps it onto -preset (ffmpeg/encoders.go, qsvPresets).
-var qsvTargetUsages = steps(1, 7)
+// and the ffmpeg QSV builder maps it onto -preset (ffmpeg/encoders.go, qsvPresets).
+var targetUsages = steps(1, 7)
 
-var qsvTargetUsageDefaults = map[string]string{
+var targetUsageDefaults = map[string]string{
 	ModeCrf:      "4",
 	ModeAbr:      "4",
 	ModeVbr:      "4",

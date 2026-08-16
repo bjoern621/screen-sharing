@@ -110,12 +110,27 @@
                 </Button>
               </StackPanel>
 
+              <!--
+                The thumb stops where the form does and nowhere between: the setting under it is a
+                whole figure, so a sweep landing between two stops would write a value rounded
+                behind the reader's back.
+                The keys carry the same distance, a shorter move snapping back to the stop it left.
+
+                Ticks over TickFrequency, a frequency counting its grid off the floor and stepping
+                over it (Features/Fields/ViewModel/FieldViewModel.cs).
+                The frequency stays as what a range holding no stop of its own is swept in.
+              -->
               <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}">
-                <Slider Grid.Column="0"
+                <controls:SweepSlider Grid.Column="0"
                         IsEnabled="{Binding IsEnabled}"
                         Minimum="{Binding Minimum}"
                         Maximum="{Binding Maximum}"
+                        Ticks="{Binding Ticks}"
                         TickFrequency="{Binding Step}"
+                        IsSnapToTickEnabled="True"
+                        SmallChange="{Binding Step}"
+                        LargeChange="{Binding PageStep}"
+                        Sweeping="{Binding IsSweeping}"
                         Value="{Binding Slide, Mode=TwoWay}" />
                 <TextBlock Grid.Column="1"
                            Classes="figure"
@@ -142,34 +157,31 @@
                 One list for both option kinds: the two differ in whether an entry carries a
                 paragraph, and an entry with none renders without one.
 
-                The wrapper is what carries the refusal. A disabled control in Avalonia takes
-                no pointer events, so a tooltip on the card itself would open only on the
-                entries that need none; the enabled border behind it is what the pointer
-                lands on.
+                A refused entry states its reason on the card, so nothing opens over it
+                (docs/tooltips.md, "An availability note is a line").
               -->
               <StackPanel IsVisible="{Binding IsChoice}">
                 <ItemsControl ItemsSource="{Binding Shown}" IsEnabled="{Binding IsEnabled}">
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:OptionViewModel">
-                      <Border Background="Transparent" Margin="0,0,0,4" ToolTip.Tip="{Binding Refusal}">
-                        <Button Theme="{StaticResource OptionCard}"
-                                Classes.picked="{Binding IsSelected}"
-                                IsEnabled="{Binding IsEnabled}"
-                                Command="{Binding Choose}">
-                          <StackPanel Spacing="4">
-                            <Grid ColumnDefinitions="*,Auto">
-                              <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
-                              <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
-                            </Grid>
-                            <TextBlock Classes="cardbody"
-                                       IsVisible="{Binding HasReason}"
-                                       Text="{Binding Reason}" />
-                            <TextBlock Classes="cardbody"
-                                       IsVisible="{Binding HasDetail}"
-                                       Text="{Binding Detail}" />
-                          </StackPanel>
-                        </Button>
-                      </Border>
+                      <Button Theme="{StaticResource OptionCard}"
+                              Classes.picked="{Binding IsSelected}"
+                              Margin="0,0,0,4"
+                              IsEnabled="{Binding IsEnabled}"
+                              Command="{Binding Choose}">
+                        <StackPanel Spacing="4">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
+                            <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+                          </Grid>
+                          <TextBlock Classes="reason"
+                                     IsVisible="{Binding HasReason}"
+                                     Text="{Binding Reason}" />
+                          <TextBlock Classes="cardbody"
+                                     IsVisible="{Binding HasDetail}"
+                                     Text="{Binding Detail}" />
+                        </StackPanel>
+                      </Button>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -196,8 +208,8 @@
               <!--
                 The effect a screen offers for this setting, drawn under whichever control kind holds
                 it rather than inside one kind's branch (Features/Fields/Model/FieldAction.cs).
-                A button and not a figure that fills itself in, because it reaches another machine,
-                takes seconds, and is refused outright in the states the backend names.
+                A button and not a figure that fills itself in: it reaches another machine, takes
+                seconds, and is refused outright in the states the backend names.
               -->
               <StackPanel IsVisible="{Binding HasAction}" Spacing="6">
                 <Button HorizontalAlignment="Left"
@@ -213,9 +225,7 @@
                                      Text="{Binding ActionNotice}" />
               </StackPanel>
 
-              <TextBlock Classes="hint"
-                         TextWrapping="Wrap"
-                         TextTrimming="None"
+              <TextBlock Classes="reason"
                          IsVisible="{Binding HasReason}"
                          Text="{Binding Reason}" />
 

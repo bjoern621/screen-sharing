@@ -37,19 +37,21 @@ The two legs are chosen independently, so one name would read as both (`viewer-a
 A fact that holds on one leg only belongs to that field's own text.
 A leg-neutral fact about the protocol itself (what SRT's retransmission is, what HLS segments) is said once and serves every field that offers the protocol.
 
-## Availability notes are additive
+## An availability note is a line
 
-An unavailable control or option gets its reason appended to the normal tip rather than replacing it.
-What the thing does, then a blank line, then why it is inert, so the description is never lost.
+An unavailable control or option states why on the screen, beside what it does rather than instead of it.
+The description first, then the reason it is inert, so nothing that was there is lost.
 
 A whole control the settings ignore carries the field's own statement.
 A single greyed option carries its entry's.
-A field with no help text of its own shows the status note alone rather than an empty line above it.
 
-A live control can carry a note the same way, appended without greying the field: the value still reaches the encoder and does something the base text does not describe (`field-availability.md`).
+A live control can carry a note the same way, without greying the field: the value still reaches the encoder and does something the base text does not describe (`field-availability.md`).
+
+A sentence standing on the screen takes no tooltip repeating it.
+Nothing opens over a greyed entry, and a disabled control takes no pointer events anyway, so the tip would open on every entry except the ones with something to say.
 
 The reasons are not written per field.
-They are the codes the availability pass produces from the tables (`form/availability.go`), so a tooltip cannot explain a greying the encoder does not have.
+They are the codes the availability pass produces from the tables (`form/availability.go`), so the shell cannot explain a greying the encoder does not have.
 
 ## Adding a tooltip
 

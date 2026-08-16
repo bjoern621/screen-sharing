@@ -7,14 +7,14 @@ using TablerIcons;
 namespace ScreenShare.App.Features.Viewer.ViewModel;
 
 /// <summary>
-/// One stream on the relay, as the rail draws it: what it is, what it is carrying, and the legs this machine
-/// can open a viewer on.
+/// One stream on the relay, as the rail draws it: what it is, what it is carrying, and the legs this machine can
+/// open a viewer on.
 ///
 /// <b>Outputs only.</b> The row holds no input of its own: a press runs one of its commands, which asks the
 /// backend and waits for the event stream to say what happened.
 ///
-/// It is kept across passes and updated in place rather than rebuilt, so the commands stay the same instances
-/// and an expanded row does not collapse under the pointer on every relay poll.
+/// Kept across passes and updated in place rather than rebuilt, so the commands stay the same instances and an
+/// expanded row does not collapse under the pointer on every relay poll.
 /// </summary>
 public sealed class StreamRowViewModel : Observable
 {
@@ -50,11 +50,11 @@ public sealed class StreamRowViewModel : Observable
         Legs = [];
         BrowserLegs = [];
 
-        // Made once, like the leg commands and for the same reason: a row outlives a pass, and a command
-        // rebuilt per pass is a button that loses its press.
+        // Made once, like the leg commands and for the same reason: a row outlives a pass, and a command rebuilt
+        // per pass is a button that loses its press.
         //
         // A tile is two calls and the decode behind them, so the toggle waits on the answer.
-        // Without the wait, every press that lands while the first is being opened starts a second decode.
+        // Without the wait, every press landing while the first is being opened starts a second decode.
         Show = new PendingCommand(() => tile(Name, _tiled), dispatch);
     }
 
@@ -76,15 +76,14 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>
     /// Legs the relay serves a player page for, in the order the backend offered them.
-    ///
-    /// A second list rather than a flag on the first: what a native player reaches and what a browser reaches
-    /// are different sets, and neither contains the other.
+    /// A second list rather than a flag on the first: what a native player reaches and what a browser reaches are
+    /// different sets, and neither contains the other.
     /// </summary>
     public ObservableCollection<BrowserLegViewModel> BrowserLegs { get; }
 
     /// <summary>
-    /// The word the entry carries: the stream's own name, with the prefix every row of one group shares taken
-    /// off by the backend.
+    /// Word the entry carries: the stream's own name, with the prefix every row of one group shares taken off by
+    /// the backend.
     /// <see cref="Name"/> is the whole path and stays what the commands open.
     /// </summary>
     public string Label { get => _label; private set => Set(ref _label, value); }
@@ -106,9 +105,8 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>
     /// Whether this stream has a tile in the grid.
-    ///
-    /// Not the same fact as <see cref="IsWatched"/>: a viewer is a player window the backend launched, a tile
-    /// is a decode this window draws.
+    /// Not the same fact as <see cref="IsWatched"/>: a viewer is a player window the backend launched, a tile is a
+    /// decode this window draws.
     /// One stream can have both at once, over different legs.
     /// </summary>
     public bool IsTiled { get => _isTiled; private set => Set(ref _isTiled, value); }
@@ -120,20 +118,18 @@ public sealed class StreamRowViewModel : Observable
 
     /// <summary>
     /// What the action says it will do.
-    ///
-    /// It names the effect and not the state: the dot already says whether anything is publishing and the
-    /// pressed toggle says whether the stream is in the grid, so a label repeating either would be a third
-    /// opinion about one fact.
+    /// Names the effect and not the state: the dot already says whether anything is publishing and the pressed
+    /// toggle says whether the stream is in the grid, so a label repeating either would be a third opinion about
+    /// one fact.
     /// </summary>
     public string WatchLabel { get => _watchLabel; private set => Set(ref _watchLabel, value); }
 
     private Icons _watchGlyph = Icons.IconPlayerPlay;
 
     /// <summary>
-    /// The action's glyph: on screen, or off it.
-    ///
-    /// One glyph that changes rather than two controls one of which is hidden, so the action never moves
-    /// under the pointer.
+    /// Action's glyph: on screen, or off it.
+    /// One glyph that changes rather than two controls one of which is hidden, so the action never moves under the
+    /// pointer.
     /// </summary>
     public Icons WatchGlyph { get => _watchGlyph; private set => Set(ref _watchGlyph, value); }
 
@@ -167,13 +163,6 @@ public sealed class StreamRowViewModel : Observable
             Value = leg.Value,
             Label = leg.Label,
             IsOpen = row.WatchedOn.Contains(leg.Value),
-
-            // An open leg stays pressable whatever the availability pass says, because the press is what
-            // closes it.
-            // Greying it would leave a player running with its one stop control inert, which is worse than
-            // the state the greying is about (docs/field-availability.md).
-            IsEnabled = leg.IsEnabled || row.WatchedOn.Contains(leg.Value),
-            Reason = leg.Reason,
             Toggle = ToggleOf(leg.Value),
         }).ToList());
 
@@ -187,18 +176,17 @@ public sealed class StreamRowViewModel : Observable
         Assert.That(Legs.Count == legs.Count, "a control per offered leg", Legs.Count, legs.Count);
         Assert.That(BrowserLegs.Count == browserLegs.Count,
             "a control per offered browser leg", BrowserLegs.Count, browserLegs.Count);
-        // Gated on legs being offered at all, and not as an economy: a pass that runs before the form
-        // resolves offers none (ViewerViewModel.LegsOf answers empty for a form that is not there), while a
-        // stream the backend is already supervising arrives watched on that same pass.
+        // Gated on legs being offered at all, and not as an economy: a pass running before the catalog lands
+        // offers none, while a stream the backend is already supervising arrives watched on that same pass.
         // The invariant is what a drawn leg list means, so a row with nothing drawn yet states nothing.
         Assert.That(Legs.Count == 0 || !IsWatched || Legs.Any(leg => leg.IsOpen),
             "a watched stream offering legs has one to close", Name, row.WatchedOn.Count);
     }
 
     /// <summary>
-    /// The command for one leg, made once and reused.
-    /// Which direction it goes is read when it runs rather than captured now, so a command made on one pass
-    /// still does the right thing on the next.
+    /// Command for one leg, made once and reused.
+    /// Which direction it goes is read when it runs rather than captured now, so a command made on one pass still
+    /// does the right thing on the next.
     /// </summary>
     private PendingCommand ToggleOf(string transport)
     {
@@ -207,10 +195,9 @@ public sealed class StreamRowViewModel : Observable
             return command;
         }
 
-        // Opening a viewer launches a player on the backend's machine and closing one brings that player
-        // down, and neither is quick.
-        // The command holds its own call, so a leg being opened says so while the ones beside it stay
-        // pressable.
+        // Opening a viewer launches a player on the backend's machine and closing one brings that player down, and
+        // neither is quick.
+        // The command holds its own call, so a leg being opened says so while the ones beside it stay pressable.
         command = new PendingCommand(
             () => _watch(Name, transport, _watchedOn.Contains(transport)), _dispatch);
 
@@ -239,14 +226,7 @@ public sealed class StreamRowViewModel : Observable
 }
 
 /// <summary>
-/// One transport the backend offered as a leg: the value the effect takes, the word a control shows, and
-/// whether this machine can be opened on it at all.
-/// All of it comes off an option of the form's watch-leg field.
-///
-/// The verdict travels with the entry rather than beside it, because a list of legs and a separate list of
-/// the reachable ones are two facts free to disagree, and the one that would be wrong is the one a menu
-/// draws.
+/// One transport the backend offered as a leg: the value the effect takes, and the word a control shows.
+/// The value is the catalog's and the word is this side's.
 /// </summary>
-/// <param name="IsEnabled">Reachable, as the availability pass answered.</param>
-/// <param name="Reason">Why not, empty where it is (<c>docs/field-availability.md</c>).</param>
-public sealed record WatchLeg(string Value, string Label, bool IsEnabled, string Reason);
+public sealed record WatchLeg(string Value, string Label);

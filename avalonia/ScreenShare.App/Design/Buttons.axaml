@@ -75,9 +75,29 @@
   </ControlTheme>
 
   <!--
-    The one red button, on the control that changes the world: Start sharing, and Stop sharing.
-    Hover and press move opacity and keep the hue, so the palette still holds a single red.
+    The two controls that change the world wear a hue: green on the way in, red on the way out
+    (docs/design-language.md, "Palette").
+    Hover and press move opacity and keep the hue, so neither adds a value to the palette.
   -->
+  <ControlTheme x:Key="GoButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="{StaticResource GoBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusButton}" />
+    <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Height" Value="{StaticResource ActionHeight}" />
+    <Setter Property="Padding" Value="15,0" />
+
+    <Style Selector="^:pointerover /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource GoBrush}" />
+      <Setter Property="Opacity" Value="0.92" />
+    </Style>
+    <Style Selector="^:pressed /template/ Border#Root">
+      <Setter Property="Background" Value="{StaticResource GoBrush}" />
+      <Setter Property="Opacity" Value="0.82" />
+    </Style>
+  </ControlTheme>
+
   <ControlTheme x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
     <Setter Property="Background" Value="{StaticResource AttentionBrush}" />
     <Setter Property="BorderThickness" Value="0" />

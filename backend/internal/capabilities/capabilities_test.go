@@ -41,8 +41,8 @@ func TestEveryRowDeclaresAKnownFamily(t *testing.T) {
 }
 
 // gappableValues is the value space of every option a gap may name.
-// Chroma has no entry: its values are per codec, so a chroma gap is held against the row's own
-// Chromas.
+// Chroma and tune have no entry: their values are per codec, so a gap on either is held against the
+// row's own Chromas or Tune ladder.
 var gappableValues = map[string][]string{
 	OptionMode:       Modes,
 	OptionColorRange: {"pc", "tv"},
@@ -70,16 +70,32 @@ func TestEveryGapNamesAKnownOptionAndValue(t *testing.T) {
 				t.Errorf("%s has a gap on option %q, which is not one of %v", c.Name, g.Option, Options)
 				continue
 			}
-			// A chroma gap withholds a format the row offers.
-			// One naming a format the row does not list states a reason for something nobody was offered.
+			// A chroma or tune gap withholds a value the row itself offers.
+			// One naming a format the row does not list, or a step its ladder does not carry, states a
+			// reason for something nobody was offered.
 			values, ok := gappableValues[g.Option]
 			if !ok {
-				values = c.Chromas
+				values = perCodecValues(c, g.Option)
 			}
 			if !slices.Contains(values, g.Value) {
 				t.Errorf("%s has a gap on %s %q, which is not one of %v", c.Name, g.Option, g.Value, values)
 			}
 		}
+	}
+}
+
+// perCodecValues is the value space of an option gappableValues cannot hold, which is one whose
+// values the row itself declares.
+// An unknown option fails the caller rather than answering an empty set, which would pass every gap
+// naming it.
+func perCodecValues(c Codec, option string) []string {
+	switch option {
+	case OptionChroma:
+		return c.Chromas
+	case OptionTune:
+		return c.Tune.Steps
+	default:
+		return nil
 	}
 }
 
@@ -114,11 +130,13 @@ func TestValidateRejectsAnUnknownMode(t *testing.T) {
 }
 
 // options is one validation's option values, keyed as Validate takes them.
+// The tune is the untuned step, this helper's callers being about the other three.
 func options(chroma, mode, colorRange string) map[string]string {
 	return map[string]string{
 		OptionChroma:     chroma,
 		OptionMode:       mode,
 		OptionColorRange: colorRange,
+		OptionTune:       TuneNone,
 	}
 }
 

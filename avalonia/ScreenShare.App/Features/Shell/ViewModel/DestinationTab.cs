@@ -5,8 +5,8 @@ namespace ScreenShare.App.Features.Shell.ViewModel;
 
 /// <summary>
 /// One segment of the destination control.
-/// It carries the destination rather than an index, so a selection is a value the shell acts on directly and
-/// no screen holds a position in the strip.
+/// Carries the destination rather than an index, so a selection is a value the shell acts on directly and no
+/// screen holds a position in the strip.
 ///
 /// Nothing here says whether the segment can be pressed: every destination is reachable at all times, and a
 /// flag that is true for the tab's whole life is a fact no widget has to be told

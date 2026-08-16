@@ -799,3 +799,44 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		}
 	}
 }
+
+// The ceiling a constant-quality encode is held to, spelled as ffmpeg's capped rate factor.
+// Both halves are needed: -maxrate alone states a rate the encoder is never asked to hold over any
+// window, and the pair is what makes the quality target soften rather than the stream outgrow the
+// link.
+func TestConstantQualityCarriesTheStatedCeiling(t *testing.T) {
+	for _, codec := range []string{"libx264", "libx265"} {
+		s := baseStream()
+		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, "crf", "yuv420p"
+		s.Publish.MaxrateM, s.Publish.VbvMs = 12, 200
+		args, err := encoderArgs(s, gopFor(s))
+		if err != nil {
+			t.Fatalf("%s: %v", codec, err)
+		}
+
+		line := strings.Join(args, " ")
+		for _, want := range []string{"-crf", "-maxrate 12M", "-bufsize"} {
+			if !strings.Contains(line, want) {
+				t.Errorf("%s crf under a ceiling: %s, want %s on it", codec, line, want)
+			}
+		}
+	}
+}
+
+// An encode the settings state no ceiling for is unbounded, which is what -crf alone is.
+// A ceiling invented here would bound a stream the user asked to run free, and the field carries
+// zero for exactly that.
+func TestConstantQualityWithoutACeilingStatesNoRate(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", "crf", "yuv420p"
+	s.Publish.MaxrateM = 0
+	args, err := encoderArgs(s, gopFor(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line := strings.Join(args, " ")
+	if strings.Contains(line, "-maxrate") || strings.Contains(line, "-bufsize") {
+		t.Errorf("libx264 crf with no ceiling: %s, want no rate bound on it", line)
+	}
+}

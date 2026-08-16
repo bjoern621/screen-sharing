@@ -2,23 +2,22 @@ namespace ScreenShare.App.Copy;
 
 /// <summary>
 /// What each control is called, what it teaches, and where to read more.
-/// The backend sends a field as a key - <c>bitrate_mbps</c>, <c>capture_memory</c> - and this turns that key
-/// into a heading and a paragraph.
-/// Which controls exist, in what order and which of them are reachable is the backend's answer and is not
-/// restated here (docs/ipc-api.md).
+/// The backend sends a field as a key, <c>bitrate_mbps</c>, <c>capture_memory</c>, and this turns that key into
+/// a heading and a paragraph.
+/// Which controls exist, in what order and which are reachable is the backend's answer and is not restated here
+/// (docs/ipc-api.md).
 ///
-/// Help answers three things in this order: what the control does, what moving it costs, and what to do about
-/// it.
+/// Help answers three things in this order: what the control does, what moving it costs, what to do about it.
 /// A control whose help only expands its own label has been left without help.
 ///
-/// A key with no entry renders with the key as its heading and no paragraph, which is a defect left visible
-/// rather than swallowed.
+/// A key with no entry renders with the key as its heading and no paragraph, a defect left visible rather than
+/// swallowed.
 /// </summary>
 public static class Fields
 {
     /// <summary>
     /// What a control the backend marked live costs to change on a running stream.
-    /// It sits beside the label in a chip's width, so it stays short.
+    /// Sits beside the label in a chip's width, so it stays short.
     /// Which controls carry it is the backend's answer; the wording is this side's.
     /// </summary>
     public const string LiveNotice = "applies without reconnecting";
@@ -32,10 +31,7 @@ public static class Fields
     /// <summary>Entries held back, beside the disclosure: the figure says whether opening it is worth the trip.</summary>
     public static string RefusedCount(int count) => count == 1 ? "1 option" : $"{count} options";
 
-    /// <summary>
-    /// One control's copy.
-    /// <c>Doc</c> is the article for the concept, where one exists.
-    /// </summary>
+    /// <summary>One control's copy. <c>Doc</c> is the article for the concept, where one exists.</summary>
     public sealed record Entry(string Label, string Help, string Doc = "");
 
     /// <summary>
@@ -61,15 +57,15 @@ public static class Fields
     {
         ["publish.name"] = new(
             "Stream name",
-            "The name your viewers open. It becomes the last part of the address you send them, so keep it short and free of spaces."),
+            "The name viewers open. It becomes the last part of the address they are sent, so keep it short and free of spaces."),
 
         ["relay.tls"] = new(
             "Relay uses TLS",
-            "Turn this on for a relay on the internet, where a proxy holds the certificate and answers everything on one address. It is also what lets this machine ask that relay for the pass its group key is worth. Leave it off for a relay on your own network, which is reached directly on the ports below."),
+            "Turn this on for a relay on the internet, where a proxy holds the certificate and answers everything on one address. It is also what lets this machine ask that relay for the pass its group key is worth. Leave it off for a relay on the local network, which is reached directly on the ports below."),
 
         ["relay.group_key"] = new(
             "Group key",
-            "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way you would send a meeting link - and change it when somebody should stop seeing them. Leave it empty on a relay you trust everyone on."),
+            "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way a meeting link is sent. Change it when somebody should stop seeing them. Leave it empty on a relay where everyone is trusted."),
 
         ["relay.srt_passphrase"] = new(
             "SRT passphrase",
@@ -77,33 +73,33 @@ public static class Fields
 
         ["relay.host"] = new(
             "Relay address",
-            "The machine running the relay. You push to it and everyone watching pulls from it, so it needs to be reachable from both sides - a machine on the same network for a LAN stream, a server with a public address for anyone further away."),
+            "The machine running the relay. This machine pushes to it and everyone watching pulls from it, so it needs to be reachable from both sides: a machine on the same network for a LAN stream, a server with a public address for anyone further away."),
 
         ["publish.capture"] = new(
             "How to capture",
-            "How frames leave your desktop. This is the first choice to get right: it also fixes which encoder software runs, so almost everything below follows from it. Prefer the one your system is built around - Desktop Duplication on Windows, the screen picker on a Wayland desktop."),
+            "How frames leave the desktop. This is the first choice to get right: it also fixes which encoder software runs, so almost everything below follows from it. Prefer the one this system is built around: Desktop Duplication on Windows, the screen picker on a Wayland desktop."),
 
         ["publish.monitor"] = new(
             "Which screen",
-            "The monitor to share. Only what this screen shows is sent; windows on your other screens stay private."),
+            "The monitor to share. Only what this screen shows is sent; windows on the other screens stay private."),
 
         ["publish.output_resolution"] = new(
             "Size sent",
-            "The size the encoder is fed. Leave it at the source to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: fewer bits to encode, to upload, and for your viewers to decode - the single most effective knob when the connection is the problem."),
+            "The size the encoder is fed. Leave it at the source to send exactly what the screen shows. Sending smaller costs sharpness and saves everything at once: fewer bits to encode, to upload, and for viewers to decode. The single most effective knob when the connection is the problem."),
 
         ["publish.fps"] = new(
             "Frame rate",
-            "How many pictures a second. Higher is smoother and costs proportionally more upload and more encoding. Above your monitor's own refresh rate the extra frames are duplicates: they cost bandwidth and buy no smoothness.",
+            "How many pictures a second. Higher is smoother and costs proportionally more upload and more encoding. Above the monitor's own refresh rate the extra frames are duplicates: they cost bandwidth and buy no smoothness.",
             ""),
 
         ["publish.capture_memory"] = new(
             "Where frames travel",
-            "Whether the frames stay on the graphics card on their way to the encoder or take a trip through main memory. Staying on the card is free but only possible when the capture and the encoder can share it, so this follows both choices above. Automatic is right unless you are chasing the last of the CPU.",
+            "Whether the frames stay on the graphics card on their way to the encoder or take a trip through main memory. Staying on the card is free but only possible when the capture and the encoder can share it, so this follows both choices above. Automatic is right unless the last of the CPU is worth chasing.",
             DocDrmPrime),
 
         ["publish.cursor"] = new(
             "Mouse pointer",
-            "Whether the pointer appears in what viewers see. Drawn into the picture is what a screen share normally looks like, and it costs a little bandwidth because the encoder has to keep redrawing the area it moves through. Not shared leaves it out entirely. Sent beside the picture keeps it sharp at any size and costs the encoder nothing - the preview here draws it, and carrying it to other machines is still to come."),
+            "Whether the pointer appears in what viewers see. Drawn into the picture is what a screen share normally looks like, and it costs a little bandwidth because the encoder has to keep redrawing the area it moves through. Not shared leaves it out entirely. Sent beside the picture keeps it sharp at any size and costs the encoder nothing. The preview draws it from that position, and the picture viewers receive carries no pointer."),
 
         ["publish.drm_map"] = new(
             "Frame download route",
@@ -112,21 +108,21 @@ public static class Fields
 
         ["publish.codec"] = new(
             "Encoder",
-            "What compresses the picture, in two parts: the format your viewers have to decode, and the hardware or library that produces it. Hardware encoders are nearly free and slightly less efficient; the CPU encoders squeeze harder and charge you for it."),
+            "What compresses the picture, in two parts: the format viewers have to decode, and the hardware or library that produces it. Hardware encoders are nearly free and slightly less efficient; the CPU encoders squeeze harder and charge the machine for it."),
 
         ["publish.chroma"] = new(
             "Colour detail",
-            "How much colour information is kept. Video normally throws away three quarters of it, which nobody notices in a film and everyone notices in coloured text. Keeping more costs bits and narrows which viewers can decode it on their GPU - every format still plays everywhere, on the CPU if nothing else.",
+            "How much colour information is kept. Video normally throws away three quarters of it, which nobody notices in a film and everyone notices in coloured text. Keeping more costs bits and narrows which viewers can decode it on their GPU. Every format plays everywhere, on the CPU if nothing else.",
             DocChroma),
 
         ["publish.color_range"] = new(
             "Colour range",
-            "Which code values carry picture. Your desktop is full range; broadcast video is not. Getting this wrong is what makes a stream look washed out or crushed at the other end.",
+            "Which code values carry picture. A desktop is full range; broadcast video is not. Getting this wrong is what makes a stream look washed out or crushed at the other end.",
             DocYCbCr),
 
         ["publish.effort"] = new(
             "Encoder effort",
-            "How hard the encoder looks for savings. More effort means a smaller stream at the same quality, paid for in encoding time - on a graphics card that time is nearly free, because the chip doing it is separate from the graphics cores, and on the CPU it is the cores your machine also needs for everything else. The steps are the encoder's own, so they read differently on each one.",
+            "How hard the encoder looks for savings. More effort means a smaller stream at the same quality, paid for in encoding time. On a graphics card that time is nearly free, because the chip doing it is separate from the graphics cores, and on the CPU it is the cores this machine also needs for everything else. The steps are the encoder's own, so they read differently on each one.",
             DocNvenc),
 
         ["publish.tune"] = new(
@@ -136,21 +132,21 @@ public static class Fields
 
         ["publish.mode"] = new(
             "What to hold steady",
-            "The one decision behind everything else in this step: whether the encoder holds a bandwidth or holds a quality. Hold bandwidth when the connection has a limit you know. Hold quality when it does not, and let the bitrate go where the picture takes it.",
+            "The one decision behind everything else in this step: whether the encoder holds a bandwidth or holds a quality. Hold bandwidth when the connection has a known limit. Hold quality when it does not, and let the bitrate go where the picture takes it.",
             DocBitrate),
 
         ["publish.cq"] = new(
             "Quality target",
-            "How much detail the encoder is allowed to discard. Lower keeps more and costs more; higher is smaller and softer. Around 20 is visually clean for a desktop and around 30 starts to show. The scale belongs to the encoder, so the same number is a different quality on a different one - and the range moves with your choice above.",
+            "How much detail the encoder is allowed to discard. Lower keeps more and costs more; higher is smaller and softer. Around 20 is visually clean for a desktop and around 30 starts to show. The scale belongs to the encoder, so the same number is a different quality on a different one, and the range moves with the choice above.",
             DocQuantization),
 
         ["publish.bitrate_mbps"] = new(
             "Bitrate",
-            "How much bandwidth the stream aims at. Set it below what you can reliably upload, not at it: a stream that fills the line has nothing left for the moments the picture moves."),
+            "How much bandwidth the stream aims at. Set it below what the connection reliably uploads, not at it: a stream that fills the line has nothing left for the moments the picture moves."),
 
         ["publish.maxrate_mbps"] = new(
             "Burst ceiling",
-            "How far above the target the stream may go when the picture moves. Bandwidth rises to here on motion and falls back on a still screen, which is what keeps quality from dipping. Set it above the target, and below what your line can carry."),
+            "The most bandwidth the stream may take when the picture moves. It rises to here on motion and falls back on a still screen, which is what keeps quality from dipping. Set it below what the line can carry, and above the target where there is one. In constant quality there is no target and zero means no ceiling at all."),
 
         ["publish.vbv_ms"] = new(
             "Rate buffer",
@@ -159,37 +155,37 @@ public static class Fields
 
         ["publish.gop"] = new(
             "Keyframe interval",
-            "How many frames between complete pictures. A viewer cannot start until one arrives, so a long interval saves bandwidth and makes joining slower - and makes packet loss last longer on screen. Zero means twice the frame rate, which is a good default.",
+            "How many frames between complete pictures. A viewer cannot start until one arrives, so a long interval saves bandwidth and makes joining slower, and makes packet loss last longer on screen. Zero means twice the frame rate, which is a good default.",
             DocGop),
 
         ["publish.bframes"] = new(
             "Look-ahead frames",
-            "Frames that also reference the future, which saves bandwidth and adds delay in exact proportion. Useful when you are sending to a viewer rather than playing with one; zero is right for anything interactive.",
+            "Frames that also reference the future, which saves bandwidth and adds delay in exact proportion. Useful when sending to a viewer rather than playing with one; zero is right for anything interactive.",
             DocGop),
 
         ["publish.audio_sources[].source"] = new(
-            "Audio",
-            "Where one part of the sound comes from. Everything listed here is mixed into the one track viewers hear, so a stream can carry what your machine is playing and what you are saying at the same time. The last row is empty until you pick something on it; setting a row back to none takes it off."),
+            "Source",
+            "Where one row of the mix comes from: everything this machine plays, or one program's own sound. Picking no audio on a row takes it off the list."),
 
         ["publish.audio_sources[].device"] = new(
-            "Which device",
-            "Which input or output this row records, where your machine has more than one. The default follows whatever your system is set to, so it keeps working when you plug in a headset."),
+            "Device",
+            "Which output or which program this row records, where this machine offers more than one. The default follows whatever this system is set to, so it keeps working when a headset is plugged in."),
 
         ["publish.audio_sources[].gain"] = new(
             "Level",
-            "How loud this source is in the mix, relative to what it produces on its own. Above 100 amplifies, which is what a quiet microphone needs and what makes everything else quieter by comparison. It reaches a running stream, so you can balance while people are watching."),
+            "How loud this source is in the mix, relative to what it produces on its own. Above 100 amplifies, which is what a quiet source needs and what makes everything else quieter by comparison. It reaches a running stream, so the mix can be balanced while people are watching."),
 
         ["publish.audio_sources[].mute"] = new(
-            "Muted",
-            "Silences this source without taking it off the list, so its device and its level are still there when you turn it back on. It reaches a running stream."),
+            "Mute",
+            "Silences this source without taking it off the list, so its device and its level are still there when it is turned back on. It reaches a running stream."),
 
         ["publish.audio_codec"] = new(
             "Audio format",
-            "What compresses the sound. Opus unless something on the other end insists otherwise - it is lower delay and the only one browsers negotiate."),
+            "What compresses the sound. Opus unless something on the other end insists otherwise. It is lower delay and the only one browsers negotiate."),
 
         ["publish.publish_transport"] = new(
             "How to send",
-            "The protocol carrying the stream from here to the relay. This is only the way out: viewers pick their own way back, so a stream sent over SRT can still be watched over RTSP. They differ in how they handle loss and in how much delay you can tune away."),
+            "The protocol carrying the stream from here to the relay. This is only the way out: viewers pick their own way back, so a stream sent over SRT can still be watched over RTSP. They differ in how they handle loss and in how much delay can be tuned away."),
 
         ["publish.srt_publish_latency_ms"] = new(
             "Retransmit window, sending",
@@ -198,20 +194,16 @@ public static class Fields
 
         ["publish.rtsp_publish_protocol"] = new(
             "RTSP transport, sending",
-            "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too - a home router normally allows that, a corporate network often does not.",
+            "How the media travels inside the RTSP session on its way out. TCP needs nothing beyond the connection already open. UDP needs a port pair to get out too: a home router normally allows that, a corporate network often does not.",
             DocRtsp),
 
         ["publish.uplink_mbps"] = new(
             "Upload speed",
-            "What you can actually upload, not what the plan says. Nothing is enforced against it: it is what the prediction is weighed against, so a configuration this connection cannot carry says so here rather than at your viewers. Measure it if you are not sure."),
-
-        ["viewer.player_watch_transport"] = new(
-            "How viewers watch",
-            "The protocol an external player is opened on. Independent of how you send: the relay re-serves every stream on all its listeners, so this can differ from the way out without anything being re-encoded."),
+            "What this connection actually uploads, not what the plan says. Nothing is enforced against it: it is what the prediction is weighed against, so a configuration this connection cannot carry says so here rather than at the viewers. Measure it if it is not known."),
 
         ["viewer.srt_watch_latency_ms"] = new(
             "Retransmit window, watching",
-            "The same window on the viewer's side, where most internet loss actually happens. It is delay they see: a distant viewer on a poor connection wants more, a viewer on your own network wants less.",
+            "The same window on the viewer's side, where most internet loss actually happens. It is delay they see: a distant viewer on a poor connection wants more, a viewer on the local network wants less.",
             DocSrt),
 
         ["viewer.rtsp_watch_protocol"] = new(
@@ -221,11 +213,11 @@ public static class Fields
 
         ["viewer.tile_watch_transport"] = new(
             "How tiles watch",
-            "The protocol a tile in this window receives on. It is a separate choice from the player's because the two reach different protocols: a tile can take WebRTC, which no player opens by address, and a player can open the relay's HLS, which a tile cannot read."),
+            "The protocol a tile in this window receives on. It says nothing about an external player or a browser page: those open on the protocol picked by right-clicking a stream, and they reach a different set: a tile can take WebRTC, which no player opens by address. A tile on HLS plays the picture without the sound, the relay serving the two separately and only the picture being readable here."),
 
         ["viewer.rtsp_watch_latency_ms"] = new(
             "Reorder window, tiles",
-            "How long a tile holds RTSP packets waiting for late or out-of-order ones before playing what it has. It is delay you see, and it is the tile's alone: an external player reorders by count rather than by time.",
+            "How long a tile holds RTSP packets waiting for late or out-of-order ones before playing what it has. It is delay seen here, and it is the tile's alone: an external player reorders by count rather than by time.",
             DocRtsp),
 
         ["viewer.render_chain"] = new(
@@ -245,7 +237,7 @@ public static class Fields
     {
         ["stream"] = new(
             "Stream",
-            "What this stream is called. It is the one setting your viewers see, and it is the last part of the address you send them."),
+            "What this stream is called. It is the one setting viewers see, and it is the last part of the address they are sent."),
 
         ["source"] = new(
             "Capture",
@@ -253,19 +245,19 @@ public static class Fields
 
         ["quality"] = new(
             "Encode",
-            "What compresses the picture and how it spends bandwidth. Everything here is offered against the capture method you chose above, so an entry greyed out with an encoder's name is telling you to change the capture rather than the encoder."),
+            "What compresses the picture and how it spends bandwidth. Everything here is offered against the capture method chosen above, so an entry greyed out with an encoder's name names the capture to change rather than the encoder."),
 
         ["audio"] = new(
             "Audio",
-            "The sound track: where it comes from and what compresses it. Which sources exist depends on your operating system; which formats reach the relay depends on how you send."),
+            "The sound track: where it comes from and what compresses it. Every source listed here is mixed into the one track viewers hear. Which sources exist depends on this operating system; which formats reach the relay depends on the way out."),
 
         ["transport"] = new(
             "Sending",
-            "How the stream travels from this machine to the relay, and what that protocol lets you tune. Nothing here limits what your viewers can watch over."),
+            "How the stream travels from this machine to the relay, and what that protocol leaves to tune. Nothing here limits what viewers can watch over."),
 
         ["watch"] = new(
             "Watching",
-            "How a stream comes back from the relay and how it is decoded once it does - anyone's stream, not only yours. Separate from how you send, and separate per receiver: a player window and a tile in this window reach different protocols and are chosen apart. A tile already on screen keeps the pipeline it was opened with, so a change here reaches the next one."),
+            "How a stream comes back from the relay and how it is decoded once it does: anyone's stream, not only this machine's. Separate from the way out. An external player and a browser page are not set here: right-click a stream in the list and the leg picked there opens it. A tile already on screen keeps the settings it was opened with, so a change here reaches the next one."),
 
         ["relay"] = new(
             "Relay",
@@ -273,17 +265,17 @@ public static class Fields
     };
 
     /// <summary>
-    /// The copy for one field key, falling back to the key itself, which draws a control the reader can at
-    /// least identify and report.
+    /// Copy for one field key, falling back to the key itself, which draws a control the reader can at least
+    /// identify and report.
     /// </summary>
     public static Entry Of(string key) =>
         key.Length > 0 && Entries.TryGetValue(Template(key), out var entry) ? entry : new Entry(key, "");
 
     /// <summary>
-    /// The control a key names, with a list index taken out: <c>publish.audio_sources[2].gain</c> is a value
-    /// of <c>publish.audio_sources[].gain</c>.
-    /// Copy is written for the control and never for one entry of a list, and this is the normalisation the
-    /// backend does in its own tables (backend/internal/form/keys.go).
+    /// Control a key names, with a list index taken out: <c>publish.audio_sources[2].gain</c> is a value of
+    /// <c>publish.audio_sources[].gain</c>.
+    /// Copy is written for the control and never for one entry of a list, the normalisation the backend does in
+    /// its own tables (backend/internal/form/keys.go).
     /// </summary>
     public static string Template(string key)
     {
@@ -292,13 +284,13 @@ public static class Fields
         return open < 0 || close < open ? key : key[..(open + 1)] + key[close..];
     }
 
-    /// <summary>The copy for one group key, falling back to the key.</summary>
+    /// <summary>Copy for one group key, falling back to the key.</summary>
     public static GroupEntry Group(string key) =>
         key.Length > 0 && Groups.TryGetValue(key, out var entry) ? entry : new GroupEntry(key, "");
 
     /// <summary>
     /// How a unit is written after its figure.
-    /// Empty where the unit is unspecified, which is the case for a figure that carries none.
+    /// Empty where the unit is unspecified, the case for a figure carrying none.
     /// </summary>
     public static string Unit(Api.V1.Unit unit) => unit switch
     {

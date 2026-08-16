@@ -3,7 +3,8 @@
 
   <!--
     The text roles as one table: a view names the role a line plays and states no size, weight or colour.
-    One family carries all of them (Design/Typography.axaml), so a role differs from its neighbour by those three.
+    One family carries all of them but the transcript (Design/Typography.axaml), so a role differs from
+    its neighbour by those three.
     Two weights, Medium and SemiBold.
     Regular is unused, because Inter at 400 on this palette's dark surfaces reads thin enough
     to start losing muted grey copy.
@@ -102,6 +103,23 @@
     <Setter Property="Foreground" Value="{DynamicResource HintBrush}" />
   </Style>
 
+  <!--
+    Why a control, an entry or a preset is inert (docs/field-availability.md).
+    Above the copy it sits beside rather than below it: a reader who has met a greyed control came for this
+    line and not for the paragraph explaining what the control would have done.
+    It states its own colour, so the greying its container hands down stops at it,
+    and it is the one line at full strength inside a card that has gone grey.
+    Amber and not red: a stream still runs under a limit this combination has (docs/design-language.md, "Palette").
+  -->
+  <Style Selector=":is(TextBlock).reason">
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource ReasonBrush}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="LineHeight" Value="{DynamicResource LineHeightSmall}" />
+  </Style>
+
   <Style Selector=":is(TextBlock).disabled">
     <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
   </Style>
@@ -110,7 +128,16 @@
     <Setter Property="Foreground" Value="{DynamicResource AttentionBrush}" />
   </Style>
 
-  <!-- An identifier the backend spells: hevc_nvenc, gbrp. Said by colour and position, no second face. -->
+  <!-- A sentence about what a running stream costs, where danger is one about a stream that stopped. -->
+  <Style Selector=":is(TextBlock).caution">
+    <Setter Property="Foreground" Value="{DynamicResource CautionBrush}" />
+  </Style>
+
+  <!--
+    An identifier the backend spells: hevc_nvenc, gbrp.
+    Vocabulary this app names, and it sits inline in prose, so it keeps the prose face and is said
+    by colour and size.
+  -->
   <Style Selector=":is(TextBlock).ident">
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
@@ -121,6 +148,17 @@
     <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
     <Setter Property="FontFeatures" Value="{DynamicResource FigureFeatures}" />
     <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <!--
+    Another program's output reproduced, never a sentence this product wrote: a session log line.
+    The one role spending the second family (docs/design-language.md, "Typography").
+    No tabular figures, a mono face already being one advance width per glyph.
+  -->
+  <Style Selector=":is(TextBlock).transcript">
+    <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeSmall}" />
+    <Setter Property="Foreground" Value="{DynamicResource SecondaryBrush}" />
   </Style>
 
   <Style Selector=":is(TextBlock).promoted">

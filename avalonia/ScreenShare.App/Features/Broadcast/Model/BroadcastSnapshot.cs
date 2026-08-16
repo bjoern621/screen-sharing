@@ -7,22 +7,24 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 /// newest encoder sample and the relay snapshot.
 /// Record, so a pass over an unchanged reading compares equal and every card below leaves its widgets alone.
 ///
-/// <b>Figures are nullable because "not measured" is a state this screen shows.</b> It prints as
+/// <b>Figures are nullable, "not measured" being a state this screen shows.</b> It prints as
 /// <see cref="Figure.NoValue"/>; a zero is a measurement.
-/// Three sources of absence arrive undistinguished, since the reader's question is the same in all three:
-/// nothing publishing, no first packet muxed, or a sample that carries no value for the figure.
+/// Three sources of absence arrive undistinguished, the reader's question being the same in all three: nothing
+/// publishing, no first packet muxed, or a sample carrying no value for the figure.
+/// What the screen draws is this reading with each gap filled from the last pass that measured it
+/// (<see cref="HeldFigures"/>), so the ellipsis reaches a figure nothing has measured on this run.
 ///
 /// <b>Round trip and loss are per reader, on the legs the relay instruments, so neither has a stream-wide
-/// value.</b> <see cref="RttMs"/> and <see cref="LossPercent"/> are the worst reader's, labelled as such
-/// wherever they are drawn.
+/// value.</b> <see cref="RttMs"/> and <see cref="LossPercent"/> are the worst reader's, labelled as such wherever
+/// they are drawn.
 /// A mean would be a figure no viewer is experiencing, and would average one struggling reader away.
 ///
-/// <b><see cref="CongestionAt"/> is permanently absent.</b> The relay states figures as they stand at each
-/// poll and marks no interval, so naming where a congestion window started would be a detection this shell
-/// performed and attributed to the backend.
-/// Kept and shown absent rather than dropped, on the rule that greys an option instead of removing it: an
-/// absent figure reads as unmeasured, a missing row as nothing to measure
-/// (<c>docs/field-availability.md</c>, "The rule").
+/// <b><see cref="CongestionAt"/> is permanently absent.</b> The relay states figures as they stand at each poll
+/// and marks no interval, so naming where a congestion window started would be a detection this shell performed
+/// and attributed to the backend.
+/// Kept and shown absent rather than dropped, on the rule that greys an option instead of removing it: an absent
+/// figure reads as unmeasured, a missing row as nothing to measure (<c>docs/field-availability.md</c>, "The
+/// rule").
 /// </summary>
 public sealed record BroadcastSnapshot
 {
@@ -51,11 +53,10 @@ public sealed record BroadcastSnapshot
     public double? Fps { get; init; }
 
     /// <summary>
-    /// Milliseconds this machine holds a frame between reading it off the screen and having it encoded and
-    /// ready to send, measured on the running pipeline over the last interval.
-    ///
-    /// The one stage of the delay to a viewer this side both causes and can shorten, which is why it is the
-    /// figure the publish screen promotes and not the windows the transports hold packets for.
+    /// Milliseconds this machine holds a frame between reading it off the screen and having it encoded and ready
+    /// to send, measured on the running pipeline over the last interval.
+    /// The one stage of the delay to a viewer this side both causes and can shorten, hence the figure the publish
+    /// screen promotes rather than the windows the transports hold packets for.
     /// Absent on an engine that measures none, and on the first sample of a run.
     /// </summary>
     public double? EncodeMs { get; init; }
@@ -79,8 +80,8 @@ public sealed record BroadcastSnapshot
     /// Legs this stream's viewers watch over, in the transport vocabulary: <c>"srt, rtmp"</c>.
     /// Empty while the relay names no reader on the path.
     ///
-    /// SRT is the one leg the relay times, so a stream watched over anything else has viewers and no round
-    /// trip, and this is what a sentence about an untimed figure names.
+    /// SRT is the one leg the relay times, so a stream watched over anything else has viewers and no round trip,
+    /// and this is what a sentence about an untimed figure names.
     ///
     /// One comma-separated string rather than a list: this record's equality keeps an unchanged pass from
     /// repainting, and a fresh list compares unequal every pass.
@@ -99,21 +100,25 @@ public sealed record BroadcastSnapshot
     /// <summary>Output size the stream was built for, empty where it publishes at the source size.</summary>
     public string Resolution { get; init; } = "";
 
+    /// <summary>
+    /// Rate the running encoder is held to, absent where the encode is bounded by nothing.
+    /// The backend's reading rather than the ceiling field beside it: which figure bounds an encode, and whether
+    /// one does at all, follows the rate-control mode and the encoder element.
+    /// </summary>
     public double? VbvCeilingMbps { get; init; }
 
     /// <summary>
     /// Never filled: the relay marks no interval, so no congestion window has a start to name.
-    /// Nothing draws it either, a caption placed over a band the plot cannot shade being a window the shell
-    /// would be naming on its own (<c>Plots/View/PlotsView.axaml</c>).
+    /// Nothing draws it either, a caption placed over a band the plot cannot shade being a window the shell would
+    /// be naming on its own (<c>Plots/View/PlotsView.axaml</c>).
     /// </summary>
     public string CongestionAt { get; init; } = "";
 
     /// <summary>
     /// Composes one reading from the three whole states the backend last sent.
-    ///
     /// Nothing here decides anything: each figure is read out of the message carrying it.
-    /// The one lookup that is not a field access, the relay path, matches on the name the publish state
-    /// itself states.
+    /// The one lookup that is not a field access, the relay path, matches on the name the publish state itself
+    /// states.
     /// </summary>
     public static BroadcastSnapshot Of(PublishState? publish, PublishStats? stats, RelayStatus? relay)
     {
@@ -122,8 +127,8 @@ public sealed record BroadcastSnapshot
             return Unread;
         }
 
-        // Live is present exactly while a stream is in force and always carries the settings it was built
-        // from, both as message presence rather than as flags, so there is no combination to reconcile.
+        // Live is present exactly while a stream is in force and always carries the settings it was built from,
+        // both as message presence rather than as flags, so there is no combination to reconcile.
         // A retry hangs off the live stream, so an attempt cannot be read outside the retry it belongs to.
         var live = publish.Live;
         var settings = live?.Publish;
@@ -149,15 +154,14 @@ public sealed record BroadcastSnapshot
             Stream = stream,
             Cq = settings?.Cq,
             Resolution = settings?.OutputResolution ?? "",
-            VbvCeilingMbps = settings?.MaxrateMbps,
+            VbvCeilingMbps = live is { HasRateCeilingMbps: true } ? live.RateCeilingMbps : null,
         };
     }
 
     /// <summary>
     /// Relay entry for one stream.
-    /// Null on no snapshot, no stream, an unreachable relay, or no path by that name yet: a stream that has
-    /// just started publishes before the relay's next poll sees it.
-    ///
+    /// Null on no snapshot, no stream, an unreachable relay, or no path by that name yet: a stream that has just
+    /// started publishes before the relay's next poll sees it.
     /// Every relay figure on this screen goes through here, so the viewer count, the rows under it and the
     /// latency plot describe one path (<c>docs/development-principles.md</c>, "A fact lives in one table").
     /// </summary>
@@ -191,8 +195,8 @@ public sealed record BroadcastSnapshot
 
     /// <summary>
     /// Distinct legs the path's readers are on, in roster order.
-    /// A reader the relay named no protocol for takes no part: an unnamed leg listed as an empty one puts a
-    /// gap in the sentence naming them.
+    /// A reader the relay named no protocol for takes no part: an unnamed leg listed as an empty one puts a gap
+    /// in the sentence naming them.
     /// </summary>
     private static string LegsOf(RelayPath? path)
     {
@@ -214,9 +218,9 @@ public sealed record BroadcastSnapshot
     }
 
     /// <summary>
-    /// Largest value of one figure across the readers that report it.
-    /// A reader that reports none takes no part: an untimed viewer is not a viewer at zero, and counting it
-    /// as one makes every roster holding an RTMP viewer look perfect.
+    /// Largest value of one figure across the readers reporting it.
+    /// A reader that reports none takes no part: an untimed viewer is not a viewer at zero, and counting it as one
+    /// makes every roster holding an RTMP viewer look perfect.
     /// </summary>
     private static double? Worst(RelayPath? path, Func<RelayReader, double?> figure)
     {
@@ -239,8 +243,8 @@ public sealed record BroadcastSnapshot
 
     /// <summary>
     /// One figure of a sample, absent where the sample carries no measurement for it.
-    /// Presence is the contract's own answer to "is this a measured zero", so it is read rather than
-    /// second-guessed by comparing the value against zero.
+    /// Presence is the contract's own answer to "is this a measured zero", so it is read rather than second-guessed
+    /// by comparing the value against zero.
     /// </summary>
     private static double? Measured(PublishStats? stats, Func<PublishStats, bool> has, Func<PublishStats, double> read)
         => stats is null || !has(stats) ? null : read(stats);
@@ -248,8 +252,8 @@ public sealed record BroadcastSnapshot
     /// <summary>Encoder's running time as the pill's zero-padded timer, the ellipsis before the first sample.</summary>
     /// <remarks>
     /// Hours are totalled rather than formatted.
-    /// The hh specifier is the hours component of a span, 0 to 23, and drops the days beside it, so a share
-    /// left running over a day would read 01:00:00 at the 25-hour mark and start the clock again.
+    /// The hh specifier is the hours component of a span, 0 to 23, and drops the days beside it, so a share left
+    /// running over a day would read 01:00:00 at the 25-hour mark and start the clock again.
     /// </remarks>
     private static string Clock(PublishStats? stats)
     {

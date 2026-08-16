@@ -261,51 +261,24 @@ public sealed class WatchSettingsTests
     // --- What a roster row offers -------------------------------------------------------
 
     /// <summary>
-    /// A leg the backend ruled out keeps its place on the menu, greys, and carries the sentence that says
-    /// why, which is what <c>docs/field-availability.md</c> states about every unavailable option.
+    /// The roster is the catalog's player list, in its order.
+    /// No setting stands behind it: the leg is picked per press, so a row offers every leg a player on this
+    /// machine opens.
     /// </summary>
     [Fact]
-    public async Task ALegTheBackendRuledOutIsGreyedWithItsReason()
+    public async Task ARowOffersTheCatalogsPlayerLegs()
     {
         var both = await BothAsync(Carrying("desk"));
         var legs = both.Viewer.Streams.Single(row => row.Name == "desk").Legs;
 
-        var refused = legs.Single(leg => leg.Value == "hls");
-        Assert.False(refused.IsEnabled);
-        Assert.True(refused.HasReason);
-        Assert.Contains("HLS", refused.Reason);
-
-        // The reachable ones are untouched: the greying is a statement, not a screen unsure about everything.
-        Assert.All(legs.Where(leg => leg.Value != "hls"), leg =>
-        {
-            Assert.True(leg.IsEnabled);
-            Assert.False(leg.HasReason);
-        });
+        Assert.Equal(SeededBackend.PlayerLegs, legs.Select(leg => leg.Value));
     }
 
     /// <summary>
-    /// Dropping a ruled-out leg would take its sentence with it, and the sentence is what names the legs that
-    /// would have worked.
+    /// The press on an open leg is what closes the player, so the row that names it stays on the menu.
     /// </summary>
     [Fact]
-    public async Task ARuledOutLegStaysOnTheMenu()
-    {
-        var both = await BothAsync(Carrying("desk"));
-        var form = await both.Backend.ResolveFormAsync(await both.Backend.SettingsAsync());
-        var offered = form.Groups
-            .SelectMany(group => group.Fields)
-            .Single(field => field.Key == "viewer.player_watch_transport")
-            .Options.Select(option => option.Value);
-
-        Assert.Equal(offered, both.Viewer.Streams.Single(row => row.Name == "desk").Legs.Select(leg => leg.Value));
-    }
-
-    /// <summary>
-    /// The press on an open leg is what closes the player, so greying it would leave one running with the
-    /// only control that ends it inert.
-    /// </summary>
-    [Fact]
-    public async Task ARuledOutLegThatIsOpenCanStillBeClosed()
+    public async Task AnOpenLegIsTickedOnTheMenu()
     {
         var backend = Carrying("desk");
         backend.Watching.Add(new WatchKey { StreamName = "desk", Transport = "hls" });
@@ -314,7 +287,6 @@ public sealed class WatchSettingsTests
         var open = both.Viewer.Streams.Single(row => row.Name == "desk").Legs.Single(leg => leg.Value == "hls");
 
         Assert.True(open.IsOpen);
-        Assert.True(open.IsEnabled);
     }
 
     // --- The panel, open and closed -----------------------------------------------------
@@ -370,7 +342,7 @@ public sealed class WatchSettingsTests
     }
 
     /// <summary>
-    /// Closing a closed panel changes nothing, which is what lets a commit run it without asking whether it
+    /// Closing a closed panel changes nothing, which lets a commit run it without asking whether it
     /// has to.
     /// </summary>
     [Fact]

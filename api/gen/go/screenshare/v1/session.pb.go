@@ -1020,9 +1020,15 @@ type PublishState_Live struct {
 	// no local carriage or a pipeline that would not start.
 	// Its presence is what says a frame subscription naming PublishPreview will be served, so
 	// a shell reads it rather than asking and being refused.
-	Preview       *PublishState_Preview `protobuf:"bytes,5,opt,name=preview,proto3" json:"preview,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Preview *PublishState_Preview `protobuf:"bytes,5,opt,name=preview,proto3" json:"preview,omitempty"`
+	// The rate this encoder is held to, in Mbit/s, absent where the encode is bounded by
+	// nothing.
+	// Read rather than derived from the settings beside it: whether a ceiling reaches the
+	// encoder is a fact about the mode and the element, so a shell deriving it would be
+	// deciding what this stream is doing.
+	RateCeilingMbps *float64 `protobuf:"fixed64,6,opt,name=rate_ceiling_mbps,json=rateCeilingMbps,proto3,oneof" json:"rate_ceiling_mbps,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *PublishState_Live) Reset() {
@@ -1090,11 +1096,18 @@ func (x *PublishState_Live) GetPreview() *PublishState_Preview {
 	return nil
 }
 
+func (x *PublishState_Live) GetRateCeilingMbps() float64 {
+	if x != nil && x.RateCeilingMbps != nil {
+		return *x.RateCeilingMbps
+	}
+	return 0
+}
+
 var File_screenshare_v1_session_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\xb9\x05\n" +
+	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\x80\x06\n" +
 	"\fPublishState\x125\n" +
 	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a9\n" +
 	"\x05Retry\x12\x18\n" +
@@ -1107,13 +1120,15 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\rdecode_memory\x18\x04 \x01(\tR\fdecodeMemory\x12#\n" +
 	"\rrender_memory\x18\x05 \x01(\tR\frenderMemory\x12\x18\n" +
 	"\adecoder\x18\x06 \x01(\tR\adecoder\x12\x1a\n" +
-	"\bhardware\x18\a \x01(\bR\bhardware\x1a\x94\x02\n" +
+	"\bhardware\x18\a \x01(\bR\bhardware\x1a\xdb\x02\n" +
 	"\x04Live\x129\n" +
 	"\apublish\x18\x01 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x123\n" +
 	"\x05relay\x18\x04 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x12\x18\n" +
 	"\apending\x18\x02 \x01(\bR\apending\x128\n" +
 	"\x05retry\x18\x03 \x01(\v2\".screenshare.v1.PublishState.RetryR\x05retry\x12>\n" +
-	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreviewR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
+	"\apreview\x18\x05 \x01(\v2$.screenshare.v1.PublishState.PreviewR\apreview\x12/\n" +
+	"\x11rate_ceiling_mbps\x18\x06 \x01(\x01H\x00R\x0frateCeilingMbps\x88\x01\x01B\x14\n" +
+	"\x12_rate_ceiling_mbpsR\bsettingsJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\x06\x10\aR\n" +
 	"publishingR\bsettingsR\apendingR\bretryingR\aattemptR\x06budget\"\xf5\x04\n" +
 	"\fPublishStats\x12\x1f\n" +
 	"\vframe_count\x18\f \x01(\x03R\n" +
@@ -1257,6 +1272,7 @@ func file_screenshare_v1_session_proto_init() {
 	file_screenshare_v1_settings_proto_init()
 	file_screenshare_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
 	file_screenshare_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
+	file_screenshare_v1_session_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

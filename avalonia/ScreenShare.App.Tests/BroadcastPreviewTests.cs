@@ -11,16 +11,15 @@ namespace ScreenShare.App.Tests;
 
 /// <summary>
 /// Two pictures of the stream this machine is sending, and which of the two pays the relay.
-/// The local route is a copy the publish child writes to a loopback port, so no decode is opened, none is
-/// closed and no reader slot is taken, which keeps the viewer figures beside the card about viewers.
+/// The local route is a copy the publish child writes to a loopback port, so no decode is opened, none is closed
+/// and no reader slot is taken, which keeps the viewer figures beside the card about viewers.
 /// The end-to-end route is a decode of this machine's own stream off the relay, asserted against the calls the
-/// seam received rather than against the picture, because a receive effect on the wrong route is invisible on
-/// screen.
-/// The lifecycle fails invisibly on the same terms: a converge that rebuilds the tile per pass restarts a
-/// frame subscription a second, and one that lets go of a decode without closing it leaves a reader on the
-/// relay for the life of the window.
-/// A reader's stop belongs to that lifecycle rather than to blanking the tile, since it is what gives the
-/// relay slot back.
+/// seam received rather than against the picture, a receive effect on the wrong route being invisible on screen.
+/// The lifecycle fails invisibly on the same terms: a converge that rebuilds the tile per pass restarts a frame
+/// subscription a second, and one that lets go of a decode without closing it leaves a reader on the relay for
+/// the life of the window.
+/// The off segment belongs to that lifecycle rather than to blanking the tile, being what gives the relay slot
+/// back.
 /// </summary>
 public sealed class BroadcastPreviewTests
 {
@@ -28,7 +27,7 @@ public sealed class BroadcastPreviewTests
 
     /// <summary>
     /// A backend whose running state a test writes: what is publishing, and whether it is being previewed.
-    /// Every receive effect and every frame subscription asked for is recorded, which is what the converge is
+    /// Every receive effect and every frame subscription asked for is recorded, and that is what the converge is
     /// judged on.
     /// The rest forwards to <see cref="SeededBackend"/>: two sets of answers would be two fixtures to keep in
     /// step.
@@ -57,8 +56,7 @@ public sealed class BroadcastPreviewTests
 
         /// <summary>
         /// Why the next start is refused, empty while none is.
-        /// Stands for a leg that cannot carry this stream's format, which is the refusal the end-to-end route
-        /// meets.
+        /// Stands for a leg that cannot carry this stream's format, the refusal the end-to-end route meets.
         /// </summary>
         public string StartRefusal { get; set; } = "";
 
@@ -234,7 +232,7 @@ public sealed class BroadcastPreviewTests
         return state;
     }
 
-    /// <summary>The leg the fixture's stored settings name for a tile, and so the end-to-end route's.</summary>
+    /// <summary>Leg the fixture's stored settings name for a tile, and so the end-to-end route's.</summary>
     private const string Leg = "srt";
 
     private static (PreviewViewModel Preview, Session Session) Card(PreviewBackend backend)
@@ -314,7 +312,7 @@ public sealed class BroadcastPreviewTests
 
         preview.Apply();
         preview.Apply();
-        preview.SetPlaying(true);
+        Choose(preview, PreviewRoute.Local);
 
         // The same tile, not an equal one: a tile is a running frame subscription, so a rebuilt one is a
         // restarted subscription however alike the two look.
@@ -328,67 +326,47 @@ public sealed class BroadcastPreviewTests
     /// as broken.
     /// </summary>
     [Fact]
-    public void TheCardOpensPlaying()
+    public void TheCardOpensOnARouteAndDrawing()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var session = Read(backend);
 
         var preview = new PreviewViewModel(backend, Settings(backend, session), session, static action => action());
 
-        Assert.True(preview.IsPlaying);
+        Assert.Equal(PreviewRoute.Local, preview.SelectedRoute.Value);
         Assert.NotNull(preview.Tile);
         Assert.True(preview.HasTile);
     }
 
     /// <summary>
-    /// The stopped sentence outranks every state of the machine: the card is dark because it was asked to be,
-    /// and a sentence about the stream would send a reader after a problem nobody has.
+    /// The off sentence outranks every state of the machine: the card is dark because it was asked to be, and a
+    /// sentence about the stream would send a reader after a problem nobody has.
     /// </summary>
     [Fact]
-    public void StoppingEndsTheSubscription()
+    public void TheOffSegmentEndsTheSubscription()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Card(backend);
         Assert.NotNull(preview.Tile);
 
-        preview.SetPlaying(false);
+        Choose(preview, PreviewRoute.Off);
 
-        Assert.False(preview.IsPlaying);
+        Assert.Equal(PreviewRoute.Off, preview.SelectedRoute.Value);
         Assert.Null(preview.Tile);
         Assert.False(preview.HasTile);
-        Assert.Equal(Cards.PreviewStopped, preview.Placeholder);
-    }
-
-    /// <summary>The flip is over the card's own state and reaches nothing on the backend.</summary>
-    [Fact]
-    public void TheControlStopsAndStartsAndSaysWhichWayItGoes()
-    {
-        var backend = new PreviewBackend { Publish = Live() };
-        var (preview, _) = Card(backend);
-
-        var playing = preview.PlayTip;
-        preview.TogglePlay.Execute(null);
-
-        Assert.False(preview.IsPlaying);
-        Assert.NotEqual(playing, preview.PlayTip);
-        Assert.NotEqual("", preview.PlayTip);
-
-        preview.TogglePlay.Execute(null);
-
-        Assert.True(preview.IsPlaying);
-        Assert.Equal(playing, preview.PlayTip);
-        Assert.NotNull(preview.Tile);
+        Assert.Equal(Cards.PreviewOff, preview.Placeholder);
     }
 
     /// <summary>Repeating the write is what makes it safe to call from a render pass.</summary>
     [Fact]
-    public void StoppingTwiceIsTheSameAsStoppingOnce()
+    public void GoingOffTwiceIsTheSameAsGoingOffOnce()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
-        preview.SetPlaying(false);
-        preview.SetPlaying(false);
+        Choose(preview, PreviewRoute.Off);
+        Choose(preview, PreviewRoute.Off);
+        preview.Apply();
 
         Assert.Single(backend.Stopped);
         Assert.Null(preview.Tile);
@@ -412,13 +390,13 @@ public sealed class BroadcastPreviewTests
     }
 
     [Fact]
-    public void StartingAgainDrawsAgain()
+    public void ComingBackOnARouteDrawsAgain()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Card(backend);
 
-        preview.SetPlaying(false);
-        preview.SetPlaying(true);
+        Choose(preview, PreviewRoute.Off);
+        Choose(preview, PreviewRoute.Local);
 
         Assert.NotNull(preview.Tile);
         Assert.Equal(TileSourceKind.PublishPreview, preview.Tile.Source.Kind);
@@ -438,7 +416,7 @@ public sealed class BroadcastPreviewTests
 
     /// <summary>
     /// A real state, reached by a format with no local carriage or a preview pipeline that would not start.
-    /// The publish is untouched either way, which is what the leg being a copy buys.
+    /// The publish is untouched either way, what the leg being a copy buys.
     /// </summary>
     [Fact]
     public void APublishWithNoPreviewIsItsOwnSentence()
@@ -460,7 +438,7 @@ public sealed class BroadcastPreviewTests
             Cards.PreviewNotPreviewed,
             Cards.PreviewNoWatchLeg,
             Cards.PreviewOpening,
-            Cards.PreviewStopped,
+            Cards.PreviewOff,
             "Nothing is decoding this stream.",
             "Connecting.",
         };
@@ -548,7 +526,7 @@ public sealed class BroadcastPreviewTests
     /// The two claims about the relay are opposite, so one sentence for both would be false under one of them.
     /// </summary>
     [Fact]
-    public void EachRouteStatesItsOwnCost()
+    public void EachSegmentStatesItsOwnCost()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Card(backend);
@@ -558,8 +536,14 @@ public sealed class BroadcastPreviewTests
         Choose(preview, PreviewRoute.EndToEnd);
 
         Assert.Equal(Cards.PreviewEndToEndCost, preview.Cost);
-        Assert.NotEqual(Cards.PreviewLocalCost, Cards.PreviewEndToEndCost);
         Assert.Contains("what a viewer receives", preview.Cost);
+
+        Choose(preview, PreviewRoute.Off);
+
+        Assert.Equal(Cards.PreviewOffCost, preview.Cost);
+
+        var sentences = new[] { Cards.PreviewOffCost, Cards.PreviewLocalCost, Cards.PreviewEndToEndCost };
+        Assert.Equal(sentences.Length, sentences.Distinct().Count());
     }
 
     /// <summary>
@@ -634,12 +618,12 @@ public sealed class BroadcastPreviewTests
     /// give back the picture and none of what it was paying for.
     /// </summary>
     [Fact]
-    public void StoppingClosesTheEndToEndDecode()
+    public void GoingOffClosesTheEndToEndDecode()
     {
         var backend = new PreviewBackend { Publish = Live() };
         var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
-        preview.SetPlaying(false);
+        Choose(preview, PreviewRoute.Off);
 
         Assert.Single(backend.Stopped);
         Assert.Null(preview.Tile);
@@ -656,7 +640,7 @@ public sealed class BroadcastPreviewTests
         var (preview, _) = Card(backend, PreviewRoute.EndToEnd);
 
         preview.SetGridLeg(stream => stream == Stream ? Leg : "");
-        preview.SetPlaying(false);
+        Choose(preview, PreviewRoute.Off);
 
         Assert.Single(backend.Started);
         Assert.Empty(backend.Stopped);

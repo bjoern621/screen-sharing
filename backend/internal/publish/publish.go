@@ -240,6 +240,34 @@ func EngineFor(capture string) (string, error) {
 	return p.Engine(), nil
 }
 
+// RateCeilingMbps is the rate an encode on these settings is held to, and false where it is bounded
+// by nothing.
+//
+// What counts as a ceiling is the mode's answer: a bitrate held every second is its own ceiling, a
+// constrained burst is the figure above the target, and a quality target has one only where the
+// element holds it inside a rate buffer (capabilities.QualityCeiling).
+// An average target bursts freely and a lossless encode costs what exactness costs, so neither has
+// one.
+//
+// One answer for the whole app: the plot's rule, the diagnostics and the encoder read this rather
+// than each deriving a bound from the settings, and a surface deriving its own would draw one
+// nothing enforces.
+func RateCeilingMbps(s settings.Settings) (float64, bool) {
+	switch s.Publish.Mode {
+	case capabilities.ModeCbr:
+		return float64(s.Publish.BitrateM), s.Publish.BitrateM > 0
+	case capabilities.ModeVbr:
+		return float64(s.Publish.MaxrateM), s.Publish.MaxrateM > 0
+	case capabilities.ModeCrf:
+		engine, err := EngineFor(s.Publish.Capture)
+		if err != nil || !capabilities.QualityCeiling(s.Publish.Codec, engine) {
+			return 0, false
+		}
+		return float64(s.Publish.MaxrateM), s.Publish.MaxrateM > 0
+	}
+	return 0, false
+}
+
 // TransportsFor returns the transports the capture backend's engine carries, in transport registry
 // order.
 // The result is the subset of transport.Names() that engine serializes through, so a capture whose

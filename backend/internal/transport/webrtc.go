@@ -50,18 +50,18 @@ var webrtcPlayback = Carriage{
 // AAC has no SDP form there at all, which is the protocol's fact rather than either engine's.
 //
 // The watch side has no player entry, only the receiving pipeline's and the browser's.
-func (WebRTC) Formats() Formats {
-	return Formats{
-		Publish: map[string]Carriage{
-			capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"opus"}},
-			capabilities.EngineGst:    {Video: []string{"h264", "vp9", "vp8"}, Audio: []string{"opus"}},
-		},
-		Watch: map[string]Carriage{
-			capabilities.EngineGst: webrtcPlayback,
-			EngineBrowser:          webrtcPlayback,
-		},
-	}
+var webrtcFormats = Formats{
+	Publish: map[string]Carriage{
+		capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"opus"}},
+		capabilities.EngineGst:    {Video: []string{"h264", "vp9", "vp8"}, Audio: []string{"opus"}},
+	},
+	Watch: map[string]Carriage{
+		capabilities.EngineGst: webrtcPlayback,
+		EngineBrowser:          webrtcPlayback,
+	},
 }
+
+func (WebRTC) Formats() Formats { return webrtcFormats }
 
 // PublishArgs carries the credential as a muxer option rather than in the endpoint.
 // The WHIP exchange is HTTP, where the relay reads a bearer token off a header (credential.go).

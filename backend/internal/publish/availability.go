@@ -133,18 +133,43 @@ func AudioAvailable(capture, audio string) (bool, *screensharev1.Text) {
 		return false, reason
 	}
 
-	// One kind is an engine's question as well as a platform's.
-	// A program playing sound is a PipeWire node, and only the GStreamer engine has an element that
-	// opens one: ffmpeg's pulse input takes a device, and PulseAudio cannot record one program's
-	// stream at all.
+	// Some pairs are an engine's question as well as a platform's, and the table names them.
 	// A capture backend fixes the engine, which is what makes this the one place able to say it.
-	if audio == platform.AudioSourceApplication && engineOf(capture) != EngineGst {
+	if engine := engineOf(capture); !audioServedByEngine(need.os, audio, engine) {
 		return false, text.Of(screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE,
 			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO, audio),
-			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE, engineOf(capture)),
+			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENGINE, engine),
 			text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_OTHER_ENGINE, EngineGst))
 	}
 	return true, nil
+}
+
+// audioEngineOnly are the source and platform pairs one publish engine alone serves, each naming
+// that engine.
+//
+// A pair with no row is served by both, which is the ordinary case: a PulseAudio session answers
+// either engine, so nothing about Linux desktop audio sits here.
+//
+// The two rows are the two places the engines part.
+// A program playing sound is a PipeWire node, and only pipewiresrc opens one: ffmpeg's pulse input
+// takes a device, and PulseAudio cannot record one program's stream at all.
+// Windows plays through WASAPI, which wasapi2src reads in loopback and ffmpeg has no input for.
+//
+// The key is the operating system and the source together, since a source can be one engine's on one
+// platform and both engines' on another.
+var audioEngineOnly = map[string]map[string]string{
+	"linux": {
+		platform.AudioSourceApplication: EngineGst,
+	},
+	"windows": {
+		platform.AudioSourceDesktop: EngineGst,
+	},
+}
+
+// audioServedByEngine reports whether this engine records this source on this platform.
+func audioServedByEngine(os, audio, engine string) bool {
+	only, restricted := audioEngineOnly[os][audio]
+	return !restricted || only == engine
 }
 
 // Grant is the privilege the capture backend needs and no probe can establish, nil for a backend

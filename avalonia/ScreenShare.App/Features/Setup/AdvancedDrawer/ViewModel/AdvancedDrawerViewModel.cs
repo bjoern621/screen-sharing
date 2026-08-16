@@ -10,13 +10,13 @@ using TablerIcons;
 namespace ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel;
 
 /// <summary>
-/// The rest of the quality group as a table, behind a drawer: the step above is the answer for everyone else,
-/// and this is where an expert reaches the raw knobs.
+/// Rest of the quality group as a table, behind a drawer: the step above is the answer for everyone else, and
+/// this is where an expert reaches the raw knobs.
 ///
 /// The open flag is the only state held here.
 /// Which rows exist, what each is called and means, which are greyed and why arrive through
-/// <see cref="FieldGroupViewModel"/> already decided (docs/ipc-api.md, "The rule"), and every write leaves
-/// through the field the reader moved.
+/// <see cref="FieldGroupViewModel"/> already decided (docs/ipc-api.md, "The rule"), and every write leaves through
+/// the field the reader moved.
 ///
 /// Inputs: <see cref="IsOpen"/>, a named write <see cref="Apply"/> reads and never assigns.
 /// </summary>
@@ -46,7 +46,7 @@ public sealed class AdvancedDrawerViewModel : Observable
 
     /// <summary>
     /// Whether the table is showing.
-    /// Held here rather than in the view because an open drawer is state the reader set, not a widget's mood.
+    /// Held here rather than in the view, an open drawer being state the reader set and not a widget's mood.
     /// </summary>
     public bool IsOpen
     {
@@ -66,7 +66,7 @@ public sealed class AdvancedDrawerViewModel : Observable
     private string _countLabel = "";
     private bool _hasRows;
 
-    /// <summary>The group's fields the step above places nowhere. Shared with it, not copies.</summary>
+    /// <summary>Group's fields the step above places nowhere. Shared with it, not copies.</summary>
     public ObservableCollection<FieldViewModel> Rows { get; }
 
     public DelegateCommand ToggleOpenCommand { get; }
@@ -80,7 +80,7 @@ public sealed class AdvancedDrawerViewModel : Observable
     public string CountLabel { get => _countLabel; private set => Set(ref _countLabel, value); }
 
     /// <summary>
-    /// The drawer's own heading and the four column heads, from the one place the on-screen words live
+    /// Drawer's own heading and the four column heads, from the one place the on-screen words live
     /// (<c>avalonia/README.md</c>, "Layout").
     /// Fixed words: what the rows say is the form's answer, what the table is called is not.
     /// </summary>
@@ -96,15 +96,15 @@ public sealed class AdvancedDrawerViewModel : Observable
 
     /// <summary>
     /// Whether the group left this drawer anything.
-    /// False before the first resolve and for a group whose every field the step places itself, and the drawer
-    /// is then not drawn at all rather than drawn empty.
+    /// False before the first resolve and for a group whose every field the step places itself, the drawer then
+    /// not being drawn at all rather than drawn empty.
     /// </summary>
     public bool HasRows { get => _hasRows; private set => Set(ref _hasRows, value); }
 
     /// <summary>
     /// The one render function.
-    /// Safe to run twice: the group hands back the same field view models by key, so an unchanged pass
-    /// reconciles onto an equal list and nothing notifies.
+    /// Safe to run twice: the group hands back the same field view models by key, so an unchanged pass reconciles
+    /// onto an equal list and nothing notifies.
     /// </summary>
     public void Apply()
     {
@@ -125,8 +125,8 @@ public sealed class AdvancedDrawerViewModel : Observable
 
     /// <summary>
     /// Every field of the group the step above places nowhere, in the order the form gave them.
-    /// Chosen by <see cref="QualityLayout"/> rather than by a list of keys, so a knob the form adds shows up
-    /// here with nothing to edit.
+    /// Chosen by <see cref="QualityLayout"/> rather than by a list of keys, so a knob the form adds shows up here
+    /// with nothing to edit.
     /// </summary>
     private IReadOnlyList<FieldViewModel> Drawn()
     {

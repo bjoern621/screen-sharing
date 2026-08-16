@@ -2,8 +2,8 @@
 //
 // Which kinds exist is declared (platform.AudioSources) and is the same on every machine of one
 // operating system.
-// What is inside a kind is not: which microphone is plugged in and which application is playing are
-// facts about this machine at this moment, so they are read off it rather than listed anywhere.
+// What is inside a kind is not: which output this machine plays into and which application is
+// playing are facts about it at this moment, so they are read off it rather than listed anywhere.
 //
 // The read is separated from the resolve for the reason the encoder probe's is.
 // A form resolves on every keystroke and a resolve is a pure function of the draft and what the
@@ -15,7 +15,7 @@
 // one.
 // It alone reports the applications playing as nodes of their own, which is what the
 // per-application kind is.
-// Its sinks and sources carry the names its Pulse server serves them under, so one enumeration
+// Its sinks carry the names its Pulse server serves them under, so one enumeration
 // describes what either engine opens: a pulsesrc takes a sink's monitor by name, and only a
 // pipewiresrc takes one application's output.
 //
@@ -47,11 +47,12 @@ const pwDumpExe = "pw-dump"
 var pwDumpArgs = []string{"--no-colors"}
 
 // The media class a node carries, which is what sorts it into a kind.
-// A sink is what the machine plays into, a source what it hears, and an output stream one
-// application's own sound on its way to a sink.
+// A sink is what the machine plays into, and an output stream one application's own sound on its way
+// to a sink.
+// A capture node, "Audio/Source", is nothing either kind holds: what a device hears is not what the
+// screen shows.
 const (
 	classSink   = "Audio/Sink"
-	classSource = "Audio/Source"
 	classStream = "Stream/Output/Audio"
 )
 
@@ -127,17 +128,6 @@ func enumerate(ctx context.Context) []platform.AudioDevice {
 			devices = append(devices, platform.AudioDevice{
 				Kind: platform.AudioSourceDesktop,
 				ID:   name + monitorSuffix,
-				Name: describe(o.Info.Props, name),
-			})
-		case classSource:
-			// A source that is itself a monitor is the desktop kind by another route, and one device under
-			// two kinds is one device offered twice.
-			if strings.HasSuffix(name, monitorSuffix) {
-				continue
-			}
-			devices = append(devices, platform.AudioDevice{
-				Kind: platform.AudioSourceMic,
-				ID:   name,
 				Name: describe(o.Info.Props, name),
 			})
 		case classStream:

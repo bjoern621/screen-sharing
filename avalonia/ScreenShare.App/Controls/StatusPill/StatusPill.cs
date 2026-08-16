@@ -4,7 +4,7 @@ using Avalonia.Controls.Primitives;
 namespace ScreenShare.App.Controls;
 
 /// <summary>
-/// The sharing pill, and the one element carrying the palette's single red.
+/// Sharing pill, in the red that means this machine is on air.
 /// Not a general-purpose badge: a pill meaning anything but this machine sending would spend the red on state
 /// that is merely on.
 /// </summary>
@@ -14,7 +14,7 @@ public sealed class StatusPill : TemplatedControl
     public static readonly StyledProperty<string> LabelProperty =
         AvaloniaProperty.Register<StatusPill, string>(nameof(Label), "");
 
-    /// <summary>The figure beside the label: the elapsed timer, zero-padded <c>HH:MM:SS</c>.</summary>
+    /// <summary>Figure beside the label: the elapsed timer, zero-padded <c>HH:MM:SS</c>.</summary>
     public static readonly StyledProperty<string> DetailProperty =
         AvaloniaProperty.Register<StatusPill, string>(nameof(Detail), "");
 

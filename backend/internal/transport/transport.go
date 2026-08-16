@@ -14,7 +14,8 @@
 // The base Transport is engine-neutral, naming itself and stating what it carries per leg and per
 // engine.
 // Serialization for one engine is a separate capability interface (FFmpegPublisher, GstPublisher,
-// Watcher, BrowserWatcher, GstWatcher), one implemented per engine a transport drives.
+// Watcher, BrowserWatcher, GstWatcher, GstWatchResolver), one implemented per engine a transport
+// drives.
 package transport
 
 import (
@@ -55,6 +56,10 @@ type Carriage struct {
 // One list per leg would have to be the narrower of the two engines, and the narrowing costs where
 // it cannot be seen: the engine carrying more is refused a format it serializes correctly, with no
 // reason any form could show.
+//
+// One value per transport, handed out as it stands and read by every caller.
+// A form resolve asks the registry thousands of times per keystroke, so a table built per lookup is
+// paid for on the drag of a slider.
 //
 // Publish keys are capabilities.Engines, the two publish engines.
 // Watch keys are the three readers: capabilities.EngineFfmpeg the URL-opening players (ffplay and
@@ -131,6 +136,17 @@ type GstWatcher interface {
 	GstSource(s settings.Settings, streamName string) []string
 }
 
+// GstWatchResolver is the same fragment for a leg whose address settings do not hold, because the
+// relay decides part of it per reader.
+// HLS is the one: the playlist names where the segments are and under which session (hlsplaylist.go).
+//
+// The reach is an Umgebungsfehler, so a relay that is not there or a listener with nothing to hand
+// over yet comes back as an error rather than as a fragment nothing can open.
+// A transport implements this or GstWatcher and never both, which keeps one leg to one builder.
+type GstWatchResolver interface {
+	ResolveGstSource(s settings.Settings, streamName string) ([]string, error)
+}
+
 var registry = map[string]Transport{}
 
 // Register adds a transport to the registry, and a name registered twice is an Entwicklungsfehler.
@@ -159,11 +175,13 @@ func Register(t Transport) {
 	_, gstPublish := t.(GstPublisher)
 	_, watch := t.(Watcher)
 	_, gstWatch := t.(GstWatcher)
+	_, gstResolve := t.(GstWatchResolver)
 	_, browserWatch := t.(BrowserWatcher)
+	assert.Assert(!gstWatch || !gstResolve, "a transport builds its receive source one way", t.Name())
 	assertStated(t, "publish", capabilities.EngineFfmpeg, ffmpegPublish, f.Publish)
 	assertStated(t, "publish", capabilities.EngineGst, gstPublish, f.Publish)
 	assertStated(t, "watch", capabilities.EngineFfmpeg, watch, f.Watch)
-	assertStated(t, "watch", capabilities.EngineGst, gstWatch, f.Watch)
+	assertStated(t, "watch", capabilities.EngineGst, gstWatch || gstResolve, f.Watch)
 	assertStated(t, "watch", EngineBrowser, browserWatch, f.Watch)
 
 	_, exists := registry[t.Name()]
@@ -273,6 +291,36 @@ func GstSource(name string, s settings.Settings, streamName string) ([]string, b
 	src := g.GstSource(s, streamName)
 	assert.Assert(len(src) > 0, "a watching transport yields source elements", name, streamName)
 	return src, true
+}
+
+// ReceiveSource is what a receive pipeline is built from, whichever way the transport arrives at it.
+// The one call the receiving side makes, so a leg that has to ask the relay first is not a second
+// path through every caller.
+//
+// The refusals are two and they are different failures. A transport with no GStreamer watch form is
+// a leg nothing here decodes, and a resolve that came back empty-handed is a relay that could not be
+// reached or has nothing to serve yet.
+func ReceiveSource(name string, s settings.Settings, streamName string) ([]string, error) {
+	assert.Assert(name != "", "a receive source names the leg it decodes over")
+	assert.Assert(streamName != "", "a receive source names the stream it decodes", name)
+
+	if src, ok := GstSource(name, s, streamName); ok {
+		return src, nil
+	}
+	t, ok := Get(name)
+	if !ok {
+		return nil, fmt.Errorf("transport %q is not one this build carries, so no pipeline can receive over it", name)
+	}
+	r, ok := t.(GstWatchResolver)
+	if !ok {
+		return nil, fmt.Errorf("transport %q has no GStreamer watch form, so no pipeline can receive over it", name)
+	}
+	src, err := r.ResolveGstSource(s, streamName)
+	if err != nil {
+		return nil, err
+	}
+	assert.Assert(len(src) > 0, "a resolved receive source yields source elements", name, streamName)
+	return src, nil
 }
 
 // WatchURL is the viewer input URL for the named transport.

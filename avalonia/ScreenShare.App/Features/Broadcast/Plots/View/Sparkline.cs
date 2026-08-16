@@ -14,7 +14,7 @@ namespace ScreenShare.App.Features.Broadcast.Plots.View;
 ///
 /// Samples arrive in <see cref="Extent"/> coordinates and are stretched to the control's bounds, so the whole
 /// window stays on screen at any card width.
-/// It asks for no size of its own and draws nothing until the bounds it is given have area.
+/// Asks for no size of its own and draws nothing until the bounds it is given have area.
 /// How much stream that window covers is a fact about the samples, so the card states it.
 /// </summary>
 public sealed class Sparkline : Control

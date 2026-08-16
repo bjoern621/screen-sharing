@@ -73,7 +73,11 @@ sequenceDiagram
 ```
 
 Read is an authenticated action on every listener, not only on the API.
-Knowing the path buys a 401.
+Knowing a group's path buys a 401.
+
+`public/` is the exception, and it is the whole of what the prefix means.
+The relay excludes read there (`authJWTExclude`, `deploy/mediamtx-groups.yml`), so an address opened in a browser plays.
+Publishing under it still takes a token.
 
 ## What each door takes
 
@@ -82,7 +86,8 @@ Knowing the path buys a 401.
 | `POST /groups` | nothing, rate limited per address | makes a fresh group, reaches no existing one |
 | `POST /tokens` | key, or nothing for public | no, the request has no path field at all |
 | `GET /streams` | key, or nothing for public | no, a prefix is not a key |
-| publish or read | JWT | no, the grant is `~^prefix` and the relay matches it |
+| publish | JWT | no, the grant is `~^prefix` and the relay matches it |
+| read | JWT, nothing under `public/` | outside `public/` no, under it yes |
 
 ## What a leak costs
 

@@ -33,7 +33,13 @@ var legs = []struct {
 		carriages: func(f Formats) map[string]Carriage { return f.Watch },
 		serializes: map[string]func(Transport) bool{
 			capabilities.EngineFfmpeg: func(t Transport) bool { _, ok := t.(Watcher); return ok },
-			capabilities.EngineGst:    func(t Transport) bool { _, ok := t.(GstWatcher); return ok },
+			// Either gst watch form counts: one writes the source from settings and the other asks the
+			// relay for it, and a carriage is stated for the leg rather than for the way it is built.
+			capabilities.EngineGst: func(t Transport) bool {
+				_, written := t.(GstWatcher)
+				_, resolved := t.(GstWatchResolver)
+				return written || resolved
+			},
 		},
 	},
 }
@@ -191,10 +197,11 @@ func TestCarriesFormat(t *testing.T) {
 		// RTP payloads the whole codec table.
 		{"rtsp", capabilities.EngineFfmpeg, "av1", true, true},
 		{"rtsp", capabilities.EngineGst, "vp8", true, true},
-		// The relay serves HLS and ingests none, and no GStreamer source element reads the playlist.
+		// The relay serves HLS and ingests none, and both readers take what its muxer cuts.
 		{"hls", capabilities.EngineFfmpeg, "h264", false, true},
 		{"hls", capabilities.EngineFfmpeg, "vp8", false, false},
-		{"hls", capabilities.EngineGst, "h264", false, false},
+		{"hls", capabilities.EngineGst, "h264", false, true},
+		{"hls", capabilities.EngineGst, "vp8", false, false},
 		// RTMP is the asymmetric one: the enhanced-RTMP tags the relay ingests come out of the flv muxer
 		// and out of no flvmux, and the FLV demuxers behind both readers take H.264 alone.
 		{"rtmp", capabilities.EngineFfmpeg, "hevc", true, false},

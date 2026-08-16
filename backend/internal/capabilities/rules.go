@@ -32,6 +32,7 @@ var optionAxes = map[string]string{
 	OptionChroma:     rules.AxisChroma,
 	OptionMode:       rules.AxisMode,
 	OptionColorRange: rules.AxisColorRange,
+	OptionTune:       rules.AxisTune,
 }
 
 func init() {

@@ -8,10 +8,10 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// Presence as the toolkit already reports it, the reading every platform gets until one is given its own.
 ///
 /// <b>What the answer is made of.</b> A window is in front while it is visible, not minimised and active.
-/// Active carries the answer on every system here: a window behind another, and on a compositor with
-/// workspaces a window on one nobody is looking at, is not the window holding activation.
-/// The rest are states of their own rather than consequences of it, since a hidden window and a minimised one
-/// are not behind anything and a platform may keep either active.
+/// Active carries the answer on every system here: a window behind another, and on a compositor with workspaces
+/// a window on one nobody is looking at, is not the window holding activation.
+/// The rest are states of their own rather than consequences of it, a hidden window and a minimised one being
+/// behind nothing and a platform being free to keep either active.
 ///
 /// <b>What it cannot see.</b> A window fully covered by another while it still holds activation, and one
 /// scrolled off a virtual desktop that keeps its toplevel activated, both read as in front.
@@ -21,7 +21,7 @@ internal sealed class ToplevelPresence : IWindowPresence
 {
     private readonly Window _window;
 
-    /// <summary>The last announcement, so a property that moved without moving the answer raises nothing.</summary>
+    /// <summary>Last announcement, so a property that moved without moving the answer raises nothing.</summary>
     private bool _announced;
 
     public ToplevelPresence(Window window)

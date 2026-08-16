@@ -5,6 +5,7 @@
              xmlns:copy="using:ScreenShare.App.Copy"
              xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.View"
              xmlns:quality="using:ScreenShare.App.Features.Setup.QualityStep.View"
+             xmlns:audio="using:ScreenShare.App.Features.Setup.AudioStep.View"
              xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
@@ -18,8 +19,8 @@
     <strip:StepStripView DockPanel.Dock="Top" Margin="12,12,12,0" />
 
     <!--
-      What the backend said when it could not describe the screen, which is why no step can be
-      drawn from anything newer.
+      What the backend said when it could not describe the screen, so no step can be drawn
+      from anything newer.
       No form is invented in its place (docs/ipc-api.md, "What each side owes").
     -->
     <Border DockPanel.Dock="Top"
@@ -59,9 +60,9 @@
     </Border>
 
     <!--
-      What the backend said when a setting could not be stored, which is separate news from the
-      banner above: a read that failed leaves an older answer on screen, a write that failed
-      leaves what was typed on screen while the backend runs on the value before it.
+      What the backend said when a setting could not be stored, separate news from the banner
+      above: a read that failed leaves an older answer on screen, a write that failed leaves
+      what was typed on screen while the backend runs on the value before it.
       Nothing to look again at, so no button (Backend/FormSession.cs).
     -->
     <Border DockPanel.Dock="Top"
@@ -82,8 +83,17 @@
           </StackPanel>
 
           <!--
-            The terminal step's read-back, in the same column every other step's form draws in, so the rail
-            beside it is one column rather than a second one per step.
+            The audio group's own layout: one row per source rather than the four controls of every entry
+            drawn with their copy repeated (Setup/AudioStep).
+            The wrapper is load-bearing, as on the review step below.
+          -->
+          <Panel IsVisible="{Binding ShowsAudio}">
+            <audio:AudioStepView DataContext="{Binding Audio}" />
+          </Panel>
+
+          <!--
+            Terminal step's read-back, in the same column every other step's form draws in, so the rail beside
+            it is one column rather than a second one per step.
             The wrapper is load-bearing: IsVisible reads this view's model, so it cannot sit on the element
             that hands its DataContext to the child.
           -->
@@ -124,8 +134,8 @@
       </ScrollViewer>
 
       <!--
-        The rail, on every step and in the same order on each: what the draft costs, what stands between it
-        and going live, and the saved ways of publishing.
+        The rail, on every step and in the same order on each: what the draft costs, what stands between it and
+        going live, and the saved ways of publishing.
         A column that changed panels per step would make the reader look for the checks again on each one.
 
         Fixed width because the rail prices the form beside it: a column that reflowed would move the figure
@@ -145,7 +155,7 @@
         </ScrollViewer>
 
         <!--
-          The foot of the rail: moving between steps, and on the terminal one the commit instead.
+          Foot of the rail: moving between steps, and on the terminal one the commit instead.
           One row for both, so the button that ends the flow stands where the button that walks it does.
         -->
         <Panel Grid.Row="1" Margin="0,12,0,0">

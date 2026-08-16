@@ -7,16 +7,16 @@ namespace ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
 
 /// <summary>
 /// What has happened to this session, in the order the log recorded it.
-/// A window onto the log and never the whole of it: "Open full log" navigates rather than expanding in place,
-/// so this card cannot grow into a log viewer with filters of its own.
+/// A window onto the log and never the whole of it: "Open full log" navigates rather than expanding in place, so
+/// this card cannot grow into a log viewer with filters of its own.
 /// </summary>
 public sealed class SessionLogViewModel : Observable
 {
     /// <param name="open">
     /// Opens the whole log, answering when the backend has.
-    /// Awaited rather than raised as news, because the card owns drawing that the request is out.
+    /// Awaited rather than raised as news, the card owning the drawing that says the request is out.
     /// </param>
-    /// <param name="dispatch">The UI loop the answer is marshalled back to.</param>
+    /// <param name="dispatch">UI loop the answer is marshalled back to.</param>
     public SessionLogViewModel(Func<Task> open, Action<Action> dispatch)
     {
         Assert.NotNull(open, "a session log needs somewhere to send a request for the whole of it");

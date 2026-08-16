@@ -1,6 +1,12 @@
 package capabilities
 
-import screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+import (
+	"slices"
+
+	"bjoernblessin.de/go-utils/util/assert"
+
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+)
 
 // Codecs is the capability table.
 // Order is the UI display order: the wired backends first, then the hardware families no builder
@@ -25,8 +31,12 @@ import screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 //
 // 4:2:2 lives on the two software H.26x rows alone, through x264's High 4:2:2 and x265's Main 4:2:2
 // 10.
-// No hardware encoder here has an entrypoint for it, VP8 and VP9 have no 4:2:2 profile,
-// and AV1's is the professional profile 2, which none of the three AV1 encoders here codes.
+// VP8 and VP9 have no 4:2:2 profile, and AV1's is the professional profile 2, which none of the
+// three AV1 encoders here codes.
+// The hardware rows leave it out because the generations this app is measured against carry no
+// entrypoint for it, and it is a per-generation capability rather than a family one: the newest
+// NVENC and QSV silicon codes 4:2:2 H.264 and HEVC, so a row gaining it is a reading taken off that
+// hardware and not an edit made from a datasheet.
 // A row states the subsampling its encoder codes, not the one the format defines.
 //
 // 10-bit H.264 is the High 10 profile and full chroma the High 4:4:4 Predictive one.
@@ -99,7 +109,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
-		Gaps:        []Gap{gstNoPlanarRGB, gstNoRateCeiling},
+		Gaps:        []Gap{gstNoPlanarRGB},
 	},
 	{
 		// Each chroma selects the VP9 profile that codes it on the ffmpeg engine (vp9Profiles):
@@ -107,6 +117,7 @@ var Codecs = []Codec{
 		// RGB, and 2 for 10-bit 4:2:0.
 		Name:        "libvpx-vp9",
 		Effort:      Ladder{Steps: vp9Speeds, Defaults: vp9Default},
+		Tune:        Ladder{Steps: vpxTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "vp9",
 		Implemented: true,
@@ -123,6 +134,7 @@ var Codecs = []Codec{
 		// One profile, one chroma, one bit depth: 8-bit 4:2:0 is the whole of VP8.
 		Name:        "libvpx",
 		Effort:      Ladder{Steps: vp8Speeds, Defaults: vp8Default},
+		Tune:        Ladder{Steps: vpxTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "vp8",
 		Implemented: true,
@@ -140,12 +152,13 @@ var Codecs = []Codec{
 		// The other two software AV1 encoders carry 10-bit on both engines.
 		Name:        "libaom-av1",
 		Effort:      Ladder{Steps: aomSpeeds, Defaults: aomDefault},
+		Tune:        Ladder{Steps: aomTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
 		Chromas:     []string{"gbrp", "yuv444p", "yuv420p", "p010le"},
 		CqMax:       EveryEngine(63),
-		Gaps: []Gap{gstNoPlanarRGB, gstNoRateCeiling, {
+		Gaps: append([]Gap{gstNoPlanarRGB, gstNoRateCeiling, {
 			Engine: EngineGst,
 			Option: OptionChroma,
 			Value:  "p010le",
@@ -161,11 +174,12 @@ var Codecs = []Codec{
 			Option: OptionColorRange,
 			Value:  "pc",
 			Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_AV1ENC_NO_COLOUR_DESCRIPTION,
-		}},
+		}}, gstNoAomTune...),
 	},
 	{
 		Name:        "libsvtav1",
 		Effort:      Ladder{Steps: svtav1Steps, Defaults: svtav1Preset},
+		Tune:        Ladder{Steps: svtav1Tunes, Defaults: svtav1TuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
@@ -208,6 +222,7 @@ var Codecs = []Codec{
 		// rate-buffer control on this codec (form.availabilityEngineRules).
 		Name:        "librav1e",
 		Effort:      Ladder{Steps: rav1eSpeeds, Defaults: rav1eDefault},
+		Tune:        Ladder{Steps: rav1eTunes, Defaults: rav1eTuneDefaults},
 		Family:      FamilySoftware,
 		Format:      "av1",
 		Implemented: true,
@@ -235,6 +250,7 @@ var Codecs = []Codec{
 	// which is why a row declares the format's capability rather than one generation's.
 	{
 		Name:        "h264_vaapi",
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyVaapi,
 		Format:      "h264",
 		Implemented: true,
@@ -244,6 +260,7 @@ var Codecs = []Codec{
 	},
 	{
 		Name:        "hevc_vaapi",
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyVaapi,
 		Format:      "hevc",
 		Implemented: true,
@@ -253,6 +270,7 @@ var Codecs = []Codec{
 	},
 	{
 		Name:        "av1_vaapi",
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyVaapi,
 		Format:      "av1",
 		Implemented: true,
@@ -262,6 +280,7 @@ var Codecs = []Codec{
 	},
 	{
 		Name:        "vp9_vaapi",
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyVaapi,
 		Format:      "vp9",
 		Implemented: true,
@@ -273,6 +292,7 @@ var Codecs = []Codec{
 		// The format's own colour-range gap leads the VAAPI ones: it holds on both engines where the
 		// shared one holds on the GStreamer engine alone, and the first match is the reason reported.
 		Name:        "vp8_vaapi",
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyVaapi,
 		Format:      "vp8",
 		Implemented: true,
@@ -291,27 +311,29 @@ var Codecs = []Codec{
 	// test-encodes each and the UI greys away what this GPU refuses.
 	{
 		Name:        "h264_qsv",
-		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Tune:        Ladder{Steps: qsvScenarios, Defaults: qsvScenarioDefaults},
 		Family:      FamilyQsv,
 		Format:      "h264",
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       EveryEngine(51),
-		Gaps:        qsvGaps,
+		Gaps:        qsvScenarioRowGaps,
 	},
 	{
 		Name:        "hevc_qsv",
-		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Tune:        Ladder{Steps: qsvScenarios, Defaults: qsvScenarioDefaults},
 		Family:      FamilyQsv,
 		Format:      "hevc",
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
-		Gaps:        qsvGaps,
+		Gaps:        qsvScenarioRowGaps,
 	},
 	{
 		Name:        "av1_qsv",
-		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "av1",
 		Implemented: true,
@@ -327,7 +349,7 @@ var Codecs = []Codec{
 		// One number for both engines would take a quality step away from one or promise one the other
 		// silently clamps.
 		Name:        "vp9_qsv",
-		Effort:      Ladder{Steps: qsvTargetUsages, Defaults: qsvTargetUsageDefaults},
+		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
 		Family:      FamilyQsv,
 		Format:      "vp9",
 		Implemented: true,
@@ -434,6 +456,36 @@ var Codecs = []Codec{
 		}}, vulkanGaps...),
 	},
 
+	// VideoToolbox: Apple's media block, the hardware path on every Mac.
+	// One backend over both silicon generations, Apple's own and the Intel iGPUs the older machines
+	// carry, since the framework is what a Mac exposes its encoder through either way.
+	//
+	// Two rows and not more: the framework's other encoders are ProRes and JPEG, neither of which is a
+	// delivery format a relay carries.
+	// H.264 codes 4:2:0 alone, and HEVC reaches Main 10 beside it.
+	// 4:4:4 is absent because Apple puts full chroma in ProRes rather than in either of these.
+	//
+	// No effort ladder and no tune: the framework takes neither a preset nor a tuning hint, and what
+	// stands in for both is realtime, which every mapping here sets because every stream here is live.
+	{
+		Name:        "h264_videotoolbox",
+		Family:      FamilyVideoToolbox,
+		Format:      "h264",
+		Implemented: true,
+		Chromas:     []string{"yuv420p"},
+		CqMax:       EveryEngine(51),
+		Gaps:        videoToolboxGaps,
+	},
+	{
+		Name:        "hevc_videotoolbox",
+		Family:      FamilyVideoToolbox,
+		Format:      "hevc",
+		Implemented: true,
+		Chromas:     []string{"yuv420p", "p010le"},
+		CqMax:       EveryEngine(51),
+		Gaps:        videoToolboxGaps,
+	},
+
 	// V4L2 M2M: the kernel's memory-to-memory encoders, on a Raspberry Pi and some ARM SoCs.
 	{Name: "h264_v4l2m2m", Family: FamilyV4l2, Format: "h264", Chromas: []string{"yuv420p"}},
 	{Name: "hevc_v4l2m2m", Family: FamilyV4l2, Format: "hevc", Chromas: []string{"yuv420p"}},
@@ -481,6 +533,48 @@ var qsvGaps = []Gap{{
 	Value:  ModeLossless,
 	Reason: screensharev1.TextCode_TEXT_CODE_GAP_QSV_NO_LOSSLESS,
 }}
+
+// videoToolboxGaps are the gaps both VideoToolbox rows carry, and they leave one rate control
+// standing.
+//
+// What the framework takes on every Mac is an average bitrate, so abr is the mode the rows declare
+// and the other three are one fact stated once: a constant rate needs a property added in macOS 13
+// and implemented on Apple silicon, a burst ceiling has no wrapper option on either engine, and the
+// constant-quality knob is Apple silicon's alone and counts upward where every other row here counts
+// a quantizer downward.
+// Declaring a mode half the Macs in the field refuse is a publish that dies at launch, and one whose
+// scale runs the other way is a slider that means the opposite of what it says.
+//
+// Lossless is separate because the fix differs: no rate control reaches it, the framework quantizing
+// every frame with no transform bypass, as on VAAPI and QSV.
+var videoToolboxGaps = []Gap{
+	{
+		Option: OptionMode,
+		Value:  ModeLossless,
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VIDEOTOOLBOX_NO_LOSSLESS,
+	},
+	{
+		Option: OptionMode,
+		Value:  ModeCbr,
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VIDEOTOOLBOX_AVERAGE_BITRATE_ONLY,
+	},
+	{
+		Option: OptionMode,
+		Value:  ModeVbr,
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VIDEOTOOLBOX_AVERAGE_BITRATE_ONLY,
+	},
+	{
+		Option: OptionMode,
+		Value:  ModeCrf,
+		Reason: screensharev1.TextCode_TEXT_CODE_GAP_VIDEOTOOLBOX_AVERAGE_BITRATE_ONLY,
+	},
+}
+
+// qsvScenarioRowGaps is what the two rows carrying a scenario ladder gap: the family's rate-control
+// gap, and the hint the other engine has no property for.
+// The AV1 and VP9 rows declare no such ladder at all, ffmpeg putting the option on its H.264 and
+// HEVC encoders alone, so they take qsvGaps unchanged.
+var qsvScenarioRowGaps = slices.Concat(qsvGaps, gstNoQsvScenario)
 
 // amfGaps are the gaps every AMF row carries.
 //
@@ -542,11 +636,62 @@ var vp8NoFullRange = Gap{
 	Reason: screensharev1.TextCode_TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD,
 }
 
-// gstNoRateCeiling is the constrained-VBR gap every software row carries on the GStreamer publish
+// QualityCeiling states whether a codec's constant-quality mode is bounded by a rate ceiling on this
 // engine.
-// None of those elements takes a ceiling above the target: x264enc's pass=cbr locks the VBV maxrate
-// to the bitrate, and x265enc, vp8enc, vp9enc and av1enc expose a target and no maximum at all.
+//
+// A constant-quality encode spends what the picture asks for, so one screen filling with motion
+// codes at many times the rate a still one does. The ceiling is what holds that inside a link's
+// budget, and an encode with no form of one prices the same setting in delay and dropped frames
+// instead.
+//
+// True where the mapping hands a stated ceiling to the element.
+func QualityCeiling(codec, engine string) bool {
+	return qualityCeilings[codec][engine].takes
+}
+
+// QualityCeilingRequired states whether this codec's constant-quality mode can be built without a
+// ceiling at all.
+// True for an element whose constant-quality mode is a bounded one, where an encode with no ceiling
+// has no form: the form offers no zero and the builder refuses one.
+func QualityCeilingRequired(codec, engine string) bool {
+	return qualityCeilings[codec][engine].required
+}
+
+// qualityCeiling is what one engine's constant-quality mapping does with a rate ceiling.
+type qualityCeiling struct {
+	takes    bool
+	required bool
+}
+
+// qualityCeilings is per codec and engine, a codec absent from it coding constant quality unbounded
+// and greying the ceiling field with the reason (internal/form, ceilingReason).
+//
+// The x26x elements hold a quality target inside a VBV: x264enc reads the ceiling off its bitrate
+// property over vbv-buf-capacity, x265enc off vbv-maxrate over vbv-bufsize, and ffmpeg spells both
+// as -maxrate over -bufsize.
+// NVENC codes constant quality as VBR against a fixed quantizer, so the ceiling is the same -maxrate
+// pair, and its GStreamer elements take constqp instead, which carries no rate at all.
+// libvpx has one constant-quality mode and it is bounded: vpxenc's CQ codes toward a target, and a
+// target of zero is a rate derived from the picture size rather than an absence of one, which is why
+// the vpx rows require what the others merely take.
+var qualityCeilings = map[string]map[string]qualityCeiling{
+	"libx264":    {EngineGst: {takes: true}, EngineFfmpeg: {takes: true}},
+	"libx265":    {EngineGst: {takes: true}, EngineFfmpeg: {takes: true}},
+	"libvpx":     {EngineGst: {takes: true, required: true}, EngineFfmpeg: {takes: true}},
+	"libvpx-vp9": {EngineGst: {takes: true, required: true}, EngineFfmpeg: {takes: true}},
+	"h264_nvenc": {EngineFfmpeg: {takes: true}},
+	"hevc_nvenc": {EngineFfmpeg: {takes: true}},
+	"av1_nvenc":  {EngineFfmpeg: {takes: true}},
+}
+
+// gstNoRateCeiling is the constrained-VBR gap the software rows without a ceiling carry on the
+// GStreamer publish engine.
+// x264enc's pass=cbr locks the VBV maxrate to the bitrate, and vp8enc, vp9enc and av1enc expose a
+// target and no maximum at all.
 // Given a ceiling they run the uncapped average abr already names.
+//
+// x265enc carries no such gap: libx265 takes vbv-maxrate above the target, which is the mode's own
+// definition rather than an approximation of it.
 //
 // It gaps the mode rather than greying the ceiling field, because the mode is what the element
 // cannot do: a field greyed under a mode that silently becomes another mode still reports the wrong
@@ -574,4 +719,34 @@ var gstNoPlanarRGB = Gap{
 	Option: OptionChroma,
 	Value:  "gbrp",
 	Reason: screensharev1.TextCode_TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB,
+}
+
+// gstNoAomTune takes libaom's tune steps off the GStreamer engine.
+// av1enc carries none of libaom's tuning at all, where the vpx elements carry the same two steps
+// ffmpeg does, so this is one element's limit rather than the plugin's.
+var gstNoAomTune = tuneGaps(EngineGst, aomTunes, screensharev1.TextCode_TEXT_CODE_GAP_GST_AV1ENC_NO_TUNE)
+
+// gstNoQsvScenario takes oneVPL's scenario hint off the GStreamer engine.
+// The qsv elements expose target-usage and low-latency and nothing that carries a scenario, so the
+// hint reaches Intel's runtime through ffmpeg's encoders alone.
+var gstNoQsvScenario = tuneGaps(EngineGst, qsvScenarios, screensharev1.TextCode_TEXT_CODE_GAP_GST_QSV_NO_SCENARIO)
+
+// tuneGaps withholds every step of a ladder from one engine, under one reason.
+//
+// A gap names one value, so an engine that lacks the knob rather than one step of it is written as
+// the whole ladder minus the untuned step: TuneNone is what an encoder without the property spends,
+// and gapping it would leave the control with nothing to hold.
+func tuneGaps(engine string, steps []string, reason screensharev1.TextCode) []Gap {
+	assert.Assert(len(steps) > 1, "a gapped tune ladder carries a step besides the untuned one", len(steps))
+
+	out := make([]Gap, 0, len(steps)-1)
+	for _, step := range steps {
+		if step == TuneNone {
+			continue
+		}
+		out = append(out, Gap{Engine: engine, Option: OptionTune, Value: step, Reason: reason})
+	}
+
+	assert.Assert(len(out) == len(steps)-1, "every step but the untuned one is withheld", len(out), len(steps))
+	return out
 }

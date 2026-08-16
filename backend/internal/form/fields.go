@@ -6,6 +6,7 @@ import (
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -77,12 +78,15 @@ const (
 	fieldBframeCeiling = 16
 
 	// The latency windows, in ms.
-	// They are swept rather than typed, so they carry a step.
+	// They are swept rather than typed, so they carry a step, and the step is coarse because the
+	// window is a budget for retransmits: what it buys is measured in round trips, not in tens of ms.
 	// The floor is above zero because settings.Load reads a non-positive latency as unset,
 	// and replaces it with the default.
+	// It is under one step, which costs nothing: a sweep stops on its range's own ends as well as on
+	// the step, so the shortest window stays reachable without rounding the floor up to a multiple.
 	fieldLatencyFloor   = 20
 	fieldLatencyCeiling = 8000
-	fieldLatencyStep    = 10
+	fieldLatencyStep    = 50
 
 	// fieldGainStep is in percent, which is the unit the gain setting counts in.
 	fieldGainStep = 5
@@ -341,14 +345,7 @@ var fieldTable = []field{
 		bounds:  fieldUplinkBounds,
 	},
 
-	// The watch leg: how a stream comes back, per receiver that can reach it.
-	{
-		key:     KeyPlayerWatchTransport,
-		group:   GroupWatch,
-		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Viewer.PlayerWatchTransport) },
-		options: optionWatchTransports,
-	},
+	// The watch leg: how a stream comes back.
 	{
 		key:     KeySrtWatchLatencyMs,
 		group:   GroupWatch,
@@ -365,10 +362,8 @@ var fieldTable = []field{
 		options: optionRtspProtocols,
 	},
 	// The tile receiver's own controls.
-	// Its leg is a field of its own because a receive pipeline reaches protocols no player URL
-	// expresses, and the rest are knobs of a receiving pipeline alone:
-	// an external player buffers by reorder queue rather than by time,
-	// and none of them builds a chain of elements at all.
+	// Knobs of a receiving pipeline alone: an external player buffers by reorder queue rather than by
+	// time, and none of them builds a chain of elements at all.
 	{
 		key:     KeyTileWatchTransport,
 		group:   GroupWatch,
@@ -527,8 +522,20 @@ func fieldBitrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange
 // fieldMaxrateBounds takes no codec ceiling.
 // A codec's limit bounds the target the encoder is given and not the burst allowed above it,
 // so narrowing here would refuse headroom the encoder never sees as a target.
-func fieldMaxrateBounds(Deps, settings.Settings) *screensharev1.NumericRange {
-	return bounded(0, fieldRateCeiling, 1)
+//
+// Zero is a value, an encode bounded by nothing, except on an encoder whose constant-quality mode is
+// a bounded one: the vpx elements code CQ toward a target, so a zero there is a rate libvpx derives
+// from the picture size and the range starts at one instead
+// (capabilities.QualityCeilingRequired, publish.vpxRateLimits).
+func fieldMaxrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
+	low := 0
+	if s.Publish.Mode == capabilities.ModeCrf {
+		if engine, err := publish.EngineFor(s.Publish.Capture); err == nil &&
+			capabilities.QualityCeilingRequired(s.Publish.Codec, engine) {
+			low = 1
+		}
+	}
+	return bounded(low, fieldRateCeiling, 1)
 }
 
 // fieldVbvBounds starts at zero, which is a value and not an absence:
@@ -562,7 +569,7 @@ func fieldUplinkBounds(Deps, settings.Settings) *screensharev1.NumericRange {
 	return bounded(1, fieldUplinkCeiling, 1)
 }
 
-// fieldGainBounds runs from silence up to the amplification a quiet microphone needs.
+// fieldGainBounds runs from silence up to the amplification a quiet source needs.
 //
 // The ceiling is above unity because a source that needs turning up is the case a gain exists for,
 // and it is a ceiling because an unbounded multiplier clips every other source out of the mix.

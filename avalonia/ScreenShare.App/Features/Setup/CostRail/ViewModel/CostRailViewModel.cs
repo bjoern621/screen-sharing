@@ -22,14 +22,14 @@ namespace ScreenShare.App.Features.Setup.CostRail.ViewModel;
 /// <c>publish.uplink_mbps</c> field.
 /// Nothing here predicts anything (<c>docs/ipc-api.md</c>, "The rule").
 ///
-/// <b>Outputs only, the uplink included.</b> The step that owns the field draws the control for it, so this
-/// panel reads the figure and names that step rather than being a second place one setting is edited.
+/// <b>Outputs only, the uplink included.</b> The step owning the field draws the control for it, so this panel
+/// reads the figure and names that step rather than being a second place one setting is edited.
 /// </summary>
 public sealed class CostRailViewModel : Observable
 {
     /// <summary>
-    /// Slack the bar's scale leaves above the larger of prediction and uplink,
-    /// so a prediction that exactly meets the line keeps the marker off the end cap.
+    /// Slack the bar's scale leaves above the larger of prediction and uplink, so a prediction that exactly meets
+    /// the line keeps the marker off the end cap.
     /// </summary>
     private const double Headroom = 1.15;
 
@@ -49,9 +49,9 @@ public sealed class CostRailViewModel : Observable
     private bool _hasRefusal;
 
     /// <param name="presets">
-    /// The saved ways of publishing, drawn in this column.
-    /// Composed rather than owned: it reads the store and writes the draft through seams of its own, and the
-    /// rail decides only where it sits and renders it on every pass.
+    /// Saved ways of publishing, drawn in this column.
+    /// Composed rather than owned: it reads the store and writes the draft through seams of its own, and the rail
+    /// decides only where it sits and renders it on every pass.
     /// </param>
     public CostRailViewModel(PresetsViewModel presets)
     {
@@ -66,10 +66,10 @@ public sealed class CostRailViewModel : Observable
 
     public PresetsViewModel Presets { get; }
 
-    /// <summary>The estimate's figures under the headline, rebuilt from it on every pass.</summary>
+    /// <summary>Estimate's figures under the headline, rebuilt from it on every pass.</summary>
     public ObservableCollection<CostMetricRow> Metrics { get; }
 
-    /// <summary>The form's diagnostics as lines, in the order the form ranked them.</summary>
+    /// <summary>Form's diagnostics as lines, in the order the form ranked them.</summary>
     public ObservableCollection<PreflightCheckRow> Checks { get; }
 
     /// <summary>Headline figure, Mb/s predicted.</summary>
@@ -118,8 +118,8 @@ public sealed class CostRailViewModel : Observable
 
     /// <summary>
     /// Why no pipeline can be built from the draft, in the backend's own words, empty while one can.
-    /// It sits under the checks rather than at the foot of the form column: the list already carries the line
-    /// saying these settings do not publish, and this is that line's reason
+    /// Sits under the checks rather than at the foot of the form column: the list already carries the line saying
+    /// these settings do not publish, and this is that line's reason
     /// (<c>backend/internal/form/diagnostics.go</c>).
     /// </summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
@@ -128,20 +128,20 @@ public sealed class CostRailViewModel : Observable
 
     /// <summary>
     /// The one line the terminal chip says about this list.
-    /// Derived here rather than restated on the chip, so the strip and the rail cannot disagree about how much
-    /// is owed.
+    /// Derived here rather than restated on the chip, so the strip and the rail cannot disagree about how much is
+    /// owed.
     /// </summary>
     public string ChecksSummary { get => _checksSummary; private set => Set(ref _checksSummary, value); }
 
     /// <summary>
     /// The one render function.
-    /// Idempotent: every output is read out of the arguments, and both lists hold records reconciled onto,
-    /// so a second pass over one form notifies nothing.
+    /// Idempotent: every output is read out of the arguments, and both lists hold records reconciled onto, so a
+    /// second pass over one form notifies nothing.
     /// </summary>
-    /// <param name="estimate">The backend's prediction for the draft, null before the first form.</param>
-    /// <param name="uplink">The uplink field, null where the form carries none.</param>
-    /// <param name="editedOn">The step drawing that field, null where no step of this flow does.</param>
-    /// <param name="checks">The form's diagnostics, already ranked.</param>
+    /// <param name="estimate">Backend's prediction for the draft. Null before the first form.</param>
+    /// <param name="uplink">Uplink field. Null where the form carries none.</param>
+    /// <param name="editedOn">Step drawing that field. Null where no step of this flow does.</param>
+    /// <param name="checks">Form's diagnostics, already ranked.</param>
     /// <param name="refusal">Why no pipeline builds from the draft, empty while one does.</param>
     public void Apply(
         Estimate? estimate,
@@ -169,8 +169,8 @@ public sealed class CostRailViewModel : Observable
         var predicted = estimate?.BitrateMbps ?? 0;
         var raw = estimate?.RawMbps ?? 0;
 
-        // Stated uplink recovered from the estimate rather than read off the settings field,
-        // so both figures on the bar come out of the arithmetic that produced the headroom.
+        // Stated uplink recovered from the estimate rather than read off the settings field, so both figures on the
+        // bar come out of the arithmetic that produced the headroom.
         var capacity = estimate is null ? 0 : predicted + estimate.HeadroomMbps;
         var scale = Math.Max(Math.Max(predicted, capacity), 1) * Headroom;
 
@@ -202,10 +202,10 @@ public sealed class CostRailViewModel : Observable
     }
 
     /// <summary>
-    /// The estimate's other figures, Mb/s: what the capture produces before coding, and what the line has left
-    /// with the stream on it.
-    /// A negative headroom is not clamped: it is the number saying the line cannot carry this, and the words
-    /// for it are already in the checks list.
+    /// Estimate's other figures, Mb/s: what the capture produces before coding, and what the line has left with
+    /// the stream on it.
+    /// A negative headroom is not clamped: it is the number saying the line cannot carry this, and the words for
+    /// it are already in the checks list.
     /// </summary>
     private static IReadOnlyList<CostMetricRow> Rows(Estimate? estimate)
     {
@@ -222,8 +222,8 @@ public sealed class CostRailViewModel : Observable
     }
 
     /// <summary>
-    /// The headline's unit, the uncompressed rate, and the ratio between the two,
-    /// which is what makes the prediction legible as a compression rather than as a number.
+    /// Headline's unit, the uncompressed rate, and the ratio between the two, which makes the prediction legible
+    /// as a compression rather than as a number.
     /// </summary>
     private static string Caption(double raw, double coded)
     {

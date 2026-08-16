@@ -6,16 +6,14 @@ namespace ScreenShare.App.Backend;
 
 /// <summary>
 /// Conversions between a <see cref="FieldValue"/> and the string an option carries.
-///
-/// An option value is a string whatever the settings field's type, since one bindable list has one element
-/// type.
-/// Both directions live here rather than per control, so a select over a number cannot mark one entry and
-/// write another.
+/// An option value is a string whatever the settings field's type, one bindable list having one element type.
+/// Both directions live here rather than per control, so a select over a number cannot mark one entry and write
+/// another.
 /// </summary>
 public static class FieldValues
 {
     /// <summary>
-    /// The value as an option carries it.
+    /// Value as an option carries it.
     /// Invariant formatting: the string is matched against option values the backend wrote, never shown.
     /// </summary>
     public static string AsText(FieldValue? value) => value?.KindCase switch
@@ -29,12 +27,11 @@ public static class FieldValues
     };
 
     /// <summary>
-    /// The option's string back in the shape the field holds it.
-    /// The kind comes from the value the form carried, so the answer takes the settings field's own type
-    /// without this code naming the field.
-    ///
-    /// Text that will not parse is an Entwicklungsfehler: the backend wrote every option value into this
-    /// field's own list.
+    /// Option's string back in the shape the field holds it.
+    /// The kind comes from the value the form carried, so the answer takes the settings field's own type without
+    /// this code naming the field.
+    /// Text that will not parse is an Entwicklungsfehler: the backend wrote every option value into this field's
+    /// own list.
     /// </summary>
     public static FieldValue Of(FieldValue.KindOneofCase kind, string text) => kind switch
     {

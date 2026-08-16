@@ -4,9 +4,7 @@ using ScreenShare.App.Contracts;
 
 namespace ScreenShare.App.Features.Broadcast.Model;
 
-/// <summary>
-/// One viewer starting or stopping watching this stream.
-/// </summary>
+/// <summary>One viewer starting or stopping watching this stream.</summary>
 /// <param name="Name">As <see cref="Readers.NameOf"/> gives it.</param>
 /// <param name="Via">Leg it was watching over, in the transport vocabulary.</param>
 /// <param name="Arrived">True for an arrival, false for a departure.</param>
@@ -18,18 +16,18 @@ public sealed record AudienceChange(string Name, string Via, bool Arrived, DateT
 ///
 /// <b>The relay reports who is connected and never reports a disconnect.</b> The contract carries no arrival
 /// event and no departure event, so either fact exists only between two consecutive rosters.
-/// Derived from the stored series on every pass rather than accumulated as viewers come and go: two passes
-/// over one series produce the same lines, and a shell that reconnected and read again loses none of the
-/// changes it was not watching for (<c>docs/development-principles.md</c>, "Stateless").
+/// Derived from the stored series on every pass rather than accumulated as viewers come and go: two passes over
+/// one series produce the same lines, and a shell that reconnected and read again loses none of the changes it
+/// was not watching for (<c>docs/development-principles.md</c>, "Stateless").
 ///
-/// <b>Two clocks meet here, each dating the fact it can.</b> An arrival carries the relay's join time, the
-/// moment it happened.
-/// A departure has no stamp at all, since the relay stops naming the reader and says nothing about when, so
-/// it carries the arrival time of the poll that first did not name it.
+/// <b>Two clocks meet here, each dating the fact it can.</b> An arrival carries the relay's join time, the moment
+/// it happened.
+/// A departure has no stamp at all, the relay stopping naming the reader and saying nothing about when, so it
+/// carries the arrival time of the poll that first did not name it.
 ///
 /// <b>A snapshot with no path for this stream contributes nothing, and an empty roster is not read out of
-/// it.</b> An unreachable relay, a poll older than the stream's path and a restarted relay all arrive that
-/// way, and reading any of them as "everybody left" logs a departure per viewer on every relay hiccup.
+/// it.</b> An unreachable relay, a poll older than the stream's path and a restarted relay all arrive that way,
+/// and reading any of them as "everybody left" logs a departure per viewer on every relay hiccup.
 ///
 /// Nothing before the oldest snapshot the session still holds is visible here.
 /// The series is bounded and cleared when a stream stops, so these lines cover the run on screen; the whole
@@ -39,9 +37,9 @@ public static class Audience
 {
     /// <summary>
     /// Every arrival and departure in the given snapshots, oldest first.
-    /// Readers of the first snapshot naming this stream's path count as arrivals, dated by the relay's join
-    /// time, so a viewer that connected before this shell looked is dated by the connection and not by the
-    /// poll that found it.
+    /// Readers of the first snapshot naming this stream's path count as arrivals, dated by the relay's join time,
+    /// so a viewer that connected before this shell looked is dated by the connection and not by the poll that
+    /// found it.
     /// </summary>
     public static IReadOnlyList<AudienceChange> Of(IReadOnlyList<RelayReading> readings, string stream)
     {
@@ -69,17 +67,17 @@ public static class Audience
                 if (!held.Contains(reader.Id))
                 {
                     // Relay's join time where it stated one, the poll's otherwise.
-                    // The fallback is reached only for a reader the relay described nowhere, the same reader
-                    // whose address is missing from the table beside this.
+                    // The fallback is reached only for a reader the relay described nowhere, the same reader whose
+                    // address is missing from the table beside this.
                     var at = Readers.JoinedAt(reader) ?? reading.At;
                     changes.Add(new AudienceChange(Readers.NameOf(reader), Via(reader), Arrived: true, at));
                 }
             }
 
             // Departures only against a roster that was read.
-            // The first snapshot otherwise diffs against an empty roster in both directions, which is right
-            // for arrivals, and right for departures only if an empty roster meant "nobody was watching"
-            // rather than "nobody has looked".
+            // The first snapshot otherwise diffs against an empty roster in both directions, right for arrivals,
+            // and right for departures only if an empty roster meant "nobody was watching" rather than "nobody has
+            // looked".
             if (read)
             {
                 foreach (var reader in before)
@@ -101,8 +99,8 @@ public static class Audience
 
     /// <summary>
     /// Relay handles on one snapshot's readers.
-    /// The handle is the identity and the address is not: a reconnect is a new connection from the same
-    /// address, which is a viewer that left and came back.
+    /// The handle is the identity and the address is not: a reconnect is a new connection from the same address,
+    /// a viewer that left and came back.
     /// </summary>
     private static HashSet<string> Ids(IReadOnlyList<RelayReader> roster)
     {

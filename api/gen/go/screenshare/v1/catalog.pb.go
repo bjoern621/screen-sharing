@@ -1411,8 +1411,8 @@ type Catalog struct {
 	// Second-track capture kinds this platform offers, "none" among them.
 	AudioSources []string `protobuf:"bytes,18,rep,name=audio_sources,json=audioSources,proto3" json:"audio_sources,omitempty"`
 	// What this machine has inside those kinds, enumerated rather than declared: which kinds
-	// exist is the same on every machine of one operating system, and which microphone is
-	// plugged in is not.
+	// exist is the same on every machine of one operating system, and which outputs it plays
+	// into is not.
 	//
 	// Each kind's own default is absent from this list, because it needs no enumeration: an
 	// entry naming no device takes it, and every served kind has one.

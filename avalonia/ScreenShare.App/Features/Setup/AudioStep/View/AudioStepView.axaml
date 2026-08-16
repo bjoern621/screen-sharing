@@ -1,0 +1,339 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
+             xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.AudioStep.ViewModel"
+             xmlns:ti="using:TablerIcons"
+             x:Class="ScreenShare.App.Features.Setup.AudioStep.View.AudioStepView"
+             x:DataType="vm:AudioStepViewModel">
+
+  <!--
+    The audio group as the list it is: one row per entry under one set of column heads.
+    Each control's name and paragraph are drawn once, on the head, rather than once per entry, and a
+    kind's paragraph is read in the dropdown that offers it (Features/Fields/View/SelectEntry.axaml).
+
+    Which controls a row holds, which are greyed and why still arrive on the resolved form
+    (docs/ipc-api.md, "The rule").
+  -->
+
+  <UserControl.Styles>
+    <!--
+      Closed dropdown's two columns, and their disabled treatment, stated by the caller: a ControlTheme
+      carries no descendant selector, so the only rule reaching this text is in the file that writes it.
+    -->
+    <Style Selector="TextBlock.facevalue">
+      <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
+    </Style>
+    <Style Selector="ti|TablerIcon.facecaret">
+      <Setter Property="Brush" Value="{DynamicResource MutedBrush}" />
+    </Style>
+
+    <Style Selector="Button:disabled TextBlock.facevalue">
+      <Setter Property="Foreground" Value="{DynamicResource DisabledBrush}" />
+    </Style>
+    <Style Selector="Button:disabled ti|TablerIcon.facecaret">
+      <Setter Property="Brush" Value="{DynamicResource DisabledBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" Padding="16,14" IsVisible="{Binding IsResolved}">
+    <StackPanel>
+      <TextBlock Classes="heading" Text="{Binding Title}" />
+      <TextBlock Classes="secondary"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Margin="0,3,0,16"
+                 Text="{Binding Help}" />
+
+      <!--
+        The heads carry what the generic renderer repeats per entry: the control's name, and its
+        paragraph as the tip.
+        The two trailing columns are fixed at what they hold, a switch and an icon button, so a head
+        stands over the control it names on every row rather than over a column sized per row.
+      -->
+      <Grid ColumnDefinitions="*,*,1.4*,44,28" Margin="10,0,10,6" IsVisible="{Binding HasRows}">
+        <TextBlock Grid.Column="0"
+                   Classes="hint"
+                   Margin="0,0,10,0"
+                   Text="{Binding SourceLabel}"
+                   ToolTip.Tip="{Binding SourceHelp}" />
+        <TextBlock Grid.Column="1"
+                   Classes="hint"
+                   Margin="0,0,10,0"
+                   Text="{Binding DeviceLabel}"
+                   ToolTip.Tip="{Binding DeviceHelp}" />
+        <TextBlock Grid.Column="2"
+                   Classes="hint"
+                   Margin="0,0,10,0"
+                   Text="{Binding GainLabel}"
+                   ToolTip.Tip="{Binding GainHelp}" />
+        <TextBlock Grid.Column="3"
+                   Classes="hint"
+                   Text="{Binding MuteLabel}"
+                   ToolTip.Tip="{Binding MuteHelp}" />
+        <!-- The column over the button that empties a row, which needs no name of its own. -->
+      </Grid>
+
+      <!-- What a change costs the people watching, said once for the columns it is about. -->
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Margin="10,0,10,8"
+                 IsVisible="{Binding HasLiveLine}"
+                 Text="{Binding LiveLine}" />
+
+      <ItemsControl ItemsSource="{Binding Rows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:AudioSourceRowViewModel">
+            <Border Classes="panel" Padding="10,8" Margin="0,0,0,6">
+              <StackPanel Spacing="6">
+                <Grid ColumnDefinitions="*,*,1.4*,44,28">
+                  <ContentControl Grid.Column="0"
+                                  Margin="0,0,10,0"
+                                  IsVisible="{Binding HasSource}"
+                                  Content="{Binding Source}"
+                                  ContentTemplate="{StaticResource AudioSelect}" />
+                  <ContentControl Grid.Column="1"
+                                  Margin="0,0,10,0"
+                                  IsVisible="{Binding HasDevice}"
+                                  Content="{Binding Device}"
+                                  ContentTemplate="{StaticResource AudioSelect}" />
+
+                  <!--
+                    The thumb stops where the form does and nowhere between, as every other slider does
+                    (Features/Fields/View/FieldGroupView.axaml): the setting under it is a whole figure.
+                  -->
+                  <Grid Grid.Column="2"
+                        ColumnDefinitions="*,Auto"
+                        Margin="0,0,10,0"
+                        IsVisible="{Binding HasGain}">
+                    <controls:SweepSlider Grid.Column="0"
+                            IsEnabled="{Binding Gain.IsEnabled}"
+                            Minimum="{Binding Gain.Minimum}"
+                            Maximum="{Binding Gain.Maximum}"
+                            Ticks="{Binding Gain.Ticks}"
+                            TickFrequency="{Binding Gain.Step}"
+                            IsSnapToTickEnabled="True"
+                            SmallChange="{Binding Gain.Step}"
+                            LargeChange="{Binding Gain.PageStep}"
+                            Sweeping="{Binding Gain.IsSweeping}"
+                            Value="{Binding Gain.Slide, Mode=TwoWay}" />
+                    <TextBlock Grid.Column="1"
+                               Classes="figure"
+                               Margin="10,0,0,0"
+                               VerticalAlignment="Center"
+                               Text="{Binding Gain.Readback}" />
+                  </Grid>
+
+                  <ToggleButton Grid.Column="3"
+                                Theme="{StaticResource SwitchTheme}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                IsVisible="{Binding HasMute}"
+                                IsEnabled="{Binding Mute.IsEnabled}"
+                                IsChecked="{Binding Mute.Flag, Mode=TwoWay}" />
+
+                  <!--
+                    Writes the absent kind through the source control's own entry, which is the write the
+                    dropdown beside it makes and what takes an entry off the list.
+                  -->
+                  <Button Grid.Column="4"
+                          Theme="{StaticResource IconButton}"
+                          VerticalAlignment="Center"
+                          IsVisible="{Binding CanRemove}"
+                          Command="{Binding RemoveCommand}"
+                          ToolTip.Tip="Take this source off the list">
+                    <ti:TablerIcon Classes="button" Icon="IconX" />
+                  </Button>
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Reasons}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <TextBlock Classes="reason" TextWrapping="Wrap" TextTrimming="None" Text="{Binding}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <ItemsControl ItemsSource="{Binding Notes}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="x:String">
+                      <TextBlock Classes="hint" TextWrapping="Wrap" TextTrimming="None" Text="{Binding}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Classes="hint"
+                 TextWrapping="Wrap"
+                 TextTrimming="None"
+                 Margin="10,0,10,6"
+                 IsVisible="{Binding !HasRows}"
+                 Text="{Binding EmptyLine}" />
+
+      <!--
+        The form's own row past the end of the list. Picking a kind on it writes the entry, so the face
+        says that rather than naming the absent kind the row holds (Copy/Cards.cs).
+      -->
+      <Button Theme="{StaticResource OutlineButton}"
+              HorizontalAlignment="Left"
+              IsVisible="{Binding HasAdd}"
+              IsEnabled="{Binding Add.IsEnabled}"
+              ToolTip.Tip="{Binding SourceHelp}">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <ti:TablerIcon Icon="IconPlus" Brush="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding AddLabel}" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <Button.Flyout>
+          <MenuFlyout ItemsSource="{Binding Add.MenuRows}"
+                      ItemTemplate="{StaticResource SelectEntry}"
+                      ItemContainerTheme="{StaticResource SelectMenuItem}"
+                      Placement="BottomEdgeAlignedLeft" />
+        </Button.Flyout>
+      </Button>
+
+      <!--
+        Everything the group holds that belongs to no entry, drawn under the list in the form's order.
+        Every control kind the contract carries is here, so a field the backend adds to this group is
+        drawn without an edit to this file.
+      -->
+      <ItemsControl ItemsSource="{Binding UnderList}" Margin="0,18,0,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="fields:FieldViewModel">
+            <StackPanel Spacing="6" Margin="0,0,0,18">
+              <Grid ColumnDefinitions="*,Auto,Auto">
+                <TextBlock Grid.Column="0" Classes="secondary" Text="{Binding Label}" />
+                <TextBlock Grid.Column="1"
+                           Classes="hint"
+                           Margin="8,0,0,0"
+                           VerticalAlignment="Center"
+                           IsVisible="{Binding AppliesLive}"
+                           Text="{Binding LiveNotice}" />
+                <TextBlock Grid.Column="2" Classes="figure" IsVisible="{Binding HasUnit}" Text="{Binding Unit}" />
+              </Grid>
+
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         IsVisible="{Binding HasHelp}"
+                         Text="{Binding Help}" />
+
+              <TextBox IsVisible="{Binding IsText}"
+                       IsEnabled="{Binding IsEnabled}"
+                       Text="{Binding Text, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+
+              <NumericUpDown IsVisible="{Binding IsNumber}"
+                             IsEnabled="{Binding IsEnabled}"
+                             Value="{Binding Number, Mode=TwoWay}"
+                             Minimum="{Binding NumberMinimum}"
+                             Maximum="{Binding NumberMaximum}"
+                             Increment="{Binding NumberStep}"
+                             FormatString="0"
+                             MinWidth="160"
+                             HorizontalAlignment="Left" />
+
+              <StackPanel Orientation="Horizontal"
+                          IsVisible="{Binding IsNumberSelect}"
+                          HorizontalAlignment="Left">
+                <NumericUpDown Theme="{StaticResource NumberSelectInput}"
+                               IsEnabled="{Binding IsEnabled}"
+                               Value="{Binding Number, Mode=TwoWay}"
+                               Minimum="{Binding NumberMinimum}"
+                               Maximum="{Binding NumberMaximum}"
+                               Increment="{Binding NumberStep}"
+                               FormatString="0"
+                               MinWidth="160" />
+                <Button Theme="{StaticResource NumberSelectCaret}" IsEnabled="{Binding IsEnabled}">
+                  <ti:TablerIcon Icon="IconChevronDown" Brush="{StaticResource MutedBrush}" />
+                  <Button.Flyout>
+                    <MenuFlyout ItemsSource="{Binding MenuRows}"
+                                ItemTemplate="{StaticResource SelectEntry}"
+                                ItemContainerTheme="{StaticResource SelectMenuItem}"
+                                Placement="BottomEdgeAlignedRight" />
+                  </Button.Flyout>
+                </Button>
+              </StackPanel>
+
+              <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}">
+                <controls:SweepSlider Grid.Column="0"
+                        IsEnabled="{Binding IsEnabled}"
+                        Minimum="{Binding Minimum}"
+                        Maximum="{Binding Maximum}"
+                        Ticks="{Binding Ticks}"
+                        TickFrequency="{Binding Step}"
+                        IsSnapToTickEnabled="True"
+                        SmallChange="{Binding Step}"
+                        LargeChange="{Binding PageStep}"
+                        Sweeping="{Binding IsSweeping}"
+                        Value="{Binding Slide, Mode=TwoWay}" />
+                <TextBlock Grid.Column="1"
+                           Classes="figure"
+                           Margin="10,0,0,0"
+                           VerticalAlignment="Center"
+                           Text="{Binding Readback}" />
+              </Grid>
+
+              <ToggleButton IsVisible="{Binding IsToggle}"
+                            Theme="{StaticResource SwitchTheme}"
+                            IsEnabled="{Binding IsEnabled}"
+                            IsChecked="{Binding Flag, Mode=TwoWay}" />
+
+              <TextBlock Classes="figure" IsVisible="{Binding IsReadonly}" Text="{Binding Readback}" />
+
+              <StackPanel IsVisible="{Binding IsChoice}">
+                <ItemsControl ItemsSource="{Binding Shown}" IsEnabled="{Binding IsEnabled}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="fields:OptionViewModel">
+                      <Button Theme="{StaticResource OptionCard}"
+                              Classes.picked="{Binding IsSelected}"
+                              Margin="0,0,0,4"
+                              IsEnabled="{Binding IsEnabled}"
+                              Command="{Binding Choose}">
+                        <StackPanel Spacing="4">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Grid.Column="0" Classes="optiontitle" Text="{Binding Label}" />
+                            <TextBlock Grid.Column="1" Classes="figure" IsVisible="{Binding HasNote}" Text="{Binding Note}" />
+                          </Grid>
+                          <TextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
+                          <TextBlock Classes="cardbody" IsVisible="{Binding HasDetail}" Text="{Binding Detail}" />
+                        </StackPanel>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button Theme="{StaticResource LinkButton}"
+                        HorizontalAlignment="Left"
+                        Margin="0,2,0,0"
+                        IsVisible="{Binding HasRefused}"
+                        Command="{Binding RevealCommand}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ti:TablerIcon Icon="{Binding RefusedGlyph}"
+                                   Brush="{StaticResource MutedBrush}"
+                                   VerticalAlignment="Center" />
+                    <TextBlock Classes="secondary" Text="{Binding RefusedTitle}" VerticalAlignment="Center" />
+                    <TextBlock Classes="hint" Text="{Binding RefusedCount}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+
+              <TextBlock Classes="reason" IsVisible="{Binding HasReason}" Text="{Binding Reason}" />
+
+              <TextBlock Classes="hint"
+                         TextWrapping="Wrap"
+                         TextTrimming="None"
+                         IsVisible="{Binding HasNote}"
+                         Text="{Binding Note}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </Border>
+
+</UserControl>

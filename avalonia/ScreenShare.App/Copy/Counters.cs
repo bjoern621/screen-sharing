@@ -4,7 +4,7 @@ namespace ScreenShare.App.Copy;
 /// One figure of the stats panel.
 /// A label with no tip is a number nobody can act on, so the two are one entry and neither is written alone.
 /// </summary>
-/// <param name="Label">The name of the figure, as the row prints it.</param>
+/// <param name="Label">Name of the figure, as the row prints it.</param>
 /// <param name="Tip">
 /// What a reading of the figure is evidence of, never a restatement of the unit printed beside it
 /// (<c>docs/tooltips.md</c>).
@@ -13,15 +13,14 @@ public readonly record struct Counter(string Label, string Tip);
 
 /// <summary>
 /// Every word of the stats panel: its headings, its rows, and the counters the transport's own elements keep.
-///
 /// Keyed on the identifiers the two sides share: the contract's field names for a decode's sample, and an
 /// element's own names for its counters (<c>api/proto/screenshare/v1/text.proto</c>).
-/// Which transport rows a decode reports follows from the leg it was opened on, SRT counting a link and RTSP
-/// a jitter buffer per track, so two legs of one stream carry two different sets of evidence.
+/// Which transport rows a decode reports follows from the leg it was opened on, SRT counting a link and RTSP a
+/// jitter buffer per track, so two legs of one stream carry two different sets of evidence.
 /// </summary>
 public static class Counters
 {
-    /// <summary>The panel's headings, in the order frames pass through the stages they name.</summary>
+    /// <summary>Panel's headings, in the order frames pass through the stages they name.</summary>
     private static readonly Dictionary<string, Counter> Headings = new()
     {
         ["section.stream"] = new(
@@ -32,16 +31,16 @@ public static class Counters
             "What came out of the decoder, read off its output. This is the picture as it was encoded, at the size the publisher captured, before this window scaled anything."),
         ["section.decode"] = new(
             "Decode",
-            "Which element decoded the stream and where it left the frames. A hardware decoder that leaves its frames in system memory has downloaded them, which costs the whole picture over the bus every frame."),
+            "Which decoder took the stream, where it left the frames, and what it threw away to stay on time. A hardware decoder that leaves its frames in system memory has downloaded them, which costs the whole picture over the bus every frame."),
         ["section.render"] = new(
             "Render",
-            "What happened between the decoder and this window: the chain that converted the frames, the memory they reached the sink in, and what the sink did with them."),
+            "What happened between the decoder and this window: the render chain that converted the frames, the memory they were handed over in, and what this machine did with them."),
         ["section.timing"] = new(
             "Timing",
-            "How the pipeline is paced. A live pipeline cannot slow down to catch up, so anything it cannot decode in time it drops."),
+            "How the decode is paced. A live stream cannot slow down to catch up, so anything not decoded in time is dropped."),
         ["section.delay"] = new(
             "Delay",
-            "What each stage of the path costs a frame, from the publisher's screen to this window. One stage is missing from it: the relay terminates the incoming protocol and re-muxes for every viewer, and neither end can time that, so the total is a floor rather than the whole journey. The publishing stages are here only while this machine is the one publishing the stream, because nothing carries them over the relay."),
+            "What each stage of the path costs a frame, from the publisher's screen to this window. One stage is missing from it: the relay takes the stream in and repackages it for every viewer, and neither end can time that, so the total is a floor rather than the whole journey. The publishing stages are here only while this machine is the one publishing the stream."),
         ["section.audio"] = new(
             "Audio",
             "The sound track this decode is carrying. Absent on a stream published without one."),
@@ -65,8 +64,8 @@ public static class Counters
     };
 
     /// <summary>
-    /// Every row, keyed on the contract field it prints or, in a transport block, on the element's own name
-    /// for the counter.
+    /// Every row, keyed on the contract field it prints or, in a transport block, on the element's own name for
+    /// the counter.
     /// </summary>
     private static readonly Dictionary<string, Counter> Fields = new()
     {
@@ -114,7 +113,7 @@ public static class Counters
             "How much colour resolution survived the encode. 4:4:4 keeps all of it and is what stops text and edges fringing; 4:2:0 keeps a quarter and is the video-call look."),
         ["colorimetry"] = new(
             "Colour",
-            "The whole colour description the frames carry: range, matrix, primaries and transfer. A sink that has to guess any of it is a sink that will get the brightness wrong."),
+            "The whole colour description the frames carry: range, matrix, primaries and transfer. Anything left unstated has to be guessed, and a wrong guess draws the picture at the wrong brightness."),
         ["transfer"] = new(
             "Transfer",
             "The curve mapping code values to light. Two of them carry more range than a standard display shows, and a tile drawing one of those without converting it looks flat and dim rather than obviously wrong."),
@@ -131,70 +130,76 @@ public static class Counters
         // section.decode
         ["decoder"] = new(
             "Decoder",
-            "The element that decoded this stream, picked by the pipeline rather than chosen here. Which one is picked follows from what this machine registers, so two machines watching one stream can be running different decoders."),
+            "What decoded this stream, picked by this machine rather than chosen here. Which one is picked follows from what this machine registers, so two machines watching one stream can be running different decoders."),
         ["decode_memory"] = new(
             "Decoded into",
             "Where the decoder left its frames. A hardware decoder reporting system memory downloaded its own output, which is a copy of every frame across the bus that the next stage has to push straight back."),
+        ["discarded_fps"] = new(
+            "Discarded to keep up",
+            "Frames the decoder threw away each second instead of handing on, because their moment had already passed. This is how the picture stays current when this machine is sent more than it can draw, and it is the cheap place to lose a frame, since nothing after the decoder is spent on one. Steady shedding means fewer frames per second at the sending end would cost nothing here."),
         ["tone_map"] = new(
             "Tone mapping",
-            "Whether this decode was built with the step that rolls an HDR stream down into the range this display shows. It is what ran rather than what was asked for: a machine with no element for it builds the pipeline without one."),
+            "Whether this decode was built with the step that rolls an HDR stream down into the range this display shows. It is what ran rather than what was asked for: a machine with nothing to convert with opens the decode without it."),
 
         // section.render
         ["chain"] = new(
             "Render chain",
-            "The elements between the decoder and this window, and what they promise about colour. A chain states its colour or leaves it to the driver, and one that leaves it is why two machines can draw one stream at different brightness."),
+            "What converts the frames between the decoder and this window, and what it promises about colour. A chain states its colour or leaves it to the driver, and one that leaves it is why two machines can draw one stream at different brightness."),
         ["render_memory"] = new(
-            "Reached the sink in",
-            "Where the frames were when the chain handed them over. Compare it against what the decoder produced: the two differing is a download or an upload, and it is the cost the chain was chosen to avoid."),
+            "Handed over in",
+            "Where the frames were when the render chain handed them over. Compare it against what the decoder produced: the two differing is a download or an upload, and it is the cost the chain was chosen to avoid."),
         ["render_format"] = new(
-            "Sink takes",
-            "The pixel format and colour the sink negotiated. It is pinned rather than left open, because a sink that takes raw video and guesses the transfer function washes out desktop content."),
+            "Drawn from",
+            "The pixel format and colour this window draws from. It is pinned rather than left open: raw video with a guessed transfer function washes out desktop content."),
         ["render_size"] = new(
             "Drawn at",
-            "The size the frames reach the sink at. Smaller than the decoded picture means the chain scaled the stream down to this tile, which is work that stops the moment the tile grows."),
+            "The size the frames reach this window at. Smaller than the decoded picture means the render chain scaled the stream down to this tile, which is work that stops the moment the tile grows."),
         ["render_fps"] = new(
             "Frames drawn",
-            "How many frames left the sink over the last second. Below the rate arriving means this machine is not keeping up with a stream it is receiving fine."),
+            "How many frames were drawn over the last second. Below the rate arriving means this machine is not keeping up with a stream it is receiving fine."),
         ["rendered"] = new(
             "Frames rendered",
-            "Everything the sink has taken since this decode opened. It is the running total behind the drawn rate."),
+            "Everything drawn since this decode opened. It is the running total behind the drawn rate."),
         ["sink_dropped"] = new(
-            "Dropped by the sink",
-            "Frames the sink threw away for arriving after their play time. This is the pipeline being late rather than the network losing anything, and it climbs on a machine that cannot decode the stream in real time."),
+            "Dropped at the last step",
+            "Frames thrown away after everything had already been spent on them, which is the wasteful place to lose one and stays at zero on a healthy decode. Frames shed to keep the picture current are thrown away much earlier instead, and show up as the drawn rate above sitting under the arriving rate."),
 
         // section.timing
         ["live"] = new(
-            "Live pipeline",
-            "Whether the pipeline is running against a clock it cannot pause. Every relay leg is: what it cannot decode in time it drops, rather than falling behind and catching up later."),
+            "Live timing",
+            "Whether the decode is running against a clock it cannot pause. Every relay leg is: what cannot be decoded in time is dropped, rather than falling behind and catching up later."),
         ["latency"] = new(
             "Latency window",
-            "How long the pipeline holds a frame before playing it, which is the buffering it configured against jitter. Larger is steadier and later, and it is the floor under how fast this tile can be."),
+            "How long a frame is held before playing, which is the buffering set against jitter. Larger is steadier and later, and it is the floor under how fast this tile can be."),
         ["position_sec"] = new(
             "Position",
-            "The running time the pipeline has reached. Frozen while the uptime beside it keeps climbing means the stream has stalled, which is the one reading that separates a stalled tile from a still picture."),
+            "The running time the decode has reached. Frozen while the uptime beside it keeps climbing means the stream has stalled, which is the one reading that separates a stalled tile from a still picture."),
         ["uptime_sec"] = new(
             "Uptime",
-            "How long this decode has been running. It restarts whenever the pipeline is rebuilt, which turning tone mapping on does."),
+            "How long this decode has been running. It restarts whenever the decode is rebuilt, which turning tone mapping on does."),
 
         // section.delay
         ["delay.publish"] = new(
             "Capture and encode",
-            "How long the publishing machine held a frame between reading it off the screen and having it encoded and ready to send. It is the one stage a faster encoder preset or a shorter lookahead shortens, and it is measured on the publishing pipeline rather than inferred from a setting."),
+            "How long the publishing machine held a frame between reading it off the screen and having it encoded and ready to send. It is the one stage a faster encoder preset or a shorter lookahead shortens, and it is measured on the publishing machine rather than inferred from a setting."),
         ["delay.publish_link"] = new(
             "Publisher to relay",
             "The delivery window the publisher's leg settled on with the relay: every packet is held for this long so a lost one has room to arrive again. It is paid on every frame whether or not anything is lost, which is what makes it the largest stage on a healthy path."),
         ["delay.relay"] = new(
             "Through the relay",
-            "What the relay spends terminating the incoming protocol and re-muxing the stream for this viewer. Never a figure: the relay states no per-path delay and no leg carries a relay timestamp to subtract, so the only honest reading is that it is unmeasured and that the total below is short by it."),
+            "What the relay spends taking the stream in and repackaging it for this viewer. Never a figure: the relay states no per-path delay and no leg carries a relay timestamp to subtract, so the only honest reading is that it is unmeasured and that the total below is short by it."),
         ["delay.watch_link"] = new(
             "Relay to here",
-            "The same delivery window on this leg, held by the transport before the pipeline is handed a packet at all. Only SRT states one; a leg that buffers inside the pipeline instead pays it under the two rows below."),
+            "The same delivery window on this leg, held by the protocol before a packet reaches the decode at all. Only SRT states one; a leg that buffers further in pays it under the two rows below."),
         ["delay.receive"] = new(
             "Decode",
-            "How long this machine held a frame between the leg's source stamping it and the sink taking it: depacketizing, decoding and the queues in between. Rising to meet the latency window is a decode about to start dropping frames."),
+            "How long this machine held a frame between the packet arriving and the frame being ready to draw: unpacking, decoding and the waiting in between. Rising to meet the latency window is a decode about to start dropping frames."),
+        ["delay.receive_peak"] = new(
+            "Decode, worst",
+            "The longest the row above has ever taken for a single frame on this decode. It only ever rises, so a single slow frame shows here where an average over a second hides it. Reaching the latency window means this machine has been sent more than it can keep up with, and frames were thrown away to hold the picture current."),
         ["delay.present"] = new(
-            "Waiting at the sink",
-            "How long the sink still held each frame after it arrived, so that it was drawn at the moment the latency window puts it. It shrinks as the decode above grows, the two together being that window."),
+            "Held for play time",
+            "How long each frame was held after arriving, so that it was drawn at the moment the latency window puts it. It shrinks as the decode above grows, the two together being that window."),
         ["delay.total"] = new(
             "At least, end to end",
             "The stages above that were measured, added up. A floor and never the whole delay: the relay's own share is missing from it, and so are the publishing stages whenever the stream comes from another machine."),
@@ -205,7 +210,7 @@ public static class Counters
             "The coding format the sound track is in, as the decoder identifies it."),
         ["audio_decoder"] = new(
             "Decoder",
-            "The element decoding the sound track."),
+            "What decodes the sound track."),
         ["audio_format"] = new(
             "Sample format",
             "How the decoded audio samples are laid out."),
@@ -225,7 +230,7 @@ public static class Counters
         // section.window
         ["window.size"] = new(
             "Handed over at",
-            "The size of the frames this window is being given. It is the sink's output as the window sees it, and it is what a marker drawn over the picture is positioned against."),
+            "The size of the frames this window is being given. It is what the render chain hands over, as the window sees it, and it is what a marker drawn over the picture is positioned against."),
         ["window.frames"] = new(
             "Frames taken",
             "How many frames this window has taken since it subscribed. It counts what arrived here, not what was drawn: a window behind the compositor takes frames it never puts on screen."),
@@ -287,9 +292,9 @@ public static class Counters
     public static Counter Field(string key) => Look(Fields, key);
 
     /// <summary>
-    /// The entry for an identifier, falling back to the identifier itself with nothing said about it.
-    /// A counter this build has no words for is still one the backend sends, and a row printing its raw key
-    /// is one a reader can search for and report.
+    /// Entry for an identifier, falling back to the identifier itself with nothing said about it.
+    /// A counter this build has no words for is still one the backend sends, and a row printing its raw key is one
+    /// a reader can search for and report.
     /// </summary>
     private static Counter Look(Dictionary<string, Counter> table, string id) =>
         id.Length > 0 && table.TryGetValue(id, out var entry) ? entry : new Counter(id, "");

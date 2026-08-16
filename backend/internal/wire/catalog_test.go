@@ -410,23 +410,41 @@ func TestAudioSourcesAreTheOnesThisMachineServes(t *testing.T) {
 	}
 }
 
-// The one source difference the table states, read back off the wire: a Linux session serves what
-// the machine plays and the others have nothing either publish engine can open, so the field is one
-// entry longer there.
+// The source differences the table states, read back off the wire.
+//
+// Linux and Windows both serve what the machine plays, through a monitor source on one and a
+// loopback device on the other, and macOS has nothing either publish engine can open.
+// Per-application capture divides one step narrower and is Linux's alone, a program's own output
+// being a PipeWire node there and a process id nothing enumerates elsewhere.
 // A catalog carrying the same list everywhere would be the hardcoded slice this table replaced.
 func TestAudioSourcesDifferByPlatform(t *testing.T) {
 	linux := catalogInput()
 	linux.Platform = platform.Info{OS: "linux", Display: "wayland"}
 	windows := catalogInput()
 	windows.Platform = platform.Info{OS: "windows"}
+	macOS := catalogInput()
+	macOS.Platform = platform.Info{OS: "darwin"}
 
-	served := Catalog(linux).GetAudioSources()
-	unserved := Catalog(windows).GetAudioSources()
-	if !slices.Contains(served, platform.AudioSourceDesktop) {
-		t.Errorf("a Linux catalog carries %v, which does not offer desktop audio", served)
+	onLinux := Catalog(linux).GetAudioSources()
+	onWindows := Catalog(windows).GetAudioSources()
+	onMacOS := Catalog(macOS).GetAudioSources()
+
+	for _, tc := range []struct {
+		os      string
+		sources []string
+	}{{"linux", onLinux}, {"windows", onWindows}} {
+		if !slices.Contains(tc.sources, platform.AudioSourceDesktop) {
+			t.Errorf("a %s catalog carries %v, which does not offer desktop audio", tc.os, tc.sources)
+		}
 	}
-	if slices.Contains(unserved, platform.AudioSourceDesktop) {
-		t.Errorf("a Windows catalog carries %v, offering a source neither engine can open there", unserved)
+	if slices.Contains(onMacOS, platform.AudioSourceDesktop) {
+		t.Errorf("a macOS catalog carries %v, offering a source neither engine can open there", onMacOS)
+	}
+	if !slices.Contains(onLinux, platform.AudioSourceApplication) {
+		t.Errorf("a Linux catalog carries %v, which does not offer per-application capture", onLinux)
+	}
+	if slices.Contains(onWindows, platform.AudioSourceApplication) {
+		t.Errorf("a Windows catalog carries %v, offering a source nothing enumerates there", onWindows)
 	}
 }
 

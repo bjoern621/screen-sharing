@@ -40,10 +40,15 @@ const (
 	// DecodeDxva is the d3d11 plugin (d3d11h264dec and siblings): Windows and vendor neutral,
 	// the path a machine with no vendor plugin still has.
 	DecodeDxva = "dxva"
+	// DecodeVideoToolbox is the applemedia plugin (vtdec): Apple's media block, and the only hardware
+	// decode a Mac has.
+	DecodeVideoToolbox = "videotoolbox"
 )
 
 // DecodeFamilies is the closed set a row's Family comes out of.
-var DecodeFamilies = []string{DecodeSoftware, DecodeVa, DecodeNvcodec, DecodeQsv, DecodeDxva}
+var DecodeFamilies = []string{
+	DecodeSoftware, DecodeVa, DecodeNvcodec, DecodeQsv, DecodeDxva, DecodeVideoToolbox,
+}
 
 // Decoder is one decoder element and the pixel formats it decodes.
 type Decoder struct {
@@ -116,6 +121,12 @@ var Decoders = []Decoder{
 		Format:  "h264",
 		Chromas: []string{"yuv420p"},
 	},
+	{
+		Element: "vtdec",
+		Family:  DecodeVideoToolbox,
+		Format:  "h264",
+		Chromas: []string{"yuv420p"},
+	},
 
 	{
 		Element: "avdec_h265",
@@ -144,6 +155,12 @@ var Decoders = []Decoder{
 	{
 		Element: "d3d11h265dec",
 		Family:  DecodeDxva,
+		Format:  "hevc",
+		Chromas: hardware420,
+	},
+	{
+		Element: "vtdec",
+		Family:  DecodeVideoToolbox,
 		Format:  "hevc",
 		Chromas: hardware420,
 	},

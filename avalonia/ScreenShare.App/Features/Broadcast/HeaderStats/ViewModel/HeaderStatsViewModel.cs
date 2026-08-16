@@ -57,8 +57,8 @@ public sealed class HeaderStatsViewModel : Observable
 
     /// <summary>
     /// Whether the pill shows at all.
-    /// There is no off-air pill: a stream that is not live reads as the pill's absence, and the one red is
-    /// never spent on an idle state.
+    /// No off-air pill: a stream that is not live reads as the pill's absence, and the red is never spent on an
+    /// idle state.
     /// </summary>
     public bool IsSharing { get => _isSharing; private set => Set(ref _isSharing, value); }
 
@@ -91,13 +91,13 @@ public sealed class HeaderStatsViewModel : Observable
         [
             new StatFigure(Figure.Of(reading.EgressMbps, "0.00"), "Mb/s"),
             new StatFigure(Figure.Of(reading.Fps, "0.0"), "fps"),
-            // The unit names the stage, because the delay to a viewer has several and this is the one this
-            // machine causes: capture to encoded, and not the windows the transports hold packets for.
+            // The unit names the stage, the delay to a viewer having several and this being the one this machine
+            // causes: capture to encoded, and not the windows the transports hold packets for.
             // The whole path is a viewer's panel to show, this being the end that cannot see the other.
             new StatFigure(Figure.Of(reading.EncodeMs, "0.0"), "ms encode"),
             // Round trip and loss are measured per viewer, so neither has a stream-wide value to promote.
-            // Both are the worst viewer's, and the unit says so: an unqualified "ms rtt" beside a viewer
-            // count reads as the stream's own, which is a figure nobody took (Model/BroadcastSnapshot.cs).
+            // Both are the worst viewer's, and the unit says so: an unqualified "ms rtt" beside a viewer count
+            // reads as the stream's own, a figure nobody took (Model/BroadcastSnapshot.cs).
             new StatFigure(Figure.Of(reading.RttMs), "ms rtt worst", Untimed(reading, reading.RttMs)),
             new StatFigure(Figure.Of(reading.LossPercent, "0.00"), "% loss worst", Untimed(reading, reading.LossPercent)),
             new StatFigure(Figure.Of(reading.Viewers), "viewers"),
@@ -112,11 +112,11 @@ public sealed class HeaderStatsViewModel : Observable
     ///
     /// Said only while the relay names a reader on the path, the one state where the ellipsis is worth
     /// explaining: viewers and no round trip looks like a broken measurement and is a leg nobody times.
-    /// An empty roster is explained by the viewer count beside it, and a stream that is not live by the
-    /// missing pill.
+    /// An empty roster is explained by the viewer count beside it, and a stream that is not live by the missing
+    /// pill.
     ///
-    /// The wording is the plot's own (<see cref="Cards.Untimed"/>): both surfaces read one roster, so a
-    /// second phrasing would be a second answer.
+    /// The wording is the plot's own (<see cref="Cards.Untimed"/>): both surfaces read one roster, so a second
+    /// phrasing would be a second answer.
     /// </summary>
     private static string? Untimed(BroadcastSnapshot reading, double? figure)
         => figure is null && reading.Viewers > 0 ? Cards.Untimed(reading.Legs) : null;

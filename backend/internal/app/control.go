@@ -15,6 +15,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/pointer"
+	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -206,6 +207,11 @@ func publishSnapshot(state PublishState) wire.PublishSnapshot {
 	}
 
 	live := &wire.LiveSnapshot{Settings: *state.Settings, Pending: state.Pending, Preview: state.Preview}
+	// Read off the settings the pipeline was built from, so the figure crossing is the one this
+	// encoder is holding rather than one a later edit put in the form.
+	if ceiling, bounded := publish.RateCeilingMbps(*state.Settings); bounded {
+		live.RateCeilingMbps = &ceiling
+	}
 	if state.Retrying {
 		live.Retry = &wire.RetrySnapshot{Attempt: state.Attempt, Budget: state.Budget}
 	}

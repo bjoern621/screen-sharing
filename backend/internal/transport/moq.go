@@ -41,11 +41,11 @@ var moqPlayback = Carriage{
 	Audio: []string{"opus", "aac"},
 }
 
-func (MoQ) Formats() Formats {
-	return Formats{Watch: map[string]Carriage{
-		EngineBrowser: moqPlayback,
-	}}
-}
+var moqFormats = Formats{Watch: map[string]Carriage{
+	EngineBrowser: moqPlayback,
+}}
+
+func (MoQ) Formats() Formats { return moqFormats }
 
 // BrowserURL is the relay's MoQ player page, "https://relay:8892/<stream>/".
 // The trailing slash saves a redirect, that address being where the relay would send the browser,

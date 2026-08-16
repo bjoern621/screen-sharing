@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    The switch, which is what a flag wears here: never a CheckBox.
+    The switch a flag wears here: never a CheckBox.
     Built on ToggleButton and not ToggleSwitch, whose knob animation demands a set of named template
     parts that this theme would then have to hide.
   -->

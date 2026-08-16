@@ -6,28 +6,27 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// Where the backend listens, and how a stream is opened to it.
 ///
-/// The address is the whole discovery mechanism: no port to scan for, no file to parse, no environment
-/// variable to read, and a shell that cannot open it reports that the backend is not running
-/// (<c>docs/ipc-api.md</c>, "The format, and why this one").
+/// The address is the whole discovery mechanism: no port to scan for, no file to parse, no environment variable
+/// to read, and a shell that cannot open it reports the backend as not running (<c>docs/ipc-api.md</c>, "The
+/// format, and why this one").
 ///
 /// The names are the Go side's, spelled again here rather than shared, and both carry the contract major
 /// (<c>backend/internal/control/listen_windows.go</c>, <c>listen_other.go</c>).
-/// A <c>v2</c> is therefore a second pipe and a second socket: two backends on different majors run side by
-/// side, and a shell that opens the wrong one fails to connect instead of being turned away at <c>Hello</c>.
+/// A <c>v2</c> is a second pipe and a second socket: two backends on different majors run side by side, and a
+/// shell that opens the wrong one fails to connect instead of being turned away at <c>Hello</c>.
 ///
-/// The Unix path is placed the way Go places it, because the two have to name one file.
-/// The runtime directory is per user, mode 0700 and cleared at logout; the fallback is for the logins that
-/// have none, macOS included.
+/// The Unix path is placed the way Go places it, the two having to name one file.
+/// The runtime directory is per user, mode 0700 and cleared at logout; the fallback is for the logins that have
+/// none, macOS included.
 /// That fallback follows Go's <c>os.UserConfigDir</c> and not .NET's nearest equivalent, which disagrees on
 /// macOS: <c>SpecialFolder.ApplicationData</c> answers <c>~/.config</c> where Go answers
-/// <c>~/Library/Application Support</c>, so a shell reading the wrong one reports a running backend as
-/// absent.
+/// <c>~/Library/Application Support</c>, so a shell reading the wrong one reports a running backend as absent.
 /// </summary>
 internal static class ControlEndpoint
 {
     /// <summary>
-    /// The leaf alone: <see cref="NamedPipeClientStream"/> takes the server and the <c>\\.\pipe\</c> prefix
-    /// as arguments of its own.
+    /// Leaf alone: <see cref="NamedPipeClientStream"/> takes the server and the <c>\\.\pipe\</c> prefix as
+    /// arguments of its own.
     /// </summary>
     private const string PipeName = "screenshare-control-v1";
 
@@ -35,31 +34,31 @@ internal static class ControlEndpoint
     private const string SocketFileName = "control-v1.sock";
 
     /// <summary>
-    /// The address in the form a person reads, for the sentence saying the backend is not running.
-    /// It names the endpoint that was tried rather than the failure, since the path is what makes "nothing is
-    /// listening on this" actionable.
+    /// Address in the form a person reads, for the sentence saying the backend is not running.
+    /// Names the endpoint that was tried rather than the failure, the path being what makes "nothing is listening
+    /// on this" actionable.
     /// </summary>
     public static string Describe() => OperatingSystem.IsWindows() ? $@"\\.\pipe\{PipeName}" : SocketPath();
 
     /// <summary>
     /// How long a freshly started backend is given to bind, and how often it is asked meanwhile.
     /// A started process is not a listening one, and opening the endpoint is the only signal that it came up.
-    /// Both figures are short: the backend opens its socket before anything else, and a window that hesitated
-    /// for seconds on every launch would be paying for the case where there is no backend to start.
+    /// Both figures are short: the backend opens its socket before anything else, and a window hesitating for
+    /// seconds on every launch would be paying for the case where there is no backend to start.
     /// </summary>
     private static readonly TimeSpan StartDeadline = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan StartPoll = TimeSpan.FromMilliseconds(50);
 
     /// <summary>
-    /// Opens one stream to the backend, which is what a gRPC channel calls whenever it needs a connection:
-    /// the first call, and every call after one was lost.
-    /// That is the whole of this shell's reconnect, with nothing here holding a dead handle.
+    /// Opens one stream to the backend, which a gRPC channel calls whenever it needs a connection: the first
+    /// call, and every call after one was lost.
+    /// The whole of this shell's reconnect, with nothing here holding a dead handle.
     ///
     /// A refused connection throws, and throws at once on both platforms rather than waiting out a timeout.
-    /// Nothing listening is the one condition the shell can act on rather than report, so it starts a backend
-    /// and asks again until the deadline (<see cref="BackendProcess"/>).
-    /// A start that fails, or one that never binds, leaves the original failure standing for the caller to
-    /// turn into the sentence the screen shows.
+    /// Nothing listening is the one condition the shell can act on rather than report, so it starts a backend and
+    /// asks again until the deadline (<see cref="BackendProcess"/>).
+    /// A start that fails, or one that never binds, leaves the original failure standing for the caller to turn
+    /// into the sentence the screen shows.
     /// </summary>
     public static async ValueTask<Stream> ConnectAsync(CancellationToken cancellation)
     {
@@ -74,10 +73,10 @@ internal static class ControlEndpoint
     }
 
     /// <summary>
-    /// Asks the endpoint until a backend that is coming up answers, and rethrows the last refusal once the
-    /// deadline passes.
-    /// That refusal is a connect failure like the first one, so the screen's sentence is the same whether a
-    /// backend was started or not: nothing is listening, which is true either way.
+    /// Asks the endpoint until a backend coming up answers, and rethrows the last refusal once the deadline
+    /// passes.
+    /// That refusal is a connect failure like the first, so the screen's sentence is the same whether a backend
+    /// was started or not: nothing is listening, true either way.
     /// </summary>
     private static async ValueTask<Stream> OpenStartingAsync(CancellationToken cancellation)
     {
@@ -108,7 +107,7 @@ internal static class ControlEndpoint
             catch
             {
                 // The handle belongs to this method until it is returned, so a throw closes it here.
-                // Left open it is a pipe client nobody can reach and nobody can close.
+                // Left open, a pipe client nobody can reach and nobody can close.
                 await pipe.DisposeAsync().ConfigureAwait(false);
                 throw;
             }

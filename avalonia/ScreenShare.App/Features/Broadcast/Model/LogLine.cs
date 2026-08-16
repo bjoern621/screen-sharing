@@ -11,13 +11,13 @@ namespace ScreenShare.App.Features.Broadcast.Model;
 /// This screen only renders it, so a level nobody here has seen still reads correctly instead of meeting an
 /// exhaustive dispatch it is not in.
 ///
-/// <b>Two producers, reaching this screen by different routes.</b> The event stream carries what this shell
-/// did not do, a pipeline that died on its own or a viewer that closed, each with the failure as prose and
-/// the run log's path.
-/// Audience lines are the difference between two relay rosters, since no event announces a viewer arriving
+/// <b>Two producers, reaching this screen by different routes.</b> The event stream carries what this shell did
+/// not do, a pipeline that died on its own or a viewer that closed, each with the failure as prose and the run
+/// log's path.
+/// Audience lines are the difference between two relay rosters, no event announcing a viewer arriving
 /// (<c>Audience</c>).
-/// The whole log is the file behind <see cref="ExitInfo.LogPath"/>, opened through the backend rather than
-/// read here: the file sits on the backend's machine, which this shell's need not be.
+/// The whole log is the file behind <see cref="ExitInfo.LogPath"/>, opened through the backend rather than read
+/// here: the file sits on the backend's machine, which this shell's need not be.
 /// </summary>
 public sealed record LogLine(string Time, string Level, string Message)
 {
@@ -30,8 +30,8 @@ public sealed record LogLine(string Time, string Level, string Message)
 
     /// <summary>
     /// Run log this line came from, empty where there is none.
-    /// The backend's own path, carried rather than composed: a path built here assumes where the backend
-    /// keeps its logs.
+    /// The backend's own path, carried rather than composed: a path built here assumes where the backend keeps
+    /// its logs.
     /// </summary>
     public string LogPath { get; init; } = "";
 
@@ -57,9 +57,9 @@ public sealed record LogLine(string Time, string Level, string Message)
 
     /// <summary>
     /// One viewer arriving or leaving as a line.
-    /// Both are ordinary news, since the one loud level is kept for a process that failed.
-    /// Neither carries a run log: the file is the publisher's, and a viewer elsewhere has no run of this
-    /// machine's behind it.
+    /// Both are ordinary news, the one loud level being kept for a process that failed.
+    /// Neither carries a run log: the file is the publisher's, and a viewer elsewhere has no run of this machine's
+    /// behind it.
     /// </summary>
     public static LogLine Of(AudienceChange change)
     {

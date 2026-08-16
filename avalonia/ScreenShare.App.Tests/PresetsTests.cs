@@ -7,7 +7,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The saved ways of publishing: what the card lists, what a save sends, what applying one does to the draft,
+/// Saved ways of publishing: what the card lists, what a save sends, what applying one does to the draft,
 /// and what a refused call leaves on screen.
 /// Which presets exist and what is in each is the backend's, so the fixture is written through the call the
 /// card makes and read back the same way.
@@ -40,7 +40,7 @@ public sealed class PresetsTests
         return new Card(flow.Rail.Presets, form, backend, flow);
     }
 
-    /// <summary>The draft's way of publishing, which is what a save carries.</summary>
+    /// <summary>The draft's way of publishing, what a save carries.</summary>
     private static PublishSettings Publish(Card card) => card.Form.Draft!.Publish;
 
     private static PresetRow Row(Card card, string name)
@@ -441,7 +441,7 @@ public sealed class PresetsTests
     {
         var card = await CardAsync();
 
-        // An encoder that takes no planar RGB, which is what the lossless promise rests on.
+        // An encoder that takes no planar RGB, what the lossless promise rests on.
         Write(card, "publish.codec", "libx264");
         await card.Form.Settled;
 

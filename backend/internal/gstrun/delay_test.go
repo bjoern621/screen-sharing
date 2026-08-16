@@ -127,3 +127,54 @@ func TestARunWithNothingToMeasureStillPlays(t *testing.T) {
 		t.Error("a run with nothing to measure reported a reading")
 	}
 }
+
+// What the shed threw away crosses on the same line, and a pipeline carrying no shed reports no
+// figure rather than a drop of nothing: zero is a reading, and a run that counts none has not taken
+// it.
+func TestADropCountCrossesWithTheDelayAndIsAbsentWithoutAShed(t *testing.T) {
+	dropped := uint64(704)
+	var counted, uncounted bytes.Buffer
+
+	writeDelay(&counted, Delay{TransitNs: 12_000_000, Frames: 60, Dropped: &dropped})
+	writeDelay(&uncounted, Delay{TransitNs: 12_000_000, Frames: 60})
+
+	got, ok := delayLine(counted.String())
+	if !ok {
+		t.Fatalf("no delay line on the output: %q", counted.String())
+	}
+	if got.Dropped == nil || *got.Dropped != dropped {
+		t.Errorf("read back %v dropped, want %d", got.Dropped, dropped)
+	}
+
+	none, ok := delayLine(uncounted.String())
+	if !ok {
+		t.Fatalf("no delay line on the output: %q", uncounted.String())
+	}
+	if none.Dropped != nil {
+		t.Errorf("read back %v dropped on a run counting none, want it absent", *none.Dropped)
+	}
+}
+
+// A count on a pipeline that holds no such queue is one nothing took, which reads as absent.
+func TestAShedCountIsAbsentWhereNothingCountsOne(t *testing.T) {
+	if _, counted := (*shedCount)(nil).Read(); counted {
+		t.Error("a pipeline carrying no shed reports a drop count")
+	}
+
+	c := &shedCount{}
+	c.in.Add(30)
+	c.out.Add(4)
+	dropped, counted := c.Read()
+	if !counted || dropped != 26 {
+		t.Errorf("30 in and 4 out reads as %d dropped (counted=%v), want 26", dropped, counted)
+	}
+
+	// The two counters are read one after the other, so a frame crossing between them is held rather
+	// than dropped.
+	held := &shedCount{}
+	held.in.Add(4)
+	held.out.Add(5)
+	if dropped, _ := held.Read(); dropped != 0 {
+		t.Errorf("a frame counted out before it was counted in reads as %d dropped, want 0", dropped)
+	}
+}

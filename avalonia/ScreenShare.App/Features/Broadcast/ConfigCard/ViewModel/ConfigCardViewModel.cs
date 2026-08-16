@@ -6,10 +6,9 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.ConfigCard.ViewModel;
 
 /// <summary>
-/// The active configuration, read-only while live.
-///
-/// No setters: every setting here reaches a running pipeline by restarting it, and a control appearing both
-/// here and in setup is a control with two owners.
+/// Active configuration, read-only while live.
+/// No setters: every setting here reaches a running pipeline by restarting it, and a control appearing both here
+/// and in setup is a control with two owners.
 /// The one thing the card can do is leave, through <see cref="EditInSetupCommand"/> and
 /// <see cref="EditRequested"/>, which the shell navigates on.
 /// </summary>
@@ -78,12 +77,11 @@ public sealed class ConfigCardViewModel : Observable
 
     /// <summary>
     /// What stands in for the rows, and there are two states it can stand in for.
-    ///
-    /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form for
-    /// the settings the running pipeline was built from, and every broadcast's first passes happen before that
-    /// answer lands.
-    /// With nothing publishing there is no pipeline to describe at all, and a card saying it is reading one
-    /// would wait on an answer nothing has been asked for.
+    /// While a stream runs, an empty row set means the rows have not arrived: the screen resolves a form for the
+    /// settings the running pipeline was built from, and every broadcast's first passes happen before that answer
+    /// lands.
+    /// With nothing publishing there is no pipeline to describe at all, and a card saying it is reading one would
+    /// wait on an answer nothing has been asked for.
     /// </summary>
     public string Notice { get => _notice; private set => Set(ref _notice, value); }
 

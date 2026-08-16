@@ -35,6 +35,14 @@ var gstEffortProperties = map[string]string{
 	"hevc_qsv": "target-usage",
 	"av1_qsv":  "target-usage",
 	"vp9_qsv":  "target-usage",
+	// The va elements take the same scale on a property of the same name, and this engine is the only
+	// one that spends it: ffmpeg's VAAPI encoders count over the driver's own range
+	// (form.availabilityEngineRules).
+	"h264_vaapi": "target-usage",
+	"hevc_vaapi": "target-usage",
+	"av1_vaapi":  "target-usage",
+	"vp9_vaapi":  "target-usage",
+	"vp8_vaapi":  "target-usage",
 }
 
 // The ladders state what the elements spend, the claim
@@ -96,6 +104,8 @@ func TestEveryLadderIsSpent(t *testing.T) {
 // ssim on that element rather than no tuning.
 // The nvcodec elements spell the SDK's tunes in full words, where the row and ffmpeg use its
 // abbreviations.
+// The vpx elements call the property tuning, and svtav1enc has none at all: what SVT-AV1 takes rides
+// in the parameter string beside the screen-content key every encode here carries.
 func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 	for _, tc := range []struct {
 		codec, step, want string
@@ -110,6 +120,14 @@ func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 		{"hevc_nvenc", "ll", "tune=low-latency"},
 		{"hevc_nvenc", "ull", "tune=ultra-low-latency"},
 		{"hevc_nvenc", "lossless", "tune=lossless"},
+		{"libvpx", "psnr", "tuning=psnr"},
+		{"libvpx", capabilities.TuneNone, ""},
+		{"libvpx-vp9", "ssim", "tuning=ssim"},
+		{"librav1e", "psychovisual", "tune=psychovisual"},
+		{"librav1e", capabilities.TuneNone, ""},
+		{"libsvtav1", "vq", "parameters-string=scm=1:tune=0"},
+		{"libsvtav1", "ms-ssim", "parameters-string=scm=1:tune=4"},
+		{"libsvtav1", capabilities.TuneNone, "parameters-string=scm=1"},
 	} {
 		c, ok := capabilities.Get(tc.codec)
 		if !ok {
@@ -191,7 +209,8 @@ func assertProperty(t *testing.T, encoder []string, property, want string) {
 // test.
 func tuneProperties(encoder []string) string {
 	for _, p := range encoder {
-		if strings.HasPrefix(p, "tune=") || strings.HasPrefix(p, "psy-tune=") {
+		if strings.HasPrefix(p, "tune=") || strings.HasPrefix(p, "psy-tune=") ||
+			strings.HasPrefix(p, "tuning=") || strings.HasPrefix(p, "parameters-string=") {
 			return p
 		}
 	}

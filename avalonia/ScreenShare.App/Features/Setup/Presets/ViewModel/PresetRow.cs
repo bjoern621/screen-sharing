@@ -15,18 +15,14 @@ public sealed record PresetRow
 
     /// <summary>
     /// Whether the draft equals this preset, field for field.
-    ///
     /// Derived on every pass rather than remembered from the press that applied it.
-    /// A snapshot claims nothing about a region of the settings, so selected can only mean equal: an edit
-    /// moving one field unmarks the row, and no stored selection is left to disagree with the settings
+    /// A snapshot claims nothing about a region of the settings, so selected can only mean equal: an edit moving
+    /// one field unmarks the row, and no stored selection is left to disagree with the settings
     /// (<c>docs/presets.md</c>, "Saved presets").
     /// </summary>
     public required bool IsCurrent { get; init; }
 
-    /// <summary>
-    /// Writes this preset into the draft, whole.
-    /// Nothing running changes.
-    /// </summary>
+    /// <summary>Writes this preset into the draft, whole. Nothing running changes.</summary>
     public required DelegateCommand Apply { get; init; }
 
     /// <summary>Takes it out of the store, which crosses to the backend.</summary>

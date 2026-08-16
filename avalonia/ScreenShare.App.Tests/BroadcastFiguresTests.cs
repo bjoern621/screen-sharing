@@ -14,11 +14,11 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Every figure on the live screen is a measurement some other side took.
 ///
-/// The screen was drawn from the mockups first, and its numbers were the mockup's own: a timer reading the
-/// same eight digits whatever was publishing, a window label naming a span the plot did not cover, a rule
-/// marking a ceiling wherever the design had put it.
-/// Each test states a reading and asserts that the screen's figure came out of it, which a seeded number
-/// cannot do.
+/// A figure with nothing behind it looks like a measured one: a timer reading the same eight digits whatever is
+/// publishing, a window label naming a span the plot does not cover, a rule marking a ceiling wherever the design
+/// put it.
+/// Each test states a reading and asserts that the screen's figure came out of it, which a fixed number cannot
+/// do.
 /// </summary>
 public sealed class BroadcastFiguresTests
 {
@@ -35,15 +35,20 @@ public sealed class BroadcastFiguresTests
         TimeSec = timeSec,
     };
 
+    /// <summary>
+    /// A running stream, held to a rate where one is passed.
+    /// The ceiling is the backend's reading of what bounds this encoder rather than the settings field beside it:
+    /// a quality target on an encoder that holds none is unbounded whatever the field carries.
+    /// </summary>
     private static PublishState Live(int? ceilingMbps = null)
     {
-        var settings = new PublishSettings { Name = "desk" };
+        var live = new PublishState.Types.Live { Publish = new PublishSettings { Name = "desk" } };
         if (ceilingMbps is { } ceiling)
         {
-            settings.MaxrateMbps = ceiling;
+            live.RateCeilingMbps = ceiling;
         }
 
-        return new PublishState { Live = new PublishState.Types.Live { Publish = settings } };
+        return new PublishState { Live = live };
     }
 
     [Fact]
@@ -283,8 +288,8 @@ public sealed class BroadcastFiguresTests
     }
 
     /// <summary>
-    /// The markup promised a live-safe apply while the view model stated that no such effect exists, and the
-    /// reader saw the promise because the markup bound neither the greying nor the reason.
+    /// The card offers no live-safe apply the backend has no effect for: the greying and the reason are both
+    /// bound, so what the markup shows is what the view model states.
     /// Both sentences come off one table, so the card's words and the card's behaviour agree.
     /// </summary>
     [Fact]
@@ -332,5 +337,132 @@ public sealed class BroadcastFiguresTests
 
         Assert.False(idle.HasRows);
         Assert.Contains("Nothing is publishing", idle.Notice);
+    }
+
+    /// <summary>A sample from a run that timed a frame through the encoder.</summary>
+    private static PublishStats Encoded(double transitMs, double timeSec) => new()
+    {
+        TransitMs = transitMs,
+        TimeSec = timeSec,
+    };
+
+    /// <summary>One reader on this stream's path, timed where the leg is one the relay times.</summary>
+    private static RelayStatus Roster(double? rttMs)
+    {
+        var reader = new RelayReader { Transport = "srt" };
+        if (rttMs is { } rtt)
+        {
+            reader.RttMs = rtt;
+        }
+
+        var path = new RelayPath { Name = "desk", OwnName = "desk", Readers = 1 };
+        path.ReaderRoster.Add(reader);
+
+        var relay = new RelayStatus { Reachable = true };
+        relay.Paths.Add(path);
+        return relay;
+    }
+
+    /// <summary>
+    /// One second is short enough for a healthy stream to measure nothing in it: an encoder that emitted no
+    /// frame over the interval timed none, and the row would otherwise alternate between a figure and an
+    /// ellipsis.
+    /// </summary>
+    [Fact]
+    public void AFigureNoPassMeasuredReadsTheLastOneThatDid()
+    {
+        var held = new HeldFigures();
+
+        held.Fill(BroadcastSnapshot.Of(Live(), Encoded(20.5, 12), null));
+        var reading = held.Fill(BroadcastSnapshot.Of(Live(), Timed(13), null));
+
+        Assert.Equal(20.5, reading.EncodeMs);
+    }
+
+    /// <summary>
+    /// A stream that stopped measures nothing at all, and the next one is a different stream.
+    /// A figure carried across either would name this stream by the last one's reading.
+    /// </summary>
+    [Fact]
+    public void AStoppedStreamHoldsNothingForTheNextOne()
+    {
+        var held = new HeldFigures();
+        held.Fill(BroadcastSnapshot.Of(Live(), Encoded(20.5, 12), null));
+
+        var idle = held.Fill(BroadcastSnapshot.Of(new PublishState(), null, null));
+
+        Assert.Null(idle.EncodeMs);
+
+        var next = held.Fill(BroadcastSnapshot.Of(Live(), Timed(1), null));
+
+        Assert.Null(next.EncodeMs);
+    }
+
+    /// <summary>
+    /// A path naming readers and timing none of them is the relay's answer rather than a gap in it, and the
+    /// header explains that absence in a sentence.
+    /// A round trip held over it would name one nobody is taking.
+    /// </summary>
+    [Fact]
+    public void ARelayThatTimesNoReaderStatesTheAbsence()
+    {
+        var held = new HeldFigures();
+        held.Fill(BroadcastSnapshot.Of(Live(), Timed(12), Roster(rttMs: 42)));
+
+        var reading = held.Fill(BroadcastSnapshot.Of(Live(), Timed(13), Roster(rttMs: null)));
+
+        Assert.Null(reading.RttMs);
+        Assert.Equal(1, reading.Viewers);
+    }
+
+    /// <summary>
+    /// A poll that landed on nothing states no path, which says nothing about the viewers on it: the stream is
+    /// the same stream and the readers on it were counted a second ago.
+    /// </summary>
+    [Fact]
+    public void APollThatNamesNoPathHoldsWhatTheLastOneNamed()
+    {
+        var held = new HeldFigures();
+        held.Fill(BroadcastSnapshot.Of(Live(), Timed(12), Roster(rttMs: 42)));
+
+        var reading = held.Fill(BroadcastSnapshot.Of(Live(), Timed(13), null));
+
+        Assert.Equal(1, reading.Viewers);
+        Assert.Equal(42, reading.RttMs);
+    }
+
+    /// <summary>
+    /// A stream between attempts has no pipeline measuring anything, and the pill says so.
+    /// Figures left standing beside that would read as a stream carrying frames.
+    /// </summary>
+    [Fact]
+    public void AStreamWaitingOutARetryHoldsNoFigure()
+    {
+        var held = new HeldFigures();
+        held.Fill(BroadcastSnapshot.Of(Live(), Encoded(20.5, 12), null));
+
+        var live = Live();
+        live.Live.Retry = new PublishState.Types.Retry { Attempt = 1, Budget = 3 };
+        var reading = held.Fill(BroadcastSnapshot.Of(live, Timed(13), null));
+
+        Assert.Null(reading.EncodeMs);
+    }
+
+    /// <summary>
+    /// A quality target the encoder holds free of the rate is drawn without a rule and without a label: a height
+    /// marked on a plot reads as a bound something is holding.
+    /// </summary>
+    [Fact]
+    public void AnUnboundedEncodeIsMarkedByNoCeiling()
+    {
+        var plots = new PlotsViewModel
+        {
+            Snapshot = BroadcastSnapshot.Of(Live(), Sample(5, 20), null),
+            Samples = [Sample(3, 10), Sample(5, 20)],
+        };
+
+        Assert.True(plots.HasEgress);
+        Assert.False(plots.HasCeiling);
+        Assert.Equal("", plots.Ceiling);
     }
 }

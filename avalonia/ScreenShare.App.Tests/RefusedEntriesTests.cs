@@ -63,7 +63,7 @@ public sealed class RefusedEntriesTests
         Assert.True(capture.RefusedShown);
     }
 
-    /// <summary>Pressing it twice is a round trip, which is what the toggle's verb promises.</summary>
+    /// <summary>Pressing it twice is a round trip, what the toggle's verb promises.</summary>
     [Fact]
     public void HidingThemAgainLeavesTheListAsItWas()
     {

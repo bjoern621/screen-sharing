@@ -11,8 +11,8 @@ namespace ScreenShare.App.Features.Broadcast.Preview.View;
 /// One view-model input is written, the shape every other input on this screen has, and the render function
 /// decides what it means.
 ///
-/// Whether the card draws is the reader's, written through the card's own transport control, so this view
-/// watches neither the visual tree nor the window
+/// Whether the card draws is the reader's, written through the card's own transport control, so this view watches
+/// neither the visual tree nor the window
 /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
 /// </summary>
 public sealed partial class PreviewView : UserControl

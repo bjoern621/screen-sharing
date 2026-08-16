@@ -124,6 +124,7 @@ var gapOptions = map[string]string{
 	capabilities.OptionChroma:     "chroma",
 	capabilities.OptionMode:       "mode",
 	capabilities.OptionColorRange: "color_range",
+	capabilities.OptionTune:       "tune",
 }
 
 // gapOptionName normalizes one option name.

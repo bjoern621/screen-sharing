@@ -12,8 +12,7 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// Nothing downstream undoes it: the nesting is already in the pixels the capture handed over, so the window
 /// the capture sees is the only place to stop it.
 ///
-/// <b>Why an interface.</b> Whether a window can be hidden from a capture at all is the windowing system's
-/// answer.
+/// <b>Why an interface.</b> Whether a window can be hidden from a capture at all is the windowing system's answer.
 /// Windows stores a display affinity against the window in kernel mode and honours it in the capture paths the
 /// desktop window manager composes for.
 /// X11 hands the root window to any client that asks, with nothing mediating the read.
@@ -32,8 +31,8 @@ internal interface ICaptureExclusion
 }
 
 /// <summary>
-/// The one place a platform's exclusion mechanism is chosen, so a window asking to stay out of captures names
-/// no system and no API.
+/// One place a platform's exclusion mechanism is chosen, so a window asking to stay out of captures names no
+/// system and no API.
 /// </summary>
 internal static class CaptureExclusions
 {

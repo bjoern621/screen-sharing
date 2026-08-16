@@ -10,14 +10,13 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 /// <summary>
 /// One group of the resolved form: a heading and the controls under it, in the order the backend gave them.
 ///
-/// This is what makes a setup step one component instanced per group rather than a view per group.
+/// What makes a setup step one component instanced per group rather than a view per group.
 /// Capture, encode, transport, network and destination differ in nothing a shell can see, being runs of fields
-/// with different keys, so a step that hand-wrote its controls would be a copy of this file per group, each
-/// with its own chance of disagreeing with the form it renders.
+/// with different keys, so a step that hand-wrote its controls would be a copy of this file per group, each with
+/// its own chance of disagreeing with the form it renders.
 ///
 /// Outputs only.
-/// The group has no input of its own: every write goes through a <see cref="FieldViewModel"/> to the flow that
-/// owns the draft.
+/// No input of its own: every write goes through a <see cref="FieldViewModel"/> to the flow that owns the draft.
 /// </summary>
 public sealed class FieldGroupViewModel : Observable
 {
@@ -43,22 +42,31 @@ public sealed class FieldGroupViewModel : Observable
     /// </summary>
     private readonly Func<FieldGroup, GroupAction?> _groupActionOf;
 
+    /// <summary>Handed to each control, so a gesture on one reaches whoever holds the draft.</summary>
+    private readonly Action<bool>? _sweep;
+
     /// <param name="actionOf">
-    /// The effect this screen offers beside one control, null where it offers none.
+    /// Effect this screen offers beside one control, null where it offers none.
     /// Asked on every pass rather than once, so a screen that withdraws an action turns the button off through
     /// the render function.
     /// </param>
-    /// <param name="groupActionOf">The effect beside the heading, null where none. Asked per pass for the same reason.</param>
+    /// <param name="groupActionOf">Effect beside the heading, null where none. Asked per pass for the same reason.</param>
+    /// <param name="sweep">
+    /// Takes the two edges of a gesture on one of these controls, null where the screen has nowhere to report
+    /// them (<see cref="FieldViewModel.IsSweeping"/>).
+    /// </param>
     public FieldGroupViewModel(
         Action<string, FieldValue> write,
         Func<string, FieldAction?>? actionOf = null,
-        Func<FieldGroup, GroupAction?>? groupActionOf = null)
+        Func<FieldGroup, GroupAction?>? groupActionOf = null,
+        Action<bool>? sweep = null)
     {
         Assert.NotNull(write, "a group needs somewhere to report what the user moved");
 
         _write = write;
         _actionOf = actionOf ?? (_ => null);
         _groupActionOf = groupActionOf ?? (_ => null);
+        _sweep = sweep;
         Fields = [];
     }
 
@@ -105,12 +113,16 @@ public sealed class FieldGroupViewModel : Observable
     public bool HasAction { get => _hasAction; private set => Set(ref _hasAction, value); }
 
     /// <summary>
-    /// The one render function.
+    /// One render function.
     /// Safe to run twice: field view models are reused by key and each runs its own idempotent pass, so an
     /// unchanged group raises no notification.
     /// </summary>
     /// <param name="group">Null renders the branch that turns everything off, for a group the form does not carry.</param>
-    public void Apply(FieldGroup? group, Vocabulary words, Settings? settings)
+    /// <param name="answered">
+    /// Whether this form answers for the draft as it now stands (<see cref="FormSession.IsAnswered"/>), which
+    /// decides whether a control takes its value off it (<see cref="FieldViewModel.Apply"/>).
+    /// </param>
+    public void Apply(FieldGroup? group, Vocabulary words, Settings? settings, bool answered = true)
     {
         Assert.NotNull(words, "rendering a group needs the vocabulary that names its entries");
 
@@ -120,13 +132,13 @@ public sealed class FieldGroupViewModel : Observable
         var copy = group is null ? null : Copy.Fields.Group(group.Key);
         Title = copy?.Title ?? "";
         Help = copy?.Help ?? "";
-        Summary = group is null ? "" : words.Shorthand(group.Key, settings);
+        Summary = words.Shorthand(group, settings);
         HasHelp = Help.Length > 0;
 
         Action = group is null ? null : _groupActionOf(group);
         HasAction = Action is not null;
 
-        Reconcile.Onto(Fields, Rendered(group, words));
+        Reconcile.Onto(Fields, Rendered(group, words, answered));
 
         Assert.That(
             IsResolved || Fields.Count == 0,
@@ -139,7 +151,7 @@ public sealed class FieldGroupViewModel : Observable
     /// disabled: a hidden knob is one whose help would teach a reader on another selection nothing
     /// (docs/field-availability.md, "The rule").
     /// </summary>
-    private IReadOnlyList<FieldViewModel> Rendered(FieldGroup? group, Vocabulary words)
+    private IReadOnlyList<FieldViewModel> Rendered(FieldGroup? group, Vocabulary words, bool answered)
     {
         if (group is null)
         {
@@ -150,7 +162,7 @@ public sealed class FieldGroupViewModel : Observable
         foreach (var field in group.Fields)
         {
             var model = Of(field.Key);
-            model.Apply(field, words, _actionOf(field.Key));
+            model.Apply(field, words, _actionOf(field.Key), answered);
 
             if (model.IsVisible)
             {
@@ -162,10 +174,10 @@ public sealed class FieldGroupViewModel : Observable
     }
 
     /// <summary>
-    /// The visible control for one field key, null where the group carries none.
-    /// Read through on demand and never cached by the caller, which is what lets a step lay a field out itself
-    /// without holding a second copy of what the form said about it.
-    /// A hidden field answers null, since placing it would draw a control the form said not to draw.
+    /// Visible control for one field key, null where the group carries none.
+    /// Read through on demand and never cached by the caller, letting a step lay a field out itself without
+    /// holding a second copy of what the form said about it.
+    /// A hidden field answers null, placing it drawing a control the form said not to draw.
     /// </summary>
     public FieldViewModel? Visible(string key)
     {
@@ -189,7 +201,7 @@ public sealed class FieldGroupViewModel : Observable
             return model;
         }
 
-        model = new FieldViewModel(key, _write);
+        model = new FieldViewModel(key, _write, _sweep);
         _fields[key] = model;
         return model;
     }

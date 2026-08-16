@@ -64,6 +64,7 @@ func receiveDelayOf(now, last receive.Stats, seen bool, publishing publishDelay)
 		PublishLink: publishing.Link,
 		WatchLink:   watchLinkOf(now.Groups),
 		Receive:     transitOf(now, last, seen),
+		ReceivePeak: transitPeakOf(now),
 	}
 	budget.Present = presentOf(now.LatencyMin, budget.Receive)
 	budget.Total = totalOf(budget)
@@ -85,6 +86,19 @@ func transitOf(now, last receive.Stats, seen bool) *float64 {
 	}
 	mean := float64(now.Transit-last.Transit) / float64(now.TransitFrames-last.TransitFrames)
 	return msOfPtr(time.Duration(mean))
+}
+
+// transitPeakOf is the worst that stage has cost a single frame since the decode started.
+//
+// One reading and no interval, unlike every other stage here: a high-water mark is already the
+// answer over the whole run, and subtracting two of them would report an interval in which nothing
+// beat the record as an interval in which nothing was slow.
+// nil before a frame has been measured at all.
+func transitPeakOf(now receive.Stats) *float64 {
+	if now.TransitPeak <= 0 {
+		return nil
+	}
+	return msOfPtr(now.TransitPeak)
 }
 
 // presentOf is what the sink still holds a frame for after it arrives, which is the pipeline's

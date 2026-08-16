@@ -7,7 +7,7 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Features.Shell.Model;
 
 /// <summary>
-/// The Windows exclusion: a display affinity the kernel stores against the window.
+/// Windows exclusion: a display affinity the kernel stores against the window.
 ///
 /// <c>WDA_EXCLUDEFROMCAPTURE</c> leaves the window on its monitor and takes it out of what the desktop window
 /// manager composes for anything else, so a capture of that desktop carries the windows behind it and nothing
@@ -15,10 +15,10 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// That covers every way a stream from this machine is captured: desktop duplication and the graphics capture
 /// API behind <c>ddagrab</c> and <c>d3d11screencapturesrc</c>, and the screen bit blit behind <c>gdigrab</c>.
 ///
-/// The value arrived in Windows 10 version 2004, and an older Windows applies <c>WDA_MONITOR</c> in its place,
+/// Windows 10 version 2004 and up honour the value, an older Windows applying <c>WDA_MONITOR</c> in its place and
 /// leaving the window in the capture as an empty rectangle.
-/// The two pictures differ and both break the feedback loop, since an empty rectangle carries no copy of the
-/// screen either.
+/// The two pictures differ and both break the feedback loop, an empty rectangle carrying no copy of the screen
+/// either.
 ///
 /// The affinity belongs to one top-level window of this process, so every window the shell opens states it for
 /// itself.
@@ -35,8 +35,7 @@ internal sealed class DisplayAffinityExclusion : ICaptureExclusion
         Assert.NotNull(window, "an exclusion names the window it keeps out of captures");
 
         // The platform has made the handle by the time a window is open.
-        // Excluding one that has none is this shell calling too early, a bug here rather than a state to
-        // survive.
+        // Excluding one that has none is this shell calling too early, a bug here rather than a state to survive.
         var handle = Assert.NotNull(
             window.TryGetPlatformHandle(),
             "a window is excluded once the platform has given it a handle");
@@ -46,8 +45,8 @@ internal sealed class DisplayAffinityExclusion : ICaptureExclusion
             return;
         }
 
-        // A session that refuses costs this window its exclusion and nothing else, so it is reported rather
-        // than thrown.
+        // A session that refuses costs this window its exclusion and nothing else, so it is reported rather than
+        // thrown.
         // The window is back in every capture, and the error code is the only thing saying why.
         Logger.TryGet(LogEventLevel.Warning, "CaptureExclusion")?.Log(
             this,

@@ -22,6 +22,7 @@ const (
 	AxisChroma     = "publish.chroma"
 	AxisMode       = "publish.mode"
 	AxisColorRange = "publish.color_range"
+	AxisTune       = "publish.tune"
 	AxisCapture    = "publish.capture"
 	AxisTransport  = "publish.publish_transport"
 	AxisAudioCodec = "publish.audio_codec"
@@ -78,6 +79,7 @@ var axes = []Axis{
 	{Name: AxisChroma, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CHROMA},
 	{Name: AxisColorRange, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_COLOR_RANGE},
 	{Name: AxisMode, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_MODE},
+	{Name: AxisTune, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_TUNE},
 	{Name: AxisMemory, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_MEMORY},
 	{Name: AxisCursor, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CURSOR},
 	{Name: AxisTransport, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_TRANSPORT},

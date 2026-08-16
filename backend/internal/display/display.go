@@ -2,6 +2,39 @@
 // with a resolution beside it rather than typed as a bare index.
 package display
 
+import (
+	"sync"
+	"time"
+)
+
+// recentFor is how long one enumeration answers for the machine.
+// Long enough that a slider dragged across its range costs one enumeration rather than one per
+// step, short enough that a screen plugged in is offered by the time the reader looks for it.
+const recentFor = 2 * time.Second
+
+var (
+	recentMu   sync.Mutex
+	recent     []Monitor
+	recentTime time.Time
+)
+
+// Recent is List, enumerated again only once the last answer is older than recentFor.
+//
+// Every enumerator here is a child process, and the form resolves on every keystroke, so a resolve
+// reading through pays a fork per character typed and per step of a dragged slider.
+// The capture path reads List: what a pipeline crops to is the machine as it stands, where a form
+// offers the outputs as they were within the window above.
+func Recent() []Monitor {
+	recentMu.Lock()
+	defer recentMu.Unlock()
+
+	if recentTime.IsZero() || time.Since(recentTime) > recentFor {
+		recent = List()
+		recentTime = time.Now()
+	}
+	return recent
+}
+
 // Monitor is one enumerated output.
 // Index is its position in the enumeration, which is what the capture setting stores and what an
 // index-selecting capture backend hands its API.

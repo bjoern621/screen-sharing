@@ -43,6 +43,7 @@ func factsOf(d Deps, s settings.Settings) rules.Facts {
 		rules.AxisChroma:     rules.TextValue(s.Publish.Chroma),
 		rules.AxisColorRange: rules.TextValue(s.Publish.ColorRange),
 		rules.AxisMode:       rules.TextValue(s.Publish.Mode),
+		rules.AxisTune:       rules.TextValue(s.Publish.Tune),
 		rules.AxisMemory:     rules.TextValue(s.Publish.CaptureMemory),
 		rules.AxisCursor:     rules.TextValue(s.Publish.Cursor),
 		rules.AxisTransport:  rules.TextValue(s.Publish.Transport),

@@ -15,15 +15,22 @@
 // Nothing here is a rate.
 // A probe accumulates and whoever samples it divides two readings by the interval between them,
 // the split every counter in this app is read under.
+//
+// The peak is the one reading that is neither an accumulator nor a rate.
+// A mean over any interval hides the single frame that ran long, and that frame is the one a sink's
+// shed threshold is judged against, so the worst is kept beside the sum rather than derived from it.
 package pipedelay
 
 import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-gst/go-glib/pkg/gobject/v2"
 	"github.com/go-gst/go-gst/pkg/gst"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/internal/padprobe"
 )
 
 // Probe is one measuring point and what has passed it.
@@ -42,6 +49,7 @@ type Probe struct {
 	segment atomic.Pointer[gst.Segment]
 	total   atomic.Uint64 // ns
 	frames  atomic.Uint64
+	peak    atomic.Uint64 // ns
 }
 
 // Reading is what a probe has accumulated since the pipeline started.
@@ -52,6 +60,10 @@ type Probe struct {
 type Reading struct {
 	Total  time.Duration
 	Frames uint64
+	// Peak is the worst any one frame cost since the pipeline started, and it never comes down.
+	// A high-water mark answers the question a mean cannot: whether anything ever crossed the
+	// threshold past which a sink stops handing frames over.
+	Peak time.Duration
 }
 
 // Watch measures at the named static pad of element.
@@ -83,7 +95,11 @@ func (p *Probe) Read() Reading {
 	if p == nil {
 		return Reading{}
 	}
-	return Reading{Total: time.Duration(p.total.Load()), Frames: p.frames.Load()}
+	return Reading{
+		Total:  time.Duration(p.total.Load()),
+		Frames: p.frames.Load(),
+		Peak:   time.Duration(p.peak.Load()),
+	}
 }
 
 // measure runs on the streaming thread, once per buffer.
@@ -93,7 +109,7 @@ func (p *Probe) Read() Reading {
 // None of those is a measurement of zero, and a zero here would read as a pipeline that held
 // nothing.
 func (p *Probe) measure(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-	buffer := info.GetBuffer()
+	buffer := padprobe.Buffer(info)
 	if buffer == nil {
 		return gst.PadProbeOK
 	}
@@ -103,14 +119,32 @@ func (p *Probe) measure(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 	}
 	p.total.Add(uint64(delay))
 	p.frames.Add(1)
+	p.raisePeak(uint64(delay))
 	return gst.PadProbeOK
+}
+
+// raisePeak lifts the high-water mark to ns, and leaves it alone where this frame was not the worst.
+//
+// A compare-and-swap loop rather than a load and a store, two streaming threads reaching one probe
+// wherever a pipeline runs several branches through the pad it watches.
+// The loop costs one uncontended swap on the single writer every other pipeline here has.
+func (p *Probe) raisePeak(ns uint64) {
+	for {
+		peak := p.peak.Load()
+		if ns <= peak {
+			return
+		}
+		if p.peak.CompareAndSwap(peak, ns) {
+			return
+		}
+	}
 }
 
 // follow keeps the segment the running times are taken against, which arrives ahead of the frames it
 // describes and again whenever the stream restarts.
 // Copied, because the event carrying it does not outlive this call.
 func (p *Probe) follow(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-	event := info.GetEvent()
+	event := padprobe.Event(info)
 	if event == nil || event.GetType() != gst.EventSegment {
 		return gst.PadProbeOK
 	}
@@ -155,6 +189,10 @@ func (p *Probe) runningTime() (uint64, bool) {
 	if clock == nil {
 		return 0, false
 	}
+	// Handed over with a reference, dropped from a finalizer, and taken once per frame here
+	// (internal/padprobe states the same cost on the buffers beside it).
+	defer gobject.UnsafeObjectUnref(clock)
+
 	now, base := clock.GetTime(), p.element.GetBaseTime()
 	if now == gst.ClockTimeNone || base == gst.ClockTimeNone || now < base {
 		return 0, false

@@ -21,10 +21,10 @@ lint:
 breaking:
   use:
     - FILE
-  # Nothing is excepted here, and the one commit that needed an exception did not take
-  # one. Splitting StreamSettings into RelaySettings, PublishSettings and ViewerSettings
-  # renamed fields in place - transport to publish_transport, watch_transport to
-  # player_watch_transport - which buf reports under FIELD_SAME_NAME, and that report
-  # was read and accepted rather than configured away. The reasoning and the fact that
-  # it ends at the first release are in docs/ipc-api.md, "Versioning"; an except entry
-  # here would have outlived the commit it was for.
+  # Nothing is excepted here, and the commits that would have needed an exception did
+  # not take one. Splitting StreamSettings into RelaySettings, PublishSettings and
+  # ViewerSettings renamed fields in place, and dropping the stored player watch leg
+  # deleted one, both of which buf reports; each report was read and accepted rather
+  # than configured away. The reasoning and the fact that it ends at the first release
+  # are in docs/ipc-api.md, "Versioning"; an except entry here would have outlived the
+  # commit it was for.

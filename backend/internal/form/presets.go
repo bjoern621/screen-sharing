@@ -164,7 +164,7 @@ var presetTable = []preset{
 			p.Bframes = 0
 			// Loss on a LAN is near zero, so the window absorbs scheduling jitter rather than a WAN's
 			// retransmits.
-			p.SrtPublishLatencyMs = 60
+			p.SrtPublishLatencyMs = 50
 			return p
 		},
 		// Planar RGB is the desktop's own format and reaches the encoder without a colour conversion,

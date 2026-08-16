@@ -116,6 +116,24 @@ func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 	}
 }
 
+// A preset writes figures the controls under them can return to.
+// Landing a slider between two of its stops leaves a value a sweep cannot reproduce, so the reader
+// who nudges it loses the preset's own figure.
+func TestAPresetLandsOnValuesItsSlidersStopOn(t *testing.T) {
+	for _, tc := range presetCases() {
+		s, _ := Repair(tc.deps, tc.s)
+		for _, p := range presetTable {
+			reached, ok := presetResolve(tc.deps, p, s)
+			if !ok {
+				continue
+			}
+			for _, off := range fieldsOffTheirStep(tc.deps, reached) {
+				t.Errorf("%s: %s applied and %s", tc.name, p.key, off)
+			}
+		}
+	}
+}
+
 // The publish transport is how viewers are reached rather than a property of the picture, and the
 // sentence on an unreachable preset names it as what the search worked within.
 // A preset that moved it would answer a request about the picture by changing who can watch.

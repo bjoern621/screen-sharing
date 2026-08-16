@@ -165,15 +165,19 @@ var availabilityRules = map[string]func(availability) state{
 	KeyBitrateM: func(av availability) state {
 		return av.knob(KeyBitrateM, av.mode().usesBitrate, say(bitrateNotInMode, argMode(av.s.Publish.Mode)))
 	},
+	// The ceiling and the buffer holding it answer together.
+	// A bitrate mode is bounded by its target, so both come with the mode alone; a quality target is
+	// free of the rate, so both need an encoder that holds it in a VBV and a ceiling to hold.
 	KeyMaxrateM: func(av availability) state {
-		st := av.knob(KeyMaxrateM, av.mode().usesMaxrate, say(maxrateOnlyInConstrained))
+		st := av.knob(KeyMaxrateM, av.mode().usesMaxrate && av.encoderBounds(), av.ceilingReason())
 		if st.enabled {
-			st.note = av.vaapiCeilingNote()
+			st.note = av.ceilingNote()
 		}
 		return st
 	},
 	KeyVbvMs: func(av availability) state {
-		return av.knob(KeyVbvMs, av.mode().usesVbv, say(vbvOnlyInBoundedModes))
+		uses := av.mode().usesVbv && av.encoderBounds() && av.ceilingStated()
+		return av.knob(KeyVbvMs, uses, av.windowReason())
 	},
 	// The keyframe interval is no rate-control concept, so no mode withholds it.
 	// Only an encoder element with no property for it does.
@@ -209,7 +213,7 @@ var availabilityRules = map[string]func(availability) state{
 	// The tune reads the same row, being the other half of one decision: how hard the encoder works,
 	// and what it works towards.
 	// Either ladder can be declared without the other - the Vulkan rows tune and take no effort step,
-	// the libvpx ones take a step and tune for nothing - so each control asks about its own.
+	// the VAAPI ones declare neither - so each control asks about its own.
 	KeyTune: func(av availability) state {
 		ladder := av.codec.Tune
 		pinned := ladder.PinsIn(av.s.Publish.Mode)
@@ -299,7 +303,7 @@ var availabilityRules = map[string]func(availability) state{
 	},
 	// Greyed per entry on an encrypted relay rather than as a control, so the value that works stays
 	// selectable: a disabled dropdown still showing "udp" would name the refusal and offer no way out
-	// of it (rtspPublishProtocolReason).
+	// of it (rtspProtocolReason).
 	KeyRtspPublishProtocol: func(av availability) state {
 		return availabilityShownFor(av.s.Publish.Transport == availabilityRtsp)
 	},
@@ -317,9 +321,8 @@ var availabilityRules = map[string]func(availability) state{
 		return availabilityShownFor(av.s.Viewer.TileWatchTransport == availabilityRtsp)
 	},
 
-	KeyUplinkMbps:           func(availability) state { return availabilityLive() },
-	KeyPlayerWatchTransport: func(availability) state { return availabilityLive() },
-	KeyTileWatchTransport:   func(availability) state { return availabilityLive() },
+	KeyUplinkMbps:         func(availability) state { return availabilityLive() },
+	KeyTileWatchTransport: func(availability) state { return availabilityLive() },
 
 	// The render chain is live whatever leg is chosen: what a decode converts its frames with is a
 	// property of this machine's GStreamer rather than of the protocol they arrived over.
@@ -340,21 +343,18 @@ var availabilityOptionRules = map[string]func(availability, string) *screenshare
 	KeyChroma:            availability.chromaReason,
 	KeyMode:              availability.modeReason,
 	KeyColorRange:        availability.colorRangeReason,
+	KeyTune:              availability.tuneReason,
 	KeyAudioSource:       availability.audioReason,
 	KeyAudioSourceDevice: availability.audioDeviceReason,
 	KeyAudioCodec:        availability.audioCodecReason,
 	KeyCaptureMemory:     availability.frameMemoryReason,
 	KeyCursor:            availability.cursorReason,
 	KeyOutputResolution:  availability.outputResolutionReason,
-	// The publish leg alone. A viewer reading over RTSPS negotiates its own lower transport with the
-	// relay, and this control is the one this machine's publish uses.
-	KeyRtspPublishProtocol: availability.rtspPublishProtocolReason,
-	// The two watch legs read the same carriage table under different receivers: an external player
-	// opens a URL through libavformat and a tile decodes through a GStreamer pipeline, so the two
-	// reach different protocol sets.
-	KeyPlayerWatchTransport: func(av availability, value string) *screensharev1.Text {
-		return av.watchLegReason(capabilities.EngineFfmpeg, value)
-	},
+	// Both legs, one rule: RTSPS covers the control connection and neither direction's RTP travels
+	// inside it over UDP.
+	KeyRtspPublishProtocol: availability.rtspProtocolReason,
+	KeyRtspWatchProtocol:   availability.rtspProtocolReason,
+	// The tile decodes through a GStreamer pipeline, so its roster is that engine's carriage rows.
 	KeyTileWatchTransport: func(av availability, value string) *screensharev1.Text {
 		return av.watchLegReason(capabilities.EngineGst, value)
 	},
@@ -669,6 +669,23 @@ func (av availability) colorRangeReason(value string) *screensharev1.Text {
 	return nil
 }
 
+// tuneReason states why this engine's wrapper cannot aim at a step the codec's ladder carries.
+//
+// The ladder is the encoder's and the knob is the wrapper's, so the two can differ: libaom takes a
+// tune on ffmpeg where av1enc has no such property, and oneVPL's scenario reaches Intel's runtime
+// through ffmpeg alone.
+// The step stays offered and greys with the engine named, as a chroma one engine codes does, and the
+// untuned step is on no gap so a greyed control always has somewhere to walk to.
+func (av availability) tuneReason(value string) *screensharev1.Text {
+	if !av.knownCodec || av.engine == "" {
+		return nil
+	}
+	if reasons := av.verdicts.ValueReasons(KeyTune, value); len(reasons) > 0 {
+		return reasons[0]
+	}
+	return nil
+}
+
 // cursorReason states why the selected capture backend does not serve a pointer mode.
 //
 // It reads the rules and nothing else, the whole fact being theirs: what a backend does with the
@@ -683,13 +700,21 @@ func (av availability) cursorReason(value string) *screensharev1.Text {
 	return nil
 }
 
-// audioReason states why a session of this platform serves no such capture source.
+// audioReason states why this capture backend records no such source.
 //
-// The verdict and its statement are the platform table's, read through rather than restated: a
-// second copy here is what would let the form grey a source the catalog offered, or offer one the
-// publish then refuses to open (docs/domain-model.md).
+// Two facts withhold one and publish.AudioAvailable holds both: the platform's session serves it
+// with nothing, and the engine the backend runs has no element that opens it.
+// It is read through rather than restated, a second copy here being what would let the form grey a
+// source the publish opens, or offer one the publish then refuses (docs/domain-model.md).
+//
+// A capture backend no registry carries reaches neither half, so the platform table answers alone:
+// the engine is unknown, and greying on a guess would name a limit the machine may not have.
 func (av availability) audioReason(source string) *screensharev1.Text {
-	_, reason := platform.AudioSourceAvailable(source, av.deps.Platform)
+	if av.engine == "" {
+		_, reason := platform.AudioSourceAvailable(source, av.deps.Platform)
+		return reason
+	}
+	_, reason := publish.AudioAvailable(av.s.Publish.Capture, source)
 	return reason
 }
 
@@ -794,13 +819,17 @@ func (av availability) outputResolutionReason(value string) *screensharev1.Text 
 		argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec), argMemory(gpupath.MemorySystem))
 }
 
-// rtspPublishProtocolReason states why an encrypted relay carries RTP one way only.
+// rtspProtocolReason states why an encrypted relay carries RTP one way only.
 //
 // RTSPS encrypts the control connection, and RTP over UDP is a second flow beside it that no part
 // of that handshake covers.
 // Interleaving puts the media inside the TLS connection, so it is the encrypted session's only
 // lower transport rather than its faster one (internal/transport, EncryptedRtspProtocol).
-func (av availability) rtspPublishProtocolReason(value string) *screensharev1.Text {
+//
+// Serves both legs, the session being encrypted the same way whichever end negotiates it.
+// The publish leg refuses the same value in transport.RTSP ValidatePublishSettings and the watch leg
+// in SetWatchOption, so a draft reaching either with "udp" was greyed here first.
+func (av availability) rtspProtocolReason(value string) *screensharev1.Text {
 	if !av.s.Relay.Tls() || value == transport.EncryptedRtspProtocol {
 		return nil
 	}
@@ -861,12 +890,12 @@ func (av availability) renderChainReason(name string) *screensharev1.Text {
 // The two receivers are asked different questions, which is the difference between what each of
 // their settings decides.
 // A tile receives over the leg TileWatchTransport names and over no other.
-// A player is opened per press on whichever leg the reader picked, so PlayerWatchTransport is the
-// leg a surface offers first and decides nothing about which players run.
-// Asking it here hid knobs that were in force: a player opened over RTSP reads RtspWatchProtocol
-// whatever that setting says, and with both legs on SRT the control holding it was on no screen.
-// The browser is the same press and stores no leg at all, so every leg the relay serves a page for
-// is one an address gets built on: MoQ reaches this machine through that reader and no other.
+// A player is opened per press on whichever leg the reader picked and stores none, so every leg
+// this machine has a player for is one a press can reach.
+// Asking a stored leg here hid knobs that were in force: a player opened over RTSP reads
+// RtspWatchProtocol whatever a setting says.
+// The browser is the same press, so every leg the relay serves a page for is one an address gets
+// built on: MoQ reaches this machine through that reader and no other.
 //
 // Hidden and greyed are both answers about a knob that does nothing here.
 // One that does something is shown (docs/field-availability.md).
@@ -900,6 +929,56 @@ func (av availability) reachesOver(name string) bool {
 // An engine that drops the knob in every mode outranks the mode's own reason: no rate control brings
 // the control back, so naming the mode would send the user hunting for a switch that changes
 // nothing.
+// encoderBounds is whether this encoder bounds the selected mode's rate at all.
+// Only constant quality asks: a bitrate mode is bounded by the target it names, where a quality
+// target is free of the rate unless the element holds it inside a VBV.
+func (av availability) encoderBounds() bool {
+	if av.s.Publish.Mode != capabilities.ModeCrf {
+		return true
+	}
+	return capabilities.QualityCeiling(av.s.Publish.Codec, av.engine)
+}
+
+// ceilingStated is whether the settings name a ceiling for a buffer to hold.
+// Zero is a value here, an unbounded quality target, so the window that would size it has nothing to
+// do (internal/form, fieldMaxrateBounds).
+func (av availability) ceilingStated() bool {
+	return av.s.Publish.Mode != capabilities.ModeCrf || av.s.Publish.MaxrateM > 0
+}
+
+// ceilingNote is what the ceiling carries while it is editable: that this encoder cannot code
+// constant quality without one, or what the VAAPI elements derive theirs from.
+// The two cannot both apply, the va rows taking no ceiling in constant quality at all.
+func (av availability) ceilingNote() *screensharev1.Text {
+	if capabilities.QualityCeilingRequired(av.s.Publish.Codec, av.engine) &&
+		av.s.Publish.Mode == capabilities.ModeCrf {
+		return say(qualityCeilingRequired, argCodec(av.s.Publish.Codec))
+	}
+	return av.vaapiCeilingNote()
+}
+
+// ceilingReason names which of the two facts withholds the ceiling: the mode bounding nothing, or
+// this encoder having no form of a bounded quality target.
+func (av availability) ceilingReason() *screensharev1.Text {
+	if !av.mode().usesMaxrate {
+		return say(maxrateOnlyInConstrained)
+	}
+	return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec))
+}
+
+// windowReason names which of the three facts withholds the buffer, the ceiling's own two first: a
+// window sizes a ceiling, so it has nothing to say where there is none to hold.
+func (av availability) windowReason() *screensharev1.Text {
+	switch {
+	case !av.mode().usesVbv:
+		return say(vbvOnlyInBoundedModes)
+	case !av.encoderBounds():
+		return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec))
+	default:
+		return say(vbvNeedsACeiling)
+	}
+}
+
 func (av availability) knob(key string, uses bool, reason *screensharev1.Text) state {
 	rule, ruled := av.engineRule(key)
 	switch {
@@ -1081,9 +1160,12 @@ type availabilityMode struct {
 	usesCq bool
 	// usesBitrate: cbr, vbr and abr target a bitrate, crf and lossless none.
 	usesBitrate bool
-	// usesMaxrate: vbr alone sets a burst ceiling over the target.
+	// usesMaxrate: vbr sets a burst ceiling over the target, and crf one over a target it has not,
+	// which is the same ceiling and the same rate buffer holding it.
+	// Whether the encoder has a form of it is the codec's answer (capabilities.QualityCeiling),
+	// weighed after this one.
 	usesMaxrate bool
-	// usesVbv: cbr and vbr bound the rate with a buffer of tunable size.
+	// usesVbv: cbr and vbr bound the rate with a buffer of tunable size, and so does a bounded crf.
 	usesVbv bool
 	// usesBframes: the lossy bitrate and quality modes gain from B-frames, where the family counts
 	// them.
@@ -1097,7 +1179,7 @@ var availabilityModes = map[string]availabilityMode{
 	capabilities.ModeCbr:      {usesBitrate: true, usesVbv: true},
 	capabilities.ModeVbr:      {usesBitrate: true, usesMaxrate: true, usesVbv: true, usesBframes: true},
 	capabilities.ModeAbr:      {usesBitrate: true, usesBframes: true},
-	capabilities.ModeCrf:      {usesCq: true, usesBframes: true},
+	capabilities.ModeCrf:      {usesCq: true, usesMaxrate: true, usesVbv: true, usesBframes: true},
 	capabilities.ModeLossless: {},
 }
 
@@ -1127,6 +1209,9 @@ var availabilityFamilies = map[string]availabilityFamily{
 	capabilities.FamilyV4l2:     {needsDevice: true},
 	capabilities.FamilyRkmpp:    {needsDevice: true},
 	capabilities.FamilyVulkan:   {needsDevice: true},
+	// The device is the Mac, so the encoders are there on every machine that runs the framework at all
+	// and absent on every machine that does not.
+	capabilities.FamilyVideoToolbox: {needsDevice: true},
 }
 
 // availabilityFamiliesWith lists the families whose row sets a flag, for a statement naming who takes
@@ -1196,13 +1281,19 @@ func init() {
 
 // availabilityEngineRules is the departure table, earlier rows winning.
 var availabilityEngineRules = []availabilityEngineRule{
-	// Neither engine withholds an effort step, so no row does.
-	// Every element that codes a laddered codec takes its steps through a property of its own,
+	// VAAPI is the one family whose effort step reaches a single engine.
+	// Every other element that codes a laddered codec takes its steps through a property of its own,
 	// speed-preset, cpu-used or preset, and the nvcodec elements take the same p1-p7 steps ffmpeg does.
 	//
 	// An encoder that cannot bound the burst at all has no VBR mode, declared as a mode gap in the
 	// capability table, so no row withholds the ceiling field for that case: a rule would grey a field
 	// under a mode that cannot be selected.
+	{
+		engine:   capabilities.EngineFfmpeg,
+		knob:     KeyEffort,
+		families: []string{capabilities.FamilyVaapi},
+		reason:   screensharev1.TextCode_TEXT_CODE_FFMPEG_VAAPI_QUALITY_IS_THE_DRIVERS_SCALE,
+	},
 	{
 		knob:   KeyVbvMs,
 		codecs: []string{"librav1e"},
@@ -1225,22 +1316,6 @@ var availabilityEngineRules = []availabilityEngineRule{
 		knob:     KeyVbvMs,
 		families: []string{capabilities.FamilyQsv},
 		reason:   screensharev1.TextCode_TEXT_CODE_GST_QSV_NO_RATE_BUFFER,
-	},
-	{
-		engine:   capabilities.EngineFfmpeg,
-		knob:     KeyBitrateM,
-		families: []string{capabilities.FamilyNvenc},
-		modes:    []string{capabilities.ModeCrf},
-		forwards: true,
-		reason:   screensharev1.TextCode_TEXT_CODE_NVENC_CQ_BITRATE_CAPS_BURSTS,
-	},
-	{
-		engine:   capabilities.EngineGst,
-		knob:     KeyBitrateM,
-		codecs:   []string{"libvpx-vp9", "libvpx"},
-		modes:    []string{capabilities.ModeCrf},
-		forwards: true,
-		reason:   screensharev1.TextCode_TEXT_CODE_GST_VPX_CQ_BITRATE_IS_CAP,
 	},
 	{
 		knob:     KeyBitrateM,

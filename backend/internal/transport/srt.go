@@ -47,18 +47,18 @@ var srtCarriage = Carriage{
 	Audio: []string{"opus", "aac"},
 }
 
-func (SRT) Formats() Formats {
-	return Formats{
-		Publish: map[string]Carriage{
-			capabilities.EngineFfmpeg: srtCarriage,
-			capabilities.EngineGst:    srtCarriage,
-		},
-		Watch: map[string]Carriage{
-			capabilities.EngineFfmpeg: srtCarriage,
-			capabilities.EngineGst:    srtCarriage,
-		},
-	}
+var srtFormats = Formats{
+	Publish: map[string]Carriage{
+		capabilities.EngineFfmpeg: srtCarriage,
+		capabilities.EngineGst:    srtCarriage,
+	},
+	Watch: map[string]Carriage{
+		capabilities.EngineFfmpeg: srtCarriage,
+		capabilities.EngineGst:    srtCarriage,
+	},
 }
+
+func (SRT) Formats() Formats { return srtFormats }
 
 func (SRT) PublishArgs(s settings.Settings) []string {
 	// ffmpeg's srt protocol takes every knob as a URL query: latency in MICROSECONDS, and the buffers

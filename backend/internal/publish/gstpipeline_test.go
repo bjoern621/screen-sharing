@@ -8,6 +8,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/gpupath"
+	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
 )
@@ -585,4 +586,56 @@ func gstTestCaps(s settings.Settings) (string, error) {
 func gstProbed(opts gstCaptureOptions) gstCaptureOptions {
 	opts.RateProbe = gstCaptureProbe
 	return opts
+}
+
+// The capture paces itself off the clock and the encoder takes what it can, so the trunk sheds
+// between the two: without the drop the encode holds the capture up and every frame behind it ages
+// by what the wait cost, which is the delay internal/pipedelay reports climbing for as long as the
+// shortfall lasts.
+// Ahead of the encoder and nowhere after it, a dropped encoded frame being a reference a viewer
+// decodes without.
+func TestTheTrunkShedsAheadOfTheEncoder(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "libx264", "yuv420p", "crf"
+	pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	encoder := slices.Index(pipeline, "x264enc")
+	if encoder < 0 {
+		t.Fatalf("no encoder in %s", strings.Join(pipeline, " "))
+	}
+	// The link before the encoder, so what is read is the element handing frames to it and not a queue
+	// further up the capture chain.
+	shed := encoder - len(gstEncodeQueue) - 1
+	if shed < 0 || !slices.Equal(pipeline[shed:shed+len(gstEncodeQueue)], gstEncodeQueue) {
+		t.Fatalf("nothing sheds between the capture and the encoder: %s", strings.Join(pipeline, " "))
+	}
+}
+
+// The shed's drops are a figure rather than a silence, which takes the queue carrying a name and the
+// child being told it: the count is taken at both ends of that element (gstrun/delay.go).
+func TestTheShedIsNamedAndCounted(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "libx264", "yuv420p", "crf"
+	pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(pipeline, "name="+gstShedName) {
+		t.Errorf("the shed carries no name: %s", strings.Join(pipeline, " "))
+	}
+
+	metered := gstChildArgs(s, "/run/socket", true)
+	if !slices.Contains(metered, gstrun.ShedFlag+gstShedName) {
+		t.Errorf("a metered run does not count the shed: %v", metered)
+	}
+
+	// A run with no meter times nothing and counts nothing, and the rendered command still reads as
+	// the command that ran.
+	if plain := gstChildArgs(s, "/run/socket", false); slices.ContainsFunc(plain,
+		func(arg string) bool { return strings.HasPrefix(arg, gstrun.ShedFlag) }) {
+		t.Errorf("an unmetered run counts the shed: %v", plain)
+	}
 }

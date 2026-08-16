@@ -161,6 +161,66 @@ State the invariant that produces the fact instead.
 Re-read it and find the cut, every time, not only when it reads badly.
 "It already reads fine" is not an outcome of the pass.
 
+# Every word states what is, never what changed
+
+What a thing replaced, what it used to be, what is planned for it and what building it was like are **changelog voice**.
+A commit message and a PR description are where that belongs, being the two things whose subject is a change.
+Everywhere else it is cut, and everywhere else is all of it: every string the app shows, every comment, every page under `docs/`, every `logger` line, assert message, test name and failure message, and every identifier.
+
+**Changelog voice is text about a thing's timeline or its construction, standing where the reader came for the thing itself.**
+Three faces.
+
+- *Past.* "and never was", "used to", "as before", "since the rewrite", "moved here from", "new".
+  History the reader does not hold and cannot use.
+- *Future.* "not yet", "still to come", "coming", "planned", "for now".
+  A promise the sentence cannot keep, leaving the reader waiting instead of using what is there.
+- *Workshop.* "by design", "we decided", "after some experimentation", "it turned out that".
+  The making of the thing rather than the thing.
+
+**A clause arguing with somebody is the tell.**
+"and never was" rebuts a complaint nobody made.
+Writing here has no opponent: it reports a state and names a consequence.
+
+**Naming an absence teaches a capability and then takes it away.**
+"There is no live-safe change here" hands a reader who never imagined reconfiguring a running encoder the idea, and denies it in the same breath.
+Name what does exist instead.
+
+Per surface:
+
+- *Anything the app shows* is strictest and takes no exception, wherever the string lives: `Copy/`, a feature table such as `Features/Setup/Model/CommitCopy.cs`, a literal in an `.axaml` view, a refusal the backend puts on the contract.
+  The reader met this app a minute ago and will never open this repository, so its history and its making are about somebody else, and so are its internals: a pipeline element, a process split, a cause they cannot act on.
+  An error string is the one exception in one direction, an identifier a bug report needs staying because getting it to a maintainer is the reader's next action.
+  - Bad: "Applying restarts the stream. The encoder is torn down and launched again on these settings - there is no live-safe change here and never was - so viewers on X lose the picture."
+  - Good: "Applying restarts the stream on these settings. Viewers on X lose the picture for a moment and reconnect."
+  - Bad: "The quality track is no longer editable while sharing." / Good: "Locked while sharing. Stop the stream to change it."
+  - Bad: "Nothing carries the pointer over the relay yet." / Good: "The pointer is drawn into the picture on the way out."
+
+- *Comments* are written from the file, never from the diff.
+  Git holds what changed, and holds it accurately.
+  A comment narrating an edit is stale under the next edit, which is the defect "Comments" above already calls a stale comment.
+  - Bad: `// Now returns nil instead of an error.` / Good: `// nil when the transport carries no video.`
+  - Bad: `// Changed to a table after the switch got unmanageable.` / Good: `// One row per codec, so a new codec is a row.`
+
+- *Pages under `docs/`* describe the system, not the road to it, which is "A page states no fact that rots" in "Docs are short" applied to the road as well as to the clock.
+
+- *Identifiers* date themselves and then lie.
+  `newParser`, `parserV2`, `legacyPath`, `oldHandler`: true for one release, confusing after the next, and a third arrival has nowhere to go.
+
+- *Logs, asserts and test failures* report the reading, not the regression.
+  - Bad: `t.Fatal("this broke when the ladder table landed")` / Good: `t.Fatalf("%s declares no ladder step", codec)`.
+
+**A state whose name holds a past is not history.**
+"Disconnected", "Reconnecting", "Frozen for 12 s", "stale", "a client no longer listening" are readings of the running system and they stay.
+Banned is the *product's* history, not the *session's*.
+So is code whose subject genuinely is change: `settings/migrate.go` names an old key and a new one because that is its present job.
+
+**An absence is explained only where a reader would restore it**, which is the one place "was there before" earns its line.
+
+The test, clause by clause:
+- Would a reader who met this a minute ago, and will never see its history, act differently because of the clause? No: cut it.
+- Does the clause only parse for somebody who knows a previous version, a rejected design, or how the work went? Cut it.
+- Strike every word answering "when did this change" and "what was building it like". What is left is the sentence.
+
 # Every error message is selectable and copyable
 
 An error is the one string a user has to get out of the app and into a bug report, a search box or a message to someone else.

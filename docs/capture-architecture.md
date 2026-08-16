@@ -345,11 +345,16 @@ Each is absent where nothing measured it, which is every figure on the ffmpeg en
 The measuring point is the encoded-frame counter, named by the parent on the command line rather than found by the child.
 Measuring at whatever happens to be last would measure the meter's own sink on a run that carries one.
 The delay rides with the meter for the reason the frame count does: a run's instrumentation, so a pipeline built without progress times nothing and `Command` renders neither.
+
+Two things keep that reading from growing without bound.
+The trunk sheds ahead of the encoder, the newest frame held and the rest dropped, so an encoder or a leg short of the capture rate costs frames instead of holding the capture up while every frame behind it ages (`gstEncodeQueue`).
+What it dropped is counted at both ends of that queue and crosses on the same line as the delay, the two being one reading: what the shed threw away is what the delay did not grow by.
+And the software encoders run with their lookahead pinned off (`gstLiveDelay`), frames an element holds leaving at whatever rate the transport takes: fifty held frames on a leg draining three a second is seventeen seconds of picture nobody has seen.
 `viewer-architecture.md`, "What the path costs a frame", carries the receiving half and what the two are added into.
 
 Falling behind and running ahead are two events with two counters.
 `Dup` counts frames the encoder repeated to hold the output rate, which rises when capture or encode cannot keep up.
-`Drop` counts frames discarded before the encoder for arriving faster than the output rate, which a pipeline setting no output rate never does.
+`Drop` counts frames discarded before the encoder for arriving faster than it takes them, which on the GStreamer engine is the shed's own count, taken at both ends of that queue by the child.
 Naming one after the other is how a health column ends up structurally unable to move.
 
 ## The second sink
@@ -367,7 +372,7 @@ Whether two settings build one pipeline is decided by comparing the rendered str
 ### Capture rate against encoded rate
 
 How often the encoder emitted a frame and how often the screen produced a new one are two figures, and on a damage-driven backend they are far apart.
-`imagefreeze` repeats the newest damage frame at the configured framerate, so the encoded rate equals the target whatever the screen does: a capture delivering three new pictures a second still encodes sixty.
+`imagefreeze` repeats the newest damage frame at the configured framerate, so the encoded rate follows the target whatever the screen does: a capture delivering three new pictures a second still encodes sixty, up to what the encoder and the leg take off the shed ahead of the encoder.
 A counter downstream of it hands the target back as if it were a measurement, and the one figure a viewer experiences is missing.
 
 So a capture backend places a second `progressreport` at the last point where one buffer is one new picture, ahead of anything that repeats or paces frames, and the sample carries both rates.

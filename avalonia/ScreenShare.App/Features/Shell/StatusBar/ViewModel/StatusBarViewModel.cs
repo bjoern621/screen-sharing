@@ -7,8 +7,7 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.StatusBar.ViewModel;
 
 /// <summary>
-/// The bottom band: what the window is carrying, and the sentence saying what the view in front of it
-/// affords.
+/// Bottom band: what the window is carrying, and the sentence saying what the view in front of it affords.
 ///
 /// The design states figures for the viewer alone.
 /// Setup receives nothing and broadcast decodes nothing, so a figure there would be invented.
@@ -24,12 +23,12 @@ public sealed class StatusBarViewModel : Observable
     private string _figuresHint = "";
 
     /// <summary>
-    /// The band's whole input.
-    /// The figures arrive rather than being held here: the destination in front of the band is what derives
-    /// them, and a band holding its own copy would go on printing the throughput of a torn-down decoder.
+    /// Band's whole input.
+    /// The figures arrive rather than being held here: the destination in front of the band derives them, and a
+    /// band holding its own copy would go on printing the throughput of a torn-down decoder.
     ///
-    /// The load figures arrive as a list rather than as named slots, because what a destination reports is
-    /// that destination's business.
+    /// The load figures arrive as a list rather than as named slots, what a destination reports being that
+    /// destination's business.
     /// A field per figure is a band edited whenever one of them splits in two.
     /// Idempotent.
     /// </summary>
@@ -59,16 +58,16 @@ public sealed class StatusBarViewModel : Observable
     /// <summary>Prose: how much of what arrives is on screen.</summary>
     public string Streams { get => _streams; private set => Set(ref _streams, value); }
 
-    /// <summary>The measurements, in the order the destination handed them over.</summary>
+    /// <summary>Measurements, in the order the destination handed them over.</summary>
     public ObservableCollection<string> Load { get; } = [];
 
-    /// <summary>The trailing sentence. Contextual rather than measured: it moves with the view.</summary>
+    /// <summary>Trailing sentence. Contextual rather than measured: it moves with the view.</summary>
     public string Hint { get => _hint; private set => Set(ref _hint, value); }
 
     public bool ShowsHint { get => _showsHint; private set => Set(ref _showsHint, value); }
 
     /// <summary>
-    /// The one render function.
+    /// One render function.
     /// Every output on every pass, so a viewer figure cannot outlive a step back into setup.
     /// </summary>
     public void Apply()

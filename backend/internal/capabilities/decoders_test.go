@@ -77,11 +77,11 @@ func TestHardwareDecodeVerdicts(t *testing.T) {
 		format, chroma string
 		want           []string
 	}{
-		{"h264", "yuv420p", []string{"vah264dec", "nvh264dec", "qsvh264dec", "d3d11h264dec"}},
+		{"h264", "yuv420p", []string{"vah264dec", "nvh264dec", "qsvh264dec", "d3d11h264dec", "vtdec"}},
 		{"h264", "yuv444p", nil},
 		{"h264", "p010le", nil},
-		{"hevc", "yuv420p", []string{"vah265dec", "nvh265dec", "qsvh265dec", "d3d11h265dec"}},
-		{"hevc", "p010le", []string{"vah265dec", "nvh265dec", "qsvh265dec", "d3d11h265dec"}},
+		{"hevc", "yuv420p", []string{"vah265dec", "nvh265dec", "qsvh265dec", "d3d11h265dec", "vtdec"}},
+		{"hevc", "p010le", []string{"vah265dec", "nvh265dec", "qsvh265dec", "d3d11h265dec", "vtdec"}},
 		{"hevc", "yuv444p", []string{"nvh265dec", "qsvh265dec"}},
 		{"hevc", "gbrp", []string{"nvh265dec", "qsvh265dec"}},
 		{"av1", "yuv420p", []string{"vaav1dec", "nvav1dec", "qsvav1dec", "d3d11av1dec"}},
@@ -122,14 +122,14 @@ func TestDecodeOfFollowsTheFormat(t *testing.T) {
 	if software.Software.Element != "avdec_h265" {
 		t.Errorf("HEVC falls back to %q, want avdec_h265", software.Software.Element)
 	}
-	// The two families carrying HEVC without its Range Extensions profiles are what a publisher picking
-	// RGB is told about, each with its own reason.
+	// The families carrying HEVC without its Range Extensions profiles are what a publisher picking RGB
+	// is told about, each with its own reason.
 	var missing []string
 	for _, d := range software.Missing {
 		missing = append(missing, d.Element)
 	}
-	if !slices.Equal(missing, []string{"vah265dec", "d3d11h265dec"}) {
-		t.Errorf("HEVC at gbrp misses %v, want the VA and DXVA rows", missing)
+	if !slices.Equal(missing, []string{"vah265dec", "d3d11h265dec", "vtdec"}) {
+		t.Errorf("HEVC at gbrp misses %v, want the VA, DXVA and VideoToolbox rows", missing)
 	}
 
 	// A chroma every family decodes leaves nothing missing.

@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-gst/go-gst/pkg/gst"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
+	"bjoernblessin.de/screenshare/internal/padprobe"
 	"bjoernblessin.de/screenshare/internal/pipedelay"
 )
 
@@ -39,6 +41,11 @@ const DelayPrefix = "screenshare-delay "
 // rides with the meter rather than with the pipeline.
 const DelayFlag = "--delay="
 
+// ShedFlag names the queue that drops what the encoder could not take, counted at both its ends.
+// Reported beside the delay because the two are one reading: a leg short of the capture rate costs
+// frames here and would otherwise cost delay, so what was dropped is what the delay did not grow by.
+const ShedFlag = "--shed="
+
 // delayInterval is how often a reading is written, the cadence progressreport prints at and the
 // cadence the backend samples a decode at.
 const delayInterval = time.Second
@@ -54,6 +61,10 @@ type Delay struct {
 	// passing it on, summed over Frames frames: converting, encoding and parsing.
 	TransitNs uint64 `json:"transitNs"`
 	Frames    uint64 `json:"frames"`
+	// Dropped is what the shed threw away since the pipeline started, absent on a run carrying no
+	// shed.
+	// Cumulative like the pair above, so the parent divides two readings by the interval between them.
+	Dropped *uint64 `json:"dropped,omitempty"`
 	// LinkMs is the delivery window the publish leg settled on with the relay, the delay every packet
 	// is held for so a lost one has room to be sent again.
 	LinkMs *float64 `json:"linkMs,omitempty"`
@@ -100,7 +111,8 @@ func watchDelay(pipeline gst.Pipeline, element string) *pipedelay.Probe {
 }
 
 // reportDelay writes one reading per tick until the context ends, on its own goroutine.
-func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Probe, out io.Writer) {
+// shed is nil on a pipeline carrying none, which reports no drop rather than a drop of nothing.
+func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Probe, shed *shedCount, out io.Writer) {
 	assert.IsNotNil(ctx, "a delay report runs under a context")
 	assert.IsNotNil(out, "a delay report is written to a writer")
 	assert.IsNotNil(probe, "a delay report reads a probe")
@@ -116,9 +128,69 @@ func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Pr
 
 		reading := probe.Read()
 		delay := Delay{TransitNs: uint64(reading.Total), Frames: reading.Frames}
+		if dropped, counted := shed.Read(); counted {
+			delay.Dropped = &dropped
+		}
 		delay.LinkMs, delay.RttMs = linkOf(pipeline)
 		writeDelay(out, delay)
 	}
+}
+
+// shedCount is what one queue took in and what it handed on, the difference being what it dropped.
+//
+// Two counters and not one: a queue keeps no counter of its own, and the depth it holds is the same
+// one frame at every reading, so it cancels in the subtraction rather than standing as a drop.
+// Written by the streaming threads and read by the reporting one, which is what makes both atomic.
+type shedCount struct {
+	in  atomic.Uint64
+	out atomic.Uint64
+}
+
+// watchShed counts at both ends of the named queue, and nil where the pipeline holds no such
+// element or it grows its pads on request.
+// An uncounted shed is a shed, so nothing here fails a run.
+func watchShed(pipeline gst.Pipeline, element string) *shedCount {
+	assert.Assert(element != "", "a shed count names the queue it is taken at")
+
+	el := pipeline.GetByName(element)
+	if el == nil {
+		return nil
+	}
+	sink, src := el.GetStaticPad("sink"), el.GetStaticPad("src")
+	if sink == nil || src == nil {
+		return nil
+	}
+
+	c := &shedCount{}
+	sink.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		if padprobe.Buffer(info) != nil {
+			c.in.Add(1)
+		}
+		return gst.PadProbeOK
+	})
+	src.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+		if padprobe.Buffer(info) != nil {
+			c.out.Add(1)
+		}
+		return gst.PadProbeOK
+	})
+	return c
+}
+
+// Read is what the shed has dropped, and false for a pipeline carrying none.
+// Safe on a nil count, which is that pipeline.
+//
+// The two counters are read one after the other, so a frame crossing between the two reads counts as
+// held rather than dropped, and the next reading has it either way.
+func (c *shedCount) Read() (uint64, bool) {
+	if c == nil {
+		return 0, false
+	}
+	in, out := c.in.Load(), c.out.Load()
+	if in < out {
+		return 0, true
+	}
+	return in - out, true
 }
 
 // writeDelay renders one reading onto the child's output.

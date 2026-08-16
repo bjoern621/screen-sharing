@@ -2,6 +2,7 @@ package ffmpeg
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -39,13 +40,27 @@ var (
 	tuneFlags = map[string]string{
 		"libx264":     "-tune",
 		"libx265":     "-tune",
+		"libvpx":      "-tune",
+		"libvpx-vp9":  "-tune",
+		"libaom-av1":  "-tune",
 		"hevc_nvenc":  "-tune",
 		"h264_nvenc":  "-tune",
 		"av1_nvenc":   "-tune",
 		"h264_vulkan": "-tune",
 		"hevc_vulkan": "-tune",
 		"av1_vulkan":  "-tune",
+		// oneVPL's tuning is a scenario the session is for, so ffmpeg puts it on its own flag.
+		"h264_qsv": "-scenario",
+		"hevc_qsv": "-scenario",
+		// The two libraries whose wrapper puts no tune flag on at all: the step is one key of the
+		// colon-separated string carrying everything the library takes and the wrapper does not name.
+		"libsvtav1": "-svtav1-params",
+		"librav1e":  "-rav1e-params",
 	}
+
+	// paramFlags are the tune flags carrying a key set rather than one value, so an assertion looks for
+	// the key inside the string and not for the string itself.
+	paramFlags = map[string]bool{"-svtav1-params": true, "-rav1e-params": true}
 )
 
 // A speed decision the table declares and a builder spends is one written in two places, so any
@@ -72,13 +87,14 @@ func TestTheLaddersStateWhatTheBuildersSpend(t *testing.T) {
 				if flag, ok := tuneFlags[c.Name]; ok {
 					step, declared := c.Tune.StepFor(mode)
 					if !declared || step == "none" {
-						// An absent default means the builder leaves the knob unset in this mode.
-						if i := slices.Index(args, flag); i >= 0 {
-							t.Errorf("the builder tunes for %q where the table leaves the knob unset", args[i+1])
-						}
+						assertUntuned(t, args, flag)
 						return
 					}
-					assertFlagValue(t, args, flag, step)
+					if paramFlags[flag] {
+						assertFlagCarries(t, args, flag, "tune="+tuneSpelling(c, step))
+						return
+					}
+					assertFlagValue(t, args, flag, tuneSpelling(c, step))
 				}
 			})
 		}
@@ -102,8 +118,20 @@ func TestEveryDefaultIsAStepOfItsLadder(t *testing.T) {
 	}
 }
 
+// withheldEffort are the codecs whose row declares an effort ladder that this engine spends nothing
+// of, each covered by a row of form.availabilityEngineRules that greys the control here.
+//
+// The VAAPI family is the one: its ladder is the seven points the va elements take, where ffmpeg's
+// -quality counts over the range the installed driver reports, so a step carried across would spend
+// a different amount of work per vendor.
+// A withheld knob is the departure table's business rather than a missing mapping, which is why it
+// is named here instead of failing the pairing below.
+var withheldEffort = map[string]bool{
+	"h264_vaapi": true, "hevc_vaapi": true, "av1_vaapi": true, "vp9_vaapi": true, "vp8_vaapi": true,
+}
+
 // A codec whose builder spends a step declares a ladder, and one that declares a ladder has a
-// builder that spends it.
+// builder that spends it, unless the departure table withholds the knob on this engine.
 // The two maps above are the builders' side of that, so a codec missing from either is a knob the
 // form offers and the command drops.
 func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
@@ -111,7 +139,7 @@ func TestEveryLadderHasABuilderThatSpendsIt(t *testing.T) {
 		if !c.Implemented {
 			continue
 		}
-		if _, ok := effortFlags[c.Name]; ok != (len(c.Effort.Steps) > 0) {
+		if _, ok := effortFlags[c.Name]; !withheldEffort[c.Name] && ok != (len(c.Effort.Steps) > 0) {
 			t.Errorf("%s: the builder spends an effort step=%v and the table declares a ladder=%v",
 				c.Name, ok, len(c.Effort.Steps) > 0)
 		}
@@ -167,6 +195,58 @@ func assertFlagValue(t *testing.T, args []string, flag, want string) {
 	if args[i+1] != want {
 		t.Errorf("the builder passes %s %q, where the table declares %q", flag, args[i+1], want)
 	}
+}
+
+// assertFlagCarries holds one key inside a flag's colon-separated value.
+// The rest of the string is the rate control's, which the mode decides and this does not ask about.
+func assertFlagCarries(t *testing.T, args []string, flag, key string) {
+	t.Helper()
+
+	i := slices.Index(args, flag)
+	if i < 0 {
+		t.Errorf("the builder passes no %s, where the table declares %q", flag, key)
+		return
+	}
+	if i+1 >= len(args) {
+		t.Fatalf("%s is the last argument and carries no value", flag)
+	}
+	if !slices.Contains(strings.Split(args[i+1], ":"), key) {
+		t.Errorf("the builder passes %s %q, which carries no %q", flag, args[i+1], key)
+	}
+}
+
+// assertUntuned holds the builder to spending nothing where the table leaves the knob unset.
+// A flag carrying a key set is exempt from the flag being absent, the rate control putting its own
+// keys in the same string, so what is asserted there is that no tune key rode along.
+func assertUntuned(t *testing.T, args []string, flag string) {
+	t.Helper()
+
+	i := slices.Index(args, flag)
+	if i < 0 || i+1 >= len(args) {
+		return
+	}
+	if !paramFlags[flag] {
+		t.Errorf("the builder tunes for %q where the table leaves the knob unset", args[i+1])
+		return
+	}
+	for _, key := range strings.Split(args[i+1], ":") {
+		if strings.HasPrefix(key, "tune=") {
+			t.Errorf("the builder passes %s where the table leaves the knob unset", key)
+		}
+	}
+}
+
+// tuneSpelling is how this engine writes one step of a codec's tune ladder.
+//
+// Every ladder but SVT-AV1's reaches ffmpeg as the step itself.
+// That library takes a number where the ladder names the mode it stands for, so this reads the
+// pairing the table declares rather than a second copy of it.
+func tuneSpelling(c capabilities.Codec, step string) string {
+	if c.Name != "libsvtav1" {
+		return step
+	}
+	value, _ := capabilities.Svtav1TuneValue(step)
+	return value
 }
 
 // effortSpelling is how this engine writes one step of a codec's ladder.

@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
   <!--
-    Greyscale ramp plus one hue.
+    Greyscale ramp plus the three hues.
     Keys name roles and never values, so a light variant is a second dictionary rather than an edit in every view.
   -->
 
@@ -25,11 +25,15 @@
   <Color x:Key="White">#FFFFFF</Color>
 
   <!--
-    Sharing, and a fault.
-    Never state that is merely on.
-    It is the one hue, and the only one a colour-blind reader still separates from grey.
+    Three hues, one question each (docs/design-language.md, "Palette").
+    Never state that is merely on, and never selection, which is inversion.
   -->
+  <!-- Broken, or on air. -->
   <Color x:Key="Attention">#E5484D</Color>
+  <!-- It runs, and something about it disappoints. Too light for a white label, so a fill of it takes near-black. -->
+  <Color x:Key="Caution">#FFB224</Color>
+  <!-- The way is clear. -->
+  <Color x:Key="Go">#30A46C</Color>
 
   <!--
     Fluent's accent keys, pointed at the one light surface.
@@ -76,21 +80,27 @@
   <SolidColorBrush x:Key="GlyphBrush" Color="{StaticResource Grey150}" />
   <SolidColorBrush x:Key="MutedBrush" Color="{StaticResource Grey300}" />
   <SolidColorBrush x:Key="HintBrush" Color="{StaticResource Grey400}" />
-  <!-- The whole unavailable treatment, here and everywhere: a colour change, nothing else. -->
+  <!-- Whole unavailable treatment, here and everywhere: a colour change, nothing else. -->
   <SolidColorBrush x:Key="DisabledBrush" Color="{StaticResource Grey450}" />
+  <!-- Why something is inert, read off a surface whose own text has gone to the disabled grey. -->
+  <SolidColorBrush x:Key="ReasonBrush" Color="{StaticResource Caution}" />
   <SolidColorBrush x:Key="OnSelectedBrush" Color="{StaticResource Grey900}" />
 
-  <!-- The one hue  -->
+  <!-- Hues -->
 
   <SolidColorBrush x:Key="AttentionBrush" Color="{StaticResource Attention}" />
+  <SolidColorBrush x:Key="CautionBrush" Color="{StaticResource Caution}" />
+  <SolidColorBrush x:Key="GoBrush" Color="{StaticResource Go}" />
+  <!-- What a label on an amber fill takes, the hue being lighter than the text roles above. -->
+  <SolidColorBrush x:Key="OnCautionBrush" Color="{StaticResource Grey900}" />
 
   <!-- Elevation  -->
 
   <!--
-    The one shadow the app draws, for the surface that floats over the window:
+    One shadow the app draws, for the surface that floats over the window:
     a menu, and the tooltip skinned like one.
     A window's is the platform's, cast around the frame by the compositor.
-    BoxShadows rather than a brush, because that is the type the setter takes.
+    BoxShadows rather than a brush, that being the type the setter takes.
   -->
   <BoxShadows x:Key="MenuShadow">0 10 28 0 #8C000000</BoxShadows>
 

@@ -9,8 +9,8 @@ namespace ScreenShare.App.Features.Setup.ScreenPicker.View;
 /// Markup, and the one fact the markup cannot state: whether this grid is being looked at.
 ///
 /// The answer decides more than a subscription here.
-/// These pictures come off screen captures the backend opened because this grid asked, one per monitor, where
-/// the broadcast preview's come off a pipeline the publish already runs.
+/// These pictures come off screen captures the backend opened because this grid asked, one per monitor, where the
+/// broadcast preview's come off a pipeline the publish already runs.
 /// So a grid nobody is looking at stops reading the screens rather than merely stopping drawing them
 /// (<see cref="ScreenPickerViewModel"/>).
 ///
@@ -21,12 +21,12 @@ public sealed partial class ScreenPickerView : UserControl
 {
     /// <summary>
     /// Whether the grid is on screen in a window that is in front.
-    /// Both halves are facts only a control and the platform can answer, so the answer is worked out in the
-    /// shell (<see cref="ShowingWatch"/>).
+    /// Both halves are facts only a control and the platform can answer, so the answer is worked out in the shell
+    /// (<see cref="ShowingWatch"/>).
     /// </summary>
     private readonly ShowingWatch _showing;
 
-    /// <summary>The view model last told, so the one being left can be told it is not showing.</summary>
+    /// <summary>View model last told, so the one being left can be told it is not showing.</summary>
     private ScreenPickerViewModel? _told;
 
     public ScreenPickerView()
@@ -55,8 +55,8 @@ public sealed partial class ScreenPickerView : UserControl
 
     /// <summary>
     /// Tells the grid whether it is being looked at.
-    /// Idempotent, the write it makes being idempotent itself, so a data context that changed without the
-    /// tree or the window moving reports the same fact again and converges to the same world.
+    /// Idempotent, the write it makes being idempotent itself, so a data context that changed without the tree or
+    /// the window moving reports the same fact again and converges to the same world.
     /// </summary>
     private void Tell(bool showing)
     {

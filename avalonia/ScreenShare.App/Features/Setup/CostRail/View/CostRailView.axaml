@@ -9,14 +9,17 @@
              x:DataType="vm:CostRailViewModel">
 
   <UserControl.Styles>
-    <!-- The ordinary fill hue is set here and not on the element: an inline value is a LocalValue,
-         which outranks every style setter, so the overrun below would never paint. -->
+    <!-- Ordinary fill hue set here and not on the element: an inline value is a LocalValue, which outranks
+         every style setter, so the overrun below would never paint. -->
     <Style Selector="view|MeterBar">
       <Setter Property="FillBrush" Value="{StaticResource ForegroundBrush}" />
     </Style>
-    <!-- Over the limit the whole fill takes the attention hue: MeterBar clamps nothing at the marker. -->
+    <!--
+      Over the limit the whole fill takes the caution hue: MeterBar clamps nothing at the marker.
+      Amber and not red, a setting asking for more than the line measured still publishing.
+    -->
     <Style Selector="view|MeterBar.over">
-      <Setter Property="FillBrush" Value="{StaticResource AttentionBrush}" />
+      <Setter Property="FillBrush" Value="{StaticResource CautionBrush}" />
     </Style>
   </UserControl.Styles>
 
@@ -49,11 +52,11 @@
                        Limit="{Binding UplinkShare}"
                        TrackHeight="5"
                        TrackBrush="{StaticResource DividerBrush}"
-                       LimitBrush="{StaticResource AttentionBrush}" />
+                       LimitBrush="{StaticResource CautionBrush}" />
 
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="0" />
-          <TextBlock Grid.Column="1" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="{Binding UplinkCaption}" />
+          <TextBlock Grid.Column="1" Classes="figure" Foreground="{StaticResource CautionBrush}" Text="{Binding UplinkCaption}" />
         </Grid>
 
         <Border Classes="dividerh" Margin="0,12" />
@@ -112,10 +115,9 @@
         </ItemsControl>
 
         <!--
-          Why no pipeline builds, under the line that says one does not.
-          It is the backend's own sentence and the string a reader has to get into a bug report, so it is
-          selectable and wraps rather than trimming (CLAUDE.md, "Every error message is selectable and
-          copyable").
+          Why no pipeline builds, under the line saying one does not.
+          The backend's own sentence and the string a reader has to get into a bug report, so it is selectable
+          and wraps rather than trimming (CLAUDE.md, "Every error message is selectable and copyable").
         -->
         <SelectableTextBlock Classes="hint danger"
                              TextWrapping="Wrap"

@@ -5,10 +5,8 @@ namespace ScreenShare.App.Backend;
 /// <summary>
 /// What the preset store answered: the configurations the user saved, and the notice standing in for the ones
 /// that could not be read.
-///
-/// The two travel together because an empty list means two different things.
-/// Nothing saved yet and nothing readable remaining are different facts about the reader's machine, and only
-/// the notice tells them apart.
+/// The two travel together because an empty list means two different things: nothing saved yet and nothing
+/// readable remaining are different facts about the reader's machine, and only the notice tells them apart.
 /// A reading that dropped it would leave the screen saying "no presets" to someone whose presets are still on
 /// disk.
 /// </summary>

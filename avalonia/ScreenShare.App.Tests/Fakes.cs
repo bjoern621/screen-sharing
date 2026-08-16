@@ -14,9 +14,9 @@ internal static class Answers
 {
     /// <summary>
     /// Completes a held call with the test framework's synchronization context off the thread.
-    /// The runtime refuses to resume an awaiting continuation inline on a thread carrying a context and
-    /// queues it to the thread pool, which leaves the view model rendering on one thread while the test reads
-    /// its properties on another, in no order awaiting can fix.
+    /// The runtime refuses to resume an awaiting continuation inline on a thread carrying a context and queues it
+    /// to the thread pool, which leaves the view model rendering on one thread while the test reads its
+    /// properties on another, in no order awaiting can fix.
     /// With the context off, the resumption runs here.
     /// </summary>
     public static void Now(Action complete)
@@ -35,8 +35,8 @@ internal static class Answers
 }
 
 /// <summary>
-/// A backend whose resolves are answered by hand, which is the only way to write down the real one's timing: a
-/// socket lets two drafts be in flight at once and puts no order on their answers.
+/// A backend whose resolves are answered by hand, the only way to write down the real one's timing: a socket
+/// lets two drafts be in flight at once and puts no order on their answers.
 /// Every resolve is held and answered from the seeded form on request, in whichever order a test chooses.
 /// The token each call was given is kept too, so a test can state that superseding a draft asked the older
 /// call to stop rather than merely ignoring its answer.
@@ -45,7 +45,7 @@ internal sealed class DeferredBackend : IBackend
 {
     private sealed record Held(Settings Draft, TaskCompletionSource<Form> Answer, CancellationToken Cancellation);
 
-    /// <summary>The sentence a read fails with when nothing is listening, worded as the client words it.</summary>
+    /// <summary>Sentence a read fails with when nothing is listening, worded as the client words it.</summary>
     private const string Absent = "The backend is not running: nothing is listening on the control socket.";
 
     private readonly SeededBackend _seed = new("linux");
@@ -54,7 +54,7 @@ internal sealed class DeferredBackend : IBackend
     private TaskCompletionSource _saveAsked = new();
 
     /// <summary>
-    /// Stands in for the encoder probe landing, which is what the real backend raises this for.
+    /// Stands in for the encoder probe landing, what the real backend raises this for.
     /// Raised by hand, so a test can state that news of a moved answer makes the flow read again rather than
     /// redraw what it holds.
     /// </summary>
@@ -109,9 +109,8 @@ internal sealed class DeferredBackend : IBackend
         => _seed.ApplyToStreamAsync(settings, cancellation);
 
     /// <summary>
-    /// A write, answered at once unless <see cref="DefersSaves"/> is set, in which case it is held like a
-    /// resolve and for the same reason: a socket lets a second write be asked for while the first is
-    /// unanswered.
+    /// A write, answered at once unless <see cref="DefersSaves"/> is set, in which case it is held like a resolve
+    /// and for the same reason: a socket lets a second write be asked for while the first is unanswered.
     /// What was handed over is recorded either way.
     /// </summary>
     public Task SaveSettingsAsync(Settings settings, CancellationToken cancellation = default)
@@ -140,9 +139,9 @@ internal sealed class DeferredBackend : IBackend
     }
 
     /// <summary>
-    /// Completes when the next write is asked for, which is what a test waits on instead of sleeping.
-    /// A held write's continuation runs on whichever thread completed it, so the count alone says nothing
-    /// about whether it has run.
+    /// Completes when the next write is asked for, what a test waits on instead of sleeping.
+    /// A held write's continuation runs on whichever thread completed it, so the count alone says nothing about
+    /// whether it has run.
     /// </summary>
     public Task NextSaveAsked => _saveAsked.Task;
 
@@ -236,7 +235,7 @@ internal sealed class DeferredBackend : IBackend
     public IAsyncEnumerable<PointerPosition> SubscribePointerAsync(CancellationToken cancellation = default)
         => _seed.SubscribePointerAsync(cancellation);
 
-    /// <summary>The draft one held resolve was asked about, indexed in the order the resolves arrived.</summary>
+    /// <summary>Draft one held resolve was asked about, indexed in the order the resolves arrived.</summary>
     public Settings Draft(int resolve) => _held[resolve].Draft;
 
     /// <summary>Whether one held resolve was asked to stop.</summary>
@@ -280,13 +279,13 @@ internal sealed class PublishingBackend : IBackend
         remove { }
     }
 
-    /// <summary>The relay snapshot. Reachable until a test writes the failure it is about.</summary>
+    /// <summary>Relay snapshot. Reachable until a test writes the failure it is about.</summary>
     public RelayStatus Relay { get; set; } = new() { Reachable = true };
 
     /// <summary>What is publishing. Nothing until a test writes one, which the absent <c>Live</c> says.</summary>
     public PublishState Publish { get; set; } = new();
 
-    /// <summary>The refusal every commit meets, empty while commits go through.</summary>
+    /// <summary>Refusal every commit meets, empty while commits go through.</summary>
     public string Refusal { get; set; } = "";
 
     /// <summary>Settings each accepted start was given, oldest first.</summary>
@@ -294,8 +293,8 @@ internal sealed class PublishingBackend : IBackend
 
     /// <summary>
     /// Settings each accepted apply was given, oldest first.
-    /// Kept apart from <see cref="Started"/> because which list a commit lands in is the whole question: the
-    /// backend refuses each effect in the state the other one is for.
+    /// Kept apart from <see cref="Started"/>, which list a commit lands in being the whole question: the backend
+    /// refuses each effect in the state the other one is for.
     /// </summary>
     public List<Settings> Applied { get; } = [];
 
@@ -338,6 +337,7 @@ internal sealed class PublishingBackend : IBackend
     /// One commit, recorded where a test looks for it.
     /// Both effects carry the whole draft, answer with nothing and are refused or held on the same terms, so
     /// which list the settings landed in is all there is to read.
+
     /// </summary>
     private Task Commit(List<Settings> into, Settings settings)
     {
@@ -451,7 +451,7 @@ internal sealed class PublishingBackend : IBackend
 }
 
 /// <summary>
-/// The two destinations that read the window's one settings draft, built as the window builds them: one
+/// Two destinations that read the window's one settings draft, built as the window builds them: one
 /// <see cref="Session"/> and one <see cref="FormSession"/> behind both.
 /// The window holds one draft for the whole app, the wizard writing what this machine sends and the viewer how
 /// it receives, into the same message, so a fixture handing each its own would test an arrangement the app

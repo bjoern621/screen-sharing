@@ -208,8 +208,23 @@ func receiveStatsOf(key WatchKey, now, last receive.Stats, seen bool) wire.Recei
 	out.VideoMbps = perSecond(now.VideoBytes, last.VideoBytes, elapsed, 8.0/1e6)
 	out.VideoFPS = perSecond(now.VideoFrames, last.VideoFrames, elapsed, 1)
 	out.RenderFPS = perSecond(now.Rendered, last.Rendered, elapsed, 1)
+	out.DiscardedFPS = perSecond(heldBack(now), heldBack(last), elapsed, 1)
 	out.AudioKbps = perSecond(now.AudioBytes, last.AudioBytes, elapsed, 8.0/1e3)
 	return out
+}
+
+// heldBack is what the decoder has taken in and not handed on, which is the frames it discarded
+// answering QoS plus the few it is holding at this instant.
+//
+// A rate over two of these is the discard alone: a decoder's own depth is a constant handful, so it
+// stands in both readings and cancels.
+// Zero rather than a negative where the output pad is the one ahead, the two counters being read one
+// after the other off a pipeline that is still running.
+func heldBack(s receive.Stats) uint64 {
+	if s.VideoDecoded >= s.VideoFrames {
+		return 0
+	}
+	return s.VideoFrames - s.VideoDecoded
 }
 
 // receiveStatGroupsOf carries the transport's own counters over, in the order the pipeline holds the

@@ -76,10 +76,9 @@ const (
 	// This package generates the legal values, so the only strings that ever arrive are ones it wrote.
 	KeyOutputResolution = "publish.output_resolution"
 
-	// Two fields rather than one because the two receivers reach different protocol sets, and one
-	// field would let each store a leg the other cannot run.
-	KeyPlayerWatchTransport = "viewer.player_watch_transport"
-	KeyTileWatchTransport   = "viewer.tile_watch_transport"
+	// The tile's leg alone. A player and a browser page are opened per press on a leg the roster
+	// names, so neither has a setting on this form.
+	KeyTileWatchTransport = "viewer.tile_watch_transport"
 
 	KeyRtspWatchProtocol  = "viewer.rtsp_watch_protocol"
 	KeySrtWatchLatencyMs  = "viewer.srt_watch_latency_ms"

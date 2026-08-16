@@ -10,8 +10,8 @@ import (
 // What is inside one audio kind.
 //
 // A kind is declared and what is inside it is enumerated, which is what makes them two controls:
-// whether a machine serves desktop audio at all is a table's answer, and which microphone is plugged
-// in or which application is running is nothing a table can hold.
+// whether a machine serves desktop audio at all is a table's answer, and which outputs it plays into
+// or which application is running is nothing a table can hold.
 // platform.AudioSources is the declaration and this is the other half.
 //
 // The enumeration is the machine's answer and arrives in Deps, as the monitors and the encoder probe

@@ -190,11 +190,12 @@ func optionMonitors(d Deps, s settings.Settings) []*screensharev1.FieldOption {
 	return out
 }
 
-// optionScaleHeights is the ladder of standard heights an output resolution is offered at.
+// optionScaleHeights is the ladder of standard heights an output resolution is offered at: the four
+// sizes a screen is sold and a stream is described in, 4K down to 720p.
 // A step ladder and not a value set: what reaches the settings is computed from the captured
 // monitor at its own aspect ratio, and a step above the source's height is dropped rather than
 // offered as an upscale.
-var optionScaleHeights = []int{2160, 1440, 1080, 900, 720, 540}
+var optionScaleHeights = []int{2160, 1440, 1080, 720}
 
 // optionOutputResolutions is the sizes the captured picture can reach the encoder at: its own,
 // and the standard heights below it at the same aspect ratio.
@@ -446,14 +447,6 @@ func optionPublishTransports(_ Deps, _ settings.Settings) []*screensharev1.Field
 	}
 	slices.Sort(names)
 	return optionPlainList(names, KeyTransport)
-}
-
-// optionWatchTransports offers the legs an external viewer can be pointed at: the transports a
-// player opens by URL, which is the ffmpeg roster.
-// WHEP is absent, being an exchange rather than an address, so no URL expresses it and no greying
-// could.
-func optionWatchTransports(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
-	return optionPlainList(transport.WatchNames(capabilities.EngineFfmpeg), KeyPlayerWatchTransport)
 }
 
 // optionTileWatchTransports offers the legs a receive pipeline decodes from, which is the GStreamer

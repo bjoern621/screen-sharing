@@ -197,7 +197,25 @@ func estimateConstantQuality(s settings.Settings, pixelRate float64, chroma esti
 	}
 
 	bpp := estimateAnchorBpp * math.Pow(2, (estimateAnchorCq-cq)/estimateCqStep) * efficiency * chroma.weight
-	return pixelRate * bpp / 1e6, true
+	coded := pixelRate * bpp / 1e6
+
+	// A ceiling is where the encoder stops spending: a picture the quality target prices above it is
+	// coded at the ceiling and softer.
+	if ceiling, bounded := estimateQualityCeiling(s); bounded && coded > ceiling {
+		return ceiling, true
+	}
+	return coded, true
+}
+
+// estimateQualityCeiling is the ceiling a constant-quality encode is held to, and false in every
+// other mode, whose prediction is the target the user set rather than a price the ceiling caps.
+// What a ceiling is on these settings is publish.RateCeilingMbps, so a prediction and the encoder
+// are bounded by one figure.
+func estimateQualityCeiling(s settings.Settings) (float64, bool) {
+	if s.Publish.Mode != capabilities.ModeCrf {
+		return 0, false
+	}
+	return publish.RateCeilingMbps(s)
 }
 
 // estimateSpread is what content can move the rate to, either side of the prediction and in Mbit/s,
@@ -213,7 +231,13 @@ func estimateSpread(s settings.Settings, est *screensharev1.Estimate) (low, high
 	}
 	switch s.Publish.Mode {
 	case capabilities.ModeCrf:
-		return est.GetBitrateMbps() * estimateMotionLow, est.GetBitrateMbps() * estimateMotionHigh, true
+		low, high := est.GetBitrateMbps()*estimateMotionLow, est.GetBitrateMbps()*estimateMotionHigh
+		// The burst stops where the encoder does: motion past the ceiling is answered by softening
+		// rather than by spending.
+		if ceiling, bounded := estimateQualityCeiling(s); bounded && high > ceiling {
+			high = ceiling
+		}
+		return low, high, true
 	case capabilities.ModeLossless:
 		return est.GetRawMbps() * estimateLosslessLow, est.GetRawMbps() * estimateLosslessHigh, true
 	case capabilities.ModeVbr:

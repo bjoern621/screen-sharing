@@ -16,8 +16,7 @@
 
     <!--
       A stream between attempts keeps the pill, so this is what tells it apart from one carrying frames.
-      In the attention hue, the one docs/design-language.md reserves for sharing and for failure, a relaunch
-      being the second on its way back.
+      In the red rather than the caution hue: a relaunch is a stream that stopped, on its way back.
     -->
     <TextBlock DockPanel.Dock="Left"
                Classes="figure"

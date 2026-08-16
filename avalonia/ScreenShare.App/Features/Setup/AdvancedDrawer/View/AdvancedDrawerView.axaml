@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
              xmlns:vm="using:ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel"
              xmlns:ti="using:TablerIcons"
@@ -7,15 +8,16 @@
              x:DataType="vm:AdvancedDrawerViewModel">
 
   <!--
-    The rest of the quality group, drawered. Every row is a control of the resolved form and
-    is edited here rather than printed: the value, the bounds the spinner enforces, the
-    greying and the sentence beside it all arrive in the message (docs/ipc-api.md).
+    Rest of the quality group, drawered.
+    Every row is a control of the resolved form and is edited here rather than printed: the
+    value, the bounds the spinner enforces, the greying and the sentence beside it all arrive
+    in the message (docs/ipc-api.md).
 
-    The last column answers why anybody would touch the row, which is the question an expert
-    arrives with. It is the field's own help, keyed by the field, not a gloss written per row.
+    The last column answers why anybody would touch the row, the question an expert arrives
+    with. The field's own help, keyed by the field, not a gloss written per row.
 
-    A setting's name takes the label role and its value the identifier one, because the name
-    is the one thing in a row a person reads as words (docs/design-language.md).
+    A setting's name takes the label role and its value the identifier one, the name being the
+    one thing in a row a person reads as words (docs/design-language.md).
   -->
 
   <UserControl.Styles>
@@ -78,8 +80,9 @@
                              Text="{Binding Label}" />
 
                   <!--
-                    One widget per control kind the drawer can be handed. A disabled row greys
-                    rather than disappearing, and its reason is printed in the last column.
+                    One widget per control kind the drawer can be handed.
+                    A disabled row greys rather than disappearing, and its reason is printed in
+                    the last column.
 
                     Which kinds arrive is QualityLayout's partition rather than a list kept
                     here, so every kind the step above places nowhere has to be drawable here:
@@ -124,11 +127,16 @@
                     </StackPanel>
 
                     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsSlider}" Width="140">
-                      <Slider Grid.Column="0"
+                      <controls:SweepSlider Grid.Column="0"
                               IsEnabled="{Binding IsEnabled}"
                               Minimum="{Binding Minimum}"
                               Maximum="{Binding Maximum}"
+                              Ticks="{Binding Ticks}"
                               TickFrequency="{Binding Step}"
+                              IsSnapToTickEnabled="True"
+                              SmallChange="{Binding Step}"
+                              LargeChange="{Binding PageStep}"
+                              Sweeping="{Binding IsSweeping}"
                               Value="{Binding Slide, Mode=TwoWay}" />
                       <TextBlock Grid.Column="1"
                                  Classes="ident"
@@ -162,9 +170,7 @@
                                IsVisible="{Binding HasHelp}"
                                Text="{Binding Help}" />
 
-                    <TextBlock Classes="hint"
-                               TextWrapping="Wrap"
-                               TextTrimming="None"
+                    <TextBlock Classes="reason"
                                IsVisible="{Binding HasReason}"
                                Text="{Binding Reason}" />
 

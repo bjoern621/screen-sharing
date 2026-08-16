@@ -44,15 +44,12 @@ The watch leg has three engines: ffplay and mpv open a URL through libavformat, 
 | Field | Leg | Receiver |
 | --- | --- | --- |
 | `publish_transport` | publish | the publish engine |
-| `player_watch_transport` | watch | ffplay or mpv, narrowed to the protocols a player opens by URL |
 | `tile_watch_transport` | watch | the receive pipeline, which also reaches WHEP |
 
-Two watch fields rather than one: the receivers reach different protocol sets, and one field would let each store a leg the other cannot run.
+The tile is the only receiver with a field, a property of what the others open rather than an omission.
+A player and a browser page are opened per press and neither persists after it, so a stored leg would be a value nothing reads: the roster row offers every leg its receiver reaches and the press names one.
+The two lists cross as `Catalog.watch_transports` and `Catalog.browser_watch_transports`, one per receiver, the receivers reaching different protocol sets.
 A roster row and a tile can watch one stream over different protocols at once.
-
-The browser has no field, a property of what it opens rather than an omission.
-A page is opened per press and nothing persists after it, so a stored leg would be a value nothing reads: the menu offers every leg the relay serves a page for and the press names one.
-That list crosses as `Catalog.browser_watch_transports`.
 
 Each protocol's knobs are per leg for the same reason.
 The two SRT latency windows are separate fields, each leg its own SRT link with its own retransmit window, and glass-to-glass delay their sum.
@@ -89,7 +86,7 @@ native player
 
 shell tile
 
-  MediaMTX ══ SRT, RTSP or WHEP ═════════▶ receive pipeline ──GPU handle──▶ Avalonia window
+  MediaMTX ══ SRT, RTSP, WHEP or HLS ════▶ receive pipeline ──GPU handle──▶ Avalonia window
   └─────────────── network ──────────────┘ └────────── receiver machine ──────────────────┘
 
 browser page
@@ -217,7 +214,7 @@ A cell reading none is an engine with no serialization for that leg, the capabil
 | `rtsp` | all five | all five | all five | all five | none |
 | `rtmp` | h264, hevc, av1, vp9 | none | h264 | h264 | none |
 | `webrtc` | h264 | h264, vp9, vp8 | none | h264, vp9, vp8 | h264, vp9, vp8 |
-| `hls` | none | none | h264, hevc, av1, vp9 | none | h264, hevc, av1, vp9 |
+| `hls` | none | none | h264, hevc, av1, vp9 | h264, hevc, av1, vp9 | h264, hevc, av1, vp9 |
 | `moq` | none | none | none | none | all five |
 
 Why each row is shaped that way:
@@ -229,14 +226,16 @@ Why each row is shaped that way:
   Both watch cells sit on legacy-tag parsers, libavformat's FLV demuxer and `rtmp2src`.
 - **webrtc.** ffmpeg's `whip` muxer writes one H.264 track and has no payloader for anything else, where `whipclientsink` payloads whatever `webrtcbin` negotiates and so reaches VP8 and VP9 over the same endpoint.
   Playback is the WHEP exchange rather than an address, so no player opens it and `whepsrc` is the only reader.
-- **hls.** The relay segments and serves HLS and ingests nothing over it, and nothing on the GStreamer side reads the relay's playlist.
+- **hls.** The relay segments and serves HLS and ingests nothing over it, so the three watch cells are the segment formats its muxer cuts and there is no publish form.
+  A tile reads them through `urisourcebin`, and what that opens is the video media playlist rather than the master, which is why the leg carries no audio ("The HLS tile's two detours").
 - **moq.** The relay packages every ingested format into MoQ tracks and ingests nothing over it, so it is the widest watch leg there is and a browser's alone.
   libavformat has no MoQ demuxer, and GStreamer's QUIC elements carry raw streams and RTP over QUIC rather than MoQ tracks, so neither other reader has anything to open it with.
 
 The browser column is what the relay's own page serves rather than what a browser decodes.
 Which formats a given build has a WebCodecs decoder for is that browser's fact and no table here can hold it, so a narrower entry would refuse a page that would have played.
 
-Audio is carried per protocol and not per engine: WebRTC carries Opus alone, RTMP AAC alone, and SRT, RTSP, HLS and MoQ carry both.
+Audio is carried per protocol: WebRTC carries Opus alone, RTMP AAC alone, and SRT, RTSP, HLS and MoQ carry both.
+HLS on a tile is the one cell that differs by engine, carrying no audio at all, and the section below states why.
 
 Three rules fall out of the table:
 
@@ -259,6 +258,26 @@ Lossless is the mode that goes missing: only x264, x265 and NVENC H.264/HEVC cod
 
 Audio is one of two codecs at 128 kbit/s stereo, coded by `libopus` or `aac` on the ffmpeg engine and by `opusenc` or `avenc_aac` on the GStreamer one (`capabilities.AudioCodecs`).
 Opus is what WebRTC negotiates and AAC what FLV has always carried, so the publish leg decides which a stream may use.
+
+## The HLS tile's two detours
+
+Every other watch leg writes its source from settings.
+HLS asks the relay first, and what it asks about is where the segments are (`transport.hlsMediaSource`).
+
+The master playlist names one media playlist per rendition, under a session MediaMTX mints per reader, and that address is answered 401 without it.
+So the session cannot be written down and the master is read to learn it.
+
+**What is opened is the video media playlist, never the master.**
+A stream carrying sound is announced as an audio rendition beside the video one, and `hlsdemux2` stalls before the first frame of a master that names one, where libavformat plays the same stream.
+Opening the video rendition steps around it, at the price of the leg: the audio segments are never fetched, so an HLS tile is silent whatever the stream carries.
+That is the WebRTC tile's trade in another protocol, and a stream whose sound matters is watched over a leg that carries it.
+
+**A playlist whose muxer has just started carries `EXT-X-GAP` placeholders in place of segments.**
+RFC 8216 has a client skip them; `hlsdemux2` downloads one, is answered 401, and fails the pipeline.
+So the resolve reads through until a segment that is not a gap is in the playlist, and hands over a source only then.
+The wait is bounded and a relay still serving gaps at the end of it is a refusal naming the playlist, not a tile that hangs.
+
+The credential rides as userinfo on the source address, which is the one form `souphttpsrc` sends: a launch line sets no header, and the segment requests inherit it (`transport/credential.go`).
 
 ## The viewability verdict
 
@@ -384,6 +403,7 @@ Two stages are measured rather than configured, both by `internal/pipedelay`, wh
 On the receiving side that pad is the sink's, not the sample handler: the sink holds each frame until its presentation time, so a reading taken where the samples arrive reports the latency the pipeline configured and never the work it did.
 The publishing side's is the encoded-frame counter's source pad, measured inside the publish child and reported on its standard output beside the caps and the pointer (`internal/gstrun/delay.go`).
 The work and the wait together are the latency window, so a decode whose work rises to meet it is one about to start dropping frames.
+What that window is measured against, what the sink does with a frame past it, and how the panel's four timing figures are read together: `decode-timing.md`.
 
 **The total is a floor and says so.**
 The relay terminates the publishing protocol and re-muxes for every reader, and neither end can time that: its API states no per-path delay and is an operator's rather than a member's, and no leg carries a relay timestamp for a receiver to subtract.
@@ -486,7 +506,7 @@ The viewer's grid draws whatever the reader asked to see.
 The broadcast screen's preview tile draws the stream this machine is publishing.
 The third is the wizard's screen picker, below.
 
-**The preview draws that stream by one of two routes, and the card's toggle is which.**
+**The preview draws that stream by one of two routes, and the card's toggle is which, or off.**
 They differ by where the picture is taken and by nothing else: both carry the same encode, so neither answers what the capture looked like before it, and what one shows and the other cannot is everything downstream of the encoder.
 The **local** route is a copy that never leaves the machine.
 The **end-to-end** route is `StartReceive` on `WatchKey{this machine's stream, the tile leg}`, read back off the relay like any other tile, so it crosses the uplink, the relay and the way back.
@@ -495,6 +515,7 @@ The **end-to-end** route is `StartReceive` on `WatchKey{this machine's stream, t
 The local route costs one decode here, spends no bandwidth and takes no reader slot, so the broadcast screen's viewer count and worst-viewer round trip describe viewers rather than this machine watching itself.
 The end-to-end route is a relay client: it occupies a reader slot, it is counted among those same figures, and it pays a viewer's downstream bandwidth.
 So the card opens on the local route and the other is asked for by name, each stating its own cost on screen (`avalonia/ScreenShare.App/Copy/Cards.cs`).
+The third segment is **off**: no tile, no decode, and the end-to-end route's reader slot given back, which is why it stands on the same toggle rather than under a control of its own.
 
 **The constraint that shapes it is where the encoder runs.**
 Publishing is an external `gst-launch-1.0` or `ffmpeg` child (`backend/internal/publish`), which keeps a pipeline that dies from taking the backend with it and makes the ffmpeg engine reachable at all.
@@ -541,7 +562,7 @@ The preview reads the grid's answer through before it closes anything and leaves
 It also asks again for a decode it saw running and no longer sees, making a pipeline another window closed a blink rather than a card that stays dark.
 
 **Whether the card draws is the reader's, and it opens drawing.**
-The control over the picture is the whole of what decides it, and it follows no window.
+The toggle's off segment is the whole of what decides it, and it follows no window.
 A publisher's window stands behind the thing being shared for most of a session, so a card that stopped whenever nobody was looking would be dark at the moment a reader came back to check on it, and would pay a pool import and a reconnect to come back.
 That is the opposite of the wizard's screen picker, which does stop with the window: its pictures are screen captures the backend opens because the grid asked, and a reader who is not on the source step has stopped wanting them.
 The stop closes the end-to-end route's decode while a publish stands, giving back the reader slot and the downstream bandwidth rather than only clearing the tile.
@@ -642,7 +663,8 @@ The exit reaches the session log once per outage rather than once per attempt, f
 
 ## Adding a watch path
 
-A protocol is a `transport` entry declaring its watch carriage and implementing the capability the receiver reads: `Watcher` for a URL a player opens, `GstWatcher` for a source fragment a receive pipeline builds.
+A protocol is a `transport` entry declaring its watch carriage and implementing the capability the receiver reads: `Watcher` for a URL a player opens, `GstWatcher` for a source fragment a receive pipeline builds, `GstWatchResolver` where the relay decides part of the address and it has to be asked.
+A transport implements one of the two GStreamer forms, and `transport.ReceiveSource` is what the receiving side calls either way.
 `transport.Register` holds the stated carriage and the serialization to each other, so an entry can neither offer a leg it has no code to build nor build one no caller may reach.
 
 A render chain is a row in the receive package's table plus the element factories it needs, and `resolve` leaves it out on a machine that registers none of them.

@@ -9,6 +9,8 @@ import (
 	"github.com/go-gst/go-gst/pkg/gst"
 
 	"bjoernblessin.de/go-utils/util/logger"
+
+	"bjoernblessin.de/screenshare/internal/padprobe"
 )
 
 // The markers read out of a factory's GStreamer class, a slash-separated path, e.g.
@@ -38,6 +40,9 @@ type decodeTrack struct {
 	bytes     atomic.Uint64
 	frames    atomic.Uint64
 	keyframes atomic.Uint64
+	// decoded counts what left the decoder, against frames counting what went in.
+	// The gap is what the decoder swallowed answering QoS, which no element keeps a counter for.
+	decoded atomic.Uint64
 	// lastKey is the last keyframe's arrival in unix nanoseconds, 0 before the first one.
 	lastKey atomic.Int64
 
@@ -101,7 +106,7 @@ func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 		return
 	}
 	pad.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-		buf := info.GetBuffer()
+		buf := padprobe.Buffer(info)
 		if buf == nil {
 			return gst.PadProbeOK
 		}
@@ -115,6 +120,20 @@ func (r *Receiver) trackDecoder(t *decodeTrack, e gst.Element, factory string, h
 		}
 		return gst.PadProbeOK
 	})
+
+	// The other end of the same element, so the two counts bracket it and their difference is what
+	// it took in and never handed on.
+	// Read as a rate rather than as a total, because a decoder holds a few frames at all times and
+	// that depth is constant: it cancels between two readings and would stand as a permanent
+	// discard count in a running total (internal/app, discardedOf).
+	if out := e.GetStaticPad("src"); out != nil {
+		out.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
+			if padprobe.Buffer(info) != nil {
+				t.decoded.Add(1)
+			}
+			return gst.PadProbeOK
+		})
+	}
 }
 
 // trackStats remembers a transport element whose counters are reported, keyed by pipeline name so

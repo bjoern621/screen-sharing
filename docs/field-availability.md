@@ -95,10 +95,10 @@ First ask whether the field is inapplicable at all.
 Both treatments are answers about a control that does nothing in this combination, so a value that still reaches a pipeline gets neither: it is shown, editable, and no reason is written about it.
 A hidden control holding a value in force is the worst state on this page, because the setting acts and nobody can reach it.
 The watch group is where that went wrong.
-The SRT retransmit window and the RTP lower transport followed both watch-leg settings, but a player is opened per press on whichever leg the reader picked, so `player_watch_transport` never decided which players run.
+The SRT retransmit window and the RTP lower transport followed a stored player leg, but a player is opened per press on whichever leg the reader picked, so that setting never decided which players run.
 A player opened over RTSP read the lower-transport setting while the control holding it was on no screen.
 Applicability is therefore asked against what can be opened, not against what a setting names, wherever the two differ (`form/availability.go`, `watchesOver`).
-The browser is the same press with nothing stored at all, so every leg the relay serves a page for counts as openable.
+The player and the browser both store nothing, so every leg either of them opens counts as openable.
 That is the whole of what keeps the MoQ port on screen: no setting names that leg, and a browser still dials the number.
 
 Then ask what kind of control the field is.

@@ -310,7 +310,7 @@ Rate control decides the QP per block, the only mechanism turning a quality targ
 | Mode | Holds fixed | Lets vary | Fits |
 | --- | --- | --- | --- |
 | CQP | the quantizer | bitrate, quality | measurement |
-| CRF, CQ | perceived quality | bitrate | files, and links with headroom |
+| CRF, CQ | perceived quality | bitrate, up to a ceiling where one is set | files, and links with headroom |
 | ABR | average bitrate over the stream | short-term rate, quality | a fixed total size |
 | VBR | a ceiling, targeting an average | rate within the ceiling | most live streams |
 | CBR | output bitrate | quality | fixed-capacity links |
@@ -318,6 +318,7 @@ Rate control decides the QP per block, the only mechanism turning a quality targ
 
 Two knobs shape any of them.
 **VBV**, the buffer model, bounds how far ahead of the average the encoder may spend, so a smaller buffer means a tighter short-term rate and a longer quality dip after a scene change.
+A quality target inside a VBV is capped CRF: the rate factor drives the rate until the buffer would overflow and the picture softens from there, which is what keeps a quality setting inside a link's budget.
 The **keyframe interval** sets the periodic spike, an I-frame costing several times a P-frame.
 
 CQ scales are not comparable across encoders: the H.26x encoders count to 51, libvpx and the software AV1 encoders to 63, and some expose a raw quantizer index to 127 or 255.
@@ -623,7 +624,7 @@ A tile's stats panel carries a delay block with a row per stage, and the publish
 | Through the relay | nothing | terminate and re-mux |
 | Relay to here | the watch transport's negotiated delivery window | the inbound link |
 | Decode | the receive pipeline's own clock, at the sink's pad | depacketize, decode, convert |
-| Waiting at the sink | the latency query, less the row above | present |
+| Held for play time | the latency query, less the row above | present |
 
 Two rows are measured rather than configured, both by the same subtraction: a frame's running time taken off the pipeline's clock at a pad it has reached.
 That is a wall-clock reading of what a stage really cost, which a setting cannot be.

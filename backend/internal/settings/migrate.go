@@ -47,10 +47,10 @@ type flat struct {
 	UplinkMbps          *int    `json:"uplinkMbps"`
 	OutputResolution    *string `json:"outputResolution"`
 
-	// watchTransport was the one watch leg and upgrades to the player's.
-	// gridTransport was the grid window's and upgrades to the tile receiver's, that being the leg a
-	// receiving pipeline was given under it.
-	WatchTransport     *string `json:"watchTransport"`
+	// gridTransport was the grid window's leg and upgrades to the tile receiver's, that being the leg
+	// a receiving pipeline was given under it.
+	// watchTransport, the player's, upgrades to nothing: a player is opened per press on a leg the
+	// call names, so there is no field left to carry it into.
 	GridTransport      *string `json:"gridTransport"`
 	RtspWatchProtocol  *string `json:"rtspWatchProtocol"`
 	SrtWatchLatencyMs  *int    `json:"srtWatchLatencyMs"`
@@ -111,7 +111,6 @@ func decodeFlat(data []byte) (Settings, bool) {
 	set(&s.Publish.UplinkMbps, f.UplinkMbps)
 	set(&s.Publish.OutputResolution, f.OutputResolution)
 
-	set(&s.Viewer.PlayerWatchTransport, f.WatchTransport)
 	set(&s.Viewer.TileWatchTransport, f.GridTransport)
 	set(&s.Viewer.RtspWatchProtocol, f.RtspWatchProtocol)
 	set(&s.Viewer.SrtWatchLatencyMs, f.SrtWatchLatencyMs)
@@ -228,19 +227,18 @@ func migratePublish(p, d Publish) Publish {
 }
 
 // migrateViewer fills the watch knobs a file written before each of them lacks.
-// No zero here is a value a receiver takes: no leg to open, no RTP lower transport to negotiate, no
-// retransmit window, no jitter buffer and no render chain.
+// No zero here is a value a receiver takes: no leg to decode from, no RTP lower transport to
+// negotiate, no retransmit window, no jitter buffer and no render chain.
 func migrateViewer(v, d Viewer) Viewer {
-	fillText(&v.PlayerWatchTransport, d.PlayerWatchTransport)
 	fillText(&v.TileWatchTransport, d.TileWatchTransport)
 	fillText(&v.RtspWatchProtocol, d.RtspWatchProtocol)
 	fillNum(&v.SrtWatchLatencyMs, d.SrtWatchLatencyMs)
 	fillNum(&v.RtspWatchLatencyMs, d.RtspWatchLatencyMs)
 	fillText(&v.RenderChain, d.RenderChain)
 
-	assert.Assert(v.PlayerWatchTransport != "" && v.TileWatchTransport != "" && v.RenderChain != "",
-		"an upgraded viewer names both legs and a render chain",
-		v.PlayerWatchTransport, v.TileWatchTransport, v.RenderChain)
+	assert.Assert(v.TileWatchTransport != "" && v.RenderChain != "",
+		"an upgraded viewer names a tile leg and a render chain",
+		v.TileWatchTransport, v.RenderChain)
 	return v
 }
 

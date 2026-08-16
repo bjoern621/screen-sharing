@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -89,8 +90,8 @@ var gstCodecs = map[string]gstCodec{
 	"h264_nvenc": {encode: nvencEncoder("nvh264enc"), link: h264Parser},
 	"hevc_nvenc": {encode: nvencEncoder("nvh265enc"), link: h265Parser},
 	"av1_nvenc":  {encode: nvencEncoder("nvav1enc"), link: av1Parser},
-	"libvpx-vp9": {encode: vpxEncoder("vp9enc", "row-mt=true"), link: vp9Parser},
-	"libvpx":     {encode: vpxEncoder("vp8enc"), link: vp8Caps},
+	"libvpx-vp9": {encode: vpxEncoder("vp9enc", "row-mt=true"), link: vp9Parser, limits: vpxRateLimits},
+	"libvpx":     {encode: vpxEncoder("vp8enc"), link: vp8Caps, limits: vpxRateLimits},
 	"libaom-av1": {encode: aomEncoder, link: av1Parser},
 	"libsvtav1":  {encode: svtav1Encoder, link: av1Parser},
 	"librav1e":   {encode: rav1eEncoder, link: av1Parser},
@@ -107,6 +108,9 @@ var gstCodecs = map[string]gstCodec{
 	// rate (qsvShortBitrateKbps).
 	"av1_qsv": {encode: qsvEncoder("qsvav1enc"), link: av1Parser, limits: qsvShortRateLimits},
 	"vp9_qsv": {encode: qsvEncoder("qsvvp9enc"), link: vp9Parser, limits: qsvShortRateLimits},
+	// The applemedia elements, which are what a Mac reaches its media block through on this engine.
+	"h264_videotoolbox": {encode: vtEncoder("vtenc_h264"), link: h264Parser},
+	"hevc_videotoolbox": {encode: vtEncoder("vtenc_h265"), link: h265Parser},
 }
 
 // GstEncoderElement returns the element that encodes codec from frames in system memory,
@@ -154,7 +158,9 @@ func GstEncoderElementOn(codec, memory string) (string, bool) {
 	// Harmless for the element name read back below, and a trap for a caller that reads further.
 	l, err := c.ResolveSteps(mode, "", "")
 	assert.Assert(err == nil, "a codec's own row resolves against its own ladders", codec, err)
-	return gst.encode(s, gstRates{}, l)[0], true
+	// The defaults' own rates rather than an empty set: a mapping composes properties out of them, and
+	// a figure that is not there is one a mapping cannot state a property from.
+	return gst.encode(s, gstRatesFor(s, gstGop(s)), l)[0], true
 }
 
 // firstGstMode names a rate-control mode this codec's element implements on this engine,
@@ -182,6 +188,28 @@ func firstGstMode(codec string) (string, bool) {
 // (a ceiling against its target) instead of taking one value out of a set.
 var gstFamilyLimits = map[string]func(settings.Settings) error{
 	capabilities.FamilyVaapi: vaRateLimits,
+}
+
+// gstLiveDelay is the lookahead an element holds by default, pinned off per element.
+//
+// A lookahead is frames the encoder keeps before it hands the first one on, and those frames leave at
+// whatever rate the transport takes: a leg draining three a second turns fifty held frames into
+// seventeen seconds of picture nobody has seen, which is what internal/pipedelay reports as the
+// publish transit.
+// The effort ladder buys compression and never delay, so a pin stands whatever step it resolved to.
+//
+// No row where the element holds nothing to begin with: av1enc lags no frames until asked, and the
+// hardware families queue on the device rather than in an element.
+// x265enc's pins travel in the option-string its mode composes (x265LiveDelay).
+// svtav1enc has none: it takes lookahead=0 in its parameters-string and holds the frames anyway.
+var gstLiveDelay = map[string][]string{
+	// rc-lookahead has no property of its own and travels in the option-string no x264 mode writes,
+	// and sliced-threads is what keeps frame threading from holding a frame per thread.
+	"x264enc": {"sliced-threads=true", "option-string=rc-lookahead=0"},
+	"vp8enc":  {"lag-in-frames=0"},
+	"vp9enc":  {"lag-in-frames=0"},
+	// rav1e holds frames past this too, so the pin shortens the wait rather than ending it.
+	"rav1enc": {"low-latency=true"},
 }
 
 // gstEncoder returns the encoder element with its properties, and the elements linking it to the
@@ -222,6 +250,9 @@ func gstEncoder(s settings.Settings, gop int, memory string) (encoder []string, 
 	if device, named := gstDeviceEncoderElement(c.Family, s.Publish.Codec, memory); named {
 		encoder[0] = device
 	}
+	// Read off the element the mapping ended up naming, a device element holding no lookahead of its
+	// own (gstLiveDelay).
+	encoder = append(encoder, gstLiveDelay[encoder[0]]...)
 	// The name goes on every encoder whatever the element turned out to be: a write to a playing
 	// pipeline addresses "enc" over the control socket, and the codec decides which element wears it
 	// (gstlive.go).
@@ -231,7 +262,7 @@ func gstEncoder(s settings.Settings, gop int, memory string) (encoder []string, 
 
 // x264Encoder maps the rate-control mode onto x264enc's pass property, the counterpart to the
 // libx264 branch of encoderArgs.
-//   - crf: pass=qual at a constant quantizer, bitrate free.
+//   - crf: pass=qual at a constant quantizer, bounded by the stated ceiling (x264Ceiling).
 //   - lossless: pass=quant at quantizer 0, x264's bit-exact coding mode.
 //   - abr: pass=cbr with vbv-buf-capacity=0, which disables the VBV and leaves one-pass ABR toward
 //     the target.
@@ -246,7 +277,7 @@ func x264Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []string
 		[]string{"key-int-max=" + r.gop})
 	switch s.Publish.Mode {
 	case "crf":
-		return append(base, "pass=qual", "quantizer="+r.cq)
+		return x264Ceiling(append(base, "pass=qual", "quantizer="+r.cq), s, r)
 	case "lossless":
 		return append(base, "pass=quant", "quantizer=0")
 	case "abr":
@@ -261,6 +292,26 @@ func x264Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []string
 		assert.Never("unexpected rate-control mode", s.Publish.Mode)
 		return nil
 	}
+}
+
+// x264Ceiling bounds a constant-quality encode, or takes the element's rate buffer away where the
+// settings state no ceiling.
+//
+// pass=qual reads the ceiling off the bitrate property, held over the vbv-buf-capacity window.
+// Both carry a default, so an encode that sets neither is bounded at 2 Mbit/s over 600 ms whatever
+// quantizer it asked for: a buffer of zero is what makes a quality target free of the rate.
+// A window of zero beside a ceiling is the element's own, the settings stating no size rather than
+// stating none is wanted (internal/form, fieldVbvBounds).
+func x264Ceiling(enc []string, s settings.Settings, r gstRates) []string {
+	if s.Publish.MaxrateM <= 0 {
+		return append(enc, "vbv-buf-capacity=0")
+	}
+
+	enc = append(enc, "bitrate="+r.maxkbps)
+	if s.Publish.VbvMs > 0 {
+		enc = append(enc, "vbv-buf-capacity="+strconv.Itoa(s.Publish.VbvMs))
+	}
+	return enc
 }
 
 // x264PsyTunes are the steps x264enc takes on its psy-tune property rather than on its tune one.
@@ -288,38 +339,64 @@ func x264TuneProperty(step string) []string {
 // x265Encoder maps the rate-control mode onto x265enc, the HEVC counterpart to x264Encoder.
 // The element has no pass property: rate control comes from bitrate and qp plus an option-string of
 // libx265 knobs.
-//   - crf: qp holds a constant quantizer, x265's CQP mode, where x264enc spells the same on
-//     quantizer.
+//   - crf: option-string crf, libx265's rate factor, bounded by the stated ceiling.
 //   - lossless: option-string lossless=1, qp 0 not being bit-exact on x265 as it is on x264.
 //   - abr: bitrate alone, one-pass average bitrate.
-//   - cbr: bitrate with a vbv-maxrate ceiling at the same figure and a vbv-bufsize window,
-//     x265's constrained constant bitrate.
+//   - vbr: bitrate with a vbv-maxrate ceiling above it, libx265's constrained VBR.
+//   - cbr: the same pair with the ceiling at the target.
 //
-// vbr has no branch, as on x264enc: the element takes no ceiling above the target
-// (gstNoRateCeiling).
+// The quantizer travels as a rate factor rather than on the qp property, which is libx265's CQP:
+// a fixed quantizer takes no VBV, so a ceiling stated beside it would reach the element and bound
+// nothing, and the same setting codes at one quality on the ffmpeg engine and another here.
 func x265Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []string {
 	base := slices.Concat([]string{"x265enc", "speed-preset=" + l.Effort}, x265TuneProperty(l.Tune),
 		[]string{"key-int-max=" + r.gop})
 	switch s.Publish.Mode {
 	case "crf":
-		return append(base, "qp="+r.cq)
-	case "lossless":
-		return append(base, "option-string=lossless=1")
-	case "abr":
-		return append(base, "bitrate="+r.kbps)
-	case "cbr":
-		// vbv-bufsize is in kbit: the bitrate held over the VBV window, one second where the settings
-		// name none, matching ffmpeg's bufsizeArg.
-		bufKbit := r.kbps
-		if s.Publish.VbvMs > 0 {
-			bufKbit = strconv.Itoa(s.Publish.BitrateM * s.Publish.VbvMs)
+		quality := []string{"crf=" + r.cq}
+		if s.Publish.MaxrateM > 0 {
+			quality = append(quality, x265Vbv(r.maxkbps, s.Publish.MaxrateM, s.Publish.VbvMs)...)
 		}
-		opts := "vbv-maxrate=" + r.kbps + ":vbv-bufsize=" + bufKbit
-		return append(base, "bitrate="+r.kbps, "option-string="+opts)
+		return append(base, x265Options(quality...))
+	case "lossless":
+		return append(base, x265Options("lossless=1"))
+	case "abr":
+		return append(base, "bitrate="+r.kbps, x265Options())
+	case "vbr":
+		return append(base, "bitrate="+r.kbps,
+			x265Options(x265Vbv(r.maxkbps, s.Publish.MaxrateM, s.Publish.VbvMs)...))
+	case "cbr":
+		return append(base, "bitrate="+r.kbps,
+			x265Options(x265Vbv(r.kbps, s.Publish.BitrateM, s.Publish.VbvMs)...))
 	default:
 		assert.Never("unexpected rate-control mode", s.Publish.Mode)
 		return nil
 	}
+}
+
+// x265Vbv is a rate ceiling and the buffer it is held over, as libx265 spells the pair.
+// vbv-bufsize counts in kbit rather than in milliseconds, so the window is the ceiling held for that
+// long, and one second where the settings state no window, matching ffmpeg's bufsizeArg.
+func x265Vbv(ceilingKbps string, ceilingMbps, vbvMs int) []string {
+	assert.Assert(ceilingKbps != "", "a VBV names the ceiling it holds")
+
+	bufKbit := ceilingKbps
+	if vbvMs > 0 {
+		bufKbit = strconv.Itoa(ceilingMbps * vbvMs)
+	}
+	return []string{"vbv-maxrate=" + ceilingKbps, "vbv-bufsize=" + bufKbit}
+}
+
+// x265LiveDelay is the lookahead pin for x265enc, the rule gstLiveDelay states for the elements that
+// carry it in properties of their own.
+// frame-threads holds one frame per thread as x264's frame threading does, and rc-lookahead needs the
+// b-frames off with it: x265 raises the lookahead back to cover them.
+var x265LiveDelay = []string{"rc-lookahead=0", "bframes=0", "frame-threads=1"}
+
+// x265Options is the element's one option-string, the live pins first and the mode's own keys after.
+// One property carries every libx265 knob, so a mode that wrote its own would drop the pins.
+func x265Options(mode ...string) string {
+	return "option-string=" + strings.Join(slices.Concat(x265LiveDelay, mode), ":")
 }
 
 // x265TuneProperty is the tune step as x265enc spells it, and nothing where the ladder leaves the
@@ -356,11 +433,15 @@ func x265TuneProperty(step string) []string {
 func vpxEncoder(elem string, extra ...string) func(settings.Settings, gstRates, capabilities.Steps) []string {
 	return func(s settings.Settings, r gstRates, l capabilities.Steps) []string {
 		bps := strconv.Itoa(s.Publish.BitrateM * 1_000_000)
-		base := append([]string{elem, "deadline=1", "static-threshold=100",
-			"cpu-used=" + l.Effort, "keyframe-max-dist=" + r.gop}, extra...)
+		base := slices.Concat([]string{elem, "deadline=1", "static-threshold=100",
+			"cpu-used=" + l.Effort, "keyframe-max-dist=" + r.gop}, extra, vpxTuneProperty(l.Tune))
 		switch s.Publish.Mode {
 		case "crf":
-			return append(base, "end-usage=cq", "cq-level="+r.cq, "target-bitrate="+bps)
+			// libvpx codes constant quality toward a target it stays under, so the ceiling is what that
+			// target carries: a zero here is a rate derived from the picture size and not an absence of one,
+			// which is why the row requires a ceiling (capabilities.QualityCeilingRequired, vpxRateLimits).
+			ceiling := strconv.Itoa(s.Publish.MaxrateM * 1_000_000)
+			return append(base, "end-usage=cq", "cq-level="+r.cq, "target-bitrate="+ceiling)
 		case "abr":
 			return append(base, "end-usage=vbr", "target-bitrate="+bps)
 		case "cbr":
@@ -374,6 +455,38 @@ func vpxEncoder(elem string, extra ...string) func(settings.Settings, gstRates, 
 			return nil
 		}
 	}
+}
+
+// vpxRateLimits refuses a constant-quality encode with no ceiling, which the vpx elements have no
+// form of: their CQ codes toward a target, and a target of zero is the rate libvpx derives from the
+// picture size rather than an absence of one.
+// The form offers no zero here either (fieldMaxrateBounds), so this is what a settings file that
+// never went through it meets.
+func vpxRateLimits(s settings.Settings) error {
+	if s.Publish.Mode != capabilities.ModeCrf || s.Publish.MaxrateM > 0 {
+		return nil
+	}
+	return fmt.Errorf("the vpx elements code constant quality against a ceiling, and these settings state none: set a burst ceiling or pick a bitrate mode")
+}
+
+// tuneProperty is one tune step on an element spelling the knob "tune", and nothing where the
+// ladder resolved no step or resolved the untuned one.
+// Passing no such property is how an element expresses "tune for nothing", every tune enum here
+// starting at a real step rather than at an absence.
+func tuneProperty(step string) []string {
+	if step == "" || step == capabilities.TuneNone {
+		return nil
+	}
+	return []string{"tune=" + step}
+}
+
+// vpxTuneProperty is the same step on vp8enc and vp9enc, which spell the knob "tuning".
+// libvpx's own two values on both engines, ffmpeg taking them on -tune.
+func vpxTuneProperty(step string) []string {
+	if step == "" || step == capabilities.TuneNone {
+		return nil
+	}
+	return []string{"tuning=" + step}
 }
 
 // aomEncoder maps the rate-control mode onto av1enc, the libaom encoder and the counterpart to the
@@ -414,8 +527,12 @@ func aomEncoder(s settings.Settings, r gstRates, l capabilities.Steps) []string 
 // mode run as another: max-bitrate is refused outside constant-quality mode, so vbr has no form on
 // either engine, and cbr's low-delay prediction structure stalls this element,
 // so cbr has none on this one.
+// What the library takes rather than the element travels in parameters-string, the element's own
+// pass-through for the keys it puts no property on, which is where the ffmpeg branch puts the same
+// two keys (ffmpeg/encoders.go, svtav1Params).
 func svtav1Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []string {
-	base := []string{"svtav1enc", "preset=" + l.Effort, "intra-period-length=" + r.gop}
+	base := append([]string{"svtav1enc", "preset=" + l.Effort, "intra-period-length=" + r.gop},
+		svtav1Parameters(l)...)
 	switch s.Publish.Mode {
 	case "crf":
 		return append(base, "crf="+r.cq)
@@ -427,6 +544,19 @@ func svtav1Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []stri
 	}
 }
 
+// svtav1Parameters is the element's parameters-string: the screen-content tools every encode here
+// carries, and the tune step where the row's ladder resolved one.
+//
+// A gst-launch line splits on spaces, so the value carries none, which the colon-separated form it
+// takes satisfies on its own.
+func svtav1Parameters(l capabilities.Steps) []string {
+	params := []string{"scm=1"}
+	if tune, named := capabilities.Svtav1TuneValue(l.Tune); named {
+		params = append(params, "tune="+tune)
+	}
+	return []string{"parameters-string=" + strings.Join(params, ":")}
+}
+
 // rav1eEncoder maps the rate-control mode onto rav1enc, the counterpart to the ffmpeg librav1e
 // branch.
 // rav1e's rate control is one bitrate target with no ceiling and no rate buffer,
@@ -435,15 +565,19 @@ func svtav1Encoder(s settings.Settings, r gstRates, l capabilities.Steps) []stri
 // bitrate is in bits/sec and the quantizer counts to 255.
 // The element exposes no keyframe interval, so the configured GOP never reaches it and rav1e's own
 // default stands.
+// The tune travels on a property here where ffmpeg takes it in -rav1e-params, the step being
+// rav1e's own on both.
 func rav1eEncoder(s settings.Settings, r gstRates, l capabilities.Steps) []string {
-	base := []string{"rav1enc", "speed-preset=" + l.Effort}
+	base := append([]string{"rav1enc", "speed-preset=" + l.Effort}, tuneProperty(l.Tune)...)
 	switch s.Publish.Mode {
 	case "crf":
 		return append(base, "quantizer="+r.cq)
 	case "abr":
 		return append(base, "bitrate="+strconv.Itoa(s.Publish.BitrateM*1_000_000))
 	case "cbr":
-		return append(base, "bitrate="+strconv.Itoa(s.Publish.BitrateM*1_000_000), "low-latency=true")
+		// low-latency is not written here: gstLiveDelay pins it on this element in every mode, and a
+		// second site writing it puts the property on the launch line twice.
+		return append(base, "bitrate="+strconv.Itoa(s.Publish.BitrateM*1_000_000))
 	default:
 		assert.Never("unexpected rate-control mode", s.Publish.Mode)
 		return nil
@@ -471,9 +605,35 @@ func rav1eEncoder(s settings.Settings, r gstRates, l capabilities.Steps) []strin
 // No effort step and no B-frame count, as on the ffmpeg path: the family's row declares no ladder,
 // and VAAPI B-frame support varies per driver.
 // lossless has no VAAPI form (vaapiGaps).
-func vaEncoder(elem string, quantizers ...string) func(settings.Settings, gstRates, capabilities.Steps) []string {
+// vtEncoder maps the one rate-control mode Apple's framework reaches onto one applemedia element,
+// the counterpart to videoToolboxArgs in the ffmpeg builder.
+//
+// abr is all the rows declare, so there is no switch: bitrate is the average the framework codes
+// towards, and it counts in kbit/s where the ffmpeg option counts in bits.
+// realtime stops the encoder buffering frames to spend longer on them, and frame reordering goes off
+// with it, which is the same pair the ffmpeg mapping sets.
+func vtEncoder(elem string) func(settings.Settings, gstRates, capabilities.Steps) []string {
 	return func(s settings.Settings, r gstRates, _ capabilities.Steps) []string {
+		assert.Assert(s.Publish.Mode == capabilities.ModeAbr,
+			"a VideoToolbox encode runs the one rate control its rows declare", s.Publish.Mode)
+
+		return []string{
+			elem, "realtime=true", "allow-frame-reordering=false",
+			"max-keyframe-interval=" + r.gop, "bitrate=" + r.kbps,
+		}
+	}
+}
+
+// The effort step travels as target-usage, the property carrying the scale on these elements.
+// The ffmpeg half spends none: its -quality runs over the range the installed driver reports rather
+// than over a fixed seven, so one step cannot mean one thing on both
+// (form.availabilityEngineRules).
+func vaEncoder(elem string, quantizers ...string) func(settings.Settings, gstRates, capabilities.Steps) []string {
+	return func(s settings.Settings, r gstRates, l capabilities.Steps) []string {
 		base := []string{elem, "key-int-max=" + r.gop}
+		if l.Effort != "" {
+			base = append(base, "target-usage="+l.Effort)
+		}
 		switch s.Publish.Mode {
 		case "crf":
 			enc := append(base, "rate-control=cqp")

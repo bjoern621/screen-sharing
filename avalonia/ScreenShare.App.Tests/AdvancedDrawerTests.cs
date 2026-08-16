@@ -54,7 +54,7 @@ public sealed class AdvancedDrawerTests
         Options = { new FieldOption { Value = value, Enabled = true } },
     };
 
-    /// <summary>Both halves filled, which is what ControlKind.NumberSelect means.</summary>
+    /// <summary>Both halves filled, what ControlKind.NumberSelect means.</summary>
     private static Field NumberSelect(string key, long value, params long[] ladder)
     {
         var field = new Field

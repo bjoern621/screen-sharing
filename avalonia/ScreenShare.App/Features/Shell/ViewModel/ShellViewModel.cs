@@ -14,16 +14,16 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.ViewModel;
 
 /// <summary>
-/// The window's own state, and the sole owner of the one fact the rest of the screen turns on: which
-/// destination is showing.
-/// A band holds no destination of its own and is told one on every render pass, so a lit segment cannot
-/// disagree with the body.
+/// Window's own state, and sole owner of the one fact the rest of the screen turns on: which destination is
+/// showing.
+/// A band holds no destination of its own and is told one on every render pass, so a lit segment cannot disagree
+/// with the body.
 ///
 /// Every destination is reachable at all times, broadcast included: what it reports about the stream that has
 /// just ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
 ///
 /// <see cref="Show"/> is the named write.
-/// <see cref="Apply"/> is the one render function: it pushes the state into every child and picks the body on
+/// <see cref="Apply"/> is the one render function, pushing the state into every child and picking the body on
 /// every pass, off branches included (docs/development-principles.md, "One render function per component").
 /// </summary>
 public sealed class ShellViewModel : Observable
@@ -32,18 +32,18 @@ public sealed class ShellViewModel : Observable
     private const string Idle = "no stream";
 
     /// <summary>
-    /// The destination the window opens on.
-    /// The viewer is the one screen the design states end to end, so the first paint is drawn from stated
-    /// copy rather than from a state this module chose.
+    /// Destination the window opens on.
+    /// The viewer is the one screen the design states end to end, so the first paint is drawn from stated copy
+    /// rather than from a state this module chose.
     /// </summary>
     private Destination _current = Destination.Viewer;
 
-    /// <summary>The running state, owned once for the window and read through by everything drawing from it.</summary>
+    /// <summary>Running state, owned once for the window and read through by everything drawing from it.</summary>
     private readonly Session _session;
 
     /// <summary>
-    /// The settings draft and the form it resolves to, owned once for the window and read through by the
-    /// destinations that edit settings.
+    /// Settings draft and the form it resolves to, owned once for the window and read through by the destinations
+    /// that edit settings.
     /// </summary>
     private readonly FormSession _form;
 
@@ -55,17 +55,17 @@ public sealed class ShellViewModel : Observable
         Nav = new NavStripViewModel(Show);
         StatusBar = new StatusBarViewModel();
 
-        // The Go control plane over the local socket, constructed here because the shell owns the connection.
+        // Go control plane over the local socket, constructed here because the shell owns the connection.
         // Every value, label, greying and figure a destination draws arrives through it already decided
         // (docs/ipc-api.md).
         //
-        // Constructing opens nothing: the connection is made by the first read and remade by the next one
-        // after a failure, so a window whose backend is not up yet paints its notice and reaches a backend
-        // once there is one. An absent backend is an Umgebungsfehler the window survives.
+        // Constructing opens nothing: the connection is made by the first read and remade by the next one after a
+        // failure, so a window whose backend is not up paints its notice and reaches a backend once there is one.
+        // An absent backend is an Umgebungsfehler the window survives.
         //
-        // The seam's reads are asynchronous because a socket is, so an answer lands on whichever thread the
-        // transport completed on and is marshalled back before any bound property is written.
-        // Posted rather than checked first, because a post from the UI thread is already right.
+        // Reads are asynchronous because a socket is, so an answer lands on whichever thread the transport
+        // completed on and is marshalled back before any bound property is written.
+        // Posted rather than checked first, a post from the UI thread already being right.
         var backend = new ControlBackend();
         var dispatch = (Action<Action>)(action => Dispatcher.UIThread.Post(action));
 
@@ -75,8 +75,8 @@ public sealed class ShellViewModel : Observable
         _session = new Session(backend, dispatch);
 
         // One draft for the window, and the one owner of the settings nobody has committed yet.
-        // Setup configures what this machine sends and the viewer how it receives, and a draft each would be
-        // two copies of one message, with the publish commit persisting whichever of them it held
+        // Setup configures what this machine sends and the viewer how it receives, and a draft each would be two
+        // copies of one message, with the publish commit persisting whichever of them it held
         // (Backend/FormSession.cs).
         _form = new FormSession(backend, _session, dispatch);
 
@@ -92,9 +92,8 @@ public sealed class ShellViewModel : Observable
         // broadcast screen is built.
         Broadcast.Preview.SetGridLeg(stream => Viewer.TileOf(stream)?.Transport ?? "");
 
-        // Every destination re-renders on any change, because the chrome reads them all: the strip's pill
-        // says whether this machine is sharing, and the band prints the viewer's figures from any
-        // destination.
+        // Every destination re-renders on any change, the chrome reading them all: the strip's pill says whether
+        // this machine is sharing, and the band prints the viewer's figures from any destination.
         _session.Changed += Apply;
 
         // Levels have their own notification and reach the viewer alone.
@@ -109,26 +108,24 @@ public sealed class ShellViewModel : Observable
 
         _body = BodyFor(_current);
 
-        // A reader toggling a chip moves the viewer's figures without going through a write of the shell's,
-        // so the band re-renders off the viewer's own notification rather than waiting for a destination
-        // change.
-        // A stream taken fullscreen from a tile's menu arrives the same way, and takes the bands off the
-        // window.
+        // A reader toggling a chip moves the viewer's figures without going through a write of the shell's, so the
+        // band re-renders off the viewer's own notification rather than waiting for a destination change.
+        // A stream taken fullscreen from a tile's menu arrives the same way, and takes the bands off the window.
         Viewer.PropertyChanged += (_, _) =>
         {
             RenderStatusBar();
             RenderChrome();
         };
 
-        // The live screen names the navigation and the shell performs it, so a value stays editable in one
-        // window (docs/design-language.md, "Ownership").
+        // The live screen names the navigation and the shell performs it, so a value stays editable in one window
+        // (docs/design-language.md, "Ownership").
         // Every other action that screen raises it performs itself against the backend.
         Broadcast.ActionRequested += OnBroadcastRequested;
 
         // Setup owns the commit and performs it. Where the window goes afterwards is the window's.
-        // Moved on the accepted reply rather than on the live state landing: the destination is reachable
-        // either way, so the screen the start leads to comes up at once and fills in as the event stream
-        // reports what the stream became.
+        // Moved on the accepted reply rather than on the live state landing: the destination is reachable either
+        // way, so the screen the start leads to comes up at once and fills in as the event stream reports what the
+        // stream became.
         Setup.WentLive += () => Show(Destination.Broadcast);
 
         // Rendered before anything is read, so the window paints a complete view model whether or not the
@@ -159,9 +156,9 @@ public sealed class ShellViewModel : Observable
     // --- Outputs -------------------------------------------------------------------
 
     /// <summary>
-    /// The showing destination's own view model.
-    /// Typed as object because the destinations share nothing but the data template that draws them, and a
-    /// common base would be a type invented for the shell's convenience.
+    /// Showing destination's own view model.
+    /// Typed as object: the destinations share nothing but the data template that draws them, and a common base
+    /// would be a type invented for the shell's convenience.
     /// </summary>
     public object Body { get => _body; private set => Set(ref _body, value); }
 
@@ -170,9 +167,8 @@ public sealed class ShellViewModel : Observable
 
     /// <summary>
     /// Whether the window draws its own bands.
-    /// A stream filling the window takes every band off it: a picture under chrome is the app filling the
-    /// screen, where the reader asked for the stream to fill it.
-    /// That is the difference between this state and a maximised window
+    /// A stream filling the window takes every band off it: a picture under chrome is the app filling the screen,
+    /// where the reader asked for the stream to fill it, which is what separates this from a maximised window
     /// (<c>Features/Viewer/View/ViewerView.axaml</c>).
     /// </summary>
     public bool HasChrome { get => _hasChrome; private set => Set(ref _hasChrome, value); }
@@ -193,32 +189,32 @@ public sealed class ShellViewModel : Observable
     /// </summary>
     public void Show(Destination destination)
     {
-        // Read through the table, so a destination it does not name fails here rather than in a body lookup
-        // three layers down.
+        // Read through the table, so a destination it does not name fails here rather than in a body lookup three
+        // layers down.
         Assert.That(Destinations.LabelOf(destination).Length > 0, "a window shows a destination the table names", (int)destination);
 
-        // The field and not a notification: where the window stands reaches the screen through the segments
-        // and the body Apply writes, and nothing binds the destination itself.
+        // The field and not a notification: where the window stands reaches the screen through the segments and
+        // the body Apply writes, and nothing binds the destination itself.
         _current = destination;
         Apply();
     }
 
     /// <summary>
-    /// The one render function.
-    /// Safe to run twice: every child's apply is idempotent, so an unchanged pass writes no property and
-    /// fires no binding.
+    /// One render function.
+    /// Safe to run twice: every child's apply is idempotent, so an unchanged pass writes no property and fires no
+    /// binding.
     /// </summary>
     public void Apply()
     {
-        // Pushed rather than read through: a band takes its whole input in one write, so it cannot be half
-        // updated between two facts that have to agree.
+        // Pushed rather than read through: a band takes its whole input in one write, so it cannot be half updated
+        // between two facts that have to agree.
         //
         // The stream name is the backend's, never one composed here.
         TitleBar.Show(_current, _session.Publish?.Live?.Publish?.Name is { Length: > 0 } name ? name : Idle);
 
         // Every destination, not the showing one alone.
-        // A destination rendered only while on screen comes back stale, and the body swap draws the state it
-        // last held rather than the one the model is in.
+        // A destination rendered only while on screen comes back stale, and the body swap draws the state it last
+        // held rather than the one the model is in.
         Setup.Apply();
         Broadcast.Apply();
         Viewer.Apply();
@@ -241,8 +237,8 @@ public sealed class ShellViewModel : Observable
     /// <summary>
     /// What the shell does with a request the live screen raised.
     /// A request that navigates is the shell's.
-    /// The rest are the publisher's, and answering one here would be the shell inventing behaviour it does
-    /// not own.
+    /// The rest are the publisher's, and answering one here would be the shell inventing behaviour it does not
+    /// own.
     /// </summary>
     private void OnBroadcastRequested(BroadcastAction action)
     {
@@ -254,8 +250,8 @@ public sealed class ShellViewModel : Observable
 
     /// <summary>
     /// Hands the band the destination it stands in and the figures that destination derived.
-    /// Read through on every call and cached nowhere here, so the band and the tiles cannot disagree about
-    /// what is on screen.
+    /// Read through on every call and cached nowhere here, so the band and the tiles cannot disagree about what is
+    /// on screen.
     /// Idempotent.
     /// </summary>
     private void RenderStatusBar()
@@ -263,8 +259,8 @@ public sealed class ShellViewModel : Observable
 
     /// <summary>
     /// Whether the window's bands are drawn, derived from the destination and what that destination shows.
-    /// Read through rather than written by whoever moved it, so a stream taken fullscreen from a tile's menu
-    /// takes the bands with it without telling the shell.
+    /// Read through rather than written by whoever moved it, so a stream taken fullscreen from a tile's menu takes
+    /// the bands with it without telling the shell.
     /// Idempotent.
     /// </summary>
     private void RenderChrome()

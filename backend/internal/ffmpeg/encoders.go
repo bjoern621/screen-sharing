@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -95,7 +96,8 @@ var encoderMappings = map[string]encoderArgsFunc{
 // VAAPI and AMF are keyed per codec, what differs between their codecs (the option the quantizer
 // travels in, the profile a chroma selects) being bound at the row.
 var familyMappings = map[string]encoderArgsFunc{
-	capabilities.FamilyNvenc: nvencArgs,
+	capabilities.FamilyNvenc:        nvencArgs,
+	capabilities.FamilyVideoToolbox: videoToolboxArgs,
 }
 
 // encoderArgs returns the encoder half of the command for the configured codec and rate-control
@@ -138,7 +140,11 @@ func softwareArgs(codec string, lossless []string) encoderArgsFunc {
 		base := append([]string{"-c:v", codec, "-preset", l.Effort}, tuneArgs(l.Tune)...)
 		switch s.Publish.Mode {
 		case "crf":
-			return append(base, "-crf", r.cq)
+			// A quality target held inside a ceiling where the settings state one: the rate factor drives
+			// the rate until the VBV would overflow, and the picture softens from there rather than the
+			// stream outgrowing the link.
+			// Unbounded without one, which is what -crf alone is.
+			return slices.Concat(base, []string{"-crf", r.cq}, qualityCeilingArgs(s, r))
 		case "lossless":
 			// No rate control: the frame costs what exactness costs, bursting to hundreds of Mbit/s.
 			return append(base, lossless...)
@@ -162,6 +168,18 @@ func softwareArgs(codec string, lossless []string) encoderArgsFunc {
 	}
 }
 
+// qualityCeilingArgs is the ceiling a constant-quality encode is held to, and nothing where the
+// encode is unbounded: no ceiling stated, or a codec whose constant-quality mode carries none on this
+// engine (capabilities.QualityCeiling).
+// One helper for every mapping that takes one, so the flag pair and the field it reads are one
+// decision rather than one per codec.
+func qualityCeilingArgs(s settings.Settings, r rates) []string {
+	if s.Publish.MaxrateM <= 0 || !capabilities.QualityCeiling(s.Publish.Codec, capabilities.EngineFfmpeg) {
+		return nil
+	}
+	return []string{"-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.Publish.MaxrateM, s.Publish.VbvMs)}
+}
+
 // aomRates appends the rate-control options the encoders built on Google's aom rate control share:
 // libvpx (VP8 and VP9) and libaom (AV1).
 // All three read the same generic ffmpeg knobs, so the base command and the lossless branch stay
@@ -169,8 +187,15 @@ func softwareArgs(codec string, lossless []string) encoderArgsFunc {
 func aomRates(base []string, s settings.Settings, r rates) []string {
 	switch s.Publish.Mode {
 	case "crf":
-		// -b:v 0 leaves the crf target alone to drive the rate.
-		return append(base, "-crf", r.cq, "-b:v", "0")
+		// These libraries bound a quality target with -b:v rather than with a VBV pair: zero leaves the
+		// rate factor alone to drive the rate, and a figure there is libvpx's constrained quality, the
+		// rate it codes toward and stays under.
+		// -maxrate without a target is refused outright, so the ceiling travels here or nowhere.
+		ceiling := "0"
+		if s.Publish.MaxrateM > 0 && capabilities.QualityCeiling(s.Publish.Codec, capabilities.EngineFfmpeg) {
+			ceiling = r.maxrate
+		}
+		return append(base, "-crf", r.cq, "-b:v", ceiling)
 	case "abr":
 		return append(base, "-b:v", r.bitrate)
 	case "vbr":
@@ -207,11 +232,11 @@ func vp9Args(s settings.Settings, r rates, l capabilities.Steps) []string {
 	profile, known := vp9Profiles[s.Publish.Chroma]
 	assert.Assert(known, "a VP9 chroma names the profile it encodes in", s.Publish.Chroma)
 
-	base := []string{
+	base := slices.Concat([]string{
 		"-c:v", "libvpx-vp9", "-profile:v", profile,
 		"-deadline", "realtime", "-row-mt", "1", "-cpu-used", l.Effort,
 		"-tune-content", "screen",
-	}
+	}, tuneArgs(l.Tune))
 	if s.Publish.Mode == "lossless" {
 		return append(base, "-lossless", "1")
 	}
@@ -224,10 +249,10 @@ func vp9Args(s settings.Settings, r rates, l capabilities.Steps) []string {
 // screen-content-mode is VP8's own equivalent, turning on the coding tools for text and sharp edges.
 // Its ladder runs further than VP9's and its row starts higher on it, VP8 having less to trade away.
 func vp8Args(s settings.Settings, r rates, l capabilities.Steps) []string {
-	return aomRates([]string{
+	return aomRates(slices.Concat([]string{
 		"-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", l.Effort,
 		"-screen-content-mode", "1",
-	}, s, r)
+	}, tuneArgs(l.Tune)), s, r)
 }
 
 // aomArgs maps the rate-control modes onto libaom AV1.
@@ -235,11 +260,16 @@ func vp8Args(s settings.Settings, r rates, l capabilities.Steps) []string {
 // falls minutes behind.
 // row-mt and the tile split spread the frame over cores, and lag-in-frames 0 drops the lookahead
 // that would hold frames back.
+//
+// tune-content=screen turns on the coding tools for text and sharp edges, as -screen-content-mode
+// does on VP8 and -tune-content on VP9.
+// It reaches libaom through -aom-params, ffmpeg's wrapper putting no option of its own on it.
 func aomArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
-	return aomRates([]string{
+	return aomRates(slices.Concat([]string{
 		"-c:v", "libaom-av1", "-usage", "realtime", "-cpu-used", l.Effort,
 		"-row-mt", "1", "-tiles", "2x1", "-lag-in-frames", "0",
-	}, s, r)
+		"-aom-params", "tune-content=screen",
+	}, tuneArgs(l.Tune)), s, r)
 }
 
 // svtav1Args maps the rate-control modes onto SVT-AV1, whose rate control does not take the aom
@@ -252,23 +282,45 @@ func aomArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
 //   - cbr is rate-control mode 2, reachable only through -svtav1-params, and it needs the
 //     low-delay prediction structure. buf-sz sizes its rate buffer in ms, which the
 //     element clamps to 20..10000.
+//
+// Everything the library takes rather than the wrapper travels in that one parameter string, so the
+// rate-control half and the picture half are assembled together (svtav1Params).
 func svtav1Args(s settings.Settings, r rates, l capabilities.Steps) []string {
 	base := []string{"-c:v", "libsvtav1", "-preset", l.Effort}
 	switch s.Publish.Mode {
 	case "crf":
-		return append(base, "-crf", r.cq)
+		return slices.Concat(base, []string{"-crf", r.cq}, svtav1Params(l))
 	case "abr":
-		return append(base, "-b:v", r.bitrate)
+		return slices.Concat(base, []string{"-b:v", r.bitrate}, svtav1Params(l))
 	case "cbr":
-		params := "rc=2:pred-struct=1"
+		rate := []string{"rc=2", "pred-struct=1"}
 		if s.Publish.VbvMs > 0 {
-			params += ":buf-sz=" + strconv.Itoa(s.Publish.VbvMs)
+			rate = append(rate, "buf-sz="+strconv.Itoa(s.Publish.VbvMs))
 		}
-		return append(base, "-b:v", r.bitrate, "-svtav1-params", params)
+		return slices.Concat(base, []string{"-b:v", r.bitrate}, svtav1Params(l, rate...))
 	default:
 		assert.Never("unexpected rate-control mode", s.Publish.Mode)
 		return nil
 	}
+}
+
+// svtav1Params assembles one -svtav1-params string out of the caller's rate-control keys and the
+// picture keys every SVT-AV1 encode carries, and nothing at all where there is none to state.
+//
+// scm=1 turns on the screen-content tools for text and sharp edges, as -tune-content does on VP9.
+// The library's own default detects content instead, which is a guess about a desktop this app
+// already knows the answer for.
+// The image-quality tune overrides it, and says so on a warning line of its own.
+//
+// The library refuses a key or a value it does not know rather than dropping it, so a step off the
+// row's ladder ends the encode at launch instead of coding at a setting nobody asked for.
+func svtav1Params(l capabilities.Steps, rate ...string) []string {
+	params := append([]string{}, rate...)
+	params = append(params, "scm=1")
+	if tune, named := capabilities.Svtav1TuneValue(l.Tune); named {
+		params = append(params, "tune="+tune)
+	}
+	return []string{"-svtav1-params", strings.Join(params, ":")}
 }
 
 // rav1eArgs maps the rate-control modes onto rav1e.
@@ -279,15 +331,49 @@ func rav1eArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
 	base := []string{"-c:v", "librav1e", "-speed", l.Effort}
 	switch s.Publish.Mode {
 	case "crf":
-		return append(base, "-qp", r.cq)
+		return slices.Concat(base, []string{"-qp", r.cq}, rav1eParams(l))
 	case "abr":
-		return append(base, "-b:v", r.bitrate)
+		return slices.Concat(base, []string{"-b:v", r.bitrate}, rav1eParams(l))
 	case "cbr":
-		return append(base, "-b:v", r.bitrate, "-rav1e-params", "low_latency=true")
+		return slices.Concat(base, []string{"-b:v", r.bitrate}, rav1eParams(l, "low_latency=true"))
 	default:
 		assert.Never("unexpected rate-control mode", s.Publish.Mode)
 		return nil
 	}
+}
+
+// rav1eParams assembles one -rav1e-params string, the option carrying every rav1e setting ffmpeg's
+// wrapper puts no flag of its own on.
+// The rav1enc element takes the same two tunes on a property instead (publish/gstencoders.go), the
+// step being rav1e's own either way.
+func rav1eParams(l capabilities.Steps, rate ...string) []string {
+	params := append([]string{}, rate...)
+	if l.Tune != "" && l.Tune != capabilities.TuneNone {
+		params = append(params, "tune="+l.Tune)
+	}
+	if len(params) == 0 {
+		return nil
+	}
+	return []string{"-rav1e-params", strings.Join(params, ":")}
+}
+
+// videoToolboxArgs maps the one rate-control mode Apple's framework reaches onto its encoders, the
+// counterpart to vtEncoder on the GStreamer path.
+// It serves both codecs, the codec name being the only difference between them.
+//
+// abr is all there is, which is what the rows' gaps state: -b:v is the average the framework codes
+// towards, and the three modes that would bound or replace it have no form here.
+//
+// realtime is the framework's own answer to an effort ladder, and it is set rather than offered: it
+// is what stops the encoder buffering frames to spend more time on them, which a live stream cannot
+// pay whatever else it asks for.
+// B-pictures are pinned off beside it, as on QSV and AMF: the framework turns its frame reordering
+// off with the count, and the reorder delay is one a screen share cannot spend.
+func videoToolboxArgs(s settings.Settings, r rates, _ capabilities.Steps) []string {
+	assert.Assert(s.Publish.Mode == capabilities.ModeAbr,
+		"a VideoToolbox encode runs the one rate control its rows declare", s.Publish.Mode)
+
+	return []string{"-c:v", s.Publish.Codec, "-realtime", "1", "-bf", "0", "-b:v", r.bitrate}
 }
 
 // vaapiArgs maps the rate-control modes onto the VAAPI encoders' shared -rc_mode knob, the
@@ -392,10 +478,17 @@ const qsvLiveAsyncDepth = "1"
 //
 // B-pictures are pinned off rather than taken from the settings, as on AMF: the B-frame count is
 // NVENC's alone, and a live screen stream pays their reorder delay for a gain it cannot spend.
+//
+// The tune step is oneVPL's scenario hint, spelled on -scenario rather than on -tune.
+// It reaches the H.264 and HEVC encoders, the two rows declaring the ladder, so the AV1 and VP9 ones
+// resolve an empty step and state nothing.
 func qsvArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
 	base := []string{"-c:v", s.Publish.Codec, "-bf", "0"}
 	if preset, named := qsvPresets[l.Effort]; named {
 		base = append(base, "-preset", preset)
+	}
+	if l.Tune != "" && l.Tune != capabilities.TuneNone {
+		base = append(base, "-scenario", l.Tune)
 	}
 	switch s.Publish.Mode {
 	case "crf":
@@ -573,13 +666,13 @@ func nvencArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
 		// them, which is what the UI greys the field for.
 		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune, []string{"-bf", "0"})
 	case "crf":
-		// VBR against a constant quantizer: cq drives the look and the bitrate only caps bursts.
+		// VBR against a constant quantizer: cq drives the look and the ceiling only caps bursts.
+		// -b:v 0 is what keeps the target out of it, the rate belonging to the quantizer.
 		// multipass fullres spends the most effort per bit.
 		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune, []string{
 			"-multipass", "fullres",
-			"-rc", "vbr", "-cq", r.cq, "-b:v", "0", "-maxrate", r.bitrate, "-bufsize", r.bitrate,
-			"-bf", r.bframes,
-		})
+			"-rc", "vbr", "-cq", r.cq, "-b:v", "0",
+		}, qualityCeilingArgs(s, r), []string{"-bf", r.bframes})
 	case "abr":
 		// VBR toward an average, no ceiling.
 		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune,

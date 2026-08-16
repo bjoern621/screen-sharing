@@ -7,7 +7,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The commit gate, read off four whole states this module does not decide.
+/// Commit gate, read off four whole states this module does not decide.
 /// <c>Form.publishable</c>, a backend that answers and <c>RelayStatus.reachable</c> say whether it can be
 /// pressed at all.
 /// <c>PublishState.live</c> says what pressing it does: start a stream, or restart the running one on these
@@ -222,7 +222,7 @@ public sealed class StartSharingTests
     }
 
     /// <summary>
-    /// The gate is a record so that two readings compare equal, which is what lets the review render twice
+    /// The gate is a record so that two readings compare equal, which lets the review render twice
     /// and write nothing (docs/development-principles.md, "Idempotency").
     /// </summary>
     [Fact]

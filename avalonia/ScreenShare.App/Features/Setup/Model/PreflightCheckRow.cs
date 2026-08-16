@@ -25,17 +25,13 @@ public sealed record PreflightCheckRow
 
 /// <summary>
 /// The list, built from the diagnostics the form carried.
-/// Every word comes from <c>Copy/</c>, keyed on the statement code the backend sent.
-/// The ranking is the form's.
-///
-/// The one thing decided here is where a line is anchored: the contract names the field a diagnostic is
-/// about, and which step holds that field is placement (docs/ipc-api.md, "The rule").
+/// Every word comes from <c>Copy/</c>, keyed on the statement code the backend sent. The ranking is the form's.
+/// The one thing decided here is where a line is anchored: the contract names the field a diagnostic is about,
+/// and which step holds that field is placement (docs/ipc-api.md, "The rule").
 /// </summary>
 public static class PreflightChecks
 {
-    /// <summary>
-    /// The diagnostics as lines, in the order the form ranked them.
-    /// </summary>
+    /// <summary>Diagnostics as lines, in the order the form ranked them.</summary>
     /// <param name="stepOf">
     /// Names the step owning one field key.
     /// Answers empty for a key no step holds, and for a diagnostic about the combination rather than a field.

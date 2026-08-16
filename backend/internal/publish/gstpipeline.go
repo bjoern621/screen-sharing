@@ -13,6 +13,16 @@ import (
 	"bjoernblessin.de/screenshare/internal/transport"
 )
 
+// gstEncodeQueue sheds ahead of the encoder: the newest frame waits, the rest are dropped.
+//
+// The capture paces itself off the clock, so an encoder or a transport short of that rate has to cost
+// frames here.
+// Without the drop the encode holds the capture up and every frame behind it ages by what the wait
+// cost, which is a picture growing later for as long as the shortfall lasts.
+// Dropping is on this side of the encoder because a dropped encoded frame is a reference a viewer
+// decodes without.
+var gstEncodeQueue = []string{"queue", "name=" + gstShedName, "max-size-buffers=1", "leaky=downstream"}
+
 // buildPipeline renders the whole gst-launch description: the source it is handed, the encoder the
 // codec resolves to, and the transport's muxer and sink.
 // capture is what the backend built, which is the only thing a run and the displayed command differ
@@ -64,6 +74,8 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	assert.Assert(len(capture) > 0, "a capture backend yields source elements", s.Publish.Capture)
 
 	pipeline := append(append([]string{}, capture...), "!")
+	pipeline = append(pipeline, gstEncodeQueue...)
+	pipeline = append(pipeline, "!")
 	pipeline = append(pipeline, encoder...)
 	pipeline = append(pipeline, "!")
 	// A codec whose element leaves a parser or capsfilter nothing to do links straight to the sink.
@@ -284,6 +296,46 @@ func gstAudioVolumeName(i int) string {
 // gstAudioVolumeElement is the prefix every volume element's name carries.
 const gstAudioVolumeElement = "gain"
 
+// gstAudioOpen is how one element opens one kind: the element, the property a handle rides on, the
+// handle the kind's own default answers to, and whatever else the element needs to record that kind
+// rather than another.
+//
+// self is empty where the element opens its own default and takes no handle for it, which is what
+// separates a sound server addressing devices by name from an API that has a default of its own.
+type gstAudioOpen struct {
+	element    string
+	handle     string
+	self       string
+	properties []string
+}
+
+// gstAudioElements is the element each kind is recorded through, per operating system.
+//
+// Keyed by the platform because the elements are the platform's: a sound server's clients on one, an
+// operating system's audio API on the other, and no element spans both.
+// A pair with no row is one this engine does not record, which the source table and the engine gate
+// beside it have already refused (AudioAvailable), so reaching one here is a settings file that took
+// another route.
+//
+// The Linux rows address devices by the libpulse magic names, one spelling shared with the ffmpeg
+// engine (platform.AudioMonitorDevice).
+// An application is a PipeWire node and not a sound device, so its row takes a different element and
+// a different property, which is why the element is a table read rather than a device string.
+//
+// The Windows row takes no handle for the default: wasapi2src opens the default render device on
+// its own, and loopback is what records what that device plays rather than what it hears.
+// Per-application capture has no row there: it is a process id on that API rather than a device, and
+// nothing enumerates one, so the kind stays refused on Windows rather than opened as the desktop.
+var gstAudioElements = map[string]map[string]gstAudioOpen{
+	"linux": {
+		platform.AudioSourceDesktop:     {element: "pulsesrc", handle: "device", self: platform.AudioMonitorDevice},
+		platform.AudioSourceApplication: {element: "pipewiresrc", handle: "target-object"},
+	},
+	"windows": {
+		platform.AudioSourceDesktop: {element: "wasapi2src", handle: "device", properties: []string{"loopback=true"}},
+	},
+}
+
 // gstAudioSource is one recorded source's chain, from its device into the mixer.
 //
 // The volume element carries gain and mute both, one value to an element that multiplies:
@@ -298,18 +350,18 @@ func gstAudioSource(s settings.Settings, a settings.AudioSource, i int) ([]strin
 	if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
 		return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, a.Source)
 	}
-	device := a.Device
-	if device == "" {
-		device = platform.AudioSourceDevice(a.Source)
+	need, gated := needsOf(s.Publish.Capture)
+	assert.Assert(gated, "a capture backend building an audio branch is a registered one", s.Publish.Capture)
+
+	open, mapped := gstAudioElements[need.os][a.Source]
+	if !mapped {
+		return nil, fmt.Errorf("no GStreamer element records %s audio on %s", a.Source, need.os)
 	}
-	if device == "" {
-		return nil, fmt.Errorf("audio source %q names no device to open", a.Source)
-	}
-	// An application is a PipeWire node and not a sound device, and PulseAudio cannot record one
-	// program's stream at all, so the kind picks the element rather than only the device string.
-	source := []string{"pulsesrc", "device=" + device}
-	if a.Source == platform.AudioSourceApplication {
-		source = []string{"pipewiresrc", "target-object=" + device}
+	source := append([]string{open.element}, open.properties...)
+	if handle := a.Device; handle != "" {
+		source = append(source, open.handle+"="+handle)
+	} else if open.self != "" {
+		source = append(source, open.handle+"="+open.self)
 	}
 	return append(source, []string{
 		"!", "queue",
@@ -334,15 +386,21 @@ var gstChromaFormats = map[string]string{
 	"p010le":  "I420_10LE",
 }
 
-// gstVaChromaFormats is the same mapping for the va plugin's encoders, which take the semi-planar
-// layouts the VAAPI drivers store surfaces in and negotiate no planar format at all.
-// It is why capabilities.Codecs declares no other chroma for the family (vaapiFormats is the ffmpeg
-// counterpart).
+// gstSemiPlanarChromaFormats is the same mapping for the elements that take the semi-planar layouts
+// a fixed-function encoder stores surfaces in and negotiate no planar format at all.
+// It is why capabilities.Codecs declares no other chroma for those families (vaapiFormats is the
+// ffmpeg counterpart).
 //
-// One mapping for both paths: a VA surface holds what these elements read whether vapostproc
-// converted into it or CPU-converted frames were uploaded, so the family's device row names this
-// map as well (gstGpuMemories).
-var gstVaChromaFormats = map[string]string{
+// Three families read it, and one layout is why: the va elements take what the VAAPI drivers store,
+// the qsv plugin drives oneVPL over VA on Linux and D3D11 on Windows, and Apple's media block reads
+// the CoreVideo buffers of the same two layouts.
+// One map rather than three copies, since a second spelling of one layout is a second thing able to
+// disagree about what an encoder reads.
+//
+// One mapping for both paths on the families that have a device row: a VA surface holds what those
+// elements read whether vapostproc converted into it or CPU-converted frames were uploaded, so the
+// device row names this map as well (gstGpuMemories).
+var gstSemiPlanarChromaFormats = map[string]string{
 	"yuv420p": "NV12",
 	"p010le":  "P010_10LE",
 }
@@ -377,10 +435,11 @@ var gstNvChromaFormats = map[string]string{
 // QSV takes the semi-planar mapping because the qsv plugin drives oneVPL over VA on Linux and D3D11
 // on Windows, both storing surfaces in the layouts the VAAPI drivers use.
 var gstFamilyChromaFormats = map[string]map[string]string{
-	capabilities.FamilySoftware: gstChromaFormats,
-	capabilities.FamilyNvenc:    gstNvChromaFormats,
-	capabilities.FamilyVaapi:    gstVaChromaFormats,
-	capabilities.FamilyQsv:      gstVaChromaFormats,
+	capabilities.FamilySoftware:     gstChromaFormats,
+	capabilities.FamilyNvenc:        gstNvChromaFormats,
+	capabilities.FamilyVaapi:        gstSemiPlanarChromaFormats,
+	capabilities.FamilyQsv:          gstSemiPlanarChromaFormats,
+	capabilities.FamilyVideoToolbox: gstSemiPlanarChromaFormats,
 }
 
 // gstChromaFormat is the raw format the capture chain pins ahead of the codec's encoder element,

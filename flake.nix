@@ -327,6 +327,12 @@
               mpv # single-stream viewer, selected by SCREENSHARE_VIEWER below
               mediamtx # the relay, run natively: `mediamtx mediamtx.yml`
               go-task # runs Taskfile.yml
+              # The contract's own toolchain, which `task api` runs: buf lints and drives the
+              # generation, and it shells out to these two for the Go output that is committed
+              # (api/buf.gen.yaml).
+              buf
+              protoc-gen-go
+              protoc-gen-go-grpc
               nil
               nixfmt
             ]

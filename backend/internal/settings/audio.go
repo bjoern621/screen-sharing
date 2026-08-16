@@ -6,8 +6,8 @@ import (
 
 // The list a stream's second track is mixed from.
 //
-// A list rather than one source, a screen share normally carrying several at once: what the machine
-// is playing, and whoever is talking over it.
+// A list rather than one source, a screen share normally carrying several at once: one output the
+// machine plays into, and one program's own sound beside it.
 // They mix into one track, which is carriage rather than preference.
 // RTMP carries one audio track and the relay re-serves every ingest on all of its listeners, so a
 // two-track stream would be unplayable on the narrowest leg while the form said it published
@@ -22,7 +22,7 @@ import (
 const GainUnity = 100
 
 // GainMax is the loudest a source may be set to.
-// Above unity is amplification, worth having for a quiet microphone and worth bounding: an
+// Above unity is amplification, worth having for a quiet application and worth bounding: an
 // unbounded multiplier clips every other source out of the mix.
 const GainMax = 200
 
@@ -36,7 +36,7 @@ type AudioSource struct {
 	// empty for the kind's own default.
 	//
 	// Two fields because a kind is declared and what is inside it is enumerated: whether a machine
-	// serves desktop audio at all is a table's answer, and which microphone is plugged in is not
+	// serves desktop audio at all is a table's answer, and which outputs it plays into is not
 	// something a table can hold.
 	Device string `json:"device"`
 	// Gain is what this source contributes, in percent, GainUnity being unity.

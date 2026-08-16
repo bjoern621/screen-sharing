@@ -5,24 +5,24 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 
 /// <summary>
-/// The design's one editable control on this screen: smoother against sharper, drawn where a live-safe
-/// quality change would belong if the backend had one.
+/// Design's one editable control on this screen: smoother against sharper, drawn where a live-safe quality change
+/// would belong if the backend had one.
 ///
 /// <b>Inert, and the reason is on the control rather than in this comment.</b> No backend effect changes an
 /// encoder's quality without rebuilding the pipeline: both engines run a child built from an argv and neither
 /// takes a value back, so <c>ApplyToStream</c> restarts the stream and is the opposite of live-safe.
 /// A slider wired to that is a control whose promise is false.
-/// It stays on screen greyed and carrying why, the treatment the settings form gives a knob the combination
-/// in force blocks (<c>docs/field-availability.md</c>, "The rule").
+/// It stays on screen greyed and carrying why, the treatment the settings form gives a knob the combination in
+/// force blocks (<c>docs/field-availability.md</c>, "The rule").
 ///
-/// <see cref="IsEnabled"/> and <see cref="Reason"/> reach the screen only through their bindings, which
-/// nothing here can assert.
-/// The assertions at the foot of <see cref="Apply"/> are what a view model can do about it, and they keep the
-/// two properties from disagreeing with each other.
+/// <see cref="IsEnabled"/> and <see cref="Reason"/> reach the screen only through their bindings, which nothing
+/// here can assert.
+/// The assertions at the foot of <see cref="Apply"/> are what a view model can do about it, and they keep the two
+/// properties from disagreeing with each other.
 ///
 /// The footnote reports the quality the stream <i>runs</i> at and predicts nothing from the slider.
-/// What a new position costs is the encoder's answer, and a guess is a number a publisher acts on and is
-/// wrong about.
+/// What a new position costs is the encoder's answer, and a guess is a number a publisher acts on and is wrong
+/// about.
 /// </summary>
 public sealed class NudgeViewModel : Observable
 {
@@ -78,8 +78,8 @@ public sealed class NudgeViewModel : Observable
 
     /// <summary>
     /// Whether the track takes a hand.
-    /// Always false, and a property rather than a value in the markup, so the view binds one fact and the
-    /// reason beside it cannot end up describing a live control.
+    /// Always false, and a property rather than a value in the markup, so the view binds one fact and the reason
+    /// beside it cannot end up describing a live control.
     /// </summary>
     public bool IsEnabled => false;
 

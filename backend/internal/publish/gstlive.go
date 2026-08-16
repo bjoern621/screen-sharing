@@ -44,6 +44,9 @@ var gstLiveBitrate = map[string]gstBitrateProperty{
 	"hevc_qsv":   {name: "bitrate", perSecond: false},
 	"av1_qsv":    {name: "bitrate", perSecond: false},
 	"vp9_qsv":    {name: "bitrate", perSecond: false},
+	// The applemedia elements count kbit, as the va and qsv ones do.
+	"h264_videotoolbox": {name: "bitrate", perSecond: false},
+	"hevc_videotoolbox": {name: "bitrate", perSecond: false},
 }
 
 // gstBitrateProperty is one element's rate knob: the property name, and whether it counts bits per

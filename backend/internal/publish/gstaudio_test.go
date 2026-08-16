@@ -30,7 +30,7 @@ func audioStream(sources ...settings.AudioSource) settings.Settings {
 func TestEverySourceIsAChainIntoOneMixer(t *testing.T) {
 	s := audioStream(
 		settings.AudioSource{Source: platform.AudioSourceDesktop, Gain: settings.GainUnity},
-		settings.AudioSource{Source: platform.AudioSourceMic, Gain: 150},
+		settings.AudioSource{Source: platform.AudioSourceApplication, Device: "Firefox", Gain: 150},
 	)
 
 	branch, err := gstAudioBranch(s)
@@ -39,16 +39,16 @@ func TestEverySourceIsAChainIntoOneMixer(t *testing.T) {
 	}
 	line := strings.Join(branch, " ")
 
-	if got := strings.Count(line, "pulsesrc"); got != 2 {
-		t.Errorf("the branch opens %d devices for two sources: %s", got, line)
-	}
 	if got := strings.Count(line, gstAudioMixName); got != 1 {
 		t.Errorf("the branch carries %d mixers, want exactly one: %s", got, line)
 	}
-	// Neither entry names a device, so each opens the one its kind's default names.
+	// A kind is opened by the element its row names, and the desktop entry names no device, so it
+	// opens the one its kind's default names.
 	for _, want := range []string{
+		"pulsesrc",
 		"device=" + platform.AudioMonitorDevice,
-		"device=" + platform.AudioInputDevice,
+		"pipewiresrc",
+		"target-object=Firefox",
 	} {
 		if !slices.Contains(branch, want) {
 			t.Errorf("the branch opens no %s: %s", want, line)
@@ -63,7 +63,7 @@ func TestEverySourceIsAChainIntoOneMixer(t *testing.T) {
 func TestTheGainAndTheMuteReachTheSourcesOwnVolume(t *testing.T) {
 	s := audioStream(
 		settings.AudioSource{Source: platform.AudioSourceDesktop, Gain: 50},
-		settings.AudioSource{Source: platform.AudioSourceMic, Gain: 150, Mute: true},
+		settings.AudioSource{Source: platform.AudioSourceApplication, Gain: 150, Mute: true},
 	)
 
 	branch, err := gstAudioBranch(s)
@@ -117,12 +117,12 @@ func TestAMutedSourceStillCarriesATrack(t *testing.T) {
 }
 
 // An entry naming its own device opens that one rather than the kind's default, which is what the
-// enumeration is for: a machine with several microphones has an entry per microphone and none of
-// them is "the default input".
+// enumeration is for: a machine playing into a headset and a pair of speakers has an entry per
+// output and neither of them is "the default monitor".
 func TestAnEntryOpensTheDeviceItNames(t *testing.T) {
 	s := audioStream(settings.AudioSource{
-		Source: platform.AudioSourceMic,
-		Device: "alsa_input.usb-Yeti.analog-stereo",
+		Source: platform.AudioSourceDesktop,
+		Device: "alsa_output.usb-Scarlett.analog-stereo.monitor",
 		Gain:   settings.GainUnity,
 	})
 
@@ -130,7 +130,7 @@ func TestAnEntryOpensTheDeviceItNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("building the audio branch: %v", err)
 	}
-	if !slices.Contains(branch, "device=alsa_input.usb-Yeti.analog-stereo") {
+	if !slices.Contains(branch, "device=alsa_output.usb-Scarlett.analog-stereo.monitor") {
 		t.Errorf("the branch opens %v, want the device the entry names", branch)
 	}
 }
@@ -162,7 +162,7 @@ func TestTheLevelsAreLiveAndTheListIsNot(t *testing.T) {
 	added := running
 	added.Publish.AudioSources = []settings.AudioSource{
 		{Source: platform.AudioSourceDesktop, Gain: settings.GainUnity},
-		{Source: platform.AudioSourceMic, Gain: settings.GainUnity},
+		{Source: platform.AudioSourceApplication, Gain: settings.GainUnity},
 	}
 	if live, _ := LiveOnly(running, added); live {
 		t.Error("a source added to the mix was treated as live, and it is a different graph")

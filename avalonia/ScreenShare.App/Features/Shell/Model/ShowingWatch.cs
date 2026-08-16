@@ -13,8 +13,8 @@ namespace ScreenShare.App.Features.Shell.Model;
 /// a reader who never opened the screen, and one drawing for as long as the screen is open charges a reader
 /// whose window has been behind a terminal for an hour.
 ///
-/// <b>Not the rule for every picture.</b> The broadcast preview draws what the reader asked it to and follows
-/// no window, because a publisher's window stands behind the thing being shared for most of a session
+/// <b>Not the rule for every picture.</b> The broadcast preview draws what the reader asked it to and follows no
+/// window, a publisher's window standing behind the thing being shared for most of a session
 /// (<c>Features/Broadcast/Preview/ViewModel/PreviewViewModel.cs</c>).
 /// The test is whether a window going behind means the reader stopped wanting the picture.
 ///
@@ -32,8 +32,7 @@ internal sealed class ShowingWatch : IDisposable
     ///
     /// Leaving costs what the consumer had open: the frame subscription closes and the pool behind it is freed,
     /// and coming back re-announces that pool and imports it again.
-    /// A notification that takes focus and gives it straight back would otherwise pay that round trip each
-    /// time.
+    /// A notification that takes focus and gives it straight back would otherwise pay that round trip each time.
     /// </summary>
     private static readonly TimeSpan LeaveDelay = TimeSpan.FromSeconds(1);
 
@@ -46,7 +45,7 @@ internal sealed class ShowingWatch : IDisposable
     private bool _attached;
 
     /// <summary>
-    /// The window's own answer to being in front, held while the control is attached and dropped with the tree.
+    /// Window's own answer to being in front, held while the control is attached and dropped with the tree.
     /// The reader itself rather than a copy of what it said, so the state stays the window's.
     /// </summary>
     private IWindowPresence? _presence;
@@ -66,7 +65,7 @@ internal sealed class ShowingWatch : IDisposable
     /// <summary>Derived on read, never held.</summary>
     public bool Showing => _attached && _presence is { IsInFront: true };
 
-    /// <summary>The window comes from the control, the only side that knows where it was put.</summary>
+    /// <summary>Window comes from the control, the only side that knows where it was put.</summary>
     public void Attached()
     {
         _attached = true;
@@ -98,8 +97,8 @@ internal sealed class ShowingWatch : IDisposable
 
     /// <summary>
     /// Points the presence reading at one window, or at none.
-    /// The only writer of <see cref="_presence"/>, and idempotent: what was being read is dropped first, so a
-    /// control moved between windows holds one subscription.
+    /// Only writer of <see cref="_presence"/>, and idempotent: what was being read is dropped first, so a control
+    /// moved between windows holds one subscription.
     /// </summary>
     private void Watch(Window? window)
     {
@@ -160,8 +159,7 @@ internal sealed class ShowingWatch : IDisposable
 
     /// <summary>
     /// Ends the wait.
-    /// The fact is read again rather than assumed: a window raised while the timer was in flight goes on
-    /// drawing.
+    /// The fact is read again rather than assumed: a window raised while the timer was in flight goes on drawing.
     /// </summary>
     private void Left()
     {

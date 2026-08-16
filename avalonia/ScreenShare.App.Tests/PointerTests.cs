@@ -6,7 +6,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The pointer the publish sends beside the picture, as the preview draws it.
+/// Pointer the publish sends beside the picture, as the preview draws it.
 /// A position arrives in the captured screen's pixels and is drawn in the card's, so the conversion is what is
 /// worth locking: a marker placed in the publisher's pixels lands wherever the card is not.
 /// </summary>

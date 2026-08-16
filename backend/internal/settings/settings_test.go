@@ -193,17 +193,17 @@ func TestLoadMigratesMissingAudioCodec(t *testing.T) {
 	}
 }
 
-func TestLoadMigratesMissingWatchTransport(t *testing.T) {
+func TestLoadMigratesMissingTileWatchTransport(t *testing.T) {
 	isolateConfig(t)
 
 	s := Defaults()
-	s.Viewer.PlayerWatchTransport = "" // empty is the key a file written before the option leaves out
+	s.Viewer.TileWatchTransport = "" // empty is the key a file written before the option leaves out
 	if err := Save(s); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	if got := mustLoad(t); got.Viewer.PlayerWatchTransport != Defaults().Viewer.PlayerWatchTransport {
-		t.Errorf("watch transport = %q, want migrated to %q", got.Viewer.PlayerWatchTransport, Defaults().Viewer.PlayerWatchTransport)
+	if got := mustLoad(t); got.Viewer.TileWatchTransport != Defaults().Viewer.TileWatchTransport {
+		t.Errorf("tile watch transport = %q, want migrated to %q", got.Viewer.TileWatchTransport, Defaults().Viewer.TileWatchTransport)
 	}
 }
 

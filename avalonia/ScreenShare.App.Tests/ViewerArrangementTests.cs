@@ -475,7 +475,7 @@ public sealed class ViewerArrangementTests
     }
 
     /// <summary>
-    /// It names a state rather than toggling one, which is what makes it safe on a key that fires on every
+    /// It names a state rather than toggling one, which makes it safe on a key that fires on every
     /// screen.
     /// </summary>
     [Fact]

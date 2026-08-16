@@ -6,16 +6,16 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Shell.NavStrip.ViewModel;
 
 /// <summary>
-/// The strip: which destination is showing, and whether this machine is sharing.
+/// Strip: which destination is showing, and whether this machine is sharing.
 ///
-/// It owns neither.
+/// Owns neither.
 /// The shell owns both and pushes them through <see cref="Show"/>, and the fields behind them are what
 /// <see cref="Apply"/> refills on every pass rather than a second copy that can drift
 /// (docs/development-principles.md, "State is written explicitly and read continuously").
 /// The elapsed time is the encoder's, so no clock ticks here.
 ///
-/// Every segment is reachable at all times, sharing or not: what a destination has to say about a stream
-/// that has ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
+/// Every segment is reachable at all times, sharing or not: what a destination has to say about a stream that has
+/// ended is what a publisher goes looking for once it has (docs/design-language.md, "Surfaces and shape").
 ///
 /// The reader's click is the one thing the strip owns, so <see cref="SelectedTab"/> is its only public setter.
 /// </summary>
@@ -45,14 +45,14 @@ public sealed class NavStripViewModel : Observable
     private string _elapsed = "";
 
     /// <summary>
-    /// The strip's whole input, written in one go so its parts cannot disagree: a pill saying sharing with
-    /// nothing publishing has no rendering.
+    /// Strip's whole input, written in one go so its parts cannot disagree: a pill saying sharing with nothing
+    /// publishing has no rendering.
     /// Idempotent.
     /// </summary>
     /// <param name="elapsed">
     /// Encoder run time, composed by the shell off the running state.
-    /// Handed in rather than counted here: a clock in this strip could not agree with the encoder's, and the
-    /// pill beside the header figures reads the same field.
+    /// Handed in rather than counted here: a clock in this strip could not agree with the encoder's, and the pill
+    /// beside the header figures reads the same field.
     /// </param>
     public void Show(Destination current, bool sharing, string elapsed)
     {
@@ -85,6 +85,7 @@ public sealed class NavStripViewModel : Observable
 
             // A list box clearing its selection is not a reader asking for anywhere, and Apply below puts the
             // showing destination back.
+
             if (value is not null)
             {
                 _select(value.Value);
@@ -107,14 +108,13 @@ public sealed class NavStripViewModel : Observable
     public bool ShowsSharing { get => _showsSharing; private set => Set(ref _showsSharing, value); }
 
     /// <summary>
-    /// The one render function.
+    /// One render function.
     /// Every output on every pass, off branches included, so the pill's text cannot outlive the state that
     /// justified it.
     /// </summary>
     public void Apply()
     {
-        // Through the field, not the property: the setter would send the shell's own answer back to it as a
-        // click.
+        // Through the field, not the property: the setter would send the shell's own answer back to it as a click.
         Set<DestinationTab?>(ref _selectedTab, TabFor(_current), nameof(SelectedTab));
 
         // The pill says whether this machine is sharing, never which destination is showing

@@ -40,31 +40,46 @@
                  IsVisible="{Binding !HasLines}"
                  TextWrapping="Wrap" />
 
-      <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate x:DataType="model:LogLine">
-            <!--
-              A grid and not a horizontal stack, and a floor rather than a height: what a line carries
-              is a failure as prose, and a stack measures against infinite width, so the sentence
-              would run off the card's edge instead of wrapping into the row.
-            -->
-            <Grid ColumnDefinitions="Auto,Auto,*"
-                  ColumnSpacing="{StaticResource GapTight}"
-                  MinHeight="{StaticResource TextRowHeight}">
-              <TextBlock Grid.Column="0" Classes="ident stamp" Text="{Binding Time}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="1"
-                         Classes="ident level"
-                         Classes.warn="{Binding IsWarning}"
-                         Text="{Binding Level}"
-                         VerticalAlignment="Center" />
-              <SelectableTextBlock Grid.Column="2"
-                                   Classes="ident message"
-                                   Text="{Binding Message}"
-                                   VerticalAlignment="Center" />
-            </Grid>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
+      <!-- Newest line first, so the scroll opens where the reader is going anyway. -->
+      <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Lines}" VerticalAlignment="Top">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="model:LogLine">
+              <!--
+                A grid and not a horizontal stack, and a floor rather than a height: what a line carries
+                is a failure as prose, and a stack measures against infinite width, so the sentence
+                would run off the card's edge instead of wrapping into the row.
+
+                Top and not centre, on all three: a message runs to several lines, and a stamp centred
+                against the block of them sits beside its middle line, reading as a stamp for something
+                other than the row it belongs to.
+
+                The stamp and the level take the transcript face along with the message, though this
+                screen wrote both: a row is read as one line, and a face changing halfway across it
+                reads as two.
+              -->
+              <Grid ColumnDefinitions="Auto,Auto,*"
+                    ColumnSpacing="{StaticResource GapTight}"
+                    MinHeight="{StaticResource TextRowHeight}">
+                <SelectableTextBlock Grid.Column="0"
+                                     Classes="transcript stamp"
+                                     Text="{Binding Time}"
+                                     VerticalAlignment="Top" />
+                <SelectableTextBlock Grid.Column="1"
+                                     Classes="transcript level"
+                                     Classes.warn="{Binding IsWarning}"
+                                     Text="{Binding Level}"
+                                     VerticalAlignment="Top" />
+                <SelectableTextBlock Grid.Column="2"
+                                     Classes="transcript message"
+                                     Text="{Binding Message}"
+                                     TextWrapping="Wrap"
+                                     VerticalAlignment="Top" />
+              </Grid>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
 
     </DockPanel>
   </Border>

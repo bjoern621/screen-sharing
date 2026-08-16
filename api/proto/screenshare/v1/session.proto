@@ -78,6 +78,12 @@ message PublishState {
     // Its presence is what says a frame subscription naming PublishPreview will be served, so
     // a shell reads it rather than asking and being refused.
     Preview preview = 5;
+    // The rate this encoder is held to, in Mbit/s, absent where the encode is bounded by
+    // nothing.
+    // Read rather than derived from the settings beside it: whether a ceiling reaches the
+    // encoder is a fact about the mode and the element, so a shell deriving it would be
+    // deciding what this stream is doing.
+    optional double rate_ceiling_mbps = 6;
 
     // 1 held the flat StreamSettings, and carries its publish half above.
     reserved "settings";

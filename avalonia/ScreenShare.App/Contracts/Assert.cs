@@ -4,8 +4,7 @@ namespace ScreenShare.App.Contracts;
 
 /// <summary>
 /// Thrown when an internal contract stops holding: an Entwicklungsfehler, never a condition to survive.
-/// Nothing catches it, so the process ends at the frame that broke the contract, carrying the stack that led
-/// there.
+/// Nothing catches it, so the process ends at the frame that broke the contract, carrying the stack that led there.
 /// An Umgebungsfehler, an unreachable relay or a malformed response, travels as a value for a screen to show.
 /// </summary>
 public sealed class ContractViolationException(string message) : Exception(message);
@@ -46,7 +45,7 @@ public static class Assert
 
     /// <summary>
     /// Ends an exhaustive dispatch.
-    /// The one inversion of the message style: names what turned up, since no invariant is left to state.
+    /// One inversion of the message style: names what turned up, no invariant being left to state.
     /// </summary>
     [DoesNotReturn]
     public static void Never(string what, params object?[] values)

@@ -32,7 +32,7 @@ The **Not** column lists the synonyms this repository has used for the same thin
 | Capability gap | One thing a codec cannot do, on one publish engine or on both, carrying the reason the UI shows. `capabilities.Gap`. | limitation, restriction, exclusion |
 | Relay | The MediaMTX server every publisher pushes to and every viewer pulls from. | server, host, MediaMTX (when the role is meant) |
 | Publish leg | Publisher to relay. The only leg an encoder is built for, and one of the two the settings form configures: the `watch` group carries the other. | hop 1, publish hop, upstream |
-| Watch leg | Relay to viewer. Chosen per receiver, independent of the publish leg: `player_watch_transport` for a player window, `tile_watch_transport` for a tile, and a leg named per press for a browser page. | hop 2, viewer hop, downstream, playback path |
+| Watch leg | Relay to viewer. Chosen per receiver, independent of the publish leg: `tile_watch_transport` for a tile, and a leg named per press for a player window or a browser page. | hop 2, viewer hop, downstream, playback path |
 | Shell | The Avalonia window, and the only one. Decides nothing, draws what the backend describes. | frontend, client, UI process |
 | Backend | Headless Go process owning capture, encode, publish, decode and the domain model. | server, daemon, core (when the role is meant) |
 | Receive pipeline | In-process GStreamer pipeline pulling one stream off the relay and decoding it for a tile. `backend/internal/receive`. | player pipeline, decode chain, grid pipeline |

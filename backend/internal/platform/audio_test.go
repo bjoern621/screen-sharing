@@ -95,11 +95,12 @@ func TestTheSamePlatformAlwaysAnswersTheSame(t *testing.T) {
 	}
 }
 
-// Desktop audio is Linux-only because both publish engines open it as the PulseAudio or PipeWire
-// monitor of the default sink, and neither has anything to open on the other two (ffmpeg/args.go,
-// publish/gstpipeline.go).
-// An engine gaining a loopback is a platform gained on the row, which is the change this case is
-// here to notice.
+// Desktop audio is served where an engine has something to open: the PulseAudio or PipeWire monitor
+// of the default sink on Linux, and the default render device's loopback on Windows
+// (ffmpeg/args.go, publish/gstpipeline.go).
+// macOS has neither, reading what it plays needing a CoreAudio tap no element here provides.
+// An engine gaining one is a platform gained on the row, which is the change this case is here to
+// notice.
 func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 	cases := []struct {
 		info   Info
@@ -107,7 +108,7 @@ func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 	}{
 		{Info{OS: "linux", Display: "wayland"}, true},
 		{Info{OS: "linux", Display: "x11"}, true},
-		{Info{OS: "windows"}, false},
+		{Info{OS: "windows"}, true},
 		{Info{OS: "darwin"}, false},
 	}
 	for _, c := range cases {
@@ -125,10 +126,12 @@ func TestDesktopAudioIsServedWhereAServerServesIt(t *testing.T) {
 	// Each refusal carries the operating system it is about, so a surface can say what that machine in
 	// particular is missing: a user reading what Windows lacks cannot act on what macOS lacks, and
 	// "Linux only" would name neither.
-	_, windows := AudioSourceAvailable(AudioSourceDesktop, Info{OS: "windows"})
-	_, darwin := AudioSourceAvailable(AudioSourceDesktop, Info{OS: "darwin"})
+	// Asked of the kind both are refused, per-application capture needing a process tap on one and a
+	// WASAPI process loopback on the other.
+	_, windows := AudioSourceAvailable(AudioSourceApplication, Info{OS: "windows"})
+	_, darwin := AudioSourceAvailable(AudioSourceApplication, Info{OS: "darwin"})
 	if proto.Equal(windows, darwin) {
-		t.Errorf("Windows and macOS are refused desktop audio with one statement: %v", windows)
+		t.Errorf("Windows and macOS are refused application audio with one statement: %v", windows)
 	}
 }
 

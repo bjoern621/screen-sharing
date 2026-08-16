@@ -351,12 +351,21 @@ enum TextCode {
   // Mode aims at no bitrate.
   // TEXT_ARG_NAME_MODE.
   TEXT_CODE_BITRATE_NOT_IN_MODE = 61;
-  // Burst ceiling exists in constrained VBR alone.
+  // Burst ceiling exists in the modes that bound a rate.
   // No arguments.
   TEXT_CODE_MAXRATE_ONLY_IN_CONSTRAINED_VBR = 62;
   // Rate buffer bounds the rate in the bitrate-bounded modes alone.
   // No arguments.
   TEXT_CODE_VBV_ONLY_IN_BOUNDED_MODES = 63;
+  // This encoder holds a quality target with no ceiling over it.
+  // TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_NO_CEILING_IN_CONSTANT_QUALITY = 154;
+  // The rate buffer sizes a ceiling, and constant quality has one only where it is stated.
+  // No arguments.
+  TEXT_CODE_VBV_NEEDS_A_CEILING = 155;
+  // This encoder codes constant quality against a ceiling, so it cannot be left without one.
+  // TEXT_ARG_NAME_CODEC.
+  TEXT_CODE_QUALITY_CEILING_REQUIRED = 156;
   // B-frames are forced off in this mode: no gain, only reorder delay.
   // TEXT_ARG_NAME_MODE.
   TEXT_CODE_BFRAMES_OFF_IN_MODE = 64;
@@ -435,6 +444,12 @@ enum TextCode {
   TEXT_CODE_GST_VPX_CQ_BITRATE_IS_CAP = 86;
   TEXT_CODE_FIXED_FUNCTION_ABR_DERIVES_CEILING = 87;
   TEXT_CODE_AMF_CODES_NO_BFRAMES = 88;
+  // The VA elements count effort over a fixed 1 to 7, where ffmpeg's VAAPI encoders count
+  // over the range the installed driver reports, which differs per vendor.
+  // One step cannot mean one thing on both, so the ffmpeg half spends none and leaves the
+  // driver its own.
+  // No arguments.
+  TEXT_CODE_FFMPEG_VAAPI_QUALITY_IS_THE_DRIVERS_SCALE = 158;
   // VAAPI elements place the target as a percentage of the ceiling, at half at the lowest,
   // so a ceiling above twice the target has no form there.
   // TEXT_ARG_NAME_MAXRATE_MBPS is the highest ceiling that fits, TEXT_ARG_NAME_BITRATE_MBPS
@@ -471,6 +486,10 @@ enum TextCode {
   TEXT_CODE_GAP_VP8_HAS_NO_COLOUR_RANGE_FIELD = 120;
   TEXT_CODE_GAP_GST_SOFTWARE_NO_RATE_CEILING = 121;
   TEXT_CODE_GAP_GST_ELEMENTS_NO_PLANAR_RGB = 122;
+  TEXT_CODE_GAP_GST_AV1ENC_NO_TUNE = 152;
+  TEXT_CODE_GAP_GST_QSV_NO_SCENARIO = 153;
+  TEXT_CODE_GAP_VIDEOTOOLBOX_NO_LOSSLESS = 159;
+  TEXT_CODE_GAP_VIDEOTOOLBOX_AVERAGE_BITRATE_ONLY = 160;
 
   // The entry names no capture source, so what is inside a kind, how loud it is and whether
   // it is silenced are all questions about nothing.

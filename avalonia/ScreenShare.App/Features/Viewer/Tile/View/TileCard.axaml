@@ -10,19 +10,21 @@
 
   <!--
     One tile for every host that draws one: a grid cell, the stage of the focus arrangement, a window
-    of its own, a filled screen. Defined once rather than per host, so the menu, the meter and the
-    badge cannot drift apart between them.
+    of its own, a filled screen.
+    Defined once rather than per host, so the menu, the meter and the badge cannot drift apart between
+    them.
 
-    Chrome waits for the pointer. Names left standing over the pictures turn a grid into a
-    diagnostic screen instead of something to watch.
+    Chrome waits for the pointer.
+    Names left standing over the pictures turn a grid into a diagnostic screen instead of something to
+    watch.
 
-    Nothing is measured over the picture. A decode is diagnosed in one place, the stats overlay,
-    which is not a pinned copy of the chrome: it reads its own state and stays up wherever the
-    pointer goes.
+    Nothing is measured over the picture.
+    A decode is diagnosed in one place, the stats overlay, no pinned copy of the chrome: it reads its
+    own state and stays up wherever the pointer goes.
   -->
 
   <UserControl.Styles>
-    <!-- Hover chrome. Faded in rather than snapped, and hit-testable only once it is up. -->
+    <!-- Hover chrome. Faded in rather than snapped, hit-testable only once up. -->
     <Style Selector="Border.chrome">
       <Setter Property="Opacity" Value="0" />
       <Setter Property="IsHitTestVisible" Value="False" />
@@ -40,16 +42,17 @@
       <Setter Property="IsHitTestVisible" Value="True" />
     </Style>
 
-    <!-- The tile's shape, and what stands behind a picture that has not arrived. -->
+    <!-- Tile's shape, and what stands behind a picture that has not arrived. -->
     <Style Selector="tiles|TileCard Border.frame">
       <Setter Property="Background" Value="{StaticResource PanelBrush}" />
       <Setter Property="CornerRadius" Value="{StaticResource RadiusTile}" />
     </Style>
 
     <!--
-      On a filled screen the card is picture and nothing besides. The host letterboxes it to the
-      stream's shape, so a rounded corner would bite into the frame instead of shaping a cell in a
-      grid, and what surrounds the picture is the black a stream sits on.
+      On a filled screen the card is picture and nothing besides.
+      The host letterboxes it to the stream's shape, so a rounded corner would bite into the frame
+      instead of shaping a cell in a grid, and what surrounds the picture is the black a stream sits
+      on.
     -->
     <Style Selector="tiles|TileCard.filling Border.frame">
       <Setter Property="Background" Value="{StaticResource TileBrush}" />
@@ -57,12 +60,14 @@
     </Style>
 
     <!--
-      Picture or plate. Decided here rather than on the elements, because the answer belongs to the
-      host: while a stream is popped out its grid slot draws the plate and the window it went to
-      draws the picture, both reading the one tile.
+      Picture or plate.
+      Decided here rather than on the elements, the answer belonging to the host: while a stream is
+      popped out its grid slot draws the plate and the window it went to draws the picture, both
+      reading the one tile.
 
-      Clearing the source is what makes the plate cost nothing. A source that is gone ends the
-      subscription and gives the pool back (Features/Viewer/Tile/View/StreamTile.cs).
+      Clearing the source makes the plate cost nothing.
+      A source that is gone ends the subscription and gives the pool back
+      (Features/Viewer/Tile/View/StreamTile.cs).
     -->
     <Style Selector="tiles|TileCard tiles|StreamTile" x:DataType="tile:TileViewModel">
       <Setter Property="Source" Value="{Binding}" />
@@ -86,24 +91,29 @@
     it is in.
 
     Grouped by subject, in the order a reader reaches for them: where the stream is drawn, how loud
-    it is, what happens to its range, what is printed over it. The dividers are the grouping; an
-    unbroken run of equal rows makes the reader sort them on every open.
+    it is, what happens to its range, what is printed over it.
+    The dividers are the grouping; an unbroken run of equal rows makes the reader sort them on every
+    open.
 
     Each row prints its key at the quiet end, the volume row the pair that moves it, and the
-    tone-map row none. A menu is where a reader learns what a tile affords, so it is also where they
-    learn what to press instead. A key acts on the tile under the pointer, which is the tile they
-    were pointing at to open this menu (Features/Viewer/Tile/View/TileKeys.cs).
+    tone-map row none.
+    A menu is where a reader learns what a tile affords, so it is also where they learn what to press
+    instead.
+    A key acts on the tile under the pointer, the tile they were pointing at to open this menu
+    (Features/Viewer/Tile/View/TileKeys.cs).
 
-    A row names a state, never a transition, and shows whether that state holds as a tick at its
-    end. Words and glyph hold still, so the menu reads as which of these are on rather than as a
-    list of verbs (docs/design-language.md, "Menus"). It is also what makes a row idempotent:
-    "Focus" is somewhere the tile can be, and pressing it twice is a round trip.
+    A row names a state, never a transition, and shows whether that state holds as a tick at its end.
+    Words and glyph hold still, so the menu reads as which of these are on rather than as a list of
+    verbs (docs/design-language.md, "Menus").
+    That also makes a row idempotent: "Focus" is somewhere the tile can be, and pressing it twice is a
+    round trip.
 
-    No row states a ToggleType, which is a decision rather than an omission. A toggling MenuItem
-    writes its own IsChecked on click, putting a second author on the fact and letting the tick move
-    before the thing it describes has: Mute is a call the backend can refuse, so the row would claim
-    what the click asked for and then withdraw it. Bound one way, the tick is a read of the state
-    and nothing besides. It costs the rows their checkable role for a screen reader.
+    No row states a ToggleType, a decision rather than an omission.
+    A toggling MenuItem writes its own IsChecked on click, putting a second author on the fact and
+    letting the tick move before the thing it describes has: Mute is a call the backend can refuse, so
+    the row would claim what the click asked for and then withdraw it.
+    Bound one way, the tick is a read of the state and nothing besides.
+    It costs the rows their checkable role for a screen reader.
 
     MenuItem and MenuFlyoutPresenter are themed by type, so nothing here asks for a look
     (Design/Menus.axaml).
@@ -137,8 +147,9 @@
       <Separator />
 
       <!--
-        Mute and the volume are one state and stand together. A stream without an audio track greys
-        both, which is a different fact from silence: there is nothing there to be loud.
+        Mute and the volume are one state and stand together.
+        A stream without an audio track greys both, a different fact from silence: there is nothing
+        there to be loud.
       -->
       <MenuItem Header="Mute" Command="{Binding ToggleMute}" IsEnabled="{Binding HasAudio}"
                 InputGesture="{x:Static tiles:TileKeys.Mute}"
@@ -150,8 +161,9 @@
 
       <!--
         A slider inside a menu is what StaysOpenOnClick is for: without it the first press dismisses
-        the flyout and the drag never starts. The code-behind marks the pointer events handled for
-        the same reason, since a drag reaching the menu reads as a click on the row.
+        the flyout and the drag never starts.
+        The code-behind marks the pointer events handled for the same reason, a drag reaching the
+        menu reading as a click on the row.
 
         This row holds a control instead of a state, so it holds no tick either: the slider's
         position is the reading.
@@ -171,6 +183,10 @@
             <Slider Grid.Column="1"
                     Name="VolumeSlider"
                     Minimum="0" Maximum="1"
+                    TickFrequency="{Binding VolumeStep}"
+                    IsSnapToTickEnabled="True"
+                    SmallChange="{Binding VolumeStep}"
+                    LargeChange="{Binding VolumeStep}"
                     Value="{Binding Volume, Mode=TwoWay}"
                     PointerPressed="OnVolumePressed"
                     VerticalAlignment="Center" />
@@ -183,10 +199,10 @@
       <Separator />
 
       <!--
-        Tone mapping, the single thing a viewer decides about an HDR stream. It rebuilds the decode
-        instead of writing a value into a running one, so the tick returns through the decode's own
-        state as the mute does, and a machine with nothing to convert with greys the row and names
-        what is missing.
+        Tone mapping, the single thing a viewer decides about an HDR stream.
+        It rebuilds the decode instead of writing a value into a running one, so the tick returns
+        through the decode's own state as the mute does, and a machine with nothing to convert with
+        greys the row and names what is missing.
       -->
       <MenuItem Command="{Binding ToggleToneMap}"
                 IsEnabled="{Binding CanToneMap}"
@@ -220,8 +236,9 @@
     <Panel>
 
       <!--
-        The picture, and where it comes from. The styles above set both, since a card drawing the
-        plate carries no source at all rather than a hidden one.
+        The picture, and where it comes from.
+        The styles above set both, a card drawing the plate carrying no source at all rather than a
+        hidden one.
       -->
       <tiles:StreamTile />
 
@@ -253,7 +270,7 @@
         discoverable: an HDR stream drawn as it arrives is not visibly wrong, it is a picture at the
         wrong brightness, and a reader with nothing to read blames the stream.
 
-        Low rather than high, since the top right is where the stats overlay opens.
+        Low rather than high, the top right being where the stats overlay opens.
       -->
       <Border Classes="chrome" VerticalAlignment="Bottom" HorizontalAlignment="Right"
               Margin="7,7,7,12"
@@ -264,15 +281,14 @@
       <!--
         The stats overlay: the panel turned on for the one stream being diagnosed.
 
-        Reading its own state rather than the hover chrome, which is the whole difference between
-        the two. Something that vanished when the pointer left would be useless for what this is
-        for.
+        Reading its own state rather than the hover chrome, the whole difference between the two.
+        Something that vanished when the pointer left would be useless for what this is for.
 
-        It scrolls, and it is sized against the tile rather than against its own contents. A decode
+        It scrolls, and is sized against the tile rather than against its own contents. A decode
         answers with more than fits on any tile - the encoded stream, the decoded picture, the
         chain, the sink's counters, the transport's own - so a panel grown to hold them would cover
-        the picture it describes on a small tile and still be cut off on a large one. The width is
-        fixed for the reason a column of settings is: one that resized as figures landed would shift
+        the picture it describes on a small tile and still be cut off on a large one.
+        The width is fixed for the reason a column of settings is: one that resized as figures landed would shift
         the row under the reader's eye once a second.
 
         Each row carries a tip saying what a reading of it is evidence of, which is what separates a
@@ -298,10 +314,10 @@
               <TextBlock Classes="ident" Text="{Binding Title}" TextWrapping="Wrap" />
 
               <!--
-                A block per stage of the pipeline, ordered as the frames pass through it. A stage a
-                decode answers nothing for is missing rather than empty: a stream without sound has
-                no audio block, and a leg whose elements count nothing has no counter block
-                (Features/Viewer/Tile/Model/TileStats.cs).
+                A block per stage of the pipeline, ordered as the frames pass through it.
+                A stage a decode answers nothing for is missing rather than empty: a stream without
+                sound has no audio block, and a leg whose elements count nothing has no counter
+                block (Features/Viewer/Tile/Model/TileStats.cs).
               -->
               <ItemsControl ItemsSource="{Binding Stats}">
                 <ItemsControl.ItemTemplate>
@@ -314,14 +330,15 @@
                                  Margin="0,0,0,3" />
 
                       <!--
-                        Label left, figure right. The label takes what its text needs and the figure
-                        wraps into the rest, which is the only way round these two can be sized: the
-                        labels are a fixed vocabulary and the readings are not, so a reading the
-                        length of "Graphics card, Direct3D 11 - driver's colour" taking its width
-                        first would leave its label a column one letter wide.
+                        Label left, figure right.
+                        The label takes what its text needs and the figure wraps into the rest, the
+                        only way round these two can be sized: the labels are a fixed vocabulary and
+                        the readings are not, so a reading the length of "Graphics card, Direct3D 11
+                        - driver's colour" taking its width first would leave its label a column one
+                        letter wide.
 
-                        The tip belongs to the label and not to the row, since it opens over
-                        whatever it stands on and the readings are the half a reader watches change.
+                        The tip belongs to the label and not to the row, opening over whatever it
+                        stands on while the readings are the half a reader watches change.
                       -->
                       <ItemsControl ItemsSource="{Binding Lines}">
                         <ItemsControl.ItemTemplate>
@@ -347,11 +364,12 @@
       </Panel>
 
       <!--
-        The meter, along the bottom edge. Present whenever the decode carries audio and flat while
-        that audio is silent; gone entirely without an audio track, which is the other fact.
+        The meter, along the bottom edge.
+        Present whenever the decode carries audio and flat while that audio is silent; gone entirely
+        without an audio track, which is the other fact.
 
-        Not chrome, and it does not hide on hover: it is the one figure worth seeing unasked. It is
-        measured ahead of the volume element, so a muted stream still shows itself making noise.
+        Not chrome, and it does not hide on hover: the one figure worth seeing unasked.
+        Measured ahead of the volume element, so a muted stream still shows itself making noise.
       -->
       <Border VerticalAlignment="Bottom" Height="3" IsVisible="{Binding HasAudio}"
               Background="{StaticResource DividerBrush}">

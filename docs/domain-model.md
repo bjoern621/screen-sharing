@@ -86,8 +86,20 @@ The empty step is the one answer every builder shares: pass no such option at al
 A step the row does not declare is refused rather than forwarded, so a settings file that never went through the form fails naming the control rather than inside an encoder's error path.
 
 A row declaring no ladder is an encoder with no such knob, which greys the control naming that codec.
-Either ladder can be absent alone: the Vulkan rows tune and take no effort step, the libvpx ones take a step and tune for nothing, so each control asks about its own.
-QSV and AMF declare an effort ladder and no tune: oneVPL counts target usages from quality to speed and AMD names three quality presets, and neither exposes a tuning knob.
+Either ladder can be absent alone: the Vulkan rows tune and take no effort step, so each control asks about its own.
+
+What a tune step is differs by vendor, and the row states the vendor's own vocabulary rather than a shared one.
+x264 and x265 name what the picture is or what the decoder needs, NVIDIA and Vulkan the delay to hold, the AV1 and VP encoders a score to maximise or the judgement weighing what the eye sees, and QSV the scenario the session is for.
+Where one engine's wrapper has no such knob the steps are gapped there rather than dropped from the row, so the option stays on the engine that reaches it: libaom takes a tune on ffmpeg where `av1enc` exposes none, and oneVPL's scenario reaches Intel's runtime through ffmpeg's `-scenario` and no qsv element property.
+
+A knob one engine spends and the other does not is a departure rather than a gap, the control being the same control on both.
+VAAPI is the case: its rows declare the seven target usages the `va` elements take, and ffmpeg's `-quality` counts over the range the installed driver reports, measured 0..32 on Mesa's radeonsi against oneVPL's 1..7 on Intel's.
+One step carried across would spend a different amount of work per engine and per card, so the ffmpeg builder spends none and the form greys the control there with that reason (`form.availabilityEngineRules`).
+
+Two rows declare no ladder at all, each for its own reason.
+No VA profile carries a tuning hint, so the VAAPI rows tune for nothing.
+AMF declares effort and no tune though the API has a usage hint, because this app pins it: a low-latency usage drops the IDR period and leaves a late subscriber no recovery point.
+VideoToolbox declares neither, the framework taking no preset and no tuning hint, and what stands in for both is the realtime flag every mapping sets.
 
 Audio is two settings against two tables, source and codec answering different questions.
 Which sources exist is the platform's answer, the `Audio` field, a row of `platform.AudioSources`.
@@ -99,18 +111,21 @@ That row states the element each engine codes it with, the sample rate and the b
 A row of `platform/audio.go` names the settings value, the operating systems whose sessions serve it, what serves it on each, and what one that does not is missing.
 
 It differs per platform because the engines do, so it is not a list of strings.
-Both open desktop audio as the monitor of the default sink, ffmpeg `-f pulse -i` and GStreamer `pulsesrc device=`, and neither has anything to open where no PulseAudio or PipeWire server runs.
+On a PulseAudio or PipeWire session both open desktop audio as the monitor of the default sink, ffmpeg `-f pulse -i` and GStreamer `pulsesrc device=`.
 The name they open it by is `platform.AudioMonitorDevice`, one constant for both: two spellings of one server's name are two things able to disagree about which device a stream records.
-So Linux serves that source and the other two are refused it, each with what it is missing rather than both with "Linux only".
-A user who reads why Windows cannot do it cannot act on why macOS cannot.
-A Windows WASAPI loopback or a macOS aggregate device would be another platform on the row and another sentence.
-Neither engine has one, and a row claiming otherwise would grey nothing and fail at launch.
+On Windows the GStreamer engine opens the default render device's loopback through `wasapi2src`, which takes no handle for it, and ffmpeg has no WASAPI input at all.
+macOS serves nothing, reading what it plays needing a CoreAudio process tap or ScreenCaptureKit audio that neither engine has an element for.
+Each refusal names what that machine is missing rather than saying "Linux only": a user who reads why macOS cannot do it cannot act on why Windows cannot.
+
+Which engine opens a source is a second question and is answered where the capture backends are (`publish.AudioAvailable`), a backend fixing the engine.
+Both places a source is one engine's are on that table: a program's own output is a PipeWire node only `pipewiresrc` opens, and Windows audio is WASAPI only `wasapi2src` reads.
+The element each kind opens on each platform is `publish.gstAudioElements`, keyed by the platform because the elements are the platform's and no element spans both.
 
 The lookup is a table read: the same `platform.Info` yields the same ordered list every call, so a form may resolve on every keystroke without paying for it.
 
 **A kind is declared and what is inside it is enumerated**, which is why they are two controls and two answers.
 Whether a machine serves desktop audio at all is this table's.
-Which microphone is plugged in no table can hold, so `backend/internal/audiodev` reads it off the sound server, once, cached for the process lifetime and read back separately from the call that takes it: the division the encoder probe makes, for the same reason.
+Which outputs a machine plays into no table can hold, so `backend/internal/audiodev` reads them off the sound server, once, cached for the process lifetime and read back separately from the call that takes it: the division the encoder probe makes, for the same reason.
 A kind with nothing enumerated still has one thing in it: its own default, which is what an entry naming no device takes.
 A selection the enumeration stops reporting stays on the list with a note rather than being dropped, the way a monitor index does: an application not running now may be running when the stream starts.
 
@@ -174,6 +189,10 @@ A dropped knob and a mode the encoder cannot run are two facts, and the line bet
 A rule here withholds a knob the mode can do without: still that mode, with one field greyed.
 Where the knob defines the mode, withholding it leaves the other mode under the first one's name, so the capability table gaps the mode instead and the form offers the mode that describes the encode.
 Constrained VBR is the case: without a ceiling it is ABR, so encoders taking no ceiling gap `vbr` rather than greying `maxrateM`.
+
+Constant quality is the other side of the same fact.
+A quality target spends what the picture costs, so `maxrateM` is the one control that bounds it, and the encode is still constant quality without one.
+That makes it a greyed field rather than a mode gap: `capabilities.QualityCeiling` states per codec and engine whether the element holds a quality target inside a rate buffer, and `publish.RateCeilingMbps` is the one answer to "what is this encode held to" that the plot's rule, the prediction and the encoder all read.
 
 ## What derives from the tables
 

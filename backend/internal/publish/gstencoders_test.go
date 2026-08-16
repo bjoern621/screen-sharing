@@ -379,3 +379,154 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		}
 	}
 }
+
+// A software preset ships a lookahead, and a lookahead is frames the viewer waits for: a leg
+// draining slower than the capture paces drains them at its own rate, so the pin is what keeps a
+// shortfall costing frames instead of seconds (gstLiveDelay).
+// Read off the built encoder rather than off the table, a pin the mapping never appends being the
+// same picture as a table with no row.
+func TestTheLookaheadPinReachesEveryElementThatHoldsFrames(t *testing.T) {
+	pinned := map[string][]string{
+		"libx264":    {"sliced-threads=true", "option-string=rc-lookahead=0"},
+		"libvpx":     {"lag-in-frames=0"},
+		"libvpx-vp9": {"lag-in-frames=0"},
+		"librav1e":   {"low-latency=true"},
+		// x265 carries its own in the option-string every mode composes, which is why the key is read
+		// and not the whole property.
+		"libx265": {"rc-lookahead=0"},
+	}
+	for codec, want := range pinned {
+		c, ok := capabilities.Get(codec)
+		if !ok {
+			t.Errorf("%s has a lookahead pin and no capability row", codec)
+			continue
+		}
+		for _, mode := range capabilities.Modes {
+			if !capabilities.Reaches(codec, EngineGst, capabilities.OptionMode, mode) {
+				continue
+			}
+			s := baseStream()
+			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, mode, c.EngineChromas(EngineGst)[0]
+			s.Publish.Cq = c.CqMaxOn(EngineGst) / 2
+			encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+			if err != nil {
+				t.Fatalf("%s %s: %v", codec, mode, err)
+			}
+			line := strings.Join(encoder, " ")
+			for _, pin := range want {
+				if !strings.Contains(line, pin) {
+					t.Errorf("%s %s: %s, want %s on it", codec, mode, line, pin)
+				}
+			}
+		}
+	}
+}
+
+// One property carries every libx265 knob, so the mode's own keys and the pins share it or one of
+// the two is dropped: a second option-string on the same element is the first one overwritten.
+func TestTheX265OptionStringCarriesTheModeKeysBesideThePins(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "cbr", "yuv420p"
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var options []string
+	for _, arg := range encoder {
+		if strings.HasPrefix(arg, "option-string=") {
+			options = append(options, arg)
+		}
+	}
+	if len(options) != 1 {
+		t.Fatalf("x265 cbr states %d option-strings (%v), want the one the element reads", len(options), options)
+	}
+	for _, key := range []string{"rc-lookahead=0", "vbv-maxrate=", "vbv-bufsize="} {
+		if !strings.Contains(options[0], key) {
+			t.Errorf("x265 cbr option-string %q carries no %s", options[0], key)
+		}
+	}
+}
+
+// A constant-quality encode spends what the picture costs, and the ceiling is what holds that inside
+// a link's budget.
+// Read off the built element rather than off the mapping: x264enc takes the ceiling on the same
+// property a bitrate mode targets, so a branch that forgot it looks like every other branch.
+func TestAStatedCeilingReachesAConstantQualityEncode(t *testing.T) {
+	for _, codec := range []string{"libx264", "libx265"} {
+		s := baseStream()
+		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, "crf", "yuv420p"
+		s.Publish.MaxrateM, s.Publish.VbvMs = 12, 0
+		encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+		if err != nil {
+			t.Fatalf("%s: %v", codec, err)
+		}
+
+		line := strings.Join(encoder, " ")
+		if !strings.Contains(line, "12000") {
+			t.Errorf("%s crf under a 12 Mbit/s ceiling: %s, want the ceiling on it", codec, line)
+		}
+	}
+}
+
+// An encode with no ceiling has to state that it has none.
+// x264enc reads its ceiling off the bitrate property, and both that and the buffer holding it carry
+// a default, so an unbounded quality target is one that takes the buffer away: without it the encode
+// is capped at 2 Mbit/s whatever quantizer it asked for.
+func TestAnUnboundedConstantQualityEncodeTakesTheRateBufferAway(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", "crf", "yuv420p"
+	s.Publish.MaxrateM = 0
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line := strings.Join(encoder, " ")
+	if !strings.Contains(line, "vbv-buf-capacity=0") {
+		t.Errorf("libx264 crf with no ceiling: %s, want the rate buffer off", line)
+	}
+	if strings.Contains(line, "bitrate=") {
+		t.Errorf("libx264 crf with no ceiling: %s, want no rate on it", line)
+	}
+}
+
+// x265's qp property is a fixed quantizer, which takes no VBV: a ceiling stated beside it would
+// reach the element and bound nothing, and the same settings would code at one quality here and
+// another on the ffmpeg engine.
+func TestX265CodesConstantQualityAsARateFactor(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "crf", "yuv420p"
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line := strings.Join(encoder, " ")
+	if !strings.Contains(line, "crf="+strconv.Itoa(s.Publish.Cq)) {
+		t.Errorf("libx265 crf: %s, want the rate factor on it", line)
+	}
+	if strings.Contains(line, "qp=") {
+		t.Errorf("libx265 crf: %s, want no fixed quantizer on it", line)
+	}
+}
+
+// libx265 takes a ceiling above its target, which is what constrained VBR is.
+// The gap the other software rows carry states the opposite, so a mapping that stopped building this
+// mode would leave the capability table promising one nothing implements.
+func TestX265BuildsConstrainedVbrWithACeilingAboveTheTarget(t *testing.T) {
+	s := baseStream()
+	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "vbr", "yuv420p"
+	s.Publish.BitrateM, s.Publish.MaxrateM, s.Publish.VbvMs = 10, 15, 0
+	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	line := strings.Join(encoder, " ")
+	for _, want := range []string{"bitrate=10000", "vbv-maxrate=15000"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("libx265 vbr: %s, want %s on it", line, want)
+		}
+	}
+}

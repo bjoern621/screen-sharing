@@ -44,6 +44,11 @@ type LiveSnapshot struct {
 	// Nested here because that is its whole lifetime: the pipeline goes up with the publish child
 	// and down with it.
 	Preview *PreviewSnapshot
+	// RateCeilingMbps is the rate this encoder is held to, nil where the encode is bounded by
+	// nothing.
+	// A reading rather than a settings field: which figure bounds an encode, and whether one does at
+	// all, is the mode's and the element's answer (publish.RateCeilingMbps).
+	RateCeilingMbps *float64
 }
 
 // PreviewSnapshot is what the local preview of the running stream turned out to be.
@@ -105,9 +110,10 @@ func PublishState(p PublishSnapshot) *screensharev1.PublishState {
 	// those two, and a live state carrying how this machine watches would claim a render chain
 	// built it.
 	live := &screensharev1.PublishState_Live{
-		Publish: PublishSettings(p.Live.Settings.Publish),
-		Relay:   RelaySettings(p.Live.Settings.Relay),
-		Pending: p.Live.Pending,
+		Publish:         PublishSettings(p.Live.Settings.Publish),
+		Relay:           RelaySettings(p.Live.Settings.Relay),
+		Pending:         p.Live.Pending,
+		RateCeilingMbps: p.Live.RateCeilingMbps,
 	}
 	if r := p.Live.Retry; r != nil {
 		live.Retry = &screensharev1.PublishState_Retry{
@@ -451,6 +457,9 @@ type ReceiveStreamStats struct {
 	Rendered          uint64
 	Dropped           uint64
 	RenderFPS         *float64
+	// DiscardedFPS is what the decoder shed to hold the stream on the clock, absent on the first
+	// sample of a run as every rate here is.
+	DiscardedFPS *float64
 
 	// Timing, off the pipeline's clock and its latency query.
 	Live       bool
@@ -487,6 +496,9 @@ type DelayBudget struct {
 	PublishLink *float64
 	WatchLink   *float64
 	Receive     *float64
+	// ReceivePeak is the worst Receive has been for a single frame since the decode started, so it
+	// is the one field here that is not a figure over the interval between two samples.
+	ReceivePeak *float64
 	Present     *float64
 	Total       *float64
 }
@@ -555,6 +567,7 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 				PublishLinkMs: s.Delay.PublishLink,
 				WatchLinkMs:   s.Delay.WatchLink,
 				ReceiveMs:     s.Delay.Receive,
+				ReceivePeakMs: s.Delay.ReceivePeak,
 				PresentMs:     s.Delay.Present,
 				TotalMs:       s.Delay.Total,
 			},
@@ -564,6 +577,7 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 		msg.VideoMbps = s.VideoMbps
 		msg.VideoFps = s.VideoFPS
 		msg.RenderFps = s.RenderFPS
+		msg.DiscardedFps = s.DiscardedFPS
 		msg.LatencyMinMs = s.LatencyMin
 		msg.LatencyMaxMs = s.LatencyMax
 		msg.PositionSec = s.Position

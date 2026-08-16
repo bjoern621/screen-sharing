@@ -35,7 +35,6 @@ var fieldDeclaredKeys = []string{
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps,
-	KeyPlayerWatchTransport,
 	KeyOutputResolution,
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
 }
@@ -449,7 +448,7 @@ func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
 		// A machine that serves fewer greys the rest rather than leaving them out, so those platforms are
 		// the greying test's.
 		{KeyAudioSource, platform.AudioSourceIDs(platform.Info{})},
-		{KeyPlayerWatchTransport, transport.WatchNames(capabilities.EngineFfmpeg)},
+		{KeyTileWatchTransport, transport.WatchNames(capabilities.EngineGst)},
 	}
 	for _, c := range cases {
 		if got := fieldOptionValues(t, c.key); !slices.Equal(got, c.table) {
@@ -564,7 +563,7 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 	for _, o := range options {
 		values = append(values, o.GetValue())
 	}
-	want := []string{"", "1920x1080", "1600x900", "1280x720", "960x540"}
+	want := []string{"", "1920x1080", "1280x720"}
 	if !slices.Equal(values, want) {
 		t.Errorf("the ladder off a 2560x1440 monitor is %v, want %v", values, want)
 	}
@@ -595,7 +594,7 @@ func TestTheOutputResolutionLadderFollowsTheCapturedMonitor(t *testing.T) {
 	for _, o := range fieldRowFor(t, KeyOutputResolution).options(d, s) {
 		values = append(values, o.GetValue())
 	}
-	if want := []string{"", "1600x900", "1280x720", "960x540"}; !slices.Equal(values, want) {
+	if want := []string{"", "1280x720"}; !slices.Equal(values, want) {
 		t.Errorf("the ladder off a 1920x1080 monitor is %v, want %v", values, want)
 	}
 
@@ -720,20 +719,20 @@ func TestTheEffortLadderIsTheCodecsOwnMostEffortFirst(t *testing.T) {
 func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 	s := settings.Defaults()
 	cases := map[string]string{
-		KeyCapture:              s.Publish.Capture,
-		KeyCaptureMemory:        s.Publish.CaptureMemory,
-		KeyDrmMap:               s.Publish.DrmMap,
-		KeyCodec:                s.Publish.Codec,
-		KeyChroma:               s.Publish.Chroma,
-		KeyColorRange:           s.Publish.ColorRange,
-		KeyMode:                 s.Publish.Mode,
-		KeyEffort:               s.Publish.Effort,
-		KeyAudioSource:          platform.AudioSourceNone,
-		KeyAudioCodec:           s.Publish.AudioCodec,
-		KeyTransport:            s.Publish.Transport,
-		KeyPlayerWatchTransport: s.Viewer.PlayerWatchTransport,
-		KeyRtspPublishProtocol:  s.Publish.RtspPublishProtocol,
-		KeyRtspWatchProtocol:    s.Viewer.RtspWatchProtocol,
+		KeyCapture:             s.Publish.Capture,
+		KeyCaptureMemory:       s.Publish.CaptureMemory,
+		KeyDrmMap:              s.Publish.DrmMap,
+		KeyCodec:               s.Publish.Codec,
+		KeyChroma:              s.Publish.Chroma,
+		KeyColorRange:          s.Publish.ColorRange,
+		KeyMode:                s.Publish.Mode,
+		KeyEffort:              s.Publish.Effort,
+		KeyAudioSource:         platform.AudioSourceNone,
+		KeyAudioCodec:          s.Publish.AudioCodec,
+		KeyTransport:           s.Publish.Transport,
+		KeyTileWatchTransport:  s.Viewer.TileWatchTransport,
+		KeyRtspPublishProtocol: s.Publish.RtspPublishProtocol,
+		KeyRtspWatchProtocol:   s.Viewer.RtspWatchProtocol,
 	}
 	for key, value := range cases {
 		if offered := fieldOptionValues(t, key); !slices.Contains(offered, value) {
@@ -773,6 +772,48 @@ func TestEveryRangeAdmitsTheDefaultSettings(t *testing.T) {
 		if n.Number < r.GetMin() || n.Number > r.GetMax() {
 			t.Errorf("%s starts on %d, outside its own %d..%d", f.key, n.Number, r.GetMin(), r.GetMax())
 		}
+	}
+}
+
+// fieldsOffTheirStep names every slider holding a value no stop of its own sits on, one message per
+// finding.
+//
+// A sweep stops on the multiples of its step and on the two ends of its range, so a floor of 20 with
+// a step of 50 offers 20, 50, 100 and the shortest window stays reachable.
+// Shared with the preset tests, which put the same question to the settings a search lands on.
+func fieldsOffTheirStep(d Deps, s settings.Settings) []string {
+	var off []string
+	for i := range fieldTable {
+		f := &fieldTable[i]
+		if f.control != screensharev1.ControlKind_CONTROL_KIND_SLIDER || f.bounds == nil {
+			continue
+		}
+		r := f.bounds(d, s)
+		step := r.GetStep()
+		if step <= 0 {
+			step = 1
+		}
+		entry := noEntry
+		if f.repeat {
+			entry = 0
+		}
+		n, ok := fieldValue(f, s, entry).GetKind().(*screensharev1.FieldValue_Number)
+		if !ok {
+			continue
+		}
+		if n.Number != r.GetMin() && n.Number != r.GetMax() && n.Number%step != 0 {
+			off = append(off, fmt.Sprintf("%s holds %d, which is neither an end of %d..%d nor a multiple of its step of %d",
+				f.key, n.Number, r.GetMin(), r.GetMax(), step))
+		}
+	}
+	return off
+}
+
+// A value between two stops is one the reader can leave and not get back: the sweep that moved it
+// lands on the stops beside it and never on the figure it started from.
+func TestEverySliderStopsOnItsOwnStep(t *testing.T) {
+	for _, off := range fieldsOffTheirStep(fieldTestDeps(), settings.Defaults()) {
+		t.Error(off)
 	}
 }
 

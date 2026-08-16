@@ -547,7 +547,8 @@ type Field struct {
 	Enabled bool  `protobuf:"varint,8,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	Reason  *Text `protobuf:"bytes,15,opt,name=reason,proto3" json:"reason,omitempty"`
 	// Carried where a field stays editable and means something its label misses here, as a
-	// bitrate does on becoming a burst ceiling under constant quality.
+	// burst ceiling does on an encoder that codes constant quality against one and cannot be
+	// left without it.
 	// Not a third kind of unavailability: it exists so that a knob the builder does forward
 	// never greys.
 	Note *Text `protobuf:"bytes,16,opt,name=note,proto3" json:"note,omitempty"`

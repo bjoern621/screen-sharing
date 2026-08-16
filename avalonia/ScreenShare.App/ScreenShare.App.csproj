@@ -51,6 +51,17 @@
   </ItemGroup>
 
   <!--
+    The mono family, as files rather than as a package: Avalonia ships one for Inter and none for
+    a mono, and every mono package on NuGet is somebody's re-upload of a font whose upstream is
+    a release tarball. The NL cut is the ligature-free one, which is what a transcript needs:
+    "->" or "//" drawn as one glyph is a string the reader can no longer match against what the
+    backend printed (docs/design-language.md, "Typography"). OFL.txt ships with them, per its terms.
+  -->
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/Fonts/*" />
+  </ItemGroup>
+
+  <!--
     The control contract. Grpc.Tools compiles the same .proto files the Go side generates
     from, during this build and into obj/, so there is no checked-in C# copy and no step
     that can be skipped on one side only (api/README.md).

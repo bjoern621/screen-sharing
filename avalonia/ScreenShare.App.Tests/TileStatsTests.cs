@@ -110,6 +110,8 @@ public sealed class TileStatsTests
     /// The delay block is the whole path in the order a frame crosses it, and it keeps the relay's stage even
     /// though nothing measures it.
     /// Dropping that row would present the total as the whole journey, and the total is short by exactly it.
+    /// The decode's worst frame is the one row that is not a stage, and it sits under the mean it is read
+    /// against rather than in a block of its own.
     /// </summary>
     [Fact]
     public void TheDelayBlockNamesEveryStageOfThePath()
@@ -119,7 +121,7 @@ public sealed class TileStatsTests
         Assert.Equal(
             [
                 "Capture and encode", "Publisher to relay", "Through the relay", "Relay to here", "Decode",
-                "Waiting at the sink", "At least, end to end",
+                "Decode, worst", "Held for play time", "At least, end to end",
             ],
             Section(panel, "Delay").Lines.Select(line => line.Label));
 
@@ -192,7 +194,7 @@ public sealed class TileStatsTests
 
         Assert.Equal("HDR (PQ)", Value(panel, "Picture", "Transfer"));
         Assert.Equal("the GPU, dmabuf", Value(panel, "Decode", "Decoded into"));
-        Assert.Equal("the GPU, OpenGL", Value(panel, "Render", "Reached the sink in"));
+        Assert.Equal("the GPU, OpenGL", Value(panel, "Render", "Handed over in"));
         Assert.Contains("OpenGL", Value(panel, "Render", "Render chain"));
     }
 
@@ -355,5 +357,38 @@ public sealed class TileStatsTests
         group.Values.Add(new ReceiveStatValue { Key = "rtt-ms", Value = 18.53 });
         group.Values.Add(new ReceiveStatValue { Key = "receive-rate-mbps", Value = 24.9 });
         return group;
+    }
+
+    /// <summary>
+    /// A second is short enough for a healthy decode to measure none of a per-interval figure, and a column
+    /// alternating between a number and an ellipsis is one nobody can read.
+    /// The row keeps the last measurement instead, which is what the reader was looking at.
+    /// </summary>
+    [Fact]
+    public void ARowKeepsItsLastMeasurementThroughAPassThatMeasuredNone()
+    {
+        var panel = new ObservableCollection<StatSection>();
+        TileStats.Merge(panel, TileStats.Of(Sample(), Report()));
+
+        Assert.Equal("24.50 Mb/s", Value(panel, "Arriving", "Bitrate"));
+
+        var quiet = Sample();
+        quiet.ClearVideoMbps();
+        TileStats.Merge(panel, TileStats.Of(quiet, Report()));
+
+        Assert.Equal("24.50 Mb/s", Value(panel, "Arriving", "Bitrate"));
+    }
+
+    /// <summary>
+    /// A decode that stopped is a different panel, so nothing it measured stands under the one that follows.
+    /// </summary>
+    [Fact]
+    public void ADecodeThatStoppedKeepsNothing()
+    {
+        var panel = new ObservableCollection<StatSection>();
+        TileStats.Merge(panel, TileStats.Of(Sample(), Report()));
+        TileStats.Merge(panel, TileStats.Of(null, Report()));
+
+        Assert.Equal(["This window"], panel.Select(section => section.Heading));
     }
 }

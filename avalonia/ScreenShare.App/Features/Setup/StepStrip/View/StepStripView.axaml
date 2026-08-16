@@ -8,7 +8,7 @@
 
   <!--
     Every chip is pressable in every state and nothing gates reachability, so the flow is non-linear.
-    Each chip carries the value its step settled on, which is what makes the strip the summary as well.
+    Each chip carries the value its step settled on, which makes the strip the summary as well.
   -->
 
   <UserControl.Resources>

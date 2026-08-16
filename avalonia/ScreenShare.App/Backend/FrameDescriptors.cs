@@ -5,17 +5,16 @@ using ScreenShare.App.Contracts;
 namespace ScreenShare.App.Backend;
 
 /// <summary>
-/// The frame channel's other half on a platform whose handles are file descriptors.
+/// Frame channel's other half on a platform whose handles are file descriptors.
 ///
-/// <b>A descriptor is not a number that can be sent.</b> It indexes one process's own table, so the value
-/// naming a frame in the backend names something else here, or nothing at all.
+/// <b>A descriptor is not a number that can be sent.</b> It indexes one process's own table, so the value naming
+/// a frame in the backend names something else here, or nothing at all.
 /// <c>SCM_RIGHTS</c> over a Unix socket is the kernel's way to move one, installing an entry in this process's
-/// own table for the same memory, which is why a dmabuf pool announces a socket path where a shared-texture
-/// pool announces a number (<c>api/proto/screenshare/v1/frame.proto</c>,
-/// <c>FramePool.fd_socket</c>).
+/// own table for the same memory, which is why a dmabuf pool announces a socket path where a shared-texture pool
+/// announces a number (<c>api/proto/screenshare/v1/frame.proto</c>, <c>FramePool.fd_socket</c>).
 ///
-/// <b>It reads and does not import.</b> What the descriptors become on the GPU belongs to the control that
-/// draws, and this is the transport, beside the channel that named the socket.
+/// <b>Reads and does not import.</b> What the descriptors become on the GPU belongs to the control that draws;
+/// this is the transport, beside the channel that named the socket.
 ///
 /// The backend answers every connection with the same set for as long as the pool lives, so a re-imported
 /// generation reads the descriptors again rather than depending on a handshake that happened once.
@@ -24,10 +23,9 @@ internal static class FrameDescriptors
 {
     /// <summary>
     /// One descriptor per slot, in index order.
-    ///
-    /// Off the UI thread because it is a socket round trip with another process, and bounded by the caller's
-    /// cancellation: a backend that died mid-pool leaves a socket that accepts and never answers, which is
-    /// otherwise a tile waiting for the rest of the run.
+    /// Off the UI thread, being a socket round trip with another process, and bounded by the caller's
+    /// cancellation: a backend that died mid-pool leaves a socket that accepts and never answers, otherwise a
+    /// tile waiting for the rest of the run.
     /// </summary>
     public static Task<int[]> ReceiveAsync(string socketPath, int slots, CancellationToken cancellation)
     {
@@ -91,7 +89,7 @@ internal static class FrameDescriptors
         {
             cancellation.ThrowIfCancellationRequested();
             // Polled rather than blocked in: the backend may never answer on this socket, and a blocking read
-            // there is a tile that waits for the rest of the run.
+            // there is a tile waiting for the rest of the run.
             if (!socket.Poll(PollInterval, SelectMode.SelectRead))
             {
                 continue;
@@ -115,8 +113,8 @@ internal static class FrameDescriptors
         }
 
         // One right per message, and it is a descriptor.
-        // Anything else is a backend speaking a protocol this build does not know, so it is reported rather
-        // than dereferenced.
+        // Anything else is a backend speaking a protocol this build does not know, so it is reported rather than
+        // dereferenced.
         var header = (ControlHeader*)control;
         if ((long)message.ControlLength < ControlSpace || header->Level != SOL_SOCKET ||
             header->Type != SCM_RIGHTS)
@@ -164,11 +162,10 @@ internal static class FrameDescriptors
     private const int EINTR = 4;
 
     /// <summary>
-    /// The control buffer's shape, <c>CMSG_SPACE(sizeof(int))</c> written out.
-    ///
+    /// Control buffer's shape, <c>CMSG_SPACE(sizeof(int))</c> written out.
     /// Computed from the pointer size rather than pinned to the 64-bit numbers: the header's first field is a
-    /// <c>size_t</c> and aligns to the same word, so the layout the kernel writes differs between a 64-bit and
-    /// a 32-bit build of this app.
+    /// <c>size_t</c> and aligns to the same word, so the layout the kernel writes differs between a 64-bit and a
+    /// 32-bit build of this app.
     /// </summary>
     private static readonly int ControlDataOffset = Align(IntPtr.Size + sizeof(int) + sizeof(int));
     private static readonly int ControlSpace = ControlDataOffset + Align(sizeof(int));

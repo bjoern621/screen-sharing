@@ -19,10 +19,11 @@ func (r *Receiver) Stats() Stats {
 		Frames: r.frames.Load(),
 		Uptime: time.Since(r.started),
 
-		VideoBytes:  r.video.bytes.Load(),
-		VideoFrames: r.video.frames.Load(),
-		Keyframes:   r.video.keyframes.Load(),
-		AudioBytes:  r.audio.bytes.Load(),
+		VideoBytes:   r.video.bytes.Load(),
+		VideoFrames:  r.video.frames.Load(),
+		VideoDecoded: r.video.decoded.Load(),
+		Keyframes:    r.video.keyframes.Load(),
+		AudioBytes:   r.audio.bytes.Load(),
 
 		Chain:   r.chain.name,
 		ToneMap: r.toneMap,
@@ -31,7 +32,7 @@ func (r *Receiver) Stats() Stats {
 		s.SinceKeyframe = time.Since(time.Unix(0, ns))
 	}
 	transit := r.delay.Read()
-	s.Transit, s.TransitFrames = transit.Total, transit.Frames
+	s.Transit, s.TransitFrames, s.TransitPeak = transit.Total, transit.Frames, transit.Peak
 
 	// r.mu guards the fields onElement writes and nothing else here, so the handles are copied
 	// under it and the pipeline is queried outside it.

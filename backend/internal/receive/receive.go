@@ -45,11 +45,29 @@ const renderQueue = "queue max-size-buffers=0 max-size-bytes=0 max-size-time=100
 // emit-signals hands each sample over as it arrives, and the one-buffer bound backpressures
 // rather than discards, for the reason renderQueue does not leak: nothing before the sink knows
 // what late means.
-// Dropping stays off, which is appsink's own default.
+// appsink's own drop property stays off with it, that one discarding the newest arrival on a full
+// queue rather than the frame whose moment has passed.
 //
 // sync is stated rather than inherited, because renderQueue's bound is written against a sink
 // that holds each buffer until its presentation time.
-const renderSink = "appsink name=" + sinkName + " emit-signals=true max-buffers=1 sync=true"
+//
+// qos is what keeps a chain short of the rate it is sent from falling behind, and appsink inherits
+// it off.
+// The sink measures each frame against its moment and sends the overrun upstream, where the decoder
+// discards what is already late before the render chain converts it, so shedding costs a decode
+// rather than a decode and a conversion.
+// Without it nothing on this leg discards anything: the queue backpressures, the transport's flow
+// control turns the shortfall into a backlog, and the lag grows for as long as the stream runs.
+//
+// max-lateness stays at the inherited -1, which hands on every frame however late it is.
+// A cutoff at the sink is not a second line of defence, because discarding there drains nothing:
+// the backlog sits upstream of it, so a pipeline with qos off falls behind at the same rate whether
+// or not the sink is throwing frames away.
+// With qos on it only takes frames the proportion loop had already decided were worth drawing, a
+// 90 fps stream into a chain holding a third of it drawing 430 frames against 541 over the same
+// interval and reaching the same point in the stream.
+const renderSink = "appsink name=" + sinkName +
+	" emit-signals=true max-buffers=1 sync=true qos=true"
 
 // initOnce ties initialization to the first pipeline, so the backend's start carries no
 // init-order dependency on the first stream it receives.

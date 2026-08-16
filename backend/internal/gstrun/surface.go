@@ -6,6 +6,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/colour"
+	"bjoernblessin.de/screenshare/internal/padprobe"
 )
 
 // Narrowing the encoder input.
@@ -50,7 +51,7 @@ func narrowToSurface(pipeline gst.Pipeline) {
 			continue
 		}
 		pad.AddProbe(gst.PadProbeTypeEventDownstream, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
-			event := info.GetEvent()
+			event := padprobe.Event(info)
 			if event == nil || event.GetType() != gst.EventCaps {
 				return gst.PadProbeOK
 			}

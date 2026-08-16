@@ -10,7 +10,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The quality step end to end: a backend describing a group, the flow adopting the draft it answers with, and
+/// Quality step end to end: a backend describing a group, the flow adopting the draft it answers with, and
 /// the controls drawn from it.
 /// Asserted through the properties the markup binds, and against no value this module wrote: entries, labels,
 /// trailing notes and greying all arrive on the resolved form, so a shell that invented a list fails here

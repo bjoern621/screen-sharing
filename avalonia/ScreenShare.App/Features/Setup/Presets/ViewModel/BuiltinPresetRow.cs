@@ -3,20 +3,20 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.Presets.ViewModel;
 
 /// <summary>
-/// One built-in preset as the card draws it: its name, whether the draft delivers its promise, and whether
-/// this machine reaches it.
+/// One built-in preset as the card draws it: its name, whether the draft delivers its promise, and whether this
+/// machine reaches it.
 ///
 /// The other kind of preset entirely (<see cref="PresetRow"/>).
 /// A saved preset is a snapshot of every field, selected while the draft equals it.
-/// A built-in one is a promise about the picture, and which encoder, pixel format and capture backend deliver
-/// it here is the backend's search rather than anything stored (<c>docs/presets.md</c>).
+/// A built-in one is a promise about the picture, and which encoder, pixel format and capture backend deliver it
+/// here is the backend's search rather than anything stored (<c>docs/presets.md</c>).
 ///
 /// A record whose command is the owner's own instance, so two passes over one form produce rows that compare
 /// equal and the list is left alone (<c>Mvvm/Reconcile.cs</c>).
 /// </summary>
 public sealed record BuiltinPresetRow
 {
-    /// <summary>The identifier the backend names this preset by, and this row's identity.</summary>
+    /// <summary>Identifier the backend names this preset by, and this row's identity.</summary>
     public required string Key { get; init; }
 
     /// <summary>Written here rather than sent (<c>Copy/Words.cs</c>).</summary>
@@ -30,8 +30,8 @@ public sealed record BuiltinPresetRow
 
     /// <summary>
     /// Whether this machine has a configuration delivering the promise.
-    /// A false row keeps its place and its reason rather than disappearing, the treatment every other
-    /// ruled-out choice gets (<c>docs/field-availability.md</c>).
+    /// A false row keeps its place and its reason rather than disappearing, the treatment every other ruled-out
+    /// choice gets (<c>docs/field-availability.md</c>).
     /// </summary>
     public required bool IsReachable { get; init; }
 

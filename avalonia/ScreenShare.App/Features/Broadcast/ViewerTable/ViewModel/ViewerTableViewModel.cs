@@ -8,9 +8,7 @@ namespace ScreenShare.App.Features.Broadcast.ViewerTable.ViewModel;
 
 /// <summary>
 /// Who is watching, and which of them is having a bad time.
-/// Severity is carried by colour, weight and fill, never by a status glyph column that would need its own
-/// legend.
-///
+/// Severity is carried by colour, weight and fill, never by a status glyph column needing its own legend.
 /// <see cref="ViewerRow.IsLast"/> is the one thing derived here rather than rendered: the last row sits flush
 /// against the card's rounded edge and carries no separator.
 /// </summary>
@@ -29,7 +27,7 @@ public sealed class ViewerTableViewModel : Observable
     private bool _isLive;
 
     /// <summary>
-    /// The roster as the relay last reported it, in its order.
+    /// Roster as the relay last reported it, in its order.
     /// <see cref="ViewerRow.IsLast"/> is never set on it: which row ends a table is not a fact the relay has.
     /// </summary>
     public IReadOnlyList<ViewerRow> Reported
@@ -48,8 +46,8 @@ public sealed class ViewerTableViewModel : Observable
 
     /// <summary>
     /// Whether a stream is in force.
-    /// The card is drawn on a destination that is reachable with nothing publishing, and an empty roster with
-    /// no stream behind it is a different absence from a stream nobody has joined.
+    /// The card is drawn on a destination reachable with nothing publishing, and an empty roster with no stream
+    /// behind it is a different absence from a stream nobody has joined.
     /// </summary>
     public bool IsLive
     {
@@ -64,11 +62,11 @@ public sealed class ViewerTableViewModel : Observable
     }
 
     /// <summary>
-    /// How many readers the relay counts on this stream's path. Null while nothing has been read, or nothing
-    /// is publishing.
-    /// Carried rather than taken off the row count, because the two are different facts about one answer: the
-    /// count is what the relay said, the rows are what this screen rendered of it.
-    /// Holding both is what would make a disagreement between them visible.
+    /// How many readers the relay counts on this stream's path. Null while nothing has been read, or nothing is
+    /// publishing.
+    /// Carried rather than taken off the row count, the two being different facts about one answer: the count is
+    /// what the relay said, the rows what this screen rendered of it.
+    /// Holding both makes a disagreement between them visible.
     /// </summary>
     public int? Readers
     {
@@ -93,14 +91,14 @@ public sealed class ViewerTableViewModel : Observable
     /// <summary>
     /// How many rows crossed a limit in <see cref="ViewerRow"/>'s severity table.
     /// The card's own summary of its rows, read by a test and by nothing else on screen: the design draws no
-    /// figures on the broadcast destination's status band, which would otherwise echo a count this card
-    /// already carries in colour (<c>Features/Shell/StatusBar</c>).
+    /// figures on the broadcast destination's status band, which would otherwise echo a count this card already
+    /// carries in colour (<c>Features/Shell/StatusBar</c>).
     /// </summary>
     public int StrugglingCount { get => _strugglingCount; private set => Set(ref _strugglingCount, value); }
 
     /// <summary>
     /// Why there are no rows, empty while there are some.
-    /// It says an empty roster and never a missing measurement: the relay names its readers, so a viewer that
+    /// Says an empty roster and never a missing measurement: the relay names its readers, so a viewer that
     /// connects gets a row and an empty table is an empty path.
     /// The three absences are asked in the order they stop being true as a stream comes up.
     /// </summary>
@@ -126,9 +124,8 @@ public sealed class ViewerTableViewModel : Observable
         StrugglingCount = Rows.Count(row => row.IsStruggling);
         HasRows = Rows.Count > 0;
 
-        // This card is the roster and the header pill above it is the count, because one figure written by two
-        // render functions ends with two screens disagreeing.
-
+        // This card is the roster and the header pill above it is the count, one figure written by two render
+        // functions ending with two screens disagreeing.
         Notice = HasRows ? ""
             : !IsLive ? Cards.ViewersIdle
             : Readers is null ? Cards.ViewersUnasked

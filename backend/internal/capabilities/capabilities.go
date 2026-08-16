@@ -65,20 +65,21 @@ var Engines = []string{EngineFfmpeg, EngineGst}
 // tell one catalog row from another, and each builder dispatches its family-wide behaviour off a
 // table keyed this way rather than off a per-family flag or a name suffix.
 const (
-	FamilySoftware = "software"
-	FamilyNvenc    = "nvenc"
-	FamilyVaapi    = "vaapi"
-	FamilyQsv      = "qsv"
-	FamilyAmf      = "amf"
-	FamilyV4l2     = "v4l2"
-	FamilyRkmpp    = "rkmpp"
-	FamilyVulkan   = "vulkan"
+	FamilySoftware     = "software"
+	FamilyNvenc        = "nvenc"
+	FamilyVaapi        = "vaapi"
+	FamilyQsv          = "qsv"
+	FamilyAmf          = "amf"
+	FamilyV4l2         = "v4l2"
+	FamilyRkmpp        = "rkmpp"
+	FamilyVulkan       = "vulkan"
+	FamilyVideoToolbox = "videotoolbox"
 )
 
 // Families lists every encoder family a codec row may declare.
 var Families = []string{
 	FamilySoftware, FamilyNvenc, FamilyVaapi, FamilyQsv,
-	FamilyAmf, FamilyV4l2, FamilyRkmpp, FamilyVulkan,
+	FamilyAmf, FamilyV4l2, FamilyRkmpp, FamilyVulkan, FamilyVideoToolbox,
 }
 
 // The rate-control modes an encode runs under.
@@ -117,13 +118,18 @@ const (
 	OptionChroma     = "chroma"
 	OptionMode       = "mode"
 	OptionColorRange = "colorRange"
+	// OptionTune is a step of the row's tune ladder, which is gappable because a tune knob is an
+	// encoder wrapper's and not the library's: libaom takes a tune on ffmpeg where av1enc exposes no
+	// such property, and oneVPL's scenario reaches the qsv encoders through ffmpeg alone.
+	// Gapping the steps leaves TuneNone standing, which is what an engine without the knob spends.
+	OptionTune = "tune"
 )
 
 // Options lists every option a Gap may name and Validate is given a value for.
 // Naming one here, a refusal phrase below and a row on the codec that lacks it is the whole of
 // declaring a new kind of gap: the lookup, the validator and every surface read this list rather
 // than a field per axis.
-var Options = []string{OptionChroma, OptionMode, OptionColorRange}
+var Options = []string{OptionChroma, OptionMode, OptionColorRange, OptionTune}
 
 // optionRefusals is how a gap on each option reads when it refuses a publish, with the refused
 // value substituted.
@@ -134,6 +140,7 @@ var optionRefusals = map[string]string{
 	OptionChroma:     "cannot encode pixel format %s",
 	OptionMode:       "has no %s rate-control mode",
 	OptionColorRange: "cannot encode at colour range %s",
+	OptionTune:       "does not tune for %s",
 }
 
 func knownOption(option string) bool {
@@ -548,6 +555,7 @@ func validationFacts(c Codec, engine string, options map[string]string, cq, bitr
 		rules.AxisChroma:     rules.TextValue(options[OptionChroma]),
 		rules.AxisMode:       rules.TextValue(options[OptionMode]),
 		rules.AxisColorRange: rules.TextValue(options[OptionColorRange]),
+		rules.AxisTune:       rules.TextValue(options[OptionTune]),
 		rules.AxisCq:         rules.NumberValue(cq),
 		rules.AxisBitrateM:   rules.NumberValue(bitrateM),
 		rules.AxisCapture:    rules.TextValue(""),

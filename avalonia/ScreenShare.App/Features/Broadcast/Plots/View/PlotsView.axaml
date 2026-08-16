@@ -59,7 +59,7 @@
 
             <TextBlock Classes="annotation"
                        Text="{Binding Ceiling}"
-                       IsVisible="{Binding HasEgress}"
+                       IsVisible="{Binding HasCeiling}"
                        Margin="7,6,0,0"
                        HorizontalAlignment="Left"
                        VerticalAlignment="Top" />
@@ -94,16 +94,16 @@
               width are bound and the band stays undrawn. Shading one from this side would be a
               detection the shell performed.
               Nothing labels it either, for the same reason: a caption over an interval nobody
-              measured names a window that was never detected.
+              measured names a window nothing detected.
             -->
             <plots:Sparkline Points="{Binding Rtt}"
                              Secondary="{Binding Loss}"
                              Extent="{Binding Extent}"
                              Stroke="{StaticResource ForegroundBrush}"
                              SecondaryStroke="{StaticResource MutedBrush}"
-                             BandEdgeBrush="{StaticResource AttentionBrush}">
+                             BandEdgeBrush="{StaticResource CautionBrush}">
               <plots:Sparkline.BandBrush>
-                <SolidColorBrush Color="{StaticResource Attention}" Opacity="0.1" />
+                <SolidColorBrush Color="{StaticResource Caution}" Opacity="0.1" />
               </plots:Sparkline.BandBrush>
             </plots:Sparkline>
 

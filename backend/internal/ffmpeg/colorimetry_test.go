@@ -107,6 +107,7 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				// BuildPublishArgs decides nothing about which codecs this covers.
 				s.Publish.Transport, s.Publish.RtspPublishProtocol = "rtsp", settings.Defaults().Publish.RtspPublishProtocol
 				s.Publish.Codec, s.Publish.ColorRange = cap.Name, colorRange
+				s.Publish.Mode = colorimetryMode(t, cap)
 				s.Publish.Chroma = yuvChroma(t, cap)
 				s.Publish.Cq = cap.CqMaxOn(capabilities.EngineFfmpeg) / 2
 				if limit := cap.BitrateLimitOn(capabilities.EngineFfmpeg); limit > 0 && s.Publish.BitrateM > limit {
@@ -257,6 +258,26 @@ func TestPublishedFullRangeStaysFullRangeThroughTheColourTag(t *testing.T) {
 // running widest first.
 // Planar RGB is left out: it is full range by construction and carries no colour range, which is why
 // BuildPublishArgs states none for it.
+// colorimetryMode is the rate control this codec is measured under.
+//
+// The colour a stream is coded in is no rate control's business, so any mode the row reaches will
+// do, and the constant-quality one is preferred because it holds the picture still across the codecs
+// while the rate modes each spend a different amount on it.
+// A codec reaching none is one no combination could encode at all, which is a row nothing publishes.
+func colorimetryMode(t *testing.T, cap capabilities.Codec) string {
+	t.Helper()
+	if capabilities.Reaches(cap.Name, "ffmpeg", capabilities.OptionMode, capabilities.ModeCrf) {
+		return capabilities.ModeCrf
+	}
+	for _, mode := range capabilities.Modes {
+		if capabilities.Reaches(cap.Name, "ffmpeg", capabilities.OptionMode, mode) {
+			return mode
+		}
+	}
+	t.Fatalf("codec %s reaches no rate-control mode on this engine", cap.Name)
+	return ""
+}
+
 func yuvChroma(t *testing.T, cap capabilities.Codec) string {
 	t.Helper()
 	chromas := cap.EngineChromas("ffmpeg")

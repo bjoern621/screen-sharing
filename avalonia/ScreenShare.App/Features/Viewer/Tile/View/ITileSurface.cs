@@ -7,9 +7,9 @@ namespace ScreenShare.App.Features.Viewer.Tile.View;
 /// A tile's drawing half: one lent slot turned into pixels on screen.
 ///
 /// Keyed on handle type, never on platform.
-/// A pool states what its slots are, a shared texture or a dmabuf descriptor, and opening one is a property of
-/// the renderer rather than of the operating system, since two graphics backends on a machine take different
-/// lists (<see cref="TileSurfaces.For"/>).
+/// A pool states what its slots are, a shared texture or a dmabuf descriptor, and opening one is a property of the
+/// renderer rather than of the operating system, two graphics backends on a machine taking different lists
+/// (<see cref="TileSurfaces.For"/>).
 /// An implementation here is one handle type's import, entire.
 ///
 /// Slot choice, release and reporting do not vary by machine and stay in <see cref="StreamTile"/>.
@@ -18,8 +18,8 @@ internal interface ITileSurface : IAsyncDisposable
 {
     /// <summary>
     /// Control doing the drawing.
-    /// Exposed rather than inherited: one implementation owns a composition surface and the other is an
-    /// OpenGL control, so they share no Avalonia base.
+    /// Exposed rather than inherited: one implementation owns a composition surface and the other is an OpenGL
+    /// control, so they share no Avalonia base.
     /// </summary>
     Control View { get; }
 
@@ -38,7 +38,7 @@ internal interface ITileSurface : IAsyncDisposable
 
     /// <summary>
     /// Draws a lent slot, resolving once that slot is free again.
-    /// The release behind it therefore reports rather than assumes.
+    /// The release behind it reports rather than assumes.
     /// </summary>
     Task DrawAsync(uint slot, CancellationToken cancellation);
 }

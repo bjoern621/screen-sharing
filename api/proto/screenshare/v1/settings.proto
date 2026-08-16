@@ -224,12 +224,15 @@ message PublishSettings {
 // relay re-serves every ingested stream on all its listeners, so a viewer receives over a leg
 // chosen here rather than over the one a stream arrived on.
 //
-// Two watch legs rather than one because there are two receivers and they reach different
-// protocol sets (docs/viewer-architecture.md).
-// One field would let each store a leg the other cannot run.
+// The tile's leg is the only one stored. An external player and a browser page are opened per
+// press on the leg the reader picked from the roster, so neither has a setting to keep
+// (docs/viewer-architecture.md).
 message ViewerSettings {
-  // The leg an external player opens, narrowed to the protocols a player reaches by URL.
-  string player_watch_transport = 1;
+  // 1 was "player_watch_transport", a stored leg for external players. They are opened per
+  // press on a leg named in the call, so the value decided nothing about which players run.
+  reserved 1;
+  reserved "player_watch_transport";
+
   // The leg a receive pipeline decodes from, which also reaches WHEP, whose playback is an
   // exchange rather than an address.
   string tile_watch_transport = 2;
@@ -257,7 +260,7 @@ message ViewerSettings {
 // AudioSource is one thing the second track is mixed from.
 //
 // A kind is declared, since the machine either serves desktop audio or it does not; what is
-// inside a kind is enumerated, since a microphone and a running application are things a
+// inside a kind is enumerated, since an output and a running application are things a
 // machine has rather than things a table can list.
 //
 // An entry is addressed by an indexed key: "publish.audio_sources[2].gain" names the third

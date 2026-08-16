@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"fmt"
+
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -27,8 +29,8 @@ func (HLS) Name() string { return "hls" }
 // MPEG-TS, AV1 and VP9 into fMP4, with Opus and AAC beside them.
 // VP8 has no segment form there, so a VP8 stream is the one the playlist never carries.
 //
-// One value for both readers, and no publish entry for either: the relay serves HLS and does not
-// read it, and nothing on the GStreamer side reads the relay's playlist.
+// One value for the player and the page, and a publish entry for neither: the relay serves HLS and
+// ingests none.
 //
 // What a browser decodes out of a segment is that browser's affair and no fact this table can hold.
 // H.264 plays in all of them and H.265, AV1 and VP9 depend on the build and the machine, so a
@@ -38,12 +40,21 @@ var hlsPlayback = Carriage{
 	Audio: []string{"opus", "aac"},
 }
 
-func (HLS) Formats() Formats {
-	return Formats{Watch: map[string]Carriage{
-		capabilities.EngineFfmpeg: hlsPlayback,
-		EngineBrowser:             hlsPlayback,
-	}}
+// hlsPipeline is what a receiving pipeline reads back off those same segments: the relay's video set
+// with no audio beside it.
+// The entry point narrows it rather than the decoder, a tile opening the video rendition alone
+// (hlsplaylist.go).
+var hlsPipeline = Carriage{
+	Video: []string{"h264", "hevc", "av1", "vp9"},
 }
+
+var hlsFormats = Formats{Watch: map[string]Carriage{
+	capabilities.EngineFfmpeg: hlsPlayback,
+	capabilities.EngineGst:    hlsPipeline,
+	EngineBrowser:             hlsPlayback,
+}}
+
+func (HLS) Formats() Formats { return hlsFormats }
 
 // WatchURL is the master playlist, "http://relay:8888/<stream>/index.m3u8".
 // Every reader follows the relay's redirect to the variant playlist by itself.
@@ -56,6 +67,20 @@ func (HLS) WatchURL(s settings.Settings, streamName string) string {
 	// No credential in the address. A player opens this URL and the relay's HTTP servers take a token
 	// in a header (credential.go), which the player is handed beside the URL (internal/watch).
 	return s.Relay.HTTPOrigin(s.Relay.HlsPort) + "/" + streamName + "/index.m3u8"
+}
+
+// ResolveGstSource asks the relay where the segments are (hlsplaylist.go).
+//
+// urisourcebin rather than hlsdemux2 straight: the demuxer refuses to build outside a streams-aware
+// parent, and what leaves the bin is the encoded stream every other source fragment ends at.
+func (HLS) ResolveGstSource(s settings.Settings, streamName string) ([]string, error) {
+	assert.Assert(streamName != "", "a receive source names the stream it decodes")
+
+	media, err := hlsMediaSource(s, HLS{}.WatchURL(s, streamName))
+	if err != nil {
+		return nil, fmt.Errorf("no hls source for %q: %w", streamName, err)
+	}
+	return []string{"urisourcebin", "uri=" + media}, nil
 }
 
 // BrowserURL is the relay's player page, "http://relay:8888/<stream>/": the same path with no

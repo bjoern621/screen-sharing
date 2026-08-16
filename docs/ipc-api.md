@@ -286,6 +286,7 @@ It owes a `SaveSettings` for every write to a group the form marks `applied`, an
 Those are the settings the backend reads on a schedule of its own instead of being handed them by an effect.
 The relay's address is the case that exists: a shell holding one for a commit would leave the backend dialling the address the reader had just replaced, and the publish that would have carried it is refused for exactly that reason.
 At the cadence of a settled value rather than a keystroke, `ResolveForm` per keystroke being cheap and `SaveSettings` per keystroke being a file write, so a text control writes when the reader leaves it.
+Which call a reader's move produces, and when, is `settings-editing.md`.
 And it owes showing a disabled field rather than inventing an enabled one.
 
 It also owes **asking for the encoder probe once.**

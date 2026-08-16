@@ -60,12 +60,11 @@ func populatedSettings() settings.Settings {
 			OutputResolution:    "1280x720",
 		},
 		Viewer: settings.Viewer{
-			PlayerWatchTransport: "rtsp",
-			TileWatchTransport:   "webrtc",
-			RtspWatchProtocol:    "tcp",
-			SrtWatchLatencyMs:    666,
-			RtspWatchLatencyMs:   777,
-			RenderChain:          "d3d11",
+			TileWatchTransport: "webrtc",
+			RtspWatchProtocol:  "tcp",
+			SrtWatchLatencyMs:  666,
+			RtspWatchLatencyMs: 777,
+			RenderChain:        "d3d11",
 		},
 	}
 }

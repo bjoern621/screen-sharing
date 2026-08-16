@@ -8,9 +8,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// The two player-and-pipeline lists differ, and each difference is a leg the other reader cannot
-// run: WHEP is a signaling exchange rather than an address, so no player URL expresses it, and
-// nothing on the GStreamer side reads the relay's HLS playlist.
+// The two player-and-pipeline lists differ by one leg, and it is one no player URL expresses: WHEP
+// is a signaling exchange rather than an address.
 func TestWatchNamesArePerEngine(t *testing.T) {
 	players := WatchNames(capabilities.EngineFfmpeg)
 	pipeline := WatchNames(capabilities.EngineGst)
@@ -23,13 +22,13 @@ func TestWatchNamesArePerEngine(t *testing.T) {
 	if slices.Contains(players, "webrtc") {
 		t.Errorf("WatchNames(ffmpeg) = %v, must exclude webrtc, which no viewer program opens", players)
 	}
-	for _, want := range []string{"srt", "rtsp", "rtmp", "webrtc"} {
+	for _, want := range []string{"srt", "rtsp", "rtmp", "webrtc", "hls"} {
 		if !slices.Contains(pipeline, want) {
 			t.Errorf("WatchNames(gstreamer) = %v, missing %q", pipeline, want)
 		}
 	}
-	if slices.Contains(pipeline, "hls") {
-		t.Errorf("WatchNames(gstreamer) = %v, must exclude hls, which no source element here decodes", pipeline)
+	if slices.Contains(pipeline, "moq") {
+		t.Errorf("WatchNames(gstreamer) = %v, must exclude moq, which no source element here subscribes", pipeline)
 	}
 	for _, engine := range WatchEngines {
 		if names := WatchNames(engine); !slices.IsSorted(names) {

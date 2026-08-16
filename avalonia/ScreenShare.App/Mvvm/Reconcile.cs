@@ -9,9 +9,9 @@ namespace ScreenShare.App.Mvvm;
 /// Clear-then-fill rather than an incremental patch: these lists are short, and a rebuild leaks no handler and
 /// repeats without effect (<c>docs/development-principles.md</c>, "Idempotency").
 ///
-/// The guard in front of it is what makes that safe on every pass.
-/// Identity is a row's value at its position, rows being records, so an unchanged reading compares equal and
-/// the collection is left untouched.
+/// The guard in front of it makes that safe on every pass.
+/// Identity is a row's value at its position, rows being records, so an unchanged reading compares equal and the
+/// collection is left untouched.
 /// A row that moved therefore rebuilds the list exactly as a row that changed does.
 ///
 /// The guard is correctness and not economy: a rebuild replaces every container, so a per-second pass would
@@ -19,7 +19,7 @@ namespace ScreenShare.App.Mvvm;
 /// </summary>
 public static class Reconcile
 {
-    public static void Onto<T>(ObservableCollection<T> bound, IReadOnlyList<T> rows)
+    public static void Onto<T>(IList<T> bound, IReadOnlyList<T> rows)
     {
         Assert.NotNull(bound, "a reconcile needs the collection it converges");
         Assert.NotNull(rows, "a reconcile needs the rows it converges onto");

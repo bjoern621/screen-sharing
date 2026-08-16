@@ -3,17 +3,27 @@
                     xmlns:sys="using:System">
 
   <!--
-    One family, bundled rather than hoped for, registered by Program.WithInterFont.
-    The platform sans behind it runs only where that registration is gone.
-    The mono family is gone: the split bought column alignment,
-    which FigureFeatures gives without a change of face.
+    Both families are bundled rather than hoped for: Inter by Program.WithInterFont,
+    the mono by ScreenShare.App.csproj out of Assets/Fonts.
+    A platform face runs only where a registration is gone.
   -->
 
+  <!-- Everything this product says itself. -->
   <FontFamily x:Key="UiFont">Inter,Segoe UI,system-ui,sans-serif</FontFamily>
 
   <!--
+    What another program said, reproduced (Text.axaml, .transcript).
+    NL is the ligature-free cut, so "->" and "//" stay two characters the reader can match
+    against the text the backend printed.
+    Authority is the assembly name and not the namespace, and the two differ here:
+    screenshare-avalonia against ScreenShare.App. A URI naming the namespace loads nothing
+    and the role silently draws in the default face.
+  -->
+  <FontFamily x:Key="MonoFont">avares://screenshare-avalonia/Assets/Fonts#JetBrains Mono NL</FontFamily>
+
+  <!--
     For anything read as a column or that ticks: a timer, a table cell, a plot annotation.
-    Prose keeps the proportional default.
+    Prose keeps the proportional default, and mono needs none of it.
   -->
   <FontFeatureCollection x:Key="FigureFeatures">+tnum</FontFeatureCollection>
 

@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
+                    xmlns:ti="using:TablerIcons">
+
+  <!--
+    One dropdown of a source row: the kind and the device are the same control over different options,
+    so a template per column would be one face written twice.
+
+    Merged into the application's resources (App.axaml) for the reason SelectEntry.axaml states: it is
+    reached from inside a data template, and the application's is the scope above every instance of one.
+  -->
+
+  <DataTemplate x:Key="AudioSelect" x:DataType="fields:FieldViewModel">
+    <Button Theme="{StaticResource SelectFace}"
+            HorizontalAlignment="Stretch"
+            IsEnabled="{Binding IsEnabled}"
+            ToolTip.Tip="{Binding Help}">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Classes="ident facevalue"
+                   VerticalAlignment="Center"
+                   Text="{Binding PickedLabel}" />
+        <ti:TablerIcon Grid.Column="1"
+                       Classes="facecaret"
+                       Icon="IconChevronDown"
+                       Margin="4,0,0,0"
+                       VerticalAlignment="Center" />
+      </Grid>
+
+      <Button.Flyout>
+        <MenuFlyout ItemsSource="{Binding MenuRows}"
+                    ItemTemplate="{StaticResource SelectEntry}"
+                    ItemContainerTheme="{StaticResource SelectMenuItem}"
+                    Placement="BottomEdgeAlignedLeft" />
+      </Button.Flyout>
+    </Button>
+  </DataTemplate>
+
+</ResourceDictionary>

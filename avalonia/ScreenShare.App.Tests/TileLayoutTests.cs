@@ -4,7 +4,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The failures a screenshot shows only when the case is unlucky: rows off centre, a tile that is not its
+/// Failures a screenshot shows only when the case is unlucky: rows off centre, a tile that is not its
 /// stream's shape, tiles squashed below legibility, an order that follows whichever aspect arrived first.
 /// The solver is pure, so none of it needs a window (<c>Features/Viewer/Model/TileLayout.cs</c>).
 /// </summary>

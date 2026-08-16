@@ -72,6 +72,8 @@ type Options struct {
 	// Delay names the element a frame's delay through this pipeline is measured at, and the empty
 	// name measures none (delay.go).
 	Delay string
+	// Shed names the queue whose drops are counted, and the empty name counts none (delay.go).
+	Shed string
 }
 
 // RunWithOptions is Run with whatever this run does beside playing.
@@ -127,15 +129,19 @@ func RunWithOptions(ctx context.Context, description string, options Options, ou
 	// pointer's: a delay is a reading taken while the pipeline runs rather than something a frame
 	// carries out of it.
 	var delay *pipedelay.Probe
+	var shed *shedCount
 	if options.Delay != "" {
 		delay = watchDelay(pipeline, options.Delay)
+	}
+	if options.Shed != "" {
+		shed = watchShed(pipeline, options.Shed)
 	}
 
 	if ret := pipeline.SetState(gst.StatePlaying); ret == gst.StateChangeFailure {
 		return fmt.Errorf("the pipeline refused to play")
 	}
 	if delay != nil {
-		go reportDelay(ctx, pipeline, delay, out)
+		go reportDelay(ctx, pipeline, delay, shed, out)
 	}
 
 	reported := false

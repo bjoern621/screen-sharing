@@ -84,7 +84,7 @@ var gstGpuMemories = map[string]gstGpuMemory{
 	capabilities.FamilyVaapi: {
 		feature: "(memory:VAMemory)",
 		convert: "vapostproc",
-		formats: gstVaChromaFormats,
+		formats: gstSemiPlanarChromaFormats,
 	},
 	capabilities.FamilyNvenc: {
 		feature: "(memory:D3D11Memory)",

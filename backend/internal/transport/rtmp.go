@@ -35,18 +35,18 @@ func (RTMP) Name() string { return "rtmp" }
 // demuxer and the grid through rtmp2src.
 // Two entries carrying the same list rather than one shared value, because nothing moves them
 // together.
-func (RTMP) Formats() Formats {
-	return Formats{
-		Publish: map[string]Carriage{capabilities.EngineFfmpeg: {
-			Video: []string{"h264", "hevc", "av1", "vp9"},
-			Audio: []string{"aac"},
-		}},
-		Watch: map[string]Carriage{
-			capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"aac"}},
-			capabilities.EngineGst:    {Video: []string{"h264"}, Audio: []string{"aac"}},
-		},
-	}
+var rtmpFormats = Formats{
+	Publish: map[string]Carriage{capabilities.EngineFfmpeg: {
+		Video: []string{"h264", "hevc", "av1", "vp9"},
+		Audio: []string{"aac"},
+	}},
+	Watch: map[string]Carriage{
+		capabilities.EngineFfmpeg: {Video: []string{"h264"}, Audio: []string{"aac"}},
+		capabilities.EngineGst:    {Video: []string{"h264"}, Audio: []string{"aac"}},
+	},
 }
+
+func (RTMP) Formats() Formats { return rtmpFormats }
 
 // PublishArgs muxes to FLV, the container RTMP carries, and names the stream by URL path.
 func (RTMP) PublishArgs(s settings.Settings) []string {

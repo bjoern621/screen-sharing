@@ -19,7 +19,7 @@ namespace ScreenShare.App.Features.Fields.Model;
 /// </summary>
 public static class GroupPlacement
 {
-    /// <summary>The form's own key for the receiving group: the watch legs, the jitter buffers, the render chain.</summary>
+    /// <summary>Form's own key for the receiving group: the watch legs, the jitter buffers, the render chain.</summary>
     public const string WatchKey = "watch";
 
     public static bool InSetup(string key)

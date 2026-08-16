@@ -8,21 +8,21 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Setup.Presets.ViewModel;
 
 /// <summary>
-/// The ways of publishing: the built-in ones, the saved ones, a name to keep the draft under, and a delete
-/// per saved row.
-/// A built-in preset is a promise about the picture that the backend resolves against this machine, so a row
-/// can be unreachable and what applying it writes differs per machine.
+/// Ways of publishing: the built-in ones, the saved ones, a name to keep the draft under, and a delete per saved
+/// row.
+/// A built-in preset is a promise about the picture the backend resolves against this machine, so a row can be
+/// unreachable and what applying it writes differs per machine.
 /// A saved preset is a snapshot of every field, applied exactly as stored (<c>docs/presets.md</c>).
 /// Both arrive already decided: the promises and their verdicts on the form, the snapshots from the store.
 ///
 /// One state is held, the store's last answer.
-/// Whether the draft is one of the presets is derived from the draft on every pass and never remembered from
-/// the press that applied it, so there is no selection to reconcile after a restart.
+/// Whether the draft is one of the presets is derived from the draft on every pass and never remembered from the
+/// press that applied it, so there is no selection to reconcile after a restart.
 ///
-/// The store is the one read on this contract that nothing announces (<c>Backend/IBackend.cs</c>,
+/// The store is the one read on this contract nothing announces (<c>Backend/IBackend.cs</c>,
 /// <c>PresetsAsync</c>).
-/// A save or a delete therefore ends in a read rather than in a patch of the list, and the re-read is offered
-/// as a button, since a preset another window saved is invisible until someone asks.
+/// A save or a delete ends in a read rather than in a patch of the list, and the re-read is offered as a button,
+/// a preset another window saved being invisible until someone asks.
 ///
 /// Applying writes the draft and nothing else: publish settings stage until a commit carries them
 /// (<c>Backend/FormSession.cs</c>, <c>WritePublish</c>).
@@ -32,13 +32,13 @@ public sealed class PresetsViewModel : Observable
     private readonly IBackend _backend;
 
     /// <summary>
-    /// The draft the window owns, read through on every pass.
+    /// Draft the window owns, read through on every pass.
     /// What a save sends and what each row is compared against, held nowhere here.
     /// </summary>
     private readonly FormSession _form;
 
     /// <summary>
-    /// The running state the window owns, read through for one fact: whether the backend is being dialled.
+    /// Running state the window owns, read through for one fact: whether the backend is being dialled.
     /// A refusal on this card is one call's, and whether another is coming is the session's
     /// (<c>Backend/Session.cs</c>).
     /// </summary>
@@ -48,8 +48,8 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// One apply command per saved name, held so an unchanged store renders rows that compare equal.
-    /// The preset is looked up at the press rather than closed over: a preset saved over keeps its name, and
-    /// the row applies what the store holds then.
+    /// The preset is looked up at the press rather than closed over: a preset saved over keeps its name, and the
+    /// row applies what the store holds then.
     /// </summary>
     private readonly Dictionary<string, DelegateCommand> _apply = [];
 
@@ -58,27 +58,27 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// One apply command per built-in key, held for the same reason.
-    /// The preset is looked up in the form the window holds at the press: a promise resolves against the
-    /// draft, so the settings behind a key move as the draft does.
+    /// The preset is looked up in the form the window holds at the press: a promise resolves against the draft, so
+    /// the settings behind a key move as the draft does.
     /// </summary>
     private readonly Dictionary<string, DelegateCommand> _applyBuiltin = [];
 
     /// <summary>
-    /// The store's last answer, null until the first read lands.
-    /// The only state here, and written by <see cref="Took"/> alone.
+    /// Store's last answer, null until the first read lands.
+    /// The only state here, written by <see cref="Took"/> alone.
     /// </summary>
     private PresetStore? _store;
 
     /// <summary>
-    /// The backend's own sentence for the last refused call, empty otherwise.
+    /// Backend's own sentence for the last refused call, empty otherwise.
     /// Shown as it stands (<c>docs/ipc-api.md</c>, "Errors").
     /// </summary>
     private string _refusal = "";
 
     /// <param name="dispatch">
     /// Hands work to the UI loop.
-    /// Injected rather than reached for, so a test passes a synchronous one: an answer lands on whichever
-    /// thread the transport completed on, and every property below is read by a binding.
+    /// Injected rather than reached for, so a test passes a synchronous one: an answer lands on whichever thread
+    /// the transport completed on, and every property below is read by a binding.
     /// </param>
     public PresetsViewModel(IBackend backend, FormSession form, Session session, Action<Action> dispatch)
     {
@@ -97,8 +97,7 @@ public sealed class PresetsViewModel : Observable
         SaveCommand = new PendingCommand(() => Start(SaveAsync), dispatch, () => CanSave);
         RereadCommand = new PendingCommand(() => Start(ReadAsync), dispatch);
 
-        // Rendered before the store is asked for, so the first list is a later pass rather than a
-        // precondition.
+        // Rendered before the store is asked for, so the first list is a later pass rather than a precondition.
         Apply();
 
         // The opening read goes through the button's own command, so there is one path into the store.
@@ -111,8 +110,8 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// What to save the draft under, as it is typed.
-    /// A preset is selected, replaced and deleted by its name, which is why the card's one input is a name
-    /// rather than a flag.
+    /// A preset is selected, replaced and deleted by its name, so the card's one input is a name rather than a
+    /// flag.
     /// </summary>
     public string Name
     {
@@ -140,8 +139,7 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// One row per built-in preset, in the form's order.
-    /// Empty until the first form: which presets exist is not this shell's to know
-    /// (<c>docs/ipc-api.md</c>).
+    /// Empty until the first form: which presets exist is not this shell's to know (<c>docs/ipc-api.md</c>).
     /// </summary>
     public ObservableCollection<BuiltinPresetRow> Builtin { get; }
 
@@ -156,9 +154,9 @@ public sealed class PresetsViewModel : Observable
     public PendingCommand RereadCommand { get; }
 
     /// <summary>
-    /// The call in flight, an already-completed task when none is.
-    /// For the one caller that has to know the card has caught up with the store rather than merely asked it:
-    /// a test awaits it instead of sleeping, and no render path reads it.
+    /// Call in flight, an already-completed task when none is.
+    /// For the one caller that has to know the card has caught up with the store rather than merely asked it: a
+    /// test awaits it instead of sleeping, and no render path reads it.
     /// A save and a delete each end in a read, so the reported task covers the effect and that read.
     /// </summary>
     public Task Settled { get; private set; } = Task.CompletedTask;
@@ -186,8 +184,8 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// Whether the store answered and holds nothing.
-    /// Not the same as having no rows: a store that could not be read has none either, and
-    /// <see cref="Notice"/> is that one's sentence.
+    /// Not the same as having no rows: a store that could not be read has none either, and <see cref="Notice"/>
+    /// is that one's sentence.
     /// Neither is shown before the first answer.
     /// </summary>
     public bool IsEmpty { get => _isEmpty; private set => Set(ref _isEmpty, value); }
@@ -195,9 +193,9 @@ public sealed class PresetsViewModel : Observable
     public string Empty => Cards.PresetsEmpty;
 
     /// <summary>
-    /// The backend's sentence for the last refused save, delete or read, empty otherwise.
-    /// It stands beside the list rather than replacing it: a refusal is about an attempt, and the rows on
-    /// screen are still the store's last answer.
+    /// Backend's sentence for the last refused save, delete or read, empty otherwise.
+    /// Stands beside the list rather than replacing it: a refusal is about an attempt, and the rows on screen are
+    /// still the store's last answer.
     /// </summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
 
@@ -205,8 +203,8 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// Whether the window is still dialling behind that refusal.
-    /// The refusal names one call the backend could not answer and stands until something answers, so without
-    /// this the card reads the same whether the window is dialling or has stopped.
+    /// The refusal names one call the backend could not answer and stands until something answers, so without this
+    /// the card reads the same whether the window is dialling or has stopped.
     /// False for a refusal the backend served, that one having reached a backend that is up.
     /// </summary>
     public bool IsDialling { get => _isDialling; private set => Set(ref _isDialling, value); }
@@ -231,8 +229,8 @@ public sealed class PresetsViewModel : Observable
         HasNotice = Notice.Length > 0;
         IsEmpty = _store is not null && saved.Count == 0 && !HasNotice;
 
-        // Trimmed as SaveAsync trims it, and asked of the store on every pass, so typing over a stored name
-        // changes the word under the reader's hand rather than after the press.
+        // Trimmed as SaveAsync trims it, and asked of the store on every pass, so typing over a stored name changes
+        // the word under the reader's hand rather than after the press.
         var name = Name.Trim();
         SaveLabel = saved.Any(preset => preset.Name == name) ? "Replace" : "Save";
         CanSave = name.Length > 0 && publish is not null;
@@ -246,8 +244,8 @@ public sealed class PresetsViewModel : Observable
 
         OnPropertyChanged(nameof(HasRefusal));
 
-        // Read off the session's verdict and not off the sentence on the card: a refusal the backend served is
-        // one it was up to answer, and nothing is being dialled after it.
+        // Read off the session's verdict and not off the sentence on the card: a refusal the backend served is one
+        // it was up to answer, and nothing is being dialled after it.
         IsDialling = HasRefusal && _session.Unavailable.Length > 0;
 
         Assert.That(Rows.Count == saved.Count, "a row per saved preset", Rows.Count, saved.Count);
@@ -263,7 +261,7 @@ public sealed class PresetsViewModel : Observable
     }
 
     /// <summary>
-    /// The rows for one reading of the store.
+    /// Rows for one reading of the store.
     /// The commands are the held ones, so an unchanged store renders rows that compare equal.
     /// </summary>
     private IReadOnlyList<PresetRow> RowsOf(IReadOnlyList<Preset> saved, PublishSettings? publish)
@@ -278,7 +276,7 @@ public sealed class PresetsViewModel : Observable
             .ToList();
 
     /// <summary>
-    /// The rows for one form's built-in presets.
+    /// Rows for one form's built-in presets.
     /// Every word on them is this shell's, keyed by the identifier the backend sent.
     /// Every verdict on them is the backend's, rendered as it arrived.
     /// </summary>
@@ -333,15 +331,15 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// Starts one call and makes it the one <see cref="Settled"/> reports.
-    /// Every command goes through it, so one answer is in flight rather than three, and the read a save or a
-    /// delete ends in stays inside the call it reports.
+    /// Every command goes through it, so one answer is in flight rather than three, and the read a save or delete
+    /// ends in stays inside the call it reports.
     /// </summary>
     private Task Start(Func<Task> call) => Settled = call();
 
     /// <summary>
     /// Writes one saved preset into the draft, whole.
-    /// The settings come off the store's last answer rather than out of the row, so a preset saved over
-    /// between the render and the press applies what it holds now.
+    /// The settings come off the store's last answer rather than out of the row, so a preset saved over between
+    /// the render and the press applies what it holds now.
     /// A name the store no longer carries writes nothing.
     /// </summary>
     private void Use(string name)
@@ -357,9 +355,9 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// Writes what the backend resolved for one built-in preset into the draft.
-    /// The settings come off the form the window is holding at the press rather than out of the row: a
-    /// promise resolves against the draft, so what "gaming" is here moves with the capture backend and the
-    /// publish leg under it, and the row on screen may be a form old.
+    /// The settings come off the form the window is holding at the press rather than out of the row: a promise
+    /// resolves against the draft, so what "gaming" is here moves with the capture backend and the publish leg
+    /// under it, and the row on screen may be a form old.
     /// A key the form no longer carries, or one nothing here reaches, writes nothing.
     /// Nothing is committed either way, publish settings staging until a commit carries them.
     /// </summary>
@@ -374,8 +372,7 @@ public sealed class PresetsViewModel : Observable
         _form.WritePublish(settings);
     }
 
-    /// <summary>One built-in preset off the form the window is holding, null for a key it does not
-    /// carry.</summary>
+    /// <summary>One built-in preset off the form the window is holding, null for a key it does not carry.</summary>
     private BuiltinPreset? BuiltinOf(string key)
         => _form.Form?.Presets.FirstOrDefault(preset => preset.Key == key);
 
@@ -392,21 +389,21 @@ public sealed class PresetsViewModel : Observable
         }
         catch (BackendUnavailableException e)
         {
-            // The store's last answer still stands, so the rows stay and gain the sentence saying why there
-            // is no newer reading.
+            // The store's last answer still stands, so the rows stay and gain the sentence saying why there is no
+            // newer reading.
             _dispatch(() => Refused(e.Message));
         }
     }
 
     /// <summary>
     /// Keeps the draft under the typed name, then reads the store again.
-    /// The read is what puts the preset on screen: whether the save landed, and under what, is the backend's
-    /// answer rather than this class's.
+    /// The read puts the preset on screen: whether the save landed, and under what, is the backend's answer rather
+    /// than this class's.
     /// </summary>
     private async Task SaveAsync()
     {
-        // Trimmed, because a reader identifies a preset by what they read: " work" and "work" are two rows
-        // nobody can tell apart, and replacing one of them is a coin toss.
+        // Trimmed, a reader identifying a preset by what they read: " work" and "work" are two rows nobody can
+        // tell apart, and replacing one of them is a coin toss.
         var name = Name.Trim();
         var publish = _form.Draft?.Publish;
 
@@ -428,10 +425,9 @@ public sealed class PresetsViewModel : Observable
 
     /// <summary>
     /// Removes one preset, then reads the store again.
-    /// A refused delete leaves the row where it is and says why, including for a name another window already
-    /// deleted.
-    /// The remedy is the re-read button rather than a read fired from here, which would replace a sentence
-    /// nobody has read yet.
+    /// A refused delete leaves the row where it is and says why, a name another window already deleted included.
+    /// The remedy is the re-read button rather than a read fired from here, which would replace a sentence nobody
+    /// has read yet.
     /// </summary>
     private async Task DeleteAsync(string name)
     {
@@ -461,10 +457,7 @@ public sealed class PresetsViewModel : Observable
         }
     }
 
-    /// <summary>
-    /// One reading of the store, taken on the UI loop.
-    /// The only write of <c>_store</c>.
-    /// </summary>
+    /// <summary>One reading of the store, taken on the UI loop. The only write of <c>_store</c>.</summary>
     private void Took(PresetStore store, string refusal)
     {
         Assert.NotNull(store, "a preset read answers with what the store holds");

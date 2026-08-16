@@ -7,7 +7,7 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// What an entry is called, where its own value does not say enough.
 ///
-/// The defect locked out is one name printed twice.
+/// Defect locked out: one name printed twice.
 /// The backend identifies an option by its value alone and leaves the naming to the shell, and two families
 /// of entries share everything this side would otherwise name them by: one screen is read by both publish
 /// engines, and one encoder family produces one format from several encoders.
@@ -112,5 +112,54 @@ public sealed class VocabularyTests
     {
         Assert.Equal("libsvtav1", Vocabulary.Empty.Name("publish.codec", "libsvtav1"));
         Assert.Equal("X11 screen", Vocabulary.Empty.Name("publish.capture", "x11grab"));
+    }
+
+    /// <summary>The quality group as the backend resolves it, with the ceiling control in the state it stated.</summary>
+    private static FieldGroup QualityGroup(bool ceilingOffered, long ceilingMbps)
+    {
+        var group = new FieldGroup { Key = "quality" };
+        group.Fields.Add(new Field
+        {
+            Key = "publish.maxrate_mbps",
+            Enabled = ceilingOffered,
+            Visible = true,
+            Value = new FieldValue { Number = ceilingMbps },
+        });
+        return group;
+    }
+
+    private static Settings ConstantQuality(int cq) => new()
+    {
+        Publish = new PublishSettings { Codec = "libx264", Mode = "crf", Cq = cq },
+    };
+
+    /// <summary>
+    /// A quality target names no rate a reader can hold against their connection, so the line carries the rate the
+    /// encode is held to where there is one.
+    /// </summary>
+    [Fact]
+    public void AQualityTargetCarriesTheRateItIsHeldTo()
+    {
+        var words = Words(Codec("libx264", "h264", "software"));
+
+        var summary = words.Shorthand(QualityGroup(ceilingOffered: true, 45), ConstantQuality(18));
+
+        Assert.Contains("quality 18", summary);
+        Assert.Contains("45 Mbit/s", summary);
+    }
+
+    /// <summary>
+    /// An encoder that bounds nothing greys the control, and the line then names no bound: the stored figure is
+    /// one the encode is not holding, and printing it would describe a stream nobody is sending.
+    /// </summary>
+    [Fact]
+    public void AnUnboundedQualityTargetNamesNoRate()
+    {
+        var words = Words(Codec("libx264", "h264", "software"));
+
+        var summary = words.Shorthand(QualityGroup(ceilingOffered: false, 45), ConstantQuality(18));
+
+        Assert.Contains("quality 18", summary);
+        Assert.DoesNotContain("45", summary);
     }
 }

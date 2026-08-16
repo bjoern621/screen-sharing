@@ -7,10 +7,10 @@
              x:DataType="vm:ScreenPickerViewModel">
 
   <!--
-    Picking a screen writes the setting the dropdown below writes, so this is a second way to
-    one value rather than a second value.
-    Each tile is 216 by 121, the 16:9 a desktop is and the shape the backend scales its
-    previews to: Avalonia has no aspect ratio, so both sides are stated.
+    Picking a screen writes the setting the dropdown below writes, so this is a second way to one value
+    rather than a second value.
+    Each tile is 216 by 121, the 16:9 a desktop is and the shape the backend scales its previews to:
+    Avalonia has no aspect ratio, so both sides are stated.
   -->
 
   <StackPanel Spacing="{StaticResource GapTight}">
@@ -28,8 +28,7 @@
                   Command="{Binding Select}"
                   IsEnabled="{Binding IsEnabled}"
                   Margin="0,0,10,10"
-                  Padding="0"
-                  ToolTip.Tip="{Binding Reason}">
+                  Padding="0">
             <StackPanel Width="216" Spacing="5">
 
               <Panel>
@@ -38,11 +37,11 @@
                     <tiles:StreamTile Source="{Binding Tile}" IsVisible="{Binding HasTile}" />
 
                     <!--
-                      Two sentences for a dark tile, from opposite sides. Before there is a
-                      tile the row says why: the screen is opening, or the backend refused to
-                      read it. Once there is one, the tile's own three take over: read with no
-                      picture yet, the reading ended, or this window could not draw what it was
-                      handed.
+                      Two sentences for a dark tile, from opposite sides.
+                      Before there is a tile the row says why: the screen is opening, or the
+                      backend refused to read it.
+                      Once there is one, the tile's own three take over: read with no picture
+                      yet, the reading ended, or this window could not draw what it was handed.
                     -->
                     <SelectableTextBlock Classes="hint"
                                          Text="{Binding Placeholder}"
@@ -62,7 +61,7 @@
                   </Panel>
                 </Border>
 
-                <!-- The selection is an outline over the picture: a fill under a filled tile is invisible. -->
+                <!-- Selection is an outline over the picture: a fill under a filled tile is invisible. -->
                 <Border BorderBrush="{StaticResource SelectedBrush}"
                         BorderThickness="2"
                         CornerRadius="{StaticResource RadiusTile}"
@@ -72,6 +71,11 @@
               <TextBlock Classes="caption"
                          Text="{Binding Label}"
                          TextTrimming="CharacterEllipsis" />
+
+              <!-- Under the card and not a tip: a screen that cannot be picked takes no pointer. -->
+              <TextBlock Classes="reason"
+                         IsVisible="{Binding HasReason}"
+                         Text="{Binding Reason}" />
             </StackPanel>
           </Button>
         </DataTemplate>

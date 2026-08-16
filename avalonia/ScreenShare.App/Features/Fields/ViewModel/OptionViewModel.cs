@@ -13,8 +13,8 @@ namespace ScreenShare.App.Features.Fields.ViewModel;
 ///
 /// A record, so a render pass over an unchanged field produces rows that compare equal and the bound collection
 /// is left alone.
-/// <see cref="Choose"/> holds the field's own command instance for this value, which is what makes two passes
-/// equal rather than merely alike.
+/// <see cref="Choose"/> holds the field's own command instance for this value, so two passes compare equal rather
+/// than merely alike.
 /// </summary>
 public sealed record OptionViewModel
 {
@@ -23,10 +23,10 @@ public sealed record OptionViewModel
 
     public required string Label { get; init; }
 
-    /// <summary>The trailing annotation naming what the entry was derived from, empty where there is none.</summary>
+    /// <summary>Trailing annotation naming what the entry was derived from, empty where there is none.</summary>
     public required string Note { get; init; }
 
-    /// <summary>The paragraph a radio card shows under its title, empty on a select.</summary>
+    /// <summary>Paragraph a radio card shows under its title, empty on a select.</summary>
     public required string Detail { get; init; }
 
     public required bool IsSelected { get; init; }
@@ -41,9 +41,9 @@ public sealed record OptionViewModel
     public required bool IsRecommended { get; init; }
 
     /// <summary>
-    /// The disclosure row rather than an entry: no value, <see cref="Choose"/> lists the refused ones instead of
+    /// Disclosure row rather than an entry: no value, <see cref="Choose"/> lists the refused ones instead of
     /// picking, <see cref="IsSelected"/> reads whether they are listed.
-    /// It is also what keeps the menu open on the press (<c>Controls/Select/Select.axaml</c>).
+    /// Also what keeps the menu open on the press (<c>Controls/Select/Select.axaml</c>).
     /// </summary>
     public required bool IsReveal { get; init; }
 
@@ -57,13 +57,6 @@ public sealed record OptionViewModel
     public bool HasReason => Reason.Length > 0;
 
     public bool HasDetail => Detail.Length > 0;
-
-    /// <summary>
-    /// The refusal as a tooltip carries it, null while the entry is live.
-    /// Null rather than empty is the difference Avalonia reads: a tip of the empty string still opens, so an
-    /// entry nothing is wrong with would sprout an empty box under the pointer.
-    /// </summary>
-    public string? Refusal => Reason.Length > 0 ? Reason : null;
 
     public bool HasNote => Note.Length > 0;
 }

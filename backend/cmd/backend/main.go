@@ -94,6 +94,10 @@ func runPipeline(elements []string) int {
 			options.Delay, elements = element, elements[1:]
 			continue
 		}
+		if element, ok := strings.CutPrefix(elements[0], gstrun.ShedFlag); ok {
+			options.Shed, elements = element, elements[1:]
+			continue
+		}
 		break
 	}
 

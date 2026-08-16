@@ -4,24 +4,34 @@ using ScreenShare.App.Copy;
 namespace ScreenShare.App.Features.Broadcast.Preview.Model;
 
 /// <summary>
-/// Which of the two pictures of one stream the broadcast preview draws, and the whole of what the card's
-/// toggle chooses.
+/// Which picture of one stream the broadcast preview draws, or that it draws none, and the whole of what the
+/// card's toggle chooses.
 ///
-/// Both carry the same encode, so neither answers what the capture looked like before it.
-/// What separates them is everything downstream of the encoder: <see cref="Local"/> is taken before the relay
-/// and is blind to the uplink, the relay and the viewer's link, and <see cref="EndToEnd"/> crosses all three.
+/// The two routes carry the same encode, so neither answers what the capture looked like before it.
+/// What separates them is everything downstream of the encoder: <see cref="Local"/> is taken before the relay and
+/// is blind to the uplink, the relay and the viewer's link, and <see cref="EndToEnd"/> crosses all three.
 /// A congested uplink is a stutter on one and a perfect picture on the other.
 ///
 /// Neither is a default the other falls back to.
-/// A stream with no local preview leg draws nothing on <see cref="Local"/>, a relay not carrying the path
-/// draws nothing on <see cref="EndToEnd"/>, and each says which state it is in.
+/// A stream with no local preview leg draws nothing on <see cref="Local"/>, a relay not carrying the path draws
+/// nothing on <see cref="EndToEnd"/>, and each says which state it is in.
+///
+/// <see cref="Off"/> is a state of this card and reaches no stream, so it stands beside the two rather than under
+/// a control of its own: where the picture is taken has an answer of "nowhere".
 /// </summary>
 public enum PreviewRoute
 {
     /// <summary>
-    /// The copy the publish child writes to a loopback port, decoded here.
-    /// One local decode, no bandwidth, and no reader counted at the relay
-    /// (<c>docs/viewer-architecture.md</c>, "What the broadcast preview draws").
+    /// No picture and no decode: no tile subscribes, and the relay decode the end-to-end route holds is closed
+    /// and its reader slot given back.
+    /// The publish is untouched, the local preview leg belonging to the child that encodes the stream.
+    /// </summary>
+    Off,
+
+    /// <summary>
+    /// Copy the publish child writes to a loopback port, decoded here.
+    /// One local decode, no bandwidth, and no reader counted at the relay (<c>docs/viewer-architecture.md</c>,
+    /// "What the broadcast preview draws").
     /// </summary>
     Local,
 
@@ -42,17 +52,18 @@ public static class PreviewRoutes
 {
     /// <summary>
     /// Segment order, left to right.
-    /// Local first, since it is what the card opens on and it spends nothing off the relay.
+    /// By what each costs: nothing, one local decode, then a reader slot on the relay.
     /// </summary>
     public static readonly IReadOnlyList<PreviewRoute> All =
     [
+        PreviewRoute.Off,
         PreviewRoute.Local,
         PreviewRoute.EndToEnd,
     ];
 
     /// <summary>
-    /// Checked once at first use: a route added to the enum and not to the order renders one segment short,
-    /// and nothing else says so.
+    /// Checked once at first use: a route added to the enum and not to the order renders one segment short, and
+    /// nothing else says so.
     /// </summary>
     static PreviewRoutes()
         => Assert.That(
@@ -64,16 +75,16 @@ public static class PreviewRoutes
     /// <summary>What a segment says. Exhaustive, so a route with no label fails here.</summary>
     public static string LabelOf(PreviewRoute route) => route switch
     {
+        PreviewRoute.Off => Cards.PreviewOffLabel,
         PreviewRoute.Local => Cards.PreviewLocalLabel,
         PreviewRoute.EndToEnd => Cards.PreviewEndToEndLabel,
         _ => Assert.Never<string>("unexpected preview route", (int)route),
     };
 
-    /// <summary>
-    /// What the picture is, what it costs and what it cannot answer, as the sentence under the card states it.
-    /// </summary>
+    /// <summary>What the picture is, what it costs and what it cannot answer, as the card's sentence states it.</summary>
     public static string CostOf(PreviewRoute route) => route switch
     {
+        PreviewRoute.Off => Cards.PreviewOffCost,
         PreviewRoute.Local => Cards.PreviewLocalCost,
         PreviewRoute.EndToEnd => Cards.PreviewEndToEndCost,
         _ => Assert.Never<string>("unexpected preview route", (int)route),

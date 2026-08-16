@@ -4,8 +4,10 @@
                     xmlns:ti="using:TablerIcons">
 
   <!--
-    Severity is carried by fill and weight, never by hue.
-    AttentionBrush marks Blocking alone, so the palette's one hue keeps meaning "stops the publish".
+    One hue per severity, and the glyph says the same thing without them
+    (docs/design-language.md, "Palette").
+    Pending and Note stay grey: neither reports on a stream, one having no answer yet and the other
+    nothing to complain about.
     Grid rather than StackPanel: the body is the backend's own sentence and a stack measures its
     children against infinite width.
   -->
@@ -47,6 +49,10 @@
       </ControlTemplate>
     </Setter>
 
+    <Style Selector="^[State=Passed] /template/ Border#Badge">
+      <Setter Property="Background" Value="{StaticResource GoBrush}" />
+    </Style>
+
     <Style Selector="^[State=Pending] /template/ Border#Badge">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="{StaticResource ChipBorderBrush}" />
@@ -67,10 +73,14 @@
     </Style>
 
     <Style Selector="^[State=Warned] /template/ Border#Badge">
-      <Setter Property="Background" Value="{StaticResource ChipBorderBrush}" />
+      <Setter Property="Background" Value="{StaticResource CautionBrush}" />
+    </Style>
+    <!-- The glyph inverts on this one badge, amber being lighter than the white every other badge carries. -->
+    <Style Selector="^[State=Warned] /template/ ti|TablerIcon#Glyph">
+      <Setter Property="Brush" Value="{StaticResource OnCautionBrush}" />
     </Style>
     <Style Selector="^[State=Warned] /template/ SelectableTextBlock#Body">
-      <Setter Property="Foreground" Value="{StaticResource SecondaryBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource CautionBrush}" />
     </Style>
 
     <Style Selector="^[State=Blocking] /template/ Border#Badge">

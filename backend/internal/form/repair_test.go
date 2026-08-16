@@ -447,3 +447,25 @@ func TestAClampedDraftClampsToItself(t *testing.T) {
 		t.Errorf("a second repair moved %v", changed)
 	}
 }
+
+// Constant quality has no target for a ceiling to sit above, so the two figures cannot disagree
+// there.
+// Raising the ceiling to a bitrate belonging to another mode would hand a bounded quality encode
+// several times the rate it was bounded to.
+func TestAConstantQualityCeilingIsNotRaisedToTheBitrate(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	draft.Publish.Mode = capabilities.ModeCrf
+	draft.Publish.BitrateM = 40
+	draft.Publish.MaxrateM = 10
+
+	out, repaired := Repair(d, draft)
+
+	if out.Publish.MaxrateM != 10 {
+		t.Errorf("maxrate = %d, want the stated ceiling kept at 10", out.Publish.MaxrateM)
+	}
+	if slices.Contains(repaired, KeyMaxrateM) {
+		t.Errorf("repaired = %v, want the ceiling left alone", repaired)
+	}
+}

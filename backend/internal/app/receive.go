@@ -77,9 +77,11 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 		return err
 	}
 
-	source, ok := transport.GstSource(transportName, s, streamName)
-	if !ok {
-		return fmt.Errorf("transport %q has no GStreamer watch form, so no pipeline can receive over it", transportName)
+	// A leg that has to ask the relay where its media is asks here, before anything is taken down,
+	// which is what keeps a relay that did not answer from costing the decode already running.
+	source, err := transport.ReceiveSource(transportName, s, streamName)
+	if err != nil {
+		return err
 	}
 
 	// A decode running with the other answer is not the state this call names, so it is taken down

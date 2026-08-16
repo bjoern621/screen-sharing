@@ -30,7 +30,7 @@ var availabilityAllKeys = []string{
 	KeyCursor,
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
-	KeyUplinkMbps, KeyPlayerWatchTransport, KeyOutputResolution,
+	KeyUplinkMbps, KeyOutputResolution,
 	KeyTileWatchTransport, KeyRtspWatchLatencyMs, KeyRenderChain,
 }
 
@@ -55,7 +55,6 @@ func availabilityDraft(capture, codec, chroma, transportName string) settings.Se
 	s.Publish.Transport = transportName
 	s.Publish.Mode = capabilities.ModeCrf
 	s.Publish.ColorRange = "tv"
-	s.Viewer.PlayerWatchTransport = "srt"
 	s.Publish.CaptureMemory = gpupath.MemoryAuto
 	// The two ladder steps follow the codec this draft names, as the defaults, the migration and the
 	// repair all set them.
@@ -161,7 +160,7 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 		KeyCaptureMemory: gpupath.Memories,
 		// A watch leg is offered from the roster its receiver can reach, which is what the option list is
 		// built from and what the reasons are stated against.
-		KeyPlayerWatchTransport: transport.WatchNames(capabilities.EngineFfmpeg),
+		KeyTileWatchTransport: transport.WatchNames(capabilities.EngineGst),
 	}
 	for _, tc := range availabilityCases() {
 		for key, list := range values {
@@ -243,9 +242,9 @@ func TestTheDrmDownloadStrategyIsGreyedWhereNothingIsDownloaded(t *testing.T) {
 // The sentence is the platform table's rather than written here, which is what stops the form greying
 // a source the catalog offered.
 func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testing.T) {
-	for _, info := range []platform.Info{{OS: "windows"}, {OS: "darwin"}} {
+	for _, info := range []platform.Info{{OS: "darwin"}} {
 		deps := Deps{Platform: info}
-		s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
+		s := availabilityDraft("avfoundation", "libx264", "yuv420p", "srt")
 
 		offered := false
 		for _, o := range optionAudioSources(deps, s) {
@@ -269,23 +268,47 @@ func TestAnUnservedAudioSourceIsOfferedAndGreyedWithThePlatformsReason(t *testin
 
 	// The same entry on the platform that serves it, so the greying is a fact about the machine rather
 	// than a control that is always dead.
-	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
-	s := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
-	if enabled, reason := optionState(deps, s, KeyAudioSource, platform.AudioSourceDesktop, 0); !enabled {
+	linux := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
+	onLinux := availabilityDraft("portal", "libx264", "yuv420p", "rtsp")
+	if enabled, reason := optionState(linux, onLinux, KeyAudioSource, platform.AudioSourceDesktop, 0); !enabled {
 		t.Errorf("a Linux session is refused desktop audio: %v", reason)
+	}
+}
+
+// A source one engine opens and the other does not greys on the capture backends that run the other,
+// and the reason names the engine rather than the machine.
+//
+// Windows is the case: wasapi2src reads what the machine plays in loopback and ffmpeg has no WASAPI
+// input, so the same Windows session serves the source or not depending on which backend is selected.
+// A platform reason there would send a user looking for a sound server they already have.
+func TestAWindowsSourceFollowsTheEngineTheBackendRuns(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "windows"}}
+
+	onFfmpeg := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
+	enabled, reason := optionState(deps, onFfmpeg, KeyAudioSource, platform.AudioSourceDesktop, 0)
+	if enabled {
+		t.Error("desktop audio is live under a capture backend whose engine has no WASAPI input")
+	}
+	if codeOf(reason) != screensharev1.TextCode_TEXT_CODE_AUDIO_SOURCE_UNSERVED_BY_ENGINE {
+		t.Errorf("desktop audio greys with %v, want the statement naming the engine", codeOf(reason))
+	}
+
+	onGst := availabilityDraft("d3d11screencapturesrc", "hevc_nvenc", "yuv420p", "srt")
+	if enabled, reason := optionState(deps, onGst, KeyAudioSource, platform.AudioSourceDesktop, 0); !enabled {
+		t.Errorf("desktop audio greys on the engine that opens it: %v", codeOf(reason))
 	}
 }
 
 // The second treatment.
 // A general encoding concept the combination blocks stays rendered and greys, so a user hunting for
-// the effort ladder under a VAAPI encoder reads why it is absent instead of finding a blank.
+// the effort ladder under a Vulkan encoder reads why it is absent instead of finding a blank.
 //
 // The reason names the codec rather than a set of families, the ladder being the codec's own: two
 // codecs of one family can declare different ones, and one declaring none says nothing about the
 // other.
 func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
-	s := availabilityDraft("x11grab", "h264_vaapi", "yuv420p", "srt")
+	s := availabilityDraft("x11grab", "h264_vulkan", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeVbr
 
 	st := fieldState(deps, s, KeyEffort, noEntry)
@@ -298,8 +321,34 @@ func TestTheEffortStepIsDisabledWhereTheCodecDeclaresNoLadder(t *testing.T) {
 	if codeOf(st.reason) != codecTakesNoEffortLadder {
 		t.Errorf("the effort step greys with %v, want the statement naming the codec", codeOf(st.reason))
 	}
-	if codec := idOf(st.reason, screensharev1.TextArgName_TEXT_ARG_NAME_CODEC); codec != "h264_vaapi" {
-		t.Errorf("the effort step greys naming %q, where the draft is on h264_vaapi", codec)
+	if codec := idOf(st.reason, screensharev1.TextArgName_TEXT_ARG_NAME_CODEC); codec != "h264_vulkan" {
+		t.Errorf("the effort step greys naming %q, where the draft is on h264_vulkan", codec)
+	}
+}
+
+// A ladder one engine spends and the other does not greys on the engine spending nothing, and with
+// the departure's own reason rather than the codec's.
+//
+// The VAAPI rows are the case: the va elements take the seven target usages, where ffmpeg's VAAPI
+// encoders count over the range the installed driver reports, so one step would mean a different
+// amount of work per engine and per card.
+// It is the same control on both, which is what makes this a departure and not a gap.
+func TestTheEffortStepIsDisabledWhereTheEngineSpendsNone(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	onFfmpeg := availabilityDraft("x11grab", "h264_vaapi", "yuv420p", "srt")
+	st := fieldState(deps, onFfmpeg, KeyEffort, noEntry)
+	if st.enabled {
+		t.Error("the effort step is live on the engine whose builder spends none of it")
+	}
+	if codeOf(st.reason) != screensharev1.TextCode_TEXT_CODE_FFMPEG_VAAPI_QUALITY_IS_THE_DRIVERS_SCALE {
+		t.Errorf("the effort step greys with %v, want the departure naming the driver's scale",
+			codeOf(st.reason))
+	}
+
+	onGst := availabilityDraft("ximagesrc", "h264_vaapi", "yuv420p", "srt")
+	if st := fieldState(deps, onGst, KeyEffort, noEntry); !st.enabled {
+		t.Errorf("the effort step greys on the engine that spends it: %v", codeOf(st.reason))
 	}
 }
 
@@ -440,16 +489,16 @@ func TestThePixelFormatStaysLiveAndSaysWhatItCostsAViewer(t *testing.T) {
 // The other half of the note's purpose: a value the builder does send is never greyed, which would
 // leave the encoder using a number the form refused to show.
 func TestAForwardedKnobCarriesANoteRatherThanAGreying(t *testing.T) {
-	deps := Deps{Platform: platform.Info{OS: "windows"}}
-	s := availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")
-	s.Publish.Mode = capabilities.ModeCrf
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	s := availabilityDraft("kmsgrab", "hevc_vaapi", "yuv420p", "rtsp")
+	s.Publish.Mode = capabilities.ModeAbr
 
 	st := fieldState(deps, s, KeyBitrateM, noEntry)
 	if !st.enabled {
-		t.Fatalf("the bitrate greys in constant quality on NVENC, where the builder forwards it: %+v", st)
+		t.Fatalf("the bitrate greys in average bitrate on VAAPI, where the builder forwards it: %+v", st)
 	}
 	if st.note == nil {
-		t.Error("the bitrate carries no note in constant quality on NVENC, where it becomes a burst ceiling")
+		t.Error("the bitrate carries no note on VAAPI, where the ceiling the elements code against derives from it")
 	}
 }
 
@@ -737,8 +786,8 @@ func TestEveryPublishEngineIsDeclared(t *testing.T) {
 // A knob a receiver reads is on the screen, whatever the legs are set to.
 //
 // The defect this locks out was a hidden control still in force.
-// The two link knobs followed both leg settings, but PlayerWatchTransport does not decide which
-// players run: one is opened per press, on whichever leg the reader picked.
+// The two link knobs followed a stored player leg as well as the tile's, but no setting decides
+// which players run: one is opened per press, on whichever leg the reader picked.
 // A player opened over RTSP while both settings said SRT read RtspWatchProtocol, and the control
 // holding that value was on no screen.
 //
@@ -746,11 +795,10 @@ func TestEveryPublishEngineIsDeclared(t *testing.T) {
 // One that does something is shown (docs/field-availability.md).
 func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
-	s.Viewer.PlayerWatchTransport = availabilitySrt
 	s.Viewer.TileWatchTransport = availabilitySrt
 
-	// Both link knobs, against legs neither setting names: a player can be opened on either protocol
-	// from this machine, and each reads its own.
+	// Both link knobs, against a leg the tile's setting does not name: a player can be opened on
+	// either protocol from this machine, and each reads its own.
 	for _, key := range []string{KeySrtWatchLatencyMs, KeyRtspWatchProtocol} {
 		if st := fieldState(fieldTestDeps(), s, key, noEntry); !st.visible {
 			t.Errorf("%s is hidden while a player can be opened on the leg that reads it", key)
@@ -770,6 +818,60 @@ func TestAWatchKnobAReceiverReadsIsShown(t *testing.T) {
 	}
 }
 
+// RTSPS wraps the control connection alone, so RTP over UDP travels beside it in the clear whichever
+// end negotiated the session.
+// Both legs refuse it once asked (transport.RTSP, ValidatePublishSettings and SetWatchOption), so a
+// control offering the value on either leg offers a refusal.
+//
+// The defect this locks out was the watch field carrying no option rule: on one encrypted relay the
+// publish dropdown greyed "udp" and the watch dropdown beside it offered it.
+func TestAnEncryptedRelayGreysUdpOnBothRtspLegs(t *testing.T) {
+	legs := []string{KeyRtspPublishProtocol, KeyRtspWatchProtocol}
+
+	s := availabilityDraft("x11grab", "libx264", "yuv420p", availabilityRtsp)
+	s.Relay.Host = "relay.example"
+	if !s.Relay.Tls() {
+		t.Fatal("the relay this case names is reached over TLS")
+	}
+
+	for _, key := range legs {
+		if enabled, _ := optionState(fieldTestDeps(), s, key, "udp", noEntry); enabled {
+			t.Errorf("%s offers udp on an encrypted relay, which puts the picture on the wire in the clear", key)
+		}
+		if enabled, reason := optionState(
+			fieldTestDeps(), s, key, transport.EncryptedRtspProtocol, noEntry); !enabled {
+			t.Errorf("%s greys %s, the one lower transport an encrypted session carries media on: %s",
+				key, transport.EncryptedRtspProtocol, reason)
+		}
+	}
+
+	// A stranded value is walked off rather than left decoding in the clear, the greying being what the
+	// repair reads.
+	s.Viewer.RtspWatchProtocol, s.Publish.RtspPublishProtocol = "udp", "udp"
+	repaired, moved := Repair(fieldTestDeps(), s)
+	if repaired.Viewer.RtspWatchProtocol != transport.EncryptedRtspProtocol {
+		t.Errorf("the watch leg survived the repair on %q", repaired.Viewer.RtspWatchProtocol)
+	}
+	if repaired.Publish.RtspPublishProtocol != transport.EncryptedRtspProtocol {
+		t.Errorf("the publish leg survived the repair on %q", repaired.Publish.RtspPublishProtocol)
+	}
+	for _, key := range legs {
+		if !slices.Contains(moved, key) {
+			t.Errorf("the repaired list is %v, which does not name %s", moved, key)
+		}
+	}
+
+	// A relay this network reaches directly terminates no TLS, so neither leg is narrowed.
+	s.Relay.Host = "192.168.1.9"
+	for _, key := range legs {
+		for _, protocol := range transport.RtspProtocols {
+			if enabled, reason := optionState(fieldTestDeps(), s, key, protocol, noEntry); !enabled {
+				t.Errorf("%s greys %s on an unencrypted relay: %s", key, protocol, reason)
+			}
+		}
+	}
+}
+
 // availabilityCodecNames is what a codec dropdown offers: every row of the table, greyed where this
 // combination rules it out.
 func availabilityCodecNames() []string {
@@ -778,4 +880,42 @@ func availabilityCodecNames() []string {
 		out = append(out, c.Name)
 	}
 	return out
+}
+
+// A quality target spends what the picture costs, so the ceiling is the one control that bounds it,
+// and it is offered exactly where the encoder holds the target inside a VBV.
+// An encoder with no form of one says so rather than taking a figure it would ignore.
+func TestTheCeilingIsOfferedInConstantQualityWhereTheEncoderBoundsIt(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	bounded := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	bounded.Publish.Mode = capabilities.ModeCrf
+	if st := fieldState(d, bounded, KeyMaxrateM, noEntry); !st.enabled {
+		t.Errorf("libx264 crf: the ceiling is greyed with %v, want it offered", st.reason)
+	}
+
+	free := availabilityDraft("x11grab", "librav1e", "yuv420p", "srt")
+	free.Publish.Mode = capabilities.ModeCrf
+	if st := fieldState(d, free, KeyMaxrateM, noEntry); st.enabled {
+		t.Error("librav1e crf: the ceiling is offered, want it greyed on an encoder that bounds nothing")
+	}
+}
+
+// The window sizes a ceiling, so it follows the ceiling it would hold: an unbounded quality target
+// has none, and a control that took a number there would size nothing.
+func TestTheRateBufferFollowsTheCeilingItHolds(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	draft.Publish.Mode = capabilities.ModeCrf
+
+	draft.Publish.MaxrateM = 0
+	if st := fieldState(d, draft, KeyVbvMs, noEntry); st.enabled {
+		t.Error("crf with no ceiling: the window is offered, want it greyed")
+	}
+
+	draft.Publish.MaxrateM = 20
+	if st := fieldState(d, draft, KeyVbvMs, noEntry); !st.enabled {
+		t.Errorf("crf under a ceiling: the window is greyed with %v, want it offered", st.reason)
+	}
 }

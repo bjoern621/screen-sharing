@@ -2,6 +2,7 @@ package audiodev
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/platform"
@@ -40,12 +41,12 @@ func TestEveryEnumeratedDeviceIsOpenable(t *testing.T) {
 	}
 }
 
-// The desktop kind is a sink's monitor and the microphone kind is not, so a monitor in both offers
-// one device twice under two names.
-func TestAMonitorIsInOneKind(t *testing.T) {
+// The desktop kind records the monitor of a sink, so a handle without that suffix names the sink
+// itself, which a publish opens for playback and never records.
+func TestADesktopDeviceIsASinksMonitor(t *testing.T) {
 	for _, d := range Cached(context.Background()) {
-		if d.Kind == platform.AudioSourceMic && len(d.ID) > 8 && d.ID[len(d.ID)-8:] == monitorSuffix {
-			t.Errorf("%s is offered as a microphone and it is a sink's monitor", d.ID)
+		if d.Kind == platform.AudioSourceDesktop && !strings.HasSuffix(d.ID, monitorSuffix) {
+			t.Errorf("%s is offered as desktop audio and is no sink's monitor", d.ID)
 		}
 	}
 }

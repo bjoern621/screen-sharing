@@ -8,12 +8,11 @@ namespace ScreenShare.App.Tests;
 /// <summary>
 /// Where a write lands when the form marks its group applied rather than staged.
 ///
-/// The defect these lock out was a deadlock.
-/// Every field of the wizard was staged until a commit and the only commit is the publish, so the relay
-/// address, the one setting the backend reads on a poll of its own, could not reach the backend without a
-/// stream being started.
-/// The publish that would have carried it was refused, correctly, since the relay it was about to change
-/// could not be dialled.
+/// The defect these lock out is a deadlock.
+/// A wizard staging every field until a commit, where the only commit is the publish, cannot get the relay
+/// address to the backend without a stream being started, and that address is the one setting the backend reads
+/// on a poll of its own.
+/// The publish that would carry it is refused, correctly, the relay it is about to change being undiallable.
 ///
 /// Which groups are the settings themselves is the form's answer (<c>form.proto</c>, FieldGroup.applied).
 /// These state what the shell does with that answer, not what the answer is.

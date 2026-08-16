@@ -49,18 +49,18 @@ var rtspCarriage = Carriage{
 	Audio: []string{"opus", "aac"},
 }
 
-func (RTSP) Formats() Formats {
-	return Formats{
-		Publish: map[string]Carriage{
-			capabilities.EngineFfmpeg: rtspCarriage,
-			capabilities.EngineGst:    rtspCarriage,
-		},
-		Watch: map[string]Carriage{
-			capabilities.EngineFfmpeg: rtspCarriage,
-			capabilities.EngineGst:    rtspCarriage,
-		},
-	}
+var rtspFormats = Formats{
+	Publish: map[string]Carriage{
+		capabilities.EngineFfmpeg: rtspCarriage,
+		capabilities.EngineGst:    rtspCarriage,
+	},
+	Watch: map[string]Carriage{
+		capabilities.EngineFfmpeg: rtspCarriage,
+		capabilities.EngineGst:    rtspCarriage,
+	},
 }
+
+func (RTSP) Formats() Formats { return rtspFormats }
 
 // draftRtpFormats are the video formats whose RTP payload format is an IETF draft.
 // ffmpeg's RTP muxer writes one only with compliance loosened, and otherwise ends the publish on

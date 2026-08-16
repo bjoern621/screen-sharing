@@ -71,12 +71,13 @@ Four layers, dependency running one way: a feature reads the design system and t
 | `Contracts/Assert.cs` | always-on assertions, the C# counterpart of the Go `assert` package |
 | `Mvvm/` | `Observable` and `DelegateCommand`: the change notification a compiled binding reads, and nothing else |
 | `Design/` | the design system as tokens and styles - `Palette`, `Typography`, `Metrics`, `Text`, `Surfaces`, `Buttons`, `Inputs`, `Menus`, `Tooltips`, `Icons` |
+| `Assets/Fonts/` | the mono family `Design/Typography.axaml` names, as files: Avalonia packages Inter and no mono, so this one is carried rather than resolved off the platform |
 | `Controls/` | the primitives more than one feature needs: `Chip`, `StatusPill`, `CheckItem`, the segmented control, the switch |
 | `Copy/` | every word on screen: what each identifier is called, the paragraph behind each choice, each control's heading and help, the sentence for each statement the backend makes |
 | `Features/Shell/` | the window, title bar, shared nav strip, status band, and which destination is showing |
 | `Backend/` | the control-plane seam: `IBackend`, the gRPC client answering it over the local socket, and the settings write going through the message descriptor |
 | `Features/Fields/` | the generic renderer for one group of the resolved form, and the placement table saying which destination draws which group. Not under a feature because two of them draw form groups |
-| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, raw-property drawer, review, and the rail every step draws beside them carrying cost, checks and saved presets |
+| `Features/Setup/` | the publish wizard, one step per sending-related group plus a terminal one: step strip, screen picker, Quality form, audio source list, raw-property drawer, review, and the rail every step draws beside them carrying cost, checks and saved presets |
 | `Features/Broadcast/` | the live overview: promoted figures, live-safe actions, read-only configuration, the outgoing preview, the per-viewer table, the sparklines |
 | `Features/Viewer/` | the tile grid and its rail: one entry per stream the relay carries, the arrangement of the ones being watched, and the panel holding how this machine receives |
 
@@ -128,13 +129,13 @@ Read `Form` first: `ResolveForm` takes a settings draft and returns the whole sc
 So a `switch` over a codec name, a list of rate-control modes, a hardcoded resolution ladder or a hand-written tooltip is a defect, in the way a view field mirroring a model field is.
 
 The wizard is that argument in one place.
-Every step but two is **one component**, `Features/Fields/`, instanced once per group.
+Every step outside the terminal one and the groups with a layout of their own is **one component**, `Features/Fields/`, instanced once per group.
 They differ in nothing this module can see: each is a `FieldGroup`, a run of fields with different keys, and the renderer switches on `ControlKind` rather than on what the field means.
 A capture view and an encode view written separately would be this module writing down what a capture and an encode are.
 
 **Which steps there are is the form's answer too.**
 `SetupSteps.For` derives the strip from `Form.groups`, so a group added to the contract is a step that appears with nothing here to edit, and one renamed cannot leave a hole.
-Placement stays this module's: the terminal step, the one group drawn by a layout of its own (`Model/QualityLayout.cs`), and which destination draws which group (`Features/Fields/Model/GroupPlacement.cs`).
+Placement stays this module's: the terminal step, the groups drawn by a layout of their own (`Model/QualityLayout.cs`, `Model/AudioLayout.cs`), and which destination draws which group (`Features/Fields/Model/GroupPlacement.cs`).
 
 **The watch group is drawn by the viewer, the same placement rule doing real work.**
 The wizard configures what this machine *sends*.
@@ -248,20 +249,20 @@ Both sparkline series are stamped, so a point is placed by when it was taken aga
 The `vbv ceiling` rule is placed against the run's own peak or not drawn at all, the curve being scaled to that peak.
 
 **The preview tile draws a frame, by one of two routes the reader picks between.**
-`docs/viewer-architecture.md`, "What the broadcast preview draws", states the two and what each costs.
+`docs/viewer-architecture.md`, "What the broadcast preview draws", states the two, the off segment beside them and what each costs.
 What is this module's is the card around them.
 
 Both reuse the same `Features/Viewer/Tile` view model and control the viewer's grid uses rather than growing a second frame consumer: two frame paths would be two answers to what a dropped frame is and where a lent handle goes back.
 What differs is `Tile/Model/TileSource.cs`, the contract's own oneof: a relay decode named by stream and leg, or the running publish's preview named by nothing at all.
 
-Whether the card draws is the reader's, written by the transport control over the picture and by nothing else.
+Whether the card draws is the reader's, written by the toggle's off segment and by nothing else.
 It opens drawing, and on the local route.
 It does not follow the window, the one place this card and the wizard's screen picker part company: a publisher's window stands behind the thing being shared for most of a session, so a card that stopped whenever nobody was looking would be dark at the moment a reader came back to check on it, and would pay a pool import and a reconnect to come back.
-The stop closes the end-to-end route's decode rather than merely clearing the tile, what it is worth being that route's reader slot.
+Off closes the end-to-end route's decode rather than merely clearing the tile, what it is worth being that route's reader slot.
 
-The placeholder stays for the states where there is no picture, each saying which one it is: stopped, a leg that refused the decode, nothing publishing, a route with nothing running behind it, and the tile's own three.
+The placeholder stays for the states where there is no picture, each saying which one it is: off, a leg that refused the decode, nothing publishing, a route with nothing running behind it, and the tile's own three.
 
-The card's own sentence is the selected route's, the two making opposite claims and one sentence for both being false under one of them.
+The card's own sentence is the selected segment's, the two routes making opposite claims and one sentence for both being false under one of them.
 A reader who took a perfect local preview for a healthy stream would be reading it exactly wrong, which is why the sentence is on the card and not in a comment (`Copy/Cards.cs`).
 
 **The rail carries the preset card, and it draws two different things under one heading.**

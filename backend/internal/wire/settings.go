@@ -88,8 +88,7 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 
 func ViewerSettings(v settings.Viewer) *screensharev1.ViewerSettings {
 	return &screensharev1.ViewerSettings{
-		PlayerWatchTransport: v.PlayerWatchTransport,
-		TileWatchTransport:   v.TileWatchTransport,
+		TileWatchTransport: v.TileWatchTransport,
 
 		RtspWatchProtocol:  v.RtspWatchProtocol,
 		SrtWatchLatencyMs:  int32(v.SrtWatchLatencyMs),
@@ -179,8 +178,7 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 
 func ToViewer(m *screensharev1.ViewerSettings) settings.Viewer {
 	return settings.Viewer{
-		PlayerWatchTransport: m.GetPlayerWatchTransport(),
-		TileWatchTransport:   m.GetTileWatchTransport(),
+		TileWatchTransport: m.GetTileWatchTransport(),
 
 		RtspWatchProtocol:  m.GetRtspWatchProtocol(),
 		SrtWatchLatencyMs:  int(m.GetSrtWatchLatencyMs()),

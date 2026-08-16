@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:fields="using:ScreenShare.App.Features.Fields.ViewModel"
              xmlns:vm="using:ScreenShare.App.Features.Setup.QualityStep.ViewModel"
              xmlns:ti="using:TablerIcons"
@@ -29,9 +30,9 @@
     </Style>
 
     <!--
-      The closed dropdown's two columns, and their disabled treatment, stated by the caller
-      rather than in the face's theme: a ControlTheme carries no descendant selector, so the
-      only rule that reaches this text is in the file that writes it.
+      Closed dropdown's two columns, and their disabled treatment, stated by the caller rather
+      than in the face's theme: a ControlTheme carries no descendant selector, so the only rule
+      reaching this text is in the file that writes it.
     -->
     <Style Selector="TextBlock.facevalue">
       <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}" />
@@ -74,42 +75,41 @@
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="fields:OptionViewModel">
             <!--
-              The refusal rides on the wrapper: a disabled control takes no pointer events, so
-              a tip on the card would open on every entry except the ones with something to
-              say.
+              A refused card states its reason under the title, so nothing opens over it
+              (docs/tooltips.md, "An availability note is a line").
             -->
-            <Border Background="Transparent" Margin="5,0,5,10" ToolTip.Tip="{Binding Refusal}">
-              <Button Theme="{StaticResource OptionCard}"
-                      Classes.picked="{Binding IsSelected}"
-                      IsEnabled="{Binding IsEnabled}"
-                      Command="{Binding Choose}">
-                <StackPanel>
-                  <!--
-                    A grid and not a horizontal stack: a stack measures its children against
-                    infinite width, so the title neither wraps nor trims and runs past the
-                    card's edge. The starred column is the width it wraps into.
-                  -->
-                  <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
-                    <Ellipse Grid.Column="0" Classes="radiodot" />
-                    <TextBlock Grid.Column="1"
-                               Classes="cardtitle"
-                               Text="{Binding Label}"
-                               Margin="7,0,0,0"
-                               TextWrapping="Wrap"
-                               TextTrimming="None"
-                               VerticalAlignment="Center" />
-                  </Grid>
-                  <!-- The gap rides on the refusal, so a card carrying only the description carries none. -->
-                  <TextBlock Classes="cardbody"
-                             Margin="0,0,0,6"
-                             IsVisible="{Binding HasReason}"
-                             Text="{Binding Reason}" />
-                  <TextBlock Classes="cardbody"
-                             IsVisible="{Binding HasDetail}"
-                             Text="{Binding Detail}" />
-                </StackPanel>
-              </Button>
-            </Border>
+            <Button Theme="{StaticResource OptionCard}"
+                    Classes.picked="{Binding IsSelected}"
+                    Margin="5,0,5,10"
+                    IsEnabled="{Binding IsEnabled}"
+                    Command="{Binding Choose}">
+              <StackPanel>
+                <!--
+                  A grid and not a horizontal stack: a stack measures its children against
+                  infinite width, so the title neither wraps nor trims and runs past the
+                  card's edge.
+                  The starred column is the width it wraps into.
+                -->
+                <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,5">
+                  <Ellipse Grid.Column="0" Classes="radiodot" />
+                  <TextBlock Grid.Column="1"
+                             Classes="cardtitle"
+                             Text="{Binding Label}"
+                             Margin="7,0,0,0"
+                             TextWrapping="Wrap"
+                             TextTrimming="None"
+                             VerticalAlignment="Center" />
+                </Grid>
+                <!-- Gap rides on the refusal, so a card carrying only the description carries none. -->
+                <TextBlock Classes="reason"
+                           Margin="0,0,0,6"
+                           IsVisible="{Binding HasReason}"
+                           Text="{Binding Reason}" />
+                <TextBlock Classes="cardbody"
+                           IsVisible="{Binding HasDetail}"
+                           Text="{Binding Detail}" />
+              </StackPanel>
+            </Button>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
@@ -153,13 +153,24 @@
             <Grid ColumnDefinitions="35*,12*,16*,37*">
               <Border Grid.Column="0" Background="{StaticResource ChipBorderBrush}" />
               <Border Grid.Column="1" Background="{StaticResource ForegroundBrush}" />
-              <Border Grid.Column="3" Background="{StaticResource AttentionBrush}" Opacity="0.25" />
+              <Border Grid.Column="3" Background="{StaticResource CautionBrush}" Opacity="0.25" />
             </Grid>
           </Border>
 
-          <Slider Theme="{StaticResource QuantizerSliderTheme}"
+          <!--
+            A quantizer is a whole number of the codec's own scale, so the thumb stops on one and
+            never between two (Features/Fields/View/FieldGroupView.axaml, which snaps every other
+            slider the same way).
+          -->
+          <controls:SweepSlider Theme="{StaticResource QuantizerSliderTheme}"
                   Minimum="{Binding Quantizer.Minimum}"
                   Maximum="{Binding Quantizer.Maximum}"
+                  Ticks="{Binding Quantizer.Ticks}"
+                  TickFrequency="{Binding Quantizer.Step}"
+                  IsSnapToTickEnabled="True"
+                  SmallChange="{Binding Quantizer.Step}"
+                  LargeChange="{Binding Quantizer.PageStep}"
+                  Sweeping="{Binding Quantizer.IsSweeping}"
                   Value="{Binding Quantizer.Slide, Mode=TwoWay}" />
         </Panel>
 
@@ -171,12 +182,10 @@
         <Grid ColumnDefinitions="35*,12*,16*,37*" Margin="0,6,0,0">
           <TextBlock Grid.Column="0" Classes="figure" Foreground="{StaticResource HintBrush}" Text="{Binding QuantizerFloorLabel}" />
           <TextBlock Grid.Column="1" Grid.ColumnSpan="2" Classes="figure" Foreground="{StaticResource ForegroundBrush}" Text="{Binding QuantizerBandLabel}" />
-          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource AttentionBrush}" Text="{Binding QuantizerCeilingLabel}" />
+          <TextBlock Grid.Column="3" HorizontalAlignment="Right" Classes="figure" Foreground="{StaticResource CautionBrush}" Text="{Binding QuantizerCeilingLabel}" />
         </Grid>
 
-        <TextBlock Classes="hint"
-                   TextWrapping="Wrap"
-                   TextTrimming="None"
+        <TextBlock Classes="reason"
                    Margin="0,6,0,0"
                    IsVisible="{Binding Quantizer.HasReason}"
                    Text="{Binding Quantizer.Reason}" />
@@ -234,9 +243,7 @@
                 </Button.Flyout>
               </Button>
 
-              <TextBlock Classes="hint"
-                         TextWrapping="Wrap"
-                         TextTrimming="None"
+              <TextBlock Classes="reason"
                          Margin="0,6,0,0"
                          IsVisible="{Binding HasReason}"
                          Text="{Binding Reason}" />

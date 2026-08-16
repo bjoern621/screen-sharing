@@ -6,7 +6,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The audio source list, as the shell writes into it.
+/// Audio source list, as the shell writes into it.
 ///
 /// A field key addresses the settings message, and a list entry makes that address three steps rather than
 /// two: the group, the entry of a repeated field, the field inside it.
@@ -24,7 +24,7 @@ public sealed class AudioListTests
     {
         var draft = Draft();
         draft.Publish.AudioSources.Add(new AudioSource { Source = "desktop", Gain = 100 });
-        draft.Publish.AudioSources.Add(new AudioSource { Source = "mic", Gain = 100 });
+        draft.Publish.AudioSources.Add(new AudioSource { Source = "application", Gain = 100 });
 
         SettingsDraft.Write(draft, "publish.audio_sources[1].gain", new FieldValue { Number = 150 });
 
@@ -77,14 +77,14 @@ public sealed class AudioListTests
     public void AnEntryReadsBackWhatWasWrittenToIt()
     {
         var draft = Draft();
-        SettingsDraft.Write(draft, "publish.audio_sources[0].source", new FieldValue { Text = "mic" });
+        SettingsDraft.Write(draft, "publish.audio_sources[0].source", new FieldValue { Text = "application" });
         SettingsDraft.Write(draft, "publish.audio_sources[0].mute", new FieldValue { Flag = true });
 
-        Assert.Equal("mic", SettingsDraft.Read(draft, "publish.audio_sources[0].source").Text);
+        Assert.Equal("application", SettingsDraft.Read(draft, "publish.audio_sources[0].source").Text);
         Assert.True(SettingsDraft.Read(draft, "publish.audio_sources[0].mute").Flag);
     }
 
-    /// <summary>Copy is written per control, since the third microphone's level means what the first one's does.</summary>
+    /// <summary>Copy is written per control, since the third source's level means what the first one's does.</summary>
     [Fact]
     public void EveryEntryOfAListSharesTheControlsCopy()
     {

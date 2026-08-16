@@ -37,7 +37,7 @@ public sealed class PendingCommand : Observable, ICommand
     /// </summary>
     public event Action? Changed;
 
-    /// <param name="run">The effect. Owns its failures, and answers once the call is over.</param>
+    /// <param name="run">Effect. Owns its failures, and answers once the call is over.</param>
     /// <param name="dispatch">
     /// Hands the completion to the UI loop.
     /// Injected rather than reached for, so no toolkit is bound in here and a test passes a synchronous

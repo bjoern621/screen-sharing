@@ -77,8 +77,8 @@
   </Window.DataTemplates>
 
   <!--
-    Auto rows because each band states its own height, and a band that is not drawn takes none, which is what
-    gives a filled window to the body. The bands whose prose wraps state a minimum rather than a fixed height.
+    Auto rows, each band stating its own height and a band that is not drawn taking none, which gives a filled
+    window to the body. The bands whose prose wraps state a minimum rather than a fixed height.
 
     Each band's visibility is bound to a fact the shell owns rather than written by whoever moved it: a picture
     filling the window under a strip is the app filling the screen instead of the stream

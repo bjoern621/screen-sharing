@@ -53,8 +53,11 @@ func (a *App) measureEncodeRate(ctx context.Context, s settings.Settings) (encod
 	return encoderate.Measure(ctx, s, width, height)
 }
 
+// Monitors is the outputs a shell offers as capture sources.
+// The bounded read rather than the live one: both callers are shell reads, and the form behind them
+// resolves on every keystroke (display.Recent).
 func (a *App) Monitors() []display.Monitor {
-	return display.List()
+	return display.Recent()
 }
 
 // Platform is what a capture backend's availability is decided against: the OS, and on Linux the

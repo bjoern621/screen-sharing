@@ -16,28 +16,27 @@ using ScreenShare.App.Mvvm;
 namespace ScreenShare.App.Features.Broadcast.ViewModel;
 
 /// <summary>
-/// The broadcast screen: the live overview, and read-only about everything else.
+/// Broadcast screen: the live overview, and read-only about everything else.
 ///
 /// Reachable whether or not a stream is running.
 /// The session log outlives the stream it records, and why the last pipeline exited is what a publisher goes
-/// looking for once it has, so every card here states its idle reading rather than being kept off screen
-/// until there is a stream to describe.
+/// looking for once it has, so every card here states its idle reading rather than being kept off screen until
+/// there is a stream to describe.
 ///
-/// A control appears in exactly one window, so this owns only actions that are safe while a stream runs and
-/// hands configuration to a card that shows it and cannot write it.
+/// A control appears in exactly one window, so this owns only actions safe while a stream runs and hands
+/// configuration to a card that shows it and cannot write it.
 /// The one way out is <see cref="BroadcastAction.EditInSetup"/>, which navigates rather than editing here.
 ///
-/// It holds no reading of its own.
-/// <see cref="Backend.Session"/> owns the running state and this reads it through on every pass, so a card
-/// cannot go on describing a stream that has stopped
-/// (<c>docs/development-principles.md</c>, "State has one owner").
-/// <see cref="Apply"/> is the one render function and pushes one composed reading into every card, so two
-/// cards cannot disagree about the stream they describe.
+/// Holds no reading of its own.
+/// <see cref="Backend.Session"/> owns the running state and this reads it through on every pass, so a card cannot
+/// go on describing a stream that has stopped (<c>docs/development-principles.md</c>, "State has one owner").
+/// <see cref="Apply"/> is the one render function and pushes one composed reading into every card, so two cards
+/// cannot disagree about the stream they describe.
 ///
 /// Pause, force keyframe and reconnect name effects the control contract does not carry
 /// (<c>docs/ipc-api.md</c>, "The rule").
-/// They are drawn disabled and carrying why, the treatment the settings form gives a blocked concept:
-/// removing them would hide that the capability is missing.
+/// They are drawn disabled and carrying why, the treatment the settings form gives a blocked concept: removing
+/// them would hide that the capability is missing.
 ///
 /// Stop is the one that is real, and pressing it writes nothing here: the reply carries no state and what the
 /// stream became arrives on the event stream.
@@ -58,15 +57,22 @@ public sealed class BroadcastViewModel : Observable
     private readonly Action<Action> _dispatch;
 
     /// <summary>
+    /// What each figure last measured, for the passes where nothing did.
+    /// Filled into the reading before it is handed out, so the cards and the header hold one figure rather than
+    /// one holding and another blinking.
+    /// </summary>
+    private readonly HeldFigures _held = new();
+
+    /// <summary>
     /// Where a refusal the backend answered with is shown.
     /// Set from outside, so a screen built with no shell around it still renders and still presses buttons.
     /// </summary>
     private Action<string> _report = static _ => { };
 
     /// <summary>
-    /// The settings the config card was last resolved against.
-    /// A pipeline emits a sample a second and its settings do not move while it runs, so an unchanged pipeline
-    /// is not re-resolved per event.
+    /// Settings the config card was last resolved against.
+    /// A pipeline emits a sample a second and its settings do not move while it runs, so an unchanged pipeline is
+    /// not re-resolved per event.
     /// </summary>
     private Settings? _described;
 
@@ -80,9 +86,9 @@ public sealed class BroadcastViewModel : Observable
     public event Action<BroadcastAction>? ActionRequested;
 
     /// <param name="form">
-    /// The settings the backend is holding, handed to the preview and read nowhere else on this screen: its
+    /// Settings the backend is holding, handed to the preview and read nowhere else on this screen: its
     /// end-to-end route needs the leg a viewer receives on.
-    /// A different thing from <see cref="_form"/>, which is what the running pipeline's settings resolved to.
+    /// A different thing from <see cref="_form"/>, what the running pipeline's settings resolved to.
     /// </param>
     /// <param name="dispatch">
     /// Hands work to the UI loop.
@@ -103,8 +109,8 @@ public sealed class BroadcastViewModel : Observable
         Stats = new HeaderStatsViewModel();
 
         // The one card here that asks the backend for anything.
-        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the seam,
-        // the running state and the leg a viewer receives on rather than the composed reading alone.
+        // Its end-to-end route receives this machine's own stream back off the relay, so it takes the seam, the
+        // running state and the leg a viewer receives on rather than the composed reading alone.
         Preview = new PreviewViewModel(backend, form, session, dispatch);
         Nudge = new NudgeViewModel();
         Config = new ConfigCardViewModel();
@@ -112,8 +118,8 @@ public sealed class BroadcastViewModel : Observable
         Plots = new PlotsViewModel();
         Log = new SessionLogViewModel(OpenLogAsync, dispatch);
 
-        // Constructed unpressable rather than disabled by a later pass,
-        // so no instant exists in which one of the three works.
+        // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one of the
+        // three works.
         PauseCommand = new DelegateCommand(() => Request(BroadcastAction.Pause), static () => false);
         ForceKeyframeCommand = new DelegateCommand(() => Request(BroadcastAction.ForceKeyframe), static () => false);
         ReconnectCommand = new DelegateCommand(() => Request(BroadcastAction.Reconnect), static () => false);
@@ -167,20 +173,19 @@ public sealed class BroadcastViewModel : Observable
 
     public DelegateCommand ReconnectCommand { get; }
 
-    /// <summary>The one control on this screen that ends the stream.</summary>
+    /// <summary>The one control on this screen ending the stream.</summary>
     public PendingCommand StopCommand { get; }
 
     /// <summary>
-    /// The reading every card on this screen describes, composed from the session's whole states on each pass.
-    /// An output rather than an input: the backend is the only thing that knows it, so nothing writes it from
-    /// outside.
+    /// Reading every card on this screen describes, composed from the session's whole states on each pass.
+    /// An output rather than an input: the backend alone knows it, so nothing writes it from outside.
     /// </summary>
     public BroadcastSnapshot Snapshot { get => _snapshot; private set => Set(ref _snapshot, value); }
 
-    /// <summary>The sentence the inert actions' tooltip carries.</summary>
+    /// <summary>Sentence the inert actions' tooltip carries.</summary>
     public string UnbackedActions => UnbackedReason;
 
-    /// <summary>The backend's own sentence for something this screen asked and was refused, empty otherwise.</summary>
+    /// <summary>Backend's own sentence for something this screen asked and was refused, empty otherwise.</summary>
     public string Refusal { get => _refusal; private set => Set(ref _refusal, value); }
 
     public bool HasRefusal { get => _hasRefusal; private set => Set(ref _hasRefusal, value); }
@@ -193,19 +198,18 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// The one render function.
-    /// Composes the reading from the session, pushes it into every card that reads one, renders the cards that
-    /// do not, and re-asks each action whether it is available.
-    ///
+    /// Composes the reading from the session, pushes it into every card that reads one, renders the cards that do
+    /// not, and re-asks each action whether it is available.
     /// Safe to run twice: the resolve it reconciles is skipped while the running pipeline's settings have not
     /// moved, and a card whose input did not change does not re-render.
     /// </summary>
     public void Apply()
     {
-        var reading = BroadcastSnapshot.Of(_session.Publish, _session.Stats, _session.Relay);
+        var reading = _held.Fill(BroadcastSnapshot.Of(_session.Publish, _session.Stats, _session.Relay));
         Snapshot = reading;
 
-        // Reconciled from the render pass rather than performed by it: the pass states what it wants
-        // described, and the converge decides whether anything has to be asked.
+        // Reconciled from the render pass rather than performed by it: the pass states what it wants described,
+        // and the converge decides whether anything has to be asked.
         Describe();
 
         Stats.Snapshot = reading;
@@ -226,9 +230,8 @@ public sealed class BroadcastViewModel : Observable
         Viewers.Apply();
         Log.Apply();
 
-        // Rendered as well as told its reading, unlike the cards above: the preview also reads what is
-        // decoding, which the composed reading does not carry, so a pass where only that moved would write
-        // nothing into it.
+        // Rendered as well as told its reading, unlike the cards above: the preview also reads what is decoding,
+        // which the composed reading does not carry, so a pass where only that moved would write nothing into it.
         Preview.Apply();
 
         HasRefusal = Refusal.Length > 0;
@@ -259,9 +262,9 @@ public sealed class BroadcastViewModel : Observable
     /// </summary>
     private void Describe()
     {
-        // The live state carries the two groups the running pipeline was built from, and a resolve takes all
-        // three, so the resolve fills the viewer group from the defaults.
-        // That is why Rows leaves that group out: how this machine watches is no part of what it publishes.
+        // The live state carries the two groups the running pipeline was built from, and a resolve takes all three,
+        // so the resolve fills the viewer group from the defaults.
+        // Hence Rows leaving that group out: how this machine watches is no part of what it publishes.
         var live = _session.Publish?.Live;
         var settings = live is null ? null : new Settings { Publish = live.Publish, Relay = live.Relay };
 
@@ -316,17 +319,16 @@ public sealed class BroadcastViewModel : Observable
     }
 
     /// <summary>
-    /// The configuration rows: one per group of the resolved form, read back rather than edited.
-    /// The grouping and the values are the form's, the heading and the shorthand composed here out of the
-    /// draft the form carried.
+    /// Configuration rows: one per group of the resolved form, read back rather than edited.
+    /// The grouping and the values are the form's, the heading and the shorthand composed here out of the draft
+    /// the form carried.
     ///
-    /// A group with no shorthand is left out rather than drawn empty, the relay ports settling on numbers that
-    /// say nothing without their labels.
+    /// A group with no shorthand is left out rather than drawn empty, the relay ports settling on numbers that say
+    /// nothing without their labels.
     ///
     /// So is the group about receiving.
-    /// The live state does not carry it and the resolve fills it from the defaults, so the row would be a
-    /// figure about the machine under a heading about the stream
-    /// (<c>Features/Fields/Model/GroupPlacement.cs</c>).
+    /// The live state does not carry it and the resolve fills it from the defaults, so the row would be a figure
+    /// about the machine under a heading about the stream (<c>Features/Fields/Model/GroupPlacement.cs</c>).
     /// </summary>
     private static IReadOnlyList<ConfigRow> Rows(Form? form, Vocabulary words)
     {
@@ -343,7 +345,7 @@ public sealed class BroadcastViewModel : Observable
                 continue;
             }
 
-            var summary = words.Shorthand(group.Key, form.Settings);
+            var summary = words.Shorthand(group, form.Settings);
             if (summary.Length > 0)
             {
                 rows.Add(new ConfigRow(Copy.Fields.Group(group.Key).Title, summary));
@@ -354,12 +356,11 @@ public sealed class BroadcastViewModel : Observable
     }
 
     /// <summary>
-    /// The viewer rows: one per reader the relay named on this stream's path, in the relay's own order.
-    /// Nothing is sorted or ranked here: a table that promoted the struggling viewer would move, every pass,
-    /// the row a reader had learned the position of.
-    ///
-    /// No path in the snapshot, an unreachable relay and nothing publishing all come out as no rows, and the
-    /// count beside this says which.
+    /// Viewer rows: one per reader the relay named on this stream's path, in the relay's own order.
+    /// Nothing is sorted or ranked here: a table that promoted the struggling viewer would move, every pass, the
+    /// row a reader had learned the position of.
+    /// No path in the snapshot, an unreachable relay and nothing publishing all come out as no rows, and the count
+    /// beside this says which.
     /// </summary>
     private static IReadOnlyList<ViewerRow> Watching(RelayStatus? relay, string stream)
     {
@@ -379,10 +380,9 @@ public sealed class BroadcastViewModel : Observable
     }
 
     /// <summary>
-    /// The log lines, newest first: what the event stream reported ended, and who started or stopped watching.
-    /// Interleaved by time rather than split into two lists, the useful reading of a pipeline that died being
-    /// the viewers that left in the same second.
-    ///
+    /// Log lines, newest first: what the event stream reported ended, and who started or stopped watching.
+    /// Interleaved by time rather than split into two lists, the useful reading of a pipeline that died being the
+    /// viewers that left in the same second.
     /// Ordered here rather than in the session, which holds both as they happened while the card reads them as
     /// news.
     /// </summary>
@@ -408,9 +408,8 @@ public sealed class BroadcastViewModel : Observable
     /// <summary>
     /// Opens the run log of the newest thing that ended, or the folder holding them where nothing has.
     /// Both are the backend's, the files being on its machine, which is also why the card waits on the call.
-    ///
-    /// Nothing is written on the way out of either effect: the reply carries no state and what the stream
-    /// became arrives on the event stream, so every window learns it the same way.
+    /// Nothing is written on the way out of either effect: the reply carries no state and what the stream became
+    /// arrives on the event stream, so every window learns it the same way.
     /// </summary>
     private Task OpenLogAsync()
     {
@@ -432,8 +431,8 @@ public sealed class BroadcastViewModel : Observable
 
     /// <summary>
     /// Asks the backend for one effect and shows its refusal where there is one.
-    /// A refusal is an environment condition carrying prose written for a person, so it is shown as it stands
-    /// rather than mapped to a sentence of this screen's (<c>docs/ipc-api.md</c>, "Errors").
+    /// A refusal is an environment condition carrying prose written for a person, shown as it stands rather than
+    /// mapped to a sentence of this screen's (<c>docs/ipc-api.md</c>, "Errors").
     /// A success clears what the last one left, the render function's off branch applied to a string.
     /// </summary>
     private async Task PerformAsync(Func<CancellationToken, Task> effect)

@@ -10,8 +10,8 @@ namespace ScreenShare.App.Backend;
 ///
 /// The whole of what this shell knows about <see cref="Settings"/>: a <c>Field.key</c> names a group of that
 /// message and a field in that group, and a <c>FieldValue</c> fits that field.
-/// A write goes through the message descriptors rather than a switch over field names, so a field added to
-/// the contract is a control that appears and works with nothing here to edit (docs/ipc-api.md, "The rule").
+/// A write goes through the message descriptors rather than a switch over field names, so a field added to the
+/// contract is a control that appears and works with nothing here to edit (docs/ipc-api.md, "The rule").
 /// </summary>
 public static class SettingsDraft
 {
@@ -20,9 +20,8 @@ public static class SettingsDraft
 
     /// <summary>
     /// Settings group a preset is (<c>docs/presets.md</c>), and the one group this shell has reason to name.
-    ///
-    /// Read off the descriptor rather than typed out, so it stays one fact with the property a whole-group
-    /// write assigns (<see cref="FormSession.WritePublish"/>).
+    /// Read off the descriptor rather than typed out, so it stays one fact with the property a whole-group write
+    /// assigns (<see cref="FormSession.WritePublish"/>).
     /// A hand-written spelling is a second name for one field, free to disagree with the keys the form sends.
     /// </summary>
     public static readonly string PublishGroup =
@@ -39,8 +38,8 @@ public static class SettingsDraft
 
     /// <summary>
     /// Reads one field of a settings draft, addressed by the key the form sent.
-    /// Inverse of <see cref="Write"/>, and here for the same reason: a key resolves to a message in one
-    /// place rather than at every caller wanting a value out of a draft.
+    /// Inverse of <see cref="Write"/>, here for the same reason: a key resolves to a message in one place rather
+    /// than at every caller wanting a value out of a draft.
     /// </summary>
     public static FieldValue Read(Settings draft, string key)
     {
@@ -61,9 +60,8 @@ public static class SettingsDraft
 
     /// <summary>
     /// Group message a key addresses, and the field in it.
-    ///
-    /// A group the draft arrived without is created rather than refused: the draft is the shell's own, so a
-    /// group it has not been given yet is one nothing has written to.
+    /// A group the draft arrived without is created rather than refused: the draft is the shell's own, so a group
+    /// it has not been given yet is one nothing has written to.
     /// A key naming no group, or no field in one, is the two ends disagreeing about the message.
     /// </summary>
     private static (IMessage Group, FieldDescriptor Field) Resolve(Settings draft, string key)
@@ -94,17 +92,13 @@ public static class SettingsDraft
         return (group, descriptor);
     }
 
-    /// <summary>
-    /// Brackets around a repeated field's index: <c>publish.audio_sources[2].gain</c> is the third entry's
-    /// gain.
-    /// </summary>
+    /// <summary>Brackets around a repeated field's index: <c>publish.audio_sources[2].gain</c>.</summary>
     private const char IndexOpen = '[';
 
     private const char IndexClose = ']';
 
     /// <summary>
     /// Entry of a repeated field a key addresses, and the field inside that entry.
-    ///
     /// A missing entry is appended, up to the one past the end and no further: that entry is the row the form
     /// draws to grow the list by, and a write past it leaves a hole nothing chose.
     /// The address is the form's, walked here exactly as a plain field's is.
@@ -142,8 +136,8 @@ public static class SettingsDraft
 
     /// <summary>
     /// Value in the type the settings field holds.
-    /// A mismatch is a broken contract rather than a condition to survive: the backend chose the control kind
-    /// off the field's own type, so a number for a string field means the two ends disagree about the message.
+    /// A mismatch is a broken contract rather than a condition to survive: the backend chose the control kind off
+    /// the field's own type, so a number for a string field means the two ends disagree about the message.
     /// </summary>
     private static object Fitted(FieldDescriptor descriptor, FieldValue value, string key) => descriptor.FieldType switch
     {

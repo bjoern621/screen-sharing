@@ -8,7 +8,7 @@
     The themes are keyed on the types, so a menu wears the design by existing,
     and a view that has to opt in is a view that can forget to.
     Rows read the pseudo-classes MenuItem raises (:icon, :checked, :open) and not bindings against the item,
-    which is what lets these themes keep compiled bindings on.
+    which lets these themes keep compiled bindings on.
     The option list is the one menu whose rows bind against an item type, and its two setters stay
     where that type is known (Controls/Select/Select.axaml).
   -->
@@ -160,7 +160,7 @@
     <!--
       One fill for the pointer and for the keyboard,
       so a row under the pointer and a row the arrows reached look alike.
-      A row holding its submenu open keeps that fill, which is what says where the submenu came from.
+      A row holding its submenu open keeps that fill, which says where the submenu came from.
     -->
     <Style Selector="^:pointerover /template/ Border#Root">
       <Setter Property="Background" Value="{StaticResource ControlBrush}" />

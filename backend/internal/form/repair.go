@@ -253,7 +253,11 @@ func repairCeilings(d Deps, m *screensharev1.Settings) []string {
 	}
 	// A burst ceiling under its own target is not a ceiling.
 	// The ceiling rises rather than the target dropping: the target is the figure the user chose.
-	if s.Publish.MaxrateM > 0 && s.Publish.MaxrateM < s.Publish.BitrateM {
+	//
+	// Constant quality has no target for it to sit above, so the pair cannot disagree there and the
+	// bitrate is a figure from another mode: raising a 10 Mbit/s ceiling to a 40 Mbit/s target would
+	// hand a quality encode four times the rate it was bounded to.
+	if s.Publish.Mode != capabilities.ModeCrf && s.Publish.MaxrateM > 0 && s.Publish.MaxrateM < s.Publish.BitrateM {
 		s.Publish.MaxrateM = s.Publish.BitrateM
 		if !slices.Contains(moved, KeyMaxrateM) {
 			moved = append(moved, KeyMaxrateM)

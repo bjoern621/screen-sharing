@@ -6,8 +6,8 @@
              x:DataType="vm:ReviewStepViewModel">
 
   <!--
-    The commit, at the foot of the rail on the terminal step, where the Back and Continue buttons of every
-    other step sit (Setup/View/SetupView.axaml).
+    The commit, at the foot of the rail on the terminal step, where every other step's Back and Continue sit
+    (Setup/View/SetupView.axaml).
   -->
 
   <Border Classes="card" Padding="{StaticResource InsetPanel}">
@@ -31,9 +31,9 @@
       </TextBlock>
 
       <!--
-        Why the button is locked, which only ever names the backend or the relay. A settings problem is in the
-        checks card above in the backend's own words, and a stream already on the air changes what the commit
-        does rather than whether it can be done.
+        Why the button is locked, naming only the backend or the relay.
+        A settings problem is in the checks card above in the backend's own words, and a stream already on the
+        air changes what the commit does rather than whether it can be done.
       -->
       <SelectableTextBlock Classes="hint danger"
                            TextWrapping="Wrap"
@@ -55,11 +55,11 @@
         <Button Grid.Column="0" Theme="{StaticResource FooterButton}" Content="Back" Command="{Binding BackCommand}" />
 
         <!--
-          The dot takes the button's own Foreground, which is what the disabled treatment moves: content
-          naming a brush of its own would stay bright on a locked button.
+          The dot takes the button's own Foreground, which the disabled treatment moves: content naming a brush
+          of its own would stay bright on a locked button.
         -->
         <Button Grid.Column="1"
-                Theme="{StaticResource DangerButton}"
+                Theme="{StaticResource GoButton}"
                 Height="{StaticResource FooterButtonHeight}"
                 Margin="8,0,0,0"
                 Command="{Binding StartSharingCommand}"

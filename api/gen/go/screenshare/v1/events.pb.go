@@ -885,6 +885,12 @@ type ReceiveStreamStats struct {
 	Frames   uint64 `protobuf:"varint,33,opt,name=frames,proto3" json:"frames,omitempty"`
 	Rendered uint64 `protobuf:"varint,34,opt,name=rendered,proto3" json:"rendered,omitempty"`
 	Dropped  uint64 `protobuf:"varint,35,opt,name=dropped,proto3" json:"dropped,omitempty"`
+	// Frames per second the decoder took in and never handed on, which is the shedding that
+	// holds a live stream on the clock when the chain is short of the rate it is sent.
+	// A rate and no running total: a decoder holds a constant few frames at any moment, and
+	// that depth cancels between two readings where it would stand as a permanent count.
+	// Absent on the first sample of a run, as every other rate here is.
+	DiscardedFps *float64 `protobuf:"fixed64,51,opt,name=discarded_fps,json=discardedFps,proto3,oneof" json:"discarded_fps,omitempty"`
 	// Measured off the sink across the last interval.
 	RenderFps *float64 `protobuf:"fixed64,36,opt,name=render_fps,json=renderFps,proto3,oneof" json:"render_fps,omitempty"`
 	// The pipeline calls itself live, as every relay leg is.
@@ -1197,6 +1203,13 @@ func (x *ReceiveStreamStats) GetDropped() uint64 {
 	return 0
 }
 
+func (x *ReceiveStreamStats) GetDiscardedFps() float64 {
+	if x != nil && x.DiscardedFps != nil {
+		return *x.DiscardedFps
+	}
+	return 0
+}
+
 func (x *ReceiveStreamStats) GetRenderFps() float64 {
 	if x != nil && x.RenderFps != nil {
 		return *x.RenderFps
@@ -1337,6 +1350,12 @@ type DelayBudget struct {
 	// The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
 	// and the queues between them, measured.
 	ReceiveMs *float64 `protobuf:"fixed64,4,opt,name=receive_ms,json=receiveMs,proto3,oneof" json:"receive_ms,omitempty"`
+	// The worst that same stage has cost any one frame since this decode started, which never
+	// comes down.
+	// receive_ms is a mean over the interval between two samples and holds steady while single
+	// frames run long, so the worst single frame is the reading that says whether a decode has
+	// ever been short of the rate it is sent, rather than short on average.
+	ReceivePeakMs *float64 `protobuf:"fixed64,7,opt,name=receive_peak_ms,json=receivePeakMs,proto3,oneof" json:"receive_peak_ms,omitempty"`
 	// What the sink still holds a frame for after it arrives, so that it is drawn at the
 	// moment the pipeline's latency window puts it.
 	// Work and wait together are that window, which is why a receive_ms rising to meet it is
@@ -1405,6 +1424,13 @@ func (x *DelayBudget) GetWatchLinkMs() float64 {
 func (x *DelayBudget) GetReceiveMs() float64 {
 	if x != nil && x.ReceiveMs != nil {
 		return *x.ReceiveMs
+	}
+	return 0
+}
+
+func (x *DelayBudget) GetReceivePeakMs() float64 {
+	if x != nil && x.ReceivePeakMs != nil {
+		return *x.ReceivePeakMs
 	}
 	return 0
 }
@@ -1954,7 +1980,7 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\x10ReceiveStatGroup\x12\x18\n" +
 	"\afactory\x18\x01 \x01(\tR\afactory\x12\x18\n" +
 	"\aelement\x18\x02 \x01(\tR\aelement\x128\n" +
-	"\x06values\x18\x03 \x03(\v2 .screenshare.v1.ReceiveStatValueR\x06values\"\xca\x0e\n" +
+	"\x06values\x18\x03 \x03(\v2 .screenshare.v1.ReceiveStatValueR\x06values\"\x86\x0f\n" +
 	"\x12ReceiveStreamStats\x120\n" +
 	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12+\n" +
 	"\x11codec_description\x18\x02 \x01(\tR\x10codecDescription\x12\x18\n" +
@@ -1994,13 +2020,14 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\rrender_height\x18  \x01(\x05R\frenderHeight\x12\x16\n" +
 	"\x06frames\x18! \x01(\x04R\x06frames\x12\x1a\n" +
 	"\brendered\x18\" \x01(\x04R\brendered\x12\x18\n" +
-	"\adropped\x18# \x01(\x04R\adropped\x12\"\n" +
+	"\adropped\x18# \x01(\x04R\adropped\x12(\n" +
+	"\rdiscarded_fps\x183 \x01(\x01H\x03R\fdiscardedFps\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"render_fps\x18$ \x01(\x01H\x03R\trenderFps\x88\x01\x01\x12\x12\n" +
+	"render_fps\x18$ \x01(\x01H\x04R\trenderFps\x88\x01\x01\x12\x12\n" +
 	"\x04live\x18% \x01(\bR\x04live\x12)\n" +
-	"\x0elatency_min_ms\x18& \x01(\x01H\x04R\flatencyMinMs\x88\x01\x01\x12)\n" +
-	"\x0elatency_max_ms\x18' \x01(\x01H\x05R\flatencyMaxMs\x88\x01\x01\x12&\n" +
-	"\fposition_sec\x18( \x01(\x01H\x06R\vpositionSec\x88\x01\x01\x12\x1d\n" +
+	"\x0elatency_min_ms\x18& \x01(\x01H\x05R\flatencyMinMs\x88\x01\x01\x12)\n" +
+	"\x0elatency_max_ms\x18' \x01(\x01H\x06R\flatencyMaxMs\x88\x01\x01\x12&\n" +
+	"\fposition_sec\x18( \x01(\x01H\aR\vpositionSec\x88\x01\x01\x12\x1d\n" +
 	"\n" +
 	"uptime_sec\x18) \x01(\x01R\tuptimeSec\x126\n" +
 	"\x17audio_codec_description\x18* \x01(\tR\x15audioCodecDescription\x12#\n" +
@@ -2012,32 +2039,35 @@ const file_screenshare_v1_events_proto_rawDesc = "" +
 	"\vaudio_bytes\x18/ \x01(\x04R\n" +
 	"audioBytes\x12\"\n" +
 	"\n" +
-	"audio_kbps\x180 \x01(\x01H\aR\taudioKbps\x88\x01\x01\x128\n" +
+	"audio_kbps\x180 \x01(\x01H\bR\taudioKbps\x88\x01\x01\x128\n" +
 	"\x06groups\x181 \x03(\v2 .screenshare.v1.ReceiveStatGroupR\x06groups\x121\n" +
 	"\x05delay\x182 \x01(\v2\x1b.screenshare.v1.DelayBudgetR\x05delayB\x15\n" +
 	"\x13_since_keyframe_secB\r\n" +
 	"\v_video_mbpsB\f\n" +
 	"\n" +
-	"_video_fpsB\r\n" +
+	"_video_fpsB\x10\n" +
+	"\x0e_discarded_fpsB\r\n" +
 	"\v_render_fpsB\x11\n" +
 	"\x0f_latency_min_msB\x11\n" +
 	"\x0f_latency_max_msB\x0f\n" +
 	"\r_position_secB\r\n" +
-	"\v_audio_kbps\"\xcf\x02\n" +
+	"\v_audio_kbps\"\x90\x03\n" +
 	"\vDelayBudget\x12\"\n" +
 	"\n" +
 	"publish_ms\x18\x01 \x01(\x01H\x00R\tpublishMs\x88\x01\x01\x12+\n" +
 	"\x0fpublish_link_ms\x18\x02 \x01(\x01H\x01R\rpublishLinkMs\x88\x01\x01\x12'\n" +
 	"\rwatch_link_ms\x18\x03 \x01(\x01H\x02R\vwatchLinkMs\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"receive_ms\x18\x04 \x01(\x01H\x03R\treceiveMs\x88\x01\x01\x12\"\n" +
+	"receive_ms\x18\x04 \x01(\x01H\x03R\treceiveMs\x88\x01\x01\x12+\n" +
+	"\x0freceive_peak_ms\x18\a \x01(\x01H\x04R\rreceivePeakMs\x88\x01\x01\x12\"\n" +
 	"\n" +
-	"present_ms\x18\x05 \x01(\x01H\x04R\tpresentMs\x88\x01\x01\x12\x1e\n" +
-	"\btotal_ms\x18\x06 \x01(\x01H\x05R\atotalMs\x88\x01\x01B\r\n" +
+	"present_ms\x18\x05 \x01(\x01H\x05R\tpresentMs\x88\x01\x01\x12\x1e\n" +
+	"\btotal_ms\x18\x06 \x01(\x01H\x06R\atotalMs\x88\x01\x01B\r\n" +
 	"\v_publish_msB\x12\n" +
 	"\x10_publish_link_msB\x10\n" +
 	"\x0e_watch_link_msB\r\n" +
-	"\v_receive_msB\r\n" +
+	"\v_receive_msB\x12\n" +
+	"\x10_receive_peak_msB\r\n" +
 	"\v_present_msB\v\n" +
 	"\t_total_ms\"L\n" +
 	"\fReceiveStats\x12<\n" +

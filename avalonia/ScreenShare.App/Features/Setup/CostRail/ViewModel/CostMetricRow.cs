@@ -8,9 +8,6 @@ public sealed record CostMetricRow
 {
     public required string Label { get; init; }
 
-    /// <summary>
-    /// Formatted, unit included: "1619 Mb/s".
-    /// A prediction, never a measurement.
-    /// </summary>
+    /// <summary>Formatted, unit included: "1619 Mb/s". A prediction, never a measurement.</summary>
     public required string Value { get; init; }
 }

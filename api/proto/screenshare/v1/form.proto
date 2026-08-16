@@ -187,7 +187,8 @@ message Field {
   bool enabled = 8;
   Text reason = 15;
   // Carried where a field stays editable and means something its label misses here, as a
-  // bitrate does on becoming a burst ceiling under constant quality.
+  // burst ceiling does on an encoder that codes constant quality against one and cannot be
+  // left without it.
   // Not a third kind of unavailability: it exists so that a knob the builder does forward
   // never greys.
   Text note = 16;

@@ -31,9 +31,9 @@
     <Style Selector="TextBlock.strong">
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
-    <!-- Only the figure that is out of bounds spends the product's one red. -->
+    <!-- Amber and not red: the viewer this row is about is still watching (docs/design-language.md, "Palette"). -->
     <Style Selector="TextBlock.alarm">
-      <Setter Property="Foreground" Value="{StaticResource AttentionBrush}" />
+      <Setter Property="Foreground" Value="{StaticResource CautionBrush}" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
     <!-- Fill is what makes a row findable without a status glyph column. -->

@@ -23,6 +23,9 @@ const (
 	gstStatsName   = "stats"
 	gstCaptureName = "capture"
 	gstTeeName     = "meter"
+	// gstShedName names the queue ahead of the encoder, which is counted at both ends so what it drops
+	// is a figure rather than a silence (gstpipeline.go, gstrun/delay.go).
+	gstShedName = "shed"
 )
 
 // gstCaptureProbe is the progressreport element a capture backend splices in to count what the
@@ -111,9 +114,10 @@ const gstMeterHost = "127.0.0.1"
 // Frames arrive as text and bytes as data, so the sample is joined here: each progress line takes
 // the byte counter as it stands.
 //
-// Stats.Drop stays zero, because nothing on the encode path discards a frame.
-// The one intentional drop in the graph is the single-slot leaky queue ahead of videoconvert,
-// which discards only a damage frame a newer one supersedes.
+// Stats.Drop is what the shed ahead of the encoder threw away, counted at both its ends by the child
+// (gstEncodeQueue, gstrun/delay.go).
+// The leaky queue on the damage path keeps no count and needs none: it drops a frame a newer one
+// supersedes, which costs the stream nothing.
 type gstMeter struct {
 	onStats func(Stats)
 	bytes   atomic.Int64
@@ -265,6 +269,12 @@ func (m *gstMeter) timing(stats *Stats) {
 	if !reported {
 		stats.Missing.TransitMs, stats.Missing.LinkMs, stats.Missing.RttMs = true, true, true
 		return
+	}
+
+	// A total since the run started, like the frame count beside it, so a reader watching it climb is
+	// reading a shortfall that is still happening.
+	if delay.Dropped != nil {
+		stats.Drop = int(*delay.Dropped)
 	}
 
 	if delay.LinkMs != nil {

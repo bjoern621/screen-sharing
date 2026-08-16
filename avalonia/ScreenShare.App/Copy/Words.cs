@@ -3,28 +3,27 @@ namespace ScreenShare.App.Copy;
 /// <summary>
 /// What every identifier the backend uses is called on screen.
 ///
-/// The backend spells a codec <c>hevc_nvenc</c>, an engine <c>gstreamer</c> and a pixel format
-/// <c>yuv420p</c>, since those are the encoder's, the element registry's and libavutil's own names.
+/// The backend spells a codec <c>hevc_nvenc</c>, an engine <c>gstreamer</c> and a pixel format <c>yuv420p</c>,
+/// those being the encoder's, the element registry's and libavutil's own names.
 /// Here each becomes something a reader can use: <c>HEVC</c>, <c>GStreamer</c>, <c>4:2:0</c>.
-/// Nothing here decides what is legal or what exists, and a value the backend stops sending stops being
-/// looked up (docs/ipc-api.md).
+/// Nothing here decides what is legal or what exists, and a value the backend stops sending stops being looked
+/// up (docs/ipc-api.md).
 ///
 /// Three rules hold across the whole file.
 ///
-/// <b>An unknown identifier answers with itself.</b> A backend newer than this build names codecs this table
-/// has not heard of, and <c>av1_qsv</c> on screen is one a reader can still pick, search for and report.
+/// <b>An unknown identifier answers with itself.</b> A backend newer than this build names codecs this table has
+/// not heard of, and <c>av1_qsv</c> on screen is one a reader can still pick, search for and report.
 /// A missing word is a defect and not a failure, so it renders rather than asserting.
 ///
-/// <b>Short here, long in <see cref="Descriptions"/>.</b> Everything here fits a dropdown row, a chip and a
-/// step strip, so it is a name and never a sentence.
+/// <b>Short here, long in <see cref="Descriptions"/>.</b> Everything here fits a dropdown row, a chip and a step
+/// strip: a name, never a sentence.
 ///
 /// <b>The identifier is kept wherever the reader meets it again.</b> A pixel format reads <c>yuv420p ·
-/// 4:2:0</c>, because that string is what the command preview, the run log and every ffmpeg answer elsewhere
-/// call it.
+/// 4:2:0</c>, that string being what the command preview, the run log and every ffmpeg answer elsewhere call it.
 /// </summary>
 public static class Words
 {
-    /// <summary>The publish engines. Both spellings, casing included, are the projects' own.</summary>
+    /// <summary>Publish engines. Both spellings, casing included, are the projects' own.</summary>
     private static readonly Dictionary<string, string> Engines = new()
     {
         ["ffmpeg"] = "ffmpeg",
@@ -32,9 +31,9 @@ public static class Words
     };
 
     /// <summary>
-    /// The video coding formats, named the way a viewer's decoder settings name them.
-    /// Both halves of an H.26x name are kept, the ITU spelling and the ISO one, since which of the two a
-    /// reader has met before is not knowable from here.
+    /// Video coding formats, named the way a viewer's decoder settings name them.
+    /// Both halves of an H.26x name are kept, the ITU spelling and the ISO one, which of the two a reader has met
+    /// before not being knowable from here.
     /// </summary>
     private static readonly Dictionary<string, string> Formats = new()
     {
@@ -46,7 +45,7 @@ public static class Words
     };
 
     /// <summary>
-    /// The encoder families, named by the hardware or the library a reader would go looking for.
+    /// Encoder families, named by the hardware or the library a reader would go looking for.
     /// "vaapi" names a driver, where "Intel / AMD GPU" names the thing they either have or do not.
     /// </summary>
     private static readonly Dictionary<string, string> Families = new()
@@ -59,10 +58,11 @@ public static class Words
         ["v4l2"] = "ARM SoC",
         ["rkmpp"] = "Rockchip SoC",
         ["vulkan"] = "Vulkan Video",
+        ["videotoolbox"] = "Mac hardware",
     };
 
     /// <summary>
-    /// The pixel formats.
+    /// Pixel formats.
     /// The subsampling ratio carries the trade, so it leads.
     /// Bit depth is named only where it is not eight.
     /// </summary>
@@ -76,8 +76,8 @@ public static class Words
     };
 
     /// <summary>
-    /// The rate-control modes, named for what the encoder holds steady.
-    /// That is the whole difference between them, and the acronym says none of it.
+    /// Rate-control modes, named for what the encoder holds steady.
+    /// The whole difference between them, and the acronym says none of it.
     /// </summary>
     private static readonly Dictionary<string, string> Modes = new()
     {
@@ -88,7 +88,7 @@ public static class Words
         ["lossless"] = "Lossless",
     };
 
-    /// <summary>The transports, under the acronym every other tool spells them with.</summary>
+    /// <summary>Transports, under the acronym every other tool spells them with.</summary>
     private static readonly Dictionary<string, string> Transports = new()
     {
         ["srt"] = "SRT",
@@ -100,7 +100,7 @@ public static class Words
     };
 
     /// <summary>
-    /// The capture backends, named by what they read rather than by the element that reads it.
+    /// Capture backends, named by what they read rather than by the element that reads it.
     /// Two sources are read by both engines, so this half of the name repeats and does not identify.
     /// The engine that completes it comes from the catalog row (<see cref="Vocabulary"/>).
     /// </summary>
@@ -127,10 +127,9 @@ public static class Words
 
     /// <summary>
     /// Where a pipeline's frames are held, in the spelling the memory feature on its caps uses.
-    ///
     /// Not <see cref="Memories"/> above, which names the setting that asks for one.
-    /// The two sets do not correspond: a chain asked to stay on the GPU reports the API it ended up using,
-    /// and one asked for nothing in particular reports whatever it negotiated.
+    /// The two sets do not correspond: a chain asked to stay on the GPU reports the API it ended up using, and
+    /// one asked for nothing in particular reports whatever it negotiated.
     /// </summary>
     private static readonly Dictionary<string, string> FrameMemories = new()
     {
@@ -148,7 +147,7 @@ public static class Words
         ["metadata"] = "Sent beside the picture",
     };
 
-    /// <summary>The kmsgrab download strategies, named by the device that maps.</summary>
+    /// <summary>kmsgrab download strategies, named by the device that maps.</summary>
     private static readonly Dictionary<string, string> DrmMaps = new()
     {
         ["auto"] = "Match the GPU",
@@ -161,7 +160,6 @@ public static class Words
     {
         ["none"] = "No audio",
         ["desktop"] = "What this machine plays",
-        ["mic"] = "A microphone",
         ["application"] = "One application",
     };
 
@@ -172,7 +170,7 @@ public static class Words
     };
 
     /// <summary>
-    /// The quantization ranges, named by the code values they use.
+    /// Quantization ranges, named by the code values they use.
     /// The numbers are the whole difference, and what a mismatch shows up as.
     /// </summary>
     private static readonly Dictionary<string, string> ColorRanges = new()
@@ -182,18 +180,13 @@ public static class Words
     };
 
     /// <summary>
-    /// The effort ladders, every encoder's steps in one table.
-    ///
+    /// Effort ladders, every encoder's steps in one table.
     /// A step is the encoder's own identifier, and the backend offers whichever ladder the selected codec
     /// declares, so the named ladders sit together: no codec offers both, and a step of one is never a step of
     /// the other.
-    ///
-    /// Only the ends and the defaults carry a word.
-    /// Naming each step between them would imply a difference in kind.
-    ///
-    /// The numeric ladders are absent on purpose.
-    /// Their steps are numbers on the encoder's own scale, 0 to 13 on SVT-AV1 and 0 to 8 on libaom, so the
-    /// number is the name and the lookup falls through to the identifier.
+    /// Only the ends and the defaults carry a word, naming each step between them implying a difference in kind.
+    /// The numeric ladders are absent on purpose: their steps are numbers on the encoder's own scale, 0 to 13 on
+    /// SVT-AV1 and 0 to 8 on libaom, so the number is the name and the lookup falls through to the identifier.
     /// </summary>
     private static readonly Dictionary<string, string> Efforts = new()
     {
@@ -226,12 +219,13 @@ public static class Words
     };
 
     /// <summary>
-    /// The tune ladders: what an encoder aims at while it spends its effort.
-    ///
-    /// Two vocabularies meet here, as they do above.
+    /// Tune ladders: what an encoder aims at while it spends its effort.
+    /// Four vocabularies meet here, as above.
     /// x264 and x265 name what the picture is or what the decoder needs.
     /// The NVIDIA encoders name the delay they hold, in the SDK's abbreviations, which is what the backend
     /// carries and what a log shows.
+    /// The AV1 and VP encoders name a score to maximise, or the judgement that weighs what the eye sees.
+    /// Quick Sync names the session the encode is for.
     /// </summary>
     private static readonly Dictionary<string, string> Tunes = new()
     {
@@ -242,19 +236,30 @@ public static class Words
         ["stillimage"] = "Still image",
         ["psnr"] = "PSNR",
         ["ssim"] = "SSIM",
+        ["ms-ssim"] = "Multi-scale SSIM",
+        ["vq"] = "Visual quality",
+        ["iq"] = "Image quality",
+        ["psychovisual"] = "What the eye sees",
         ["fastdecode"] = "Easy to decode",
         ["zerolatency"] = "Zero latency",
         ["hq"] = "Quality",
         ["ll"] = "Low latency",
         ["ull"] = "Ultra low latency",
         ["lossless"] = "Lossless",
+        ["displayremoting"] = "Screen sharing",
+        ["videoconference"] = "Video call",
+        ["archive"] = "Archive",
+        ["livestreaming"] = "Live stream",
+        ["cameracapture"] = "Camera",
+        ["videosurveillance"] = "Surveillance",
+        ["gamestreaming"] = "Game stream",
+        ["remotegaming"] = "Remote play",
     };
 
     /// <summary>
-    /// The built-in presets, named for what each puts first.
-    /// A preset is a promise about the picture rather than a set of values, so a name says what is asked for
-    /// and never which encoder answers, which is this machine's and differs on the next
-    /// (<c>docs/presets.md</c>).
+    /// Built-in presets, named for what each puts first.
+    /// A preset is a promise about the picture rather than a set of values, so a name says what is asked for and
+    /// never which encoder answers, that being this machine's and differing on the next (<c>docs/presets.md</c>).
     /// </summary>
     private static readonly Dictionary<string, string> Presets = new()
     {
@@ -263,7 +268,7 @@ public static class Words
         ["readability"] = "Text and detail",
     };
 
-    /// <summary>The lower transport RTP takes inside an RTSP session, not the session's own.</summary>
+    /// <summary>Lower transport RTP takes inside an RTSP session, not the session's own.</summary>
     private static readonly Dictionary<string, string> RtspProtocols = new()
     {
         ["tcp"] = "TCP, on the RTSP connection",
@@ -271,23 +276,22 @@ public static class Words
     };
 
     /// <summary>
-    /// The render chains, named by where the frames are converted and what that says about their colour,
-    /// which are the two halves of the choice.
-    /// The element names the backend builds each from stay behind the seam: a reader picks a place and a
-    /// promise, not a pipeline.
+    /// Render chains, named by where the frames are converted and what that says about their colour, the two
+    /// halves of the choice.
+    /// The element names the backend builds each from stay behind the seam: a reader picks a place and a promise,
+    /// not a pipeline.
     /// </summary>
     private static readonly Dictionary<string, string> RenderChains = new()
     {
-        ["gl"] = "Graphics card, OpenGL - exact colour",
-        ["cpu"] = "System memory - exact colour",
-        ["d3d11"] = "Graphics card, Direct3D 11 - driver's colour",
-        ["d3d12"] = "Graphics card, Direct3D 12 - driver's colour",
+        ["gl"] = "Graphics card, OpenGL · exact colour",
+        ["cpu"] = "System memory · exact colour",
+        ["d3d11"] = "Graphics card, Direct3D 11 · driver's colour",
+        ["d3d12"] = "Graphics card, Direct3D 12 · driver's colour",
         ["raw"] = "No conversion",
     };
 
     /// <summary>
-    /// The decode paths, named by the hardware a viewer would have rather than by the plugin the element
-    /// comes from.
+    /// Decode paths, named by the hardware a viewer would have rather than by the plugin the element comes from.
     /// A reader deciding what to publish is deciding whose machine copes, and "vaapi" is not the name of a
     /// machine.
     /// The keys are the decoders' own and not <see cref="Families"/>: <c>va</c> here, <c>vaapi</c> there.
@@ -299,14 +303,14 @@ public static class Words
         ["nvcodec"] = "NVIDIA GPUs",
         ["qsv"] = "Intel GPUs",
         ["dxva"] = "any GPU on Windows",
+        ["videotoolbox"] = "any Mac",
     };
 
     /// <summary>
-    /// The transfer characteristics a decode reports, under the names a reader meets them by rather than the
+    /// Transfer characteristics a decode reports, under the names a reader meets them by rather than the
     /// standards' own.
-    ///
-    /// Two carry more range than a standard display shows, and they are why the table exists: a tile says
-    /// which curve it is drawing, because what to do about it differs.
+    /// Two carry more range than a standard display shows, and they are why the table exists: a tile says which
+    /// curve it is drawing, what to do about it differing.
     /// PQ is absolute and mastered for a bright display, HLG relative and degrading into a standard one on its
     /// own.
     /// </summary>
@@ -339,7 +343,7 @@ public static class Words
     public static string Engine(string id) => Look(Engines, id);
 
     /// <summary>
-    /// The same two names for the enum a catalog row carries, where a statement carries the identifier.
+    /// Same two names for the enum a catalog row carries, where a statement carries the identifier.
     /// An unset engine answers with an empty string, which the caller leaves out of a name rather than prints.
     /// </summary>
     public static string Engine(Api.V1.Engine engine) => engine switch
@@ -382,9 +386,9 @@ public static class Words
     public static string Tune(string id) => Look(Tunes, id);
 
     /// <summary>
-    /// The name of a built-in preset.
-    /// Not <see cref="Effort"/>, which is what x264 calls a preset: that is a settings value on a ladder,
-    /// where this is a way of publishing that is applied and never stored.
+    /// Name of a built-in preset.
+    /// Not <see cref="Effort"/>, which is what x264 calls a preset: that is a settings value on a ladder, this a
+    /// way of publishing that is applied and never stored.
     /// </summary>
     public static string Preset(string id) => Look(Presets, id);
 
@@ -400,8 +404,8 @@ public static class Words
 
     /// <summary>
     /// A list of names as a sentence reads it: "a", "a and b", "a, b or c".
-    /// The joining word is the caller's, since a list of things that all hold and a list of things to choose
-    /// between are one list read two ways.
+    /// The joining word is the caller's, a list of things that all hold and a list of things to choose between
+    /// being one list read two ways.
     /// </summary>
     public static string List(IEnumerable<string> names, string last = "or")
     {
@@ -416,10 +420,9 @@ public static class Words
     }
 
     /// <summary>
-    /// The name for an identifier, falling back to the identifier itself.
-    ///
-    /// The fallback is an answer rather than a guard: a value this build has no word for is still one the
-    /// backend accepts, and the raw identifier is something a reader can pick, search for and report.
+    /// Name for an identifier, falling back to the identifier itself.
+    /// The fallback is an answer rather than a guard: a value this build has no word for is still one the backend
+    /// accepts, and the raw identifier is something a reader can pick, search for and report.
     /// </summary>
     private static string Look(Dictionary<string, string> words, string id) =>
         id.Length > 0 && words.TryGetValue(id, out var word) ? word : id;

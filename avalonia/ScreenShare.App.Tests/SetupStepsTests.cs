@@ -216,7 +216,7 @@ public sealed class CostRailTests
     {
         var flow = await FlowAsync(new SeededBackend("linux"));
 
-        // Under the predicted rate, which is what the fixture warns on.
+        // Under the predicted rate, what the fixture warns on.
         Uplink(flow).Number = 4;
         await flow.Settled;
 

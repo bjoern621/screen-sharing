@@ -6,11 +6,11 @@ namespace ScreenShare.App.Features.Viewer.Model;
 /// One stream the relay carries, and what this machine is doing about it.
 ///
 /// Each field comes off a <see cref="RelayPath"/> or the list of open viewers.
-/// No resolution, frame rate, decoder or decode load: those are a decoder's figures, and the relay's
-/// snapshot carries none of them.
+/// No resolution, frame rate, decoder or decode load: those are a decoder's figures, and the relay's snapshot
+/// carries none of them.
 ///
-/// A record, so a render pass over an unchanged snapshot compares equal and the bound list is left alone
-/// rather than repainted under the pointer on every poll.
+/// A record, so a render pass over an unchanged snapshot compares equal and the bound list is left alone rather
+/// than repainted under the pointer on every poll.
 /// </summary>
 public sealed record StreamRow
 {
@@ -18,8 +18,8 @@ public sealed record StreamRow
     public required string Name { get; init; }
 
     /// <summary>
-    /// The name to print: the path with the prefix this machine reaches under taken off, which the backend
-    /// derives because the prefix is a group key's digest.
+    /// Name to print: the path with the prefix this machine reaches under taken off, which the backend derives,
+    /// the prefix being a group key's digest.
     /// Equal to <see cref="Name"/> where there is no prefix, so a list prints this one and never chooses.
     /// </summary>
     public required string OwnName { get; init; }
@@ -34,9 +34,9 @@ public sealed record StreamRow
     public required string Tracks { get; init; }
 
     /// <summary>
-    /// Bitstream format, which decides the legs a viewer may receive it over.
-    /// Empty where the relay's description named nothing this app knows, and an empty one refuses no viewer,
-    /// the snapshot being able to predate the stream.
+    /// Bitstream format, deciding the legs a viewer may receive it over.
+    /// Empty where the relay's description named nothing this app knows, and an empty one refuses no viewer, the
+    /// snapshot being able to predate the stream.
     /// </summary>
     public required string Format { get; init; }
 

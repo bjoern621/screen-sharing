@@ -7,7 +7,8 @@ namespace ScreenShare.App.Features.Setup.StepStrip.ViewModel;
 
 /// <summary>
 /// How far the flow has got past one chip.
-/// A walked flag would collapse the terminal step into an upcoming one, and the strip draws that step open-ended so it does not read as another form.
+/// A walked flag would collapse the terminal step into an upcoming one, and the strip draws that step open-ended
+/// so it does not read as another form.
 /// </summary>
 public enum StepChipState
 {
@@ -20,25 +21,27 @@ public enum StepChipState
 /// <summary>
 /// One chip of the strip.
 /// A record, so an unchanged pass produces rows that compare equal and the bound collection is left alone.
-/// <see cref="Select"/> is the owner's own command instance for that step, which is what makes two passes over one step equal rather than merely equivalent.
+/// <see cref="Select"/> is the owner's own command instance for that step, which makes two passes over one step
+/// equal rather than merely equivalent.
 /// </summary>
 public sealed record StepChipViewModel
 {
-    /// <summary>Which form group the step draws, or the terminal step's key, since that one draws none.</summary>
+    /// <summary>Which form group the step draws, or the terminal step's key, that one drawing none.</summary>
     public required string Key { get; init; }
 
     public required StepChipState State { get; init; }
 
     /// <summary>
-    /// The step number.
-    /// Replaced by a tick once the step is walked, and an icon is not a character, so the two cannot be one string.
+    /// Step number.
+    /// Replaced by a tick once the step is walked, and an icon is not a character, so the two cannot be one
+    /// string.
     /// <see cref="IsDone"/> says which of them the badge shows.
     /// </summary>
     public required string Badge { get; init; }
 
     public required string Label { get; init; }
 
-    /// <summary>What this step settled on, which is what makes the strip the summary as well.</summary>
+    /// <summary>What this step settled on, which makes the strip the summary as well.</summary>
     public required string Value { get; init; }
 
     /// <summary>False on the leading chip, which joins nothing to its left.</summary>
@@ -63,6 +66,7 @@ public sealed record StepChipViewModel
 /// Builds the strip from one set of steps and the step being stood on.
 /// Pure and total, so a render pass calls it unconditionally and the reconcile decides whether anything moved.
 /// </summary>
+
 public static class StepChips
 {
     public static IReadOnlyList<StepChipViewModel> For(
@@ -103,8 +107,8 @@ public static class StepChips
     }
 
     /// <summary>
-    /// Current wins over terminal: the last step reads open-ended only until the reader stands on it,
-    /// since a lit chip that also looked unreachable would read as a dead end.
+    /// Current wins over terminal: the last step reads open-ended only until the reader stands on it, a lit chip
+    /// that also looked unreachable reading as a dead end.
     /// </summary>
     private static StepChipState StateOf(SetupStepRow row, int index, int currentIndex)
     {

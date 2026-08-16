@@ -18,6 +18,7 @@ func TestRulesAnswerWhatTheGapsAnswer(t *testing.T) {
 		OptionChroma:     chromasDeclared(),
 		OptionMode:       Modes,
 		OptionColorRange: ColorRanges,
+		OptionTune:       tunesDeclared(),
 	}
 
 	for _, c := range Codecs {
@@ -190,6 +191,19 @@ func chromasDeclared() []string {
 		for _, chroma := range c.Chromas {
 			if !contains(out, chroma) {
 				out = append(out, chroma)
+			}
+		}
+	}
+	return out
+}
+
+// tunesDeclared is every tune step any ladder carries, for the reason chromasDeclared exists.
+func tunesDeclared() []string {
+	out := []string{TuneNone}
+	for _, c := range Codecs {
+		for _, step := range c.Tune.Steps {
+			if !contains(out, step) {
+				out = append(out, step)
 			}
 		}
 	}

@@ -42,6 +42,10 @@ type Stats struct {
 	VideoFrames   uint64
 	Keyframes     uint64
 	SinceKeyframe time.Duration
+	// VideoDecoded is what came back out of the decoder, against VideoFrames counting what went in.
+	// The two bracket the one place a frame is discarded to hold a live stream on the clock, which
+	// no element states a counter for.
+	VideoDecoded uint64
 
 	// Decoded video, off the decoder's source pad.
 	Width, Height int
@@ -107,10 +111,16 @@ type Stats struct {
 	// reader's own interval instead of over the whole run.
 	//
 	// It is the work done inside the window LatencyMin schedules and not a delay beside it.
-	// A pipeline whose transit reaches its latency drops the next frame that runs long, which is what
-	// the two figures read together say and neither says alone.
+	// A transit reaching that window is a decode whose sink has begun raising QoS, and the decoder
+	// then discards to hold the stream on the clock, which is what the two figures read together say
+	// and neither says alone.
 	Transit       time.Duration
 	TransitFrames uint64
+	// TransitPeak is the worst Transit any one frame cost since the pipeline started, and it never
+	// comes down.
+	// A mean holds steady while single frames run long, so this is the reading that says whether a
+	// decode has ever been short of the rate it is sent rather than short on average.
+	TransitPeak time.Duration
 
 	// Audio, zero until an audio pad turns up and the branch is built.
 	AudioCodec    string

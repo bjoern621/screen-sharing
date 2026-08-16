@@ -46,15 +46,11 @@ func Evaluate(f Facts) Verdicts {
 func EvaluateRules(f Facts, rs []Rule) Verdicts {
 	assert.IsNotNil(f, "an evaluation carries the facts to match against")
 
-	v := Verdicts{
-		hidden:     map[string]bool{},
-		live:       map[string]bool{},
-		fieldStops: map[string][]*screensharev1.Text{},
-		valueStops: map[string]map[string][]*screensharev1.Text{},
-		fieldNotes: map[string][]*screensharev1.Text{},
-		valueNotes: map[string]map[string][]*screensharev1.Text{},
-		bands:      map[string][]band{},
-	}
+	// The maps arrive as a bound rule needs them, every reader answering off a nil map as off an empty
+	// one.
+	// A preset search evaluates the whole registry per candidate and most verdicts stay empty, so
+	// seven maps built up front are seven allocations a hundred times over per resolve.
+	var v Verdicts
 
 	for _, r := range rs {
 		if !r.binds(f) {
@@ -63,7 +59,7 @@ func EvaluateRules(f Facts, rs []Rule) Verdicts {
 		// Live takes nothing off the screen, so there is no statement to build: it grants the control a
 		// property rather than replacing it with a sentence.
 		if r.Verdict == Live {
-			v.live[r.Field] = true
+			v.live = put(v.live, r.Field, true)
 			continue
 		}
 		reason := r.state(f)
@@ -71,27 +67,40 @@ func EvaluateRules(f Facts, rs []Rule) Verdicts {
 
 		switch r.Verdict {
 		case Hide:
-			v.hidden[r.Field] = true
+			v.hidden = put(v.hidden, r.Field, true)
 		case Refuse:
 			switch {
 			case r.Values.everything():
-				v.fieldStops[r.Field] = append(v.fieldStops[r.Field], reason)
+				v.fieldStops = put(v.fieldStops, r.Field, append(v.fieldStops[r.Field], reason))
 			case r.Values.numeric:
-				v.bands[r.Field] = append(v.bands[r.Field], band{match: r.Values, reason: reason})
+				v.bands = put(v.bands, r.Field, append(v.bands[r.Field], band{match: r.Values, reason: reason}))
 			default:
-				v.valueStops[r.Field] = appendUnder(v.valueStops[r.Field], r.Values.listed(), reason)
+				v.valueStops = put(v.valueStops, r.Field,
+					appendUnder(v.valueStops[r.Field], r.Values.listed(), reason))
 			}
 		case Note:
 			if r.Values.everything() {
-				v.fieldNotes[r.Field] = append(v.fieldNotes[r.Field], reason)
+				v.fieldNotes = put(v.fieldNotes, r.Field, append(v.fieldNotes[r.Field], reason))
 			} else {
-				v.valueNotes[r.Field] = appendUnder(v.valueNotes[r.Field], r.Values.listed(), reason)
+				v.valueNotes = put(v.valueNotes, r.Field,
+					appendUnder(v.valueNotes[r.Field], r.Values.listed(), reason))
 			}
 		default:
 			assert.Never("a bound rule states a known verdict", int(r.Verdict), r.Field)
 		}
 	}
 	return v
+}
+
+// put files one verdict under a control, building the map on the first one filed there.
+func put[V any](under map[string]V, field string, value V) map[string]V {
+	assert.Assert(field != "", "a filed verdict names the control it lands on")
+
+	if under == nil {
+		under = map[string]V{}
+	}
+	under[field] = value
+	return under
 }
 
 // binds reports whether every fact this rule names reads what it asks for.
@@ -102,7 +111,11 @@ func EvaluateRules(f Facts, rs []Rule) Verdicts {
 func (r Rule) binds(f Facts) bool {
 	for name, m := range r.When {
 		value, ok := f[name]
-		assert.Assert(ok, "the facts carry every axis a rule matches on", name, r.Field)
+		// Asserted under the branch rather than through Assert: the arguments are boxed at every call
+		// either way, and a preset search runs this line ten thousand times per resolve.
+		if !ok {
+			assert.Never("the facts carry every axis a rule matches on", name, r.Field)
+		}
 		if !m.binds(value) {
 			return false
 		}

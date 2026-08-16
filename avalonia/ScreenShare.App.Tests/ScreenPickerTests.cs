@@ -232,7 +232,7 @@ public sealed class ScreenPickerTests
         Assert.Equal(before, flow.Screens.Screens.Select(screen => screen.Tile));
     }
 
-    /// <summary>Fixture already reading these screens, which is what puts a tile on a row.</summary>
+    /// <summary>Fixture already reading these screens, what puts a tile on a row.</summary>
     private static SeededBackend Reading(params int[] monitors)
     {
         var backend = new SeededBackend("linux");

@@ -275,6 +275,12 @@ message ReceiveStreamStats {
   uint64 frames = 33;
   uint64 rendered = 34;
   uint64 dropped = 35;
+  // Frames per second the decoder took in and never handed on, which is the shedding that
+  // holds a live stream on the clock when the chain is short of the rate it is sent.
+  // A rate and no running total: a decoder holds a constant few frames at any moment, and
+  // that depth cancels between two readings where it would stand as a permanent count.
+  // Absent on the first sample of a run, as every other rate here is.
+  optional double discarded_fps = 51;
   // Measured off the sink across the last interval.
   optional double render_fps = 36;
 
@@ -359,6 +365,12 @@ message DelayBudget {
   // The source of this leg stamping a frame to the sink taking it: depacketizing, decoding
   // and the queues between them, measured.
   optional double receive_ms = 4;
+  // The worst that same stage has cost any one frame since this decode started, which never
+  // comes down.
+  // receive_ms is a mean over the interval between two samples and holds steady while single
+  // frames run long, so the worst single frame is the reading that says whether a decode has
+  // ever been short of the rate it is sent, rather than short on average.
+  optional double receive_peak_ms = 7;
   // What the sink still holds a frame for after it arrives, so that it is drawn at the
   // moment the pipeline's latency window puts it.
   // Work and wait together are that window, which is why a receive_ms rising to meet it is

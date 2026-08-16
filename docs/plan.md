@@ -22,19 +22,15 @@ What the group section still lists as open is the index snapshot's missing colum
 
 ## Effort and tune
 
-Built: every ladder, both controls, both builders, on both engines.
+Built: every ladder a codec's encoder has, both controls, both builders, on both engines.
 The reasoning moved to `domain-model.md`, "The two ladders".
 
-The last two ladders are QSV's and AMF's, declared from the scales the two vendors define rather than from a reading taken off silicon.
-oneVPL's target usage runs 1 for quality to 7 for speed, and AMD's quality preset has the three steps every VCN generation implements.
-The ladder is the scale itself and each engine spells it its own way, so a stream's look stays off the capture backend that produced it.
-The GStreamer qsv elements take the number on `target-usage`, ffmpeg names the same seven points on `-preset`, and all three AMF encoders take the step verbatim.
-The higher AMF preset newer generations add is deliberately absent: a step the older hardware refuses is a publish that dies at launch.
+**What is left.** Three ladders are declared off a vendor's own option table rather than off a launch, no machine here having the hardware: NVENC's on the GStreamer engine, QSV's on both, and AMF's.
+The NVENC nicks come off `GstNvEncoderPreset` and `GstNvEncoderTune` in the shipped plugin, where a launch would read them too.
 
-VAAPI needs no ladder: neither engine's VAAPI path has such a knob at all.
-
-The NVENC steps on the GStreamer engine are forwarded but not yet run.
-The nicks come off `GstNvEncoderPreset` and `GstNvEncoderTune` in the shipped plugin, where a launch would read them too, and no machine here has the hardware to launch one.
+Reading ffmpeg's VAAPI quality range off the driver would put that half of the ladder back.
+The scale is the driver's there, measured 0..32 on Mesa's radeonsi against oneVPL's 1..7 on Intel's, so the ladder's seven steps reach the `va` elements alone and the ffmpeg builder spends none.
+The probe already opens a VA device per codec, which is where a range would be read.
 
 ## Audio
 
@@ -45,19 +41,31 @@ The list grows through the settings, not through an effect: the form draws one r
 Both are ordinary writes through ordinary controls, so a shell decides nothing about the list's shape.
 
 Two tracks were rejected on carriage, and the sources mix into one.
-Kinds stay a declared table (`desktop`, `mic`, `application`).
+Kinds stay a declared table (`desktop`, `application`).
 What is inside a kind is enumerated (`backend/internal/audiodev`), cached for the process lifetime and read back separately from the probe.
 Gain and mute are one live field beside the bitrate: they reach the mixer that is already running, where an entry added or taken off is a different graph and a relaunch.
 
 **Built: per-application capture.** An application playing sound is a PipeWire node, so recording one is taking that node's output.
-The enumeration reports the output streams beside the sinks and the sources, and the GStreamer branch opens one with `pipewiresrc target-object=` where the other kinds take a `pulsesrc device=`.
+The enumeration reports the output streams beside the sinks, and the GStreamer branch opens one with `pipewiresrc target-object=` where the desktop kind takes a `pulsesrc device=`.
 Linux's alone and the GStreamer engine's alone.
 The two refusals are separate because they send a reader to different places: Windows needs WASAPI process loopback and macOS a ScreenCaptureKit or CoreAudio tap, and ffmpeg's pulse input takes a device where PulseAudio cannot record one program's stream at all.
 An application is named by its own name and identified by its node, and a selection the enumeration no longer reports stays on the list with a note.
 
-**What is left.** The enumeration is taken once and cached for the process lifetime: right for the devices a machine has, wrong for the applications it is running.
+**Built: Windows.** Desktop audio through `wasapi2src`, the GStreamer engine's alone, ffmpeg having no WASAPI input.
+The element opens the default render device itself and takes no handle for it, which is the difference from a sound server's named devices and why the element and its handle are one table read (`publish.gstAudioElements`).
+Per-application capture stays refused there: that API addresses a program by process id rather than by device, and nothing enumerates one.
+
+**What is left.** Three, in the order they cost a user something.
+
+Nothing enumerates Windows devices, so both kinds offer their own default and nothing else.
+The default is what a machine with no enumeration takes anyway, so the gap is a picker rather than a capability.
+
+The Linux enumeration is taken once and cached for the process lifetime: right for the devices a machine has, wrong for the applications it is running.
 The one just launched is the one worth selecting, the case a cache gets wrong every time.
 Following PipeWire's own add and remove events replaces it.
+
+macOS records nothing, and it is the one platform where the work is a component rather than a row.
+Reading what a Mac plays takes a CoreAudio process tap or ScreenCaptureKit audio feeding an `appsrc`, neither engine having an element for either.
 
 ## HDR
 
@@ -229,6 +237,11 @@ Assumptions the design rests on, not established facts.
 - Wayland compositors report a usable transfer characteristic through the portal's PipeWire caps.
   Without it, HDR is Windows-only in practice.
   Reading it means completing a portal capture, which asks the desktop for consent, so it is a check somebody runs rather than a test.
+- `wasapi2src loopback=true` records what a Windows machine plays, and the same element without it records the default input.
+  The Windows audio rows rest on it, and reading it takes a Windows session.
+- The `vtenc_h264` and `vtenc_h265` elements take `realtime`, `allow-frame-reordering`, `max-keyframe-interval` and a `bitrate` in kbit, and the ffmpeg VideoToolbox encoders take `-realtime` beside an average `-b:v`.
+  The VideoToolbox rows rest on both, and reading either takes a Mac.
+  The rows declare an average bitrate alone, so a constant rate, a burst ceiling or a quality target is a mode to add once somebody can measure what the framework does with it.
 
 Settled, and kept here until the work they belong to lands:
 

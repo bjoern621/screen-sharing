@@ -136,7 +136,7 @@ func gstChildArgs(s settings.Settings, socket string, metered bool) []string {
 		args = append(args, gstrun.PointerFlag)
 	}
 	if metered {
-		args = append(args, gstrun.DelayFlag+gstStatsName)
+		args = append(args, gstrun.DelayFlag+gstStatsName, gstrun.ShedFlag+gstShedName)
 	}
 	return args
 }

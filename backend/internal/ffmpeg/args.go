@@ -523,8 +523,7 @@ func avfoundationArgs(s settings.Settings, fps, _ string) (captureSource, error)
 // audioInputArgs returns one capture input per recorded source, in list order.
 //
 // Each opens by the handle its kind or its own device names: desktop audio as the monitor of the
-// default sink, a microphone as the default input, an entry naming a device as that device
-// (platform.AudioSourceDevice).
+// default sink, an entry naming a device as that device (platform.AudioSourceDevice).
 // The names are stated once for both engines, and "-f pulse" against GStreamer's "pulsesrc device="
 // is the whole of the difference.
 //

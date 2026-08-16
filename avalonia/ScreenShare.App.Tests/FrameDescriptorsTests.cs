@@ -6,7 +6,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The consumer's half of a descriptor pool, and the one part of it that fails silently: the shape of the
+/// Consumer's half of a descriptor pool, and the one part of it that fails silently: the shape of the
 /// kernel's control message.
 /// A descriptor travels beside the payload, in a header whose fields are pointer-sized and pointer-aligned, so
 /// a reader that lays it out wrong lifts a number out of the padding and imports whatever file that names.

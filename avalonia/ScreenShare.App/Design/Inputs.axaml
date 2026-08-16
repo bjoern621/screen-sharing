@@ -113,7 +113,7 @@
 
   <!-- Slider  -->
 
-  <!-- The 3px ring is the card fill behind the track, which is what punches the thumb out of it. -->
+  <!-- The 3px ring is the card fill behind the track, which punches the thumb out of it. -->
   <ControlTheme x:Key="SliderThumb" TargetType="Thumb">
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">

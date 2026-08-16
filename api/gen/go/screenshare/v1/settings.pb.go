@@ -578,13 +578,11 @@ func (x *PublishSettings) GetCursor() string {
 // relay re-serves every ingested stream on all its listeners, so a viewer receives over a leg
 // chosen here rather than over the one a stream arrived on.
 //
-// Two watch legs rather than one because there are two receivers and they reach different
-// protocol sets (docs/viewer-architecture.md).
-// One field would let each store a leg the other cannot run.
+// The tile's leg is the only one stored. An external player and a browser page are opened per
+// press on the leg the reader picked from the roster, so neither has a setting to keep
+// (docs/viewer-architecture.md).
 type ViewerSettings struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The leg an external player opens, narrowed to the protocols a player reaches by URL.
-	PlayerWatchTransport string `protobuf:"bytes,1,opt,name=player_watch_transport,json=playerWatchTransport,proto3" json:"player_watch_transport,omitempty"`
 	// The leg a receive pipeline decodes from, which also reaches WHEP, whose playback is an
 	// exchange rather than an address.
 	TileWatchTransport string `protobuf:"bytes,2,opt,name=tile_watch_transport,json=tileWatchTransport,proto3" json:"tile_watch_transport,omitempty"`
@@ -638,13 +636,6 @@ func (*ViewerSettings) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_settings_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *ViewerSettings) GetPlayerWatchTransport() string {
-	if x != nil {
-		return x.PlayerWatchTransport
-	}
-	return ""
-}
-
 func (x *ViewerSettings) GetTileWatchTransport() string {
 	if x != nil {
 		return x.TileWatchTransport
@@ -683,7 +674,7 @@ func (x *ViewerSettings) GetRenderChain() string {
 // AudioSource is one thing the second track is mixed from.
 //
 // A kind is declared, since the machine either serves desktop audio or it does not; what is
-// inside a kind is enumerated, since a microphone and a running application are things a
+// inside a kind is enumerated, since an output and a running application are things a
 // machine has rather than things a table can list.
 //
 // An entry is addressed by an indexed key: "publish.audio_sources[2].gain" names the third
@@ -882,14 +873,13 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"J\x04\b\x18\x10\x19J\x04\b\x1e\x10\x1fJ\x04\b \x10!J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%R\x05audioR\n" +
 	"relay_hostR\n" +
 	"relay_portR\bapi_portR\trtsp_portR\vwebrtc_portR\trtmp_portR\bhls_portR\bmoq_portR\ttransportR\n" +
-	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\xaf\x02\n" +
-	"\x0eViewerSettings\x124\n" +
-	"\x16player_watch_transport\x18\x01 \x01(\tR\x14playerWatchTransport\x120\n" +
+	"enc_presetR\x14srt_watch_latency_msR\x13rtsp_watch_protocolR\x15rtsp_watch_latency_msR\x0fwatch_transportR\x0egrid_transport\"\x97\x02\n" +
+	"\x0eViewerSettings\x120\n" +
 	"\x14tile_watch_transport\x18\x02 \x01(\tR\x12tileWatchTransport\x12.\n" +
 	"\x13rtsp_watch_protocol\x18\x03 \x01(\tR\x11rtspWatchProtocol\x12/\n" +
 	"\x14srt_watch_latency_ms\x18\x04 \x01(\x05R\x11srtWatchLatencyMs\x121\n" +
 	"\x15rtsp_watch_latency_ms\x18\x05 \x01(\x05R\x12rtspWatchLatencyMs\x12!\n" +
-	"\frender_chain\x18\x06 \x01(\tR\vrenderChain\"s\n" +
+	"\frender_chain\x18\x06 \x01(\tR\vrenderChainJ\x04\b\x01\x10\x02R\x16player_watch_transport\"s\n" +
 	"\vAudioSource\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\x12\x17\n" +

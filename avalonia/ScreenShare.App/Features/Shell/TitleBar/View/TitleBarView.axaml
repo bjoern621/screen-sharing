@@ -6,10 +6,10 @@
              x:DataType="vm:TitleBarViewModel">
 
   <!--
-    The caption shapes as Windows draws them, in the 10x10 box Design/Icons.axaml maps onto pixels one to one.
+    Caption shapes as Windows draws them, in the 10x10 box Design/Icons.axaml maps onto pixels one to one.
 
-    Coordinates land on halves because a 1px stroke centres on the line it is given: x.5 fills pixel column x,
-    an integer splits over two columns at half strength.
+    Coordinates land on halves, a 1px stroke centring on the line it is given: x.5 fills pixel column x, an
+    integer splits over two columns at half strength.
 
     Restore is the two-window shape: an 8x8 front for the size the window returns to, and behind it the part
     of the maximised one that front no longer covers.

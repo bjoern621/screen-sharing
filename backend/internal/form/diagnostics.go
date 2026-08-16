@@ -27,7 +27,6 @@ var warningAnchors = []string{
 	KeySrtPublishLatencyMs, KeySrtWatchLatencyMs,
 	KeyRtspPublishProtocol, KeyRtspWatchProtocol,
 	KeyUplinkMbps,
-	KeyPlayerWatchTransport,
 	KeyOutputResolution,
 }
 

@@ -10,21 +10,20 @@ namespace ScreenShare.App.Features.Fields.Model;
 /// its neighbours.
 /// Putting a group back to what a fresh installation holds is the shape.
 ///
-/// The action carries no values.
-/// What each field starts as is stated per field by the form (<c>form.proto</c>, <c>Field.default_value</c>),
-/// so the press reaches the draft through the writes every control uses and this side holds no table of
-/// defaults.
+/// Carries no values.
+/// What each field starts as is stated per field by the form (<c>form.proto</c>, <c>Field.default_value</c>), so
+/// the press reaches the draft through the writes every control uses and this side holds no table of defaults.
 ///
 /// A record, so a pass over unchanged state produces an action that compares equal to the last and the bound
 /// properties are left alone.
-/// <see cref="Command"/> is held by whoever offers the action, which is what makes two passes equal rather
-/// than merely alike.
+/// <see cref="Command"/> is held by whoever offers the action, so two passes compare equal rather than merely
+/// alike.
 /// </summary>
 public sealed record GroupAction
 {
     /// <param name="label">What the button says.</param>
     /// <param name="tip">What it changes and where the values come from, since the label is one word.</param>
-    /// <param name="command">The effect.</param>
+    /// <param name="command">Effect.</param>
     public GroupAction(string label, string tip, DelegateCommand command)
     {
         Assert.That(label.Length > 0, "an action beside a heading says what it does");

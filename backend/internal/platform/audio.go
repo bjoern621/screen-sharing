@@ -18,11 +18,14 @@ import (
 // (docs/ipc-api.md, Catalog.audio_sources).
 //
 // What each platform serves is read off the two publish engines rather than invented here.
-// Both open desktop audio as the monitor of the default sink, ffmpeg through "-f pulse -i"
-// (ffmpeg/args.go) and GStreamer through "pulsesrc device=" (publish/gstpipeline.go),
-// both passing AudioMonitorDevice, and both refuse it where no PulseAudio or PipeWire server runs.
-// A Windows WASAPI loopback or a macOS aggregate device would be another platform on the row;
-// neither engine has one, and a table claiming otherwise would grey nothing and fail at launch.
+// On a PulseAudio or PipeWire session both open desktop audio as the monitor of the default sink,
+// ffmpeg through "-f pulse -i" (ffmpeg/args.go) and GStreamer through "pulsesrc device="
+// (publish/gstpipeline.go), both passing AudioMonitorDevice.
+// On Windows the GStreamer engine opens the default render device's loopback and ffmpeg has no
+// WASAPI input at all, which is an engine's answer rather than a platform's and is stated where the
+// capture backends are (publish.AudioAvailable).
+// macOS serves none: reading what it plays means a CoreAudio process tap or ScreenCaptureKit audio,
+// and neither engine has an element for either.
 //
 // Nothing here touches the machine.
 // A source is declared rather than enumerated,
@@ -32,11 +35,9 @@ import (
 const (
 	// AudioSourceNone captures no second track.
 	AudioSourceNone = "none"
-	// AudioSourceDesktop is everything the machine plays: the monitor of the default output,
-	// served by PulseAudio or by PipeWire's Pulse server.
+	// AudioSourceDesktop is everything the machine plays: the monitor of the default output on a
+	// PulseAudio or PipeWire session, and the loopback of the default render device on Windows.
 	AudioSourceDesktop = "desktop"
-	// AudioSourceMic is the default input, served by the same two.
-	AudioSourceMic = "mic"
 	// AudioSourceApplication is one running program's own output, for a stream carrying the game and
 	// not the call about it.
 	//
@@ -55,10 +56,6 @@ const (
 	// The engines differ in how they pass it, "-f pulse -i" against "pulsesrc device=",
 	// and not in what they pass.
 	AudioMonitorDevice = "@DEFAULT_MONITOR@"
-	// AudioInputDevice is the handle AudioSourceMic opens by: the libpulse magic name for the default
-	// input.
-	// It reaches both servers for the same reason the monitor name does.
-	AudioInputDevice = "@DEFAULT_SOURCE@"
 )
 
 // AudioSourceDevice is the handle a publish engine opens one kind's own default by,
@@ -71,8 +68,6 @@ func AudioSourceDevice(id string) string {
 	switch id {
 	case AudioSourceDesktop:
 		return AudioMonitorDevice
-	case AudioSourceMic:
-		return AudioInputDevice
 	default:
 		return ""
 	}
@@ -136,8 +131,7 @@ type audioSourceNeed struct {
 // A slice and not a map, because the order is part of the answer.
 var audioSourceNeeds = []audioSourceNeed{
 	{id: AudioSourceNone, platforms: audioPlatforms},
-	{id: AudioSourceDesktop, platforms: []string{"linux"}},
-	{id: AudioSourceMic, platforms: []string{"linux"}},
+	{id: AudioSourceDesktop, platforms: []string{"linux", "windows"}},
 	// Which engine can open a program's own output is a second question, answered where the capture
 	// backends are (publish.AudioAvailable).
 	{id: AudioSourceApplication, platforms: []string{"linux"}},

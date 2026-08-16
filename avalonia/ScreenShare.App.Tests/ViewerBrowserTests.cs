@@ -6,7 +6,7 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The relay's own player page, opened in the machine's browser.
+/// Relay's own player page, opened in the machine's browser.
 /// What a browser does with an address is out of this shell's reach, so what is asserted is the seam: legs
 /// off the catalog, the row asking for the leg pressed, and a call on every press.
 /// </summary>

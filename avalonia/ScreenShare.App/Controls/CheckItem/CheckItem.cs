@@ -7,8 +7,8 @@ namespace ScreenShare.App.Controls;
 
 /// <summary>
 /// How far one pre-publish line has got.
-/// Note, Warned and Blocking are the contract's three severities, and Blocking alone may spend the palette's
-/// one hue.
+/// Note, Warned and Blocking are the contract's three severities, and the hue follows: red on Blocking,
+/// amber on Warned, none on Note.
 /// </summary>
 public enum CheckState
 {
@@ -63,8 +63,8 @@ public sealed class CheckItem : TemplatedControl
     }
 
     /// <summary>
-    /// Glyph for a state, as a Tabler icon rather than a text character: a tick off the platform text face
-    /// lands at a different weight from the icons beside it.
+    /// Glyph for a state, as a Tabler icon rather than a text character: a tick off the platform text face lands
+    /// at a different weight from the icons beside it.
     /// Exhaustive, so a state added to the enum fails here.
     /// </summary>
     public static Icons GlyphOf(CheckState state) => state switch
