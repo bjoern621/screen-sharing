@@ -7,9 +7,12 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/colour"
 	"bjoernblessin.de/screenshare/internal/receive"
+	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/transport"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -41,7 +44,7 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	// state, so a duplicate is harmless and the alternative announces nothing on a repeat.
 	defer a.emitReceiveState()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
+	ref := StreamRef{Name: streamName, Transport: transportName}
 
 	// What asking for tone mapping builds, which on a machine with no rung is not what was asked.
 	// Comparing the running decode against the request instead would tear the same pipeline down on
@@ -52,7 +55,7 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	// A precondition moves under a decode that already is the state this call names (the relay reports
 	// a format this leg stopped carrying), and a validation placed first would refuse the repeat on
 	// behalf of a state it was never asked to establish.
-	if a.receiving(key, wanted) {
+	if a.receiving(ref, wanted) {
 		logger.Debugf("'%s' over %s is already being received", streamName, transportName)
 		return nil
 	}
@@ -88,7 +91,7 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	// and built again.
 	// Again rather than adjusted: the rung is an element of the pipeline and there is no property to
 	// write, so the tile goes dark for as long as one decode takes to open.
-	if replaced := a.replacedReceiver(key, wanted); replaced != nil {
+	if replaced := a.replacedReceiver(ref, wanted); replaced != nil {
 		logger.Infof("rebuilding the decode of '%s' over %s %s tone mapping",
 			streamName, transportName, withOrWithout(wanted))
 		replaced.Stop()
@@ -97,7 +100,7 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	if _, present := a.receivers[key]; present {
+	if _, present := a.receivers[ref]; present {
 		// The same question under the lock: the read above is what keeps a repeat cheap, and this is
 		// what keeps two starts racing for one pair from building two pipelines.
 		return nil
@@ -114,14 +117,14 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 		// negotiated.
 		OnLive: a.emitReceiveState,
 		OnEnd: func(message string) {
-			a.receiveEnded(key, message)
+			a.receiveEnded(ref, message)
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	a.receivers[key] = receiver
+	a.receivers[ref] = receiver
 	logger.Infof("receiving '%s' over %s", streamName, transportName)
 	return nil
 }
@@ -133,11 +136,11 @@ func (a *App) StartReceive(streamName, transportName string, toneMap bool) error
 // stand in front of StartReceive's validation.
 // Both halves are the state the call names, so a decode running with the other answer reads as
 // absent.
-func (a *App) receiving(key WatchKey, toneMap bool) bool {
+func (a *App) receiving(ref StreamRef, toneMap bool) bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	receiver, present := a.receivers[key]
+	receiver, present := a.receivers[ref]
 	return present && receiver.ToneMap() == toneMap
 }
 
@@ -147,15 +150,15 @@ func (a *App) receiving(key WatchKey, toneMap bool) bool {
 // Out under the lock and stopped outside it, which is StopReceive's order:
 // a teardown blocks on the pipeline reaching NULL and every other method touching the receivers
 // would wait behind it.
-func (a *App) replacedReceiver(key WatchKey, toneMap bool) *receive.Receiver {
+func (a *App) replacedReceiver(ref StreamRef, toneMap bool) *receive.Receiver {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	receiver, present := a.receivers[key]
+	receiver, present := a.receivers[ref]
 	if !present || receiver.ToneMap() == toneMap {
 		return nil
 	}
-	delete(a.receivers, key)
+	delete(a.receivers, ref)
 	return receiver
 }
 
@@ -175,11 +178,11 @@ func (a *App) StopReceive(streamName, transportName string) {
 
 	defer a.emitReceiveState()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
+	ref := StreamRef{Name: streamName, Transport: transportName}
 
 	a.procMu.Lock()
-	receiver, present := a.receivers[key]
-	delete(a.receivers, key)
+	receiver, present := a.receivers[ref]
+	delete(a.receivers, ref)
 	a.procMu.Unlock()
 
 	if !present {
@@ -213,7 +216,7 @@ func (a *App) SetReceiveAudio(streamName, transportName string, volume float64, 
 	defer a.emitReceiveState()
 
 	a.procMu.Lock()
-	receiver, present := a.receivers[WatchKey{Name: streamName, Transport: transportName}]
+	receiver, present := a.receivers[StreamRef{Name: streamName, Transport: transportName}]
 	a.procMu.Unlock()
 
 	if !present {
@@ -237,13 +240,13 @@ func (a *App) AudioLevels() []wire.AudioLevel {
 	defer a.procMu.Unlock()
 
 	out := make([]wire.AudioLevel, 0, len(a.receivers))
-	for key, receiver := range a.receivers {
+	for ref, receiver := range a.receivers {
 		peak, rms, ok := receiver.Level()
 		if !ok {
 			continue
 		}
 		out = append(out, wire.AudioLevel{
-			Stream: wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
+			Stream: wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
 			PeakDB: peak,
 			RMSDB:  rms,
 		})
@@ -256,10 +259,10 @@ func (a *App) AudioLevels() []wire.AudioLevel {
 // The pipeline has stopped itself by the time this runs, so nothing is torn down here.
 // The exit says why that one ended and the state beside it says which decodes are left, the pair a
 // viewer that closed on its own produces.
-func (a *App) receiveEnded(key WatchKey, message string) {
+func (a *App) receiveEnded(ref StreamRef, message string) {
 	a.procMu.Lock()
-	_, present := a.receivers[key]
-	delete(a.receivers, key)
+	_, present := a.receivers[ref]
+	delete(a.receivers, ref)
 	a.procMu.Unlock()
 
 	if !present {
@@ -267,8 +270,9 @@ func (a *App) receiveEnded(key WatchKey, message string) {
 		// watch, so an exit announced here would report a decode ending that the shell knows it closed.
 		return
 	}
-	logger.Warnf("receiving '%s' over %s ended: %s", key.Name, key.Transport, message)
-	a.emit(wire.ReceiveExitEvent(wire.WatchKey{StreamName: key.Name, Transport: key.Transport}, message))
+	logger.Warnf("receiving '%s' over %s ended: %s", ref.Name, ref.Transport, message)
+	a.emit(wire.ReceiveExitEvent(wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
+		message, a.membership().failure()))
 	a.emitReceiveState()
 }
 
@@ -290,12 +294,14 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 	offer := receive.ToneMapping()
 
 	out := make([]wire.ReceiveStream, 0, len(a.receivers))
-	for key, receiver := range a.receivers {
+	for ref, receiver := range a.receivers {
 		stats := receiver.Stats()
 		volume, muted, hasAudio := receiver.Audio()
+		live := stats.Frames > 0
 		out = append(out, wire.ReceiveStream{
-			Stream:         wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
-			Live:           stats.Frames > 0,
+			Stream:         wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
+			Live:           live,
+			Failure:        a.receiveFailure(ref.Name, live),
 			Chain:          stats.Chain,
 			DecodeMemory:   stats.DecodeMemory,
 			RenderMemory:   stats.RenderMemory,
@@ -312,6 +318,28 @@ func (a *App) ReceiveState() []wire.ReceiveStream {
 		})
 	}
 	return out
+}
+
+// receiveFailure is why a tile carries no picture, and nil while a decode is merely opening.
+//
+// Two answers and an absence.
+// Membership comes first: a machine the group stopped honouring loses every stream at once, and
+// naming the publisher instead would send a reader after somebody who never stopped publishing.
+// The relay snapshot answers the rest, a stream it stopped carrying being one nothing is going to
+// arrive on.
+func (a *App) receiveFailure(streamName string, live bool) *screensharev1.Text {
+	assert.Assert(streamName != "", "a decode names the stream it receives")
+
+	if live {
+		return nil
+	}
+	if lapsed := a.membership().failure(); lapsed != nil {
+		return lapsed
+	}
+	if carried, known := a.relayCarries(streamName); known && !carried {
+		return text.Of(screensharev1.TextCode_TEXT_CODE_STREAM_LEFT_THE_RELAY)
+	}
+	return nil
 }
 
 // emitReceiveState announces the running decodes.

@@ -53,11 +53,11 @@ func TestSetWatchOption(t *testing.T) {
 	if s.Viewer.SrtWatchLatencyMs != 800 {
 		t.Errorf("latency = %d, want 800", s.Viewer.SrtWatchLatencyMs)
 	}
-	if err := SetWatchOption("rtsp", &s, "rtspWatchProtocol", "udp"); err != nil {
+	if err := SetWatchOption("rtsp", &s, "rtspWatchLatencyMs", "350"); err != nil {
 		t.Fatal(err)
 	}
-	if s.Viewer.RtspWatchProtocol != "udp" {
-		t.Errorf("protocol = %q, want udp", s.Viewer.RtspWatchProtocol)
+	if s.Viewer.RtspWatchLatencyMs != 350 {
+		t.Errorf("jitter buffer = %d, want 350", s.Viewer.RtspWatchLatencyMs)
 	}
 }
 

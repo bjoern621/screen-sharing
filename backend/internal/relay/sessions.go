@@ -17,8 +17,8 @@ import (
 //
 // The relay reads a token at the handshake and not again, measured against v1.20.0: a session
 // outlives its token on every leg, and a client that is kicked opens another with the same one.
-// So a member who leaves is removed by kicking what they hold, and kept out by whatever issues
-// tokens declining to issue another (internal/roster).
+// So a member whose lease has lapsed is removed by kicking what they hold,
+// and kicked again on every later sweep for as long as they reconnect (internal/membership).
 
 // Session is one connection the relay is carrying, as enforcement reads it.
 //

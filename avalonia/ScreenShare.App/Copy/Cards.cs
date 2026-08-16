@@ -156,6 +156,84 @@ public static class Cards
 
     public const string ViewersNone = "Nobody is connected to this stream yet.";
 
+    // --- The group -----------------------------------------------------------------
+
+    /// <summary>Heading over the member list.</summary>
+    public const string MembersTitle = "In the group";
+
+    /// <summary>
+    /// Beside a row the relay is carrying a stream from.
+    /// Sending and not watching: who is watching what belongs to nobody but the machine doing it, so the group
+    /// states presence and publication and nothing else.
+    /// </summary>
+    public const string MemberPublishing = "sending";
+
+    /// <summary>Beside the row this machine holds, which nothing else on the row distinguishes.</summary>
+    public const string MemberSelf = "this machine";
+
+    /// <summary>
+    /// What a row says about a member beside their name, empty for one that is neither.
+    /// In words rather than in a mark, so the list needs no legend beside it to be read.
+    /// </summary>
+    public static string MemberDetail(bool isSelf, bool isPublishing) => (isSelf, isPublishing) switch
+    {
+        (true, true) => $"{MemberSelf}, {MemberPublishing}",
+        (true, false) => MemberSelf,
+        (false, true) => MemberPublishing,
+        _ => "",
+    };
+
+    public const string MembersJoin = "Join the group";
+
+    public const string MembersLeave = "Leave the group";
+
+    /// <summary>
+    /// What the member list says in place of rows.
+    /// Three states, each leaving the reader a different thing to do: wait, join, or hand the group key to
+    /// somebody.
+    /// </summary>
+    public const string MembersUnread = "Reading who is in this group.";
+
+    public const string MembersOutside =
+        "This machine is outside the group. Joining lists it here beside everyone else in it, and lets the relay "
+        + "carry what it publishes.";
+
+    public const string MembersNone = "Nobody is listed in this group.";
+
+    // --- The synthetic publishers ---------------------------------------------------
+
+    /// <summary>Heading over the test-stream slots.</summary>
+    public const string TestStreamsTitle = "Test streams";
+
+    /// <summary>
+    /// What the card describes, said once over the rows.
+    /// A slot is the identity and the child is not, so a relaunch comes back as the row that was already there.
+    /// </summary>
+    public const string TestStreamsCovers =
+        "Synthetic streams this machine publishes to the relay, one slot each, on paths of their own.";
+
+    /// <summary>How much of the set is on the air, beside the heading.</summary>
+    public static string TestStreamsRunning(int running, int slots) => $"{running} of {slots} sending";
+
+    /// <summary>One slot, by its position in the set and the path it publishes to.</summary>
+    public static string TestStreamSlotLabel(int slot, string name)
+        => name.Length > 0 ? $"slot {slot} · {name}" : $"slot {slot}";
+
+    /// <summary>Which relaunch the slot is on, counting from one.</summary>
+    public static string TestStreamAttempt(int attempt) => $"attempt {attempt}";
+
+    public const string TestStreamSending = "sending";
+
+    /// <summary>
+    /// A slot the set still holds with nothing publishing into it, which is what a relaunch waiting out its
+    /// backoff reads as.
+    /// </summary>
+    public const string TestStreamStopped = "not sending";
+
+    public const string TestStreamsUnread = "Reading the test streams.";
+
+    public const string TestStreamsNone = "No synthetic streams are running on this machine.";
+
     /// <summary>
     /// What the preflight list says when the form found nothing to say.
     /// A line rather than an empty panel: a card that vanishes with the last warning reads as a card that broke.

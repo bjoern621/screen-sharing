@@ -603,6 +603,27 @@ enum TextCode {
   // TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
   TEXT_CODE_COMPRESSION_RATIO = 137;
 
+  // Why a stream a reader was watching or publishing stopped.
+  // Numbered from 144, the run after 137 belonging to the groups below.
+  //
+  // Membership of the group is not in force here, and the relay closes what a non-member holds.
+  // Stated where this app read its own membership and found none, a close it cannot account for
+  // leaving the child's own words to stand alone.
+  // No arguments.
+  TEXT_CODE_GROUP_MEMBERSHIP_LAPSED = 144;
+  // Another member of this group holds the name this machine claims.
+  // No arguments.
+  TEXT_CODE_GROUP_NAME_TAKEN = 145;
+  // Joining a group takes a name this machine goes by, and none is set.
+  // No arguments.
+  TEXT_CODE_GROUP_NAME_MISSING = 146;
+  // The group service refused, on a ground no code here names.
+  // TEXT_ARG_NAME_CAUSE carries the statement behind it where this app has one.
+  TEXT_CODE_GROUP_SERVICE_REFUSED = 147;
+  // The stream stopped arriving at the relay, so there is nothing on the path to receive.
+  // No arguments.
+  TEXT_CODE_STREAM_LEFT_THE_RELAY = 148;
+
   // --- The audience and the wire -------------------------------------------------
 
   // No group key is set, so the stream is published where anybody who reaches the relay may

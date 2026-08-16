@@ -7,6 +7,8 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
@@ -40,6 +42,12 @@ type publishRetry struct {
 	settings settings.Settings
 	attempts int
 	timer    *time.Timer
+	// cause is this app's statement about what ended the pipeline this relaunch follows, and message
+	// that pipeline's own last words.
+	// Held here because the state carries them on every attempt: a shell that mounts mid-backoff reads
+	// why, where the exit event alone reaches only the shells that were listening.
+	cause   *screensharev1.Text
+	message string
 }
 
 // publishRetryAfter is the whole retry policy: how much of the budget the failure has spent, how
@@ -82,11 +90,15 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 	}
 
 	message := ""
+	var cause *screensharev1.Text
 	if err != nil {
 		message = err.Error()
 		if stderrTail != "" {
 			message += "\n" + stderrTail
 		}
+		// Read before the lock, since the membership snapshot is written by the poll and not by anything
+		// holding procMu.
+		cause = a.membership().failure()
 	}
 
 	a.procMu.Lock()
@@ -108,7 +120,7 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 
 	spent, wait, retrying := publishRetryAfter(err, time.Since(run.startedAt), run.attempts)
 	if retrying {
-		a.scheduleRetryLocked(run.settings, spent, wait)
+		a.scheduleRetryLocked(run.settings, spent, wait, cause, message)
 	}
 	// The relaunch is the one thing the held screen source is held for, so it survives a scheduled
 	// retry and goes with an exit that ends the stream.
@@ -119,7 +131,7 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 		if err != nil && spent > 0 {
 			message = fmt.Sprintf("%s (gave up after %d retries)", message, spent)
 		}
-		a.emit(wire.PublishExitEvent(message, logPath))
+		a.emit(wire.PublishExitEvent(message, logPath, cause))
 	}
 	a.emitPublishState()
 }
@@ -127,13 +139,16 @@ func (a *App) publishEnded(run *publishRun, err error, stderrTail string, logPat
 // scheduleRetryLocked arms the relaunch of s as attempt spent+1, firing once wait has passed.
 // procMu is held by the caller.
 //
+// cause and message are what ended the pipeline this relaunch follows, carried so the state says why
+// on every attempt.
+//
 // The retry is placed before the timer is armed, so a fire that beats this call's return blocks on
 // the lock and finds the retry it belongs to rather than a window with none.
-func (a *App) scheduleRetryLocked(s settings.Settings, spent int, wait time.Duration) {
+func (a *App) scheduleRetryLocked(s settings.Settings, spent int, wait time.Duration, cause *screensharev1.Text, message string) {
 	assert.Assert(spent >= 0 && spent < len(publishBackoff), "a publish retry indexes the backoff", spent, len(publishBackoff))
 	assert.Assert(a.retry == nil, "a publish schedules its retry with none pending", s.Publish.Name)
 
-	r := &publishRetry{settings: s, attempts: spent + 1}
+	r := &publishRetry{settings: s, attempts: spent + 1, cause: cause, message: message}
 	a.retry = r
 	r.timer = time.AfterFunc(wait, func() { a.firePublishRetry(r) })
 
@@ -167,7 +182,10 @@ func (a *App) firePublishRetry(r *publishRetry) {
 	s, err := a.settingsForCommand(r.settings)
 	if err != nil {
 		logger.Warnf("retry %d of the publish of '%s' has no relay token: %v", r.attempts, r.settings.Publish.Name, err)
-		a.emit(wire.PublishExitEvent(err.Error(), ""))
+		// No connection was opened, so nothing here is the relay closing one: the trade's own sentence
+		// says what happened, and the statement beside it is made only where membership is what stopped
+		// the trade.
+		a.emit(wire.PublishExitEvent(err.Error(), "", a.membership().failure()))
 		a.emitPublishState()
 		return
 	}
@@ -188,7 +206,7 @@ func (a *App) firePublishRetry(r *publishRetry) {
 		// The child never started, so no exit is coming to carry the chain further, and it ends here
 		// rather than on a budget nothing is spending.
 		logger.Warnf("retry %d of the publish of '%s' did not start: %v", r.attempts, r.settings.Publish.Name, err)
-		a.emit(wire.PublishExitEvent(err.Error(), ""))
+		a.emit(wire.PublishExitEvent(err.Error(), "", a.membership().failure()))
 	}
 	a.emitPublishState()
 }

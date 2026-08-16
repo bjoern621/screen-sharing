@@ -28,15 +28,21 @@ tasks:
     deps: [relay, dev, avalonia]
 
   relay:
-    desc: Run the MediaMTX relay natively (SRT 8890/udp, API 9997)
+    desc: Run the relay and the group service beside it, on deploy/mediamtx-groups.yml
+    # A script and not a command: three things come up together.
+    # A self-signed certificate for the TLS listeners where none is drawn.
+    # The group service every token is verified against.
+    # The relay itself, the deployment's certificate and hook paths overridden through
+    # MediaMTX's environment.
+    #
+    # mediamtx and openssl come from the flake's dev shell.
+    # Windows has none, so the PowerShell half fetches mediamtx.exe into bin/ on first run
+    # and draws the certificate through .NET.
     cmds:
-      # The flake's dev shell carries the mediamtx binary. Windows has no such shell, so
-      # the relay comes from scripts/relay.ps1 instead, which fetches mediamtx.exe into
-      # bin/ on first run and launches it against this same config.
       - platforms: [linux, darwin]
-        cmd: mediamtx mediamtx.yml
+        cmd: bash scripts/relay.sh
       - platforms: [windows]
-        cmd: powershell -NoProfile -File scripts/relay.ps1
+        cmd: pwsh -NoProfile -File scripts/relay.ps1
 
   relay:tunnel:
     desc: Forward a deployment's loopback-only endpoints to this machine for the Bruno collection
@@ -46,9 +52,9 @@ tasks:
     # 9997 is the relay's API, which the reverse proxy does not front. The credential that goes
     # with it comes from scripts/relay-api-token.sh, and bruno/README.md covers the pair.
     #
-    # 9443 is the group service. Four of its routes are fronted by the proxy and reached at the
-    # deployment's own name; /roster and /reconcile are not, so the `Roster` folder addresses
-    # this instead. Sent to the public name they reach the HLS listener, which answers
+    # 9443 is the group service. The proxy fronts the routes a member's app calls and not
+    # /reconcile, which is the relay's own read hook on loopback, so the `Members` folder
+    # addresses this instead. Sent to the public name it reaches the HLS listener, which answers
     # "authentication error" for a path it carries no stream at.
     #
     # RELAY_HOST names another deployment's SSH host.

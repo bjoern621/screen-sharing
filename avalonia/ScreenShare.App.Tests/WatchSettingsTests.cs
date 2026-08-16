@@ -281,7 +281,7 @@ public sealed class WatchSettingsTests
     public async Task AnOpenLegIsTickedOnTheMenu()
     {
         var backend = Carrying("desk");
-        backend.Watching.Add(new WatchKey { StreamName = "desk", Transport = "hls" });
+        backend.Watching.Add(new StreamRef { StreamName = "desk", Transport = "hls" });
         var both = await BothAsync(backend);
 
         var open = both.Viewer.Streams.Single(row => row.Name == "desk").Legs.Single(leg => leg.Value == "hls");

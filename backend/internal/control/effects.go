@@ -231,8 +231,8 @@ func (s *Server) StopPublish(ctx context.Context, req *screensharev1.StopPublish
 // The transport is per viewer and independent of the publish leg, so one stream can be watched over
 // any leg the relay serves it on.
 func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRequest) (*screensharev1.StartWatchResponse, error) {
-	key := wire.WatchKeyOf(req.GetViewer())
-	name, leg := key.StreamName, key.Transport
+	ref := wire.StreamRefOf(req.GetViewer())
+	name, leg := ref.StreamName, ref.Transport
 	if name == "" {
 		return nil, invalidArgument("no stream named to watch")
 	}
@@ -240,7 +240,7 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 		return nil, invalidArgument("no transport named to watch '%s' over", name)
 	}
 
-	if err := s.backend.StartWatch(key); err != nil {
+	if err := s.backend.StartWatch(ref); err != nil {
 		// The carriage refusal, which is the world not being ready rather than the request being
 		// malformed: the relay re-serves a stream only on the listeners whose protocol has a payload
 		// mapping for its bitstream, so an SRT viewer opened on a VP9 stream connects and receives
@@ -263,19 +263,19 @@ func (s *Server) StartWatch(ctx context.Context, req *screensharev1.StartWatchRe
 
 // StopWatch closes one open viewer.
 //
-// The pair is checked for the reason WatchKey exists: one stream is watched over several transports
+// The pair is checked for the reason StreamRef exists: one stream is watched over several transports
 // at once, so half an identity names a viewer that cannot exist and is INVALID_ARGUMENT.
 // A complete pair with no viewer open succeeds, on the ground StopPublish does.
 func (s *Server) StopWatch(ctx context.Context, req *screensharev1.StopWatchRequest) (*screensharev1.StopWatchResponse, error) {
-	key := wire.WatchKeyOf(req.GetViewer())
-	if key.StreamName == "" {
+	ref := wire.StreamRefOf(req.GetViewer())
+	if ref.StreamName == "" {
 		return nil, invalidArgument("no stream named to stop watching")
 	}
-	if key.Transport == "" {
-		return nil, invalidArgument("no transport named to stop watching '%s' over", key.StreamName)
+	if ref.Transport == "" {
+		return nil, invalidArgument("no transport named to stop watching '%s' over", ref.StreamName)
 	}
 
-	s.backend.StopWatch(key)
+	s.backend.StopWatch(ref)
 
 	return &screensharev1.StopWatchResponse{}, nil
 }
@@ -290,8 +290,8 @@ func (s *Server) StopWatch(ctx context.Context, req *screensharev1.StopWatchRequ
 // across a process boundary"): the effect lands in a program this process does not own, so there is
 // no state to read back, no stop to write, and nothing here reaches the viewer state.
 func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBrowserRequest) (*screensharev1.OpenInBrowserResponse, error) {
-	key := wire.WatchKeyOf(req.GetViewer())
-	name, leg := key.StreamName, key.Transport
+	ref := wire.StreamRefOf(req.GetViewer())
+	name, leg := ref.StreamName, ref.Transport
 	if name == "" {
 		return nil, invalidArgument("no stream named to open in the browser")
 	}
@@ -299,7 +299,7 @@ func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBro
 		return nil, invalidArgument("no transport named to open '%s' over", name)
 	}
 
-	if err := s.backend.OpenInBrowser(key); err != nil {
+	if err := s.backend.OpenInBrowser(ref); err != nil {
 		return nil, failedPrecondition("cannot open '%s' over %s in the browser: %v", name, leg, err)
 	}
 	return &screensharev1.OpenInBrowserResponse{}, nil
@@ -319,8 +319,8 @@ func (s *Server) OpenInBrowser(ctx context.Context, req *screensharev1.OpenInBro
 // and not before, and whether this machine can roll it down is the backend's registry,
 // so a refusal written here would guess at both.
 func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartReceiveRequest) (*screensharev1.StartReceiveResponse, error) {
-	key := wire.WatchKeyOf(req.GetStream())
-	name, leg := key.StreamName, key.Transport
+	ref := wire.StreamRefOf(req.GetStream())
+	name, leg := ref.StreamName, ref.Transport
 	if name == "" {
 		return nil, invalidArgument("no stream named to receive")
 	}
@@ -328,7 +328,7 @@ func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartRecei
 		return nil, invalidArgument("no transport named to receive '%s' over", name)
 	}
 
-	if err := s.backend.StartReceive(key, req.GetToneMap()); err != nil {
+	if err := s.backend.StartReceive(ref, req.GetToneMap()); err != nil {
 		return nil, failedPrecondition("cannot receive '%s' over %s: %v", name, leg, err)
 	}
 	return &screensharev1.StartReceiveResponse{}, nil
@@ -338,15 +338,15 @@ func (s *Server) StartReceive(ctx context.Context, req *screensharev1.StartRecei
 // The pair is checked, and a pair nothing is decoding succeeds, both for the reasons StopWatch
 // gives.
 func (s *Server) StopReceive(ctx context.Context, req *screensharev1.StopReceiveRequest) (*screensharev1.StopReceiveResponse, error) {
-	key := wire.WatchKeyOf(req.GetStream())
-	if key.StreamName == "" {
+	ref := wire.StreamRefOf(req.GetStream())
+	if ref.StreamName == "" {
 		return nil, invalidArgument("no stream named to stop receiving")
 	}
-	if key.Transport == "" {
-		return nil, invalidArgument("no transport named to stop receiving '%s' over", key.StreamName)
+	if ref.Transport == "" {
+		return nil, invalidArgument("no transport named to stop receiving '%s' over", ref.StreamName)
 	}
 
-	s.backend.StopReceive(key)
+	s.backend.StopReceive(ref)
 
 	return &screensharev1.StopReceiveResponse{}, nil
 }
@@ -394,16 +394,16 @@ func (s *Server) StopMonitorPreview(ctx context.Context, req *screensharev1.Stop
 // The bound lives at the backend, which brings a figure past the end of the range back,
 // and a refusal would turn a slider that overshot into an error a reader has to read.
 func (s *Server) SetReceiveAudio(ctx context.Context, req *screensharev1.SetReceiveAudioRequest) (*screensharev1.SetReceiveAudioResponse, error) {
-	key := wire.WatchKeyOf(req.GetStream())
-	if key.StreamName == "" {
+	ref := wire.StreamRefOf(req.GetStream())
+	if ref.StreamName == "" {
 		return nil, invalidArgument("no stream named to set the audio of")
 	}
-	if key.Transport == "" {
-		return nil, invalidArgument("no transport named to set the audio of '%s' over", key.StreamName)
+	if ref.Transport == "" {
+		return nil, invalidArgument("no transport named to set the audio of '%s' over", ref.StreamName)
 	}
 
-	if err := s.backend.SetReceiveAudio(key, req.GetVolume(), req.GetMuted()); err != nil {
-		return nil, notFound("cannot set the audio of '%s' over %s: %v", key.StreamName, key.Transport, err)
+	if err := s.backend.SetReceiveAudio(ref, req.GetVolume(), req.GetMuted()); err != nil {
+		return nil, notFound("cannot set the audio of '%s' over %s: %v", ref.StreamName, ref.Transport, err)
 	}
 
 	return &screensharev1.SetReceiveAudioResponse{}, nil
@@ -475,17 +475,57 @@ func (s *Server) ForgetPortalConsent(ctx context.Context, req *screensharev1.For
 
 // CreateGroup draws a group key at the relay named in the request and answers it.
 //
-// Nothing is stored: the key goes back to the shell, which writes it to the group key field like a
-// value the user typed, so the one write that moves a machine between groups stays where every
-// other settings write is.
+// Nothing is stored: the group key goes back to the shell, which writes it to the group key field
+// like a value the user typed, so the one write that moves a machine between groups stays where
+// every other settings write is.
 // A relay with no group service and an unreachable one are both the caller's to fix, so each leaves
-// as the backend's own sentence rather than as a key drawn nowhere.
+// as the backend's own sentence rather than as a group key drawn nowhere.
 func (s *Server) CreateGroup(ctx context.Context, req *screensharev1.CreateGroupRequest) (*screensharev1.CreateGroupResponse, error) {
-	key, id, err := s.backend.CreateGroup(wire.ToRelay(req.GetRelay()))
+	groupKey, groupID, err := s.backend.CreateGroup(wire.ToRelay(req.GetRelay()))
 	if err != nil {
 		return nil, fromBackend("cannot draw a group key", err)
 	}
-	return &screensharev1.CreateGroupResponse{Key: key, Id: id}, nil
+	return &screensharev1.CreateGroupResponse{Key: groupKey, Id: groupID}, nil
+}
+
+// JoinGroup joins the group the settings name, drawing this machine's member identity where it holds
+// none and stating its presence at once.
+//
+// A group this machine is already in is the state the call names and succeeds, drawing nothing.
+//
+// The two preconditions are read off the settings above the call, where every request-earned refusal
+// in this file is made: a machine with no group key names no group to join, and one with no display
+// name has nothing to claim in it.
+// A name another member holds is the third refusal and the backend's to make, the group service being
+// the only side that knows who holds what, and it arrives as a Refused.
+func (s *Server) JoinGroup(ctx context.Context, req *screensharev1.JoinGroupRequest) (*screensharev1.JoinGroupResponse, error) {
+	relay := s.backend.Settings().Relay
+	if relay.GroupKey == "" {
+		return nil, failedPrecondition("a group is joined by its key, and none is set")
+	}
+	if relay.DisplayName == "" {
+		return nil, failedPrecondition("joining a group takes a name this machine goes by, and none is set")
+	}
+
+	if err := s.backend.JoinGroup(); err != nil {
+		if refused(err) {
+			return nil, invalidArgument("cannot join this group as '%s': %v", relay.DisplayName, err)
+		}
+		return nil, fromBackend("cannot join this group", err)
+	}
+	return &screensharev1.JoinGroupResponse{}, nil
+}
+
+// LeaveGroup releases this machine's presence and drops the identity it held in the group, which the
+// relay answers by closing what this machine had open there.
+//
+// It refuses nothing, a leave by a machine in no group included: a leave names what is to be true
+// afterwards, and where that already holds no precondition is left to fail on.
+func (s *Server) LeaveGroup(ctx context.Context, req *screensharev1.LeaveGroupRequest) (*screensharev1.LeaveGroupResponse, error) {
+	if err := s.backend.LeaveGroup(); err != nil {
+		return nil, fromBackend("cannot leave this group", err)
+	}
+	return &screensharev1.LeaveGroupResponse{}, nil
 }
 
 // OpenLog opens one run log in the machine's default application.

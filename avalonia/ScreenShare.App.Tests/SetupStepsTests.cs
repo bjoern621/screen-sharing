@@ -64,9 +64,9 @@ public sealed class SetupStepsTests
         Assert.DoesNotContain(flow.Steps, step => GroupPlacement.InViewer(step.Key));
         Assert.DoesNotContain(
             flow.Review.Tiles,
-            tile => tile.Heading == Fields.Group(GroupPlacement.WatchKey).Title);
+            tile => tile.Heading == Fields.Group(GroupPlacement.WatchGroup).Title);
 
-        flow.CurrentStep = GroupPlacement.WatchKey;
+        flow.CurrentStep = GroupPlacement.WatchGroup;
         Assert.Equal(flow.Steps[0].Key, flow.Steps.Single(step => step.IsCurrent).Key);
     }
 

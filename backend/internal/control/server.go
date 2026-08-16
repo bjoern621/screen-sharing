@@ -71,13 +71,19 @@ type Backend interface {
 	// RelayStatus is the last snapshot the backend's own poll took, never a fresh fetch.
 	RelayStatus() relay.Status
 	// Watching lists the external viewers open.
-	Watching() []wire.WatchKey
+	Watching() []wire.StreamRef
 	// ReceiveState is every stream being decoded, read off the running pipelines rather than
 	// remembered: the chain that ran is not always the one asked for.
 	ReceiveState() []wire.ReceiveStream
-	// TestStreamsRunning counts the synthetic publishers alive, which is not the count that was asked
-	// for: one that died on its own drops out.
-	TestStreamsRunning() int
+	// TestStreamState is the synthetic set: how many publishers are alive, which is not the count that
+	// was asked for once one dies on its own, and a row per slot the set holds.
+	// One read for both, since a count answered apart from the rows is a second answer to one question.
+	TestStreamState() (running int, slots []wire.TestStreamSlot)
+	// MembersState is who this machine shares a group with, as the presence loop last read it.
+	// A read of that reading and no membership call of its own: presence is stated on the loop that
+	// polls the relay, and a second caller would be a second thing deciding when this machine is in its
+	// group.
+	MembersState() wire.MembersSnapshot
 	// MaxTestStreams bounds how many synthetic publishers run at once.
 	//
 	// Readable rather than only enforced, so an over-large request is refused where every other
@@ -110,8 +116,8 @@ type Backend interface {
 	// StartWatch opens an external viewer for one stream over one transport.
 	// A leg this build has no viewer for comes back as a Refused, which is what carries it across as
 	// INVALID_ARGUMENT rather than as the machine's state (refusal.go).
-	StartWatch(key wire.WatchKey) error
-	StopWatch(key wire.WatchKey)
+	StartWatch(ref wire.StreamRef) error
+	StopWatch(ref wire.StreamRef)
 	// StartReceive opens a decode for one stream on one leg inside the backend, and StopReceive closes
 	// one.
 	// The tile path's counterpart of the two above, and what they open is a decode and never a tile.
@@ -119,13 +125,13 @@ type Backend interface {
 	// toneMap rolls an HDR stream down into the range a standard display shows.
 	// The rung is an element in the pipeline, so a decode already open on the other answer is rebuilt
 	// to reach the state the call names.
-	StartReceive(key wire.WatchKey, toneMap bool) error
-	StopReceive(key wire.WatchKey)
+	StartReceive(ref wire.StreamRef, toneMap bool) error
+	StopReceive(ref wire.StreamRef)
 	// SetReceiveAudio sets how loud one decode plays and whether it plays at all, and refuses where
 	// nothing is decoding the pair.
 	// Loudness belongs to the decode rather than to a window drawing it: one pipeline holds one audio
 	// branch, so a per-window volume would be several controls over one element.
-	SetReceiveAudio(key wire.WatchKey, volume float64, muted bool) error
+	SetReceiveAudio(ref wire.StreamRef, volume float64, muted bool) error
 	// AudioLevels is how loud every decode carrying audio is at this instant.
 	// A read and not a stream: the cadence belongs to the service that ticks it, not to the backend
 	// that measures.
@@ -143,11 +149,11 @@ type Backend interface {
 	// Here rather than on a second interface, because the frame service serves the same backend this
 	// one does: a subscription draws from the decode StartReceive opened, and two interfaces onto it
 	// would be two ideas of which decodes exist.
-	SubscribeFrames(key wire.WatchKey) (FrameStream, error)
+	SubscribeFrames(ref wire.StreamRef) (FrameStream, error)
 	// SubscribePreviewFrames opens one consumer's view of the running publish's local preview, and
 	// refuses where nothing is publishing with one behind it.
 	//
-	// A method of its own rather than a key the one above could take, because the preview has no key:
+	// A method of its own rather than a ref the one above could take, because the preview has no ref:
 	// what it draws never crossed the relay, so no transport names it, and a synthetic one would put a
 	// protocol into the table every consumer reads (preview.go).
 	SubscribePreviewFrames() (FrameStream, error)
@@ -165,8 +171,8 @@ type Backend interface {
 	// refuses where nothing is previewing that screen.
 	//
 	// A third method for the reason the preview has one of its own: the three name three different
-	// kinds of thing, and one key would be a stream name for the first, nothing for the second and an
-	// output index for the third.
+	// kinds of thing, and one identity would be a stream name for the first, nothing for the second and
+	// an output index for the third.
 	SubscribeMonitorFrames(monitor int) (FrameStream, error)
 	// StartTestStreams launches synthetic publishers, replacing a running set.
 	StartTestStreams(count int) error
@@ -174,12 +180,20 @@ type Backend interface {
 	// OpenInBrowser opens the relay's player page for one stream in the machine's default browser, and
 	// refuses a leg the relay serves no page on or the stream's format does not cross.
 	// It opens no viewer this backend owns, so nothing it does reaches the viewer state.
-	OpenInBrowser(key wire.WatchKey) error
+	OpenInBrowser(ref wire.StreamRef) error
 	// ForgetPortalConsent drops the stored screen-capture consent.
 	ForgetPortalConsent() error
 	// CreateGroup draws a group key at the relay's group service and answers it beside the prefix it
 	// derives, storing neither: what a machine's group is remains a settings write like any other.
-	CreateGroup(relay settings.Relay) (key, id string, err error)
+	CreateGroup(relay settings.Relay) (groupKey, groupID string, err error)
+	// JoinGroup draws this machine's member identity in the group the settings name and states its
+	// presence, and LeaveGroup releases that presence and drops the identity.
+	// Both are idempotent: a group already joined draws nothing, and one never joined releases nothing.
+	//
+	// A display name another member holds comes back as a Refused, which is what carries it across as
+	// INVALID_ARGUMENT rather than as the machine's state (refusal.go).
+	JoinGroup() error
+	LeaveGroup() error
 	// OpenLog opens one run log in the machine's default application, and OpenLogsFolder the directory
 	// holding them.
 	OpenLog(path string) error

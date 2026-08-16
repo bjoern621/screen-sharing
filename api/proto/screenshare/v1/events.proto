@@ -4,6 +4,7 @@ package screenshare.v1;
 
 import "screenshare/v1/catalog.proto";
 import "screenshare/v1/session.proto";
+import "screenshare/v1/text.proto";
 
 option go_package = "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1;screensharev1";
 option csharp_namespace = "ScreenShare.Api.V1";
@@ -28,24 +29,54 @@ message ExitInfo {
   // Whole run log on disk, reached through OpenLog instead of by opening the path.
   // Rotation is the backend's, so a path held here may name a file already moved.
   string log_path = 2;
+  // What ended the run, in this app's vocabulary, absent where nothing here names it.
+  // Beside message rather than in place of it: the child's own words are data and stay raw
+  // (text.proto), and the statement is the half a reader can act on.
+  Text cause = 3;
 }
 
 message ViewerExit {
-  WatchKey viewer = 4;
+  StreamRef viewer = 4;
   ExitInfo exit = 3;
 
-  // 1 and 2 were name and transport, which WatchKey carries as one key.
+  // 1 and 2: name and transport, the pair StreamRef exists to be.
   reserved 1, 2;
   reserved "name", "transport";
 }
 
 message ViewerState {
-  repeated WatchKey viewers = 1;
+  repeated StreamRef viewers = 1;
 }
 
 // Live synthetic publishers, which is fewer than were asked for once one dies by itself.
 message TestStreamState {
   int32 running_count = 1;
+  // A row per slot the set holds, alive or not.
+  // running_count says how many are up and nothing about which, so a slot that died is visible
+  // here alone.
+  repeated TestStreamSlot slots = 2;
+}
+
+// One slot of the synthetic set.
+//
+// The slot is the identity and the child is not: a slot names its stream and picks its pattern,
+// so a relaunch comes back as the row the roster already shows.
+message TestStreamSlot {
+  // Position in the set, counting from zero.
+  int32 slot = 1;
+  // Relay path this slot publishes to, e.g. "test-1-bars".
+  string name = 2;
+  // A child is filling the slot.
+  // False while a relaunch waits out its backoff, which is a slot the set still holds.
+  bool running = 3;
+  // Which attempt the slot is on, counting from one.
+  int32 attempt = 4;
+  // Why the slot carries no publisher, absent while one is running.
+  Text cause = 5;
+  // The child's own last words, raw and never matched against (text.proto).
+  string message = 6;
+  // Whole run log on disk, reached through OpenLog.
+  string log_path = 7;
 }
 
 // Held settings moved behind this shell's back.
@@ -58,9 +89,11 @@ message SettingsChanged {}
 // Carries no log path, where a publish exit and a viewer exit do: a decode is backend
 // code rather than a child process, and owns no run log to open.
 message ReceiveExit {
-  WatchKey stream = 1;
+  StreamRef stream = 1;
   // Worded by the pipeline itself.
   string message = 2;
+  // What ended the decode, in this app's vocabulary, absent where nothing here names it.
+  Text cause = 3;
 }
 
 // One decode, described by what its pipeline turned out to be.
@@ -69,8 +102,8 @@ message ReceiveExit {
 // element gaps push a chain down to a fallback, and silicon decoders download their own
 // frames.
 message ReceiveStream {
-  // Stream name plus receiving leg, the identity WatchKey exists for.
-  WatchKey stream = 1;
+  // Stream name plus receiving leg, the identity StreamRef exists for.
+  StreamRef stream = 1;
   // A decoded frame reached the end of the pipeline.
   // False while connecting, and false on something arriving that cannot be decoded, where
   // the fields below stay empty for want of a negotiation.
@@ -139,6 +172,10 @@ message ReceiveStream {
   // install, and the two readings lead somebody to different actions.
   bool can_tone_map = 14;
   string tone_map_missing = 15;
+
+  // Why this decode carries no picture, absent while one is opening.
+  // What separates a decode still connecting from one nothing is going to arrive on.
+  Text failure = 16;
 }
 
 message ReceiveState {
@@ -193,8 +230,8 @@ message ReceiveStatGroup {
 // Rates are divided here and not per shell, as RelayStatus divides its own: per-reader
 // intervals would let one decode read two ways in two windows.
 message ReceiveStreamStats {
-  // Stream name plus receiving leg, the identity WatchKey exists for.
-  WatchKey stream = 1;
+  // Stream name plus receiving leg, the identity StreamRef exists for.
+  StreamRef stream = 1;
 
   // --- Arriving, off the video decoder's input pad
 
@@ -417,6 +454,38 @@ message MonitorPreviewState {
   repeated PreviewedMonitor monitors = 1;
 }
 
+// Who this machine shares a group with.
+//
+// A reading rather than a list somebody keeps: every member's own app states its presence, the
+// lease lapses where it stops being stated, and a member who left drops out by not appearing.
+message MembersState {
+  repeated Member members = 1;
+  // Why the group service refused this machine's presence, absent where it took it.
+  // A refusal is what leaves the list empty on a group that has members in it.
+  Text refusal = 2;
+  // This machine is in the group, so its presence is stated on every pass and the relay carries
+  // what it publishes.
+  // Quitting keeps it, and leaving clears it.
+  bool joined = 3;
+  // A connection list the relay serves would not answer, so every member's publishing reads false
+  // because nothing said otherwise rather than because nothing is being sent.
+  bool publishing_unread = 4;
+}
+
+// One member of the group.
+message Member {
+  // Derived from a secret only that member holds, which is what makes it an identity nobody else
+  // can state.
+  string member_id = 1;
+  // What that member calls itself, claimed per group and held by the first claim.
+  // Never an identity: the id says who a member is, whoever ends up holding the name.
+  string display_name = 2;
+  // The relay is carrying a stream from this member.
+  bool publishing = 3;
+  // This machine's own row.
+  bool self = 4;
+}
+
 // Names one Event payload, for a shell after a subset.
 //
 // An enum instead of the oneof's field names as strings, since a name typed into a
@@ -440,6 +509,7 @@ enum EventKind {
   EVENT_KIND_RECEIVE_EXIT = 13;
   EVENT_KIND_MONITOR_PREVIEW_STATE = 14;
   EVENT_KIND_RECEIVE_STATS = 15;
+  EVENT_KIND_MEMBERS_STATE = 16;
 
   // 11 was EVENT_KIND_SHOW_SETTINGS, and Event records why that payload left.
   reserved 11;
@@ -506,6 +576,11 @@ message Event {
     TestStreamState test_stream_state = 13;
     // A synthetic publisher is gone.
     ExitInfo test_stream_exit = 9;
+
+    // Who this machine shares a group with, on every presence the group service answers.
+    // The whole membership, so a shell draws the group rather than merging arrivals and
+    // departures into what it held.
+    MembersState members_state = 19;
 
     // The whole reference set again, once the encoder probe has filled in.
     // The catalog travels rather than the probe result alone, because a shell holding a

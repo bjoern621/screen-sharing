@@ -26,8 +26,8 @@ import (
 // file holds the struct and the process lifecycle.
 //
 // Each mutex owns one part of the mutable state and none is held while another is taken:
-// settingsMu the settings, procMu the children (the publish run and the watchers), controlMu the
-// control service's handle.
+// settingsMu the settings, procMu the children (the publish run and the watchers), membersMu the
+// statements about this machine's membership, controlMu the control service's handle.
 // A method that needs settings and children snapshots the settings under settingsMu, releases it,
 // then takes procMu, so there is no lock order to deadlock on.
 //
@@ -53,15 +53,25 @@ type App struct {
 	storeNotice *screensharev1.Text
 
 	relay *relay.Client
-	// This app's side of the key, token and index service, holding the token it last minted
+	// This app's side of the group key, token and index service, holding the token it last minted
 	// (groups.go).
 	// One client for the process, because the token is one credential: a second would trade the same
-	// key for a second token and double the requests the service sees per publish.
-	groups *groupclient.Client
+	// group key for a second token and double the requests the service sees per publish.
+	groups groupService
+	// Serialises the statements about this machine's membership: presence, join and leave are one
+	// thing happening in one order, so a pass in flight when a leave arrives lands before the release
+	// rather than after it (members.go).
+	// Held across the call to the group service, the order there being what it buys.
+	membersMu sync.Mutex
 	// Snapshot the last fetch produced, nil until one has been taken.
 	// Every fetch writes it and the control service reads it, so several shells asking what is live do
 	// not multiply the requests the relay sees (watch.go).
 	relayLast atomic.Pointer[relay.Status]
+	// Presence this machine last stated, and the group the service answered with (members.go).
+	// Written by the same poll that fetches the relay and read wherever a stopped stream has to say
+	// whether membership is what stopped it, so it is held as the relay snapshot is: whole, and never
+	// behind a lock a failure path would wait on.
+	members atomic.Pointer[membership]
 	// relayPollOnce starts the poll that keeps relayLast fresh, relayStopOnce ends it, and both guard
 	// relayStop, which the loop selects on.
 	// The poll belongs to this process rather than to whichever shell happens to be up: the contract
@@ -125,16 +135,16 @@ type App struct {
 	pointerAt pointerState
 	// Local decode of the stream this machine is sending, nil while nothing publishes and while a
 	// publish runs without one.
-	// A field of its own rather than an entry in receivers because no WatchKey names it: the frames
+	// A field of its own rather than an entry in receivers because no StreamRef names it: the frames
 	// never crossed the relay, so no transport carried them (preview.go).
 	preview  *previewRun
-	watchers map[WatchKey]*ffmpeg.Proc
+	watchers map[StreamRef]*ffmpeg.Proc
 	// Decodes running inside this process, keyed as the watchers are, by a stream and the leg it is
 	// received over: the relay re-serves each stream on all its listeners, so one stream can be
 	// decoded over several at once (receive.go).
-	receivers map[WatchKey]*receive.Receiver
+	receivers map[StreamRef]*receive.Receiver
 	// Screens being read for the setup wizard, keyed by the index the output is enumerated under.
-	// A map of their own rather than entries beside the decodes, because an output and not a WatchKey
+	// A map of their own rather than entries beside the decodes, because an output and not a StreamRef
 	// names one: nothing encoded these frames and no transport carried them (monitorpreview.go).
 	monitorPreviews map[int]*receive.Receiver
 	// The synthetic set, one entry per slot it holds, keyed by the slot number the stream is named
@@ -176,8 +186,8 @@ func New(version string) *App {
 		relayStop:        make(chan struct{}),
 		receiveStatsStop: make(chan struct{}),
 		fatal:            make(chan error, 1),
-		watchers:         map[WatchKey]*ffmpeg.Proc{},
-		receivers:        map[WatchKey]*receive.Receiver{},
+		watchers:         map[StreamRef]*ffmpeg.Proc{},
+		receivers:        map[StreamRef]*receive.Receiver{},
 		monitorPreviews:  map[int]*receive.Receiver{},
 		testStreams:      map[int]*testStream{},
 	}

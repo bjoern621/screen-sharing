@@ -98,7 +98,7 @@ public interface IBackend
     /// External viewers open, one entry per stream and the transport it is received over.
     /// A stream name alone is no identity: the relay re-serves each stream on all its listeners.
     /// </summary>
-    Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default);
+    Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Every stream the backend is decoding, with what the pipeline behind each turned out to be.
@@ -106,6 +106,28 @@ public interface IBackend
     /// first frame settles what it negotiated.
     /// </summary>
     Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Who this machine shares a group with, as the presence loop last read it, and whether this machine is in
+    /// the group at all.
+    ///
+    /// A reading of the group and never a roster this shell keeps: every member's own app states its presence,
+    /// the lease lapses where it stops being stated, and a member who left drops out by not appearing.
+    /// The same state arrives on the event stream thereafter, so a window that has just opened and one that has
+    /// been open cannot list different people.
+    ///
+    /// A refusal the group service made is carried on the state rather than raised: a taken name leaves the list
+    /// empty on a group that has members in it, and the sentence is what makes that readable.
+    /// </summary>
+    Task<MembersState> MembersAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Synthetic publishers this machine runs, one entry per slot of the set whether or not a child is filling
+    /// it.
+    /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable only
+    /// from its own row.
+    /// </summary>
+    Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Configurations the user saved, as <c>ListPresets</c> answers, with the notice saying why the store holds
@@ -235,6 +257,26 @@ public interface IBackend
     /// A relay with no group service is refused with the backend's own sentence.
     /// </summary>
     Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Joins the group the settings name, drawing this machine's member identity where it holds none and stating
+    /// its presence at once.
+    ///
+    /// Names a state and is safe to repeat: joining a group this machine is already in is that state holding.
+    /// The membership itself arrives on the event stream, so a window that pressed the button and a window that
+    /// did not learn it the same way.
+    ///
+    /// A name another member holds, and settings naming no group key or no name for this machine, arrive as
+    /// <see cref="BackendUnavailableException"/> carrying the backend's own sentence.
+    /// </summary>
+    Task JoinGroupAsync(CancellationToken cancellation = default);
+
+    /// <summary>
+    /// Leaves the group, releasing this machine's presence and dropping the identity it held in it, which the
+    /// relay answers by closing what this machine had open there.
+    /// Safe to repeat: leaving a group this machine is outside is that state holding.
+    /// </summary>
+    Task LeaveGroupAsync(CancellationToken cancellation = default);
 
     /// <summary>
     /// Opens an external viewer for one stream over one transport.

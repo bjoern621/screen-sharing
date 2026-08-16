@@ -74,6 +74,13 @@ type Relay struct {
 	// A preset is a publish group and nothing else, so it carries no group and applying one cannot
 	// move a machine between them.
 	GroupKey string `json:"groupKey,omitempty"`
+	// DisplayName is what this machine calls itself in a group: claimed on the first join, shown
+	// beside every stream it publishes, and never identity, which is the member secret's job
+	// (internal/member).
+	//
+	// Empty is a machine that has been given no name, and joining a group asks for one.
+	// With the relay because a group is, and a preset carries neither.
+	DisplayName string `json:"displayName,omitempty"`
 	// SrtPassphrase keys the relay-wide SRT listener, empty for a relay that takes none.
 	//
 	// SRT is the one leg no reverse proxy wraps, being UDP with no TLS, so what protects the packets
@@ -89,7 +96,7 @@ type Relay struct {
 	// one place writes it (internal/app, settingsForCommand).
 	// It rides in the snapshot because every serialization already reads the whole snapshot.
 	//
-	// Empty is a relay that authenticates nothing, which is what a LAN relay does.
+	// Empty until the group service beside the relay issues one (GroupService).
 	Token string `json:"-"`
 }
 
@@ -125,37 +132,51 @@ func (r Relay) OnTrustedNetwork() bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
 
-// Tls says every leg to this relay is encrypted, and the HTTP ones reached through a TLS reverse
-// proxy under one name on the standard port (deploy/Caddyfile).
+// Tls says this relay's HTTP legs are reached through a TLS reverse proxy, under one name on the
+// standard port, rather than on listeners of the relay's own (deploy/Caddyfile).
 //
-// Derived from the address and never stored, because it is not a decision anybody makes: a relay
-// across a network somebody else operates is encrypted, and one on this machine or this network is
-// the LAN deployment in mediamtx.yml, which terminates nothing.
+// Not whether the connection is encrypted. RTSP, RTMP and MoQ terminate TLS at the relay itself
+// wherever it runs, so those legs are encrypted whichever way this answers
+// (deploy/mediamtx-groups.yml, internal/transport).
+// What it decides is an address: one name on 443, or a port per listener.
+//
+// Derived from the address and never stored, because it is not a decision anybody makes: what puts
+// a proxy in front of a relay is the network between it and here, so an address across somebody
+// else's network is reached through that proxy and an address this machine or this network reaches
+// directly is reached on the relay's own ports.
 // Held as a field it would be a second copy of a fact the host already carries, and the two would
-// disagree the moment a host was edited: a stored "yes" beside a LAN address addresses listeners
-// that are not there, and a stored "no" beside a public name sends the picture in the clear.
-//
-// It also says whether a group service can be reached, that service answering on the proxy's name.
-// A relay with no proxy has nowhere to ask for a token, and no port is invented to look on.
+// disagree the moment a host was edited: a stored "yes" beside an address on this network addresses
+// listeners that are not there, and a stored "no" beside a public name asks the proxy's ports of a
+// relay that has none open.
 func (r Relay) Tls() bool {
 	if r.Host == "" {
-		// No relay is named, so there is no connection to encrypt.
-		// Answering yes here would address TLS listeners of a host that does not exist.
+		// No relay is named, so there is no address to build either way.
 		return false
 	}
 	return !r.OnTrustedNetwork()
 }
 
-// GroupService is where keys, tokens and the stream index are answered, ok=false where the
-// deployment has none.
+// GroupServicePort is where groupd answers on a relay this network reaches directly, its own
+// default (cmd/groupd, -listen).
+// Behind the proxy there is no such port, the service's routes being paths under the one name.
+const GroupServicePort = 9443
+
+// GroupService is where group keys, relay tokens, membership and the stream index are answered,
+// ok=false where no relay is named.
 //
-// The proxy's own name: one certificate covers relay and service, and the service's routes are
-// paths under it (deploy/Caddyfile).
-// A relay reached directly has no proxy and so no service.
-// False rather than a guessed port, which would hang a token request on every publish.
+// Every relay this repository runs has one beside it, so both deployments are addresses rather than
+// a presence and an absence: the proxy's own name, one certificate covering relay and service
+// (deploy/Caddyfile), or the port groupd binds where the relay is reached directly
+// (scripts/relay.sh).
+//
+// The relay refuses a publisher carrying no token, so a service this answered false for is a relay
+// nothing can publish to.
 func (r Relay) GroupService() (base string, ok bool) {
-	if !r.Tls() || r.Host == "" {
+	if r.Host == "" {
 		return "", false
+	}
+	if r.OnTrustedNetwork() {
+		return fmt.Sprintf("http://%s:%d", r.Host, GroupServicePort), true
 	}
 	return "https://" + r.Host, true
 }
@@ -169,25 +190,23 @@ func (r Relay) GroupService() (base string, ok bool) {
 //
 // Three answers, and which one applies is the deployment's rather than a preference:
 //   - a group key, so the group's own prefix
-//   - no key at all on a relay that has a group service, so the public prefix, a stream anybody may
-//     watch
-//   - no key on a relay that has none, so the bare name, which is the LAN shape where the relay
-//     authenticates nothing and there is no prefix to derive
+//   - no key, so the public prefix, a stream anybody may watch
+//   - a relay nobody named, or a key that will not parse, so the bare name
 //
 // A stored key that will not parse is an Umgebungsfehler and yields the bare name, never the public
 // prefix.
 // The two keyless cases are not one: a field nobody filled in is a stream nobody restricted, and a
 // key that came back damaged is a stream somebody meant to restrict, so widening its audience on
 // the strength of a broken key would publish to everyone on the evidence that something is wrong.
-// The bare name is refused by a relay that authenticates, which is the outcome that keeps the
-// stream off the public prefix.
+// The bare name is under no group's prefix and every relay refuses it, which is the outcome that
+// keeps the stream off the public prefix.
 func (r Relay) Path(name string) string {
 	if r.GroupKey != "" {
-		key, err := group.ParseKey(r.GroupKey)
+		groupKey, err := group.ParseKey(r.GroupKey)
 		if err != nil {
 			return name
 		}
-		path, err := key.Path(name)
+		path, err := groupKey.Path(name)
 		if err != nil {
 			return name
 		}
@@ -418,8 +437,10 @@ func Defaults() Settings {
 
 	d := Settings{
 		Relay: Relay{
+			// Ports: the listeners deploy/mediamtx-groups.yml binds, that file being the
+			// configuration every relay runs.
 			Host: "streamrelay.bjoernblessin.de", SrtPort: 8890, ApiPort: 9997,
-			RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888, MoqPort: 8892,
+			RtspPort: 8322, WebrtcPort: 8889, RtmpPort: 1936, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{
 			Name: host, Transport: "srt", Format: "hevc", Encoder: capabilities.FamilyNvenc,

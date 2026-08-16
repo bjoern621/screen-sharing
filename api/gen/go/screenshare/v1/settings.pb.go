@@ -121,18 +121,19 @@ type RelaySettings struct {
 	// terminates this leg itself on a port of its own in every deployment
 	// (docs/network-architecture.md).
 	MoqPort int32 `protobuf:"varint,11,opt,name=moq_port,json=moqPort,proto3" json:"moq_port,omitempty"`
-	// Every leg to this relay is encrypted, and its HTTP ones are reached through a TLS reverse
-	// proxy rather than directly.
+	// This relay's HTTP legs are reached through a TLS reverse proxy, under one name on the standard
+	// port, rather than on listeners of the relay's own.
 	//
 	// One flag rather than a scheme per listener: the proxy terminates for the relay and for the
-	// group service alike, under one name on the standard port, so the ports above name direct
-	// listeners that are part of no address while this is set.
-	// It is also what says a group service can be reached at all, since a relay with no proxy in
-	// front of it has nowhere to trade a group key for a relay token.
+	// group service alike, so the ports above name direct listeners that are part of no address
+	// while this is set.
+	//
+	// It does not say whether the connection is encrypted. RTSP, RTMP and MoQ terminate TLS at the
+	// relay itself wherever it runs, so those legs are encrypted whichever way this reads.
 	//
 	// <b>A reading and not a setting.</b> The backend derives it from `host` and stores it nowhere,
-	// so it crosses outward to be shown and is ignored coming back: a relay reached across a network
-	// somebody else operates is encrypted, and one on this machine or this network is not.
+	// so it crosses outward to be shown and is ignored coming back: a relay across a network somebody
+	// else operates is reached through a proxy, and one on this machine or this network directly.
 	// A shell that sent a value here would be answering a question this side already answered, and
 	// the two would disagree the moment the host was edited.
 	Tls bool `protobuf:"varint,10,opt,name=tls,proto3" json:"tls,omitempty"`
@@ -145,6 +146,13 @@ type RelaySettings struct {
 	// deployment, which is what keeps a preset from carrying one: applying a preset must not move
 	// a machine between groups.
 	GroupKey string `protobuf:"bytes,8,opt,name=group_key,json=groupKey,proto3" json:"group_key,omitempty"`
+	// What this machine calls itself in the group above: claimed on the first join, shown beside
+	// every stream it publishes, and read by no other member as identity.
+	//
+	// Empty is a machine that has been given no name. Joining a group asks for one, a name being
+	// claimed first-come inside a group, so there is nothing to fill this with that another member
+	// may not already hold.
+	DisplayName string `protobuf:"bytes,12,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
 	// Keys the relay-wide SRT listener, and empty for a relay that takes none.
 	//
 	// SRT is UDP with no TLS, so no reverse proxy wraps it and what protects the packets on the
@@ -253,6 +261,13 @@ func (x *RelaySettings) GetTls() bool {
 func (x *RelaySettings) GetGroupKey() string {
 	if x != nil {
 		return x.GroupKey
+	}
+	return ""
+}
+
+func (x *RelaySettings) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
 	}
 	return ""
 }
@@ -842,7 +857,7 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bSettings\x123\n" +
 	"\x05relay\x18\x01 \x01(\v2\x1d.screenshare.v1.RelaySettingsR\x05relay\x129\n" +
 	"\apublish\x18\x02 \x01(\v2\x1f.screenshare.v1.PublishSettingsR\apublish\x126\n" +
-	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xc0\x02\n" +
+	"\x06viewer\x18\x03 \x01(\v2\x1e.screenshare.v1.ViewerSettingsR\x06viewer\"\xe3\x02\n" +
 	"\rRelaySettings\x12\x12\n" +
 	"\x04host\x18\x01 \x01(\tR\x04host\x12\x19\n" +
 	"\bsrt_port\x18\x02 \x01(\x05R\asrtPort\x12\x19\n" +
@@ -855,7 +870,8 @@ const file_screenshare_v1_settings_proto_rawDesc = "" +
 	"\bmoq_port\x18\v \x01(\x05R\amoqPort\x12\x10\n" +
 	"\x03tls\x18\n" +
 	" \x01(\bR\x03tls\x12\x1b\n" +
-	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12%\n" +
+	"\tgroup_key\x18\b \x01(\tR\bgroupKey\x12!\n" +
+	"\fdisplay_name\x18\f \x01(\tR\vdisplayName\x12%\n" +
 	"\x0esrt_passphrase\x18\t \x01(\tR\rsrtPassphrase\"\xdf\b\n" +
 	"\x0fPublishSettings\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12+\n" +

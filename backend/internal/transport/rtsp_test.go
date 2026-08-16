@@ -8,18 +8,24 @@ import (
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
-// rtspStream sets every knob away from its default on both legs, so a serialization ignoring one
-// renders the default rather than passing.
+// rtspStream sets every knob away from its default, so a serialization ignoring one renders the
+// default rather than passing.
+//
+// The two legs hold different lower transports, which is what tells a serialization reading its own
+// leg from one reading the other.
+// Only the publish value is one this app accepts: every relay serves RTSPS alone and both legs
+// interleave there (encryption_test.go), so the watch value here is what a hand-edited file holds
+// and what the repair walks off.
 func rtspStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
 			Host:     "10.0.0.5",
-			RtspPort: 8554,
+			RtspPort: 8322,
 		},
 		Publish: settings.Publish{
 			Name:                "alice",
 			Transport:           "rtsp",
-			RtspPublishProtocol: "udp",
+			RtspPublishProtocol: "tcp",
 		},
 		Viewer: settings.Viewer{
 			RtspWatchLatencyMs: 350,
@@ -27,6 +33,10 @@ func rtspStream() settings.Settings {
 		},
 	}
 }
+
+// rtspPath is where the fixture's stream lives on the relay: every relay authenticates, so a
+// machine in no group publishes under the prefix anybody may watch.
+const rtspPath = "public/alice"
 
 func TestRTSPRegistered(t *testing.T) {
 	tr, ok := Get("rtsp")
@@ -41,7 +51,7 @@ func TestRTSPRegistered(t *testing.T) {
 func TestRTSPPublishArgs(t *testing.T) {
 	args := RTSP{}.PublishArgs(rtspStream())
 
-	want := []string{"-f", "rtsp", "-rtsp_transport", "udp", "rtsp://10.0.0.5:8554/alice"}
+	want := []string{"-f", "rtsp", "-rtsp_transport", "tcp", "-tls_verify", "0", "rtsps://10.0.0.5:8322/" + rtspPath}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -53,8 +63,8 @@ func TestRTSPGstSink(t *testing.T) {
 	for _, want := range []string{
 		"rtspclientsink",
 		"name=" + GstMuxName,
-		"protocols=udp",
-		"location=rtsp://10.0.0.5:8554/alice",
+		"protocols=tcp",
+		"location=rtsps://10.0.0.5:8322/" + rtspPath,
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)
@@ -67,7 +77,7 @@ func TestRTSPGstSource(t *testing.T) {
 
 	for _, want := range []string{
 		"rtspsrc",
-		"location=rtsp://10.0.0.5:8554/bob",
+		"location=rtsps://10.0.0.5:8322/bob",
 		"protocols=udp",
 		"latency=350",
 	} {
@@ -102,7 +112,7 @@ func TestRTSPGstSourceCarriesTheTokenBesideTheAddress(t *testing.T) {
 	src := RTSP{}.GstSource(s, "bob")
 
 	for _, want := range []string{
-		"location=rtsp://10.0.0.5:8554/bob",
+		"location=rtsps://10.0.0.5:8322/bob",
 		"user-id=jwt",
 		"user-pw=a-token",
 	} {
@@ -123,10 +133,10 @@ func TestRTSPPublishLegsKeepTheTokenInTheAddress(t *testing.T) {
 	s := rtspStream()
 	s.Relay.Token = "a-token"
 
-	if args := (RTSP{}).PublishArgs(s); !slices.Contains(args, "rtsp://10.0.0.5:8554/alice?jwt=a-token") {
+	if args := (RTSP{}).PublishArgs(s); !slices.Contains(args, "rtsps://10.0.0.5:8322/"+rtspPath+"?jwt=a-token") {
 		t.Errorf("PublishArgs = %v, want the token in the address", args)
 	}
-	if sink := (RTSP{}).GstSink(s); !slices.Contains(sink, "location=rtsp://10.0.0.5:8554/alice?jwt=a-token") {
+	if sink := (RTSP{}).GstSink(s); !slices.Contains(sink, "location=rtsps://10.0.0.5:8322/"+rtspPath+"?jwt=a-token") {
 		t.Errorf("GstSink = %v, want the token in the address", sink)
 	}
 }
@@ -150,12 +160,10 @@ func TestRTSPProtocolPerLeg(t *testing.T) {
 }
 
 func TestRTSPValidatePublishSettings(t *testing.T) {
-	for _, protocol := range RtspProtocols {
-		s := rtspStream()
-		s.Publish.RtspPublishProtocol = protocol
-		if err := (RTSP{}).ValidatePublishSettings(s); err != nil {
-			t.Errorf("ValidatePublishSettings(%q) = %v, want accepted", protocol, err)
-		}
+	s := rtspStream()
+	s.Publish.RtspPublishProtocol = EncryptedRtspProtocol
+	if err := (RTSP{}).ValidatePublishSettings(s); err != nil {
+		t.Errorf("ValidatePublishSettings(%q) = %v, want accepted", EncryptedRtspProtocol, err)
 	}
 
 	// The empty value is a settings file the migration missed, and neither serialization has anything
@@ -193,7 +201,7 @@ func TestValidatePublishSettingsRefusesThroughRegistry(t *testing.T) {
 func TestRTSPWatchURL(t *testing.T) {
 	url := RTSP{}.WatchURL(rtspStream(), "bob")
 
-	if url != "rtsp://10.0.0.5:8554/bob" {
-		t.Errorf("WatchURL = %q, want rtsp://10.0.0.5:8554/bob", url)
+	if url != "rtsps://10.0.0.5:8322/bob" {
+		t.Errorf("WatchURL = %q, want rtsps://10.0.0.5:8322/bob", url)
 	}
 }

@@ -189,29 +189,29 @@ func TestAnUnreachableRelayIsASnapshotRatherThanAFailure(t *testing.T) {
 // transports at once and the name alone is not an identity.
 // Both halves have to cross, or a viewer that ended would clear every viewer of its stream.
 func TestAViewerIsIdentifiedByBothItsHalves(t *testing.T) {
-	want := []WatchKey{
+	want := []StreamRef{
 		{StreamName: "desk", Transport: "srt"},
 		{StreamName: "desk", Transport: "rtsp"},
 	}
-	keys := ViewerState(want).GetViewers()
+	refs := ViewerState(want).GetViewers()
 
-	if len(keys) != 2 {
-		t.Fatalf("two open viewers converted to %d keys", len(keys))
+	if len(refs) != 2 {
+		t.Fatalf("two open viewers converted to %d refs", len(refs))
 	}
 	for i, w := range want {
-		if keys[i].GetStreamName() != w.StreamName || keys[i].GetTransport() != w.Transport {
+		if refs[i].GetStreamName() != w.StreamName || refs[i].GetTransport() != w.Transport {
 			t.Errorf("viewer %d crossed as (%q, %q), want (%q, %q)",
-				i, keys[i].GetStreamName(), keys[i].GetTransport(), w.StreamName, w.Transport)
+				i, refs[i].GetStreamName(), refs[i].GetTransport(), w.StreamName, w.Transport)
 		}
 	}
 
 	// No viewer open crosses as an empty list, never a nil slice a caller has to guard against.
 	if got := ViewerState(nil).GetViewers(); len(got) != 0 {
-		t.Errorf("no open viewer converted to %d keys", len(got))
+		t.Errorf("no open viewer converted to %d refs", len(got))
 	}
 
-	// The identity survives a round trip, which is what lets one key open a viewer and close it.
-	if got := WatchKeyOf(WatchKeyMessage(want[0])); got != want[0] {
+	// The identity survives a round trip, which is what lets one ref open a viewer and close it.
+	if got := StreamRefOf(StreamRefMessage(want[0])); got != want[0] {
 		t.Errorf("a viewer's identity round-tripped to %+v, want %+v", got, want[0])
 	}
 }

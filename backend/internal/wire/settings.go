@@ -45,6 +45,7 @@ func RelaySettings(r settings.Relay) *screensharev1.RelaySettings {
 		MoqPort:       int32(r.MoqPort),
 		Tls:           r.Tls(),
 		GroupKey:      r.GroupKey,
+		DisplayName:   r.DisplayName,
 		SrtPassphrase: r.SrtPassphrase,
 	}
 }
@@ -136,6 +137,7 @@ func ToRelay(m *screensharev1.RelaySettings) settings.Relay {
 		HlsPort:       int(m.GetHlsPort()),
 		MoqPort:       int(m.GetMoqPort()),
 		GroupKey:      m.GetGroupKey(),
+		DisplayName:   m.GetDisplayName(),
 		SrtPassphrase: m.GetSrtPassphrase(),
 	}
 }

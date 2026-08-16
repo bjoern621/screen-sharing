@@ -1,0 +1,41 @@
+meta {
+  name: View the members
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{groupService}}/members?groupKey={{groupKeyQuery}}
+  body: none
+  auth: none
+}
+
+params:query {
+  groupKey: {{groupKeyQuery}}
+}
+
+script:pre-request {
+  bru.setVar("groupKeyQuery", encodeURIComponent(bru.getEnvVar("groupKey") || ""));
+}
+
+tests {
+  test("names the live members and what each is sharing", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.members).to.be.an("array");
+    expect(res.body.members.map((m) => m.displayName)).to.include(bru.getEnvVar("displayName"));
+  });
+}
+
+docs {
+  # View the members
+
+  Who is in the group, without stating anything.
+
+  Every row is a live member: the id its own secret derives, the name it claimed, and whether it is publishing.
+  `publishing` is read off the relay's connection list on every call, so a publish that dropped stops showing without a second request.
+
+  What it never carries is who is watching what. That is the same line the stream index draws, which answers what a member may open and never who else is reading.
+
+  The group key rides in the query here rather than in a body, the way the stream index takes it, a GET having no body a cache or a proxy will honour.
+  It is percent-encoded first: a group key is standard base64, and a `+` written into a query is a space by the time a server reads it.
+}

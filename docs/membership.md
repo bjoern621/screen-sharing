@@ -1,110 +1,125 @@
 # Membership
 
-Who is in a group, and what happens to somebody who is not.
+Who is in a group, and what the relay does about anybody else.
 
-One process answers all of it. `groupd` serves keys, tokens, the stream index and the roster, so there is no membership service beside it and nothing to keep in step (`backend/cmd/groupd`).
-A roster is stated by whatever serves the voice channel, and by hand from `bruno/roster`.
+Membership is a presence lease a member's own app holds.
+It exists while refreshed and lapses when refreshing stops, so a member's own machine is the one thing that has to run for them to be in a group.
+`groupd` serves it beside the group keys, the tokens and the stream index, so one process answers all of it (`backend/cmd/groupd`).
 
-## The parts
+## What a member is
 
-```mermaid
-flowchart LR
-    CHAN["Whatever serves<br/>the voice channel"]
-    APP["App"]
-    GROUPD{{"groupd"}}
-    RELAY{{"MediaMTX"}}
+| Word | What it is |
+| --- | --- |
+| group key | 32 bytes friends share once, and the invite. `relay.groupKey` in the settings. It never expires. |
+| group id | Public digest of the group key. Every path of the group is `<group id>/<name>`. |
+| member secret | 32 bytes the app draws for itself the first time it joins a group. Issued by nobody. |
+| member id | Digest of the member secret under the group key. Subject of every relay access token, and what presence is stated over. |
+| display name | Label a member claimed in this group. The first claim holds. |
+| relay access token | Short-lived JWT the relay checks at the handshake (`groupsvc.TokenWindow`). |
 
-    CHAN -->|"PUT /roster: who is in the channel now"| GROUPD
-    APP -->|"POST /tokens: the key, and which member"| GROUPD
-    APP -->|"publish and read, the token attached"| RELAY
-    GROUPD -->|"list connections, close what no member holds"| RELAY
-    RELAY -->|"POST /reconcile: a read is starting"| GROUPD
-```
+Holding the group key is what lets somebody join.
+It buys relay access tokens and carries every statement of presence, so whoever holds one is a member from the moment their app says so.
 
-A group key is membership and a member name is who inside it.
-The relay is where both are enforced, since it is the only thing every connection passes through.
+A display name cannot be worn.
+A member id derives from a secret nobody else holds (`internal/group`), so an app claiming another member's name derives its own id and meets a 409 rather than their membership.
+The secret is drawn once per group and kept, a second one being a second member with the first one's connections still open (`backend/internal/member`).
 
-`roster` here is who may be in a group.
-The one in `viewer-architecture.md` is a viewer's list of streams, and the two share nothing but the word.
-
-## A member joins, watches and leaves
+## Join, refresh, lapse, close
 
 ```mermaid
 sequenceDiagram
-    participant C as Voice channel
-    participant G as groupd
     participant A as Bob's app
+    participant G as groupd
     participant M as MediaMTX
 
-    C->>G: PUT /roster, alice and bob
-    G->>M: list connections
-    G-->>C: nothing closed
+    A->>G: PUT /members, group key, member secret, "Bob"
+    G->>M: list connections under the prefix
+    G-->>A: bob's member id, the lease, the group
 
-    A->>G: POST /tokens, key and "bob"
-    G-->>A: token, subject is bob's member id
-    A->>M: read, token attached
-    M->>G: POST /reconcile, the path
-    G->>M: list connections
-    Note over G: bob is on the roster, so nothing closes
+    loop every pass of the relay poll
+        A->>G: PUT /members, the same request
+        G-->>A: the lease, refreshed
+    end
 
-    Note over C: bob leaves
-    C->>G: PUT /roster, alice
-    G->>M: list connections
-    G->>M: kick every one bob holds
-    Note over A: the picture stops
+    Note over A: Bob's app stops
+    Note over G: the sweep finds bob's lease run out
+    G->>M: close every connection bob's id holds
 
     A->>M: read again, on the token bob still holds
     M->>G: POST /reconcile, the path
-    G->>M: kick, the holder is on no roster
+    G->>M: close it, no live member derives that subject
 ```
 
-A member's token names that member.
-`POST /tokens` takes a `member` beside the key, and the subject becomes a keyed digest of that name under the group's key.
-The relay lists and logs a connection under its subject, so a roster tells one member's connections from another's, and the name never reaches the relay.
-The grant does not move with the subject: membership decides who connects, never what they reach.
+`PUT /members` is the claim and the refresh at once, which is what makes it idempotent: the request names the state it wants true, that this member is here under this name.
+A name another live member holds is refused with 409 and stores nothing, two members under one name being two people nobody can tell apart.
+
+The app sends it on the loop that already polls the relay, so presence needs no timer of its own (`app/watch.go`, `statePresence`).
+The lease is twenty seconds, `membership.Lease`, which covers many passes: a network blip is not a member dropping out of their own group, and an app that stopped is out of it inside a moment a person would call immediate.
+
+The answer is the whole group: every live member, what they are called, and which of them is publishing.
+Publishing is read off the relay's connection list on every answer rather than stated by anybody, so a publish that dropped stops showing without a second call.
+Never who is watching what, which is the line the stream index draws too (`groupsvc.Stream`).
 
 ## Why closing and not expiry
 
 A token cannot be taken back.
 The relay reads one at the handshake and not again, so a connection outlives its token and a client that is closed opens another with the same one (`docs/plan.md` carries the measurements).
 
-That splits removal in two.
-Closing what a member already holds is this service's, and it takes both what they were watching and what they were sharing.
-Keeping them out afterwards belongs to whatever issues tokens, and the window between the two is what the relay's read hook covers by running the roster again on every read (`deploy/reconcile-on-read.sh`).
+Enforcement therefore closes connections.
+`membership.Reconcile` lists every connection under the group's prefix and closes each one whose subject no live member id matches, which takes what a lapsed member was watching and what they were sharing.
+It runs on every statement of presence in that group, on every release, on the sweep, and on every read the relay announces (`deploy/reconcile-on-read.sh`), so a lapse lands at the first of the four.
+The sweep is what bounds the wait where a group's remaining members are all idle, at `reapEvery` in `backend/cmd/groupd`, and it is the service's only timer.
 
-## What a run may believe
+The read hook is what covers the window a token leaves open.
+A member whose lease lapsed comes back on a token that has not expired, the read announces itself, and the run answering it closes the connection.
 
-A roster is stated whole and never as a departure, since two callers racing on "who left" can leave a member the last one did not name.
-Stating the same roster twice closes nothing, which is what makes it safe on every membership change and on every read.
+## What a run leaves alone
 
-A group nobody stated a roster for is not enforced, which is not the same as a group whose roster is empty.
-The first is membership this service was never told, the second a channel nobody is in.
+A group with no live member is not enforced.
+Membership nobody stated is not the same as a group nobody is in, and enforcing the empty case would close the connections of an app that has not stated its presence yet.
 
 Streams under `public/` are outside all of it.
-No key derives that prefix, so no roster can name one, and a run there is refused: anybody may watch, so there is nobody to remove.
+No group key derives that prefix, so no member can hold a lease there, and a run against it is refused: anybody may watch, so there is nobody to remove.
 
-A run that could not read one of the relay's lists says so in `unread`, and a kick the relay refused lands in `failed`.
+A run that could not read one of the relay's lists says so in `unread`, and a close the relay refused lands in `failed`.
 Both are a member possibly still watching, which is why neither is folded into the count of what was closed.
 
-## Where the answers come from
+## Leaving
 
-A roster is the only fact this service keeps beside the key it signs with, and it is kept because nobody else knows it.
-Everything else is read through on the call: which connections exist is the relay's answer, and which streams exist is the relay's too.
+`DELETE /members` releases the lease and reconciles, which closes what the leaver held.
+The app drops the identity file with it, so the secret goes and rejoining is a new member rather than the one that left (`member.Forget`).
+Both halves are idempotent: a member holding no lease answers `"released": false`, and a group with no identity file is already the state the call names.
+`LeaveGroup` on the control contract is that pair, and `JoinGroup` draws the identity and states the first presence over it.
 
-`GET /roster` and `GET /streams` ask different things of it.
-The index is what a member may open, the roster is who is connected, and both name a stream by its name inside the group so the two join without deriving the prefix rule again.
-Neither answers the relay's own session ids or the addresses connections came from: a group key is membership, not an operator's credential.
+Nothing removes another member.
+A group is left by its own member, by a lease that stopped being refreshed, or by drawing a new group key, which moves every remaining member's streams to a new prefix and leaves every live connection alone.
+
+## Tokens name a member
+
+`POST /tokens` signs the member id where the request names a member secret, and the relay lists and logs a connection under that subject.
+The grant does not move with it: membership decides who may connect, never what they reach.
+
+A request naming no member secret is answered with the group's own id where the group has no live member, and refused where it has one: `this group states its members, and this request names none`.
+The group id is a subject no member matches, so a token on it is closed the moment anybody states presence.
+It is the first app in an empty group bootstrapping itself, and nothing else.
+
+## Stating presence for somebody else
+
+A statement of presence names its member by secret and its sender not at all.
+So a bot serving a voice channel, holding what a member holds, states presence for them over `PUT /members`, the route that member's own app uses.
 
 ## What is reachable from where
 
-| Route | Answers on | Takes |
+| Route | Reached at | Takes |
 | --- | --- | --- |
-| `POST /tokens` | the deployment's name, through the proxy | key, and a member name where one is wanted |
-| `PUT /roster`, `GET /roster`, `DELETE /roster` | loopback | key |
-| `POST /reconcile` | loopback | nothing, and grants nothing |
+| `POST /tokens` | the deployment's name, through the proxy | group key, and the member secret where the caller holds one |
+| `PUT /members`, `DELETE /members` | the deployment's name, through the proxy | group key and member secret, in the body |
+| `GET /members` | the deployment's name, through the proxy | group key, in the query |
+| `POST /reconcile` | loopback | a relay path, and it grants nothing |
 
-The proxy fronts neither `/roster` nor `/reconcile` (`deploy/Caddyfile`).
-Sent to the deployment's name they reach the HLS listener instead, which answers `authentication error` for a path it carries no stream at.
-Reaching them from another machine is the tunnel `task relay:tunnel` opens.
+A member's app reaches the group service at the relay's own name, one certificate covering both (`settings.Relay.GroupService`).
+`/reconcile` is the one route the proxy leaves out (`deploy/Caddyfile`): it takes no credential at all, being the relay's own read hook reporting a path beside it, and a route to it from outside would let anybody spend the host's relay API on demand.
+Sent to the deployment's name it reaches the HLS listener instead, which answers `authentication error` for a path it carries no stream at.
+Reaching it from another machine is the tunnel `task relay:tunnel` opens.
 
-`backend/internal/roster` holds the rosters and `backend/internal/relay` sweeps and kicks, `readerKinds` naming the per-protocol lists that take one.
+`backend/internal/membership` holds the leases and closes what no member holds, and `readerKinds` in `backend/internal/relay` names the per-protocol lists a close goes through.

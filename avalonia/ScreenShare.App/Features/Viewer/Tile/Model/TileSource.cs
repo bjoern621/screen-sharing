@@ -5,7 +5,7 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// <summary>
 /// Which picture a tile draws from.
 ///
-/// The contract's own distinction and not a second one: <c>FrameSubscribe</c> names a <c>WatchKey</c>, the running
+/// The contract's own distinction and not a second one: <c>FrameSubscribe</c> names a <c>StreamRef</c>, the running
 /// publish's preview, or one of this machine's monitors, and the identities differ in kind.
 /// A relay decode is the stream together with the protocol it crossed the relay over, the publish preview is
 /// identified by nothing at all there being at most one publish, and a monitor by the index its output is

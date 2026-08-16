@@ -25,7 +25,8 @@ import (
 // It is the only other copy of that list, which is what makes the bijection below a check rather
 // than a tautology: a key added to keys.go and to no table fails here.
 var fieldDeclaredKeys = []string{
-	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
+	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
+	KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
@@ -64,6 +65,20 @@ func fieldRowFor(t *testing.T, key string) *field {
 		}
 	}
 	t.Fatalf("no row for key %q", key)
+	return nil
+}
+
+// fieldDrawnFor is one control as a resolve rendered it.
+func fieldDrawnFor(t *testing.T, form *screensharev1.Form, key string) *screensharev1.Field {
+	t.Helper()
+	for _, g := range form.GetGroups() {
+		for _, f := range g.GetFields() {
+			if f.GetKey() == key {
+				return f
+			}
+		}
+	}
+	t.Fatalf("no resolved field for key %q", key)
 	return nil
 }
 
@@ -266,6 +281,58 @@ func TestOnlyTheStandingSettingsAreApplied(t *testing.T) {
 		if want := applied[g.GetKey()]; g.GetApplied() != want {
 			t.Errorf("resolved group %q is applied=%v, want %v", g.GetKey(), g.GetApplied(), want)
 		}
+	}
+}
+
+// The name this machine goes by stands with the group key it is claimed in, as free text: a name is
+// claimed per group and first claim wins, so there is no list to offer and no range to hold it in.
+// It is a setting of the relay group, which is written where it is edited, and a shell with no
+// control for it could put no name on this machine at all.
+func TestTheDisplayNameIsAFreeTextRelaySetting(t *testing.T) {
+	f := fieldRowFor(t, KeyDisplayName)
+	if f.group != GroupRelay {
+		t.Errorf("the display name sits in group %q, want %q", f.group, GroupRelay)
+	}
+	if f.control != screensharev1.ControlKind_CONTROL_KIND_TEXT {
+		t.Errorf("the display name is drawn as %v, want a text control", f.control)
+	}
+	if f.options != nil || f.bounds != nil {
+		t.Error("the display name offers a list or a range, and a name is neither")
+	}
+
+	draft := settings.Defaults()
+	draft.Relay.DisplayName = "Björn"
+
+	drawn := fieldDrawnFor(t, Resolve(fieldTestDeps(), draft), KeyDisplayName)
+	if got := drawn.GetValue().GetText(); got != draft.Relay.DisplayName {
+		t.Errorf("the display name shows %q, want the draft's %q", got, draft.Relay.DisplayName)
+	}
+	// The live flag promises a running encoder takes the value, and a name reaches no pipeline: it is
+	// claimed at the group service and shown beside the stream (docs/field-availability.md).
+	if drawn.GetLive() {
+		t.Error("the display name is marked live, and no running pipeline is sent a name")
+	}
+}
+
+// An empty name is a state: this machine has been given none, and this control is where one is
+// typed.
+// Joining a group is where a missing name is refused (control.JoinGroup), so a form that repaired it
+// or greyed the control would refuse it a second time, in the one place it can be filled in.
+func TestAnEmptyDisplayNameIsDrawnAsItStands(t *testing.T) {
+	draft := settings.Defaults()
+	draft.Relay.DisplayName = ""
+
+	form := Resolve(fieldTestDeps(), draft)
+	drawn := fieldDrawnFor(t, form, KeyDisplayName)
+	if got := drawn.GetValue().GetText(); got != "" {
+		t.Errorf("an unnamed machine shows %q, want the empty name it holds", got)
+	}
+	if !drawn.GetVisible() || !drawn.GetEnabled() {
+		t.Errorf("an unnamed machine draws the display name visible=%v enabled=%v",
+			drawn.GetVisible(), drawn.GetEnabled())
+	}
+	if slices.Contains(form.GetRepairedFieldKeys(), KeyDisplayName) {
+		t.Error("the repair moved the display name, and nothing on this screen decides what a machine is called")
 	}
 }
 

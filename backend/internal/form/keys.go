@@ -26,6 +26,7 @@ const (
 	KeyRelayHost     = "relay.host"
 	KeyRelayTls      = "relay.tls"
 	KeyGroupKey      = "relay.group_key"
+	KeyDisplayName   = "relay.display_name"
 	KeySrtPassphrase = "relay.srt_passphrase"
 	KeySrtPort       = "relay.srt_port"
 	KeyAPIPort       = "relay.api_port"

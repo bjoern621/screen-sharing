@@ -597,7 +597,8 @@ public sealed class TileViewModel : Observable, IFrameSource
     /// <summary>
     /// Why this tile is dark, empty while it draws.
     /// The states a reader has to tell apart, in the order they happen: nothing is decoding, the pipeline is up
-    /// and no frame has left it, or the tile could not draw what it was handed.
+    /// and no frame has left it, the pipeline has something to report, or the tile could not draw what it was
+    /// handed.
     /// The last is the control's own sentence, shown as it stands, naming a driver or a handle type nothing else
     /// here knows.
     /// </summary>
@@ -615,7 +616,16 @@ public sealed class TileViewModel : Observable, IFrameSource
             return _source.Missing;
         }
 
-        return pipeline.Value.Live ? "" : "Connecting.";
+        if (pipeline.Value.Live)
+        {
+            return "";
+        }
+
+        // A pipeline that stated why carries the one thing a reader can act on, and a tile holding "connecting"
+        // over it describes a picture that is still coming.
+        return Statements.Any(pipeline.Value.Failure)
+            ? Statements.Of(pipeline.Value.Failure)
+            : "Connecting.";
     }
 
 }

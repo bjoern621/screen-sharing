@@ -196,7 +196,20 @@ public sealed class Session
     public Text? NoMonitorPreview { get; private set; }
 
     /// <summary>External viewers open.</summary>
-    public IReadOnlyList<WatchKey> Watching { get; private set; } = [];
+    public IReadOnlyList<StreamRef> Watching { get; private set; } = [];
+
+    /// <summary>
+    /// Who this machine shares a group with, whether it is in one, and what the group service refused.
+    /// Null until the first read lands, which a screen says rather than drawing a group nobody has been asked
+    /// about.
+    /// </summary>
+    public MembersState? Members { get; private set; }
+
+    /// <summary>
+    /// Synthetic publishers this machine runs, a row per slot of the set.
+    /// Null until the first read lands, an empty set being a different reading from an unread one.
+    /// </summary>
+    public TestStreamState? TestStreams { get; private set; }
 
     /// <summary>
     /// Every stream the backend is decoding for a tile, and what each pipeline turned out to be: the render chain
@@ -329,7 +342,7 @@ public sealed class Session
     /// its own.
     /// What crosses is a whole list the backend produced, the only kind of value this class stores.
     /// </summary>
-    public void Adopt(IReadOnlyList<WatchKey> watching)
+    public void Adopt(IReadOnlyList<StreamRef> watching)
     {
         Assert.NotNull(watching, "adopting a roster needs the roster the backend answered with");
 
@@ -391,6 +404,8 @@ public sealed class Session
         var watching = await _backend.WatchingAsync(cancellation).ConfigureAwait(false);
         var receiving = await _backend.ReceivingAsync(cancellation).ConfigureAwait(false);
         var previewed = await _backend.PreviewedMonitorsAsync(cancellation).ConfigureAwait(false);
+        var members = await _backend.MembersAsync(cancellation).ConfigureAwait(false);
+        var testStreams = await _backend.TestStreamsAsync(cancellation).ConfigureAwait(false);
 
         Write(() =>
         {
@@ -405,6 +420,8 @@ public sealed class Session
             Watching = watching;
             Receiving = receiving;
             PreviewedMonitors = previewed;
+            Members = members;
+            TestStreams = testStreams;
             IsLoaded = true;
         });
     }
@@ -574,6 +591,18 @@ public sealed class Session
                 // The roster, announced on every change including the ones this shell did not make, so it is
                 // taken rather than re-read.
                 Watching = change.ViewerState.Viewers;
+                break;
+
+            case Event.PayloadOneofCase.MembersState:
+                // The whole group on every presence the service answers, so a shell draws it rather than merging
+                // arrivals and departures into what it held.
+                Members = change.MembersState;
+                break;
+
+            case Event.PayloadOneofCase.TestStreamState:
+                // The whole set, slots with no child in them included: a slot that died is a row and never a
+                // missing one.
+                TestStreams = change.TestStreamState;
                 break;
 
             case Event.PayloadOneofCase.PublishExit:

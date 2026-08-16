@@ -46,7 +46,7 @@ func (a *App) pollReceiveStats() {
 	ticker := time.NewTicker(receiveStatsInterval)
 	defer ticker.Stop()
 
-	previous := map[WatchKey]receive.Stats{}
+	previous := map[StreamRef]receive.Stats{}
 
 	// Quiet to begin with, so a process that has never decoded anything announces nothing:
 	// the empty announcement below exists to take a decode's counters off a shell holding them, and
@@ -87,13 +87,13 @@ func (a *App) pollReceiveStats() {
 //
 // Decodes that have ended drop out of previous here.
 // Nothing else prunes it, and it would otherwise hold a reading per decode this process ever ran.
-func (a *App) sampleReceiveStats(previous map[WatchKey]receive.Stats) []wire.ReceiveStreamStats {
+func (a *App) sampleReceiveStats(previous map[StreamRef]receive.Stats) []wire.ReceiveStreamStats {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	for key := range previous {
-		if _, running := a.receivers[key]; !running {
-			delete(previous, key)
+	for ref := range previous {
+		if _, running := a.receivers[ref]; !running {
+			delete(previous, ref)
 		}
 	}
 
@@ -103,14 +103,14 @@ func (a *App) sampleReceiveStats(previous map[WatchKey]receive.Stats) []wire.Rec
 	published, publishing := a.publishedPathLocked()
 
 	out := make([]wire.ReceiveStreamStats, 0, len(a.receivers))
-	for key, receiver := range a.receivers {
+	for ref, receiver := range a.receivers {
 		stats := receiver.Stats()
-		last, seen := previous[key]
-		previous[key] = stats
+		last, seen := previous[ref]
+		previous[ref] = stats
 
-		sample := receiveStatsOf(key, stats, last, seen)
+		sample := receiveStatsOf(ref, stats, last, seen)
 		own := publishDelay{}
-		if published != "" && key.Name == published {
+		if published != "" && ref.Name == published {
 			own = publishing
 		}
 		sample.Delay = receiveDelayOf(stats, last, seen, own)
@@ -130,9 +130,9 @@ func (a *App) sampleReceiveStats(previous map[WatchKey]receive.Stats) []wire.Rec
 // last is the previous reading and seen whether there was one.
 // Both are needed: a decode on its first tick has no previous reading, and a rebuilt decode has one
 // belonging to a pipeline that no longer exists.
-func receiveStatsOf(key WatchKey, now, last receive.Stats, seen bool) wire.ReceiveStreamStats {
+func receiveStatsOf(ref StreamRef, now, last receive.Stats, seen bool) wire.ReceiveStreamStats {
 	out := wire.ReceiveStreamStats{
-		Stream: wire.WatchKey{StreamName: key.Name, Transport: key.Transport},
+		Stream: wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport},
 
 		Codec:       now.Codec,
 		Profile:     now.Profile,
@@ -199,7 +199,7 @@ func receiveStatsOf(key WatchKey, now, last receive.Stats, seen bool) wire.Recei
 	// report a rate the decode never ran at.
 	elapsed := (now.Uptime - last.Uptime).Seconds()
 	if !seen || elapsed <= 0 {
-		// A pipeline rebuilt under one key restarts its uptime and its counters, so the reading before
+		// A pipeline rebuilt under one ref restarts its uptime and its counters, so the reading before
 		// it describes something that no longer exists.
 		// No rate is the honest answer for that tick, and the next one has two readings of one run.
 		return out

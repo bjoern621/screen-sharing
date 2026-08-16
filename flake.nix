@@ -23,13 +23,13 @@
       flake-utils,
     }:
     let
-      # The relay build mediamtx.yml is written against, exported rather than kept inside
-      # the dev shell.
+      # The relay build deploy/mediamtx-groups.yml is written against, exported rather than kept
+      # inside the dev shell.
       # A NixOS host serving as the relay needs that same build, and a second copy of the
       # pin is a second thing to bump.
       mediamtxOverlay = _: prev: {
-        # mediamtx.yml turns on the Media over QUIC server, and MediaMTX rejects a config
-        # carrying a key it does not know rather than ignoring it.
+        # The relay configuration turns on the Media over QUIC server, and MediaMTX rejects a
+        # config carrying a key it does not know rather than ignoring it.
         # A relay without moqQUICAddress therefore does not start at all: it exits with
         # `ERR: json: unknown field "moq"`.
         # The key arrived in v1.20.0, and scripts/relay.ps1 downloads that same version for
@@ -344,7 +344,8 @@
               # encoders.Detect greys whichever the build lacks.
               ffmpeg-full
               mpv # single-stream viewer, selected by SCREENSHARE_VIEWER below
-              mediamtx # the relay, run natively: `mediamtx mediamtx.yml`
+              mediamtx # the relay, run natively by scripts/relay.sh
+              openssl # draws that relay's certificate, the TLS listeners taking one either way
               go-task # runs Taskfile.yml
               # The contract's own toolchain, which `task api` runs: buf lints and drives the
               # generation, and it shells out to these two for the Go output that is committed
@@ -427,7 +428,8 @@
       nixosModules.screenShare = import ./nix/screen-share.nix;
       nixosModules.default = self.nixosModules.screenShare;
 
-      # The MediaMTX build mediamtx.yml is written against, for a host serving as the relay:
+      # The MediaMTX build deploy/mediamtx-groups.yml is written against, for a host serving as the
+      # relay:
       #   nixpkgs.overlays = [ screen-sharing.overlays.mediamtx ];
       # The dev shell applies the same overlay, so `task relay` and a deployed relay are one
       # version.

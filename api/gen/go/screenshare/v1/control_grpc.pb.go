@@ -28,6 +28,7 @@ const (
 	ControlService_GetRelayStatus_FullMethodName         = "/screenshare.v1.ControlService/GetRelayStatus"
 	ControlService_GetViewerState_FullMethodName         = "/screenshare.v1.ControlService/GetViewerState"
 	ControlService_GetTestStreamState_FullMethodName     = "/screenshare.v1.ControlService/GetTestStreamState"
+	ControlService_GetMembersState_FullMethodName        = "/screenshare.v1.ControlService/GetMembersState"
 	ControlService_GetReceiveState_FullMethodName        = "/screenshare.v1.ControlService/GetReceiveState"
 	ControlService_GetMonitorPreviewState_FullMethodName = "/screenshare.v1.ControlService/GetMonitorPreviewState"
 	ControlService_SaveSettings_FullMethodName           = "/screenshare.v1.ControlService/SaveSettings"
@@ -46,6 +47,8 @@ const (
 	ControlService_SetReceiveAudio_FullMethodName        = "/screenshare.v1.ControlService/SetReceiveAudio"
 	ControlService_StartTestStreams_FullMethodName       = "/screenshare.v1.ControlService/StartTestStreams"
 	ControlService_StopTestStreams_FullMethodName        = "/screenshare.v1.ControlService/StopTestStreams"
+	ControlService_JoinGroup_FullMethodName              = "/screenshare.v1.ControlService/JoinGroup"
+	ControlService_LeaveGroup_FullMethodName             = "/screenshare.v1.ControlService/LeaveGroup"
 	ControlService_ProbeEncoders_FullMethodName          = "/screenshare.v1.ControlService/ProbeEncoders"
 	ControlService_MeasureUplink_FullMethodName          = "/screenshare.v1.ControlService/MeasureUplink"
 	ControlService_MeasureEncodeRate_FullMethodName      = "/screenshare.v1.ControlService/MeasureEncodeRate"
@@ -114,6 +117,10 @@ type ControlServiceClient interface {
 	GetRelayStatus(ctx context.Context, in *GetRelayStatusRequest, opts ...grpc.CallOption) (*RelayStatus, error)
 	GetViewerState(ctx context.Context, in *GetViewerStateRequest, opts ...grpc.CallOption) (*ViewerState, error)
 	GetTestStreamState(ctx context.Context, in *GetTestStreamStateRequest, opts ...grpc.CallOption) (*TestStreamState, error)
+	// Who this machine shares a group with, as the presence loop last read it.
+	// A read and no membership call of its own: presence is stated on the loop that already polls
+	// the relay, and a shell asking would be a second thing deciding when this machine joins.
+	GetMembersState(ctx context.Context, in *GetMembersStateRequest, opts ...grpc.CallOption) (*MembersState, error)
 	GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does, so a shell
@@ -224,6 +231,16 @@ type ControlServiceClient interface {
 	// A running set is replaced.
 	StartTestStreams(ctx context.Context, in *StartTestStreamsRequest, opts ...grpc.CallOption) (*StartTestStreamsResponse, error)
 	StopTestStreams(ctx context.Context, in *StopTestStreamsRequest, opts ...grpc.CallOption) (*StopTestStreamsResponse, error)
+	// Joins the group the settings name, drawing this machine's member identity where it holds
+	// none and stating its presence at once.
+	// Idempotent: joining a group this machine is already in succeeds and draws nothing.
+	// A display name another member holds is INVALID_ARGUMENT naming the name, and a settings
+	// pair carrying no group key or no display name is FAILED_PRECONDITION.
+	JoinGroup(ctx context.Context, in *JoinGroupRequest, opts ...grpc.CallOption) (*JoinGroupResponse, error)
+	// Leaves the group, releasing this machine's presence and dropping the identity it held in
+	// it, which the relay answers by closing what this machine had open there.
+	// Idempotent: leaving a group this machine is not in succeeds and closes nothing.
+	LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*LeaveGroupResponse, error)
 	// Test-encodes on every engine and records what this machine can really run, so a form can
 	// grey NVENC on a machine with no NVIDIA GPU.
 	//
@@ -407,6 +424,16 @@ func (c *controlServiceClient) GetTestStreamState(ctx context.Context, in *GetTe
 	return out, nil
 }
 
+func (c *controlServiceClient) GetMembersState(ctx context.Context, in *GetMembersStateRequest, opts ...grpc.CallOption) (*MembersState, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MembersState)
+	err := c.cc.Invoke(ctx, ControlService_GetMembersState_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) GetReceiveState(ctx context.Context, in *GetReceiveStateRequest, opts ...grpc.CallOption) (*ReceiveState, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ReceiveState)
@@ -581,6 +608,26 @@ func (c *controlServiceClient) StopTestStreams(ctx context.Context, in *StopTest
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StopTestStreamsResponse)
 	err := c.cc.Invoke(ctx, ControlService_StopTestStreams_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) JoinGroup(ctx context.Context, in *JoinGroupRequest, opts ...grpc.CallOption) (*JoinGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(JoinGroupResponse)
+	err := c.cc.Invoke(ctx, ControlService_JoinGroup_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlServiceClient) LeaveGroup(ctx context.Context, in *LeaveGroupRequest, opts ...grpc.CallOption) (*LeaveGroupResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LeaveGroupResponse)
+	err := c.cc.Invoke(ctx, ControlService_LeaveGroup_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -770,6 +817,10 @@ type ControlServiceServer interface {
 	GetRelayStatus(context.Context, *GetRelayStatusRequest) (*RelayStatus, error)
 	GetViewerState(context.Context, *GetViewerStateRequest) (*ViewerState, error)
 	GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error)
+	// Who this machine shares a group with, as the presence loop last read it.
+	// A read and no membership call of its own: presence is stated on the loop that already polls
+	// the relay, and a shell asking would be a second thing deciding when this machine joins.
+	GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error)
 	GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error)
 	// What a shell that has just connected converges against.
 	// A preview outlives the window that asked for it, exactly as a decode does, so a shell
@@ -880,6 +931,16 @@ type ControlServiceServer interface {
 	// A running set is replaced.
 	StartTestStreams(context.Context, *StartTestStreamsRequest) (*StartTestStreamsResponse, error)
 	StopTestStreams(context.Context, *StopTestStreamsRequest) (*StopTestStreamsResponse, error)
+	// Joins the group the settings name, drawing this machine's member identity where it holds
+	// none and stating its presence at once.
+	// Idempotent: joining a group this machine is already in succeeds and draws nothing.
+	// A display name another member holds is INVALID_ARGUMENT naming the name, and a settings
+	// pair carrying no group key or no display name is FAILED_PRECONDITION.
+	JoinGroup(context.Context, *JoinGroupRequest) (*JoinGroupResponse, error)
+	// Leaves the group, releasing this machine's presence and dropping the identity it held in
+	// it, which the relay answers by closing what this machine had open there.
+	// Idempotent: leaving a group this machine is not in succeeds and closes nothing.
+	LeaveGroup(context.Context, *LeaveGroupRequest) (*LeaveGroupResponse, error)
 	// Test-encodes on every engine and records what this machine can really run, so a form can
 	// grey NVENC on a machine with no NVIDIA GPU.
 	//
@@ -1000,6 +1061,9 @@ func (UnimplementedControlServiceServer) GetViewerState(context.Context, *GetVie
 func (UnimplementedControlServiceServer) GetTestStreamState(context.Context, *GetTestStreamStateRequest) (*TestStreamState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetTestStreamState not implemented")
 }
+func (UnimplementedControlServiceServer) GetMembersState(context.Context, *GetMembersStateRequest) (*MembersState, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMembersState not implemented")
+}
 func (UnimplementedControlServiceServer) GetReceiveState(context.Context, *GetReceiveStateRequest) (*ReceiveState, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetReceiveState not implemented")
 }
@@ -1053,6 +1117,12 @@ func (UnimplementedControlServiceServer) StartTestStreams(context.Context, *Star
 }
 func (UnimplementedControlServiceServer) StopTestStreams(context.Context, *StopTestStreamsRequest) (*StopTestStreamsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StopTestStreams not implemented")
+}
+func (UnimplementedControlServiceServer) JoinGroup(context.Context, *JoinGroupRequest) (*JoinGroupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method JoinGroup not implemented")
+}
+func (UnimplementedControlServiceServer) LeaveGroup(context.Context, *LeaveGroupRequest) (*LeaveGroupResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method LeaveGroup not implemented")
 }
 func (UnimplementedControlServiceServer) ProbeEncoders(context.Context, *ProbeEncodersRequest) (*ProbeEncodersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ProbeEncoders not implemented")
@@ -1263,6 +1333,24 @@ func _ControlService_GetTestStreamState_Handler(srv interface{}, ctx context.Con
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlServiceServer).GetTestStreamState(ctx, req.(*GetTestStreamStateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_GetMembersState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMembersStateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).GetMembersState(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_GetMembersState_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).GetMembersState(ctx, req.(*GetMembersStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1591,6 +1679,42 @@ func _ControlService_StopTestStreams_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_JoinGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(JoinGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).JoinGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_JoinGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).JoinGroup(ctx, req.(*JoinGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlService_LeaveGroup_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaveGroupRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).LeaveGroup(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_LeaveGroup_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).LeaveGroup(ctx, req.(*LeaveGroupRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_ProbeEncoders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ProbeEncodersRequest)
 	if err := dec(in); err != nil {
@@ -1794,6 +1918,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ControlService_GetTestStreamState_Handler,
 		},
 		{
+			MethodName: "GetMembersState",
+			Handler:    _ControlService_GetMembersState_Handler,
+		},
+		{
 			MethodName: "GetReceiveState",
 			Handler:    _ControlService_GetReceiveState_Handler,
 		},
@@ -1864,6 +1992,14 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopTestStreams",
 			Handler:    _ControlService_StopTestStreams_Handler,
+		},
+		{
+			MethodName: "JoinGroup",
+			Handler:    _ControlService_JoinGroup_Handler,
+		},
+		{
+			MethodName: "LeaveGroup",
+			Handler:    _ControlService_LeaveGroup_Handler,
 		},
 		{
 			MethodName: "ProbeEncoders",

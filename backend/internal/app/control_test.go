@@ -3,7 +3,10 @@ package app
 import (
 	"testing"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/text"
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -73,6 +76,34 @@ func TestAPendingRetryCarriesTheAttemptAndTheBudget(t *testing.T) {
 			retry.Attempt, retry.Budget, state.Attempt, state.Budget)
 	}
 	wire.PublishState(snapshot)
+}
+
+// TestARetryCarriesWhyOnEveryAttempt: a shell that mounts between two attempts reads why the last
+// pipeline died, where the exit event alone reaches only the shells that were listening when it did.
+func TestARetryCarriesWhyOnEveryAttempt(t *testing.T) {
+	a := &App{retry: &publishRetry{
+		settings: settings.Settings{Publish: settings.Publish{Name: "bob"}},
+		attempts: 1,
+		cause:    text.Of(screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED),
+		message:  "the relay closed the connection",
+	}}
+
+	state := a.GetPublishState()
+	retry := publishSnapshot(state).Retry()
+	if retry == nil {
+		t.Fatal("a pending relaunch carries no retry, want one saying why it is pending")
+	}
+	if got := retry.Cause.GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED {
+		t.Errorf("a pending relaunch states %v, want the lapsed membership behind it", got)
+	}
+	if retry.Message != "the relay closed the connection" {
+		t.Errorf("a pending relaunch carries %q, want the pipeline's own last words", retry.Message)
+	}
+
+	message := wire.PublishState(publishSnapshot(state))
+	if got := message.GetLive().GetRetry().GetMessage(); got != retry.Message {
+		t.Errorf("the contract carries %q as the last words, want %q", got, retry.Message)
+	}
 }
 
 // TestAStoppedStreamCarriesNothing: no pipeline and no relaunch pending leaves no stream to

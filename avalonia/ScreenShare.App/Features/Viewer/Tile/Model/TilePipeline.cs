@@ -38,6 +38,11 @@ namespace ScreenShare.App.Features.Viewer.Tile.Model;
 /// That name is empty both where the machine can and where the platform has no such route at all, which
 /// <paramref name="CanToneMap"/> separates.
 /// </param>
+/// <param name="Failure">
+/// Why no picture is going to arrive, absent while the pipeline is merely opening.
+/// What separates a decode still connecting from one nothing is coming on, which is the whole of what a dark
+/// tile has to say.
+/// </param>
 public readonly record struct TilePipeline(
     bool Live,
     bool HasAudio,
@@ -47,7 +52,8 @@ public readonly record struct TilePipeline(
     bool Hdr = false,
     bool ToneMap = false,
     bool CanToneMap = false,
-    string ToneMapMissing = "")
+    string ToneMapMissing = "",
+    Text? Failure = null)
 {
     /// <summary>State of one relay decode, null where nothing is decoding that pair.</summary>
     public static TilePipeline? Of(ReceiveStream? decode) => decode is null
@@ -55,7 +61,8 @@ public readonly record struct TilePipeline(
         : new TilePipeline(
             decode.Live,
             decode.HasAudio, decode.Volume, decode.Muted,
-            decode.Transfer, decode.Hdr, decode.ToneMap, decode.CanToneMap, decode.ToneMapMissing);
+            decode.Transfer, decode.Hdr, decode.ToneMap, decode.CanToneMap, decode.ToneMapMissing,
+            decode.Failure);
 
     /// <summary>
     /// State of the publish's local preview, null where the backend runs none.
@@ -64,7 +71,7 @@ public readonly record struct TilePipeline(
     ///
     /// A preview carries no sound, which is the tap and not an omission here.
     /// The publish child copies video alone to the loopback port, so there is no track to play and no loudness to
-    /// meter, and the call that would set a level is keyed by a <c>WatchKey</c> the preview has none of.
+    /// meter, and the call that would set a level is keyed by a <c>StreamRef</c> the preview has none of.
     /// It reports silence as a video-only stream off the relay does, so the tile needs no case for it.
     /// </summary>
     public static TilePipeline? Of(PublishState.Types.Preview? preview) => preview is null

@@ -7,6 +7,7 @@
              xmlns:nudge="using:ScreenShare.App.Features.Broadcast.Nudge.View"
              xmlns:plots="using:ScreenShare.App.Features.Broadcast.Plots.View"
              xmlns:preview="using:ScreenShare.App.Features.Broadcast.Preview.View"
+             xmlns:tests="using:ScreenShare.App.Features.Broadcast.TestStreams.View"
              xmlns:viewers="using:ScreenShare.App.Features.Broadcast.ViewerTable.View"
              xmlns:vm="using:ScreenShare.App.Features.Broadcast.ViewModel"
              x:Class="ScreenShare.App.Features.Broadcast.View.BroadcastView"
@@ -59,10 +60,15 @@
       <ScrollViewer Grid.Column="0"
                     HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto">
-        <Grid RowDefinitions="Auto,Auto,Auto">
+        <Grid RowDefinitions="Auto,Auto,Auto,Auto">
           <preview:PreviewView Grid.Row="0" DataContext="{Binding Preview}" Margin="0,0,0,10" />
           <nudge:NudgeView Grid.Row="1" DataContext="{Binding Nudge}" Margin="0,0,0,10" />
           <config:ConfigCardView Grid.Row="2" DataContext="{Binding Config}" />
+          <!--
+            Under the configuration, being about publishers this machine runs beside the one above rather
+            than about the one above.
+          -->
+          <tests:TestStreamsView Grid.Row="3" DataContext="{Binding TestStreams}" Margin="0,10,0,0" />
         </Grid>
       </ScrollViewer>
 

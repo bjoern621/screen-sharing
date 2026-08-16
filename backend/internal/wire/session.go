@@ -70,9 +70,15 @@ type PreviewSnapshot struct {
 }
 
 // RetrySnapshot is a relaunch waiting out a backoff.
-// Attempt is the pending one, counting from one, and Budget how many the backend spends before it
-// gives up.
-type RetrySnapshot struct{ Attempt, Budget int }
+type RetrySnapshot struct {
+	// Attempt is the pending one, counting from one, and Budget how many the backend spends before
+	// it gives up.
+	Attempt, Budget int
+	// Cause is this app's statement about what ended the pipeline, nil where nothing here names it,
+	// and Message that pipeline's own last words.
+	Cause   *screensharev1.Text
+	Message string
+}
 
 // Publishing reports whether a stream is in force, which a pipeline waiting out its backoff still
 // is.
@@ -90,10 +96,10 @@ func (p PublishSnapshot) Retry() *RetrySnapshot {
 	return p.Live.Retry
 }
 
-// WatchKey identifies one open external viewer: a stream received over one transport.
+// StreamRef identifies one open external viewer: a stream received over one transport.
 // The stream name alone is not an identity, because the relay re-serves each stream on all its
 // listeners and one stream can be watched over several transports at once.
-type WatchKey struct{ StreamName, Transport string }
+type StreamRef struct{ StreamName, Transport string }
 
 // PublishState carries a publish snapshot across.
 //
@@ -119,6 +125,8 @@ func PublishState(p PublishSnapshot) *screensharev1.PublishState {
 		live.Retry = &screensharev1.PublishState_Retry{
 			Attempt: int32(r.Attempt),
 			Budget:  int32(r.Budget),
+			Cause:   r.Cause,
+			Message: r.Message,
 		}
 	}
 	if v := p.Live.Preview; v != nil {
@@ -260,15 +268,15 @@ func optional(value string) *string {
 // ViewerState carries the open external viewers across.
 // A nil or empty slice crosses as an empty list, which is what "no viewer is open" looks like on
 // the wire.
-func ViewerState(keys []WatchKey) *screensharev1.ViewerState {
-	out := make([]*screensharev1.WatchKey, 0, len(keys))
-	for _, key := range keys {
-		assert.Assert(key.StreamName != "" && key.Transport != "",
-			"a viewer is identified by a stream and the transport it is received over", key.StreamName, key.Transport)
-		out = append(out, WatchKeyMessage(key))
+func ViewerState(refs []StreamRef) *screensharev1.ViewerState {
+	out := make([]*screensharev1.StreamRef, 0, len(refs))
+	for _, ref := range refs {
+		assert.Assert(ref.StreamName != "" && ref.Transport != "",
+			"a viewer is identified by a stream and the transport it is received over", ref.StreamName, ref.Transport)
+		out = append(out, StreamRefMessage(ref))
 	}
 
-	assert.Assert(len(out) == len(keys), "a key per open viewer", len(out), len(keys))
+	assert.Assert(len(out) == len(refs), "a message per open viewer", len(out), len(refs))
 	return &screensharev1.ViewerState{Viewers: out}
 }
 
@@ -281,8 +289,8 @@ func ViewerState(keys []WatchKey) *screensharev1.ViewerState {
 // opened on.
 type ReceiveStream struct {
 	// Stream is the stream name and the leg it is received over, which together are the identity,
-	// for the reason WatchKey exists.
-	Stream WatchKey
+	// for the reason StreamRef exists.
+	Stream StreamRef
 	// Live is whether a decoded frame has left the pipeline.
 	// Until it has, nothing downstream of the decoder has negotiated and the fields below are empty.
 	Live bool
@@ -323,12 +331,15 @@ type ReceiveStream struct {
 	// and the boolean is what tells the two apart.
 	CanToneMap     bool
 	ToneMapMissing string
+	// Failure is why this decode carries no picture, nil while one is opening.
+	// Read beside Live, which separates a decode still connecting from one nothing arrives on.
+	Failure *screensharev1.Text
 }
 
 // AudioLevel is how loud one decode is at one instant, measured before its volume element so that a
 // muted stream still reports what it is carrying.
 type AudioLevel struct {
-	Stream WatchKey
+	Stream StreamRef
 	// PeakDB is the loudest sample of the interval and RMSDB its power average, in decibels relative
 	// to full scale: at most 0, and negative infinity for silence.
 	// No floor is applied, because a floor is a drawing decision and this is a measurement.
@@ -346,7 +357,7 @@ func AudioLevels(levels []AudioLevel) *screensharev1.AudioLevels {
 			"a level belongs to a decode identified by a stream and a transport",
 			l.Stream.StreamName, l.Stream.Transport)
 		out = append(out, &screensharev1.AudioLevel{
-			Stream: WatchKeyMessage(l.Stream),
+			Stream: StreamRefMessage(l.Stream),
 			PeakDb: l.PeakDB,
 			RmsDb:  l.RMSDB,
 		})
@@ -366,7 +377,7 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 			"a decode is identified by a stream and the transport it is received over",
 			r.Stream.StreamName, r.Stream.Transport)
 		out = append(out, &screensharev1.ReceiveStream{
-			Stream:         WatchKeyMessage(r.Stream),
+			Stream:         StreamRefMessage(r.Stream),
 			Live:           r.Live,
 			Chain:          r.Chain,
 			DecodeMemory:   r.DecodeMemory,
@@ -381,6 +392,7 @@ func ReceiveState(streams []ReceiveStream) *screensharev1.ReceiveState {
 			ToneMap:        r.ToneMap,
 			CanToneMap:     r.CanToneMap,
 			ToneMapMissing: r.ToneMapMissing,
+			Failure:        r.Failure,
 		})
 	}
 
@@ -416,7 +428,7 @@ type ReceiveStatGroup struct {
 // it.
 // Absent is not zero, and a zero here would say a decode is receiving nothing.
 type ReceiveStreamStats struct {
-	Stream WatchKey
+	Stream StreamRef
 
 	// The encoded stream, off the video decoder's input pad.
 	Codec         string
@@ -514,7 +526,7 @@ func ReceiveStats(streams []ReceiveStreamStats) *screensharev1.ReceiveStats {
 			s.Stream.StreamName, s.Stream.Transport)
 
 		msg := &screensharev1.ReceiveStreamStats{
-			Stream: WatchKeyMessage(s.Stream),
+			Stream: StreamRefMessage(s.Stream),
 
 			CodecDescription: s.Codec,
 			Profile:          s.Profile,
@@ -647,24 +659,119 @@ func MonitorPreviewState(monitors []PreviewedMonitor) *screensharev1.MonitorPrev
 	return &screensharev1.MonitorPreviewState{Monitors: out}
 }
 
-// WatchKeyMessage carries one viewer's identity across.
+// StreamRefMessage carries one viewer's identity across.
 // One function, because that identity travels on the state, on the exit event and on the two calls
 // that open and close a viewer, and a pair spelled out at each of them is how a name and a
 // stream_name end up naming one thing.
-func WatchKeyMessage(key WatchKey) *screensharev1.WatchKey {
-	return &screensharev1.WatchKey{StreamName: key.StreamName, Transport: key.Transport}
+func StreamRefMessage(ref StreamRef) *screensharev1.StreamRef {
+	return &screensharev1.StreamRef{StreamName: ref.StreamName, Transport: ref.Transport}
 }
 
-// WatchKeyOf reads a viewer's identity back off the contract.
-// A message that arrived without one reads as the zero key, which the control service refuses with
+// StreamRefOf reads a viewer's identity back off the contract.
+// A message that arrived without one reads as the zero ref, which the control service refuses with
 // INVALID_ARGUMENT rather than acting on.
-func WatchKeyOf(m *screensharev1.WatchKey) WatchKey {
-	return WatchKey{StreamName: m.GetStreamName(), Transport: m.GetTransport()}
+func StreamRefOf(m *screensharev1.StreamRef) StreamRef {
+	return StreamRef{StreamName: m.GetStreamName(), Transport: m.GetTransport()}
 }
 
-func TestStreamState(running int) *screensharev1.TestStreamState {
+// TestStreamSlot is one slot of the synthetic set: what it publishes, whether a child is filling it
+// and what the last one left behind.
+type TestStreamSlot struct {
+	// Slot is the position in the set, counting from zero, and Name the relay path it publishes to.
+	Slot int
+	Name string
+	// Running is whether a child is filling the slot, which a slot waiting out a relaunch is not.
+	Running bool
+	// Attempt is the one the slot is on, counting from one.
+	Attempt int
+	// Cause is this app's statement about why the slot carries no publisher, nil while one runs, and
+	// Message the child's own last words.
+	Cause   *screensharev1.Text
+	Message string
+	// LogPath is that child's whole run log, opened through OpenLog.
+	LogPath string
+}
+
+// TestStreamState carries the synthetic set across: how many publishers are alive, and a row per
+// slot the set holds.
+// A nil or empty slice crosses as an empty list, which is what an unlaunched set looks like on the
+// wire.
+func TestStreamState(running int, slots ...TestStreamSlot) *screensharev1.TestStreamState {
 	assert.Assert(running >= 0, "a count of live publishers is not negative", running)
-	return &screensharev1.TestStreamState{RunningCount: int32(running)}
+
+	out := make([]*screensharev1.TestStreamSlot, 0, len(slots))
+	for _, s := range slots {
+		assert.Assert(s.Slot >= 0, "a synthetic publisher holds a slot in the set", s.Slot)
+		assert.Assert(s.Name != "", "a synthetic publisher is carried under a name", s.Slot)
+		out = append(out, &screensharev1.TestStreamSlot{
+			Slot:    int32(s.Slot),
+			Name:    s.Name,
+			Running: s.Running,
+			Attempt: int32(s.Attempt),
+			Cause:   s.Cause,
+			Message: s.Message,
+			LogPath: s.LogPath,
+		})
+	}
+
+	assert.Assert(len(out) == len(slots), "a message per slot of the set", len(out), len(slots))
+	return &screensharev1.TestStreamState{RunningCount: int32(running), Slots: out}
+}
+
+// Member is one member of the group this machine is in.
+type Member struct {
+	// MemberID derives from a secret only that member holds, which is what makes it an identity
+	// nobody else can state.
+	MemberID string
+	// DisplayName is what that member calls itself, held by the first claim in the group and never
+	// an identity.
+	DisplayName string
+	// Publishing is whether the relay is carrying a stream from this member, and Self marks this
+	// machine's own row.
+	Publishing bool
+	Self       bool
+}
+
+// MembersSnapshot is who this machine shares a group with, at one instant, and the domain side of
+// screenshare.v1.MembersState.
+//
+// The fields travel together because a reader needs them all to draw one thing: an empty list under
+// Joined is a group whose members have not been read, and the same list without it is a machine in no
+// group at all.
+type MembersSnapshot struct {
+	Members []Member
+	// Refusal is why the group service did not take this machine's presence, nil where it did.
+	Refusal *screensharev1.Text
+	// Joined is whether this machine is in the group, which quitting keeps and leaving clears.
+	Joined bool
+	// PublishingUnread is whether a connection list the group service reads Publishing off would not
+	// answer, so every member's Publishing is false for want of an answer rather than for want of a
+	// stream.
+	PublishingUnread bool
+}
+
+// MembersState carries the group's membership across.
+// A nil or empty slice crosses as an empty list, which is what a machine in no group looks like on
+// the wire.
+func MembersState(m MembersSnapshot) *screensharev1.MembersState {
+	out := make([]*screensharev1.Member, 0, len(m.Members))
+	for _, member := range m.Members {
+		assert.Assert(member.MemberID != "", "a member of a group is identified by a member id", member.DisplayName)
+		out = append(out, &screensharev1.Member{
+			MemberId:    member.MemberID,
+			DisplayName: member.DisplayName,
+			Publishing:  member.Publishing,
+			Self:        member.Self,
+		})
+	}
+
+	assert.Assert(len(out) == len(m.Members), "a message per member of the group", len(out), len(m.Members))
+	return &screensharev1.MembersState{
+		Members:          out,
+		Refusal:          m.Refusal,
+		Joined:           m.Joined,
+		PublishingUnread: m.PublishingUnread,
+	}
 }
 
 // EncodeRate carries the probe's bracket across: the machine reached LowFps and did not reach
@@ -682,6 +789,10 @@ func EncodeRate(r encoderate.Rate) *screensharev1.EncodeRate {
 
 // ExitInfo carries how a child process ended across.
 // An empty message is a clean exit, so nothing here refuses one.
-func ExitInfo(message, logPath string) *screensharev1.ExitInfo {
-	return &screensharev1.ExitInfo{Message: message, LogPath: logPath}
+//
+// cause is this app's statement about the ending and message the child's own words, which stay raw
+// (api/proto/screenshare/v1/text.proto).
+// A nil cause is an ending nothing here names, and the message stands alone.
+func ExitInfo(message, logPath string, cause *screensharev1.Text) *screensharev1.ExitInfo {
+	return &screensharev1.ExitInfo{Message: message, LogPath: logPath, Cause: cause}
 }

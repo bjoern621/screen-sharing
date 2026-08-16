@@ -6,11 +6,11 @@ meta {
 docs {
   # Group service
 
-  Keys, tokens and the stream index, served by `backend/cmd/groupd`.
+  Group keys, relay access tokens and the stream index, served by `backend/cmd/groupd`.
 
-  A key travels in a request body and never in a path, a key in a URL being a key in every proxy log between the client and here.
-  The index is the exception: a GET has no body a cache or a proxy will honour, so it takes its key in the query.
+  A group key travels in a request body and never in a path, a key in a URL being a key in every proxy log between the client and here.
+  The index is the exception: a GET has no body a cache or a proxy will honour, so it takes its group key in the query.
 
   Behind the deployment's reverse proxy these routes are paths under the relay's own name, which is why the `Production` environment points `groupService` at that name with no port (`deploy/Caddyfile`).
-  A relay reached directly has no proxy and therefore no group service, and the app treats that as a machine in no group.
+  A relay reached directly answers them on `groupd`'s own port instead, which is what `Local` names.
 }

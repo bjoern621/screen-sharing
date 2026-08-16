@@ -26,7 +26,7 @@ import (
 // the start and stop that fit it into the process lifecycle.
 //
 // The adapter exists because the contract's shapes and the app's are not one, and neither is wrong:
-// the contract names a decode with a wire.WatchKey where the app takes a stream and a leg, and
+// the contract names a decode with a wire.StreamRef where the app takes a stream and a leg, and
 // nests the publish state where the app holds it flat.
 // Reconciling them here keeps the app free of the contract's shapes and the contract free of the
 // app's, in one file rather than spread over the methods that would carry it.
@@ -79,9 +79,15 @@ func (b controlBackend) RelayStatus() relay.Status { return b.app.lastRelayStatu
 // state event already uses.
 // A second conversion would be a second answer to "which viewers are open", and the read and the
 // event would drift apart on it.
-func (b controlBackend) Watching() []wire.WatchKey { return b.app.watchKeys() }
+func (b controlBackend) Watching() []wire.StreamRef { return b.app.watchRefs() }
 
-func (b controlBackend) TestStreamsRunning() int { return b.app.TestStreamsRunning() }
+func (b controlBackend) TestStreamState() (int, []wire.TestStreamSlot) {
+	return b.app.TestStreamState()
+}
+
+// MembersState carries the presence loop's last reading, which is the one place a shell learns the
+// group from: the read and the event are the same snapshot.
+func (b controlBackend) MembersState() wire.MembersSnapshot { return b.app.MembersState() }
 
 // MaxTestStreams is the bound StartTestStreams enforces, read rather than discovered by asking for
 // too much.
@@ -107,14 +113,14 @@ func (b controlBackend) StartPublish(s settings.Settings) error  { return b.app.
 func (b controlBackend) ApplyToStream(s settings.Settings) error { return b.app.Republish(s) }
 func (b controlBackend) StopPublish()                            { b.app.StopPublish() }
 
-func (b controlBackend) StartWatch(key wire.WatchKey) error {
-	return b.app.StartWatch(key.StreamName, key.Transport)
+func (b controlBackend) StartWatch(ref wire.StreamRef) error {
+	return b.app.StartWatch(ref.StreamName, ref.Transport)
 }
 
 // SubscribeFrames rebuilds the interface value for the reason SubscribePreviewFrames does, and this
-// is the arm that refuses most often: nothing is decoding the pair a key names until a tile opens.
-func (b controlBackend) SubscribeFrames(key wire.WatchKey) (control.FrameStream, error) {
-	frames, err := b.app.SubscribeFrames(key.StreamName, key.Transport)
+// is the arm that refuses most often: nothing is decoding the pair a ref names until a tile opens.
+func (b controlBackend) SubscribeFrames(ref wire.StreamRef) (control.FrameStream, error) {
+	frames, err := b.app.SubscribeFrames(ref.StreamName, ref.Transport)
 	if err != nil {
 		return nil, err
 	}
@@ -151,27 +157,27 @@ func (b controlBackend) MonitorPreviewState() []wire.PreviewedMonitor {
 	return b.app.MonitorPreviewState()
 }
 
-func (b controlBackend) StartReceive(key wire.WatchKey, toneMap bool) error {
-	return b.app.StartReceive(key.StreamName, key.Transport, toneMap)
+func (b controlBackend) StartReceive(ref wire.StreamRef, toneMap bool) error {
+	return b.app.StartReceive(ref.StreamName, ref.Transport, toneMap)
 }
 
-func (b controlBackend) StopReceive(key wire.WatchKey) {
-	b.app.StopReceive(key.StreamName, key.Transport)
+func (b controlBackend) StopReceive(ref wire.StreamRef) {
+	b.app.StopReceive(ref.StreamName, ref.Transport)
 }
 
-func (b controlBackend) SetReceiveAudio(key wire.WatchKey, volume float64, muted bool) error {
-	return b.app.SetReceiveAudio(key.StreamName, key.Transport, volume, muted)
+func (b controlBackend) SetReceiveAudio(ref wire.StreamRef, volume float64, muted bool) error {
+	return b.app.SetReceiveAudio(ref.StreamName, ref.Transport, volume, muted)
 }
 
 func (b controlBackend) ReceiveState() []wire.ReceiveStream { return b.app.ReceiveState() }
 func (b controlBackend) AudioLevels() []wire.AudioLevel     { return b.app.AudioLevels() }
 
-func (b controlBackend) StopWatch(key wire.WatchKey) {
-	b.app.StopWatch(key.StreamName, key.Transport)
+func (b controlBackend) StopWatch(ref wire.StreamRef) {
+	b.app.StopWatch(ref.StreamName, ref.Transport)
 }
 
-func (b controlBackend) OpenInBrowser(key wire.WatchKey) error {
-	return b.app.OpenInBrowser(key.StreamName, key.Transport)
+func (b controlBackend) OpenInBrowser(ref wire.StreamRef) error {
+	return b.app.OpenInBrowser(ref.StreamName, ref.Transport)
 }
 
 func (b controlBackend) StartTestStreams(count int) error { return b.app.StartTestStreams(count) }
@@ -179,9 +185,12 @@ func (b controlBackend) StopTestStreams()                 { b.app.StopTestStream
 
 func (b controlBackend) ForgetPortalConsent() error { return b.app.ForgetPortalConsent() }
 
-func (b controlBackend) CreateGroup(relay settings.Relay) (key, id string, err error) {
+func (b controlBackend) CreateGroup(relay settings.Relay) (groupKey, groupID string, err error) {
 	return b.app.CreateGroup(relay)
 }
+
+func (b controlBackend) JoinGroup() error  { return b.app.JoinGroup() }
+func (b controlBackend) LeaveGroup() error { return b.app.LeaveGroup() }
 
 func (b controlBackend) OpenLog(path string) error { return b.app.OpenLog(path) }
 func (b controlBackend) OpenLogsFolder() error     { return b.app.OpenLogsFolder() }
@@ -215,7 +224,12 @@ func publishSnapshot(state PublishState) wire.PublishSnapshot {
 		live.RateCeilingMbps = &ceiling
 	}
 	if state.Retrying {
-		live.Retry = &wire.RetrySnapshot{Attempt: state.Attempt, Budget: state.Budget}
+		live.Retry = &wire.RetrySnapshot{
+			Attempt: state.Attempt,
+			Budget:  state.Budget,
+			Cause:   state.Cause,
+			Message: state.Message,
+		}
 	}
 	return wire.PublishSnapshot{Live: live}
 }

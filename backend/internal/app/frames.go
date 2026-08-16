@@ -28,7 +28,7 @@ func (a *App) SubscribeFrames(streamName, transportName string) (*receive.Subscr
 	assert.Assert(transportName != "", "a frame consumer names the leg the stream is decoded from", streamName)
 
 	a.procMu.Lock()
-	receiver, present := a.receivers[WatchKey{Name: streamName, Transport: transportName}]
+	receiver, present := a.receivers[StreamRef{Name: streamName, Transport: transportName}]
 	a.procMu.Unlock()
 
 	if !present {

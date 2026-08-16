@@ -38,7 +38,7 @@ func TestBuildTestStreamArgs(t *testing.T) {
 		"pattern=smpte",
 		"x264enc",
 		"protocols=tcp",
-		"location=rtsp://10.0.0.5:8554/test-1",
+		"location=rtsps://10.0.0.5:8554/public/test-1",
 	} {
 		if !slices.Contains(args, want) {
 			t.Errorf("missing %q in %v", want, args)

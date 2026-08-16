@@ -1,0 +1,48 @@
+meta {
+  name: Reconcile
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{groupAdmin}}/reconcile
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "path": "{{groupPrefix}}{{streamName}}"
+  }
+}
+
+tests {
+  test("runs the leases of the group that path belongs to", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.prefix).to.equal(bru.getEnvVar("groupPrefix"));
+    expect(res.body.failed || []).to.be.an("array").that.is.empty;
+    expect(res.body.unread || []).to.be.an("array").that.is.empty;
+  });
+}
+
+docs {
+  # Reconcile
+
+  Runs a group's leases against the relay again, named by a path rather than by a group key.
+
+  This is what the relay's own read hook calls, which is why it takes no key: a starting read announces the path it is on, and the answer is a run against the leases the members themselves stated.
+  It grants nothing a key would have bought, and a group with no live member answers `enforced: false` and is left alone.
+
+  The answer is the run: `kicked` is every connection closed, each naming the stream inside the group, the leg it was on and its direction, and `kept` counts the ones a live member holds.
+  `unread` appears where a per-protocol list would not answer, which means the sweep was partial and somebody may still be connected.
+  `failed` appears where the relay refused to close one, which is a member still watching rather than a removal.
+
+  Doing it by hand is how a run is watched without waiting for a reader to arrive.
+  The hook is `deploy/reconcile-on-read.sh`, wired in `pathDefaults.runOnRead`.
+
+  A path belonging to no group is refused with 400, a bare stream name naming no group.
+}

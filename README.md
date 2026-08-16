@@ -12,6 +12,9 @@ The relay re-serves what it ingests on all its listeners, so a stream published 
 No accounts. No remote control. Everyone publishes and watches at once.
 Full colour, 4:4:4 and full range, so no WebRTC washout.
 
+A group is one key friends share, and a member is in it for as long as their own app says so.
+[`docs/membership.md`](docs/membership.md) states what that key buys and what a lapse closes.
+
 ## Install
 
 Packages for Windows, Arch, Fedora, NixOS and other Linux distributions are on the
@@ -24,15 +27,17 @@ Opening the shell starts the backend. Nothing else to launch.
 ## The relay
 
 Streams do not travel between machines directly.
-Every publisher sends to one relay and every viewer reads from it, so one machine everybody can reach runs MediaMTX: a VPS, a box on the LAN, a host on a Tailscale network.
+Every publisher sends to one relay and every viewer reads from it, so one machine everybody can reach runs MediaMTX and the group service that signs the tokens it checks: a VPS, a box on the LAN, a host on a Tailscale network.
 
 ```bash
 task relay
 ```
 
-Serves SRT (8890/udp), RTSP, RTMP, HLS, WebRTC and MoQ (8892 tcp+udp), plus the API on 9997, all from `mediamtx.yml`.
-The binary comes from the flake's dev shell on Linux and macOS.
-Windows has no such shell and runs `pwsh scripts/relay.ps1`, which fetches it on first run.
+Both of them, on this machine, from `deploy/mediamtx-groups.yml`: the configuration a deployment runs.
+A self-signed certificate is drawn where none is there, so the encrypted listeners come up on a machine that has no certificate of its own.
+Serves SRT (8890/udp), RTSPS (8322), RTMPS (1936), HLS, WebRTC and MoQ (8892 tcp+udp), plus the API on 9997.
+The binaries come from the flake's dev shell on Linux and macOS.
+Windows has no such shell and runs `pwsh scripts/relay.ps1`, which fetches MediaMTX on first run.
 
 ## Topology
 

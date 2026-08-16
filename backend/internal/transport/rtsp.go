@@ -77,6 +77,7 @@ func (RTSP) PublishArgs(s settings.Settings) []string {
 	if c, ok := capabilities.Get(s.Publish.Codec()); ok && draftRtpFormats[c.Format] {
 		args = append(args, "-strict", "experimental")
 	}
+	args = append(args, ffmpegTlsVerify(s)...)
 	return append(args, rtspURL(s, s.Relay.Path(s.Publish.Name)))
 }
 
@@ -87,6 +88,7 @@ func (RTSP) GstSink(s settings.Settings) []string {
 	return []string{
 		"rtspclientsink", "name=" + GstMuxName,
 		"protocols=" + s.Publish.RtspPublishProtocol,
+		gstTlsValidation(s),
 		"location=" + rtspURL(s, s.Relay.Path(s.Publish.Name)),
 	}
 }
@@ -118,6 +120,7 @@ func (RTSP) GstSource(s settings.Settings, streamName string) []string {
 		"rtspsrc",
 		"location=" + rtspAddress(s, streamName),
 		"protocols=" + s.Viewer.RtspWatchProtocol,
+		gstTlsValidation(s),
 		fmt.Sprintf("latency=%d", s.Viewer.RtspWatchLatencyMs),
 	}
 	if user, password, ok := rtspCredential(s); ok {
@@ -136,7 +139,8 @@ var RtspProtocols = []string{"tcp", "udp"}
 // the knob table and the rule guarding it name it.
 const rtspWatchProtocolKey = "rtspWatchProtocol"
 
-// EncryptedRtspProtocol is the one lower transport an encrypted RTSP session carries media on.
+// EncryptedRtspProtocol is the one lower transport an RTSPS session carries media on, which is every
+// session this app opens.
 //
 // RTSPS encrypts the control connection and nothing else: RTP over UDP travels beside it in the
 // clear, so a session negotiated that way sends the picture unencrypted however the control channel
@@ -151,15 +155,16 @@ const EncryptedRtspProtocol = "tcp"
 // value outside it fails inside the publish process, where the reason reaches the user as another
 // program's error text.
 //
-// The encrypted case is refused rather than corrected: silently interleaving a session the user
-// asked to carry over UDP answers a question they did not ask, and the control that says "udp" would
-// go on saying it while the stream did something else.
+// UDP is refused on every relay, each of them serving RTSPS alone (deploy/mediamtx-groups.yml), and
+// refused rather than corrected: silently interleaving a session the user asked to carry over UDP
+// answers a question they did not ask, and the control that says "udp" would go on saying it while
+// the stream did something else.
 func (RTSP) ValidatePublishSettings(s settings.Settings) error {
 	if !slices.Contains(RtspProtocols, s.Publish.RtspPublishProtocol) {
 		return fmt.Errorf("rtsp publish protocol %q is not one of %s",
 			s.Publish.RtspPublishProtocol, strings.Join(RtspProtocols, ", "))
 	}
-	if s.Relay.Tls() && s.Publish.RtspPublishProtocol != EncryptedRtspProtocol {
+	if s.Publish.RtspPublishProtocol != EncryptedRtspProtocol {
 		return fmt.Errorf("an encrypted relay carries RTP inside the RTSP connection, so the lower transport is %s and not %q",
 			EncryptedRtspProtocol, s.Publish.RtspPublishProtocol)
 	}
@@ -193,22 +198,19 @@ func (t RTSP) SetWatchOption(s *settings.Settings, key, value string) error {
 	// Refused rather than corrected, for the reason ValidatePublishSettings refuses the same value:
 	// interleaving a session the reader asked to carry over UDP answers a question nobody asked, and
 	// the control would go on reading "udp" while the stream did something else.
-	if key == rtspWatchProtocolKey && s.Relay.Tls() && value != EncryptedRtspProtocol {
-		return fmt.Errorf("an encrypted relay carries RTP inside the RTSP connection, so the watch transport is %s and not %q",
-			EncryptedRtspProtocol, value)
+	if key == rtspWatchProtocolKey && value != EncryptedRtspProtocol {
+		return fmt.Errorf("%s: an encrypted relay carries RTP inside the RTSP connection, so the watch transport is %s and not %q",
+			rtspWatchProtocolKey, EncryptedRtspProtocol, value)
 	}
 	return knobSet(t.Name(), rtspWatchKnobs, s, key, value)
 }
 
-// RtspsPort is where a relay's encrypted RTSP listener answers: MediaMTX's own default, and no
-// setting, for the reason HTTPOrigin drops the direct port behind a proxy.
-// A deployment that terminates TLS decides its own listeners, and the configured RtspPort names the
-// cleartext one a LAN relay answers on.
-const RtspsPort = 8322
-
-// rtspURL addresses one path on the relay's RTSP listener and carries the credential,
-// "rtsps://relay:8322/<path>?jwt=<token>" where the relay is encrypted and
-// "rtsp://relay:8554/<path>?jwt=<token>" where it is not.
+// rtspURL addresses one path on the relay's RTSPS listener and carries the credential,
+// "rtsps://relay:8322/<path>?jwt=<token>".
+//
+// One scheme, every relay terminating TLS on this leg and binding no cleartext listener at all
+// (deploy/mediamtx-groups.yml, rtspEncryption).
+// The port is the settings' own, which is what a relay on other listeners is pointed at by.
 //
 // The credential rides as a query and not as a userinfo password, which is where MediaMTX reads a
 // JWT for RTSP.
@@ -220,9 +222,5 @@ func rtspURL(s settings.Settings, name string) string {
 
 // rtspAddress is that address with no credential on it, for the reader that takes one separately.
 func rtspAddress(s settings.Settings, name string) string {
-	scheme, port := "rtsp", s.Relay.RtspPort
-	if s.Relay.Tls() {
-		scheme, port = "rtsps", RtspsPort
-	}
-	return fmt.Sprintf("%s://%s:%d/%s", scheme, s.Relay.Host, port, name)
+	return fmt.Sprintf("rtsps://%s:%d/%s", s.Relay.Host, s.Relay.RtspPort, name)
 }

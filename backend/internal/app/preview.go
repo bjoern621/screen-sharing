@@ -23,7 +23,7 @@ import (
 // "the preview" is a complete identity while one exists and no identity otherwise.
 //
 // It is a field of its own rather than a receiver beside the relay decodes, which are keyed by
-// WatchKey, a stream and the protocol it crossed the relay over.
+// StreamRef, a stream and the protocol it crossed the relay over.
 // This stream crossed no relay, so an entry there would need a transport name for a leg no transport
 // carries, and every consumer of that table would read a protocol that does not exist.
 

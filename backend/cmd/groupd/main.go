@@ -1,4 +1,5 @@
-// Command groupd serves keys, tokens, the stream index and the rosters those are enforced against.
+// Command groupd serves group keys, relay access tokens, the stream index and the membership those
+// are enforced against.
 //
 // A binary of its own because it is a separate machine's: the backend runs on a publisher's
 // desktop, this runs beside the relay, where the signing key lives and where the relay fetches it.
@@ -6,9 +7,9 @@
 // (internal/group).
 //
 // A signing key and a reachable relay API are all it takes.
-// What is stored is the signing key and the rosters: possession of a group key is still membership,
-// and the prefix is still that key's own digest, but who is in a group is a fact only whatever serves
-// the voice channel knows, and a roster is where it says so (internal/roster).
+// The signing key is the one thing on disk. Presence leases are held in memory and nowhere else: a
+// restart forgets them, and every live app states its own again within one refresh interval
+// (internal/membership).
 package main
 
 import (
@@ -26,8 +27,8 @@ import (
 	"bjoernblessin.de/go-utils/util/logger"
 
 	"bjoernblessin.de/screenshare/internal/groupsvc"
+	"bjoernblessin.de/screenshare/internal/membership"
 	"bjoernblessin.de/screenshare/internal/relay"
-	"bjoernblessin.de/screenshare/internal/roster"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
@@ -70,10 +71,13 @@ func main() {
 	client := relay.NewAuthorized(func() string { return apiToken(signer) })
 	reader := &relayStreams{host: *relayHost, apiPort: *relayAPIPort, client: client}
 
-	// One client for both, the index reading what is live and enforcement closing what a member who
-	// left still holds. Neither reaches the relay as anything a group token could.
+	// One client for both, the index reading what is live and enforcement closing what a member whose
+	// lease lapsed still holds. Neither reaches the relay as anything a group token could.
 	enforcer := relayConnections{host: *relayHost, apiPort: *relayAPIPort, client: client}
-	service := groupsvc.New(signer, reader, roster.New(enforcer))
+	members := membership.New(enforcer)
+	go reap(members)
+
+	service := groupsvc.New(signer, reader, members)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
 	// Loopback by default and no TLS of its own: the reverse proxy in front encrypts every leg to
@@ -96,6 +100,38 @@ func main() {
 	}
 	if err := server.ListenAndServe(); err != nil {
 		logger.Errorf("serving: %v", err)
+	}
+}
+
+// reapEvery is how often lapsed leases are swept.
+//
+// Well inside membership.Lease, so a member who stopped refreshing loses what they hold within a
+// moment of the lease running out even where nobody else's call notices first.
+const reapEvery = 5 * time.Second
+
+// reap closes what lapsed leases still hold, for as long as this process runs.
+//
+// The only timer in the service.
+// A relay that would not answer a list is an Umgebungsfehler and leaves a run partial rather than
+// stopping the process, so it is reported and the next tick tries again.
+func reap(members *membership.Registry) {
+	assert.IsNotNil(members, "a sweep runs against the registry holding the leases")
+
+	ticker := time.NewTicker(reapEvery)
+	defer ticker.Stop()
+
+	for tick := range ticker.C {
+		for _, swept := range members.Reap(tick) {
+			if len(swept.Kicked) > 0 {
+				logger.Infof("closed %d connections under %s after a lease lapsed", len(swept.Kicked), swept.Prefix)
+			}
+			for _, refused := range swept.Failed {
+				logger.Warnf("the relay would not close %s under %s: %s", refused.Stream, swept.Prefix, refused.Reason)
+			}
+			for _, unread := range swept.Unread {
+				logger.Warnf("the relay's %s list would not answer a sweep of %s: %s", unread.Segment, swept.Prefix, unread.Reason)
+			}
+		}
 	}
 }
 
@@ -247,7 +283,7 @@ func (r *relayStreams) Paths() []groupsvc.Stream {
 	return out
 }
 
-// relayConnections is the relay this service enforces rosters against.
+// relayConnections is the relay this service enforces membership against.
 //
 // The client is addressed by host and port per call, where the registry holds a relay and not an
 // address, so this is where the one this process was pointed at is bound in.

@@ -6,6 +6,8 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/wire"
 )
 
@@ -60,11 +62,15 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 	}
 
 	message := ""
+	var cause *screensharev1.Text
 	if err != nil {
 		message = err.Error()
 		if stderrTail != "" {
 			message += "\n" + stderrTail
 		}
+		// Read before the lock, the membership snapshot being written by the poll rather than by anything
+		// holding procMu.
+		cause = a.membership().failure()
 	}
 
 	a.procMu.Lock()
@@ -80,7 +86,7 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 	}
 	relaunching := i < a.testStreamsWanted
 	if relaunching {
-		a.armTestStreamLocked(i, spent)
+		a.armTestStreamLocked(i, spent, cause, message, logPath)
 	}
 	a.procMu.Unlock()
 
@@ -93,7 +99,7 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 		// The exit says why this one stopped and the count beside it says how many are left.
 		// A publisher that died on its own moves the count with nothing having been called, the case the
 		// state event exists for.
-		a.emit(wire.TestStreamExitEvent(message, logPath))
+		a.emit(wire.TestStreamExitEvent(message, logPath, cause))
 	}
 	a.emitTestStreamState()
 }
@@ -102,16 +108,19 @@ func (a *App) testStreamEnded(i int, slot *testStream, err error, stderrTail str
 // ladder's wait has passed.
 // The caller holds procMu.
 //
+// cause, message and logPath are what the child this relaunch follows left behind, held on the
+// waiting slot so the set says why one row carries no publisher.
+//
 // The waiting slot is placed before the timer is armed, so a fire that beats this call's return
 // blocks on the lock and finds the slot it belongs to rather than a window with none.
 // A slot that is waiting is still a slot the set holds, which is what keeps a second launch out of
 // it.
-func (a *App) armTestStreamLocked(i int, spent int) {
+func (a *App) armTestStreamLocked(i int, spent int, cause *screensharev1.Text, message, logPath string) {
 	assert.Assert(spent >= 0, "a relaunch counts the attempts before it", spent)
 	assert.Assert(a.testStreams[i] == nil, "a slot arms its relaunch with nothing in it", i)
 
 	wait := testStreamWait(spent)
-	slot := &testStream{attempts: spent + 1}
+	slot := &testStream{attempts: spent + 1, cause: cause, message: message, logPath: logPath}
 	a.testStreams[i] = slot
 	slot.timer = time.AfterFunc(wait, func() { a.fireTestStreamRetry(i, slot) })
 
@@ -142,7 +151,8 @@ func (a *App) fireTestStreamRetry(i int, slot *testStream) {
 	}
 	if err != nil {
 		logger.Warnf("relaunch %d of test stream %s did not start: %v", slot.attempts, testStreamName(i), err)
-		a.armTestStreamLocked(i, slot.attempts)
+		// The child never started, so its own words are the launch failure and no run log carries them.
+		a.armTestStreamLocked(i, slot.attempts, slot.cause, err.Error(), "")
 	}
 	a.procMu.Unlock()
 

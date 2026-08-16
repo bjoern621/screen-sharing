@@ -30,11 +30,11 @@ Three kinds of method, the rule in executable form:
 
 | Kind | What it does | Examples |
 | --- | --- | --- |
-| Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus` |
-| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `OpenInBrowser`, `CreateGroup` |
+| Reads | Hand the shell something to draw. Compute, change nothing, cheap enough for a keystroke. | `GetCatalog`, `ResolveForm`, `GetPublishState`, `GetRelayStatus`, `GetMembersState` |
+| Effects | Do the one thing the user asked for. The only methods that change the world. | `StartPublish`, `ApplyToStream`, `StopPublish`, `StartWatch`, `StartReceive`, `StopReceive`, `SetReceiveAudio`, `StartMonitorPreview`, `StopMonitorPreview`, `SaveSettings`, `ProbeEncoders`, `MeasureUplink`, `MeasureEncodeRate`, `OpenInBrowser`, `CreateGroup`, `JoinGroup`, `LeaveGroup` |
 | Stream | Carries what changed, including what this shell did not do. | `Subscribe`, `SubscribeAudioLevels`, `SubscribePointer` |
 
-Samples, not the roster.
+Samples, not the whole surface.
 `control.proto` carries that.
 A method that is neither a read nor an effect does not belong here.
 A shell that wants one is about to hold state the backend owns.
@@ -43,6 +43,11 @@ Measurements are effects, by the test rather than by category.
 `ProbeEncoders`, `MeasureUplink` and `MeasureEncodeRate` each start real work, take seconds, and leave a result a later read answers from.
 The probe most of all: what it finds is what every subsequent `ResolveForm` greys codecs against.
 A read that replaces the answer another shell's next resolve would give, with nothing on the wire announcing it, is what this test catches.
+
+**Membership is two effects and a read.**
+`JoinGroup` draws this machine's identity in the group the settings name and states its first presence, `LeaveGroup` releases that presence and drops the identity, and `GetMembersState` answers the group as the backend last read it.
+Nothing on the contract refreshes presence.
+The backend states it on the loop that already polls the relay, so a method for it would be a second thing deciding when this machine is in a group (`membership.md`).
 
 ## Why
 
@@ -167,7 +172,7 @@ The render size is a count of pixels rather than a layout.
 Pool ownership, generations and what each side does when the other dies: `viewer-architecture.md`, "The buffer-ownership protocol".
 
 **A subscription names one of three pictures, each carrying what tells one of its own kind apart.**
-`FrameSubscribe` carries a `WatchKey` (a stream and the leg it crossed the relay over), `PublishPreview` (the local decode of what this machine sends), or `MonitorPreview` (one of this machine's screens, read live).
+`FrameSubscribe` carries a `StreamRef` (a stream and the leg it crossed the relay over), `PublishPreview` (the local decode of what this machine sends), or `MonitorPreview` (one of this machine's screens, read live).
 The preview message is empty and needs to be: `PublishState.live` is singular, so "the running publish's preview" is already a complete identity, and a name or port on it would be the consumer restating what it read off the state.
 The monitor message carries one index for the mirror-image reason: the index is what the catalog enumerates screens under and what `PublishSettings.monitor` holds, so a size or name would be the consumer sending the catalog back.
 
@@ -210,6 +215,12 @@ An **Umgebungsfehler**, a condition the app must survive, is a gRPC status: expe
 An **Entwicklungsfehler**, a broken internal contract, never crosses.
 `assert` panics in the backend, as everywhere else here.
 A shell that could receive a bug as a status would start handling bugs, and a handled bug ships.
+
+**A failure that is a state is not a status.**
+A call that succeeded and left something not working reports it on the state it belongs to, as a `Text` beside the raw words behind it.
+`ExitInfo.cause` and `ReceiveExit.cause` on a run that ended, `ReceiveStream.failure` on a decode carrying no picture, `PublishState.Retry.cause` on each attempt of a backoff, `TestStreamSlot.cause` per slot, `MembersState.refusal` on presence the group service would not take.
+The code is what a shell writes a sentence for, and the string beside it stays raw so a child's own words reach the reader unedited (`text.proto`).
+On the status instead, the reason would belong to the one call that asked, and a shell reading the state afterwards would find a tile that is dark and nothing saying why.
 
 **A served status is shown as the backend wrote it, and no code means "the backend is absent".**
 A shell learns that from the connection failing: the client library makes its own status for a local failure.

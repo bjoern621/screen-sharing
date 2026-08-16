@@ -19,7 +19,8 @@ import (
 //     A browser cannot set a header on an address it is handed, which is what credentialUserinfo
 //     covers.
 //
-// Every form is empty without a token, which is what a LAN relay takes.
+// Every form is empty without a token, one coming from the group service beside the relay
+// (settings.Relay.GroupService).
 // Whether that suffices is the relay's answer, and refusing to build the address would decide a
 // policy this side cannot see.
 

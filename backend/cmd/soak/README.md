@@ -25,12 +25,12 @@ bin/soak -dump publish.maxrate_mbps -backend-pid <pid>
 
 Needs the flake's dev shell for GStreamer and ffmpeg, an X display, and a relay at the address the
 isolated settings name.
-A local MediaMTX on offset ports keeps every capture on the machine:
+`task relay` starts one on this machine.
+Offset ports keep every capture here without taking the ports a relay somebody else started is on.
+MediaMTX reads each address off the environment, so the configuration stays the one every relay reads:
 
 ```
-sed -e 's/^rtspAddress: :8554/rtspAddress: :18554/' -e 's/^srtAddress: :8890/srtAddress: :18890/' \
-    -e 's/^apiAddress: :9997/apiAddress: :19997/' mediamtx.yml > $SOAK_ROOT/mediamtx.yml
-mediamtx $SOAK_ROOT/mediamtx.yml
+MTX_SRTADDRESS=:18890 MTX_RTSPSADDRESS=:18554 MTX_RTMPSADDRESS=:11936 MTX_APIADDRESS=127.0.0.1:19997 task relay
 ```
 
 ## It runs beside the app, never inside it

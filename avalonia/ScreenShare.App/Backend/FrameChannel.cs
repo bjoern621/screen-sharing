@@ -64,7 +64,7 @@ public sealed class FrameChannel : IAsyncDisposable
 
         return SubscribeAsync(client, new FrameSubscribe
         {
-            Stream = new WatchKey { StreamName = streamName, Transport = transport },
+            Stream = new StreamRef { StreamName = streamName, Transport = transport },
         }, cancellation);
     }
 

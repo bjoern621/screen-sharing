@@ -140,75 +140,89 @@ func TestAKeyOfTheWrongLengthIsRefused(t *testing.T) {
 	}
 }
 
+// mustSecret fails the test on a drawing failure rather than carrying it into a derivation.
+func mustSecret(t *testing.T) MemberSecret {
+	t.Helper()
+	secret, err := NewMemberSecret()
+	if err != nil {
+		t.Fatalf("drawing a member secret: %v", err)
+	}
+	return secret
+}
+
 // A member id names one member of a group on the relay, and the relay logs and lists it.
 // These hold that it identifies without carrying what it was derived from.
-func TestOneMemberDerivesOneID(t *testing.T) {
+func TestOneSecretDerivesOneMemberID(t *testing.T) {
+	key := mustKey(t)
+	secret := mustSecret(t)
+
+	if key.MemberID(secret) != key.MemberID(secret) {
+		t.Error("one secret derived two member ids")
+	}
+
+	// Through the encoding is the path the derivation takes in practice: the app writes the secret to
+	// its identity file and reads it back on the next start.
+	same, err := ParseMemberSecret(secret.String())
+	if err != nil {
+		t.Fatalf("reading back a secret this package wrote: %v", err)
+	}
+	if key.MemberID(same) != key.MemberID(secret) {
+		t.Errorf("a secret read back derives %s, where the secret itself derives %s",
+			key.MemberID(same), key.MemberID(secret))
+	}
+}
+
+// Identity inside a group cannot be forged, so two secrets are two members however they are named.
+func TestTwoSecretsAreTwoMembers(t *testing.T) {
 	key := mustKey(t)
 
-	id, err := key.MemberID("alice")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	again, err := key.MemberID("alice")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	if id != again {
-		t.Errorf("one member derived two ids, %s and %s", id, again)
-	}
-
-	other, err := key.MemberID("bob")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	if other == id {
-		t.Error("two members derived one id")
+	if key.MemberID(mustSecret(t)) == key.MemberID(mustSecret(t)) {
+		t.Error("two secrets derived one member id")
 	}
 }
 
 // The id travels to the relay, which writes it into a log line and a session listing.
-// A member's name inside it would put whatever named them, a Discord account included, on the
-// relay's disk.
-func TestAMemberIDCarriesNeitherTheNameNorTheKey(t *testing.T) {
+// The secret behind it is what a member's whole identity rests on, so a relay operator reading one
+// off a listing would be able to state that member's presence.
+func TestAMemberIDCarriesNeitherTheSecretNorTheKey(t *testing.T) {
 	key := mustKey(t)
+	secret := mustSecret(t)
 
-	id, err := key.MemberID("alice")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	if strings.Contains(id, "alice") {
-		t.Errorf("the member id %s carries the name it was derived from", id)
+	id := key.MemberID(secret)
+	if strings.Contains(secret.String(), id) {
+		t.Errorf("the member id %s appears inside the secret's own encoding", id)
 	}
 	if strings.Contains(id, key.String()) || strings.Contains(id, key.ID()) {
 		t.Errorf("the member id %s carries the group's own secret or id", id)
 	}
+	if len(id) != MemberIDChars {
+		t.Errorf("the member id is %d characters, want %d", len(id), MemberIDChars)
+	}
+	for _, c := range id {
+		if !strings.ContainsRune("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", c) {
+			t.Errorf("the member id carries %q, which is outside the alphabet a relay listing takes", c)
+		}
+	}
 }
 
-// Two groups holding a member of the same name are two members, since the id derives under the
-// group's key.
-func TestOneNameInTwoGroupsIsTwoMembers(t *testing.T) {
+// One app joining two groups holds one secret per group, and a member id derives under the group's
+// key, so neither group's relay listing names the other's member.
+func TestOneSecretInTwoGroupsIsTwoMembers(t *testing.T) {
 	here, there := mustKey(t), mustKey(t)
+	secret := mustSecret(t)
 
-	mine, err := here.MemberID("alice")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	theirs, err := there.MemberID("alice")
-	if err != nil {
-		t.Fatalf("deriving a member id: %v", err)
-	}
-	if mine == theirs {
-		t.Error("one name derived one id across two groups")
+	if here.MemberID(secret) == there.MemberID(secret) {
+		t.Error("one secret derived one member id across two groups")
 	}
 }
 
-// A name nobody gave names no member, and a subject derived from one would be a session the roster
-// can neither match nor explain.
-func TestAnEmptyNameNamesNoMember(t *testing.T) {
-	key := mustKey(t)
-
-	if _, err := key.MemberID(""); err == nil {
-		t.Error("an empty name derived a member id")
+// A secret of the wrong length is one this app did not draw, and a member id derived from it would
+// be a subject membership can neither match nor explain.
+func TestAMemberSecretOfTheWrongLengthIsRefused(t *testing.T) {
+	for _, encoded := range []string{"", "not base64 at all", "c2hvcnQ="} {
+		if _, err := ParseMemberSecret(encoded); err == nil {
+			t.Errorf("%q was accepted as a member secret", encoded)
+		}
 	}
 }
 
@@ -231,7 +245,7 @@ func TestAPathNamesThePrefixItIsEnforcedUnder(t *testing.T) {
 }
 
 // A stream published outside the group model belongs to no group, and reporting one as a group of
-// its own would enforce a roster against a stream name.
+// its own would enforce membership against a stream name.
 func TestAPathOutsideAGroupNamesNoPrefix(t *testing.T) {
 	if prefix, ok := PrefixOf("desk"); ok {
 		t.Errorf("a bare stream name named the group %s", prefix)

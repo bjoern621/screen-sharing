@@ -1,14 +1,15 @@
-// Package groupsvc is the key, token, index and roster service.
+// Package groupsvc is the group key, token, index and membership service.
 //
-// Creating a group draws a key, a member trades that key for a short relay token, and the index
-// answers which streams a key can see.
+// Creating a group draws a group key, a member trades that key for a short relay access token, and
+// the index answers which streams a group key can see.
 // All three are derivations rather than lookups, so no database sits behind any of them: possession
-// of the key is membership, the prefix is the key's own digest (internal/group),
+// of the group key is what lets somebody join, the prefix is that key's own digest (internal/group),
 // and which streams exist is the relay's answer rather than this service's.
 //
-// The roster is the one thing held, and it is held because nobody else knows it: which members a
-// group has is whatever serves the voice channel talking, and it is pushed here (internal/roster).
-// Enforcing it closes connections at the relay, a token being unenforceable after the handshake.
+// The presence leases are the one thing held, and they are held because nobody else knows them: a
+// member's own app states that it is here and refreshes it, and this is where it says so
+// (internal/membership).
+// Enforcing them closes connections at the relay, a token being unenforceable after the handshake.
 //
 // It lives in this repository rather than one of its own because the path-prefix derivation has to
 // be identical on both sides, and two repositories are two copies of it (docs/plan.md,
@@ -20,7 +21,7 @@
 // Both can watch a private stream, and the interface says so.
 //
 // Every refusal answers a caller rather than crashing.
-// A malformed key, a missing body and a caller over the creation bound are Umgebungsfehler:
+// A malformed group key, a missing body and a caller over the creation bound are Umgebungsfehler:
 // the input arrives over HTTP from somebody this process does not control.
 package groupsvc
 
@@ -37,20 +38,20 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/group"
-	"bjoernblessin.de/screenshare/internal/roster"
+	"bjoernblessin.de/screenshare/internal/membership"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
-// TokenWindow is how long a relay token stays valid.
+// TokenWindow is how long a relay access token stays valid.
 //
 // Short, because a member who leaves holds whatever they were last issued: this window is how long
-// they can still open a connection after whatever issues tokens stops issuing to them.
+// they can still open a connection after their lease lapses.
 // Long enough that a client reconnecting across a network blip is not asking for a token between
 // every attempt.
 //
 // It bounds opening connections and nothing else.
 // The relay checks at the handshake and not again, so a connection outlives its own token, which is
-// why what they already hold is closed rather than expired out (internal/roster).
+// why what they already hold is closed rather than expired out (internal/membership).
 const TokenWindow = 5 * time.Minute
 
 // CreationsPerHour is how many groups one address may create in an hour.
@@ -94,7 +95,7 @@ type Stream struct {
 // Streams is what the relay is carrying, as the index reads it.
 //
 // An interface rather than the relay client: the index needs the rows above, where the client
-// answers with bitrates and rosters beside them.
+// answers with bitrates and reader lists beside them.
 // It is also what lets the index be tested without a relay.
 type Streams interface {
 	Paths() []Stream
@@ -105,7 +106,7 @@ type Streams interface {
 type Service struct {
 	signer  *token.Signer
 	streams Streams
-	rosters *roster.Registry
+	members *membership.Registry
 	// now is read rather than time.Now called directly, so a test can issue a token at a moment it
 	// chooses and read the window back off it.
 	now func() time.Time
@@ -116,16 +117,15 @@ type Service struct {
 	created map[string][]time.Time
 }
 
-// New is a service signing with this key, reading streams from there and enforcing rosters through
-// that.
-func New(signer *token.Signer, streams Streams, rosters *roster.Registry) *Service {
+// New is a service signing with this key, reading streams from there and holding membership in that.
+func New(signer *token.Signer, streams Streams, members *membership.Registry) *Service {
 	assert.IsNotNil(signer, "a service signs its tokens with a key")
-	assert.IsNotNil(rosters, "a service enforces its rosters through a registry")
+	assert.IsNotNil(members, "a service holds its groups' membership in a registry")
 
 	s := &Service{
 		signer:  signer,
 		streams: streams,
-		rosters: rosters,
+		members: members,
 		now:     time.Now,
 		created: map[string][]time.Time{},
 	}
@@ -135,27 +135,27 @@ func New(signer *token.Signer, streams Streams, rosters *roster.Registry) *Servi
 
 // Handler is the service's routes.
 //
-// A key travels in the request body, never in the path: a key in a URL is a key in every proxy log
-// between here and the client.
-// The index is the exception and takes its key in the query, a GET having no body a cache or proxy
-// will honour.
+// A group key travels in the request body, never in the path: a key in a URL is a key in every proxy
+// log between here and the client.
+// The index and the members view are the exceptions and take theirs in the query, a GET having no
+// body a cache or proxy will honour.
 func (s *Service) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /groups", s.createGroup)
 	mux.HandleFunc("POST /tokens", s.issueToken)
 	mux.HandleFunc("GET /streams", s.listStreams)
 	mux.HandleFunc("GET /jwks.json", s.jwks)
-	mux.HandleFunc("PUT /roster", s.setRoster)
-	mux.HandleFunc("GET /roster", s.viewRoster)
-	mux.HandleFunc("DELETE /roster", s.clearRoster)
-	// Reached by the relay's own read hook, which knows a path and holds no key.
-	// It grants nothing a key would have bought: the answer is a run against a roster somebody else
-	// stated, and a group nobody stated one for is left alone.
+	mux.HandleFunc("PUT /members", s.stateMember)
+	mux.HandleFunc("DELETE /members", s.releaseMember)
+	mux.HandleFunc("GET /members", s.viewMembers)
+	// Reached by the relay's own read hook, which knows a path and holds no group key.
+	// It grants nothing a key would have bought: the answer is a run against the leases the members
+	// themselves stated, and a group with no live member is left alone.
 	mux.HandleFunc("POST /reconcile", s.reconcile)
 	return mux
 }
 
-// createGroup draws a key and hands it back.
+// createGroup draws a group key and hands it back.
 // Nothing is stored because there is nothing to store: the group exists by somebody holding the
 // key, and the prefix is that key's own digest.
 func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
@@ -163,36 +163,37 @@ func (s *Service) createGroup(w http.ResponseWriter, r *http.Request) {
 		refuse(w, http.StatusTooManyRequests, "too many groups created from here in the last hour")
 		return
 	}
-	key, err := group.NewKey()
+	groupKey, err := group.NewKey()
 	if err != nil {
 		// The one failure here that is this machine's rather than the caller's.
 		// Nothing is handed back, a key drawn from something weaker looking exactly like a real one.
 		refuse(w, http.StatusInternalServerError, "no group key could be drawn")
 		return
 	}
-	answer(w, map[string]string{"key": key.String(), "id": key.ID()})
+	answer(w, map[string]string{"groupKey": groupKey.String(), "groupId": groupKey.ID()})
 }
 
-// issueToken trades a group key for a relay token, and a request carrying no key for a public one.
+// issueToken trades a group key for a relay access token, and a request carrying no key for a public
+// one.
 //
-// Deriving from the key is the whole verification, there being no membership list to check it
-// against: a caller holding a well-formed key is a member, and one holding a key nobody else has is
-// a group of one.
+// Deriving from the group key is the whole verification: holding one is what lets somebody join, so
+// a caller holding a well-formed one is in the group, and one holding a key nobody else has is a
+// group of one.
 // Minted per call and never stored: the signature derives from the key like every other answer
 // here, so a held token would be a second copy of a fact the key already carries.
 //
-// A keyless request is answered rather than refused, and answering it grants nothing a refusal
-// would have withheld: the public prefix is one anybody may ask for a token on, so the token says
-// who the audience is and never who the caller is.
+// A request naming no group key is answered rather than refused, and answering it grants nothing a
+// refusal would have withheld: the public prefix is one anybody may ask for a token on, so the token
+// says who the audience is and never who the caller is.
 // The relay still authenticates the connection and still encrypts it.
-// Only a malformed key is a refusal, an empty one being a request for the public prefix and a
+// Only a malformed group key is a refusal, an empty one being a request for the public prefix and a
 // truncated one being a group the caller cannot reach.
 func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Key    string `json:"key"`
-		Member string `json:"member"`
+		GroupKey     string `json:"groupKey"`
+		MemberSecret string `json:"memberSecret"`
 	}
-	// An empty body is a request for the public prefix, the same as a body naming an empty key.
+	// An empty body is a request for the public prefix, the same as a body naming an empty group key.
 	// Anything else that will not decode is malformed rather than keyless, and a caller who meant to
 	// send a key is better told than quietly given somebody else's audience.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyLimit)).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
@@ -201,29 +202,35 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	}
 
 	subject, prefix := PublicSubject, PublicPrefix
-	if strings.TrimSpace(body.Key) != "" {
-		key, err := group.ParseKey(body.Key)
+	if strings.TrimSpace(body.GroupKey) != "" {
+		groupKey, err := group.ParseKey(body.GroupKey)
 		if err != nil {
 			refuse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		subject, prefix = key.ID(), key.Prefix()
+		subject, prefix = groupKey.ID(), groupKey.Prefix()
 
-		// Naming a member moves the subject from the group to that member, which is what lets a roster
-		// tell one member's connections from another's at the relay.
+		// Naming a member secret moves the subject from the group to the member it derives, which is
+		// what lets enforcement tell one member's connections from another's at the relay.
 		// The grant does not move with it: membership decides who may connect, never what they reach.
-		//
-		// A field with something in it is a caller naming a member, so a name that is whitespace alone
-		// is refused by the derivation rather than quietly becoming the group's own token.
-		if body.Member != "" {
-			member, err := key.MemberID(body.Member)
+		switch {
+		case strings.TrimSpace(body.MemberSecret) != "":
+			secret, err := group.ParseMemberSecret(body.MemberSecret)
 			if err != nil {
 				refuse(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			subject = member
+			subject = groupKey.MemberID(secret)
+
+		// The group's own id is a subject no member matches, so a token on it is closed the moment
+		// anybody states presence. It is the first app in an empty group bootstrapping itself, and
+		// nothing else, which is why a group whose members are stated refuses it here rather than
+		// issuing a credential that lasts one sweep.
+		case s.members.Live(groupKey):
+			refuse(w, http.StatusBadRequest, "this group states its members, and this request names none")
+			return
 		}
-	} else if body.Member != "" {
+	} else if strings.TrimSpace(body.MemberSecret) != "" {
 		refuse(w, http.StatusBadRequest, "a member belongs to a group, and this request names no group key")
 		return
 	}
@@ -235,14 +242,14 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	answer(w, map[string]any{
-		"token":   signed,
-		"prefix":  prefix,
-		"expires": now.Add(TokenWindow).UTC().Format(time.RFC3339),
+		"relayAccessToken": signed,
+		"prefix":           prefix,
+		"expires":          now.Add(TokenWindow).UTC().Format(time.RFC3339),
 	})
 }
 
-// listStreams answers which streams the caller may see: their group's on a key, the public ones
-// without.
+// listStreams answers which streams the caller may see: their group's on a group key, the public
+// ones without.
 //
 // The split is enforced here rather than left to a shell, which is the point of the index:
 // a listing a client narrowed arrived carrying every group's streams.
@@ -250,13 +257,13 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 // that a member asked about their group.
 func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
 	prefix := PublicPrefix
-	if encoded := strings.TrimSpace(r.URL.Query().Get("group")); encoded != "" {
-		key, err := group.ParseKey(encoded)
+	if encoded := strings.TrimSpace(r.URL.Query().Get("groupKey")); encoded != "" {
+		groupKey, err := group.ParseKey(encoded)
 		if err != nil {
 			refuse(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		prefix = key.Prefix()
+		prefix = groupKey.Prefix()
 	}
 
 	streams := []Stream{}
@@ -275,66 +282,102 @@ func (s *Service) listStreams(w http.ResponseWriter, r *http.Request) {
 	answer(w, map[string]any{"prefix": prefix, "streams": streams})
 }
 
-// setRoster states who a group's members are now, and closes what anybody else holds.
+// stateMember states one member's presence, which is a claim and a refresh at once.
 //
-// The whole roster and never a departure: two callers racing on "who left" can leave a member the
-// last one did not name, where two callers racing on "who is here" cannot.
-// The answer names what it closed, so a caller learns the removal happened rather than assuming it.
-func (s *Service) setRoster(w http.ResponseWriter, r *http.Request) {
+// Idempotent by construction: the request names the state it wants true, that this member is here
+// under this name, so an app can send it on every pass of the poll it already runs.
+// The answer is the whole group, so the same call that refreshes is the one that reads who else is
+// here and what they are sharing.
+//
+// A name another member holds is 409 rather than 400: the caller's request is well formed and the
+// answer is an app asking its user for another name.
+func (s *Service) stateMember(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Key     string   `json:"key"`
-		Members []string `json:"members"`
+		GroupKey     string `json:"groupKey"`
+		MemberSecret string `json:"memberSecret"`
+		DisplayName  string `json:"displayName"`
 	}
 	if !readBody(w, r, &body) {
 		return
 	}
-	key, ok := groupOf(w, body.Key)
+	groupKey, ok := groupOf(w, body.GroupKey)
+	if !ok {
+		return
+	}
+	secret, ok := memberOf(w, body.MemberSecret)
 	if !ok {
 		return
 	}
 
-	result, err := s.rosters.Set(key, body.Members)
+	stated, err := s.members.State(groupKey, secret, body.DisplayName)
+	if err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, membership.ErrNameTaken) {
+			status = http.StatusConflict
+		}
+		refuse(w, status, err.Error())
+		return
+	}
+	answer(w, map[string]any{
+		"memberId":     stated.MemberID,
+		"displayName":  stated.DisplayName,
+		"leaseSeconds": int(stated.Lease.Seconds()),
+		"members":      stated.Members,
+		// Publishing false under a list the relay would not answer is what a member sending nothing
+		// looks like, so the answer says which of the two it read.
+		"publishingUnread": len(stated.Unread) > 0,
+	})
+}
+
+// releaseMember drops one member's presence and closes what it held.
+//
+// Idempotent: a member holding no lease is already in the state this names, so it answers that there
+// was none to release and succeeds.
+func (s *Service) releaseMember(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		GroupKey     string `json:"groupKey"`
+		MemberSecret string `json:"memberSecret"`
+	}
+	if !readBody(w, r, &body) {
+		return
+	}
+	groupKey, ok := groupOf(w, body.GroupKey)
+	if !ok {
+		return
+	}
+	secret, ok := memberOf(w, body.MemberSecret)
+	if !ok {
+		return
+	}
+
+	released, err := s.members.Release(groupKey, secret)
 	if err != nil {
 		refuse(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	answer(w, result)
+	answer(w, map[string]any{"memberId": released.MemberID, "released": released.Released})
 }
 
-// viewRoster answers a group's roster beside the connections the relay is carrying for it.
+// viewMembers answers who is in a group without stating anything.
 //
-// The key in the query, as the index takes it and for the same reason: a GET has no body a cache or
-// a proxy will honour.
-func (s *Service) viewRoster(w http.ResponseWriter, r *http.Request) {
-	key, ok := groupOf(w, r.URL.Query().Get("group"))
+// The group key in the query, as the index takes it and for the same reason: a GET has no body a
+// cache or a proxy will honour.
+func (s *Service) viewMembers(w http.ResponseWriter, r *http.Request) {
+	groupKey, ok := groupOf(w, r.URL.Query().Get("groupKey"))
 	if !ok {
 		return
 	}
-	answer(w, s.rosters.View(key))
+	view := s.members.View(groupKey)
+	answer(w, map[string]any{"members": view.Members, "publishingUnread": len(view.Unread) > 0})
 }
 
-// clearRoster stops enforcing a group, which is what an emptied voice channel means.
-// Distinct from an empty roster, which is a channel nobody is in and closes everything on it.
-func (s *Service) clearRoster(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Key string `json:"key"`
-	}
-	if !readBody(w, r, &body) {
-		return
-	}
-	key, ok := groupOf(w, body.Key)
-	if !ok {
-		return
-	}
-	answer(w, map[string]any{"prefix": key.Prefix(), "cleared": s.rosters.Clear(key)})
-}
-
-// reconcile runs a group's roster against the relay again, named by a path rather than by a key.
+// reconcile runs a group's leases against the relay again, named by a path rather than by a group
+// key.
 //
 // The relay's read hook is the caller: it reports a path as a connection opens, which is what closes
-// a member who left and came back on a token that has not expired yet.
+// a member whose lease lapsed and who came back on a token that has not expired yet.
 // A path belonging to no group is refused rather than treated as one, a bare stream name naming no
-// roster.
+// group.
 func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Path string `json:"path"`
@@ -349,15 +392,15 @@ func (s *Service) reconcile(w http.ResponseWriter, r *http.Request) {
 			"a run is named by the relay path a connection is on, and this one belongs to no group")
 		return
 	}
-	// Refused rather than answered as a group with no roster, which is what it would otherwise look
-	// like: streams under the public prefix are watchable by anybody, so a run there has nobody to
+	// Refused rather than answered as a group with no live member, which is what it would otherwise
+	// look like: streams under the public prefix are watchable by anybody, so a run there has nobody to
 	// hold them against and a caller expecting one is better told.
 	if prefix == PublicPrefix {
 		refuse(w, http.StatusBadRequest,
-			"streams under "+PublicPrefix+" are watchable by anybody, and a roster names who may watch")
+			"streams under "+PublicPrefix+" are watchable by anybody, and membership names who may watch")
 		return
 	}
-	answer(w, s.rosters.Reconcile(prefix))
+	answer(w, s.members.Reconcile(prefix))
 }
 
 // readBody decodes one request body, and reports whether the caller was already refused.
@@ -372,15 +415,32 @@ func readBody(w http.ResponseWriter, r *http.Request, into any) bool {
 // groupOf reads the group a request names, and refuses the caller where it names none.
 func groupOf(w http.ResponseWriter, encoded string) (group.Key, bool) {
 	if strings.TrimSpace(encoded) == "" {
-		refuse(w, http.StatusBadRequest, "a group is named by its key, and this request names none")
+		refuse(w, http.StatusBadRequest, "a group is named by its group key, and this request names none")
 		return nil, false
 	}
-	key, err := group.ParseKey(encoded)
+	groupKey, err := group.ParseKey(encoded)
 	if err != nil {
 		refuse(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	return key, true
+	return groupKey, true
+}
+
+// memberOf reads the member a request names, and refuses the caller where it names none.
+//
+// The secret and never the display name: a name is a label anybody may claim, where the secret is
+// what nobody but that member holds.
+func memberOf(w http.ResponseWriter, encoded string) (group.MemberSecret, bool) {
+	if strings.TrimSpace(encoded) == "" {
+		refuse(w, http.StatusBadRequest, "a member is named by its member secret, and this request names none")
+		return nil, false
+	}
+	secret, err := group.ParseMemberSecret(encoded)
+	if err != nil {
+		refuse(w, http.StatusBadRequest, err.Error())
+		return nil, false
+	}
+	return secret, true
 }
 
 // jwks publishes the key every token is verified against.
@@ -391,7 +451,8 @@ func (s *Service) jwks(w http.ResponseWriter, _ *http.Request) {
 }
 
 // bodyLimit is how much of a request body is read.
-// A key is 44 characters of base64, so anything past this is not a request this service reads.
+// A group key and a member secret are 44 characters of base64 each, so anything past this is not a
+// request this service reads.
 const bodyLimit = 4096
 
 // allowCreation reports whether this caller may create another group, and records the creation

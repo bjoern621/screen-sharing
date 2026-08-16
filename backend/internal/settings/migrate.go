@@ -155,6 +155,11 @@ func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.HlsPort, d.HlsPort)
 	fillNum(&r.MoqPort, d.MoqPort)
 
+	// DisplayName is left alone. An empty one is a state and not a gap: this machine has been given no
+	// name, and joining a group asks for one rather than proceeding under a filled-in default.
+	// A name is claimed first-come inside a group, so a default would send every machine to claim the
+	// same one and hand all but the first a refusal on a name nobody chose (internal/membership).
+
 	assert.Assert(r.SrtPort > 0 && r.ApiPort > 0 && r.RtspPort > 0 && r.WebrtcPort > 0 && r.RtmpPort > 0 && r.HlsPort > 0 && r.MoqPort > 0,
 		"an upgraded relay names a port for every listener",
 		r.SrtPort, r.ApiPort, r.RtspPort, r.WebrtcPort, r.RtmpPort, r.HlsPort, r.MoqPort)

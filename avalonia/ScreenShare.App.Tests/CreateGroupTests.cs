@@ -9,8 +9,8 @@ namespace ScreenShare.App.Tests;
 /// A stream published with no key is one anybody may watch, so the box holding the key carries the button that
 /// draws one and the two states a reader chooses between stay one control apart.
 ///
-/// Pins the defect that shipped: the action was composed, bound and never drawn, the generic renderer having
-/// hosted it inside the number branch alone, so the only way to a group was a command line.
+/// Pins the button to a text control: the generic renderer draws an action beside one, so a group is reachable
+/// from the window rather than from a command line alone.
 /// </summary>
 public sealed class CreateGroupTests
 {
@@ -31,7 +31,7 @@ public sealed class CreateGroupTests
     [Fact]
     public async Task TheGroupKeyCarriesTheButtonThatDrawsOne()
     {
-        var flow = await FlowAsync(new SeededBackend("linux") { RelayTls = true });
+        var flow = await FlowAsync(new SeededBackend("linux"));
 
         Assert.True(GroupKey(flow).HasAction);
         Assert.Equal("Create group", GroupKey(flow).Action!.Label);
@@ -46,7 +46,7 @@ public sealed class CreateGroupTests
     [Fact]
     public async Task ADrawnKeyLandsInTheFieldAndIsStored()
     {
-        var backend = new SeededBackend("linux") { RelayTls = true };
+        var backend = new SeededBackend("linux");
         var flow = await FlowAsync(backend);
 
         GroupKey(flow).Action!.Command.Execute(null);
@@ -62,20 +62,20 @@ public sealed class CreateGroupTests
     }
 
     /// <summary>
-    /// A relay reached without a TLS proxy runs no group service, so the press is refused with the reason
-    /// where a greyed control's reason is stated rather than answered with a key nothing signed.
+    /// A relay draws the key, so a machine pointed at none has nothing to ask and the press is refused with the
+    /// reason where a greyed control's reason is stated rather than answered with a key nothing signed.
     /// </summary>
     [Fact]
-    public async Task ARelayWithNoGroupServiceSaysWhyNoKeyCanBeDrawn()
+    public async Task AMachineWithNoRelaySaysWhyNoKeyCanBeDrawn()
     {
-        var flow = await FlowAsync(new SeededBackend("linux"));
+        var flow = await FlowAsync(new SeededBackend("linux") { RelayHost = "" });
 
         Assert.True(GroupKey(flow).HasAction);
         Assert.False(GroupKey(flow).Action!.Command.CanExecute(null));
         Assert.True(GroupKey(flow).HasActionNotice);
-        Assert.Contains("TLS proxy", GroupKey(flow).ActionNotice);
+        Assert.Contains("relay address", GroupKey(flow).ActionNotice);
 
-        // The refusal is the button's and not the field's: a key held on a LAN relay is still a key to paste.
+        // The refusal is the button's and not the field's: a key pasted before the relay is named is still a key.
         Assert.True(GroupKey(flow).IsEnabled);
     }
 }

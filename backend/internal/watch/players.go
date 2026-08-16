@@ -26,17 +26,54 @@ func watchURL(s settings.Settings, streamName, transportName string) (string, er
 
 // isRTSP marks the leg whose lower-transport option cannot ride in the URL and is passed as a
 // player argument instead.
-// Both schemes, because a relay reached over TLS is addressed as "rtsps" and is the default one:
-// matching the cleartext spelling alone drops the setting on exactly the relay most viewers use,
-// while the tile grid goes on honouring it (transport/rtsp.go, rtspAddress).
+// One scheme, every relay terminating TLS on this listener and binding no cleartext one
+// (transport/rtsp.go, rtspAddress).
 func isRTSP(url string) bool {
-	return strings.HasPrefix(url, "rtsp://") || strings.HasPrefix(url, "rtsps://")
+	return strings.HasPrefix(url, "rtsps://")
 }
 
 // isHTTP marks the legs whose credential is a header rather than part of the address
 // (internal/transport, credential.go).
 func isHTTP(url string) bool {
 	return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+}
+
+// isTLS marks an address a player opens a TLS connection on: the two legs the relay terminates TLS
+// on itself, and an HTTP leg behind the proxy.
+// "rtsps://", "rtmps://", "https://".
+func isTLS(url string) bool {
+	return strings.HasPrefix(url, "rtsps://") ||
+		strings.HasPrefix(url, "rtmps://") ||
+		strings.HasPrefix(url, "https://")
+}
+
+// tlsVerified reports whether a player validates the certificate the relay presents.
+//
+// The publish legs' rule against the same address (internal/transport, tls.go).
+// A relay on a trusted network holds the self-signed pair scripts/relay.sh draws, which nothing
+// issued and no store carries, so a player validating it opens no window at all.
+// A relay across somebody else's network holds a certificate issued for the name it is reached by,
+// and a player taking whatever arrives instead takes the one an interception offers.
+// Both branches are spelled out, neither program verifying unless told to.
+func tlsVerified(s settings.Settings) bool {
+	return !s.Relay.OnTrustedNetwork()
+}
+
+// ffplayTlsVerify is the option ffmpeg's tls protocol takes, reaching it under whichever demuxer
+// opened the address.
+func ffplayTlsVerify(s settings.Settings) []string {
+	if tlsVerified(s) {
+		return []string{"-tls_verify", "1"}
+	}
+	return []string{"-tls_verify", "0"}
+}
+
+// mpvTlsVerify is the same question as mpv's own flag, which it hands to that protocol.
+func mpvTlsVerify(s settings.Settings) string {
+	if tlsVerified(s) {
+		return "--tls-verify=yes"
+	}
+	return "--tls-verify=no"
 }
 
 // ffplay is the viewer Select falls back to.
@@ -70,6 +107,11 @@ func (ffplay) Command(s settings.Settings, streamName, transportName string) (ar
 	// Unlike SRT's options, it cannot ride in the URL.
 	if isRTSP(url) {
 		args = append(args, "-rtsp_transport", s.Viewer.RtspWatchProtocol)
+	}
+	// Stated on the legs that carry a certificate and on no other: ffplay refuses to open an input
+	// holding a format option none of its protocols reads.
+	if isTLS(url) {
+		args = append(args, ffplayTlsVerify(s)...)
 	}
 	// libavformat repeats these on every request the demuxer makes, which a playlist and its segments
 	// both need.
@@ -116,6 +158,10 @@ func (mpv) Command(s settings.Settings, streamName, transportName string) (args,
 	// The RTP lower transport, as in the ffplay counterpart.
 	if isRTSP(url) {
 		args = append(args, "--rtsp-transport="+s.Viewer.RtspWatchProtocol)
+	}
+	// The certificate check, as in the ffplay counterpart.
+	if isTLS(url) {
+		args = append(args, mpvTlsVerify(s))
 	}
 	// The credential header, as in the ffplay counterpart.
 	if name, value, ok := transport.CredentialHeader(s); ok && isHTTP(url) {

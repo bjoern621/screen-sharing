@@ -73,7 +73,7 @@ The relay's `/v3/srtconns/list` reports both directions of both hops.
 
 All three paths are one network hop from relay to decoder.
 They differ in what happens after the decoder, which is the whole of what the frame channel is for.
-Ports are the defaults from `mediamtx.yml` and `settings.Defaults`.
+Ports are the defaults from `deploy/mediamtx-groups.yml` and `settings.Defaults`.
 
 Double rules cross the network.
 Single rules stay inside one machine.
@@ -81,7 +81,7 @@ Single rules stay inside one machine.
 ```
 native player
 
-  MediaMTX ══ SRT :8890 or RTSP :8554 ═══▶ ffplay or mpv window
+  MediaMTX ══ SRT :8890 or RTSPS :8322 ══▶ ffplay or mpv window
   └─────────────── network ──────────────┘ └ receiver machine ┘
 
 shell tile
@@ -509,7 +509,7 @@ The third is the wizard's screen picker, below.
 **The preview draws that stream by one of two routes, and the card's toggle is which, or off.**
 They differ by where the picture is taken and by nothing else: both carry the same encode, so neither answers what the capture looked like before it, and what one shows and the other cannot is everything downstream of the encoder.
 The **local** route is a copy that never leaves the machine.
-The **end-to-end** route is `StartReceive` on `WatchKey{this machine's stream, the tile leg}`, read back off the relay like any other tile, so it crosses the uplink, the relay and the way back.
+The **end-to-end** route is `StartReceive` on `StreamRef{this machine's stream, the tile leg}`, read back off the relay like any other tile, so it crosses the uplink, the relay and the way back.
 
 **The two costs are opposite, which is why it is a choice and not a setting.**
 The local route costs one decode here, spends no bandwidth and takes no reader slot, so the broadcast screen's viewer count and worst-viewer round trip describe viewers rather than this machine watching itself.
@@ -540,7 +540,7 @@ It travels on `PublishState.Live.preview`, so a reader can see it.
 Nothing assumes it.
 
 **It is not a relay stream, and it is modelled as its own thing.**
-A subscription names a `WatchKey`, the running publish's preview, or a monitor (`FrameSubscribe`, `frame.proto`), and the publish preview carries no fields at all: `PublishState.live` is singular, so "the preview" is already a complete identity.
+A subscription names a `StreamRef`, the running publish's preview, or a monitor (`FrameSubscribe`, `frame.proto`), and the publish preview carries no fields at all: `PublishState.live` is singular, so "the preview" is already a complete identity.
 A synthetic `transport` entry would state that some protocol carries this stream, and every consumer of that table (the form, the viewability verdict, `WatchNamesFor`) would read a protocol nothing can be done with.
 
 **The publish opens it and the publish closes it**, the answer to the question `ipc-api.md` asks of every effect.

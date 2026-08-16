@@ -674,6 +674,26 @@ const (
 	// What the capture produces, and what the encode is predicted to leave of it.
 	// TEXT_ARG_NAME_RAW_MBPS, TEXT_ARG_NAME_BITRATE_MBPS.
 	TextCode_TEXT_CODE_COMPRESSION_RATIO TextCode = 137
+	// Why a stream a reader was watching or publishing stopped.
+	// Numbered from 144, the run after 137 belonging to the groups below.
+	//
+	// Membership of the group is not in force here, and the relay closes what a non-member holds.
+	// Stated where this app read its own membership and found none, a close it cannot account for
+	// leaving the child's own words to stand alone.
+	// No arguments.
+	TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED TextCode = 144
+	// Another member of this group holds the name this machine claims.
+	// No arguments.
+	TextCode_TEXT_CODE_GROUP_NAME_TAKEN TextCode = 145
+	// Joining a group takes a name this machine goes by, and none is set.
+	// No arguments.
+	TextCode_TEXT_CODE_GROUP_NAME_MISSING TextCode = 146
+	// The group service refused, on a ground no code here names.
+	// TEXT_ARG_NAME_CAUSE carries the statement behind it where this app has one.
+	TextCode_TEXT_CODE_GROUP_SERVICE_REFUSED TextCode = 147
+	// The stream stopped arriving at the relay, so there is nothing on the path to receive.
+	// No arguments.
+	TextCode_TEXT_CODE_STREAM_LEFT_THE_RELAY TextCode = 148
 	// No group key is set, so the stream is published where anybody who reaches the relay may
 	// watch it. Not a refusal: publishing without a group is a choice this app carries out.
 	// No arguments.
@@ -825,6 +845,11 @@ var (
 		135: "TEXT_CODE_MONITOR_NOT_PRICED",
 		136: "TEXT_CODE_NO_PICTURE_TO_PRICE",
 		137: "TEXT_CODE_COMPRESSION_RATIO",
+		144: "TEXT_CODE_GROUP_MEMBERSHIP_LAPSED",
+		145: "TEXT_CODE_GROUP_NAME_TAKEN",
+		146: "TEXT_CODE_GROUP_NAME_MISSING",
+		147: "TEXT_CODE_GROUP_SERVICE_REFUSED",
+		148: "TEXT_CODE_STREAM_LEFT_THE_RELAY",
 		138: "TEXT_CODE_STREAM_IS_PUBLIC",
 		139: "TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS",
 		141: "TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP",
@@ -951,6 +976,11 @@ var (
 		"TEXT_CODE_MONITOR_NOT_PRICED":                        135,
 		"TEXT_CODE_NO_PICTURE_TO_PRICE":                       136,
 		"TEXT_CODE_COMPRESSION_RATIO":                         137,
+		"TEXT_CODE_GROUP_MEMBERSHIP_LAPSED":                   144,
+		"TEXT_CODE_GROUP_NAME_TAKEN":                          145,
+		"TEXT_CODE_GROUP_NAME_MISSING":                        146,
+		"TEXT_CODE_GROUP_SERVICE_REFUSED":                     147,
+		"TEXT_CODE_STREAM_LEFT_THE_RELAY":                     148,
 		"TEXT_CODE_STREAM_IS_PUBLIC":                          138,
 		"TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS":            139,
 		"TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP":            141,
@@ -1312,7 +1342,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\xfd'\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\xb5)\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1431,7 +1461,12 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1bTEXT_CODE_FPS_ABOVE_REFRESH\x10\x86\x01\x12!\n" +
 	"\x1cTEXT_CODE_MONITOR_NOT_PRICED\x10\x87\x01\x12\"\n" +
 	"\x1dTEXT_CODE_NO_PICTURE_TO_PRICE\x10\x88\x01\x12 \n" +
-	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12\x1f\n" +
+	"\x1bTEXT_CODE_COMPRESSION_RATIO\x10\x89\x01\x12&\n" +
+	"!TEXT_CODE_GROUP_MEMBERSHIP_LAPSED\x10\x90\x01\x12\x1f\n" +
+	"\x1aTEXT_CODE_GROUP_NAME_TAKEN\x10\x91\x01\x12!\n" +
+	"\x1cTEXT_CODE_GROUP_NAME_MISSING\x10\x92\x01\x12$\n" +
+	"\x1fTEXT_CODE_GROUP_SERVICE_REFUSED\x10\x93\x01\x12$\n" +
+	"\x1fTEXT_CODE_STREAM_LEFT_THE_RELAY\x10\x94\x01\x12\x1f\n" +
 	"\x1aTEXT_CODE_STREAM_IS_PUBLIC\x10\x8a\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTION_FOLLOWS_THE_ADDRESS\x10\x8b\x01\x12-\n" +
 	"(TEXT_CODE_ENCRYPTED_RTSP_INTERLEAVES_RTP\x10\x8d\x01\x12/\n" +

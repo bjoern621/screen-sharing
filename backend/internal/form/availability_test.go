@@ -21,7 +21,8 @@ import (
 // test reading it checks that the availability table and keys.go cover each other, which a list
 // derived from either could not.
 var availabilityAllKeys = []string{
-	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
+	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeyDisplayName,
+	KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
 	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
@@ -868,12 +869,39 @@ func TestAnEncryptedRelayGreysUdpOnBothRtspLegs(t *testing.T) {
 		}
 	}
 
-	// A relay this network reaches directly terminates no TLS, so neither leg is narrowed.
+	// A relay this network reaches directly serves RTSPS too, so it narrows both legs the same way.
 	s.Relay.Host = "192.168.1.9"
 	for _, key := range legs {
-		for _, protocol := range transport.RtspProtocols {
-			if enabled, reason := optionState(fieldTestDeps(), s, key, protocol, noEntry); !enabled {
-				t.Errorf("%s greys %s on an unencrypted relay: %s", key, protocol, reason)
+		if enabled, _ := optionState(fieldTestDeps(), s, key, "udp", noEntry); enabled {
+			t.Errorf("%s offers udp on a relay reached directly, which serves RTSPS alone", key)
+		}
+	}
+}
+
+// Nothing a draft holds greys the name this machine goes by.
+// A name is claimed per group when joining and reaches no capture backend, encoder or leg, so no
+// combination on this screen rules it out and a stream in force blocks it no more than any other
+// field does (docs/field-availability.md, "A live stream blocks no field").
+//
+// An empty one is a state and not a refusal.
+// Joining is where a missing name is refused (control.JoinGroup), and greying the control there
+// would leave the reader holding a refusal with nowhere to answer it.
+func TestTheDisplayNameIsEditableWhateverTheDraftHolds(t *testing.T) {
+	for _, tc := range availabilityCases() {
+		for _, name := range []string{"", "Björn"} {
+			s := tc.s
+			s.Relay.DisplayName = name
+
+			st := fieldState(tc.deps, s, KeyDisplayName, noEntry)
+			if !st.visible || !st.enabled {
+				t.Errorf("%s: a machine named %q draws the display name visible=%v enabled=%v",
+					tc.name, name, st.visible, st.enabled)
+			}
+			if st.reason != nil {
+				t.Errorf("%s: a machine named %q carries a reason on the display name: %v", tc.name, name, st.reason)
+			}
+			if st.note != nil {
+				t.Errorf("%s: a machine named %q carries a note on the display name: %v", tc.name, name, st.note)
 			}
 		}
 	}

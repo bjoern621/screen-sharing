@@ -429,6 +429,16 @@ var fieldTable = []field{
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.GroupKey) },
 	},
 	{
+		// What this machine calls itself in the group, beside the key naming which group.
+		//
+		// Free text, a name being claimed per group with the first claim winning: there is nothing to
+		// enumerate and no second name to pick from.
+		key:     KeyDisplayName,
+		group:   GroupRelay,
+		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Relay.DisplayName) },
+	},
+	{
 		// Whether the relay's HTTP legs are reached through a TLS proxy,
 		// which is one fact about the deployment rather than one per listener:
 		// the proxy terminates for the relay and the group service alike,
@@ -445,7 +455,7 @@ var fieldTable = []field{
 	{
 		// The passphrase the relay keys its SRT listener with, that leg being the one no proxy wraps:
 		// UDP with no TLS, so what protects the packets is a value both ends hold.
-		// Empty is a relay that takes none, which is every relay on a trusted network.
+		// Empty is a relay that takes none.
 		key:     KeySrtPassphrase,
 		group:   GroupRelay,
 		control: screensharev1.ControlKind_CONTROL_KIND_TEXT,

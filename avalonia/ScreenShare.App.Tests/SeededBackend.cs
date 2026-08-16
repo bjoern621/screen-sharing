@@ -321,7 +321,7 @@ internal sealed class SeededBackend : IBackend
     {
         Relay = new RelaySettings
         {
-            Host = "127.0.0.1",
+            Host = RelayHost,
             SrtPort = 8890,
             ApiPort = 9997,
             RtspPort = 8554,
@@ -414,10 +414,10 @@ internal sealed class SeededBackend : IBackend
     /// Players open here, by the pair the contract keys one by.
     /// Empty until a test that needs a viewer already running states one.
     /// </summary>
-    public List<WatchKey> Watching { get; } = [];
+    public List<StreamRef> Watching { get; } = [];
 
-    public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
-        => Task.FromResult<IReadOnlyList<WatchKey>>(Watching.ToList());
+    public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
+        => Task.FromResult<IReadOnlyList<StreamRef>>(Watching.ToList());
 
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
     {
@@ -560,6 +560,58 @@ internal sealed class SeededBackend : IBackend
 
     public const string DrawnGroupId = "AAAAAAAAAAAAAAAAAAAAAAAAAA";
 
+    // --- The group ---------------------------------------------------------------
+    //
+    // A reading a test states, since no presence loop stands behind a fixture.
+    // The two effects record the presses rather than moving the reading: what a join became arrives on the
+    // event stream in the real thing, so a fixture answering from what was sent would let a card read back
+    // its own request.
+
+    /// <summary>Group as a presence loop would have read it. Outside every group until a test says otherwise.</summary>
+    public MembersState Members { get; set; } = new();
+
+    public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+        => Task.FromResult(Members);
+
+    /// <summary>
+    /// Why every join and leave is refused. Empty while they are accepted.
+    /// A test sets it to see what a card does with the backend's own sentence.
+    /// </summary>
+    public string GroupRefusal { get; set; } = "";
+
+    /// <summary>How often each was asked for, repeats included, which is what an idempotent press leaves alone.</summary>
+    public int Joins { get; private set; }
+
+    public int Leaves { get; private set; }
+
+    public Task JoinGroupAsync(CancellationToken cancellation = default)
+    {
+        if (GroupRefusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(GroupRefusal));
+        }
+
+        Joins++;
+        return Task.CompletedTask;
+    }
+
+    public Task LeaveGroupAsync(CancellationToken cancellation = default)
+    {
+        if (GroupRefusal.Length > 0)
+        {
+            return Task.FromException(new BackendUnavailableException(GroupRefusal));
+        }
+
+        Leaves++;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Synthetic publishers, none until a test states a set.</summary>
+    public TestStreamState TestStreams { get; set; } = new();
+
+    public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+        => Task.FromResult(TestStreams);
+
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => Task.CompletedTask;
 
@@ -570,11 +622,11 @@ internal sealed class SeededBackend : IBackend
     /// Pages this fixture was asked to open, oldest first.
     /// A list and not a set: a page cannot be read back, so a second press has to show as a second entry.
     /// </summary>
-    public List<WatchKey> Browsed { get; } = [];
+    public List<StreamRef> Browsed { get; } = [];
 
     public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
     {
-        Browsed.Add(new WatchKey { StreamName = streamName, Transport = transport });
+        Browsed.Add(new StreamRef { StreamName = streamName, Transport = transport });
         return Task.CompletedTask;
     }
 
@@ -583,7 +635,7 @@ internal sealed class SeededBackend : IBackend
     /// Read back through <see cref="ReceivingAsync"/>, so a test asserts what the backend was asked to open
     /// rather than what the shell believed it had opened.
     /// </summary>
-    public List<WatchKey> Decoded { get; } = [];
+    public List<StreamRef> Decoded { get; } = [];
 
     /// <summary>
     /// What every decode here reports about its colour: the transfer characteristic and the verdict on it.
@@ -604,7 +656,7 @@ internal sealed class SeededBackend : IBackend
     public string ToneMapMissing { get; set; } = "";
 
     /// <summary>Which open decodes were built with the tone-map rung.</summary>
-    private readonly Dictionary<WatchKey, bool> _toneMapped = [];
+    private readonly Dictionary<StreamRef, bool> _toneMapped = [];
 
     /// <summary>
     /// Whether the decodes here carry a sound track.
@@ -617,24 +669,24 @@ internal sealed class SeededBackend : IBackend
     /// Read back through <see cref="ReceivingAsync"/>, so a test asserts what the decode plays at rather than
     /// what the shell last sent.
     /// </summary>
-    private readonly Dictionary<WatchKey, (double Volume, bool Muted)> _audio = [];
+    private readonly Dictionary<StreamRef, (double Volume, bool Muted)> _audio = [];
 
     public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
         => Task.FromResult<IReadOnlyList<ReceiveStream>>(
-            Decoded.Select(key => new ReceiveStream
+            Decoded.Select(streamRef => new ReceiveStream
             {
-                Stream = key,
+                Stream = streamRef,
                 Live = true,
                 Transfer = Transfer,
                 Hdr = Hdr,
                 // What was built and not what was asked for: a machine with nothing to convert with builds
                 // the decode without the rung whatever the call said.
-                ToneMap = CanToneMap && _toneMapped.GetValueOrDefault(key),
+                ToneMap = CanToneMap && _toneMapped.GetValueOrDefault(streamRef),
                 CanToneMap = CanToneMap,
                 ToneMapMissing = CanToneMap ? "" : ToneMapMissing,
                 HasAudio = HasAudio,
-                Volume = _audio.GetValueOrDefault(key, (1, false)).Volume,
-                Muted = _audio.GetValueOrDefault(key, (1, false)).Muted,
+                Volume = _audio.GetValueOrDefault(streamRef, (1, false)).Volume,
+                Muted = _audio.GetValueOrDefault(streamRef, (1, false)).Muted,
             }).ToList());
 
     /// <summary>
@@ -647,19 +699,19 @@ internal sealed class SeededBackend : IBackend
     public Task StartReceiveAsync(
         string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
     {
-        var key = new WatchKey { StreamName = streamName, Transport = transport };
-        if (!Decoded.Contains(key))
+        var streamRef = new StreamRef { StreamName = streamName, Transport = transport };
+        if (!Decoded.Contains(streamRef))
         {
-            Decoded.Add(key);
+            Decoded.Add(streamRef);
         }
-        _toneMapped[key] = toneMap;
+        _toneMapped[streamRef] = toneMap;
 
         return Task.CompletedTask;
     }
 
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
     {
-        Decoded.Remove(new WatchKey { StreamName = streamName, Transport = transport });
+        Decoded.Remove(new StreamRef { StreamName = streamName, Transport = transport });
         return Task.CompletedTask;
     }
 
@@ -670,7 +722,7 @@ internal sealed class SeededBackend : IBackend
     public Task SetReceiveAudioAsync(
         string streamName, string transport, double volume, bool muted, CancellationToken cancellation = default)
     {
-        _audio[new WatchKey { StreamName = streamName, Transport = transport }] = (volume, muted);
+        _audio[new StreamRef { StreamName = streamName, Transport = transport }] = (volume, muted);
         return Task.CompletedTask;
     }
 
@@ -769,17 +821,16 @@ internal sealed class SeededBackend : IBackend
     }
 
     /// <summary>
-    /// Relay behind a TLS proxy, which decides there is a group service to draw a key from.
-    /// Derived from the address and stored nowhere by the backend (<c>backend/internal/settings</c>, Relay.Tls),
-    /// so a test names the deployment instead of an address this fixture would have to classify.
+    /// The relay this machine is pointed at, empty for a machine pointed at none.
+    /// Every named relay carries a group service (<c>backend/internal/settings</c>, Relay.GroupService), so this
+    /// is what decides whether a key can be drawn.
     /// </summary>
-    public bool RelayTls { get; set; }
+    public string RelayHost { get; set; } = "127.0.0.1";
 
     /// <summary>Whole resolve, with no wire in front of it.</summary>
     private Form Resolve(Settings draft)
     {
         var settings = draft.Clone();
-        settings.Relay.Tls = RelayTls;
         var form = new Form { Settings = settings, Publishable = true };
 
         foreach (var group in Groups())

@@ -30,7 +30,7 @@ func TestWebRTCPublishArgs(t *testing.T) {
 	}
 	args := WebRTC{}.PublishArgs(s)
 
-	want := []string{"-f", "whip", "http://10.0.0.5:8889/alice/whip"}
+	want := []string{"-f", "whip", "http://10.0.0.5:8889/public/alice/whip"}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -53,7 +53,7 @@ func TestWebRTCGstSink(t *testing.T) {
 	for _, want := range []string{
 		"whipclientsink",
 		"name=" + GstMuxName,
-		"signaller::whip-endpoint=http://10.0.0.5:8889/alice/whip",
+		"signaller::whip-endpoint=http://10.0.0.5:8889/public/alice/whip",
 	} {
 		if !slices.Contains(sink, want) {
 			t.Errorf("GstSink = %v, missing %q", sink, want)

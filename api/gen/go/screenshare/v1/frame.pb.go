@@ -282,7 +282,7 @@ func (x *FrameSubscribe) GetSource() isFrameSubscribe_Source {
 	return nil
 }
 
-func (x *FrameSubscribe) GetStream() *WatchKey {
+func (x *FrameSubscribe) GetStream() *StreamRef {
 	if x != nil {
 		if x, ok := x.Source.(*FrameSubscribe_Stream); ok {
 			return x.Stream
@@ -314,7 +314,7 @@ type isFrameSubscribe_Source interface {
 }
 
 type FrameSubscribe_Stream struct {
-	Stream *WatchKey `protobuf:"bytes,1,opt,name=stream,proto3,oneof"`
+	Stream *StreamRef `protobuf:"bytes,1,opt,name=stream,proto3,oneof"`
 }
 
 type FrameSubscribe_PublishPreview struct {
@@ -1069,9 +1069,9 @@ const file_screenshare_v1_frame_proto_rawDesc = "" +
 	"\arelease\x18\x02 \x01(\v2\x1c.screenshare.v1.FrameReleaseH\x00R\arelease\x12B\n" +
 	"\vrender_size\x18\x03 \x01(\v2\x1f.screenshare.v1.FrameRenderSizeH\x00R\n" +
 	"renderSizeB\t\n" +
-	"\arequest\"\xe4\x01\n" +
-	"\x0eFrameSubscribe\x122\n" +
-	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyH\x00R\x06stream\x12I\n" +
+	"\arequest\"\xe5\x01\n" +
+	"\x0eFrameSubscribe\x123\n" +
+	"\x06stream\x18\x01 \x01(\v2\x19.screenshare.v1.StreamRefH\x00R\x06stream\x12I\n" +
 	"\x0fpublish_preview\x18\x02 \x01(\v2\x1e.screenshare.v1.PublishPreviewH\x00R\x0epublishPreview\x12I\n" +
 	"\x0fmonitor_preview\x18\x03 \x01(\v2\x1e.screenshare.v1.MonitorPreviewH\x00R\x0emonitorPreviewB\b\n" +
 	"\x06source\"\x10\n" +
@@ -1169,13 +1169,13 @@ var file_screenshare_v1_frame_proto_goTypes = []any{
 	(*FramePlane)(nil),      // 11: screenshare.v1.FramePlane
 	(*FrameReady)(nil),      // 12: screenshare.v1.FrameReady
 	(*FrameEnd)(nil),        // 13: screenshare.v1.FrameEnd
-	(*WatchKey)(nil),        // 14: screenshare.v1.WatchKey
+	(*StreamRef)(nil),       // 14: screenshare.v1.StreamRef
 }
 var file_screenshare_v1_frame_proto_depIdxs = []int32{
 	3,  // 0: screenshare.v1.FramesRequest.subscribe:type_name -> screenshare.v1.FrameSubscribe
 	6,  // 1: screenshare.v1.FramesRequest.release:type_name -> screenshare.v1.FrameRelease
 	7,  // 2: screenshare.v1.FramesRequest.render_size:type_name -> screenshare.v1.FrameRenderSize
-	14, // 3: screenshare.v1.FrameSubscribe.stream:type_name -> screenshare.v1.WatchKey
+	14, // 3: screenshare.v1.FrameSubscribe.stream:type_name -> screenshare.v1.StreamRef
 	4,  // 4: screenshare.v1.FrameSubscribe.publish_preview:type_name -> screenshare.v1.PublishPreview
 	5,  // 5: screenshare.v1.FrameSubscribe.monitor_preview:type_name -> screenshare.v1.MonitorPreview
 	9,  // 6: screenshare.v1.FrameEvent.pool:type_name -> screenshare.v1.FramePool

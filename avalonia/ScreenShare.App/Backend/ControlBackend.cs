@@ -153,7 +153,7 @@ public sealed class ControlBackend : IBackend
         => ReadAsync(c => c.GetRelayStatusAsync(new GetRelayStatusRequest(), cancellationToken: cancellation), cancellation);
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
+    public async Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
     {
         var answer = await ReadAsync(
             c => c.GetViewerStateAsync(new GetViewerStateRequest(), cancellationToken: cancellation), cancellation)
@@ -181,6 +181,15 @@ public sealed class ControlBackend : IBackend
 
         return answer.Monitors;
     }
+
+    /// <inheritdoc />
+    public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.GetMembersStateAsync(new GetMembersStateRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
+    public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+        => ReadAsync(
+            c => c.GetTestStreamStateAsync(new GetTestStreamStateRequest(), cancellationToken: cancellation), cancellation);
 
     /// <inheritdoc />
     public async Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
@@ -270,36 +279,44 @@ public sealed class ControlBackend : IBackend
     }
 
     /// <inheritdoc />
+    public Task JoinGroupAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.JoinGroupAsync(new JoinGroupRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
+    public Task LeaveGroupAsync(CancellationToken cancellation = default)
+        => ReadAsync(c => c.LeaveGroupAsync(new LeaveGroupRequest(), cancellationToken: cancellation), cancellation);
+
+    /// <inheritdoc />
     public Task StartWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "opening a viewer",
-            (c, key) => c.StartWatchAsync(new StartWatchRequest { Viewer = key }, cancellationToken: cancellation),
+            (c, streamRef) => c.StartWatchAsync(new StartWatchRequest { Viewer = streamRef }, cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
     public Task StopWatchAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "closing a viewer",
-            (c, key) => c.StopWatchAsync(new StopWatchRequest { Viewer = key }, cancellationToken: cancellation),
+            (c, streamRef) => c.StopWatchAsync(new StopWatchRequest { Viewer = streamRef }, cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
     public Task OpenInBrowserAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "opening a page in the browser",
-            (c, key) => c.OpenInBrowserAsync(new OpenInBrowserRequest { Viewer = key }, cancellationToken: cancellation),
+            (c, streamRef) => c.OpenInBrowserAsync(new OpenInBrowserRequest { Viewer = streamRef }, cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
     public Task StartReceiveAsync(
         string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "opening a decode",
-            (c, key) => c.StartReceiveAsync(
-                new StartReceiveRequest { Stream = key, ToneMap = toneMap },
+            (c, streamRef) => c.StartReceiveAsync(
+                new StartReceiveRequest { Stream = streamRef, ToneMap = toneMap },
                 cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
     public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         => KeyedAsync(streamName, transport, "closing a decode",
-            (c, key) => c.StopReceiveAsync(new StopReceiveRequest { Stream = key }, cancellationToken: cancellation),
+            (c, streamRef) => c.StopReceiveAsync(new StopReceiveRequest { Stream = streamRef }, cancellationToken: cancellation),
             cancellation);
 
     /// <inheritdoc />
@@ -309,8 +326,8 @@ public sealed class ControlBackend : IBackend
         Assert.That(volume >= 0, "a volume is not negative", volume);
 
         return KeyedAsync(streamName, transport, "setting a decode's audio",
-            (c, key) => c.SetReceiveAudioAsync(
-                new SetReceiveAudioRequest { Stream = key, Volume = volume, Muted = muted },
+            (c, streamRef) => c.SetReceiveAudioAsync(
+                new SetReceiveAudioRequest { Stream = streamRef, Volume = volume, Muted = muted },
                 cancellationToken: cancellation),
             cancellation);
     }
@@ -509,14 +526,14 @@ public sealed class ControlBackend : IBackend
         string streamName,
         string transport,
         string what,
-        Func<ControlService.ControlServiceClient, WatchKey, AsyncUnaryCall<TResponse>> call,
+        Func<ControlService.ControlServiceClient, StreamRef, AsyncUnaryCall<TResponse>> call,
         CancellationToken cancellation)
     {
         Assert.That(streamName.Length > 0, $"{what} names the stream it is for");
         Assert.That(transport.Length > 0, $"{what} names the leg it runs over", streamName);
 
-        var key = new WatchKey { StreamName = streamName, Transport = transport };
-        return ReadAsync(c => call(c, key), cancellation);
+        var streamRef = new StreamRef { StreamName = streamName, Transport = transport };
+        return ReadAsync(c => call(c, streamRef), cancellation);
     }
 
     /// <summary>

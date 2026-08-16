@@ -21,8 +21,8 @@ tests {
 docs {
   # List public streams
 
-  The same index with no key, which answers the public prefix.
+  The same index with no group key, which answers the public prefix.
 
-  A stream anybody may watch lives under `public/`: the relay grants reading on that prefix to everyone, and this is where a caller holding no key is answered from.
-  It has a group id's shape without being one, since no key derives it, so no group's listing can include it and holding a key cannot publish into it.
+  A stream anybody may watch lives under `public/`: the relay grants reading on that prefix to everyone, and this is where a caller holding no group key is answered from.
+  It has a group id's shape without being one, since no key derives it, so no group's listing can include it and holding a group key cannot publish into it.
 }

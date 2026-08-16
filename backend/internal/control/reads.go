@@ -176,6 +176,19 @@ func (s *Server) GetMonitorPreviewState(ctx context.Context, req *screensharev1.
 
 // GetTestStreamState counts the synthetic publishers alive, which is not the count that was asked
 // for: one that died on its own drops out.
+// The slots travel beside the count, so a set with one dead publisher says which slot rather than
+// only that it got smaller.
 func (s *Server) GetTestStreamState(ctx context.Context, req *screensharev1.GetTestStreamStateRequest) (*screensharev1.TestStreamState, error) {
-	return wire.TestStreamState(s.backend.TestStreamsRunning()), nil
+	running, slots := s.backend.TestStreamState()
+	return wire.TestStreamState(running, slots...), nil
+}
+
+// GetMembersState answers with who this machine shares a group with, as the presence loop last read
+// it.
+//
+// A read of a reading, and it states no presence of its own: the loop that polls the relay is the
+// heartbeat, and a shell asking would be a second thing deciding when this machine is in its group.
+// A shell reads it on mount and receives the same message on the event stream after that.
+func (s *Server) GetMembersState(ctx context.Context, req *screensharev1.GetMembersStateRequest) (*screensharev1.MembersState, error) {
+	return wire.MembersState(s.backend.MembersState()), nil
 }

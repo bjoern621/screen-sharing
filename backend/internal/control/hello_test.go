@@ -33,12 +33,19 @@ import (
 // at a time.
 type fakeBackend struct {
 	publish wire.PublishSnapshot
+	// settings is what the backend holds, for the reads and for the refusals decided off them.
+	settings settings.Settings
+	// members is the group this machine shares, and joins counts the joins and leaves asked for, which
+	// is how a test says a repeat did nothing new.
+	members wire.MembersSnapshot
+	joins   int
+	leaves  int
 	// err is what every effect answers with, so a test wanting a refusal sets one field rather than
 	// one per method.
 	err error
 }
 
-func (f *fakeBackend) Settings() settings.Settings                    { return settings.Settings{} }
+func (f *fakeBackend) Settings() settings.Settings                    { return f.settings }
 func (f *fakeBackend) StoreNotice() *screensharev1.Text               { return nil }
 func (f *fakeBackend) Monitors() []display.Monitor                    { return nil }
 func (f *fakeBackend) Platform() platform.Info                        { return platform.Info{} }
@@ -49,31 +56,31 @@ func (f *fakeBackend) AudioDevices() []platform.AudioDevice           { return n
 func (f *fakeBackend) Pointer() (pointer.Position, bool)              { return pointer.Position{}, false }
 func (f *fakeBackend) PublishState() wire.PublishSnapshot             { return f.publish }
 func (f *fakeBackend) RelayStatus() relay.Status                      { return relay.Status{} }
-func (f *fakeBackend) Watching() []wire.WatchKey                      { return nil }
+func (f *fakeBackend) Watching() []wire.StreamRef                     { return nil }
 func (f *fakeBackend) ReceiveState() []wire.ReceiveStream             { return nil }
 func (f *fakeBackend) AudioLevels() []wire.AudioLevel                 { return nil }
-func (f *fakeBackend) TestStreamsRunning() int                        { return 0 }
+func (f *fakeBackend) MembersState() wire.MembersSnapshot             { return f.members }
 func (f *fakeBackend) MaxTestStreams() int                            { return 9 }
 func (f *fakeBackend) MeasureUplink(context.Context) (float64, error) { return 0, f.err }
 func (f *fakeBackend) MeasureEncodeRate(context.Context, settings.Settings) (encoderate.Rate, error) {
 	return encoderate.Rate{}, f.err
 }
 
-func (f *fakeBackend) SaveSettings(settings.Settings) error   { return f.err }
-func (f *fakeBackend) StartPublish(settings.Settings) error   { return f.err }
-func (f *fakeBackend) ApplyToStream(settings.Settings) error  { return f.err }
-func (f *fakeBackend) StopPublish()                           {}
-func (f *fakeBackend) StartWatch(wire.WatchKey) error         { return f.err }
-func (f *fakeBackend) StopWatch(wire.WatchKey)                {}
-func (f *fakeBackend) StartReceive(wire.WatchKey, bool) error { return nil }
-func (f *fakeBackend) StopReceive(wire.WatchKey)              {}
+func (f *fakeBackend) SaveSettings(settings.Settings) error    { return f.err }
+func (f *fakeBackend) StartPublish(settings.Settings) error    { return f.err }
+func (f *fakeBackend) ApplyToStream(settings.Settings) error   { return f.err }
+func (f *fakeBackend) StopPublish()                            {}
+func (f *fakeBackend) StartWatch(wire.StreamRef) error         { return f.err }
+func (f *fakeBackend) StopWatch(wire.StreamRef)                {}
+func (f *fakeBackend) StartReceive(wire.StreamRef, bool) error { return nil }
+func (f *fakeBackend) StopReceive(wire.StreamRef)              {}
 
-func (f *fakeBackend) SetReceiveAudio(wire.WatchKey, float64, bool) error { return f.err }
+func (f *fakeBackend) SetReceiveAudio(wire.StreamRef, float64, bool) error { return f.err }
 
 // The frame subscriptions refuse, which is what a backend with no pipeline behind it has to answer:
 // nothing is decoding, publishing or previewing here, and a fake stream of handles would name GPU
 // memory that does not exist.
-func (f *fakeBackend) SubscribeFrames(wire.WatchKey) (FrameStream, error) {
+func (f *fakeBackend) SubscribeFrames(wire.StreamRef) (FrameStream, error) {
 	return nil, errors.New("nothing is decoding")
 }
 
@@ -91,6 +98,8 @@ func (f *fakeBackend) StopMonitorPreview(int) {}
 
 func (f *fakeBackend) MonitorPreviewState() []wire.PreviewedMonitor { return nil }
 
+func (f *fakeBackend) TestStreamState() (int, []wire.TestStreamSlot) { return 0, nil }
+
 func (f *fakeBackend) StartTestStreams(int) error { return f.err }
 func (f *fakeBackend) StopTestStreams()           {}
 func (f *fakeBackend) ForgetPortalConsent() error { return f.err }
@@ -98,8 +107,20 @@ func (f *fakeBackend) OpenLog(string) error       { return f.err }
 func (f *fakeBackend) CreateGroup(settings.Relay) (string, string, error) {
 	return "", "", f.err
 }
-func (f *fakeBackend) OpenLogsFolder() error             { return f.err }
-func (f *fakeBackend) OpenInBrowser(wire.WatchKey) error { return f.err }
+
+// The counts are what a test reads to say a second join drew nothing: the backend is where
+// idempotency lives, so the contract's part is reaching it once per call and refusing above it.
+func (f *fakeBackend) JoinGroup() error {
+	f.joins++
+	return f.err
+}
+
+func (f *fakeBackend) LeaveGroup() error {
+	f.leaves++
+	return f.err
+}
+func (f *fakeBackend) OpenLogsFolder() error              { return f.err }
+func (f *fakeBackend) OpenInBrowser(wire.StreamRef) error { return f.err }
 
 // The handshake is the last call two sides that disagree about the contract can both understand,
 // so its refusal carries the one thing neither works out afterwards: which major each is on.

@@ -77,6 +77,11 @@ service ControlService {
 
   rpc GetTestStreamState(GetTestStreamStateRequest) returns (TestStreamState);
 
+  // Who this machine shares a group with, as the presence loop last read it.
+  // A read and no membership call of its own: presence is stated on the loop that already polls
+  // the relay, and a shell asking would be a second thing deciding when this machine joins.
+  rpc GetMembersState(GetMembersStateRequest) returns (MembersState);
+
   rpc GetReceiveState(GetReceiveStateRequest) returns (ReceiveState);
 
   // What a shell that has just connected converges against.
@@ -206,6 +211,18 @@ service ControlService {
   rpc StartTestStreams(StartTestStreamsRequest) returns (StartTestStreamsResponse);
 
   rpc StopTestStreams(StopTestStreamsRequest) returns (StopTestStreamsResponse);
+
+  // Joins the group the settings name, drawing this machine's member identity where it holds
+  // none and stating its presence at once.
+  // Idempotent: joining a group this machine is already in succeeds and draws nothing.
+  // A display name another member holds is INVALID_ARGUMENT naming the name, and a settings
+  // pair carrying no group key or no display name is FAILED_PRECONDITION.
+  rpc JoinGroup(JoinGroupRequest) returns (JoinGroupResponse);
+
+  // Leaves the group, releasing this machine's presence and dropping the identity it held in
+  // it, which the relay answers by closing what this machine had open there.
+  // Idempotent: leaving a group this machine is not in succeeds and closes nothing.
+  rpc LeaveGroup(LeaveGroupRequest) returns (LeaveGroupResponse);
 
   // Test-encodes on every engine and records what this machine can really run, so a form can
   // grey NVENC on a machine with no NVIDIA GPU.
@@ -385,6 +402,8 @@ message GetViewerStateRequest {}
 
 message GetTestStreamStateRequest {}
 
+message GetMembersStateRequest {}
+
 message GetReceiveStateRequest {}
 
 message GetMonitorPreviewStateRequest {}
@@ -442,9 +461,9 @@ message StopPublishRequest {}
 message StopPublishResponse {}
 
 message StartWatchRequest {
-  WatchKey viewer = 3;
+  StreamRef viewer = 3;
 
-  // 1 and 2: stream_name and transport, the pair WatchKey exists to be.
+  // 1 and 2: stream_name and transport, the pair StreamRef exists to be.
   reserved 1, 2;
   reserved "stream_name", "transport";
 }
@@ -452,7 +471,7 @@ message StartWatchRequest {
 message StartWatchResponse {}
 
 message StopWatchRequest {
-  WatchKey viewer = 3;
+  StreamRef viewer = 3;
 
   reserved 1, 2;
   reserved "stream_name", "transport";
@@ -465,13 +484,13 @@ message StopWatchResponse {}
 // The pair is an identity here rather than a handle: nothing is opened that could later be
 // named by it.
 message OpenInBrowserRequest {
-  WatchKey viewer = 1;
+  StreamRef viewer = 1;
 }
 
 message OpenInBrowserResponse {}
 
 // Names the stream and the leg, which together are the identity a receive is keyed by, for
-// the reason WatchKey exists: the relay re-serves each stream on all its listeners, so one
+// the reason StreamRef exists: the relay re-serves each stream on all its listeners, so one
 // stream can be decoded over several legs at once.
 //
 // The leg is named here rather than read off ViewerSettings.tile_watch_transport, which is
@@ -486,7 +505,7 @@ message OpenInBrowserResponse {}
 // display shows is a property of that stream, and two tiles watching one stream may want
 // different answers.
 message StartReceiveRequest {
-  WatchKey stream = 1;
+  StreamRef stream = 1;
   // Asks for an HDR stream to be rolled down into the range a standard display shows.
   // A build choice and not a live one, the rung being an element in the pipeline, so a decode
   // already running with the other answer is rebuilt to reach the one this call names: a call
@@ -506,7 +525,7 @@ message StartReceiveRequest {
 message StartReceiveResponse {}
 
 message StopReceiveRequest {
-  WatchKey stream = 1;
+  StreamRef stream = 1;
 }
 
 message StopReceiveResponse {}
@@ -534,7 +553,7 @@ message StopMonitorPreviewResponse {}
 // Sent apart, a shell that muted and then set a volume would have to know whether the second
 // undid the first, and the backend would have to decide the same thing twice.
 message SetReceiveAudioRequest {
-  WatchKey stream = 1;
+  StreamRef stream = 1;
   // Linear gain from zero, where one is the stream unchanged.
   // Values above one amplify; the backend bounds them rather than letting a slider clip the
   // output device.
@@ -558,6 +577,14 @@ message StartTestStreamsResponse {}
 message StopTestStreamsRequest {}
 
 message StopTestStreamsResponse {}
+
+message JoinGroupRequest {}
+
+message JoinGroupResponse {}
+
+message LeaveGroupRequest {}
+
+message LeaveGroupResponse {}
 
 message ProbeEncodersRequest {}
 

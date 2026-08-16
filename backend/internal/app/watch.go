@@ -9,6 +9,8 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
@@ -36,6 +38,10 @@ func (a *App) startRelayPoll() {
 //
 // The wait comes after the fetch, never around it, so a fetch that outruns the interval slows the
 // loop down instead of piling requests onto a host that is not answering.
+//
+// Presence rides the same pass, and this is the whole heartbeat: the lease covers many passes, so the
+// ones that do not land cost nothing, and a second timer would be a second thing deciding when this
+// machine is in its group (members.go).
 func (a *App) pollRelay() {
 	assert.Assert(relayPollInterval > 0, "a poll interval is positive")
 
@@ -44,6 +50,7 @@ func (a *App) pollRelay() {
 
 	for {
 		a.fetchRelay()
+		a.statePresence()
 
 		select {
 		case <-a.relayStop:
@@ -95,40 +102,61 @@ func (a *App) lastRelayStatus() relay.Status {
 	return relay.Status{}
 }
 
-// WatchKey identifies one viewer window: a stream received over one transport.
+// relayCarries reports whether the recorded snapshot lists streamName.
+//
+// known is false where nothing has been polled or the relay did not answer, which is a snapshot that
+// says nothing about any stream rather than one saying this stream is gone.
+// A tile drawing the difference would otherwise announce every stream as departed for as long as the
+// relay is out of reach.
+func (a *App) relayCarries(streamName string) (carried, known bool) {
+	assert.Assert(streamName != "", "a stream is looked up by name")
+
+	status := a.lastRelayStatus()
+	if !status.Reachable {
+		return false, false
+	}
+	for _, path := range status.Paths {
+		if path.Name == streamName {
+			return true, true
+		}
+	}
+	return false, true
+}
+
+// StreamRef identifies one viewer window: a stream received over one transport.
 // The relay re-serves an ingested stream on all its listeners, so one stream can be watched over
 // several transports at once and the stream name alone is no viewer identity.
-type WatchKey struct {
+type StreamRef struct {
 	Name      string `json:"name"`
 	Transport string `json:"transport"`
 }
 
 // Watching lists the open viewers, one entry per (stream, transport), and reaps the ones whose
 // process has exited.
-func (a *App) Watching() []WatchKey {
+func (a *App) Watching() []StreamRef {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	keys := []WatchKey{}
-	for key, watcher := range a.watchers {
+	refs := []StreamRef{}
+	for ref, watcher := range a.watchers {
 		if watcher.Running() {
-			keys = append(keys, key)
+			refs = append(refs, ref)
 		} else {
-			delete(a.watchers, key)
+			delete(a.watchers, ref)
 		}
 	}
-	return keys
+	return refs
 }
 
 // watching reads the processes rather than anything a caller believed it had opened, so a window
 // that closed on its own reports not watching.
 // StartWatch asks it ahead of any validation, which is what lets a repeat succeed over a state that
 // already holds.
-func (a *App) watching(key WatchKey) bool {
+func (a *App) watching(ref StreamRef) bool {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	watcher, present := a.watchers[key]
+	watcher, present := a.watchers[ref]
 	return present && watcher.Running()
 }
 
@@ -178,14 +206,14 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	// state makes harmless and which beats an effect that sometimes announces nothing.
 	defer a.emitViewerState()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
+	ref := StreamRef{Name: streamName, Transport: transportName}
 
 	// Read before anything is validated, for the reason StartReceive reads its own state first.
 	// The viewer asked for is open, which is what the caller asked for, and a refusal here would
 	// leave a shell whose answer went missing with nothing to do but wait.
 	// Validating ahead of the question puts that refusal back under another name, since both the relay
 	// snapshot and the settings move under a viewer that is already running.
-	if a.watching(key) {
+	if a.watching(ref) {
 		logger.Debugf("'%s' over %s is already being watched", streamName, transportName)
 		return nil
 	}
@@ -219,7 +247,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	if watcher, present := a.watchers[key]; present && watcher.Running() {
+	if watcher, present := a.watchers[ref]; present && watcher.Running() {
 		// The same question under the lock: the read above keeps a repeat cheap, this keeps two starts
 		// racing for one pair from opening two windows.
 		return nil
@@ -234,11 +262,15 @@ func (a *App) StartWatch(streamName, transportName string) error {
 	proc, err := ffmpeg.Start(exe, args, false, false, "watch-"+streamName+"-"+transportName, env, nil, nil,
 		func(err error, stderrTail string, logPath string) {
 			message := ""
+			var cause *screensharev1.Text
 			if err != nil {
 				message = err.Error()
 				if stderrTail != "" {
 					message += "\n" + stderrTail
 				}
+				// A player states no reason for the connection that went, so the statement beside its own
+				// words is made only where membership is what stopped it (members.go).
+				cause = a.membership().failure()
 				logger.Warnf("viewer for '%s' over %s failed: %v\n%s\nfull log: %s", streamName, transportName, err, stderrTail, logPath)
 			} else {
 				logger.Infof("viewer for '%s' over %s closed (log: %s)", streamName, transportName, logPath)
@@ -246,7 +278,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 			// The exit event says why this one stopped, the state event beside it which viewers are left.
 			// A viewer that closes on its own moves the set with nothing having been called, so the state is
 			// announced here as well as at the two calls that change it.
-			a.emit(wire.ViewerExitEvent(wire.WatchKey{StreamName: streamName, Transport: transportName}, message, logPath))
+			a.emit(wire.ViewerExitEvent(wire.StreamRef{StreamName: streamName, Transport: transportName}, message, logPath, cause))
 			a.emitViewerState()
 		},
 		// The watch address carries the relay token, and the SRT leg its passphrase beside it.
@@ -257,7 +289,7 @@ func (a *App) StartWatch(streamName, transportName string) error {
 
 	assert.IsNotNil(proc, "Start returns a non-nil Proc when err is nil")
 	logger.Infof("watching '%s' over %s", streamName, transportName)
-	a.watchers[key] = proc
+	a.watchers[ref] = proc
 
 	// No readiness is signalled from here.
 	// A viewer is connected once the relay reports a reader on the path, which the polled snapshot
@@ -320,27 +352,27 @@ func (a *App) StopWatch(streamName, transportName string) {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	key := WatchKey{Name: streamName, Transport: transportName}
-	watcher, present := a.watchers[key]
+	ref := StreamRef{Name: streamName, Transport: transportName}
+	watcher, present := a.watchers[ref]
 	if present {
 		watcher.Stop()
-		delete(a.watchers, key)
+		delete(a.watchers, ref)
 		logger.Infof("stopped watching '%s' over %s", streamName, transportName)
 	}
 }
 
-// watchKeys is the open viewers in the contract's shape.
+// watchRefs is the open viewers in the contract's shape.
 //
-// It is the one conversion between WatchKey and wire.WatchKey, which carry the same pair and differ
+// It is the one conversion between StreamRef and wire.StreamRef, which carry the same pair and differ
 // only in which package declares them: the contract is built out of wire's.
-func (a *App) watchKeys() []wire.WatchKey {
+func (a *App) watchRefs() []wire.StreamRef {
 	open := a.Watching()
 
-	keys := make([]wire.WatchKey, 0, len(open))
-	for _, key := range open {
-		keys = append(keys, wire.WatchKey{StreamName: key.Name, Transport: key.Transport})
+	refs := make([]wire.StreamRef, 0, len(open))
+	for _, ref := range open {
+		refs = append(refs, wire.StreamRef{StreamName: ref.Name, Transport: ref.Transport})
 	}
-	return keys
+	return refs
 }
 
 // emitViewerState announces which external viewers are open.
@@ -349,5 +381,5 @@ func (a *App) watchKeys() []wire.WatchKey {
 // read answers with rather than what a caller believed it had just done.
 // It takes procMu, so a caller holding that lock defers it rather than calling it in place.
 func (a *App) emitViewerState() {
-	a.emit(wire.ViewerStateEvent(a.watchKeys()))
+	a.emit(wire.ViewerStateEvent(a.watchRefs()))
 }

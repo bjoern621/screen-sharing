@@ -9,6 +9,8 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 	"bjoernblessin.de/go-utils/util/logger"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -46,6 +48,12 @@ type testStream struct {
 	// the set works here and starts the next outage on a full ladder.
 	startedAt time.Time
 	attempts  int
+	// cause is this app's statement about why the slot carries no publisher and message the last
+	// child's own last words, both held from the exit that emptied the slot.
+	// logPath is that child's run log, which outlives it.
+	cause   *screensharev1.Text
+	message string
+	logPath string
 }
 
 // testStreamName is what the relay carries slot i under.
@@ -286,27 +294,56 @@ func (a *App) stopTestStreamsLocked() {
 	assert.Assert(len(a.testStreams) == 0, "a stopped set holds no slots", len(a.testStreams))
 }
 
-// emitTestStreamState announces how many synthetic publishers are alive.
+// emitTestStreamState announces the synthetic set.
 //
-// Counted through TestStreamsRunning rather than handed a number, so what is announced is what a
-// read would answer: a publisher that died between the call and this is already out of the count.
+// Read back through TestStreamState rather than handed a set, so what is announced is what a read
+// would answer: a publisher that died between the call and this is already out of the count.
 // That read takes procMu, so a caller holding it defers this rather than calling it in place.
 func (a *App) emitTestStreamState() {
-	a.emit(wire.TestStreamStateEvent(a.TestStreamsRunning()))
+	running, slots := a.TestStreamState()
+	a.emit(wire.TestStreamStateEvent(running, slots...))
 }
 
-// TestStreamsRunning is how many synthetic publishers are alive.
-// A publisher that died on its own is out of the count with nothing having been called, and one
-// waiting out its relaunch is not counted as alive.
-func (a *App) TestStreamsRunning() int {
+// TestStreamState is the synthetic set: how many publishers are alive, and a row per slot the set
+// holds.
+//
+// One read for both, a count read apart from the rows being a second answer to one question.
+// A publisher that died on its own is out of the count with nothing having been called, and its slot
+// stays on the list saying why it carries none.
+//
+// The rows come back in slot order, which is the order the set was launched in and the order the
+// names run in.
+func (a *App) TestStreamState() (running int, slots []wire.TestStreamSlot) {
 	a.procMu.Lock()
 	defer a.procMu.Unlock()
 
-	n := 0
-	for _, slot := range a.testStreams {
-		if slot.proc != nil && slot.proc.Running() {
-			n++
+	slots = make([]wire.TestStreamSlot, 0, len(a.testStreams))
+	for i := range maxTestStreams {
+		slot := a.testStreams[i]
+		if slot == nil {
+			continue
 		}
+		alive := slot.proc != nil && slot.proc.Running()
+		if alive {
+			running++
+		}
+		// A launch takes a fresh entry, so what the last child left behind belongs to the slot waiting for
+		// the next one and never stands beside a publisher that is up (teststreams_retry.go).
+		assert.Assert(!alive || slot.cause == nil, "a slot a publisher fills carries no reason to have none", i)
+		slots = append(slots, wire.TestStreamSlot{
+			Slot: i,
+			Name: testStreamName(i),
+			// A slot waiting out its relaunch is one the set holds and no child is filling.
+			Running: alive,
+			// Counted from one, where the slot counts the relaunches behind it.
+			Attempt: slot.attempts + 1,
+			Cause:   slot.cause,
+			Message: slot.message,
+			LogPath: slot.logPath,
+		})
 	}
-	return n
+
+	assert.Assert(len(slots) == len(a.testStreams), "a row per slot the set holds", len(slots), len(a.testStreams))
+	assert.Assert(running <= len(slots), "a live publisher fills a slot", running, len(slots))
+	return running, slots
 }

@@ -1,6 +1,8 @@
 package wire
 
 import (
+	"bjoernblessin.de/go-utils/util/assert"
+
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/relay"
@@ -40,9 +42,11 @@ func PublishStatsEvent(s ffmpeg.Stats) *screensharev1.Event {
 // PublishExitEvent announces that the publish pipeline ended, with why and where the log is.
 // What the backend then did about it is the publish state event that follows, so no retry is
 // described here.
-func PublishExitEvent(message, logPath string) *screensharev1.Event {
+//
+// cause is optional, for the reason stated at oneCause.
+func PublishExitEvent(message, logPath string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
-		Payload: &screensharev1.Event_PublishExit{PublishExit: ExitInfo(message, logPath)},
+		Payload: &screensharev1.Event_PublishExit{PublishExit: ExitInfo(message, logPath, oneCause(cause))},
 	}
 }
 
@@ -60,36 +64,39 @@ func RelayStatusEvent(s relay.Status) *screensharev1.Event {
 // StartWatch and StopWatch answer with an empty message, and an effect whose result reaches no
 // event is an effect only the shell that called it learns the outcome of.
 // That is the rule the event stream is built on.
-func ViewerStateEvent(keys []WatchKey) *screensharev1.Event {
+func ViewerStateEvent(refs []StreamRef) *screensharev1.Event {
 	return &screensharev1.Event{
-		Payload: &screensharev1.Event_ViewerState{ViewerState: ViewerState(keys)},
+		Payload: &screensharev1.Event_ViewerState{ViewerState: ViewerState(refs)},
 	}
 }
 
 // ViewerExitEvent announces that one external viewer ended.
-// The whole key travels for the reason WatchKey exists: one stream can be watched over several
+// The whole ref travels for the reason StreamRef exists: one stream can be watched over several
 // transports at once, so the name alone would clear the wrong viewer.
-func ViewerExitEvent(key WatchKey, message, logPath string) *screensharev1.Event {
+func ViewerExitEvent(ref StreamRef, message, logPath string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ViewerExit{ViewerExit: &screensharev1.ViewerExit{
-			Viewer: WatchKeyMessage(key),
-			Exit:   ExitInfo(message, logPath),
+			Viewer: StreamRefMessage(ref),
+			Exit:   ExitInfo(message, logPath, oneCause(cause)),
 		}},
 	}
 }
 
-// TestStreamStateEvent announces how many synthetic publishers are alive, for the reason
-// ViewerStateEvent exists: StartTestStreams and StopTestStreams answer with an empty message, and
-// one that died on its own moves the count with nothing having been called at all.
-func TestStreamStateEvent(running int) *screensharev1.Event {
+// TestStreamStateEvent announces the synthetic set, for the reason ViewerStateEvent exists:
+// StartTestStreams and StopTestStreams answer with an empty message, and one that died on its own
+// moves the set with nothing having been called at all.
+//
+// The slots travel beside the count, so a set with one dead publisher says which slot rather than
+// only that it got smaller.
+func TestStreamStateEvent(running int, slots ...TestStreamSlot) *screensharev1.Event {
 	return &screensharev1.Event{
-		Payload: &screensharev1.Event_TestStreamState{TestStreamState: TestStreamState(running)},
+		Payload: &screensharev1.Event_TestStreamState{TestStreamState: TestStreamState(running, slots...)},
 	}
 }
 
-func TestStreamExitEvent(message, logPath string) *screensharev1.Event {
+func TestStreamExitEvent(message, logPath string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
-		Payload: &screensharev1.Event_TestStreamExit{TestStreamExit: ExitInfo(message, logPath)},
+		Payload: &screensharev1.Event_TestStreamExit{TestStreamExit: ExitInfo(message, logPath, oneCause(cause))},
 	}
 }
 
@@ -155,11 +162,36 @@ func MonitorPreviewStateEvent(monitors []PreviewedMonitor) *screensharev1.Event 
 //
 // No log path, unlike the publish and viewer exits: a receive pipeline runs inside this process
 // rather than as a child, so there is no run log of its own to offer.
-func ReceiveExitEvent(stream WatchKey, message string) *screensharev1.Event {
+func ReceiveExitEvent(stream StreamRef, message string, cause ...*screensharev1.Text) *screensharev1.Event {
 	return &screensharev1.Event{
 		Payload: &screensharev1.Event_ReceiveExit{ReceiveExit: &screensharev1.ReceiveExit{
-			Stream:  WatchKeyMessage(stream),
+			Stream:  StreamRefMessage(stream),
 			Message: message,
+			Cause:   oneCause(cause),
 		}},
 	}
+}
+
+// MembersStateEvent announces who this machine shares a group with, whole.
+//
+// Refusals travel too: a machine that cannot state its presence is one whose connections the relay
+// closes, and the refusal is what a reader gets instead of a stream that ends with nothing said.
+func MembersStateEvent(m MembersSnapshot) *screensharev1.Event {
+	return &screensharev1.Event{
+		Payload: &screensharev1.Event_MembersState{MembersState: MembersState(m)},
+	}
+}
+
+// oneCause reads the statement off a constructor's trailing argument.
+//
+// Optional and trailing, because a producer that can name what ended a run and one that cannot both
+// build the same event, and the second passes nothing rather than a nil it had to spell.
+// Two would be two answers to one question.
+func oneCause(cause []*screensharev1.Text) *screensharev1.Text {
+	assert.Assert(len(cause) <= 1, "an ending has one cause at most", len(cause))
+
+	if len(cause) == 0 {
+		return nil
+	}
+	return cause[0]
 }

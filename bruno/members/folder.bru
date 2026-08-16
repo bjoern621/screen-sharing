@@ -1,0 +1,38 @@
+meta {
+  name: Members
+  seq: 3
+}
+
+docs {
+  # Members
+
+  Who is in a group, and what the relay does about anybody else. `docs/membership.md` draws the whole exchange.
+
+  Membership is a presence lease a member's own app holds. It exists while refreshed and lapses when refreshing stops, so `Claim a name` and `Refresh presence` are one request sent twice.
+
+  `/members` takes the group key and the member secret, so it addresses `{{groupService}}` like every other route a member calls, and the proxy fronts it (`deploy/Caddyfile`).
+  `/reconcile` takes no credential and belongs to the relay's own read hook, so it answers on loopback alone and addresses `{{groupAdmin}}`.
+  Against a deployment that means the tunnel, the same one the `Relay` folder needs:
+
+  ```bash
+  task relay:tunnel
+  ```
+
+  A route the proxy does not front falls through to the HLS listener, which answers `{"status":"error","error":"authentication error"}` for a path it carries no stream at.
+  That message is MediaMTX's and not this service's, so a refusal shaped like it is a request that never reached the group service.
+
+  A token cannot enforce membership. The relay reads one at the handshake and not again, measured against v1.20.0: a session outlives its token on every leg, and a client that is closed opens another with the same one.
+  So a member whose lease lapsed loses what they hold by having it closed.
+
+  A member secret is 32 bytes the app draws for itself and hands to nobody, which is what makes identity unforgeable inside a group: a request claiming another member's display name still derives its own member id.
+  These requests draw one where the environment holds none, the way the app does on its first join.
+
+  Run them in order against a relay carrying a stream of the group:
+
+  1. `Claim a name`, then `Refresh presence`. The second changes nothing and closes nothing.
+  2. `A name another member holds`, which is refused with 409 and stores nothing.
+  3. `View the members`, which answers the same list without stating anything.
+  4. `Leave the group`, then `Reconcile`.
+
+  A group with no live member is not enforced at all. Membership nobody stated is not the same as a group nobody is in, and enforcing the empty case would close the connections of an app that has not stated its presence yet.
+}

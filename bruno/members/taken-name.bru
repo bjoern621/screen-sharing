@@ -1,0 +1,50 @@
+meta {
+  name: A name another member holds
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{groupService}}/members
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "groupKey": "{{groupKey}}",
+    "memberSecret": "{{secondMemberSecret}}",
+    "displayName": "{{displayName}}"
+  }
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  if (!bru.getEnvVar("secondMemberSecret")) {
+    bru.setEnvVar("secondMemberSecret", CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Base64));
+  }
+}
+
+tests {
+  test("refuses the name and stores nothing", function () {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.body.error).to.equal("that name is taken in this group");
+  });
+}
+
+docs {
+  # A name another member holds
+
+  A second member claiming the name the first holds, which is refused.
+
+  Identity cannot be forged inside a group: this request derives its own member id from its own secret, so what it could take is the label other members read and never the membership behind it.
+  First claim wins, the refusal is 409 rather than 400 because the request is well formed, and nothing is stored.
+
+  An app answers it by asking its user for another name.
+
+  A name whose holder's lease lapsed is a name nobody holds, so the same request succeeds once the first member stops refreshing.
+}

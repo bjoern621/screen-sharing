@@ -16,13 +16,21 @@ headers {
 
 body:json {
   {
-    "key": "{{groupKey}}"
+    "groupKey": "{{groupKey}}",
+    "memberSecret": "{{memberSecret}}"
+  }
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  if (!bru.getEnvVar("memberSecret")) {
+    bru.setEnvVar("memberSecret", CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Base64));
   }
 }
 
 script:post-response {
   if (res.getStatus() === 200) {
-    bru.setEnvVar("relayToken", res.body.token);
+    bru.setEnvVar("relayAccessToken", res.body.relayAccessToken);
     bru.setEnvVar("groupPrefix", res.body.prefix);
   }
 }
@@ -30,23 +38,35 @@ script:post-response {
 tests {
   test("answers a token, the prefix it grants, and when it expires", function () {
     expect(res.getStatus()).to.equal(200);
-    expect(res.body.token).to.be.a("string");
+    expect(res.body.relayAccessToken).to.be.a("string");
     expect(res.body.prefix).to.match(/\/$/);
     expect(new Date(res.body.expires).getTime()).to.be.greaterThan(Date.now());
+  });
+
+  test("names this member as its subject and grants the whole group", function () {
+    const claims = JSON.parse(atob(res.body.relayAccessToken.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    expect(claims.sub).to.be.a("string");
+    expect(claims.mediamtx_permissions[0].path).to.contain(bru.getEnvVar("groupPrefix"));
   });
 }
 
 docs {
   # Issue token
 
-  Trades a group key for a relay token: a JWT granting publish and read on paths under the key's prefix, and nothing else.
+  Trades a group key for a relay access token: a JWT granting publish and read on paths under the key's prefix, and nothing else.
 
-  Deriving the prefix from the key is the whole verification, there being no membership list to check it against.
-  A caller holding a well-formed key is a member, and a malformed one is refused with 400 and the reason.
+  Deriving the prefix from the group key is the whole verification, holding one being what lets somebody join.
+  A caller holding a well-formed key is in the group, and a malformed one is refused with 400 and the reason.
+
+  The subject is the member id the named secret derives, which is what lets enforcement tell one member's connections from another's at the relay.
+  The grant does not move with it: membership decides who may connect, never what they may reach.
+
+  Naming no member secret answers a token under the group's own id, which is the first app in an empty group bootstrapping itself.
+  Once anybody has stated presence that form is refused with 400, the group id being a subject no member matches and a connection opened on it being closed by the next run.
 
   The token is minted per call and never stored, the signature deriving from the key like every other answer here.
   It is valid for `TokenWindow`, which bounds opening connections rather than holding them: the relay checks at the handshake and not again, so a live connection outlives its token.
 
-  The post-response script writes the token, which the media legs carry as `Authorization: Bearer`.
+  The post-response script writes it, which the media legs carry as `Authorization: Bearer`.
   `backend/internal/transport/credential.go` states where it rides on each protocol, RTSP and RTMP taking it as a `jwt` query and SRT inside the stream id.
 }

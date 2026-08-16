@@ -23,9 +23,9 @@ docs {
   The TLS variants answer the same shape on the same base: `rtspsconns`, `rtspssessions` and `rtmpsconns`.
   The app folds them into the same transport, which listener a reader arrived on being a fact about the relay rather than about the leg.
 
-  The API takes no credential where the relay authenticates nothing, which is what a LAN relay does (`mediamtx.yml`), and `relayApiToken` is empty there.
+  Every relay this repository runs reads one configuration and authenticates every connection, a relay on this machine and a deployment alike (`deploy/mediamtx-groups.yml`), so `relayApiToken` is filled on both environments.
 
-  A relay that authenticates grants its API to nothing a group token carries, so reading it takes an operator's own credential and a way in:
+  The API is granted to nothing a group token carries, so reading it takes an operator's own credential, and against a deployment a way in:
 
   ```bash
   task relay:tunnel

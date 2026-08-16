@@ -199,10 +199,11 @@ public sealed class SetupViewModel : Observable
 
         // Drawing a key is an effect too, and one nothing else can do on the reader's behalf: a key this app
         // adopted by itself would put the stream in a group nobody else holds.
-        // Pressable only where there is a service to draw from, a relay behind a TLS proxy.
+        // Pressable once a relay is named, every named one carrying the service that draws a key
+        // (backend/internal/settings, Relay.GroupService).
         _createGroup = new PendingCommand(
             CreateGroupAsync, dispatch, () => _form.Draft is not null && _form.Draft.Relay is not null
-                && _form.Draft.Relay.Tls && _form.Draft.Relay.Host.Length > 0);
+                && _form.Draft.Relay.Host.Length > 0);
 
         // News that the draft, or the form behind it, moved: the one thing this flow draws from.
         // Raised on the UI loop by the form session, so there is nothing to marshal here.
@@ -637,13 +638,13 @@ public sealed class SetupViewModel : Observable
     }
 
     /// <summary>
-    /// Why no group can be drawn now, empty while one can.
-    /// A relay reached without a TLS proxy runs no group service, so there is nothing to ask.
+    /// Why no group can be drawn, empty while one can.
+    /// A relay is what draws a key, so an unnamed one leaves nothing to ask.
     /// </summary>
     private string GroupRefusal()
-        => _form.Draft?.Relay is { Tls: true, Host.Length: > 0 }
+        => _form.Draft?.Relay is { Host.Length: > 0 }
             ? ""
-            : "Groups are drawn by the relay's own service, which a relay reached without a TLS proxy does not run.";
+            : "Set the relay address first. A group is drawn by the relay this machine is pointed at.";
 
     /// <summary>
     /// What the group button carries beside it: why it is greyed where it is, what the last attempt answered

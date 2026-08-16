@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
+using ScreenShare.App.Features.Viewer.Members.ViewModel;
 using ScreenShare.App.Features.Viewer.Model;
 using ScreenShare.App.Features.Viewer.Tile.Model;
 using ScreenShare.App.Features.Viewer.Tile.ViewModel;
@@ -109,6 +110,12 @@ public sealed class ViewerViewModel : Observable
             Fullscreen = "";
             Apply();
         });
+
+        // Who else is in the group, above the list of what the relay carries.
+        // The rail is where a reader looks for who is around: it is the one column this screen always draws, the
+        // list under it is what those people are sending, and a stream's row and the member publishing it are
+        // read in one glance.
+        Members = new MembersViewModel(backend, dispatch);
 
         // Whether the panel is open is this screen's state and stays here, so the panel is handed the one thing it
         // needs of it: a way to say it is done.
@@ -234,6 +241,13 @@ public sealed class ViewerViewModel : Observable
     public DelegateCommand LeaveFullscreen { get; }
 
     private bool _isWatchSettingsOpen;
+
+    /// <summary>
+    /// Who this machine shares a group with, and the control that puts it in the group or takes it out.
+    /// Never who is watching what: the group states presence and publication, and this screen adds nothing to
+    /// that.
+    /// </summary>
+    public MembersViewModel Members { get; }
 
     /// <summary>
     /// How this machine receives: the legs, the jitter buffers and the render chain.
@@ -401,6 +415,11 @@ public sealed class ViewerViewModel : Observable
         FullscreenTile = Fullscreen.Length > 0 ? _tiles.GetValueOrDefault(Fullscreen) : null;
         HasFullscreen = FullscreenTile is not null;
 
+        // Read through like everything else here, so a member who stopped stating presence leaves the card without
+        // this screen being told.
+        Members.Reported = _session.Members;
+        Members.Apply();
+
         // The panel draws from the same draft on every pass, so a vocabulary that arrived with the catalog reaches
         // its entries through this call rather than through a notification of its own.
         Watch.Apply();
@@ -431,7 +450,7 @@ public sealed class ViewerViewModel : Observable
     /// Joined on the name the backend uses on both sides, so nothing here has to know what a transport or a
     /// format is.
     /// </summary>
-    private static IReadOnlyList<StreamRow> Rows(RelayStatus? relay, IReadOnlyList<WatchKey> watching)
+    private static IReadOnlyList<StreamRow> Rows(RelayStatus? relay, IReadOnlyList<StreamRef> watching)
     {
         if (relay is null || !relay.Reachable)
         {

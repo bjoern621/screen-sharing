@@ -29,6 +29,7 @@ func populatedSettings() settings.Settings {
 			HlsPort:       1006,
 			MoqPort:       1007,
 			GroupKey:      "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+			DisplayName:   "fixture-member",
 			SrtPassphrase: "fixture-passphrase",
 		},
 		Publish: settings.Publish{

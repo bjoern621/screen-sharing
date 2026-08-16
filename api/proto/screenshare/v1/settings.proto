@@ -54,18 +54,19 @@ message RelaySettings {
   // terminates this leg itself on a port of its own in every deployment
   // (docs/network-architecture.md).
   int32 moq_port = 11;
-  // Every leg to this relay is encrypted, and its HTTP ones are reached through a TLS reverse
-  // proxy rather than directly.
+  // This relay's HTTP legs are reached through a TLS reverse proxy, under one name on the standard
+  // port, rather than on listeners of the relay's own.
   //
   // One flag rather than a scheme per listener: the proxy terminates for the relay and for the
-  // group service alike, under one name on the standard port, so the ports above name direct
-  // listeners that are part of no address while this is set.
-  // It is also what says a group service can be reached at all, since a relay with no proxy in
-  // front of it has nowhere to trade a group key for a relay token.
+  // group service alike, so the ports above name direct listeners that are part of no address
+  // while this is set.
+  //
+  // It does not say whether the connection is encrypted. RTSP, RTMP and MoQ terminate TLS at the
+  // relay itself wherever it runs, so those legs are encrypted whichever way this reads.
   //
   // <b>A reading and not a setting.</b> The backend derives it from `host` and stores it nowhere,
-  // so it crosses outward to be shown and is ignored coming back: a relay reached across a network
-  // somebody else operates is encrypted, and one on this machine or this network is not.
+  // so it crosses outward to be shown and is ignored coming back: a relay across a network somebody
+  // else operates is reached through a proxy, and one on this machine or this network directly.
   // A shell that sent a value here would be answering a question this side already answered, and
   // the two would disagree the moment the host was edited.
   bool tls = 10;
@@ -78,6 +79,13 @@ message RelaySettings {
   // deployment, which is what keeps a preset from carrying one: applying a preset must not move
   // a machine between groups.
   string group_key = 8;
+  // What this machine calls itself in the group above: claimed on the first join, shown beside
+  // every stream it publishes, and read by no other member as identity.
+  //
+  // Empty is a machine that has been given no name. Joining a group asks for one, a name being
+  // claimed first-come inside a group, so there is nothing to fill this with that another member
+  // may not already hold.
+  string display_name = 12;
   // Keys the relay-wide SRT listener, and empty for a relay that takes none.
   //
   // SRT is UDP with no TLS, so no reverse proxy wraps it and what protects the packets on the

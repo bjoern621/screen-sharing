@@ -120,41 +120,41 @@ A capture that is HDR previews as it arrives.
 Not end to end.
 MediaMTX terminates every protocol and re-muxes for every listener, so it sees plaintext by construction.
 A relay that did not would take HLS, WebRTC, the browser viewer and every relay statistic with it.
-The relay operator and the key service can both watch a private stream, and the interface says so rather than implying otherwise.
+The relay operator and the group service can both watch a private stream, and the interface says so rather than implying otherwise.
 
 **A group is a path prefix.** The path is `<group-id>/<name>`, the group id derived from a random group key.
 MediaMTX's per-path permissions do the enforcement, so "which streams may I see" is a string match rather than a query the relay API cannot answer.
 
 **Built: the derivation** (`backend/internal/group`), the piece both sides run.
 The client computes the prefix it publishes under and the service computes the prefix it grants a token for, so two implementations of one hash would be a member issued a token for a path nobody is publishing to.
-The id is a keyed digest under its own label rather than a hash of the key: the id is public, in every URL a member pastes, and must say nothing about the secret behind it.
-A key with a second use derives that one under a second label, so what one use publishes cannot be replayed as another's input.
-A stream with no key is published under the public prefix rather than under its bare name, which is where "every stream lives under a prefix somebody was granted" can be enforced: the bare name is granted by no token, so a relay that authenticates refuses it.
+The id is a keyed digest under its own label rather than a hash of the group key: the id is public, in every URL a member pastes, and must say nothing about the secret behind it.
+Every second use of the group key derives under a second label, the member id included, so what one use publishes cannot be replayed as another's input.
+A stream with no group key is published under the public prefix rather than under its bare name, which is where "every stream lives under a prefix somebody was granted" can be enforced: the bare name is granted by no token, so a relay that authenticates refuses it.
 
-**Possession of the group key is membership.** There are no accounts.
-The API creates a group and returns the secret, the client distributes it, and a Discord bot later distributes keys to whoever is in a voice channel.
-Deriving the key from a channel identifier was rejected: a channel id is a public snowflake, so anyone could enumerate channels and compute prefixes.
-Discord is a transport for the key, never its source, so a second integration leaves the security story unchanged.
+**Holding the group key is what lets somebody join.** There are no accounts.
+The API creates a group and returns the group key, and the client distributes it.
+Discord is a carrier for a group key rather than its source, so a second integration leaves the security story unchanged.
+Deriving the group key from a channel identifier was rejected: a channel id is a public snowflake, so anyone could enumerate channels and compute prefixes.
 
 Creation is open and rate limited.
-**Removal ships with membership**: possession as membership means a member who leaves still holds what they were given, so without something that takes it back the model is advisory.
-What takes it back is closing their connections against a roster, drawing a new key being neither necessary nor sufficient: it leaves every live connection alone and moves every remaining member's streams to a new prefix.
+**Membership ships with removal**: a group key somebody holds cannot be taken off them, so without something that closes what they hold the model is advisory.
+What closes it is membership lapsing, drawing a new group key being neither necessary nor sufficient: it leaves every live connection alone and moves every remaining member's streams to a new prefix.
 
 **One group at a time**, on the mental model of a voice channel.
 Switching groups moves the stream's path, so it stops the publish.
 Switching while live is out of scope, and the failure that must not happen is a user moving channels and broadcasting to the old one.
 
 **Public means watchable and discoverable.** Publishing always requires a token, and never a group.
-A publisher holding no key trades for one granting the public prefix, so the connection is authenticated and encrypted like every other and what "public" drops is who may watch.
+A publisher holding no group key trades for one granting the public prefix, so the connection is authenticated and encrypted like every other and what "public" drops is who may watch.
 The index takes credentials and returns that group's streams, or public streams without them, enforcing the split rather than leaving a shell to filter.
 A group listing hides public streams.
 
-An unreadable key is not a keyless publisher.
-A field nobody filled in is a stream nobody restricted, and a key that came back damaged is a stream somebody meant to restrict, so the second falls to the bare name the relay refuses rather than to the prefix everyone can read.
+An unreadable group key is not a publisher holding none.
+A field nobody filled in is a stream nobody restricted, and a group key that came back damaged is a stream somebody meant to restrict, so the second falls to the bare name the relay refuses rather than to the prefix everyone can read.
 
 **Relay auth is JWT** through `authJWTJWKS`, so the relay makes no call per connection.
 Tokens are short and validated at connect, and a live connection survives expiry.
-So withholding one reaches the next connection and never the one in progress, which is what a roster and a kick are for.
+So withholding one reaches the next connection and never the one in progress, which is why membership is a lease enforced by closing what a lapsed member holds.
 
 **Every leg is encrypted.** A reverse proxy fronts everything, including the API, with the relay's own listeners on loopback, and ACME lives in the proxy because MediaMTX has no ACME of its own.
 SRT is the one exception: UDP with no TLS, taking a relay-wide passphrase through `pathDefaults`, one user-set value written into both the publish and read keys.
@@ -167,11 +167,12 @@ The asymmetry is a fact about the relay, and a settings shape that hid it would 
 A self-signed relay is trusted through a per-app CA file both engines are pointed at.
 Neither engine does fingerprint pinning, so an "accept this fingerprint" step would collapse into disabling verification, which accepts an attacker's certificate too.
 
-The key, token and index service lives in this repository under `cmd/`, because the path-prefix derivation has to be identical on both sides and two repositories means two copies of it.
+The group key, token, index and membership service lives in this repository under `cmd/`, because the path-prefix derivation has to be identical on both sides and two repositories means two copies of it.
 
 **Built: the service** (`backend/cmd/groupd`, `backend/internal/groupsvc`, `backend/internal/token`).
-It holds a signing key and nothing else: a group is created by drawing a key, a key is traded for a short relay token granting that key's prefix, and the index answers a caller's group or the public streams by reading the relay's own path list.
-There is no membership store because there is nothing to store, possession of the key being membership and the prefix being the key's own digest, which is also what makes rotation drawing a second key and using it.
+It holds a signing key and the presence leases: a group is created by drawing a group key, that key is traded for a short relay token granting its prefix, and the index answers a caller's group or the public streams by reading the relay's own path list.
+Nothing else is stored, holding the group key being what lets somebody join and the prefix being that key's own digest, which is also what makes rotation drawing a second group key and using it.
+The leases are held in memory alone, so a restart forgets every one and every live app re-states its own within one refresh interval.
 The token is ES256 against `crypto/ecdsa` rather than a JWT library: one algorithm, one claim set and one key, where a library would carry the other twenty algorithms including the ones whose presence is the vulnerability.
 
 Which algorithm is SRT's decision and not a preference.
@@ -192,43 +193,50 @@ The relay's own API takes one too, and refuses every token this service issues: 
 
 **Built: the deployment and the app's half.** `deploy/` carries the relay configured for groups (`authJWTJWKS` pointed at the service, the SRT passphrase in `pathDefaults`, every other listener on loopback) and the reverse proxy that terminates TLS and renews the certificate for all of them.
 The NixOS modules in the `nixos-config` repository read both files straight out of this one, so what the relay carries stays the app's decision and which listeners a machine exposes stays the host's.
-They are second files rather than edits to the ones at the root, because both deployments are real: that one is a relay on a trusted network where anybody may publish, and turning it into this one in place would refuse every existing publisher on the next pull.
+One relay configuration, and `task relay` runs it too: a development relay and a deployment differ in the certificate and hook paths handed to MediaMTX through its own environment, and in nothing a token or a permission depends on.
 
-The app publishes under its group: the key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
-What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix, so a machine with no key still publishes under the bare name, which is what a relay with no auth serves and what every LAN stream does.
+The app publishes under its group: the group key is a relay setting, every transport builds its path through `Relay.Path`, and the SRT passphrase rides both legs.
+What makes a group required is the relay refusing an unauthenticated publish rather than the app inventing a prefix.
+A machine holding no group key still publishes, under the public prefix anybody reaching the relay can watch, and the bare name is what a machine pointed at no relay builds.
 
 **Built: the app's credential.** `backend/internal/groupclient` trades the group key for a relay token and holds the one it minted until it is close to expiring.
 `backend/internal/app` attaches it to the settings snapshot every command is built from, and to nothing else.
-Each leg carries it the way its protocol takes one, and the relay's own API is no longer read at all where a group service answers: the live-stream list comes from the index, which is what a member's token reaches.
+Each leg carries it the way its protocol takes one, and the relay's own API is left unread where a group service answers: the live-stream list comes from the index, which is what a member's token reaches.
 `Relay.Tls` is what says a proxy fronts the HTTP legs, so those addresses become one name on 443 and the group service is reachable at the same one.
 
-A relay with no proxy in front of it is unchanged: no group service, no token, every command as it was before groups existed, which is what a LAN stream runs against.
+Every named relay has a service beside it to ask: the proxy's own name off a trusted network, `groupd`'s own port on one this network reaches directly.
+A machine that has named no relay asks nothing, so every command is built without a token and every stream carries the bare name.
 
-**Built: drawing a key from the app.** `CreateGroup` on the control contract reaches the service's `POST /groups`, and the wizard offers it as a button beside the group key field.
-What comes back is written through the path a pasted key takes, so joining a group is a settings change a reader can see, undo and hand on rather than something that happened to the machine.
-The button is offered only where a group service answers, which is a relay behind a TLS proxy, and states that reason where it is not.
+**Built: drawing a group key from the app.** `CreateGroup` on the control contract reaches the service's `POST /groups`, and the wizard offers it as a button beside the group key field.
+What comes back is written through the path a pasted group key takes, so setting a group is a settings change a reader can see, undo and hand on rather than something that happened to the machine.
+The button is pressable wherever a relay is named, every one of them answering a group service, and states what it waits on where none is.
 
-**Built: removing a member** (`backend/internal/roster`, `PUT /roster` and `POST /reconcile`, drawn in `docs/membership.md`).
+**Built: removing a member** (`backend/internal/membership`, `PUT /members`, `DELETE /members` and `POST /reconcile`, drawn in `docs/membership.md`).
 Rotation is not what removes somebody, and neither is expiry.
 Both leave a live connection alone, so what a member who left keeps is exactly what they already hold, and closing it is the only thing that takes it away.
 
-A roster is who a group's members are, stated whole by whatever serves the voice channel.
-Enforcing it lists every connection under the group's prefix and kicks the ones no member holds, which takes a member's own connections and never another group's.
-It is stated rather than stepped, so a second run over an unchanged roster does nothing and it is safe on every membership change.
+Membership is a presence lease a member's own app states and refreshes, on the loop that already polls the relay.
+Enforcing it lists every connection under the group's prefix and closes the ones no live member holds, which takes a member's own connections and never another group's.
+It is stated rather than stepped, so a second run over unchanged leases does nothing and it is safe on every statement of presence and on every read.
 
-A member is told from another by the token's subject: `POST /tokens` takes a `member`, and the subject becomes a keyed digest of that name under the group's key rather than the group's own id.
-The relay lists a connection under that subject, so enforcement matches ids and whatever named the member, a Discord account included, stays off the relay.
+A member is told from another by the token's subject: `POST /tokens` takes a member secret beside the group key, and the subject becomes that secret's keyed digest under the group key rather than the group's own id.
+The relay lists a connection under that subject, so enforcement matches ids and neither the secret nor whatever else names a person reaches the relay.
+The secret is drawn by that member's own app and issued by nobody, which is what makes identity unforgeable inside a group: an app claiming another member's display name still derives its own id.
 
-A kick is not a revocation, so a member who left reconnects on the token they still hold until it expires.
+A close is not a revocation, so a member whose lease lapsed reconnects on the token they still hold until it expires.
 The relay's read hook closes that too, reporting each starting read to `POST /reconcile` (`deploy/reconcile-on-read.sh`).
-Keeping them out for good is the other half and belongs to whatever issues tokens.
 
-The roster is the one thing the service keeps, and it keeps the fact rather than a copy: nobody else knows which members a group has.
+The leases are the one thing the service keeps, and it keeps the fact rather than a copy: nobody else knows who is in a group.
+A group with no live member is not enforced, membership nobody stated being a different thing from a group nobody is in.
+
+**Built: the app's side of it** (`backend/internal/member`, `backend/internal/app/members.go`).
+This machine draws its own member secret the first time it joins a group and keeps it in a file per group, owner-only beside `settings.json`, so its identity there is nobody else's to state.
+`JoinGroup` draws that identity and states the first presence over it, `LeaveGroup` releases the lease and drops the file, and the relay poll states presence on every pass in between.
+The display name is an ordinary relay setting, claimed first-come in the group, so a name another member holds comes back as a refusal a reader can act on rather than as a silent rename.
+
+The relay states no reason when it closes a connection, so the app reads its own membership against the close and says either that the relay closed it or that membership lapsed (`api/proto/screenshare/v1/text.proto`).
 
 **What is left.** The snapshot that comes from the index carries no reader roster and no ingest bitrate, since the index does not answer them, and the grid shows those columns empty rather than blank-because-zero (`relay.Status.FromIndex`).
-
-Nothing states a roster on its own.
-A Discord bot is the caller these routes were shaped for, and until one exists a roster is stated by hand (`bruno/roster`).
 
 ## The pointer channel
 
@@ -266,7 +274,7 @@ Settled, and kept here until the work they belong to lands:
 - MediaMTX validates a JWT at connection time and not again, so a connection outlives its own token.
   Measured against v1.20.0: an RTSP reader carried on for 75 s against a 20 s token and an SRT one for 45 s against a 15 s token, both uninterrupted, while a new connection on the expired token was refused with 401.
   An HLS reader is the same answer by another route, its entry playlist being authenticated per request and the media playlist and segments then served on the session it opened.
-  The token lifetime therefore bounds opening connections and nothing else, which is why membership is enforced by closing them (`internal/roster`).
+  The token lifetime therefore bounds opening connections and nothing else, which is why membership is enforced by closing them (`internal/membership`).
 - Every leg the relay serves a reader over lists that reader with the subject of the token it connected with, and takes a kick.
   Measured against v1.20.0 across `rtspsessions`, `rtspssessions`, `srtconns`, `webrtcsessions`, `hlssessions`, `rtmpconns`, `rtmpsconns` and `moqsessions`.
   `rtspconns` and `rtspsconns` answer a list and have no kick, a connection being closed by kicking the session on it.
@@ -276,7 +284,7 @@ Settled, and kept here until the work they belong to lands:
   Its demuxer takes a device, a CRTC, one plane, a format and a rate, and no cursor option of any kind.
   The pointer is a plane of its own and the capture takes one.
 - The MediaMTX version matters.
-  `flake.nix` pins v1.20.0, because `mediamtx.yml` turns on the MoQ server and a relay that predates `moqQUICAddress` refuses the whole config rather than ignoring the key.
+  `flake.nix` pins v1.20.0, because `deploy/mediamtx-groups.yml` turns on the MoQ server and a relay that predates `moqQUICAddress` refuses the whole config rather than ignoring the key.
   `scripts/relay.ps1` fetches that same version, and the NixOS relay module takes it from this flake's overlay for the same reason.
 - `buf` is in neither the dev shell nor on PATH, so `task api` does not run.
   Regeneration goes through `protoc` with a `protoc-gen-go` built from the module cache, which is what this repository's generated Go was last written by.

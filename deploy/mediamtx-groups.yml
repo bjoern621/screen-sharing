@@ -1,11 +1,11 @@
-# The relay as it is configured once groups are in force.
+# The relay: who may publish, who may read, and on which listener.
 #
-# It is a second file rather than an edit to mediamtx.yml, because the two describe two
-# deployments and both are real: the one beside it is a relay on a trusted network where
-# anybody may publish, which is what a LAN stream and every test in this repository run
-# against, and this one is a relay on the internet where a token decides. Turning the first
-# into the second in place would make every existing setup refuse every existing publisher on
-# the next pull.
+# Every relay this repository runs reads this file, a deployment on the internet behind
+# deploy/Caddyfile and a relay on a development machine alike (scripts/relay.sh). What differs
+# between the two is a path rather than a policy, and a path is handed to MediaMTX through its own
+# environment: MTX_RTSPSERVERCERT and its siblings for the certificate, MTX_PATHDEFAULTS_RUNONREAD
+# for the read hook. A second copy of this file would be a second set of permissions to keep in
+# step with the tokens.
 #
 # What enforces a prefix is here and not in the app. The app puts its streams under the prefix
 # its key derives, or under the public one where it holds no key (backend/internal/group), and
@@ -76,13 +76,14 @@ pathDefaults:
   srtPublishPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
   srtReadPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
 
-  # A read announces itself to the group service, which closes it where the member holding it is no
-  # longer on that group's roster. A token cannot do that job: it is checked at the handshake and
-  # not again, so a member who left opens a connection with the one they still hold.
-  # The hook is a no-op for a group nobody stated a roster for.
+  # A read announces itself to the group service, which closes it where no live member of that
+  # group holds it. A token cannot do that job: it is checked at the handshake and not again, so a
+  # member whose presence lapsed opens a connection with the one they still hold.
+  # The hook is a no-op for a group nobody has stated presence at.
   #
   # The path is the deployment's to provide, the way the certificate paths below are: the script is
-  # deploy/reconcile-on-read.sh in this repository and the host places it here.
+  # deploy/reconcile-on-read.sh in this repository, a host places it here, and a development relay
+  # points MTX_PATHDEFAULTS_RUNONREAD at the copy in its own checkout.
   runOnRead: /etc/mediamtx/reconcile-on-read.sh
 
 # --- The listeners the proxy fronts ----------------------------------------------
@@ -92,14 +93,14 @@ pathDefaults:
 #
 # RTSP and RTMP are not HTTP, so no proxy can carry them and each terminates TLS itself, on a
 # listener of its own. The certificate is the proxy's, handed over by the deployment: the paths
-# below are placeholders and every real deployment overrides them from the environment, the way
-# the SRT passphrase above is set (modules/mediamtx-relay.nix in the nixos-config repository).
+# below are placeholders and every relay overrides them from the environment, the way the SRT
+# passphrase above is set. A host names the certificate it already has
+# (modules/mediamtx-relay.nix in the nixos-config repository), and a development machine names the
+# self-signed pair scripts/relay.sh draws for it.
 #
 # `strict` on both, so the cleartext listener is not merely unexposed but absent: a relay that
 # still bound 8554 would carry a stream in the clear for anyone who reached it, and a firewall
 # is the wrong place for that decision to live.
-# The cleartext ports are what a LAN relay uses, and that is the mediamtx.yml at this
-# repository's root rather than a weaker setting on this file.
 rtsp: yes
 rtspEncryption: strict
 rtspsAddress: :8322

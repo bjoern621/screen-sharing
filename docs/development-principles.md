@@ -156,7 +156,7 @@ Static facts belong in a table, not in a `switch` spread through the logic.
 `bjoernblessin.de/go-utils/util/assert` is always on and panics.
 It states internal contracts, which are bugs in this code ("Entwicklungsfehler").
 An error value states an environment failure, which is a condition the app must survive ("Umgebungsfehler").
-A malformed roster push from another process is an error.
+A group key another process sent that will not parse is an error.
 An index a widget computed wrong is an assert.
 
 `logger.Errorf` ends the process through `log.Fatalf`, and `logger.Panicf` panics.

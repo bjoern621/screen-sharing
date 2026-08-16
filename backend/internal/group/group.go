@@ -3,12 +3,17 @@
 // A group is a path prefix, so the relay's own per-path permissions do the enforcing and "which
 // streams may I see" is a string match rather than a query the relay API cannot answer.
 //
-// Possession of the key is membership, and there are no accounts behind it.
+// Holding the group key is what lets somebody join, and there are no accounts behind it.
 // The service draws a key, the client distributes it, and everyone holding it derives one prefix.
 // Whatever hands the key on, a Discord bot serving a voice channel included, is a transport for it
 // and never its source, so a second integration changes nothing about the security story.
 // Deriving the key from a channel identifier was rejected: a channel id is a public snowflake,
 // so prefixes would be enumerable.
+//
+// Who somebody is inside a group is a second derivation, from a secret the joining app draws for
+// itself and hands to nobody (MemberSecret).
+// Both derive under the group key and under labels of their own, so a member id says nothing about
+// the group's secret and a prefix cannot be replayed as a member.
 //
 // Both sides run this derivation, the client for the prefix it publishes under and the service for
 // the prefix it grants a token on.
@@ -37,7 +42,7 @@ import (
 
 // KeyBytes is a group key's entropy.
 //
-// 32: the key is the whole of membership, with no account behind it, so guessing one is joining.
+// 32: the key is the whole of the invite, with no account behind it, so guessing one is joining.
 // Nobody types a key, it is copied or handed over by whatever distributes it.
 const KeyBytes = 32
 
@@ -78,12 +83,12 @@ const PublicPrefix = "public" + separator
 const separator = "/"
 
 // Key is a group's secret.
-// Possession is membership.
+// Holding one is what lets somebody join.
 type Key []byte
 
 // NewKey draws a fresh group key.
 //
-// Crypto randomness and never a seeded source: the key is membership, so a predictable one is a
+// Crypto randomness and never a seeded source: the key is the invite, so a predictable one is a
 // group anybody can join.
 // A source that cannot answer is an Umgebungsfehler and leaves as an error rather than a fallback,
 // since a key drawn from something weaker looks exactly like a real one.
@@ -146,7 +151,7 @@ func (k Key) ID() string {
 //
 // Each use of a key derives under its own label, so a member id cannot be replayed as a prefix nor
 // a prefix as a member.
-const memberLabel = "screenshare/group-member/v1"
+const memberLabel = "screenshare/group-member-secret/v1"
 
 // MemberIDChars is how much of a member's digest a token subject keeps.
 //
@@ -155,32 +160,75 @@ const memberLabel = "screenshare/group-member/v1"
 // 16 base32 characters is 80 bits.
 const MemberIDChars = 16
 
-// MemberID names one member of this group, as a relay token's subject.
+// MemberSecretBytes is a member secret's entropy.
 //
-// The relay writes a subject into its log lines and its session listings, which is why this is a
-// keyed digest under its own label and not the name: enforcement matches ids, and whatever named the
-// member stays off the relay.
-// Enforcement rests on both sides deriving it the same way, the service for the token it signs and
-// the roster for the set it holds against, so the name is trimmed once here rather than at each
-// caller.
-//
-// A name nobody gave is refused. It arrives over HTTP from whatever distributes the key, so an
-// empty one is an Umgebungsfehler and leaves as an error.
-func (k Key) MemberID(name string) (string, error) {
-	assert.Assert(len(k) == KeyBytes, "a member id is derived from a whole group key", len(k))
+// 32, as a group key: guessing one is speaking for that member, since presence is stated over the id
+// the secret derives.
+const MemberSecretBytes = 32
 
-	named := strings.TrimSpace(name)
-	if named == "" {
-		return "", errors.New("a member of a group has a name to derive an id from")
+// MemberSecret is what an app knows itself by inside one group.
+//
+// Drawn by the app that holds it and issued by nobody, so no other member and no service can state
+// this member's presence or take the name it claimed.
+type MemberSecret []byte
+
+// NewMemberSecret draws the secret an app joins one group under.
+//
+// Crypto randomness and never a seeded source, a predictable secret being an identity anybody can
+// take over.
+// A source that cannot answer is an Umgebungsfehler and leaves as an error.
+func NewMemberSecret() (MemberSecret, error) {
+	secret := make([]byte, MemberSecretBytes)
+	if _, err := rand.Read(secret); err != nil {
+		return nil, fmt.Errorf("drawing a member secret: %w", err)
 	}
+
+	assert.Assert(len(secret) == MemberSecretBytes, "a drawn secret carries the whole of its entropy", len(secret))
+	return secret, nil
+}
+
+// String is the secret as it travels and as it is stored, standard base64.
+func (s MemberSecret) String() string {
+	return base64.StdEncoding.EncodeToString(s)
+}
+
+// ParseMemberSecret reads a secret back off its encoding.
+//
+// A secret of the wrong length is refused rather than padded: it arrives from an identity file the
+// user owns or over HTTP, so a malformed one is an Umgebungsfehler and leaves as an error.
+func ParseMemberSecret(encoded string) (MemberSecret, error) {
+	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(encoded))
+	if err != nil {
+		return nil, fmt.Errorf("reading a member secret: %w", err)
+	}
+	if len(raw) != MemberSecretBytes {
+		return nil, fmt.Errorf("a member secret is %d bytes, this one is %d", MemberSecretBytes, len(raw))
+	}
+	return raw, nil
+}
+
+// MemberID names one member of this group, as a relay token's subject and as what membership is
+// stated over.
+//
+// Keyed under the group's key, so one secret is one member per group and a relay listing of one
+// group names nothing about the same app in another.
+// The relay writes a subject into its log lines and its session listings, so what travels is the
+// digest and never the secret behind it.
+//
+// The lengths are asserted rather than tolerated.
+// Every secret here came from NewMemberSecret or ParseMemberSecret, both of which fix it, and an id
+// derived from something shorter is a subject membership can neither match nor explain.
+func (k Key) MemberID(secret MemberSecret) string {
+	assert.Assert(len(k) == KeyBytes, "a member id is derived from a whole group key", len(k))
+	assert.Assert(len(secret) == MemberSecretBytes, "a member id is derived from a whole member secret", len(secret))
 
 	mac := hmac.New(sha256.New, k)
 	mac.Write([]byte(memberLabel))
-	mac.Write([]byte(named))
+	mac.Write(secret)
 
 	id := idEncoding.EncodeToString(mac.Sum(nil))[:MemberIDChars]
 	assert.Assert(len(id) == MemberIDChars, "a derived member id is the declared length", len(id))
-	return id, nil
+	return id
 }
 
 // ErrNoGroup is what a Key operation answers for a key nobody gave.

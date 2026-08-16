@@ -5,7 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/text"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // TestTheLadderIsWalkedOnceAndThenHeld: the synthetic set is always-on, so there is no attempt at
@@ -68,6 +72,51 @@ func TestACountOutsideTheBoundTakesTheDefault(t *testing.T) {
 			t.Errorf("boot count at %q = %d, want the default %d", set, count, testStreamsAtBoot)
 		}
 	}
+}
+
+// TestASlotWaitingOutARelaunchSaysSo: the count says how many publishers are up and nothing about
+// which, so a slot that died is visible on the rows alone.
+// A waiting slot is one the set still holds, and what it holds instead of a publisher is why the last
+// one stopped.
+func TestASlotWaitingOutARelaunchSaysSo(t *testing.T) {
+	a := &App{testStreams: map[int]*testStream{
+		0: {
+			attempts: 2,
+			cause:    text.Of(screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED),
+			message:  "the relay refused the publisher",
+			logPath:  "/logs/teststream-test-1.log",
+		},
+	}}
+
+	running, slots := a.TestStreamState()
+	if running != 0 {
+		t.Errorf("a set whose only slot is waiting reports %d publishers alive, want none", running)
+	}
+	if len(slots) != 1 {
+		t.Fatalf("a set holding one slot reports %d rows, want one", len(slots))
+	}
+
+	slot := slots[0]
+	if slot.Running {
+		t.Error("a slot waiting out its relaunch reports a publisher filling it")
+	}
+	if slot.Name != testStreamName(0) {
+		t.Errorf("slot 0 is listed as %q, want the stream it publishes to", slot.Name)
+	}
+	if slot.Attempt != 3 {
+		t.Errorf("a slot behind two relaunches is on attempt %d, want the third", slot.Attempt)
+	}
+	if got := slot.Cause.GetCode(); got != screensharev1.TextCode_TEXT_CODE_GROUP_MEMBERSHIP_LAPSED {
+		t.Errorf("a waiting slot states %v, want what emptied it", got)
+	}
+	if slot.Message != "the relay refused the publisher" || slot.LogPath != "/logs/teststream-test-1.log" {
+		t.Errorf("a waiting slot carries %q and %q, want the last child's own words and its log",
+			slot.Message, slot.LogPath)
+	}
+
+	// The contract asserts what a slot carries, so a row that broke it panics here rather than on the
+	// shell that read it.
+	wire.TestStreamState(running, slots...)
 }
 
 // TestASlotNamesTheStreamItPublishes: the slot is the stream's identity, so a relaunch has to come

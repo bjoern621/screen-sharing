@@ -13,24 +13,24 @@ import (
 // publish outside the group its own token grants, which the relay refuses and which reaches the
 // user as a stream that will not start.
 
-// grouped is settings publishing under a group, with the key they joined with.
+// grouped is settings publishing under a group, with the group key they joined with.
 func grouped(t *testing.T) (settings.Settings, group.Key) {
 	t.Helper()
-	key, err := group.NewKey()
+	groupKey, err := group.NewKey()
 	if err != nil {
 		t.Fatalf("drawing a group key: %v", err)
 	}
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
 	s.Publish.Name = "standup"
-	s.Relay.GroupKey = key.String()
-	return s, key
+	s.Relay.GroupKey = groupKey.String()
+	return s, groupKey
 }
 
 // Both legs carry the prefix: a publisher pushing into the group and a viewer pulling out of it
 // name one path.
 func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
-	s, key := grouped(t)
+	s, groupKey := grouped(t)
 
 	for _, name := range Names() {
 		tr, ok := Get(name)
@@ -39,72 +39,75 @@ func TestEveryTransportPublishesInsideTheGroup(t *testing.T) {
 		}
 
 		if p, ok := tr.(FFmpegPublisher); ok {
-			assertGrouped(t, name+" publish", strings.Join(p.PublishArgs(s), " "), key)
+			assertGrouped(t, name+" publish", strings.Join(p.PublishArgs(s), " "), groupKey)
 		}
 		if w, ok := tr.(Watcher); ok {
-			assertGrouped(t, name+" watch", w.WatchURL(s, s.Relay.Path(s.Publish.Name)), key)
+			assertGrouped(t, name+" watch", w.WatchURL(s, s.Relay.Path(s.Publish.Name)), groupKey)
 		}
 	}
 }
 
-// A machine in no group publishes under the bare name on a relay that runs no group service, which
-// is what a relay with no auth configured serves.
-// A prefix appears because a key was joined with or because the relay has a public one, never
+// A relay nobody named has no prefix to derive, that prefix being a group service's answer and there
+// being no service to ask.
+// A prefix appears because a group key was joined with or because the relay has a public one, never
 // because the app invented one.
-func TestAMachineInNoGroupPublishesUnderTheName(t *testing.T) {
+func TestAnUnnamedRelayPublishesUnderTheName(t *testing.T) {
 	s := settings.Defaults()
-	s.Relay.Host = "10.0.0.5"
+	s.Relay.Host = ""
 	s.Publish.Name = "standup"
 	s.Relay.GroupKey = ""
 
 	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
-		t.Errorf("a machine in no group publishes to %q, want the bare name", got)
+		t.Errorf("a relay nobody named publishes to %q, want the bare name", got)
 	}
 }
 
-// A key the app cannot read leaves the path alone rather than deriving from nonsense: a prefix
-// computed off a broken key is a path no member is watching, which is worse than the typed name.
+// A group key the app cannot read leaves the path alone rather than deriving from nonsense: a prefix
+// computed off a broken group key is a path no member is watching, which is worse than the typed name.
 func TestAKeyTheAppCannotReadMovesNothing(t *testing.T) {
 	s := settings.Defaults()
 	s.Publish.Name = "standup"
-	s.Relay.GroupKey = "not a key"
+	s.Relay.GroupKey = "not a group key"
 
 	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
-		t.Errorf("an unreadable key publishes to %q, want the bare name", got)
+		t.Errorf("an unreadable group key publishes to %q, want the bare name", got)
 	}
 }
 
-// A relay with a group service and no key publishes where anybody may watch, which is a stream the
-// user chose to leave open rather than one that failed to find its group.
-func TestNoGroupOnAGroupRelayPublishesPublicly(t *testing.T) {
-	s := settings.Defaults()
-	s.Relay.Host = "relay.example"
-	s.Publish.Name = "standup"
-	s.Relay.GroupKey = ""
+// A machine in no group publishes where anybody may watch, which is a stream the user chose to leave
+// open rather than one that failed to find its group.
+// On every relay, each of them having a group service beside it and refusing a path under no prefix.
+func TestNoGroupPublishesPublicly(t *testing.T) {
+	for _, host := range []string{"relay.example", "192.168.1.9"} {
+		s := settings.Defaults()
+		s.Relay.Host = host
+		s.Publish.Name = "standup"
+		s.Relay.GroupKey = ""
 
-	if got := s.Relay.Path(s.Publish.Name); got != group.PublicPrefix+"standup" {
-		t.Errorf("a keyless publish goes to %q, want the public prefix", got)
+		if got := s.Relay.Path(s.Publish.Name); got != group.PublicPrefix+"standup" {
+			t.Errorf("a keyless publish to %s goes to %q, want the public prefix", host, got)
+		}
 	}
 }
 
-// The audience is never widened on the strength of a key that came back damaged.
-// Somebody who set a key meant to restrict who watches, so a broken one publishes where the relay
+// The audience is never widened on the strength of a group key that came back damaged.
+// Somebody who set a group key meant to restrict who watches, so a broken one publishes where the relay
 // refuses it rather than where everybody can see it.
 func TestABrokenKeyNeverFallsToThePublicPrefix(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.Host = "relay.example"
 	s.Publish.Name = "standup"
-	s.Relay.GroupKey = "not a key"
+	s.Relay.GroupKey = "not a group key"
 
 	if got := s.Relay.Path(s.Publish.Name); got != "standup" {
-		t.Errorf("a broken key publishes to %q, want the bare name and never the public prefix", got)
+		t.Errorf("a broken group key publishes to %q, want the bare name and never the public prefix", got)
 	}
 }
 
 // assertGrouped fails on a rendered leg that does not carry the group's prefix.
-func assertGrouped(t *testing.T, leg, rendered string, key group.Key) {
+func assertGrouped(t *testing.T, leg, rendered string, groupKey group.Key) {
 	t.Helper()
-	if !strings.Contains(rendered, key.Prefix()) {
-		t.Errorf("%s renders %q, which is outside the group %s", leg, rendered, key.Prefix())
+	if !strings.Contains(rendered, groupKey.Prefix()) {
+		t.Errorf("%s renders %q, which is outside the group %s", leg, rendered, groupKey.Prefix())
 	}
 }

@@ -9,6 +9,7 @@ using ScreenShare.App.Features.Broadcast.Nudge.ViewModel;
 using ScreenShare.App.Features.Broadcast.Plots.ViewModel;
 using ScreenShare.App.Features.Broadcast.Preview.ViewModel;
 using ScreenShare.App.Features.Broadcast.SessionLog.ViewModel;
+using ScreenShare.App.Features.Broadcast.TestStreams.ViewModel;
 using ScreenShare.App.Features.Broadcast.ViewerTable.ViewModel;
 using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Mvvm;
@@ -116,6 +117,10 @@ public sealed class BroadcastViewModel : Observable
         Config = new ConfigCardViewModel();
         Viewers = new ViewerTableViewModel();
         Plots = new PlotsViewModel();
+
+        // Synthetic publishers belong on this screen because they are what this machine is putting on the relay,
+        // which is what this screen is about. The one publish above them is the real one.
+        TestStreams = new TestStreamsViewModel();
         Log = new SessionLogViewModel(OpenLogAsync, dispatch);
 
         // Constructed unpressable rather than disabled by a later pass, so no instant exists in which one of the
@@ -164,6 +169,13 @@ public sealed class BroadcastViewModel : Observable
     public ViewerTableViewModel Viewers { get; }
 
     public PlotsViewModel Plots { get; }
+
+    /// <summary>
+    /// Synthetic publishers this machine runs, a row per slot.
+    /// The count says how many are up and nothing about which, so a slot waiting out a relaunch is readable from
+    /// its own row alone.
+    /// </summary>
+    public TestStreamsViewModel TestStreams { get; }
 
     public SessionLogViewModel Log { get; }
 
@@ -225,9 +237,11 @@ public sealed class BroadcastViewModel : Observable
         Viewers.Readers = reading.Viewers;
         Viewers.IsLive = reading.IsLive;
         Log.Recorded = Recorded(_session.Exits, Audience.Of(_session.RelaySamples, reading.Stream));
+        TestStreams.Reported = _session.TestStreams;
 
         Config.Apply();
         Viewers.Apply();
+        TestStreams.Apply();
         Log.Apply();
 
         // Rendered as well as told its reading, unlike the cards above: the preview also reads what is decoding,

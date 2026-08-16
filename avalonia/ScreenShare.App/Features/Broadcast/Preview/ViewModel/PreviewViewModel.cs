@@ -71,11 +71,11 @@ public sealed class PreviewViewModel : Observable
     /// cannot be derived from the running state; the viewer's grid keeps its tile list for the same reason
     /// (<c>Features/Viewer/ViewModel/ViewerViewModel.cs</c>).
     ///
-    /// Holds the key that was asked for, not the one the settings name now.
+    /// Holds the stream and leg that were asked for, not the ones the settings name.
     /// A stop is keyed by stream and leg together, so closing on the current setting would leave a decode running
     /// whenever the leg had moved since.
     /// </summary>
-    private WatchKey? _asked;
+    private StreamRef? _asked;
 
     /// <summary>
     /// Whether a receive effect is in flight, which keeps a render pass from issuing a second behind it.
@@ -91,7 +91,7 @@ public sealed class PreviewViewModel : Observable
     /// Asking again repairs a pipeline another window closed, and only duplicates an answer still on its way.
     ///
     /// Without it the converge never settles: the pass that runs when a start answers has not yet been told what
-    /// is decoding, so it would read the key as gone and ask again.
+    /// is decoding, so it would read the decode as gone and ask again.
     /// </summary>
     private bool _open;
 
@@ -100,8 +100,8 @@ public sealed class PreviewViewModel : Observable
     /// That side's own sentence, shown as it stands: a leg that cannot carry this stream's format names the
     /// format and the protocols that would have carried it (<c>docs/ipc-api.md</c>, "Errors").
     ///
-    /// Also stops the converge asking again, a refusal being a fact about this key rather than a moment.
-    /// Cleared when the key moves.
+    /// Also stops the converge asking again, a refusal being a fact about this stream and leg rather than a moment.
+    /// Cleared when either moves.
     /// </summary>
     private string _refusal = "";
 
@@ -403,7 +403,7 @@ public sealed class PreviewViewModel : Observable
     /// chose.
     /// The leg is the viewer's setting, a second one here being a second answer to how this machine watches.
     /// </summary>
-    private WatchKey? Wanted()
+    private StreamRef? Wanted()
     {
         if (_route != PreviewRoute.EndToEnd)
         {
@@ -417,7 +417,7 @@ public sealed class PreviewViewModel : Observable
             return null;
         }
 
-        return new WatchKey { StreamName = stream, Transport = leg };
+        return new StreamRef { StreamName = stream, Transport = leg };
     }
 
     /// <summary>
@@ -434,7 +434,7 @@ public sealed class PreviewViewModel : Observable
     /// decode in the receive state, and reading both into one shape lets one tile draw either
     /// (<c>Features/Viewer/Tile/Model/TilePipeline.cs</c>).
     /// </summary>
-    private TilePipeline? Running(WatchKey? wanted)
+    private TilePipeline? Running(StreamRef? wanted)
     {
         if (_route == PreviewRoute.Off)
         {
@@ -447,15 +447,15 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>
-    /// Decode the backend reports for one key, null where it is running none.
+    /// Decode the backend reports for one stream and leg, null where it is running none.
     /// Read out of the whole receive state on every pass, a decode the viewer's grid opened on the same pair
     /// being the same pipeline and drawing the same picture.
     /// </summary>
-    private ReceiveStream? Decoding(WatchKey key)
+    private ReceiveStream? Decoding(StreamRef streamRef)
     {
         foreach (var decode in _session.Receiving)
         {
-            if (decode.Stream.StreamName == key.StreamName && decode.Stream.Transport == key.Transport)
+            if (decode.Stream.StreamName == streamRef.StreamName && decode.Stream.Transport == streamRef.Transport)
             {
                 return decode;
             }
@@ -469,7 +469,7 @@ public sealed class PreviewViewModel : Observable
     /// The contract's own distinction: the running publish's preview, or a stream and a leg
     /// (<c>Features/Viewer/Tile/Model/TileSource.cs</c>).
     /// </summary>
-    private TileSource? SourceFor(WatchKey? wanted)
+    private TileSource? SourceFor(StreamRef? wanted)
     {
         if (_route == PreviewRoute.EndToEnd)
         {
@@ -485,13 +485,13 @@ public sealed class PreviewViewModel : Observable
     /// the one it has stopped needing.
     ///
     /// Idempotent, which makes it safe on a render pass.
-    /// A key already asked for and running asks nothing, a refused key asks nothing until it moves, and one call
+    /// A pair already asked for and running asks nothing, a refused pair asks nothing until it moves, and one call
     /// is in flight at a time, so a hundred passes cost the first pass's round trip.
     ///
     /// A decode that went away is asked for again, decodes being shared and outliving the window that opened one.
     /// The repair is for a pipeline seen running and now gone, what <see cref="_open"/> is held for.
     /// </summary>
-    private void Receive(WatchKey? want)
+    private void Receive(StreamRef? want)
     {
         // The decode this card no longer wants goes first, so a route switch or a moved leg cannot leave two open.
         if (_asked is not null && !Names(_asked, want))
@@ -531,9 +531,9 @@ public sealed class PreviewViewModel : Observable
     }
 
     /// <summary>Whether two keys name one decode, false where either is absent.</summary>
-    private static bool Names(WatchKey? key, WatchKey? other)
-        => key is not null && other is not null
-            && key.StreamName == other.StreamName && key.Transport == other.Transport;
+    private static bool Names(StreamRef? streamRef, StreamRef? other)
+        => streamRef is not null && other is not null
+            && streamRef.StreamName == other.StreamName && streamRef.Transport == other.Transport;
 
     /// <summary>
     /// Asks the relay for a decode of this machine's own stream, and holds the refusal where there is one.
@@ -541,12 +541,12 @@ public sealed class PreviewViewModel : Observable
     /// on the event stream.
     /// What lands here is whether there is a sentence to show, and that the next pass may ask again.
     /// </summary>
-    private async Task OpenAsync(WatchKey key)
+    private async Task OpenAsync(StreamRef streamRef)
     {
         var refusal = "";
         try
         {
-            await _backend.StartReceiveAsync(key.StreamName, key.Transport).ConfigureAwait(false);
+            await _backend.StartReceiveAsync(streamRef.StreamName, streamRef.Transport).ConfigureAwait(false);
         }
         catch (BackendUnavailableException e)
         {
@@ -562,17 +562,17 @@ public sealed class PreviewViewModel : Observable
         {
             _asking = false;
 
-            if (Names(_asked, key))
+            if (Names(_asked, streamRef))
             {
                 _refusal = refusal;
             }
             else if (refusal.Length == 0)
             {
-                // The route was toggled while this was in flight, so the key is already let go, and the stop that
+                // The route was toggled while this was in flight, so the pair is already let go, and the stop that
                 // went with it may have reached the backend before this start did.
                 // Letting go a second time closes what nothing wants, and costs nothing where the first one
                 // already did: a stop naming a decode that is not running is a success.
-                Release(key);
+                Release(streamRef);
             }
 
             Apply();
@@ -586,21 +586,21 @@ public sealed class PreviewViewModel : Observable
     /// Where the grid holds the same pair, the pipeline is left to it and the grid's own stop closes it
     /// (<see cref="SetGridLeg"/>).
     /// </summary>
-    private void Release(WatchKey key)
+    private void Release(StreamRef streamRef)
     {
-        if (_gridLeg(key.StreamName) == key.Transport)
+        if (_gridLeg(streamRef.StreamName) == streamRef.Transport)
         {
             return;
         }
 
-        _ = CloseAsync(key);
+        _ = CloseAsync(streamRef);
     }
 
-    private async Task CloseAsync(WatchKey key)
+    private async Task CloseAsync(StreamRef streamRef)
     {
         try
         {
-            await _backend.StopReceiveAsync(key.StreamName, key.Transport).ConfigureAwait(false);
+            await _backend.StopReceiveAsync(streamRef.StreamName, streamRef.Transport).ConfigureAwait(false);
         }
         catch (BackendUnavailableException)
         {

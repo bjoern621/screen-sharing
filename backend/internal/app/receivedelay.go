@@ -77,7 +77,7 @@ func receiveDelayOf(now, last receive.Stats, seen bool, publishing publishDelay)
 // transitOf is the mean wall clock one frame spent between the leg's source stamping it and the
 // sink taking it, over the interval between two readings.
 //
-// nil where there is nothing to divide: a first reading, a pipeline rebuilt under one key, which
+// nil where there is nothing to divide: a first reading, a pipeline rebuilt under one ref, which
 // restarts the counters, and an interval no frame crossed.
 // The last of those is nothing to time rather than a frame that took no time.
 func transitOf(now, last receive.Stats, seen bool) *float64 {

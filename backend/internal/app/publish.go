@@ -449,6 +449,9 @@ func (a *App) GetPublishState() PublishState {
 		// becomes (wire.PublishState).
 		state.Attempt = retry.attempts
 		state.Budget = len(publishBackoff)
+		// Held from the exit that armed the relaunch, so every attempt says why rather than only the last.
+		state.Cause = retry.cause
+		state.Message = retry.message
 	}
 	// The one place both halves are in hand.
 	// A launch brings the preview up and every path that ends the child takes it down, so a preview
@@ -479,6 +482,8 @@ func (a *App) GetPublishState() PublishState {
 	// only copied it.
 	assert.Assert(state.Retrying || (state.Attempt == 0 && state.Budget == 0),
 		"an attempt and a budget belong to a retry", state.Attempt, state.Budget)
+	assert.Assert(state.Retrying || (state.Cause == nil && state.Message == ""),
+		"what ended a pipeline belongs to the relaunch that follows it", state.Message)
 	return state
 }
 

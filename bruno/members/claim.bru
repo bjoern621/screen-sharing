@@ -1,0 +1,56 @@
+meta {
+  name: Claim a name
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{groupService}}/members
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "groupKey": "{{groupKey}}",
+    "memberSecret": "{{memberSecret}}",
+    "displayName": "{{displayName}}"
+  }
+}
+
+script:pre-request {
+  const CryptoJS = require("crypto-js");
+  if (!bru.getEnvVar("memberSecret")) {
+    bru.setEnvVar("memberSecret", CryptoJS.lib.WordArray.random(32).toString(CryptoJS.enc.Base64));
+  }
+}
+
+tests {
+  test("answers this member's id, the lease it holds, and the group around it", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.memberId).to.be.a("string");
+    expect(res.body.displayName).to.equal(bru.getEnvVar("displayName"));
+    expect(res.body.leaseSeconds).to.be.greaterThan(0);
+    expect(res.body.members.map((m) => m.memberId)).to.include(res.body.memberId);
+  });
+}
+
+docs {
+  # Claim a name
+
+  States this member's presence in the group: the id its secret derives, under the name it goes by.
+
+  The member id is a keyed digest of the member secret under the group key, so the relay lists and logs which member a connection belongs to without carrying the secret it was derived from, and no other member can state this one's presence.
+
+  `members` is every live member of the group, this one included, with `publishing` read off the relay's connection list rather than stated by anybody.
+
+  The lease is `leaseSeconds` long and the app refreshes it on the 2 s relay poll it already runs, so nine missed passes are survivable and a machine that stopped is out of the group inside a moment.
+
+  The group is reconciled before the answer, so a lease that lapsed since the last call has its connections closed by the call that noticed.
+
+  The secret is drawn here where the environment holds none, which is what the app does on its first join to a group.
+}

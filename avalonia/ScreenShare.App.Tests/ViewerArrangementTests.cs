@@ -33,7 +33,7 @@ public sealed class ViewerArrangementTests
             remove { }
         }
 
-        private readonly List<WatchKey> _decoding = [];
+        private readonly List<StreamRef> _decoding = [];
 
         public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
         {
@@ -48,7 +48,7 @@ public sealed class ViewerArrangementTests
 
         public Task<IReadOnlyList<ReceiveStream>> ReceivingAsync(CancellationToken cancellation = default)
             => Task.FromResult<IReadOnlyList<ReceiveStream>>(
-                _decoding.Select(key => new ReceiveStream { Stream = key, Live = true }).ToList());
+                _decoding.Select(streamRef => new ReceiveStream { Stream = streamRef, Live = true }).ToList());
 
         public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
         {
@@ -70,10 +70,10 @@ public sealed class ViewerArrangementTests
         public Task StartReceiveAsync(
             string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         {
-            var key = new WatchKey { StreamName = streamName, Transport = transport };
-            if (!_decoding.Contains(key))
+            var streamRef = new StreamRef { StreamName = streamName, Transport = transport };
+            if (!_decoding.Contains(streamRef))
             {
-                _decoding.Add(key);
+                _decoding.Add(streamRef);
             }
 
             return Task.CompletedTask;
@@ -81,7 +81,7 @@ public sealed class ViewerArrangementTests
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         {
-            _decoding.Remove(new WatchKey { StreamName = streamName, Transport = transport });
+            _decoding.Remove(new StreamRef { StreamName = streamName, Transport = transport });
             return Task.CompletedTask;
         }
 
@@ -98,7 +98,7 @@ public sealed class ViewerArrangementTests
         public Task<PublishState> PublishStateAsync(CancellationToken cancellation = default)
             => _seed.PublishStateAsync(cancellation);
 
-        public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
+        public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
             => _seed.WatchingAsync(cancellation);
 
         public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
@@ -120,6 +120,18 @@ public sealed class ViewerArrangementTests
 
         public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
             => _seed.CreateGroupAsync(relay, cancellation);
+
+        public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+            => _seed.MembersAsync(cancellation);
+
+        public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+            => _seed.TestStreamsAsync(cancellation);
+
+        public Task JoinGroupAsync(CancellationToken cancellation = default)
+            => _seed.JoinGroupAsync(cancellation);
+
+        public Task LeaveGroupAsync(CancellationToken cancellation = default)
+            => _seed.LeaveGroupAsync(cancellation);
 
         public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
             => _seed.PresetsAsync(cancellation);

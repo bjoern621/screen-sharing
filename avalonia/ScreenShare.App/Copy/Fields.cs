@@ -61,11 +61,15 @@ public static class Fields
 
         ["relay.tls"] = new(
             "Relay uses TLS",
-            "Turn this on for a relay on the internet, where a proxy holds the certificate and answers everything on one address. It is also what lets this machine ask that relay for the pass its group key is worth. Leave it off for a relay on the local network, which is reached directly on the ports below."),
+            "Whether the relay answers everything on one address behind a certificate, or directly on the ports below. It follows the relay address rather than being set here: a relay on this machine or the local network is reached directly, and anything further away is encrypted with no way to turn that off."),
 
         ["relay.group_key"] = new(
             "Group key",
-            "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way a meeting link is sent. Change it when somebody should stop seeing them. Leave it empty on a relay where everyone is trusted."),
+            "The secret that decides who can watch. Everyone holding it sees this machine's streams and nobody else does, so send it the way a meeting link is sent. Change it when somebody should stop seeing them. Left empty, these streams go out where anyone who knows the relay address can watch them."),
+
+        ["relay.display_name"] = new(
+            "Name in the group",
+            "What this machine goes by to everyone in the group: the row that is this machine in the member list, and the name beside each stream it publishes. A name is claimed per group and the first claim holds it, so one another member already goes by is refused and this machine keeps the identity it had either way. Joining a group takes one."),
 
         ["relay.srt_passphrase"] = new(
             "SRT passphrase",
@@ -229,9 +233,9 @@ public static class Fields
             "What turns decoded frames into the picture a tile draws. The graphics-card routes keep the frames on the card and cost nothing to convert; the system-memory route pulls every frame across and converts it on the CPU. Some of them state exactly what colour they produce and some leave it to the driver, which is what the entries say. A route this machine has no elements for is greyed with the missing one named."),
 
         ["relay.srt_port"] = new("SRT port", "The relay's SRT port. The default is 8890."),
-        ["relay.rtsp_port"] = new("RTSP port", "The relay's RTSP port. The default is 8554."),
+        ["relay.rtsp_port"] = new("RTSP port", "The relay's RTSP port. It carries the session inside TLS, which is why the default is 8322 rather than the number a cleartext relay answers on."),
         ["relay.webrtc_port"] = new("WebRTC port", "The relay's WebRTC port, which serves both sending and watching. The default is 8889."),
-        ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. The default is 1935."),
+        ["relay.rtmp_port"] = new("RTMP port", "The relay's RTMP port. It carries the stream inside TLS, which is why the default is 1936 rather than the number a cleartext relay answers on."),
         ["relay.hls_port"] = new("HLS port", "The relay's HLS port. The default is 8888. It is a watching port only: nothing is ever sent this way."),
         ["relay.moq_port"] = new("MoQ port", "The relay's Media-over-QUIC port, TCP and UDP on the same number. The default is 8892. It is a watching port only, and only a browser reaches it. It stays part of the address on an encrypted relay, where the other ports drop out: this leg cannot go through the proxy, so the relay answers it directly wherever it runs."),
         ["relay.api_port"] = new("Relay API port", "The relay's status port, which is where the live-now list comes from. The default is 9997."),

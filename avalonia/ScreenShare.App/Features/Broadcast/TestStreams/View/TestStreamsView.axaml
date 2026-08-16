@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:model="using:ScreenShare.App.Features.Broadcast.TestStreams.Model"
+             xmlns:vm="using:ScreenShare.App.Features.Broadcast.TestStreams.ViewModel"
+             x:Class="ScreenShare.App.Features.Broadcast.TestStreams.View.TestStreamsView"
+             x:DataType="vm:TestStreamsViewModel">
+
+  <UserControl.Styles>
+    <!-- A slot the set holds with nothing in it reads as stopped, not as absent. -->
+    <Style Selector=":is(TextBlock).slotstate">
+      <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+    </Style>
+    <Style Selector=":is(TextBlock).slotstate.sending">
+      <Setter Property="Foreground" Value="{StaticResource ForegroundBrush}" />
+    </Style>
+  </UserControl.Styles>
+
+  <Border Classes="card" Padding="13,12">
+    <StackPanel Spacing="{StaticResource GapTight}">
+
+      <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,3">
+        <TextBlock Grid.Column="0" Classes="caption" Text="{Binding Title}" VerticalAlignment="Center" />
+        <TextBlock Grid.Column="1" Classes="figure" Text="{Binding Summary}"
+                   IsVisible="{Binding HasRows}" VerticalAlignment="Center" />
+      </Grid>
+
+      <TextBlock Classes="hint" Text="{Binding Covers}" TextWrapping="Wrap" />
+
+      <TextBlock Classes="hint" Text="{Binding Notice}" TextWrapping="Wrap"
+                 IsVisible="{Binding !HasRows}" />
+
+      <ItemsControl ItemsSource="{Binding Rows}" IsVisible="{Binding HasRows}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="model:TestStreamSlotRow">
+            <!--
+              Everything but the heading is selectable and wraps: the cause, the child's own words and the
+              log path are what a reader carries out of this card, and trimming cuts away the characters
+              they came for.
+            -->
+            <StackPanel>
+              <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{StaticResource GapControl}">
+                  <SelectableTextBlock Grid.Column="0" Classes="ident" Text="{Binding Label}"
+                                       TextWrapping="Wrap" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1" Classes="hint" Text="{Binding Attempt}"
+                             VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Classes="figure slotstate"
+                             Classes.sending="{Binding IsRunning}"
+                             Text="{Binding State}" VerticalAlignment="Center" />
+                </Grid>
+
+                <SelectableTextBlock Classes="hint" Text="{Binding Cause}" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasCause}" />
+
+                <SelectableTextBlock Classes="transcript hint" Text="{Binding Message}" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasMessage}" />
+
+                <SelectableTextBlock Classes="transcript hint" Text="{Binding LogPath}" TextWrapping="Wrap"
+                                     IsVisible="{Binding HasLogPath}" />
+              </StackPanel>
+
+              <Border Classes="rowrule" Margin="0,9" IsVisible="{Binding !IsLast}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </StackPanel>
+  </Border>
+</UserControl>

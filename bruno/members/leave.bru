@@ -1,0 +1,41 @@
+meta {
+  name: Leave the group
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{groupService}}/members
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "groupKey": "{{groupKey}}",
+    "memberSecret": "{{memberSecret}}"
+  }
+}
+
+tests {
+  test("reports whether there was a lease to release", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.memberId).to.be.a("string");
+    expect(res.body.released).to.be.a("boolean");
+  });
+}
+
+docs {
+  # Leave the group
+
+  Drops this member's presence, which is what closing the app does without waiting the lease out.
+
+  Idempotent: a member holding no lease is already in the state this names, so a second call answers `released: false` and is a success.
+
+  It reconciles afterwards, which closes what the leaver held while anybody else in the group still holds a lease.
+  Where the leaver was the last live member the group stops being enforced instead, and what they hold is left alone until somebody states presence again: a group nobody has stated presence in looks exactly like an app that has not stated its own yet.
+}

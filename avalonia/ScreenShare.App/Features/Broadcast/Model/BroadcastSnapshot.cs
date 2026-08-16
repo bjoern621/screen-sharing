@@ -45,6 +45,20 @@ public sealed record BroadcastSnapshot
 
     public int Budget { get; init; }
 
+    /// <summary>
+    /// What ended the pipeline this relaunch follows, absent where nothing named it.
+    /// Read off the state rather than off the exit event, so a window that opened mid-backoff says why as well as
+    /// one that was listening when the pipeline died.
+    /// </summary>
+    public Text? RetryCause { get; init; }
+
+    /// <summary>
+    /// That pipeline's own last words, raw and never matched against
+    /// (<c>api/proto/screenshare/v1/text.proto</c>).
+    /// Empty where it said nothing.
+    /// </summary>
+    public string RetryMessage { get; init; } = "";
+
     /// <summary>Encoder's running time off the sample's own clock, zero-padded: <c>01:07:44</c>.</summary>
     public string Elapsed { get; init; } = Figure.NoValue;
 
@@ -143,6 +157,8 @@ public sealed record BroadcastSnapshot
             IsRetrying = retry is not null,
             Attempt = retry?.Attempt ?? 0,
             Budget = retry?.Budget ?? 0,
+            RetryCause = retry?.Cause,
+            RetryMessage = retry?.Message ?? "",
             Elapsed = Clock(stats),
             EgressMbps = Measured(stats, sample => sample.HasInstMbps, sample => sample.InstMbps),
             Fps = Measured(stats, sample => sample.HasFps, sample => sample.Fps),

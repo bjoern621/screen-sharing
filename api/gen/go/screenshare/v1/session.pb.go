@@ -587,11 +587,11 @@ func (x *RelayStatus) GetPaths() []*RelayPath {
 	return nil
 }
 
-// WatchKey identifies one open external viewer: a stream received over one transport, and the
+// StreamRef identifies one open external viewer: a stream received over one transport, and the
 // identity every viewer method takes and every viewer event carries.
 // The stream name alone is not one, because the relay re-serves each stream on all its
 // listeners and a stream can be watched over several transports at once.
-type WatchKey struct {
+type StreamRef struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	StreamName    string                 `protobuf:"bytes,3,opt,name=stream_name,json=streamName,proto3" json:"stream_name,omitempty"`
 	Transport     string                 `protobuf:"bytes,2,opt,name=transport,proto3" json:"transport,omitempty"`
@@ -599,20 +599,20 @@ type WatchKey struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *WatchKey) Reset() {
-	*x = WatchKey{}
+func (x *StreamRef) Reset() {
+	*x = StreamRef{}
 	mi := &file_screenshare_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *WatchKey) String() string {
+func (x *StreamRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*WatchKey) ProtoMessage() {}
+func (*StreamRef) ProtoMessage() {}
 
-func (x *WatchKey) ProtoReflect() protoreflect.Message {
+func (x *StreamRef) ProtoReflect() protoreflect.Message {
 	mi := &file_screenshare_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -624,19 +624,19 @@ func (x *WatchKey) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use WatchKey.ProtoReflect.Descriptor instead.
-func (*WatchKey) Descriptor() ([]byte, []int) {
+// Deprecated: Use StreamRef.ProtoReflect.Descriptor instead.
+func (*StreamRef) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *WatchKey) GetStreamName() string {
+func (x *StreamRef) GetStreamName() string {
 	if x != nil {
 		return x.StreamName
 	}
 	return ""
 }
 
-func (x *WatchKey) GetTransport() string {
+func (x *StreamRef) GetTransport() string {
 	if x != nil {
 		return x.Transport
 	}
@@ -654,7 +654,7 @@ func (x *WatchKey) GetTransport() string {
 type AudioLevel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The decode this level belongs to, the identity every other receive message carries.
-	Stream *WatchKey `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
+	Stream *StreamRef `protobuf:"bytes,1,opt,name=stream,proto3" json:"stream,omitempty"`
 	// peak_db is the loudest sample of the interval and rms_db its power average.
 	// Both are the maximum over the channels: a meter is one bar per stream.
 	PeakDb        float64 `protobuf:"fixed64,2,opt,name=peak_db,json=peakDb,proto3" json:"peak_db,omitempty"`
@@ -693,7 +693,7 @@ func (*AudioLevel) Descriptor() ([]byte, []int) {
 	return file_screenshare_v1_session_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *AudioLevel) GetStream() *WatchKey {
+func (x *AudioLevel) GetStream() *StreamRef {
 	if x != nil {
 		return x.Stream
 	}
@@ -840,8 +840,14 @@ type PublishState_Retry struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// "Attempt 2 of 3": attempt counts from one, budget is what the backend spends before it
 	// gives up, and neither figure says anything without the other.
-	Attempt       int32 `protobuf:"varint,1,opt,name=attempt,proto3" json:"attempt,omitempty"`
-	Budget        int32 `protobuf:"varint,2,opt,name=budget,proto3" json:"budget,omitempty"`
+	Attempt int32 `protobuf:"varint,1,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	Budget  int32 `protobuf:"varint,2,opt,name=budget,proto3" json:"budget,omitempty"`
+	// What ended the pipeline this relaunch follows, absent where nothing here names it.
+	// On the state and not on the exit event alone, so a shell that mounts mid-backoff reads why
+	// as well as one that was listening when the pipeline died.
+	Cause *Text `protobuf:"bytes,3,opt,name=cause,proto3" json:"cause,omitempty"`
+	// That pipeline's own last words, raw and never matched against (text.proto).
+	Message       string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -888,6 +894,20 @@ func (x *PublishState_Retry) GetBudget() int32 {
 		return x.Budget
 	}
 	return 0
+}
+
+func (x *PublishState_Retry) GetCause() *Text {
+	if x != nil {
+		return x.Cause
+	}
+	return nil
+}
+
+func (x *PublishState_Retry) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 // Preview is the local decode of the stream this machine is sending.
@@ -1107,12 +1127,14 @@ var File_screenshare_v1_session_proto protoreflect.FileDescriptor
 
 const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\n" +
-	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\"\x80\x06\n" +
+	"\x1cscreenshare/v1/session.proto\x12\x0escreenshare.v1\x1a\x1dscreenshare/v1/settings.proto\x1a\x19screenshare/v1/text.proto\"\xc6\x06\n" +
 	"\fPublishState\x125\n" +
-	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a9\n" +
+	"\x04live\x18\x01 \x01(\v2!.screenshare.v1.PublishState.LiveR\x04live\x1a\x7f\n" +
 	"\x05Retry\x12\x18\n" +
 	"\aattempt\x18\x01 \x01(\x05R\aattempt\x12\x16\n" +
-	"\x06budget\x18\x02 \x01(\x05R\x06budget\x1a\xc7\x01\n" +
+	"\x06budget\x18\x02 \x01(\x05R\x06budget\x12*\n" +
+	"\x05cause\x18\x03 \x01(\v2\x14.screenshare.v1.TextR\x05cause\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x1a\xc7\x01\n" +
 	"\aPreview\x12\x12\n" +
 	"\x04port\x18\x01 \x01(\rR\x04port\x12\x12\n" +
 	"\x04live\x18\x02 \x01(\bR\x04live\x12\x14\n" +
@@ -1198,14 +1220,14 @@ const file_screenshare_v1_session_proto_rawDesc = "" +
 	"\vRelayStatus\x12\x1c\n" +
 	"\treachable\x18\x01 \x01(\bR\treachable\x12\x14\n" +
 	"\x05error\x18\x02 \x01(\tR\x05error\x12/\n" +
-	"\x05paths\x18\x03 \x03(\v2\x19.screenshare.v1.RelayPathR\x05paths\"U\n" +
-	"\bWatchKey\x12\x1f\n" +
+	"\x05paths\x18\x03 \x03(\v2\x19.screenshare.v1.RelayPathR\x05paths\"V\n" +
+	"\tStreamRef\x12\x1f\n" +
 	"\vstream_name\x18\x03 \x01(\tR\n" +
 	"streamName\x12\x1c\n" +
-	"\ttransport\x18\x02 \x01(\tR\ttransportJ\x04\b\x01\x10\x02R\x04name\"n\n" +
+	"\ttransport\x18\x02 \x01(\tR\ttransportJ\x04\b\x01\x10\x02R\x04name\"o\n" +
 	"\n" +
-	"AudioLevel\x120\n" +
-	"\x06stream\x18\x01 \x01(\v2\x18.screenshare.v1.WatchKeyR\x06stream\x12\x17\n" +
+	"AudioLevel\x121\n" +
+	"\x06stream\x18\x01 \x01(\v2\x19.screenshare.v1.StreamRefR\x06stream\x12\x17\n" +
 	"\apeak_db\x18\x02 \x01(\x01R\x06peakDb\x12\x15\n" +
 	"\x06rms_db\x18\x03 \x01(\x01R\x05rmsDb\"A\n" +
 	"\vAudioLevels\x122\n" +
@@ -1237,31 +1259,33 @@ var file_screenshare_v1_session_proto_goTypes = []any{
 	(*RelayReader)(nil),          // 2: screenshare.v1.RelayReader
 	(*RelayPath)(nil),            // 3: screenshare.v1.RelayPath
 	(*RelayStatus)(nil),          // 4: screenshare.v1.RelayStatus
-	(*WatchKey)(nil),             // 5: screenshare.v1.WatchKey
+	(*StreamRef)(nil),            // 5: screenshare.v1.StreamRef
 	(*AudioLevel)(nil),           // 6: screenshare.v1.AudioLevel
 	(*AudioLevels)(nil),          // 7: screenshare.v1.AudioLevels
 	(*EncodeRate)(nil),           // 8: screenshare.v1.EncodeRate
 	(*PublishState_Retry)(nil),   // 9: screenshare.v1.PublishState.Retry
 	(*PublishState_Preview)(nil), // 10: screenshare.v1.PublishState.Preview
 	(*PublishState_Live)(nil),    // 11: screenshare.v1.PublishState.Live
-	(*PublishSettings)(nil),      // 12: screenshare.v1.PublishSettings
-	(*RelaySettings)(nil),        // 13: screenshare.v1.RelaySettings
+	(*Text)(nil),                 // 12: screenshare.v1.Text
+	(*PublishSettings)(nil),      // 13: screenshare.v1.PublishSettings
+	(*RelaySettings)(nil),        // 14: screenshare.v1.RelaySettings
 }
 var file_screenshare_v1_session_proto_depIdxs = []int32{
 	11, // 0: screenshare.v1.PublishState.live:type_name -> screenshare.v1.PublishState.Live
 	2,  // 1: screenshare.v1.RelayPath.reader_roster:type_name -> screenshare.v1.RelayReader
 	3,  // 2: screenshare.v1.RelayStatus.paths:type_name -> screenshare.v1.RelayPath
-	5,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.WatchKey
+	5,  // 3: screenshare.v1.AudioLevel.stream:type_name -> screenshare.v1.StreamRef
 	6,  // 4: screenshare.v1.AudioLevels.levels:type_name -> screenshare.v1.AudioLevel
-	12, // 5: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
-	13, // 6: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
-	9,  // 7: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
-	10, // 8: screenshare.v1.PublishState.Live.preview:type_name -> screenshare.v1.PublishState.Preview
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	12, // 5: screenshare.v1.PublishState.Retry.cause:type_name -> screenshare.v1.Text
+	13, // 6: screenshare.v1.PublishState.Live.publish:type_name -> screenshare.v1.PublishSettings
+	14, // 7: screenshare.v1.PublishState.Live.relay:type_name -> screenshare.v1.RelaySettings
+	9,  // 8: screenshare.v1.PublishState.Live.retry:type_name -> screenshare.v1.PublishState.Retry
+	10, // 9: screenshare.v1.PublishState.Live.preview:type_name -> screenshare.v1.PublishState.Preview
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_screenshare_v1_session_proto_init() }
@@ -1270,6 +1294,7 @@ func file_screenshare_v1_session_proto_init() {
 		return
 	}
 	file_screenshare_v1_settings_proto_init()
+	file_screenshare_v1_text_proto_init()
 	file_screenshare_v1_session_proto_msgTypes[1].OneofWrappers = []any{}
 	file_screenshare_v1_session_proto_msgTypes[2].OneofWrappers = []any{}
 	file_screenshare_v1_session_proto_msgTypes[11].OneofWrappers = []any{}

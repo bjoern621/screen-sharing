@@ -104,6 +104,11 @@ var availabilityRules = map[string]func(availability) state{
 		return availabilityDisabled(say(encryptionFollowsTheAddress))
 	},
 	KeyGroupKey: func(availability) state { return availabilityLive() },
+	// A name is claimed per group when joining, so no capture backend, encoder or leg on this screen
+	// rules one out.
+	// An empty name greys nothing either: it is refused where a group is joined (control.JoinGroup),
+	// and this control is where that refusal is answered.
+	KeyDisplayName: func(availability) state { return availabilityLive() },
 	// Noted while it is empty on an encrypted relay, that being the one combination where the field
 	// decides whether the stream is encrypted at all rather than merely which key it uses: SRT is UDP
 	// and carries no TLS, so nothing else on this screen makes that leg private.
@@ -895,18 +900,20 @@ func (av availability) outputResolutionReason(value string) *screensharev1.Text 
 		argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec()), argMemory(gpupath.MemorySystem))
 }
 
-// rtspProtocolReason states why an encrypted relay carries RTP one way only.
+// rtspProtocolReason states why an RTSPS session carries RTP one way only.
 //
 // RTSPS encrypts the control connection, and RTP over UDP is a second flow beside it that no part
 // of that handshake covers.
 // Interleaving puts the media inside the TLS connection, so it is the encrypted session's only
 // lower transport rather than its faster one (internal/transport, EncryptedRtspProtocol).
 //
+// Every relay serves RTSPS alone, so the answer does not follow the address
+// (deploy/mediamtx-groups.yml).
 // Serves both legs, the session being encrypted the same way whichever end negotiates it.
 // The publish leg refuses the same value in transport.RTSP ValidatePublishSettings and the watch leg
 // in SetWatchOption, so a draft reaching either with "udp" was greyed here first.
 func (av availability) rtspProtocolReason(value string) *screensharev1.Text {
-	if !av.s.Relay.Tls() || value == transport.EncryptedRtspProtocol {
+	if value == transport.EncryptedRtspProtocol {
 		return nil
 	}
 	return say(encryptedRtspInterleavesRtp)

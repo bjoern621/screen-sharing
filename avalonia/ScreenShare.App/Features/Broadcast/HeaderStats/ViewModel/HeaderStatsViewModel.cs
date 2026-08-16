@@ -49,6 +49,10 @@ public sealed class HeaderStatsViewModel : Observable
     private bool _isSharing;
     private string _retry = "";
     private bool _isRetrying;
+    private string _retryCause = "";
+    private bool _hasRetryCause;
+    private string _retryMessage = "";
+    private bool _hasRetryMessage;
 
     public ObservableCollection<StatFigure> Figures { get; }
 
@@ -73,6 +77,22 @@ public sealed class HeaderStatsViewModel : Observable
     public bool IsRetrying { get => _isRetrying; private set => Set(ref _isRetrying, value); }
 
     /// <summary>
+    /// What ended the pipeline the pending relaunch follows, empty where nothing named it.
+    /// The counter says which attempt and nothing about why, which is the half a reader can act on.
+    /// </summary>
+    public string RetryCause { get => _retryCause; private set => Set(ref _retryCause, value); }
+
+    public bool HasRetryCause { get => _hasRetryCause; private set => Set(ref _hasRetryCause, value); }
+
+    /// <summary>
+    /// That pipeline's own last words, verbatim and selectable: it is the string a reader takes to a search box
+    /// or into a bug report.
+    /// </summary>
+    public string RetryMessage { get => _retryMessage; private set => Set(ref _retryMessage, value); }
+
+    public bool HasRetryMessage { get => _hasRetryMessage; private set => Set(ref _hasRetryMessage, value); }
+
+    /// <summary>
     /// One render function.
     /// Reads the snapshot through on every pass and formats through <see cref="Figure"/>, so a missing sample
     /// prints an ellipsis and never a zero.
@@ -86,6 +106,13 @@ public sealed class HeaderStatsViewModel : Observable
         Elapsed = reading.Elapsed;
         IsRetrying = reading.IsRetrying;
         Retry = IsRetrying ? Cards.RetryAttempt(reading.Attempt, reading.Budget) : "";
+
+        // Both belong to the relaunch and go with it: a cause left standing under a stream carrying frames would
+        // describe a pipeline that is running.
+        RetryCause = IsRetrying ? Statements.Of(reading.RetryCause) : "";
+        HasRetryCause = RetryCause.Length > 0;
+        RetryMessage = IsRetrying ? reading.RetryMessage : "";
+        HasRetryMessage = RetryMessage.Length > 0;
 
         Reconcile.Onto(Figures,
         [
@@ -105,6 +132,10 @@ public sealed class HeaderStatsViewModel : Observable
 
         Assert.That(Figures.Count == PromotedCount, "five figures are promoted into the header", Figures.Count);
         Assert.That(IsRetrying == (Retry.Length > 0), "a retry note appears with the retry it describes", IsRetrying, Retry);
+        Assert.That(IsRetrying || (RetryCause.Length == 0 && RetryMessage.Length == 0),
+            "a cause belongs to the relaunch it is about", RetryCause, RetryMessage);
+        Assert.That(HasRetryCause == (RetryCause.Length > 0), "a cause and its sentence agree", HasRetryCause);
+        Assert.That(HasRetryMessage == (RetryMessage.Length > 0), "the raw words and their presence agree", HasRetryMessage);
     }
 
     /// <summary>

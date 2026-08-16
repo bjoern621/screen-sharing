@@ -34,25 +34,25 @@ func aDecodeOf(t *testing.T, toneMap bool) *receive.Receiver {
 	return r
 }
 
-func withDecode(t *testing.T, key WatchKey, toneMap bool) *App {
+func withDecode(t *testing.T, ref StreamRef, toneMap bool) *App {
 	t.Helper()
 
-	return &App{receivers: map[WatchKey]*receive.Receiver{key: aDecodeOf(t, toneMap)}}
+	return &App{receivers: map[StreamRef]*receive.Receiver{ref: aDecodeOf(t, toneMap)}}
 }
 
 // TestAskingAgainForTheToneMappingThatRanRebuildsNothing covers what a viewer produces every time it
 // repeats a call, and the loop a machine with no rung would otherwise run.
 func TestAskingAgainForTheToneMappingThatRanRebuildsNothing(t *testing.T) {
-	key := WatchKey{Name: "bob", Transport: "rtsp"}
+	ref := StreamRef{Name: "bob", Transport: "rtsp"}
 
 	for _, asked := range []bool{false, true} {
-		a := withDecode(t, key, asked)
+		a := withDecode(t, ref, asked)
 		wanted := receive.WillToneMap(asked)
 
-		if !a.receiving(key, wanted) {
+		if !a.receiving(ref, wanted) {
 			t.Errorf("a decode built having asked for %t reads as absent when asked for again", asked)
 		}
-		if replaced := a.replacedReceiver(key, wanted); replaced != nil {
+		if replaced := a.replacedReceiver(ref, wanted); replaced != nil {
 			t.Errorf("asking again for %t tore down a decode that already answers it", asked)
 		}
 	}
@@ -66,13 +66,13 @@ func TestTheOtherAnswerIsADifferentDecode(t *testing.T) {
 		t.Skip("this machine has no element that rolls an HDR stream down")
 	}
 
-	key := WatchKey{Name: "bob", Transport: "rtsp"}
-	a := withDecode(t, key, false)
+	ref := StreamRef{Name: "bob", Transport: "rtsp"}
+	a := withDecode(t, ref, false)
 
-	if a.receiving(key, true) {
+	if a.receiving(ref, true) {
 		t.Error("a decode built without the rung reads as one that tone-maps")
 	}
-	replaced := a.replacedReceiver(key, true)
+	replaced := a.replacedReceiver(ref, true)
 	if replaced == nil {
 		t.Fatal("asking for tone mapping left the decode that does not tone-map running")
 	}
@@ -80,7 +80,7 @@ func TestTheOtherAnswerIsADifferentDecode(t *testing.T) {
 
 	// Taken out of the set by the call that handed it back, so nothing is left keyed by a pair whose
 	// pipeline is being torn down.
-	if a.receiving(key, false) {
+	if a.receiving(ref, false) {
 		t.Error("the replaced decode is still the one this pair is keyed to")
 	}
 }

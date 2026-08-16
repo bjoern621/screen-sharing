@@ -65,7 +65,7 @@ func TestAPreviewOfAScreenThatDoesNotExistIsARequestFault(t *testing.T) {
 // something that does not exist, while a leg that cannot carry the stream's present format is the
 // world not being ready.
 func TestAWatchOverALegThisBuildHasNoViewerForIsARequestFault(t *testing.T) {
-	viewer := &screensharev1.WatchKey{StreamName: "desk", Transport: "moq"}
+	viewer := &screensharev1.StreamRef{StreamName: "desk", Transport: "moq"}
 
 	refused := New(&fakeBackend{err: Refuse("no viewer implements transport %q", "moq")}, events.New(), "test")
 	_, err := refused.StartWatch(context.Background(), &screensharev1.StartWatchRequest{Viewer: viewer})
@@ -105,7 +105,7 @@ func TestAFrameSubscriptionNamesOneOfTheThreePictures(t *testing.T) {
 		"a relay decode carries the pair that identifies it": {
 			subscribe: &screensharev1.FrameSubscribe{
 				Source: &screensharev1.FrameSubscribe_Stream{
-					Stream: &screensharev1.WatchKey{StreamName: "desk", Transport: "srt"},
+					Stream: &screensharev1.StreamRef{StreamName: "desk", Transport: "srt"},
 				},
 			},
 			want:  wire.FrameSourceRelay,

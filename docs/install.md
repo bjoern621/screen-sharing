@@ -96,24 +96,28 @@ Running one, from a checkout of this repository:
 task relay
 ```
 
-`mediamtx.yml` is the configuration that starts, and it opens:
+`deploy/mediamtx-groups.yml` is the configuration that starts, with the group service beside it.
+The relay checks a token on every connection against the key set that service publishes, so a relay without it serves nobody.
+A self-signed certificate is drawn into `dev-relay/` where none is there, and its path and the read hook's are handed to MediaMTX as environment overrides, so the file itself is the one a deployment reads.
+
+It opens:
 
 | Leg | Port |
 | --- | --- |
 | SRT | 8890/udp |
-| RTSP | 8554 |
-| RTMP | 1935 |
+| RTSPS | 8322 |
+| RTMPS | 1936 |
 | HLS | 8888 |
 | WebRTC | 8889 |
 | MoQ | 8892 on both TCP and UDP, native QUIC beside it on 8893/udp |
 | API | 9997 |
 
-The binary comes from the flake's dev shell on Linux and macOS.
-Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and launches it against the same config.
+HLS, WebRTC and the API answer on loopback, a deployment reaching them through the reverse proxy in `deploy/Caddyfile` under one name on 443.
+MoQ is the exception the relay names out loud: no proxy carries WebTransport, so the relay answers that port directly and a watcher's network has to pass both sides of it.
+`docs/network-architecture.md` covers which leg is encrypted with what.
 
-A relay on the internet is a different configuration: `deploy/mediamtx-groups.yml` binds every HTTP listener on loopback behind a reverse proxy and takes a token for publishing and reading, where `mediamtx.yml` lets anybody on the network publish.
-MoQ is the exception it names out loud: the relay answers that port directly, so a watcher's network has to pass both sides of it.
-`docs/network-architecture.md` covers the split.
+The binaries come from the flake's dev shell on Linux and macOS.
+Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and starts both against the same configuration.
 
 ## Capturing a Wayland desktop
 

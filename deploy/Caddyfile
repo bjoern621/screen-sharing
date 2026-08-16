@@ -32,21 +32,22 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
+	# Presence, stated by every member's own app on the loop that polls the relay.
+	# Fronted like the routes above and for the same reason: a member reaches this from
+	# wherever they are, and a group key rides in the body under TLS.
+	handle /members* {
+		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
+	}
+
 	# The key every token is verified against. The relay fetches it, not a browser, and it
 	# is public by construction: it is what verifies a signature and cannot make one.
 	handle /jwks.json {
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
-	# The group service's other two routes are deliberately absent, and fall through to the
-	# HLS handler below like any unknown path.
-	#
-	# /roster states who is in a group and closes what anybody else holds. Its caller runs
-	# beside this, and the day one runs elsewhere is the day a handler for it is added with
-	# whatever fronts it decided then.
-	#
-	# /reconcile takes no credential at all. It is the relay's own read hook reporting a path
-	# on loopback, and a route to it from outside would be a way for anyone to spend this
+	# /reconcile is deliberately absent, and falls through to the HLS handler below like any
+	# unknown path. It takes no credential at all: it is the relay's own read hook reporting a
+	# path on loopback, and a route to it from outside would be a way for anyone to spend this
 	# host's relay API on demand.
 
 	# The WebRTC player page, served at the stream's own path and so at the address the HLS

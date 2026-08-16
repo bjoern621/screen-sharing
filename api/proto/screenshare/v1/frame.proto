@@ -53,7 +53,7 @@ message FramesRequest {
 // once, each decode its own pipeline.
 message FrameSubscribe {
   oneof source {
-    WatchKey stream = 1;
+    StreamRef stream = 1;
     PublishPreview publish_preview = 2;
     MonitorPreview monitor_preview = 3;
   }

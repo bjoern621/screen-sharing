@@ -103,8 +103,8 @@ var warningPeaks = map[string]string{
 // the stream is authenticated and encrypted either way (docs/network-architecture.md).
 // What it is not is private, and that is the one thing nothing else on the screen says.
 //
-// Only on a relay that has a group service. A LAN relay has no groups at all, so "this is public"
-// there names a restriction that does not exist on that deployment.
+// Only on a relay somebody named, an unnamed one having no service to draw a group from and no
+// prefix to publish under either.
 func diagnosticsAboutTheAudience(s settings.Settings) []*screensharev1.Diagnostic {
 	if _, hasService := s.Relay.GroupService(); !hasService || s.Relay.GroupKey != "" {
 		return nil

@@ -12,13 +12,17 @@ func rtmpTestStream() settings.Settings {
 	return settings.Settings{
 		Relay: settings.Relay{
 			Host:     "10.0.0.5",
-			RtmpPort: 1935,
+			RtmpPort: 1936,
 		},
 		Publish: settings.Publish{
 			Name: "alice",
 		},
 	}
 }
+
+// rtmpPath is where the fixture's stream lives on the relay: every relay authenticates, so a machine
+// in no group publishes under the prefix anybody may watch.
+const rtmpPath = "public/alice"
 
 func TestRTMPRegistered(t *testing.T) {
 	tr, ok := Get("rtmp")
@@ -33,7 +37,7 @@ func TestRTMPRegistered(t *testing.T) {
 func TestRTMPPublishArgs(t *testing.T) {
 	args := RTMP{}.PublishArgs(rtmpTestStream())
 
-	want := []string{"-f", "flv", "rtmp://10.0.0.5:1935/alice"}
+	want := []string{"-f", "flv", "-tls_verify", "0", "rtmps://10.0.0.5:1936/" + rtmpPath}
 	if !slices.Equal(args, want) {
 		t.Errorf("PublishArgs = %v, want %v", args, want)
 	}
@@ -43,7 +47,7 @@ func TestRTMPPublishArgs(t *testing.T) {
 // someone else's stream, over a transport it picks per window.
 func TestRTMPWatchURL(t *testing.T) {
 	got := RTMP{}.WatchURL(rtmpTestStream(), "bob")
-	if got != "rtmp://10.0.0.5:1935/bob" {
+	if got != "rtmps://10.0.0.5:1936/bob" {
 		t.Errorf("WatchURL = %q, want the URL of the watched stream", got)
 	}
 }
@@ -51,7 +55,7 @@ func TestRTMPWatchURL(t *testing.T) {
 func TestRTMPGstSource(t *testing.T) {
 	src := RTMP{}.GstSource(rtmpTestStream(), "bob")
 
-	want := []string{"rtmp2src", "location=rtmp://10.0.0.5:1935/bob"}
+	want := []string{"rtmp2src", "location=rtmps://10.0.0.5:1936/bob", "tls-validation-flags=no-flags"}
 	if !slices.Equal(src, want) {
 		t.Errorf("GstSource = %v, want %v", src, want)
 	}

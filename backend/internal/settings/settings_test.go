@@ -465,30 +465,34 @@ func TestOnlyThisMachineAndThisNetworkAreReachedInTheClear(t *testing.T) {
 // Two derivations of it would let a viewer's list print a name the relay has no path for, which
 // reads as a stream that will not open.
 func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
-	key, err := group.NewKey()
+	groupKey, err := group.NewKey()
 	if err != nil {
 		t.Fatalf("drawing a group key: %v", err)
 	}
 
 	for deployment, relay := range map[string]Relay{
-		"a group":       {Host: "relay.example", GroupKey: key.String()},
-		"no key":        {Host: "relay.example"},
-		"a LAN relay":   {Host: "192.168.1.9"},
-		"a damaged key": {Host: "relay.example", GroupKey: "not a key"},
+		"a group":             {Host: "relay.example", GroupKey: groupKey.String()},
+		"no group key":        {Host: "relay.example"},
+		"a LAN relay":         {Host: "192.168.1.9"},
+		"a damaged group key": {Host: "relay.example", GroupKey: "not a group key"},
 	} {
 		if got, want := relay.Path("standup"), relay.Prefix()+"standup"; got != want {
 			t.Errorf("%s publishes to %q, and its prefix builds %q", deployment, got, want)
 		}
 	}
 
-	if got := (Relay{Host: "relay.example", GroupKey: key.String()}).Prefix(); got != key.Prefix() {
-		t.Errorf("a member reaches under %q, want the group's own %q", got, key.Prefix())
+	if got := (Relay{Host: "relay.example", GroupKey: groupKey.String()}).Prefix(); got != groupKey.Prefix() {
+		t.Errorf("a member reaches under %q, want the group's own %q", got, groupKey.Prefix())
 	}
-	if got := (Relay{Host: "relay.example"}).Prefix(); got != group.PublicPrefix {
-		t.Errorf("a keyless machine reaches under %q, want the public prefix", got)
+	// Every relay authenticates, so a keyless machine reaches the prefix anybody may watch wherever
+	// that relay stands.
+	for _, host := range []string{"relay.example", "192.168.1.9"} {
+		if got := (Relay{Host: host}).Prefix(); got != group.PublicPrefix {
+			t.Errorf("a keyless machine on %s reaches under %q, want the public prefix", host, got)
+		}
 	}
-	if got := (Relay{Host: "192.168.1.9"}).Prefix(); got != "" {
-		t.Errorf("a relay that authenticates nobody derives the prefix %q, want none", got)
+	if got := (Relay{}).Prefix(); got != "" {
+		t.Errorf("a relay nobody named derives the prefix %q, want none", got)
 	}
 }
 
@@ -551,6 +555,57 @@ func TestLoadMigratesTheOneCodecKeyOntoThePair(t *testing.T) {
 	}
 	if got.Publish.LegacyCodec != "" {
 		t.Errorf("an upgraded publish carries no pre-pair codec key, got %q", got.Publish.LegacyCodec)
+	}
+}
+
+// Every relay this app is pointed at runs a group service, and the address of one follows the
+// address of the relay: the proxy's own name off a trusted network, and the port groupd binds where
+// the relay is reached directly (scripts/relay.sh, cmd/groupd).
+//
+// A relay on this machine answering none is a development relay that issues no token, and the relay
+// refuses every publisher that carries none.
+func TestEveryNamedRelayNamesItsGroupService(t *testing.T) {
+	for host, want := range map[string]string{
+		"streamrelay.bjoernblessin.de": "https://streamrelay.bjoernblessin.de",
+		"93.184.216.34":                "https://93.184.216.34",
+		"127.0.0.1":                    "http://127.0.0.1:9443",
+		"localhost":                    "http://localhost:9443",
+		"192.168.1.9":                  "http://192.168.1.9:9443",
+	} {
+		base, ok := (Relay{Host: host}).GroupService()
+		if !ok {
+			t.Errorf("relay %q names no group service, so nothing there issues it a relay token", host)
+			continue
+		}
+		if base != want {
+			t.Errorf("relay %q asks %q, want %q", host, base, want)
+		}
+	}
+
+	// A relay nobody named is not a deployment without a service: there is no host to ask at all.
+	if base, ok := (Relay{}).GroupService(); ok {
+		t.Errorf("an unnamed relay asks %q, want no service", base)
+	}
+}
+
+// An empty display name is a state and not a gap: this machine has been given no name, and joining a
+// group asks for one.
+// A migration that filled it would join every group under whatever it filled with, which is a name
+// the user never chose and one another member may already hold.
+func TestAnUnnamedMachineKeepsItsEmptyDisplayName(t *testing.T) {
+	isolateConfig(t)
+
+	dir, err := configDir()
+	if err != nil {
+		t.Fatalf("resolving the config directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, configFileName),
+		[]byte(`{"relay":{"host":"relay.example"}}`), 0o600); err != nil {
+		t.Fatalf("writing a file naming no display name: %v", err)
+	}
+
+	if got := mustLoad(t).Relay.DisplayName; got != "" {
+		t.Errorf("a file naming no display name read back as %q, want the empty name it holds", got)
 	}
 }
 

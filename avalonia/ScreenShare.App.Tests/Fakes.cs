@@ -99,7 +99,7 @@ internal sealed class DeferredBackend : IBackend
     public Task<RelayStatus> RelayStatusAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.RelayStatusAsync(cancellation);
 
-    public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
+    public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.WatchingAsync(cancellation);
 
     public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
@@ -169,6 +169,18 @@ internal sealed class DeferredBackend : IBackend
 
     public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
         => _seed.CreateGroupAsync(relay, cancellation);
+
+    public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.MembersAsync(cancellation);
+
+    public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+        => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.TestStreamsAsync(cancellation);
+
+    public Task JoinGroupAsync(CancellationToken cancellation = default)
+        => _seed.JoinGroupAsync(cancellation);
+
+    public Task LeaveGroupAsync(CancellationToken cancellation = default)
+        => _seed.LeaveGroupAsync(cancellation);
 
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => IsAbsent ? throw new BackendUnavailableException(Absent) : _seed.PresetsAsync(cancellation);
@@ -370,7 +382,7 @@ internal sealed class PublishingBackend : IBackend
     public Task<Form> ResolveFormAsync(Settings draft, CancellationToken cancellation = default)
         => _seed.ResolveFormAsync(draft, cancellation);
 
-    public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
+    public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
         => _seed.WatchingAsync(cancellation);
 
     public Task StopPublishAsync(CancellationToken cancellation = default)
@@ -383,6 +395,18 @@ internal sealed class PublishingBackend : IBackend
 
     public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
         => _seed.CreateGroupAsync(relay, cancellation);
+
+    public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+        => _seed.MembersAsync(cancellation);
+
+    public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+        => _seed.TestStreamsAsync(cancellation);
+
+    public Task JoinGroupAsync(CancellationToken cancellation = default)
+        => _seed.JoinGroupAsync(cancellation);
+
+    public Task LeaveGroupAsync(CancellationToken cancellation = default)
+        => _seed.LeaveGroupAsync(cancellation);
 
     public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
         => _seed.PresetsAsync(cancellation);

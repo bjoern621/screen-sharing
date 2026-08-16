@@ -50,9 +50,9 @@ public sealed class BroadcastPreviewTests
         /// The local route adds to neither; the end-to-end route is judged on which pairs it opened and
         /// closed.
         /// </summary>
-        public List<WatchKey> Started { get; } = [];
+        public List<StreamRef> Started { get; } = [];
 
-        public List<WatchKey> Stopped { get; } = [];
+        public List<StreamRef> Stopped { get; } = [];
 
         /// <summary>
         /// Why the next start is refused, empty while none is.
@@ -72,7 +72,7 @@ public sealed class BroadcastPreviewTests
         public Task StartReceiveAsync(
             string streamName, string transport, bool toneMap = false, CancellationToken cancellation = default)
         {
-            Started.Add(new WatchKey { StreamName = streamName, Transport = transport });
+            Started.Add(new StreamRef { StreamName = streamName, Transport = transport });
 
             return StartRefusal.Length > 0
                 ? Task.FromException(new BackendUnavailableException(StartRefusal))
@@ -81,7 +81,7 @@ public sealed class BroadcastPreviewTests
 
         public Task StopReceiveAsync(string streamName, string transport, CancellationToken cancellation = default)
         {
-            Stopped.Add(new WatchKey { StreamName = streamName, Transport = transport });
+            Stopped.Add(new StreamRef { StreamName = streamName, Transport = transport });
             return _seed.StopReceiveAsync(streamName, transport, cancellation);
         }
 
@@ -153,7 +153,7 @@ public sealed class BroadcastPreviewTests
         public Task<Settings> SettingsAsync(CancellationToken cancellation = default)
             => _seed.SettingsAsync(cancellation);
 
-        public Task<IReadOnlyList<WatchKey>> WatchingAsync(CancellationToken cancellation = default)
+        public Task<IReadOnlyList<StreamRef>> WatchingAsync(CancellationToken cancellation = default)
             => _seed.WatchingAsync(cancellation);
 
         public Task StartPublishAsync(Settings settings, CancellationToken cancellation = default)
@@ -175,6 +175,18 @@ public sealed class BroadcastPreviewTests
 
         public Task<(string Key, string Id)> CreateGroupAsync(RelaySettings relay, CancellationToken cancellation = default)
             => _seed.CreateGroupAsync(relay, cancellation);
+
+        public Task<MembersState> MembersAsync(CancellationToken cancellation = default)
+            => _seed.MembersAsync(cancellation);
+
+        public Task<TestStreamState> TestStreamsAsync(CancellationToken cancellation = default)
+            => _seed.TestStreamsAsync(cancellation);
+
+        public Task JoinGroupAsync(CancellationToken cancellation = default)
+            => _seed.JoinGroupAsync(cancellation);
+
+        public Task LeaveGroupAsync(CancellationToken cancellation = default)
+            => _seed.LeaveGroupAsync(cancellation);
 
         public Task<PresetStore> PresetsAsync(CancellationToken cancellation = default)
             => _seed.PresetsAsync(cancellation);

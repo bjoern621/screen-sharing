@@ -14,10 +14,10 @@ import (
 // A decode on its first tick has one reading, and one reading is not a rate: a zero here would say
 // the stream is carrying nothing.
 func TestFirstSampleHasNoRates(t *testing.T) {
-	key := WatchKey{Name: "desk", Transport: "srt"}
+	ref := StreamRef{Name: "desk", Transport: "srt"}
 	now := receive.Stats{Uptime: 3 * time.Second, VideoBytes: 900_000, VideoFrames: 90}
 
-	got := receiveStatsOf(key, now, receive.Stats{}, false)
+	got := receiveStatsOf(ref, now, receive.Stats{}, false)
 
 	if got.VideoMbps != nil || got.VideoFPS != nil || got.RenderFPS != nil || got.AudioKbps != nil {
 		t.Errorf("a first sample reported a rate: %+v", got)
@@ -30,7 +30,7 @@ func TestFirstSampleHasNoRates(t *testing.T) {
 // TestRatesAreTakenOverThePipelinesOwnInterval is why the samples carry an uptime.
 // A tick the scheduler held back divides a real delta by the interval that really passed.
 func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
-	key := WatchKey{Name: "desk", Transport: "srt"}
+	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{
 		Uptime:     10 * time.Second,
 		VideoBytes: 1_000_000, VideoFrames: 600, Rendered: 590, AudioBytes: 8_000,
@@ -40,7 +40,7 @@ func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 		VideoBytes: 2_000_000, VideoFrames: 720, Rendered: 700, AudioBytes: 16_000,
 	}
 
-	got := receiveStatsOf(key, now, last, true)
+	got := receiveStatsOf(ref, now, last, true)
 
 	// 1 MB over 2 s is 4 Mbit/s.
 	if got.VideoMbps == nil || *got.VideoMbps != 4 {
@@ -57,15 +57,15 @@ func TestRatesAreTakenOverThePipelinesOwnInterval(t *testing.T) {
 	}
 }
 
-// TestARebuiltPipelineReportsNoRate covers the decode rebuilt under the same key, which is what
+// TestARebuiltPipelineReportsNoRate covers the decode rebuilt under the same ref, which is what
 // turning tone mapping on does: the uptime and every counter restart, and the reading before it
 // describes a pipeline that no longer exists.
 func TestARebuiltPipelineReportsNoRate(t *testing.T) {
-	key := WatchKey{Name: "desk", Transport: "srt"}
+	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 90 * time.Second, VideoBytes: 50_000_000, VideoFrames: 5400}
 	now := receive.Stats{Uptime: time.Second, VideoBytes: 400_000, VideoFrames: 60}
 
-	got := receiveStatsOf(key, now, last, true)
+	got := receiveStatsOf(ref, now, last, true)
 
 	if got.VideoMbps != nil || got.VideoFPS != nil {
 		t.Errorf("a rebuilt pipeline reported a rate against the run before it: %+v", got)
@@ -76,11 +76,11 @@ func TestARebuiltPipelineReportsNoRate(t *testing.T) {
 // A pipeline whose bytes stopped moving is receiving nothing, and a reader has to be able to see
 // that.
 func TestAStalledCounterReportsZero(t *testing.T) {
-	key := WatchKey{Name: "desk", Transport: "srt"}
+	ref := StreamRef{Name: "desk", Transport: "srt"}
 	last := receive.Stats{Uptime: 10 * time.Second, VideoBytes: 1_000_000, VideoFrames: 600}
 	now := receive.Stats{Uptime: 11 * time.Second, VideoBytes: 1_000_000, VideoFrames: 600}
 
-	got := receiveStatsOf(key, now, last, true)
+	got := receiveStatsOf(ref, now, last, true)
 
 	if got.VideoMbps == nil || *got.VideoMbps != 0 {
 		t.Errorf("video_mbps = %v, want a measured 0", got.VideoMbps)
@@ -95,9 +95,9 @@ func TestAStalledCounterReportsZero(t *testing.T) {
 // Each carries presence, so a shell prints "unknown" rather than a latency window of zero or a
 // stream positioned at its first frame.
 func TestUnnegotiatedFiguresStayAbsent(t *testing.T) {
-	key := WatchKey{Name: "desk", Transport: "srt"}
+	ref := StreamRef{Name: "desk", Transport: "srt"}
 
-	got := receiveStatsOf(key, receive.Stats{Uptime: time.Second}, receive.Stats{}, false)
+	got := receiveStatsOf(ref, receive.Stats{Uptime: time.Second}, receive.Stats{}, false)
 
 	if got.SinceKeyframe != nil || got.LatencyMin != nil || got.LatencyMax != nil || got.Position != nil {
 		t.Errorf("an opening pipeline reported a figure it has not answered for: %+v", got)

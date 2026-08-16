@@ -40,7 +40,7 @@ const (
 type FrameSource struct {
 	Kind FrameSourceKind
 	// Stream identifies the relay decode, read on FrameSourceRelay alone.
-	Stream WatchKey
+	Stream StreamRef
 	// Monitor is the previewed output's index, read on FrameSourceMonitorPreview alone.
 	Monitor int
 }
@@ -48,12 +48,12 @@ type FrameSource struct {
 // FrameSourceOf reads what a subscription named back off the contract, and false where it named
 // none of the three, which the control service refuses with INVALID_ARGUMENT rather than guess at.
 //
-// A relay decode with half a key is left as it arrived rather than rejected here: which half is
+// A relay decode with half a ref is left as it arrived rather than rejected here: which half is
 // missing is a sentence the service writes, and this is the shape it reads to write it.
 func FrameSourceOf(m *screensharev1.FrameSubscribe) (FrameSource, bool) {
 	switch {
 	case m.GetStream() != nil:
-		return FrameSource{Kind: FrameSourceRelay, Stream: WatchKeyOf(m.GetStream())}, true
+		return FrameSource{Kind: FrameSourceRelay, Stream: StreamRefOf(m.GetStream())}, true
 	case m.GetPublishPreview() != nil:
 		return FrameSource{Kind: FrameSourcePublishPreview}, true
 	case m.GetMonitorPreview() != nil:

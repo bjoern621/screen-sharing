@@ -17,14 +17,32 @@
     <!--
       A stream between attempts keeps the pill, so this is what tells it apart from one carrying frames.
       In the red rather than the caution hue: a relaunch is a stream that stopped, on its way back.
+
+      The counter says which attempt and the two lines under it say why, in this app's words and then in
+      the pipeline's own. Both wrap and both are selectable: the raw line is what a reader takes to a
+      search box, and trimming would cut away the characters they came for.
+
+      A ceiling on the width, because this block shares the band with the promoted figures and a
+      pipeline's last words run long.
     -->
-    <TextBlock DockPanel.Dock="Left"
-               Classes="figure"
-               Foreground="{StaticResource AttentionBrush}"
-               Margin="8,0,0,0"
-               VerticalAlignment="Center"
-               IsVisible="{Binding IsRetrying}"
-               Text="{Binding Retry}" />
+    <StackPanel DockPanel.Dock="Left"
+                MaxWidth="330"
+                Margin="8,0,0,0"
+                VerticalAlignment="Center"
+                Spacing="{StaticResource GapTight}"
+                IsVisible="{Binding IsRetrying}">
+      <TextBlock Classes="figure"
+                 Foreground="{StaticResource AttentionBrush}"
+                 Text="{Binding Retry}" />
+      <SelectableTextBlock Classes="hint"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasRetryCause}"
+                           Text="{Binding RetryCause}" />
+      <SelectableTextBlock Classes="transcript hint"
+                           TextWrapping="Wrap"
+                           IsVisible="{Binding HasRetryMessage}"
+                           Text="{Binding RetryMessage}" />
+    </StackPanel>
 
     <ItemsControl ItemsSource="{Binding Figures}" Margin="6,0,0,0" VerticalAlignment="Center">
       <ItemsControl.ItemsPanel>

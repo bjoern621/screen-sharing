@@ -1,0 +1,42 @@
+meta {
+  name: Refresh presence
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{groupService}}/members
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "groupKey": "{{groupKey}}",
+    "memberSecret": "{{memberSecret}}",
+    "displayName": "{{displayName}}"
+  }
+}
+
+tests {
+  test("changes nothing and closes nothing", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.displayName).to.equal(bru.getEnvVar("displayName"));
+    expect(res.body.members.filter((m) => m.displayName === bru.getEnvVar("displayName"))).to.have.lengthOf(1);
+  });
+}
+
+docs {
+  # Refresh presence
+
+  The same request as `Claim a name`, which is the whole of refreshing.
+
+  A member claiming the name it already holds is a refresh rather than a second claim, so the two are one call and an app sends it on every pass of the poll it already runs.
+  What changes is the moment the lease lapses.
+
+  Running it against a group where nothing else changed closes nothing, which is what makes it safe at that rate.
+}

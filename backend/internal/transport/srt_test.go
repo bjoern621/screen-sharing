@@ -48,7 +48,7 @@ func TestSRTPublishArgs(t *testing.T) {
 	url := args[2]
 	for _, want := range []string{
 		"srt://10.0.0.5:8890",
-		"streamid=publish:alice",
+		"streamid=publish:public/alice",
 		"pkt_size=1316",
 		"latency=300000", // ffmpeg's srt protocol counts microseconds
 	} {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"bjoernblessin.de/screenshare/internal/groupclient"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -17,6 +18,18 @@ import (
 // A relay that authenticates nothing names no group service, so no token is minted and every command
 // is built without one.
 
+// groupService is what this app asks of the service, held as an interface at the caller so a test
+// states the answers a group service would give without one running.
+// The implementation is *groupclient.Client and there is no second one.
+type groupService interface {
+	Token(base, groupKey, memberSecret string) (string, error)
+	Forget()
+	Streams(base, groupKey string) ([]groupclient.Stream, error)
+	State(base, groupKey, memberSecret, displayName string) (groupclient.Membership, error)
+	Release(base, groupKey, memberSecret string) error
+	CreateGroup(base string) (groupKey, groupID string, err error)
+}
+
 // settingsForCommand returns s carrying the token this relay connection needs.
 // The one site that attaches one, so it reaches neither the held settings nor the store.
 //
@@ -24,6 +37,11 @@ import (
 // key being a request for the public prefix (internal/groupclient).
 // Without that, a publisher who set no key would build a command with no credential and meet a
 // refusal at the handshake with nothing naming the cause.
+//
+// The trade names this machine's member secret, so the token's subject is the member id the relay
+// closes a connection against.
+// A group this machine has not joined names none, which is the bare trade a group being created
+// makes (members.go).
 //
 // An unreachable service leaves as an error rather than as a credential-less command: that command
 // dies at the relay's handshake, and "the group service cannot be reached" is the reason a user can
@@ -35,7 +53,7 @@ func (a *App) settingsForCommand(s settings.Settings) (settings.Settings, error)
 		return s, nil
 	}
 
-	token, err := a.groups.Token(base, s.Relay.GroupKey)
+	token, err := a.groups.Token(base, s.Relay.GroupKey, a.memberSecret(s.Relay))
 	if err != nil {
 		return s, fmt.Errorf("no relay token for this group: %w", err)
 	}
@@ -116,12 +134,12 @@ func ownNames(status relay.Status, prefix string) relay.Status {
 // The caller writes it to the group key field, which is the one write that changes a machine's
 // group and is a settings write like any other.
 //
-// A relay with no group service is one where there are no groups to draw from, which is the LAN
-// shape, and its message says so rather than naming a service that would be asked.
-func (a *App) CreateGroup(relay settings.Relay) (key, id string, err error) {
+// A relay nobody named has no service to draw at, and the message says so rather than naming one
+// that would be asked.
+func (a *App) CreateGroup(relay settings.Relay) (groupKey, groupID string, err error) {
 	base, ok := relay.GroupService()
 	if !ok {
-		return "", "", fmt.Errorf("a group key is drawn by a group service, and a relay reached without a TLS proxy has none")
+		return "", "", fmt.Errorf("a group key is drawn by a group service, and this relay names none")
 	}
-	return a.groups.CreateKey(base)
+	return a.groups.CreateGroup(base)
 }

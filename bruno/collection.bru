@@ -9,15 +9,15 @@ docs {
   That one is gRPC over a Unix socket and is described in `docs/ipc-api.md`.
 
   `Group service` is this repository's own API (`backend/internal/groupsvc`).
-  It draws group keys, trades a key for a short relay token, and answers which streams a key can see.
-  Those three store nothing: possession of the key is membership, the path prefix is the key's own digest, and the stream index is the relay's answer rather than the service's.
+  It draws group keys, trades a group key for a short relay access token, and answers which streams a group key can see.
+  Those three store nothing: holding the group key is what lets somebody join, the path prefix is that key's own digest, and the stream index is the relay's answer rather than the service's.
 
-  `Roster` is the fourth, and the one thing the service holds.
-  It states who a group's members are and closes what anybody else holds, a token being unenforceable once the handshake is done.
+  `Members` is the fourth, and the one thing the service holds.
+  A member's own app states that it is here and refreshes it, and what anybody holding no lease has open is closed, a token being unenforceable once the handshake is done.
 
   `Relay` is the MediaMTX API the app polls for who is live (`backend/internal/relay`).
   The path list gives a reader a type and an id and nothing else, so every figure a viewer row shows comes from the per-protocol list that type names.
 
   Run `Create group` and then `Issue token` first.
-  Both write what the later requests read: the group key, the prefix its streams live under, and the relay token the media legs carry.
+  Both write what the later requests read: the group key, the prefix its streams live under, the member secret this collection is known by, and the relay access token the media legs carry.
 }

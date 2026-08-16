@@ -47,6 +47,13 @@ type PublishState struct {
 	// Both are zero while nothing retries.
 	Attempt int `json:"attempt"`
 	Budget  int `json:"budget"`
+	// Cause is this app's statement about what ended the pipeline the pending relaunch follows, and
+	// Message that pipeline's own last words.
+	// On the state and not on the exit event alone, so a shell that mounts mid-backoff reads why as well
+	// as one that was listening when the pipeline died.
+	// Both are empty while nothing retries.
+	Cause   *screensharev1.Text `json:"cause"`
+	Message string              `json:"message"`
 	// What the local preview of this stream turned out to be, null while nothing publishes and while a
 	// publish runs without one.
 	// Here rather than beside the running decodes, because the pipeline behind it belongs to the

@@ -21,7 +21,7 @@ public sealed class TileStatsTests
     /// </summary>
     private static ReceiveStreamStats Sample() => new()
     {
-        Stream = new WatchKey { StreamName = "desk", Transport = "srt" },
+        Stream = new StreamRef { StreamName = "desk", Transport = "srt" },
 
         CodecDescription = "H.265 (Main 4:4:4 profile)",
         Profile = "main-444",
@@ -207,7 +207,7 @@ public sealed class TileStatsTests
     {
         var opening = new ReceiveStreamStats
         {
-            Stream = new WatchKey { StreamName = "desk", Transport = "srt" },
+            Stream = new StreamRef { StreamName = "desk", Transport = "srt" },
             UptimeSec = 0.4,
         };
 
