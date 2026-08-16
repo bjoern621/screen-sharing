@@ -76,6 +76,15 @@ pathDefaults:
   srtPublishPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
   srtReadPassphrase: "CHANGE-ME-16-CHARS-MINIMUM"
 
+  # A read announces itself to the group service, which closes it where the member holding it is no
+  # longer on that group's roster. A token cannot do that job: it is checked at the handshake and
+  # not again, so a member who left opens a connection with the one they still hold.
+  # The hook is a no-op for a group nobody stated a roster for.
+  #
+  # The path is the deployment's to provide, the way the certificate paths below are: the script is
+  # deploy/reconcile-on-read.sh in this repository and the host places it here.
+  runOnRead: /etc/mediamtx/reconcile-on-read.sh
+
 # --- The listeners the proxy fronts ----------------------------------------------
 #
 # HLS and WebRTC bind loopback. TLS, the certificate and its renewal live in the reverse proxy

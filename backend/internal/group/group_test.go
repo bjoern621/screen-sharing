@@ -139,3 +139,101 @@ func TestAKeyOfTheWrongLengthIsRefused(t *testing.T) {
 		}
 	}
 }
+
+// A member id names one member of a group on the relay, and the relay logs and lists it.
+// These hold that it identifies without carrying what it was derived from.
+func TestOneMemberDerivesOneID(t *testing.T) {
+	key := mustKey(t)
+
+	id, err := key.MemberID("alice")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	again, err := key.MemberID("alice")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	if id != again {
+		t.Errorf("one member derived two ids, %s and %s", id, again)
+	}
+
+	other, err := key.MemberID("bob")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	if other == id {
+		t.Error("two members derived one id")
+	}
+}
+
+// The id travels to the relay, which writes it into a log line and a session listing.
+// A member's name inside it would put whatever named them, a Discord account included, on the
+// relay's disk.
+func TestAMemberIDCarriesNeitherTheNameNorTheKey(t *testing.T) {
+	key := mustKey(t)
+
+	id, err := key.MemberID("alice")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	if strings.Contains(id, "alice") {
+		t.Errorf("the member id %s carries the name it was derived from", id)
+	}
+	if strings.Contains(id, key.String()) || strings.Contains(id, key.ID()) {
+		t.Errorf("the member id %s carries the group's own secret or id", id)
+	}
+}
+
+// Two groups holding a member of the same name are two members, since the id derives under the
+// group's key.
+func TestOneNameInTwoGroupsIsTwoMembers(t *testing.T) {
+	here, there := mustKey(t), mustKey(t)
+
+	mine, err := here.MemberID("alice")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	theirs, err := there.MemberID("alice")
+	if err != nil {
+		t.Fatalf("deriving a member id: %v", err)
+	}
+	if mine == theirs {
+		t.Error("one name derived one id across two groups")
+	}
+}
+
+// A name nobody gave names no member, and a subject derived from one would be a session the roster
+// can neither match nor explain.
+func TestAnEmptyNameNamesNoMember(t *testing.T) {
+	key := mustKey(t)
+
+	if _, err := key.MemberID(""); err == nil {
+		t.Error("an empty name derived a member id")
+	}
+}
+
+// Enforcement is handed a connection's path by the relay and has to find the group it belongs to,
+// there being no key on that side of the exchange.
+func TestAPathNamesThePrefixItIsEnforcedUnder(t *testing.T) {
+	key := mustKey(t)
+
+	path, err := key.Path("desk")
+	if err != nil {
+		t.Fatalf("deriving a stream path: %v", err)
+	}
+	prefix, ok := PrefixOf(path)
+	if !ok {
+		t.Fatalf("the path %s named no group", path)
+	}
+	if prefix != key.Prefix() {
+		t.Errorf("the path %s named the prefix %s, where its key derives %s", path, prefix, key.Prefix())
+	}
+}
+
+// A stream published outside the group model belongs to no group, and reporting one as a group of
+// its own would enforce a roster against a stream name.
+func TestAPathOutsideAGroupNamesNoPrefix(t *testing.T) {
+	if prefix, ok := PrefixOf("desk"); ok {
+		t.Errorf("a bare stream name named the group %s", prefix)
+	}
+}

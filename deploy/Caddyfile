@@ -38,6 +38,17 @@
 		reverse_proxy {$SCREENSHARE_GROUPD:127.0.0.1:9443}
 	}
 
+	# The group service's other two routes are deliberately absent, and fall through to the
+	# HLS handler below like any unknown path.
+	#
+	# /roster states who is in a group and closes what anybody else holds. Its caller runs
+	# beside this, and the day one runs elsewhere is the day a handler for it is added with
+	# whatever fronts it decided then.
+	#
+	# /reconcile takes no credential at all. It is the relay's own read hook reporting a path
+	# on loopback, and a route to it from outside would be a way for anyone to spend this
+	# host's relay API on demand.
+
 	# The WebRTC player page, served at the stream's own path and so at the address the HLS
 	# page answers on. The port that told the two apart is gone behind one name on 443, so
 	# the page takes a prefix and this strips it again before the relay, which knows of no

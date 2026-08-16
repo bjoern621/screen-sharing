@@ -1,0 +1,50 @@
+meta {
+  name: State the roster
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{groupService}}/roster
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "key": "{{groupKey}}",
+    "members": ["{{memberName}}", "{{secondMember}}"]
+  }
+}
+
+tests {
+  test("answers the roster it now holds, and what it closed to get there", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.enforced).to.equal(true);
+    expect(res.body.members).to.include(bru.getEnvVar("memberName"));
+    expect(res.body.kicked).to.be.an("array");
+  });
+
+  test("swept the whole relay and closed everything it meant to", function () {
+    expect(res.body.unread || []).to.be.an("array").that.is.empty;
+    expect(res.body.failed || []).to.be.an("array").that.is.empty;
+  });
+}
+
+docs {
+  # State the roster
+
+  States who the group's members are now, and brings the relay to it.
+
+  The answer is the run: `kicked` is every connection closed, each naming the stream inside the group, the leg it was on and its direction, and `kept` counts the ones a member holds.
+  What it does not carry is the relay's own session id or the address a connection came from, both being an operator's view of the relay where a group key is membership.
+  `unread` appears where a per-protocol list would not answer, which means the sweep was partial and somebody may still be connected.
+  `failed` appears where the relay refused to close one, which is a member still watching rather than a removal.
+
+  Running it twice over an unchanged roster closes nothing the second time.
+  That is what makes it safe on every membership change and on every read the relay reports.
+}

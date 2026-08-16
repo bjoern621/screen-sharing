@@ -1,0 +1,38 @@
+meta {
+  name: Stop enforcing
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{groupService}}/roster
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "key": "{{groupKey}}"
+  }
+}
+
+tests {
+  test("reports whether there was a roster to stop enforcing", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.cleared).to.be.a("boolean");
+  });
+}
+
+docs {
+  # Stop enforcing
+
+  Drops the group's roster, so nothing is closed under that prefix again until one is stated.
+
+  A group with no roster is one this service does not know the membership of, and it is left alone.
+  A group whose roster is empty is a voice channel nobody is in, and everything on it is closed.
+  The two look alike and mean opposite things, which is why stopping is its own request rather than an empty list.
+}

@@ -142,6 +142,47 @@ func (k Key) ID() string {
 	return id
 }
 
+// memberLabel separates a member's derivation from the id every URL carries.
+//
+// Each use of a key derives under its own label, so a member id cannot be replayed as a prefix nor
+// a prefix as a member.
+const memberLabel = "screenshare/group-member/v1"
+
+// MemberIDChars is how much of a member's digest a token subject keeps.
+//
+// Shorter than an id: a subject tells one member of a group from the others in that group, where an
+// id tells a group from every group on a relay.
+// 16 base32 characters is 80 bits.
+const MemberIDChars = 16
+
+// MemberID names one member of this group, as a relay token's subject.
+//
+// The relay writes a subject into its log lines and its session listings, which is why this is a
+// keyed digest under its own label and not the name: enforcement matches ids, and whatever named the
+// member stays off the relay.
+// Enforcement rests on both sides deriving it the same way, the service for the token it signs and
+// the roster for the set it holds against, so the name is trimmed once here rather than at each
+// caller.
+//
+// A name nobody gave is refused. It arrives over HTTP from whatever distributes the key, so an
+// empty one is an Umgebungsfehler and leaves as an error.
+func (k Key) MemberID(name string) (string, error) {
+	assert.Assert(len(k) == KeyBytes, "a member id is derived from a whole group key", len(k))
+
+	named := strings.TrimSpace(name)
+	if named == "" {
+		return "", errors.New("a member of a group has a name to derive an id from")
+	}
+
+	mac := hmac.New(sha256.New, k)
+	mac.Write([]byte(memberLabel))
+	mac.Write([]byte(named))
+
+	id := idEncoding.EncodeToString(mac.Sum(nil))[:MemberIDChars]
+	assert.Assert(len(id) == MemberIDChars, "a derived member id is the declared length", len(id))
+	return id, nil
+}
+
 // ErrNoGroup is what a Key operation answers for a key nobody gave.
 //
 // A group's path is derived from its key, so there is none to derive without one.
@@ -215,6 +256,19 @@ func Split(path string) (id, name string, ok bool) {
 		return "", "", false
 	}
 	return id, name, true
+}
+
+// PrefixOf is the prefix the group of this relay path is enforced under, and false for a path
+// belonging to no group.
+//
+// The path and not the key: what names a group here is the relay's own word, a connection's path,
+// which carries the id and never the secret behind it.
+func PrefixOf(path string) (string, bool) {
+	id, _, ok := Split(path)
+	if !ok {
+		return "", false
+	}
+	return id + separator, true
 }
 
 // Holds reports whether a relay path is inside this key's group.

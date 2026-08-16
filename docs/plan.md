@@ -137,7 +137,8 @@ Deriving the key from a channel identifier was rejected: a channel id is a publi
 Discord is a transport for the key, never its source, so a second integration leaves the security story unchanged.
 
 Creation is open and rate limited.
-**Rotation ships from the start**: possession as membership means a member who leaves still holds the key, and without rotation the model is advisory.
+**Removal ships with membership**: possession as membership means a member who leaves still holds what they were given, so without something that takes it back the model is advisory.
+What takes it back is closing their connections against a roster, drawing a new key being neither necessary nor sufficient: it leaves every live connection alone and moves every remaining member's streams to a new prefix.
 
 **One group at a time**, on the mental model of a voice channel.
 Switching groups moves the stream's path, so it stops the publish.
@@ -153,7 +154,7 @@ A field nobody filled in is a stream nobody restricted, and a key that came back
 
 **Relay auth is JWT** through `authJWTJWKS`, so the relay makes no call per connection.
 Tokens are short and validated at connect, and a live connection survives expiry.
-Revocation lands at the next connection, which is what rotation is for.
+So withholding one reaches the next connection and never the one in progress, which is what a roster and a kick are for.
 
 **Every leg is encrypted.** A reverse proxy fronts everything, including the API, with the relay's own listeners on loopback, and ACME lives in the proxy because MediaMTX has no ACME of its own.
 SRT is the one exception: UDP with no TLS, taking a relay-wide passphrase through `pathDefaults`, one user-set value written into both the publish and read keys.
@@ -207,7 +208,27 @@ A relay with no proxy in front of it is unchanged: no group service, no token, e
 What comes back is written through the path a pasted key takes, so joining a group is a settings change a reader can see, undo and hand on rather than something that happened to the machine.
 The button is offered only where a group service answers, which is a relay behind a TLS proxy, and states that reason where it is not.
 
+**Built: removing a member** (`backend/internal/roster`, `PUT /roster` and `POST /reconcile`).
+Rotation is not what removes somebody, and neither is expiry.
+Both leave a live connection alone, so what a member who left keeps is exactly what they already hold, and closing it is the only thing that takes it away.
+
+A roster is who a group's members are, stated whole by whatever serves the voice channel.
+Enforcing it lists every connection under the group's prefix and kicks the ones no member holds, which takes a member's own connections and never another group's.
+It is stated rather than stepped, so a second run over an unchanged roster does nothing and it is safe on every membership change.
+
+A member is told from another by the token's subject: `POST /tokens` takes a `member`, and the subject becomes a keyed digest of that name under the group's key rather than the group's own id.
+The relay lists a connection under that subject, so enforcement matches ids and whatever named the member, a Discord account included, stays off the relay.
+
+A kick is not a revocation, so a member who left reconnects on the token they still hold until it expires.
+The relay's read hook closes that too, reporting each starting read to `POST /reconcile` (`deploy/reconcile-on-read.sh`).
+Keeping them out for good is the other half and belongs to whatever issues tokens.
+
+The roster is the one thing the service keeps, and it keeps the fact rather than a copy: nobody else knows which members a group has.
+
 **What is left.** The snapshot that comes from the index carries no reader roster and no ingest bitrate, since the index does not answer them, and the grid shows those columns empty rather than blank-because-zero (`relay.Status.FromIndex`).
+
+Nothing states a roster on its own.
+A Discord bot is the caller these routes were shaped for, and until one exists a roster is stated by hand (`bruno/roster`).
 
 ## The pointer channel
 
@@ -229,9 +250,6 @@ And nothing carries the position over the relay, so a viewer on another machine 
 
 Assumptions the design rests on, not established facts.
 
-- MediaMTX validates a JWT at connection time only, and does not drop a live session when the token expires.
-  The token-lifetime decision rests on it.
-  Verifying it takes a running relay and a token that expires during a publish.
 - `ddagrab` exposes `draw_mouse`.
   It is a D3D11 filter, so a Linux ffmpeg does not carry it and the reading takes a Windows build.
 - Wayland compositors report a usable transfer characteristic through the portal's PipeWire caps.
@@ -244,6 +262,15 @@ Assumptions the design rests on, not established facts.
   The rows declare an average bitrate alone, so a constant rate, a burst ceiling or a quality target is a mode to add once somebody can measure what the framework does with it.
 
 Settled, and kept here until the work they belong to lands:
+
+- MediaMTX validates a JWT at connection time and not again, so a connection outlives its own token.
+  Measured against v1.20.0: an RTSP reader carried on for 75 s against a 20 s token and an SRT one for 45 s against a 15 s token, both uninterrupted, while a new connection on the expired token was refused with 401.
+  An HLS reader is the same answer by another route, its entry playlist being authenticated per request and the media playlist and segments then served on the session it opened.
+  The token lifetime therefore bounds opening connections and nothing else, which is why membership is enforced by closing them (`internal/roster`).
+- Every leg the relay serves a reader over lists that reader with the subject of the token it connected with, and takes a kick.
+  Measured against v1.20.0 across `rtspsessions`, `rtspssessions`, `srtconns`, `webrtcsessions`, `hlssessions`, `rtmpconns`, `rtmpsconns` and `moqsessions`.
+  `rtspconns` and `rtspsconns` answer a list and have no kick, a connection being closed by kicking the session on it.
+  `readerKinds` in `backend/internal/relay` carries which is which.
 
 - kmsgrab cannot include the cursor plane.
   Its demuxer takes a device, a CRTC, one plane, a format and a rate, and no cursor option of any kind.

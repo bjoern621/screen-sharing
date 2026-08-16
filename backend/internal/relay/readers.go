@@ -93,24 +93,30 @@ type Reader struct {
 type readerKind struct {
 	list      string
 	transport string
+	// kick is whether that list takes a kick beside it, which is what membership enforcement sweeps
+	// (sessions.go).
+	//
+	// Measured against v1.20.0: rtspconns and rtspsconns answer a list and have no kick of their own,
+	// a connection being closed by kicking the session running on it.
+	kick bool
 }
 
 var readerKinds = map[string]readerKind{
-	"srtConn":       {list: "srtconns", transport: "srt"},
+	"srtConn":       {list: "srtconns", transport: "srt", kick: true},
 	"rtspConn":      {list: "rtspconns", transport: "rtsp"},
-	"rtspSession":   {list: "rtspsessions", transport: "rtsp"},
-	"rtmpConn":      {list: "rtmpconns", transport: "rtmp"},
-	"webRTCSession": {list: "webrtcsessions", transport: "webrtc"},
-	"hlsSession":    {list: "hlssessions", transport: "hls"},
-	"moqSession":    {list: "moqsessions", transport: "moq"},
+	"rtspSession":   {list: "rtspsessions", transport: "rtsp", kick: true},
+	"rtmpConn":      {list: "rtmpconns", transport: "rtmp", kick: true},
+	"webRTCSession": {list: "webrtcsessions", transport: "webrtc", kick: true},
+	"hlsSession":    {list: "hlssessions", transport: "hls", kick: true},
+	"moqSession":    {list: "moqsessions", transport: "moq", kick: true},
 
 	// The TLS variants are the same protocol to a viewer, and this app's transport vocabulary has one
 	// name for each.
 	// Which listener the relay was reached over is a fact about the relay rather than about the leg,
 	// and no consumer here asks it.
 	"rtspsConn":    {list: "rtspsconns", transport: "rtsp"},
-	"rtspsSession": {list: "rtspssessions", transport: "rtsp"},
-	"rtmpsConn":    {list: "rtmpsconns", transport: "rtmp"},
+	"rtspsSession": {list: "rtspssessions", transport: "rtsp", kick: true},
+	"rtmpsConn":    {list: "rtmpsconns", transport: "rtmp", kick: true},
 
 	// A reader the relay declines to describe.
 	// Listed rather than left out, so the one type with deliberately no list is visible beside the

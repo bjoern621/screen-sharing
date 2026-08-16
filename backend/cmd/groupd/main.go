@@ -1,13 +1,14 @@
-// Command groupd serves keys, tokens and the stream index.
+// Command groupd serves keys, tokens, the stream index and the rosters those are enforced against.
 //
 // A binary of its own because it is a separate machine's: the backend runs on a publisher's
 // desktop, this runs beside the relay, where the signing key lives and where the relay fetches it.
 // Shared with the backend is the path derivation, which is why both live in this repository
 // (internal/group).
 //
-// A signing key and somewhere to read the relay's stream list are all it takes.
-// Nothing else is stored: possession of a group key is membership, and the prefix is that key's own
-// digest.
+// A signing key and a reachable relay API are all it takes.
+// What is stored is the signing key and the rosters: possession of a group key is still membership,
+// and the prefix is still that key's own digest, but who is in a group is a fact only whatever serves
+// the voice channel knows, and a roster is where it says so (internal/roster).
 package main
 
 import (
@@ -26,6 +27,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/groupsvc"
 	"bjoernblessin.de/screenshare/internal/relay"
+	"bjoernblessin.de/screenshare/internal/roster"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
@@ -62,15 +64,16 @@ func main() {
 		return
 	}
 
-	reader := &relayStreams{
-		host:    *relayHost,
-		apiPort: *relayAPIPort,
-		// The relay checks its API the way it checks a stream, so this reads through with a token of its
-		// own: signed here, granting the API action alone, handed to nobody.
-		// Minted per call, because a stored one expires while this process runs.
-		client: relay.NewAuthorized(func() string { return apiToken(signer) }),
-	}
-	service := groupsvc.New(signer, reader)
+	// The relay checks its API the way it checks a stream, so this reads through with a token of its
+	// own: signed here, granting the API action alone, handed to nobody.
+	// Minted per call, because a stored one expires while this process runs.
+	client := relay.NewAuthorized(func() string { return apiToken(signer) })
+	reader := &relayStreams{host: *relayHost, apiPort: *relayAPIPort, client: client}
+
+	// One client for both, the index reading what is live and enforcement closing what a member who
+	// left still holds. Neither reaches the relay as anything a group token could.
+	enforcer := relayConnections{host: *relayHost, apiPort: *relayAPIPort, client: client}
+	service := groupsvc.New(signer, reader, roster.New(enforcer))
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
 	// Loopback by default and no TLS of its own: the reverse proxy in front encrypts every leg to
@@ -242,4 +245,22 @@ func (r *relayStreams) Paths() []groupsvc.Stream {
 		out = append(out, groupsvc.Stream{Path: p.Name, Ready: p.Ready, Tracks: p.Tracks, Format: p.Format})
 	}
 	return out
+}
+
+// relayConnections is the relay this service enforces rosters against.
+//
+// The client is addressed by host and port per call, where the registry holds a relay and not an
+// address, so this is where the one this process was pointed at is bound in.
+type relayConnections struct {
+	host    string
+	apiPort int
+	client  *relay.Client
+}
+
+func (c relayConnections) Sessions() ([]relay.Session, []relay.Unread) {
+	return c.client.Sessions(c.host, c.apiPort)
+}
+
+func (c relayConnections) Kick(segment, id string) error {
+	return c.client.Kick(c.host, c.apiPort, segment, id)
 }

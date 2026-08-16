@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"bjoernblessin.de/screenshare/internal/group"
+	"bjoernblessin.de/screenshare/internal/roster"
 	"bjoernblessin.de/screenshare/internal/token"
 )
 
@@ -46,7 +47,7 @@ func service(t *testing.T, streams ...string) *Service {
 	if err != nil {
 		t.Fatalf("drawing a signing key: %v", err)
 	}
-	return New(signer, paths(streams))
+	return New(signer, paths(streams), roster.New(&carrying{}))
 }
 
 // call makes one request and returns its status and decoded body.

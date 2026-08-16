@@ -1,0 +1,43 @@
+meta {
+  name: Simulate a member leaving
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{groupService}}/roster
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "key": "{{groupKey}}",
+    "members": ["{{memberName}}"]
+  }
+}
+
+tests {
+  test("closes what the member who is no longer named was holding", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.body.members).to.not.include(bru.getEnvVar("secondMember"));
+    expect(res.body.failed || []).to.be.an("array").that.is.empty;
+  });
+}
+
+docs {
+  # Simulate a member leaving
+
+  The same request as `State the roster` with one member gone, which is the whole of what leaving is.
+
+  Run it while `{{secondMember}}` has a stream open, and their connections come back under `kicked` and their player stops.
+  Anything `{{memberName}}` holds is untouched, `kept` counting it.
+
+  A member who left still holds a token until it expires, so opening another stream works until then.
+  The relay reports that read as it starts and the group service runs this again (`Reconcile`, `deploy/reconcile-on-read.sh`), which is what closes the second attempt.
+  Keeping them out for good is the other half, and it belongs to whatever hands out tokens: a member who left is one it stops issuing to.
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Roster
+  seq: 3
+}
+
+docs {
+  # Roster
+
+  Who a group's members are, and what the relay does about anybody else.
+
+  A token cannot enforce membership. The relay reads one at the handshake and not again, measured against v1.20.0: a session outlives its token on every leg, and a client that is closed opens another with the same one.
+  So removal is two things at once. Whatever distributes keys stops issuing tokens to the member who left, and the roster closes what they already hold.
+
+  A member's token names that member, `Issue member token` being what mints one.
+  The subject is a keyed digest of the name under the group's key, so the relay lists and logs which member a connection belongs to without carrying the name it was derived from.
+
+  Run these in order against a relay carrying a stream of the group:
+
+  1. `Issue member token` for `{{memberName}}`, and again with `member` set to `{{secondMember}}`, then open a stream with each.
+  2. `State the roster`, naming both. Nothing is closed and `kept` counts them.
+  3. `Simulate a member leaving`, naming only the first. The answer carries what it closed.
+
+  A roster is stated whole and never as a departure: two callers racing on "who left" can leave a member the last one did not name, where two racing on "who is here" cannot.
+  Stating the same roster twice closes nothing, which is what lets it run on every membership change.
+
+  An empty `members` list is a voice channel nobody is in and closes everything on it.
+  That is a different statement from `Stop enforcing`, which is a group this service no longer knows the membership of and leaves alone.
+}
