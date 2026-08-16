@@ -1,0 +1,69 @@
+# The relay and the group service as container images, for a Kubernetes deployment of them.
+#
+# Separate from build.yml because these are the only artifacts built through Nix, and because
+# they are the only ones that need write access to a registry.
+#
+# A push builds both to prove they still build. A tag pushes them, so an image tag names a
+# release and never moves: the cluster repository pins an exact tag and Renovate bumps it, and
+# a tag rewritten on every commit to main would make that pin a lie.
+
+name: images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      # Independent images. One failing to build says nothing about the other, and a
+      # cancelled sibling hides which.
+      fail-fast: false
+      matrix:
+        include:
+          - package: relay-image
+            image: screenshare-relay
+          - package: proxy-image
+            image: screenshare-proxy
+          - package: groupd-image
+            image: screenshare-groupd
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+
+      - id: build
+        run: |
+          version=$(cat VERSION)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if [ "${GITHUB_REF_TYPE}" = tag ] && [ "${GITHUB_REF_NAME}" != "v$version" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match VERSION ($version)" >&2
+            exit 1
+          fi
+
+          nix build ".#${{ matrix.package }}"
+
+      # The Nix builder writes a docker-archive tarball, which is the format `docker load`
+      # reads, so the runner's own docker is the whole publishing toolchain.
+      - if: github.ref_type == 'tag'
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          docker load < result
+          echo '${{ secrets.GITHUB_TOKEN }}' |
+            docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+          docker tag "${{ matrix.image }}:$VERSION" "$REGISTRY/${{ matrix.image }}:$VERSION"
+          docker push "$REGISTRY/${{ matrix.image }}:$VERSION"

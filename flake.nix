@@ -310,6 +310,25 @@
         # A NixOS host installs it through the overlay below.
         packages.groupd = pkgs.callPackage ./nix/groupd.nix { };
 
+        # The three halves of a relay deployment as container images, for a relay on
+        # Kubernetes instead of on a host of its own. They are the same three processes a
+        # NixOS relay host runs, and they expect the same loopback between them, so a pod
+        # holding all three is the host layout unchanged.
+        #
+        # Each builds a docker-archive tarball, which `docker load` reads:
+        #
+        #   nix build .#relay-image
+        #   docker load < result
+        #
+        # Each carries the deploy/ file it runs on, so an image tag pins a binary and the
+        # configuration written against it together rather than leaving the second half to
+        # a ConfigMap somewhere else.
+        packages.relay-image = pkgs.callPackage ./nix/relay-image.nix { };
+        packages.proxy-image = pkgs.callPackage ./nix/proxy-image.nix { };
+        packages.groupd-image = pkgs.callPackage ./nix/groupd-image.nix {
+          screenshare-groupd = self.packages.${system}.groupd;
+        };
+
         apps.default = {
           type = "app";
           program = "${self.packages.${system}.screen-sharing}/bin/screenshare-avalonia";
