@@ -67,15 +67,20 @@ func (RTMP) GstSource(s settings.Settings, streamName string) []string {
 	return []string{"rtmp2src", "location=" + rtmpURL(s, streamName), gstTlsValidation(s)}
 }
 
-// rtmpURL addresses one path on the relay's RTMPS listener,
-// "rtmps://relay:1936/<path>?jwt=<token>".
+// ListenerURL is the relay's RTMPS listener, "rtmps://relay:1936".
 //
-// One scheme, for the reason rtspAddress has one: every relay terminates TLS on this leg and binds
-// no cleartext listener (deploy/mediamtx-groups.yml, rtmpEncryption).
+// One scheme, for the reason RTSP's listener has one: every relay terminates TLS on this leg and
+// binds no cleartext listener (deploy/mediamtx-groups.yml, rtmpEncryption).
+func (RTMP) ListenerURL(s settings.Settings) string {
+	return fmt.Sprintf("rtmps://%s:%d", s.Relay.Host, s.Relay.RtmpPort)
+}
+
+// rtmpURL addresses one path on that listener,
+// "rtmps://relay:1936/<path>?jwt=<token>".
 //
 // Neither the name nor the port is asserted, unlike at the watch entry points above: this builder
 // serves the publish leg too, where the name comes off the settings rather than a validated call
 // and a port of zero is a stored value the migration repairs.
 func rtmpURL(s settings.Settings, name string) string {
-	return fmt.Sprintf("rtmps://%s:%d/%s", s.Relay.Host, s.Relay.RtmpPort, name) + credentialQuery(s, "?")
+	return RTMP{}.ListenerURL(s) + "/" + name + credentialQuery(s, "?")
 }

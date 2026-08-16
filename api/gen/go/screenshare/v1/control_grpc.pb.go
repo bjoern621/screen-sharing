@@ -52,6 +52,7 @@ const (
 	ControlService_ProbeEncoders_FullMethodName          = "/screenshare.v1.ControlService/ProbeEncoders"
 	ControlService_MeasureUplink_FullMethodName          = "/screenshare.v1.ControlService/MeasureUplink"
 	ControlService_MeasureEncodeRate_FullMethodName      = "/screenshare.v1.ControlService/MeasureEncodeRate"
+	ControlService_CheckRelay_FullMethodName             = "/screenshare.v1.ControlService/CheckRelay"
 	ControlService_ForgetPortalConsent_FullMethodName    = "/screenshare.v1.ControlService/ForgetPortalConsent"
 	ControlService_CreateGroup_FullMethodName            = "/screenshare.v1.ControlService/CreateGroup"
 	ControlService_OpenLog_FullMethodName                = "/screenshare.v1.ControlService/OpenLog"
@@ -262,6 +263,18 @@ type ControlServiceClient interface {
 	// shell can say whether the target frame rate is above what this machine encodes at these
 	// settings.
 	MeasureEncodeRate(ctx context.Context, in *MeasureEncodeRateRequest, opts ...grpc.CallOption) (*MeasureEncodeRateResponse, error)
+	// Dials every leg of the relay the draft names and answers what each listener said.
+	//
+	// An effect on the same test the measurements meet: it reaches the network, it takes seconds
+	// against a listener that is not there, and what it reports is a reading of the moment rather
+	// than a fact a later read answers from.
+	// Unlike them it competes with nothing, so a live stream does not refuse it: a handshake per
+	// leg is not a load on the line or on the encoder.
+	//
+	// Each leg is dialled where the transport carrying it says its listener answers, so a check
+	// reaches what a stream reaches, and it is asked in its own protocol because an open socket
+	// proves nothing (backend/internal/reach, docs/network-architecture.md).
+	CheckRelay(ctx context.Context, in *CheckRelayRequest, opts ...grpc.CallOption) (*CheckRelayResponse, error)
 	// Drops the stored screen-capture consent, so the next capture asks the compositor to pick
 	// again.
 	// It is how a share aimed at the wrong window or monitor is corrected.
@@ -664,6 +677,16 @@ func (c *controlServiceClient) MeasureEncodeRate(ctx context.Context, in *Measur
 	return out, nil
 }
 
+func (c *controlServiceClient) CheckRelay(ctx context.Context, in *CheckRelayRequest, opts ...grpc.CallOption) (*CheckRelayResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckRelayResponse)
+	err := c.cc.Invoke(ctx, ControlService_CheckRelay_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServiceClient) ForgetPortalConsent(ctx context.Context, in *ForgetPortalConsentRequest, opts ...grpc.CallOption) (*ForgetPortalConsentResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ForgetPortalConsentResponse)
@@ -962,6 +985,18 @@ type ControlServiceServer interface {
 	// shell can say whether the target frame rate is above what this machine encodes at these
 	// settings.
 	MeasureEncodeRate(context.Context, *MeasureEncodeRateRequest) (*MeasureEncodeRateResponse, error)
+	// Dials every leg of the relay the draft names and answers what each listener said.
+	//
+	// An effect on the same test the measurements meet: it reaches the network, it takes seconds
+	// against a listener that is not there, and what it reports is a reading of the moment rather
+	// than a fact a later read answers from.
+	// Unlike them it competes with nothing, so a live stream does not refuse it: a handshake per
+	// leg is not a load on the line or on the encoder.
+	//
+	// Each leg is dialled where the transport carrying it says its listener answers, so a check
+	// reaches what a stream reaches, and it is asked in its own protocol because an open socket
+	// proves nothing (backend/internal/reach, docs/network-architecture.md).
+	CheckRelay(context.Context, *CheckRelayRequest) (*CheckRelayResponse, error)
 	// Drops the stored screen-capture consent, so the next capture asks the compositor to pick
 	// again.
 	// It is how a share aimed at the wrong window or monitor is corrected.
@@ -1132,6 +1167,9 @@ func (UnimplementedControlServiceServer) MeasureUplink(context.Context, *Measure
 }
 func (UnimplementedControlServiceServer) MeasureEncodeRate(context.Context, *MeasureEncodeRateRequest) (*MeasureEncodeRateResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method MeasureEncodeRate not implemented")
+}
+func (UnimplementedControlServiceServer) CheckRelay(context.Context, *CheckRelayRequest) (*CheckRelayResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckRelay not implemented")
 }
 func (UnimplementedControlServiceServer) ForgetPortalConsent(context.Context, *ForgetPortalConsentRequest) (*ForgetPortalConsentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ForgetPortalConsent not implemented")
@@ -1769,6 +1807,24 @@ func _ControlService_MeasureEncodeRate_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlService_CheckRelay_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckRelayRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServiceServer).CheckRelay(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlService_CheckRelay_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServiceServer).CheckRelay(ctx, req.(*CheckRelayRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlService_ForgetPortalConsent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ForgetPortalConsentRequest)
 	if err := dec(in); err != nil {
@@ -2012,6 +2068,10 @@ var ControlService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MeasureEncodeRate",
 			Handler:    _ControlService_MeasureEncodeRate_Handler,
+		},
+		{
+			MethodName: "CheckRelay",
+			Handler:    _ControlService_CheckRelay_Handler,
 		},
 		{
 			MethodName: "ForgetPortalConsent",

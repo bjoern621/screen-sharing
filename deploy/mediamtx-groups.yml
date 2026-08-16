@@ -56,9 +56,17 @@ authJWTExclude:
   - action: read
     path: ~^public/
 
-# The API, the metrics and the playback endpoints are not for members. A token this service
-# issues grants publishing and reading and nothing else, so those three are refused for
-# everyone until an operator's own token grants them.
+  # The scrape, which carries counters and no stream.
+  # A collector holds no group key, and a token it could hold expires between scrapes, so what
+  # decides who reads the counters is the network rather than a credential: the listener binds
+  # an address the deployment chooses and the deployment names who may reach it.
+  # An exclusion names an action, and this one names no path because the metrics action has
+  # none: what it grants is the one endpoint below and nothing on a stream.
+  - action: metrics
+
+# The API and the playback endpoints are not for members. A token this service issues grants
+# publishing and reading and nothing else, so both are refused for everyone until an operator's
+# own token grants them.
 
 # --- SRT -------------------------------------------------------------------------
 #
@@ -123,6 +131,15 @@ webrtcLocalUDPAddress: :8189
 
 api: yes
 apiAddress: 127.0.0.1:9997
+
+# What the relay counts: bytes and connections per path and per listener, which is the half of a
+# deployment's readings the group service cannot answer.
+#
+# Not loopback, where the API above is. A collector scrapes from somewhere else, so this binds
+# every address the relay has and what keeps it private is the deployment: the pod publishes no
+# host port for it and its NetworkPolicy names the one namespace that may reach it.
+metrics: yes
+metricsAddress: :9998
 
 # --- Media over QUIC, which no proxy can front either --------------------------------
 #

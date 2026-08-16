@@ -60,12 +60,19 @@ var srtFormats = Formats{
 
 func (SRT) Formats() Formats { return srtFormats }
 
+// ListenerURL is the relay's SRT listener, "srt://relay:8890".
+// No TLS on this leg at all: it is UDP, and what protects it is the relay-wide passphrase
+// (deploy/mediamtx-groups.yml).
+func (SRT) ListenerURL(s settings.Settings) string {
+	return fmt.Sprintf("srt://%s:%d", s.Relay.Host, s.Relay.SrtPort)
+}
+
 func (SRT) PublishArgs(s settings.Settings) []string {
 	// ffmpeg's srt protocol takes every knob as a URL query: latency in MICROSECONDS, and the buffers
 	// under ffmpeg's own names (pkt_size, sndbuf, ffs).
-	url := fmt.Sprintf(
-		"srt://%s:%d?streamid=%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
+	url := SRT{}.ListenerURL(s) + fmt.Sprintf(
+		"?streamid=%s&pkt_size=1316&latency=%d&sndbuf=%d&ffs=%d",
+		srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
 		s.Publish.SrtPublishLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 
 	return []string{"-f", "mpegts", url}
@@ -79,7 +86,7 @@ func (SRT) GstSink(s settings.Settings) []string {
 	return append([]string{
 		"mpegtsmux", "name=" + GstMuxName, "alignment=7",
 		"!", "srtsink",
-		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
+		"uri=" + SRT{}.ListenerURL(s),
 		"mode=caller",
 		"streamid=" + srtStreamID(s, "publish", s.Relay.Path(s.Publish.Name)),
 		fmt.Sprintf("latency=%d", s.Publish.SrtPublishLatencyMs),
@@ -90,9 +97,9 @@ func (SRT) GstSink(s settings.Settings) []string {
 func (SRT) WatchURL(s settings.Settings, streamName string) string {
 	assert.Assert(streamName != "", "a watch URL names the stream it opens")
 
-	return fmt.Sprintf(
-		"srt://%s:%d?streamid=%s&latency=%d&rcvbuf=%d&ffs=%d",
-		s.Relay.Host, s.Relay.SrtPort, srtStreamID(s, "read", streamName),
+	return SRT{}.ListenerURL(s) + fmt.Sprintf(
+		"?streamid=%s&latency=%d&rcvbuf=%d&ffs=%d",
+		srtStreamID(s, "read", streamName),
 		s.Viewer.SrtWatchLatencyMs*1000, srtBufBytes, srtBufBytes) + srtPassphraseQuery(s)
 }
 
@@ -104,7 +111,7 @@ func (SRT) GstSource(s settings.Settings, streamName string) []string {
 
 	return append([]string{
 		"srtsrc",
-		fmt.Sprintf("uri=srt://%s:%d", s.Relay.Host, s.Relay.SrtPort),
+		"uri=" + SRT{}.ListenerURL(s),
 		"mode=caller",
 		"streamid=" + srtStreamID(s, "read", streamName),
 		fmt.Sprintf("latency=%d", s.Viewer.SrtWatchLatencyMs),

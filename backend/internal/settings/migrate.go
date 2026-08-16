@@ -130,12 +130,14 @@ func set[T any](into *T, stored *T) {
 }
 
 // migrate upgrades a decoded settings object to the schema this build reads.
-// It renames the pre-rate-control modes ("latency" to "cbr", "quality" to "crf") and fills the keys
-// added since a file was written, so a file from an older build stays usable.
+// It renames the pre-rate-control modes ("latency" to "cbr", "quality" to "crf"), moves a value onto
+// the one that answers where it named a thing the app no longer addresses, and fills the keys added
+// since a file was written, so a file from an older build stays usable.
 // Run over the working settings and over every saved preset.
 //
-// Idempotent: a second pass over its own output renames nothing, the old mode names being gone, and
-// fills nothing, every key it fills being non-empty by then.
+// Idempotent: a second pass over its own output renames nothing, the old mode names being gone,
+// moves nothing, a moved value no longer matching what it moved from, and fills nothing, every key
+// it fills being non-empty by then.
 func migrate(s Settings) Settings {
 	d := Defaults()
 	s.Relay = migrateRelay(s.Relay, d.Relay)
@@ -144,7 +146,14 @@ func migrate(s Settings) Settings {
 	return s
 }
 
-// migrateRelay fills the listener ports a file written before a transport was registered lacks.
+// The RTSP and RTMP ports of a relay that terminated neither leg itself.
+const (
+	cleartextRtspPort = 8554
+	cleartextRtmpPort = 1935
+)
+
+// migrateRelay fills the listener ports a file written before a transport was registered lacks, and
+// moves the two a relay stopped binding onto the listeners that answer in their place.
 // No transport is reachable on port zero, so a missing port is no value a user chose.
 func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.SrtPort, d.SrtPort)
@@ -154,6 +163,17 @@ func migrateRelay(r, d Relay) Relay {
 	fillNum(&r.RtmpPort, d.RtmpPort)
 	fillNum(&r.HlsPort, d.HlsPort)
 	fillNum(&r.MoqPort, d.MoqPort)
+
+	// Every relay terminates TLS on these two legs and binds no cleartext listener at all
+	// (deploy/mediamtx-groups.yml, rtspEncryption), and both addresses are spelled rtsps and rtmps
+	// whatever port they carry (internal/transport).
+	// A file naming a cleartext port addresses nothing, and reaching for a port with no listener
+	// behind it is a timeout rather than a refusal, so the publish spends its whole connect window
+	// before saying so.
+	// These two numbers alone: a relay binds its TLS listeners wherever it is told to, and a second
+	// one on the same host takes ports somebody chose (cmd/soak/scripts/start.sh).
+	replaceNum(&r.RtspPort, cleartextRtspPort, d.RtspPort)
+	replaceNum(&r.RtmpPort, cleartextRtmpPort, d.RtmpPort)
 
 	// DisplayName is left alone. An empty one is a state and not a gap: this machine has been given no
 	// name, and joining a group asks for one rather than proceeding under a filled-in default.
@@ -280,6 +300,17 @@ func fillText(into *string, def string) {
 	assert.IsNotNil(into, "a default is written into a field")
 
 	if *into == "" {
+		*into = def
+	}
+}
+
+// replaceNum writes the default over one stored figure and leaves every other value standing.
+// For a figure that addressed something once and addresses nothing now, which fillNum's absence
+// test does not reach.
+func replaceNum(into *int, stale, def int) {
+	assert.IsNotNil(into, "a replacement is written into a field")
+
+	if *into == stale {
 		*into = def
 	}
 }

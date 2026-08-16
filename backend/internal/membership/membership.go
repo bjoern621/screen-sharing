@@ -77,6 +77,9 @@ type Registry struct {
 	// now is read rather than time.Now called directly, so a test can let a lease lapse without
 	// waiting one out.
 	now func() time.Time
+	// What a scrape counts, guarded by nothing this holds: a count never waits on a sweep
+	// (reading.go).
+	counted
 }
 
 // lease is one member's presence: the name they claimed, and when it stops holding.
@@ -176,11 +179,19 @@ func (r *Registry) State(groupKey group.Key, secret group.MemberSecret, displayN
 			return Answer{}, ErrNameTaken
 		}
 	}
+	// Whether this is an arrival is read before the write, a refresh being the same call and the two
+	// being what a reader of the churn has to tell apart.
+	standing, holds := r.held[prefix][id]
+	arriving := !holds || !standing.expires.After(now)
 	if r.held[prefix] == nil {
 		r.held[prefix] = map[string]lease{}
 	}
 	r.held[prefix][id] = lease{displayName: named, expires: now.Add(Lease)}
 	r.mu.Unlock()
+
+	if arriving {
+		r.stated.Add(1)
+	}
 
 	run, kept := r.sweep(prefix)
 
@@ -220,6 +231,10 @@ func (r *Registry) Release(groupKey group.Key, secret group.MemberSecret) (Answe
 	}
 	r.mu.Unlock()
 
+	if holds && held.expires.After(now) {
+		r.released.Add(1)
+	}
+
 	// Only where this registry knew the lease: a member it never held one for is one whose connections
 	// no run of it ever accounted for, and reaching the relay on a group key anybody can draw is a
 	// listing anybody can ask for.
@@ -248,9 +263,12 @@ func (r *Registry) closeHeld(prefix, id string) {
 		if session.User != id || !strings.HasPrefix(session.Path, prefix) {
 			continue
 		}
-		if r.relay.Kick(session.Segment, session.ID) == nil {
-			r.gone(prefix, session.ID)
+		if r.relay.Kick(session.Segment, session.ID) != nil {
+			r.refused.add(session.Transport)
+			continue
 		}
+		r.kicked.add(session.Transport)
+		r.gone(prefix, session.ID)
 	}
 }
 
@@ -294,6 +312,11 @@ func (r *Registry) connections(prefix string) ([]relay.Session, []relay.Unread) 
 		return taken.sessions, taken.unread
 	}
 	sessions, unread := r.relay.Sessions()
+	// Counted per look rather than per caller, the looks inside one window being one read of the
+	// relay that every caller in it shares.
+	for _, missed := range unread {
+		r.unread.add(missed.Segment)
+	}
 	taken.at, taken.sessions, taken.unread = r.now(), sessions, unread
 	return sessions, unread
 }
@@ -369,12 +392,14 @@ func (r *Registry) Reap(now time.Time) []Result {
 
 	r.mu.Lock()
 	lapsed := []string{}
+	gone := int64(0)
 	for prefix, leases := range r.held {
 		changed := false
 		for id, held := range leases {
 			if !held.expires.After(now) {
 				delete(leases, id)
 				changed = true
+				gone++
 			}
 		}
 		if len(leases) == 0 {
@@ -392,6 +417,8 @@ func (r *Registry) Reap(now time.Time) []Result {
 		}
 	}
 	r.mu.Unlock()
+
+	r.lapsed.Add(gone)
 
 	// Sorted, so two sweeps of one relay read it in one order.
 	slices.Sort(lapsed)

@@ -66,7 +66,13 @@ func (HLS) WatchURL(s settings.Settings, streamName string) string {
 
 	// No credential in the address. A player opens this URL and the relay's HTTP servers take a token
 	// in a header (credential.go), which the player is handed beside the URL (internal/watch).
-	return s.Relay.HTTPOrigin(s.Relay.HlsPort) + "/" + streamName + "/index.m3u8"
+	return HLS{}.ListenerURL(s) + "/" + streamName + "/index.m3u8"
+}
+
+// ListenerURL is where the relay serves HLS: its own port, or the proxy's name where one fronts it
+// (settings.Relay.HTTPOrigin).
+func (HLS) ListenerURL(s settings.Settings) string {
+	return s.Relay.HTTPOrigin(s.Relay.HlsPort)
 }
 
 // ResolveGstSource asks the relay where the segments are (hlsplaylist.go).

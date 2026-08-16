@@ -59,13 +59,17 @@ func (MoQ) BrowserURL(s settings.Settings, streamName string) string {
 	return moqOrigin(s) + "/" + streamName + "/"
 }
 
-// moqOrigin is the relay's MoQ listener, "https://relay:8892", carrying the credential the page is
-// answered on.
+// ListenerURL is the relay's MoQ listener, "https://relay:8892".
 //
 // Always https and always the port, where HTTPOrigin drops the port under Tls.
 // WebTransport refuses a plaintext listener, so this leg is encrypted on a LAN relay too, and its
 // session is a CONNECT over HTTP/3, which a proxy listening on TCP 443 never sees.
 // The relay therefore answers this port itself in every deployment, the shape RTSPS and RTMPS have.
+func (MoQ) ListenerURL(s settings.Settings) string {
+	return fmt.Sprintf("https://%s:%d", s.Relay.Host, s.Relay.MoqPort)
+}
+
+// moqOrigin is that listener carrying the credential the page is answered on.
 func moqOrigin(s settings.Settings) string {
-	return withCredential(s, fmt.Sprintf("https://%s:%d", s.Relay.Host, s.Relay.MoqPort))
+	return withCredential(s, MoQ{}.ListenerURL(s))
 }

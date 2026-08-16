@@ -42,8 +42,8 @@ public static class CommitCopy
         [PublishCommit.Start] = new Entry
         {
             Label = "Start sharing",
-            Lead = "Sharing starts sending immediately. Viewers on ",
-            Tail = " will see the stream within about two seconds.",
+            Lead = "Sharing starts on these settings. Viewers on ",
+            Tail = " can view the stream afterwards.",
         },
 
         [PublishCommit.Apply] = new Entry

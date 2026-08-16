@@ -662,6 +662,19 @@ enum TextCode {
   // TEXT_ARG_NAME_PATH.
   TEXT_CODE_PRESET_STORE_UNREADABLE = 151;
 
+  // --- Why a leg of the relay was never dialled ----------------------------------
+  //
+  // Both sit on a RelayLeg under RELAY_LEG_VERDICT_UNADDRESSED, which is neither an answer
+  // nor a failure: nothing was asked of that listener (control.proto, CheckRelay).
+
+  // No relay is named in the settings, so no leg has an address at all.
+  // No arguments.
+  TEXT_CODE_RELAY_LEG_NO_RELAY = 166;
+  // The relay binds this listener to loopback, so it answers on the relay's own machine and
+  // is reached from nowhere else.
+  // No arguments.
+  TEXT_CODE_RELAY_LEG_LOOPBACK_ONLY = 167;
+
   // 66 said only some encoder families take a preset ladder, which stopped holding once
   // every implemented encoder's row declared its own.
   // The statement is gone rather than renamed, so the name stays reserved too:

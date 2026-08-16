@@ -248,6 +248,19 @@ service ControlService {
   // settings.
   rpc MeasureEncodeRate(MeasureEncodeRateRequest) returns (MeasureEncodeRateResponse);
 
+  // Dials every leg of the relay the draft names and answers what each listener said.
+  //
+  // An effect on the same test the measurements meet: it reaches the network, it takes seconds
+  // against a listener that is not there, and what it reports is a reading of the moment rather
+  // than a fact a later read answers from.
+  // Unlike them it competes with nothing, so a live stream does not refuse it: a handshake per
+  // leg is not a load on the line or on the encoder.
+  //
+  // Each leg is dialled where the transport carrying it says its listener answers, so a check
+  // reaches what a stream reaches, and it is asked in its own protocol because an open socket
+  // proves nothing (backend/internal/reach, docs/network-architecture.md).
+  rpc CheckRelay(CheckRelayRequest) returns (CheckRelayResponse);
+
   // Drops the stored screen-capture consent, so the next capture asks the compositor to pick
   // again.
   // It is how a share aimed at the wrong window or monitor is corrected.
@@ -609,6 +622,52 @@ message MeasureEncodeRateRequest {
 
 message MeasureEncodeRateResponse {
   EncodeRate rate = 1;
+}
+
+message CheckRelayRequest {
+  // The relay to dial, taken from the draft for the reason CreateGroupRequest takes one: what
+  // is asked is whether the relay on screen answers, not whether the stored one does.
+  //
+  // The whole Settings and not the relay group alone, because the addresses dialled are built
+  // by the same builders a stream's are, and a narrower message would mean two shapes reaching
+  // one set of builders (MeasureEncodeRateRequest takes them for the same reason).
+  Settings settings = 1;
+}
+
+message CheckRelayResponse {
+  // One per leg, in the order they are reported, which is by name.
+  repeated RelayLeg legs = 1;
+}
+
+// One listener of the relay and what it answered.
+message RelayLeg {
+  // Transport registry name, or the name of one of the two services no transport carries:
+  // "srt", "rtsp", "rtmp", "hls", "webrtc", "moq", "groups", "api".
+  string leg = 1;
+  // Where it was dialled, as a reader would type it: "rtsps://relay:8322".
+  // Empty exactly under RELAY_LEG_VERDICT_UNADDRESSED.
+  string address = 2;
+  RelayLegVerdict verdict = 3;
+  // What the listener answered, or the failure the dial itself reported.
+  // Raw and never matched against, being another machine's words rather than this app's
+  // vocabulary (text.proto), and empty where nothing was dialled.
+  string detail = 4;
+  // Why nothing was dialled, present exactly under RELAY_LEG_VERDICT_UNADDRESSED.
+  Text unaddressed = 5;
+  // How long the probe waited, and absent where nothing was dialled.
+  optional int64 waited_ms = 6;
+}
+
+enum RelayLegVerdict {
+  RELAY_LEG_VERDICT_UNSPECIFIED = 0;
+  // The listener answered, in the protocol its address names.
+  RELAY_LEG_VERDICT_REACHABLE = 1;
+  // Nothing answered, or what answered speaks something else.
+  RELAY_LEG_VERDICT_UNREACHABLE = 2;
+  // This deployment sends nothing here, so nothing was dialled.
+  // Neither an answer nor a failure: a relay binding what it is configured to bind is a relay
+  // behaving, and `unaddressed` says which case it is.
+  RELAY_LEG_VERDICT_UNADDRESSED = 3;
 }
 
 message ForgetPortalConsentRequest {}

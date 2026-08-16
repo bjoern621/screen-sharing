@@ -20,6 +20,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -40,6 +41,9 @@ type fakeBackend struct {
 	members wire.MembersSnapshot
 	joins   int
 	leaves  int
+	// legs is what a relay check answers, which no err field can stand in for: every leg comes back
+	// with a verdict of its own and a relay that answers nothing is still a response.
+	legs []reach.Result
 	// err is what every effect answers with, so a test wanting a refusal sets one field rather than
 	// one per method.
 	err error
@@ -64,6 +68,10 @@ func (f *fakeBackend) MaxTestStreams() int                            { return 9
 func (f *fakeBackend) MeasureUplink(context.Context) (float64, error) { return 0, f.err }
 func (f *fakeBackend) MeasureEncodeRate(context.Context, settings.Settings) (encoderate.Rate, error) {
 	return encoderate.Rate{}, f.err
+}
+
+func (f *fakeBackend) CheckRelay(context.Context, settings.Settings) []reach.Result {
+	return f.legs
 }
 
 func (f *fakeBackend) SaveSettings(settings.Settings) error    { return f.err }

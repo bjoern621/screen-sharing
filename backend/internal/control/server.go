@@ -26,6 +26,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/events"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/pointer"
+	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/receive"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -103,6 +104,10 @@ type Backend interface {
 	MeasureUplink(ctx context.Context) (float64, error)
 	// MeasureEncodeRate times the configured encoder on generated frames.
 	MeasureEncodeRate(ctx context.Context, s settings.Settings) (encoderate.Rate, error)
+	// CheckRelay dials every leg of the relay the settings name and answers what each listener said.
+	// A row per leg whatever the network did, so an unreachable relay is an answer rather than an
+	// error (internal/reach).
+	CheckRelay(ctx context.Context, s settings.Settings) []reach.Result
 
 	// SaveSettings persists the settings the shell holds and leaves a running stream alone: reaching a
 	// live pipeline is ApplyToStream's business.

@@ -205,12 +205,17 @@ func (t RTSP) SetWatchOption(s *settings.Settings, key, value string) error {
 	return knobSet(t.Name(), rtspWatchKnobs, s, key, value)
 }
 
-// rtspURL addresses one path on the relay's RTSPS listener and carries the credential,
-// "rtsps://relay:8322/<path>?jwt=<token>".
+// ListenerURL is the relay's RTSPS listener, "rtsps://relay:8322".
 //
 // One scheme, every relay terminating TLS on this leg and binding no cleartext listener at all
 // (deploy/mediamtx-groups.yml, rtspEncryption).
 // The port is the settings' own, which is what a relay on other listeners is pointed at by.
+func (RTSP) ListenerURL(s settings.Settings) string {
+	return fmt.Sprintf("rtsps://%s:%d", s.Relay.Host, s.Relay.RtspPort)
+}
+
+// rtspURL addresses one path on that listener and carries the credential,
+// "rtsps://relay:8322/<path>?jwt=<token>".
 //
 // The credential rides as a query and not as a userinfo password, which is where MediaMTX reads a
 // JWT for RTSP.
@@ -222,5 +227,5 @@ func rtspURL(s settings.Settings, name string) string {
 
 // rtspAddress is that address with no credential on it, for the reader that takes one separately.
 func rtspAddress(s settings.Settings, name string) string {
-	return fmt.Sprintf("rtsps://%s:%d/%s", s.Relay.Host, s.Relay.RtspPort, name)
+	return RTSP{}.ListenerURL(s) + "/" + name
 }

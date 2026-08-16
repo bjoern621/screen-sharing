@@ -114,7 +114,7 @@ It opens:
 
 HLS, WebRTC and the API answer on loopback, a deployment reaching them through the reverse proxy in `deploy/Caddyfile` under one name on 443.
 MoQ is the exception the relay names out loud: no proxy carries WebTransport, so the relay answers that port directly and a watcher's network has to pass both sides of it.
-`docs/network-architecture.md` covers which leg is encrypted with what.
+`docs/network-architecture.md` covers which leg is encrypted with what, and `backend check-relay` says which of them a given machine is answering on.
 
 The binaries come from the flake's dev shell on Linux and macOS.
 Windows has no such shell, so a Windows host runs `pwsh scripts/relay.ps1`, which fetches `mediamtx.exe` into `bin/` on first run and starts both against the same configuration.

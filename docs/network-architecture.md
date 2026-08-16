@@ -95,6 +95,26 @@ The port numbers live in `deploy/mediamtx-groups.yml` and the routing in `deploy
 Those two files are what every relay obeys, a deployment and a development machine alike.
 This page is the reason they are shaped that way.
 
+## Checking a relay
+
+`backend check-relay` dials every leg the stored settings address and prints what each one answered.
+
+```
+✓  groups  https://relay.example/jwks.json  200 OK                                    64ms
+✓  rtsp    rtsps://relay.example:8322       RTSP/1.0 200 OK                           63ms
+✗  srt     srt://relay.example:8890         i/o timeout                               5.001s
+–  api                                      answers on the relay's own machine alone
+```
+
+Each leg is dialled where the transport that carries it says its listener answers (`transport.Listener`), so a check reaches what a stream reaches.
+A port the relay does not bind is a cross here rather than a publish that waits out its connect window.
+
+Each is asked in its own protocol, an open socket proving nothing on its own.
+RTSP answers `OPTIONS`, SRT answers the induction handshake that precedes any stream id or passphrase, an HTTP leg answers a request with any status at all, and RTMPS is the TLS handshake and the certificate behind it.
+
+A dash is a leg this deployment addresses nowhere, and is no failure: the relay binds its API to loopback, so it is dialled on the relay's own machine and reported unasked anywhere else.
+The exit status is 1 where a leg that was dialled did not answer.
+
 ## Who holds what
 
 A group key is what lets somebody join a group, and its digest is the path prefix every stream of that group lives under.

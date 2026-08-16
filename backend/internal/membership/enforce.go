@@ -125,9 +125,11 @@ func (r *Registry) sweep(prefix string) (Result, []relay.Session) {
 		assert.Assert(session.Segment != "", "a connection to close names the list it is on", session.ID)
 		closing := connectionOf(session, prefix, name)
 		if err := r.relay.Kick(session.Segment, session.ID); err != nil {
+			r.refused.add(session.Transport)
 			result.Failed = append(result.Failed, Failed{Connection: closing, Reason: err.Error()})
 			continue
 		}
+		r.kicked.add(session.Transport)
 		r.gone(prefix, session.ID)
 		result.Kicked = append(result.Kicked, closing)
 	}

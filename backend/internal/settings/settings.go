@@ -122,14 +122,27 @@ func (r Relay) HTTPOrigin(directPort int) string {
 // guess in the wrong direction being a stream in the clear.
 // "localhost" is the one name that is its own answer.
 func (r Relay) OnTrustedNetwork() bool {
-	if r.Host == "localhost" {
+	if r.OnThisMachine() {
 		return true
 	}
 	ip := net.ParseIP(r.Host)
 	if ip == nil {
 		return false
 	}
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+	return ip.IsPrivate() || ip.IsLinkLocalUnicast()
+}
+
+// OnThisMachine reports whether the relay runs where this app does, which is the whole of where a
+// listener the relay binds to loopback answers (deploy/mediamtx-groups.yml).
+//
+// A name rather than an address answers false, for the reason OnTrustedNetwork does, and
+// "localhost" is the one name that is its own answer.
+func (r Relay) OnThisMachine() bool {
+	if r.Host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(r.Host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // Tls says this relay's HTTP legs are reached through a TLS reverse proxy, under one name on the

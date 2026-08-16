@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/netspeed"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -27,6 +28,15 @@ import (
 // guessed uplink figure with a measured one.
 func (a *App) measureUplink(ctx context.Context) (float64, error) {
 	return netspeed.MeasureUplink(ctx)
+}
+
+// checkRelay dials every leg of the relay the given settings name and answers what each listener
+// said, so a shell can say which of them this machine reaches.
+//
+// Nothing of this app's is read: the addresses are the draft's and the answers are the relay's, so
+// a check of the settings on screen needs nothing that has been saved.
+func (a *App) checkRelay(ctx context.Context, s settings.Settings) []reach.Result {
+	return reach.Check(ctx, s)
 }
 
 // measureEncodeRate times the configured encoder on generated frames, so a shell can warn where the

@@ -628,3 +628,48 @@ func TestLoadMigratesAnUnknownCodecKeyOntoTheDefaults(t *testing.T) {
 			got.Publish.Format, got.Publish.Encoder, d.Publish.Format, d.Publish.Encoder)
 	}
 }
+
+// Every relay terminates TLS on the RTSP and RTMP legs and binds no cleartext listener at all
+// (deploy/mediamtx-groups.yml, rtspEncryption), and both builders spell the address rtsps and rtmps
+// whatever port it carries (internal/transport).
+// A file naming a cleartext port therefore addresses a listener nothing answers, and a publish over
+// it waits out its timeout against a closed port instead of being refused.
+func TestLoadMigratesTheCleartextRelayPorts(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Relay.RtspPort = 8554
+	s.Relay.RtmpPort = 1935
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, d := mustLoad(t), Defaults()
+	if got.Relay.RtspPort != d.Relay.RtspPort {
+		t.Errorf("RTSP port = %d, want the TLS listener %d", got.Relay.RtspPort, d.Relay.RtspPort)
+	}
+	if got.Relay.RtmpPort != d.Relay.RtmpPort {
+		t.Errorf("RTMP port = %d, want the TLS listener %d", got.Relay.RtmpPort, d.Relay.RtmpPort)
+	}
+}
+
+// A relay binds its TLS listeners wherever it is told to, a second one on the same host taking
+// numbers of its own (cmd/soak/scripts/start.sh).
+// Those are ports somebody chose, so the move above reaches the two numbers the cleartext listeners
+// had and no other.
+func TestARelayOnItsOwnPortsKeepsThem(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Relay.RtspPort = 18554
+	s.Relay.RtmpPort = 11936
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := mustLoad(t)
+	if got.Relay.RtspPort != 18554 || got.Relay.RtmpPort != 11936 {
+		t.Errorf("RTSP, RTMP ports = %d, %d, want the stored 18554, 11936",
+			got.Relay.RtspPort, got.Relay.RtmpPort)
+	}
+}

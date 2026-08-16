@@ -14,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/app"
 	"bjoernblessin.de/screenshare/internal/gstrun"
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/reach"
 )
 
 // version is the build stamp the control handshake answers with (docs/ipc-api.md, "Versioning").
@@ -37,6 +38,12 @@ func main() {
 	// Re-entering this binary adds no second artifact to build, ship and find.
 	if len(os.Args) > 1 && os.Args[1] == publish.GstSubcommand {
 		os.Exit(runPipeline(os.Args[2:]))
+	}
+
+	// A question about the relay, asked and answered on the way past: it dials, prints and exits, and
+	// the app it shares an executable with is never brought up (check.go).
+	if len(os.Args) > 1 && os.Args[1] == reach.Subcommand {
+		os.Exit(runCheck())
 	}
 
 	a := app.New(version)

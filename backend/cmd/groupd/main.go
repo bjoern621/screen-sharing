@@ -28,6 +28,7 @@ import (
 
 	"bjoernblessin.de/screenshare/internal/groupsvc"
 	"bjoernblessin.de/screenshare/internal/membership"
+	"bjoernblessin.de/screenshare/internal/metrics"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/token"
 )
@@ -41,6 +42,7 @@ import (
 // serve, and the alternative is a process that is up and refusing every request.
 func main() {
 	listen := flag.String("listen", "127.0.0.1:9443", "address to serve on")
+	scrapeListen := flag.String("metrics", "", "address to serve the Prometheus scrape on, off where empty")
 	keyPath := flag.String("key", "", "PEM file holding the signing key, drawn on first run where absent")
 	relayHost := flag.String("relay-host", "127.0.0.1", "host the relay's API answers on")
 	relayAPIPort := flag.Int("relay-api-port", 9997, "port the relay's API answers on")
@@ -80,6 +82,14 @@ func main() {
 	service := groupsvc.New(signer, reader, members)
 	logger.Infof("serving groups on %s, signing with key %s", *listen, signer.KeyID())
 
+	// A listener of its own, and off unless a deployment asks for one.
+	// What it carries is who is in which group, which is the group's business and not the internet's,
+	// so where it binds and who may reach it is the deployment's decision the way the relay's own
+	// metrics listener is (deploy/mediamtx-groups.yml).
+	if *scrapeListen != "" {
+		go serveScrape(*scrapeListen, metrics.NewExporter(members, service))
+	}
+
 	// Loopback by default and no TLS of its own: the reverse proxy in front encrypts every leg to
 	// this, to the relay and to the player page, and a second terminator behind it would be a second
 	// certificate to renew (docs/plan.md).
@@ -100,6 +110,32 @@ func main() {
 	}
 	if err := server.ListenAndServe(); err != nil {
 		logger.Errorf("serving: %v", err)
+	}
+}
+
+// serveScrape answers scrapes for as long as this process runs.
+//
+// A listener that will not come up is an Umgebungsfehler and leaves the service running: a port
+// another process holds costs the deployment its readings, where stopping over one costs every
+// member their group.
+func serveScrape(listen string, exporter *metrics.Exporter) {
+	assert.Assert(listen != "", "a scrape is served somewhere")
+	assert.IsNotNil(exporter, "a scrape is answered by an exporter")
+
+	mux := http.NewServeMux()
+	mux.Handle("GET /metrics", exporter.Handler())
+
+	logger.Infof("serving the scrape on %s", listen)
+	server := &http.Server{
+		Addr:              listen,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
+		logger.Warnf("the scrape listener on %s stopped: %v", listen, err)
 	}
 }
 

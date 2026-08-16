@@ -17,6 +17,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/pointer"
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/reach"
 	"bjoernblessin.de/screenshare/internal/relay"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/wire"
@@ -104,6 +105,10 @@ func (b controlBackend) MeasureUplink(ctx context.Context) (float64, error) {
 
 func (b controlBackend) MeasureEncodeRate(ctx context.Context, s settings.Settings) (encoderate.Rate, error) {
 	return b.app.measureEncodeRate(ctx, s)
+}
+
+func (b controlBackend) CheckRelay(ctx context.Context, s settings.Settings) []reach.Result {
+	return b.app.checkRelay(ctx, s)
 }
 
 // --- Effects ---

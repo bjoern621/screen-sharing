@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
@@ -115,6 +116,35 @@ type Service struct {
 	// created is when each address created groups, oldest first, guarded by mu.
 	// A map of slices rather than a counter per address: each creation ages out on its own hour.
 	created map[string][]time.Time
+
+	// What a scrape counts of this service. Atomic rather than under mu, a count having no business
+	// waiting on the rate limiter's map.
+	issued  atomic.Int64
+	refused atomic.Int64
+}
+
+// Tallies counts the token route and nothing else.
+//
+// Every other route answers a question, where this one hands out the credential the relay checks, so
+// a refusal here is the reading an operator came for.
+type Tallies struct {
+	TokensIssued  int64
+	TokensRefused int64
+}
+
+// Tallies is what this service has counted since it was made.
+func (s *Service) Tallies() Tallies {
+	return Tallies{
+		TokensIssued:  s.issued.Load(),
+		TokensRefused: s.refused.Load(),
+	}
+}
+
+// refuseToken refuses a token request and counts it.
+// Beside refuse rather than inside it, the other routes' refusals being a different question.
+func (s *Service) refuseToken(w http.ResponseWriter, status int, why string) {
+	s.refused.Add(1)
+	refuse(w, status, why)
 }
 
 // New is a service signing with this key, reading streams from there and holding membership in that.
@@ -197,7 +227,7 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	// Anything else that will not decode is malformed rather than keyless, and a caller who meant to
 	// send a key is better told than quietly given somebody else's audience.
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, bodyLimit)).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
-		refuse(w, http.StatusBadRequest, "the request carries no group key this service can read")
+		s.refuseToken(w, http.StatusBadRequest, "the request carries no group key this service can read")
 		return
 	}
 
@@ -205,7 +235,7 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(body.GroupKey) != "" {
 		groupKey, err := group.ParseKey(body.GroupKey)
 		if err != nil {
-			refuse(w, http.StatusBadRequest, err.Error())
+			s.refuseToken(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		subject, prefix = groupKey.ID(), groupKey.Prefix()
@@ -217,7 +247,7 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 		case strings.TrimSpace(body.MemberSecret) != "":
 			secret, err := group.ParseMemberSecret(body.MemberSecret)
 			if err != nil {
-				refuse(w, http.StatusBadRequest, err.Error())
+				s.refuseToken(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			subject = groupKey.MemberID(secret)
@@ -227,20 +257,21 @@ func (s *Service) issueToken(w http.ResponseWriter, r *http.Request) {
 		// nothing else, which is why a group whose members are stated refuses it here rather than
 		// issuing a credential that lasts one sweep.
 		case s.members.Live(groupKey):
-			refuse(w, http.StatusBadRequest, "this group states its members, and this request names none")
+			s.refuseToken(w, http.StatusBadRequest, "this group states its members, and this request names none")
 			return
 		}
 	} else if strings.TrimSpace(body.MemberSecret) != "" {
-		refuse(w, http.StatusBadRequest, "a member belongs to a group, and this request names no group key")
+		s.refuseToken(w, http.StatusBadRequest, "a member belongs to a group, and this request names no group key")
 		return
 	}
 
 	now := s.now()
 	signed, err := s.signer.Sign(subject, token.GroupPermissions(prefix), now, TokenWindow)
 	if err != nil {
-		refuse(w, http.StatusInternalServerError, "no token could be signed")
+		s.refuseToken(w, http.StatusInternalServerError, "no token could be signed")
 		return
 	}
+	s.issued.Add(1)
 	answer(w, map[string]any{
 		"relayAccessToken": signed,
 		"prefix":           prefix,

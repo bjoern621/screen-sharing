@@ -81,7 +81,7 @@ public sealed class Vocabulary
     /// decisions.
     /// The values behind it are the draft's, so it says nothing the form does not.
     /// A group with nothing worth a line answers with nothing: the relay settles on an address and seven ports,
-    /// and "8890 · 8554 · 8889" beside a step name says less than a blank, a port meaning nothing without the
+    /// and "8890 · 8322 · 8889" beside a step name says less than a blank, a port meaning nothing without the
     /// label it sat under.
     /// </summary>
     public string Shorthand(FieldGroup? group, Settings? settings)

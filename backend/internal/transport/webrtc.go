@@ -143,15 +143,16 @@ func webrtcPageRoot(s settings.Settings) string {
 // Neither endpoint carries the credential in the address: both are HTTP, where the relay reads a
 // token off a header the caller sets (credential.go).
 func whipURL(s settings.Settings, name string) string {
-	return webrtcOrigin(s) + "/" + name + "/whip"
+	return WebRTC{}.ListenerURL(s) + "/" + name + "/whip"
 }
 
 func whepURL(s settings.Settings, name string) string {
-	return webrtcOrigin(s) + "/" + name + "/whep"
+	return WebRTC{}.ListenerURL(s) + "/" + name + "/whep"
 }
 
-// Where the signalling answers: the relay's listener, or the proxy in front of it.
+// ListenerURL is where the signalling answers: the relay's listener, or the proxy in front of it
+// (settings.Relay.HTTPOrigin).
 // Only the exchange goes there; the media leg negotiates its own path and meets neither.
-func webrtcOrigin(s settings.Settings) string {
+func (WebRTC) ListenerURL(s settings.Settings) string {
 	return s.Relay.HTTPOrigin(s.Relay.WebrtcPort)
 }

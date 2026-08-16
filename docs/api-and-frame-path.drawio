@@ -5,7 +5,7 @@
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="relay" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;MediaMTX relay&lt;/b&gt;&lt;br&gt;SRT :8890 · RTSP :8554 · WHEP :8889&lt;br&gt;RTMP :1935 · HLS :8888 · HTTP API :9997&lt;br&gt;re-serves each ingested stream on every listener">
+        <mxCell id="relay" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;spacing=8;fontSize=10;fontStyle=0;verticalAlign=middle;" value="&lt;b&gt;MediaMTX relay&lt;/b&gt;&lt;br&gt;SRT :8890 · RTSPS :8322 · WHEP :8889&lt;br&gt;RTMPS :1936 · HLS :8888 · HTTP API :9997&lt;br&gt;re-serves each ingested stream on every listener">
           <mxGeometry x="480" y="40" width="320" height="140" as="geometry" />
         </mxCell>
 
