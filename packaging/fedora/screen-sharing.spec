@@ -27,7 +27,7 @@
 %global source_date_epoch_from_changelog 0
 
 Name:           screen-sharing
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Self-hosted, high-quality group screen sharing
 

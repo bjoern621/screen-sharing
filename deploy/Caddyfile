@@ -19,6 +19,15 @@
 # the loopback ones, so the file is valid on its own and `caddy validate` needs no environment.
 # One routing table, because two would drift.
 
+# Caddy binds an admin API to 127.0.0.1:2019 unless told otherwise, and it reconfigures the
+# server that answers it. In a Kubernetes pod that loopback belongs to the relay and the group
+# service as well, so leaving it up would let either of them rewrite this table. Nothing
+# reconfigures the proxy while it runs: this file is the whole of what it serves, and a change
+# to it arrives as a new image.
+{
+	admin off
+}
+
 {$SCREENSHARE_DOMAIN:localhost} {
 	# The group service: keys, tokens and the index. It is the only thing here a client
 	# talks to before it publishes, and the only one holding a secret of its own.
