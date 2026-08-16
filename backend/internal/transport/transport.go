@@ -246,6 +246,41 @@ func GstSink(s settings.Settings) ([]string, bool) {
 	return sink, true
 }
 
+// GstSinkElements is every element the named leg's GStreamer sink is made of, in the order it names
+// them, and nil where the leg terminates no GStreamer pipeline.
+//
+// Read off the sink the leg builds rather than listed beside it, so what is checked cannot drift
+// from what a run launches, which is how the encoder half reads its element names too
+// (publish.GstEncoderElementOn).
+// The settings are the defaults carrying this leg: what a sink is made of is the leg's own, and the
+// addresses and credentials filled into it belong to a run.
+//
+// A property is spelled name=value and a link is "!", so what is left is the elements. A caps filter
+// carries its own "=" and drops out with the properties, which is what it is: nothing an install can
+// be missing.
+func GstSinkElements(name string) []string {
+	t, ok := Get(name)
+	if !ok {
+		return nil
+	}
+	g, ok := t.(GstPublisher)
+	if !ok {
+		return nil
+	}
+
+	s := settings.Defaults()
+	s.Publish.Transport = name
+
+	var out []string
+	for _, token := range g.GstSink(s) {
+		if token == "!" || strings.Contains(token, "=") {
+			continue
+		}
+		out = append(out, token)
+	}
+	return out
+}
+
 // CanPublish reports whether the named engine serializes a publish command for the named transport,
 // and false for a name the registry does not know.
 func CanPublish(name, engine string) bool {

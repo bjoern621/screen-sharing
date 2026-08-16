@@ -14,14 +14,14 @@ import (
 func probeStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "portal"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
 	// A ladder step is one encoder's own identifier, and the defaults carry the default codec's,
 	// so the builder refuses those rather than encoding at a step libx264 never heard of.
 	// These two are what a draft naming this codec and mode holds after the migration or the repair.
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	return s
 }
 

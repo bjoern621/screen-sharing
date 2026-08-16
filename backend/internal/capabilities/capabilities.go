@@ -320,6 +320,10 @@ type Codec struct {
 	// A surface names the family and the format to tell one row from another, and each builder binds
 	// what a backend does once per family rather than once per codec.
 	Family string `json:"family"`
+	// Library is what this row's encoder is called where its family holds more than one, spelled as
+	// the project names itself: "x264", "svt-av1".
+	// Empty on a family that is one encoder, whose own name is what names it (Encoder).
+	Library string `json:"library"`
 	// Format is the coding format independent of the backend: "h264", "hevc", "av1", "vp9", "vp8".
 	// Facts that follow the format rather than the backend, coding efficiency and decodability among
 	// them, key off this.
@@ -349,6 +353,13 @@ type Codec struct {
 	// An engine with no entry takes any rate the machine can produce.
 	// It bounds the target and not the VBR burst ceiling set above it.
 	BitrateLimitM map[string]int `json:"bitrateLimitM"`
+	// BufferLimitKb is the largest rate buffer the encoder's own field holds per publish engine, in
+	// kilobits.
+	// The buffer reaches the encoder as the rate times the window, so this bounds the pair rather than
+	// either half, and the window is the half a form narrows: the rate is the figure somebody chose
+	// (form.fieldVbvBounds).
+	// An engine with no entry holds whatever a 32-bit field does.
+	BufferLimitKb map[string]int `json:"bufferLimitKb"`
 	// GopLimit is the longest keyframe interval the encoder's own field holds per publish engine, in
 	// frames.
 	// An engine with no entry takes any interval the control offers.
@@ -480,6 +491,14 @@ func (c Codec) BitrateLimitOn(engine string) int {
 	assert.Assert(knownEngine(engine), "a bitrate ceiling lookup names a publish engine", engine)
 
 	return c.BitrateLimitM[engine]
+}
+
+// BufferLimitOn is the largest rate buffer this codec's encoder field holds on the named engine, in
+// kilobits, and zero where that engine imposes none of its own.
+func (c Codec) BufferLimitOn(engine string) int {
+	assert.Assert(knownEngine(engine), "a rate buffer ceiling lookup names a publish engine", engine)
+
+	return c.BufferLimitKb[engine]
 }
 
 // GopLimitOn is the longest keyframe interval this codec's encoder holds on the named engine, in
@@ -662,6 +681,7 @@ func validationFacts(c Codec, engine string, options map[string]string, cq, bitr
 		rules.AxisCodec:            rules.TextValue(c.Name),
 		rules.AxisFamily:           rules.TextValue(c.Family),
 		rules.AxisFormat:           rules.TextValue(c.Format),
+		rules.AxisEncoder:          rules.TextValue(c.Encoder()),
 		rules.AxisEngine:           rules.TextValue(engine),
 		rules.AxisChroma:           rules.TextValue(options[OptionChroma]),
 		rules.AxisMode:             rules.TextValue(options[OptionMode]),
@@ -723,6 +743,62 @@ func Get(name string) (Codec, bool) {
 		}
 	}
 	return Codec{}, false
+}
+
+// Encoder is which encode backend this row runs on, at the grain somebody picks one at: a family
+// wherever that family is one encoder, and the library where several share a family.
+//
+// The software family is the one that splits.
+// Three encoders code AV1 there and two code the H.26x formats, so a picker offered the family would
+// name four rows with one entry, and a settings file naming it could not say which.
+//
+// It is the second axis of the encode selection, format being the first (Row).
+func (c Codec) Encoder() string {
+	if c.Library != "" {
+		return c.Library
+	}
+	return c.Family
+}
+
+// Row is the encode a format and an encoder name between them, and false for a pair no row carries.
+//
+// The pair is what the settings hold and this is where it becomes a codec, so the two fields a user
+// picks stay independent of each other and neither is a copy of the row they address.
+// The grid is sparse: AMD's runtime codes no VP9, so that pair names nothing and the form greys it
+// (docs/domain-model.md).
+func Row(format, encoder string) (Codec, bool) {
+	for _, c := range Codecs {
+		if c.Format == format && c.Encoder() == encoder {
+			return c, true
+		}
+	}
+	return Codec{}, false
+}
+
+// FormatsOn lists the bitstreams one encoder produces, in table order.
+// Empty for an encoder no row runs on, which is what a statement about a pair the table does not
+// carry names as the way out of it.
+func FormatsOn(encoder string) []string {
+	var out []string
+	for _, c := range Codecs {
+		if c.Encoder() == encoder && !contains(out, c.Format) {
+			out = append(out, c.Format)
+		}
+	}
+	return out
+}
+
+// Encoders lists every encoder the table carries, in table order and once each.
+// Order is the codec table's, so the picker offers them the way the rows are authored and a row
+// added brings its encoder with it.
+func Encoders() []string {
+	var out []string
+	for _, c := range Codecs {
+		if !contains(out, c.Encoder()) {
+			out = append(out, c.Encoder())
+		}
+	}
+	return out
 }
 
 // SupportsChroma answers per engine, so a format the codec encodes on the other engine alone

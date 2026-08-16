@@ -35,6 +35,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/publish"
+	"bjoernblessin.de/screenshare/internal/transport"
 )
 
 // gstInspectExe queries the GStreamer registry.
@@ -135,6 +136,16 @@ const probeTimeout = 10 * time.Second
 type Availability struct {
 	Usable   map[string]map[string]bool `json:"usable"`
 	Unprobed map[string]string          `json:"unprobed"`
+	// Legs maps a publish leg to whether this GStreamer install registers every element its sink is
+	// made of.
+	// A leg absent from the map was not probed and counts as available, as an unprobed codec does.
+	//
+	// The encoder half of a pipeline is not the whole of it: an install carrying the older WHIP
+	// element and not the one this app builds passes every encoder probe there is, and the leg then
+	// takes a start, dies at launch and spends its retry budget on an element that was never there.
+	// The GStreamer engine alone, the ffmpeg engine's legs being muxers its own build carries or does
+	// not, which its executable check already answers for.
+	Legs map[string]bool `json:"legs"`
 }
 
 // Detect probes every codec on every publish engine, concurrently, and answers what this machine
@@ -150,6 +161,7 @@ func Detect(ctx context.Context) Availability {
 
 	usable := make(map[string]map[string]bool, len(engineProbes))
 	unprobed := make(map[string]string, len(engineProbes))
+	legs := make(map[string]bool)
 
 	var mu sync.Mutex
 	var wg sync.WaitGroup
@@ -175,6 +187,25 @@ func Detect(ctx context.Context) Availability {
 			}(codec, probe.usable)
 		}
 	}
+
+	// The legs of the GStreamer engine, beside its codecs and under the same excuse: an install with
+	// no command-line tools answers for no element, sink or encoder.
+	if _, excused := unprobed[capabilities.EngineGst]; !excused {
+		for _, leg := range transport.Names() {
+			elements := transport.GstSinkElements(leg)
+			if len(elements) == 0 {
+				continue
+			}
+			wg.Add(1)
+			go func(leg string, elements []string) {
+				defer wg.Done()
+				ok := gstElementsExist(ctx, elements)
+				mu.Lock()
+				legs[leg] = ok
+				mu.Unlock()
+			}(leg, elements)
+		}
+	}
 	wg.Wait()
 
 	// An engine is asked or excused, never both and never neither.
@@ -184,7 +215,25 @@ func Detect(ctx context.Context) Availability {
 		_, excused := unprobed[engine]
 		assert.Assert(asked != excused, "an engine is either probed or excused", engine, asked, excused)
 	}
-	return Availability{Usable: usable, Unprobed: unprobed}
+	return Availability{Usable: usable, Unprobed: unprobed, Legs: legs}
+}
+
+// gstElementsExist reports whether this GStreamer install registers every one of them.
+// All of them, because a sink is the elements it is made of: one missing is a pipeline that does not
+// build.
+func gstElementsExist(ctx context.Context, elements []string) bool {
+	assert.IsNotNil(ctx, "an element query runs under a context")
+	assert.Assert(len(elements) > 0, "an element query names what it looks up")
+
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	for _, elem := range elements {
+		if exec.CommandContext(ctx, gstInspectExe, "--exists", elem).Run() != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // probeSize is the frame every test encode runs on.

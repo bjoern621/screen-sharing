@@ -58,10 +58,10 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 		return publish.PreviewLeg{Port: a.preview.port}
 	}
 
-	format, carried := publish.PreviewCarried(s.Publish.Codec)
+	format, carried := publish.PreviewCarried(s.Publish.Codec())
 	if !carried {
 		logger.Warnf("no local preview for '%s': %s produces %s, which has no local carriage",
-			s.Publish.Name, s.Publish.Codec, format)
+			s.Publish.Name, s.Publish.Codec(), format)
 		return publish.PreviewLeg{}
 	}
 
@@ -75,7 +75,7 @@ func (a *App) startPreviewLocked(s settings.Settings) publish.PreviewLeg {
 		logger.Warnf("no local preview for '%s': %v", s.Publish.Name, err)
 		return publish.PreviewLeg{}
 	}
-	source, err := publish.PreviewSource(s.Publish.Codec, port)
+	source, err := publish.PreviewSource(s.Publish.Codec(), port)
 	if err != nil {
 		logger.Warnf("no local preview for '%s': %v", s.Publish.Name, err)
 		return publish.PreviewLeg{}

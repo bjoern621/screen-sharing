@@ -34,7 +34,8 @@ func populatedSettings() settings.Settings {
 		Publish: settings.Publish{
 			Name:                "fixture-stream",
 			Transport:           "srt",
-			Codec:               "hevc_nvenc",
+			Format:              "hevc",
+			Encoder:             "nvenc",
 			Mode:                "vbr",
 			Chroma:              "yuv444p",
 			ColorRange:          "tv",
@@ -93,16 +94,18 @@ func eachField(s settings.Settings, visit func(name string, value reflect.Value)
 
 // offContract are the settings fields this conversion deliberately does not carry.
 //
-// One is a migration's working room rather than a setting: the old key a file written before the
-// audio list carries is read once, turned into the list and cleared, so a draft crossing to a shell
-// and back has nothing to say about it (settings/migrate.go).
+// Two are a migration's working room rather than settings: the old keys a file written before the
+// audio list and before the format and encoder pair carries are read once, turned into what replaced
+// them and cleared, so a draft crossing to a shell and back has nothing to say about either
+// (settings/migrate.go).
 //
-// The other is a credential rather than a setting: the relay token is minted per command from the
+// The last is a credential rather than a setting: the relay token is minted per command from the
 // group key beside it, lives for minutes and is written by one function in the backend, so a shell
 // has nothing to edit about it and a contract carrying it would hand every shell a secret it has no
 // use for (internal/app, settingsForCommand).
 var offContract = map[string]bool{
 	"Publish.LegacyAudio": true,
+	"Publish.LegacyCodec": true,
 	"Relay.Token":         true,
 }
 

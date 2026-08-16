@@ -39,8 +39,9 @@ func liveFlags(t *testing.T, s settings.Settings) []string {
 func liveSettings() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.AudioSources = settings.Recording(platform.AudioSourceDesktop)
 	return s
 }
@@ -65,7 +66,7 @@ func TestTheFormMarksWhatTheRunningPipelineTakes(t *testing.T) {
 func TestAModeThatSendsNoRateMarksNoBitrate(t *testing.T) {
 	s := liveSettings()
 	s.Publish.Mode = capabilities.ModeCrf
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 
 	marked := liveFlags(t, s)
 	if slices.Contains(marked, KeyBitrateM) {

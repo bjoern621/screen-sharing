@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
+	"bjoernblessin.de/screenshare/internal/publish"
 )
 
 // What the event stream said about one stream, gathered while it ran.
@@ -62,7 +63,9 @@ func (w *watcher) read() ([]*v1.PublishStats, []string, int32) {
 //
 // The capture stays where the run put it: a backend told to capture through the portal pops a
 // consent picker on somebody's screen, which is not a thing a probe may do.
-func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Time, hold time.Duration, capture string) error {
+// An encoder named here is held the same way, which is how a run answers for one of them rather than
+// for whichever ones the walk happened to reach.
+func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Time, hold time.Duration, capture, codec string) error {
 	families, err := run.families(ctx)
 	if err != nil {
 		return err
@@ -83,19 +86,37 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 
 	// The capture decides the engine, and the two instrument what they run differently, so a run
 	// that never left one of them would report half the product.
-	if capture != "" {
-		if err := setOption(settings, "publish.capture", capture); err != nil {
+	//
+	// A named encoder is pinned as the two fields that address it, both of them: pinning the encoder
+	// alone would let the walk change the format under it and report a different encode under the name
+	// the run was given.
+	pinned := map[string]string{"publish.capture": capture}
+	if codec != "" {
+		format, encoder, ok := run.codecPair(codec)
+		if !ok {
+			return fmt.Errorf("no encoder named %q in this machine's catalog", codec)
+		}
+		pinned["publish.format"], pinned["publish.encoder"] = format, encoder
+	}
+	held := map[string]bool{"publish.capture": true}
+	for key := range frozen {
+		held[key] = true
+	}
+	for key, value := range pinned {
+		if value == "" {
+			continue
+		}
+		held[key] = true
+		if err := setOption(settings, key, value); err != nil {
 			return err
 		}
 		if form, err = run.resolve(ctx, settings); err != nil {
 			return err
 		}
 		settings = form.GetSettings()
-	}
-
-	held := map[string]bool{"publish.capture": true}
-	for key := range frozen {
-		held[key] = true
+		if got := readField(settings, key); got != value {
+			return fmt.Errorf("%s was asked to hold %q and the resolve answered %q", key, value, got)
+		}
 	}
 
 	baseline := proto.Clone(settings).(*v1.Settings)
@@ -123,6 +144,16 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 			}
 			form, settings = next, next.GetSettings()
 		}
+		// A move elsewhere can leave a pinned value with no legal form, and the resolve then walks it.
+		// Back to the draft the run opened with, so what the run answers for stays what it was told to
+		// answer for.
+		if drifted(settings, pinned) {
+			settings = proto.Clone(baseline).(*v1.Settings)
+			if form, err = run.resolve(ctx, settings); err != nil {
+				return err
+			}
+			settings = form.GetSettings()
+		}
 		if !form.GetPublishable() {
 			continue
 		}
@@ -147,9 +178,19 @@ func runPublish(ctx context.Context, run *session, rng *rand.Rand, until time.Ti
 	return nil
 }
 
+// drifted says whether a draft has stopped holding what the run pinned.
+func drifted(settings *v1.Settings, pinned map[string]string) bool {
+	for key, value := range pinned {
+		if value != "" && readField(settings, key) != value {
+			return true
+		}
+	}
+	return false
+}
+
 // oneStream starts a stream, watches it for as long as the run holds it, and states what it did.
 func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.Settings, families map[string]string, hold time.Duration, base treeSample) (bool, error) {
-	codec := readField(settings, "publish.codec")
+	codec := s.codecOf(settings)
 	family := families[codec]
 	target := numeric(readField(settings, "publish.fps"))
 	ceiling := numeric(readField(settings, "publish.bitrate_mbps"))
@@ -233,8 +274,14 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 	delta := diff(before, sampleTree(s.backendPid))
 	delta.PipelineNs = engines.stop()
 
+	// Read while the stream still runs: the viewer count, the round trip and the loss are looked up
+	// by path, and a stopped stream has none.
+	s.checkRelayView(ctx, readField(settings, "publish.name"), fields, settings)
+
 	stats, exits, attempts := events.read()
 	healthy := s.checkStream(stats, exits, attempts, delta, family, mode, target, ceiling, fields, settings)
+	s.checkOverlay(stats, attempts, fields, settings)
+	s.checkEncoderReached(ctx, settings, family, fields)
 
 	// Stopping twice: the second names a state that already holds, so it succeeds and does nothing.
 	for i := 0; i < 2; i++ {
@@ -264,13 +311,71 @@ func (s *session) oneStream(ctx context.Context, events *watcher, settings *v1.S
 		s.report.report("publish.child_leaked", "publish/child-leak/"+codec,
 			fmt.Sprintf("%d pipeline processes are still running after the stop", leaked), fields, settings)
 	}
+	// The backend's own, taken with the stream stopped: a tree figure would be whatever child
+	// happened to be up, and what a cycle is asked about is what the parent did not give back.
 	after := sampleTree(s.backendPid)
-	if grown := after.RSSKiB - base.RSSKiB; grown > 400*1024 {
+	if grown := after.RootRSSKiB - base.RootRSSKiB; grown > 200*1024 {
+		fields["rss_mib"] = fmt.Sprint(after.RootRSSKiB / 1024)
+		fields["base_mib"] = fmt.Sprint(base.RootRSSKiB / 1024)
 		s.report.report("publish.cycle_memory", "publish/cycle-rss",
-			fmt.Sprintf("the tree holds %d MiB more than before the first stream", grown/1024),
+			fmt.Sprintf("the backend holds %d MiB more than before the first stream", grown/1024),
 			fields, settings)
 	}
 	return healthy, nil
+}
+
+// checkEncoderReached holds the command a hardware stream runs to the silicon its settings named.
+//
+// The engine reading says the GPU was reached, and this says nothing else was: a pipeline naming a
+// CPU encoder is a stream coding on cores while the settings, the greying and the estimate beside
+// them all still read hardware.
+func (s *session) checkEncoderReached(ctx context.Context, settings *v1.Settings, family string, fields map[string]string) {
+	if family == "" || family == "software" {
+		return
+	}
+	form, err := s.resolve(ctx, settings)
+	if err != nil || form.GetSummary().GetCommand() == "" {
+		return
+	}
+	cpu, err := s.softwareEncoders(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, token := range strings.Fields(form.GetSummary().GetCommand()) {
+		if !cpu[token] {
+			continue
+		}
+		s.report.report("publish.software_encoder_in_hardware_command", "publish/cpu-encoder/"+fields["codec"]+"/"+token,
+			fmt.Sprintf("a %s stream runs a command naming %s, which codes on the CPU", family, token),
+			fields, settings)
+		return
+	}
+	s.report.pass()
+}
+
+// softwareEncoders is every token a rendered command names a CPU encoder by: the encoder names the
+// ffmpeg engine uses, off the catalog, and the element each maps to on the GStreamer engine.
+//
+// Read out of the tables the builders read rather than listed here, so a codec joining the domain
+// joins this check with it.
+func (s *session) softwareEncoders(ctx context.Context) (map[string]bool, error) {
+	catalog, err := s.fetchCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, codec := range catalog.GetCodecs() {
+		if codec.GetFamily() != "software" || !codec.GetImplemented() {
+			continue
+		}
+		out[codec.GetName()] = true
+		// System memory is the one path a CPU encoder takes, so the lookup is exact for these rows.
+		if element, ok := publish.GstEncoderElement(codec.GetName()); ok {
+			out[element] = true
+		}
+	}
+	return out, nil
 }
 
 // checkStream holds one run's samples to the settings it was built from.
@@ -340,6 +445,12 @@ func (s *session) checkStream(stats []*v1.PublishStats, exits []string, attempts
 		s.report.report("publish.no_bitrate_reported", "publish/no-bitrate/"+fields["transport"]+"/"+fields["codec"],
 			fmt.Sprintf("%d frames were encoded over %d samples and no sample carried a bitrate",
 				last.GetFrameCount(), len(stats)), fields, settings)
+	}
+
+	// A stream that encoded nothing reached no silicon of any kind, which its own exit already says.
+	// Asking where the work ran is a question about a run that did some.
+	if last.GetFrameCount() == 0 {
+		return false
 	}
 
 	encodeNs := delta.PipelineNs["drm-engine-enc"] + delta.PipelineNs["drm-engine-vcn_enc"] + delta.PipelineNs["drm-engine-video"]

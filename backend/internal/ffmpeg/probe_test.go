@@ -21,7 +21,7 @@ const probeTimeout = 20 * time.Second
 func probeStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "x11grab"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
@@ -118,7 +118,8 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 		for _, chroma := range c.EngineChromas(capabilities.EngineFfmpeg) {
 			for _, mode := range capabilities.Modes {
 				s := probeStream()
-				s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = c.Name, chroma, mode
+				s.Publish.UseCodec(c.Name)
+				s.Publish.Chroma, s.Publish.Mode = chroma, mode
 				if _, err := BuildPublishArgs(s, nil); err != nil {
 					continue
 				}

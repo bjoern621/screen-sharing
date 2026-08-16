@@ -67,7 +67,7 @@ func runEncode(ctx context.Context, run *session, rng *rand.Rand, until time.Tim
 			continue
 		}
 
-		codec := readField(settings, "publish.codec")
+		codec := run.codecOf(settings)
 		family := families[codec]
 		before := sampleTree(run.backendPid)
 		engines := watchEngines(run.backendPid)
@@ -185,10 +185,19 @@ func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time
 		run.report.setIteration(iteration)
 
 		// A codec per ramp, so the run covers what each engine does under competition.
+		// Both fields, an encoder being addressed by the pair: the format alone would leave whichever
+		// encoder the draft arrived on producing it.
 		codecs := run.codecNames()
 		draft := proto.Clone(settings).(*v1.Settings)
 		if len(codecs) > 0 {
-			if err := setOption(draft, "publish.codec", codecs[rng.Intn(len(codecs))]); err != nil {
+			format, encoder, ok := run.codecPair(codecs[rng.Intn(len(codecs))])
+			if !ok {
+				return fmt.Errorf("the catalog offered an encoder it does not carry")
+			}
+			if err := setOption(draft, "publish.format", format); err != nil {
+				return err
+			}
+			if err := setOption(draft, "publish.encoder", encoder); err != nil {
 				return err
 			}
 		}
@@ -209,7 +218,7 @@ func runMulti(ctx context.Context, run *session, rng *rand.Rand, until time.Time
 			continue
 		}
 
-		codec := readField(settings, "publish.codec")
+		codec := run.codecOf(settings)
 		family := families[codec]
 
 		var baseline float64

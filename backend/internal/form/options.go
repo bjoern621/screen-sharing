@@ -265,20 +265,38 @@ func optionFpsPresets(_ Deps, s settings.Settings) []*screensharev1.FieldOption 
 	return out
 }
 
-// optionCodecs offers every row of the capability table, in table order, which is the implemented
-// backends first and then the families still on the roadmap.
+// optionFormats offers every bitstream some row of the capability table produces, and optionEncoders
+// every encoder some row runs on, both in table order.
 //
-// An unimplemented row is offered and greyed rather than dropped, so the roadmap is visible where a
-// user goes looking for their hardware, and so is a codec this machine's probe could not run.
-// Both are things the user can act on, by waiting or by installing a build.
+// Both lists are the whole table's rather than the other control's, so neither dropdown loses an
+// entry when the one beside it moves.
+// A pair no row carries is greyed with what the tables say about it, which teaches where a shorter
+// list would leave a user hunting for an entry that vanished (docs/field-availability.md).
+// A row still on the roadmap contributes its two entries the same way, so hardware this app does not
+// build for yet is visible where somebody goes looking for it.
 //
-// The entry is the encoder's own name and nothing more.
-// The bitstream format it produces and the family it comes from are two columns of its catalog row,
-// which is where a surface reads them to name the entry.
-func optionCodecs(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
-	out := make([]*screensharev1.FieldOption, 0, len(capabilities.Codecs))
+// The entries are the identifiers and nothing more.
+// What each reads as on screen is the surface's, off the catalog row that declares them
+// (docs/ipc-api.md).
+func optionFormats(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
+	return optionPlainList(optionCodedFormats(), KeyFormat)
+}
+
+func optionEncoders(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
+	return optionPlainList(capabilities.Encoders(), KeyEncoder)
+}
+
+// optionCodedFormats is every bitstream the capability table carries, in table order and once each.
+//
+// capabilities.Formats is the implemented half of the same list and answers a different question:
+// what a relay path can be narrowed by is what this app produces, where a control offers what it can
+// say something about.
+func optionCodedFormats() []string {
+	var out []string
 	for _, c := range capabilities.Codecs {
-		out = append(out, optionEntry(c.Name, nil, false))
+		if !slices.Contains(out, c.Format) {
+			out = append(out, c.Format)
+		}
 	}
 	return out
 }
@@ -372,7 +390,7 @@ func optionTunes(_ Deps, s settings.Settings) []*screensharev1.FieldOption {
 
 // codecLadders is the selected codec's row, and an empty row for a codec no table carries.
 func codecLadders(s settings.Settings) capabilities.Codec {
-	c, _ := capabilities.Get(s.Publish.Codec)
+	c, _ := capabilities.Get(s.Publish.Codec())
 	return c
 }
 

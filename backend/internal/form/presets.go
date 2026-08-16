@@ -361,7 +361,7 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 				candidate := s
 				candidate.Publish = p.base(s.Publish)
 				candidate.Publish.Chroma = rung.chroma
-				candidate.Publish.Codec = codec
+				candidate.Publish.Format, candidate.Publish.Encoder = codec.Format, codec.Encoder()
 				candidate.Publish.Capture = capture
 				// The ladder steps are the codec's own identifiers, so they are written here rather than by
 				// the base above: a base naming one would carry it onto every other candidate, where the
@@ -369,11 +369,11 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 				// What each mode is worth running at is the row's answer, the same one a fresh installation
 				// gets.
 				candidate.Publish.Effort, candidate.Publish.Tune =
-					settings.LadderSteps(codec, candidate.Publish.Mode)
+					settings.LadderSteps(codec.Name, candidate.Publish.Mode)
 				if p.cq51 > 0 {
 					// The quantizer scale is the codec's on the engine that drives it, and the capture backend
 					// fixes that engine, so the target is placed inside this loop rather than above it.
-					candidate.Publish.Cq = presetCq(p.cq51, codec, optionEngineOf(candidate))
+					candidate.Publish.Cq = presetCq(p.cq51, codec.Name, optionEngineOf(candidate))
 				}
 
 				if presetStrands(d, candidate) {
@@ -381,9 +381,21 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 				}
 
 				reached, repaired := Repair(d, candidate)
-				if presetKeeps(repaired) && presetHolds(reached.Publish, p.claim) {
-					return reached, true
+				if !presetKeeps(repaired) || !presetHolds(reached.Publish, p.claim) {
+					continue
 				}
+				// A preset states a configuration this machine encodes, so one the elements cannot express
+				// is not a find.
+				// The claim and the repair answer for the settings against each other; what no table
+				// states is the pair a single element cannot hold, a VBR ceiling more than twice its
+				// target being the case that exists.
+				// The encoder alone, not a rendered command: a command carries the transport too, and a
+				// relay with no SRT passphrase would take away a preset that says nothing about how the
+				// stream is carried (publish.EncoderRefusal).
+				if err := publish.EncoderRefusal(reached); err != nil {
+					continue
+				}
+				return reached, true
 			}
 		}
 	}
@@ -443,8 +455,8 @@ func presetStrands(d Deps, candidate settings.Settings) bool {
 	return false
 }
 
-// presetSearchedKeys are the three axes the search itself writes: the rung's pixel format, the codec
-// it is tried on and the capture backend under it.
+// presetSearchedKeys are the axes the search itself writes: the rung's pixel format, the encode it
+// is tried on, both halves of it, and the capture backend under it.
 //
 // A field the base writes is left out of this list.
 // The base writes only what the claim speaks for, so a walk off one of those is a walk out of the
@@ -452,7 +464,7 @@ func presetStrands(d Deps, candidate settings.Settings) bool {
 // promise covers: a preset that names four rate-control modes is still itself on the second of them.
 // Gating here on such a field would reject a candidate the promise accepts, and a machine gapped on
 // the base's first choice would fall past every encoder it has.
-var presetSearchedKeys = []string{KeyCapture, KeyCodec, KeyChroma}
+var presetSearchedKeys = []string{KeyCapture, KeyFormat, KeyEncoder, KeyChroma}
 
 func presetField(key string) *field {
 	for i := range fieldTable {
@@ -480,9 +492,9 @@ func presetField(key string) *field {
 // What this machine has is not filtered here.
 // A codec no encoder was found for is greyed by availability and the repair walks the candidate off
 // it, which is the same verdict arrived at by the one rule that owns it.
-func presetCodecs(rung presetRung) []string {
+func presetCodecs(rung presetRung) []capabilities.Codec {
 	type candidate struct {
-		name   string
+		row    capabilities.Codec
 		device bool
 		// rank orders one half.
 		// The bits a format spends run one way on silicon and the other on a CPU, so the sign is what
@@ -503,7 +515,7 @@ func presetCodecs(rung presetRung) []string {
 		if !device {
 			bits = -bits
 		}
-		ranked = append(ranked, candidate{name: c.Name, device: device, rank: bits})
+		ranked = append(ranked, candidate{row: c, device: device, rank: bits})
 	}
 
 	sort.SliceStable(ranked, func(i, j int) bool {
@@ -514,9 +526,9 @@ func presetCodecs(rung presetRung) []string {
 		return a.rank < b.rank
 	})
 
-	out := make([]string, 0, len(ranked))
+	out := make([]capabilities.Codec, 0, len(ranked))
 	for _, c := range ranked {
-		out = append(out, c.name)
+		out = append(out, c.row)
 	}
 	return out
 }

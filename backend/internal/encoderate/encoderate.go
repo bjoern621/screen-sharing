@@ -166,7 +166,7 @@ func Measure(ctx context.Context, s settings.Settings, width, height int) (Rate,
 		"a measured range runs from the hardest content up to the easiest", rate.LowFps, rate.HighFps)
 
 	logger.Infof("encode rate measured: %.1f-%.1f fps for %s at %dx%d on %s (bounded by the frame generator: low %t, high %t)",
-		rate.LowFps, rate.HighFps, s.Publish.Codec, width, height, engine, rate.LowBounded, rate.HighBounded)
+		rate.LowFps, rate.HighFps, s.Publish.Codec(), width, height, engine, rate.LowBounded, rate.HighBounded)
 	return rate, nil
 }
 

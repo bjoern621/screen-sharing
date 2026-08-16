@@ -17,8 +17,9 @@ import (
 func audioStream(sources ...settings.AudioSource) settings.Settings {
 	s := baseStream()
 	s.Publish.Capture, s.Publish.Transport = "ximagesrc", "rtsp"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.AudioSources = sources
 	return s
 }

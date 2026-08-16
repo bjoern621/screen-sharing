@@ -74,7 +74,7 @@ var draftRtpFormats = map[string]bool{"vp9": true, "av1": true}
 // PublishArgs muxes to RTSP, which wraps the RTP muxer, so the draft-payload flag applies here too.
 func (RTSP) PublishArgs(s settings.Settings) []string {
 	args := []string{"-f", "rtsp", "-rtsp_transport", s.Publish.RtspPublishProtocol}
-	if c, ok := capabilities.Get(s.Publish.Codec); ok && draftRtpFormats[c.Format] {
+	if c, ok := capabilities.Get(s.Publish.Codec()); ok && draftRtpFormats[c.Format] {
 		args = append(args, "-strict", "experimental")
 	}
 	return append(args, rtspURL(s, s.Relay.Path(s.Publish.Name)))

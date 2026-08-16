@@ -66,6 +66,10 @@ func repairCases() []availabilityCase {
 		Unprobed: map[string]string{capabilities.EngineFfmpeg: "ffmpeg not found on PATH"},
 	}
 
+	// Nothing here names anything the tables carry, which is a settings file somebody edited by hand.
+	handEdited := availabilityDraft("no-such-capture", "libx264", "no-such-chroma", "no-such-transport")
+	handEdited.Publish.Encoder = "no-such-encoder"
+
 	return []availabilityCase{
 		{"a draft the tables already accept", linuxX11,
 			availabilityDraft("x11grab", "libx264", "yuv420p", "srt")},
@@ -73,8 +77,7 @@ func repairCases() []availabilityCase {
 		{"a rate-control mode this encoder has no form of", linuxX11, losslessAv1},
 		{"the device path that converts nothing", windows, encoderColour},
 		{"a device path demanded of a pair that has none", linuxX11, demandsDevice},
-		{"a hand-edited settings file", linuxX11,
-			availabilityDraft("no-such-capture", "no-such-codec", "no-such-chroma", "no-such-transport")},
+		{"a hand-edited settings file", linuxX11, handEdited},
 		{"an engine that can run no encoder here", noTooling,
 			availabilityDraft("x11grab", "libx264", "yuv420p", "srt")},
 	}
@@ -180,7 +183,7 @@ func TestACaptureChangeCascadesThroughTransportCodecAndChroma(t *testing.T) {
 
 	s, repaired := Repair(deps, draft)
 
-	for _, key := range []string{KeyCapture, KeyTransport, KeyCodec, KeyChroma} {
+	for _, key := range []string{KeyCapture, KeyTransport, KeyEncoder, KeyChroma} {
 		if !slices.Contains(repaired, key) {
 			t.Errorf("the repaired list %v does not name %s, which the cascade had to move", repaired, key)
 		}
@@ -196,8 +199,8 @@ func TestACaptureChangeCascadesThroughTransportCodecAndChroma(t *testing.T) {
 	if !slices.Contains(allowed, s.Publish.Transport) {
 		t.Errorf("the repair landed on transport %q, which %s cannot carry", s.Publish.Transport, s.Publish.Capture)
 	}
-	for _, key := range []string{KeyCodec, KeyChroma} {
-		value := s.Publish.Codec
+	for _, key := range []string{KeyEncoder, KeyChroma} {
+		value := s.Publish.Encoder
 		if key == KeyChroma {
 			value = s.Publish.Chroma
 		}
@@ -238,11 +241,11 @@ func TestADimensionWithNothingLegalLeftKeepsTheValueItHas(t *testing.T) {
 
 	s, repaired := Repair(deps, draft)
 
-	if s.Publish.Codec != draft.Publish.Codec {
-		t.Errorf("the codec moved to %q on an engine that can run none of them", s.Publish.Codec)
+	if s.Publish.Codec() != draft.Publish.Codec() {
+		t.Errorf("the codec moved to %q on an engine that can run none of them", s.Publish.Codec())
 	}
-	if slices.Contains(repaired, KeyCodec) {
-		t.Errorf("the repaired list %v names the codec, which had nowhere to go", repaired)
+	if slices.Contains(repaired, KeyEncoder) {
+		t.Errorf("the repaired list %v names the encoder, which had nowhere to go", repaired)
 	}
 }
 
@@ -301,8 +304,8 @@ func TestABitrateAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 
 	out, repaired := Repair(d, draft)
 
-	if out.Publish.Codec != "libsvtav1" {
-		t.Fatalf("the draft was repaired off the codec under test, onto %q", out.Publish.Codec)
+	if out.Publish.Codec() != "libsvtav1" {
+		t.Fatalf("the draft was repaired off the codec under test, onto %q", out.Publish.Codec())
 	}
 	if out.Publish.BitrateM != ceiling {
 		t.Errorf("bitrate = %d, want the codec's ceiling %d", out.Publish.BitrateM, ceiling)
@@ -489,8 +492,8 @@ func TestAKeyframeIntervalAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
 
 	out, repaired := Repair(d, draft)
 
-	if out.Publish.Codec != "h264_amf" {
-		t.Fatalf("the draft was repaired off the codec under test, onto %q", out.Publish.Codec)
+	if out.Publish.Codec() != "h264_amf" {
+		t.Fatalf("the draft was repaired off the codec under test, onto %q", out.Publish.Codec())
 	}
 	if out.Publish.Gop != ceiling {
 		t.Errorf("gop = %d, want the codec's ceiling %d", out.Publish.Gop, ceiling)
@@ -524,5 +527,79 @@ func TestARateBufferAboveWhatTheEncoderHoldsIsBroughtDown(t *testing.T) {
 	}
 	if !slices.Contains(repaired, KeyVbvMs) {
 		t.Errorf("repaired = %v, want it to name %s", repaired, KeyVbvMs)
+	}
+}
+
+// A target of zero is what the control stopped offering in the modes that send one, so a draft
+// carrying it arrived from a mode that sends none or from a file somebody edited.
+// The walk raises it rather than leaving a stream at no rate, and names the move.
+func TestATargetOfZeroIsRaisedInTheModesThatSendOne(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	for _, mode := range capabilities.Modes {
+		if !capabilities.TargetsBitrate(mode) {
+			continue
+		}
+		draft := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
+		draft.Publish.Mode = mode
+		draft.Publish.BitrateM = 0
+
+		out, repaired := Repair(d, draft)
+
+		if out.Publish.BitrateM <= 0 {
+			t.Errorf("in %s the repaired draft still targets %d Mbit/s", mode, out.Publish.BitrateM)
+		}
+		if !slices.Contains(repaired, KeyBitrateM) {
+			t.Errorf("in %s repaired = %v, want it to name %s", mode, repaired, KeyBitrateM)
+		}
+	}
+}
+
+// Constant quality sends the encoder no target, so the field there carries whatever another mode
+// left on it and a zero is not a draft to repair.
+func TestATargetOfZeroStandsWhereNothingSendsIt(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
+	draft.Publish.Mode = capabilities.ModeCrf
+	draft.Publish.BitrateM = 0
+
+	out, repaired := Repair(d, draft)
+
+	if out.Publish.BitrateM != 0 {
+		t.Errorf("constant quality moved the target to %d Mbit/s", out.Publish.BitrateM)
+	}
+	if slices.Contains(repaired, KeyBitrateM) {
+		t.Errorf("repaired = %v, want no move of %s", repaired, KeyBitrateM)
+	}
+}
+
+// The format is what every viewer has to decode, so an encoder this machine cannot run moves the
+// encoder alone: the same bitstream goes out through whatever produces it here.
+//
+// The two controls are what makes that hold. One field naming the whole encode has a single list to
+// walk, so the first entry that runs decides the bitstream as a side effect, and a machine whose
+// software encoders are missing publishes a format nobody asked for.
+//
+// The case is the striking one: an x264 draft on a machine where NVENC is all there is.
+func TestAMissingEncoderMovesTheEncoderAndNotTheFormat(t *testing.T) {
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilyNvenc)
+	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+
+	s, repaired := Repair(deps, draft)
+
+	if s.Publish.Format != draft.Publish.Format {
+		t.Errorf("the format moved from %q to %q on a machine that codes it, only elsewhere",
+			draft.Publish.Format, s.Publish.Format)
+	}
+	if slices.Contains(repaired, KeyFormat) {
+		t.Errorf("the repaired list %v names the format, which had somewhere to stay", repaired)
+	}
+	if s.Publish.Encoder == draft.Publish.Encoder {
+		t.Errorf("the encoder stayed on %q, which this machine cannot run", s.Publish.Encoder)
+	}
+	if _, ok := capabilities.Row(s.Publish.Format, s.Publish.Encoder); !ok {
+		t.Errorf("the repair landed on %s/%s, which addresses no row", s.Publish.Format, s.Publish.Encoder)
 	}
 }

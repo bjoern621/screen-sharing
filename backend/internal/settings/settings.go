@@ -225,9 +225,18 @@ func (r Relay) Prefix() string {
 type Publish struct {
 	Name      string `json:"name"`
 	Transport string `json:"transport"` // publish leg, publisher to relay: a registry key, "srt"
-	Codec     string `json:"codec"`     // ffmpeg encoder name, a row of capabilities.Codecs
-	Mode      string `json:"mode"`      // rate control: cbr vbr abr crf lossless
-	Chroma    string `json:"chroma"`    // gbrp yuv444p yuv422p yuv420p p010le
+	// Format is the bitstream every viewer decodes and a transport carries, "h264".
+	// Encoder is what produces it on this machine, at the grain a picker offers one: a family
+	// wherever that family is one encoder, and the library where several share a family, "nvenc",
+	// "x264", "svt-av1".
+	//
+	// Two fields because the two questions have different answers on different machines: a format
+	// outlives the encoder it was picked beside, and an encoder outlives a change of format.
+	// The row they address together is Codec, which is stored nowhere.
+	Format  string `json:"format"`
+	Encoder string `json:"encoder"`
+	Mode    string `json:"mode"`   // rate control: cbr vbr abr crf lossless
+	Chroma  string `json:"chroma"` // gbrp yuv444p yuv422p yuv420p p010le
 	// ColorRange is pc or tv, and is ignored for gbrp, which is full range by construction.
 	ColorRange string `json:"colorRange"`
 	Fps        int    `json:"fps"`
@@ -246,6 +255,10 @@ type Publish struct {
 	// AudioSources are what the second track is mixed from, in the order a form draws them.
 	// An empty list is a stream with no second track.
 	AudioSources []AudioSource `json:"audioSources"`
+	// LegacyCodec is the one encoder name a file written before the pair carried, read so the
+	// migration can split it into Format and Encoder (migrate.go).
+	// Cleared there and omitted when empty, so a file that has been through one loses the key.
+	LegacyCodec string `json:"codec,omitempty"`
 	// LegacyAudio is the one source name a file written before the list carried, read so the
 	// migration can turn it into the one entry (migrate.go).
 	//
@@ -317,6 +330,32 @@ type Viewer struct {
 	RenderChain string `json:"renderChain"`
 }
 
+// Codec is the encoder the format and the encoder fields name between them, as every engine, probe
+// and log line spells it: "hevc_nvenc".
+// Empty for a pair no row carries, which a draft nothing repaired can hold and which every consumer
+// already handles as a codec outside the table (capabilities.Get).
+func (p Publish) Codec() string {
+	c, ok := capabilities.Row(p.Format, p.Encoder)
+	if !ok {
+		return ""
+	}
+	return c.Name
+}
+
+// UseCodec points the encode at one row of the capability table: the two fields written from the row
+// that name addresses, which is Codec read backwards.
+//
+// The name is the caller's own rather than a stored one, so a name no row carries is an
+// Entwicklungsfehler and asserts.
+// What a settings file holds is the migration's question, and it answers it against the table before
+// writing either field (migrate.go).
+func (p *Publish) UseCodec(name string) {
+	c, ok := capabilities.Get(name)
+	assert.Assert(ok, "an encode is pointed at a row of the capability table", name)
+
+	p.Format, p.Encoder = c.Format, c.Encoder()
+}
+
 // AudioTrack is the audio codec the publish leg has to carry: the configured one where the list
 // names at least one source, capabilities.AudioNone where it names none.
 // Both publish engines validate with it, so "no track" is one value both tables read rather than a
@@ -383,7 +422,8 @@ func Defaults() Settings {
 			RtspPort: 8554, WebrtcPort: 8889, RtmpPort: 1935, HlsPort: 8888, MoqPort: 8892,
 		},
 		Publish: Publish{
-			Name: host, Transport: "srt", Codec: "hevc_nvenc", Mode: "lossless", Chroma: "gbrp",
+			Name: host, Transport: "srt", Format: "hevc", Encoder: capabilities.FamilyNvenc,
+			Mode: "lossless", Chroma: "gbrp",
 			ColorRange: "pc", Fps: 60, Cq: 19, BitrateM: 150, MaxrateM: 200, VbvMs: 0,
 			Gop: 0, Bframes: 0,
 			Capture: capture, DrmMap: "auto", Monitor: 0,
@@ -415,11 +455,11 @@ func Defaults() Settings {
 	// Both ladder steps are read off the codec's own row rather than written here.
 	// Where a mode starts is a fact about the encoder, and a constant beside the codec name would be
 	// a second answer to it, left on the old step the day the row moved that mode.
-	d.Publish.Effort, d.Publish.Tune = LadderSteps(d.Publish.Codec, d.Publish.Mode)
+	d.Publish.Effort, d.Publish.Tune = LadderSteps(d.Publish.Codec(), d.Publish.Mode)
 
-	assert.Assert(d.Publish.Name != "" && d.Publish.Codec != "" && d.Publish.Capture != "",
+	assert.Assert(d.Publish.Name != "" && d.Publish.Codec() != "" && d.Publish.Capture != "",
 		"a fresh installation names what it publishes, what encodes it and what captures it",
-		d.Publish.Name, d.Publish.Codec, d.Publish.Capture)
+		d.Publish.Name, d.Publish.Format, d.Publish.Encoder, d.Publish.Capture)
 	assert.Assert(d.Relay.Host != "", "a fresh installation names a relay to reach")
 	return d
 }

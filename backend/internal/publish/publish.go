@@ -260,7 +260,7 @@ func RateCeilingMbps(s settings.Settings) (float64, bool) {
 		return float64(s.Publish.MaxrateM), s.Publish.MaxrateM > 0
 	case capabilities.ModeCrf:
 		engine, err := EngineFor(s.Publish.Capture)
-		if err != nil || !capabilities.QualityCeiling(s.Publish.Codec, engine) {
+		if err != nil || !capabilities.QualityCeiling(s.Publish.Codec(), engine) {
 			return 0, false
 		}
 		return float64(s.Publish.MaxrateM), s.Publish.MaxrateM > 0

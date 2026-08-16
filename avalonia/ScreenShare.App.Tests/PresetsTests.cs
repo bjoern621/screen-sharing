@@ -442,7 +442,8 @@ public sealed class PresetsTests
         var card = await CardAsync();
 
         // An encoder that takes no planar RGB, what the lossless promise rests on.
-        Write(card, "publish.codec", "libx264");
+        Write(card, "publish.format", "h264");
+        Write(card, "publish.encoder", "x264");
         await card.Form.Settled;
 
         var lossless = Builtin(card, "lossless");

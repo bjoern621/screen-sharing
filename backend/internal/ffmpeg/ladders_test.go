@@ -161,7 +161,8 @@ func mustEncoderArgs(t *testing.T, c capabilities.Codec, mode string) []string {
 	if len(chromas) == 0 {
 		t.Skipf("%s codes nothing on this engine", c.Name)
 	}
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[len(chromas)-1]
+	s.Publish.UseCodec(c.Name)
+	s.Publish.Mode, s.Publish.Chroma = mode, chromas[len(chromas)-1]
 	// Both steps come off the codec's own row, as a fresh installation, the migration and the repair
 	// leave them.
 	// A draft carrying another codec's step is what the repair exists to move, and not what this asks

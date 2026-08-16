@@ -50,25 +50,28 @@ var qsvMissing = encoders.Availability{Usable: map[string]map[string]bool{
 	capabilities.EngineFfmpeg: {"h264_qsv": false, "hevc_qsv": false, "hevc_nvenc": true},
 }}
 
-// codecOption finds one entry of the codec control in a resolved form, so a test reads the
+// encoderOption finds one entry of the encoder control in a resolved form, so a test reads the
 // contract's own shape instead of form's internals.
-func codecOption(t *testing.T, form *screensharev1.Form, codec string) *screensharev1.FieldOption {
+//
+// Which row that entry is about follows the format the draft holds, the pair being what addresses
+// one: the defaults publish HEVC, so "qsv" here is the Quick Sync HEVC encoder.
+func encoderOption(t *testing.T, form *screensharev1.Form, encoder string) *screensharev1.FieldOption {
 	t.Helper()
 
 	for _, group := range form.GetGroups() {
 		for _, field := range group.GetFields() {
-			if field.GetKey() != "publish.codec" {
+			if field.GetKey() != "publish.encoder" {
 				continue
 			}
 			for _, option := range field.GetOptions() {
-				if option.GetValue() == codec {
+				if option.GetValue() == encoder {
 					return option
 				}
 			}
 		}
 	}
 
-	t.Fatalf("the resolved form offers no codec %q", codec)
+	t.Fatalf("the resolved form offers no encoder %q", encoder)
 	return nil
 }
 
@@ -91,19 +94,19 @@ func TestResolveFormGreysAnEncoderTheProbeCouldNotRun(t *testing.T) {
 		t.Fatalf("resolving a form answered %v, want an answer", err)
 	}
 
-	option := codecOption(t, form.GetForm(), "h264_qsv")
+	option := encoderOption(t, form.GetForm(), "qsv")
 	if option.GetEnabled() {
-		t.Fatal("h264_qsv is offered on a machine whose probe could not run it")
+		t.Fatal("the Quick Sync encoder is offered on a machine whose probe could not run it")
 	}
 	// The statement names the family whose device is missing and not a sentence about it.
 	// How "no Intel Quick Sync encoder on this machine" reads belongs to the surface; what is true is
 	// this.
 	// A reason greying the codec without naming the family would leave the reader nothing to act on.
 	if option.GetReason().GetCode() != screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE {
-		t.Errorf("h264_qsv greys with %v, want the probe's no-device verdict", option.GetReason().GetCode())
+		t.Errorf("the Quick Sync encoder greys with %v, want the probe's no-device verdict", option.GetReason().GetCode())
 	}
 	if got := textArgID(option.GetReason(), screensharev1.TextArgName_TEXT_ARG_NAME_FAMILY); got != "qsv" {
-		t.Errorf("h264_qsv greys naming family %q, which is not the hardware that is missing", got)
+		t.Errorf("the Quick Sync encoder greys naming family %q, which is not the hardware that is missing", got)
 	}
 }
 
@@ -122,8 +125,8 @@ func TestResolveFormGreysNothingBeforeTheProbeHasRun(t *testing.T) {
 		t.Fatalf("resolving a form answered %v, want an answer", err)
 	}
 
-	if option := codecOption(t, form.GetForm(), "h264_qsv"); !option.GetEnabled() {
-		t.Errorf("h264_qsv is greyed on an unprobed machine with %q", option.GetReason())
+	if option := encoderOption(t, form.GetForm(), "qsv"); !option.GetEnabled() {
+		t.Errorf("the Quick Sync encoder is greyed on an unprobed machine with %q", option.GetReason())
 	}
 }
 

@@ -31,8 +31,9 @@ func deadRun(t *testing.T, attempts int) (*App, *publishRun) {
 
 	s := settings.Defaults()
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 
 	run := &publishRun{settings: s, handle: &applierHandle{stopped: true}, startedAt: time.Now(), attempts: attempts}
 	a := &App{events: events.New(), settings: s, run: run}

@@ -55,7 +55,8 @@ func PublishSettings(p settings.Publish) *screensharev1.PublishSettings {
 		Name: p.Name,
 
 		PublishTransport: p.Transport,
-		Codec:            p.Codec,
+		Format:           p.Format,
+		Encoder:          p.Encoder,
 		Mode:             p.Mode,
 		Chroma:           p.Chroma,
 		ColorRange:       p.ColorRange,
@@ -145,7 +146,8 @@ func ToPublish(m *screensharev1.PublishSettings) settings.Publish {
 		Name: m.GetName(),
 
 		Transport:  m.GetPublishTransport(),
-		Codec:      m.GetCodec(),
+		Format:     m.GetFormat(),
+		Encoder:    m.GetEncoder(),
 		Mode:       m.GetMode(),
 		Chroma:     m.GetChroma(),
 		ColorRange: m.GetColorRange(),

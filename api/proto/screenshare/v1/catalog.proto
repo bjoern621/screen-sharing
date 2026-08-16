@@ -97,7 +97,8 @@ message EngineLimit {
 // for.
 message VideoCodec {
   // Encoder as the engine names it: "hevc_nvenc".
-  // The value PublishSettings.codec carries.
+  // What a command line and a log line spell, and what a probe verdict is keyed by
+  // (EncoderAvailability).
   string name = 1;
   // Encoder backend: software, nvenc, vaapi, qsv, amf, v4l2, rkmpp or vulkan.
   // Every per-backend behaviour keys off the family rather than off a name suffix.
@@ -106,6 +107,10 @@ message VideoCodec {
   // Carriage is stated per format and not per encoder, because the format is what a
   // transport carries.
   string format = 3;
+  // The row's own half of the pair PublishSettings carries, format being the other:
+  // the family wherever that family is one encoder, and the library where several share a
+  // family ("nvenc", "x264", "svt-av1").
+  string encoder = 10;
   // False where this app builds no pipeline for the codec.
   // Such a row exists so the table can state why it is absent.
   bool implemented = 4;

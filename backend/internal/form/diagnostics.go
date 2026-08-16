@@ -20,7 +20,7 @@ import (
 var warningAnchors = []string{
 	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
-	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
+	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
 	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
@@ -189,7 +189,7 @@ func diagnosticsAboutTheCapture(d Deps, s settings.Settings) []*screensharev1.Di
 // Every format has a software decoder, so no stream is undecodable,
 // and the only question is whether a viewer spends cores on it (docs/field-availability.md).
 func diagnosticsAboutTheViewer(s settings.Settings) []*screensharev1.Diagnostic {
-	decode, err := capabilities.DecodeOf(s.Publish.Codec, s.Publish.Chroma)
+	decode, err := capabilities.DecodeOf(s.Publish.Codec(), s.Publish.Chroma)
 	if err != nil {
 		// An unknown codec has no format to decode, and the publish path refuses it with its own reason.
 		// A second statement about the viewer would bury that one.

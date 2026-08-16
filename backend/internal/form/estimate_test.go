@@ -29,7 +29,7 @@ func estimateTestDeps() Deps {
 func estimateTestStream() settings.Settings {
 	s := settings.Defaults()
 	s.Publish.Capture = "x11grab"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.ColorRange = "tv"
@@ -67,7 +67,7 @@ func TestTheAnchorCombinationPredictsTheAnchorFigure(t *testing.T) {
 // 0.6 is HEVC's coding efficiency, 1.5 is the 4:4:4 weight.
 func TestTheCodecAndTheChromaPriceTheAnchorFigure(t *testing.T) {
 	s := estimateTestStream()
-	s.Publish.Codec = "libx265"
+	s.Publish.UseCodec("libx265")
 	s.Publish.Chroma = "yuv444p"
 	s.Publish.Cq = 29
 
@@ -94,11 +94,11 @@ func TestTheQuantizerIsPlacedOnTheAnchorScale(t *testing.T) {
 	d := estimateTestDeps()
 
 	onFiftyOne := estimateTestStream()
-	onFiftyOne.Publish.Codec = "libx265"
+	onFiftyOne.Publish.UseCodec("libx265")
 	onFiftyOne.Publish.Cq = 51
 
 	onSixtyThree := estimateTestStream()
-	onSixtyThree.Publish.Codec = "libvpx-vp9"
+	onSixtyThree.Publish.UseCodec("libvpx-vp9")
 	onSixtyThree.Publish.Cq = 63
 
 	fifty, sixty := estimate(d, onFiftyOne), estimate(d, onSixtyThree)
@@ -135,7 +135,7 @@ func TestABitrateTargetIsWhatABitrateModePredicts(t *testing.T) {
 // and the typical figure is the midpoint of the lossless spread.
 func TestALosslessEncodeIsPricedFromTheRawRate(t *testing.T) {
 	s := estimateTestStream()
-	s.Publish.Codec = "libx265"
+	s.Publish.UseCodec("libx265")
 	s.Publish.Mode = "lossless"
 	s.Publish.Chroma = "gbrp"
 
@@ -200,7 +200,8 @@ func TestAnUnpriceableSettingPredictsNothing(t *testing.T) {
 	cases := map[string]func(*settings.Settings){
 		"a pixel format no codec encodes":  func(s *settings.Settings) { s.Publish.Chroma = "nv12" },
 		"a rate-control mode that is none": func(s *settings.Settings) { s.Publish.Mode = "magic" },
-		"a codec the table does not hold":  func(s *settings.Settings) { s.Publish.Codec = "libnope" },
+		"an encoder no row runs on":        func(s *settings.Settings) { s.Publish.Encoder = "libnope" },
+		"a format nothing here produces":   func(s *settings.Settings) { s.Publish.Format = "mpeg2" },
 		"no frame rate at all":             func(s *settings.Settings) { s.Publish.Fps = 0 },
 	}
 	for name, move := range cases {

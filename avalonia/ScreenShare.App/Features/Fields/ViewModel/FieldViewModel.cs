@@ -100,7 +100,7 @@ public sealed class FieldViewModel : Observable
         RevealCommand = new DelegateCommand(ToggleRefused);
     }
 
-    /// <summary>The settings field this control edits, as <c>publish.codec</c>. Carried, never parsed.</summary>
+    /// <summary>The settings field this control edits, as <c>publish.encoder</c>. Carried, never parsed.</summary>
     public string Key { get; }
 
     // --- Inputs -------------------------------------------------------------------

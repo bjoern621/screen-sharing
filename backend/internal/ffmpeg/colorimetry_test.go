@@ -106,7 +106,8 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 				// RTSP carries every format the codec table holds, so the transport check inside
 				// BuildPublishArgs decides nothing about which codecs this covers.
 				s.Publish.Transport, s.Publish.RtspPublishProtocol = "rtsp", settings.Defaults().Publish.RtspPublishProtocol
-				s.Publish.Codec, s.Publish.ColorRange = cap.Name, colorRange
+				s.Publish.UseCodec(cap.Name)
+				s.Publish.ColorRange = colorRange
 				s.Publish.Mode = colorimetryMode(t, cap)
 				s.Publish.Chroma = yuvChroma(t, cap)
 				s.Publish.Cq = cap.CqMaxOn(capabilities.EngineFfmpeg) / 2
@@ -132,7 +133,7 @@ func TestPublishedColorimetryIsSignalledInTheBitstream(t *testing.T) {
 					t.Fatal(err)
 				}
 				if surface {
-					upload, err := HwSurfaceFilters(s.Publish.Codec, s.Publish.Chroma)
+					upload, err := HwSurfaceFilters(s.Publish.Codec(), s.Publish.Chroma)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -216,7 +217,8 @@ func TestPublishedFullRangeStaysFullRangeThroughTheColourTag(t *testing.T) {
 	} {
 		t.Run(tc.colorRange, func(t *testing.T) {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Chroma, s.Publish.ColorRange = "libx264", "yuv420p", tc.colorRange
+			s.Publish.UseCodec("libx264")
+			s.Publish.Chroma, s.Publish.ColorRange = "yuv420p", tc.colorRange
 			options, filters := publishColour(t, s)
 
 			stream := filepath.Join(t.TempDir(), "publish.h264")

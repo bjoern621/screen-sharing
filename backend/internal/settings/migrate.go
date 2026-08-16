@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 
 	"bjoernblessin.de/go-utils/util/assert"
+
+	"bjoernblessin.de/screenshare/internal/capabilities"
 )
 
 // flat is the settings shape from before the three groups: one object with every key at the top
@@ -88,7 +90,7 @@ func decodeFlat(data []byte) (Settings, bool) {
 
 	set(&s.Publish.Name, f.Name)
 	set(&s.Publish.Transport, f.Transport)
-	set(&s.Publish.Codec, f.Codec)
+	set(&s.Publish.LegacyCodec, f.Codec)
 	set(&s.Publish.Mode, f.Mode)
 	set(&s.Publish.Chroma, f.Chroma)
 	set(&s.Publish.ColorRange, f.ColorRange)
@@ -182,6 +184,27 @@ func migratePublish(p, d Publish) Publish {
 	// The publish leg's protocol was fixed before it was a field, so a file from then names none and
 	// the transport refuses the publish over the empty value.
 	fillText(&p.RtspPublishProtocol, d.RtspPublishProtocol)
+	// A file written while the encode was one field carries an encoder name under the old key, which
+	// the ordinary decode never reads: the pair replaced it and neither half spells a codec.
+	// That name addresses one row, so the row's own columns are what the two fields become and a
+	// stored stream keeps encoding as it did.
+	// A name no row carries is dropped rather than split, which would write a format nothing produces
+	// beside an encoder no family answers to.
+	//
+	// The old key wins over the pair rather than filling it, because the pair at this point is the
+	// default either way: the group decode starts from Defaults and the flat one does too.
+	if p.LegacyCodec != "" {
+		if c, ok := capabilities.Get(p.LegacyCodec); ok {
+			p.Format, p.Encoder = c.Format, c.Encoder()
+		}
+		p.LegacyCodec = ""
+	}
+	// Either half left empty takes what a fresh installation holds, a dropped name among the ways to
+	// get there.
+	// An empty format names no bitstream and an empty encoder no encode, so neither is a value
+	// somebody chose, and the form walks the pair on from here wherever this machine cannot run it.
+	fillText(&p.Format, d.Format)
+	fillText(&p.Encoder, d.Encoder)
 	// A file written while the second track was one source carries that source's name under the old
 	// key, which the ordinary decode never reads: the field is a list and the two shapes have no
 	// reading in common.
@@ -206,7 +229,7 @@ func migratePublish(p, d Publish) Publish {
 	// The codec's own default for the mode is what those builds spent, so filling it keeps a stored
 	// stream encoding as it did.
 	if p.Effort == "" || p.Tune == "" {
-		effort, tune := LadderSteps(p.Codec, p.Mode)
+		effort, tune := LadderSteps(p.Codec(), p.Mode)
 		fillText(&p.Effort, effort)
 		fillText(&p.Tune, tune)
 	}
@@ -223,6 +246,7 @@ func migratePublish(p, d Publish) Publish {
 	// one.
 	fillText(&p.Cursor, d.Cursor)
 
+	assert.Assert(p.LegacyCodec == "", "an upgraded publish carries no pre-pair codec key", p.LegacyCodec)
 	assert.Assert(p.LegacyAudio == "", "an upgraded publish carries no pre-list audio key", p.LegacyAudio)
 	assert.Assert(p.Mode != "latency" && p.Mode != "quality",
 		"an upgraded publish names a rate control the tables carry", p.Mode)

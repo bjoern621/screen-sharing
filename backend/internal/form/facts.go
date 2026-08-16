@@ -28,18 +28,22 @@ import (
 // An empty reading matches no rule that names a value, so an unstated fact greys nothing,
 // which is the answer availability gives for an engine it could not derive.
 func factsOf(d Deps, s settings.Settings) rules.Facts {
-	codec, known := capabilities.Get(s.Publish.Codec)
-	family, format := "", ""
+	// The two controls are read as they stand and the row they address is derived beside them, so a
+	// pair no row carries answers the two field axes and leaves the derived ones empty.
+	// That is the honest reading: the draft does name a format and an encoder, and it names no codec.
+	codec, known := capabilities.Get(s.Publish.Codec())
+	family := ""
 	if known {
-		family, format = codec.Family, codec.Format
+		family = codec.Family
 	}
 
 	f := rules.Facts{
 		rules.AxisCapture:    rules.TextValue(s.Publish.Capture),
 		rules.AxisEngine:     rules.TextValue(factsEngineOf(s)),
-		rules.AxisCodec:      rules.TextValue(s.Publish.Codec),
+		rules.AxisFormat:     rules.TextValue(s.Publish.Format),
+		rules.AxisEncoder:    rules.TextValue(s.Publish.Encoder),
+		rules.AxisCodec:      rules.TextValue(s.Publish.Codec()),
 		rules.AxisFamily:     rules.TextValue(family),
-		rules.AxisFormat:     rules.TextValue(format),
 		rules.AxisChroma:     rules.TextValue(s.Publish.Chroma),
 		rules.AxisColorRange: rules.TextValue(s.Publish.ColorRange),
 		rules.AxisMode:       rules.TextValue(s.Publish.Mode),

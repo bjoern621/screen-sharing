@@ -336,15 +336,15 @@ func TestValidateBitrateCeiling(t *testing.T) {
 			continue
 		}
 		chroma := c.EngineChromas(EngineFfmpeg)[0]
-		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit+1, 0, Device{}); err == nil {
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "tv"), 0, limit+1, 0, Device{}); err == nil {
 			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, limit)
 		}
-		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit, 0, Device{}); err != nil {
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "tv"), 0, limit, 0, Device{}); err != nil {
 			t.Errorf("%s at its ceiling: %v", c.Name, err)
 		}
 		// crf sends no bitrate, so a stale target must not block the encode.
 		if _, gap := c.OptionGap(EngineFfmpeg, OptionMode, "crf"); !gap {
-			if err := Validate(EngineFfmpeg, c.Name, options(chroma, "crf", "pc"), 0, limit*2, 0, Device{}); err != nil {
+			if err := Validate(EngineFfmpeg, c.Name, options(chroma, "crf", "tv"), 0, limit*2, 0, Device{}); err != nil {
 				t.Errorf("%s in crf with a stale bitrate target: %v", c.Name, err)
 			}
 		}
@@ -362,6 +362,8 @@ func TestNumericLimitsCoverEveryEngineOrNone(t *testing.T) {
 		limits := map[string]map[string]int{
 			"CqMax":         c.CqMax,
 			"BitrateLimitM": c.BitrateLimitM,
+			"BufferLimitKb": c.BufferLimitKb,
+			"GopLimit":      c.GopLimit,
 		}
 		for field, byEngine := range limits {
 			for engine := range byEngine {
@@ -397,5 +399,41 @@ func TestHasFormat(t *testing.T) {
 	}
 	if HasFormat("") {
 		t.Error("the empty format must not answer")
+	}
+}
+
+// The two picker axes address one row between them, so a format and an encoder name at most one
+// encode.
+// Two rows on one pair would leave the derivation picking whichever came first, and the settings
+// naming an encode nobody can address the other half of.
+func TestFormatAndEncoderAddressOneRow(t *testing.T) {
+	seen := map[string]string{}
+	for _, c := range Codecs {
+		pair := c.Format + "/" + c.Encoder()
+		if first, taken := seen[pair]; taken {
+			t.Errorf("%s and %s both answer to %s", first, c.Name, pair)
+		}
+		seen[pair] = c.Name
+	}
+}
+
+// Every row is reachable through the pair the settings carry, or it is an encode the form offers and
+// no draft can name.
+func TestRowAnswersItsOwnPair(t *testing.T) {
+	for _, c := range Codecs {
+		row, ok := Row(c.Format, c.Encoder())
+		if !ok {
+			t.Errorf("%s answers to no format and encoder pair", c.Name)
+			continue
+		}
+		if row.Name != c.Name {
+			t.Errorf("%s/%s resolves to %s, want %s", c.Format, c.Encoder(), row.Name, c.Name)
+		}
+	}
+	if _, ok := Row("h264", "rav1e"); ok {
+		t.Error("a pair no row carries must not resolve")
+	}
+	if _, ok := Row("", ""); ok {
+		t.Error("the empty pair must not resolve")
 	}
 }

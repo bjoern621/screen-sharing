@@ -36,6 +36,10 @@ Planar RGB is greyed on the portal capture backend, because no GStreamer encoder
 The reason then tells the user what to change rather than only that the option is gone.
 The audio codec is greyed from two tables at once, and the reason names which one: the publish leg carries no such track (AAC under WebRTC, Opus under RTMP), or the capture backend's engine has no encoder for it.
 
+The encode's two controls split the same way, each greying for what it can be changed to fix.
+A format greys where nothing here produces it, or where the publish leg has no mapping for it, which is one statement covering however many encoders reach it.
+An encoder greys where the pair names no row at all, naming the formats that encoder does produce, and where this machine cannot run the row: what the probe found, the engine's own gap, the roadmap.
+
 **Live with a note.**
 Stays editable, and gains a note the shell renders beside its own text.
 For a combination where the value still reaches the encoder but does something the field's own text does not describe, such as the bitrate becoming a burst ceiling in constant-quality mode on NVENC.
@@ -120,7 +124,7 @@ No means hide.
 A greyed entry stays on the list and sinks to the bottom of it.
 
 `form.resolveOptions` partitions a control's entries into the ones this combination allows and the ones it rules out, and the partition is stable, so each half keeps the order its builder gave it.
-The chroma ladder still runs from most colour detail to least and the codec table still lists the implemented families before the roadmap ones.
+The chroma ladder still runs from most colour detail to least and the encoder list still offers the implemented families before the roadmap ones.
 What moves is only that everything reachable is reachable from the top.
 A Windows machine therefore meets Desktop Duplication before it meets a capture backend only macOS runs.
 

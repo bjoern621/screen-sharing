@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-gst/go-gst/pkg/gst"
 )
 
 // delayLine is the reported reading on a run's output, and false where none was written.
@@ -176,5 +178,75 @@ func TestAShedCountIsAbsentWhereNothingCountsOne(t *testing.T) {
 	held.out.Add(5)
 	if dropped, _ := held.Read(); dropped != 0 {
 		t.Errorf("a frame counted out before it was counted in reads as %d dropped, want 0", dropped)
+	}
+}
+
+// The queue's depth is what separates a frame on its way from one thrown away.
+// Counted at the ends alone, every frame in the queue reads as dropped and stops reading that way
+// once it leaves, which is a cumulative total that goes down.
+func TestFramesInTheShedAreNotCountedAsDropped(t *testing.T) {
+	held := uint64(0)
+	c := &shedCount{level: func() uint64 { return held }}
+
+	c.in.Add(10)
+	held = 10
+	if dropped, _ := c.Read(); dropped != 0 {
+		t.Errorf("ten frames in the queue read as %d dropped, want none: they have not gone anywhere", dropped)
+	}
+
+	// They leave, and still nothing was dropped.
+	c.out.Add(10)
+	held = 0
+	if dropped, _ := c.Read(); dropped != 0 {
+		t.Errorf("ten frames through the queue read as %d dropped, want none", dropped)
+	}
+
+	// One is thrown away: in and out differ by one with the queue empty.
+	c.in.Add(1)
+	if dropped, _ := c.Read(); dropped != 1 {
+		t.Errorf("one frame taken in and never handed on reads as %d dropped, want 1", dropped)
+	}
+}
+
+// A total that counts down is a readout counting backwards in front of whoever is watching it.
+// The three readings are taken one after another, so one of them moving under the other two is
+// ordinary, and the figure holds where it got to.
+func TestADropTotalNeverCountsDown(t *testing.T) {
+	held := uint64(0)
+	c := &shedCount{level: func() uint64 { return held }}
+
+	c.in.Add(9)
+	c.out.Add(4)
+	first, _ := c.Read()
+	if first != 5 {
+		t.Fatalf("nine in, four out and none held reads as %d dropped, want 5", first)
+	}
+
+	// The queue fills, which subtracts from the same difference.
+	held = 3
+	if dropped, _ := c.Read(); dropped != first {
+		t.Errorf("a queue filling took the total from %d to %d", first, dropped)
+	}
+}
+
+// The depth is read off the element by property, through a type assertion, and a figure that stops
+// matching goes to zero rather than to an error: a zero depth counts every frame in flight as
+// dropped, which is the reading this whole count exists to avoid.
+// So the assertion is held against what a queue actually answers.
+func TestAQueuesDepthIsReadAndNotAssumed(t *testing.T) {
+	gst.Init()
+
+	el := gst.ElementFactoryMake("queue", "shed")
+	if el == nil {
+		t.Skip("this install carries no queue element")
+	}
+	el.SetObjectProperty("max-size-buffers", uint32(8))
+
+	if got := queueLevel(el)(); got != 0 {
+		t.Errorf("an idle queue reads as holding %d buffers, want none", got)
+	}
+	if _, ok := el.ObjectProperty("current-level-buffers").(uint32); !ok {
+		t.Errorf("the depth no longer reads as uint32, so queueLevel needs the width the binding answers: %T",
+			el.ObjectProperty("current-level-buffers"))
 	}
 }

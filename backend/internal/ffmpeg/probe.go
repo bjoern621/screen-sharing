@@ -53,7 +53,7 @@ func BuildEncodeProbeArgs(s settings.Settings, width, height, frames int, heavy 
 	assert.Assert(width > 0 && height > 0, "a probe encodes frames of a resolved picture size", width, height)
 	assert.Assert(frames > 0, "a probe encodes at least one frame", frames)
 
-	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
 	if s.Publish.Fps <= 0 {
@@ -64,9 +64,9 @@ func BuildEncodeProbeArgs(s settings.Settings, width, height, frames int, heavy 
 	if err != nil {
 		return nil, err
 	}
-	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Publish.Codec)
+	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Publish.Codec())
 
-	device, uploads, err := HwSurfaceDevice(s.Publish.Codec)
+	device, uploads, err := HwSurfaceDevice(s.Publish.Codec())
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func BuildEncodeProbeArgs(s settings.Settings, width, height, frames int, heavy 
 		filters = append(filters, colour)
 	}
 	if uploads {
-		upload, err := HwSurfaceFilters(s.Publish.Codec, s.Publish.Chroma)
+		upload, err := HwSurfaceFilters(s.Publish.Codec(), s.Publish.Chroma)
 		if err != nil {
 			return nil, err
 		}

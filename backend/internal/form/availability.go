@@ -20,6 +20,7 @@ package form
 
 import (
 	"slices"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -126,7 +127,8 @@ var availabilityRules = map[string]func(availability) state{
 
 	// Greyed per entry rather than per control: a greyed entry and its reason name the thing to change.
 	KeyTransport: func(availability) state { return availabilityLive() },
-	KeyCodec:     func(availability) state { return availabilityLive() },
+	KeyFormat:    func(availability) state { return availabilityLive() },
+	KeyEncoder:   func(availability) state { return availabilityLive() },
 	KeyMode:      func(availability) state { return availabilityLive() },
 	KeyCapture:   func(availability) state { return availabilityLive() },
 
@@ -201,7 +203,7 @@ var availabilityRules = map[string]func(availability) state{
 	KeyEffort: func(av availability) state {
 		ladder := av.codec.Effort
 		pinned := ladder.PinsIn(av.s.Publish.Mode)
-		reason := say(codecTakesNoEffortLadder, argCodec(av.s.Publish.Codec))
+		reason := say(codecTakesNoEffortLadder, argCodec(av.s.Publish.Codec()))
 		// A mode that pins the step carries the one it pins to, so the statement names the declared value
 		// rather than a restated one.
 		if pinned {
@@ -217,7 +219,7 @@ var availabilityRules = map[string]func(availability) state{
 	KeyTune: func(av availability) state {
 		ladder := av.codec.Tune
 		pinned := ladder.PinsIn(av.s.Publish.Mode)
-		reason := say(codecTakesNoTuneLadder, argCodec(av.s.Publish.Codec))
+		reason := say(codecTakesNoTuneLadder, argCodec(av.s.Publish.Codec()))
 		if pinned {
 			step, _ := ladder.StepFor(av.s.Publish.Mode)
 			reason = say(tunePinnedByMode, argMode(av.s.Publish.Mode), argTune(step))
@@ -339,7 +341,8 @@ var availabilityRules = map[string]func(availability) state{
 var availabilityOptionRules = map[string]func(availability, string) *screensharev1.Text{
 	KeyCapture:           availability.captureReason,
 	KeyTransport:         availability.transportReason,
-	KeyCodec:             availability.codecReason,
+	KeyFormat:            availability.formatReason,
+	KeyEncoder:           availability.encoderReason,
 	KeyChroma:            availability.chromaReason,
 	KeyMode:              availability.modeReason,
 	KeyColorRange:        availability.colorRangeReason,
@@ -456,7 +459,7 @@ func availabilityOf(d Deps, s settings.Settings) availability {
 	if engine, err := publish.EngineFor(s.Publish.Capture); err == nil {
 		av.engine = engine
 	}
-	av.codec, av.knownCodec = capabilities.Get(s.Publish.Codec)
+	av.codec, av.knownCodec = capabilities.Get(s.Publish.Codec())
 	if av.engine != "" && av.knownCodec {
 		av.path, av.onDevicePath = gpupath.For(av.engine, s.Publish.Capture, av.codec.Family)
 	}
@@ -511,53 +514,126 @@ func (av availability) transportReason(name string) *screensharev1.Text {
 	}
 	assert.Assert(av.engine != "", "a capture backend the app runs names a publish engine", av.s.Publish.Capture)
 	if slices.Contains(allowed, name) {
-		return nil
+		return av.legElementReason(name)
 	}
 	return say(engineHasNoPublishSink,
 		argCapture(av.s.Publish.Capture), argEngine(av.engine), argTransport(name))
 }
 
-// codecReason states why this combination cannot encode with a codec.
+// legElementReason states that this install carries none of the elements the leg's sink is made of,
+// nil where it does or where nothing asked.
 //
-// Four facts withhold one, weighed by what the user can act on.
-// A probe that could not run the encoder outranks every table fact, since "no NVIDIA encoder on this
-// machine" is the message that stops a search for the right transport.
-// Below it sit the engine's own gap, the roadmap, and last the publish leg's carriage, which is the
-// one a different transport fixes.
+// The other half of what the encoder probe answers: an encoder that runs says nothing about the sink
+// after it, and an install carrying an older WHIP element than the one this app builds passes every
+// codec probe there is and dies at launch on the sink.
+// The GStreamer engine alone, which is the engine whose sink is a named element rather than a muxer
+// inside the ffmpeg build (encoders.Availability.Legs).
+func (av availability) legElementReason(name string) *screensharev1.Text {
+	if av.engine != capabilities.EngineGst {
+		return nil
+	}
+	if ran, tested := av.deps.Encoders.Legs[name]; !tested || ran {
+		return nil
+	}
+	elements := transport.GstSinkElements(name)
+	if len(elements) == 0 {
+		return nil
+	}
+	return say(publishSinkElementMissing,
+		argEngine(av.engine), argTransport(name), argElement(strings.Join(elements, " ")))
+}
+
+// formatReason states why this combination cannot publish a bitstream format.
 //
-// A leg this engine cannot serialize at all states nothing about any codec: that refusal belongs to
-// the transport control, and greying every codec under it would name the wrong one.
-func (av availability) codecReason(codec string) *screensharev1.Text {
+// The format's own two facts, in the order the user can act on them.
+// Whether anything here produces it comes first, since "no AV1 encoder on this machine" is what
+// stops a search for the right transport, and the publish leg's carriage second, that being the one
+// a different transport fixes.
+//
+// Nothing about one encoder is stated here.
+// Several encoders reach a format and they are out for reasons of their own, so a format greys under
+// one statement covering all of them and the control below says which encoder is missing what.
+//
+// A leg this engine cannot serialize at all states nothing about any format: that refusal belongs to
+// the transport control, and greying every format under it would name the wrong one.
+func (av availability) formatReason(format string) *screensharev1.Text {
 	if av.engine == "" {
 		return nil
 	}
 	// An engine whose own tooling is missing runs nothing, the encoders no probe is spent on included,
-	// so one statement covers every codec.
+	// so one statement covers every format.
 	if _, ok := av.deps.Encoders.Unprobed[av.engine]; ok {
 		return say(engineToolingMissing, argEngine(av.engine))
 	}
-	c, ok := capabilities.Get(codec)
-	if !ok {
+	if !av.formatRuns(format) {
+		return say(noEncoderForFormat, argFormat(format), argEngine(av.engine))
+	}
+	if !transport.CanPublish(av.s.Publish.Transport, av.engine) {
 		return nil
 	}
+	if transport.CanPublishFormat(av.s.Publish.Transport, av.engine, format) {
+		return nil
+	}
+	return av.carryBlockReason(format)
+}
+
+// formatRuns reports whether some encoder here produces the format on the selected engine.
+// Every row of it is asked, since the control offers the format and not one encoder's way to it.
+func (av availability) formatRuns(format string) bool {
+	for _, c := range capabilities.Codecs {
+		if c.Format == format && av.rowReason(c) == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// encoderReason states why this combination cannot produce the selected format with an encoder.
+//
+// The pair is what greys: an encoder that codes the format elsewhere and not here says so through
+// its row, and one that codes the format nowhere says that instead, naming the formats it does
+// produce so the way out is on the statement.
+//
+// What the publish leg carries is absent, being a fact about the format alone (formatReason).
+// Greying every encoder under it would send a user through the whole list for a refusal none of them
+// can lift.
+func (av availability) encoderReason(encoder string) *screensharev1.Text {
+	if av.engine == "" {
+		return nil
+	}
+	if _, ok := av.deps.Encoders.Unprobed[av.engine]; ok {
+		return say(engineToolingMissing, argEngine(av.engine))
+	}
+	c, ok := capabilities.Row(av.s.Publish.Format, encoder)
+	if !ok {
+		return say(encoderCodesNoFormat,
+			argEncoder(encoder),
+			argFormat(av.s.Publish.Format),
+			argFormats(capabilities.FormatsOn(encoder)))
+	}
+	return av.rowReason(c)
+}
+
+// rowReason states why this machine cannot run one row of the capability table on the selected
+// engine, nil where it runs.
+//
+// Three facts withhold one, weighed by what the user can act on.
+// A probe that could not run the encoder outranks every table fact, since "no NVIDIA encoder on this
+// machine" is the message that stops a search elsewhere.
+// Below it sit the engine's own gap and the roadmap.
+func (av availability) rowReason(c capabilities.Codec) *screensharev1.Text {
 	if reason := av.probeReason(c); reason != nil {
 		return reason
 	}
 	// The rule binds on the engine alone and names the codec it takes, so one evaluation answers for
-	// every entry of the dropdown rather than for the selected one alone.
-	if reasons := av.verdicts.ValueReasons(KeyCodec, codec); len(reasons) > 0 {
+	// every entry of both dropdowns rather than for the selected row alone.
+	if reasons := av.verdicts.ValueReasons(rules.AxisCodec, c.Name); len(reasons) > 0 {
 		return reasons[0]
 	}
 	if !c.Implemented {
 		return say(codecNotImplemented)
 	}
-	if !transport.CanPublish(av.s.Publish.Transport, av.engine) {
-		return nil
-	}
-	if transport.CanPublishFormat(av.s.Publish.Transport, av.engine, c.Format) {
-		return nil
-	}
-	return av.carryBlockReason(c)
+	return nil
 }
 
 // probeReason states why this machine's probe could not run a codec on the selected engine, nil
@@ -594,8 +670,8 @@ func (av availability) probeReason(c capabilities.Codec) *screensharev1.Text {
 	return say(probeNoBuild, argEngine(av.engine), argCodec(c.Name))
 }
 
-// carryBlockReason states that the publish leg has no mapping for a codec's bitstream, naming the
-// engine that lacks it and where the combination would have worked.
+// carryBlockReason states that the publish leg has no mapping for a bitstream, naming the engine
+// that lacks it and where the combination would have worked.
 //
 // The engine belongs in the statement because the same protocol carries a format on one engine and
 // not the other: ffmpeg's WHIP muxer publishes H.264 alone where the GStreamer one payloads VP8 and
@@ -603,20 +679,20 @@ func (av availability) probeReason(c capabilities.Codec) *screensharev1.Text {
 // A reason naming the protocol alone would send a user hunting for another transport where another
 // capture backend is the fix, so both ways out are named where the tables hold them, and each is an
 // argument the surface may or may not receive.
-func (av availability) carryBlockReason(c capabilities.Codec) *screensharev1.Text {
+func (av availability) carryBlockReason(format string) *screensharev1.Text {
 	other := capabilities.EngineGst
 	if av.engine == capabilities.EngineGst {
 		other = capabilities.EngineFfmpeg
 	}
 	otherEngine := ""
-	if transport.CanPublishFormat(av.s.Publish.Transport, other, c.Format) {
+	if transport.CanPublishFormat(av.s.Publish.Transport, other, format) {
 		otherEngine = other
 	}
-	return say(transportCarriesNoCodec,
+	return say(transportCarriesNoFormat,
 		argTransport(av.s.Publish.Transport),
-		argCodec(c.Name),
+		argFormat(format),
 		argEngine(av.engine),
-		argTransports(transport.PublishNamesFor(av.engine, c.Format)),
+		argTransports(transport.PublishNamesFor(av.engine, format)),
 		argOtherEngine(otherEngine))
 }
 
@@ -776,21 +852,21 @@ func (av availability) frameMemoryReason(memory string) *screensharev1.Text {
 			return nil
 		}
 		return say(pairHasNoDeviceMemory,
-			argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec), argEngine(av.engine))
+			argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec()), argEngine(av.engine))
 	}
 	if !av.path.Colour.TradesColour() {
 		if memory != gpupath.MemoryGpuEncoderColor {
 			return nil
 		}
 		return say(pairConvertsOnDevice,
-			argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec), argMemory(gpupath.MemoryGpu))
+			argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec()), argMemory(gpupath.MemoryGpu))
 	}
 	if memory != gpupath.MemoryGpu {
 		return nil
 	}
 	return say(pairTradesColour,
 		argCapture(av.s.Publish.Capture),
-		argCodec(av.s.Publish.Codec),
+		argCodec(av.s.Publish.Codec()),
 		argEngine(av.engine),
 		argCost(wire.GpuPathCost(av.path)),
 		argReach(availabilityExactColourReach(av.path.Family)))
@@ -816,7 +892,7 @@ func (av availability) outputResolutionReason(value string) *screensharev1.Text 
 		return nil
 	}
 	return say(devicePathHasNoScaler,
-		argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec), argMemory(gpupath.MemorySystem))
+		argCapture(av.s.Publish.Capture), argCodec(av.s.Publish.Codec()), argMemory(gpupath.MemorySystem))
 }
 
 // rtspProtocolReason states why an encrypted relay carries RTP one way only.
@@ -936,7 +1012,7 @@ func (av availability) encoderBounds() bool {
 	if av.s.Publish.Mode != capabilities.ModeCrf {
 		return true
 	}
-	return capabilities.QualityCeiling(av.s.Publish.Codec, av.engine)
+	return capabilities.QualityCeiling(av.s.Publish.Codec(), av.engine)
 }
 
 // ceilingStated is whether the settings name a ceiling for a buffer to hold.
@@ -950,9 +1026,9 @@ func (av availability) ceilingStated() bool {
 // constant quality without one, or what the VAAPI elements derive theirs from.
 // The two cannot both apply, the va rows taking no ceiling in constant quality at all.
 func (av availability) ceilingNote() *screensharev1.Text {
-	if capabilities.QualityCeilingRequired(av.s.Publish.Codec, av.engine) &&
+	if capabilities.QualityCeilingRequired(av.s.Publish.Codec(), av.engine) &&
 		av.s.Publish.Mode == capabilities.ModeCrf {
-		return say(qualityCeilingRequired, argCodec(av.s.Publish.Codec))
+		return say(qualityCeilingRequired, argCodec(av.s.Publish.Codec()))
 	}
 	return av.vaapiCeilingNote()
 }
@@ -963,7 +1039,7 @@ func (av availability) ceilingReason() *screensharev1.Text {
 	if !av.mode().usesMaxrate {
 		return say(maxrateOnlyInConstrained)
 	}
-	return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec))
+	return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec()))
 }
 
 // windowReason names which of the three facts withholds the buffer, the ceiling's own two first: a
@@ -973,7 +1049,7 @@ func (av availability) windowReason() *screensharev1.Text {
 	case !av.mode().usesVbv:
 		return say(vbvOnlyInBoundedModes)
 	case !av.encoderBounds():
-		return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec))
+		return say(noCeilingInConstantQuality, argCodec(av.s.Publish.Codec()))
 	default:
 		return say(vbvNeedsACeiling)
 	}
@@ -1010,7 +1086,7 @@ func (av availability) engineRule(key string) (availabilityEngineRule, bool) {
 		if len(r.codecs) == 0 && len(r.families) == 0 {
 			return r, true
 		}
-		if slices.Contains(r.codecs, av.s.Publish.Codec) {
+		if slices.Contains(r.codecs, av.s.Publish.Codec()) {
 			return r, true
 		}
 		if av.knownCodec && slices.Contains(r.families, av.codec.Family) {

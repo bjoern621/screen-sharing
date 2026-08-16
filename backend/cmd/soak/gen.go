@@ -11,7 +11,7 @@ import (
 	v1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 )
 
-// A field key is its group and the field name the settings message spells: "publish.codec".
+// A field key is its group and the field name the settings message spells: "publish.encoder".
 // An entry of a repeated group carries its index and the field inside it:
 // "publish.audio_sources[0].source".
 // Writing through protoreflect keeps this probe off a second copy of that mapping, which is the
@@ -135,14 +135,21 @@ func setFlag(settings *v1.Settings, key string, on bool) error {
 }
 
 // A field the probe may move, and what it may move it to.
+//
+// A number-select carries both an entry list and a band, the entries being shortcuts rather than
+// the domain, so both fill here and a move picks between them.
 type mutable struct {
 	key     string
 	control v1.ControlKind
 	options []string
 	low     int64
 	high    int64
+	step    int64
 	value   *v1.FieldValue
 }
+
+// banded says whether this field offers a band to move inside.
+func (m mutable) banded() bool { return m.high > m.low }
 
 // mutables is every field a reader could move on this form.
 //
@@ -161,24 +168,27 @@ func mutables(form *v1.Form, skip map[string]bool) []mutable {
 			if strings.HasPrefix(field.GetKey(), "relay.") {
 				continue
 			}
-			m := mutable{key: field.GetKey(), control: field.GetControl(), value: field.GetValue()}
-			switch field.GetControl() {
-			case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO, v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
-				for _, option := range field.GetOptions() {
-					if option.GetEnabled() {
-						m.options = append(m.options, option.GetValue())
-					}
+			m := mutable{key: field.GetKey(), control: field.GetControl(), value: field.GetValue(), step: 1}
+			if r := field.GetRange(); r != nil {
+				m.low, m.high, m.step = r.GetMin(), r.GetMax(), r.GetStep()
+				if m.step < 1 {
+					m.step = 1
 				}
+			}
+			for _, option := range field.GetOptions() {
+				if option.GetEnabled() {
+					m.options = append(m.options, option.GetValue())
+				}
+			}
+
+			switch field.GetControl() {
+			case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO:
 				if len(m.options) == 0 {
 					continue
 				}
-			case v1.ControlKind_CONTROL_KIND_NUMBER, v1.ControlKind_CONTROL_KIND_SLIDER:
-				r := field.GetRange()
-				if r == nil {
-					continue
-				}
-				m.low, m.high = r.GetMin(), r.GetMax()
-				if m.high <= m.low {
+			case v1.ControlKind_CONTROL_KIND_NUMBER, v1.ControlKind_CONTROL_KIND_SLIDER,
+				v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
+				if len(m.options) == 0 && !m.banded() {
 					continue
 				}
 			case v1.ControlKind_CONTROL_KIND_TOGGLE:
@@ -197,27 +207,64 @@ func mutables(form *v1.Form, skip map[string]bool) []mutable {
 // consequence: the option was enabled on the form this draft came from, and nothing else moved.
 func mutate(rng *rand.Rand, settings *v1.Settings, m mutable) (string, error) {
 	switch m.control {
-	case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO, v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
+	case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO:
 		option := m.options[rng.Intn(len(m.options))]
 		return option, setOption(settings, m.key, option)
+	case v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
+		// An entry outside the band is the one thing this control says that a band alone cannot, and
+		// the band holds positions no entry names, so a walk reaching only one of the two leaves half
+		// the control untried.
+		if len(m.options) > 0 && (!m.banded() || rng.Intn(2) == 0) {
+			option := m.options[rng.Intn(len(m.options))]
+			return option, setOption(settings, m.key, option)
+		}
+		n := pick(rng, m)
+		return fmt.Sprint(n), setNumber(settings, m.key, n)
 	case v1.ControlKind_CONTROL_KIND_NUMBER, v1.ControlKind_CONTROL_KIND_SLIDER:
-		// The bottom of the range most of the time, the whole of it the rest.
-		// A range whose top no encoder accepts would otherwise take every run, and one finding
-		// repeated is a run that found one thing.
-		span := m.high - m.low
-		if rng.Intn(4) > 0 {
-			span /= 8
-		}
-		if span < 1 {
-			span = m.high - m.low
-		}
-		n := m.low + rng.Int63n(span+1)
+		n := pick(rng, m)
 		return fmt.Sprint(n), setNumber(settings, m.key, n)
 	case v1.ControlKind_CONTROL_KIND_TOGGLE:
 		on := !m.value.GetFlag()
 		return fmt.Sprint(on), setFlag(settings, m.key, on)
 	}
 	return "", nil
+}
+
+// pick is one position a drag can land on: a multiple of the step inside the band, or either end.
+//
+// The ladder is the round figures rather than a grid counted off the floor, so a 20 ms floor
+// stepping by 50 stops on 20, 50, 100 (avalonia/.../Fields/ViewModel/FieldViewModel.cs, Ticks).
+// A probe writing between two stops would be asking for a value no reader can reach, and every
+// answer to it would be a finding about nothing.
+//
+// Both ends come up often: a range whose top no encoder takes is found by asking for the top, and a
+// draw spread evenly over a thousand positions asks for it about never.
+// The bottom eighth takes most of the rest, so a range whose top is refused leaves the run somewhere
+// to keep working from rather than spending itself on one finding.
+func pick(rng *rand.Rand, m mutable) int64 {
+	step := m.step
+	if step < 1 {
+		step = 1
+	}
+	// The stops are step, 2*step and so on, so the first one inside the band is the floor rounded up
+	// to a multiple and the last is the ceiling rounded down.
+	first := (m.low + step - 1) / step
+	last := m.high / step
+	if first > last {
+		return m.low
+	}
+	stops := last - first
+
+	switch draw := rng.Intn(8); {
+	case draw == 0:
+		return m.low
+	case draw == 1:
+		return m.high
+	case draw < 6:
+		return (first + rng.Int63n(stops/8+1)) * step
+	default:
+		return (first + rng.Int63n(stops+1)) * step
+	}
 }
 
 // readField reads what the draft holds for a key, as the string a report prints.

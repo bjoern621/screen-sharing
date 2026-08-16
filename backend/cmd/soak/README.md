@@ -62,12 +62,45 @@ which is what keeps a probe from watching, or killing, the one a shell started.
 The measuring three run in turn, competing for one machine being what they measure.
 The form walk runs beside them.
 
+A publish run holds whatever `-capture` and `-codec` name, so one run answers for one engine and one
+encoder rather than for whichever ones the walk reached.
+A move elsewhere that leaves a pinned value with no legal form sends the run back to the draft it
+opened with.
+
 ## What it holds a run to
 
 Repairs settle, an offered option is legal, a greying names a reason, a publishable draft renders a
 command.
 Frames arrive at the rate that was asked for, the bitrate lands near the ceiling, nothing is dropped,
 nothing retries, a stop leaves no child behind, and the same settings started twice are one stream.
+
+### What a control owes the screen
+
+A widget draws `Field.value` and a start sends the draft, so the two carry one number.
+A slider stops on the round figures inside its band and on both ends, so a held value off that ladder
+is one no drag lands on.
+An entry is listed once, and one marked for emphasis can be chosen.
+`publishable` and a blocking diagnostic agree in both directions, a diagnostic names a field the form
+draws, and a publishable draft predicts a rate above zero and renders a command carrying no figure
+past what an encoder takes.
+A preset applies to a draft that publishes, settles without a repair and comes back marked as
+delivered.
+
+Each run ends by stating the entries it was offered and never held, and the bands it never stood at
+an end of.
+A corner nothing reached is a gap in the run rather than a defect in the product, and the two are
+worth telling apart.
+
+### What the screen shows of a running stream
+
+The broadcast screen draws four figures off an encoder sample: the frame rate, the rate over the last
+interval, the transit and the clock.
+An absent figure prints as an ellipsis and holds its last measurement, so one no sample of a whole run
+states is a row that reads empty for the session.
+Each is checked for presence, for being finite, and for landing inside what a reader could act on,
+and a rate and a clock have to arrive on one sample or the egress plot draws nothing.
+The counters count up, the clock moves while frames arrive, and the relay names a path for the stream
+while it runs, that path being where the viewer count, the round trip and the loss are all read from.
 
 A hardware family reaches the GPU's encode engine and a software one does not.
 The reading is per process, out of `/proc/<pid>/fdinfo`, deduplicated by DRM client, so a second job
@@ -80,6 +113,24 @@ runs rather than bracketed. CPU time has the mirror trap, a reaped child's landi
 Engine time is counted for the pipeline children alone.
 The backend decodes the broadcast preview inside its own process, and that decode reaches the same
 silicon an encode does.
+
+The rendered command is read beside that reading: a hardware family whose pipeline names a CPU
+encoder is coding on cores while the settings, the greying and the estimate all still say hardware.
+The CPU encoders it matches are the catalog's own rows, through `publish.GstEncoderElement`, so a
+codec joining the domain joins this check with it.
+
+## What a leak is read off
+
+The backend process alone, never the tree.
+A tree figure moves by hundreds of megabytes and a hundred threads depending on whether a pipeline
+happened to be up at the moment of the reading, and a leak is what the parent does not give back once
+every child is gone.
+The tree stands beside it as context, and a child that outlived its stop is `publish.child_leaked`
+rather than a memory reading.
+
+Every run ends on a `backend.drift` line stating what the backend held at the start against what it
+held at the end, whether or not the climb was steep enough to be reported while it happened: a
+threshold answers yes or no, and a leak hunt needs the figure.
 
 ## Reading a finding
 

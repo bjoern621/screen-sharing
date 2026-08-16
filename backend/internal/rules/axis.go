@@ -18,7 +18,8 @@ import (
 // The rest are derived facts and carry no field key, there being no control to name: the publish
 // engine follows from the capture backend and is no setting of its own.
 const (
-	AxisCodec      = "publish.codec"
+	AxisFormat     = "publish.format"
+	AxisEncoder    = "publish.encoder"
 	AxisChroma     = "publish.chroma"
 	AxisMode       = "publish.mode"
 	AxisColorRange = "publish.color_range"
@@ -37,9 +38,12 @@ const (
 	// Spelled here for the reason the axes are, the form and the publish engine both naming it.
 	FieldAudioGain = "publish.audio_sources[].gain"
 
-	AxisEngine  = "engine"
-	AxisFamily  = "codec.family"
-	AxisFormat  = "codec.format"
+	AxisEngine = "engine"
+	AxisFamily = "codec.family"
+	// AxisCodec is the row the format and the encoder address between them, as an engine spells it.
+	// A derived fact rather than a field: the two controls are what a draft carries and what a
+	// greying lands on, and the row is what they resolve to (capabilities.Row).
+	AxisCodec   = "codec.name"
 	AxisOS      = "platform.os"
 	AxisDisplay = "platform.display"
 
@@ -85,6 +89,7 @@ var axes = []Axis{
 	{Name: AxisCodec, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CODEC},
 	{Name: AxisFamily, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_FAMILY},
 	{Name: AxisFormat, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_FORMAT},
+	{Name: AxisEncoder, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_ENCODER},
 	{Name: AxisChroma, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CHROMA},
 	{Name: AxisColorRange, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_COLOR_RANGE},
 	{Name: AxisMode, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_MODE},

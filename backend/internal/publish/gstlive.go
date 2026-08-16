@@ -78,7 +78,7 @@ func gstLiveBitrateCodecs() []string {
 // gstLiveBitrateWrite is what a running pipeline is told to hold these settings' bitrate.
 // Whether the field is live at all is the row's when, so nothing is asked about it twice here.
 func gstLiveBitrateWrite(s settings.Settings) []gstrun.Property {
-	property, mapped := gstLiveBitrate[s.Publish.Codec]
+	property, mapped := gstLiveBitrate[s.Publish.Codec()]
 	if !mapped {
 		return nil
 	}

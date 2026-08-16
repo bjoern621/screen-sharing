@@ -139,7 +139,8 @@ func TestTheTuneStepTravelsInTheElementsOwnProperty(t *testing.T) {
 		}
 
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = tc.codec, capabilities.ModeCrf, "yuv420p"
+		s.Publish.UseCodec(tc.codec)
+		s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCrf, "yuv420p"
 		s.Publish.Cq = c.CqMaxOn(capabilities.EngineGst) / 2
 		s.Publish.Tune = tc.step
 
@@ -165,7 +166,8 @@ func mustGstEncoder(t *testing.T, c capabilities.Codec, mode string) []string {
 	}
 
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[len(chromas)-1]
+	s.Publish.UseCodec(c.Name)
+	s.Publish.Mode, s.Publish.Chroma = mode, chromas[len(chromas)-1]
 	// Both steps come off the codec's own row, as a fresh installation, the migration and the repair
 	// do.
 	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(c.Name, mode)

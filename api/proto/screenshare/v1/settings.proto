@@ -98,8 +98,19 @@ message PublishSettings {
   // The publish leg, publisher to relay, keyed as the transport registry names it: "srt",
   // "rtsp", "rtmp", "webrtc".
   string publish_transport = 10;
-  // An encoder name, a row of the codec table in catalog.proto.
-  string codec = 11;
+  // The encode, as the two questions it is: which bitstream, and what produces it.
+  //
+  // format is what every viewer has to decode and what a transport carries, so it survives a
+  // machine that cannot run the encoder it was picked beside.
+  // encoder is this machine's half, at the grain a picker offers one: a family wherever that
+  // family is one encoder, and the library where several share a family ("nvenc", "x264",
+  // "svt-av1").
+  //
+  // The pair addresses one row of the codec table (catalog.proto, VideoCodec), which is the codec
+  // an encode runs as. Neither field derives the other, and a pair no row carries is greyed on
+  // both controls rather than stored as a third value.
+  string format = 41;
+  string encoder = 42;
   // Rate control: cbr, vbr, abr, crf or lossless.
   string mode = 12;
   // Pixel format: gbrp, yuv444p, yuv422p, yuv420p, p010le.
@@ -200,9 +211,15 @@ message PublishSettings {
   // 24 was "audio", one source name where the field is a list, and the two shapes are not
   // readable as each other: a build holding the old field would read the first byte of a
   // repeated message as a string.
-  reserved 2 to 9, 24, 30, 32, 33, 35, 36;
+  //
+  // 11 was "codec", one encoder name for what format and encoder now carry between them. It is
+  // held out of reach rather than renamed onto one of them, both being narrower than it was: a
+  // build sending "hevc_nvenc" into either field would name a format nothing produces or an
+  // encoder no family answers to.
+  reserved 2 to 9, 11, 24, 30, 32, 33, 35, 36;
   reserved
     "audio",
+    "codec",
     "relay_host",
     "relay_port",
     "api_port",

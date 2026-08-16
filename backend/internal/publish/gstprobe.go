@@ -66,7 +66,7 @@ func GstEncodeProbe(s settings.Settings, width, height, frames int, heavy bool) 
 	assert.Assert(width > 0 && height > 0, "a probe encodes frames of a resolved picture size", width, height)
 	assert.Assert(frames > 0, "a probe encodes at least one frame", frames)
 
-	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
 	if s.Publish.Fps <= 0 {
@@ -84,7 +84,7 @@ func GstEncodeProbe(s settings.Settings, width, height, frames int, heavy bool) 
 	if err != nil {
 		return nil, err
 	}
-	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Publish.Codec)
+	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Publish.Codec())
 
 	pipeline := gstProbeFrames(s, width, height, frames, heavy)
 	// The generator produces system memory whatever a capture would have produced, so a device path's

@@ -11,7 +11,7 @@ import (
 
 // The field keys: the settings group's own field name on Settings, a dot, then the field name
 // inside it, both as settings.proto spells them.
-// "publish.codec", "viewer.render_chain", "relay.host".
+// "publish.encoder", "viewer.render_chain", "relay.host".
 //
 // A key is what a shell binds its widget by and what a Gap names, so the two meet with no mapping
 // in between.
@@ -37,8 +37,12 @@ const (
 
 	KeyName = "publish.name"
 
-	KeyTransport  = "publish.publish_transport"
-	KeyCodec      = "publish.codec"
+	KeyTransport = "publish.publish_transport"
+	// The encode, as the two controls it is: which bitstream, and what produces it.
+	// The pair addresses one row of the capability table, and that row is stored nowhere
+	// (settings.Publish.Codec).
+	KeyFormat     = "publish.format"
+	KeyEncoder    = "publish.encoder"
 	KeyMode       = "publish.mode"
 	KeyChroma     = "publish.chroma"
 	KeyColorRange = "publish.color_range"

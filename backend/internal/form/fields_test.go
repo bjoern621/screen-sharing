@@ -27,7 +27,7 @@ import (
 var fieldDeclaredKeys = []string{
 	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
-	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
+	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
 	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
@@ -426,9 +426,11 @@ func TestEveryOptionCarriesADistinctValue(t *testing.T) {
 // refuses and cannot withhold what it accepts.
 // A list typed into this package passes every other test here and fails this one.
 func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
-	var codecNames, drmNames []string
+	var formats, drmNames []string
 	for _, c := range capabilities.Codecs {
-		codecNames = append(codecNames, c.Name)
+		if !slices.Contains(formats, c.Format) {
+			formats = append(formats, c.Format)
+		}
 	}
 	for _, m := range ffmpeg.DrmMaps {
 		drmNames = append(drmNames, m.Name)
@@ -441,7 +443,8 @@ func TestOptionValuesComeFromTheDomainTables(t *testing.T) {
 		{KeyCapture, publish.Captures()},
 		{KeyCaptureMemory, gpupath.Memories},
 		{KeyDrmMap, drmNames},
-		{KeyCodec, codecNames},
+		{KeyFormat, formats},
+		{KeyEncoder, capabilities.Encoders()},
 		{KeyMode, capabilities.Modes},
 		{KeyAudioCodec, capabilities.AudioNames()},
 		// fieldTestDeps names no platform, which the table answers with every source offered.
@@ -698,9 +701,9 @@ func TestEveryRtspProtocolTheTransportDeclaresIsOffered(t *testing.T) {
 // control opens on a value it does not offer.
 func TestTheEffortLadderIsTheCodecsOwnMostEffortFirst(t *testing.T) {
 	fresh := settings.Defaults()
-	c, ok := capabilities.Get(fresh.Publish.Codec)
+	c, ok := capabilities.Get(fresh.Publish.Codec())
 	if !ok {
-		t.Fatalf("the default codec %q is not in the table", fresh.Publish.Codec)
+		t.Fatalf("the default codec %q is not in the table", fresh.Publish.Codec())
 	}
 
 	offered := fieldOptionValues(t, KeyEffort)
@@ -722,7 +725,8 @@ func TestTheDefaultsAreValuesTheFormOffers(t *testing.T) {
 		KeyCapture:             s.Publish.Capture,
 		KeyCaptureMemory:       s.Publish.CaptureMemory,
 		KeyDrmMap:              s.Publish.DrmMap,
-		KeyCodec:               s.Publish.Codec,
+		KeyFormat:              s.Publish.Format,
+		KeyEncoder:             s.Publish.Encoder,
 		KeyChroma:              s.Publish.Chroma,
 		KeyColorRange:          s.Publish.ColorRange,
 		KeyMode:                s.Publish.Mode,
@@ -824,7 +828,7 @@ func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	s.Publish.Mode = capabilities.ModeCrf
 	for _, c := range capabilities.Codecs {
-		s.Publish.Codec = c.Name
+		s.Publish.UseCodec(c.Name)
 		want := c.CqMaxOn(optionEngineOf(s))
 		if want == 0 {
 			// A row declaring no scale narrows nothing: an unwired family runs on whatever its builder sets,
@@ -842,7 +846,7 @@ func TestTheQuantizerRangeFollowsTheCodecsOwnScale(t *testing.T) {
 // is that the range offered and the range accepted are one answer.
 func TestTheQuantizerRangeIsWholeWhereTheKnobIsUnread(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 
 	s.Publish.Mode = capabilities.ModeCrf
 	if got := fieldCqBounds(d, s).GetMax(); got != 51 {
@@ -861,7 +865,7 @@ func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 	s.Publish.Mode = capabilities.ModeAbr
 	for _, c := range capabilities.Codecs {
-		s.Publish.Codec = c.Name
+		s.Publish.UseCodec(c.Name)
 		want := c.BitrateLimitOn(optionEngineOf(s))
 		if want == 0 {
 			want = fieldRateCeiling
@@ -877,7 +881,7 @@ func TestTheBitrateRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 // reads.
 func TestTheBitrateRangeIsWholeWhereNoTargetIsSent(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
-	s.Publish.Codec = "libsvtav1"
+	s.Publish.UseCodec("libsvtav1")
 
 	s.Publish.Mode = capabilities.ModeAbr
 	if got := fieldBitrateBounds(d, s).GetMax(); got != 100 {
@@ -1037,7 +1041,7 @@ func TestNeitherRateControlOffersMoreThanAnEncoderHolds(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 
 	for _, c := range capabilities.Codecs {
-		s.Publish.Codec = c.Name
+		s.Publish.UseCodec(c.Name)
 		for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr, capabilities.ModeAbr} {
 			s.Publish.Mode = mode
 			for name, offered := range map[string]int64{
@@ -1104,7 +1108,7 @@ func TestTheKeyframeRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
 	d, s := fieldTestDeps(), settings.Defaults()
 
 	for _, c := range capabilities.Codecs {
-		s.Publish.Codec = c.Name
+		s.Publish.UseCodec(c.Name)
 		want := c.GopLimitOn(optionEngineOf(s))
 		if want == 0 {
 			want = fieldGopCeiling
@@ -1130,6 +1134,51 @@ func TestTheRateBufferStaysInsideWhatAnEncoderHolds(t *testing.T) {
 			if bits := int64(rate) * window * 1000; bits > int32Max {
 				t.Errorf("at %d Mbit/s in %s the buffer runs to %d ms, which is %d bits against the %d an encoder holds",
 					rate, mode, window, bits, int32Max)
+			}
+		}
+	}
+}
+
+// A mode aiming at a target is bounded by it, so zero there is not a rate: it is a stream nobody can
+// watch, and the summary prices it at 0.00 Mbit/s with the whole uplink left over.
+// The modes that send no target leave the field carrying whatever another mode left on it.
+func TestTheTargetRateIsOfferedFromARateInTheModesThatSendOne(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	for _, mode := range capabilities.Modes {
+		s.Publish.Mode = mode
+		want := int64(0)
+		if capabilities.TargetsBitrate(mode) {
+			want = 1
+		}
+		if got := fieldBitrateBounds(d, s).GetMin(); got != want {
+			t.Errorf("in %s the target is offered from %d Mbit/s, want %d", mode, got, want)
+		}
+	}
+}
+
+// The rate buffer reaches the encoder's own field, and an element whose field is narrower than the
+// 32 bits every rate figure is read into says so on its row.
+// The window is the half that gives, the rate being the figure somebody chose.
+func TestTheRateBufferStaysInsideTheEncodersOwnField(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeCbr
+
+	for _, c := range capabilities.Codecs {
+		if !c.Implemented {
+			continue
+		}
+		s.Publish.UseCodec(c.Name)
+		limit := c.BufferLimitOn(optionEngineOf(s))
+		if limit == 0 {
+			limit = encoderKilobitCeiling
+		}
+		for _, rate := range []int{1, 100, 1156} {
+			s.Publish.BitrateM, s.Publish.MaxrateM = rate, rate
+			window := fieldVbvBounds(d, s).GetMax()
+			if buffer := int64(rate) * window; buffer > int64(limit) {
+				t.Errorf("%s at %d Mbit/s offers a %d ms window, which is %d Kb against the %d its field holds",
+					c.Name, rate, window, buffer, limit)
 			}
 		}
 	}
@@ -1175,7 +1224,7 @@ func TestTheBurstCeilingOffersNoUncappedEntryWhereTheEncoderNeedsOne(t *testing.
 		if !capabilities.QualityCeilingRequired(c.Name, optionEngineOf(s)) {
 			continue
 		}
-		s.Publish.Codec = c.Name
+		s.Publish.UseCodec(c.Name)
 		if entries := optionMaxratePresets(d, s); hasEntry(entries, "0") {
 			t.Errorf("%s codes quality toward a rate and the ladder still offers no ceiling: %v",
 				c.Name, entryValues(entries))

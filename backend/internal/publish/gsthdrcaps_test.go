@@ -20,9 +20,10 @@ func hdrCapsSettings(t *testing.T, chroma string) settings.Settings {
 	t.Helper()
 	s := baseStream()
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode = "hevc_nvenc", capabilities.ModeCbr
+	s.Publish.UseCodec("hevc_nvenc")
+	s.Publish.Mode = capabilities.ModeCbr
 	s.Publish.Chroma = chroma
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	return s
 }
 

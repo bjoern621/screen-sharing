@@ -176,7 +176,7 @@ var repairKeysWithoutFields []string
 // away the step the draft carries for whichever codec it came from.
 func repairLadders(m *screensharev1.Settings) []string {
 	s := wire.ToSettings(m)
-	c, known := capabilities.Get(s.Publish.Codec)
+	c, known := capabilities.Get(s.Publish.Codec())
 	if !known {
 		// A codec no table carries is the codec field's own repair, on a later round.
 		// Until it has moved, nothing here knows which ladder to hold the steps against.
@@ -250,6 +250,13 @@ func repairCeilings(d Deps, m *screensharev1.Settings) []string {
 			s.Publish.MaxrateM = ceiling
 			moved = append(moved, KeyMaxrateM)
 		}
+	}
+	// The target's own floor, which only the modes aiming at one have: a draft carrying zero there
+	// arrived from a mode that sends no target, or from a file, and a stream at no rate is what the
+	// control stopped offering (fieldBitrateBounds).
+	if floor := fieldBitrateBounds(d, s).GetMin(); int64(s.Publish.BitrateM) < floor {
+		s.Publish.BitrateM = int(floor)
+		moved = append(moved, KeyBitrateM)
 	}
 	if _, ceiling := v.Bounds(KeyGop, 0, fieldGopCeiling); s.Publish.Gop > ceiling {
 		s.Publish.Gop = ceiling

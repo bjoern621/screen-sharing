@@ -164,7 +164,7 @@ func liveFacts(s settings.Settings) rules.Facts {
 	}
 	return rules.Facts{
 		rules.AxisEngine: rules.TextValue(engine),
-		rules.AxisCodec:  rules.TextValue(s.Publish.Codec),
+		rules.AxisCodec:  rules.TextValue(s.Publish.Codec()),
 		rules.AxisMode:   rules.TextValue(s.Publish.Mode),
 	}
 }

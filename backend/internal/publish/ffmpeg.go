@@ -46,7 +46,7 @@ func buildArgs(s settings.Settings, preview PreviewLeg, meterPort string) ([]str
 		// A format with no local carriage publishes without a preview rather than failing to publish.
 		// The backend read the same table to decide whether to bring a receiver up at all, so this branch
 		// is what survives the two disagreeing.
-		if tap, ok := ffmpegPreviewTap(s.Publish.Codec, preview); ok {
+		if tap, ok := ffmpegPreviewTap(s.Publish.Codec(), preview); ok {
 			taps = append(taps, tap)
 		}
 	}

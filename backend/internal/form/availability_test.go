@@ -23,7 +23,7 @@ import (
 var availabilityAllKeys = []string{
 	KeyName, KeyRelayHost, KeyRelayTls, KeyGroupKey, KeySrtPassphrase, KeySrtPort, KeyAPIPort, KeyRtspPort, KeyWebrtcPort,
 	KeyRtmpPort, KeyHlsPort, KeyMoqPort,
-	KeyTransport, KeyCodec, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
+	KeyTransport, KeyFormat, KeyEncoder, KeyMode, KeyChroma, KeyColorRange, KeyFps, KeyCq,
 	KeyBitrateM, KeyMaxrateM, KeyVbvMs, KeyGop, KeyBframes, KeyEffort, KeyTune,
 	KeyCapture, KeyAudioSource, KeyAudioSourceDevice, KeyAudioSourceGain, KeyAudioSourceMute,
 	KeyAudioCodec, KeyDrmMap, KeyMonitor, KeyCaptureMemory,
@@ -50,7 +50,7 @@ func availabilityDraft(capture, codec, chroma, transportName string) settings.Se
 	s := settings.Defaults()
 	s.Publish.Name = "test"
 	s.Publish.Capture = capture
-	s.Publish.Codec = codec
+	s.Publish.UseCodec(codec)
 	s.Publish.Chroma = chroma
 	s.Publish.Transport = transportName
 	s.Publish.Mode = capabilities.ModeCrf
@@ -104,6 +104,11 @@ func availabilityCases() []availabilityCase {
 		Usable: map[string]map[string]bool{capabilities.EngineFfmpeg: {"hevc_nvenc": false}},
 	}
 
+	// A pair no row carries, which is what a hand-edited file holds: the format is one the table
+	// produces and the encoder answers to nothing, so the draft names an encode that does not exist.
+	handEditedEncode := availabilityDraft("x11grab", "libx264", "yuv420p", "srt")
+	handEditedEncode.Publish.Encoder = "no-such-encoder"
+
 	return []availabilityCase{
 		{"software encoding over SRT on an X11 session", linuxX11,
 			availabilityDraft("x11grab", "libx264", "yuv420p", "srt")},
@@ -119,8 +124,7 @@ func availabilityCases() []availabilityCase {
 			availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")},
 		{"a capture backend from a hand-edited settings file", linuxX11,
 			availabilityDraft("no-such-capture", "libx264", "yuv420p", "srt")},
-		{"a codec from a hand-edited settings file", linuxX11,
-			availabilityDraft("x11grab", "no-such-codec", "yuv420p", "srt")},
+		{"an encode from a hand-edited settings file", linuxX11, handEditedEncode},
 	}
 }
 
@@ -149,7 +153,8 @@ func TestAGreyedOptionAlwaysCarriesAReason(t *testing.T) {
 	values := map[string][]string{
 		KeyCapture:    publish.Captures(),
 		KeyTransport:  transport.Names(),
-		KeyCodec:      availabilityCodecNames(),
+		KeyFormat:     optionCodedFormats(),
+		KeyEncoder:    capabilities.Encoders(),
 		KeyChroma:     availabilityChromas,
 		KeyMode:       capabilities.Modes,
 		KeyColorRange: availabilityColorRanges,
@@ -372,12 +377,12 @@ func TestTheTwoLaddersAreAskedAboutSeparately(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
 	s := availabilityDraft("x11grab", "libvpx-vp9", "yuv420p", "srt")
 
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		t.Fatalf("no capability row for %s", s.Publish.Codec)
+		t.Fatalf("no capability row for %s", s.Publish.Codec())
 	}
 	if len(c.Effort.Steps) == 0 || len(c.Tune.Steps) > 0 {
-		t.Skipf("%s no longer declares one ladder and not the other", s.Publish.Codec)
+		t.Skipf("%s no longer declares one ladder and not the other", s.Publish.Codec())
 	}
 
 	if st := fieldState(deps, s, KeyEffort, noEntry); !st.enabled {
@@ -418,9 +423,9 @@ func TestTheEffortStepGreysWhereTheModePinsIt(t *testing.T) {
 	s := availabilityDraft("x11grab", "hevc_nvenc", "yuv420p", "srt")
 	s.Publish.Mode = capabilities.ModeCbr
 
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		t.Fatalf("no capability row for %s", s.Publish.Codec)
+		t.Fatalf("no capability row for %s", s.Publish.Codec())
 	}
 	want, _ := c.Effort.StepFor(capabilities.ModeCbr)
 
@@ -544,7 +549,7 @@ func TestAnUnprobedMachineGreysNoCodec(t *testing.T) {
 		if !transport.CanPublishFormat(s.Publish.Transport, capabilities.EngineFfmpeg, c.Format) {
 			continue
 		}
-		if enabled, reason := optionState(deps, s, KeyCodec, c.Name, noEntry); !enabled {
+		if enabled, reason := availabilityRowState(deps, s, c); !enabled {
 			t.Errorf("%s is greyed on an unprobed machine: %v", c.Name, reason)
 		}
 	}
@@ -564,7 +569,7 @@ func TestAnEngineWithNoToolingGreysEveryCodecWithItsOwnReason(t *testing.T) {
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
 
 	for _, c := range capabilities.Codecs {
-		enabled, reason := optionState(deps, s, KeyCodec, c.Name, noEntry)
+		enabled, reason := availabilityRowState(deps, s, c)
 		if enabled {
 			t.Errorf("%s is offered on an engine whose tooling is missing", c.Name)
 			continue
@@ -590,7 +595,8 @@ func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 	}
 	s := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
 
-	_, device := optionState(deps, s, KeyCodec, "hevc_nvenc", noEntry)
+	s.Publish.Format = "hevc"
+	_, device := optionState(deps, s, KeyEncoder, capabilities.FamilyNvenc, noEntry)
 	if codeOf(device) != probeNoDevice {
 		t.Errorf("a missing NVENC encoder greys with %v, want the no-device verdict", codeOf(device))
 	}
@@ -598,7 +604,8 @@ func TestAFailedProbeNamesTheHalfTheFamilyIsMissing(t *testing.T) {
 		t.Errorf("a missing NVENC encoder greys naming family %q, which is not the hardware", got)
 	}
 
-	_, build := optionState(deps, s, KeyCodec, "libaom-av1", noEntry)
+	s.Publish.Format = "av1"
+	_, build := optionState(deps, s, KeyEncoder, "libaom", noEntry)
 	if codeOf(build) != probeNoBuild {
 		t.Errorf("a missing software encoder greys with %v, want the no-build verdict", codeOf(build))
 	}
@@ -872,14 +879,14 @@ func TestAnEncryptedRelayGreysUdpOnBothRtspLegs(t *testing.T) {
 	}
 }
 
-// availabilityCodecNames is what a codec dropdown offers: every row of the table, greyed where this
-// combination rules it out.
-func availabilityCodecNames() []string {
-	out := make([]string, 0, len(capabilities.Codecs))
-	for _, c := range capabilities.Codecs {
-		out = append(out, c.Name)
-	}
-	return out
+// availabilityRowState is what the encoder control says about one row of the capability table.
+//
+// The draft is pointed at that row's format first, the pair being what a greying is about: asking
+// about an encoder under another format answers whether the two go together, which is a different
+// question from whether this machine runs the row.
+func availabilityRowState(deps Deps, s settings.Settings, c capabilities.Codec) (bool, *screensharev1.Text) {
+	s.Publish.Format = c.Format
+	return optionState(deps, s, KeyEncoder, c.Encoder(), noEntry)
 }
 
 // A quality target spends what the picture costs, so the ceiling is the one control that bounds it,
@@ -917,5 +924,57 @@ func TestTheRateBufferFollowsTheCeilingItHolds(t *testing.T) {
 	draft.Publish.MaxrateM = 20
 	if st := fieldState(d, draft, KeyVbvMs, noEntry); !st.enabled {
 		t.Errorf("crf under a ceiling: the window is greyed with %v, want it offered", st.reason)
+	}
+}
+
+// A recommendation is a hint about this combination, the same combination the greying answers for,
+// so the two cannot both hold of one entry.
+// The mark is a builder's, which states it against the codec or the platform rather than against the
+// draft: the pointer modes recommend the embedded one, and the scanout capture backend cannot draw a
+// pointer into the picture at all.
+func TestARuledOutEntryCarriesNoRecommendation(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	for _, capture := range []string{"x11grab", "kmsgrab", "ximagesrc"} {
+		draft := availabilityDraft(capture, "libx264", "yuv420p", "rtsp")
+		for _, group := range Resolve(d, draft).GetGroups() {
+			for _, field := range group.GetFields() {
+				for _, option := range field.GetOptions() {
+					if option.GetRecommended() && !option.GetEnabled() {
+						t.Errorf("on %s, %s recommends %q and rules it out",
+							capture, field.GetKey(), option.GetValue())
+					}
+				}
+			}
+		}
+	}
+}
+
+// The encoder probe answers for encoders, and a leg is the sink after them.
+// An install carrying an older WHIP element than the one this app builds passes every codec probe
+// there is, and the leg then takes a start, dies at launch and spends its retry budget on an element
+// that was never there.
+func TestALegGreysWhereItsSinkElementIsMissing(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+	d.Encoders = encoders.Availability{Legs: map[string]bool{"webrtc": false, "rtsp": true}}
+
+	// The GStreamer engine is the one whose sink is a named element, which ximagesrc selects.
+	av := availabilityOf(d, availabilityDraft("ximagesrc", "libx264", "yuv420p", "rtsp"))
+
+	reason := av.transportReason("webrtc")
+	if reason == nil {
+		t.Fatal("a leg whose sink element is missing is offered as one this machine publishes over")
+	}
+	if reason.GetCode() != screensharev1.TextCode_TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING {
+		t.Errorf("the greying reads %v, want it to name the missing element", reason.GetCode())
+	}
+	if av.transportReason("rtsp") != nil {
+		t.Errorf("a leg whose elements all register greys: %v", av.transportReason("rtsp"))
+	}
+
+	// The ffmpeg engine builds its own muxers, so a GStreamer element says nothing about it.
+	ff := availabilityOf(d, availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp"))
+	if ff.transportReason("webrtc") != nil {
+		t.Errorf("the ffmpeg engine greys a leg over a GStreamer element: %v", ff.transportReason("webrtc"))
 	}
 }

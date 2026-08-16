@@ -123,7 +123,16 @@ func readDecoded(s *Stats, dec gst.Element) {
 // Whether a scaler took the picture down for a window is a comparison, and a comparison is a
 // reader's to make from two figures rather than this side's to make by leaving one out.
 func (r *Receiver) readRender(s *Stats) {
-	if caps := padCaps(r.sink, "sink"); caps != nil {
+	// A stopped receiver has handed its pipeline back, so there is no sink to read and the figures
+	// stay at what the run last reported (Receiver.release).
+	r.mu.Lock()
+	sink := r.sink
+	r.mu.Unlock()
+	if sink == nil {
+		return
+	}
+
+	if caps := padCaps(sink, "sink"); caps != nil {
 		s.RenderMemory = memoryOf(caps)
 		st := caps.GetStructure(0)
 		s.RenderFormat = st.GetString("format")
@@ -137,7 +146,7 @@ func (r *Receiver) readRender(s *Stats) {
 	}
 	// The counters are the base sink's rather than a property this element invented, which is why an
 	// appsink answers them the way the native grid's paintable sink does.
-	st := r.sink.GetStats()
+	st := sink.GetStats()
 	if st == nil {
 		return
 	}
@@ -152,8 +161,15 @@ func (r *Receiver) readRender(s *Stats) {
 // readTiming answers the two queries a running pipeline carries: the latency window it configured
 // and whether it runs live, and the running time it has reached, which a stall freezes.
 func (r *Receiver) readTiming(s *Stats) {
+	r.mu.Lock()
+	pipeline := r.pipeline
+	r.mu.Unlock()
+	if pipeline == nil {
+		return
+	}
+
 	q := gst.NewQueryLatency()
-	if r.pipeline.Query(q) {
+	if pipeline.Query(q) {
 		live, lo, hi := q.ParseLatency()
 		s.Live = live
 		if lo != gst.ClockTimeNone {
@@ -163,7 +179,7 @@ func (r *Receiver) readTiming(s *Stats) {
 			s.LatencyMax = time.Duration(hi)
 		}
 	}
-	if pos, ok := r.pipeline.QueryPosition(gst.FormatTime); ok && pos > 0 {
+	if pos, ok := pipeline.QueryPosition(gst.FormatTime); ok && pos > 0 {
 		s.Position = time.Duration(pos)
 	}
 }

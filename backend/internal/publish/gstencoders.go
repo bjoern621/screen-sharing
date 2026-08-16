@@ -113,6 +113,54 @@ var gstCodecs = map[string]gstCodec{
 	"hevc_videotoolbox": {encode: vtEncoder("vtenc_h265"), link: h265Parser},
 }
 
+// EncoderRefusal is why this engine's encoder mapping cannot express these settings, and nil where
+// it can.
+//
+// What one element imposes beyond the capability table: a rate past its property's range, a rate
+// buffer past the field it is read into, a VBR ceiling more than twice its target.
+// The capture backend fixes the engine, and nothing here reads the machine, the display or the
+// relay, so a caller weighing a configuration ahead of building one asks this rather than rendering
+// a command, whose refusal can be about a transport the caller was not choosing
+// (form.presetResolve).
+//
+// The ffmpeg engine states no such pair rule: what its encoders refuse is what the capability table
+// already carries.
+func EncoderRefusal(s settings.Settings) error {
+	engine, err := EngineFor(s.Publish.Capture)
+	if err != nil {
+		return err
+	}
+	if engine != capabilities.EngineGst {
+		return nil
+	}
+	c, known := capabilities.Get(s.Publish.Codec())
+	if !known {
+		return fmt.Errorf("unknown codec %q", s.Publish.Codec())
+	}
+	gst, mapped := gstCodecs[s.Publish.Codec()]
+	if !mapped {
+		return fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Publish.Codec())
+	}
+	return gstEncoderRefusal(s, c, gst)
+}
+
+// gstEncoderRefusal is the limit half of gstEncoder, which is the half that answers about the
+// settings rather than about the pipeline being built.
+//
+// Both bounds apply where both exist: the family's comes from what its elements share, the row's
+// from one element's own property range, so neither stands in for the other.
+func gstEncoderRefusal(s settings.Settings, c capabilities.Codec, gst gstCodec) error {
+	if limits, ok := gstFamilyLimits[c.Family]; ok {
+		if err := limits(s); err != nil {
+			return err
+		}
+	}
+	if gst.limits != nil {
+		return gst.limits(s)
+	}
+	return nil
+}
+
 // GstEncoderElement returns the element that encodes codec from frames in system memory,
 // and false where this engine has no mapping for it.
 //
@@ -187,7 +235,7 @@ func firstGstMode(codec string) (string, bool) {
 // and here rather than in the capability table because it binds two settings against each other
 // (a ceiling against its target) instead of taking one value out of a set.
 var gstFamilyLimits = map[string]func(settings.Settings) error{
-	capabilities.FamilyVaapi: vaRateLimits,
+	capabilities.FamilyVaapi: vaLimits,
 }
 
 // gstLiveDelay is the lookahead an element holds by default, pinned off per element.
@@ -216,38 +264,29 @@ var gstLiveDelay = map[string][]string{
 // sink, for the selected codec reading frames in the resolved memory.
 // A rate outside an element's property range is refused rather than moved into it.
 func gstEncoder(s settings.Settings, gop int, memory string) (encoder []string, link []string, err error) {
-	gst, ok := gstCodecs[s.Publish.Codec]
+	gst, ok := gstCodecs[s.Publish.Codec()]
 	if !ok {
-		return nil, nil, fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Publish.Codec)
+		return nil, nil, fmt.Errorf("codec %q has no GStreamer encoder mapping", s.Publish.Codec())
 	}
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		return nil, nil, fmt.Errorf("unknown codec %q", s.Publish.Codec)
+		return nil, nil, fmt.Errorf("unknown codec %q", s.Publish.Codec())
 	}
-	if limits, ok := gstFamilyLimits[c.Family]; ok {
-		if err := limits(s); err != nil {
-			return nil, nil, err
-		}
-	}
-	// Both bounds apply where both exist: the family's comes from what its elements share,
-	// the row's from one element's own property range, so neither stands in for the other.
-	if gst.limits != nil {
-		if err := gst.limits(s); err != nil {
-			return nil, nil, err
-		}
+	if err := gstEncoderRefusal(s, c, gst); err != nil {
+		return nil, nil, err
 	}
 	l, err := c.ResolveSteps(s.Publish.Mode, s.Publish.Effort, s.Publish.Tune)
 	if err != nil {
 		return nil, nil, err
 	}
 	encoder = gst.encode(s, gstRatesFor(s, gop), l)
-	assert.Assert(len(encoder) > 0, "a codec mapping names its element ahead of its properties", s.Publish.Codec)
+	assert.Assert(len(encoder) > 0, "a codec mapping names its element ahead of its properties", s.Publish.Codec())
 	// The element name is the first word every mapping writes, which is how GstEncoderElement reads it
 	// back out.
 	// A plugin shipping one element per memory kind changes that word and nothing after it:
 	// both elements derive from one base class and take the same rate-control properties,
 	// the memory deciding only which of them links to the conversion ahead of it.
-	if device, named := gstDeviceEncoderElement(c.Family, s.Publish.Codec, memory); named {
+	if device, named := gstDeviceEncoderElement(c.Family, s.Publish.Codec(), memory); named {
 		encoder[0] = device
 	}
 	// Read off the element the mapping ended up naming, a device element holding no lookahead of its
@@ -598,7 +637,7 @@ func rav1eEncoder(s settings.Settings, r gstRates, l capabilities.Steps) []strin
 //
 // VAAPI codes against a maximum either way, so abr is as unbounded as an average gets here.
 // bitrate and target-percentage each have a range the settings can fall outside of,
-// and vaRateLimits refuses such a combination ahead of this mapping.
+// and vaLimits refuses such a combination ahead of this mapping.
 //
 // bitrate and cpb-size are in kbit, and a zero cpb-size leaves the element its own calculation,
 // so the VBV window appears only where the settings carry one.
@@ -668,7 +707,7 @@ func vaEncoder(elem string, quantizers ...string) func(settings.Settings, gstRat
 // The bounds the va elements' rate-control properties impose: the highest kbit/s bitrate accepts,
 // and the floor of target-percentage, which is how far under its ceiling a VBR target may sit.
 const (
-	vaMaxBitrateKbps      = 2_048_000
+	vaMaxBitrateKbps      = capabilities.VaFieldKb
 	vaMinTargetPercentage = 50
 )
 
@@ -676,12 +715,15 @@ const (
 // so abr reaches the bitrate bound at half the target the other modes need.
 const vaAbrPeak = 2
 
-// vaRateLimits returns why the va elements cannot express the settings' rates, and nil where they
-// can.
-// A rate outside a property's range is refused rather than moved into it: the ffmpeg engine drives
-// the same hardware at the rate the settings name, so a substitution would make the bitrate a
-// function of the capture backend, with no field on the form stating what the encode runs at.
-func vaRateLimits(s settings.Settings) error {
+// vaLimits returns why the va elements cannot express these settings, and nil where they can.
+//
+// Three properties and one rule: the rate, the buffer sized from it, and the keyframe interval, each
+// read into a field with a range the plugin declares, plus the VBR target that is a percentage of
+// its ceiling.
+// A figure outside a property's range is refused rather than moved into it: the ffmpeg engine drives
+// the same hardware at the figure the settings name, so a substitution would make the encode a
+// function of the capture backend, with no field on the form stating what it runs at.
+func vaLimits(s settings.Settings) error {
 	var rateM int
 	switch s.Publish.Mode {
 	case "cbr":
@@ -705,7 +747,40 @@ func vaRateLimits(s settings.Settings) error {
 		return fmt.Errorf("the va encoder elements' bitrate property stops at %d kbit/s, and %s mode drives it at %d Mbit/s from these settings",
 			vaMaxBitrateKbps, s.Publish.Mode, rateM)
 	}
+	// cpb-size is the rate times the window, in the same kilobits the bitrate property counts, and
+	// stops at the same figure.
+	// Refused here rather than left to the element, which takes the property as a GLib value and
+	// answers an out-of-range one with a warning and a pipeline that never runs.
+	if buffer := bufferKb(s); buffer > vaMaxBitrateKbps {
+		return fmt.Errorf("the va encoder elements' cpb-size property stops at %d Kb, and a %d ms window on a %d Mbit/s rate is %d Kb",
+			vaMaxBitrateKbps, s.Publish.VbvMs, rateOfBuffer(s), buffer)
+	}
+	// The interval the elements are handed rather than the field a reader sets: an unset interval is
+	// twice the frame rate (gstGop), so a rate past half the property's range overflows it while the
+	// control beside it reads zero.
+	if gop := gstGop(s); gop > capabilities.VaGopFrames() {
+		return fmt.Errorf("the va encoder elements' key-int-max property stops at %d frames, and these settings code a keyframe every %d",
+			capabilities.VaGopFrames(), gop)
+	}
 	return nil
+}
+
+// bufferKb is the rate buffer these settings ask for, in the kilobits every encoder's buffer field
+// counts, and zero where the window is left at the encoder's own default.
+func bufferKb(s settings.Settings) int {
+	if s.Publish.VbvMs <= 0 {
+		return 0
+	}
+	return rateOfBuffer(s) * s.Publish.VbvMs
+}
+
+// rateOfBuffer is the rate the buffer is sized against: the ceiling where one bounds the encode, and
+// the target where the mode sends one alone (vaEncoder).
+func rateOfBuffer(s settings.Settings) int {
+	if s.Publish.Mode == capabilities.ModeVbr {
+		return s.Publish.MaxrateM
+	}
+	return s.Publish.BitrateM
 }
 
 // vaBitrate spells a Mbit/s rate as the kbit figure the bitrate property takes.
@@ -715,7 +790,7 @@ func vaBitrate(rateM int) string {
 
 // vaTargetPercentage places a VBR target under the ceiling bitrate carries, as a percentage of it.
 // A ceiling more than twice the target falls under the property's floor and never reaches here
-// (vaRateLimits); one at or below the target reads as 100.
+// (vaLimits); one at or below the target reads as 100.
 func vaTargetPercentage(s settings.Settings) string {
 	pct := 100
 	if s.Publish.MaxrateM > 0 {

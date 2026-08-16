@@ -52,7 +52,7 @@ internal sealed class SeededBackend : IBackend
     /// <summary>One control, before the draft supplies its value.</summary>
     private sealed record FieldSeed
     {
-        /// <summary><see cref="Settings"/> field this control edits: "publish.codec".</summary>
+        /// <summary><see cref="Settings"/> field this control edits: "publish.encoder".</summary>
         public required string Key { get; init; }
 
         public required ControlKind Control { get; init; }
@@ -188,6 +188,30 @@ internal sealed class SeededBackend : IBackend
             ["avfvideosrc"] = "darwin",
         };
 
+    /// <summary>
+    /// The codec a format and an encoder address between them, keyed "hevc/nvenc", which is what the backend
+    /// derives from the pair a draft carries (capabilities.Row).
+    /// A pair no row carries answers with nothing, as it does there.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> CodecOf = new Dictionary<string, string>
+    {
+        ["hevc/nvenc"] = "hevc_nvenc",
+        ["h264/nvenc"] = "h264_nvenc",
+        ["av1/nvenc"] = "av1_nvenc",
+        ["h264/x264"] = "libx264",
+        ["hevc/x265"] = "libx265",
+        ["vp9/libvpx"] = "libvpx-vp9",
+        ["av1/svt-av1"] = "libsvtav1",
+        ["h264/vaapi"] = "h264_vaapi",
+        ["hevc/vaapi"] = "hevc_vaapi",
+        ["h264/qsv"] = "h264_qsv",
+        ["hevc/qsv"] = "hevc_qsv",
+        ["h264/amf"] = "h264_amf",
+    };
+
+    private static string Codec(PublishSettings publish) =>
+        CodecOf.GetValueOrDefault($"{publish.Format}/{publish.Encoder}", "");
+
     /// <summary>Encoder family behind each codec, for the greyings keyed on family.</summary>
     private static readonly IReadOnlyDictionary<string, string> FamilyOf = new Dictionary<string, string>
     {
@@ -310,7 +334,8 @@ internal sealed class SeededBackend : IBackend
         {
             Name = Environment.MachineName.Length > 0 ? Environment.MachineName : "me",
             PublishTransport = "srt",
-            Codec = "hevc_nvenc",
+            Format = "hevc",
+            Encoder = "nvenc",
             Mode = "lossless",
             Chroma = "gbrp",
             ColorRange = "pc",
@@ -918,10 +943,10 @@ internal sealed class SeededBackend : IBackend
             // The ladder is the codec's own, so the reason names the codec, which is the fact nearest to
             // hand.
             case "publish.effort":
-                if (!LadderOf.ContainsKey(settings.Publish.Codec))
+                if (!LadderOf.ContainsKey(Codec(settings.Publish)))
                 {
                     return (true, false, Say(TextCode.CodecTakesNoEffortLadder,
-                        Id(TextArgName.Codec, settings.Publish.Codec)), null);
+                        Id(TextArgName.Codec, Codec(settings.Publish))), null);
                 }
                 return (true, true, null, null);
 
@@ -1000,12 +1025,12 @@ internal sealed class SeededBackend : IBackend
                     // system copy.
                     return null;
                 }
-                return HasDevicePath(engine, publish.Capture, FamilyOf.GetValueOrDefault(publish.Codec, ""))
+                return HasDevicePath(engine, publish.Capture, FamilyOf.GetValueOrDefault(Codec(publish), ""))
                     ? null
                     : Say(
                         TextCode.PairHasNoDeviceMemory,
                         Id(TextArgName.Capture, publish.Capture),
-                        Id(TextArgName.Codec, publish.Codec),
+                        Id(TextArgName.Codec, Codec(publish)),
                         Id(TextArgName.Engine, engine));
 
             case "publish.publish_transport":
@@ -1017,25 +1042,25 @@ internal sealed class SeededBackend : IBackend
                         Id(TextArgName.Transport, value))
                     : null;
 
-            case "publish.codec":
-                return engine == "gstreamer" && FamilyOf.GetValueOrDefault(value, "") == "amf"
+            case "publish.encoder":
+                return engine == "gstreamer" && value == "amf"
                     ? Say(TextCode.GapGstAmfcodecWindowsOnly)
                     : null;
 
             case "publish.chroma":
                 // The two chroma facts holding for every codec in the list: 4:2:2 is the software H.26x rows'
                 // alone, and direct RGB needs an encoder that takes a GBR input.
-                var family = FamilyOf.GetValueOrDefault(publish.Codec, "");
+                var family = FamilyOf.GetValueOrDefault(Codec(publish), "");
                 if (value == "yuv422p" && family != "software")
                 {
                     return Say(
                         TextCode.CodecCannotEncodeChroma,
-                        Id(TextArgName.Codec, publish.Codec),
+                        Id(TextArgName.Codec, Codec(publish)),
                         Id(TextArgName.Chroma, value));
                 }
-                if (value == "gbrp" && publish.Codec is not ("hevc_nvenc" or "libx265" or "libvpx-vp9"))
+                if (value == "gbrp" && Codec(publish) is not ("hevc_nvenc" or "libx265" or "libvpx-vp9"))
                 {
-                    return Say(TextCode.CodecCodesNoRgb, Id(TextArgName.Codec, publish.Codec));
+                    return Say(TextCode.CodecCodesNoRgb, Id(TextArgName.Codec, Codec(publish)));
                 }
                 return null;
 
@@ -1256,22 +1281,30 @@ internal sealed class SeededBackend : IBackend
             [
                 new()
                 {
-                    Key = "publish.codec",
+                    Key = "publish.format",
                     Control = ControlKind.Select,
                     Options =
                     [
-                        new() { Value = "hevc_nvenc" },
-                        new() { Value = "h264_nvenc" },
-                        new() { Value = "av1_nvenc" },
-                        new() { Value = "libx264" },
-                        new() { Value = "libx265" },
-                        new() { Value = "libvpx-vp9" },
-                        new() { Value = "libsvtav1" },
-                        new() { Value = "h264_vaapi" },
-                        new() { Value = "hevc_vaapi" },
-                        new() { Value = "h264_qsv" },
-                        new() { Value = "hevc_qsv" },
-                        new() { Value = "h264_amf" },
+                        new() { Value = "hevc" },
+                        new() { Value = "h264" },
+                        new() { Value = "av1" },
+                        new() { Value = "vp9" },
+                    ],
+                },
+                new()
+                {
+                    Key = "publish.encoder",
+                    Control = ControlKind.Select,
+                    Options =
+                    [
+                        new() { Value = "nvenc" },
+                        new() { Value = "x264" },
+                        new() { Value = "x265" },
+                        new() { Value = "libvpx" },
+                        new() { Value = "svt-av1" },
+                        new() { Value = "vaapi" },
+                        new() { Value = "qsv" },
+                        new() { Value = "amf" },
                     ],
                 },
                 new()

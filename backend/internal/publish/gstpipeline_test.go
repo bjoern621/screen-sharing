@@ -152,14 +152,14 @@ func TestGstRejectsAGappedChromaBeforeAnythingIsAcquired(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "portal"
 	s.Publish.Transport = "srt"
-	s.Publish.Codec = "libx265"
+	s.Publish.UseCodec("libx265")
 	s.Publish.Chroma = "gbrp"
-	cap, ok := capabilities.Get(s.Publish.Codec)
+	cap, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		t.Fatalf("codec %s has no capability row", s.Publish.Codec)
+		t.Fatalf("codec %s has no capability row", s.Publish.Codec())
 	}
 	if _, gapped := cap.OptionGap(EngineGst, capabilities.OptionChroma, s.Publish.Chroma); !gapped {
-		t.Skipf("%s at %s is no longer gapped on this engine, so it no longer covers the refusal", s.Publish.Codec, s.Publish.Chroma)
+		t.Skipf("%s at %s is no longer gapped on this engine, so it no longer covers the refusal", s.Publish.Codec(), s.Publish.Chroma)
 	}
 
 	_, err := gstTestCaps(s)
@@ -189,8 +189,9 @@ func TestEveryGstTransportTerminatesAPipelineWithAudio(t *testing.T) {
 		s.Publish.AudioSources = settings.Recording("desktop")
 		// libx264 over every transport: the format set decides carriage, and this asserts the shape of
 		// the pipeline.
-		s.Publish.Codec, s.Publish.Chroma = "libx264", "yuv420p"
-		if err := transport.ValidatePublish(name, EngineGst, s.Publish.Codec); err != nil {
+		s.Publish.UseCodec("libx264")
+		s.Publish.Chroma = "yuv420p"
+		if err := transport.ValidatePublish(name, EngineGst, s.Publish.Codec()); err != nil {
 			continue
 		}
 		pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
@@ -291,7 +292,8 @@ func TestGstInputCapsRefusesAnUnmappedColorRange(t *testing.T) {
 // gstGpuStream publishes the portal capture into a va encoder over the direct path.
 func gstGpuStream() settings.Settings {
 	s := baseStream()
-	s.Publish.Capture, s.Publish.Codec = "portal", "h264_vaapi"
+	s.Publish.Capture = "portal"
+	s.Publish.UseCodec("h264_vaapi")
 	// Limited range: the va elements signal no colour description, which the capability table
 	// declares as a gap on full range for this engine.
 	// The gap is about what the encoder writes into the bitstream, so the direct path inherits it.
@@ -305,7 +307,8 @@ func gstGpuStream() settings.Settings {
 // the pair whose conversion keeps the colour on the device.
 func gstD3d11Stream() settings.Settings {
 	s := baseStream()
-	s.Publish.Capture, s.Publish.Codec = "d3d11screencapturesrc", "h264_nvenc"
+	s.Publish.Capture = "d3d11screencapturesrc"
+	s.Publish.UseCodec("h264_nvenc")
 	s.Publish.Chroma, s.Publish.Mode, s.Publish.ColorRange = "yuv420p", "cbr", "pc"
 	s.Publish.Transport = "rtsp"
 	s.Publish.CaptureMemory = gpupath.MemoryGpu
@@ -390,11 +393,11 @@ func TestTheGstDevicePathNamesTheDeviceEncoderElement(t *testing.T) {
 	}
 	if device[0] == system[0] {
 		t.Fatalf("%s names %s on both paths, so one of the two memories is encoded by an element that refuses it",
-			s.Publish.Codec, device[0])
+			s.Publish.Codec(), device[0])
 	}
-	want := gstGpuMemories[capabilities.FamilyNvenc].encoders[s.Publish.Codec]
+	want := gstGpuMemories[capabilities.FamilyNvenc].encoders[s.Publish.Codec()]
 	if device[0] != want {
-		t.Errorf("the device path encodes %s with %s, want the family's device element %s", s.Publish.Codec, device[0], want)
+		t.Errorf("the device path encodes %s with %s, want the family's device element %s", s.Publish.Codec(), device[0], want)
 	}
 	// The properties belong to the base class both elements share, so the memory changes the element
 	// name and nothing else about the encode.
@@ -404,11 +407,11 @@ func TestTheGstDevicePathNamesTheDeviceEncoderElement(t *testing.T) {
 	}
 	// What the registry is asked for is what a run launches, or the availability probe reports the
 	// family present while the element is missing.
-	elem, named := GstEncoderElementOn(s.Publish.Codec, gpupath.MemoryGpu)
+	elem, named := GstEncoderElementOn(s.Publish.Codec(), gpupath.MemoryGpu)
 	if !named || elem != device[0] {
 		t.Errorf("GstEncoderElementOn names %q on the device path, want %s", elem, device[0])
 	}
-	if elem, named := GstEncoderElement(s.Publish.Codec); !named || elem != system[0] {
+	if elem, named := GstEncoderElement(s.Publish.Codec()); !named || elem != system[0] {
 		t.Errorf("GstEncoderElement names %q, want the system-memory element %s", elem, system[0])
 	}
 }
@@ -553,7 +556,8 @@ func TestGstAutoFollowsThePairTable(t *testing.T) {
 
 	// The same capture into an encoder reading system memory has no pair, and auto resolves to the
 	// copy rather than refusing.
-	s.Publish.Codec, s.Publish.Chroma = "libx264", "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Chroma = "yuv420p"
 	opts, err = gstSourceOptions(s)
 	if err != nil {
 		t.Fatal(err)
@@ -567,7 +571,8 @@ func TestGstAutoFollowsThePairTable(t *testing.T) {
 // greys never pops the picker.
 func TestGstRefusesTheGpuDemandForAPairWithoutAPath(t *testing.T) {
 	s := gstGpuStream()
-	s.Publish.Codec, s.Publish.Chroma = "libx264", "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Chroma = "yuv420p"
 	if _, err := gstSourceOptions(s); err == nil {
 		t.Fatal("the portal into a software encoder has no GPU path and must be refused")
 	}
@@ -596,7 +601,8 @@ func gstProbed(opts gstCaptureOptions) gstCaptureOptions {
 // decodes without.
 func TestTheTrunkShedsAheadOfTheEncoder(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "libx264", "yuv420p", "crf"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "crf"
 	pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
 	if err != nil {
 		t.Fatal(err)
@@ -618,7 +624,8 @@ func TestTheTrunkShedsAheadOfTheEncoder(t *testing.T) {
 // child being told it: the count is taken at both ends of that element (gstrun/delay.go).
 func TestTheShedIsNamedAndCounted(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "libx264", "yuv420p", "crf"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "crf"
 	pipeline, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{})
 	if err != nil {
 		t.Fatal(err)

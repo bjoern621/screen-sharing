@@ -41,7 +41,8 @@ func previewStream(t *testing.T, capture, codec string) settings.Settings {
 
 	s := baseStream()
 	s.Publish.Capture, s.Publish.Transport = capture, "rtsp"
-	s.Publish.Codec, s.Publish.Chroma = codec, "yuv420p"
+	s.Publish.UseCodec(codec)
+	s.Publish.Chroma = "yuv420p"
 	s.Publish.BitrateM, s.Publish.ColorRange = 20, "tv"
 	for _, mode := range capabilities.Modes {
 		s.Publish.Mode = mode
@@ -213,7 +214,7 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 // preview that does not.
 func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 	s := previewStream(t, "ddagrab", "libx264")
-	tap, ok := ffmpegPreviewTap(s.Publish.Codec, PreviewLeg{Port: 45678})
+	tap, ok := ffmpegPreviewTap(s.Publish.Codec(), PreviewLeg{Port: 45678})
 	if !ok {
 		t.Fatal("libx264 has no ffmpeg preview output")
 	}

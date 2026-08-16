@@ -70,24 +70,24 @@ const (
 	// fieldRateCeiling is the end of both megabit fields.
 	// A codec that takes less says so as a rule, which narrows it in the modes that send a target.
 	//
-	// It ends where an encoder's own field does: both engines pass the rate as a count of bits per
-	// second, and every encoder holds that in 32 bits, so 2147 Mbit/s is the last value any of them
-	// takes.
+	// It ends where an encoder's own field does, which the capability table owns: a form offering a
+	// figure and an encoder refusing it are the same fact read twice.
 	// Nothing clamps a target above it, the encoder refusing the option instead, which is a publish
 	// that dies at launch.
-	fieldRateCeiling = 2147
+	fieldRateCeiling = capabilities.RateFieldM
 	// fieldUplinkCeiling is a 100 Gbit/s line, past any uplink a prediction is weighed against.
 	fieldUplinkCeiling = 100000
 
 	fieldVbvCeiling    = 10000
-	fieldGopCeiling    = 6000
+	fieldGopCeiling    = capabilities.GopFieldFrames
 	fieldBframeCeiling = 16
 
-	// encoderKilobitCeiling is what an encoder's rate-buffer field holds, in kilobits.
+	// encoderKilobitCeiling is what an encoder's rate-buffer field holds, in kilobits, where the
+	// encoder declares nothing narrower.
 	// The buffer is stated as the rate times the window and read into 32 bits, so the two ends of that
 	// product bound each other: fieldRateCeiling is the rate's own end, and this is what the window is
 	// left of it.
-	encoderKilobitCeiling = 2147483
+	encoderKilobitCeiling = capabilities.BufferFieldKb
 
 	// The latency windows, in ms.
 	// They are swept rather than typed, so they carry a step, and the step is coarse because the
@@ -180,13 +180,25 @@ var fieldTable = []field{
 		options: optionDrmMaps,
 	},
 
-	// The encode: which encoder, which format, and how the bits are spent over time.
+	// The encode: which bitstream, what produces it, and how the bits are spent over time.
+	//
+	// The format leads, being the half a viewer meets: it is what every watcher has to decode and what
+	// a transport carries, where the encoder is this machine's own answer to producing it.
+	// Two controls are also what keeps a bitstream from moving under a missing encoder, one list having
+	// one walk whose first entry that runs decides the format as a side effect (repair.go).
 	{
-		key:     KeyCodec,
+		key:     KeyFormat,
 		group:   GroupQuality,
 		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
-		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Codec) },
-		options: optionCodecs,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Format) },
+		options: optionFormats,
+	},
+	{
+		key:     KeyEncoder,
+		group:   GroupQuality,
+		control: screensharev1.ControlKind_CONTROL_KIND_SELECT,
+		value:   func(s settings.Settings) *screensharev1.FieldValue { return stringValue(s.Publish.Encoder) },
+		options: optionEncoders,
 	},
 	{
 		key:     KeyChroma,
@@ -527,8 +539,17 @@ func fieldCqBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
 // and the range is where that is cheapest to say.
 //
 // The rule binds in the modes that send the encoder a target and nowhere else.
+//
+// Those are also the modes the floor stands in. A mode aiming at a target is bounded by it, so zero
+// there is not a rate: it is a stream nobody can watch, and the summary predicts it at 0.00 Mbit/s
+// with the whole uplink left over. Constant quality and lossless send no target, and the field then
+// carries whatever another mode left on it.
 func fieldBitrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
-	low, high := verdictsOf(d, s).Bounds(KeyBitrateM, 0, fieldRateCeiling)
+	floor := 0
+	if capabilities.TargetsBitrate(s.Publish.Mode) {
+		floor = 1
+	}
+	low, high := verdictsOf(d, s).Bounds(KeyBitrateM, floor, fieldRateCeiling)
 	return bounded(low, high, 1)
 }
 
@@ -550,7 +571,7 @@ func fieldMaxrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange
 	low := 0
 	if s.Publish.Mode == capabilities.ModeCrf {
 		if engine, err := publish.EngineFor(s.Publish.Capture); err == nil &&
-			capabilities.QualityCeilingRequired(s.Publish.Codec, engine) {
+			capabilities.QualityCeilingRequired(s.Publish.Codec(), engine) {
 			low = 1
 		}
 	} else {
@@ -571,7 +592,31 @@ func fieldVbvBounds(_ Deps, s settings.Settings) *screensharev1.NumericRange {
 	if rate <= 0 {
 		return bounded(0, fieldVbvCeiling, 1)
 	}
-	return bounded(0, min(fieldVbvCeiling, encoderKilobitCeiling/rate), 1)
+	return bounded(0, min(fieldVbvCeiling, bufferCeilingKb(s)/rate), 1)
+}
+
+// bufferCeilingKb is what the selected encoder's buffer field holds, in kilobits.
+//
+// The 32-bit field the figure is read into, where the encoder's own is no narrower.
+// Where it is, the row says so per engine: the va elements' cpb-size counts the same kilobits and
+// stops two orders of magnitude short of it, and an out-of-range property is a pipeline that never
+// runs rather than a refusal (capabilities.Codec.BufferLimitKb, publish.vaLimits).
+//
+// A draft naming a capture backend or a codec no table carries is bounded by the field alone, the
+// codec field's own repair moving it on a later round.
+func bufferCeilingKb(s settings.Settings) int {
+	engine, err := publish.EngineFor(s.Publish.Capture)
+	if err != nil {
+		return encoderKilobitCeiling
+	}
+	codec, known := capabilities.Get(s.Publish.Codec())
+	if !known {
+		return encoderKilobitCeiling
+	}
+	if limit := codec.BufferLimitOn(engine); limit > 0 {
+		return min(limit, encoderKilobitCeiling)
+	}
+	return encoderKilobitCeiling
 }
 
 // fieldGopBounds starts at zero for the same reason:

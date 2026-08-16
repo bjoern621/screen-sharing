@@ -76,7 +76,8 @@ func TestGstEncodersAgainstGstLaunch(t *testing.T) {
 			}
 			t.Run(name+"/"+mode, func(t *testing.T) {
 				s := baseStream()
-				s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = name, mode, engineChromas[len(engineChromas)-1]
+				s.Publish.UseCodec(name)
+				s.Publish.Mode, s.Publish.Chroma = mode, engineChromas[len(engineChromas)-1]
 				// The quantizer rides each encoder's own scale, and the defaults carry one off another
 				// codec's.
 				s.Publish.Cq = cap.CqMaxOn(EngineGst) / 2
@@ -159,7 +160,8 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 		cap, _ := capabilities.Get(name)
 		cqMax := cap.CqMaxOn(EngineGst)
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma, s.Publish.Cq = name, "crf", cap.EngineChromas(EngineGst)[0], cqMax
+		s.Publish.UseCodec(name)
+		s.Publish.Mode, s.Publish.Chroma, s.Publish.Cq = "crf", cap.EngineChromas(EngineGst)[0], cqMax
 		encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 		if err != nil {
 			t.Fatal(err)
@@ -177,7 +179,8 @@ func TestGstEncoderQuantizerFollowsTheCodecScale(t *testing.T) {
 // and the ffmpeg engine hands the same settings to the same hardware as -b:v 20M -maxrate 200M.
 func TestGstVaVbrRefusesATargetUnderHalfTheCeiling(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", "vbr"
+	s.Publish.UseCodec("h264_vaapi")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "vbr"
 	s.Publish.BitrateM, s.Publish.MaxrateM = 20, 200
 	_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err == nil {
@@ -217,7 +220,8 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", tc.mode
+			s.Publish.UseCodec("h264_vaapi")
+			s.Publish.Chroma, s.Publish.Mode = "yuv420p", tc.mode
 			s.Publish.BitrateM, s.Publish.MaxrateM = tc.bitrateM, tc.maxrateM
 			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err == nil {
@@ -231,10 +235,52 @@ func TestGstVaRefusesARateAboveTheBitrateBound(t *testing.T) {
 
 	// The bound is itself a rate the property accepts.
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "h264_vaapi", "yuv420p", "cbr"
+	s.Publish.UseCodec("h264_vaapi")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "cbr"
 	s.Publish.BitrateM = vaMaxBitrateKbps / 1000
 	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 		t.Errorf("h264_vaapi cbr at the property's highest rate: %v", err)
+	}
+}
+
+// cpb-size is the rate times the window, in the kilobits the bitrate property counts, and stops at
+// the same figure.
+// A pair past it is refused here: the element takes the property as a GLib value, and an
+// out-of-range one is a warning on stderr and a pipeline that never carries a frame.
+func TestGstVaRefusesARateBufferAboveTheFieldItIsReadInto(t *testing.T) {
+	for _, tc := range []struct {
+		mode               string
+		bitrateM, maxrateM int
+	}{
+		{"cbr", 1156, 1156},
+		{"vbr", 1100, 1156},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			s := baseStream()
+			s.Publish.UseCodec("hevc_vaapi")
+			s.Publish.Chroma, s.Publish.Mode = "yuv420p", tc.mode
+			s.Publish.BitrateM, s.Publish.MaxrateM = tc.bitrateM, tc.maxrateM
+			s.Publish.VbvMs = vaMaxBitrateKbps/max(tc.bitrateM, tc.maxrateM) + 1
+
+			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
+			if err == nil {
+				t.Fatalf("hevc_vaapi %s with a %d ms window on %d Mbit/s must be refused, not launched",
+					tc.mode, s.Publish.VbvMs, max(tc.bitrateM, tc.maxrateM))
+			}
+			if !strings.Contains(err.Error(), "cpb-size") {
+				t.Errorf("the refusal %q does not name the property it is about", err)
+			}
+		})
+	}
+
+	// The window that fills the field exactly is one the element takes.
+	s := baseStream()
+	s.Publish.UseCodec("hevc_vaapi")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "cbr"
+	s.Publish.BitrateM, s.Publish.MaxrateM = 1000, 1000
+	s.Publish.VbvMs = vaMaxBitrateKbps / s.Publish.BitrateM
+	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
+		t.Errorf("hevc_vaapi cbr with the widest window the field holds: %v", err)
 	}
 }
 
@@ -254,7 +300,8 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "av1_qsv", "yuv420p", tc.mode
+			s.Publish.UseCodec("av1_qsv")
+			s.Publish.Chroma, s.Publish.Mode = "yuv420p", tc.mode
 			s.Publish.BitrateM, s.Publish.MaxrateM = tc.bitrateM, tc.maxrateM
 			_, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err == nil {
@@ -265,7 +312,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 			}
 
 			// The same rate is inside an H.26x element's property range, so the bound must not reach it.
-			s.Publish.Codec = "h264_qsv"
+			s.Publish.UseCodec("h264_qsv")
 			if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 				t.Errorf("h264_qsv %s at %d Mbit/s: %v", tc.mode, tc.bitrateM, err)
 			}
@@ -274,7 +321,8 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 
 	// The bound is itself a rate the property accepts, and crf drives no rate at all.
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = "av1_qsv", "yuv420p", "cbr"
+	s.Publish.UseCodec("av1_qsv")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "cbr"
 	s.Publish.BitrateM = qsvShortBitrateKbps / 1000
 	if _, _, err := gstEncoder(s, 60, gpupath.MemorySystem); err != nil {
 		t.Errorf("av1_qsv cbr at the property's highest rate: %v", err)
@@ -294,7 +342,7 @@ func TestGstQsvRefusesARateAboveTheShortBitrateBound(t *testing.T) {
 // agree with itself whatever the builders spend.
 func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec = "libsvtav1"
+	s.Publish.UseCodec("libsvtav1")
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Transport = "rtsp"
 	s.Publish.Mode = "crf"
@@ -302,7 +350,7 @@ func TestSvtAv1PresetAgreesAcrossEngines(t *testing.T) {
 	// The codec's own steps, which is what a draft naming it holds after the migration or the repair.
 	// The defaults carry another encoder's, and both builders refuse a step off the ladder rather than
 	// encoding at one the row never named.
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 
 	args, err := ffmpeg.BuildPublishArgs(s, nil)
 	if err != nil {
@@ -355,7 +403,8 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		built := map[string]string{}
 		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, chromas[0]
+			s.Publish.UseCodec(c.Name)
+			s.Publish.Mode, s.Publish.Chroma = mode, chromas[0]
 			// A rate every element's property takes, so what is compared is the two modes and not one
 			// codec's rate bound: the defaults sit above SVT-AV1's ceiling and above what the qsv
 			// elements accept once abr doubles it.
@@ -364,7 +413,7 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			// code against a maximum either way: the two modes agree there for a reason,
 			// and a fixture sitting on it would read that agreement as a collapse.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
-			if capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
+			if capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
 				continue
 			}
 			enc, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
@@ -406,7 +455,8 @@ func TestTheLookaheadPinReachesEveryElementThatHoldsFrames(t *testing.T) {
 				continue
 			}
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, mode, c.EngineChromas(EngineGst)[0]
+			s.Publish.UseCodec(codec)
+			s.Publish.Mode, s.Publish.Chroma = mode, c.EngineChromas(EngineGst)[0]
 			s.Publish.Cq = c.CqMaxOn(EngineGst) / 2
 			encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 			if err != nil {
@@ -426,7 +476,8 @@ func TestTheLookaheadPinReachesEveryElementThatHoldsFrames(t *testing.T) {
 // the two is dropped: a second option-string on the same element is the first one overwritten.
 func TestTheX265OptionStringCarriesTheModeKeysBesideThePins(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "cbr", "yuv420p"
+	s.Publish.UseCodec("libx265")
+	s.Publish.Mode, s.Publish.Chroma = "cbr", "yuv420p"
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
 		t.Fatal(err)
@@ -455,7 +506,8 @@ func TestTheX265OptionStringCarriesTheModeKeysBesideThePins(t *testing.T) {
 func TestAStatedCeilingReachesAConstantQualityEncode(t *testing.T) {
 	for _, codec := range []string{"libx264", "libx265"} {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, "crf", "yuv420p"
+		s.Publish.UseCodec(codec)
+		s.Publish.Mode, s.Publish.Chroma = "crf", "yuv420p"
 		s.Publish.MaxrateM, s.Publish.VbvMs = 12, 0
 		encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 		if err != nil {
@@ -475,7 +527,8 @@ func TestAStatedCeilingReachesAConstantQualityEncode(t *testing.T) {
 // is capped at 2 Mbit/s whatever quantizer it asked for.
 func TestAnUnboundedConstantQualityEncodeTakesTheRateBufferAway(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", "crf", "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = "crf", "yuv420p"
 	s.Publish.MaxrateM = 0
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
@@ -496,7 +549,8 @@ func TestAnUnboundedConstantQualityEncodeTakesTheRateBufferAway(t *testing.T) {
 // another on the ffmpeg engine.
 func TestX265CodesConstantQualityAsARateFactor(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "crf", "yuv420p"
+	s.Publish.UseCodec("libx265")
+	s.Publish.Mode, s.Publish.Chroma = "crf", "yuv420p"
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
 		t.Fatal(err)
@@ -516,7 +570,8 @@ func TestX265CodesConstantQualityAsARateFactor(t *testing.T) {
 // mode would leave the capability table promising one nothing implements.
 func TestX265BuildsConstrainedVbrWithACeilingAboveTheTarget(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx265", "vbr", "yuv420p"
+	s.Publish.UseCodec("libx265")
+	s.Publish.Mode, s.Publish.Chroma = "vbr", "yuv420p"
 	s.Publish.BitrateM, s.Publish.MaxrateM, s.Publish.VbvMs = 10, 15, 0
 	encoder, _, err := gstEncoder(s, 60, gpupath.MemorySystem)
 	if err != nil {
@@ -528,5 +583,37 @@ func TestX265BuildsConstrainedVbrWithACeilingAboveTheTarget(t *testing.T) {
 		if !strings.Contains(line, want) {
 			t.Errorf("libx265 vbr: %s, want %s on it", line, want)
 		}
+	}
+}
+
+// The keyframe interval reaches key-int-max, which the va plugin declares a range for, and what the
+// elements are handed is not always the field a reader set: an unset interval is twice the frame
+// rate, so a high rate overflows the property while the control beside it reads zero.
+func TestGstVaRefusesAKeyframeIntervalAboveTheProperty(t *testing.T) {
+	s := baseStream()
+	s.Publish.UseCodec("hevc_vaapi")
+	s.Publish.Chroma, s.Publish.Mode = "yuv420p", "cbr"
+
+	// Set outright.
+	s.Publish.Gop = capabilities.VaGopFrames() + 1
+	if _, _, err := gstEncoder(s, s.Publish.Gop, gpupath.MemorySystem); err == nil {
+		t.Errorf("a %d frame interval must be refused, not launched", s.Publish.Gop)
+	}
+
+	// Derived from the frame rate, with the interval left unset.
+	s.Publish.Gop, s.Publish.Fps = 0, capabilities.VaGopFrames()
+	_, _, err := gstEncoder(s, gstGop(s), gpupath.MemorySystem)
+	if err == nil {
+		t.Errorf("%d fps with no interval set codes a keyframe every %d frames, which must be refused",
+			s.Publish.Fps, gstGop(s))
+	}
+	if err != nil && !strings.Contains(err.Error(), "key-int-max") {
+		t.Errorf("the refusal %q does not name the property it is about", err)
+	}
+
+	// The bound itself is an interval the elements take.
+	s.Publish.Gop, s.Publish.Fps = capabilities.VaGopFrames(), 60
+	if _, _, err := gstEncoder(s, s.Publish.Gop, gpupath.MemorySystem); err != nil {
+		t.Errorf("the longest interval the property holds: %v", err)
 	}
 }

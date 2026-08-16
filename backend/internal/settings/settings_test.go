@@ -528,3 +528,48 @@ func TestAFileWithNoBurstCeilingKeepsTheDefault(t *testing.T) {
 			got, Defaults().Publish.MaxrateM)
 	}
 }
+
+// A file written while the encode was one field carries an encoder name under the old key, which the
+// ordinary decode never reads: the pair replaced it and neither half spells a codec.
+// The stored stream keeps encoding as it did, on the row that name addressed.
+func TestLoadMigratesTheOneCodecKeyOntoThePair(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Publish.Format, s.Publish.Encoder = "", ""
+	s.Publish.LegacyCodec = "libsvtav1"
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got := mustLoad(t)
+	if got.Publish.Format != "av1" || got.Publish.Encoder != "svt-av1" {
+		t.Errorf("format, encoder = %q, %q, want av1, svt-av1", got.Publish.Format, got.Publish.Encoder)
+	}
+	if got.Publish.Codec() != "libsvtav1" {
+		t.Errorf("the migrated pair addresses %q, want libsvtav1", got.Publish.Codec())
+	}
+	if got.Publish.LegacyCodec != "" {
+		t.Errorf("an upgraded publish carries no pre-pair codec key, got %q", got.Publish.LegacyCodec)
+	}
+}
+
+// A stored name no row carries leaves the pair on what a fresh installation holds.
+// Splitting it would write a format nothing produces and an encoder no family answers to, and the
+// form would then grey both halves with no value to walk to.
+func TestLoadMigratesAnUnknownCodecKeyOntoTheDefaults(t *testing.T) {
+	isolateConfig(t)
+
+	s := Defaults()
+	s.Publish.Format, s.Publish.Encoder = "", ""
+	s.Publish.LegacyCodec = "h264_omx"
+	if err := Save(s); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	got, d := mustLoad(t), Defaults()
+	if got.Publish.Format != d.Publish.Format || got.Publish.Encoder != d.Publish.Encoder {
+		t.Errorf("format, encoder = %q, %q, want the defaults %q, %q",
+			got.Publish.Format, got.Publish.Encoder, d.Publish.Format, d.Publish.Encoder)
+	}
+}

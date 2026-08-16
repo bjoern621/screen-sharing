@@ -30,10 +30,10 @@ var gstEncodeQueue = []string{"queue", "name=" + gstShedName, "max-size-buffers=
 // in.
 // An empty meterPort and an unwanted preview leave those branches out.
 func buildPipeline(s settings.Settings, capture []string, meterPort string, preview PreviewLeg) ([]string, error) {
-	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
-	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec()); err != nil {
 		return nil, err
 	}
 	if err := capabilities.ValidateAudio(EngineGst, s.Publish.AudioTrack()); err != nil {
@@ -71,7 +71,7 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	if err != nil {
 		return nil, err
 	}
-	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Publish.Codec)
+	assert.Assert(len(encoder) > 0, "a mapped codec yields an encoder", s.Publish.Codec())
 	assert.Assert(len(capture) > 0, "a capture backend yields source elements", s.Publish.Capture)
 
 	pipeline := append(append([]string{}, capture...), "!")
@@ -98,7 +98,7 @@ func buildPipeline(s settings.Settings, capture []string, meterPort string, prev
 	if preview.Wanted() {
 		// A format with no local carriage publishes without a preview rather than not at all, the same
 		// answer the ffmpeg engine gives.
-		if tap, err := gstPreviewTap(s.Publish.Codec, preview); err == nil {
+		if tap, err := gstPreviewTap(s.Publish.Codec(), preview); err == nil {
 			taps = append(taps, tap)
 		}
 	}
@@ -164,10 +164,10 @@ func gstSourceOptions(s settings.Settings) (gstCaptureOptions, error) {
 // negotiation against a source offering device memory alone and pins the frames back into the round
 // trip that path exists to avoid.
 func gstInputCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
-	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return "", err
 	}
-	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec()); err != nil {
 		return "", err
 	}
 	if err := capabilities.ValidateAudio(EngineGst, s.Publish.AudioTrack()); err != nil {
@@ -192,7 +192,7 @@ func gstInputCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
 // What the caps themselves depend on is checked here all the same, both mappings coming from tables
 // that can be missing the row.
 func gstEncoderCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
-	format, err := gstChromaFormat(s.Publish.Codec, s.Publish.Chroma, mem.memory)
+	format, err := gstChromaFormat(s.Publish.Codec(), s.Publish.Chroma, mem.memory)
 	if err != nil {
 		return "", err
 	}

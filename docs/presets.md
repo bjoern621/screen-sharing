@@ -49,7 +49,7 @@ A bitrate target means nothing to a lossless encode, and zeroing it would spend 
 
 `presetResolve` walks rungs, and inside a rung codecs, and inside a codec capture backends.
 Each candidate goes through the same repair the form uses (`form/repair.go`).
-A repair that walks the pixel format, the codec or the capture backend has answered a different question than the one the search asked, so that candidate is rejected and the next one tried.
+A repair that walks the pixel format, either half of the encode or the capture backend has answered a different question than the one the search asked, so that candidate is rejected and the next one tried.
 So does one that walks a setting outside the publish group, which is what a preset cannot carry.
 The first candidate that survives and delivers the claim is written to the settings whole.
 

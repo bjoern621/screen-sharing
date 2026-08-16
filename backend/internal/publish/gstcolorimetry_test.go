@@ -260,7 +260,7 @@ func TestTheGstDevicePathStoresTheConfiguredRange(t *testing.T) {
 					if _, gapped := c.OptionGap(EngineGst, capabilities.OptionColorRange, colorRange); gapped {
 						t.Skipf("colour range %s is gapped on this engine, so no run stores it", colorRange)
 					}
-					if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+					if err := capabilities.Validate(EngineGst, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 						t.Skipf("%s at %s: %v", c.Name, whitePatchChroma, err)
 					}
 
@@ -302,9 +302,9 @@ const roundTripPattern = "smpte"
 // and dropped afterwards is a failure this must not miss.
 func gstDecodedLuma(t *testing.T, s settings.Settings, stream string) int {
 	t.Helper()
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		t.Fatalf("codec %s has no capability row", s.Publish.Codec)
+		t.Fatalf("codec %s has no capability row", s.Publish.Codec())
 	}
 	framing, ok := gstFraming[c.Format]
 	if !ok {
@@ -389,9 +389,9 @@ func gstRoundTripEncode(t *testing.T, s settings.Settings, pattern string) strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		t.Fatalf("codec %s has no capability row", s.Publish.Codec)
+		t.Fatalf("codec %s has no capability row", s.Publish.Codec())
 	}
 	framing, ok := gstFraming[c.Format]
 	if !ok {
@@ -444,7 +444,8 @@ func roundTripSettings(t *testing.T, codec, colorRange string, chain roundTripCh
 
 	s := baseStream()
 	s.Publish.Transport = "rtsp"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.ColorRange = codec, mode, colorRange
+	s.Publish.UseCodec(codec)
+	s.Publish.Mode, s.Publish.ColorRange = mode, colorRange
 	s.Publish.Chroma = chromas[len(chromas)-1]
 	// The chain is demanded rather than left to auto, so which path a run takes is this test's choice
 	// and not the defaults' capture backend: the memory setting decides the caps feature, the

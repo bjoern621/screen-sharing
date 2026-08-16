@@ -90,32 +90,37 @@ var Codecs = []Codec{
 		}},
 	},
 	{
-		Name:        "libx264",
-		Effort:      Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
-		Tune:        Ladder{Steps: x264Tunes, Defaults: h26xTuneDefaults},
-		Family:      FamilySoftware,
-		Format:      "h264",
-		Implemented: true,
-		Chromas:     []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
-		CqMax:       EveryEngine(51),
-		Gaps:        []Gap{gstNoRateCeiling},
+		Name:          "libx264",
+		Library:       "x264",
+		Effort:        Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
+		Tune:          Ladder{Steps: x264Tunes, Defaults: h26xTuneDefaults},
+		Family:        FamilySoftware,
+		Format:        "h264",
+		Implemented:   true,
+		Chromas:       []string{"yuv444p", "yuv422p", "yuv420p", "p010le"},
+		CqMax:         EveryEngine(51),
+		BitrateLimitM: map[string]int{EngineFfmpeg: RateFieldM, EngineGst: x264encRateLimitM},
+		Gaps:          []Gap{gstNoRateCeiling},
 	},
 	{
-		Name:        "libx265",
-		Effort:      Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
-		Tune:        Ladder{Steps: x265Tunes, Defaults: h26xTuneDefaults},
-		Family:      FamilySoftware,
-		Format:      "hevc",
-		Implemented: true,
-		Chromas:     []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
-		CqMax:       EveryEngine(51),
-		Gaps:        []Gap{gstNoPlanarRGB},
+		Name:          "libx265",
+		Library:       "x265",
+		Effort:        Ladder{Steps: x264Presets, Defaults: x264PresetDefaults},
+		Tune:          Ladder{Steps: x265Tunes, Defaults: h26xTuneDefaults},
+		Family:        FamilySoftware,
+		Format:        "hevc",
+		Implemented:   true,
+		Chromas:       []string{"gbrp", "yuv444p", "yuv422p", "yuv420p", "p010le"},
+		CqMax:         EveryEngine(51),
+		BitrateLimitM: map[string]int{EngineFfmpeg: RateFieldM, EngineGst: x265encRateLimitM},
+		Gaps:          []Gap{gstNoPlanarRGB},
 	},
 	{
 		// Each chroma selects the VP9 profile that codes it on the ffmpeg engine (vp9Profiles):
 		// 0 for 8-bit 4:2:0, 1 for 4:4:4 and for gbrp, which rides VP9's identity matrix so RGB stays
 		// RGB, and 2 for 10-bit 4:2:0.
 		Name:        "libvpx-vp9",
+		Library:     "libvpx",
 		Effort:      Ladder{Steps: vp9Speeds, Defaults: vp9Default},
 		Tune:        Ladder{Steps: vpxTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
@@ -133,6 +138,7 @@ var Codecs = []Codec{
 	{
 		// One profile, one chroma, one bit depth: 8-bit 4:2:0 is the whole of VP8.
 		Name:        "libvpx",
+		Library:     "libvpx",
 		Effort:      Ladder{Steps: vp8Speeds, Defaults: vp8Default},
 		Tune:        Ladder{Steps: vpxTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
@@ -151,6 +157,7 @@ var Codecs = []Codec{
 		// only.
 		// The other two software AV1 encoders carry 10-bit on both engines.
 		Name:        "libaom-av1",
+		Library:     "libaom",
 		Effort:      Ladder{Steps: aomSpeeds, Defaults: aomDefault},
 		Tune:        Ladder{Steps: aomTunes, Defaults: metricTuneDefaults},
 		Family:      FamilySoftware,
@@ -178,6 +185,7 @@ var Codecs = []Codec{
 	},
 	{
 		Name:        "libsvtav1",
+		Library:     "svt-av1",
 		Effort:      Ladder{Steps: svtav1Steps, Defaults: svtav1Preset},
 		Tune:        Ladder{Steps: svtav1Tunes, Defaults: svtav1TuneDefaults},
 		Family:      FamilySoftware,
@@ -221,6 +229,7 @@ var Codecs = []Codec{
 		// Its rate control is a single one-pass bitrate target, which is also why the form greys the
 		// rate-buffer control on this codec (form.availabilityEngineRules).
 		Name:        "librav1e",
+		Library:     "rav1e",
 		Effort:      Ladder{Steps: rav1eSpeeds, Defaults: rav1eDefault},
 		Tune:        Ladder{Steps: rav1eTunes, Defaults: rav1eTuneDefaults},
 		Family:      FamilySoftware,
@@ -249,24 +258,30 @@ var Codecs = []Codec{
 	// encoders.Detect test-encodes each and the UI greys away what this GPU refuses,
 	// which is why a row declares the format's capability rather than one generation's.
 	{
-		Name:        "h264_vaapi",
-		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
-		Family:      FamilyVaapi,
-		Format:      "h264",
-		Implemented: true,
-		Chromas:     []string{"yuv420p"},
-		CqMax:       EveryEngine(51),
-		Gaps:        vaapiGaps,
+		Name:          "h264_vaapi",
+		Effort:        Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Family:        FamilyVaapi,
+		Format:        "h264",
+		Implemented:   true,
+		Chromas:       []string{"yuv420p"},
+		CqMax:         EveryEngine(51),
+		BitrateLimitM: vaRateLimit(),
+		BufferLimitKb: vaFieldLimit(),
+		GopLimit:      vaGopLimit(),
+		Gaps:          vaapiGaps,
 	},
 	{
-		Name:        "hevc_vaapi",
-		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
-		Family:      FamilyVaapi,
-		Format:      "hevc",
-		Implemented: true,
-		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       EveryEngine(51),
-		Gaps:        vaapiGaps,
+		Name:          "hevc_vaapi",
+		Effort:        Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Family:        FamilyVaapi,
+		Format:        "hevc",
+		Implemented:   true,
+		Chromas:       []string{"yuv420p", "p010le"},
+		CqMax:         EveryEngine(51),
+		BitrateLimitM: vaRateLimit(),
+		BufferLimitKb: vaFieldLimit(),
+		GopLimit:      vaGopLimit(),
+		Gaps:          vaapiGaps,
 	},
 	{
 		Name:          "av1_vaapi",
@@ -276,30 +291,39 @@ var Codecs = []Codec{
 		Implemented:   true,
 		Chromas:       []string{"yuv420p", "p010le"},
 		CqMax:         EveryEngine(255),
+		BitrateLimitM: vaRateLimit(),
+		BufferLimitKb: vaFieldLimit(),
+		GopLimit:      vaGopLimit(),
 		Gaps:          vaapiGaps,
 		DriverDefects: av1VaapiDriverDefects,
 	},
 	{
-		Name:        "vp9_vaapi",
-		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
-		Family:      FamilyVaapi,
-		Format:      "vp9",
-		Implemented: true,
-		Chromas:     []string{"yuv420p"},
-		CqMax:       EveryEngine(255),
-		Gaps:        vaapiGaps,
+		Name:          "vp9_vaapi",
+		Effort:        Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Family:        FamilyVaapi,
+		Format:        "vp9",
+		Implemented:   true,
+		Chromas:       []string{"yuv420p"},
+		CqMax:         EveryEngine(255),
+		BitrateLimitM: vaRateLimit(),
+		BufferLimitKb: vaFieldLimit(),
+		GopLimit:      vaGopLimit(),
+		Gaps:          vaapiGaps,
 	},
 	{
 		// The format's own colour-range gap leads the VAAPI ones: it holds on both engines where the
 		// shared one holds on the GStreamer engine alone, and the first match is the reason reported.
-		Name:        "vp8_vaapi",
-		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
-		Family:      FamilyVaapi,
-		Format:      "vp8",
-		Implemented: true,
-		Chromas:     []string{"yuv420p"},
-		CqMax:       EveryEngine(127),
-		Gaps:        append([]Gap{vp8NoFullRange}, vaapiGaps...),
+		Name:          "vp8_vaapi",
+		Effort:        Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Family:        FamilyVaapi,
+		Format:        "vp8",
+		Implemented:   true,
+		Chromas:       []string{"yuv420p"},
+		CqMax:         EveryEngine(127),
+		BitrateLimitM: vaRateLimit(),
+		BufferLimitKb: vaFieldLimit(),
+		GopLimit:      vaGopLimit(),
+		Gaps:          append([]Gap{vp8NoFullRange}, vaapiGaps...),
 	},
 
 	// QSV (Intel Quick Sync, through oneVPL): the second runtime onto an Intel GPU's encoder block,
@@ -499,6 +523,24 @@ var Codecs = []Codec{
 	{Name: "hevc_rkmpp", Family: FamilyRkmpp, Format: "hevc", Chromas: []string{"yuv420p", "p010le"}},
 }
 
+// A malformed row is an Entwicklungsfehler and fails at load.
+//
+// The pair is the address a draft carries, so two rows answering to one of them would leave Row
+// picking whichever came first and the other row nameable by nothing.
+func init() {
+	seen := make(map[string]string, len(Codecs))
+	for _, c := range Codecs {
+		assert.Assert(c.Name != "", "a codec row is addressed by an encoder name")
+		assert.Assert(c.Format != "", "a codec row states the bitstream it produces", c.Name)
+		assert.Assert(c.Family != "", "a codec row states the backend it runs on", c.Name)
+
+		pair := c.Format + "/" + c.Encoder()
+		first, taken := seen[pair]
+		assert.Assert(!taken, "one row answers to a format and encoder pair", pair, first, c.Name)
+		seen[pair] = c.Name
+	}
+}
+
 // vaapiGaps are the gaps every VAAPI row carries.
 //
 // A VA encoder quantizes every frame and no VA profile exposes a transform-bypass path,
@@ -514,6 +556,67 @@ var Codecs = []Codec{
 // whites, while the form says the stream is full range.
 // The ffmpeg engine tags the frames with the whole description (ffmpeg.colourFilter) and reaches
 // both ranges on the same hardware.
+// Where a rate field ends on an engine that declares nothing narrower.
+//
+// Both engines pass the rate as a count of bits per second and every encoder holds that in 32 bits,
+// so 2147 Mbit/s is the last value any of them takes.
+// BufferFieldKb is the same field read as the rate buffer, which reaches an encoder as the rate
+// times the window in kilobits.
+//
+// A row narrower than this states its own figure per engine, and a row stating one for one engine
+// states this for the other: a missing key reads as no bound at all
+// (TestNumericLimitsCoverEveryEngineOrNone).
+const (
+	RateFieldM    = 2147
+	BufferFieldKb = 2_147_483
+)
+
+// GopFieldFrames is where a keyframe interval ends on an encoder that declares nothing narrower.
+// A hundred seconds at sixty frames a second, past any interval a live stream is worth running at.
+const GopFieldFrames = 6000
+
+// Where the software H.26x elements' bitrate property ends, in Mbit/s.
+// Both count kbit/s in an unsigned field the plugin bounds itself, and x265enc's bound is a
+// hundredth of x264enc's, so a target the ffmpeg engine takes on the same library is refused on the
+// GStreamer one.
+// The libraries impose neither, which is why both are stated against the GStreamer engine alone.
+const (
+	x264encRateLimitM = 2048
+	x265encRateLimitM = 102
+)
+
+// VaFieldKb is where the va elements' rate fields end.
+// Two properties count in it and both stop there: bitrate in kbit/s, and cpb-size, the rate buffer,
+// in Kb.
+// Read by the form to narrow what a control offers and by the pipeline builder to refuse what it is
+// handed, so the slider's end and the refusal are one figure (publish.vaRateLimits).
+const VaFieldKb = 2_048_000
+
+// vaFieldLimit is that figure as the per-engine map a codec row declares limits in.
+// It binds on the GStreamer engine alone, the property being the element's: ffmpeg drives the same
+// hardware through fields of its own, which stop where every other encoder's do.
+func vaFieldLimit() map[string]int {
+	return map[string]int{EngineFfmpeg: BufferFieldKb, EngineGst: VaFieldKb}
+}
+
+// vaRateLimit is the same bound on the rate itself, in the Mbit/s the settings count.
+func vaRateLimit() map[string]int {
+	return map[string]int{EngineFfmpeg: RateFieldM, EngineGst: VaFieldKb / 1000}
+}
+
+// vaGopFrames is where the va elements' key-int-max property ends.
+// One property on the plugin's shared base class, so every element of the family stops there, and
+// an interval past it is a launch that dies on the property rather than a longer one being coded.
+const vaGopFrames = 1024
+
+// VaGopFrames is that bound, for the builder that refuses an interval past it.
+func VaGopFrames() int { return vaGopFrames }
+
+// vaGopLimit is that bound as the per-engine map a codec row declares limits in.
+func vaGopLimit() map[string]int {
+	return map[string]int{EngineFfmpeg: GopFieldFrames, EngineGst: vaGopFrames}
+}
+
 var vaapiGaps = []Gap{
 	{
 		Option: OptionMode,

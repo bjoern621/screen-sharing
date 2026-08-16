@@ -176,7 +176,7 @@ func estimateCoded(s settings.Settings, pixelRate, raw float64, chroma estimateC
 // the quantizer target placed on the anchor scale, times the codec's coding efficiency,
 // times the chroma's weight.
 func estimateConstantQuality(s settings.Settings, pixelRate float64, chroma estimateChromaCost) (float64, bool) {
-	c, known := capabilities.Get(s.Publish.Codec)
+	c, known := capabilities.Get(s.Publish.Codec())
 	if !known {
 		return 0, false
 	}

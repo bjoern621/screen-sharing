@@ -33,7 +33,8 @@ func baseStream() settings.Settings {
 		Publish: settings.Publish{
 			Name:       "alice",
 			Transport:  "srt",
-			Codec:      "libx264",
+			Format:     "h264",
+			Encoder:    "x264",
 			Mode:       "crf",
 			Chroma:     "yuv444p",
 			ColorRange: "pc",
@@ -141,7 +142,8 @@ func TestAStepOutsideTheLadderIsRefused(t *testing.T) {
 		{"libsvtav1", "14"},
 	} {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = tc.codec, "yuv420p", tc.step
+		s.Publish.UseCodec(tc.codec)
+		s.Publish.Chroma, s.Publish.Effort = "yuv420p", tc.step
 		if _, err := encoderArgs(s, gopFor(s)); err == nil {
 			t.Errorf("%s took the step %q", tc.codec, tc.step)
 		}
@@ -154,7 +156,8 @@ func TestAStepOutsideTheLadderIsRefused(t *testing.T) {
 		}
 		for _, step := range c.Effort.Steps {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Chroma, s.Publish.Effort = codec, "yuv420p", step
+			s.Publish.UseCodec(codec)
+			s.Publish.Chroma, s.Publish.Effort = "yuv420p", step
 			s.Publish.Tune, _ = c.Tune.StepFor(s.Publish.Mode)
 			if _, err := encoderArgs(s, gopFor(s)); err != nil {
 				t.Errorf("%s step %q: %v", codec, step, err)
@@ -177,7 +180,8 @@ func TestNvencCbrPinsTheDeclaredStep(t *testing.T) {
 	}
 
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode, s.Publish.Effort = "hevc_nvenc", "yuv420p", "cbr", "p7"
+	s.Publish.UseCodec("hevc_nvenc")
+	s.Publish.Chroma, s.Publish.Mode, s.Publish.Effort = "yuv420p", "cbr", "p7"
 	args, err := encoderArgs(s, gopFor(s))
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +207,7 @@ func TestBuildPublishArgsColorRange(t *testing.T) {
 
 	// gbrp is full range by construction, so no -color_range is written.
 	// The codec changes with the chroma, since not every row declares gbrp.
-	s.Publish.Codec = "hevc_nvenc"
+	s.Publish.UseCodec("hevc_nvenc")
 	s.Publish.Chroma = "gbrp"
 	args, err = BuildPublishArgs(s, nil)
 	if err != nil {
@@ -338,7 +342,7 @@ func TestEncoderArgs(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := baseStream()
-			s.Publish.Codec = tc.codec
+			s.Publish.UseCodec(tc.codec)
 			s.Publish.Mode = tc.mode
 			args, err := encoderArgs(s, gopFor(s))
 			if err != nil {
@@ -362,7 +366,8 @@ func TestEncoderArgs(t *testing.T) {
 // reaching the command in abr would make the greying a lie.
 func TestSvtAv1SizesARateBufferInCbrOnly(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.VbvMs = "libsvtav1", 500
+	s.Publish.UseCodec("libsvtav1")
+	s.Publish.VbvMs = 500
 
 	s.Publish.Mode = "abr"
 	args, err := encoderArgs(s, gopFor(s))
@@ -395,7 +400,8 @@ func TestVp9ProfileFollowsChroma(t *testing.T) {
 	}
 	for chroma, profile := range want {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma = "libvpx-vp9", chroma
+		s.Publish.UseCodec("libvpx-vp9")
+		s.Publish.Chroma = chroma
 		args, err := encoderArgs(s, gopFor(s))
 		if err != nil {
 			t.Fatal(err)
@@ -416,7 +422,8 @@ func TestAmfHevcProfileFollowsChroma(t *testing.T) {
 	}
 	for chroma, profile := range want {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Chroma = "hevc_amf", chroma
+		s.Publish.UseCodec("hevc_amf")
+		s.Publish.Chroma = chroma
 		args, err := encoderArgs(s, gopFor(s))
 		if err != nil {
 			t.Fatal(err)
@@ -458,7 +465,8 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 			t.Run(cap.Name+"/"+mode, func(t *testing.T) {
 				s := baseStream()
 				engineChromas := cap.EngineChromas("ffmpeg")
-				s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = cap.Name, mode, engineChromas[len(engineChromas)-1]
+				s.Publish.UseCodec(cap.Name)
+				s.Publish.Mode, s.Publish.Chroma = mode, engineChromas[len(engineChromas)-1]
 				// A quantizer target rides its own encoder's scale and a bitrate target meets the row's
 				// ceiling, so both are taken off the row here.
 				// baseStream holds another codec's figures, the way saved settings do before normalize runs.
@@ -475,7 +483,7 @@ func TestEncoderArgsAgainstFfmpeg(t *testing.T) {
 				args = append(args, device...)
 				args = append(args, "-f", "lavfi", "-i", "nullsrc=s=256x256", "-frames:v", "1")
 				if surface {
-					upload, err := HwSurfaceFilters(s.Publish.Codec, s.Publish.Chroma)
+					upload, err := HwSurfaceFilters(s.Publish.Codec(), s.Publish.Chroma)
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -517,7 +525,7 @@ func TestBuildPublishArgsVaapi(t *testing.T) {
 	}
 
 	s := baseStream()
-	s.Publish.Codec = "h264_vaapi"
+	s.Publish.UseCodec("h264_vaapi")
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Mode = "cbr"
 	args, err := BuildPublishArgs(s, nil)
@@ -542,7 +550,7 @@ func TestBuildPublishArgsVaapi(t *testing.T) {
 // input, then handed to the filter graph the upload attaches to.
 func TestBuildPublishArgsVulkan(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec = "h264_vulkan"
+	s.Publish.UseCodec("h264_vulkan")
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Mode = "cbr"
 	args, err := BuildPublishArgs(s, nil)
@@ -567,7 +575,7 @@ func TestBuildPublishArgsVulkan(t *testing.T) {
 // sizes itself.
 func TestBuildPublishArgsQsv(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec = "hevc_qsv"
+	s.Publish.UseCodec("hevc_qsv")
 	s.Publish.Chroma = "p010le"
 	s.Publish.Mode = "cbr"
 	args, err := BuildPublishArgs(s, nil)
@@ -728,7 +736,8 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 	// A codec the publish leg cannot carry is the transport's refusal and this engine has to make it:
 	// WebRTC negotiates Opus and no AAC.
 	s = baseStream()
-	s.Publish.Transport, s.Publish.Codec, s.Publish.Chroma = "webrtc", "libx264", "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Transport, s.Publish.Chroma = "webrtc", "yuv420p"
 	s.Publish.AudioCodec = "aac"
 	s.Publish.AudioSources = settings.Recording("desktop")
 	if _, err := BuildPublishArgs(s, nil); err == nil {
@@ -739,7 +748,7 @@ func TestBuildPublishArgsAudio(t *testing.T) {
 func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 	// libx264 encodes no gbrp, and the capability check is what refuses it.
 	s := baseStream()
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Chroma = "gbrp"
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for libx264 + gbrp")
@@ -747,7 +756,7 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 
 	// SRT carries no AV1.
 	s = baseStream()
-	s.Publish.Codec = "av1_nvenc"
+	s.Publish.UseCodec("av1_nvenc")
 	s.Publish.Chroma = "yuv420p"
 	if _, err := BuildPublishArgs(s, nil); err == nil {
 		t.Fatal("expected error for av1_nvenc over srt")
@@ -755,7 +764,7 @@ func TestBuildPublishArgsIncompatibleCodec(t *testing.T) {
 
 	// MPEG-TS has no VP9 mapping, so SRT carries none either.
 	s = baseStream()
-	s.Publish.Codec = "libvpx-vp9"
+	s.Publish.UseCodec("libvpx-vp9")
 	s.Publish.Chroma = "yuv444p"
 	s.Publish.Transport = "srt"
 	if _, err := BuildPublishArgs(s, nil); err == nil {
@@ -778,13 +787,14 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 		built := map[string]string{}
 		for _, mode := range []string{capabilities.ModeAbr, capabilities.ModeVbr} {
 			s := baseStream()
-			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = c.Name, mode, c.EngineChromas(capabilities.EngineFfmpeg)[0]
+			s.Publish.UseCodec(c.Name)
+			s.Publish.Mode, s.Publish.Chroma = mode, c.EngineChromas(capabilities.EngineFfmpeg)[0]
 			// A rate every encoder takes, so the comparison is between the two modes rather than against one
 			// row's bitrate ceiling: the fixture's default sits above SVT-AV1's.
 			// The ceiling is not twice the target, which is what abr derives for the families that code
 			// against a maximum either way.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
-			if capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
+			if capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
 				continue
 			}
 			args, err := encoderArgs(s, gopFor(s))
@@ -807,7 +817,8 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 func TestConstantQualityCarriesTheStatedCeiling(t *testing.T) {
 	for _, codec := range []string{"libx264", "libx265"} {
 		s := baseStream()
-		s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = codec, "crf", "yuv420p"
+		s.Publish.UseCodec(codec)
+		s.Publish.Mode, s.Publish.Chroma = "crf", "yuv420p"
 		s.Publish.MaxrateM, s.Publish.VbvMs = 12, 200
 		args, err := encoderArgs(s, gopFor(s))
 		if err != nil {
@@ -828,7 +839,8 @@ func TestConstantQualityCarriesTheStatedCeiling(t *testing.T) {
 // zero for exactly that.
 func TestConstantQualityWithoutACeilingStatesNoRate(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", "crf", "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = "crf", "yuv420p"
 	s.Publish.MaxrateM = 0
 	args, err := encoderArgs(s, gopFor(s))
 	if err != nil {

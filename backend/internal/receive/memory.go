@@ -53,10 +53,13 @@ func memoryOf(caps *gst.Caps) string {
 // The stream plays, more slowly than the chain promised, so this warns and the receive state's
 // memory rows carry the same fact.
 func (r *Receiver) verifyMemory() {
-	if r.chain.device == "" || r.fit == nil {
+	r.mu.Lock()
+	fit := r.fit
+	r.mu.Unlock()
+	if r.chain.device == "" || fit == nil {
 		return
 	}
-	got := memoryOf(padCaps(r.fit, "src"))
+	got := memoryOf(padCaps(fit, "src"))
 	if got == memoryUnknown || got == r.chain.device {
 		return
 	}

@@ -53,10 +53,10 @@ func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 		return nil, fmt.Errorf("unknown transport %q", s.Publish.Transport)
 	}
 
-	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
+	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec(), s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
-	if err := transport.ValidatePublish(s.Publish.Transport, capabilities.EngineFfmpeg, s.Publish.Codec); err != nil {
+	if err := transport.ValidatePublish(s.Publish.Transport, capabilities.EngineFfmpeg, s.Publish.Codec()); err != nil {
 		return nil, err
 	}
 	if err := capabilities.ValidateAudio(capabilities.EngineFfmpeg, s.Publish.AudioTrack()); err != nil {
@@ -95,7 +95,7 @@ func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 		return nil, err
 	}
 	assert.Assert(len(src.args) > 0 || len(src.filters) > 0, "a validated stream yields a capture source", s.Publish.Capture)
-	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Publish.Codec)
+	assert.Assert(len(enc) > 0, "a validated stream yields an encoder", s.Publish.Codec())
 
 	size, scaled, err := s.Publish.OutputSize()
 	if err != nil {
@@ -113,7 +113,7 @@ func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 		// device and no software stage is left to put one in.
 		// A family whose device path leaves the conversion to the encoder has nothing to carry a size
 		// either, and GpuFilters refuses that run rather than dropping the setting.
-		gpu, err := GpuFilters(s.Publish.Codec, s.Publish.Chroma, s.Publish.ColorRange, size, scaled)
+		gpu, err := GpuFilters(s.Publish.Codec(), s.Publish.Chroma, s.Publish.ColorRange, size, scaled)
 		if err != nil {
 			return nil, err
 		}
@@ -135,12 +135,12 @@ func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 		// A VAAPI, QSV or Vulkan encoder reads GPU surfaces, so its device opens ahead of the input and the
 		// grabber's chain ends in a conversion and an upload (hwsurface.go).
 		var uploads bool
-		device, uploads, err = HwSurfaceDevice(s.Publish.Codec)
+		device, uploads, err = HwSurfaceDevice(s.Publish.Codec())
 		if err != nil {
 			return nil, err
 		}
 		if uploads {
-			upload, err := HwSurfaceFilters(s.Publish.Codec, s.Publish.Chroma)
+			upload, err := HwSurfaceFilters(s.Publish.Codec(), s.Publish.Chroma)
 			if err != nil {
 				return nil, err
 			}
@@ -210,7 +210,7 @@ func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 	// It is dropped on a device path whose family converts nothing as well: no swscale stage is left for
 	// it to steer, the encoder converts the captured RGB at a range of its own and signals that one, and
 	// a displayed command carries no option the run ignores (gpu.go, gpupath.ColourEncoder).
-	if s.Publish.Chroma != "gbrp" && !(onDevice && !GpuStatesColour(s.Publish.Codec)) {
+	if s.Publish.Chroma != "gbrp" && !(onDevice && !GpuStatesColour(s.Publish.Codec())) {
 		args = append(args, "-color_range", s.Publish.ColorRange)
 	}
 	args = append(args, "-g", strconv.Itoa(gopFor(s)))
@@ -428,9 +428,9 @@ func captureArgs(s settings.Settings, memory string) (captureSource, error) {
 // Every GPU path here maps the captured frames onto a device derived from the frames themselves, so
 // the encoder runs on the GPU the capture came off whatever else the machine carries.
 func frameMemory(s settings.Settings) (string, error) {
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		return "", fmt.Errorf("unknown codec %q", s.Publish.Codec)
+		return "", fmt.Errorf("unknown codec %q", s.Publish.Codec())
 	}
 	return gpupath.Resolve(capabilities.EngineFfmpeg, s.Publish.Capture, c.Family, s.Publish.CaptureMemory)
 }

@@ -37,6 +37,7 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 		return err
 	}
 	settings = form.GetSettings()
+	defer run.cover.report(run)
 
 	for iteration := 0; time.Now().Before(until); iteration++ {
 		if ctx.Err() != nil {
@@ -46,6 +47,17 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 		run.report.progress("")
 
 		checkForm(run, form, settings)
+		run.cover.see(form)
+
+		// A preset is a corner of the space the walk reaches about never: it moves the codec, the
+		// chroma, the rate control and the capture backend together, and one legal move at a time
+		// takes as long as the run to assemble that.
+		if iteration%50 == 25 {
+			if next, ok := applyPreset(ctx, run, rng, form); ok {
+				form, settings = next, next.GetSettings()
+			}
+			continue
+		}
 
 		// Back to the stored draft now and then, so a walk that reached a corner of the space
 		// leaves it instead of resolving there for the rest of the run.
@@ -97,6 +109,7 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 		}
 
 		checkMove(run, move, chosen, draft, next)
+		checkRepairsNamed(run, next, draft, move.key, chosen)
 
 		// The fixpoint: what a resolve handed back is what the next one has nothing to repair in.
 		settled, err := run.resolve(ctx, next.GetSettings())
@@ -130,6 +143,85 @@ func runForm(ctx context.Context, run *session, rng *rand.Rand, until time.Time)
 	return nil
 }
 
+// applyPreset puts one built-in preset on the draft and holds the answer to what the preset
+// promised, which is the corner of the settings space one legal move at a time never assembles.
+//
+// Applying is the swap the shell makes: the publish group becomes the preset's, and the relay
+// coordinates and this machine's watching stay where they are (form.proto, BuiltinPreset.settings).
+func applyPreset(ctx context.Context, run *session, rng *rand.Rand, form *v1.Form) (*v1.Form, bool) {
+	// From a draft that publishes, so what the preset is held to is its own doing: applying one over
+	// a draft already refused for something outside the publish group leaves that refusal standing.
+	if !form.GetPublishable() {
+		return nil, false
+	}
+
+	var reachable []*v1.BuiltinPreset
+	for _, preset := range form.GetPresets() {
+		if preset.GetSettings() != nil {
+			reachable = append(reachable, preset)
+		}
+	}
+	if len(reachable) == 0 {
+		return nil, false
+	}
+
+	preset := reachable[rng.Intn(len(reachable))]
+	draft := proto.Clone(form.GetSettings()).(*v1.Settings)
+	draft.Publish = proto.Clone(preset.GetSettings()).(*v1.PublishSettings)
+
+	next, err := run.resolve(ctx, draft)
+	if err != nil {
+		run.report.report("rpc.resolve_failed", "rpc/preset/"+preset.GetKey(), err.Error(),
+			map[string]string{"preset": preset.GetKey()}, draft)
+		return nil, false
+	}
+
+	fields := map[string]string{"preset": preset.GetKey(), "codec": run.codecOf(next.GetSettings())}
+	// A preset carries a configuration the backend found on this machine, so the resolve that
+	// follows it has nothing to walk and nothing to refuse.
+	if keys := next.GetRepairedFieldKeys(); len(keys) > 0 {
+		run.report.report("form.preset_repaired", "form/preset-repaired/"+preset.GetKey()+"/"+keys[0],
+			fmt.Sprintf("applying %s was answered with a repair of %v", preset.GetKey(), keys), fields, draft)
+	}
+	if !next.GetPublishable() {
+		fields["refusal"] = blockingText(next)
+		fields["command_error"] = next.GetSummary().GetCommandError()
+		run.report.report("form.preset_not_publishable", "form/preset-unpublishable/"+preset.GetKey()+"/"+fields["refusal"],
+			fmt.Sprintf("%s states a configuration for this machine and the draft it makes cannot publish: %s",
+				preset.GetKey(), fields["refusal"]), fields, draft)
+	}
+	if !delivers(next, preset.GetKey()) {
+		run.report.report("form.preset_not_delivered", "form/preset-unmarked/"+preset.GetKey(),
+			fmt.Sprintf("the draft %s produced is not reported as delivering it", preset.GetKey()), fields, draft)
+	}
+	run.report.pass()
+	return next, true
+}
+
+// blockingText names the diagnostic that put a form out of reach of publishing, which is what turns
+// a refusal into something to look at.
+func blockingText(form *v1.Form) string {
+	for _, d := range form.GetDiagnostics() {
+		if d.GetSeverity() == v1.Severity_SEVERITY_ERROR {
+			if key := d.GetFieldKey(); key != "" {
+				return fmt.Sprint(d.GetText().GetCode()) + "@" + key
+			}
+			return fmt.Sprint(d.GetText().GetCode())
+		}
+	}
+	return "no diagnostic"
+}
+
+// delivers says whether a form reports one preset as already delivered.
+func delivers(form *v1.Form, key string) bool {
+	for _, preset := range form.GetPresets() {
+		if preset.GetKey() == key {
+			return preset.GetSelected()
+		}
+	}
+	return false
+}
+
 // checkMove holds a resolve to what the form it came from promised.
 func checkMove(run *session, move mutable, chosen string, draft *v1.Settings, next *v1.Form) {
 	for _, key := range next.GetRepairedFieldKeys() {
@@ -158,6 +250,7 @@ func checkForm(run *session, form *v1.Form, settings *v1.Settings) {
 				continue
 			}
 			key := field.GetKey()
+			checkControl(run, field, settings)
 
 			switch field.GetControl() {
 			case v1.ControlKind_CONTROL_KIND_SELECT, v1.ControlKind_CONTROL_KIND_RADIO, v1.ControlKind_CONTROL_KIND_NUMBER_SELECT:
@@ -221,6 +314,8 @@ func checkForm(run *session, form *v1.Form, settings *v1.Settings) {
 				summary.GetCommandError(), nil, settings)
 		}
 	}
+
+	checkWhole(run, form, settings)
 	run.report.pass()
 }
 

@@ -107,7 +107,7 @@ A shell renders that and sends back a changed draft.
 It evaluates no rule, and writes every word.
 
 **A field's key names its message.**
-`publish.codec`, `viewer.render_chain`, `relay.host`.
+`publish.encoder`, `viewer.render_chain`, `relay.host`.
 The key is the shell's only handle on where a value is written.
 A bare name across three messages would need a lookup to say which descriptor it meant, which is one rule stated twice.
 One resolve over all three also keeps a cross-message greying possible: a tile leg that cannot carry the publish codec is one call's answer, not two calls compared by a shell.
@@ -203,7 +203,7 @@ An **Umgebungsfehler**, a condition the app must survive, is a gRPC status: expe
 | --- | --- |
 | `INVALID_ARGUMENT` | names something that cannot exist: an unknown transport, an empty stream name |
 | `FAILED_PRECONDITION` | well formed, world not ready: already publishing *a different pipeline*, nothing to apply to, a measurement while live |
-| `UNAVAILABLE` | the relay could not be reached, or the child process could not be started |
+| `UNAVAILABLE` | the relay could not be reached, or no child carried the stream: one that would not start, and one that started and exited before a frame left it |
 | `NOT_FOUND` | a named preset, log or stream does not exist |
 | `RESOURCE_EXHAUSTED` | a bounded resource over-asked, such as the test-stream count |
 

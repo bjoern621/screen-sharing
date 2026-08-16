@@ -114,7 +114,11 @@ func (r *Receiver) onSourcePad(pad gst.Pad, onAudio func()) {
 		logger.Warnf("stream %q has no decodebin element, the track beside the picture stays off", r.name)
 		return
 	}
-	r.pipeline.Add(dec)
+	pipeline := r.heldPipeline()
+	if pipeline == nil {
+		return
+	}
+	pipeline.Add(dec)
 	dec.Connect("pad-added", func(_ gst.Element, decoded gst.Pad) {
 		r.onDecodePad(decoded, onAudio)
 	})
@@ -256,8 +260,12 @@ func (r *Receiver) buildAudioChain() ([]gst.Element, bool) {
 	lvl.SetObjectProperty("post-messages", true)
 	lvl.SetObjectProperty("interval", uint64(LevelInterval.Nanoseconds()))
 
+	pipeline := r.heldPipeline()
+	if pipeline == nil {
+		return nil, false
+	}
 	for _, e := range branch {
-		r.pipeline.Add(e)
+		pipeline.Add(e)
 	}
 	for i := range branch[:len(branch)-1] {
 		if !branch[i].Link(branch[i+1]) {

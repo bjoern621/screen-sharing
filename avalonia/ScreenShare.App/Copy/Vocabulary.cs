@@ -10,14 +10,10 @@ namespace ScreenShare.App.Copy;
 /// under the frame path and <c>auto</c> under the download route are different entries.
 /// A control added to the contract is a row here and a change nowhere else.
 ///
-/// Three entries need more than their own value and all three read the catalog: a codec takes the format and
-/// family its row carries, a capture backend the engine that reads it, and a monitor the size and refresh rate of
-/// the output at that index.
-/// The catalog is absent until the first read lands, so every method answers without one: a codec falls back to
-/// its encoder name and a screen to its index, which are what the backend called them.
-///
-/// Two of the three are named against the whole table rather than off their own row, a name that repeats not
-/// identifying: one screen is read by both engines, and one format is produced by several encoders in a family.
+/// Two entries need more than their own value and both read the catalog: a capture backend takes the engine that
+/// reads it, and a monitor the size and refresh rate of the output at that index.
+/// The catalog is absent until the first read lands, so every method answers without one: a screen falls back to
+/// its index, which is what the backend called it.
 /// </summary>
 public sealed class Vocabulary
 {
@@ -38,7 +34,8 @@ public sealed class Vocabulary
         "publish.maxrate_mbps" => Ceiling(value),
         "publish.capture_memory" => Words.Memory(value),
         "publish.drm_map" => Words.DrmMap(value),
-        "publish.codec" => Codec(value),
+        "publish.format" => Words.Format(value),
+        "publish.encoder" => Words.Encoder(value),
         "publish.chroma" => Chroma(value),
         "publish.color_range" => Words.ColorRange(value),
         "publish.effort" => Words.Effort(value),
@@ -63,7 +60,8 @@ public sealed class Vocabulary
         "publish.output_resolution" => Scaling(value),
         "publish.capture_memory" => Descriptions.Memory(value),
         "publish.drm_map" => Descriptions.DrmMap(value),
-        "publish.codec" => DescribeCodec(value),
+        "publish.format" => Descriptions.Format(value),
+        "publish.encoder" => Descriptions.Encoder(value),
         "publish.chroma" => Descriptions.Chroma(value),
         "publish.color_range" => Descriptions.ColorRange(value),
         "publish.effort" => Descriptions.Effort(value),
@@ -98,7 +96,7 @@ public sealed class Vocabulary
         {
             "stream" => publish.Name,
             "source" => Join(Words.Capture(publish.Capture), Picture(publish)),
-            "quality" => Join(CodecShorthand(publish.Codec), Quality(publish, CeilingOf(group))),
+            "quality" => Join(Words.Format(publish.Format), Quality(publish, CeilingOf(group))),
             "audio" => AudioShorthand(publish),
             "transport" => Words.Transport(publish.PublishTransport),
             // The tile's leg, the group's only one: a player and a browser page take theirs from the roster, per
@@ -195,43 +193,6 @@ public sealed class Vocabulary
     }
 
     /// <summary>
-    /// A codec named by what it produces and what produces it: the format a viewer has to decode, and the family
-    /// this machine has to have.
-    /// Without the catalog the encoder's own name stands, which is what a log line spells.
-    /// Where a family holds more than one encoder for a format, those two facts stop separating the entries and
-    /// the encoder's name is appended. The software AV1 encoders are the ones this happens to.
-    /// </summary>
-    private string Codec(string name)
-    {
-        var row = Row(name);
-        if (row is null)
-        {
-            return name;
-        }
-
-        var named = $"{Words.Format(row.Format)} · {Words.Family(row.Family)}";
-        return SharesFormatAndFamily(row) ? $"{named} · {name}" : named;
-    }
-
-    private bool SharesFormatAndFamily(VideoCodec row)
-    {
-        if (_catalog is null)
-        {
-            return false;
-        }
-
-        foreach (var other in _catalog.Codecs)
-        {
-            if (other.Name != row.Name && other.Format == row.Format && other.Family == row.Family)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// A capture backend named by what it reads and by the engine reading it.
     /// The engine is half the choice: it decides which encoders and transports the rest of the form offers, and
     /// it is what a refusal elsewhere asks the reader to change.
@@ -259,36 +220,6 @@ public sealed class Vocabulary
         }
 
         return null;
-    }
-
-    /// <summary>Format alone, at a step chip's width.</summary>
-    private string CodecShorthand(string name)
-    {
-        var row = Row(name);
-        return row is null ? name : Words.Format(row.Format);
-    }
-
-    /// <summary>
-    /// Format's paragraph, plus whatever the encoder adds beyond it.
-    /// Only the software AV1 encoders add anything: the format does not identify them, and they differ enough to
-    /// choose between.
-    /// </summary>
-    private string DescribeCodec(string name)
-    {
-        var row = Row(name);
-        if (row is null)
-        {
-            return "";
-        }
-
-        var lines = new List<string> { Descriptions.Format(row.Format), Descriptions.Family(row.Family) };
-        var encoder = Descriptions.Encoder(name);
-        if (encoder.Length > 0)
-        {
-            lines.Add(encoder);
-        }
-
-        return string.Join("\n", lines.Where(line => line.Length > 0));
     }
 
     /// <summary>

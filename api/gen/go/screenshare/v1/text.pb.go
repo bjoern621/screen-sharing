@@ -49,12 +49,18 @@ const (
 	TextArgName_TEXT_ARG_NAME_CODEC        TextArgName = 5
 	TextArgName_TEXT_ARG_NAME_FORMAT       TextArgName = 6
 	TextArgName_TEXT_ARG_NAME_FAMILY       TextArgName = 7
-	TextArgName_TEXT_ARG_NAME_CHROMA       TextArgName = 8
-	TextArgName_TEXT_ARG_NAME_COLOR_RANGE  TextArgName = 9
-	TextArgName_TEXT_ARG_NAME_MODE         TextArgName = 10
-	TextArgName_TEXT_ARG_NAME_MEMORY       TextArgName = 11
-	TextArgName_TEXT_ARG_NAME_AUDIO        TextArgName = 12
-	TextArgName_TEXT_ARG_NAME_AUDIO_CODEC  TextArgName = 13
+	// What produces a bitstream, at the grain the settings pick one: a family wherever that
+	// family is one encoder, and the library where several share a family ("nvenc", "x264",
+	// "svt-av1").
+	// Apart from TEXT_ARG_NAME_CODEC, which is the whole encode as an engine spells it,
+	// "hevc_nvenc", and from TEXT_ARG_NAME_FAMILY, which four software encoders share.
+	TextArgName_TEXT_ARG_NAME_ENCODER     TextArgName = 37
+	TextArgName_TEXT_ARG_NAME_CHROMA      TextArgName = 8
+	TextArgName_TEXT_ARG_NAME_COLOR_RANGE TextArgName = 9
+	TextArgName_TEXT_ARG_NAME_MODE        TextArgName = 10
+	TextArgName_TEXT_ARG_NAME_MEMORY      TextArgName = 11
+	TextArgName_TEXT_ARG_NAME_AUDIO       TextArgName = 12
+	TextArgName_TEXT_ARG_NAME_AUDIO_CODEC TextArgName = 13
 	// Step of an encoder's effort ladder, spelled as that encoder does: "veryfast" on x264,
 	// "9" on SVT-AV1, "p5" on NVENC.
 	TextArgName_TEXT_ARG_NAME_EFFORT        TextArgName = 14
@@ -100,6 +106,7 @@ const (
 	// Lists of identifiers, each of the axis its name says.
 	// The backend states which ones, never how they read together.
 	TextArgName_TEXT_ARG_NAME_FAMILIES        TextArgName = 30
+	TextArgName_TEXT_ARG_NAME_FORMATS         TextArgName = 38
 	TextArgName_TEXT_ARG_NAME_TRANSPORTS      TextArgName = 31
 	TextArgName_TEXT_ARG_NAME_AUDIO_CODECS    TextArgName = 32
 	TextArgName_TEXT_ARG_NAME_DECODERS        TextArgName = 33
@@ -165,6 +172,7 @@ var (
 		5:  "TEXT_ARG_NAME_CODEC",
 		6:  "TEXT_ARG_NAME_FORMAT",
 		7:  "TEXT_ARG_NAME_FAMILY",
+		37: "TEXT_ARG_NAME_ENCODER",
 		8:  "TEXT_ARG_NAME_CHROMA",
 		9:  "TEXT_ARG_NAME_COLOR_RANGE",
 		10: "TEXT_ARG_NAME_MODE",
@@ -187,6 +195,7 @@ var (
 		27: "TEXT_ARG_NAME_GPU_DRIVER",
 		28: "TEXT_ARG_NAME_GPU_MODEL",
 		30: "TEXT_ARG_NAME_FAMILIES",
+		38: "TEXT_ARG_NAME_FORMATS",
 		31: "TEXT_ARG_NAME_TRANSPORTS",
 		32: "TEXT_ARG_NAME_AUDIO_CODECS",
 		33: "TEXT_ARG_NAME_DECODERS",
@@ -226,6 +235,7 @@ var (
 		"TEXT_ARG_NAME_CODEC":              5,
 		"TEXT_ARG_NAME_FORMAT":             6,
 		"TEXT_ARG_NAME_FAMILY":             7,
+		"TEXT_ARG_NAME_ENCODER":            37,
 		"TEXT_ARG_NAME_CHROMA":             8,
 		"TEXT_ARG_NAME_COLOR_RANGE":        9,
 		"TEXT_ARG_NAME_MODE":               10,
@@ -248,6 +258,7 @@ var (
 		"TEXT_ARG_NAME_GPU_DRIVER":         27,
 		"TEXT_ARG_NAME_GPU_MODEL":          28,
 		"TEXT_ARG_NAME_FAMILIES":           30,
+		"TEXT_ARG_NAME_FORMATS":            38,
 		"TEXT_ARG_NAME_TRANSPORTS":         31,
 		"TEXT_ARG_NAME_AUDIO_CODECS":       32,
 		"TEXT_ARG_NAME_DECODERS":           33,
@@ -350,6 +361,12 @@ const (
 	// Capture backend's engine has no publish sink for the transport.
 	// TEXT_ARG_NAME_CAPTURE, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT.
 	TextCode_TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK TextCode = 11
+	// Engine serializes the transport's sink and this install carries none of the elements it
+	// is made of, so the leg would die at launch.
+	// Apart from the code above it in that the app builds this leg and the machine cannot run
+	// what it builds, which is what the encoder probe answers about a codec.
+	// TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_ELEMENT.
+	TextCode_TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING TextCode = 163
 	// Nothing on this engine was probed, so no codec on it is greyed for absence.
 	// TEXT_ARG_NAME_ENGINE and TEXT_ARG_NAME_CAUSE.
 	TextCode_TEXT_CODE_ENGINE_NOT_PROBED TextCode = 12
@@ -368,12 +385,22 @@ const (
 	// No pipeline is built for the codec, and it stays offered so the roadmap is visible.
 	// No arguments.
 	TextCode_TEXT_CODE_CODEC_NOT_IMPLEMENTED TextCode = 16
-	// Publish leg has no mapping for the codec's bitstream on this engine.
-	// TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, and the two ways
+	// Nothing this machine runs produces the format on this engine, whatever encoder is picked
+	// beside it. One statement for the format, the encoders behind it being out for reasons of
+	// their own, which the encoder control states per entry.
+	// TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_ENGINE.
+	TextCode_TEXT_CODE_NO_ENCODER_FOR_FORMAT TextCode = 164
+	// Encoder produces no bitstream in this format, on any machine: the pair names no row of
+	// the codec table.
+	// TEXT_ARG_NAME_ENCODER, TEXT_ARG_NAME_FORMAT, and TEXT_ARG_NAME_FORMATS for the ones it
+	// does produce.
+	TextCode_TEXT_CODE_ENCODER_CODES_NO_FORMAT TextCode = 165
+	// Publish leg has no mapping for the bitstream on this engine.
+	// TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_FORMAT, TEXT_ARG_NAME_ENGINE, and the two ways
 	// out where the tables hold one: TEXT_ARG_NAME_TRANSPORTS are the legs that carry it on
 	// this engine, TEXT_ARG_NAME_OTHER_ENGINE the engine that carries it on this leg.
 	// Either may be absent.
-	TextCode_TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC TextCode = 20
+	TextCode_TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT TextCode = 20
 	// Publish leg carries no track in this audio codec's format on this engine.
 	// TEXT_ARG_NAME_TRANSPORT, TEXT_ARG_NAME_AUDIO_CODEC, TEXT_ARG_NAME_ENGINE, and
 	// TEXT_ARG_NAME_AUDIO_CODECS for the ones it does carry, which may be empty.
@@ -691,12 +718,15 @@ var (
 		7:   "TEXT_CODE_NO_MONITOR_PREVIEW",
 		10:  "TEXT_CODE_ENGINE_TOOLING_MISSING",
 		11:  "TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK",
+		163: "TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING",
 		12:  "TEXT_CODE_ENGINE_NOT_PROBED",
 		13:  "TEXT_CODE_PROBE_NO_DEVICE",
 		14:  "TEXT_CODE_PROBE_NO_BUILD",
 		15:  "TEXT_CODE_PROBE_FAILED",
 		16:  "TEXT_CODE_CODEC_NOT_IMPLEMENTED",
-		20:  "TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC",
+		164: "TEXT_CODE_NO_ENCODER_FOR_FORMAT",
+		165: "TEXT_CODE_ENCODER_CODES_NO_FORMAT",
+		20:  "TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT",
 		21:  "TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC",
 		22:  "TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER",
 		23:  "TEXT_CODE_NO_VIEWER_RECEIVES_OVER",
@@ -814,12 +844,15 @@ var (
 		"TEXT_CODE_NO_MONITOR_PREVIEW":                        7,
 		"TEXT_CODE_ENGINE_TOOLING_MISSING":                    10,
 		"TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK":                11,
+		"TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING":              163,
 		"TEXT_CODE_ENGINE_NOT_PROBED":                         12,
 		"TEXT_CODE_PROBE_NO_DEVICE":                           13,
 		"TEXT_CODE_PROBE_NO_BUILD":                            14,
 		"TEXT_CODE_PROBE_FAILED":                              15,
 		"TEXT_CODE_CODEC_NOT_IMPLEMENTED":                     16,
-		"TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC":                20,
+		"TEXT_CODE_NO_ENCODER_FOR_FORMAT":                     164,
+		"TEXT_CODE_ENCODER_CODES_NO_FORMAT":                   165,
+		"TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT":               20,
 		"TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC":                21,
 		"TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER":               22,
 		"TEXT_CODE_NO_VIEWER_RECEIVES_OVER":                   23,
@@ -1216,7 +1249,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xa7\r\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xdd\r\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1225,7 +1258,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x17TEXT_ARG_NAME_TRANSPORT\x10\x04\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_CODEC\x10\x05\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_FORMAT\x10\x06\x12\x18\n" +
-	"\x14TEXT_ARG_NAME_FAMILY\x10\a\x12\x18\n" +
+	"\x14TEXT_ARG_NAME_FAMILY\x10\a\x12\x19\n" +
+	"\x15TEXT_ARG_NAME_ENCODER\x10%\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_CHROMA\x10\b\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_COLOR_RANGE\x10\t\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_MODE\x10\n" +
@@ -1248,7 +1282,8 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x12TEXT_ARG_NAME_TUNE\x10\x1a\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_GPU_DRIVER\x10\x1b\x12\x1b\n" +
 	"\x17TEXT_ARG_NAME_GPU_MODEL\x10\x1c\x12\x1a\n" +
-	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x1c\n" +
+	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x19\n" +
+	"\x15TEXT_ARG_NAME_FORMATS\x10&\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_TRANSPORTS\x10\x1f\x12\x1e\n" +
 	"\x1aTEXT_ARG_NAME_AUDIO_CODECS\x10 \x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_DECODERS\x10!\x12!\n" +
@@ -1277,7 +1312,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
-	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\x81'\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\xfd'\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1289,13 +1324,16 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1cTEXT_CODE_NO_MONITOR_PREVIEW\x10\a\x12$\n" +
 	" TEXT_CODE_ENGINE_TOOLING_MISSING\x10\n" +
 	"\x12(\n" +
-	"$TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK\x10\v\x12\x1f\n" +
+	"$TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK\x10\v\x12+\n" +
+	"&TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING\x10\xa3\x01\x12\x1f\n" +
 	"\x1bTEXT_CODE_ENGINE_NOT_PROBED\x10\f\x12\x1d\n" +
 	"\x19TEXT_CODE_PROBE_NO_DEVICE\x10\r\x12\x1c\n" +
 	"\x18TEXT_CODE_PROBE_NO_BUILD\x10\x0e\x12\x1a\n" +
 	"\x16TEXT_CODE_PROBE_FAILED\x10\x0f\x12#\n" +
-	"\x1fTEXT_CODE_CODEC_NOT_IMPLEMENTED\x10\x10\x12(\n" +
-	"$TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC\x10\x14\x12(\n" +
+	"\x1fTEXT_CODE_CODEC_NOT_IMPLEMENTED\x10\x10\x12$\n" +
+	"\x1fTEXT_CODE_NO_ENCODER_FOR_FORMAT\x10\xa4\x01\x12&\n" +
+	"!TEXT_CODE_ENCODER_CODES_NO_FORMAT\x10\xa5\x01\x12)\n" +
+	"%TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT\x10\x14\x12(\n" +
 	"$TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC\x10\x15\x12)\n" +
 	"%TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER\x10\x16\x12%\n" +
 	"!TEXT_CODE_NO_VIEWER_RECEIVES_OVER\x10\x17\x12)\n" +

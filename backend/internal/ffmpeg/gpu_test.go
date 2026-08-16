@@ -12,7 +12,8 @@ import (
 // gpuStream is a draft publishing capture into codec over the device path.
 func gpuStream(capture, codec string) settings.Settings {
 	s := baseStream()
-	s.Publish.Capture, s.Publish.Codec = capture, codec
+	s.Publish.Capture = capture
+	s.Publish.UseCodec(codec)
 	s.Publish.Chroma, s.Publish.Mode, s.Publish.ColorRange = "yuv420p", "cbr", "pc"
 	s.Publish.CaptureMemory = gpupath.MemoryGpu
 	return s

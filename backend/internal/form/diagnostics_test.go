@@ -31,7 +31,7 @@ func diagnosticTestStream() settings.Settings {
 	// that encrypts it, and a healthy configuration is what these tests start from.
 	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "gdigrab"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "cbr"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Transport = "srt"
@@ -43,7 +43,7 @@ func diagnosticTestStream() settings.Settings {
 	// which the defaults carry for the default codec instead.
 	// A builder refuses a step off the ladder,
 	// which would make this draft unbuildable for a reason no case below is about.
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	return s
 }
 
@@ -72,7 +72,7 @@ func diagnosticTestDrafts() map[string]settings.Settings {
 	// The colour range moves with the codec because libvpx codes tv range alone,
 	// and a gap on that axis would refuse the command before the leg was ever asked about.
 	uncarriable := diagnosticTestStream()
-	uncarriable.Publish.Codec = "libvpx"
+	uncarriable.Publish.UseCodec("libvpx")
 	uncarriable.Publish.ColorRange = "tv"
 	uncarriable.Publish.Transport = "rtmp"
 	drafts["a leg that cannot carry the bitstream"] = uncarriable
@@ -100,7 +100,7 @@ func diagnosticTestDrafts() map[string]settings.Settings {
 	drafts["a pixel format no GPU decodes"] = software
 
 	partial := diagnosticTestStream()
-	partial.Publish.Codec = "libx265"
+	partial.Publish.UseCodec("libx265")
 	partial.Publish.Chroma = "gbrp"
 	drafts["a pixel format some GPUs decode"] = partial
 

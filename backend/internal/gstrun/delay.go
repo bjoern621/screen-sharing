@@ -136,14 +136,23 @@ func reportDelay(ctx context.Context, pipeline gst.Pipeline, probe *pipedelay.Pr
 	}
 }
 
-// shedCount is what one queue took in and what it handed on, the difference being what it dropped.
+// shedCount is what one queue took in, what it handed on, and how deep it is, the three together
+// being what it dropped.
 //
-// Two counters and not one: a queue keeps no counter of its own, and the depth it holds is the same
-// one frame at every reading, so it cancels in the subtraction rather than standing as a drop.
-// Written by the streaming threads and read by the reporting one, which is what makes both atomic.
+// A queue keeps no drop counter of its own, so the pair at its ends is what there is, and the depth
+// is what separates a frame still on its way from one thrown away.
+// Written by the streaming threads and read by the reporting one, which is what makes them atomic;
+// the depth is a property read on the reporting thread alone.
 type shedCount struct {
 	in  atomic.Uint64
 	out atomic.Uint64
+	// dropped is the highest figure any reading reached, which is what makes a total that only
+	// counts up out of three readings taken one after another.
+	dropped atomic.Uint64
+	// level is how many buffers the queue holds at this moment, nil where nothing states one.
+	// A function rather than the element, so what a reading does with a depth can be stated without
+	// a queue that happens to be holding one.
+	level func() uint64
 }
 
 // watchShed counts at both ends of the named queue, and nil where the pipeline holds no such
@@ -161,7 +170,7 @@ func watchShed(pipeline gst.Pipeline, element string) *shedCount {
 		return nil
 	}
 
-	c := &shedCount{}
+	c := &shedCount{level: queueLevel(el)}
 	sink.AddProbe(gst.PadProbeTypeBuffer, func(_ gst.Pad, info *gst.PadProbeInfo) gst.PadProbeReturn {
 		if padprobe.Buffer(info) != nil {
 			c.in.Add(1)
@@ -180,17 +189,65 @@ func watchShed(pipeline gst.Pipeline, element string) *shedCount {
 // Read is what the shed has dropped, and false for a pipeline carrying none.
 // Safe on a nil count, which is that pipeline.
 //
-// The two counters are read one after the other, so a frame crossing between the two reads counts as
-// held rather than dropped, and the next reading has it either way.
+// What went in less what came out less what is in the queue at this moment.
+// The queue's depth is not the same one frame at every reading, so the pair alone counts every frame
+// in flight as dropped and uncounts it once it leaves, which is a total that goes down: a readout
+// counting backwards in front of whoever is watching it.
+//
+// The three readings are taken one after another, so a frame crossing between two of them lands on
+// one side or the other, and the high-water mark is what keeps that from moving the figure
+// backwards. A dropped frame is never undropped.
 func (c *shedCount) Read() (uint64, bool) {
 	if c == nil {
 		return 0, false
 	}
-	in, out := c.in.Load(), c.out.Load()
-	if in < out {
-		return 0, true
+	in, out, held := c.in.Load(), c.out.Load(), c.held()
+	dropped := uint64(0)
+	if in > out+held {
+		dropped = in - out - held
 	}
-	return in - out, true
+
+	for {
+		seen := c.dropped.Load()
+		if dropped <= seen {
+			return seen, true
+		}
+		if c.dropped.CompareAndSwap(seen, dropped) {
+			return dropped, true
+		}
+	}
+}
+
+// held is how many buffers the queue is holding at this moment, and zero where nothing states one.
+func (c *shedCount) held() uint64 {
+	if c.level == nil {
+		return 0
+	}
+	return c.level()
+}
+
+// queueLevel reads a queue's own depth, in buffers.
+//
+// The property is a guint, which the binding answers as uint32. The other widths are here
+// because a figure read through a type assertion that stops matching goes quietly to zero, and a
+// zero depth counts every frame in flight as dropped.
+// An element that is no queue answers something else and reads as no depth at all, which is what it
+// has.
+func queueLevel(el gst.Element) func() uint64 {
+	return func() uint64 {
+		switch level := el.ObjectProperty("current-level-buffers").(type) {
+		case uint32:
+			return uint64(level)
+		case uint64:
+			return level
+		case int32:
+			return uint64(max(level, 0))
+		case int64:
+			return uint64(max(level, 0))
+		default:
+			return 0
+		}
+	}
 }
 
 // writeDelay renders one reading onto the child's output.

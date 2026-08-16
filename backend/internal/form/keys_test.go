@@ -6,8 +6,8 @@ import (
 	"bjoernblessin.de/screenshare/internal/rules"
 )
 
-// An axis that is a settings field carries that field's key, so a rule matching on the codec and
-// the control it greys are one identifier on both sides.
+// An axis that is a settings field carries that field's key, so a rule matching on the pixel format
+// and the control it greys are one identifier on both sides.
 //
 // The two lists are spelled separately because the rules package is what every domain package
 // registers into and may therefore import none of them, this one included.
@@ -20,7 +20,8 @@ func TestAxesSpellTheFieldKeysTheyName(t *testing.T) {
 		axis string
 		key  string
 	}{
-		{rules.AxisCodec, KeyCodec},
+		{rules.AxisFormat, KeyFormat},
+		{rules.AxisEncoder, KeyEncoder},
 		{rules.AxisChroma, KeyChroma},
 		{rules.AxisMode, KeyMode},
 		{rules.AxisColorRange, KeyColorRange},

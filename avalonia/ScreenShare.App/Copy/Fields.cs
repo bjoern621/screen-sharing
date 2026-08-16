@@ -106,9 +106,13 @@ public static class Fields
             "How scanout frames are brought into main memory. They are usually stored in a GPU-specific layout, so they have to be read back through a device that understands it. Leave it automatic unless the capture fails to start.",
             DocDrm),
 
-        ["publish.codec"] = new(
-            "Encoder",
-            "What compresses the picture, in two parts: the format viewers have to decode, and the hardware or library that produces it. Hardware encoders are nearly free and slightly less efficient; the CPU encoders squeeze harder and charge the machine for it."),
+        ["publish.format"] = new(
+            "Video format",
+            "How the picture is compressed, which is what every viewer has to decode and what the protocol carries. The newer formats send the same picture in fewer bits and are decoded by fewer devices; H.264 plays everywhere."),
+
+        ["publish.encoder"] = new(
+            "Encoded by",
+            "What produces that format on this machine. A graphics card encodes on a chip of its own, so a stream costs almost nothing while a game is running. The CPU encoders squeeze harder for the same picture and charge the machine for it."),
 
         ["publish.chroma"] = new(
             "Colour detail",

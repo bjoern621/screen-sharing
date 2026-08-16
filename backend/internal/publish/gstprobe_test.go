@@ -15,7 +15,7 @@ import (
 func probeSettings() settings.Settings {
 	s := baseStream()
 	s.Publish.Capture = "portal"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "crf"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Fps = 30
@@ -142,9 +142,9 @@ func TestGstEncodeProbeReachesTheDeviceEncoder(t *testing.T) {
 	if upload < 0 || convert < 0 || upload > convert {
 		t.Errorf("the probe must upload before it converts: %s", line)
 	}
-	elem, named := GstEncoderElementOn(s.Publish.Codec, mem.memory)
+	elem, named := GstEncoderElementOn(s.Publish.Codec(), mem.memory)
 	if !named {
-		t.Fatalf("%s names no encoder element in %s memory", s.Publish.Codec, mem.memory)
+		t.Fatalf("%s names no encoder element in %s memory", s.Publish.Codec(), mem.memory)
 	}
 	if !strings.Contains(line, elem) {
 		t.Errorf("the probe measures something other than the element a run on this path launches (%s): %s", elem, line)
@@ -225,7 +225,8 @@ func TestEveryPublishableCombinationCanBeProbed(t *testing.T) {
 		for _, chroma := range c.EngineChromas(EngineGst) {
 			for _, mode := range capabilities.Modes {
 				s := probeSettings()
-				s.Publish.Codec, s.Publish.Chroma, s.Publish.Mode = c.Name, chroma, mode
+				s.Publish.UseCodec(c.Name)
+				s.Publish.Chroma, s.Publish.Mode = chroma, mode
 				if _, err := buildPipeline(s, []string{"videotestsrc"}, "", PreviewLeg{}); err != nil {
 					continue
 				}

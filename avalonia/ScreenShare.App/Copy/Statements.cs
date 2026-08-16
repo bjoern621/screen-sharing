@@ -86,6 +86,11 @@ public static class Statements
                 $"{Words.Capture(a.Capture)} runs on {Words.Engine(a.Engine)}, which cannot send over "
                 + $"{Words.Transport(a.Transport)}. Change the capture method to reach it.",
 
+            TextCode.PublishSinkElementMissing =>
+                $"Sending over {Words.Transport(a.Transport)} needs {a.Element}, which this "
+                + $"{Words.Engine(a.Engine)} install does not carry. Install the plugin it ships in, or "
+                + "pick another way out.",
+
             TextCode.EngineNotProbed =>
                 $"Nothing on {Words.Engine(a.Engine)} has been tested on this machine, because "
                 + $"{Lower(Of(a.Cause))} Until then nothing is greyed out for missing hardware, "
@@ -105,10 +110,19 @@ public static class Statements
             TextCode.CodecNotImplemented =>
                 "Nothing in this app codes this format.",
 
+            TextCode.NoEncoderForFormat =>
+                $"Nothing on this machine codes {Words.Format(a.Format)}. Another format goes out through an "
+                + "encoder that is here.",
+
+            TextCode.EncoderCodesNoFormat => a.Formats.Count > 0
+                ? $"{Words.Encoder(a.Encoder)} codes {Words.List(a.Formats.Select(Words.Format))}, "
+                  + $"not {Words.Format(a.Format)}."
+                : $"{Words.Encoder(a.Encoder)} codes no {Words.Format(a.Format)}.",
+
             // Carriage.
 
-            TextCode.TransportCarriesNoCodec => Ways(
-                $"{Words.Transport(a.Transport)} cannot carry this format on {Words.Engine(a.Engine)}",
+            TextCode.TransportCarriesNoFormat => Ways(
+                $"{Words.Transport(a.Transport)} cannot carry {Words.Format(a.Format)} on {Words.Engine(a.Engine)}",
                 a.Transports.Count > 0
                     ? $"send it over {Words.List(a.Transports.Select(Words.Transport))}"
                     : "",
@@ -622,6 +636,8 @@ public static class Statements
 
         public string Format => Id(TextArgName.Format);
 
+        public string Encoder => Id(TextArgName.Encoder);
+
         public string Family => Id(TextArgName.Family);
 
         public string Chroma => Id(TextArgName.Chroma);
@@ -661,6 +677,8 @@ public static class Statements
         public string Element => Id(TextArgName.Element);
 
         public IReadOnlyList<string> Families => Ids(TextArgName.Families);
+
+        public IReadOnlyList<string> Formats => Ids(TextArgName.Formats);
 
         public IReadOnlyList<string> Transports => Ids(TextArgName.Transports);
 

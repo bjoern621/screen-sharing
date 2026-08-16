@@ -124,9 +124,9 @@ type gstFrameMemory struct {
 // Whether the machine holds the device is the caller's check: this answers from the tables alone,
 // so a settings combination is refused for what it names and not for the hardware it runs on.
 func gstMemory(s settings.Settings) (gstFrameMemory, error) {
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		return gstFrameMemory{}, fmt.Errorf("unknown codec %q", s.Publish.Codec)
+		return gstFrameMemory{}, fmt.Errorf("unknown codec %q", s.Publish.Codec())
 	}
 	memory, err := gpupath.Resolve(EngineGst, s.Publish.Capture, c.Family, s.Publish.CaptureMemory)
 	if err != nil {

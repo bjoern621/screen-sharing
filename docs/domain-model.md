@@ -14,7 +14,7 @@ The failure mode is two encodings of one constraint: the form greys an option wh
 
 | Table | Holds, per row |
 | --- | --- |
-| `capabilities/capabilities.go` | per codec: encoder family, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer and bitrate targets count on, all per publish engine |
+| `capabilities/capabilities.go` | per codec: the bitstream it produces, what produces it, the pixel formats it may encode, what its encoder cannot do, and the scales its quantizer and bitrate targets count on, all per publish engine |
 | `capabilities/audio.go` | per audio codec: the element each engine codes it with, the sample rate the branch resamples to, the bitrate |
 | `platform/audio.go` | per second-track source: the operating systems whose sessions serve it, what serves it on each, what one that does not is missing |
 | `gpupath/gpupath.go` | per capture backend and encoder family: whether frames reach the encoder without a trip through system memory, and what carries them |
@@ -24,6 +24,20 @@ The failure mode is two encodings of one constraint: the form greys an option wh
 `capabilities/decoders.go` describes the viewers, not this machine.
 A stream is published once and watched on whatever hardware the watchers have, so nothing in it is probed and nothing restricts a choice.
 The form reads it to say what a pixel format costs a viewer: every format has a software decoder, so the choice is a viewer's GPU against a viewer's cores.
+
+### The encode is two fields
+
+A draft carries a format and an encoder, never a codec.
+Format is what every viewer decodes and what a transport carries.
+Encoder is what produces it here, at the grain a picker offers one: the family wherever that family is one encoder, and the library where several share a family (`x264`, `svt-av1`).
+`capabilities.Row` is the row that pair addresses, and `settings.Publish.Codec` derives the name every engine, probe and log line spells.
+
+Neither field derives the other, so the row is stored nowhere.
+The grid is sparse: AMD's runtime codes no VP9, so that pair names no row and the encoder control greys it with the formats that encoder does produce.
+
+Two controls because the two answers move separately.
+An encoder this machine cannot run moves the encoder alone, so a bitstream survives a card that is not there.
+One field naming the whole encode has a single list to walk, and its first entry that runs decides the bitstream as a side effect.
 
 The two engines wrap different encoder implementations, so a pixel format, colour range, rate-control mode or whole codec can be one engine's and not the other's.
 Each difference is a `Gap` naming engine, option, value and reason, rather than a row narrowed to what both manage.

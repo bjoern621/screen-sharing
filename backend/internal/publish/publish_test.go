@@ -56,7 +56,7 @@ func TestTransportsForUnknownCapture(t *testing.T) {
 func publishable() settings.Settings {
 	s := baseStream()
 	s.Publish.Capture = "x11grab"
-	s.Publish.Codec = "libx264"
+	s.Publish.UseCodec("libx264")
 	s.Publish.Mode = "cbr"
 	s.Publish.Chroma = "yuv420p"
 	s.Publish.Transport = "srt"
@@ -115,7 +115,7 @@ func TestSamePipelineSeesWhatThePipelineIsBuiltFrom(t *testing.T) {
 		"name":      func(s *settings.Settings) { s.Publish.Name = "other" },
 		"relayHost": func(s *settings.Settings) { s.Relay.Host = "10.0.0.2" },
 		"fps":       func(s *settings.Settings) { s.Publish.Fps = 30 },
-		"codec":     func(s *settings.Settings) { s.Publish.Codec = "libx265" },
+		"encoder":   func(s *settings.Settings) { s.Publish.UseCodec("libx265") },
 		"bitrateM":  func(s *settings.Settings) { s.Publish.BitrateM = 40 },
 		// Not 2*fps: the auto value already resolves to that interval, so it is the one explicit value
 		// building the pipeline it replaces.

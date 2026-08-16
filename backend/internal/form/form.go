@@ -330,6 +330,10 @@ func resolveOptions(av availability, d Deps, s settings.Settings, f *field, entr
 			reachable = append(reachable, o)
 			continue
 		}
+		// A recommendation is a hint about this combination, the same combination the greying answers
+		// for, so an entry ruled out here carries none: a mark on an entry nobody can pick is the form
+		// arguing with itself, and a builder marking one unconditionally has no way to know.
+		o.Recommended = false
 		ruledOut = append(ruledOut, o)
 	}
 

@@ -111,9 +111,9 @@ var familyMappings = map[string]encoderArgsFunc{
 // bitrate.
 // capabilities.Validate rejects those codecs ahead of this either way.
 func encoderArgs(s settings.Settings, gop int) ([]string, error) {
-	c, ok := capabilities.Get(s.Publish.Codec)
+	c, ok := capabilities.Get(s.Publish.Codec())
 	if !ok {
-		return nil, fmt.Errorf("unknown codec %q", s.Publish.Codec)
+		return nil, fmt.Errorf("unknown codec %q", s.Publish.Codec())
 	}
 
 	l, err := c.ResolveSteps(s.Publish.Mode, s.Publish.Effort, s.Publish.Tune)
@@ -122,13 +122,13 @@ func encoderArgs(s settings.Settings, gop int) ([]string, error) {
 	}
 
 	r := ratesFor(s, gop)
-	if build, ok := encoderMappings[s.Publish.Codec]; ok {
+	if build, ok := encoderMappings[s.Publish.Codec()]; ok {
 		return build(s, r, l), nil
 	}
 	if build, ok := familyMappings[c.Family]; ok {
 		return build(s, r, l), nil
 	}
-	return nil, fmt.Errorf("codec %q has no ffmpeg encoder mapping", s.Publish.Codec)
+	return nil, fmt.Errorf("codec %q has no ffmpeg encoder mapping", s.Publish.Codec())
 }
 
 // softwareArgs is the rate-control mapping the CPU H.26x encoders libx264 and libx265 share,
@@ -174,7 +174,7 @@ func softwareArgs(codec string, lossless []string) encoderArgsFunc {
 // One helper for every mapping that takes one, so the flag pair and the field it reads are one
 // decision rather than one per codec.
 func qualityCeilingArgs(s settings.Settings, r rates) []string {
-	if s.Publish.MaxrateM <= 0 || !capabilities.QualityCeiling(s.Publish.Codec, capabilities.EngineFfmpeg) {
+	if s.Publish.MaxrateM <= 0 || !capabilities.QualityCeiling(s.Publish.Codec(), capabilities.EngineFfmpeg) {
 		return nil
 	}
 	return []string{"-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.Publish.MaxrateM, s.Publish.VbvMs)}
@@ -192,7 +192,7 @@ func aomRates(base []string, s settings.Settings, r rates) []string {
 		// rate it codes toward and stays under.
 		// -maxrate without a target is refused outright, so the ceiling travels here or nowhere.
 		ceiling := "0"
-		if s.Publish.MaxrateM > 0 && capabilities.QualityCeiling(s.Publish.Codec, capabilities.EngineFfmpeg) {
+		if s.Publish.MaxrateM > 0 && capabilities.QualityCeiling(s.Publish.Codec(), capabilities.EngineFfmpeg) {
 			ceiling = r.maxrate
 		}
 		return append(base, "-crf", r.cq, "-b:v", ceiling)
@@ -373,7 +373,7 @@ func videoToolboxArgs(s settings.Settings, r rates, _ capabilities.Steps) []stri
 	assert.Assert(s.Publish.Mode == capabilities.ModeAbr,
 		"a VideoToolbox encode runs the one rate control its rows declare", s.Publish.Mode)
 
-	return []string{"-c:v", s.Publish.Codec, "-realtime", "1", "-bf", "0", "-b:v", r.bitrate}
+	return []string{"-c:v", s.Publish.Codec(), "-realtime", "1", "-bf", "0", "-b:v", r.bitrate}
 }
 
 // vaapiArgs maps the rate-control modes onto the VAAPI encoders' shared -rc_mode knob, the
@@ -398,17 +398,17 @@ func vaapiArgs(quantizer string) encoderArgsFunc {
 	return func(s settings.Settings, r rates, _ capabilities.Steps) []string {
 		switch s.Publish.Mode {
 		case "crf":
-			return []string{"-c:v", s.Publish.Codec, "-rc_mode", "CQP", quantizer, r.cq}
+			return []string{"-c:v", s.Publish.Codec(), "-rc_mode", "CQP", quantizer, r.cq}
 		case "abr":
-			return []string{"-c:v", s.Publish.Codec, "-rc_mode", "VBR", "-b:v", r.bitrate}
+			return []string{"-c:v", s.Publish.Codec(), "-rc_mode", "VBR", "-b:v", r.bitrate}
 		case "vbr":
 			return []string{
-				"-c:v", s.Publish.Codec, "-rc_mode", "VBR",
+				"-c:v", s.Publish.Codec(), "-rc_mode", "VBR",
 				"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.Publish.MaxrateM, s.Publish.VbvMs),
 			}
 		case "cbr":
 			return []string{
-				"-c:v", s.Publish.Codec, "-rc_mode", "CBR",
+				"-c:v", s.Publish.Codec(), "-rc_mode", "CBR",
 				"-b:v", r.bitrate, "-maxrate", r.bitrate, "-bufsize", bufsizeArg(s.Publish.BitrateM, s.Publish.VbvMs),
 			}
 		default:
@@ -483,7 +483,7 @@ const qsvLiveAsyncDepth = "1"
 // It reaches the H.264 and HEVC encoders, the two rows declaring the ladder, so the AV1 and VP9 ones
 // resolve an empty step and state nothing.
 func qsvArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
-	base := []string{"-c:v", s.Publish.Codec, "-bf", "0"}
+	base := []string{"-c:v", s.Publish.Codec(), "-bf", "0"}
 	if preset, named := qsvPresets[l.Effort]; named {
 		base = append(base, "-preset", preset)
 	}
@@ -530,7 +530,7 @@ const vulkanAbrPeak = 2
 // effort ladder, and the settings' B-frame count is NVENC's, so the reorder delay a live screen
 // stream cannot spend stays off.
 func vulkanArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
-	base := append([]string{"-c:v", s.Publish.Codec, "-usage", "stream", "-content", "desktop"},
+	base := append([]string{"-c:v", s.Publish.Codec(), "-usage", "stream", "-content", "desktop"},
 		tuneArgs(l.Tune)...)
 	switch s.Publish.Mode {
 	case "crf":
@@ -615,7 +615,7 @@ func amfNoBPictures(rates) []string {
 // lossless has no AMF form at all (amfGaps).
 func amfArgs(profiles map[string]string, options func(rates) []string) encoderArgsFunc {
 	return func(s settings.Settings, r rates, l capabilities.Steps) []string {
-		base := []string{"-c:v", s.Publish.Codec}
+		base := []string{"-c:v", s.Publish.Codec()}
 		if profile, ok := profiles[s.Publish.Chroma]; ok {
 			base = append(base, "-profile", profile)
 		}
@@ -664,27 +664,27 @@ func nvencArgs(s settings.Settings, r rates, l capabilities.Steps) []string {
 		// past 1 Gbps.
 		// B-frames pinned off rather than taken from the settings, bit-exact coding gaining nothing from
 		// them, which is what the UI greys the field for.
-		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune, []string{"-bf", "0"})
+		return slices.Concat([]string{"-c:v", s.Publish.Codec()}, preset, tune, []string{"-bf", "0"})
 	case "crf":
 		// VBR against a constant quantizer: cq drives the look and the ceiling only caps bursts.
 		// -b:v 0 is what keeps the target out of it, the rate belonging to the quantizer.
 		// multipass fullres spends the most effort per bit.
-		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune, []string{
+		return slices.Concat([]string{"-c:v", s.Publish.Codec()}, preset, tune, []string{
 			"-multipass", "fullres",
 			"-rc", "vbr", "-cq", r.cq, "-b:v", "0",
 		}, qualityCeilingArgs(s, r), []string{"-bf", r.bframes})
 	case "abr":
 		// VBR toward an average, no ceiling.
-		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune,
+		return slices.Concat([]string{"-c:v", s.Publish.Codec()}, preset, tune,
 			[]string{"-rc", "vbr", "-b:v", r.bitrate, "-bf", r.bframes})
 	case "vbr":
-		return slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune, []string{
+		return slices.Concat([]string{"-c:v", s.Publish.Codec()}, preset, tune, []string{
 			"-rc", "vbr",
 			"-b:v", r.bitrate, "-maxrate", r.maxrate, "-bufsize", bufsizeArg(s.Publish.MaxrateM, s.Publish.VbvMs),
 			"-bf", r.bframes,
 		})
 	case "cbr":
-		args := slices.Concat([]string{"-c:v", s.Publish.Codec}, preset, tune,
+		args := slices.Concat([]string{"-c:v", s.Publish.Codec()}, preset, tune,
 			[]string{"-rc", "cbr", "-b:v", r.bitrate, "-bf", "0"})
 		if s.Publish.VbvMs > 0 {
 			args = append(args, "-bufsize", bufsizeArg(s.Publish.BitrateM, s.Publish.VbvMs))

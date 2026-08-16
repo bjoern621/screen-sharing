@@ -15,7 +15,7 @@ namespace ScreenShare.App.Backend;
 /// </summary>
 public static class SettingsDraft
 {
-    /// <summary>Between a key's group and its field: "relay.host", "publish.codec", "viewer.render_chain".</summary>
+    /// <summary>Between a key's group and its field: "relay.host", "publish.encoder", "viewer.render_chain".</summary>
     public const char KeySeparator = '.';
 
     /// <summary>

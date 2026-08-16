@@ -8,7 +8,9 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
+	"bjoernblessin.de/screenshare/internal/publish"
 	"bjoernblessin.de/screenshare/internal/settings"
+	"bjoernblessin.de/screenshare/internal/wire"
 )
 
 // presetCases are the machines a preset is resolved against: the two Linux sessions, Windows,
@@ -22,14 +24,17 @@ func presetCases() []availabilityCase {
 	vaapiOnly := linuxWayland
 	vaapiOnly.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi)
 
+	// Nothing here names anything the tables carry, which is a settings file somebody edited by hand.
+	handEdited := availabilityDraft("no-such-capture", "libx264", "no-such-chroma", "srt")
+	handEdited.Publish.Encoder = "no-such-encoder"
+
 	return []availabilityCase{
 		{"a VAAPI-only Wayland session", vaapiOnly,
 			availabilityDraft("portal", "hevc_vaapi", "yuv420p", "srt")},
 		{"an X11 session", linuxX11, availabilityDraft("x11grab", "libx264", "yuv420p", "srt")},
 		{"a Wayland session", linuxWayland, availabilityDraft("portal", "hevc_vaapi", "yuv420p", "srt")},
 		{"a Windows desktop", windows, availabilityDraft("ddagrab", "hevc_nvenc", "yuv420p", "srt")},
-		{"a hand-edited settings file", linuxX11,
-			availabilityDraft("no-such-capture", "no-such-codec", "no-such-chroma", "srt")},
+		{"a hand-edited settings file", linuxX11, handEdited},
 	}
 }
 
@@ -53,6 +58,20 @@ func presetOnlyFamilies(families ...string) encoders.Availability {
 		verdicts := make(map[string]bool, len(capabilities.Codecs))
 		for _, c := range capabilities.Codecs {
 			verdicts[c.Name] = slices.Contains(families, c.Family)
+		}
+		usable[engine] = verdicts
+	}
+	return encoders.Availability{Usable: usable}
+}
+
+// presetOnlyCodecs is a probe result where the named codecs work and every other one was tested and
+// refused, on both publish engines.
+func presetOnlyCodecs(names ...string) encoders.Availability {
+	usable := make(map[string]map[string]bool, len(capabilities.Engines))
+	for _, engine := range capabilities.Engines {
+		verdicts := make(map[string]bool, len(capabilities.Codecs))
+		for _, c := range capabilities.Codecs {
+			verdicts[c.Name] = slices.Contains(names, c.Name)
 		}
 		usable[engine] = verdicts
 	}
@@ -276,9 +295,9 @@ func TestAPresetTakesTheDeviceEncoderOverAFieldItPromisesNothingAbout(t *testing
 	if !ok {
 		t.Fatal("gaming reached nothing on a machine whose VA encoders code its rung")
 	}
-	if family := mustCodec(t, reached.Publish.Codec).Family; family != capabilities.FamilyVaapi {
+	if family := mustCodec(t, reached.Publish.Codec()).Family; family != capabilities.FamilyVaapi {
 		t.Errorf("gaming resolved to %s, a %s encoder, beside VA encoders that code the same rung",
-			reached.Publish.Codec, family)
+			reached.Publish.Codec(), family)
 	}
 }
 
@@ -303,11 +322,44 @@ func TestAPresetReachesAMachineWithNoNvidiaEncoder(t *testing.T) {
 		if reached == nil {
 			t.Fatalf("gaming reached no software encoder: %v", entry.GetReason())
 		}
-		codec := reached.GetCodec()
+		codec := wire.ToPublish(reached).Codec()
 		c := mustCodec(t, codec)
 		if step := reached.GetEffort(); !c.Effort.Has(step) {
 			t.Errorf("gaming resolved on %s carrying the step %q, which that encoder does not take",
 				codec, step)
+		}
+	}
+}
+
+// A preset carries a configuration this machine encodes, so what it produces is what an encoder can
+// be handed.
+// The pair that broke it: a preset states its own target and leaves the burst ceiling the draft
+// arrived with, and the va elements express a VBR target as a percentage of that ceiling and take
+// 50% at the lowest, so a ceiling far above the target has no form on them.
+func TestAPresetProducesSettingsTheEncodersCanExpress(t *testing.T) {
+	deps := Deps{
+		Platform: platform.Info{OS: "linux", Display: "x11"},
+		// The driver whose defect withholds constant bitrate from this codec, which is what sends the
+		// repair looking for another rate control and lands the candidate on VBR.
+		Device: capabilities.Device{Driver: "radeonsi", Model: "AMD Radeon 780M Graphics"},
+	}
+	// The one encoder this machine has is the one the defect names, so the search cannot step around
+	// it onto a sibling that holds constant bitrate.
+	deps.Encoders = presetOnlyCodecs("av1_vaapi")
+
+	draft, _ := Repair(deps, availabilityDraft("ximagesrc", "av1_vaapi", "yuv420p", "rtsp"))
+	// A ceiling many times the target, which is what a walk over the burst control leaves behind and
+	// what no preset states anything about.
+	draft.Publish.Mode = capabilities.ModeVbr
+	draft.Publish.BitrateM, draft.Publish.MaxrateM = 40, 757
+
+	for _, p := range presetTable {
+		reached, ok := presetResolve(deps, p, draft)
+		if !ok {
+			continue
+		}
+		if err := publish.EncoderRefusal(reached); err != nil {
+			t.Errorf("%s resolved to settings no encoder takes: %v", p.key, err)
 		}
 	}
 }

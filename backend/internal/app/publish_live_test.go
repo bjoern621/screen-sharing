@@ -42,8 +42,9 @@ func liveStream(t *testing.T) (*App, *applierHandle, settings.Settings) {
 	// start covers neither branch.
 	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.BitrateM = 20
 
 	if fields := publish.LiveFields(s); len(fields) == 0 {
@@ -138,8 +139,9 @@ func TestAHandleThatTakesNothingRelaunches(t *testing.T) {
 	s := settings.Defaults()
 	s.Relay.SrtPassphrase = "a-passphrase-long-enough"
 	s.Publish.Capture = "x11grab"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.BitrateM = 20
 
 	handle := &plainHandle{}

@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/go-gst/go-glib/pkg/gobject/v2"
 	"github.com/go-gst/go-gst/pkg/gst"
 	"github.com/go-gst/go-gst/pkg/gstapp"
 
@@ -130,8 +131,12 @@ type Receiver struct {
 	// taking it, at the sink's pad rather than where the samples arrive: the sink holds
 	// each frame until its presentation time, so a reading taken in the sample handler
 	// reports the configured latency and never the work.
-	delay   *pipedelay.Probe
-	fit     gst.Element // capsfilter bounding what the chain's scaler produces
+	delay *pipedelay.Probe
+	fit   gst.Element // capsfilter bounding what the chain's scaler produces
+	// stopMu serialises the teardown, which two sides can reach at once: a stop, and the bus watch on
+	// a pipeline that ended by itself.
+	// Apart from mu, which guards the fields a teardown clears and is taken inside it.
+	stopMu  sync.Mutex
 	cancel  context.CancelFunc
 	started time.Time
 	live    atomic.Bool
@@ -377,7 +382,6 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		if debug != "" {
 			logger.Debugf("stream %q pipeline error: %s", r.name, debug)
 		}
-		r.pipeline.SetState(gst.StateNull)
 		// The consumers are told on the call they are blocked reading.
 		// ReceiveExit carries the same fact to every shell on the event stream, and
 		// neither substitutes for the other: a consumer waiting on frames learns nothing
@@ -386,6 +390,12 @@ func (r *Receiver) watchBus(ctx context.Context, onEnd func(message string)) {
 		if onEnd != nil {
 			onEnd(message)
 		}
+		// After the report rather than before it, the teardown being the slow half and the news being
+		// what a reader is waiting on.
+		// Here and not left to a stop that may never come: a pipeline that ended on its own is one
+		// whose receiver the caller drops where it stands (app.previewEnded), so this is the last frame
+		// holding it.
+		r.teardown()
 		return
 	}
 }
@@ -417,7 +427,10 @@ func (r *Receiver) ToneMap() bool { return r.toneMap }
 // A zero width or height is a tile the shell has not measured yet, and leaves the pipeline where
 // it is.
 func (r *Receiver) SetRenderSize(width, height int) {
-	if width <= 0 || height <= 0 || r.fit == nil {
+	r.mu.Lock()
+	fit := r.fit
+	r.mu.Unlock()
+	if width <= 0 || height <= 0 || fit == nil {
 		return
 	}
 	size := uint64(packSize(width, height))
@@ -426,7 +439,7 @@ func (r *Receiver) SetRenderSize(width, height int) {
 	}
 	caps := r.chain.fit(width, height)
 	assert.Assert(caps != "", "a chain that names a fit filter bounds it with caps", r.chain.name, r.name)
-	r.fit.SetObjectProperty("caps", gst.CapsFromString(caps))
+	fit.SetObjectProperty("caps", gst.CapsFromString(caps))
 	logger.Debugf("stream %q renders at most %dx%d, bounded by %s", r.name, width, height, caps)
 }
 
@@ -445,14 +458,35 @@ func (r *Receiver) Stop() bool {
 	// device that is gone.
 	r.endSubs("the stream was closed")
 
+	return r.teardown()
+}
+
+// teardown takes the pipeline to NULL and hands it back, once, whichever side asks first: a stop, or
+// the bus watch on a pipeline that ended on its own.
+//
+// The whole of it runs under one lock, so the pipeline cannot be handed back between the read that
+// takes it and the state change that uses it, which would be a state change against memory that has
+// been freed.
+// A receiver that has already handed its pipeline back is the state a stop names, so it succeeds and
+// does nothing, as StopReceive does on a decode nobody opened.
+func (r *Receiver) teardown() bool {
+	r.stopMu.Lock()
+	defer r.stopMu.Unlock()
+
+	pipeline := r.heldPipeline()
+	if pipeline == nil {
+		return true
+	}
+
 	started := time.Now()
 	for attempt := 1; attempt <= stopAttempts; attempt++ {
 		// A state change that runs out of time comes back ASYNC and leaves the pipeline
 		// running, which is the case a discarded result would read as SUCCESS: the
 		// threads are still in the decoder, and the next thing this process does is
 		// exit.
-		switch ret := r.pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout)); ret {
+		switch ret := pipeline.BlockSetState(gst.StateNull, gst.ClockTime(stopTimeout)); ret {
 		case gst.StateChangeSuccess:
+			r.release()
 			logger.Debugf("stream %q pipeline stopped after %s", r.name, since(started))
 			return true
 		case gst.StateChangeFailure:
@@ -469,6 +503,43 @@ func (r *Receiver) Stop() bool {
 		"a process that exits with a decoder still in the display driver can be impossible to kill afterwards",
 		r.name, since(started))
 	return false
+}
+
+// heldPipeline is the pipeline while this receiver holds one, and nil once it has been handed back.
+//
+// Copied under the lock rather than read where it is used: a stop can land between a nil check and
+// the call after it, and every reader outside the build reaches the pipeline through here.
+func (r *Receiver) heldPipeline() gst.Pipeline {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.pipeline
+}
+
+// release hands the pipeline back, which a pipeline at NULL is not: the state change stops the
+// threads and frees nothing.
+//
+// The binding unrefs a wrapper when Go collects it, and Go sees the wrapper rather than the decoder
+// contexts, buffer pools and device surfaces behind it, so a process opening a pipeline per stream
+// climbs by what each one holds and never comes down. Measured at six megabytes, five threads and
+// eight descriptors a stream, none of it returned by a stop.
+//
+// Once per receiver, after the pipeline is at NULL and never before: a running pipeline handed back
+// is a decoder still on the device with nothing left pointing at it.
+// The element handles go with it. Each holds a ref of its own, so dropping them is what lets the
+// children go when the bin releases them, and a method reaching one afterwards would be reaching
+// into a stream that has stopped.
+func (r *Receiver) release() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.pipeline == nil {
+		return
+	}
+	r.volume, r.audioConvert, r.stats = nil, nil, nil
+	r.sink, r.fit = nil, nil
+
+	gobject.UnsafeObjectUnref(r.pipeline)
+	r.pipeline = nil
 }
 
 // since rounds an elapsed time to the millisecond.

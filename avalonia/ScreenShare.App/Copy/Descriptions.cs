@@ -64,12 +64,19 @@ public static class Descriptions
         ["videotoolbox"] = "The media chip built into every Mac, which encodes without touching the graphics cores. It codes at an average bitrate and nothing else, so the picture holds its rate rather than its quality, and 4:2:0 is all it reaches.",
     };
 
-    /// <summary>What one encoder adds beyond its format, for the formats more than one encoder here produces.</summary>
+    /// <summary>
+    /// The CPU encoders, each stating what it is and what it costs against the others that code the same format.
+    /// Only these: a hardware family is one encoder and answers with its family's paragraph, so a row here for
+    /// one would be that paragraph written twice.
+    /// </summary>
     private static readonly Dictionary<string, string> Encoders = new()
     {
-        ["libaom-av1"] = "The AV1 reference encoder: the only software AV1 here that codes full colour and RGB, and the slowest of the three even in its realtime mode.",
-        ["libsvtav1"] = "The fastest realtime AV1, which is what makes the format usable at a desktop resolution at all. 4:2:0 and 10-bit only.",
-        ["librav1e"] = "Between the other two in speed, and reaches full colour and 10-bit. It takes one bitrate target with no ceiling and no buffer, and its quality scale counts to 255 rather than 51.",
+        ["x264"] = "The H.264 encoder everything else is measured against. It reaches every pixel format offered here, codes lossless, and is fast enough for a desktop at a high frame rate.",
+        ["x265"] = "HEVC on the CPU, for perhaps a third fewer bits than x264 at the same picture. It searches much harder for them, so a full desktop at a high frame rate is a large part of the machine.",
+        ["libvpx"] = "Google's VP8 and VP9 encoder. VP9 saves bits over H.264 and every browser decodes it; VP8 is the older one, kept for the players that take nothing else.",
+        ["libaom"] = "The AV1 reference encoder: the only software AV1 here that codes full colour and RGB, and the slowest of the three even in its realtime mode.",
+        ["svt-av1"] = "The fastest realtime AV1, which is what makes the format usable at a desktop resolution at all. 4:2:0 and 10-bit only.",
+        ["rav1e"] = "Between the other two in speed, and reaches full colour and 10-bit. It takes one bitrate target with no ceiling and no buffer, and its quality scale counts to 255 rather than 51.",
     };
 
     private static readonly Dictionary<string, string> Chromas = new()
@@ -200,7 +207,9 @@ public static class Descriptions
 
     public static string Family(string id) => Look(Families, id);
 
-    public static string Encoder(string id) => Look(Encoders, id);
+    /// <summary>What produces a bitstream: the library where the CPU is what runs it, the family otherwise.</summary>
+    public static string Encoder(string id) =>
+        Encoders.TryGetValue(id, out var body) ? body : Family(id);
 
     public static string Chroma(string id) => Look(Chromas, id);
 

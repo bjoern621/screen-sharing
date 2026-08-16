@@ -357,7 +357,8 @@ func (x *EngineLimit) GetBitrateLimitMbps() int32 {
 type VideoCodec struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Encoder as the engine names it: "hevc_nvenc".
-	// The value PublishSettings.codec carries.
+	// What a command line and a log line spell, and what a probe verdict is keyed by
+	// (EncoderAvailability).
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Encoder backend: software, nvenc, vaapi, qsv, amf, v4l2, rkmpp or vulkan.
 	// Every per-backend behaviour keys off the family rather than off a name suffix.
@@ -366,6 +367,10 @@ type VideoCodec struct {
 	// Carriage is stated per format and not per encoder, because the format is what a
 	// transport carries.
 	Format string `protobuf:"bytes,3,opt,name=format,proto3" json:"format,omitempty"`
+	// The row's own half of the pair PublishSettings carries, format being the other:
+	// the family wherever that family is one encoder, and the library where several share a
+	// family ("nvenc", "x264", "svt-av1").
+	Encoder string `protobuf:"bytes,10,opt,name=encoder,proto3" json:"encoder,omitempty"`
 	// False where this app builds no pipeline for the codec.
 	// Such a row exists so the table can state why it is absent.
 	Implemented bool `protobuf:"varint,4,opt,name=implemented,proto3" json:"implemented,omitempty"`
@@ -424,6 +429,13 @@ func (x *VideoCodec) GetFamily() string {
 func (x *VideoCodec) GetFormat() string {
 	if x != nil {
 		return x.Format
+	}
+	return ""
+}
+
+func (x *VideoCodec) GetEncoder() string {
+	if x != nil {
+		return x.Encoder
 	}
 	return ""
 }
@@ -1681,12 +1693,14 @@ const file_screenshare_v1_catalog_proto_rawDesc = "" +
 	"\x06cq_max\x18\x02 \x01(\x05H\x00R\x05cqMax\x88\x01\x01\x121\n" +
 	"\x12bitrate_limit_mbps\x18\x03 \x01(\x05H\x01R\x10bitrateLimitMbps\x88\x01\x01B\t\n" +
 	"\a_cq_maxB\x15\n" +
-	"\x13_bitrate_limit_mbps\"\x92\x02\n" +
+	"\x13_bitrate_limit_mbps\"\xac\x02\n" +
 	"\n" +
 	"VideoCodec\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x16\n" +
 	"\x06family\x18\x02 \x01(\tR\x06family\x12\x16\n" +
-	"\x06format\x18\x03 \x01(\tR\x06format\x12 \n" +
+	"\x06format\x18\x03 \x01(\tR\x06format\x12\x18\n" +
+	"\aencoder\x18\n" +
+	" \x01(\tR\aencoder\x12 \n" +
 	"\vimplemented\x18\x04 \x01(\bR\vimplemented\x12\x18\n" +
 	"\achromas\x18\x05 \x03(\tR\achromas\x123\n" +
 	"\x06limits\x18\t \x03(\v2\x1b.screenshare.v1.EngineLimitR\x06limits\x12'\n" +

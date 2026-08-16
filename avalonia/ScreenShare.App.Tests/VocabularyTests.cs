@@ -8,12 +8,10 @@ namespace ScreenShare.App.Tests;
 /// What an entry is called, where its own value does not say enough.
 ///
 /// Defect locked out: one name printed twice.
-/// The backend identifies an option by its value alone and leaves the naming to the shell, and two families
-/// of entries share everything this side would otherwise name them by: one screen is read by both publish
-/// engines, and one encoder family produces one format from several encoders.
-///
-/// The separating fact is a column of the catalog in both cases, so the rule is one: name against the table
-/// rather than off the row.
+/// The backend identifies an option by its value alone and leaves the naming to the shell, and one screen is
+/// read by both publish engines, so the source name alone offers the same entry twice.
+/// The separating fact is a column of the catalog, so the rule is: name against the table rather than off the
+/// row.
 /// </summary>
 public sealed class VocabularyTests
 {
@@ -73,44 +71,40 @@ public sealed class VocabularyTests
         Assert.Contains("ffmpeg", words.Name("publish.capture", "kmsgrab"));
     }
 
+    /// <summary>
+    /// The CPU encoders are what the reader chooses between once a format is picked, so each names its own
+    /// project: three of them code AV1 and "CPU" alone would offer the same entry three times.
+    /// </summary>
     [Fact]
-    public void EncodersOfOneFormatAndFamilyAreToldApartByTheirOwnNames()
+    public void TheCpuEncodersOfOneFormatAreToldApart()
     {
-        var words = Words(
-            Codec("libaom-av1", "av1", "software"),
-            Codec("libsvtav1", "av1", "software"),
-            Codec("librav1e", "av1", "software"));
-
-        var names = new[] { "libaom-av1", "libsvtav1", "librav1e" }
-            .Select(name => words.Name("publish.codec", name))
+        var names = new[] { "libaom", "svt-av1", "rav1e" }
+            .Select(id => Vocabulary.Empty.Name("publish.encoder", id))
             .ToList();
 
         Assert.Equal(names.Count, names.Distinct().Count());
-        Assert.All(names, name => Assert.Contains("AV1", name));
+        Assert.All(names, name => Assert.Contains("CPU", name));
     }
 
     /// <summary>
-    /// Format and family are the two questions a codec answers, and where they identify the row on their own
-    /// the encoder's own name stays out of the name.
+    /// A hardware family is one encoder, so the entry is named for the thing a reader either has or does not
+    /// rather than for the runtime that drives it.
     /// </summary>
     [Fact]
-    public void AnEncoderNothingSharesAFormatAndFamilyWithKeepsTheShortName()
+    public void AHardwareEncoderIsNamedByTheHardware()
     {
-        var words = Words(
-            Codec("hevc_nvenc", "hevc", "nvenc"),
-            Codec("h264_nvenc", "h264", "nvenc"));
-
-        Assert.DoesNotContain("hevc_nvenc", words.Name("publish.codec", "hevc_nvenc"));
+        Assert.Contains("NVIDIA", Vocabulary.Empty.Name("publish.encoder", "nvenc"));
     }
 
     /// <summary>
     /// The catalog arrives after the first form does, so an entry is nameable without it.
-    /// What is left is the backend's own value, which a reader can still pick, search for and report.
+    /// What is left where nothing names a value is the backend's own, which a reader can still pick, search for
+    /// and report.
     /// </summary>
     [Fact]
     public void WithoutTheCatalogAnEntryIsNamedByWhatTheBackendCalledIt()
     {
-        Assert.Equal("libsvtav1", Vocabulary.Empty.Name("publish.codec", "libsvtav1"));
+        Assert.Equal("newcodec", Vocabulary.Empty.Name("publish.format", "newcodec"));
         Assert.Equal("X11 screen", Vocabulary.Empty.Name("publish.capture", "x11grab"));
     }
 
@@ -130,7 +124,7 @@ public sealed class VocabularyTests
 
     private static Settings ConstantQuality(int cq) => new()
     {
-        Publish = new PublishSettings { Codec = "libx264", Mode = "crf", Cq = cq },
+        Publish = new PublishSettings { Format = "h264", Encoder = "x264", Mode = "crf", Cq = cq },
     };
 
     /// <summary>

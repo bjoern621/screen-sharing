@@ -38,13 +38,18 @@ const (
 	scaledFromSource       = screensharev1.TextCode_TEXT_CODE_SCALED_FROM_SOURCE
 	engineToolingMissing   = screensharev1.TextCode_TEXT_CODE_ENGINE_TOOLING_MISSING
 	engineHasNoPublishSink = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_PUBLISH_SINK
-	engineNotProbed        = screensharev1.TextCode_TEXT_CODE_ENGINE_NOT_PROBED
-	probeNoDevice          = screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE
-	probeNoBuild           = screensharev1.TextCode_TEXT_CODE_PROBE_NO_BUILD
-	probeFailed            = screensharev1.TextCode_TEXT_CODE_PROBE_FAILED
-	codecNotImplemented    = screensharev1.TextCode_TEXT_CODE_CODEC_NOT_IMPLEMENTED
+	// The app builds this leg and the machine cannot run what it builds, which is the encoder
+	// probe's question asked about a sink.
+	publishSinkElementMissing = screensharev1.TextCode_TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING
+	engineNotProbed           = screensharev1.TextCode_TEXT_CODE_ENGINE_NOT_PROBED
+	probeNoDevice             = screensharev1.TextCode_TEXT_CODE_PROBE_NO_DEVICE
+	probeNoBuild              = screensharev1.TextCode_TEXT_CODE_PROBE_NO_BUILD
+	probeFailed               = screensharev1.TextCode_TEXT_CODE_PROBE_FAILED
+	codecNotImplemented       = screensharev1.TextCode_TEXT_CODE_CODEC_NOT_IMPLEMENTED
+	noEncoderForFormat        = screensharev1.TextCode_TEXT_CODE_NO_ENCODER_FOR_FORMAT
+	encoderCodesNoFormat      = screensharev1.TextCode_TEXT_CODE_ENCODER_CODES_NO_FORMAT
 
-	transportCarriesNoCodec    = screensharev1.TextCode_TEXT_CODE_TRANSPORT_CARRIES_NO_CODEC
+	transportCarriesNoFormat   = screensharev1.TextCode_TEXT_CODE_TRANSPORT_CARRIES_NO_FORMAT
 	legCarriesNoAudioCodec     = screensharev1.TextCode_TEXT_CODE_LEG_CARRIES_NO_AUDIO_CODEC
 	engineHasNoAudioEncoder    = screensharev1.TextCode_TEXT_CODE_ENGINE_HAS_NO_AUDIO_ENCODER
 	noViewerReceivesOver       = screensharev1.TextCode_TEXT_CODE_NO_VIEWER_RECEIVES_OVER
@@ -142,6 +147,10 @@ func argFamily(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_FAMILY, v)
 }
 
+func argEncoder(v string) *screensharev1.TextArg {
+	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_ENCODER, v)
+}
+
 func argChroma(v string) *screensharev1.TextArg {
 	return text.ID(screensharev1.TextArgName_TEXT_ARG_NAME_CHROMA, v)
 }
@@ -176,6 +185,10 @@ func argDecoder(v string) *screensharev1.TextArg {
 
 func argFamilies(v []string) *screensharev1.TextArg {
 	return text.IDs(screensharev1.TextArgName_TEXT_ARG_NAME_FAMILIES, v)
+}
+
+func argFormats(v []string) *screensharev1.TextArg {
+	return text.IDs(screensharev1.TextArgName_TEXT_ARG_NAME_FORMATS, v)
 }
 
 func argTransports(v []string) *screensharev1.TextArg {

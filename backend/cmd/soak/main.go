@@ -42,6 +42,7 @@ type session struct {
 	report     *reporter
 	backendPid int
 	ramp       []int
+	cover      *coverage
 
 	mu      sync.Mutex
 	catalog *v1.Catalog
@@ -60,6 +61,7 @@ func main() {
 	reset := flag.Bool("reset", true, "stop whatever is publishing before probing")
 	dump := flag.String("dump", "", "print what the form says about one field key, then stop")
 	capture := flag.String("capture", "", "capture backend a publish run holds, empty for the stored one")
+	codec := flag.String("codec", "", "encoder a publish run holds, empty to let the walk move it")
 	flag.Parse()
 
 	if *sock == "" {
@@ -98,7 +100,8 @@ func main() {
 	}
 	defer reports.close()
 
-	run := &session{control: control, conn: conn, report: reports, backendPid: watched, ramp: parseRamp(*ramp)}
+	run := &session{control: control, conn: conn, report: reports, backendPid: watched,
+		ramp: parseRamp(*ramp), cover: newCoverage()}
 
 	fmt.Printf("soak %s: seed %d, backend pid %d, socket %s, findings in %s\n",
 		*mode, *seed, watched, *sock, *out)
@@ -137,7 +140,7 @@ func main() {
 	case "encode":
 		err = runEncode(ctx, run, rng, until)
 	case "publish":
-		err = runPublish(ctx, run, rng, until, *publishFor, *capture)
+		err = runPublish(ctx, run, rng, until, *publishFor, *capture, *codec)
 	case "multi":
 		err = runMulti(ctx, run, rng, until)
 	default:
@@ -251,6 +254,36 @@ func (s *session) families(ctx context.Context) (map[string]string, error) {
 	return out, nil
 }
 
+// codecOf is the encode a draft names, as the catalog spells it: the row its format and its encoder
+// address between them.
+// Empty for a pair no row carries, which is what the form greys and the repair walks off.
+func (s *session) codecOf(settings *v1.Settings) string {
+	format, encoder := readField(settings, "publish.format"), readField(settings, "publish.encoder")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, codec := range s.catalog.GetCodecs() {
+		if codec.GetFormat() == format && codec.GetEncoder() == encoder {
+			return codec.GetName()
+		}
+	}
+	return ""
+}
+
+// codecPair is the two fields a draft names one encoder by, and false for a name the catalog does not
+// carry.
+// The run names an encoder the way a person does, and the settings hold the pair, so the translation
+// is here rather than on the command line.
+func (s *session) codecPair(name string) (format, encoder string, ok bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, codec := range s.catalog.GetCodecs() {
+		if codec.GetName() == name {
+			return codec.GetFormat(), codec.GetEncoder(), true
+		}
+	}
+	return "", "", false
+}
+
 func (s *session) codecNames() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -301,7 +334,13 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
-		var settled *treeSample
+		// base is the first reading past startup and never moves, so the drift a run ends on is
+		// measured against where it opened.
+		// settled moves to each reading that was reported, which is what keeps one climb from being
+		// reported again on every tick that follows it.
+		var base, settled, latest *treeSample
+		defer func() { s.reportDrift(base, latest) }()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -318,26 +357,30 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 			}
 
 			sample := sampleTree(s.backendPid)
+			latest = &sample
 			// The first minute is startup, so the baseline is taken after it rather than at zero.
 			if settled == nil {
 				if time.Since(s.report.started) > time.Minute {
-					settled = &sample
+					settled, base = &sample, &sample
 				}
 				continue
 			}
 
-			grown := sample.RSSKiB - settled.RSSKiB
+			grown := sample.RootRSSKiB - settled.RootRSSKiB
 			elapsed := sample.At.Sub(settled.At).Minutes()
-			if elapsed >= 5 && grown > 200*1024 && float64(grown)/elapsed > 20*1024 {
+			// A tenth of a gigabyte an hour is a leak an all-day share meets and a cache does not, so
+			// the bar sits there rather than at the point where the machine is already in trouble.
+			if elapsed >= 5 && grown > 96*1024 && float64(grown)/elapsed > 8*1024 {
 				s.report.report("backend.memory_growth", "backend/rss",
-					fmt.Sprintf("the process tree holds %d MiB more than %.0f minutes ago, %0.1f MiB a minute",
+					fmt.Sprintf("the backend holds %d MiB more than %.0f minutes ago, %0.1f MiB a minute",
 						grown/1024, elapsed, float64(grown)/1024/elapsed),
 					map[string]string{
-						"rss_mib":  fmt.Sprint(sample.RSSKiB / 1024),
-						"base_mib": fmt.Sprint(settled.RSSKiB / 1024),
-						"pids":     fmt.Sprint(sample.Pids),
-						"fds":      fmt.Sprint(sample.FDs),
-						"threads":  fmt.Sprint(sample.Threads),
+						"rss_mib":      fmt.Sprint(sample.RootRSSKiB / 1024),
+						"base_mib":     fmt.Sprint(settled.RootRSSKiB / 1024),
+						"tree_rss_mib": fmt.Sprint(sample.RSSKiB / 1024),
+						"pids":         fmt.Sprint(sample.Pids),
+						"fds":          fmt.Sprint(sample.RootFDs),
+						"threads":      fmt.Sprint(sample.RootThreads),
 					}, nil)
 				settled = &sample
 			}
@@ -347,15 +390,50 @@ func (s *session) watchMemory(ctx context.Context, until time.Time) <-chan struc
 					map[string]string{"fds": fmt.Sprint(sample.RootFDs), "tree_fds": fmt.Sprint(sample.FDs)}, nil)
 				settled = &sample
 			}
-			if sample.Threads-settled.Threads > 100 {
+			if sample.RootThreads-settled.RootThreads > 100 {
 				s.report.report("backend.thread_growth", "backend/threads",
-					fmt.Sprintf("the process tree runs %d more threads than it did", sample.Threads-settled.Threads),
-					map[string]string{"threads": fmt.Sprint(sample.Threads)}, nil)
+					fmt.Sprintf("the backend runs %d more threads than it did", sample.RootThreads-settled.RootThreads),
+					map[string]string{"threads": fmt.Sprint(sample.RootThreads),
+						"tree_threads": fmt.Sprint(sample.Threads)}, nil)
 				settled = &sample
 			}
 		}
 	}()
 	return done
+}
+
+// reportDrift states what the process tree held at the end of a run against what it held at the
+// start, whether or not the climb was steep enough to be reported while it happened.
+//
+// A threshold answers yes or no, and what a leak hunt needs is the figure: a run drifting 3 MiB a
+// minute passes every bar here and is a gigabyte over a working day.
+func (s *session) reportDrift(base, last *treeSample) {
+	if base == nil || last == nil {
+		return
+	}
+	elapsed := last.At.Sub(base.At).Minutes()
+	if elapsed < 1 {
+		return
+	}
+
+	grown := last.RootRSSKiB - base.RootRSSKiB
+	s.report.report("backend.drift", "backend/drift",
+		fmt.Sprintf("over %.0f minutes the backend went from %d to %d MiB, %.2f MiB a minute, from %d to %d descriptors and %d to %d threads",
+			elapsed, base.RootRSSKiB/1024, last.RootRSSKiB/1024, float64(grown)/1024/elapsed,
+			base.RootFDs, last.RootFDs, base.RootThreads, last.RootThreads),
+		map[string]string{
+			"minutes":      fmt.Sprintf("%.0f", elapsed),
+			"base_mib":     fmt.Sprint(base.RootRSSKiB / 1024),
+			"rss_mib":      fmt.Sprint(last.RootRSSKiB / 1024),
+			"mib_per_min":  fmt.Sprintf("%.2f", float64(grown)/1024/elapsed),
+			"fds":          fmt.Sprint(last.RootFDs),
+			"base_fds":     fmt.Sprint(base.RootFDs),
+			"threads":      fmt.Sprint(last.RootThreads),
+			"base_threads": fmt.Sprint(base.RootThreads),
+			// The tree beside it, so a figure moved by a pipeline that happened to be up reads as one.
+			"tree_rss_mib": fmt.Sprint(last.RSSKiB / 1024),
+			"pids":         fmt.Sprint(last.Pids),
+		}, nil)
 }
 
 // probeEncoders runs the probe and takes the catalog it lands, so what the run measures is what

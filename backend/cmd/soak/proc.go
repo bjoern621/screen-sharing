@@ -22,10 +22,15 @@ type treeSample struct {
 	RSSKiB  int64
 	Threads int
 	FDs     int
-	// Descriptors of the root process alone, which is what a leak shows in: a child holds its own
-	// and takes them with it.
-	RootFDs  int
-	EngineNs map[string]int64
+	// The root process alone, which is what a leak shows in: a child holds its own and takes them
+	// with it when it ends.
+	// A tree figure moves by hundreds of megabytes and a hundred threads depending on whether a
+	// pipeline happened to be up at the moment of the reading, so a leak is read here and the tree
+	// stands beside it as context.
+	RootFDs     int
+	RootRSSKiB  int64
+	RootThreads int
+	EngineNs    map[string]int64
 	// Engine time of the processes below the root alone.
 	PipelineNs map[string]int64
 }
@@ -110,6 +115,8 @@ func sampleTree(root int) treeSample {
 		s.FDs += countFDs(pid)
 		if pid == root {
 			s.RootFDs = countFDs(pid)
+			s.RootRSSKiB = stat.rssKiB
+			s.RootThreads = stat.threads
 		}
 
 		engines := map[string]int64{}

@@ -41,7 +41,8 @@ func TestTheLivePropertiesAreWhatTheBuildersSpend(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			s := baseStream()
 			chromas := c.EngineChromas(capabilities.EngineGst)
-			s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = name, mode, chromas[len(chromas)-1]
+			s.Publish.UseCodec(name)
+			s.Publish.Mode, s.Publish.Chroma = mode, chromas[len(chromas)-1]
 			s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(name, mode)
 			// Under every element's own property range, the qsv ones stopping at an unsigned 16-bit kbit
 			// figure (qsvShortRateLimits).
@@ -70,7 +71,8 @@ func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 	s := baseStream()
 	// The live table is gated on the engine, and the default backend is the other engine's.
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
 	s.Publish.BitrateM = 12
 	state := gstLiveState(s)
 	if len(state.Properties) != 1 || state.Properties[0].Value != "12000" {
@@ -93,8 +95,9 @@ func TestTheLiveStateIsEmptyWhereNoRateIsSent(t *testing.T) {
 func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 	s := baseStream()
 	s.Publish.Capture = "ximagesrc"
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libvpx-vp9", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libvpx-vp9")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.BitrateM = 12
 
 	state := gstLiveState(s)
@@ -112,8 +115,9 @@ func TestTheBitsPerSecondElementsCountInBits(t *testing.T) {
 // table is gated on it and not on the selected codec.
 func TestNothingIsLiveOnTheFfmpegEngine(t *testing.T) {
 	s := baseStream()
-	s.Publish.Codec, s.Publish.Mode, s.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
-	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec, s.Publish.Mode)
+	s.Publish.UseCodec("libx264")
+	s.Publish.Mode, s.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
+	s.Publish.Effort, s.Publish.Tune = settings.LadderSteps(s.Publish.Codec(), s.Publish.Mode)
 	s.Publish.BitrateM = 20
 
 	s.Publish.Capture = "x11grab"
@@ -146,9 +150,10 @@ func TestAnUnknownCaptureBackendIsNotLive(t *testing.T) {
 // watching or reconnect.
 func TestOnlyTheLiveSubsetAvoidsARelaunch(t *testing.T) {
 	running := baseStream()
-	running.Publish.Codec, running.Publish.Mode, running.Publish.Chroma = "libx264", capabilities.ModeCbr, "yuv420p"
+	running.Publish.UseCodec("libx264")
+	running.Publish.Mode, running.Publish.Chroma = capabilities.ModeCbr, "yuv420p"
 	running.Publish.Capture = "ximagesrc"
-	running.Publish.Effort, running.Publish.Tune = settings.LadderSteps(running.Publish.Codec, running.Publish.Mode)
+	running.Publish.Effort, running.Publish.Tune = settings.LadderSteps(running.Publish.Codec(), running.Publish.Mode)
 	running.Publish.BitrateM = 20
 
 	next := running

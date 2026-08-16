@@ -62,6 +62,21 @@ public static class Words
     };
 
     /// <summary>
+    /// The CPU encoders, each named for the project a reader meets in a release note or a bug report.
+    /// Only these: a hardware family is one encoder and answers under its family's name, so a row here for one
+    /// would be that name written twice.
+    /// </summary>
+    private static readonly Dictionary<string, string> Encoders = new()
+    {
+        ["x264"] = "CPU · x264",
+        ["x265"] = "CPU · x265",
+        ["libvpx"] = "CPU · libvpx",
+        ["libaom"] = "CPU · libaom",
+        ["svt-av1"] = "CPU · SVT-AV1",
+        ["rav1e"] = "CPU · rav1e",
+    };
+
+    /// <summary>
     /// Pixel formats.
     /// The subsampling ratio carries the trade, so it leads.
     /// Bit depth is named only where it is not eight.
@@ -356,6 +371,10 @@ public static class Words
     public static string Format(string id) => Look(Formats, id);
 
     public static string Family(string id) => Look(Families, id);
+
+    /// <summary>What produces a bitstream: the library where the CPU is what runs it, the family otherwise.</summary>
+    public static string Encoder(string id) =>
+        Encoders.TryGetValue(id, out var word) ? word : Family(id);
 
     public static string Chroma(string id) => Look(Chromas, id);
 

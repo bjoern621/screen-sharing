@@ -25,79 +25,108 @@ The GPU reading is per process, out of `/proc/<pid>/fdinfo` `drm-engine-*`, dedu
 client. A second job loading the same GPU moves no figure. Encode engine time is counted for the
 pipeline children alone, the backend decoding the broadcast preview in its own process.
 
-## Confirmed
+A memory reading is the backend process alone. A tree figure moves by hundreds of megabytes and a
+hundred threads depending on whether a pipeline happened to be up at that tick, and what a leak is
+about is what the parent does not give back once every child is gone.
 
-### 1. The bitrate range the form offers overflows every encoder
+## Open
 
-`fieldRateCeiling = 10000` (`backend/internal/form/fields.go`) bounds `publish.bitrate_mbps` and
-`publish.maxrate_mbps`. Encoders take the rate as a 32-bit integer of bits per second, so anything
-above 2147 Mbit/s overflows.
+### The encode delay is a figure one engine measures
 
-Observed on both paths:
+The broadcast header promotes four figures off an encoder sample. Three of them arrive on both
+engines. `transit_ms`, drawn as "ms encode", arrives on the GStreamer engine alone:
 
-```
-[libx264 @ ...] Value 9131000000.000000 for parameter 'maxrate' out of range [-2.14748e+09 - 2.14748e+09]
-[h264_vaapi @ ...] Value 7639000000.000000 for parameter 'maxrate' out of range [0 - 2.14748e+09]
-WARNUNG: Die Eigenschaft »target-bitrate« im Element »vp9enc« konnte nicht auf »7639000000« gesetzt werden
-```
+| | `fps` | `inst_mbps` | `transit_ms` | `time_sec` |
+| --- | --- | --- | --- | --- |
+| GStreamer | yes | yes | yes | yes |
+| ffmpeg | yes | yes | no | yes |
 
-A publish on such a value dies at launch and exhausts the retry budget. `MeasureEncodeRate` fails
-the same way.
+The GStreamer engine measures it in the pipeline itself, between the capture stamping a frame and
+the encoded stream leaving (`internal/pipedelay`). ffmpeg's `-progress` output states nothing about
+how long a frame was held, and this side runs no pipeline of its own to read it off, which
+`ffmpeg/progress.go` says outright by marking the figure missing.
 
-`fieldBitrateBounds` already states the intent: "An encoder with a ceiling refuses the encode
-rather than clamping, so a target above it is a publish that dies at launch, and the range is where
-that is cheapest to say." The per-codec narrowing works. The global ceiling above it does not.
+What a reader meets is a row that prints an ellipsis for the whole session on one engine and a
+number on the other, with nothing on screen saying which they are on. Two ways out, both bigger than
+the reading: measure the delay on the ffmpeg engine, or put the absence on the contract so the header
+can say why the row is empty, as it already does for a round trip nothing timed
+(`HeaderStatsViewModel.Untimed`).
 
-### 2. The keyframe range the form offers exceeds what AMF takes
+### A decode context leaves its driver threads behind
 
-`fieldGopCeiling = 6000` bounds `publish.gop`. AMF maps it to `header_spacing`, whose range is
--1..1000.
+Each local preview builds a decode pipeline in this process and the pipeline is handed back when the
+stream stops (`Receiver.release`), so the elements, the pads and the descriptors go with it: a
+backend that ran twenty-six software cycles ends holding sixteen descriptors.
 
-```
-[h264_amf @ ...] Value 2901.000000 for parameter 'header_spacing' out of range [-1 - 1000]
-```
-
-Same shape as the bitrate ceiling: a value the form offers as enabled, and a pipeline that refuses
-it at launch.
-
-### 3. The maxrate range starts below the target it may not go under
-
-`publish.maxrate_mbps` is offered from 0 while `repair.go` walks any value under
-`publish.bitrate_mbps` up to it. The slider therefore offers positions that are always silently
-replaced. Either the range starts at the target, or the walk is not a repair.
-
-### 4. The encode-rate probe refuses a measurement taken under load
-
-`encoderate` times two content ends and refuses where the harder one measured faster:
+The threads do not. Eighteen `hevc_vaapi` cycles leave a backend at 184 threads with nothing
+publishing, and every one of them belongs to the video driver rather than to a pipeline:
 
 ```
-cannot measure the encode rate: the encoder timed faster on the harder content (113.4 ...)
+     72 backen:traceq0
+     18 backen:sh_opt0
+     18 backend:sh0
+     18 backend:disk$0
 ```
 
-At rest the measurement is steady: five readings of one codec at one setting gave 12.3, 13.9,
-14.0, 13.9 and 14.0 fps. Under competing encodes the two ends invert routinely, and the call answers
-`UNAVAILABLE` rather than a wider bracket. A reader who measures while anything else on the machine
-encodes is told the measurement failed instead of being told a range.
+One set per cycle, which are Mesa's shader-compiler and disk-cache workers: a decode context is
+created per preview and the driver keeps its threads for the life of the process. A software decode
+costs about a fifth as many.
 
-### 5. A stream on the ffmpeg engine reports no bitrate at all
+Nothing here holds the context. Reaching it would mean one decode context outliving the previews that
+use it, which is a pipeline held open across streams rather than a leak to close.
 
-Publishing `x11grab` to RTSP: 1152 frames over 39 samples, 60 fps reported on every one, and not a
-single sample carrying `inst_mbps` or `avg_mbps`. The same stream through the GStreamer engine
-(`ximagesrc`) reports a rate on every sample and raised no finding of any kind.
+## Answered
 
-The cause is honest and documented in `ffmpeg/progress.go`: ffmpeg's RTSP muxer answers `total_size`
-and `bitrate` with `N/A`, so `haveBytes` stays false and the parser marks both figures missing
-rather than inventing one. The GStreamer engine taps its own byte counter off a loopback sink
-(`publish/gststats.go`), so it always has one.
+Each of these reproduced against the product and no longer does. What answers it is named beside it.
 
-What a reader sees is a bitrate readout that stays empty for a whole session on one engine and
-works on the other, with nothing on screen saying which they are on.
-
-### 6. Run logs are never pruned
-
-`~/.config/screenshare/logs` holds 3577 files and 95 MB from ordinary use. One file per run, and
-nothing removes them. `control/effects.go` carries a comment about rotation; no pruning code
-exists.
+- **A rate the form offers overflows what the encoder derives from it.** `vah265enc` died at launch
+  on a `cpb-size` out of range, at a target the form offered and the resolve left alone. The rate
+  buffer is now bounded by the field it is read into, per codec and per engine
+  (`capabilities.Codec.BufferLimitKb`, `form.bufferCeilingKb`), and the builder refuses a pair past
+  it rather than handing GLib a value it will not take (`publish.vaLimits`).
+- **A keyframe interval the form offers overflows `key-int-max`.** The same shape one property over,
+  and the interval an unset field derives from the frame rate reaches it too. The va rows declare
+  their bound (`vaGopLimit`), and `vaLimits` weighs the interval the elements are handed rather than
+  the one a reader set.
+- **The rate scale runs past what the GStreamer elements take.** `x265enc` stops at 102 Mbit/s,
+  `x264enc` and the va elements at 2048, where the scale ran to 2147. Declared per engine on the
+  rows (`BitrateLimitM`).
+- **The target rate is offered from zero.** A draft holding zero in a mode that sends the encoder a
+  target was publishable and priced at 0.00 Mbit/s. The floor is a rate in those modes now, and a
+  stored zero is walked up to it (`form.fieldBitrateBounds`, `repairCeilings`).
+- **A preset can produce a draft the encoders refuse.** `gaming` states its own target and carries
+  the draft's burst ceiling, and the va elements express a VBR target as a percentage of that
+  ceiling. The search now asks whether the elements can express a candidate before returning it
+  (`publish.EncoderRefusal`).
+- **An entry is emphasised and greyed at once.** `optionCursors` marks the embedded pointer on every
+  draft and the scanout backend cannot draw one. A recommendation is dropped where the same
+  combination rules the entry out, for every field rather than that one (`form.resolveOptions`).
+- **The WebRTC leg is offered where the element it launches is missing.** An install carrying
+  `whipsink` and not `whipclientsink` passed every encoder probe and died at launch. The probe now
+  asks the registry about the elements each leg's sink is made of, and the leg greys with the
+  element named (`encoders.Availability.Legs`, `TEXT_CODE_PUBLISH_SINK_ELEMENT_MISSING`).
+- **The drop counter counts frames in flight and falls back when they drain.** `dropped_frames` fell
+  from 1 to 0 on a healthy stream: the count was the difference between two pad probes, which
+  includes whatever the queue is holding. The depth is subtracted now, and the total is a high-water
+  mark so three readings taken one after another cannot lower it (`gstrun.shedCount`).
+- **The backend held every pipeline it ever built.** Twenty-six publish cycles took an isolated
+  backend from 28 MiB, 10 threads and 32 descriptors to 184 MiB, 150 threads and 241 descriptors,
+  with nothing publishing and no child left. `receive.Receiver.Stop` took the pipeline to `StateNull`
+  and dropped it: the binding unrefs a wrapper when Go collects it, and Go sees the wrapper rather
+  than the decoder contexts and buffer pools behind it. The pipeline is handed back explicitly now
+  (`Receiver.release`), by whichever side ends it first, and the same twenty-six cycles end at 73
+  threads and 16 descriptors with the resident figure holding flat between streams instead of
+  climbing every minute. What still climbs is below it, and is the entry under "Open".
+- **The bitrate range overflowed every encoder** at `fieldRateCeiling = 10000`, and **the keyframe
+  range exceeded what AMF takes**: both bounded on the rows (`amfGopLimit`, `RateFieldM`).
+- **The burst ceiling was offered below the target it may not go under.** The band starts at the
+  target in the modes that send one (`fieldMaxrateBounds`).
+- **The encode-rate probe refused a measurement taken under load.** A bracket is answered in the
+  order the two ends came out, with the inversion logged rather than refused (`encoderate.bracket`).
+- **Run logs were never pruned.** `ffmpeg.newRunLog` takes the oldest off before opening the next,
+  and the directory holds `runLogKeep` files.
+- **`UNAVAILABLE` named only a child that could not be started**, where a child that started and
+  exited on a value it would not take wears the same code. `docs/ipc-api.md` states both.
 
 ## Not defects, checked and dismissed
 
@@ -123,12 +152,20 @@ exists.
   the commands differ.
 - `stop_failed`, `child_leaked`, `cycle_memory` and `rpc.resolve_failed` entries carrying
   `context canceled` are the probe being stopped mid-stream to swap binaries, not the backend.
-
-## Open
-
-The status code for an encoder that fails at launch is `UNAVAILABLE`, which `docs/ipc-api.md`
-defines as the relay being unreachable or a child that could not be started. The child started and
-exited on a parameter it would not take.
+- A slider's stops are the round figures inside its band plus both ends, not a grid counted off the
+  floor, so a 20 ms floor stepping by 50 stops on 20, 50, 100 and reaches 8000
+  (`avalonia/.../Fields/ViewModel/FieldViewModel.cs`, `Ticks`). A probe writing between two stops
+  reported every answer to a value no reader can reach.
+- `publish.audio_sources[N].gain` coming back as 100 where a draft carried 0 is the wire's own
+  answer: gain carries presence so that a silent source and an unset one differ, and a read of an
+  absent field answers zero either way (`wire/settings.go`, `audioGain`). The probe skips a key the
+  draft never stated.
+- A counter falling across a relaunch is the new child counting from zero, which the probe reports
+  as `publish.relaunch_resets_readout` rather than as a counter going backwards. What a reader sees
+  is still a timer and a frame count that start again under a stream they never stopped.
+- Numbers on the shell's screens spell their decimal point invariantly whatever the machine's
+  locale: `InvariantGlobalization` is on for every project under `avalonia/`
+  (`Directory.Build.props`), so a call site formatting without a culture gets the invariant one.
 
 ## What a second encode costs the first
 
