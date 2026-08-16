@@ -1016,3 +1016,199 @@ func fieldOptions(f *field, d Deps, s settings.Settings, entry int) []*screensha
 	}
 	return f.options(d, s)
 }
+
+// Both megabit fields reach an encoder as a count of bits per second, which every one of them holds
+// in 32 bits.
+// A target above what that holds is not clamped by anything: the encoder refuses the option and the
+// publish dies at launch, so the range is where the limit is stated.
+func TestTheRateRangeStaysInsideWhatAnEncoderHolds(t *testing.T) {
+	const int32Max = 2147483647
+
+	if bits := int64(fieldRateCeiling) * 1_000_000; bits > int32Max {
+		t.Errorf("the megabit fields end at %d Mbit/s, which is %d bit/s against the %d an encoder holds",
+			fieldRateCeiling, bits, int32Max)
+	}
+}
+
+// The end a control stops at is what a reader can reach, so it is held to the same limit whatever
+// codec the draft names.
+func TestNeitherRateControlOffersMoreThanAnEncoderHolds(t *testing.T) {
+	const int32Max = 2147483647
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	for _, c := range capabilities.Codecs {
+		s.Publish.Codec = c.Name
+		for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr, capabilities.ModeAbr} {
+			s.Publish.Mode = mode
+			for name, offered := range map[string]int64{
+				KeyBitrateM: fieldBitrateBounds(d, s).GetMax(),
+				KeyMaxrateM: fieldMaxrateBounds(d, s).GetMax(),
+			} {
+				if bits := offered * 1_000_000; bits > int32Max {
+					t.Errorf("%s offers %s up to %d Mbit/s in %s, which is %d bit/s against the %d an encoder holds",
+						c.Name, name, offered, mode, bits, int32Max)
+				}
+			}
+		}
+	}
+}
+
+// The burst ceiling may not sit under the target it bursts above.
+// A draft that puts it there is walked up to the target on the next resolve (repairCeilings), so a
+// range starting under the target offers a band every value of which is replaced.
+func TestTheMaxrateRangeStartsAtTheTargetItBurstsAbove(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.BitrateM = 40
+
+	for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr, capabilities.ModeAbr} {
+		s.Publish.Mode = mode
+		if got := fieldMaxrateBounds(d, s).GetMin(); got != int64(s.Publish.BitrateM) {
+			t.Errorf("in %s the burst ceiling is offered from %d Mbit/s, want the target's %d",
+				mode, got, s.Publish.BitrateM)
+		}
+	}
+}
+
+// Constant quality sends no target, so nothing under the ceiling is walked and the scale stays
+// whole.
+func TestTheMaxrateRangeIsWholeWhereNoTargetIsSent(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeCrf
+	s.Publish.BitrateM = 40
+
+	if got := fieldMaxrateBounds(d, s).GetMin(); got > 1 {
+		t.Errorf("constant quality offers the burst ceiling from %d Mbit/s, want the scale's own start", got)
+	}
+}
+
+// A stored draft can hold a target past the scale, a range being what a control offers rather than
+// what anything enforces (fields.go).
+// The range still runs the right way round, since a floor above its own ceiling is a panic in front
+// of whoever opened the form.
+func TestTheMaxrateRangeSurvivesATargetPastTheScale(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeCbr
+	s.Publish.BitrateM = fieldRateCeiling + 5000
+
+	r := fieldMaxrateBounds(d, s)
+	if r.GetMin() > r.GetMax() {
+		t.Errorf("the burst ceiling is offered from %d Mbit/s up to %d", r.GetMin(), r.GetMax())
+	}
+}
+
+// The keyframe interval reaches the encoder's own field, and a codec whose field is narrower than
+// the control's scale says so.
+// Such an encoder refuses the option rather than coding a shorter interval, so a value past it is a
+// publish that dies at launch.
+func TestTheKeyframeRangeFollowsTheCodecsOwnCeiling(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	for _, c := range capabilities.Codecs {
+		s.Publish.Codec = c.Name
+		want := c.GopLimitOn(optionEngineOf(s))
+		if want == 0 {
+			want = fieldGopCeiling
+		}
+		if got := fieldGopBounds(d, s).GetMax(); got != int64(want) {
+			t.Errorf("%s offers a keyframe interval up to %d frames, want %d", c.Name, got, want)
+		}
+	}
+}
+
+// The rate buffer reaches the encoder as a count of kilobits, which is the rate it holds times the
+// window it holds it over (ffmpeg.bufsizeArg), and every encoder holds that in 32 bits.
+// The window is the half the control offers, so it ends where the rate beside it leaves room.
+func TestTheRateBufferStaysInsideWhatAnEncoderHolds(t *testing.T) {
+	const int32Max = 2147483647
+	d, s := fieldTestDeps(), settings.Defaults()
+
+	for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr} {
+		s.Publish.Mode = mode
+		for _, rate := range []int{1, 100, fieldRateCeiling} {
+			s.Publish.BitrateM, s.Publish.MaxrateM = rate, rate
+			window := fieldVbvBounds(d, s).GetMax()
+			if bits := int64(rate) * window * 1000; bits > int32Max {
+				t.Errorf("at %d Mbit/s in %s the buffer runs to %d ms, which is %d bits against the %d an encoder holds",
+					rate, mode, window, bits, int32Max)
+			}
+		}
+	}
+}
+
+// The burst ceiling is one control over two answers: a rate at or above the target, and no ceiling
+// at all.
+// A range runs from one end to the other and cannot hold that pair, so the range carries the band
+// and the ladder carries the answer outside it
+// (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
+func TestTheBurstCeilingOffersNoCeilingBesideItsBand(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.BitrateM = 40
+
+	for _, mode := range []string{capabilities.ModeCbr, capabilities.ModeVbr, capabilities.ModeAbr} {
+		s.Publish.Mode = mode
+
+		entries := optionMaxratePresets(d, s)
+		if !hasEntry(entries, "0") {
+			t.Errorf("in %s the ladder offers no way back to an uncapped burst: %v", mode, entryValues(entries))
+		}
+		if got := fieldMaxrateBounds(d, s).GetMin(); got != int64(s.Publish.BitrateM) {
+			t.Errorf("in %s the band starts at %d Mbit/s, want the target's %d", mode, got, s.Publish.BitrateM)
+		}
+		// Nothing between the two: every value there is walked up to the target on the next resolve.
+		for _, entry := range entries {
+			n, err := strconv.Atoi(entry.GetValue())
+			if err == nil && n > 0 && n < s.Publish.BitrateM {
+				t.Errorf("in %s the ladder offers %d Mbit/s, under the target it bursts above", mode, n)
+			}
+		}
+	}
+}
+
+// An encoder whose constant-quality mode codes toward a rate has no uncapped answer, so the ladder
+// carries none either.
+func TestTheBurstCeilingOffersNoUncappedEntryWhereTheEncoderNeedsOne(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeCrf
+	s.Publish.Capture = "x11grab"
+
+	for _, c := range capabilities.Codecs {
+		if !capabilities.QualityCeilingRequired(c.Name, optionEngineOf(s)) {
+			continue
+		}
+		s.Publish.Codec = c.Name
+		if entries := optionMaxratePresets(d, s); hasEntry(entries, "0") {
+			t.Errorf("%s codes quality toward a rate and the ladder still offers no ceiling: %v",
+				c.Name, entryValues(entries))
+		}
+	}
+}
+
+// A ladder that dropped the held value would leave the control claiming a ceiling the stream is not
+// bounded by, the way the frame rate's does not (optionFpsPresets).
+func TestTheBurstCeilingLadderCarriesTheHeldValue(t *testing.T) {
+	d, s := fieldTestDeps(), settings.Defaults()
+	s.Publish.Mode = capabilities.ModeVbr
+	s.Publish.BitrateM = 40
+	s.Publish.MaxrateM = 77
+
+	if entries := optionMaxratePresets(d, s); !hasEntry(entries, "77") {
+		t.Errorf("the ladder drops the ceiling the settings hold: %v", entryValues(entries))
+	}
+}
+
+func hasEntry(entries []*screensharev1.FieldOption, value string) bool {
+	for _, entry := range entries {
+		if entry.GetValue() == value {
+			return true
+		}
+	}
+	return false
+}
+
+func entryValues(entries []*screensharev1.FieldOption) []string {
+	out := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, entry.GetValue())
+	}
+	return out
+}

@@ -349,6 +349,12 @@ type Codec struct {
 	// An engine with no entry takes any rate the machine can produce.
 	// It bounds the target and not the VBR burst ceiling set above it.
 	BitrateLimitM map[string]int `json:"bitrateLimitM"`
+	// GopLimit is the longest keyframe interval the encoder's own field holds per publish engine, in
+	// frames.
+	// An engine with no entry takes any interval the control offers.
+	// The encoder refuses an interval above it rather than coding a shorter one, so it bounds what the
+	// control offers and what a publish is refused for.
+	GopLimit map[string]int `json:"gopLimit"`
 	// Effort is the speed-against-quality ladder this encoder takes, and where each mode starts on it.
 	Effort Ladder `json:"effort"`
 	// Tune is what the encoder optimizes for, which is a different question from how hard it works: a
@@ -359,6 +365,55 @@ type Codec struct {
 	// Gaps is what this codec cannot do, per axis and per publish engine.
 	// Empty means every chroma above and every rate-control mode reaches the encoder on both engines.
 	Gaps []Gap `json:"gaps"`
+	// DriverDefects is what this codec's encoder does reach and one installed driver miscodes.
+	DriverDefects []DriverDefect `json:"driverDefects"`
+}
+
+// DriverDefect is one value this codec's encoder declares, other drivers run, and the driver named
+// here gets wrong badly enough to withhold it.
+//
+// Separate from Gap because the two answer different questions.
+// A gap is what an encoder cannot do and holds wherever this app runs, so the engine-scoped lookups
+// read Gaps alone and a builder enumerating what an element implements gets the same answer on every
+// machine.
+// A defect is what one driver gets wrong, holds only while that driver sits under the encoder, and
+// so reaches a form and a publish through the evaluator, the reader that carries the machine's own
+// facts.
+//
+// A defect is written down rather than probed for where trying it is the damage: an encode that
+// hangs the graphics device cannot be measured the way a missing element can be looked up, so the
+// driver is identified (internal/gpu) and matched.
+type DriverDefect struct {
+	// Driver is the implementation carrying the defect, spelled as it names itself: "radeonsi".
+	Driver string `json:"driver"`
+	// Models narrows the defect to the adapters that carry it, each matched whole against the name
+	// the driver reports.
+	// Empty covers every adapter the driver drives, which is what a defect in the driver's own code
+	// rather than in one generation of silicon takes.
+	Models []string `json:"models"`
+	// Option and Value are what the defect withholds, named as a Gap names them.
+	Option string `json:"option"`
+	Value  string `json:"value"`
+	// FixedIn is the first driver release without the defect, packed as gpu.Version packs one.
+	// Zero withholds the value on every release, for a defect no version is known to have fixed.
+	FixedIn int `json:"fixedIn"`
+	// Reason names the defect, as Gap.Reason names a gap.
+	Reason screensharev1.TextCode `json:"reason"`
+}
+
+// Device is the video driver a capability question is asked about.
+//
+// The reading is internal/gpu's and the shape is declared here, so this package keeps depending on
+// the rule vocabulary and on nothing else in the domain.
+// The zero Device is a driver nothing identified, which matches no defect: a machine that could not
+// name its driver keeps every option the encoder declares.
+type Device struct {
+	// Driver is the implementation, spelled as it names itself: "radeonsi".
+	Driver string `json:"driver"`
+	// Model is the adapter it drives. Example: "AMD Radeon 780M Graphics".
+	Model string `json:"model"`
+	// Version is the driver's release packed into one comparable figure: 26.1.6 reads 26001006.
+	Version int `json:"version"`
 }
 
 // OptionGap is the gap that keeps this codec from encoding with value for the named option on the
@@ -378,6 +433,23 @@ func (c Codec) OptionGap(engine, option, value string) (Gap, bool) {
 		}
 	}
 	return Gap{}, false
+}
+
+// WithheldByDriver reports whether the driver on device takes this option value away from this
+// codec, where the encoder itself implements it.
+//
+// The question OptionGap does not answer: a gap is the encoder's and holds everywhere, a defect is
+// one driver's and holds where that driver is installed.
+// Routed through the evaluator rather than walking DriverDefects, so this and the refusal Validate
+// returns cannot come apart.
+func (c Codec) WithheldByDriver(device Device, engine, option, value string) bool {
+	assert.Assert(knownEngine(engine), "a driver question names a publish engine", engine)
+	axis, ok := optionAxes[option]
+	assert.Assert(ok, "a driver question names a gappable option", option)
+
+	v := rules.EvaluateRules(
+		validationFacts(c, engine, map[string]string{option: value}, 0, 0, 0, device), codecRules())
+	return refusedByDriver(v, axis, value)
 }
 
 // EngineGap is the gap that takes this codec off the named engine altogether, and false where that
@@ -408,6 +480,14 @@ func (c Codec) BitrateLimitOn(engine string) int {
 	assert.Assert(knownEngine(engine), "a bitrate ceiling lookup names a publish engine", engine)
 
 	return c.BitrateLimitM[engine]
+}
+
+// GopLimitOn is the longest keyframe interval this codec's encoder holds on the named engine, in
+// frames, and zero where that engine imposes no ceiling.
+func (c Codec) GopLimitOn(engine string) int {
+	assert.Assert(knownEngine(engine), "a keyframe interval ceiling lookup names a publish engine", engine)
+
+	return c.GopLimit[engine]
 }
 
 // EngineChromas is the pixel formats this codec encodes on the named engine, in table order:
@@ -442,9 +522,13 @@ func (c Codec) EngineChromas(engine string) []string {
 // A value left out asserts rather than being skipped: an option gained here and not supplied there
 // would reach an encoder with its gaps unread.
 //
+// device is the driver the encode would run on (gpu.Device), and decides the DriverDefects rows.
+// The zero Device is a machine that named no driver, which carries no defect and refuses nothing on
+// one.
+//
 // Whether the publish transport carries the resulting bitstream is the transport package's own
 // refusal (transport.ValidatePublish), which the same callers make beside this one.
-func Validate(engine, codec string, options map[string]string, cq, bitrateM int) error {
+func Validate(engine, codec string, options map[string]string, cq, bitrateM, gop int, device Device) error {
 	// The engine and the option set are the caller's own, so both are Entwicklungsfehler and assert.
 	// The values being validated are the user's, and every one of them leaves as an error.
 	assert.Assert(knownEngine(engine), "validation names a publish engine", engine)
@@ -474,7 +558,7 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 	// They are Umgebungsfehler and the same text crosses as a gRPC status, so the reason a limit
 	// exists is a statement a surface makes from the rule rather than a sentence quoted into an error
 	// string (docs/ipc-api.md).
-	v := rules.EvaluateRules(validationFacts(c, engine, options, cq, bitrateM), codecRules())
+	v := rules.EvaluateRules(validationFacts(c, engine, options, cq, bitrateM, gop, device), codecRules())
 
 	if !v.ValueEnabled(rules.AxisCodec, c.Name) {
 		return fmt.Errorf("codec %s has no %s encoder", c.Name, engine)
@@ -489,6 +573,13 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 		assert.Assert(ok, "a gappable option names the axis a rule matches it on", option)
 		if v.ValueEnabled(axis, options[option]) {
 			continue
+		}
+		// A driver defect is worded as one: the encoder does implement the value, so the phrase for a
+		// capability it lacks would name the wrong culprit, and the other engine drives the same driver
+		// and is no way out of it.
+		if refusedByDriver(v, axis, options[option]) {
+			return fmt.Errorf("codec %s cannot be published with %s=%s on this machine's %s driver, which miscodes it",
+				c.Name, option, options[option], device.Driver)
 		}
 		refusal, ok := optionRefusals[option]
 		assert.Assert(ok, "a gappable option states how its refusal reads", option)
@@ -509,6 +600,11 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 		return fmt.Errorf("bitrate target %d Mbit/s is above codec %s's %d Mbit/s ceiling on the %s engine",
 			bitrateM, c.Name, c.BitrateLimitOn(engine), engine)
 	}
+	// Every mode sends the keyframe interval, so this asks about the value alone.
+	if !v.NumberAllowed(rules.AxisGop, gop) {
+		return fmt.Errorf("keyframe interval %d frames is above codec %s's %d frame ceiling on the %s engine",
+			gop, c.Name, c.GopLimitOn(engine), engine)
+	}
 	return nil
 }
 
@@ -521,6 +617,21 @@ func Validate(engine, codec string, options map[string]string, cq, bitrateM int)
 // it withholds is the one that can be acted on: a chroma one builder cannot reach is often one the
 // other does, and a settings file that skipped the repair is the case where nothing greyed the
 // option to say so.
+// refusedByDriver reports whether what took this value away is the installed driver rather than the
+// encoder.
+//
+// It reads the reasons the evaluation already attached, so what decides the verdict and what words
+// it are one pass: a second walk of the DriverDefects rows here could refuse under one reading and
+// explain under another.
+func refusedByDriver(v rules.Verdicts, axis, value string) bool {
+	for _, reason := range v.ValueReasons(axis, value) {
+		if reason.GetCode() == screensharev1.TextCode_TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION {
+			return true
+		}
+	}
+	return false
+}
+
 func reachedElsewhere(codec, engine, option, value string) string {
 	var others []string
 	for _, e := range Engines {
@@ -546,24 +657,28 @@ func reachedElsewhere(codec, engine, option, value string) string {
 // vocabulary declares: the cursor mode is a capture fact and no rule registered here names it.
 // Rule.binds keeps that honest, since a rule naming an axis the facts do not carry asserts rather
 // than binding nothing.
-func validationFacts(c Codec, engine string, options map[string]string, cq, bitrateM int) rules.Facts {
+func validationFacts(c Codec, engine string, options map[string]string, cq, bitrateM, gop int, device Device) rules.Facts {
 	return rules.Facts{
-		rules.AxisCodec:      rules.TextValue(c.Name),
-		rules.AxisFamily:     rules.TextValue(c.Family),
-		rules.AxisFormat:     rules.TextValue(c.Format),
-		rules.AxisEngine:     rules.TextValue(engine),
-		rules.AxisChroma:     rules.TextValue(options[OptionChroma]),
-		rules.AxisMode:       rules.TextValue(options[OptionMode]),
-		rules.AxisColorRange: rules.TextValue(options[OptionColorRange]),
-		rules.AxisTune:       rules.TextValue(options[OptionTune]),
-		rules.AxisCq:         rules.NumberValue(cq),
-		rules.AxisBitrateM:   rules.NumberValue(bitrateM),
-		rules.AxisCapture:    rules.TextValue(""),
-		rules.AxisMemory:     rules.TextValue(""),
-		rules.AxisTransport:  rules.TextValue(""),
-		rules.AxisAudioCodec: rules.TextValue(""),
-		rules.AxisOS:         rules.TextValue(""),
-		rules.AxisDisplay:    rules.TextValue(""),
+		rules.AxisCodec:            rules.TextValue(c.Name),
+		rules.AxisFamily:           rules.TextValue(c.Family),
+		rules.AxisFormat:           rules.TextValue(c.Format),
+		rules.AxisEngine:           rules.TextValue(engine),
+		rules.AxisChroma:           rules.TextValue(options[OptionChroma]),
+		rules.AxisMode:             rules.TextValue(options[OptionMode]),
+		rules.AxisColorRange:       rules.TextValue(options[OptionColorRange]),
+		rules.AxisTune:             rules.TextValue(options[OptionTune]),
+		rules.AxisCq:               rules.NumberValue(cq),
+		rules.AxisBitrateM:         rules.NumberValue(bitrateM),
+		rules.AxisGop:              rules.NumberValue(gop),
+		rules.AxisGpuDriver:        rules.TextValue(device.Driver),
+		rules.AxisGpuModel:         rules.TextValue(device.Model),
+		rules.AxisGpuDriverVersion: rules.NumberValue(device.Version),
+		rules.AxisCapture:          rules.TextValue(""),
+		rules.AxisMemory:           rules.TextValue(""),
+		rules.AxisTransport:        rules.TextValue(""),
+		rules.AxisAudioCodec:       rules.TextValue(""),
+		rules.AxisOS:               rules.TextValue(""),
+		rules.AxisDisplay:          rules.TextValue(""),
 	}
 }
 

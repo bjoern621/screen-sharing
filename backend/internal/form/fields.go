@@ -69,13 +69,25 @@ const (
 
 	// fieldRateCeiling is the end of both megabit fields.
 	// A codec that takes less says so as a rule, which narrows it in the modes that send a target.
-	fieldRateCeiling = 10000
+	//
+	// It ends where an encoder's own field does: both engines pass the rate as a count of bits per
+	// second, and every encoder holds that in 32 bits, so 2147 Mbit/s is the last value any of them
+	// takes.
+	// Nothing clamps a target above it, the encoder refusing the option instead, which is a publish
+	// that dies at launch.
+	fieldRateCeiling = 2147
 	// fieldUplinkCeiling is a 100 Gbit/s line, past any uplink a prediction is weighed against.
 	fieldUplinkCeiling = 100000
 
 	fieldVbvCeiling    = 10000
 	fieldGopCeiling    = 6000
 	fieldBframeCeiling = 16
+
+	// encoderKilobitCeiling is what an encoder's rate-buffer field holds, in kilobits.
+	// The buffer is stated as the rate times the window and read into 32 bits, so the two ends of that
+	// product bound each other: fieldRateCeiling is the rate's own end, and this is what the window is
+	// left of it.
+	encoderKilobitCeiling = 2147483
 
 	// The latency windows, in ms.
 	// They are swept rather than typed, so they carry a step, and the step is coarse because the
@@ -235,9 +247,10 @@ var fieldTable = []field{
 	{
 		key:     KeyMaxrateM,
 		group:   GroupQuality,
-		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER,
+		control: screensharev1.ControlKind_CONTROL_KIND_NUMBER_SELECT,
 		unit:    screensharev1.Unit_UNIT_MEGABITS_PER_SECOND,
 		value:   func(s settings.Settings) *screensharev1.FieldValue { return number(s.Publish.MaxrateM) },
+		options: optionMaxratePresets,
 		bounds:  fieldMaxrateBounds,
 	},
 	{
@@ -527,6 +540,12 @@ func fieldBitrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange
 // a bounded one: the vpx elements code CQ toward a target, so a zero there is a rate libvpx derives
 // from the picture size and the range starts at one instead
 // (capabilities.QualityCeilingRequired, publish.vpxRateLimits).
+//
+// Where a target is sent, the range starts at it.
+// A ceiling under the target is walked up to it on the next resolve (repairCeilings), so offering
+// that band would be offering values every one of which is replaced.
+// The target itself can sit past the scale, a stored draft holding whatever it holds, and the floor
+// stops at the ceiling rather than running the range backwards.
 func fieldMaxrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
 	low := 0
 	if s.Publish.Mode == capabilities.ModeCrf {
@@ -534,20 +553,35 @@ func fieldMaxrateBounds(d Deps, s settings.Settings) *screensharev1.NumericRange
 			capabilities.QualityCeilingRequired(s.Publish.Codec, engine) {
 			low = 1
 		}
+	} else {
+		low = min(s.Publish.BitrateM, fieldRateCeiling)
 	}
 	return bounded(low, fieldRateCeiling, 1)
 }
 
 // fieldVbvBounds starts at zero, which is a value and not an absence:
 // it leaves the encoder's own buffer default standing.
-func fieldVbvBounds(Deps, settings.Settings) *screensharev1.NumericRange {
-	return bounded(0, fieldVbvCeiling, 1)
+//
+// It ends where the rate beside it leaves room.
+// The buffer reaches the encoder as the rate times the window, in kilobits (ffmpeg.bufsizeArg), and
+// every encoder holds that figure in 32 bits: at the top of the rate scale a ten-second window is
+// ten times what the field takes, and the encoder refuses the option rather than shortening it.
+func fieldVbvBounds(_ Deps, s settings.Settings) *screensharev1.NumericRange {
+	rate := max(s.Publish.BitrateM, s.Publish.MaxrateM)
+	if rate <= 0 {
+		return bounded(0, fieldVbvCeiling, 1)
+	}
+	return bounded(0, min(fieldVbvCeiling, encoderKilobitCeiling/rate), 1)
 }
 
 // fieldGopBounds starts at zero for the same reason:
 // zero selects auto, which every builder reads as twice the frame rate.
-func fieldGopBounds(Deps, settings.Settings) *screensharev1.NumericRange {
-	return bounded(0, fieldGopCeiling, 1)
+//
+// It ends where the codec's own keyframe field does, an encoder whose field is narrower refusing the
+// option rather than coding a shorter interval.
+func fieldGopBounds(d Deps, s settings.Settings) *screensharev1.NumericRange {
+	low, high := verdictsOf(d, s).Bounds(KeyGop, 0, fieldGopCeiling)
+	return bounded(low, high, 1)
 }
 
 // fieldBframeBounds ends where the codecs do: no encoder here takes a longer reorder chain,

@@ -6,7 +6,7 @@
              xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.View"
              xmlns:quality="using:ScreenShare.App.Features.Setup.QualityStep.View"
              xmlns:audio="using:ScreenShare.App.Features.Setup.AudioStep.View"
-             xmlns:drawer="using:ScreenShare.App.Features.Setup.AdvancedDrawer.View"
+             xmlns:advanced="using:ScreenShare.App.Features.Setup.AdvancedGroup.View"
              xmlns:rail="using:ScreenShare.App.Features.Setup.CostRail.View"
              xmlns:review="using:ScreenShare.App.Features.Setup.ReviewStep.View"
              xmlns:screens="using:ScreenShare.App.Features.Setup.ScreenPicker.View"
@@ -75,12 +75,18 @@
 
     <Grid Margin="{StaticResource InsetPanel}" ColumnDefinitions="*,Auto">
 
+      <!--
+        Every step's form stacks in the one column, and the gap falls between the children that drew something
+        (Controls/CardColumn).
+        A step placing a component that draws on its own terms above its form is otherwise a step whose first
+        card sits a gap lower than the rail beside it.
+      -->
       <ScrollViewer Grid.Column="0" HorizontalScrollBarVisibility="Disabled">
-        <Panel>
-          <StackPanel Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsQuality}">
+        <controls:CardColumn Spacing="{StaticResource GapPanel}">
+          <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsQuality}">
             <quality:QualityStepView DataContext="{Binding Quality}" />
-            <drawer:AdvancedDrawerView DataContext="{Binding Advanced}" />
-          </StackPanel>
+            <advanced:AdvancedGroupView DataContext="{Binding Advanced}" />
+          </controls:CardColumn>
 
           <!--
             The audio group's own layout: one row per source rather than the four controls of every entry
@@ -109,7 +115,7 @@
             already asks what stands between these settings and sharing
             (CostRail/View/CostRailView.axaml).
           -->
-          <StackPanel Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsFields}">
+          <controls:CardColumn Spacing="{StaticResource GapPanel}" IsVisible="{Binding ShowsFields}">
 
             <!--
               Placed unconditionally and visible on its own terms: it draws only on the step
@@ -129,8 +135,8 @@
             <Panel IsVisible="{Binding CurrentGroup, Converter={x:Static ObjectConverters.IsNotNull}}">
               <fields:FieldGroupView DataContext="{Binding CurrentGroup}" />
             </Panel>
-          </StackPanel>
-        </Panel>
+          </controls:CardColumn>
+        </controls:CardColumn>
       </ScrollViewer>
 
       <!--

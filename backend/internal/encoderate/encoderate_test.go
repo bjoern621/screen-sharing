@@ -97,3 +97,34 @@ func TestRateRefusesAnUnmeasurableRun(t *testing.T) {
 		t.Error("a run of no measurable time yielded a rate")
 	}
 }
+
+// A run the machine paced rather than the encoder can time the hard content above the easy one.
+// Both figures are still readings of this machine at these settings, so the bracket runs between
+// them: refusing would answer a measurement the reader asked for with nothing, and reporting them
+// in the order they were taken would put a warning threshold above the rate it bounds.
+//
+// Each end's own flag travels with its figure, a bounded reading being a fact about that run.
+func TestBracketOrdersEndsThatRanTheWrongWayRound(t *testing.T) {
+	got := bracket(120, 80, true, false)
+
+	if got.LowFps != 80 || got.HighFps != 120 {
+		t.Errorf("the bracket runs %.1f-%.1f fps, want 80.0-120.0", got.LowFps, got.HighFps)
+	}
+	if got.LowBounded || !got.HighBounded {
+		t.Errorf("the bounded flags are low %t high %t, want them carried with their own figures",
+			got.LowBounded, got.HighBounded)
+	}
+}
+
+// The ordinary reading is left exactly as it was measured.
+func TestBracketKeepsEndsThatRanTheRightWayRound(t *testing.T) {
+	got := bracket(80, 120, true, false)
+
+	if got.LowFps != 80 || got.HighFps != 120 {
+		t.Errorf("the bracket runs %.1f-%.1f fps, want 80.0-120.0", got.LowFps, got.HighFps)
+	}
+	if !got.LowBounded || got.HighBounded {
+		t.Errorf("the bounded flags are low %t high %t, want them left where they were measured",
+			got.LowBounded, got.HighBounded)
+	}
+}

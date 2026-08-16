@@ -19,6 +19,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoderate"
 	"bjoernblessin.de/screenshare/internal/encoders"
@@ -51,6 +52,9 @@ type Backend interface {
 	Monitors() []display.Monitor
 	// Platform names the OS and, on Linux, the display server.
 	Platform() platform.Info
+	// Device names the video driver an encode runs through, which the codec table's driver defects
+	// are matched against.
+	Device() capabilities.Device
 	// Encoders is what this machine can really encode, per engine.
 	// The probe runs once and is held for the process lifetime: the first call costs seconds and every
 	// one after it costs nothing.

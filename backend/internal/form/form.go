@@ -22,6 +22,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/platform"
@@ -38,6 +39,10 @@ import (
 type Deps struct {
 	Monitors []display.Monitor
 	Platform platform.Info
+	// Device is the video driver an encode would run through.
+	// The zero value is a machine that named no driver, which carries no defect and greys nothing on
+	// one.
+	Device capabilities.Device
 	// Encoders is what the probe found.
 	// The zero value is an unprobed machine rather than one with no encoders, and an engine with no
 	// verdicts and no reason greys nothing.

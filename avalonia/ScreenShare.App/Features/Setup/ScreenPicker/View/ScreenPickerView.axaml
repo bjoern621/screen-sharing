@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:ScreenShare.App.Features.Setup.ScreenPicker.ViewModel"
              xmlns:model="using:ScreenShare.App.Features.Setup.ScreenPicker.Model"
+             xmlns:controls="using:ScreenShare.App.Controls"
              xmlns:tiles="using:ScreenShare.App.Features.Viewer.Tile.View"
              x:Class="ScreenShare.App.Features.Setup.ScreenPicker.View.ScreenPickerView"
              x:DataType="vm:ScreenPickerViewModel">
@@ -13,7 +14,7 @@
     Avalonia has no aspect ratio, so both sides are stated.
   -->
 
-  <StackPanel Spacing="{StaticResource GapTight}">
+  <controls:CardColumn Spacing="{StaticResource GapTight}">
 
     <ItemsControl ItemsSource="{Binding Screens}" IsVisible="{Binding IsVisible}">
       <ItemsControl.ItemsPanel>
@@ -88,5 +89,5 @@
                TextWrapping="Wrap"
                TextTrimming="None" />
 
-  </StackPanel>
+  </controls:CardColumn>
 </UserControl>

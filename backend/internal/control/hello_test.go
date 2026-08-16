@@ -14,6 +14,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoderate"
 	"bjoernblessin.de/screenshare/internal/encoders"
@@ -41,6 +42,7 @@ func (f *fakeBackend) Settings() settings.Settings                    { return s
 func (f *fakeBackend) StoreNotice() *screensharev1.Text               { return nil }
 func (f *fakeBackend) Monitors() []display.Monitor                    { return nil }
 func (f *fakeBackend) Platform() platform.Info                        { return platform.Info{} }
+func (f *fakeBackend) Device() capabilities.Device                    { return capabilities.Device{} }
 func (f *fakeBackend) Encoders(context.Context) encoders.Availability { return encoders.Availability{} }
 func (f *fakeBackend) CachedEncoders() encoders.Availability          { return encoders.Availability{} }
 func (f *fakeBackend) AudioDevices() []platform.AudioDevice           { return nil }

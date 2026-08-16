@@ -28,7 +28,7 @@ namespace ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 public sealed class QualityStepViewModel : Observable
 {
     /// <summary>
-    /// The two keys this layout places by name, off the table the drawer below reads as its complement.
+    /// The two keys this layout places by name, off the table the card below reads as its complement.
     /// The whole of what this screen assumes about the group.
     /// </summary>
     private const string ModeKey = QualityLayout.ModeKey;
@@ -205,7 +205,7 @@ public sealed class QualityStepViewModel : Observable
     /// layout places itself.
     /// Chosen by control kind rather than by key, so a resolution, a frame rate and a keyframe interval are three
     /// dropdowns to this code and a fourth arrives without a line changing.
-    /// A field with no options falls to the drawer, the other half of <see cref="QualityLayout"/>.
+    /// A field with no options falls to the card below, the other half of <see cref="QualityLayout"/>.
     /// </summary>
     private IReadOnlyList<FieldViewModel> Placed()
     {

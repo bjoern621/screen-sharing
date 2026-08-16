@@ -784,7 +784,7 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			// The ceiling is not twice the target, which is what abr derives for the families that code
 			// against a maximum either way.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
-			if capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM) != nil {
+			if capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
 				continue
 			}
 			args, err := encoderArgs(s, gopFor(s))
@@ -838,5 +838,45 @@ func TestConstantQualityWithoutACeilingStatesNoRate(t *testing.T) {
 	line := strings.Join(args, " ")
 	if strings.Contains(line, "-maxrate") || strings.Contains(line, "-bufsize") {
 		t.Errorf("libx264 crf with no ceiling: %s, want no rate bound on it", line)
+	}
+}
+
+// A publish carries more than one tap where more than one thing reads the encoded stream: the
+// preview leg and the byte meter that answers what the stream costs.
+// One tee holds all of them, since two outputs written any other way are two encoders on one
+// capture.
+func TestEveryTapIsASlaveOfTheOneTee(t *testing.T) {
+	s := baseStream()
+
+	args, err := BuildPublishArgs(s, []Tap{
+		{Options: []string{"select=v", "f=rtp", "onfail=ignore"}, URL: "rtp://127.0.0.1:45678"},
+		{Options: []string{"select=v", "f=data", "onfail=ignore"}, URL: "tcp://127.0.0.1:45679"},
+	})
+	if err != nil {
+		t.Fatalf("building: %v", err)
+	}
+
+	line := strings.Join(args, " ")
+	if strings.Count(line, "-f tee") != 1 {
+		t.Errorf("not exactly one tee: %s", line)
+	}
+	for _, want := range []string{"rtp://127.0.0.1:45678", "tcp://127.0.0.1:45679"} {
+		if !strings.Contains(line, want) {
+			t.Errorf("%s is not a slave of the tee: %s", want, line)
+		}
+	}
+}
+
+// A publish nothing else reads keeps one output, a tee around a single muxer being a stage the
+// packets did not need to cross.
+func TestNoTapLeavesOneOutput(t *testing.T) {
+	s := baseStream()
+
+	args, err := BuildPublishArgs(s, nil)
+	if err != nil {
+		t.Fatalf("building: %v", err)
+	}
+	if line := strings.Join(args, " "); strings.Contains(line, "-f tee") {
+		t.Errorf("a publish with no tap tees anyway: %s", line)
 	}
 }

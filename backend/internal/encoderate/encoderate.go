@@ -156,21 +156,37 @@ func Measure(ctx context.Context, s settings.Settings, width, height int) (Rate,
 		return Rate{}, err
 	}
 
-	// The heavy end codes what nothing predicts, so it cannot time above the light one unless
-	// something other than the encoder paced a run, which makes the reading the machine's load.
-	// A range whose ends run the wrong way round would put a warning threshold above the rate it
-	// bounds.
 	if low > high {
-		return Rate{}, fmt.Errorf("the encoder timed faster on the harder content (%.1f fps against %.1f fps), so something other than the encoder paced at least one run: measure again on an otherwise idle machine", low, high)
+		logger.Warnf("the encoder timed faster on the harder content (%.1f fps against %.1f fps), so something other than the encoder paced at least one run: the bracket runs between the two readings",
+			low, high)
 	}
 
-	rate := Rate{LowFps: low, HighFps: high, LowBounded: lowBounded, HighBounded: highBounded}
+	rate := bracket(low, high, lowBounded, highBounded)
 	assert.Assert(rate.LowFps > 0 && rate.HighFps >= rate.LowFps,
 		"a measured range runs from the hardest content up to the easiest", rate.LowFps, rate.HighFps)
 
 	logger.Infof("encode rate measured: %.1f-%.1f fps for %s at %dx%d on %s (bounded by the frame generator: low %t, high %t)",
 		rate.LowFps, rate.HighFps, s.Publish.Codec, width, height, engine, rate.LowBounded, rate.HighBounded)
 	return rate, nil
+}
+
+// bracket puts the two ends in the order a range runs in.
+//
+// The heavy end codes what nothing predicts, so it cannot time above the light one unless something
+// other than the encoder paced a run, which is what a machine under load does to a measurement.
+// Both figures are still readings of this encoder at these settings: reporting them in the order
+// they were taken would put a warning threshold above the rate it bounds, and refusing would answer
+// a measurement somebody asked for with nothing at all, on a machine where anything else encoding is
+// enough to cause it.
+//
+// Each end's flag travels with its figure, whether the frame generator paced a run being a fact
+// about that run rather than about the end it landed on.
+func bracket(low, high float64, lowBounded, highBounded bool) Rate {
+	if low > high {
+		low, high = high, low
+		lowBounded, highBounded = highBounded, lowBounded
+	}
+	return Rate{LowFps: low, HighFps: high, LowBounded: lowBounded, HighBounded: highBounded}
 }
 
 // measureEnd times one end of the content range and reports whether the frame generator rather than

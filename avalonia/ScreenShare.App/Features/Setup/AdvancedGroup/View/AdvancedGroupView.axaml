@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:ScreenShare.App.Features.Setup.AdvancedGroup.ViewModel"
+             x:Class="ScreenShare.App.Features.Setup.AdvancedGroup.View.AdvancedGroupView"
+             x:DataType="vm:AdvancedGroupViewModel">
+
+  <!--
+    Rest of the quality group, in the card every other group is drawn in and with the same row
+    (Features/Fields/View/FieldRow.axaml).
+    Every control is edited here rather than printed: the value, the bounds the spinner enforces,
+    the greying and the sentence beside it all arrive in the message (docs/ipc-api.md).
+  -->
+
+  <Border Classes="card" Padding="16,14" IsVisible="{Binding HasRows}">
+    <StackPanel>
+      <TextBlock Classes="heading" Margin="0,0,0,16" Text="{Binding Title}" />
+
+      <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource FieldRow}" />
+    </StackPanel>
+  </Border>
+
+</UserControl>

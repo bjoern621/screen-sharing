@@ -7,11 +7,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
 )
@@ -195,14 +193,9 @@ func Start(
 	assert.Assert(exe != "", "a child is launched from a resolved binary", tag)
 	assert.Assert(tag != "", "a child names the run log it writes")
 
-	logDir, err := LogDir()
+	logFile, logPath, err := NewRunLog(tag)
 	if err != nil {
 		return nil, err
-	}
-	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", sanitizeTag(tag), time.Now().Format("20060102-150405")))
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create run log: %w", err)
 	}
 
 	full := args

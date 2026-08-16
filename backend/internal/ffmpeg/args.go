@@ -19,6 +19,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/cursor"
 	"bjoernblessin.de/screenshare/internal/display"
+	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -43,16 +44,16 @@ type Tap struct {
 // The order is scripts/publish.ps1's: capture input, encoder, pixel format and colour range, GOP,
 // then the transport's muxer and destination.
 //
-// tap is nil for a command with one output.
-// A tap makes the command a tee, which changes two things: automatic stream selection does not apply
-// to a tee, so the streams are mapped by hand, and the transport's own output arguments are rendered
-// as a slave of it.
-func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
+// taps is empty for a command with one output.
+// Any tap makes the command a tee, which changes two things: automatic stream selection does not
+// apply to a tee, so the streams are mapped by hand, and the transport's own output arguments are
+// rendered as a slave of it beside every tap.
+func BuildPublishArgs(s settings.Settings, taps []Tap) ([]string, error) {
 	if _, ok := transport.Get(s.Publish.Transport); !ok {
 		return nil, fmt.Errorf("unknown transport %q", s.Publish.Transport)
 	}
 
-	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
+	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublish(s.Publish.Transport, capabilities.EngineFfmpeg, s.Publish.Codec); err != nil {
@@ -160,7 +161,7 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	// With neither, ffmpeg's automatic stream selection picks the one video and the one audio stream.
 	filters := src.filters
 	var maps []string
-	if tap != nil || len(audioFilters) > 0 {
+	if len(taps) > 0 || len(audioFilters) > 0 {
 		video := strconv.Itoa(inputs-1) + ":v"
 		if src.filterFlag == "-filter_complex" {
 			assert.Assert(len(filters) > 0, "a filter source yields a chain", s.Publish.Capture)
@@ -225,7 +226,7 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("transport %q has no ffmpeg publish form", s.Publish.Transport)
 	}
-	if tap == nil {
+	if len(taps) == 0 {
 		return append(args, pub...), nil
 	}
 
@@ -238,7 +239,11 @@ func BuildPublishArgs(s settings.Settings, tap *Tap) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(args, "-f", "tee", relay+"|"+teeSlave(tap.Options, tap.URL)), nil
+	slaves := relay
+	for _, tap := range taps {
+		slaves += "|" + teeSlave(tap.Options, tap.URL)
+	}
+	return append(args, "-f", "tee", slaves), nil
 }
 
 // filterOutLabel names the output of a filter source's chain, so a map has something to name where

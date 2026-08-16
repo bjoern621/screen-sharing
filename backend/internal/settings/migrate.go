@@ -170,9 +170,12 @@ func migratePublish(p, d Publish) Publish {
 	// A rate at or below zero prices nothing and encodes nothing, and the file is the user's to edit,
 	// so the stored value is repaired here rather than carried into the form.
 	fillNum(&p.BitrateM, d.BitrateM)
-	// A zero ceiling leaves VBR no room above the target, so it is defaulted.
-	// A VbvMs of zero is a legal value, the encoder's own buffer default, and is left standing.
-	fillNum(&p.MaxrateM, d.MaxrateM)
+	// A zero ceiling is a value and not an absence: it is the encode bounded by nothing, which the
+	// form offers as an entry of its own beside the band a ceiling sits in
+	// (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
+	// A file naming no ceiling at all keeps the default already, the decode starting from Defaults, so
+	// filling here would reach the reader who answered rather than the file that never asked.
+	// A VbvMs of zero is left standing for the same reason, being the encoder's own buffer default.
 	// A file from before the per-hop latency split lacks this key, and zero disables SRT's retransmit
 	// window entirely.
 	fillNum(&p.SrtPublishLatencyMs, d.SrtPublishLatencyMs)

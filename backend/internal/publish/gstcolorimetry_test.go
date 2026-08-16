@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/gpupath"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
@@ -147,6 +148,13 @@ func TestPublishedColorimetryReachesTheDecoder(t *testing.T) {
 						}
 						return
 					}
+					// A rate control this machine's driver miscodes is refused before a pipeline is built, and
+					// the mode a round trip runs under is whichever one the element implements first
+					// (firstGstMode), so on such a driver there is no run to measure a colour range in.
+					if cap.WithheldByDriver(gpu.Device(), EngineGst, capabilities.OptionMode, s.Publish.Mode) {
+						t.Skipf("skipping %s: this machine's driver miscodes %s, so no run stores a colour range",
+							codec, s.Publish.Mode)
+					}
 					pinned, err := gstColorimetry(s)
 					if err != nil {
 						t.Fatal(err)
@@ -252,7 +260,7 @@ func TestTheGstDevicePathStoresTheConfiguredRange(t *testing.T) {
 					if _, gapped := c.OptionGap(EngineGst, capabilities.OptionColorRange, colorRange); gapped {
 						t.Skipf("colour range %s is gapped on this engine, so no run stores it", colorRange)
 					}
-					if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
+					if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 						t.Skipf("%s at %s: %v", c.Name, whitePatchChroma, err)
 					}
 

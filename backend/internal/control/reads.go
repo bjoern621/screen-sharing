@@ -96,6 +96,7 @@ func (s *Server) ResolveForm(ctx context.Context, req *screensharev1.ResolveForm
 	deps := form.Deps{
 		Monitors:     s.backend.Monitors(),
 		Platform:     s.backend.Platform(),
+		Device:       s.backend.Device(),
 		Encoders:     s.backend.CachedEncoders(),
 		AudioDevices: s.backend.AudioDevices(),
 	}

@@ -9,6 +9,7 @@ import (
 
 	screensharev1 "bjoernblessin.de/screenshare/api/gen/go/screenshare/v1"
 
+	"bjoernblessin.de/screenshare/internal/capabilities"
 	"bjoernblessin.de/screenshare/internal/control"
 	"bjoernblessin.de/screenshare/internal/display"
 	"bjoernblessin.de/screenshare/internal/encoderate"
@@ -56,6 +57,7 @@ func (b controlBackend) Settings() settings.Settings      { return b.app.GetSett
 func (b controlBackend) StoreNotice() *screensharev1.Text { return b.app.StoreNotice() }
 func (b controlBackend) Monitors() []display.Monitor      { return b.app.Monitors() }
 func (b controlBackend) Platform() platform.Info          { return b.app.Platform() }
+func (b controlBackend) Device() capabilities.Device      { return b.app.Device() }
 
 func (b controlBackend) Encoders(ctx context.Context) encoders.Availability {
 	return b.app.probeEncoders(ctx)

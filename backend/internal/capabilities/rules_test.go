@@ -102,11 +102,21 @@ func TestARefusalNamesTheCodecItIsAbout(t *testing.T) {
 // codecFacts is the axes the codec table's rules match on.
 // A rule binds on the axes it names, so naming more here would assert facts the table never
 // claimed.
+// The device goes in unidentified, which is what makes the gaps and the rules comparable: a gap is
+// what the encoder cannot do on any machine, and a driver defect binds only where a driver was
+// named, so a codec question with no driver in it reads the gaps alone.
 func codecFacts(codec, engine, mode string) rules.Facts {
+	return deviceCodecFacts(codec, engine, mode, Device{})
+}
+
+func deviceCodecFacts(codec, engine, mode string, device Device) rules.Facts {
 	return rules.Facts{
-		rules.AxisCodec:  rules.TextValue(codec),
-		rules.AxisEngine: rules.TextValue(engine),
-		rules.AxisMode:   rules.TextValue(mode),
+		rules.AxisCodec:            rules.TextValue(codec),
+		rules.AxisEngine:           rules.TextValue(engine),
+		rules.AxisMode:             rules.TextValue(mode),
+		rules.AxisGpuDriver:        rules.TextValue(device.Driver),
+		rules.AxisGpuModel:         rules.TextValue(device.Model),
+		rules.AxisGpuDriverVersion: rules.NumberValue(device.Version),
 	}
 }
 

@@ -269,14 +269,15 @@ var Codecs = []Codec{
 		Gaps:        vaapiGaps,
 	},
 	{
-		Name:        "av1_vaapi",
-		Effort:      Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
-		Family:      FamilyVaapi,
-		Format:      "av1",
-		Implemented: true,
-		Chromas:     []string{"yuv420p", "p010le"},
-		CqMax:       EveryEngine(255),
-		Gaps:        vaapiGaps,
+		Name:          "av1_vaapi",
+		Effort:        Ladder{Steps: targetUsages, Defaults: targetUsageDefaults},
+		Family:        FamilyVaapi,
+		Format:        "av1",
+		Implemented:   true,
+		Chromas:       []string{"yuv420p", "p010le"},
+		CqMax:         EveryEngine(255),
+		Gaps:          vaapiGaps,
+		DriverDefects: av1VaapiDriverDefects,
 	},
 	{
 		Name:        "vp9_vaapi",
@@ -376,6 +377,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p"},
 		CqMax:       EveryEngine(51),
+		GopLimit:    EveryEngine(amfGopLimit),
 		Gaps:        amfGaps,
 	},
 	{
@@ -388,6 +390,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       EveryEngine(51),
+		GopLimit:    EveryEngine(amfGopLimit),
 		Gaps:        amfGaps,
 	},
 	{
@@ -401,6 +404,7 @@ var Codecs = []Codec{
 		Implemented: true,
 		Chromas:     []string{"yuv420p", "p010le"},
 		CqMax:       EveryEngine(255),
+		GopLimit:    EveryEngine(amfGopLimit),
 		Gaps: append([]Gap{{
 			Engine: EngineFfmpeg,
 			Option: OptionColorRange,
@@ -524,6 +528,28 @@ var vaapiGaps = []Gap{
 	},
 }
 
+// av1VaapiDriverDefects is what radeonsi gets wrong about this codec.
+//
+// Constant bitrate hangs the video block. The rate control pads each frame up to the target, and
+// once that padding passes roughly 300 kbit per frame the VCN ring stops answering, the kernel
+// resets it, and the encode dies with it.
+// A screen holding still is what reaches the figure: it codes to almost nothing, so nearly the whole
+// target is padding.
+//
+// Both publish engines drive the same driver and hang alike, so the row names no engine.
+// The other three rate controls code the same pictures on it without hanging, and the H.264 and HEVC
+// encoders hold constant bitrate on it, so what carries the defect is this codec's rate control.
+//
+// Withheld whole rather than bounded, because what the driver survives is a figure per frame: the
+// target over the frame rate. A ceiling on this table states Mbit/s and reads no frame rate, so
+// there is no figure it could carry that holds across the rates the form offers.
+var av1VaapiDriverDefects = []DriverDefect{{
+	Driver: "radeonsi",
+	Option: OptionMode,
+	Value:  ModeCbr,
+	Reason: screensharev1.TextCode_TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION,
+}}
+
 // qsvGaps is the rate-control gap every QSV row carries.
 // Intel's encoders quantize every frame, and neither ffmpeg's QSV encoders nor the qsv elements
 // expose the transform bypass a bit-exact stream needs.
@@ -575,6 +601,14 @@ var videoToolboxGaps = []Gap{
 // The AV1 and VP9 rows declare no such ladder at all, ffmpeg putting the option on its H.264 and
 // HEVC encoders alone, so they take qsvGaps unchanged.
 var qsvScenarioRowGaps = slices.Concat(qsvGaps, gstNoQsvScenario)
+
+// amfGopLimit is where AMF's keyframe-interval field ends.
+//
+// The interval reaches the encoder as ffmpeg's -g, which the AMF encoders map onto their own
+// header_spacing property, and that property runs to 1000.
+// A longer interval is refused as an option out of range, so the encoder never opens and the publish
+// dies at launch.
+const amfGopLimit = 1000
 
 // amfGaps are the gaps every AMF row carries.
 //

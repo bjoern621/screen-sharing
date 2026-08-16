@@ -248,6 +248,15 @@ public static class Statements
                 $"{a.Codec} refuses a target above {a.BitrateLimitMbps} Mbit/s on {Words.Engine(a.Engine)}. "
                 + "It is the encoder's own limit, and an encode asking for more does not start.",
 
+            TextCode.GopAboveCodecLimit =>
+                $"{a.Codec} holds a keyframe interval of at most {a.GopLimitFrames} frames on {Words.Engine(a.Engine)}. "
+                + "It is the encoder's own field, and an encode asking for a longer one does not start.",
+
+            TextCode.DriverDefectWithholdsOption =>
+                $"{a.Codec} codes this, and the graphics driver here does not survive it: on {a.GpuModel} "
+                + "such a stream stops the share partway through and takes the picture down with it. "
+                + "The other choices on this control run on it.",
+
             TextCode.MaxrateOnlyInConstrainedVbr =>
                 "A ceiling belongs to the modes that let the rate move: capped variable bitrate, and constant quality. "
                 + "The others hold the target itself.",
@@ -639,6 +648,12 @@ public static class Statements
 
         public string Display => Id(TextArgName.Display);
 
+        /// <summary>Video driver an encode runs through, e.g. "radeonsi".</summary>
+        public string GpuDriver => Id(TextArgName.GpuDriver);
+
+        /// <summary>Adapter that driver drives, e.g. "AMD Radeon 780M Graphics".</summary>
+        public string GpuModel => Id(TextArgName.GpuModel);
+
         public string Path => Id(TextArgName.Path);
 
         public string Value => Id(TextArgName.Value);
@@ -667,6 +682,7 @@ public static class Statements
         public long CqMax => Num(TextArgName.CqMax);
 
         public long BitrateLimitMbps => Num(TextArgName.BitrateLimitMbps);
+        public long GopLimitFrames => Num(TextArgName.GopLimitFrames);
 
         public long UplinkMbps => Num(TextArgName.UplinkMbps);
 

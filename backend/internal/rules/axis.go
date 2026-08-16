@@ -30,6 +30,7 @@ const (
 	AxisCursor     = "publish.cursor"
 	AxisBitrateM   = "publish.bitrate_mbps"
 	AxisCq         = "publish.cq"
+	AxisGop        = "publish.gop"
 
 	// FieldAudioGain is a control a rule lands on and nothing matches on: the level one entry of the
 	// audio list runs at is a fact rules state liveness about, and no configuration reads it.
@@ -41,6 +42,14 @@ const (
 	AxisFormat  = "codec.format"
 	AxisOS      = "platform.os"
 	AxisDisplay = "platform.display"
+
+	// The video driver an encode runs through, which a rule binds on where the constraint is the
+	// installed driver's rather than the encoder's (internal/gpu).
+	// Its release is a figure so a rule can name the version a defect is fixed in and stop binding
+	// there.
+	AxisGpuDriver        = "gpu.driver"
+	AxisGpuModel         = "gpu.model"
+	AxisGpuDriverVersion = "gpu.driver_version"
 )
 
 // Kind is what an axis reads as: how a match against it is written, and which half of a Value
@@ -86,8 +95,12 @@ var axes = []Axis{
 	{Name: AxisAudioCodec, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_AUDIO_CODEC},
 	{Name: AxisOS, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_OS},
 	{Name: AxisDisplay, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_DISPLAY},
+	{Name: AxisGpuDriver, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_GPU_DRIVER},
+	{Name: AxisGpuModel, Kind: KindText, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_GPU_MODEL},
 	{Name: AxisBitrateM, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_BITRATE_MBPS},
 	{Name: AxisCq, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_CQ},
+	{Name: AxisGop, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_GOP_LIMIT_FRAMES},
+	{Name: AxisGpuDriverVersion, Kind: KindNumber, Arg: screensharev1.TextArgName_TEXT_ARG_NAME_GPU_DRIVER_VERSION},
 }
 
 // One vocabulary, so a duplicate name or an axis with nothing to carry its reading is an

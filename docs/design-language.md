@@ -96,6 +96,9 @@ The window's is the platform's, so the app states nothing for it.
 The other belongs to a surface floating over the window: a menu, and the tooltip skinned like one.
 A selected segment is flat, and a card is separated by its border.
 
+Cards stack in a column with one gap between them, and the gap falls between the cards that drew something (`Controls/CardColumn`).
+Two columns beside each other therefore start on one line, whatever either of them drew.
+
 The window's chrome is the app's where the platform has one caption to stand in for: a custom title bar on Windows and macOS.
 Beneath it a nav strip holds the same two regions on every screen, three destinations left and live state right.
 On Linux the frame is the desktop's and no title bar is drawn: which buttons a window carries, which edge they sit on and whether it carries any are that desktop's answer, and a tiling session answers "none".

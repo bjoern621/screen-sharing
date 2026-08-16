@@ -5,12 +5,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -62,14 +60,9 @@ func supervise(cfg superviseConfig) (Handle, error) {
 	assert.Assert(runtime.GOOS != "windows" || len(cfg.extraFiles) == 0,
 		"a Windows child is passed no descriptors to inherit", cfg.tag, len(cfg.extraFiles))
 
-	logDir, err := ffmpeg.LogDir()
+	logFile, logPath, err := ffmpeg.NewRunLog(cfg.tag)
 	if err != nil {
 		return nil, err
-	}
-	logPath := filepath.Join(logDir, fmt.Sprintf("%s-%s.log", sanitize(cfg.tag), time.Now().Format("20060102-150405")))
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create run log: %w", err)
 	}
 	commandLine := fmt.Sprintf("%s %s", cfg.exe, strings.Join(cfg.args, " "))
 	if cfg.redact != nil {
@@ -208,16 +201,4 @@ func (s *syncWriter) Write(p []byte) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.w.Write(p)
-}
-
-// sanitize makes tag safe to spell in a filename.
-func sanitize(tag string) string {
-	return strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
-			return r
-		default:
-			return '_'
-		}
-	}, tag)
 }

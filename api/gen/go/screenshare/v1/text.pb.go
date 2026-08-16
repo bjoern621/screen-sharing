@@ -91,6 +91,12 @@ const (
 	// Separate from TEXT_ARG_NAME_EFFORT because a statement about one says nothing about the
 	// other.
 	TextArgName_TEXT_ARG_NAME_TUNE TextArgName = 26
+	// Video driver an encode runs through, and the adapter it drives, each spelled as the
+	// driver names itself: "radeonsi", "AMD Radeon 780M Graphics".
+	// Not settings values: nobody picks a driver, and a statement about what this machine's
+	// driver gets wrong names the one that is installed.
+	TextArgName_TEXT_ARG_NAME_GPU_DRIVER TextArgName = 27
+	TextArgName_TEXT_ARG_NAME_GPU_MODEL  TextArgName = 28
 	// Lists of identifiers, each of the axis its name says.
 	// The backend states which ones, never how they read together.
 	TextArgName_TEXT_ARG_NAME_FAMILIES        TextArgName = 30
@@ -126,6 +132,11 @@ const (
 	// How many further cases a statement stands in for, where listing them would bury the
 	// one that carries the point.
 	TextArgName_TEXT_ARG_NAME_OTHER_COUNT TextArgName = 56
+	// Driver version as one comparable figure, so a defect can name the release it is fixed
+	// in: 26.1.6 reads 26001006.
+	// A figure and not the written version, because the only question asked of it is whether
+	// this machine is below the fix.
+	TextArgName_TEXT_ARG_NAME_GPU_DRIVER_VERSION TextArgName = 57
 	// Nested statements.
 	//
 	// TEXT_ARG_NAME_CAUSE is the fact behind the statement, e.g. a probe's verdict inside a
@@ -139,6 +150,8 @@ const (
 	TextArgName_TEXT_ARG_NAME_IMPORT TextArgName = 61
 	TextArgName_TEXT_ARG_NAME_COST   TextArgName = 62
 	TextArgName_TEXT_ARG_NAME_REACH  TextArgName = 63
+	// The longest keyframe interval an encoder's own field holds, in frames.
+	TextArgName_TEXT_ARG_NAME_GOP_LIMIT_FRAMES TextArgName = 64
 )
 
 // Enum value maps for TextArgName.
@@ -171,6 +184,8 @@ var (
 		24: "TEXT_ARG_NAME_PRESET",
 		25: "TEXT_ARG_NAME_CURSOR",
 		26: "TEXT_ARG_NAME_TUNE",
+		27: "TEXT_ARG_NAME_GPU_DRIVER",
+		28: "TEXT_ARG_NAME_GPU_MODEL",
 		30: "TEXT_ARG_NAME_FAMILIES",
 		31: "TEXT_ARG_NAME_TRANSPORTS",
 		32: "TEXT_ARG_NAME_AUDIO_CODECS",
@@ -195,10 +210,12 @@ var (
 		54: "TEXT_ARG_NAME_RATE_HZ",
 		55: "TEXT_ARG_NAME_BITRATE_KBPS",
 		56: "TEXT_ARG_NAME_OTHER_COUNT",
+		57: "TEXT_ARG_NAME_GPU_DRIVER_VERSION",
 		60: "TEXT_ARG_NAME_CAUSE",
 		61: "TEXT_ARG_NAME_IMPORT",
 		62: "TEXT_ARG_NAME_COST",
 		63: "TEXT_ARG_NAME_REACH",
+		64: "TEXT_ARG_NAME_GOP_LIMIT_FRAMES",
 	}
 	TextArgName_value = map[string]int32{
 		"TEXT_ARG_NAME_UNSPECIFIED":        0,
@@ -228,6 +245,8 @@ var (
 		"TEXT_ARG_NAME_PRESET":             24,
 		"TEXT_ARG_NAME_CURSOR":             25,
 		"TEXT_ARG_NAME_TUNE":               26,
+		"TEXT_ARG_NAME_GPU_DRIVER":         27,
+		"TEXT_ARG_NAME_GPU_MODEL":          28,
 		"TEXT_ARG_NAME_FAMILIES":           30,
 		"TEXT_ARG_NAME_TRANSPORTS":         31,
 		"TEXT_ARG_NAME_AUDIO_CODECS":       32,
@@ -252,10 +271,12 @@ var (
 		"TEXT_ARG_NAME_RATE_HZ":            54,
 		"TEXT_ARG_NAME_BITRATE_KBPS":       55,
 		"TEXT_ARG_NAME_OTHER_COUNT":        56,
+		"TEXT_ARG_NAME_GPU_DRIVER_VERSION": 57,
 		"TEXT_ARG_NAME_CAUSE":              60,
 		"TEXT_ARG_NAME_IMPORT":             61,
 		"TEXT_ARG_NAME_COST":               62,
 		"TEXT_ARG_NAME_REACH":              63,
+		"TEXT_ARG_NAME_GOP_LIMIT_FRAMES":   64,
 	}
 )
 
@@ -499,6 +520,17 @@ const (
 	// TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE,
 	// TEXT_ARG_NAME_BITRATE_LIMIT_MBPS.
 	TextCode_TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT TextCode = 73
+	// Encoder's keyframe-interval field holds less than the control's own scale, and it refuses an
+	// interval above it rather than coding a shorter one.
+	// TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_GOP_LIMIT_FRAMES.
+	TextCode_TEXT_CODE_GOP_ABOVE_CODEC_LIMIT TextCode = 162
+	// Driver on this machine miscodes the selected option badly enough to take the graphics
+	// device down with it, so the option is withheld while that driver is the one installed.
+	// The value is one the encoder declares and another driver runs, which is what separates
+	// this from a capability nothing here has.
+	// TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_GPU_DRIVER, TEXT_ARG_NAME_GPU_MODEL,
+	// TEXT_ARG_NAME_OPTION and TEXT_ARG_NAME_VALUE for what is withheld.
+	TextCode_TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION TextCode = 161
 	// kmsgrab reads the scanout's primary plane and the pointer has a plane of its own, so
 	// nothing on that path draws it into the frames.
 	// TEXT_ARG_NAME_CAPTURE.
@@ -707,6 +739,8 @@ var (
 		71:  "TEXT_CODE_AUDIO_TRACK_CODED_AT",
 		72:  "TEXT_CODE_CQ_ABOVE_CODEC_SCALE",
 		73:  "TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT",
+		162: "TEXT_CODE_GOP_ABOVE_CODEC_LIMIT",
+		161: "TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION",
 		74:  "TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE",
 		75:  "TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA",
 		76:  "TEXT_CODE_CURSOR_METADATA_NOT_CARRIED",
@@ -828,6 +862,8 @@ var (
 		"TEXT_CODE_AUDIO_TRACK_CODED_AT":                      71,
 		"TEXT_CODE_CQ_ABOVE_CODEC_SCALE":                      72,
 		"TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT":                 73,
+		"TEXT_CODE_GOP_ABOVE_CODEC_LIMIT":                     162,
+		"TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION":            161,
 		"TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE":               74,
 		"TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA":            75,
 		"TEXT_CODE_CURSOR_METADATA_NOT_CARRIED":               76,
@@ -1180,7 +1216,7 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x05value\"a\n" +
 	"\x04Text\x12,\n" +
 	"\x04code\x18\x01 \x01(\x0e2\x18.screenshare.v1.TextCodeR\x04code\x12+\n" +
-	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xa2\f\n" +
+	"\x04args\x18\x02 \x03(\v2\x17.screenshare.v1.TextArgR\x04args*\xa7\r\n" +
 	"\vTextArgName\x12\x1d\n" +
 	"\x19TEXT_ARG_NAME_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_CAPTURE\x10\x01\x12\x18\n" +
@@ -1209,7 +1245,9 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x15TEXT_ARG_NAME_ELEMENT\x10\x17\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_PRESET\x10\x18\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_CURSOR\x10\x19\x12\x16\n" +
-	"\x12TEXT_ARG_NAME_TUNE\x10\x1a\x12\x1a\n" +
+	"\x12TEXT_ARG_NAME_TUNE\x10\x1a\x12\x1c\n" +
+	"\x18TEXT_ARG_NAME_GPU_DRIVER\x10\x1b\x12\x1b\n" +
+	"\x17TEXT_ARG_NAME_GPU_MODEL\x10\x1c\x12\x1a\n" +
 	"\x16TEXT_ARG_NAME_FAMILIES\x10\x1e\x12\x1c\n" +
 	"\x18TEXT_ARG_NAME_TRANSPORTS\x10\x1f\x12\x1e\n" +
 	"\x1aTEXT_ARG_NAME_AUDIO_CODECS\x10 \x12\x1a\n" +
@@ -1233,11 +1271,13 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x17TEXT_ARG_NAME_HIGH_MBPS\x105\x12\x19\n" +
 	"\x15TEXT_ARG_NAME_RATE_HZ\x106\x12\x1e\n" +
 	"\x1aTEXT_ARG_NAME_BITRATE_KBPS\x107\x12\x1d\n" +
-	"\x19TEXT_ARG_NAME_OTHER_COUNT\x108\x12\x17\n" +
+	"\x19TEXT_ARG_NAME_OTHER_COUNT\x108\x12$\n" +
+	" TEXT_ARG_NAME_GPU_DRIVER_VERSION\x109\x12\x17\n" +
 	"\x13TEXT_ARG_NAME_CAUSE\x10<\x12\x18\n" +
 	"\x14TEXT_ARG_NAME_IMPORT\x10=\x12\x16\n" +
 	"\x12TEXT_ARG_NAME_COST\x10>\x12\x17\n" +
-	"\x13TEXT_ARG_NAME_REACH\x10?*\x18TEXT_ARG_NAME_ENC_PRESET*\xac&\n" +
+	"\x13TEXT_ARG_NAME_REACH\x10?\x12\"\n" +
+	"\x1eTEXT_ARG_NAME_GOP_LIMIT_FRAMES\x10@*\x18TEXT_ARG_NAME_ENC_PRESET*\x81'\n" +
 	"\bTextCode\x12\x19\n" +
 	"\x15TEXT_CODE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aTEXT_CODE_CAPTURE_WRONG_OS\x10\x01\x12#\n" +
@@ -1297,7 +1337,9 @@ const file_screenshare_v1_text_proto_rawDesc = "" +
 	"\x1dTEXT_CODE_AUDIO_SOURCE_SERVER\x10F\x12\"\n" +
 	"\x1eTEXT_CODE_AUDIO_TRACK_CODED_AT\x10G\x12\"\n" +
 	"\x1eTEXT_CODE_CQ_ABOVE_CODEC_SCALE\x10H\x12'\n" +
-	"#TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT\x10I\x12)\n" +
+	"#TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT\x10I\x12$\n" +
+	"\x1fTEXT_CODE_GOP_ABOVE_CODEC_LIMIT\x10\xa2\x01\x12-\n" +
+	"(TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION\x10\xa1\x01\x12)\n" +
 	"%TEXT_CODE_KMSGRAB_HAS_NO_CURSOR_PLANE\x10J\x12,\n" +
 	"(TEXT_CODE_CAPTURE_HAS_NO_CURSOR_METADATA\x10K\x12)\n" +
 	"%TEXT_CODE_CURSOR_METADATA_NOT_CARRIED\x10L\x12(\n" +

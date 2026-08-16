@@ -1,7 +1,7 @@
 using ScreenShare.Api.V1;
 using ScreenShare.App.Backend;
 using ScreenShare.App.Copy;
-using ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel;
+using ScreenShare.App.Features.Setup.AdvancedGroup.ViewModel;
 using ScreenShare.App.Features.Fields.ViewModel;
 using ScreenShare.App.Features.Setup.QualityStep.ViewModel;
 using ScreenShare.App.Features.Setup.ViewModel;
@@ -10,16 +10,16 @@ using Xunit;
 namespace ScreenShare.App.Tests;
 
 /// <summary>
-/// The advanced drawer draws the part of the quality group the step above it places nowhere.
+/// The advanced card draws the part of the quality group the step above it places nowhere.
 ///
-/// What these lock out is the drawer inventing a table: it once carried a seeded one, and every assertion
-/// here is against a value some form carried (docs/ipc-api.md, "The rule").
+/// What these lock out is the card inventing a value: every assertion here is against one some form carried
+/// (docs/ipc-api.md, "The rule").
 ///
 /// The group is driven directly rather than through a backend, since what is under test is the split between
 /// the two layouts and not a resolve.
 /// EveryFieldOfTheGroupIsDrawnExactlyOnce is the exception, and states that split as an invariant.
 /// </summary>
-public sealed class AdvancedDrawerTests
+public sealed class AdvancedGroupTests
 {
     /// <summary>The fields rendered once, with the writes the group reports collected.</summary>
     private static (FieldGroupViewModel Group, List<(string Key, FieldValue Value)> Writes) GroupOf(params Field[] fields)
@@ -75,18 +75,17 @@ public sealed class AdvancedDrawerTests
     }
 
     [Fact]
-    public void TheDrawerDrawsTheNumbersTheStepPlacesNowhere()
+    public void TheCardDrawsTheNumbersTheStepPlacesNowhere()
     {
         var (group, _) = GroupOf(
             Select("codec", "libx264"),
             Number("gop", 120, Unit.Frames),
             Number("bframes", 0, Unit.Frames));
 
-        var drawer = new AdvancedDrawerViewModel(group);
+        var advanced = new AdvancedGroupViewModel(group);
 
-        Assert.True(drawer.HasRows);
-        Assert.Equal(["gop", "bframes"], drawer.Rows.Select(row => row.Key));
-        Assert.Equal("2 settings", drawer.CountLabel);
+        Assert.True(advanced.HasRows);
+        Assert.Equal(["gop", "bframes"], advanced.Rows.Select(row => row.Key));
     }
 
     [Fact]
@@ -94,7 +93,7 @@ public sealed class AdvancedDrawerTests
     {
         var (group, _) = GroupOf(Number("vbv_ms", 2000, Unit.Milliseconds));
 
-        var row = new AdvancedDrawerViewModel(group).Rows.Single();
+        var row = new AdvancedGroupViewModel(group).Rows.Single();
 
         // Value and unit come off the form, heading and paragraph off this side, looked up by the key the
         // form named the field by.
@@ -109,7 +108,7 @@ public sealed class AdvancedDrawerTests
     {
         var (group, writes) = GroupOf(Number("bframes", 0, Unit.Frames));
 
-        new AdvancedDrawerViewModel(group).Rows.Single().Number = 2;
+        new AdvancedGroupViewModel(group).Rows.Single().Number = 2;
 
         var (key, value) = Assert.Single(writes);
         Assert.Equal("bframes", key);
@@ -125,7 +124,7 @@ public sealed class AdvancedDrawerTests
     {
         var (group, _) = GroupOf(NumberSelect("fps", 60, 30, 60, 120));
 
-        var row = new AdvancedDrawerViewModel(group).Rows.Single();
+        var row = new AdvancedGroupViewModel(group).Rows.Single();
 
         Assert.True(row.IsNumberSelect);
         Assert.False(row.IsNumber);
@@ -144,7 +143,7 @@ public sealed class AdvancedDrawerTests
     public void BothHalvesOfALadderedNumberWriteTheSameNumber()
     {
         var (group, writes) = GroupOf(NumberSelect("fps", 60, 30, 60, 120));
-        var row = new AdvancedDrawerViewModel(group).Rows.Single();
+        var row = new AdvancedGroupViewModel(group).Rows.Single();
 
         row.Options.Single(option => option.Value == "120").Choose.Execute(null);
         row.Number = 37;
@@ -153,14 +152,14 @@ public sealed class AdvancedDrawerTests
     }
 
     [Fact]
-    public void AGroupOfNothingButDropdownsDrawsNoDrawer()
+    public void AGroupOfNothingButDropdownsDrawsNoCard()
     {
         var (group, _) = GroupOf(Select("codec", "libx264"));
 
-        var drawer = new AdvancedDrawerViewModel(group);
+        var advanced = new AdvancedGroupViewModel(group);
 
-        Assert.False(drawer.HasRows);
-        Assert.Empty(drawer.Rows);
+        Assert.False(advanced.HasRows);
+        Assert.Empty(advanced.Rows);
     }
 
     /// <summary>
@@ -171,12 +170,12 @@ public sealed class AdvancedDrawerTests
     public void ASecondRenderPassLeavesTheRowsAlone()
     {
         var (group, _) = GroupOf(Number("gop", 120, Unit.Frames));
-        var drawer = new AdvancedDrawerViewModel(group);
-        var before = drawer.Rows.ToList();
+        var advanced = new AdvancedGroupViewModel(group);
+        var before = advanced.Rows.ToList();
 
-        drawer.Apply();
+        advanced.Apply();
 
-        Assert.Equal(before, drawer.Rows);
+        Assert.Equal(before, advanced.Rows);
     }
 
     /// <summary>

@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:setup="using:ScreenShare.App.Features.Setup.ViewModel"
              xmlns:strip="using:ScreenShare.App.Features.Setup.StepStrip.ViewModel"
+             xmlns:view="using:ScreenShare.App.Features.Setup.StepStrip.View"
              xmlns:ti="using:TablerIcons"
              x:Class="ScreenShare.App.Features.Setup.StepStrip.View.StepStripView"
              x:DataType="setup:SetupViewModel">
@@ -123,7 +124,7 @@
   <ItemsControl ItemsSource="{Binding Steps}">
     <ItemsControl.ItemsPanel>
       <ItemsPanelTemplate>
-        <UniformGrid Rows="1" />
+        <view:ChipRow />
       </ItemsPanelTemplate>
     </ItemsControl.ItemsPanel>
     <ItemsControl.ItemTemplate>

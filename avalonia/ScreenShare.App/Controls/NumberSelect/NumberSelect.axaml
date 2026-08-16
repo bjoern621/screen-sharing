@@ -14,6 +14,23 @@
   </ControlTheme>
 
   <!--
+    The held entry standing where the box would be, for a value the field's range does not
+    reach: the burst ceiling is legal at zero and legal again from the target it bursts above,
+    and a spinner handed the zero would coerce it to the target
+    (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
+    Shaped as the box so the pair still reads as one setting, and selectable because everything
+    a reader may want to carry elsewhere is.
+  -->
+  <ControlTheme x:Key="NumberSelectHeld" TargetType="Border">
+    <Setter Property="Background" Value="{StaticResource ControlBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ControlBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{StaticResource RadiusControlLeading}" />
+    <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+    <Setter Property="Padding" Value="10,0" />
+  </ControlTheme>
+
+  <!--
     A caret and no face: the value is already in the box beside it, and a second one would be
     the same figure twice.
     The negative margin collapses the two 1px borders that would otherwise meet as a 2px seam.

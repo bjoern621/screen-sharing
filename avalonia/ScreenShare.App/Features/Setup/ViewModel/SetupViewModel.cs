@@ -4,7 +4,7 @@ using ScreenShare.App.Backend;
 using ScreenShare.App.Contracts;
 using ScreenShare.App.Features.Fields.Model;
 using ScreenShare.App.Features.Fields.ViewModel;
-using ScreenShare.App.Features.Setup.AdvancedDrawer.ViewModel;
+using ScreenShare.App.Features.Setup.AdvancedGroup.ViewModel;
 using ScreenShare.App.Features.Setup.AudioStep.ViewModel;
 using ScreenShare.App.Features.Setup.CostRail.ViewModel;
 using ScreenShare.App.Features.Setup.Model;
@@ -213,9 +213,9 @@ public sealed class SetupViewModel : Observable
         // and picking a place for a field is placement.
         Quality = new QualityStepViewModel(Group(QualityLayout.GroupKey));
 
-        // The same group's other half: the drawer draws the fields the step's layout places nowhere, so between
-        // them every control the backend offered is reachable exactly once (Model/QualityLayout.cs).
-        Advanced = new AdvancedDrawerViewModel(Group(QualityLayout.GroupKey));
+        // The same group's other half: the card under the step draws the fields its layout places nowhere, so
+        // between them every control the backend offered is reachable exactly once (Model/QualityLayout.cs).
+        Advanced = new AdvancedGroupViewModel(Group(QualityLayout.GroupKey));
 
         // The other group with a layout of its own. Its controls repeat per entry of the source list, so the
         // rows are placement and the copy over them is written once (Model/AudioLayout.cs).
@@ -300,7 +300,7 @@ public sealed class SetupViewModel : Observable
 
     public QualityStepViewModel Quality { get; }
 
-    public AdvancedDrawerViewModel Advanced { get; }
+    public AdvancedGroupViewModel Advanced { get; }
 
     /// <summary>The audio group's own layout: the source list, and what the group holds beside it.</summary>
     public AudioStepViewModel Audio { get; }

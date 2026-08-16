@@ -94,6 +94,12 @@ enum TextArgName {
   // Separate from TEXT_ARG_NAME_EFFORT because a statement about one says nothing about the
   // other.
   TEXT_ARG_NAME_TUNE = 26;
+  // Video driver an encode runs through, and the adapter it drives, each spelled as the
+  // driver names itself: "radeonsi", "AMD Radeon 780M Graphics".
+  // Not settings values: nobody picks a driver, and a statement about what this machine's
+  // driver gets wrong names the one that is installed.
+  TEXT_ARG_NAME_GPU_DRIVER = 27;
+  TEXT_ARG_NAME_GPU_MODEL = 28;
 
   // Lists of identifiers, each of the axis its name says.
   // The backend states which ones, never how they read together.
@@ -131,6 +137,11 @@ enum TextArgName {
   // How many further cases a statement stands in for, where listing them would bury the
   // one that carries the point.
   TEXT_ARG_NAME_OTHER_COUNT = 56;
+  // Driver version as one comparable figure, so a defect can name the release it is fixed
+  // in: 26.1.6 reads 26001006.
+  // A figure and not the written version, because the only question asked of it is whether
+  // this machine is below the fix.
+  TEXT_ARG_NAME_GPU_DRIVER_VERSION = 57;
 
   // Nested statements.
   //
@@ -145,6 +156,9 @@ enum TextArgName {
   TEXT_ARG_NAME_IMPORT = 61;
   TEXT_ARG_NAME_COST = 62;
   TEXT_ARG_NAME_REACH = 63;
+
+  // The longest keyframe interval an encoder's own field holds, in frames.
+  TEXT_ARG_NAME_GOP_LIMIT_FRAMES = 64;
 
   // Reserved for a rename rather than a removal: TEXT_ARG_NAME_EFFORT carries the number,
   // and a build still spelling the old name fails to compile rather than to parse.
@@ -412,6 +426,20 @@ enum TextCode {
   // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_MODE,
   // TEXT_ARG_NAME_BITRATE_LIMIT_MBPS.
   TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT = 73;
+  // Encoder's keyframe-interval field holds less than the control's own scale, and it refuses an
+  // interval above it rather than coding a shorter one.
+  // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_ENGINE, TEXT_ARG_NAME_GOP_LIMIT_FRAMES.
+  TEXT_CODE_GOP_ABOVE_CODEC_LIMIT = 162;
+
+  // --- What the installed driver gets wrong --------------------------------------
+
+  // Driver on this machine miscodes the selected option badly enough to take the graphics
+  // device down with it, so the option is withheld while that driver is the one installed.
+  // The value is one the encoder declares and another driver runs, which is what separates
+  // this from a capability nothing here has.
+  // TEXT_ARG_NAME_CODEC, TEXT_ARG_NAME_GPU_DRIVER, TEXT_ARG_NAME_GPU_MODEL,
+  // TEXT_ARG_NAME_OPTION and TEXT_ARG_NAME_VALUE for what is withheld.
+  TEXT_CODE_DRIVER_DEFECT_WITHHOLDS_OPTION = 161;
 
   // --- What the pointer can do, per capture backend ------------------------------
 

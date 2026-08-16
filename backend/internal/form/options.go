@@ -483,3 +483,45 @@ func optionRenderChains(_ Deps, _ settings.Settings) []*screensharev1.FieldOptio
 func optionRtspProtocols(_ Deps, _ settings.Settings) []*screensharev1.FieldOption {
 	return optionPlainList(transport.RtspProtocols, KeyRtspPublishProtocol)
 }
+
+// optionMaxratePresets is the ladder the burst ceiling is offered on: the uncapped answer, the
+// target itself, and twice the target.
+//
+// This ladder carries a value the range cannot: a burst ceiling is legal at zero, meaning bounded by
+// nothing, and legal again from the target upward, with the band between the two walked up to the
+// target on the next resolve (repairCeilings).
+// A range runs from one end to the other, so the range carries the band and the entry carries the
+// answer outside it (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
+//
+// The target and twice it are where the two ends of constrained variable bitrate sit: at the target
+// the rate is held, and a ceiling above twice it is headroom the VAAPI note already warns about
+// (availability.go, vaapiCeilingNote).
+func optionMaxratePresets(d Deps, s settings.Settings) []*screensharev1.FieldOption {
+	ceiling := int(fieldMaxrateBounds(d, s).GetMax())
+
+	var rates []int
+	// Zero is refused only where the encoder's constant-quality mode codes toward a rate, which is the
+	// one case fieldMaxrateBounds lifts its floor for.
+	if fieldMaxrateBounds(d, s).GetMin() != 1 || s.Publish.Mode != capabilities.ModeCrf {
+		rates = append(rates, 0)
+	}
+	if s.Publish.Mode != capabilities.ModeCrf && s.Publish.BitrateM > 0 {
+		rates = append(rates, min(s.Publish.BitrateM, ceiling), min(s.Publish.BitrateM*2, ceiling))
+	}
+	// The held ceiling stays on the ladder for the reason the held frame rate does: a ladder that
+	// dropped it would leave the control claiming a ceiling the stream is not bounded by.
+	rates = append(rates, s.Publish.MaxrateM)
+
+	slices.Sort(rates)
+	rates = slices.Compact(rates)
+
+	out := make([]*screensharev1.FieldOption, 0, len(rates))
+	for _, rate := range rates {
+		if rate < 0 {
+			continue
+		}
+		out = append(out, optionEntry(strconv.Itoa(rate), nil, false))
+	}
+	assert.Assert(len(out) > 0, "the burst ceiling offers a ladder to reach", s.Publish.Mode)
+	return out
+}

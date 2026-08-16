@@ -2,6 +2,7 @@ package form
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
@@ -19,7 +20,7 @@ func presetCases() []availabilityCase {
 	windows := Deps{Platform: platform.Info{OS: "windows"}}
 
 	vaapiOnly := linuxWayland
-	vaapiOnly.Encoders = presetOnlyFamily(capabilities.FamilyVaapi)
+	vaapiOnly.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi)
 
 	return []availabilityCase{
 		{"a VAAPI-only Wayland session", vaapiOnly,
@@ -44,14 +45,14 @@ func presetOf(t *testing.T, key string) preset {
 	return preset{}
 }
 
-// presetOnlyFamily is a probe result where one encoder family works and every other codec was
-// tested and refused, on both publish engines.
-func presetOnlyFamily(family string) encoders.Availability {
+// presetOnlyFamilies is a probe result where the named encoder families work and every other codec
+// was tested and refused, on both publish engines.
+func presetOnlyFamilies(families ...string) encoders.Availability {
 	usable := make(map[string]map[string]bool, len(capabilities.Engines))
 	for _, engine := range capabilities.Engines {
 		verdicts := make(map[string]bool, len(capabilities.Codecs))
 		for _, c := range capabilities.Codecs {
-			verdicts[c.Name] = c.Family == family
+			verdicts[c.Name] = slices.Contains(families, c.Family)
 		}
 		usable[engine] = verdicts
 	}
@@ -98,9 +99,8 @@ func TestApplyingAPresetTwiceEqualsApplyingItOnce(t *testing.T) {
 	}
 }
 
-// The search puts every candidate through the repair the form runs and keeps it only if it comes
-// back untouched, so a preset landing on a value the form would grey is this package disagreeing
-// with itself.
+// The search answers with what the repair the form runs returned, so a preset landing on a value
+// that same repair still moves is this package disagreeing with itself.
 func TestAResolvedPresetNeedsNoRepair(t *testing.T) {
 	for _, tc := range presetCases() {
 		s, _ := Repair(tc.deps, tc.s)
@@ -230,7 +230,7 @@ func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	// A Wayland session reaches the portal alone, that backend runs the GStreamer engine, and the
 	// probe found only the VA elements there.
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
-	deps.Encoders = presetOnlyFamily(capabilities.FamilyVaapi)
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi)
 
 	s, _ := Repair(deps, availabilityDraft("portal", "hevc_vaapi", "yuv420p", "srt"))
 
@@ -247,6 +247,41 @@ func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 	}
 }
 
+// A field outside a preset's claim is the machine's to answer, so the repair walking it is not a
+// rejected candidate.
+//
+// The quantization range is that field for every preset but lossless, and the va elements signal no
+// colour description, so a draft holding full range would put every VA encoder out of reach.
+// What the search then reaches is a software encoder, and a 60 fps desktop lands on the CPU on a
+// machine whose silicon codes the rung.
+func TestAPresetTakesTheDeviceEncoderOverAFieldItPromisesNothingAbout(t *testing.T) {
+	if _, gap := mustCodec(t, "hevc_vaapi").OptionGap(
+		capabilities.EngineGst, capabilities.OptionColorRange, capabilities.ColorRangeFull); !gap {
+		t.Fatal("the va elements carry the colour range, so this test names no field a preset leaves standing")
+	}
+
+	// A Wayland session reaches the portal alone and that backend runs the GStreamer engine, where the
+	// gap is. The software encoders are what the settings can hold full range on.
+	deps := Deps{Platform: platform.Info{OS: "linux", Display: "wayland"}}
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilyVaapi, capabilities.FamilySoftware)
+
+	draft := availabilityDraft("portal", "libx264", "yuv420p", "srt")
+	draft.Publish.ColorRange = capabilities.ColorRangeFull
+	s, moved := Repair(deps, draft)
+	if s.Publish.ColorRange != capabilities.ColorRangeFull {
+		t.Fatalf("the draft this test starts from is not on full range: the repair moved %v", moved)
+	}
+
+	reached, ok := presetResolve(deps, presetOf(t, "gaming"), s)
+	if !ok {
+		t.Fatal("gaming reached nothing on a machine whose VA encoders code its rung")
+	}
+	if family := mustCodec(t, reached.Publish.Codec).Family; family != capabilities.FamilyVaapi {
+		t.Errorf("gaming resolved to %s, a %s encoder, beside VA encoders that code the same rung",
+			reached.Publish.Codec, family)
+	}
+}
+
 // The ladder step follows the encoder the machine has rather than the preset.
 //
 // A preset naming a step would carry that encoder's identifier onto every candidate, the repair
@@ -256,7 +291,7 @@ func TestAnUnreachablePresetCarriesTheReasonAndNoSettings(t *testing.T) {
 // gets.
 func TestAPresetReachesAMachineWithNoNvidiaEncoder(t *testing.T) {
 	deps := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
-	deps.Encoders = presetOnlyFamily(capabilities.FamilySoftware)
+	deps.Encoders = presetOnlyFamilies(capabilities.FamilySoftware)
 
 	s, _ := Repair(deps, availabilityDraft("x11grab", "libx264", "yuv420p", "srt"))
 

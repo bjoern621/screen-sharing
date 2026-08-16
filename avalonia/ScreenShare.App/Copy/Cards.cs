@@ -162,19 +162,8 @@ public static class Cards
     /// </summary>
     public const string PreflightClear = "Nothing to fix: these settings publish as they stand.";
 
-    /// <summary>
-    /// Advanced drawer's own heading and its four column heads.
-    /// Lower case, as the column heads of the tables beside them are.
-    /// </summary>
-    public const string AdvancedDrawerTitle = "Advanced";
-
-    public const string AdvancedSettingColumn = "setting";
-
-    public const string AdvancedValueColumn = "value";
-
-    public const string AdvancedUnitColumn = "unit";
-
-    public const string AdvancedNoteColumn = "note, why it would be touched";
+    /// <summary>Heading over the quality group's raw knobs, the one word on that card the form does not supply.</summary>
+    public const string AdvancedTitle = "Advanced";
 
     /// <summary>
     /// Latency plot's two series, named beside the rule drawn in each one's stroke.

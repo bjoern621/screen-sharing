@@ -8,6 +8,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/settings"
 )
 
@@ -52,7 +53,7 @@ func BuildEncodeProbeArgs(s settings.Settings, width, height, frames int, heavy 
 	assert.Assert(width > 0 && height > 0, "a probe encodes frames of a resolved picture size", width, height)
 	assert.Assert(frames > 0, "a probe encodes at least one frame", frames)
 
-	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
+	if err := capabilities.Validate(capabilities.EngineFfmpeg, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
 	if s.Publish.Fps <= 0 {

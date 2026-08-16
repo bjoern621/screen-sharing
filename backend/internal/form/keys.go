@@ -105,6 +105,10 @@ const (
 // keySeparator stands between a key's group and its field.
 const keySeparator = "."
 
+// settingsGroupPublish qualifies every key of the publish settings, which is the group a preset
+// speaks for.
+const settingsGroupPublish = "publish"
+
 // The brackets around a repeated field's index, and the template both of them with nothing between:
 // a row of the field table carries "publish.audio_sources[].gain" and a shell binds
 // "publish.audio_sources[2].gain".

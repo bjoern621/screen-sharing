@@ -29,6 +29,7 @@ type probedBackend struct {
 }
 
 func (p *probedBackend) Platform() platform.Info               { return platform.Info{OS: "windows"} }
+func (p *probedBackend) Device() capabilities.Device           { return capabilities.Device{} }
 func (p *probedBackend) CachedEncoders() encoders.Availability { return p.probed }
 func (p *probedBackend) AudioDevices() []platform.AudioDevice  { return nil }
 func (p *probedBackend) Pointer() (pointer.Position, bool)     { return pointer.Position{}, false }

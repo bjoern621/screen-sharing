@@ -116,14 +116,14 @@ func TestEveryOptionStatesItsRefusal(t *testing.T) {
 // A mode outside the table matches no gap and no quantizer scale, and the builders' rate-control
 // switches would run it as CBR.
 func TestValidateRejectsAnUnknownMode(t *testing.T) {
-	if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", "constant-effort", "pc"), 19, 20); err == nil {
+	if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", "constant-effort", "pc"), 19, 20, 0, Device{}); err == nil {
 		t.Error("Validate must reject a rate-control mode the table does not carry")
 	}
 	for _, mode := range Modes {
 		if _, gap := mustGet(t, "libx264").OptionGap(EngineFfmpeg, OptionMode, mode); gap {
 			continue
 		}
-		if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", mode, "pc"), 19, 20); err != nil {
+		if err := Validate(EngineFfmpeg, "libx264", options("yuv420p", mode, "pc"), 19, 20, 0, Device{}); err != nil {
 			t.Errorf("libx264 in %s: %v", mode, err)
 		}
 	}
@@ -320,7 +320,7 @@ func TestValidate(t *testing.T) {
 		}
 		// Bitrate target zero: no case here turns on a codec's bitrate ceiling,
 		// which TestValidateBitrateCeiling covers on its own.
-		err := Validate(tc.engine, tc.codec, options(tc.chroma, tc.mode, colorRange), tc.cq, 0)
+		err := Validate(tc.engine, tc.codec, options(tc.chroma, tc.mode, colorRange), tc.cq, 0, 0, Device{})
 		if (err != nil) != tc.wantErr {
 			t.Errorf("%s: Validate = %v, wantErr %v", tc.name, err, tc.wantErr)
 		}
@@ -336,15 +336,15 @@ func TestValidateBitrateCeiling(t *testing.T) {
 			continue
 		}
 		chroma := c.EngineChromas(EngineFfmpeg)[0]
-		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit+1); err == nil {
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit+1, 0, Device{}); err == nil {
 			t.Errorf("%s must reject a bitrate target above its %d Mbit/s ceiling", c.Name, limit)
 		}
-		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit); err != nil {
+		if err := Validate(EngineFfmpeg, c.Name, options(chroma, "cbr", "pc"), 0, limit, 0, Device{}); err != nil {
 			t.Errorf("%s at its ceiling: %v", c.Name, err)
 		}
 		// crf sends no bitrate, so a stale target must not block the encode.
 		if _, gap := c.OptionGap(EngineFfmpeg, OptionMode, "crf"); !gap {
-			if err := Validate(EngineFfmpeg, c.Name, options(chroma, "crf", "pc"), 0, limit*2); err != nil {
+			if err := Validate(EngineFfmpeg, c.Name, options(chroma, "crf", "pc"), 0, limit*2, 0, Device{}); err != nil {
 				t.Errorf("%s in crf with a stale bitrate target: %v", c.Name, err)
 			}
 		}

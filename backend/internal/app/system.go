@@ -14,6 +14,7 @@ import (
 	"bjoernblessin.de/screenshare/internal/encoderate"
 	"bjoernblessin.de/screenshare/internal/encoders"
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
+	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/netspeed"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
@@ -64,6 +65,12 @@ func (a *App) Monitors() []display.Monitor {
 // display server.
 func (a *App) Platform() platform.Info {
 	return platform.Detect()
+}
+
+// Device is the video driver an encode here runs through, which the codec table's driver defects are
+// matched against.
+func (a *App) Device() capabilities.Device {
+	return gpu.Device()
 }
 
 // Capabilities is the codec table both the encoder and the form derive their codec, chroma and

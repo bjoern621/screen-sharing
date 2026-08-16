@@ -16,7 +16,8 @@ import (
 // consumer reads.
 // One evaluation then answers a codec fact alongside a fact about a capture backend, a platform or
 // a pair of ends.
-// A Gap names a codec, an engine, an option and a value, so a fact needing a fifth axis has nowhere
+// A Gap names a codec, an engine, an option and a value, and a DriverDefect the same option and
+// value under the driver that miscodes it, so a fact needing an axis neither row carries has nowhere
 // to go.
 //
 // Each rule states exactly what its row stated, so the equivalence test can hold the two answers
@@ -114,16 +115,58 @@ func HasEncoderOn(codec, engine string) bool {
 //
 // The axes no caller named arrive empty, which withholds nothing: only the ceilings read them,
 // and a ceiling asked about no mode and no figure refuses nothing.
+// The zero Device is one of those: Reaches and HasEncoderOn ask what an encoder implements, which is
+// the same answer on every machine, and what one installed driver then gets wrong is Validate's
+// question rather than theirs.
 func codecVerdicts(c Codec, engine string) rules.Verdicts {
-	return rules.EvaluateRules(validationFacts(c, engine, nil, 0, 0), codecRules())
+	return rules.EvaluateRules(validationFacts(c, engine, nil, 0, 0, 0, Device{}), codecRules())
 }
 
-// codecRules is every codec's gaps and ceilings, in table order.
+// codecRules is every codec's gaps, driver defects and ceilings, in table order.
 func codecRules() []rules.Rule {
 	var out []rules.Rule
 	for _, c := range Codecs {
 		out = append(out, c.gapRules()...)
+		out = append(out, c.driverDefectRules()...)
 		out = append(out, c.ceilingRules()...)
+	}
+	return out
+}
+
+// driverDefectRules is one codec's driver defects.
+//
+// Each takes the named value away wherever this codec is selected and the machine is running the
+// driver that carries it, so the greying and the refusal are the one evaluation the gaps already
+// are.
+// The engine is left out: a defect sits under both wrappers, and a value the driver miscodes is
+// miscoded whichever of them asked for it.
+func (c Codec) driverDefectRules() []rules.Rule {
+	out := make([]rules.Rule, 0, len(c.DriverDefects))
+	for _, d := range c.DriverDefects {
+		assert.Assert(d.Driver != "", "a driver defect names the driver carrying it", c.Name, d.Option)
+		axis, ok := optionAxes[d.Option]
+		assert.Assert(ok, "a driver defect names a gappable option", d.Option, c.Name)
+		assert.Assert(d.Value != "", "a driver defect names the value it withholds", c.Name, d.Option)
+
+		when := map[string]rules.Match{
+			rules.AxisCodec:     rules.OneOf(c.Name),
+			rules.AxisGpuDriver: rules.OneOf(d.Driver),
+		}
+		if len(d.Models) > 0 {
+			when[rules.AxisGpuModel] = rules.OneOf(d.Models...)
+		}
+		if d.FixedIn > 0 {
+			// A machine whose release went unread reads zero and falls inside the band, so an unnamed
+			// version keeps the defect rather than shedding it on a figure nobody produced.
+			when[rules.AxisGpuDriverVersion] = rules.AtMost(d.FixedIn - 1)
+		}
+		out = append(out, rules.Rule{
+			When:    when,
+			Verdict: rules.Refuse,
+			Field:   axis,
+			Values:  rules.OneOf(d.Value),
+			Reason:  d.Reason,
+		})
 	}
 	return out
 }
@@ -201,6 +244,22 @@ func (c Codec) ceilingRules() []rules.Rule {
 				Reason:  screensharev1.TextCode_TEXT_CODE_BITRATE_ABOVE_CODEC_LIMIT,
 				Args: []*screensharev1.TextArg{
 					text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_BITRATE_LIMIT_MBPS, int64(limit)),
+				},
+			})
+		}
+		// Every mode sends the interval, a keyframe being a property of the bitstream rather than of the
+		// rate control, so this one is gated on the codec alone.
+		if limit := c.GopLimitOn(engine); limit > 0 {
+			out = append(out, rules.Rule{
+				When: c.when(engine, map[string]rules.Match{
+					rules.AxisCodec: rules.OneOf(c.Name),
+				}),
+				Verdict: rules.Refuse,
+				Field:   rules.AxisGop,
+				Values:  rules.AtLeast(limit + 1),
+				Reason:  screensharev1.TextCode_TEXT_CODE_GOP_ABOVE_CODEC_LIMIT,
+				Args: []*screensharev1.TextArg{
+					text.Num(screensharev1.TextArgName_TEXT_ARG_NAME_GOP_LIMIT_FRAMES, int64(limit)),
 				},
 			})
 		}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"bjoernblessin.de/go-utils/util/logger"
+
 	"bjoernblessin.de/screenshare/internal/ffmpeg"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -30,27 +32,32 @@ type ffmpegEngine struct{}
 // so a command rendered with it would differ on every render,
 // and whether two settings build one pipeline is decided by comparing exactly that string
 // (SamePipeline).
-func buildArgs(s settings.Settings, preview PreviewLeg) ([]string, error) {
+// meterPort is empty for a command nothing weighs, and carries a port the kernel handed out for this
+// run otherwise, which is why it is no part of what Command renders.
+func buildArgs(s settings.Settings, preview PreviewLeg, meterPort string) ([]string, error) {
 	for _, a := range s.Publish.Recorded() {
 		if available, _ := AudioAvailable(s.Publish.Capture, a.Source); !available {
 			return nil, fmt.Errorf("the %s backend cannot record %s audio", s.Publish.Capture, a.Source)
 		}
 	}
-	if !preview.Wanted() {
-		return ffmpeg.BuildPublishArgs(s, nil)
+
+	var taps []ffmpeg.Tap
+	if preview.Wanted() {
+		// A format with no local carriage publishes without a preview rather than failing to publish.
+		// The backend read the same table to decide whether to bring a receiver up at all, so this branch
+		// is what survives the two disagreeing.
+		if tap, ok := ffmpegPreviewTap(s.Publish.Codec, preview); ok {
+			taps = append(taps, tap)
+		}
 	}
-	// A format with no local carriage publishes without a preview rather than failing to publish.
-	// The backend read the same table to decide whether to bring a receiver up at all, so this branch
-	// is what survives the two disagreeing.
-	tap, ok := ffmpegPreviewTap(s.Publish.Codec, preview)
-	if !ok {
-		return ffmpeg.BuildPublishArgs(s, nil)
+	if meterPort != "" {
+		taps = append(taps, ffmpegMeterTap(meterPort))
 	}
-	return ffmpeg.BuildPublishArgs(s, &tap)
+	return ffmpeg.BuildPublishArgs(s, taps)
 }
 
 func (ffmpegEngine) Command(s settings.Settings) (string, error) {
-	args, err := buildArgs(s, PreviewLeg{})
+	args, err := buildArgs(s, PreviewLeg{}, "")
 	if err != nil {
 		return "", err
 	}
@@ -73,17 +80,51 @@ func (ffmpegEngine) Carries(transportName string) bool {
 }
 
 func (ffmpegEngine) Start(s settings.Settings, tag string, preview PreviewLeg, cb Callbacks) (Handle, error) {
-	args, err := buildArgs(s, preview)
+	// A meter this side could not open is a run without a bitrate figure rather than a run refused:
+	// what the reader asked for is a stream.
+	meter, meterErr := newFfmpegMeter()
+	meterPort := ""
+	if meterErr != nil {
+		logger.Warnf("publishing without a bitrate meter: %v", meterErr)
+	} else {
+		meterPort = meter.port()
+	}
+
+	args, err := buildArgs(s, preview, meterPort)
 	if err != nil {
+		if meter != nil {
+			meter.close()
+		}
 		return nil, err
 	}
 	exe, err := ffmpeg.FindCaptureExe(s.Publish.Capture)
 	if err != nil {
+		if meter != nil {
+			meter.close()
+		}
 		return nil, err
 	}
-	proc, err := ffmpeg.Start(exe, args, true, false, tag, nil, cb.OnStats, nil, cb.OnExit,
+
+	onStats := cb.OnStats
+	if meter != nil && onStats != nil {
+		onStats = func(sample ffmpeg.Stats) { cb.OnStats(meter.fill(sample)) }
+	}
+	onExit := cb.OnExit
+	if meter != nil {
+		onExit = func(err error, stderrTail, logPath string) {
+			meter.close()
+			if cb.OnExit != nil {
+				cb.OnExit(err, stderrTail, logPath)
+			}
+		}
+	}
+
+	proc, err := ffmpeg.Start(exe, args, true, false, tag, nil, onStats, nil, onExit,
 		ffmpeg.WithRedactor(func(text string) string { return transport.Redact(s, text) }))
 	if err != nil {
+		if meter != nil {
+			meter.close()
+		}
 		return nil, err
 	}
 	return proc, nil

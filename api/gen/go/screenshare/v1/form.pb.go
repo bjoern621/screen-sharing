@@ -64,8 +64,17 @@ const (
 	// Apart from CONTROL_KIND_SELECT in that the ladder is not the domain.
 	// A select over numbers lists everything the backend takes and rejects anything typed
 	// outside that list.
-	// Acceptance here is the range's, with entries sparing the reader a hunt for the usual
-	// answers.
+	// Acceptance is the range together with every entry, with entries sparing the reader a
+	// hunt for the usual answers.
+	//
+	// An entry outside the range is legal and is the one thing this control can say that a
+	// range alone cannot: a value the band does not reach, offered beside it.
+	// The burst ceiling is the case that exists. It is legal at zero, meaning bounded by
+	// nothing, and legal again from the target it bursts above, with the band between the
+	// two walked up to the target. A range runs from one end to the other and cannot hold
+	// that pair, so the range carries the band and an entry carries the zero.
+	// A shell writes such an entry as it is: clamping it into the range would replace the
+	// one answer the entry exists to reach.
 	ControlKind_CONTROL_KIND_NUMBER_SELECT ControlKind = 8
 )
 

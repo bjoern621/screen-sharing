@@ -48,15 +48,21 @@ A bitrate target means nothing to a lossless encode, and zeroing it would spend 
 ## Applying searches, it does not assign
 
 `presetResolve` walks rungs, and inside a rung codecs, and inside a codec capture backends.
-Each candidate goes through the same repair the form uses (`form/repair.go`) and is kept only if it comes back intact.
-A candidate the repair had to touch is a different configuration under the same name, so it is rejected and the next one tried.
+Each candidate goes through the same repair the form uses (`form/repair.go`).
+A repair that walks the pixel format, the codec or the capture backend has answered a different question than the one the search asked, so that candidate is rejected and the next one tried.
+So does one that walks a setting outside the publish group, which is what a preset cannot carry.
 The first candidate that survives and delivers the claim is written to the settings whole.
+
+Every other field arrived holding what the settings held rather than something the preset chose, so the repair's answer for it is the machine's.
+The GStreamer VA elements signal no colour description, and a draft on full range therefore leaves that range behind when it lands on one of them.
+A preset that promised nothing about the range is still itself afterwards, and gating on the field instead would put every VA encoder out of reach and land a 60 fps desktop on a software encode.
+What the promise does cover, the claim decides on the repaired settings: a rate-control mode walked to another one the promise names is still the preset, and one walked past it is not.
 
 The settings a search runs against are the repaired ones, which makes rejecting a repaired candidate sound rather than merely strict.
 A draft still holding a stranded value would have every candidate moved by the repair, and every preset would then be unreachable for a fault none of them has.
 `Resolve` repairs first and everything after it describes what that reached, so the only thing left for a repair to move is what the preset itself put there.
 
-A candidate whose own encoder, pixel format, mode, colour range or capture backend the repair would already walk is dropped before the repair runs.
+A candidate whose own pixel format, encoder or capture backend the repair would already walk is dropped before the repair runs.
 That is the same question asked of the same function, one field at a time instead of a fixed point over the whole table.
 It decides nothing new, and it keeps a machine that reaches no preset from paying for a full repair per candidate on every keystroke.
 
@@ -81,7 +87,7 @@ Applying twice equals applying once: the settings a search returns are themselve
 
 A preset no candidate satisfies carries the reason instead of settings.
 A surface draws it ruled out with that reason beside it, the same treatment `field-availability.md` gives an option the tables rule out.
-Nothing is applied and nothing is approximated: a repaired near-miss would be a configuration the user did not ask for, carrying the name of one they did.
+Nothing is applied and nothing is approximated: a candidate whose own rung, encoder or backend the repair moved would be a configuration the user did not ask for, carrying the name of one they did.
 A machine whose only encoders are VAAPI has no lossless preset, because no VA profile codes bit-exact.
 
 The reason names the publish transport, the one dimension the search worked within rather than varied, so what it hands the reader is something they can change.

@@ -3,6 +3,7 @@ package form
 import (
 	"slices"
 	"sort"
+	"strings"
 
 	"bjoernblessin.de/go-utils/util/assert"
 
@@ -335,13 +336,13 @@ func resolvePresets(d Deps, s settings.Settings) []*screensharev1.BuiltinPreset 
 // machine runs delivers its promise.
 //
 // Rungs are walked in order, each rung against every codec and each codec against every capture
-// backend, and the first candidate that survives the repair intact is the answer.
+// backend, and the first candidate the repair leaves standing is the answer.
 // Rung above codec above capture backend is what makes the ladder the preset's statement of what it
 // gives up: the search changes encoder, then capture backend, to stay on a rung it can still reach.
 //
-// A candidate the repair had to touch is a different configuration under the same name, so it is
-// rejected and the next one tried.
-// Nothing is approximated: a repaired near-miss would be a configuration the user did not ask for
+// A candidate whose own rung, codec or capture backend the repair walked is a different
+// configuration under the same name, so it is rejected and the next one tried (presetKeeps).
+// Nothing is approximated: such a near-miss would be a configuration the user did not ask for
 // wearing the name of one they did.
 //
 // A candidate is taken only where it delivers the claim as well, so a base contradicting the
@@ -380,7 +381,7 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 				}
 
 				reached, repaired := Repair(d, candidate)
-				if len(repaired) == 0 && presetHolds(reached.Publish, p.claim) {
+				if presetKeeps(repaired) && presetHolds(reached.Publish, p.claim) {
 					return reached, true
 				}
 			}
@@ -389,8 +390,33 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 	return settings.Settings{}, false
 }
 
-// presetStrands reports whether the repair would already walk one of the fields this candidate
-// names off the value the search put there, which is what makes it a rejected candidate.
+// presetKeeps reports whether the repair left this candidate the one the search asked for.
+//
+// A walk on one of the axes the search wrote disqualifies it, those being the candidate's own
+// answer.
+// So does a walk outside the publish group: a preset carries publish settings and nothing else
+// (docs/presets.md), so a configuration reachable only by moving how this machine watches is one the
+// preset cannot deliver.
+//
+// Every other field arrived holding what the settings held rather than something the preset chose,
+// so the repair's answer for it is the machine's own.
+// A quantization range the running encoder signals nothing for is walked there, and a preset that
+// promised nothing about the range is still itself afterwards.
+// What the promise does cover is presetHolds' question, asked of the repaired settings.
+func presetKeeps(repaired []string) bool {
+	for _, key := range repaired {
+		if slices.Contains(presetSearchedKeys, keyTemplate(key)) {
+			return false
+		}
+		if !strings.HasPrefix(key, settingsGroupPublish+keySeparator) {
+			return false
+		}
+	}
+	return true
+}
+
+// presetStrands reports whether the repair would already walk one of the axes this candidate names
+// off the value the search put there, which is what makes it a rejected candidate.
 //
 // It decides nothing the repair does not: it asks legalOption, the function the walk itself asks,
 // about the fields the search sets.
@@ -401,8 +427,8 @@ func presetResolve(d Deps, p preset, s settings.Settings) (settings.Settings, bo
 //
 // legalOption rather than optionState is what keeps the two in step.
 // An entry the form greys is not always one the repair moves: a field whose every entry is greyed
-// keeps the value it has, which is the case a colour range on planar RGB is in, and a candidate
-// dropped for that would report a preset unreachable for a field the repair would have left alone.
+// keeps the value it has, and a candidate dropped for that would report a preset unreachable for an
+// axis the repair would have left alone.
 func presetStrands(d Deps, candidate settings.Settings) bool {
 	// One evaluation for every field asked about: the candidate does not move between them, and the
 	// search runs this over a few hundred candidates on every keystroke.
@@ -417,10 +443,16 @@ func presetStrands(d Deps, candidate settings.Settings) bool {
 	return false
 }
 
-// presetSearchedKeys are the fields a candidate names: the ones the search varies, and the ones the
-// base writes that a codec can be gapped on.
-// A field the base writes that no gap can take away needs no gate, nothing being able to walk it.
-var presetSearchedKeys = []string{KeyCapture, KeyCodec, KeyChroma, KeyMode, KeyColorRange}
+// presetSearchedKeys are the three axes the search itself writes: the rung's pixel format, the codec
+// it is tried on and the capture backend under it.
+//
+// A field the base writes is left out of this list.
+// The base writes only what the claim speaks for, so a walk off one of those is a walk out of the
+// claim, which presetHolds catches on the repaired settings, and a walk inside it is a value the
+// promise covers: a preset that names four rate-control modes is still itself on the second of them.
+// Gating here on such a field would reject a candidate the promise accepts, and a machine gapped on
+// the base's first choice would fall past every encoder it has.
+var presetSearchedKeys = []string{KeyCapture, KeyCodec, KeyChroma}
 
 func presetField(key string) *field {
 	for i := range fieldTable {

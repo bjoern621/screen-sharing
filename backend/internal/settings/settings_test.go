@@ -3,6 +3,7 @@ package settings
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -488,5 +489,42 @@ func TestThePrefixIsWhatAPathIsBuiltWith(t *testing.T) {
 	}
 	if got := (Relay{Host: "192.168.1.9"}).Prefix(); got != "" {
 		t.Errorf("a relay that authenticates nobody derives the prefix %q, want none", got)
+	}
+}
+
+// A burst ceiling of zero is an answer and not an absence: it is the encode bounded by nothing, which
+// the form offers as an entry of its own beside the band a ceiling sits in
+// (api/proto/screenshare/v1/form.proto, CONTROL_KIND_NUMBER_SELECT).
+// A store that replaced it with a default would take that answer back on the next start.
+func TestAnUncappedBurstSurvivesTheStore(t *testing.T) {
+	isolateConfig(t)
+
+	want := Defaults()
+	want.Publish.MaxrateM = 0
+	if err := Save(want); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	if got := mustLoad(t).Publish.MaxrateM; got != 0 {
+		t.Errorf("the stored burst ceiling read back as %d Mbit/s, want the uncapped zero it was saved as", got)
+	}
+}
+
+// A file written before the field carries no key for it, and an absent key is no answer anybody gave.
+func TestAFileWithNoBurstCeilingKeepsTheDefault(t *testing.T) {
+	isolateConfig(t)
+
+	dir, err := configDir()
+	if err != nil {
+		t.Fatalf("resolving the config directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, configFileName),
+		[]byte(`{"publish":{"name":"old","bitrateM":40}}`), 0o600); err != nil {
+		t.Fatalf("writing a file with no burst ceiling: %v", err)
+	}
+
+	if got := mustLoad(t).Publish.MaxrateM; got != Defaults().Publish.MaxrateM {
+		t.Errorf("a file naming no burst ceiling read back as %d Mbit/s, want the default %d",
+			got, Defaults().Publish.MaxrateM)
 	}
 }

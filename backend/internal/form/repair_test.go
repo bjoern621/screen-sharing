@@ -469,3 +469,60 @@ func TestAConstantQualityCeilingIsNotRaisedToTheBitrate(t *testing.T) {
 		t.Errorf("repaired = %v, want the ceiling left alone", repaired)
 	}
 }
+
+// A stored draft can name a keyframe interval no encoder on the newly chosen codec takes, and a
+// draft the form would not offer is one the repair brings back inside the scale.
+func TestAKeyframeIntervalAboveTheCodecCeilingIsBroughtDownToIt(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	draft := availabilityDraft("x11grab", "h264_amf", "yuv420p", "rtsp")
+	draft.Publish.Gop = fieldGopCeiling
+
+	codec, ok := capabilities.Get("h264_amf")
+	if !ok {
+		t.Fatal("h264_amf is a row of the codec table")
+	}
+	ceiling := codec.GopLimitOn(capabilities.EngineFfmpeg)
+	if ceiling == 0 || ceiling >= draft.Publish.Gop {
+		t.Fatalf("this test needs a ceiling under the draft: ceiling %d, draft %d", ceiling, draft.Publish.Gop)
+	}
+
+	out, repaired := Repair(d, draft)
+
+	if out.Publish.Codec != "h264_amf" {
+		t.Fatalf("the draft was repaired off the codec under test, onto %q", out.Publish.Codec)
+	}
+	if out.Publish.Gop != ceiling {
+		t.Errorf("gop = %d, want the codec's ceiling %d", out.Publish.Gop, ceiling)
+	}
+	if !slices.Contains(repaired, KeyGop) {
+		t.Errorf("repaired = %v, want it to name %s", repaired, KeyGop)
+	}
+}
+
+// The rate buffer is stated to the encoder as the rate times the window, and a draft can hold a pair
+// whose product no encoder's field takes.
+// The form offers the window inside what the rate leaves, and the repair is the same limit on a
+// draft that arrived from somewhere else.
+func TestARateBufferAboveWhatTheEncoderHoldsIsBroughtDown(t *testing.T) {
+	d := Deps{Platform: platform.Info{OS: "linux", Display: "x11"}}
+
+	draft := availabilityDraft("x11grab", "libx264", "yuv420p", "rtsp")
+	draft.Publish.Mode = capabilities.ModeCbr
+	draft.Publish.BitrateM = 2000
+	draft.Publish.MaxrateM = 2000
+	draft.Publish.VbvMs = fieldVbvCeiling
+
+	out, repaired := Repair(d, draft)
+
+	const int32Max = 2147483647
+	if bits := int64(out.Publish.BitrateM) * int64(out.Publish.VbvMs) * 1000; bits > int32Max {
+		t.Errorf("the repaired draft states a %d bit buffer, past the %d an encoder holds", bits, int32Max)
+	}
+	if out.Publish.VbvMs == draft.Publish.VbvMs {
+		t.Errorf("the window is still %d ms, want it brought inside what the rate leaves", out.Publish.VbvMs)
+	}
+	if !slices.Contains(repaired, KeyVbvMs) {
+		t.Errorf("repaired = %v, want it to name %s", repaired, KeyVbvMs)
+	}
+}

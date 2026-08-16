@@ -27,8 +27,11 @@
     One gap for every seam in this column, and the same one the page is inset by, so the cards keep a rhythm
     with the edge they stand against.
     The panel between the cards is what the footer under the rail is set off by too (Setup/View/SetupView.axaml).
+
+    The same column the step forms stack in, so the first card here and the first card there start on one line
+    whatever either of them drew (Controls/CardColumn).
   -->
-  <StackPanel Spacing="{StaticResource GapPanel}">
+  <controls:CardColumn Spacing="{StaticResource GapPanel}">
 
     <Border Classes="card" Padding="{StaticResource InsetPanel}" IsVisible="{Binding IsResolved}">
       <StackPanel>
@@ -131,6 +134,6 @@
 
     <presets:PresetsView DataContext="{Binding Presets}" />
 
-  </StackPanel>
+  </controls:CardColumn>
 
 </UserControl>

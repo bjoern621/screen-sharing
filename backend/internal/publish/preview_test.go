@@ -45,7 +45,7 @@ func previewStream(t *testing.T, capture, codec string) settings.Settings {
 	s.Publish.BitrateM, s.Publish.ColorRange = 20, "tv"
 	for _, mode := range capabilities.Modes {
 		s.Publish.Mode = mode
-		if capabilities.Validate(engine, codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM) == nil {
+		if capabilities.Validate(engine, codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) == nil {
 			return s
 		}
 	}
@@ -172,7 +172,7 @@ func TestTheFfmpegCommandTeesThePreviewBesideTheRelayLeg(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s: %s has no ffmpeg preview output", format, codec)
 		}
-		args, err := ffmpeg.BuildPublishArgs(s, &tap)
+		args, err := ffmpeg.BuildPublishArgs(s, []ffmpeg.Tap{tap})
 		if err != nil {
 			t.Fatalf("%s: %v", codec, err)
 		}
@@ -218,7 +218,7 @@ func TestAFilterSourceIsMappedIntoTheTeeByLabel(t *testing.T) {
 		t.Fatal("libx264 has no ffmpeg preview output")
 	}
 
-	args, err := ffmpeg.BuildPublishArgs(s, &tap)
+	args, err := ffmpeg.BuildPublishArgs(s, []ffmpeg.Tap{tap})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -8,6 +8,7 @@ import (
 	"bjoernblessin.de/go-utils/util/assert"
 
 	"bjoernblessin.de/screenshare/internal/capabilities"
+	"bjoernblessin.de/screenshare/internal/gpu"
 	"bjoernblessin.de/screenshare/internal/platform"
 	"bjoernblessin.de/screenshare/internal/settings"
 	"bjoernblessin.de/screenshare/internal/transport"
@@ -29,7 +30,7 @@ var gstEncodeQueue = []string{"queue", "name=" + gstShedName, "max-size-buffers=
 // in.
 // An empty meterPort and an unwanted preview leave those branches out.
 func buildPipeline(s settings.Settings, capture []string, meterPort string, preview PreviewLeg) ([]string, error) {
-	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return nil, err
 	}
 	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec); err != nil {
@@ -163,7 +164,7 @@ func gstSourceOptions(s settings.Settings) (gstCaptureOptions, error) {
 // negotiation against a source offering device memory alone and pins the frames back into the round
 // trip that path exists to avoid.
 func gstInputCaps(s settings.Settings, mem gstFrameMemory) (string, error) {
-	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM); err != nil {
+	if err := capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, gpu.Device()); err != nil {
 		return "", err
 	}
 	if err := transport.ValidatePublish(s.Publish.Transport, EngineGst, s.Publish.Codec); err != nil {

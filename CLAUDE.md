@@ -19,6 +19,21 @@ When a design decision is open, take the option that keeps these two. Do not tra
 `avalonia/README.md` adds the layer rules for the shell; `docs/ipc-api.md` states what the shell may decide, which is nothing.
 `docs/domain-model.md` covers the codec and transport tables every consumer derives from.
 
+# Test first where a test can fail first
+
+A change a test can express starts with that test.
+Write it, run it, watch it fail for the reason it names, then write the code that makes it pass.
+A test green before its code exists asserted nothing, so a red run is the thing being looked for.
+
+One failing test at a time.
+The test states the behaviour wanted, not the shape of the implementation, so a refactor behind a stable contract leaves it untouched.
+
+Where it fits: anything decided from a table or a rule, the form, capabilities and rules layers, argument and pipeline builders, parsers, settings migrations, the control contract.
+A bug fix always fits, the reproduction being the test.
+
+Where it does not: `.axaml` layout, a pipeline whose answer needs the hardware or the portal, anything whose only oracle is the screen.
+The check there is the build and the run, and a skipped test is named in the reply with what stood in for it.
+
 # Every function states its contract
 
 Preconditions and postconditions are asserted in every function, with `bjoernblessin.de/go-utils/util/assert` in Go and `Contracts/Assert.cs` in C#.

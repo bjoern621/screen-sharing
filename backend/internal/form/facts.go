@@ -52,6 +52,11 @@ func factsOf(d Deps, s settings.Settings) rules.Facts {
 		rules.AxisDisplay:    rules.TextValue(d.Platform.Display),
 		rules.AxisBitrateM:   rules.NumberValue(s.Publish.BitrateM),
 		rules.AxisCq:         rules.NumberValue(s.Publish.Cq),
+		rules.AxisGop:        rules.NumberValue(s.Publish.Gop),
+
+		rules.AxisGpuDriver:        rules.TextValue(d.Device.Driver),
+		rules.AxisGpuModel:         rules.TextValue(d.Device.Model),
+		rules.AxisGpuDriverVersion: rules.NumberValue(d.Device.Version),
 	}
 
 	// A declared axis nobody filled fails here,

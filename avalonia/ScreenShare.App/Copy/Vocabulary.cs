@@ -35,6 +35,7 @@ public sealed class Vocabulary
         "publish.monitor" => Screen(value),
         "publish.output_resolution" => Resolution(value),
         "publish.fps" => Rate(value),
+        "publish.maxrate_mbps" => Ceiling(value),
         "publish.capture_memory" => Words.Memory(value),
         "publish.drm_map" => Words.DrmMap(value),
         "publish.codec" => Codec(value),
@@ -361,6 +362,12 @@ public sealed class Vocabulary
     /// and "120" say what they are only to a reader still holding the heading in view.
     /// </summary>
     private static string Rate(string value) => $"{value} fps";
+
+    /// <summary>
+    /// A burst ceiling, whose zero is not a rate but the absence of one.
+    /// The unit rides beside the control, so a figure carries none of its own.
+    /// </summary>
+    private static string Ceiling(string value) => value == "0" ? "No ceiling" : value;
 
     /// <summary>What scaling trades, said once for every entry that scales.</summary>
     private static string Scaling(string value) => value.Length == 0

@@ -34,6 +34,19 @@ Lookup, validator and frontend read that list rather than a field per axis, so a
 A gap naming no option takes the codec off that engine entirely, no value reaching an encoder that is not there.
 Gap values are the settings' own: the option is a settings field name and the value one that field takes, so a gap and the control it greys are one identifier on both sides of the wire.
 
+### What the installed driver gets wrong
+
+A `Gap` is what an encoder cannot do, and holds wherever the app runs.
+What one driver gets wrong is a `DriverDefect`, and holds only while that driver sits under the encoder.
+
+A defect names the driver, the option and value it withholds, optionally the adapter models carrying it, and the release that fixes it.
+`internal/gpu` reads the identity out of the VA driver's own vendor string once per process, and the rows match it on the `gpu.driver`, `gpu.model` and `gpu.driver_version` axes.
+A machine that named no driver carries no defect, and a release nobody read keeps one.
+
+Written down rather than probed, because trying it is the damage: `av1_vaapi` under constant bitrate hangs radeonsi's video block, and a probe would establish that by resetting the graphics device.
+So the engine-scoped lookups (`OptionGap`, `Reaches`) keep answering what the encoder implements on any machine, and a defect reaches a form and a publish through the evaluator alone.
+`Codec.WithheldByDriver` is the question they do not answer.
+
 ### One evaluator, and what a gap is now
 
 A `Gap` and a numeric ceiling are how a codec's limits are *written*, on the row they belong to.
@@ -218,6 +231,7 @@ Add the row.
 Dropdowns, constraints, estimate and verdict follow with no further edits.
 Where the engines disagree, the row states the wider fact and carries a `Gap` for the engine that lacks it.
 Narrowing the row instead takes the capability away from the engine that has it, with no reason shown anywhere.
+Where one driver miscodes what the encoder does implement, the row carries a `DriverDefect` instead, so the value stays offered on every driver that runs it.
 The shell owes the new value a name and nothing else, and a value it has no name for renders as the raw identifier: honest, visible, and still a defect (`ipc-api.md`).
 Nothing can fall through a shell's runtime default, no shell holding a table to fall through.
 

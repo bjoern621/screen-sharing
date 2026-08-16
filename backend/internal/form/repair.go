@@ -251,6 +251,17 @@ func repairCeilings(d Deps, m *screensharev1.Settings) []string {
 			moved = append(moved, KeyMaxrateM)
 		}
 	}
+	if _, ceiling := v.Bounds(KeyGop, 0, fieldGopCeiling); s.Publish.Gop > ceiling {
+		s.Publish.Gop = ceiling
+		moved = append(moved, KeyGop)
+	}
+	// The rate buffer is the rate times the window, and the pair has to stay inside the field the
+	// encoder reads it into. The window is the half that gives, the rate being the figure the user
+	// chose (fieldVbvBounds).
+	if window := fieldVbvBounds(d, s).GetMax(); int64(s.Publish.VbvMs) > window {
+		s.Publish.VbvMs = int(window)
+		moved = append(moved, KeyVbvMs)
+	}
 	// A burst ceiling under its own target is not a ceiling.
 	// The ceiling rises rather than the target dropping: the target is the figure the user chose.
 	//

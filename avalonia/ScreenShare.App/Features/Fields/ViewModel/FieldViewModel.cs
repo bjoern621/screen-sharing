@@ -251,6 +251,8 @@ public sealed class FieldViewModel : Observable
     private bool _isText;
     private bool _isNumber;
     private bool _isNumberSelect;
+    private bool _isEntryOutsideBand;
+    private bool _isNumberBox;
     private bool _isSlider;
     private bool _isToggle;
     private bool _isSelect;
@@ -401,6 +403,27 @@ public sealed class FieldViewModel : Observable
     /// boxes on screen for one knob.
     /// </summary>
     public bool IsNumberSelect { get => _isNumberSelect; private set => Set(ref _isNumberSelect, value); }
+
+    /// <summary>
+    /// A number-select resting on an entry its own range does not reach, drawn as that entry with the ladder
+    /// beside it and no box to type in.
+    /// </summary>
+    /// <remarks>
+    /// The contract allows an entry outside the range, for the control whose legal values are a band and a
+    /// value the band cannot hold: the burst ceiling is bounded by nothing at zero and legal again from the
+    /// target it bursts above (form.proto, CONTROL_KIND_NUMBER_SELECT).
+    /// A spinner handed such a value coerces it to its own floor and writes the floor back through the
+    /// binding, which replaces an uncapped burst with a capped one nobody asked for.
+    /// Drawing the entry instead is what keeps the held answer held, and the box returns with the next value
+    /// inside the band.
+    /// </remarks>
+    public bool IsEntryOutsideBand { get => _isEntryOutsideBand; private set => Set(ref _isEntryOutsideBand, value); }
+
+    /// <summary>
+    /// A number-select drawing its typed box, which is every one of them but the one resting on an entry its
+    /// range does not reach.
+    /// </summary>
+    public bool IsNumberBox { get => _isNumberBox; private set => Set(ref _isNumberBox, value); }
 
     public bool IsSlider { get => _isSlider; private set => Set(ref _isSlider, value); }
 
@@ -564,6 +587,14 @@ public sealed class FieldViewModel : Observable
         Assert.That(IsEnabled || HasReason, "a disabled field states why", Key);
         Assert.That(HasAction == (Action is not null), "the action and the flag that draws it agree", Key);
         Assert.That(!HasActionNotice || HasAction, "a sentence about an effect has an effect to be about", Key);
+        // Written after the entries, the answer being whether the picked one sits inside the range.
+        IsEntryOutsideBand = IsNumberSelect
+            && field.Range is not null
+            && Number is { } held
+            && ((long)held < field.Range.Min || (long)held > field.Range.Max)
+            && Options.Any(option => option.IsSelected);
+        IsNumberBox = IsNumberSelect && !IsEntryOutsideBand;
+
         Assert.That(HasRefused == (RefusedCount.Length > 0), "a disclosure counts what it covers", Key, RefusedCount);
         Assert.That(
             Shown.Count == (RefusedShown ? Options.Count : Options.Count - refused),

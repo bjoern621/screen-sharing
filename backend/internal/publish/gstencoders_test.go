@@ -364,7 +364,7 @@ func TestAbrAndVbrDifferWhereBothAreAllowed(t *testing.T) {
 			// code against a maximum either way: the two modes agree there for a reason,
 			// and a fixture sitting on it would read that agreement as a collapse.
 			s.Publish.BitrateM, s.Publish.MaxrateM = 10, 15
-			if capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM) != nil {
+			if capabilities.Validate(EngineGst, s.Publish.Codec, s.Publish.CapabilityOptions(), s.Publish.Cq, s.Publish.BitrateM, s.Publish.Gop, capabilities.Device{}) != nil {
 				continue
 			}
 			enc, _, err := gstEncoder(s, 60, gpupath.MemorySystem)

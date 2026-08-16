@@ -4,7 +4,7 @@ using ScreenShare.App.Features.Fields.ViewModel;
 namespace ScreenShare.App.Features.Setup.Model;
 
 /// <summary>
-/// Which of the quality group's controls the step lays out, and which fall to the drawer under it.
+/// Which of the quality group's controls the step lays out, and which fall to the card under it.
 ///
 /// One table for both, the two being a partition.
 /// A field in neither is a setting the backend offered that nobody can reach, and a field in both is one setting
@@ -33,7 +33,7 @@ public static class QualityLayout
     /// <summary>
     /// Whether the step places this control: the two it lays out by name, and every field whose whole control is a
     /// choice, drawn as a dropdown in the read-back row.
-    /// A number carrying a ladder is a typed value first, and typed values live in the drawer.
+    /// A number carrying a ladder is a typed value first, and typed values live in the card below.
     /// </summary>
     public static bool OnStep(FieldViewModel field)
     {
@@ -43,7 +43,7 @@ public static class QualityLayout
     }
 
     /// <summary>Complement of <see cref="OnStep"/>, so between them the group's fields are drawn exactly once.</summary>
-    public static bool InDrawer(FieldViewModel field) => !OnStep(field);
+    public static bool BelowStep(FieldViewModel field) => !OnStep(field);
 
     /// <summary>Whether the read-back row draws it: an options field the step does not lay out by name.</summary>
     public static bool InReadbackRow(FieldViewModel field)
